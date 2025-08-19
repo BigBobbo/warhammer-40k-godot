@@ -1,0 +1,17 @@
+{
+	"auto_generated": true,
+	"created_at": 1755631517.04133,
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c5c4f228-5d7f-e39d-b3b9-7e341f2b92486f0d",
+		"phase": 1,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "autosave",
+		"tags": []
+	},
+	"type": "autosave",
+	"version": "1.0.0"
+}

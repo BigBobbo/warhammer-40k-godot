@@ -1,0 +1,108 @@
+[gd_scene load_steps=4 format=3 uid="uid://b5gtyqpr3xktt"]
+
+[ext_resource type="Script" uid="uid://o6wrk15crjyd" path="res://scripts/Main.gd" id="1_uu5k7"]
+[ext_resource type="Script" uid="uid://b4qtegojmcp2n" path="res://scripts/BoardVisual.gd" id="2_board"]
+[ext_resource type="Script" uid="uid://c0tcro85as1j5" path="res://scripts/DeploymentZoneVisual.gd" id="3_zone"]
+
+[node name="Main" type="CanvasLayer"]
+script = ExtResource("1_uu5k7")
+
+[node name="BoardRoot" type="Node2D" parent="."]
+
+[node name="Camera2D" type="Camera2D" parent="BoardRoot"]
+position = Vector2(880, 1200)
+
+[node name="BoardView" type="Node2D" parent="BoardRoot"]
+script = ExtResource("2_board")
+
+[node name="DeploymentZones" type="Node2D" parent="BoardRoot"]
+
+[node name="P1Zone" type="Polygon2D" parent="BoardRoot/DeploymentZones"]
+modulate = Color(0, 0, 1, 0.2)
+script = ExtResource("3_zone")
+
+[node name="P2Zone" type="Polygon2D" parent="BoardRoot/DeploymentZones"]
+modulate = Color(1, 0, 0, 0.2)
+script = ExtResource("3_zone")
+
+[node name="TokenLayer" type="Node2D" parent="BoardRoot"]
+
+[node name="GhostLayer" type="Node2D" parent="BoardRoot"]
+
+[node name="HUD_Bottom" type="PanelContainer" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -100.0
+size_flags_vertical = 8
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HUD_Bottom"]
+layout_mode = 2
+
+[node name="PhaseLabel" type="Label" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+text = "Deployment Phase"
+
+[node name="ActivePlayerBadge" type="Label" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+text = "Player 1 (Defender)"
+
+[node name="StatusLabel" type="Label" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+text = "Select a unit to deploy"
+
+[node name="EndDeploymentButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 10
+disabled = true
+text = "End Deployment"
+
+[node name="HUD_Right" type="PanelContainer" parent="."]
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -400.0
+size_flags_horizontal = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD_Right"]
+layout_mode = 2
+
+[node name="UnitListPanel" type="ItemList" parent="HUD_Right/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="UnitCard" type="VBoxContainer" parent="HUD_Right/VBoxContainer"]
+visible = false
+layout_mode = 2
+
+[node name="UnitNameLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
+layout_mode = 2
+text = "Unit Name"
+
+[node name="KeywordsLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
+layout_mode = 2
+text = "Keywords: ..."
+
+[node name="ModelsLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
+layout_mode = 2
+text = "Models: 0/0"
+
+[node name="ButtonContainer" type="HBoxContainer" parent="HUD_Right/VBoxContainer/UnitCard"]
+layout_mode = 2
+
+[node name="UndoButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
+visible = false
+layout_mode = 2
+text = "Undo"
+
+[node name="ResetButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
+visible = false
+layout_mode = 2
+text = "Reset Unit"
+
+[node name="ConfirmButton" type="Button" parent="HUD_Right/VBoxContainer/UnitCard/ButtonContainer"]
+visible = false
+layout_mode = 2
+text = "Confirm"

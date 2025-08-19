@@ -1,0 +1,1 @@
+Use `gh issue list` to show all open github issues for this project.
