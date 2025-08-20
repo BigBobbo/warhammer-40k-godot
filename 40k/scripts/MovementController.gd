@@ -52,6 +52,19 @@ func _exit_tree() -> void:
 		ruler_visual.queue_free()  
 	if ghost_visual and is_instance_valid(ghost_visual):
 		ghost_visual.queue_free()
+	
+	# Clean up UI containers
+	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/MovementInfo")
+	if movement_info and is_instance_valid(movement_info):
+		movement_info.queue_free()
+	
+	var movement_buttons = get_node_or_null("/root/Main/HUD_Bottom/MovementButtons")
+	if movement_buttons and is_instance_valid(movement_buttons):
+		movement_buttons.queue_free()
+	
+	var movement_actions = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/MovementActions")
+	if movement_actions and is_instance_valid(movement_actions):
+		movement_actions.queue_free()
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -105,12 +118,16 @@ func _setup_bottom_hud() -> void:
 		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
 		return
 		
-	# Create or get movement HUD elements
+	# Always recreate movement HUD elements to avoid duplication
 	var container = hud_bottom.get_node_or_null("MovementInfo")
-	if not container:
-		container = HBoxContainer.new()
-		container.name = "MovementInfo"
-		hud_bottom.add_child(container)
+	if container:
+		print("MovementController: Removing existing MovementInfo container")
+		hud_bottom.remove_child(container)
+		container.free()
+	
+	container = HBoxContainer.new()
+	container.name = "MovementInfo"
+	hud_bottom.add_child(container)
 	
 	# Movement cap display
 	move_cap_label = Label.new()
@@ -133,7 +150,13 @@ func _setup_bottom_hud() -> void:
 	illegal_reason_label.modulate = Color.RED
 	container.add_child(illegal_reason_label)
 	
-	# Action buttons
+	# Action buttons - clean up existing first
+	var existing_buttons = hud_bottom.get_node_or_null("MovementButtons")
+	if existing_buttons:
+		print("MovementController: Removing existing MovementButtons container")
+		hud_bottom.remove_child(existing_buttons)
+		existing_buttons.free()
+	
 	var button_container = HBoxContainer.new()
 	button_container.name = "MovementButtons"
 	hud_bottom.add_child(button_container)
@@ -178,32 +201,39 @@ func _setup_right_panel() -> void:
 			if not unit_list.item_selected.is_connected(_on_unit_selected):
 				unit_list.item_selected.connect(_on_unit_selected)
 	
-	# Create movement action buttons only if they don't exist
+	# Always recreate movement action buttons to avoid timing issues after loading
 	var action_container = container.get_node_or_null("MovementActions")
-	if not action_container:
-		action_container = VBoxContainer.new()
-		action_container.name = "MovementActions"
-		container.add_child(action_container)
-		
-		var normal_button = Button.new()
-		normal_button.text = "Normal Move"
-		normal_button.pressed.connect(_on_normal_move_pressed)
-		action_container.add_child(normal_button)
-		
-		var advance_button = Button.new()
-		advance_button.text = "Advance"
-		advance_button.pressed.connect(_on_advance_pressed)
-		action_container.add_child(advance_button)
-		
-		var fall_back_button = Button.new()
-		fall_back_button.text = "Fall Back"
-		fall_back_button.pressed.connect(_on_fall_back_pressed)
-		action_container.add_child(fall_back_button)
-		
-		var stationary_button = Button.new()
-		stationary_button.text = "Remain Stationary"
-		stationary_button.pressed.connect(_on_remain_stationary_pressed)
-		action_container.add_child(stationary_button)
+	if action_container:
+		print("MovementController: Removing existing MovementActions container immediately")
+		container.remove_child(action_container)
+		action_container.free()
+	
+	print("MovementController: Creating new MovementActions container")
+	action_container = VBoxContainer.new()
+	action_container.name = "MovementActions"
+	container.add_child(action_container)
+	
+	var normal_button = Button.new()
+	normal_button.text = "Normal Move"
+	normal_button.pressed.connect(_on_normal_move_pressed)
+	action_container.add_child(normal_button)
+	
+	var advance_button = Button.new()
+	advance_button.text = "Advance"
+	advance_button.pressed.connect(_on_advance_pressed)
+	action_container.add_child(advance_button)
+	print("MovementController: Added Advance button")
+	
+	var fall_back_button = Button.new()
+	fall_back_button.text = "Fall Back"
+	fall_back_button.pressed.connect(_on_fall_back_pressed)
+	action_container.add_child(fall_back_button)
+	print("MovementController: Added Fall Back button")
+	
+	var stationary_button = Button.new()
+	stationary_button.text = "Remain Stationary"
+	stationary_button.pressed.connect(_on_remain_stationary_pressed)
+	action_container.add_child(stationary_button)
 	
 	# Create dice log display only if it doesn't exist
 	if not dice_log_display:
@@ -247,6 +277,9 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_method("get_game_state_snapshot"):
 				var snapshot = phase.game_state_snapshot
 				print("MovementController: Updated with game state snapshot")
+			
+			# Ensure UI is set up after phase assignment (especially after loading)
+			_setup_ui_references()
 			
 			_refresh_unit_list()
 		else:

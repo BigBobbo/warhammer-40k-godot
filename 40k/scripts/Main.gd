@@ -42,7 +42,7 @@ func _ready() -> void:
 	
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
-	setup_phase_controllers()
+	await setup_phase_controllers()
 	
 	connect_signals()
 	refresh_unit_list()
@@ -72,6 +72,9 @@ func setup_phase_controllers() -> void:
 	if shooting_controller:
 		shooting_controller.queue_free()
 		shooting_controller = null
+	
+	# Wait a frame for cleanup to complete before creating new controllers
+	await get_tree().process_frame
 	
 	# Setup controller based on current phase
 	match current_phase:
@@ -190,6 +193,9 @@ func setup_shooting_controller() -> void:
 	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
 		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
 		print("Connected ui_update_requested signal")
+
+	# NEW: Ensure UI is updated after controller setup
+	emit_signal("ui_update_requested")
 
 func connect_signals() -> void:
 	unit_list.item_selected.connect(_on_unit_selected)
@@ -681,7 +687,10 @@ func _perform_quick_load() -> void:
 		_sync_board_state_with_game_state()
 		
 		# Recreate phase controllers for the loaded phase
-		setup_phase_controllers()
+		await setup_phase_controllers()
+		
+		# NEW: Give controllers time to initialize before UI refresh
+		await get_tree().process_frame
 		
 		# Refresh all UI elements
 		refresh_unit_list()
@@ -904,7 +913,7 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
 	
-	setup_phase_controllers()
+	await setup_phase_controllers()
 	update_ui_for_phase()
 	
 	# Debug: Check what units are available
@@ -1068,9 +1077,13 @@ func _on_shooting_ui_update_requested() -> void:
 
 func update_after_shooting_action() -> void:
 	# Refresh visuals and UI after a shooting action
-	_recreate_unit_visuals()
+	_recreate_unit_visuals()  # This should handle dead model removal
 	refresh_unit_list()
 	update_ui()
+	
+	# Update shooting controller state
+	if shooting_controller:
+		shooting_controller._refresh_unit_list()
 
 func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> void:
 	# Update the visual position of the model

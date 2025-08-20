@@ -46,13 +46,22 @@ func _ready() -> void:
 	print("ShootingController ready")
 
 func _exit_tree() -> void:
-	# Clean up visuals
+	# Clean up visual elements (existing)
 	if los_visual and is_instance_valid(los_visual):
 		los_visual.queue_free()
 	if range_visual and is_instance_valid(range_visual):
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
+	
+	# Clean up UI containers
+	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/ShootingControls")
+	if shooting_controls and is_instance_valid(shooting_controls):
+		shooting_controls.queue_free()
+	
+	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")  
+	if shooting_panel and is_instance_valid(shooting_panel):
+		shooting_panel.queue_free()
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -92,10 +101,25 @@ func _create_shooting_visuals() -> void:
 	board_root.add_child(target_highlights)
 
 func _setup_bottom_hud() -> void:
-	# Create shooting phase controls
-	var controls_container = HBoxContainer.new()
-	controls_container.name = "ShootingControls"
+	# Check for existing shooting controls container
+	var controls_container = hud_bottom.get_node_or_null("ShootingControls")
+	if not controls_container:
+		controls_container = HBoxContainer.new()
+		controls_container.name = "ShootingControls"
+		
+		# Add to HUD structure properly
+		if hud_bottom.has_node("VBoxContainer"):
+			hud_bottom.get_node("VBoxContainer").add_child(controls_container)
+		else:
+			hud_bottom.add_child(controls_container)
+	else:
+		# Clear existing children to prevent duplicates - use immediate cleanup
+		print("ShootingController: Removing existing shooting controls children (", controls_container.get_children().size(), " children)")
+		for child in controls_container.get_children():
+			controls_container.remove_child(child)
+			child.free()
 	
+	# Create UI elements (existing logic)
 	# Phase label
 	var phase_label = Label.new()
 	phase_label.text = "SHOOTING PHASE"
@@ -110,19 +134,32 @@ func _setup_bottom_hud() -> void:
 	end_phase_button.text = "End Shooting Phase"
 	end_phase_button.pressed.connect(_on_end_phase_pressed)
 	controls_container.add_child(end_phase_button)
-	
-	# Add to HUD
-	if hud_bottom.has_node("VBoxContainer"):
-		hud_bottom.get_node("VBoxContainer").add_child(controls_container)
-	else:
-		hud_bottom.add_child(controls_container)
 
 func _setup_right_panel() -> void:
-	# Create shooting panel container
-	var shooting_panel = VBoxContainer.new()
-	shooting_panel.name = "ShootingPanel"
-	shooting_panel.custom_minimum_size = Vector2(300, 400)
+	# Check for existing VBoxContainer in HUD_Right
+	var container = hud_right.get_node_or_null("VBoxContainer")
+	if not container:
+		container = VBoxContainer.new()
+		container.name = "VBoxContainer"
+		hud_right.add_child(container)
 	
+	# Check for existing shooting panel
+	var shooting_panel = container.get_node_or_null("ShootingPanel")
+	if not shooting_panel:
+		shooting_panel = VBoxContainer.new()
+		shooting_panel.name = "ShootingPanel"
+		shooting_panel.custom_minimum_size = Vector2(300, 400)
+		container.add_child(shooting_panel)
+	else:
+		# Clear existing children to rebuild fresh - use immediate cleanup
+		print("ShootingController: Removing existing shooting panel children (", shooting_panel.get_children().size(), " children)")
+		for child in shooting_panel.get_children():
+			shooting_panel.remove_child(child)
+			child.free()
+		# Ensure size is set correctly
+		shooting_panel.custom_minimum_size = Vector2(300, 400)
+	
+	# Create UI elements (existing logic)
 	# Title
 	var title = Label.new()
 	title.text = "Shooting Controls"
@@ -194,12 +231,6 @@ func _setup_right_panel() -> void:
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	shooting_panel.add_child(dice_log_display)
-	
-	# Add to HUD
-	if hud_right.has_node("VBoxContainer"):
-		hud_right.get_node("VBoxContainer").add_child(shooting_panel)
-	else:
-		hud_right.add_child(shooting_panel)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -215,11 +246,54 @@ func set_phase(phase: BasePhase) -> void:
 		if not phase.dice_rolled.is_connected(_on_dice_rolled):
 			phase.dice_rolled.connect(_on_dice_rolled)
 		
+		# Ensure UI is set up after phase assignment (especially after loading)
+		_setup_ui_references()
+		
 		_refresh_unit_list()
+		
+		# NEW: Restore state if loading from save
+		_restore_state_after_load()
+		
 		show()
 	else:
 		_clear_visuals()
 		hide()
+
+func _restore_state_after_load() -> void:
+	"""Restore ShootingController UI state after loading from save"""
+	if not current_phase or not current_phase is ShootingPhase:
+		return
+	
+	var shooting_state = current_phase.get_current_shooting_state()
+	
+	# Restore active shooter if there was one
+	if shooting_state.active_shooter_id != "":
+		active_shooter_id = shooting_state.active_shooter_id
+		
+		# Query targets for the active shooter
+		eligible_targets = RulesEngine.get_eligible_targets(active_shooter_id, current_phase.game_state_snapshot)
+		
+		# Restore UI elements
+		_refresh_weapon_tree()
+		_show_range_indicators()
+		
+		# Update assignment display from phase state
+		weapon_assignments.clear()
+		for assignment in shooting_state.pending_assignments:
+			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
+		
+		for assignment in shooting_state.confirmed_assignments:
+			weapon_assignments[assignment.weapon_id] = assignment.target_unit_id
+		
+		_update_ui_state()
+		
+		# Show feedback in dice log
+		if dice_log_display:
+			dice_log_display.append_text("[color=blue]Restored shooting state for %s[/color]\n" % 
+				current_phase.get_unit(active_shooter_id).get("meta", {}).get("name", active_shooter_id))
+	
+	# Update unit list to reflect units that have already shot
+	_refresh_unit_list()
 
 func _refresh_unit_list() -> void:
 	if not unit_selector:
@@ -231,11 +305,19 @@ func _refresh_unit_list() -> void:
 		return
 	
 	var units = current_phase.get_units_for_player(current_phase.get_current_player())
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
 	
 	for unit_id in units:
 		var unit = units[unit_id]
-		if current_phase._can_unit_shoot(unit):
+		if current_phase._can_unit_shoot(unit) or unit_id in units_shot:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			
+			# Show status for units that have shot
+			if unit_id in units_shot:
+				unit_name += " [SHOT]"
+			elif unit_id == active_shooter_id:
+				unit_name += " [ACTIVE]"
+			
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 
@@ -522,6 +604,21 @@ func _get_model_position(model: Dictionary) -> Vector2:
 		return pos
 	return Vector2.ZERO
 
+func _cleanup_existing_ui() -> void:
+	# Remove existing shooting controls if present
+	if hud_bottom:
+		var existing_controls = hud_bottom.get_node_or_null("ShootingControls")
+		if existing_controls:
+			existing_controls.queue_free()
+	
+	# Remove existing shooting panel if present  
+	if hud_right:
+		var container = hud_right.get_node_or_null("VBoxContainer")
+		if container:
+			var existing_panel = container.get_node_or_null("ShootingPanel")
+			if existing_panel:
+				existing_panel.queue_free()
+
 # Signal handlers
 
 func _on_unit_selected(index: int) -> void:
@@ -611,9 +708,15 @@ func _on_clear_pressed() -> void:
 	_update_ui_state()
 
 func _on_confirm_pressed() -> void:
+	# Show visual feedback that shooting is resolving
+	if dice_log_display:
+		dice_log_display.append_text("[color=yellow]Rolling dice...[/color]\n")
+	
 	emit_signal("shoot_action_requested", {
 		"type": "CONFIRM_TARGETS"
 	})
+	
+	# The phase will now auto-resolve after confirmation
 
 func _on_end_phase_pressed() -> void:
 	emit_signal("shoot_action_requested", {

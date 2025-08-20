@@ -265,9 +265,24 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 		"phase": "ready"  # ready, hitting, wounding, saving, damage
 	}
 	
-	return create_result(true, [])
+	# AUTO-RESOLVE: Immediately trigger shooting resolution
+	var initial_result = create_result(true, [])
+	
+	# Call resolution directly
+	var resolve_result = _process_resolve_shooting({})
+	
+	# Combine results
+	if resolve_result.success:
+		initial_result.changes.append_array(resolve_result.get("changes", []))
+		initial_result["dice"] = resolve_result.get("dice", [])
+		initial_result["log_text"] = resolve_result.get("log_text", "")
+	
+	return initial_result
 
 func _process_resolve_shooting(action: Dictionary) -> Dictionary:
+	# Emit signal to indicate resolution is starting
+	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning attack resolution..."})
+	
 	# Build full shoot action for RulesEngine
 	var shoot_action = {
 		"type": "SHOOT",
@@ -472,6 +487,21 @@ func get_pending_assignments() -> Array:
 func get_confirmed_assignments() -> Array:
 	return confirmed_assignments
 
+func get_units_that_shot() -> Array:
+	return units_that_shot
+
+func has_active_shooter() -> bool:
+	return active_shooter_id != ""
+
+func get_current_shooting_state() -> Dictionary:
+	return {
+		"active_shooter_id": active_shooter_id,
+		"pending_assignments": pending_assignments,
+		"confirmed_assignments": confirmed_assignments,
+		"units_that_shot": units_that_shot,
+		"eligible_targets": {} # Will be populated when targets are queried
+	}
+
 # Override create_result to support additional data
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
 	var result = {
@@ -488,3 +518,27 @@ func create_result(success: bool, changes: Array = [], error: String = "", addit
 		result["error"] = error
 	
 	return result
+
+func validate_loaded_state() -> bool:
+	"""Validate that the loaded shooting phase state is consistent"""
+	# Check if active shooter is valid
+	if active_shooter_id != "":
+		var shooter = get_unit(active_shooter_id)
+		if shooter.is_empty():
+			print("WARNING: Invalid active shooter after load: ", active_shooter_id)
+			active_shooter_id = ""
+			return false
+		
+		if not _can_unit_shoot(shooter):
+			print("WARNING: Active shooter cannot shoot after load: ", active_shooter_id) 
+			active_shooter_id = ""
+			return false
+	
+	# Validate assignments reference valid units and weapons
+	for assignment in pending_assignments:
+		var target = get_unit(assignment.target_unit_id)
+		if target.is_empty():
+			print("WARNING: Invalid target in assignments: ", assignment.target_unit_id)
+			return false
+	
+	return true
