@@ -24,6 +24,7 @@ extends CanvasLayer
 
 var deployment_controller: Node
 var movement_controller: Node
+var shooting_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
@@ -68,6 +69,9 @@ func setup_phase_controllers() -> void:
 	if movement_controller:
 		movement_controller.queue_free()
 		movement_controller = null
+	if shooting_controller:
+		shooting_controller.queue_free()
+		shooting_controller = null
 	
 	# Setup controller based on current phase
 	match current_phase:
@@ -75,6 +79,8 @@ func setup_phase_controllers() -> void:
 			setup_deployment_controller()
 		GameStateData.Phase.MOVEMENT:
 			setup_movement_controller()
+		GameStateData.Phase.SHOOTING:
+			setup_shooting_controller()
 		_:
 			print("No controller for phase: ", current_phase)
 
@@ -133,6 +139,56 @@ func setup_movement_controller() -> void:
 		print("Connected move_action_requested signal")
 	if not movement_controller.ui_update_requested.is_connected(_on_movement_ui_update_requested):
 		movement_controller.ui_update_requested.connect(_on_movement_ui_update_requested)
+		print("Connected ui_update_requested signal")
+
+func setup_shooting_controller() -> void:
+	print("Setting up ShootingController...")
+	shooting_controller = preload("res://scripts/ShootingController.gd").new()
+	shooting_controller.name = "ShootingController"
+	add_child(shooting_controller)
+	
+	# Get the current phase instance from PhaseManager
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance:
+		print("Phase instance found: ", phase_instance.get_class())
+		
+		# Check if it's a ShootingPhase
+		var is_shooting_phase = false
+		if phase_instance.has_signal("unit_selected_for_shooting"):
+			is_shooting_phase = true
+		elif phase_instance.get("phase_type") == GameStateData.Phase.SHOOTING:
+			is_shooting_phase = true
+		
+		if is_shooting_phase:
+			shooting_controller.set_phase(phase_instance)
+			
+			# Connect phase signals to shooting controller
+			if not phase_instance.unit_selected_for_shooting.is_connected(shooting_controller._on_unit_selected_for_shooting):
+				phase_instance.unit_selected_for_shooting.connect(shooting_controller._on_unit_selected_for_shooting)
+				print("Connected unit_selected_for_shooting signal")
+			if phase_instance.has_signal("targets_available"):
+				if not phase_instance.targets_available.is_connected(shooting_controller._on_targets_available):
+					phase_instance.targets_available.connect(shooting_controller._on_targets_available)
+					print("Connected targets_available signal")
+			if phase_instance.has_signal("shooting_resolved"):
+				if not phase_instance.shooting_resolved.is_connected(shooting_controller._on_shooting_resolved):
+					phase_instance.shooting_resolved.connect(shooting_controller._on_shooting_resolved)
+					print("Connected shooting_resolved signal")
+			if phase_instance.has_signal("dice_rolled"):
+				if not phase_instance.dice_rolled.is_connected(shooting_controller._on_dice_rolled):
+					phase_instance.dice_rolled.connect(shooting_controller._on_dice_rolled)
+					print("Connected dice_rolled signal")
+		else:
+			print("WARNING: Phase instance is not a ShootingPhase, skipping signal connections")
+	else:
+		print("WARNING: No phase instance found!")
+	
+	# Connect shooting controller signals
+	if not shooting_controller.shoot_action_requested.is_connected(_on_shooting_action_requested):
+		shooting_controller.shoot_action_requested.connect(_on_shooting_action_requested)
+		print("Connected shoot_action_requested signal")
+	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
+		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
 		print("Connected ui_update_requested signal")
 
 func connect_signals() -> void:
@@ -985,6 +1041,36 @@ func _on_movement_ui_update_requested() -> void:
 	# Update UI when MovementController requests it
 	if current_phase == GameStateData.Phase.MOVEMENT:
 		update_movement_card_buttons()
+
+func _on_shooting_action_requested(action: Dictionary) -> void:
+	print("Main: Received shooting action request: ", action.get("type", ""))
+	
+	# Process shooting action through the phase
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	
+	if phase_instance and phase_instance.has_method("execute_action"):
+		var result = phase_instance.execute_action(action)
+		if result.has("success"):
+			if result.success:
+				print("Main: Shooting action succeeded")
+				update_after_shooting_action()
+			else:
+				print("Main: Shooting action failed: ", result.get("error", "Unknown error"))
+		else:
+			print("Main: Unexpected result from shooting action")
+	else:
+		print("Main: No phase instance or execute_action method")
+
+func _on_shooting_ui_update_requested() -> void:
+	# Update UI when ShootingController requests it
+	if current_phase == GameStateData.Phase.SHOOTING:
+		update_ui()
+
+func update_after_shooting_action() -> void:
+	# Refresh visuals and UI after a shooting action
+	_recreate_unit_visuals()
+	refresh_unit_list()
+	update_ui()
 
 func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> void:
 	# Update the visual position of the model

@@ -1,35 +1,50 @@
 extends BasePhase
 class_name ShootingPhase
 
-# ShootingPhase - Stub implementation for the Shooting phase
-# This is a placeholder that can be expanded with full shooting mechanics
+# ShootingPhase - Full implementation of the Shooting phase following 10e rules
+# Supports: Target selection, weapon assignment, attack resolution, damage allocation
+
+signal unit_selected_for_shooting(unit_id: String)
+signal targets_available(unit_id: String, eligible_targets: Dictionary)
+signal shooting_begun(unit_id: String)
+signal shooting_resolved(unit_id: String, target_unit_id: String, result: Dictionary)
+signal dice_rolled(dice_data: Dictionary)
+
+# Shooting state tracking
+var active_shooter_id: String = ""
+var pending_assignments: Array = []  # Weapon assignments before confirmation
+var confirmed_assignments: Array = []  # Assignments ready to resolve
+var resolution_state: Dictionary = {}  # State for step-by-step resolution
+var dice_log: Array = []
+var units_that_shot: Array = []  # Track which units have completed shooting
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Shooting Phase")
+	active_shooter_id = ""
+	pending_assignments.clear()
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	dice_log.clear()
+	units_that_shot.clear()
 	
-	# Initialize shooting phase state
 	_initialize_shooting()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Shooting Phase")
+	# Clear shooting flags
+	_clear_phase_flags()
 
 func _initialize_shooting() -> void:
-	# Check if there are any units that can shoot
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
 	
 	var can_shoot = false
 	for unit_id in units:
 		var unit = units[unit_id]
-		var status = unit.get("status", 0)
-		var advanced = unit.get("advanced", false)
-		var fallen_back = unit.get("fallen_back", false)
-		
-		# Units that advanced or fell back generally cannot shoot
-		if (status == GameStateData.UnitStatus.DEPLOYED or status == GameStateData.UnitStatus.MOVED) and not advanced and not fallen_back:
+		if _can_unit_shoot(unit):
 			can_shoot = true
 			break
 	
@@ -41,221 +56,435 @@ func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 	
 	match action_type:
-		"SHOOT_WEAPON":
-			return _validate_shoot_weapon_action(action)
-		"OVERWATCH":
-			return _validate_overwatch_action(action)
-		"SKIP_SHOOTING":
-			return _validate_skip_shooting_action(action)
+		"SELECT_SHOOTER":
+			return _validate_select_shooter(action)
+		"ASSIGN_TARGET":
+			return _validate_assign_target(action)
+		"CLEAR_ASSIGNMENT":
+			return _validate_clear_assignment(action)
+		"CLEAR_ALL_ASSIGNMENTS":
+			return _validate_clear_all_assignments(action)
+		"CONFIRM_TARGETS":
+			return _validate_confirm_targets(action)
+		"RESOLVE_SHOOTING":
+			return _validate_resolve_shooting(action)
+		"SKIP_UNIT":
+			return _validate_skip_unit(action)
+		"END_SHOOTING":
+			return _validate_end_shooting(action)
+		"SHOOT":  # Full shooting action from UI
+			return _validate_shoot(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
-
-func _validate_shoot_weapon_action(action: Dictionary) -> Dictionary:
-	var errors = []
-	
-	# Check required fields
-	var required_fields = ["unit_id", "weapon_id", "target_unit_id"]
-	for field in required_fields:
-		if not action.has(field):
-			errors.append("Missing required field: " + field)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	var unit_id = action.unit_id
-	var weapon_id = action.weapon_id
-	var target_unit_id = action.target_unit_id
-	
-	var unit = get_unit(unit_id)
-	var target_unit = get_unit(target_unit_id)
-	
-	# Check if units exist
-	if unit.is_empty():
-		errors.append("Shooting unit not found: " + unit_id)
-	if target_unit.is_empty():
-		errors.append("Target unit not found: " + target_unit_id)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	# Check if unit belongs to active player
-	if unit.get("owner", 0) != get_current_player():
-		errors.append("Unit does not belong to active player")
-	
-	# Check if target belongs to enemy player
-	if target_unit.get("owner", 0) == get_current_player():
-		errors.append("Cannot target own units")
-	
-	# Check if unit can shoot
-	var unit_status = unit.get("status", 0)
-	var advanced = unit.get("advanced", false)
-	var fallen_back = unit.get("fallen_back", false)
-	
-	if advanced:
-		errors.append("Unit cannot shoot after advancing")
-	if fallen_back:
-		errors.append("Unit cannot shoot after falling back")
-	
-	# TODO: Add detailed shooting validation
-	# - Check weapon range
-	# - Check line of sight
-	# - Check if weapon has already fired
-	# - Check target visibility
-	# - Check special weapon rules
-	
-	return {"valid": errors.size() == 0, "errors": errors}
-
-func _validate_overwatch_action(action: Dictionary) -> Dictionary:
-	# Overwatch is typically a reactive shooting action
-	var base_validation = _validate_shoot_weapon_action(action)
-	if not base_validation.valid:
-		return base_validation
-	
-	# TODO: Add overwatch-specific validation
-	# - Check if unit is being charged
-	# - Check if unit has eligible weapons for overwatch
-	# - Apply overwatch penalties
-	
-	return {"valid": true, "errors": []}
-
-func _validate_skip_shooting_action(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing unit_id"]}
-	
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return {"valid": false, "errors": ["Unit not found"]}
-	
-	return {"valid": true, "errors": []}
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 	
 	match action_type:
-		"SHOOT_WEAPON":
-			return _process_shoot_weapon(action)
-		"OVERWATCH":
-			return _process_overwatch(action)
-		"SKIP_SHOOTING":
-			return _process_skip_shooting(action)
+		"SELECT_SHOOTER":
+			return _process_select_shooter(action)
+		"ASSIGN_TARGET":
+			return _process_assign_target(action)
+		"CLEAR_ASSIGNMENT":
+			return _process_clear_assignment(action)
+		"CLEAR_ALL_ASSIGNMENTS":
+			return _process_clear_all_assignments(action)
+		"CONFIRM_TARGETS":
+			return _process_confirm_targets(action)
+		"RESOLVE_SHOOTING":
+			return _process_resolve_shooting(action)
+		"SKIP_UNIT":
+			return _process_skip_unit(action)
+		"END_SHOOTING":
+			return _process_end_shooting(action)
+		"SHOOT":  # Full shooting action
+			return _process_shoot(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
-func _process_shoot_weapon(action: Dictionary) -> Dictionary:
-	var unit_id = action.unit_id
-	var weapon_id = action.weapon_id
-	var target_unit_id = action.target_unit_id
-	var changes = []
-	
-	# TODO: Implement actual shooting mechanics
-	# - Roll to hit
-	# - Roll to wound
-	# - Target saves
-	# - Apply damage
-	# - Remove casualties
-	
-	# For now, just mark unit as having shot
-	changes.append({
-		"op": "set",
-		"path": "units.%s.status" % unit_id,
-		"value": GameStateData.UnitStatus.SHOT
-	})
-	
-	# Record the shooting action
-	changes.append({
-		"op": "add",
-		"path": "units.%s.actions_taken" % unit_id,
-		"value": {
-			"type": "shoot",
-			"weapon": weapon_id,
-			"target": target_unit_id,
-			"turn": get_turn_number()
-		}
-	})
-	
-	# Apply changes through PhaseManager
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes(changes)
+# Validation Methods
+
+func _validate_select_shooter(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
 	
 	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	log_phase_message("%s shot at %s" % [unit_name, target_unit_id])
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+	
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+	
+	if not _can_unit_shoot(unit):
+		return {"valid": false, "errors": ["Unit cannot shoot"]}
+	
+	if unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot this phase"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_assign_target(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var weapon_id = payload.get("weapon_id", "")
+	var target_unit_id = payload.get("target_unit_id", "")
+	var model_ids = payload.get("model_ids", [])
+	
+	if active_shooter_id == "":
+		return {"valid": false, "errors": ["No shooter selected"]}
+	
+	if weapon_id == "" or target_unit_id == "":
+		return {"valid": false, "errors": ["Missing weapon_id or target_unit_id"]}
+	
+	# Check if weapon assignment would split attacks
+	for assignment in pending_assignments:
+		if assignment.weapon_id == weapon_id and assignment.target_unit_id != target_unit_id:
+			return {"valid": false, "errors": ["Cannot split a weapon's attacks across multiple targets"]}
+	
+	# Validate with RulesEngine
+	var shoot_action = {
+		"type": "SHOOT",
+		"actor_unit_id": active_shooter_id,
+		"payload": {
+			"assignments": [{
+				"weapon_id": weapon_id,
+				"target_unit_id": target_unit_id,
+				"model_ids": model_ids
+			}]
+		}
+	}
+	
+	var validation = RulesEngine.validate_shoot(shoot_action, game_state_snapshot)
+	return validation
+
+func _validate_clear_assignment(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var weapon_id = payload.get("weapon_id", "")
+	
+	if weapon_id == "":
+		return {"valid": false, "errors": ["Missing weapon_id"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_clear_all_assignments(action: Dictionary) -> Dictionary:
+	return {"valid": true, "errors": []}
+
+func _validate_confirm_targets(action: Dictionary) -> Dictionary:
+	if pending_assignments.is_empty():
+		return {"valid": false, "errors": ["No targets assigned"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_resolve_shooting(action: Dictionary) -> Dictionary:
+	if confirmed_assignments.is_empty():
+		return {"valid": false, "errors": ["No confirmed targets to resolve"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_skip_unit(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_end_shooting(action: Dictionary) -> Dictionary:
+	# Can always end the phase
+	return {"valid": true, "errors": []}
+
+func _validate_shoot(action: Dictionary) -> Dictionary:
+	# Full shoot action validation
+	var validation = RulesEngine.validate_shoot(action, game_state_snapshot)
+	return validation
+
+# Processing Methods
+
+func _process_select_shooter(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	active_shooter_id = unit_id
+	pending_assignments.clear()
+	confirmed_assignments.clear()
+	
+	# Get eligible targets
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	
+	emit_signal("unit_selected_for_shooting", unit_id)
+	emit_signal("targets_available", unit_id, eligible_targets)
+	
+	var unit = get_unit(unit_id)
+	log_phase_message("Selected %s for shooting" % unit.get("meta", {}).get("name", unit_id))
+	
+	return create_result(true, [])
+
+func _process_assign_target(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var weapon_id = payload.get("weapon_id", "")
+	var target_unit_id = payload.get("target_unit_id", "")
+	var model_ids = payload.get("model_ids", [])
+	
+	# Remove any existing assignment for this weapon
+	pending_assignments = pending_assignments.filter(func(a): return a.weapon_id != weapon_id)
+	
+	# Add new assignment
+	pending_assignments.append({
+		"weapon_id": weapon_id,
+		"target_unit_id": target_unit_id,
+		"model_ids": model_ids
+	})
+	
+	log_phase_message("Assigned %s to target %s" % [weapon_id, target_unit_id])
+	
+	return create_result(true, [])
+
+func _process_clear_assignment(action: Dictionary) -> Dictionary:
+	var payload = action.get("payload", {})
+	var weapon_id = payload.get("weapon_id", "")
+	
+	pending_assignments = pending_assignments.filter(func(a): return a.weapon_id != weapon_id)
+	
+	log_phase_message("Cleared assignment for %s" % weapon_id)
+	
+	return create_result(true, [])
+
+func _process_clear_all_assignments(action: Dictionary) -> Dictionary:
+	pending_assignments.clear()
+	log_phase_message("Cleared all weapon assignments")
+	
+	return create_result(true, [])
+
+func _process_confirm_targets(action: Dictionary) -> Dictionary:
+	confirmed_assignments = pending_assignments.duplicate(true)
+	pending_assignments.clear()
+	
+	emit_signal("shooting_begun", active_shooter_id)
+	log_phase_message("Confirmed targets, ready to resolve shooting")
+	
+	# Initialize resolution state
+	resolution_state = {
+		"current_assignment": 0,
+		"phase": "ready"  # ready, hitting, wounding, saving, damage
+	}
+	
+	return create_result(true, [])
+
+func _process_resolve_shooting(action: Dictionary) -> Dictionary:
+	# Build full shoot action for RulesEngine
+	var shoot_action = {
+		"type": "SHOOT",
+		"actor_unit_id": active_shooter_id,
+		"payload": {
+			"assignments": confirmed_assignments
+		}
+	}
+	
+	# Resolve with RulesEngine
+	var rng_service = RulesEngine.RNGService.new()
+	var result = RulesEngine.resolve_shoot(shoot_action, game_state_snapshot, rng_service)
+	
+	if not result.success:
+		return create_result(false, [], result.get("log_text", "Shooting failed"))
+	
+	# Apply changes
+	var changes = result.get("diffs", [])
+	
+	# Record dice rolls
+	var dice_data = result.get("dice", [])
+	for dice_block in dice_data:
+		dice_log.append(dice_block)
+		emit_signal("dice_rolled", dice_block)
+	
+	# Mark unit as having shot
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % active_shooter_id,
+		"value": true
+	})
+	
+	units_that_shot.append(active_shooter_id)
+	
+	# Emit resolution signal
+	for assignment in confirmed_assignments:
+		emit_signal("shooting_resolved", active_shooter_id, assignment.target_unit_id, result)
+	
+	# Clear state
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	
+	log_phase_message(result.get("log_text", "Shooting resolved"))
+	
+	return create_result(true, changes, "", {"dice": dice_data})
+
+func _process_skip_unit(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	units_that_shot.append(unit_id)
+	
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+	
+	# Clear any active state
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+	
+	var unit = get_unit(unit_id)
+	log_phase_message("Skipped shooting for %s" % unit.get("meta", {}).get("name", unit_id))
 	
 	return create_result(true, changes)
 
-func _process_overwatch(action: Dictionary) -> Dictionary:
-	# Process as normal shooting but with overwatch modifiers
-	var result = _process_shoot_weapon(action)
-	if result.success:
-		var unit_id = action.unit_id
-		var overwatch_change = {
-			"op": "set",
-			"path": "units.%s.overwatched" % unit_id,
-			"value": true
-		}
-		
-		if get_parent() and get_parent().has_method("apply_state_changes"):
-			get_parent().apply_state_changes([overwatch_change])
-		
-		result.changes.append(overwatch_change)
-		log_phase_message("Unit %s fired overwatch" % unit_id)
-	
-	return result
-
-func _process_skip_shooting(action: Dictionary) -> Dictionary:
-	var unit_id = action.unit_id
-	log_phase_message("Skipped shooting for %s" % unit_id)
+func _process_end_shooting(action: Dictionary) -> Dictionary:
+	log_phase_message("Ending Shooting Phase")
+	emit_signal("phase_completed")
 	return create_result(true, [])
+
+func _process_shoot(action: Dictionary) -> Dictionary:
+	# Full shoot action - select shooter, assign targets, and resolve
+	var unit_id = action.get("actor_unit_id", "")
+	
+	# Select shooter
+	var select_result = _process_select_shooter({"actor_unit_id": unit_id})
+	if not select_result.success:
+		return select_result
+	
+	# Process assignments
+	var assignments = action.get("payload", {}).get("assignments", [])
+	for assignment in assignments:
+		pending_assignments.append(assignment)
+	
+	# Confirm targets
+	var confirm_result = _process_confirm_targets({})
+	if not confirm_result.success:
+		return confirm_result
+	
+	# Resolve shooting
+	return _process_resolve_shooting({})
+
+# Helper Methods
+
+func _can_unit_shoot(unit: Dictionary) -> bool:
+	var status = unit.get("status", 0)
+	var flags = unit.get("flags", {})
+	
+	# Check if unit is deployed
+	if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+		return false
+	
+	# Check restriction flags
+	if flags.get("cannot_shoot", false):
+		return false
+	
+	if flags.get("has_shot", false):
+		return false
+	
+	# Check if unit is in engagement range (MVP: units in engagement cannot shoot)
+	if flags.get("in_engagement", false):
+		return false
+	
+	# Check if unit has any alive models
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	
+	return has_alive
+
+func _clear_phase_flags() -> void:
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.has("flags"):
+			unit.flags.erase("has_shot")
 
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
 	
-	# Get enemy units as potential targets
-	var enemy_player = 3 - current_player  # Switch between 1 and 2
-	var enemy_units = get_units_for_player(enemy_player)
+	# If we have an active shooter with pending assignments
+	if active_shooter_id != "" and not pending_assignments.is_empty():
+		actions.append({
+			"type": "CONFIRM_TARGETS",
+			"description": "Confirm target assignments"
+		})
+		actions.append({
+			"type": "CLEAR_ALL_ASSIGNMENTS",
+			"description": "Clear all assignments"
+		})
 	
+	# If we have confirmed assignments ready to resolve
+	if not confirmed_assignments.is_empty():
+		actions.append({
+			"type": "RESOLVE_SHOOTING",
+			"description": "Resolve shooting"
+		})
+	
+	# Units that can shoot
 	for unit_id in units:
 		var unit = units[unit_id]
-		var status = unit.get("status", 0)
-		var advanced = unit.get("advanced", false)
-		var fallen_back = unit.get("fallen_back", false)
-		
-		# Check if unit can shoot
-		if (status == GameStateData.UnitStatus.DEPLOYED or status == GameStateData.UnitStatus.MOVED) and not advanced and not fallen_back:
-			
-			# Add shooting actions for each potential target
-			for target_unit_id in enemy_units:
-				actions.append({
-					"type": "SHOOT_WEAPON",
-					"unit_id": unit_id,
-					"target_unit_id": target_unit_id,
-					"weapon_id": "primary_weapon",  # TODO: Get actual weapon list
-					"description": "Shoot %s at %s" % [unit.get("meta", {}).get("name", unit_id), target_unit_id]
-				})
-			
-			# Skip shooting option
+		if _can_unit_shoot(unit) and unit_id not in units_that_shot:
 			actions.append({
-				"type": "SKIP_SHOOTING",
-				"unit_id": unit_id,
-				"description": "Skip shooting for " + unit.get("meta", {}).get("name", unit_id)
+				"type": "SELECT_SHOOTER",
+				"actor_unit_id": unit_id,
+				"description": "Select %s for shooting" % unit.get("meta", {}).get("name", unit_id)
 			})
+			
+			actions.append({
+				"type": "SKIP_UNIT",
+				"actor_unit_id": unit_id,
+				"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
+			})
+	
+	# Always can end phase
+	actions.append({
+		"type": "END_SHOOTING",
+		"description": "End Shooting Phase"
+	})
 	
 	return actions
 
 func _should_complete_phase() -> bool:
-	# For now, require manual phase completion
-	# TODO: Implement automatic completion logic
-	# - All eligible units have shot or been marked to skip
-	# - No more valid targets in range
-	return false
+	# Check if all eligible units have shot or been skipped
+	var current_player = get_current_player()
+	var units = get_units_for_player(current_player)
+	
+	for unit_id in units:
+		var unit = units[unit_id]
+		if _can_unit_shoot(unit) and unit_id not in units_that_shot:
+			return false
+	
+	return true
 
-# TODO: Add helper methods for shooting mechanics
-# func _calculate_range(shooter_pos: Vector2, target_pos: Vector2) -> float
-# func _check_line_of_sight(shooter: Dictionary, target: Dictionary) -> bool
-# func _roll_to_hit(weapon_skill: int, modifiers: Dictionary) -> Array
-# func _roll_to_wound(strength: int, toughness: int, modifiers: Dictionary) -> Array
-# func _apply_saves(wounds: int, save_value: int, ap: int, modifiers: Dictionary) -> int
-# func _allocate_wounds(unit: Dictionary, wounds: int) -> Array
+func get_dice_log() -> Array:
+	return dice_log
+
+func get_active_shooter() -> String:
+	return active_shooter_id
+
+func get_pending_assignments() -> Array:
+	return pending_assignments
+
+func get_confirmed_assignments() -> Array:
+	return confirmed_assignments
+
+# Override create_result to support additional data
+func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
+	var result = {
+		"success": success,
+		"phase": phase_type,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	
+	if success:
+		result["changes"] = changes
+		for key in additional_data:
+			result[key] = additional_data[key]
+	else:
+		result["error"] = error
+	
+	return result

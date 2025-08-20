@@ -73,6 +73,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_confirm_unit_move(action)
 		"REMAIN_STATIONARY":
 			return _validate_remain_stationary(action)
+		"END_MOVEMENT":
+			return _validate_end_movement(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -96,6 +98,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_confirm_unit_move(action)
 		"REMAIN_STATIONARY":
 			return _process_remain_stationary(action)
+		"END_MOVEMENT":
+			return _process_end_movement(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -255,6 +259,14 @@ func _validate_remain_stationary(action: Dictionary) -> Dictionary:
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already acted this phase"]}
 	
+	return {"valid": true, "errors": []}
+
+func _validate_end_movement(action: Dictionary) -> Dictionary:
+	# Check if there are any active moves that need to be resolved
+	if not active_moves.is_empty():
+		return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
+	
+	# Player can always choose to end the phase
 	return {"valid": true, "errors": []}
 
 # Processing Methods
@@ -507,6 +519,11 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 	log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
 	
 	return create_result(true, changes)
+
+func _process_end_movement(action: Dictionary) -> Dictionary:
+	log_phase_message("Ending Movement Phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -801,6 +818,13 @@ func get_available_actions() -> Array:
 				"actor_unit_id": unit_id,
 				"description": "Undo last model"
 			})
+	
+	# Add End Movement Phase action if no active moves
+	if active_moves.is_empty():
+		actions.append({
+			"type": "END_MOVEMENT",
+			"description": "End Movement Phase"
+		})
 	
 	return actions
 

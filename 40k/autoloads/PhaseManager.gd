@@ -129,7 +129,11 @@ func _apply_single_change(change: Dictionary) -> void:
 		"add":
 			_add_to_state_array(change.path, change.value)
 		"remove":
-			_remove_from_state_array(change.path, change.index)
+			# Remove can be used to delete a property or remove from array
+			if change.has("index"):
+				_remove_from_state_array(change.path, change.index)
+			else:
+				_remove_property(change.path)
 		_:
 			push_error("Unknown state change operation: " + str(change.get("op", "")))
 
@@ -201,6 +205,33 @@ func _remove_from_state_array(path: String, index: int) -> void:
 	
 	if current is Array and index >= 0 and index < current.size():
 		current.remove_at(index)
+
+func _remove_property(path: String) -> void:
+	# Remove a property from a dictionary in the state
+	var parts = path.split(".")
+	if parts.is_empty():
+		return
+	
+	var current = GameState.state
+	# Navigate to the parent of the property to remove
+	for i in range(parts.size() - 1):
+		var part = parts[i]
+		if part.is_valid_int():
+			var index = part.to_int()
+			if current is Array and index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				return
+		else:
+			if current is Dictionary and current.has(part):
+				current = current[part]
+			else:
+				return
+	
+	# Remove the final property
+	var final_key = parts[-1]
+	if current is Dictionary and current.has(final_key):
+		current.erase(final_key)
 
 # Method for phases to validate their actions
 func validate_phase_action(action: Dictionary) -> Dictionary:

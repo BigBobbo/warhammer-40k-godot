@@ -1,0 +1,406 @@
+name: Maintenance & Dependencies
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  check-godot-updates:
+    runs-on: ubuntu-latest
+    name: Check Godot Engine Updates
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Check current Godot version
+      id: current_version
+      run: |
+        # Extract version from workflow file
+        current_version=$(grep "version: 4" .github/workflows/test-suite.yml | head -1 | sed 's/.*version: //' | sed 's/ *$//')
+        echo "current=$current_version" >> $GITHUB_OUTPUT
+        echo "Current Godot version: $current_version"
+    
+    - name: Check for Godot releases
+      id: check_releases
+      run: |
+        # Get latest stable release from GitHub API
+        latest_release=$(curl -s https://api.github.com/repos/godotengine/godot/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+        echo "latest=$latest_release" >> $GITHUB_OUTPUT
+        echo "Latest Godot release: $latest_release"
+        
+        if [ "${{ steps.current_version.outputs.current }}" != "$latest_release" ]; then
+          echo "update_available=true" >> $GITHUB_OUTPUT
+          echo "🆕 Update available: ${{ steps.current_version.outputs.current }} → $latest_release"
+        else
+          echo "update_available=false" >> $GITHUB_OUTPUT
+          echo "✅ Already using latest version"
+        fi
+    
+    - name: Create issue for Godot update
+      if: steps.check_releases.outputs.update_available == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `Update Godot Engine to ${{ steps.check_releases.outputs.latest }}`;
+          const body = `
+          ## 🎮 Godot Engine Update Available
+          
+          **Current version:** ${{ steps.current_version.outputs.current }}
+          **Latest version:** ${{ steps.check_releases.outputs.latest }}
+          
+          ### Actions Required:
+          - [ ] Update workflow files (.github/workflows/*)
+          - [ ] Test compatibility with existing code
+          - [ ] Update project.godot if needed
+          - [ ] Run full test suite
+          - [ ] Update documentation
+          
+          ### Testing Checklist:
+          - [ ] All unit tests pass
+          - [ ] All phase tests pass  
+          - [ ] UI tests work correctly
+          - [ ] Integration tests pass
+          - [ ] Build exports successfully
+          
+          This issue was automatically created by the maintenance workflow.
+          `;
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['maintenance', 'godot-update', 'automated']
+          });
+
+  check-gut-updates:
+    runs-on: ubuntu-latest
+    name: Check GUT Testing Framework Updates
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Check GUT version
+      run: |
+        cd 40k
+        if [ -f "addons/gut/gut.gd" ]; then
+          # Look for version in GUT files
+          gut_version=$(grep -r "VERSION\|version" addons/gut/ | head -1 || echo "Version not found")
+          echo "Current GUT: $gut_version"
+        else
+          echo "GUT not found in expected location"
+        fi
+    
+    - name: Check for GUT releases
+      run: |
+        # Check GitHub releases for GUT
+        latest_gut=$(curl -s https://api.github.com/repos/bitwes/Gut/releases/latest | grep '"tag_name"' | cut -d'"' -f4 || echo "Could not fetch")
+        echo "Latest GUT release: $latest_gut"
+
+  test-health-check:
+    runs-on: ubuntu-latest
+    name: Test Suite Health Check
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+        include-templates: true
+    
+    - name: Import project
+      run: |
+        cd 40k
+        godot --headless --import
+    
+    - name: Run test suite health check
+      run: |
+        cd 40k
+        echo "🧪 Running comprehensive test health check..."
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests -glog=1 -gjunit_xml_file=health_check_results.xml
+      continue-on-error: true
+    
+    - name: Analyze test results
+      run: |
+        cd 40k
+        if [ -f "health_check_results.xml" ]; then
+          # Count total tests
+          total_tests=$(grep -o '<testcase' health_check_results.xml | wc -l)
+          
+          # Count failures and errors
+          failures=$(grep -o 'failures="[0-9]*"' health_check_results.xml | grep -o '[0-9]*' | head -1)
+          errors=$(grep -o 'errors="[0-9]*"' health_check_results.xml | grep -o '[0-9]*' | head -1)
+          
+          failures=${failures:-0}
+          errors=${errors:-0}
+          
+          passed=$((total_tests - failures - errors))
+          
+          echo "📊 Test Health Check Results:"
+          echo "- Total tests: $total_tests"
+          echo "- Passed: $passed"
+          echo "- Failed: $failures" 
+          echo "- Errors: $errors"
+          
+          # Calculate success rate
+          if [ $total_tests -gt 0 ]; then
+            success_rate=$(( (passed * 100) / total_tests ))
+            echo "- Success rate: ${success_rate}%"
+            
+            if [ $success_rate -lt 90 ]; then
+              echo "⚠️ Test success rate below 90% - investigation needed"
+              echo "failing_tests=true" >> $GITHUB_ENV
+            else
+              echo "✅ Test suite health is good"
+              echo "failing_tests=false" >> $GITHUB_ENV
+            fi
+          fi
+        else
+          echo "❌ Could not find test results file"
+          echo "failing_tests=true" >> $GITHUB_ENV
+        fi
+    
+    - name: Create issue for failing tests
+      if: env.failing_tests == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = 'Test Suite Health Check Failed';
+          const body = `
+          ## 🚨 Test Suite Health Issue Detected
+          
+          The automated health check has detected issues with the test suite.
+          
+          ### Investigation Needed:
+          - [ ] Review failing tests in the workflow logs
+          - [ ] Check for recently introduced bugs
+          - [ ] Verify test environment setup
+          - [ ] Update tests if needed
+          
+          ### Next Steps:
+          1. Check the maintenance workflow logs for detailed results
+          2. Run tests locally to reproduce issues
+          3. Fix failing tests or update as needed
+          4. Ensure all tests pass before merging new code
+          
+          This issue was automatically created by the maintenance workflow.
+          `;
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['bug', 'tests', 'maintenance', 'automated']
+          });
+
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    name: Cleanup Old Artifacts
+    
+    steps:
+    - name: Cleanup old artifacts
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          
+          // Get artifacts older than 30 days
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          const artifacts = await github.rest.actions.listArtifactsForRepo({
+            owner: owner,
+            repo: repo,
+            per_page: 100
+          });
+          
+          let deletedCount = 0;
+          
+          for (const artifact of artifacts.data.artifacts) {
+            const artifactDate = new Date(artifact.created_at);
+            if (artifactDate < thirtyDaysAgo) {
+              await github.rest.actions.deleteArtifact({
+                owner: owner,
+                repo: repo,
+                artifact_id: artifact.id
+              });
+              deletedCount++;
+              console.log(`Deleted artifact: ${artifact.name} (${artifact.created_at})`);
+            }
+          }
+          
+          console.log(`Cleaned up ${deletedCount} old artifacts`);
+
+  performance-baseline:
+    runs-on: ubuntu-latest
+    name: Performance Baseline Check
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+        include-templates: true
+    
+    - name: Import project
+      run: |
+        cd 40k
+        godot --headless --import
+    
+    - name: Run performance baseline tests
+      run: |
+        cd 40k
+        echo "⚡ Running performance baseline check..."
+        start_time=$(date +%s)
+        
+        # Run tests with timing
+        timeout 600 godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests -glog=1 -gjunit_xml_file=performance_baseline.xml
+        
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+        
+        echo "Test suite completed in ${duration} seconds"
+        
+        # Store baseline for comparison
+        echo "${duration}" > performance_baseline.txt
+        
+        # Check if performance has degraded significantly
+        if [ $duration -gt 300 ]; then
+          echo "⚠️ Test suite taking longer than expected (${duration}s > 300s)"
+          echo "performance_issue=true" >> $GITHUB_ENV
+        else
+          echo "✅ Performance within acceptable range"
+          echo "performance_issue=false" >> $GITHUB_ENV
+        fi
+    
+    - name: Upload performance baseline
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-baseline
+        path: 40k/performance_baseline.txt
+
+  security-audit:
+    runs-on: ubuntu-latest
+    name: Security Audit
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Check for hardcoded secrets
+      run: |
+        echo "🔍 Scanning for potential secrets..."
+        cd 40k
+        
+        # More comprehensive secret scanning
+        secret_patterns=(
+          "password\s*[:=]\s*['\"][^'\"]{3,}['\"]"
+          "api[_-]?key\s*[:=]\s*['\"][^'\"]{10,}['\"]"
+          "secret\s*[:=]\s*['\"][^'\"]{10,}['\"]"
+          "token\s*[:=]\s*['\"][^'\"]{10,}['\"]"
+          "private[_-]?key"
+        )
+        
+        issues_found=false
+        
+        for pattern in "${secret_patterns[@]}"; do
+          if grep -r -i -E "$pattern" --include="*.gd" --include="*.json" .; then
+            echo "⚠️ Potential secret pattern found: $pattern"
+            issues_found=true
+          fi
+        done
+        
+        if [ "$issues_found" = false ]; then
+          echo "✅ No obvious secrets detected"
+        else
+          echo "security_issues=true" >> $GITHUB_ENV
+        fi
+    
+    - name: Check file permissions
+      run: |
+        echo "🔐 Checking file permissions..."
+        cd 40k
+        
+        # Check for files with suspicious permissions
+        if find . -type f -perm /u+s,g+s -ls; then
+          echo "⚠️ Files with setuid/setgid found"
+          echo "security_issues=true" >> $GITHUB_ENV
+        fi
+        
+        # Check for world-writable files
+        if find . -type f -perm -002 -ls; then
+          echo "⚠️ World-writable files found"
+          echo "security_issues=true" >> $GITHUB_ENV
+        fi
+    
+    - name: Create security issue if needed
+      if: env.security_issues == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = 'Security Audit Issues Detected';
+          const body = `
+          ## 🛡️ Security Audit Alert
+          
+          The automated security audit has detected potential security issues.
+          
+          ### Issues to Review:
+          - [ ] Check for hardcoded secrets or credentials
+          - [ ] Review file permissions
+          - [ ] Verify no sensitive data is committed
+          
+          ### Actions Required:
+          1. Review the maintenance workflow logs for specific findings
+          2. Remove any sensitive information from code
+          3. Update .gitignore if needed
+          4. Consider using environment variables for secrets
+          
+          This issue was automatically created by the security audit.
+          `;
+          
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['security', 'maintenance', 'automated']
+          });
+
+  maintenance-summary:
+    needs: [check-godot-updates, check-gut-updates, test-health-check, cleanup-artifacts, performance-baseline, security-audit]
+    runs-on: ubuntu-latest
+    name: Maintenance Summary
+    if: always()
+    
+    steps:
+    - name: Generate maintenance report
+      run: |
+        echo "## 🔧 Weekly Maintenance Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Job Status:" >> $GITHUB_STEP_SUMMARY
+        echo "- 🎮 Godot Updates: ${{ needs.check-godot-updates.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🧪 GUT Updates: ${{ needs.check-gut-updates.result }}" >> $GITHUB_STEP_SUMMARY  
+        echo "- ❤️ Test Health: ${{ needs.test-health-check.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🗑️ Artifact Cleanup: ${{ needs.cleanup-artifacts.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚡ Performance: ${{ needs.performance-baseline.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🛡️ Security: ${{ needs.security-audit.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Maintenance completed on $(date)" >> $GITHUB_STEP_SUMMARY

@@ -152,6 +152,16 @@ func _setup_bottom_hud() -> void:
 	confirm_button.text = "Confirm Move"
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
 	button_container.add_child(confirm_button)
+	
+	# Add separator
+	button_container.add_child(VSeparator.new())
+	
+	# Add End Movement Phase button
+	var end_phase_button = Button.new()
+	end_phase_button.name = "EndPhaseButton"
+	end_phase_button.text = "End Movement Phase"
+	end_phase_button.pressed.connect(_on_end_phase_pressed)
+	button_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
 	var container = hud_right.get_node_or_null("VBoxContainer")
@@ -218,6 +228,7 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 		if phase.has_signal("unit_move_begun"):
 			current_phase = phase
 			print("MovementController: Phase set successfully")
+			_update_end_phase_button()
 			
 			# Connect to phase signals
 			if not phase.unit_move_begun.is_connected(_on_unit_move_begun):
@@ -371,6 +382,13 @@ func _on_confirm_move_pressed() -> void:
 	}
 	emit_signal("move_action_requested", action)
 
+func _on_end_phase_pressed() -> void:
+	var action = {
+		"type": "END_MOVEMENT",
+		"payload": {}
+	}
+	emit_signal("move_action_requested", action)
+
 func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	print("MovementController: Unit move begun - ", unit_id, " mode: ", mode)
 	active_unit_id = unit_id
@@ -418,6 +436,7 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_clear_path_visual()
 	_update_movement_display()
 	_refresh_unit_list()
+	_update_end_phase_button()
 	emit_signal("ui_update_requested")
 
 func _on_unit_move_reset(unit_id: String) -> void:
@@ -788,6 +807,17 @@ func _update_movement_display() -> void:
 		inches_used_label.text = "Used: 0.0\""
 	if inches_left_label:
 		inches_left_label.text = "Left: %.1f\"" % move_cap_inches
+
+func _update_end_phase_button() -> void:
+	# Update End Phase button state based on whether there are active moves
+	var end_phase_button = hud_bottom.get_node_or_null("MovementButtons/EndPhaseButton")
+	if end_phase_button:
+		# Button is disabled if there are active moves
+		end_phase_button.disabled = active_unit_id != ""
+		if active_unit_id != "":
+			end_phase_button.tooltip_text = "Confirm or reset current move first"
+		else:
+			end_phase_button.tooltip_text = "End the Movement Phase and proceed to Shooting"
 
 func _update_movement_display_with_preview(used: float, left: float, valid: bool) -> void:
 	if move_cap_label:

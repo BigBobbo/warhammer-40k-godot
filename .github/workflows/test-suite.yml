@@ -1,0 +1,316 @@
+name: Automated Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run GUT Test Suite
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+        include-templates: true
+    
+    - name: Verify Godot installation
+      run: godot --version
+    
+    - name: Import project
+      run: |
+        cd 40k
+        godot --headless --import
+    
+    - name: Run Unit Tests
+      run: |
+        cd 40k
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests/unit -glog=2 -gjunit_xml_file=unit_test_results.xml
+      continue-on-error: true
+    
+    - name: Run Phase Tests
+      run: |
+        cd 40k
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests/phases -glog=2 -gjunit_xml_file=phase_test_results.xml
+      continue-on-error: true
+    
+    - name: Run UI Tests
+      run: |
+        cd 40k
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests/ui -glog=2 -gjunit_xml_file=ui_test_results.xml
+      continue-on-error: true
+    
+    - name: Run Integration Tests
+      run: |
+        cd 40k
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests/integration -glog=2 -gjunit_xml_file=integration_test_results.xml
+      continue-on-error: true
+    
+    - name: Run All Tests Combined
+      run: |
+        cd 40k
+        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests -glog=1 -gjunit_xml_file=all_test_results.xml
+      continue-on-error: true
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          40k/*_test_results.xml
+          40k/gut_tests_*.log
+    
+    - name: Publish Test Results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: GUT Test Results
+        path: '40k/*_test_results.xml'
+        reporter: java-junit
+        fail-on-error: true
+    
+    - name: Check for test failures
+      run: |
+        cd 40k
+        if [ -f "all_test_results.xml" ]; then
+          # Parse XML for failures (basic check)
+          if grep -q 'failures="[^0]' all_test_results.xml || grep -q 'errors="[^0]' all_test_results.xml; then
+            echo "Tests failed - see results above"
+            exit 1
+          else
+            echo "All tests passed!"
+          fi
+        else
+          echo "Warning: Test results file not found"
+          exit 1
+        fi
+
+  build-verification:
+    runs-on: ubuntu-latest
+    name: Build Verification
+    needs: test
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+        include-templates: true
+    
+    - name: Import project
+      run: |
+        cd 40k
+        godot --headless --import
+    
+    - name: Export project (Linux/X11)
+      run: |
+        cd 40k
+        mkdir -p build/linux
+        godot --headless --export-release "Linux/X11" build/linux/40k-game.x86_64
+    
+    - name: Verify build artifacts
+      run: |
+        cd 40k
+        if [ -f "build/linux/40k-game.x86_64" ]; then
+          echo "Linux build successful"
+          ls -la build/linux/
+        else
+          echo "Linux build failed"
+          exit 1
+        fi
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-build
+        path: 40k/build/linux/
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    name: Performance Tests
+    needs: test
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+        include-templates: true
+    
+    - name: Import project
+      run: |
+        cd 40k
+        godot --headless --import
+    
+    - name: Run Performance Tests
+      run: |
+        cd 40k
+        # Run specific performance-related tests with timing
+        timeout 300 godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs=true -gselect="*performance*" -glog=2 -gjunit_xml_file=performance_test_results.xml
+      continue-on-error: true
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-results
+        path: 40k/performance_test_results.xml
+
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality Checks
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v1
+      with:
+        version: 4.4.0
+        use-dotnet: false
+    
+    - name: Check GDScript syntax
+      run: |
+        cd 40k
+        find . -name "*.gd" -exec godot --headless --check-only {} \;
+    
+    - name: Verify project structure
+      run: |
+        cd 40k
+        # Check required directories exist
+        [ -d "tests" ] || { echo "tests directory missing"; exit 1; }
+        [ -d "addons/gut" ] || { echo "GUT addon missing"; exit 1; }
+        [ -f "project.godot" ] || { echo "project.godot missing"; exit 1; }
+        [ -f ".gutconfig.json" ] || { echo "GUT config missing"; exit 1; }
+        echo "Project structure validated"
+    
+    - name: Count test files
+      run: |
+        cd 40k
+        unit_tests=$(find tests/unit -name "test_*.gd" | wc -l)
+        phase_tests=$(find tests/phases -name "test_*.gd" | wc -l)
+        ui_tests=$(find tests/ui -name "test_*.gd" | wc -l)
+        integration_tests=$(find tests/integration -name "test_*.gd" | wc -l)
+        total_tests=$((unit_tests + phase_tests + ui_tests + integration_tests))
+        
+        echo "Test file counts:"
+        echo "- Unit tests: $unit_tests"
+        echo "- Phase tests: $phase_tests"  
+        echo "- UI tests: $ui_tests"
+        echo "- Integration tests: $integration_tests"
+        echo "- Total test files: $total_tests"
+        
+        # Ensure we have minimum number of test files
+        [ $total_tests -ge 10 ] || { echo "Insufficient test coverage"; exit 1; }
+        echo "✅ Test coverage validation passed"
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Scan for secrets
+      run: |
+        cd 40k
+        # Basic secret scanning
+        if grep -r "password\|secret\|key\|token" --include="*.gd" --include="*.json" .; then
+          echo "⚠️ Potential secrets found in code"
+          echo "Please review the above matches to ensure no actual secrets are committed"
+        else
+          echo "✅ No obvious secrets found"
+        fi
+    
+    - name: Check file permissions
+      run: |
+        cd 40k
+        # Check that no files have execute permissions that shouldn't
+        find . -type f -name "*.gd" -perm +111 && { echo "GDScript files should not be executable"; exit 1; } || echo "✅ File permissions OK"
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    name: Documentation Check
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Check for required documentation
+      run: |
+        cd 40k
+        # Check for basic documentation files
+        [ -f "../PRPs/automated-testing-implementation.md" ] && echo "✅ PRP documentation found" || echo "⚠️ PRP documentation missing"
+        
+        # Count inline documentation
+        total_comments=$(grep -r "^#" --include="*.gd" tests/ | wc -l)
+        echo "Found $total_comments comment lines in test files"
+        
+        # Check test file headers
+        test_files_with_headers=$(grep -l "# .*Tests - " tests/**/*.gd | wc -l)
+        total_test_files=$(find tests/ -name "test_*.gd" | wc -l)
+        echo "$test_files_with_headers out of $total_test_files test files have descriptive headers"
+
+  notification:
+    runs-on: ubuntu-latest
+    name: Test Results Notification
+    needs: [test, build-verification, performance-tests, code-quality, security-scan, documentation-check]
+    if: always()
+    
+    steps:
+    - name: Determine overall status
+      id: status
+      run: |
+        # Check job results
+        if [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.build-verification.result }}" == "success" ]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=✅ All tests passed and build successful!" >> $GITHUB_OUTPUT
+        elif [ "${{ needs.test.result }}" == "failure" ]; then
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Tests failed - check results for details" >> $GITHUB_OUTPUT
+        else
+          echo "status=warning" >> $GITHUB_OUTPUT
+          echo "message=⚠️ Some checks had issues - review results" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create summary comment
+      run: |
+        echo "## 🧪 Automated Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ steps.status.outputs.message }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Job Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- 🧪 Tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔨 Build: ${{ needs.build-verification.result }}" >> $GITHUB_STEP_SUMMARY  
+        echo "- ⚡ Performance: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔍 Code Quality: ${{ needs.code-quality.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 🛡️ Security: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 📚 Documentation: ${{ needs.documentation-check.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "For detailed results, check the individual job logs and artifacts." >> $GITHUB_STEP_SUMMARY

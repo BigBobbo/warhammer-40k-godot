@@ -1,0 +1,28 @@
+{
+  "dirs": [
+    "res://tests/unit",
+    "res://tests/phases", 
+    "res://tests/integration",
+    "res://tests/ui"
+  ],
+  "should_maximize": false,
+  "should_exit": false,
+  "should_exit_on_success": false,
+  "log_level": 1,
+  "ignore_pause": false,
+  "hide_orphans": false,
+  "junit_xml_file": "",
+  "junit_xml_timestamp": false,
+  "compact_mode": false,
+  "disable_colors": false,
+  "unit_test_name": "",
+  "double_strategy": "SCRIPT_ONLY",
+  "pre_run_script": "",
+  "post_run_script": "",
+  "color_output": true,
+  "gut_on_top": true,
+  "background_color": "ff262626",
+  "font_name": "CourierPrime",
+  "font_size": 16,
+  "opacity": 100
+}
