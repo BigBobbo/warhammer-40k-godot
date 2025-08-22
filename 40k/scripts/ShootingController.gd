@@ -55,7 +55,7 @@ func _exit_tree() -> void:
 		target_highlights.queue_free()
 	
 	# Clean up UI containers
-	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/ShootingControls")
+	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
 	if shooting_controls and is_instance_valid(shooting_controls):
 		shooting_controls.queue_free()
 	
@@ -101,17 +101,21 @@ func _create_shooting_visuals() -> void:
 	board_root.add_child(target_highlights)
 
 func _setup_bottom_hud() -> void:
+	# Get the main HBox container in bottom HUD
+	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
+	if not main_container:
+		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
+		return
+	
 	# Check for existing shooting controls container
-	var controls_container = hud_bottom.get_node_or_null("ShootingControls")
+	var controls_container = main_container.get_node_or_null("ShootingControls")
 	if not controls_container:
 		controls_container = HBoxContainer.new()
 		controls_container.name = "ShootingControls"
+		main_container.add_child(controls_container)
 		
-		# Add to HUD structure properly
-		if hud_bottom.has_node("VBoxContainer"):
-			hud_bottom.get_node("VBoxContainer").add_child(controls_container)
-		else:
-			hud_bottom.add_child(controls_container)
+		# Add separator before shooting controls
+		controls_container.add_child(VSeparator.new())
 	else:
 		# Clear existing children to prevent duplicates - use immediate cleanup
 		print("ShootingController: Removing existing shooting controls children (", controls_container.get_children().size(), " children)")
@@ -144,20 +148,30 @@ func _setup_right_panel() -> void:
 		hud_right.add_child(container)
 	
 	# Check for existing shooting panel
-	var shooting_panel = container.get_node_or_null("ShootingPanel")
-	if not shooting_panel:
+	var scroll_container = container.get_node_or_null("ShootingScrollContainer")
+	var shooting_panel = null
+	
+	if not scroll_container:
+		# Create scroll container for better layout
+		scroll_container = ScrollContainer.new()
+		scroll_container.name = "ShootingScrollContainer"
+		scroll_container.custom_minimum_size = Vector2(250, 400)  # Increased from 300 to 400
+		scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Take available space
+		container.add_child(scroll_container)
+		
 		shooting_panel = VBoxContainer.new()
 		shooting_panel.name = "ShootingPanel"
-		shooting_panel.custom_minimum_size = Vector2(300, 400)
-		container.add_child(shooting_panel)
+		shooting_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll_container.add_child(shooting_panel)
 	else:
-		# Clear existing children to rebuild fresh - use immediate cleanup
-		print("ShootingController: Removing existing shooting panel children (", shooting_panel.get_children().size(), " children)")
-		for child in shooting_panel.get_children():
-			shooting_panel.remove_child(child)
-			child.free()
-		# Ensure size is set correctly
-		shooting_panel.custom_minimum_size = Vector2(300, 400)
+		# Get existing shooting panel
+		shooting_panel = scroll_container.get_node_or_null("ShootingPanel")
+		if shooting_panel:
+			# Clear existing children to rebuild fresh - use immediate cleanup
+			print("ShootingController: Removing existing shooting panel children (", shooting_panel.get_children().size(), " children)")
+			for child in shooting_panel.get_children():
+				shooting_panel.remove_child(child)
+				child.free()
 	
 	# Create UI elements (existing logic)
 	# Title
@@ -174,7 +188,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(unit_label)
 	
 	unit_selector = ItemList.new()
-	unit_selector.custom_minimum_size = Vector2(280, 100)
+	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	shooting_panel.add_child(unit_selector)
 	
@@ -186,7 +200,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(weapon_label)
 	
 	weapon_tree = Tree.new()
-	weapon_tree.custom_minimum_size = Vector2(280, 200)
+	weapon_tree.custom_minimum_size = Vector2(230, 120)
 	weapon_tree.columns = 2
 	weapon_tree.set_column_title(0, "Weapon")
 	weapon_tree.set_column_title(1, "Target")
@@ -201,7 +215,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(basket_label)
 	
 	target_basket = ItemList.new()
-	target_basket.custom_minimum_size = Vector2(280, 100)
+	target_basket.custom_minimum_size = Vector2(230, 80)
 	shooting_panel.add_child(target_basket)
 	
 	# Action buttons
@@ -227,7 +241,7 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(dice_label)
 	
 	dice_log_display = RichTextLabel.new()
-	dice_log_display.custom_minimum_size = Vector2(280, 150)
+	dice_log_display.custom_minimum_size = Vector2(230, 100)
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	shooting_panel.add_child(dice_log_display)

@@ -1,34 +1,53 @@
 extends BasePhase
 class_name ChargePhase
 
-# ChargePhase - Stub implementation for the Charge phase
-# This is a placeholder that can be expanded with full charge mechanics
+# ChargePhase - Full implementation of the Charge phase following 10e rules
+# Supports: Charge declarations, 2D6 charge rolls, movement validation, engagement range
+
+signal unit_selected_for_charge(unit_id: String)
+signal targets_declared(unit_id: String, target_ids: Array)
+signal charge_targets_available(unit_id: String, eligible_targets: Dictionary)
+signal charge_roll_made(unit_id: String, distance: int, dice: Array)
+signal charge_path_preview(unit_id: String, per_model_paths: Dictionary)
+signal charge_path_tools_enabled(unit_id: String, rolled_distance: int)
+signal charge_validation_feedback(unit_id: String, validation_result: Dictionary)
+signal charge_resolved(unit_id: String, success: bool, result: Dictionary)
+signal dice_rolled(dice_data: Dictionary)
+
+const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
+const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
+
+# Charge state tracking
+var active_charges: Dictionary = {}     # unit_id -> charge_data
+var pending_charges: Dictionary = {}    # units awaiting resolution  
+var dice_log: Array = []
+var units_that_charged: Array = []     # Track which units have completed charges
 
 func _init():
 	phase_type = GameStateData.Phase.CHARGE
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Charge Phase")
+	active_charges.clear()
+	pending_charges.clear() 
+	dice_log.clear()
+	units_that_charged.clear()
 	
-	# Initialize charge phase state
 	_initialize_charge()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Charge Phase")
+	# Clear charge flags
+	_clear_phase_flags()
 
 func _initialize_charge() -> void:
-	# Check if there are any units that can charge
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
 	
 	var can_charge = false
 	for unit_id in units:
 		var unit = units[unit_id]
-		var status = unit.get("status", 0)
-		var fallen_back = unit.get("fallen_back", false)
-		
-		# Units that fell back generally cannot charge
-		if (status == GameStateData.UnitStatus.DEPLOYED or status == GameStateData.UnitStatus.MOVED or status == GameStateData.UnitStatus.SHOT) and not fallen_back:
+		if _can_unit_charge(unit):
 			can_charge = true
 			break
 	
@@ -41,106 +60,17 @@ func validate_action(action: Dictionary) -> Dictionary:
 	
 	match action_type:
 		"DECLARE_CHARGE":
-			return _validate_declare_charge_action(action)
-		"CHARGE_MOVE":
-			return _validate_charge_move_action(action)
+			return _validate_declare_charge(action)
+		"CHARGE_ROLL":
+			return _validate_charge_roll(action)
+		"APPLY_CHARGE_MOVE":
+			return _validate_apply_charge_move(action)
 		"SKIP_CHARGE":
-			return _validate_skip_charge_action(action)
+			return _validate_skip_charge(action)
+		"END_CHARGE":
+			return _validate_end_charge(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
-
-func _validate_declare_charge_action(action: Dictionary) -> Dictionary:
-	var errors = []
-	
-	# Check required fields
-	var required_fields = ["unit_id", "target_unit_id"]
-	for field in required_fields:
-		if not action.has(field):
-			errors.append("Missing required field: " + field)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	var unit_id = action.unit_id
-	var target_unit_id = action.target_unit_id
-	
-	var unit = get_unit(unit_id)
-	var target_unit = get_unit(target_unit_id)
-	
-	# Check if units exist
-	if unit.is_empty():
-		errors.append("Charging unit not found: " + unit_id)
-	if target_unit.is_empty():
-		errors.append("Target unit not found: " + target_unit_id)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	# Check if unit belongs to active player
-	if unit.get("owner", 0) != get_current_player():
-		errors.append("Unit does not belong to active player")
-	
-	# Check if target belongs to enemy player
-	if target_unit.get("owner", 0) == get_current_player():
-		errors.append("Cannot charge own units")
-	
-	# Check if unit can charge
-	var fallen_back = unit.get("fallen_back", false)
-	if fallen_back:
-		errors.append("Unit cannot charge after falling back")
-	
-	# TODO: Add detailed charge validation
-	# - Check charge range (typically 12")
-	# - Check line of sight
-	# - Check if unit is already in combat
-	# - Check terrain between charger and target
-	
-	return {"valid": errors.size() == 0, "errors": errors}
-
-func _validate_charge_move_action(action: Dictionary) -> Dictionary:
-	var errors = []
-	
-	# Check required fields
-	var required_fields = ["unit_id", "charge_roll", "final_positions"]
-	for field in required_fields:
-		if not action.has(field):
-			errors.append("Missing required field: " + field)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	var unit_id = action.unit_id
-	var charge_roll = action.charge_roll
-	var final_positions = action.final_positions
-	
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		errors.append("Unit not found: " + unit_id)
-		return {"valid": false, "errors": errors}
-	
-	# Check if unit has declared a charge
-	var charge_declared = unit.get("charge_declared", false)
-	if not charge_declared:
-		errors.append("Unit has not declared a charge")
-	
-	# TODO: Add detailed charge move validation
-	# - Validate charge roll result
-	# - Check if charge distance is sufficient
-	# - Check final positions are within engagement range
-	# - Validate charge path (shortest route, terrain effects)
-	
-	return {"valid": errors.size() == 0, "errors": errors}
-
-func _validate_skip_charge_action(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing unit_id"]}
-	
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return {"valid": false, "errors": ["Unit not found"]}
-	
-	return {"valid": true, "errors": []}
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
@@ -148,141 +78,689 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DECLARE_CHARGE":
 			return _process_declare_charge(action)
-		"CHARGE_MOVE":
-			return _process_charge_move(action)
+		"CHARGE_ROLL":
+			return _process_charge_roll(action)
+		"APPLY_CHARGE_MOVE":
+			return _process_apply_charge_move(action)
 		"SKIP_CHARGE":
 			return _process_skip_charge(action)
+		"END_CHARGE":
+			return _process_end_charge(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
-func _process_declare_charge(action: Dictionary) -> Dictionary:
-	var unit_id = action.unit_id
-	var target_unit_id = action.target_unit_id
-	var changes = []
+# Validation Methods
+
+func _validate_declare_charge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var target_ids = action.get("payload", {}).get("target_unit_ids", [])
 	
-	# Mark unit as having declared a charge
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if target_ids.is_empty():
+		return {"valid": false, "errors": ["Missing target_unit_ids"]}
+	
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+	
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+	
+	if not _can_unit_charge(unit):
+		return {"valid": false, "errors": ["Unit cannot charge"]}
+	
+	if unit_id in units_that_charged:
+		return {"valid": false, "errors": ["Unit has already charged this phase"]}
+	
+	# Validate each target
+	for target_id in target_ids:
+		var target_unit = get_unit(target_id)
+		if target_unit.is_empty():
+			return {"valid": false, "errors": ["Target unit not found: " + target_id]}
+		
+		if target_unit.get("owner", 0) == get_current_player():
+			return {"valid": false, "errors": ["Cannot charge own units"]}
+		
+		# Check 12" range
+		if not _is_target_within_charge_range(unit_id, target_id):
+			return {"valid": false, "errors": ["Target beyond 12\" charge range: " + target_id]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_charge_roll(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if not pending_charges.has(unit_id):
+		return {"valid": false, "errors": ["No charge declared for unit"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_apply_charge_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+	
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if per_model_paths.is_empty():
+		return {"valid": false, "errors": ["Missing per_model_paths"]}
+	
+	if not pending_charges.has(unit_id):
+		return {"valid": false, "errors": ["No charge roll made for unit"]}
+	
+	var charge_data = pending_charges[unit_id]
+	if not charge_data.has("distance"):
+		return {"valid": false, "errors": ["No charge distance available"]}
+	
+	# Validate all movement constraints
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	return validation
+
+func _validate_skip_charge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+	
+	if unit_id in units_that_charged:
+		return {"valid": false, "errors": ["Unit has already acted this phase"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_end_charge(action: Dictionary) -> Dictionary:
+	# Can always end the phase
+	return {"valid": true, "errors": []}
+
+# Processing Methods
+
+func _process_declare_charge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var target_ids = action.get("payload", {}).get("target_unit_ids", [])
+	
+	# Store charge declaration
+	pending_charges[unit_id] = {
+		"targets": target_ids,
+		"declared_at": Time.get_unix_time_from_system()
+	}
+	
+	# Get eligible targets for UI
+	var eligible_targets = _get_eligible_targets_for_unit(unit_id)
+	
+	emit_signal("unit_selected_for_charge", unit_id)
+	emit_signal("targets_declared", unit_id, target_ids)
+	emit_signal("charge_targets_available", unit_id, eligible_targets)
+	
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var target_names = []
+	for target_id in target_ids:
+		var target = get_unit(target_id)
+		target_names.append(target.get("meta", {}).get("name", target_id))
+	
+	log_phase_message("%s declared charge against %s" % [unit_name, ", ".join(target_names)])
+	
+	return create_result(true, [])
+
+func _process_charge_roll(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var charge_data = pending_charges[unit_id]
+	
+	# Roll 2D6 for charge distance
+	var rng = RulesEngine.RNGService.new()
+	var rolls = rng.roll_d6(2)
+	var total_distance = rolls[0] + rolls[1]
+	
+	# Store rolled distance
+	charge_data.distance = total_distance
+	charge_data.dice_rolls = rolls
+	
+	# Add to dice log
+	var dice_result = {
+		"context": "charge_roll",
+		"unit_id": unit_id,
+		"unit_name": get_unit(unit_id).get("meta", {}).get("name", unit_id),
+		"rolls": rolls,
+		"total": total_distance
+	}
+	dice_log.append(dice_result)
+	
+	emit_signal("charge_roll_made", unit_id, total_distance, rolls)
+	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
+	emit_signal("dice_rolled", dice_result)
+	
+	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
+	
+	return create_result(true, [], "", {"dice": [dice_result]})
+
+func _process_apply_charge_move(action: Dictionary) -> Dictionary:
+	print("DEBUG: _process_apply_charge_move called with action: ", action)
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+	print("DEBUG: unit_id = ", unit_id)
+	print("DEBUG: per_model_paths = ", per_model_paths)
+	print("DEBUG: pending_charges = ", pending_charges)
+	var charge_data = pending_charges[unit_id]
+	print("DEBUG: charge_data = ", charge_data)
+	
+	# Final validation
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	if not validation.valid:
+		# Charge fails - no movement applied
+		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		log_phase_message("Charge failed for %s: %s" % [unit_name, validation.errors[0]])
+		
+		# Mark as charged (attempted) but unsuccessful
+		units_that_charged.append(unit_id)
+		pending_charges.erase(unit_id)
+		
+		emit_signal("charge_resolved", unit_id, false, {"reason": validation.errors[0]})
+		return create_result(true, [])
+	
+	# Apply successful charge movement
+	var changes = []
+	print("DEBUG: Applying successful charge movement")
+	
+	# Update model positions
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		print("DEBUG: Processing model ", model_id, " with path ", path)
+		if path is Array and path.size() > 0:
+			var final_pos = path[-1]  # Last position in path
+			var model_index = _get_model_index(unit_id, model_id)
+			print("DEBUG: Model index for ", model_id, " is ", model_index)
+			if model_index >= 0:
+				var change = {
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [unit_id, model_index],
+					"value": {"x": final_pos[0], "y": final_pos[1]}
+				}
+				print("DEBUG: Adding change: ", change)
+				changes.append(change)
+	
+	# Mark unit as charged and grant Fights First
 	changes.append({
 		"op": "set",
-		"path": "units.%s.charge_declared" % unit_id,
+		"path": "units.%s.flags.charged_this_turn" % unit_id,
+		"value": true
+	})
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.fights_first" % unit_id,
 		"value": true
 	})
 	
-	# Record the charge target
-	changes.append({
-		"op": "set",
-		"path": "units.%s.charge_target" % unit_id,
-		"value": target_unit_id
-	})
+	# Clean up charge state
+	units_that_charged.append(unit_id)
+	pending_charges.erase(unit_id)
 	
-	# Apply changes through PhaseManager
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes(changes)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
 	
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	log_phase_message("%s declared charge against %s" % [unit_name, target_unit_id])
-	
-	return create_result(true, changes)
-
-func _process_charge_move(action: Dictionary) -> Dictionary:
-	var unit_id = action.unit_id
-	var charge_roll = action.charge_roll
-	var final_positions = action.final_positions
-	var changes = []
-	
-	# Update model positions
-	for i in range(final_positions.size()):
-		var pos = final_positions[i]
-		if pos != null:
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.position" % [unit_id, i],
-				"value": {"x": pos.x, "y": pos.y}
-			})
-	
-	# Mark unit as charged
-	changes.append({
-		"op": "set",
-		"path": "units.%s.status" % unit_id,
-		"value": GameStateData.UnitStatus.CHARGED
-	})
-	
-	# Record charge roll
-	changes.append({
-		"op": "set",
-		"path": "units.%s.charge_roll" % unit_id,
-		"value": charge_roll
-	})
-	
-	# Apply changes through PhaseManager
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes(changes)
-	
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	log_phase_message("%s completed charge (rolled %d)" % [unit_name, charge_roll])
+	print("DEBUG: Returning ", changes.size(), " changes: ", changes)
+	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
 	
 	return create_result(true, changes)
 
 func _process_skip_charge(action: Dictionary) -> Dictionary:
-	var unit_id = action.unit_id
-	log_phase_message("Skipped charge for %s" % unit_id)
+	var unit_id = action.get("actor_unit_id", "")
+	
+	units_that_charged.append(unit_id)
+	
+	# Clear any pending charge for this unit
+	if pending_charges.has(unit_id):
+		pending_charges.erase(unit_id)
+	
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("Skipped charge for %s" % unit_name)
+	
 	return create_result(true, [])
+
+func _process_end_charge(action: Dictionary) -> Dictionary:
+	log_phase_message("Ending Charge Phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
+
+# Helper Methods
+
+func _can_unit_charge(unit: Dictionary) -> bool:
+	var status = unit.get("status", 0)
+	var flags = unit.get("flags", {})
+	
+	# Check if unit is deployed
+	if not (status == GameStateData.UnitStatus.DEPLOYED or 
+			status == GameStateData.UnitStatus.MOVED or 
+			status == GameStateData.UnitStatus.SHOT):
+		return false
+	
+	# Check restriction flags
+	if flags.get("cannot_charge", false):
+		return false
+	
+	if flags.get("advanced", false):
+		return false
+	
+	if flags.get("fell_back", false):
+		return false
+	
+	if flags.get("charged_this_turn", false):
+		return false
+	
+	# Check if already in engagement range (cannot declare charges)
+	if _is_unit_in_engagement_range(unit):
+		return false
+	
+	# Check if unit has any alive models
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	
+	return has_alive
+
+func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
+	var unit_id = unit.get("id", "")
+	var models = unit.get("models", [])
+	var current_player = get_current_player()
+	var all_units = game_state_snapshot.get("units", {})
+	
+	for model in models:
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position(model)
+		if model_pos == null:
+			continue
+		
+		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+		
+		# Check against all enemy models
+		for enemy_unit_id in all_units:
+			var enemy_unit = all_units[enemy_unit_id]
+			if enemy_unit.get("owner", 0) == current_player:
+				continue  # Skip friendly units
+			
+			for enemy_model in enemy_unit.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				
+				var enemy_pos = _get_model_position(enemy_model)
+				if enemy_pos == null:
+					continue
+				
+				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
+				var edge_distance = model_pos.distance_to(enemy_pos) - model_radius - enemy_radius
+				
+				if edge_distance <= er_px:
+					return true
+	
+	return false
+
+func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	var target = get_unit(target_id)
+	
+	if unit.is_empty() or target.is_empty():
+		return false
+	
+	# Find closest edge-to-edge distance between any models
+	var min_distance = INF
+	
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position(model)
+		if model_pos == null:
+			continue
+		
+		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			
+			var target_pos = _get_model_position(target_model)
+			if target_pos == null:
+				continue
+			
+			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
+			var edge_distance = Measurement.edge_to_edge_distance_px(model_pos, model_radius, target_pos, target_radius)
+			var distance_inches = Measurement.px_to_inches(edge_distance)
+			
+			min_distance = min(min_distance, distance_inches)
+	
+	return min_distance <= CHARGE_RANGE_INCHES
+
+func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
+	var eligible = {}
+	var current_player = get_current_player()
+	var all_units = game_state_snapshot.get("units", {})
+	
+	for target_id in all_units:
+		var target_unit = all_units[target_id]
+		if target_unit.get("owner", 0) != current_player:  # Enemy unit
+			if _is_target_within_charge_range(unit_id, target_id):
+				eligible[target_id] = {
+					"name": target_unit.get("meta", {}).get("name", target_id),
+					"distance": _get_min_distance_to_target(unit_id, target_id)
+				}
+	
+	return eligible
+
+func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
+	var unit = get_unit(unit_id)
+	var target = get_unit(target_id)
+	var min_distance = INF
+	
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position(model)
+		if model_pos == null:
+			continue
+		
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			
+			var target_pos = _get_model_position(target_model)
+			if target_pos == null:
+				continue
+			
+			var distance = Measurement.distance_inches(model_pos, target_pos)
+			min_distance = min(min_distance, distance)
+	
+	return min_distance
+
+func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dictionary, charge_data: Dictionary) -> Dictionary:
+	var errors = []
+	var rolled_distance = charge_data.distance
+	var target_ids = charge_data.targets
+	
+	# 1. Validate path distances
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if path is Array and path.size() >= 2:
+			var path_distance = Measurement.distance_polyline_inches(path)
+			if path_distance > rolled_distance:
+				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance])
+	
+	# 2. Validate engagement range with ALL targets
+	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
+	if not engagement_validation.valid:
+		errors.append_array(engagement_validation.errors)
+	
+	# 3. Validate unit coherency
+	var coherency_validation = _validate_unit_coherency_for_charge(unit_id, per_model_paths)
+	if not coherency_validation.valid:
+		errors.append_array(coherency_validation.errors)
+	
+	# 4. Validate base-to-base if possible
+	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids)
+	if not base_to_base_validation.valid:
+		errors.append_array(base_to_base_validation.errors)
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	var errors = []
+	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+	var current_player = get_current_player()
+	var all_units = game_state_snapshot.get("units", {})
+	
+	# Check that unit ends within ER of ALL targets
+	for target_id in target_ids:
+		var target_unit = all_units.get(target_id, {})
+		if target_unit.is_empty():
+			continue
+		
+		var unit_in_er_of_target = false
+		
+		for model_id in per_model_paths:
+			var path = per_model_paths[model_id]
+			if path is Array and path.size() > 0:
+				var final_pos = Vector2(path[-1][0], path[-1][1])
+				var model = _get_model_in_unit(unit_id, model_id)
+				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+				
+				# Check if this model is in ER of any target model
+				for target_model in target_unit.get("models", []):
+					if not target_model.get("alive", true):
+						continue
+					
+					var target_pos = _get_model_position(target_model)
+					if target_pos == null:
+						continue
+					
+					var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
+					var edge_distance = final_pos.distance_to(target_pos) - model_radius - target_radius
+					
+					if edge_distance <= er_px:
+						unit_in_er_of_target = true
+						break
+				
+				if unit_in_er_of_target:
+					break
+		
+		if not unit_in_er_of_target:
+			var target_name = target_unit.get("meta", {}).get("name", target_id)
+			errors.append("Must end within engagement range of all targets: " + target_name)
+	
+	# Check that unit does NOT end in ER of non-target enemies
+	for enemy_unit_id in all_units:
+		var enemy_unit = all_units[enemy_unit_id]
+		if enemy_unit.get("owner", 0) == current_player:
+			continue  # Skip friendly
+		
+		if enemy_unit_id in target_ids:
+			continue  # Skip declared targets
+		
+		# Check if any charging model ends in ER of this non-target
+		for model_id in per_model_paths:
+			var path = per_model_paths[model_id]
+			if path is Array and path.size() > 0:
+				var final_pos = Vector2(path[-1][0], path[-1][1])
+				var model = _get_model_in_unit(unit_id, model_id)
+				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+				
+				for enemy_model in enemy_unit.get("models", []):
+					if not enemy_model.get("alive", true):
+						continue
+					
+					var enemy_pos = _get_model_position(enemy_model)
+					if enemy_pos == null:
+						continue
+					
+					var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
+					var edge_distance = final_pos.distance_to(enemy_pos) - model_radius - enemy_radius
+					
+					if edge_distance <= er_px:
+						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
+						break
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	var errors = []
+	var coherency_distance = 2.0  # 2" coherency in 10e
+	var coherency_px = Measurement.inches_to_px(coherency_distance)
+	
+	var final_positions = []
+	
+	# Get final positions for all models
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if path is Array and path.size() > 0:
+			final_positions.append(Vector2(path[-1][0], path[-1][1]))
+	
+	if final_positions.size() < 2:
+		return {"valid": true, "errors": []}  # Single model or no movement
+	
+	# Check that each model is within 2" of at least one other model
+	for i in range(final_positions.size()):
+		var pos = final_positions[i]
+		var has_nearby_model = false
+		
+		for j in range(final_positions.size()):
+			if i == j:
+				continue
+			
+			var other_pos = final_positions[j]
+			var distance = pos.distance_to(other_pos)
+			
+			if distance <= coherency_px:
+				has_nearby_model = true
+				break
+		
+		if not has_nearby_model:
+			errors.append("Unit coherency broken: model %d too far from other models" % i)
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	# For MVP, we'll implement a simplified check
+	# In full implementation, this would check if base-to-base contact is achievable
+	# and required when all other constraints are satisfied
+	return {"valid": true, "errors": []}
+
+func _get_model_position(model: Dictionary) -> Vector2:
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+func _get_model_in_unit(unit_id: String, model_id: String) -> Dictionary:
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("id", "") == model_id:
+			return model
+	return {}
+
+func _get_model_index(unit_id: String, model_id: String) -> int:
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		if models[i].get("id", "") == model_id:
+			return i
+	return -1
+
+func _clear_phase_flags() -> void:
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.has("flags"):
+			unit.flags.erase("charged_this_turn")
+			unit.flags.erase("fights_first")
 
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
 	
-	# Get enemy units as potential targets
-	var enemy_player = 3 - current_player  # Switch between 1 and 2
-	var enemy_units = get_units_for_player(enemy_player)
-	
+	# Units that can declare charges
 	for unit_id in units:
 		var unit = units[unit_id]
-		var status = unit.get("status", 0)
-		var fallen_back = unit.get("fallen_back", false)
-		var charge_declared = unit.get("charge_declared", false)
-		
-		# Check if unit can charge
-		if (status == GameStateData.UnitStatus.DEPLOYED or status == GameStateData.UnitStatus.MOVED or status == GameStateData.UnitStatus.SHOT) and not fallen_back:
+		if _can_unit_charge(unit) and unit_id not in units_that_charged:
 			
-			if not charge_declared:
-				# Add charge declaration actions for each potential target
-				for target_unit_id in enemy_units:
+			# If no charge declared, can declare charge
+			if not pending_charges.has(unit_id):
+				var eligible_targets = _get_eligible_targets_for_unit(unit_id)
+				for target_id in eligible_targets:
 					actions.append({
 						"type": "DECLARE_CHARGE",
-						"unit_id": unit_id,
-						"target_unit_id": target_unit_id,
-						"description": "Declare charge: %s -> %s" % [unit.get("meta", {}).get("name", unit_id), target_unit_id]
+						"actor_unit_id": unit_id,
+						"payload": {"target_unit_ids": [target_id]},
+						"description": "Declare charge: %s -> %s" % [unit.get("meta", {}).get("name", unit_id), eligible_targets[target_id].name]
 					})
 				
 				# Skip charge option
 				actions.append({
 					"type": "SKIP_CHARGE",
-					"unit_id": unit_id,
+					"actor_unit_id": unit_id,
 					"description": "Skip charge for " + unit.get("meta", {}).get("name", unit_id)
 				})
-			else:
-				# Unit has declared charge, can now make charge move
+			
+			# If charge declared but no roll made, can roll
+			elif pending_charges.has(unit_id) and not pending_charges[unit_id].has("distance"):
 				actions.append({
-					"type": "CHARGE_MOVE",
-					"unit_id": unit_id,
-					"description": "Make charge move for " + unit.get("meta", {}).get("name", unit_id)
+					"type": "CHARGE_ROLL",
+					"actor_unit_id": unit_id,
+					"description": "Roll 2D6 for charge distance"
 				})
+			
+			# If roll made, can apply movement (handled by UI typically)
+	
+	# Always can end phase
+	actions.append({
+		"type": "END_CHARGE",
+		"description": "End Charge Phase"
+	})
 	
 	return actions
 
 func _should_complete_phase() -> bool:
-	# For now, require manual phase completion
-	# TODO: Implement automatic completion logic
-	# - All eligible units have charged or been marked to skip
-	# - All declared charges have been resolved
-	return false
+	# Check if all eligible units have charged or been skipped
+	var current_player = get_current_player()
+	var units = get_units_for_player(current_player)
+	
+	for unit_id in units:
+		var unit = units[unit_id]
+		if _can_unit_charge(unit) and unit_id not in units_that_charged:
+			return false
+	
+	return true
 
-# TODO: Add helper methods for charge mechanics
-# func _calculate_charge_distance(charger: Dictionary, target: Dictionary) -> float
-# func _roll_charge_distance() -> int
-# func _check_charge_path(start_pos: Vector2, end_pos: Vector2, unit: Dictionary) -> bool
-# func _calculate_engagement_range(unit1: Dictionary, unit2: Dictionary) -> float
-# func _resolve_overwatch(charging_unit: Dictionary, target_unit: Dictionary) -> Dictionary
+func get_dice_log() -> Array:
+	return dice_log
+
+func get_pending_charges() -> Dictionary:
+	return pending_charges
+
+func get_units_that_charged() -> Array:
+	return units_that_charged
+
+func has_pending_charge(unit_id: String) -> bool:
+	return pending_charges.has(unit_id)
+
+func get_charge_distance(unit_id: String) -> int:
+	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
+		return pending_charges[unit_id].distance
+	return 0
+
+# Override create_result to support additional data
+func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
+	var result = {
+		"success": success,
+		"phase": phase_type,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	
+	if success:
+		result["changes"] = changes
+		for key in additional_data:
+			result[key] = additional_data[key]
+	else:
+		result["error"] = error
+	
+	return result

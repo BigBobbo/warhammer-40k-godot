@@ -25,6 +25,7 @@ extends CanvasLayer
 var deployment_controller: Node
 var movement_controller: Node
 var shooting_controller: Node
+var charge_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
@@ -40,6 +41,9 @@ func _ready() -> void:
 	board_view.queue_redraw()
 	setup_deployment_zones()
 	
+	# Fix HUD layout to prevent overlap
+	_fix_hud_layout()
+	
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
@@ -51,6 +55,30 @@ func _ready() -> void:
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
+
+func _fix_hud_layout() -> void:
+	# Prevent HUD_Right from overlapping with HUD_Bottom
+	# HUD_Bottom is 100px tall, so HUD_Right should stop 100px from bottom
+	var hud_right = get_node("HUD_Right")
+	var hud_bottom = get_node("HUD_Bottom")
+	
+	if hud_right and hud_bottom:
+		# Get the height of the bottom panel
+		var bottom_height = 100.0  # This matches the offset_top = -100 in the scene
+		
+		# Adjust HUD_Right to not overlap with bottom panel
+		hud_right.anchor_bottom = 1.0
+		hud_right.offset_bottom = -bottom_height
+		
+		print("Fixed HUD layout: HUD_Right bottom offset set to -", bottom_height)
+	
+	# Adjust unit list to take less space, giving more room to phase panels
+	var unit_list = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
+	if unit_list:
+		# Change from size_flags_vertical = 3 (expand/fill) to 0 (fixed size)
+		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		unit_list.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
+		print("Adjusted unit list: fixed height to 150px")
 
 func setup_deployment_zones() -> void:
 	var zone1 = BoardState.get_deployment_zone_for_player(1)
@@ -72,6 +100,9 @@ func setup_phase_controllers() -> void:
 	if shooting_controller:
 		shooting_controller.queue_free()
 		shooting_controller = null
+	if charge_controller:
+		charge_controller.queue_free()
+		charge_controller = null
 	
 	# Wait a frame for cleanup to complete before creating new controllers
 	await get_tree().process_frame
@@ -84,6 +115,8 @@ func setup_phase_controllers() -> void:
 			setup_movement_controller()
 		GameStateData.Phase.SHOOTING:
 			setup_shooting_controller()
+		GameStateData.Phase.CHARGE:
+			setup_charge_controller()
 		_:
 			print("No controller for phase: ", current_phase)
 
@@ -196,6 +229,40 @@ func setup_shooting_controller() -> void:
 
 	# NEW: Ensure UI is updated after controller setup
 	emit_signal("ui_update_requested")
+
+func setup_charge_controller() -> void:
+	print("Setting up ChargeController...")
+	charge_controller = preload("res://scripts/ChargeController.gd").new()
+	charge_controller.name = "ChargeController"
+	add_child(charge_controller)
+	
+	# Get the current phase instance from PhaseManager
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance:
+		print("Phase instance found: ", phase_instance.get_class())
+		
+		# Check if it's a ChargePhase
+		var is_charge_phase = false
+		if phase_instance.has_signal("unit_selected_for_charge"):
+			is_charge_phase = true
+		elif phase_instance.get("phase_type") == GameStateData.Phase.CHARGE:
+			is_charge_phase = true
+		
+		if is_charge_phase:
+			charge_controller.set_phase(phase_instance)
+			print("Connected ChargeController to ChargePhase")
+		else:
+			print("WARNING: Phase instance is not a ChargePhase, skipping signal connections")
+	else:
+		print("WARNING: No phase instance found!")
+	
+	# Connect charge controller signals
+	if not charge_controller.charge_action_requested.is_connected(_on_charge_action_requested):
+		charge_controller.charge_action_requested.connect(_on_charge_action_requested)
+		print("Connected charge_action_requested signal")
+	if not charge_controller.ui_update_requested.is_connected(_on_charge_ui_update_requested):
+		charge_controller.ui_update_requested.connect(_on_charge_ui_update_requested)
+		print("Connected ui_update_requested signal")
 
 func connect_signals() -> void:
 	unit_list.item_selected.connect(_on_unit_selected)
@@ -359,7 +426,9 @@ func refresh_unit_list() -> void:
 			
 			for unit_id in all_units:
 				var unit = all_units[unit_id]
-				if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+				# Render units that are deployed or have moved/acted
+				var unit_status = unit.get("status", 0)
+				if unit_status >= GameStateData.UnitStatus.DEPLOYED:
 					var unit_name = unit.get("meta", {}).get("name", unit_id)
 					var model_count = unit.get("models", []).size()
 					var moved = unit.get("flags", {}).get("moved", false)
@@ -746,7 +815,9 @@ func _recreate_unit_visuals() -> void:
 		var unit = units[unit_id]
 		print("  Processing unit ", unit_id, " - status: ", unit.get("status", 0))
 		
-		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+		# Render units that are deployed or have moved/acted
+		var status = unit.get("status", 0)
+		if status >= GameStateData.UnitStatus.DEPLOYED:
 			var models = unit.get("models", [])
 			print("    Unit has ", models.size(), " models")
 			
@@ -795,6 +866,10 @@ func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 		token.model_number = model_id.substr(1).to_int()
 	else:
 		token.model_number = 1
+	
+	# Set metadata for charge movement and other controllers
+	token.set_meta("unit_id", unit_id)
+	token.set_meta("model_id", model_id)
 	
 	return token
 
@@ -1074,6 +1149,47 @@ func _on_shooting_ui_update_requested() -> void:
 	# Update UI when ShootingController requests it
 	if current_phase == GameStateData.Phase.SHOOTING:
 		update_ui()
+
+func _on_charge_action_requested(action: Dictionary) -> void:
+	print("Main: Received charge action request: ", action.get("type", ""))
+	
+	# Process charge action through the phase
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	
+	if phase_instance and phase_instance.has_method("execute_action"):
+		var result = phase_instance.execute_action(action)
+		if result.has("success"):
+			if result.success:
+				print("Main: Charge action succeeded")
+				
+				# Apply any state changes
+				var changes = result.get("changes", [])
+				if not changes.is_empty():
+					PhaseManager.apply_state_changes(changes)
+				
+				# Update UI after successful action
+				update_after_charge_action()
+			else:
+				print("Main: Charge action failed: ", result.get("error", "Unknown error"))
+		else:
+			print("Main: Unexpected result from charge action")
+	else:
+		print("Main: No phase instance or execute_action method")
+
+func _on_charge_ui_update_requested() -> void:
+	# Update UI when ChargeController requests it
+	if current_phase == GameStateData.Phase.CHARGE:
+		update_ui()
+
+func update_after_charge_action() -> void:
+	# Refresh visuals and UI after a charge action
+	_recreate_unit_visuals()
+	refresh_unit_list()
+	update_ui()
+	
+	# Update charge controller state
+	if charge_controller:
+		charge_controller._refresh_ui()
 
 func update_after_shooting_action() -> void:
 	# Refresh visuals and UI after a shooting action
