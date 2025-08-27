@@ -489,3 +489,92 @@ func test_save_compression():
 	
 	# Clean up
 	DirAccess.remove_absolute(uncompressed_file)
+
+func test_backward_compatibility_minified_to_pretty():
+	# Test loading old minified saves with new pretty-print system
+	if not state_serializer:
+		skip_test("StateSerializer not available")
+		return
+	
+	# Create test state
+	var test_state = {
+		"_serialization": {"version": "1.0.0", "timestamp": 123456},
+		"meta": {"phase": 2, "turn_number": 5},
+		"units": {},
+		"board": {},
+		"players": {}
+	}
+	
+	# Save as minified (old format)
+	state_serializer.set_pretty_print(false)
+	var minified_json = state_serializer.serialize_game_state(test_state)
+	assert_false(minified_json.contains("\n"), "Minified JSON should be single line")
+	
+	# Load with pretty-print enabled (new format)
+	state_serializer.set_pretty_print(true)
+	var loaded_state = state_serializer.deserialize_game_state(minified_json)
+	
+	assert_not_null(loaded_state, "Should load minified save with pretty-print enabled")
+	assert_eq(loaded_state.meta.phase, 2, "Phase should match")
+	assert_eq(loaded_state.meta.turn_number, 5, "Turn should match")
+
+func test_forward_compatibility_pretty_to_minified():
+	# Test loading new pretty saves with old minified system
+	if not state_serializer:
+		skip_test("StateSerializer not available")
+		return
+	
+	# Create test state
+	var test_state = {
+		"_serialization": {"version": "1.0.0", "timestamp": 123456},
+		"meta": {"phase": 3, "turn_number": 7},
+		"units": {},
+		"board": {},
+		"players": {}
+	}
+	
+	# Save as pretty-printed (new format)
+	state_serializer.set_pretty_print(true)
+	var pretty_json = state_serializer.serialize_game_state(test_state)
+	assert_true(pretty_json.contains("\n"), "Pretty JSON should have newlines")
+	assert_true(pretty_json.contains("\t"), "Pretty JSON should have tabs")
+	
+	# Load with pretty-print disabled (old format)
+	state_serializer.set_pretty_print(false)
+	var loaded_state = state_serializer.deserialize_game_state(pretty_json)
+	
+	assert_not_null(loaded_state, "Should load pretty save with pretty-print disabled")
+	assert_eq(loaded_state.meta.phase, 3, "Phase should match")
+	assert_eq(loaded_state.meta.turn_number, 7, "Turn should match")
+
+func test_save_file_readability():
+	# Verify save files are human-readable
+	if not save_manager or not state_serializer:
+		skip_test("Save components not available")
+		return
+	
+	# Enable pretty print
+	state_serializer.set_pretty_print(true)
+	
+	# Create and save game state
+	game_state.set_phase(GameStateData.Phase.MOVEMENT)
+	game_state.advance_turn()
+	
+	var test_file = "user://test_readable_" + str(Time.get_unix_time_from_system()) + ".save"
+	save_manager.save_game(test_file, {"description": "Readability test"})
+	
+	# Read raw file content
+	var file = FileAccess.open(test_file, FileAccess.READ)
+	assert_not_null(file, "Should open save file")
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Verify human-readable format
+	assert_true(content.contains("\n"), "Should have line breaks")
+	assert_true(content.contains("\t"), "Should have indentation")
+	assert_true(content.contains('"phase":'), "Should have readable keys")
+	assert_true(content.contains('"turn_number":'), "Should have readable values")
+	
+	# Clean up
+	DirAccess.remove_absolute(test_file)

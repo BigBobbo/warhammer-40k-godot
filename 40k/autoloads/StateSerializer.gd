@@ -11,7 +11,14 @@ const CURRENT_VERSION = "1.0.0"
 const SUPPORTED_VERSIONS = ["1.0.0"]
 
 var compression_enabled: bool = false
-var pretty_print: bool = false
+var pretty_print: bool = true  # Changed from false
+
+func _ready() -> void:
+	# Check if SettingsService has preferences
+	if SettingsService and SettingsService.has_method("get_save_pretty_print"):
+		pretty_print = SettingsService.get_save_pretty_print()
+	
+	print("StateSerializer: Pretty print enabled: ", pretty_print)
 
 # Main serialization methods
 func serialize_game_state(state: Dictionary = {}) -> String:

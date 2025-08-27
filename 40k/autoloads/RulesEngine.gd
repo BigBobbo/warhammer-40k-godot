@@ -670,3 +670,385 @@ static func get_unit_weapons(unit_id: String) -> Dictionary:
 # Get weapon profile
 static func get_weapon_profile(weapon_id: String) -> Dictionary:
 	return WEAPON_PROFILES.get(weapon_id, {})
+
+# ==========================================
+# CHARGE PHASE HELPERS
+# ==========================================
+
+# Check if unit is eligible to charge
+static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	
+	if unit.is_empty():
+		return false
+	
+	var status = unit.get("status", 0)
+	var flags = unit.get("flags", {})
+	
+	# Check if unit is deployed
+	if not (status == GameStateData.UnitStatus.DEPLOYED or 
+			status == GameStateData.UnitStatus.MOVED or 
+			status == GameStateData.UnitStatus.SHOT):
+		return false
+	
+	# Check restriction flags
+	if flags.get("cannot_charge", false):
+		return false
+	
+	if flags.get("advanced", false):
+		return false
+	
+	if flags.get("fell_back", false):
+		return false
+	
+	if flags.get("charged_this_turn", false):
+		return false
+	
+	# Check if unit has AIRCRAFT keyword (cannot charge)
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return false
+	
+	# Check if already in engagement range (cannot declare charges)
+	if _is_unit_in_engagement_range_charge(unit, board):
+		return false
+	
+	# Check if unit has any alive models
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	
+	return has_alive
+
+# Get eligible charge targets within 12" for a unit
+static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dictionary:
+	var eligible = {}
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	
+	if unit.is_empty():
+		return eligible
+	
+	var unit_owner = unit.get("owner", 0)
+	
+	# Check each potential target unit
+	for target_id in units:
+		var target_unit = units[target_id]
+		
+		# Skip friendly units
+		if target_unit.get("owner", 0) == unit_owner:
+			continue
+		
+		# Skip destroyed units
+		var has_alive_models = false
+		for model in target_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive_models = true
+				break
+		
+		if not has_alive_models:
+			continue
+		
+		# Check if within 12" charge range
+		if _is_target_within_charge_range_rules(unit_id, target_id, board):
+			eligible[target_id] = {
+				"name": target_unit.get("meta", {}).get("name", target_id),
+				"distance": _get_min_distance_to_target_rules(unit_id, target_id, board)
+			}
+	
+	return eligible
+
+# Master validation function for charge paths
+static func validate_charge_paths(unit_id: String, targets: Array, roll: int, paths: Dictionary, board: Dictionary) -> Dictionary:
+	var errors = []
+	var auto_fix_suggestions = []
+	
+	# 1. Validate path distances
+	for model_id in paths:
+		var path = paths[model_id]
+		if path is Array and path.size() >= 2:
+			var path_distance = Measurement.distance_polyline_inches(path)
+			if path_distance > roll:
+				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
+				auto_fix_suggestions.append("Reduce path length for model %s" % model_id)
+	
+	# 2. Validate engagement range with ALL targets
+	var engagement_validation = _validate_engagement_range_constraints_rules(unit_id, paths, targets, board)
+	if not engagement_validation.valid:
+		errors.append_array(engagement_validation.errors)
+		auto_fix_suggestions.append("Adjust final positions to reach all targets")
+	
+	# 3. Validate unit coherency
+	var coherency_validation = _validate_unit_coherency_for_charge_rules(unit_id, paths, board)
+	if not coherency_validation.valid:
+		errors.append_array(coherency_validation.errors)
+		auto_fix_suggestions.append("Move models closer together to maintain coherency")
+	
+	# 4. Validate base-to-base if possible
+	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board)
+	if not base_to_base_validation.valid:
+		errors.append_array(base_to_base_validation.errors)
+		auto_fix_suggestions.append("Move models to achieve base-to-base contact when possible")
+	
+	return {
+		"valid": errors.is_empty(),
+		"reasons": errors,
+		"auto_fix_suggestions": auto_fix_suggestions
+	}
+
+# Helper function to check if unit is in engagement range
+static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Dictionary) -> bool:
+	const ENGAGEMENT_RANGE_INCHES = 1.0
+	var unit_id = unit.get("id", "")
+	var models = unit.get("models", [])
+	var unit_owner = unit.get("owner", 0)
+	var all_units = board.get("units", {})
+	
+	for model in models:
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position_rules(model)
+		if model_pos == null:
+			continue
+		
+		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+		
+		# Check against all enemy models
+		for enemy_unit_id in all_units:
+			var enemy_unit = all_units[enemy_unit_id]
+			if enemy_unit.get("owner", 0) == unit_owner:
+				continue  # Skip friendly units
+			
+			for enemy_model in enemy_unit.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				
+				var enemy_pos = _get_model_position_rules(enemy_model)
+				if enemy_pos == null:
+					continue
+				
+				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
+				var edge_distance = model_pos.distance_to(enemy_pos) - model_radius - enemy_radius
+				
+				if edge_distance <= er_px:
+					return true
+	
+	return false
+
+# Check if target is within 12" charge range
+static func _is_target_within_charge_range_rules(unit_id: String, target_id: String, board: Dictionary) -> bool:
+	const CHARGE_RANGE_INCHES = 12.0
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var target = units.get(target_id, {})
+	
+	if unit.is_empty() or target.is_empty():
+		return false
+	
+	# Find closest edge-to-edge distance between any models
+	var min_distance = INF
+	
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position_rules(model)
+		if model_pos == null:
+			continue
+		
+		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			
+			var target_pos = _get_model_position_rules(target_model)
+			if target_pos == null:
+				continue
+			
+			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
+			var edge_distance = Measurement.edge_to_edge_distance_px(model_pos, model_radius, target_pos, target_radius)
+			var distance_inches = Measurement.px_to_inches(edge_distance)
+			
+			min_distance = min(min_distance, distance_inches)
+	
+	return min_distance <= CHARGE_RANGE_INCHES
+
+# Get minimum distance to target
+static func _get_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var target = units.get(target_id, {})
+	var min_distance = INF
+	
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		
+		var model_pos = _get_model_position_rules(model)
+		if model_pos == null:
+			continue
+		
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			
+			var target_pos = _get_model_position_rules(target_model)
+			if target_pos == null:
+				continue
+			
+			var distance = Measurement.distance_inches(model_pos, target_pos)
+			min_distance = min(min_distance, distance)
+	
+	return min_distance
+
+# Helper to get model position for charge calculations
+static func _get_model_position_rules(model: Dictionary) -> Vector2:
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+# Validate engagement range constraints for charge
+static func _validate_engagement_range_constraints_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
+	const ENGAGEMENT_RANGE_INCHES = 1.0
+	var errors = []
+	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var unit_owner = unit.get("owner", 0)
+	
+	# Check that unit ends within ER of ALL targets
+	for target_id in target_ids:
+		var target_unit = units.get(target_id, {})
+		if target_unit.is_empty():
+			continue
+		
+		var unit_in_er_of_target = false
+		
+		for model_id in per_model_paths:
+			var path = per_model_paths[model_id]
+			if path is Array and path.size() > 0:
+				var final_pos = Vector2(path[-1][0], path[-1][1])
+				var model = _get_model_in_unit_rules(unit, model_id)
+				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+				
+				# Check if this model is in ER of any target model
+				for target_model in target_unit.get("models", []):
+					if not target_model.get("alive", true):
+						continue
+					
+					var target_pos = _get_model_position_rules(target_model)
+					if target_pos == null:
+						continue
+					
+					var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
+					var edge_distance = final_pos.distance_to(target_pos) - model_radius - target_radius
+					
+					if edge_distance <= er_px:
+						unit_in_er_of_target = true
+						break
+				
+				if unit_in_er_of_target:
+					break
+		
+		if not unit_in_er_of_target:
+			var target_name = target_unit.get("meta", {}).get("name", target_id)
+			errors.append("Must end within engagement range of all targets: " + target_name)
+	
+	# Check that unit does NOT end in ER of non-target enemies
+	for enemy_unit_id in units:
+		var enemy_unit = units[enemy_unit_id]
+		if enemy_unit.get("owner", 0) == unit_owner:
+			continue  # Skip friendly
+		
+		if enemy_unit_id in target_ids:
+			continue  # Skip declared targets
+		
+		# Check if any charging model ends in ER of this non-target
+		for model_id in per_model_paths:
+			var path = per_model_paths[model_id]
+			if path is Array and path.size() > 0:
+				var final_pos = Vector2(path[-1][0], path[-1][1])
+				var model = _get_model_in_unit_rules(unit, model_id)
+				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+				
+				for enemy_model in enemy_unit.get("models", []):
+					if not enemy_model.get("alive", true):
+						continue
+					
+					var enemy_pos = _get_model_position_rules(enemy_model)
+					if enemy_pos == null:
+						continue
+					
+					var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
+					var edge_distance = final_pos.distance_to(enemy_pos) - model_radius - enemy_radius
+					
+					if edge_distance <= er_px:
+						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
+						break
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+# Validate unit coherency for charge
+static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model_paths: Dictionary, board: Dictionary) -> Dictionary:
+	var errors = []
+	var coherency_distance = 2.0  # 2" coherency in 10e
+	var coherency_px = Measurement.inches_to_px(coherency_distance)
+	
+	var final_positions = []
+	
+	# Get final positions for all models
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if path is Array and path.size() > 0:
+			final_positions.append(Vector2(path[-1][0], path[-1][1]))
+	
+	if final_positions.size() < 2:
+		return {"valid": true, "errors": []}  # Single model or no movement
+	
+	# Check that each model is within 2" of at least one other model
+	for i in range(final_positions.size()):
+		var pos = final_positions[i]
+		var has_nearby_model = false
+		
+		for j in range(final_positions.size()):
+			if i == j:
+				continue
+			
+			var other_pos = final_positions[j]
+			var distance = pos.distance_to(other_pos)
+			
+			if distance <= coherency_px:
+				has_nearby_model = true
+				break
+		
+		if not has_nearby_model:
+			errors.append("Unit coherency broken: model %d too far from other models" % i)
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+# Validate base-to-base if possible for charge (simplified for MVP)
+static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
+	# For MVP, we'll implement a simplified check
+	# In full implementation, this would check if base-to-base contact is achievable
+	# and required when all other constraints are satisfied
+	return {"valid": true, "errors": []}
+
+# Helper to get model in unit for charge calculations
+static func _get_model_in_unit_rules(unit: Dictionary, model_id: String) -> Dictionary:
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("id", "") == model_id:
+			return model
+	return {}

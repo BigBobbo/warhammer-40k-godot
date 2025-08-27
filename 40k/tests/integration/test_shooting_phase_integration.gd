@@ -170,17 +170,13 @@ func test_complete_shooting_workflow():
 	assert_true(result.success, "Should assign target successfully")
 	assert_eq(shooting_phase.pending_assignments.size(), 1, "Should have one pending assignment")
 	
-	# 5. Confirm targets
+	# 5. Confirm targets (now includes auto-resolution)
 	result = shooting_phase.execute_action({"type": "CONFIRM_TARGETS"})
-	assert_true(result.success, "Should confirm targets")
-	assert_eq(shooting_phase.confirmed_assignments.size(), 1, "Should have confirmed assignments")
-	
-	# 6. Resolve shooting
-	result = shooting_phase.execute_action({"type": "RESOLVE_SHOOTING"})
-	assert_true(result.success, "Should resolve shooting")
-	assert_true(result.has("dice"), "Should have dice results")
+	assert_true(result.success, "Should confirm and resolve targets")
+	assert_true(result.has("dice"), "Should have dice results from auto-resolution")
 	assert_true(result.dice.size() > 0, "Should have rolled dice")
 	
+	# 6. Resolution happens automatically - no separate RESOLVE_SHOOTING needed
 	# Check that unit was marked as having shot
 	assert_true("SPACE_MARINES" in shooting_phase.units_that_shot, "Unit should be marked as having shot")
 

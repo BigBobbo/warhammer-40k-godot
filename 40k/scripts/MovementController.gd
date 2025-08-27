@@ -54,11 +54,11 @@ func _exit_tree() -> void:
 		ghost_visual.queue_free()
 	
 	# Clean up UI containers
-	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/MovementInfo")
+	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementInfo")
 	if movement_info and is_instance_valid(movement_info):
 		movement_info.queue_free()
 	
-	var movement_buttons = get_node_or_null("/root/Main/HUD_Bottom/MovementButtons")
+	var movement_buttons = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementButtons")
 	if movement_buttons and is_instance_valid(movement_buttons):
 		movement_buttons.queue_free()
 	
@@ -119,15 +119,18 @@ func _setup_bottom_hud() -> void:
 		return
 		
 	# Always recreate movement HUD elements to avoid duplication
-	var container = hud_bottom.get_node_or_null("MovementInfo")
+	var container = main_container.get_node_or_null("MovementInfo")
 	if container:
 		print("MovementController: Removing existing MovementInfo container")
-		hud_bottom.remove_child(container)
+		main_container.remove_child(container)
 		container.free()
 	
 	container = HBoxContainer.new()
 	container.name = "MovementInfo"
-	hud_bottom.add_child(container)
+	main_container.add_child(container)
+	
+	# Add separator before movement controls
+	container.add_child(VSeparator.new())
 	
 	# Movement cap display
 	move_cap_label = Label.new()
@@ -151,15 +154,18 @@ func _setup_bottom_hud() -> void:
 	container.add_child(illegal_reason_label)
 	
 	# Action buttons - clean up existing first
-	var existing_buttons = hud_bottom.get_node_or_null("MovementButtons")
+	var existing_buttons = main_container.get_node_or_null("MovementButtons")
 	if existing_buttons:
 		print("MovementController: Removing existing MovementButtons container")
-		hud_bottom.remove_child(existing_buttons)
+		main_container.remove_child(existing_buttons)
 		existing_buttons.free()
 	
 	var button_container = HBoxContainer.new()
 	button_container.name = "MovementButtons"
-	hud_bottom.add_child(button_container)
+	main_container.add_child(button_container)
+	
+	# Add separator before movement buttons
+	button_container.add_child(VSeparator.new())
 	
 	var undo_button = Button.new()
 	undo_button.text = "Undo Model"
@@ -245,7 +251,7 @@ func _setup_right_panel() -> void:
 			
 			dice_log_display = RichTextLabel.new()
 			dice_log_display.name = "DiceLog"
-			dice_log_display.custom_minimum_size = Vector2(300, 150)
+			dice_log_display.custom_minimum_size = Vector2(300, 200)  # Increased height to use more space
 			dice_log_display.bbcode_enabled = true
 			container.add_child(dice_log_display)
 
