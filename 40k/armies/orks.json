@@ -1,0 +1,151 @@
+{
+  "faction": {
+    "name": "Orks",
+    "points": 500,
+    "detachment": "Waaagh!",
+    "player_name": "",
+    "team_name": ""
+  },
+  "units": {
+    "U_BOYZ_A": {
+      "id": "U_BOYZ_A",
+      "squad_id": "U_BOYZ_A",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Boyz",
+        "keywords": ["INFANTRY", "MOB", "ORKS"],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 6,
+          "wounds": 1,
+          "leadership": 7,
+          "objective_control": 2
+        },
+        "points": 85,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Slugga",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "ORKS units from your army can be affected by one Waaagh! per battle."
+          },
+          {
+            "name": "Mob Rule",
+            "type": "Datasheet",
+            "description": "While this unit is within 6\" of one or more friendly ORKS MOB units, this unit gains the Feel No Pain 6+ ability."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "10 Boyz",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
+    },
+    "U_GRETCHIN_A": {
+      "id": "U_GRETCHIN_A",
+      "squad_id": "U_GRETCHIN_A",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Gretchin",
+        "keywords": ["INFANTRY", "GROTS", "ORKS"],
+        "stats": {
+          "move": 5,
+          "toughness": 3,
+          "save": 7,
+          "wounds": 1,
+          "leadership": 5,
+          "objective_control": 0
+        },
+        "points": 40,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Grot blasta",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "4",
+            "strength": "3",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "1",
+            "weapon_skill": "5",
+            "strength": "2",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Surprisingly Dangerous in Large Numbers",
+            "type": "Datasheet",
+            "description": "While this unit contains 10 or more models, each time a model in this unit makes an attack, re-roll a Hit roll of 1."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "5 Gretchin",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []}
+      ]
+    }
+  }
+}

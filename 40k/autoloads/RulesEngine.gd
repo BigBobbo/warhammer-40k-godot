@@ -1052,3 +1052,143 @@ static func _get_model_in_unit_rules(unit: Dictionary, model_id: String) -> Dict
 		if model.get("id", "") == model_id:
 			return model
 	return {}
+
+# ==========================================
+# ARMY LIST WEAPON PARSING
+# ==========================================
+
+# Parse weapon stats from army list data
+static func parse_weapon_stats(weapon_data: Dictionary) -> Dictionary:
+	var stats = {}
+	
+	# Handle dice notation (e.g., "D6", "2D6")
+	if weapon_data.has("attacks"):
+		var attacks = weapon_data.get("attacks", "1")
+		if attacks is String:
+			stats["attacks"] = _parse_dice_notation(attacks)
+		else:
+			stats["attacks"] = {"min": attacks, "max": attacks, "dice": ""}
+	else:
+		stats["attacks"] = {"min": 1, "max": 1, "dice": ""}
+	
+	# Parse other weapon stats
+	stats["range"] = _parse_range(weapon_data.get("range", "Melee"))
+	stats["weapon_skill"] = weapon_data.get("weapon_skill", null)
+	stats["ballistic_skill"] = weapon_data.get("ballistic_skill", null)
+	stats["strength"] = _parse_stat_value(weapon_data.get("strength", "4"))
+	stats["ap"] = _parse_ap_value(weapon_data.get("ap", "0"))
+	stats["damage"] = _parse_damage(weapon_data.get("damage", "1"))
+	stats["special_rules"] = weapon_data.get("special_rules", "")
+	stats["type"] = weapon_data.get("type", "Ranged")
+	
+	return stats
+
+static func _parse_dice_notation(notation: String) -> Dictionary:
+	if notation == "D3":
+		return {"min": 1, "max": 3, "dice": "D3"}
+	elif notation == "D6":
+		return {"min": 1, "max": 6, "dice": "D6"}
+	elif notation.begins_with("D6+"):
+		var bonus = notation.split("+")[1].to_int()
+		return {"min": 1 + bonus, "max": 6 + bonus, "dice": notation}
+	elif notation.begins_with("2D6"):
+		return {"min": 2, "max": 12, "dice": "2D6"}
+	elif notation.to_int() > 0:
+		var value = notation.to_int()
+		return {"min": value, "max": value, "dice": ""}
+	else:
+		# Handle unknown dice notation as 1
+		print("Unknown dice notation: ", notation, ", defaulting to 1")
+		return {"min": 1, "max": 1, "dice": ""}
+
+static func _parse_range(range_str: String) -> int:
+	if range_str == "Melee":
+		return 0
+	else:
+		var value = range_str.to_int()
+		return value if value > 0 else 24  # Default to 24" if parsing fails
+
+static func _parse_stat_value(stat_str: String) -> int:
+	var value = stat_str.to_int()
+	return value if value > 0 else 4  # Default to 4 if parsing fails
+
+static func _parse_ap_value(ap_str: String) -> int:
+	if ap_str.begins_with("-"):
+		return ap_str.to_int()
+	elif ap_str == "0":
+		return 0
+	else:
+		var value = ap_str.to_int()
+		return -value if value > 0 else 0
+
+static func _parse_damage(damage_str: String) -> Dictionary:
+	if damage_str == "D3":
+		return {"min": 1, "max": 3, "dice": "D3"}
+	elif damage_str == "D6":
+		return {"min": 1, "max": 6, "dice": "D6"}
+	elif damage_str.begins_with("D6+"):
+		var bonus = damage_str.split("+")[1].to_int()
+		return {"min": 1 + bonus, "max": 6 + bonus, "dice": damage_str}
+	elif damage_str.begins_with("D3+"):
+		var bonus = damage_str.split("+")[1].to_int()
+		return {"min": 1 + bonus, "max": 3 + bonus, "dice": damage_str}
+	else:
+		var value = damage_str.to_int()
+		if value > 0:
+			return {"min": value, "max": value, "dice": ""}
+		else:
+			# Handle unknown damage notation as 1
+			print("Unknown damage notation: ", damage_str, ", defaulting to 1")
+			return {"min": 1, "max": 1, "dice": ""}
+
+# Get parsed weapon stats for a unit
+static func get_unit_parsed_weapons(unit_id: String) -> Array:
+	if not GameState:
+		return []
+		
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return []
+	
+	var parsed_weapons = []
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	
+	for weapon in weapons:
+		var parsed = parse_weapon_stats(weapon)
+		parsed["name"] = weapon.get("name", "Unknown Weapon")
+		parsed_weapons.append(parsed)
+	
+	return parsed_weapons
+
+# Validate weapon special rules
+static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
+	var result = {"valid": true, "errors": []}
+	
+	if special_rules.is_empty():
+		return result
+	
+	# Split by comma to handle multiple rules
+	var rules_list = special_rules.split(",")
+	
+	for rule in rules_list:
+		var rule_name = rule.strip_edges().to_lower()
+		
+		# Check against known special rules (expand this list as needed)
+		var known_rules = [
+			"assault", "heavy", "rapid fire", "pistol", "torrent", "blast",
+			"precision", "sustained hits", "devastating wounds", "lethal hits",
+			"twin-linked", "ignores cover", "lance", "anti-infantry",
+			"anti-vehicle", "anti-monster", "feel no pain"
+		]
+		
+		var rule_recognized = false
+		for known_rule in known_rules:
+			if rule_name.contains(known_rule):
+				rule_recognized = true
+				break
+		
+		if not rule_recognized:
+			print("Warning: Unknown weapon special rule: ", rule_name)
+			# Don't mark as invalid, just warn
+	
+	return result

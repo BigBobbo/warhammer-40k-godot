@@ -14,6 +14,7 @@ func _ready() -> void:
 	initialize_default_state()
 
 func initialize_default_state() -> void:
+	# Initialize base state structure
 	state = {
 		"meta": {
 			"game_id": generate_game_id(),
@@ -38,92 +39,149 @@ func initialize_default_state() -> void:
 			"objectives": [],
 			"terrain": []
 		},
-		"units": {
-			"U_INTERCESSORS_A": {
-				"id": "U_INTERCESSORS_A",
-				"squad_id": "U_INTERCESSORS_A",
-				"owner": 1,
-				"status": UnitStatus.UNDEPLOYED,
-				"meta": {
-					"name": "Intercessor Squad",
-					"keywords": ["INFANTRY", "PRIMARIS", "IMPERIUM", "ADEPTUS ASTARTES"],
-					"stats": {"move": 6, "toughness": 4, "save": 3}
-				},
-				"models": [
-					{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
-				]
-			},
-			"U_TACTICAL_A": {
-				"id": "U_TACTICAL_A",
-				"squad_id": "U_TACTICAL_A",
-				"owner": 1,
-				"status": UnitStatus.UNDEPLOYED,
-				"meta": {
-					"name": "Tactical Squad",
-					"keywords": ["INFANTRY", "IMPERIUM", "ADEPTUS ASTARTES"],
-					"stats": {"move": 6, "toughness": 4, "save": 3}
-				},
-				"models": [
-					{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
-				]
-			},
-			"U_BOYZ_A": {
-				"id": "U_BOYZ_A",
-				"squad_id": "U_BOYZ_A",
-				"owner": 2,
-				"status": UnitStatus.UNDEPLOYED,
-				"meta": {
-					"name": "Boyz",
-					"keywords": ["INFANTRY", "MOB", "ORKS"],
-					"stats": {"move": 6, "toughness": 5, "save": 6}
-				},
-				"models": [
-					{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-					{"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
-				]
-			},
-			"U_GRETCHIN_A": {
-				"id": "U_GRETCHIN_A",
-				"squad_id": "U_GRETCHIN_A",
-				"owner": 2,
-				"status": UnitStatus.UNDEPLOYED,
-				"meta": {
-					"name": "Gretchin",
-					"keywords": ["INFANTRY", "GROTS", "ORKS"],
-					"stats": {"move": 5, "toughness": 3, "save": 7}
-				},
-				"models": [
-					{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
-					{"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
-					{"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
-					{"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
-					{"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []}
-				]
-			}
-		},
+		"units": {},  # Start empty, will be populated by army loading
 		"players": {
 			"1": {"cp": 3, "vp": 0},
 			"2": {"cp": 3, "vp": 0}
 		},
+		"factions": {},  # New field for faction data
 		"phase_log": [],
 		"history": []
 	}
+	
+	# Load default armies
+	_load_default_armies()
+
+func _load_default_armies() -> void:
+	print("GameState: Loading default armies...")
+	
+	# Check if ArmyListManager is available
+	if not ArmyListManager:
+		print("GameState: ArmyListManager not available, falling back to placeholder armies")
+		_initialize_placeholder_armies()
+		return
+	
+	# Try to load test army for Player 1 (Adeptus Custodes)
+	var player1_army = ArmyListManager.load_army_list("adeptus_custodes", 1)
+	if not player1_army.is_empty():
+		print("GameState: Loading Adeptus Custodes army for Player 1")
+		ArmyListManager.apply_army_to_game_state(player1_army, 1)
+	else:
+		print("GameState: Failed to load Adeptus Custodes, trying Space Marines for Player 1")
+		player1_army = ArmyListManager.load_army_list("space_marines", 1)
+		if not player1_army.is_empty():
+			ArmyListManager.apply_army_to_game_state(player1_army, 1)
+		else:
+			print("GameState: Failed to load Space Marines, using placeholder for Player 1")
+			_initialize_placeholder_armies_player(1)
+	
+	# Load opponent army (Orks for Player 2)
+	var player2_army = ArmyListManager.load_army_list("orks", 2)
+	if not player2_army.is_empty():
+		print("GameState: Loading Orks army for Player 2")
+		ArmyListManager.apply_army_to_game_state(player2_army, 2)
+	else:
+		print("GameState: Failed to load Orks, using placeholder for Player 2")
+		_initialize_placeholder_armies_player(2)
+	
+	print("GameState: Army loading complete. Total units: ", state.units.size())
+
+func _initialize_placeholder_armies() -> void:
+	print("GameState: Initializing placeholder armies for both players")
+	_initialize_placeholder_armies_player(1)
+	_initialize_placeholder_armies_player(2)
+
+func _initialize_placeholder_armies_player(player: int) -> void:
+	print("GameState: Initializing placeholder army for player ", player)
+	
+	if player == 1:
+		# Space Marines placeholder units
+		state.units["U_INTERCESSORS_A"] = {
+			"id": "U_INTERCESSORS_A",
+			"squad_id": "U_INTERCESSORS_A",
+			"owner": 1,
+			"status": UnitStatus.UNDEPLOYED,
+			"meta": {
+				"name": "Intercessor Squad",
+				"keywords": ["INFANTRY", "PRIMARIS", "IMPERIUM", "ADEPTUS ASTARTES"],
+				"stats": {"move": 6, "toughness": 4, "save": 3}
+			},
+			"models": [
+				{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+			]
+		}
+		
+		state.units["U_TACTICAL_A"] = {
+			"id": "U_TACTICAL_A",
+			"squad_id": "U_TACTICAL_A",
+			"owner": 1,
+			"status": UnitStatus.UNDEPLOYED,
+			"meta": {
+				"name": "Tactical Squad",
+				"keywords": ["INFANTRY", "IMPERIUM", "ADEPTUS ASTARTES"],
+				"stats": {"move": 6, "toughness": 4, "save": 3}
+			},
+			"models": [
+				{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+			]
+		}
+		
+		state.factions["1"] = {"name": "Space Marines", "points": 0}
+		
+	else:  # player == 2
+		# Ork placeholder units
+		state.units["U_BOYZ_A"] = {
+			"id": "U_BOYZ_A",
+			"squad_id": "U_BOYZ_A",
+			"owner": 2,
+			"status": UnitStatus.UNDEPLOYED,
+			"meta": {
+				"name": "Boyz",
+				"keywords": ["INFANTRY", "MOB", "ORKS"],
+				"stats": {"move": 6, "toughness": 5, "save": 6}
+			},
+			"models": [
+				{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+				{"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+			]
+		}
+		
+		state.units["U_GRETCHIN_A"] = {
+			"id": "U_GRETCHIN_A",
+			"squad_id": "U_GRETCHIN_A",
+			"owner": 2,
+			"status": UnitStatus.UNDEPLOYED,
+			"meta": {
+				"name": "Gretchin",
+				"keywords": ["INFANTRY", "GROTS", "ORKS"],
+				"stats": {"move": 5, "toughness": 3, "save": 7}
+			},
+			"models": [
+				{"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+				{"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+				{"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+				{"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []},
+				{"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 25, "position": null, "alive": true, "status_effects": []}
+			]
+		}
+		
+		state.factions["2"] = {"name": "Orks", "points": 0}
 
 func generate_game_id() -> String:
 	var uuid = "%08x-%04x-%04x-%04x-%012x" % [

@@ -484,6 +484,10 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	emit_signal("ui_update_requested")
 
 func _unhandled_input(event: InputEvent) -> void:
+	# In debug mode, let DebugManager handle all input
+	if DebugManager and DebugManager.is_debug_active():
+		return
+		
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:

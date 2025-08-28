@@ -2,7 +2,7 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1755961794.684,
+		"timestamp": 1756326186.959,
 		"version": "1.0.0"
 	},
 	"board": {
@@ -338,19 +338,6 @@
 	"phase_log": [
 		{
 			"type": "END_SHOOTING"
-		},
-		{
-			"actor_unit_id": "U_INTERCESSORS_A",
-			"payload": {
-				"target_unit_ids": [
-					"U_BOYZ_A"
-				]
-			},
-			"type": "DECLARE_CHARGE"
-		},
-		{
-			"actor_unit_id": "U_INTERCESSORS_A",
-			"type": "CHARGE_ROLL"
 		}
 	],
 	"players": {

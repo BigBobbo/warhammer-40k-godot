@@ -19,6 +19,8 @@ config/icon="res://icon.svg"
 
 SettingsService="*res://autoloads/SettingsService.gd"
 Measurement="*res://autoloads/Measurement.gd"
+ArmyListManager="*res://autoloads/ArmyListManager.gd"
+DebugManager="*res://autoloads/DebugManager.gd"
 GameState="*res://autoloads/GameState.gd"
 ActionLogger="*res://autoloads/ActionLogger.gd"
 StateSerializer="*res://autoloads/StateSerializer.gd"

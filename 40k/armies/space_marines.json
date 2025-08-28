@@ -1,0 +1,163 @@
+{
+  "faction": {
+    "name": "Space Marines",
+    "points": 500,
+    "detachment": "Battle Company",
+    "player_name": "",
+    "team_name": ""
+  },
+  "units": {
+    "U_INTERCESSORS_A": {
+      "id": "U_INTERCESSORS_A",
+      "squad_id": "U_INTERCESSORS_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Intercessor Squad",
+        "keywords": ["INFANTRY", "PRIMARIS", "IMPERIUM", "ADEPTUS ASTARTES"],
+        "stats": {
+          "move": 6,
+          "toughness": 4,
+          "save": 3,
+          "wounds": 2,
+          "leadership": 6,
+          "objective_control": 2
+        },
+        "points": 100,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Bolt rifle",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "ballistic_skill": "3",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "1",
+            "special_rules": "assault, heavy"
+          },
+          {
+            "name": "Bolt pistol",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Oath of Moment",
+            "type": "Faction",
+            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "5 Intercessors",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
+    },
+    "U_TACTICAL_A": {
+      "id": "U_TACTICAL_A",
+      "squad_id": "U_TACTICAL_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Tactical Squad",
+        "keywords": ["INFANTRY", "IMPERIUM", "ADEPTUS ASTARTES"],
+        "stats": {
+          "move": 6,
+          "toughness": 4,
+          "save": 3,
+          "wounds": 2,
+          "leadership": 6,
+          "objective_control": 2
+        },
+        "points": 90,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [],
+        "weapons": [
+          {
+            "name": "Boltgun",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "2",
+            "ballistic_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 1"
+          },
+          {
+            "name": "Bolt pistol",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Oath of Moment",
+            "type": "Faction",
+            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "5 Space Marines",
+            "line": 1
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
+    }
+  }
+}

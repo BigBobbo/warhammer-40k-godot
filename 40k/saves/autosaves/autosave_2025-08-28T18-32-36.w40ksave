@@ -1,0 +1,1578 @@
+{
+	"_serialization": {
+		"game_version": "1.0.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1756420356.75764,
+		"version": "1.0.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1,
+				"poly": [
+					{
+						"x": 0,
+						"y": 0
+					},
+					{
+						"x": 44,
+						"y": 0
+					},
+					{
+						"x": 44,
+						"y": 12
+					},
+					{
+						"x": 0,
+						"y": 12
+					}
+				]
+			},
+			{
+				"player": 2,
+				"poly": [
+					{
+						"x": 0,
+						"y": 48
+					},
+					{
+						"x": 44,
+						"y": 48
+					},
+					{
+						"x": 44,
+						"y": 60
+					},
+					{
+						"x": 0,
+						"y": 60
+					}
+				]
+			}
+		],
+		"objectives": [],
+		"size": {
+			"height": 60,
+			"width": 44
+		},
+		"terrain": []
+	},
+	"factions": {
+		"1": {
+			"detachment": "Shield Host",
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 1000.0,
+			"team_name": ""
+		},
+		"2": {
+			"detachment": "Waaagh!",
+			"name": "Orks",
+			"player_name": "",
+			"points": 500.0,
+			"team_name": ""
+		}
+	},
+	"history": [
+		{
+			"actions": [
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1273.33325195312,
+							"y": 93.3333282470703
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419761.02814,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BLADE_CHAMPION_A"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1673.33325195312,
+							"y": 2273.33325195312
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.66662597656,
+							"y": 2096.66650390625
+						},
+						{
+							"_type": "Vector2",
+							"x": 1550.0,
+							"y": 2193.33325195312
+						},
+						{
+							"_type": "Vector2",
+							"x": 1586.66662597656,
+							"y": 2326.66650390625
+						},
+						{
+							"_type": "Vector2",
+							"x": 1586.66662597656,
+							"y": 2060.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1403.33325195312,
+							"y": 2090.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1426.66662597656,
+							"y": 2256.66650390625
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.66662597656,
+							"y": 2210.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1506.66662597656,
+							"y": 2350.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1503.33325195312,
+							"y": 2153.33325195312
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756419770.8523,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_A"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1000.0,
+							"y": 300.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 946.666625976562,
+							"y": 126.666664123535
+						},
+						{
+							"_type": "Vector2",
+							"x": 863.333312988281,
+							"y": 243.33332824707
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419775.88575,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CUSTODIAN_GUARD_B"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 413.333312988281,
+							"y": 2230.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 386.666656494141,
+							"y": 2133.33325195312
+						},
+						{
+							"_type": "Vector2",
+							"x": 236.666656494141,
+							"y": 2140.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 243.33332824707,
+							"y": 2226.66650390625
+						},
+						{
+							"_type": "Vector2",
+							"x": 346.666656494141,
+							"y": 2303.33325195312
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756419781.43876,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_GRETCHIN_A"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 200.0,
+							"y": 333.333312988281
+						},
+						{
+							"_type": "Vector2",
+							"x": 266.666656494141,
+							"y": 233.33332824707
+						},
+						{
+							"_type": "Vector2",
+							"x": 193.33332824707,
+							"y": 233.33332824707
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419791.19301,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WITCHSEEKERS_C"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1330.0,
+							"y": 390.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1410.0,
+							"y": 390.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1436.66662597656,
+							"y": 330.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1363.33325195312,
+							"y": 296.666656494141
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419796.64585,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WITCHSEEKERS_D"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 553.333312988281,
+							"y": 283.333312988281
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419800.39748,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CALADIUS_GRAV-TANK_E"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1663.33325195312,
+							"y": 196.666656494141
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419804.08358,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1193.33325195312,
+							"y": 236.666656494141
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756419809.13601,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+				}
+			],
+			"phase": 0,
+			"turn": 1
+		}
+	],
+	"meta": {
+		"active_player": 1,
+		"created_at": 1756419756.73922,
+		"game_id": "a4985026-67a6-d85e-8bfd--44ff2c98abf9b83e",
+		"phase": 1,
+		"turn_number": 1,
+		"version": "1.0.0"
+	},
+	"phase_log": [
+		{
+			"actor_unit_id": "U_CUSTODIAN_GUARD_B",
+			"payload": {
+
+			},
+			"type": "BEGIN_NORMAL_MOVE"
+		},
+		{
+			"actor_unit_id": "U_CUSTODIAN_GUARD_B",
+			"payload": {
+
+			},
+			"type": "BEGIN_NORMAL_MOVE"
+		},
+		{
+			"actor_unit_id": "U_CUSTODIAN_GUARD_B",
+			"payload": {
+				"dest": [
+					1023.33331298828,
+					393.333312988281
+				],
+				"model_id": "m1"
+			},
+			"type": "SET_MODEL_DEST"
+		},
+		{
+			"actor_unit_id": "U_CUSTODIAN_GUARD_B",
+			"payload": {
+				"dest": [
+					886.666625976562,
+					330.0
+				],
+				"model_id": "m3"
+			},
+			"type": "SET_MODEL_DEST"
+		}
+	],
+	"players": {
+		"1": {
+			"cp": 3,
+			"vp": 0
+		},
+		"2": {
+			"cp": 3,
+			"vp": 0
+		}
+	},
+	"units": {
+		"U_BLADE_CHAMPION_A": {
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [
+					"Adamantine Talisman (+25 pts)"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Blade Champion",
+				"points": 145.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanus",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1273.33325195312,
+						"y": 93.3333282470703
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLADE_CHAMPION_A",
+			"status": 2
+		},
+		"U_BOYZ_A": {
+			"flags": {
+
+			},
+			"id": "U_BOYZ_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "ORKS units from your army can be affected by one Waaagh! per battle.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this unit is within 6\" of one or more friendly ORKS MOB units, this unit gains the Feel No Pain 6+ ability.",
+						"name": "Mob Rule",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 85.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 6.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "10 Boyz",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1673.33325195312,
+						"y": 2273.33325195312
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1666.66662597656,
+						"y": 2096.66650390625
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1550.0,
+						"y": 2193.33325195312
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1586.66662597656,
+						"y": 2326.66650390625
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 1586.66662597656,
+						"y": 2060.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"x": 1403.33325195312,
+						"y": 2090.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"x": 1426.66662597656,
+						"y": 2256.66650390625
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"x": 1666.66662597656,
+						"y": 2210.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"x": 1506.66662597656,
+						"y": 2350.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"x": 1503.33325195312,
+						"y": 2153.33325195312
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_A",
+			"status": 2
+		},
+		"U_CALADIUS_GRAV-TANK_E": {
+			"flags": {
+
+			},
+			"id": "U_CALADIUS_GRAV-TANK_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "D3",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+						"name": "Advanced Firepower",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CALADIUS GRAV-TANK",
+					"FLY",
+					"IMPERIUM",
+					"VEHICLE"
+				],
+				"name": "Caladius Grav-tank",
+				"points": 215.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 10.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 11.0,
+					"wounds": 14.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Caladius Grav-tank",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "D6+2",
+						"name": "Twin arachnus heavy blaze cannon",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Twin lastrum bolt cannon",
+						"range": "36",
+						"special_rules": "sustained hits 1",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 170.0,
+					"current_wounds": 14.0,
+					"id": "m1",
+					"position": {
+						"x": 553.333312988281,
+						"y": 283.333312988281
+					},
+					"status_effects": [],
+					"wounds": 14.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CALADIUS_GRAV-TANK_E",
+			"status": 2
+		},
+		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+			"flags": {
+
+			},
+			"id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "1",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model is selected to fight, you can select one enemy unit within Engagement Range of it and roll one D6, adding 2 to the result if this model made a Charge move this turn: on a 4-5, that enemy unit suffers D3 mortal wounds; on a 6+, that enemy unit suffers 3 mortal wounds.",
+						"name": "Dread Foe",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CONTEMPTOR-ACHILLUS DREADNOUGHT",
+					"IMPERIUM",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Contemptor-Achillus Dreadnought",
+				"points": 155.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 10.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Contemptor-Achillus Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Achillus dreadspear",
+						"range": "12",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Infernus incinerator",
+						"range": "12",
+						"special_rules": "torrent, ignores cover",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin adrathic destructor",
+						"range": "18",
+						"special_rules": "twin-linked",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "D6+1",
+						"name": "Achillus dreadspear",
+						"range": "Melee",
+						"special_rules": "lance",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 60.0,
+					"current_wounds": 10.0,
+					"id": "m1",
+					"position": {
+						"x": 1663.33325195312,
+						"y": 196.666656494141
+					},
+					"status_effects": [],
+					"wounds": 10.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_B": {
+			"flags": {
+				"move_cap_inches": 6.0
+			},
+			"id": "U_CUSTODIAN_GUARD_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 1 to the bearer's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Wargear"
+					},
+					{
+						"description": "Add 1 to the Objective Control characteristic of models in the bearer's unit.",
+						"name": "Vexilla",
+						"type": "Wargear"
+					},
+					{
+						"description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 170.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Custodian Guard",
+					"Custodian Guard (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Misericordia",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Sentinel blade",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": {
+						"x": 1023.33331298828,
+						"y": 393.333312988281
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m2",
+					"position": {
+						"x": 946.666625976562,
+						"y": 126.666664123535
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m3",
+					"position": {
+						"x": 886.666625976562,
+						"y": 330.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_B",
+			"status": 2
+		},
+		"U_GRETCHIN_A": {
+			"flags": {
+
+			},
+			"id": "U_GRETCHIN_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "While this unit contains 10 or more models, each time a model in this unit makes an attack, re-roll a Hit roll of 1.",
+						"name": "Surprisingly Dangerous in Large Numbers",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"INFANTRY",
+					"GROTS",
+					"ORKS"
+				],
+				"name": "Gretchin",
+				"points": 40.0,
+				"stats": {
+					"leadership": 5.0,
+					"move": 5.0,
+					"objective_control": 0.0,
+					"save": 7.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "5 Gretchin",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Grot blasta",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "3",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "2",
+						"type": "Melee",
+						"weapon_skill": "5"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 413.333312988281,
+						"y": 2230.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 386.666656494141,
+						"y": 2133.33325195312
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 236.666656494141,
+						"y": 2140.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 243.33332824707,
+						"y": 2226.66650390625
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 25.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"x": 346.666656494141,
+						"y": 2303.33325195312
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_GRETCHIN_A",
+			"status": 2
+		},
+		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
+			"flags": {
+
+			},
+			"id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "1",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time an attack targets this model, an unmodified saving throw of 6 reflects the attack back at the attacker - the attacking model's unit suffers 1 mortal wound after all of the attacking model's attacks have been resolved.",
+						"name": "Eternal Protector",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"IMPERIUM",
+					"TELEMON HEAVY DREADNOUGHT",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Telemon Heavy Dreadnought",
+				"points": 265.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 8.0,
+					"objective_control": 5.0,
+					"save": 2.0,
+					"toughness": 12.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Telemon Heavy Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Telemon Caestus",
+						"range": "12",
+						"special_rules": "twin-linked",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Spiculus bolt launcher",
+						"range": "36",
+						"special_rules": "",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "8",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Iliastus accelerator culverin",
+						"range": "48",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Telemon Caestus",
+						"range": "Melee",
+						"special_rules": "",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "16",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Telemon Storm Cannon",
+						"range": "72",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-4",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "D6+1",
+						"name": "Twin arachnus las-blaze",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "14",
+						"type": "Ranged"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"x": 1193.33325195312,
+						"y": 236.666656494141
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"status": 2
+		},
+		"U_WITCHSEEKERS_C": {
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 50.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 200.0,
+						"y": 333.333312988281
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 266.666656494141,
+						"y": 233.33332824707
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 193.33332824707,
+						"y": 233.33332824707
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WITCHSEEKERS_C",
+			"status": 2
+		},
+		"U_WITCHSEEKERS_D": {
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 65.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 1330.0,
+						"y": 390.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1410.0,
+						"y": 390.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1436.66662597656,
+						"y": 330.0
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1363.33325195312,
+						"y": 296.666656494141
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_WITCHSEEKERS_D",
+			"status": 2
+		}
+	}
+}

@@ -291,6 +291,13 @@ func connect_signals() -> void:
 	
 
 func _input(event: InputEvent) -> void:
+	# Debug mode toggle - highest priority
+	if event is InputEventKey and event.pressed and event.keycode == KEY_9:
+		print("Debug mode key (9) pressed!")
+		DebugManager.toggle_debug_mode()
+		get_viewport().set_input_as_handled()
+		return
+	
 	# Debug: Check for [ key directly for save
 	if event is InputEventKey and event.pressed and event.keycode == KEY_BRACKETLEFT:
 		print("[ KEY DETECTED DIRECTLY!")
