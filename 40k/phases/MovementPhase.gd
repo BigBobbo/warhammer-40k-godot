@@ -65,6 +65,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_begin_fall_back(action)
 		"SET_MODEL_DEST":
 			return _validate_set_model_dest(action)
+		"STAGE_MODEL_MOVE":
+			return _validate_stage_model_move(action)
 		"UNDO_LAST_MODEL_MOVE":
 			return _validate_undo_last_model_move(action)
 		"RESET_UNIT_MOVE":
@@ -90,6 +92,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_begin_fall_back(action)
 		"SET_MODEL_DEST":
 			return _process_set_model_dest(action)
+		"STAGE_MODEL_MOVE":
+			return _process_stage_model_move(action)
 		"UNDO_LAST_MODEL_MOVE":
 			return _process_undo_last_model_move(action)
 		"RESET_UNIT_MOVE":
@@ -204,6 +208,61 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	
 	return {"valid": true, "errors": []}
 
+func _validate_stage_model_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var model_id = payload.get("model_id", "")
+	var dest = payload.get("dest", [])
+	
+	if unit_id == "" or model_id == "" or dest.size() != 2:
+		return {"valid": false, "errors": ["Missing required fields"]}
+	
+	# Check if unit has an active move
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["No active move for unit"]}
+	
+	var move_data = active_moves[unit_id]
+	var dest_vec = Vector2(dest[0], dest[1])
+	
+	# Get model's current position (may be staged position)
+	var model = _get_model_in_unit(unit_id, model_id)
+	if model.is_empty():
+		return {"valid": false, "errors": ["Model not found in unit"]}
+	
+	# Check staged position if model has one
+	var current_pos = null
+	for staged_move in move_data.staged_moves:
+		if staged_move.model_id == model_id:
+			current_pos = staged_move.dest
+			break
+	
+	# If no staged position, use actual position
+	if current_pos == null:
+		current_pos = _get_model_position(model)
+		if current_pos == null:
+			return {"valid": false, "errors": ["Model has no current position"]}
+	
+	# Get the model's original position
+	var original_pos = move_data.original_positions.get(model_id, current_pos)
+	
+	# Calculate total distance from original position to destination
+	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
+	
+	# Check if this specific model's distance exceeds cap
+	if total_distance_for_model > move_data.move_cap_inches:
+		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, move_data.move_cap_inches]]}
+	
+	# Check engagement range restrictions for the destination
+	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
+	if not er_check.valid:
+		return {"valid": false, "errors": er_check.errors}
+	
+	# Check terrain collision
+	if _position_intersects_terrain(dest_vec, model.get("base_mm", 32)):
+		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
+	
+	return {"valid": true, "errors": []}
+
 func _validate_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	if unit_id == "":
@@ -280,6 +339,9 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 		"mode": "NORMAL",
 		"move_cap_inches": move_inches,
 		"model_moves": [],
+		"staged_moves": [],  # NEW: Temporary moves before confirmation
+		"original_positions": {},  # NEW: Track starting positions for reset
+		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": []
 	}
 	
@@ -309,6 +371,9 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 		"mode": "ADVANCE",
 		"move_cap_inches": total_move,
 		"model_moves": [],
+		"staged_moves": [],  # NEW: Temporary moves before confirmation
+		"original_positions": {},  # NEW: Track starting positions for reset
+		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}]
 	}
 	
@@ -345,6 +410,9 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		"mode": "FALL_BACK",
 		"move_cap_inches": move_inches,
 		"model_moves": [],
+		"staged_moves": [],  # NEW: Temporary moves before confirmation
+		"original_positions": {},  # NEW: Track starting positions for reset
+		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
 		"battle_shocked": unit.get("status_effects", {}).get("battle_shocked", false)
 	}
@@ -400,6 +468,79 @@ func _process_set_model_dest(action: Dictionary) -> Dictionary:
 		}
 	])
 
+func _process_stage_model_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var model_id = payload.get("model_id", "")
+	var dest = payload.get("dest", [])
+	var dest_vec = Vector2(dest[0], dest[1])
+	
+	var move_data = active_moves[unit_id]
+	var model = _get_model_in_unit(unit_id, model_id)
+	
+	# Get current position (may be staged)
+	var current_pos = null
+	for staged_move in move_data.staged_moves:
+		if staged_move.model_id == model_id:
+			current_pos = staged_move.dest
+			break
+	
+	# If no staged position, use actual position
+	if current_pos == null:
+		current_pos = _get_model_position(model)
+		# Store original position if this is the first move for this model
+		if not move_data.original_positions.has(model_id):
+			move_data.original_positions[model_id] = current_pos
+	
+	# Calculate distance for this stage
+	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
+	
+	# Check for enemy crossing (Fall Back)
+	var crosses_enemy = false
+	if move_data.mode == "FALL_BACK":
+		crosses_enemy = _path_crosses_enemy(current_pos, dest_vec, unit_id, model.get("base_mm", 32))
+	
+	# Calculate total distance from original position
+	var original_pos = move_data.original_positions.get(model_id, current_pos)
+	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
+	
+	# Remove any existing staged move for this model to replace it
+	for i in range(move_data.staged_moves.size() - 1, -1, -1):
+		if move_data.staged_moves[i].model_id == model_id:
+			move_data.staged_moves.remove_at(i)
+			break
+	
+	# Add new staged move
+	move_data.staged_moves.append({
+		"model_id": model_id,
+		"from": current_pos,
+		"dest": dest_vec,
+		"distance": distance_inches,  # Keep individual segment distance for display
+		"total_distance": total_distance_for_model,  # Track total from origin
+		"crosses_enemy": crosses_enemy
+	})
+	
+	# Update per-model distance tracking
+	move_data.model_distances[model_id] = total_distance_for_model
+	
+	print("DEBUG: Model ", model_id, " moved from ", current_pos, " to ", dest_vec)
+	print("  - Distance this segment: ", distance_inches, "\"")
+	print("  - Total distance from origin: ", total_distance_for_model, "\"")
+	print("  - Remaining for this model: ", (move_data.move_cap_inches - total_distance_for_model), "\"")
+	
+	# Emit both signals for visual update
+	emit_signal("model_drop_preview", unit_id, model_id, [current_pos, dest_vec], distance_inches, true)
+	# Also emit committed signal so model visually moves (but game state not updated)
+	emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
+	
+	# Return result without state changes (staged only)
+	return create_result(true, [], "", {
+		"staged": true, 
+		"model_distance": total_distance_for_model,
+		"model_remaining": move_data.move_cap_inches - total_distance_for_model,
+		"model_distances": move_data.model_distances
+	})
+
 func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
@@ -424,7 +565,17 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	var move_data = active_moves[unit_id]
 	var changes = []
 	
-	# Reset all model positions
+	# Reset models from staged moves to their original positions
+	for model_id in move_data.original_positions:
+		var original_pos = move_data.original_positions[model_id]
+		if original_pos:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, model_id)],
+				"value": {"x": original_pos.x, "y": original_pos.y}
+			})
+	
+	# Reset all model positions from permanent moves (if any)
 	for model_move in move_data.model_moves:
 		var from_pos = model_move.from
 		changes.append({
@@ -433,8 +584,12 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 			"value": {"x": from_pos.x, "y": from_pos.y} if from_pos else null
 		})
 	
-	# Clear move data
+	# Clear all move data
 	move_data.model_moves.clear()
+	move_data.staged_moves.clear()
+	move_data.model_distances.clear()  # Clear per-model distances
+	move_data.original_positions.clear()
+	
 	emit_signal("unit_move_reset", unit_id)
 	
 	return create_result(true, changes)
@@ -444,6 +599,27 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	var move_data = active_moves[unit_id]
 	var changes = []
 	var additional_dice = []
+	
+	# Convert staged moves to permanent moves
+	for staged_move in move_data.staged_moves:
+		# Add to permanent moves
+		move_data.model_moves.append({
+			"model_id": staged_move.model_id,
+			"from": staged_move.get("from"),
+			"dest": staged_move.dest,
+			"crosses_enemy": staged_move.get("crosses_enemy", false)
+		})
+		
+		# Update model position in game state
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, staged_move.model_id)],
+			"value": {"x": staged_move.dest.x, "y": staged_move.dest.y}
+		})
+	
+	# Clear staged moves after converting them
+	move_data.staged_moves.clear()
+	move_data.accumulated_distance = 0.0
 	
 	# Handle Desperate Escape for Fall Back
 	if move_data.mode == "FALL_BACK":
@@ -843,6 +1019,12 @@ func _should_complete_phase() -> bool:
 
 func get_dice_log() -> Array:
 	return dice_log
+
+func get_active_move_data(unit_id: String) -> Dictionary:
+	# Helper method for MovementController to access active move data
+	if active_moves.has(unit_id):
+		return active_moves[unit_id]
+	return {}
 
 # Override create_result to support additional data
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:

@@ -20,8 +20,10 @@ var drag_start_pos: Vector2
 # UI References
 var board_view: Node2D
 var path_visual: Line2D
+var staged_path_visual: Line2D  # NEW: Visual for staged movements
 var ruler_visual: Line2D
 var ghost_visual: Node2D
+var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for individual paths
 var hud_bottom: Control
 var hud_right: Control
 
@@ -48,10 +50,19 @@ func _exit_tree() -> void:
 	# Clean up visuals that were added to BoardRoot
 	if path_visual and is_instance_valid(path_visual):
 		path_visual.queue_free()
+	if staged_path_visual and is_instance_valid(staged_path_visual):
+		staged_path_visual.queue_free()
 	if ruler_visual and is_instance_valid(ruler_visual):
 		ruler_visual.queue_free()  
 	if ghost_visual and is_instance_valid(ghost_visual):
 		ghost_visual.queue_free()
+	
+	# Clean up individual model path visuals
+	for model_id in model_path_visuals:
+		var line = model_path_visuals[model_id]
+		if line and is_instance_valid(line):
+			line.queue_free()
+	model_path_visuals.clear()
 	
 	# Clean up UI containers
 	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementInfo")
@@ -96,6 +107,15 @@ func _create_path_visuals() -> void:
 	path_visual.add_point(Vector2.ZERO)  # Dummy point
 	path_visual.clear_points()
 	board_root.add_child(path_visual)
+	
+	# Create staged path visualization line (yellow for staged moves)
+	staged_path_visual = Line2D.new()
+	staged_path_visual.name = "StagedMovementPathVisual"
+	staged_path_visual.width = 2.0
+	staged_path_visual.default_color = Color.YELLOW  # Yellow for staged moves
+	staged_path_visual.add_point(Vector2.ZERO)  # Dummy point
+	staged_path_visual.clear_points()
+	board_root.add_child(staged_path_visual)
 	
 	# Create ruler line in BoardRoot space
 	ruler_visual = Line2D.new()
@@ -272,6 +292,19 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("model_drop_committed"):
 				if not phase.model_drop_committed.is_connected(_on_model_drop_committed):
 					phase.model_drop_committed.connect(_on_model_drop_committed)
+					print("MovementController: Connected model_drop_committed signal")
+				
+				# Also ensure Main.gd is connected to the same phase instance
+				var main_node = get_node("/root/Main")
+				if main_node and main_node.has_method("_on_model_drop_committed"):
+					if not phase.model_drop_committed.is_connected(main_node._on_model_drop_committed):
+						phase.model_drop_committed.connect(main_node._on_model_drop_committed)
+						print("MovementController: Connected Main to model_drop_committed signal")
+						
+			if phase.has_signal("model_drop_preview"):
+				if not phase.model_drop_preview.is_connected(_on_model_drop_preview):
+					phase.model_drop_preview.connect(_on_model_drop_preview)
+					print("MovementController: Connected model_drop_preview signal")
 			if phase.has_signal("unit_move_confirmed"):
 				if not phase.unit_move_confirmed.is_connected(_on_unit_move_confirmed):
 					phase.unit_move_confirmed.connect(_on_unit_move_confirmed)
@@ -462,9 +495,19 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	emit_signal("ui_update_requested")
 
 func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
+	print("MovementController: Model drop committed for ", model_id, " at ", dest_px)
 	# Update path visual
 	_update_movement_display()
 	_refresh_unit_list()
+	emit_signal("ui_update_requested")
+
+func _on_model_drop_preview(unit_id: String, model_id: String, path_px: Array, inches_used: float, legal: bool) -> void:
+	# Handle staged movement visual updates
+	print("MovementController: Model drop preview: ", model_id, " staged at ", path_px[-1] if path_px.size() > 0 else "unknown")
+	
+	# Update movement display with staged distance
+	_update_movement_display()
+	_update_staged_moves_visual()
 	emit_signal("ui_update_requested")
 
 func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> void:
@@ -473,6 +516,14 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	active_mode = ""
 	move_cap_inches = 0.0
 	_clear_path_visual()
+	
+	# Clear all individual model path visuals
+	for model_id in model_path_visuals:
+		var line = model_path_visuals[model_id]
+		if line and is_instance_valid(line):
+			line.queue_free()
+	model_path_visuals.clear()
+	
 	_update_movement_display()
 	_refresh_unit_list()
 	_update_end_phase_button()
@@ -480,6 +531,15 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 
 func _on_unit_move_reset(unit_id: String) -> void:
 	_clear_path_visual()
+	path_visual.clear_points()  # Clear staged moves visual as well
+	
+	# Clear all individual model path visuals
+	for model_id in model_path_visuals:
+		var line = model_path_visuals[model_id]
+		if line and is_instance_valid(line):
+			line.queue_free()
+	model_path_visuals.clear()
+	
 	_update_movement_display()
 	emit_signal("ui_update_requested")
 
@@ -546,6 +606,11 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 	current_path = [drag_start_pos]
 	
 	print("Started dragging model ", model.model_id, " from unit ", model.unit_id)
+	
+	# Update display to show this model's specific movement info
+	_update_movement_display()
+	# Update path visual to show only this model's path
+	_update_staged_moves_visual()
 	_show_ghost_visual(model)
 	# Set initial ghost position to the cursor position
 	_update_ghost_position(world_pos)
@@ -572,16 +637,21 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches(current_path)
-	var inches_left = move_cap_inches - distance_inches
 	
-	# Check validity
-	path_valid = _validate_move_path(current_path, distance_inches)
+	# Get the model's already accumulated distance
+	var already_used = _get_accumulated_distance()
+	var total_distance = already_used + distance_inches
+	var inches_left = move_cap_inches - total_distance
+	
+	# Check validity based on total distance
+	path_valid = total_distance <= move_cap_inches
 	
 	# Update visuals
 	_update_path_visual()
 	_update_ruler_visual()
 	_update_ghost_position(world_pos)
-	_update_movement_display_with_preview(distance_inches, inches_left, path_valid)
+	# Show total distance used (already accumulated + current drag)
+	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 
 func _end_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -608,17 +678,20 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
 	print("Distance moved: ", distance_inches, " inches")
 	
-	# For now, skip validation to test if movement works
-	var valid = distance_inches <= move_cap_inches
+	# Get accumulated distance to check against cap
+	var accumulated = _get_accumulated_distance()
+	var total_distance = accumulated + distance_inches
+	var valid = total_distance <= move_cap_inches
 	
 	if valid:
-		print("Move is valid, sending SET_MODEL_DEST action")
+		print("Move is valid, sending STAGE_MODEL_MOVE action")
 		print("  From: ", drag_start_pos, " To: ", world_pos)
 		print("  Distance: ", distance_inches, " inches")
+		print("  Total staged: ", total_distance, " inches")
 		
-		# Send SET_MODEL_DEST action
+		# Send STAGE_MODEL_MOVE action instead of SET_MODEL_DEST
 		var action = {
-			"type": "SET_MODEL_DEST",
+			"type": "STAGE_MODEL_MOVE",  # Changed to stage instead of commit
 			"actor_unit_id": active_unit_id,
 			"payload": {
 				"model_id": selected_model.model_id,
@@ -628,7 +701,7 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
 	else:
-		print("Move invalid: exceeds movement cap (", distance_inches, " > ", move_cap_inches, ")")
+		print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", move_cap_inches, ")")
 	
 	# Clear drag state
 	dragging_model = false
@@ -637,6 +710,9 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	_clear_ghost_visual()
 	_clear_path_visual()
 	_clear_ruler_visual()
+	
+	# Update visual to show all staged moves
+	_update_staged_moves_visual()
 
 func _update_hover_preview(mouse_pos: Vector2) -> void:
 	# Show preview when hovering over models
@@ -708,22 +784,43 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 		var unit = units[unit_id]
 		var models = unit.get("models", [])
 		
+		# Get staged move data if available
+		var move_data = {}
+		if current_phase.has_method("get_active_move_data"):
+			move_data = current_phase.get_active_move_data(unit_id)
+		
 		for i in range(models.size()):
 			var model = models[i]
 			if not model.get("alive", true):
 				continue
 			
-			var pos = model.get("position")
-			if pos == null:
-				continue
+			var model_id = model.get("id", "m%d" % (i+1))
 			
+			# Check for staged position first
 			var model_pos: Vector2
-			if pos is Dictionary:
-				model_pos = Vector2(pos.x, pos.y)
-			elif pos is Vector2:
-				model_pos = pos
-			else:
-				continue
+			var staged_pos_found = false
+			
+			# Look for staged position for this model
+			if move_data.has("staged_moves"):
+				for staged_move in move_data.staged_moves:
+					if staged_move.get("model_id") == model_id:
+						model_pos = staged_move.get("dest", Vector2.ZERO)
+						staged_pos_found = true
+						print("DEBUG: Found staged position for ", model_id, " at ", model_pos)
+						break
+			
+			# Fall back to original position if no staged position
+			if not staged_pos_found:
+				var pos = model.get("position")
+				if pos == null:
+					continue
+					
+				if pos is Dictionary:
+					model_pos = Vector2(pos.x, pos.y)
+				elif pos is Vector2:
+					model_pos = pos
+				else:
+					continue
 			
 			var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
 			var distance = world_pos.distance_to(model_pos)
@@ -735,24 +832,45 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 					closest_distance = distance
 					closest_model = {
 						"unit_id": unit_id,
-						"model_id": model.get("id", "m%d" % (i+1)),
+						"model_id": model_id,
 						"position": model_pos,
-						"base_mm": model.get("base_mm", 32)
+						"base_mm": model.get("base_mm", 32),
+						"is_staged": staged_pos_found
 					}
 	
 	if not closest_model.is_empty():
 		print("Found model at distance ", closest_distance, " pixels")
+		if closest_model.get("is_staged", false):
+			print("  - Model is at staged position")
+		else:
+			print("  - Model is at original position")
 	else:
-		# Debug: Show all model positions
+		# Debug: Show all model positions (both staged and original)
 		print("No model found at ", world_pos, ". Model positions:")
 		for unit_id in units:
 			var unit = units[unit_id]
 			if unit.get("owner", 0) == GameState.get_active_player():
+				var move_data = {}
+				if current_phase.has_method("get_active_move_data"):
+					move_data = current_phase.get_active_move_data(unit_id)
+				
 				var models = unit.get("models", [])
 				for model in models:
+					var model_id = model.get("id", "?")
 					var pos = model.get("position")
-					if pos:
-						print("  ", unit_id, "/", model.get("id", "?"), " at ", pos)
+					
+					# Check for staged position
+					var staged_pos = null
+					if move_data.has("staged_moves"):
+						for staged_move in move_data.staged_moves:
+							if staged_move.get("model_id") == model_id:
+								staged_pos = staged_move.get("dest")
+								break
+					
+					if staged_pos:
+						print("  ", unit_id, "/", model_id, " at staged: ", staged_pos)
+					elif pos:
+						print("  ", unit_id, "/", model_id, " at original: ", pos)
 	
 	return closest_model
 
@@ -788,18 +906,76 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
 	)
 
 func _update_path_visual() -> void:
-	path_visual.clear_points()
+	# Use staged_path_visual for current drag
+	staged_path_visual.clear_points()
 	if current_path.size() < 2:
 		return
 	
 	for point in current_path:
-		path_visual.add_point(point)
+		staged_path_visual.add_point(point)
 	
-	# Color based on validity
-	path_visual.default_color = Color.GREEN if path_valid else Color.RED
+	# Color based on validity - yellow for staged, red for invalid
+	staged_path_visual.default_color = Color.YELLOW if path_valid else Color.RED
 
 func _clear_path_visual() -> void:
-	path_visual.clear_points()
+	staged_path_visual.clear_points()
+
+func _update_staged_moves_visual() -> void:
+	# Update individual path visuals for each model that has moved
+	if not current_phase or not active_unit_id:
+		return
+	
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		return
+	
+	# Get staged moves from phase
+	if current_phase != null and "active_moves" in current_phase:
+		var active_moves = current_phase.active_moves
+		if active_moves.has(active_unit_id):
+			var move_data = active_moves[active_unit_id]
+			
+			# Track which models have paths
+			var models_with_paths = {}
+			
+			# Process staged moves
+			for staged_move in move_data.get("staged_moves", []):
+				var model_id = staged_move.get("model_id", "")
+				if model_id != "" and staged_move.has("from") and staged_move.has("dest"):
+					models_with_paths[model_id] = staged_move
+			
+			# Create or update Line2D for each model with a path
+			for model_id in models_with_paths:
+				var move = models_with_paths[model_id]
+				
+				# Get or create Line2D for this model
+				var line: Line2D
+				if model_path_visuals.has(model_id):
+					line = model_path_visuals[model_id]
+					line.clear_points()
+				else:
+					line = Line2D.new()
+					line.name = "Path_" + model_id
+					line.width = 2.0
+					line.default_color = Color.YELLOW
+					board_root.add_child(line)
+					model_path_visuals[model_id] = line
+				
+				# Add the path points
+				line.add_point(move.from)
+				line.add_point(move.dest)
+			
+			# Remove Line2D for models that no longer have paths
+			var models_to_remove = []
+			for model_id in model_path_visuals:
+				if not models_with_paths.has(model_id):
+					var line = model_path_visuals[model_id]
+					if line and is_instance_valid(line):
+						line.queue_free()
+					models_to_remove.append(model_id)
+			
+			for model_id in models_to_remove:
+				model_path_visuals.erase(model_id)
 
 func _update_ruler_visual() -> void:
 	ruler_visual.clear_points()
@@ -843,13 +1019,45 @@ func _clear_ghost_visual() -> void:
 	for child in ghost_visual.get_children():
 		child.queue_free()
 
+func _get_accumulated_distance() -> float:
+	# Get distance for the currently selected model
+	if not current_phase or not active_unit_id or selected_model.is_empty():
+		return 0.0
+	
+	var model_id = selected_model.get("model_id", "")
+	if model_id == "":
+		return 0.0
+	
+	# Check if phase has active_moves data
+	if current_phase.has_method("get_active_move_data"):
+		var move_data = current_phase.get_active_move_data(active_unit_id)
+		if move_data and move_data.has("model_distances"):
+			# Return the distance for this specific model
+			return move_data.model_distances.get(model_id, 0.0)
+	elif current_phase != null and "active_moves" in current_phase:
+		var active_moves = current_phase.active_moves
+		if active_moves.has(active_unit_id):
+			var move_data = active_moves[active_unit_id]
+			if move_data.has("model_distances"):
+				return move_data.model_distances.get(model_id, 0.0)
+	
+	return 0.0
+
 func _update_movement_display() -> void:
+	var accumulated = _get_accumulated_distance()
 	if move_cap_label:
 		move_cap_label.text = "Move: %.1f\"" % move_cap_inches
 	if inches_used_label:
-		inches_used_label.text = "Used: 0.0\""
+		if selected_model.is_empty():
+			inches_used_label.text = "Staged: -"
+		else:
+			var model_id = selected_model.get("model_id", "")
+			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
 	if inches_left_label:
-		inches_left_label.text = "Left: %.1f\"" % move_cap_inches
+		if selected_model.is_empty():
+			inches_left_label.text = "Left: -"
+		else:
+			inches_left_label.text = "Left: %.1f\"" % (move_cap_inches - accumulated)
 
 func _update_end_phase_button() -> void:
 	# Update End Phase button state based on whether there are active moves
@@ -866,7 +1074,11 @@ func _update_movement_display_with_preview(used: float, left: float, valid: bool
 	if move_cap_label:
 		move_cap_label.text = "Move: %.1f\"" % move_cap_inches
 	if inches_used_label:
-		inches_used_label.text = "Used: %.1f\"" % used
+		if selected_model.is_empty():
+			inches_used_label.text = "Used: %.1f\"" % used
+		else:
+			var model_id = selected_model.get("model_id", "")
+			inches_used_label.text = "%s: %.1f\"" % [model_id, used]
 		inches_used_label.modulate = Color.WHITE if valid else Color.RED
 	if inches_left_label:
 		inches_left_label.text = "Left: %.1f\"" % left

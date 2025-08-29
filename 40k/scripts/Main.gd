@@ -137,12 +137,17 @@ func setup_movement_controller() -> void:
 	if phase_instance:
 		print("Phase instance found: ", phase_instance.get_class())
 		
-		# Check if it's a MovementPhase by checking for movement-specific signals or properties
-		# We check for the phase_type property which should be set in MovementPhase
+		# Check if it's a MovementPhase by checking for movement-specific signals or methods
 		var is_movement_phase = false
 		if phase_instance.has_signal("unit_move_begun"):
 			is_movement_phase = true
 		elif phase_instance.get("phase_type") == GameStateData.Phase.MOVEMENT:
+			is_movement_phase = true
+		elif phase_instance.has_method("_process_begin_normal_move"):
+			# If it has movement-specific methods, treat it as MovementPhase
+			is_movement_phase = true
+		elif phase_instance.has_method("_validate_stage_model_move"):
+			# Or if it has our new staged move methods
 			is_movement_phase = true
 			
 		if is_movement_phase:
@@ -156,6 +161,10 @@ func setup_movement_controller() -> void:
 				if not phase_instance.model_drop_committed.is_connected(movement_controller._on_model_drop_committed):
 					phase_instance.model_drop_committed.connect(movement_controller._on_model_drop_committed)
 					print("Connected model_drop_committed signal")
+				# Also connect to Main for visual updates
+				if not phase_instance.model_drop_committed.is_connected(_on_model_drop_committed):
+					phase_instance.model_drop_committed.connect(_on_model_drop_committed)
+					print("Connected model_drop_committed to Main for visual updates")
 			if phase_instance.has_signal("unit_move_confirmed"):
 				if not phase_instance.unit_move_confirmed.is_connected(movement_controller._on_unit_move_confirmed):
 					phase_instance.unit_move_confirmed.connect(movement_controller._on_unit_move_confirmed)
@@ -1217,3 +1226,29 @@ func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> voi
 	
 	# Recreate all unit visuals with updated positions
 	_recreate_unit_visuals()
+
+func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
+	# Handle visual updates for model drops (including staged moves)
+	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px)
+	
+	# For staged moves, we want to move the visual token directly without updating GameState
+	# Find the existing token in token_layer
+	print("DEBUG: Looking for token in token_layer")
+	if token_layer:
+		print("DEBUG: Token layer found, searching for token with unit_id: ", unit_id, " and model_id: ", model_id)
+		for child in token_layer.get_children():
+			print("DEBUG: Child: ", child.name, ", has unit_id meta: ", child.has_meta("unit_id"), ", has model_id meta: ", child.has_meta("model_id"))
+			if child.has_meta("unit_id"):
+				print("DEBUG: Child unit_id: ", child.get_meta("unit_id"))
+			if child.has_meta("model_id"):
+				print("DEBUG: Child model_id: ", child.get_meta("model_id"))
+			
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
+				print("Moving token visual to ", dest_px)
+				child.position = dest_px
+				return
+	else:
+		print("DEBUG: token_layer not found!")
+	
+	print("Could not find token to move, falling back to full recreation")
+	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
