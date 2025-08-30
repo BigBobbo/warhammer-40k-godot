@@ -162,13 +162,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		return result
 	
 	# Get weapon profile
-	var weapon_profile = WEAPON_PROFILES.get(weapon_id, {})
+	var weapon_profile = get_weapon_profile(weapon_id, board)
 	if weapon_profile.is_empty():
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
 	
 	# Calculate total attacks
-	var total_attacks = model_ids.size() * weapon_profile.get("attacks", 1)
+	var attacks_per_model = weapon_profile.get("attacks", 1)
+	var total_attacks = model_ids.size() * attacks_per_model
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
 	
@@ -353,8 +354,10 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 		
 		if weapon_id == "":
 			errors.append("Assignment missing weapon_id")
-		elif not WEAPON_PROFILES.has(weapon_id):
-			errors.append("Unknown weapon: " + weapon_id)
+		else:
+			var weapon_profile = get_weapon_profile(weapon_id, board)
+			if weapon_profile.is_empty():
+				errors.append("Unknown weapon: " + weapon_id)
 		
 		if target_unit_id == "":
 			errors.append("Assignment missing target_unit_id")
@@ -366,10 +369,12 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 				errors.append("Cannot target friendly units")
 			
 			# Check range and visibility
-			if weapon_id != "" and WEAPON_PROFILES.has(weapon_id):
-				var visibility_result = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
-				if not visibility_result.visible:
-					errors.append(visibility_result.reason)
+			if weapon_id != "":
+				var weapon_profile = get_weapon_profile(weapon_id, board)
+				if not weapon_profile.is_empty():
+					var visibility_result = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
+					if not visibility_result.visible:
+						errors.append(visibility_result.reason)
 	
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -423,7 +428,7 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
-	var weapon_profile = WEAPON_PROFILES.get(weapon_id, {})
+	var weapon_profile = get_weapon_profile(weapon_id, board)
 	
 	if actor_unit.is_empty() or target_unit.is_empty() or weapon_profile.is_empty():
 		return {"visible": false, "reason": "Invalid units or weapon"}
@@ -634,7 +639,7 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 		
 		# Check weapons that can target this unit
 		var weapons_in_range = []
-		var unit_weapons = UNIT_WEAPONS.get(actor_unit_id, {})
+		var unit_weapons = get_unit_weapons(actor_unit_id, board)
 		
 		for model_id in unit_weapons:
 			var model = _get_model_by_id(actor_unit, model_id)
@@ -664,12 +669,149 @@ static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 	return {}
 
 # Get weapons for a unit
-static func get_unit_weapons(unit_id: String) -> Dictionary:
-	return UNIT_WEAPONS.get(unit_id, {})
+static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	# First try legacy format for backward compatibility
+	if UNIT_WEAPONS.has(unit_id):
+		return UNIT_WEAPONS.get(unit_id, {})
+	
+	# Get unit from provided board or current game state
+	var units = {}
+	if not board.is_empty():
+		units = board.get("units", {})
+	else:
+		units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	
+	if unit.is_empty():
+		print("WARNING: Unit not found: ", unit_id)
+		return {}
+	
+	# Convert modern weapons format to model-weapon mapping
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var models = unit.get("models", [])
+	var result = {}
+	
+	# Assign all weapons to all alive models (simplified approach)
+	for model in models:
+		var model_id = model.get("id", "")
+		if model_id != "" and model.get("alive", true):
+			result[model_id] = []
+			for weapon in weapons:
+				if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
+					var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+					result[model_id].append(weapon_id)
+	
+	return result
+
+# Helper function to generate consistent weapon IDs from names
+static func _generate_weapon_id(weapon_name: String) -> String:
+	# Convert weapon name to consistent ID format
+	var weapon_id = weapon_name.to_lower()
+	weapon_id = weapon_id.replace(" ", "_")
+	weapon_id = weapon_id.replace("-", "_")
+	weapon_id = weapon_id.replace("'", "")
+	return weapon_id
 
 # Get weapon profile
-static func get_weapon_profile(weapon_id: String) -> Dictionary:
-	return WEAPON_PROFILES.get(weapon_id, {})
+static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dictionary:
+	# First try legacy weapon profiles
+	if WEAPON_PROFILES.has(weapon_id):
+		return WEAPON_PROFILES.get(weapon_id, {})
+	
+	# Search through all units for matching weapon
+	var units = {}
+	if not board.is_empty():
+		units = board.get("units", {})
+	else:
+		units = GameState.state.get("units", {})
+	
+	for unit_id in units:
+		var unit = units[unit_id]
+		var weapons = unit.get("meta", {}).get("weapons", [])
+		
+		for weapon in weapons:
+			var weapon_name = weapon.get("name", "")
+			var generated_id = _generate_weapon_id(weapon_name)
+			
+			if generated_id == weapon_id:
+				# Convert weapon format to profile format expected by UI
+				# Convert string values to appropriate types where needed
+				var weapon_range = weapon.get("range", "0")
+				var range_value = 0
+				if weapon_range == "Melee":
+					range_value = 0
+				else:
+					range_value = int(weapon_range) if weapon_range.is_valid_int() else 0
+				
+				# Helper function to safely convert weapon stat strings to integers
+				var attacks_str = weapon.get("attacks", "1")
+				var attacks_value = int(attacks_str) if attacks_str.is_valid_int() else 1
+				
+				var bs_str = weapon.get("ballistic_skill", "4") 
+				var bs_value = int(bs_str) if bs_str.is_valid_int() else 4
+				
+				var ws_str = weapon.get("weapon_skill", "4")
+				var ws_value = int(ws_str) if ws_str.is_valid_int() else 4
+				
+				var strength_str = weapon.get("strength", "3")
+				var strength_value = int(strength_str) if strength_str.is_valid_int() else 3
+				
+				var ap_str = weapon.get("ap", "0")  
+				var ap_value = 0
+				if ap_str.begins_with("-"):
+					var ap_num_str = ap_str.substr(1)  # Remove the "-"
+					ap_value = -int(ap_num_str) if ap_num_str.is_valid_int() else 0
+				else:
+					ap_value = int(ap_str) if ap_str.is_valid_int() else 0
+				
+				var damage_str = weapon.get("damage", "1")
+				var damage_value = int(damage_str) if damage_str.is_valid_int() else 1
+				# TODO: Handle complex damage like "D6+2" - for now treat as 1
+				
+				return {
+					"name": weapon_name,
+					"type": weapon.get("type", ""),
+					"range": range_value,  # Convert to int for calculations
+					"attacks": attacks_value,  # Convert to int for calculations
+					"bs": bs_value,  # Convert to int for to-hit rolls  
+					"ballistic_skill": bs_str,  # Keep string for UI display
+					"ws": ws_value,  # Convert to int for melee rolls
+					"weapon_skill": ws_str,  # Keep string for UI display
+					"strength": strength_value,  # Convert to int for calculations
+					"ap": ap_value,  # Convert to int for calculations
+					"damage": damage_value,  # Convert to int for calculations
+					"special_rules": weapon.get("special_rules", "")
+				}
+	
+	print("WARNING: Weapon profile not found: ", weapon_id)
+	return {}
+
+# Validation function to check if unit has weapons
+static func unit_has_weapons(unit_id: String) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id)
+	
+	for model_id in unit_weapons:
+		if not unit_weapons[model_id].is_empty():
+			return true
+	
+	return false
+
+# Debug function to list all weapons for a unit
+static func debug_unit_weapons(unit_id: String) -> void:
+	print("=== DEBUGGING WEAPONS FOR UNIT: ", unit_id, " ===")
+	
+	var unit_weapons = get_unit_weapons(unit_id)
+	if unit_weapons.is_empty():
+		print("NO WEAPONS FOUND")
+		return
+	
+	for model_id in unit_weapons:
+		print("Model ", model_id, ":")
+		for weapon_id in unit_weapons[model_id]:
+			var profile = get_weapon_profile(weapon_id)
+			print("  - ", weapon_id, " (", profile.get("name", "Unknown"), ")")
+	
+	print("=== END WEAPON DEBUG ===")
 
 # ==========================================
 # CHARGE PHASE HELPERS
