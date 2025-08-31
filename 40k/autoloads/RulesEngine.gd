@@ -741,31 +741,31 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 				if weapon_range == "Melee":
 					range_value = 0
 				else:
-					range_value = int(weapon_range) if weapon_range.is_valid_int() else 0
+					range_value = int(weapon_range) if (weapon_range != null and weapon_range.is_valid_int()) else 0
 				
 				# Helper function to safely convert weapon stat strings to integers
 				var attacks_str = weapon.get("attacks", "1")
-				var attacks_value = int(attacks_str) if attacks_str.is_valid_int() else 1
+				var attacks_value = int(attacks_str) if (attacks_str != null and attacks_str.is_valid_int()) else 1
 				
 				var bs_str = weapon.get("ballistic_skill", "4") 
-				var bs_value = int(bs_str) if bs_str.is_valid_int() else 4
+				var bs_value = int(bs_str) if (bs_str != null and bs_str.is_valid_int()) else 4
 				
 				var ws_str = weapon.get("weapon_skill", "4")
-				var ws_value = int(ws_str) if ws_str.is_valid_int() else 4
+				var ws_value = int(ws_str) if (ws_str != null and ws_str.is_valid_int()) else 4
 				
 				var strength_str = weapon.get("strength", "3")
-				var strength_value = int(strength_str) if strength_str.is_valid_int() else 3
+				var strength_value = int(strength_str) if (strength_str != null and strength_str.is_valid_int()) else 3
 				
 				var ap_str = weapon.get("ap", "0")  
 				var ap_value = 0
 				if ap_str.begins_with("-"):
 					var ap_num_str = ap_str.substr(1)  # Remove the "-"
-					ap_value = -int(ap_num_str) if ap_num_str.is_valid_int() else 0
+					ap_value = -int(ap_num_str) if (ap_num_str != null and ap_num_str.is_valid_int()) else 0
 				else:
-					ap_value = int(ap_str) if ap_str.is_valid_int() else 0
+					ap_value = int(ap_str) if (ap_str != null and ap_str.is_valid_int()) else 0
 				
 				var damage_str = weapon.get("damage", "1")
-				var damage_value = int(damage_str) if damage_str.is_valid_int() else 1
+				var damage_value = int(damage_str) if (damage_str != null and damage_str.is_valid_int()) else 1
 				# TODO: Handle complex damage like "D6+2" - for now treat as 1
 				
 				return {
