@@ -19,13 +19,20 @@ signal fight_order_determined(fight_sequence: Array)
 # Fight state tracking
 var active_fighter_id: String = ""
 var selected_weapon_id: String = ""  # Currently selected weapon for active fighter
-var fight_sequence: Array = []  # Ordered list of units to fight
+var fight_sequence: Array = []  # Ordered list of units to fight (kept for compatibility)
 var current_fight_index: int = 0
 var pending_attacks: Array = []
 var confirmed_attacks: Array = []
 var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
+
+# New subphase tracking
+var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
+var normal_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
+var fights_last_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
+var current_subphase: String = "FIGHTS_FIRST"  # "FIGHTS_FIRST", "NORMAL", or "FIGHTS_LAST"
+var current_subphase_player: int = 1  # Which player is currently selecting in this subphase
 
 # Fight priority tiers
 enum FightPriority {
@@ -59,10 +66,11 @@ func _on_phase_exit() -> void:
 		_clear_unit_fight_state(unit_id)
 
 func _initialize_fight_sequence() -> void:
-	# Build fight order: Fights First -> Normal -> Fights Last
-	var fights_first = []
-	var normal = []
-	var fights_last = []
+	# Clear sequences
+	fights_first_sequence = {"1": [], "2": []}
+	normal_sequence = {"1": [], "2": []}
+	fights_last_sequence = {"1": [], "2": []}
+	fight_sequence.clear()  # Keep for compatibility
 	
 	var all_units = game_state_snapshot.get("units", {})
 	log_phase_message("Checking %d units for combat eligibility" % all_units.size())
@@ -70,43 +78,64 @@ func _initialize_fight_sequence() -> void:
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var owner_val = unit.get("owner", 1)
+		# Convert owner to int then to string for dictionary key (handles float values from saves)
+		var owner = str(int(owner_val))
 		var models_alive = 0
 		for model in unit.get("models", []):
 			if model.get("alive", true):
 				models_alive += 1
 		
-		log_phase_message("Unit %s has %d alive models" % [unit_name, models_alive])
+		log_phase_message("Unit %s (player %s) has %d alive models" % [unit_name, owner, models_alive])
 		
 		if _is_unit_in_combat(unit):
 			log_phase_message("Unit %s is in combat!" % unit_name)
 			var priority = _get_fight_priority(unit)
 			match priority:
 				FightPriority.FIGHTS_FIRST:
-					fights_first.append(unit_id)
-					log_phase_message("Added %s to FIGHTS_FIRST" % unit_name)
+					if owner in fights_first_sequence:
+						fights_first_sequence[owner].append(unit_id)
+					log_phase_message("Added %s (player %s) to FIGHTS_FIRST" % [unit_name, owner])
 				FightPriority.NORMAL:
-					normal.append(unit_id)
-					log_phase_message("Added %s to NORMAL" % unit_name)
+					if owner in normal_sequence:
+						normal_sequence[owner].append(unit_id)
+					log_phase_message("Added %s (player %s) to NORMAL" % [unit_name, owner])
 				FightPriority.FIGHTS_LAST:
-					fights_last.append(unit_id)
-					log_phase_message("Added %s to FIGHTS_LAST" % unit_name)
+					if owner in fights_last_sequence:
+						fights_last_sequence[owner].append(unit_id)
+					log_phase_message("Added %s (player %s) to FIGHTS_LAST" % [unit_name, owner])
 		else:
 			log_phase_message("Unit %s is NOT in combat" % unit_name)
 	
-	# Build alternating sequence for each tier
-	log_phase_message("Building fight sequence from:")
-	log_phase_message("  fights_first: %s" % str(fights_first))
-	log_phase_message("  normal: %s" % str(normal))
-	log_phase_message("  fights_last: %s" % str(fights_last))
+	# Set initial subphase
+	if fights_first_sequence["1"].size() > 0 or fights_first_sequence["2"].size() > 0:
+		current_subphase = "FIGHTS_FIRST"
+		# Start with player who has units that can fight first
+		if fights_first_sequence["1"].size() > 0:
+			current_subphase_player = 1
+		else:
+			current_subphase_player = 2
+	elif normal_sequence["1"].size() > 0 or normal_sequence["2"].size() > 0:
+		current_subphase = "NORMAL"
+		if normal_sequence["1"].size() > 0:
+			current_subphase_player = 1
+		else:
+			current_subphase_player = 2
 	
-	fight_sequence = _build_alternating_sequence(fights_first)
-	fight_sequence.append_array(_build_alternating_sequence(normal))
-	fight_sequence.append_array(_build_alternating_sequence(fights_last))
+	# Build legacy fight_sequence for compatibility
+	fight_sequence = _build_alternating_sequence(fights_first_sequence["1"] + fights_first_sequence["2"])
+	fight_sequence.append_array(_build_alternating_sequence(normal_sequence["1"] + normal_sequence["2"]))
+	fight_sequence.append_array(_build_alternating_sequence(fights_last_sequence["1"] + fights_last_sequence["2"]))
 	
-	log_phase_message("Final fight_sequence: %s" % str(fight_sequence))
-	log_phase_message("current_fight_index: %d" % current_fight_index)
+	log_phase_message("Fight sequences initialized:")
+	log_phase_message("  Fights First P1: %s" % str(fights_first_sequence["1"]))
+	log_phase_message("  Fights First P2: %s" % str(fights_first_sequence["2"]))
+	log_phase_message("  Normal P1: %s" % str(normal_sequence["1"]))
+	log_phase_message("  Normal P2: %s" % str(normal_sequence["2"]))
+	log_phase_message("  Current subphase: %s, Player: %d" % [current_subphase, current_subphase_player])
 	
 	emit_signal("fight_order_determined", fight_sequence)
+	emit_signal("fight_sequence_updated")
 	emit_signal("fight_sequence_updated", fight_sequence)  # Compatibility signal
 
 func _check_for_combats() -> void:
@@ -132,6 +161,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_assign_attacks(action)
 		"CONFIRM_AND_RESOLVE_ATTACKS":
 			return _validate_confirm_and_resolve_attacks(action)
+		"ROLL_DICE":
+			return _validate_roll_dice(action)
 		"CONSOLIDATE":
 			return _validate_consolidate(action)
 		"SKIP_UNIT":
@@ -155,6 +186,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_assign_attacks(action)
 		"CONFIRM_AND_RESOLVE_ATTACKS":
 			return _process_confirm_and_resolve_attacks(action)
+		"ROLL_DICE":
+			return _process_roll_dice(action)
 		"CONSOLIDATE":
 			return _process_consolidate(action)
 		"SKIP_UNIT":
@@ -225,9 +258,14 @@ func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_pile_in(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var movements = action.get("movements", {})  # model_id -> new_position
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+	var movements = action.get("movements", {})
 	var errors = []
+	
+	# Handle single position movement (from FightController)
+	if movements.is_empty() and action.has("position"):
+		var position = action.get("position")
+		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
 	
 	# Check unit is active fighter
 	if unit_id != active_fighter_id:
@@ -265,9 +303,13 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
 	var errors = []
 	
+	print("DEBUG: Validating ASSIGN_ATTACKS action: unit_id='", unit_id, "', target_id='", target_id, "', weapon_id='", weapon_id, "'")
+	print("DEBUG: active_fighter_id='", active_fighter_id, "'")
+	
 	# Check unit is active fighter
 	if unit_id != active_fighter_id:
 		errors.append("Not the active fighter")
+		print("DEBUG: Unit is not the active fighter")
 		return {"valid": false, "errors": errors}
 	
 	# Check required fields
@@ -303,7 +345,7 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	var weapon = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon.is_empty():
 		errors.append("Weapon not found: " + weapon_id)
-	elif weapon.get("type", "") != "melee":
+	elif weapon.get("type", "").to_lower() != "melee":
 		errors.append("Weapon is not a melee weapon: " + weapon_id)
 	
 	return {"valid": errors.is_empty(), "errors": errors}
@@ -382,18 +424,25 @@ func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 
 func _process_pile_in(action: Dictionary) -> Dictionary:
 	var changes = []
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+	
+	# Handle single position movement (from FightController) vs movements dict
 	var movements = action.get("movements", {})
+	if movements.is_empty() and action.has("position"):
+		# Convert single position to movements dict for first model
+		var position = action.get("position")
+		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
 	
 	for model_id in movements:
 		var new_pos = movements[model_id]
 		changes.append({
 			"op": "set",
-			"path": "units.%s.models.%s.position" % [action.unit_id, model_id],
+			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
 	
-	emit_signal("pile_in_preview", action.unit_id, movements)
-	log_phase_message("Unit %s piled in" % action.unit_id)
+	emit_signal("pile_in_preview", unit_id, movements)
+	log_phase_message("Unit %s piled in" % unit_id)
 	return create_result(true, changes)
 
 func _process_assign_attacks(action: Dictionary) -> Dictionary:
@@ -402,6 +451,8 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	var target_id = action.get("target_id", "")
 	var weapon_id = action.get("weapon_id", "")
 	
+	print("DEBUG: Processing ASSIGN_ATTACKS: unit_id='", unit_id, "', target_id='", target_id, "', weapon_id='", weapon_id, "'")
+	
 	pending_attacks.append({
 		"attacker": unit_id,
 		"target": target_id,
@@ -409,37 +460,102 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 		"models": action.get("attacking_models", [])
 	})
 	
+	print("DEBUG: Added attack to pending_attacks, count now: ", pending_attacks.size())
 	log_phase_message("Assigned %s attacks to %s" % [weapon_id, target_id])
-	return create_result(true, [])
+	var result = create_result(true, [])
+	print("DEBUG: ASSIGN_ATTACKS returning result: ", result)
+	return result
 
 func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
+	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
 	pending_attacks.clear()
 	
 	emit_signal("fighting_begun", active_fighter_id)
 	
-	# AUTO-RESOLVE like ShootingPhase
+	# Show mathhammer predictions before rolling
+	_show_mathhammer_predictions()
+	
+	log_phase_message("Attack assignments confirmed for %s - ready to roll dice!" % active_fighter_id)
+	return create_result(true, [])
+
+func _validate_roll_dice(action: Dictionary) -> Dictionary:
+	var errors = []
+	
+	# Check that attacks are confirmed and ready to roll
+	if confirmed_attacks.is_empty():
+		errors.append("No confirmed attacks to resolve")
+	
+	if active_fighter_id == "":
+		errors.append("No active fighter")
+	
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _process_roll_dice(action: Dictionary) -> Dictionary:
+	# Emit signal to indicate resolution is starting
+	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning melee combat resolution..."})
+	
+	# Build full fight action for RulesEngine
 	var melee_action = {
-		"type": "FIGHT",
+		"type": "FIGHT", 
 		"actor_unit_id": active_fighter_id,
 		"payload": {
 			"assignments": confirmed_attacks
 		}
 	}
 	
+	# Resolve with RulesEngine
 	var rng_service = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(melee_action, game_state_snapshot, rng_service)
 	
-	# Process casualties and state changes
+	if not result.success:
+		return create_result(false, [], result.get("log_text", "Melee combat failed"))
+	
+	# Process dice results step by step (like shooting phase)
+	for dice_block in result.get("dice", []):
+		emit_signal("dice_rolled", dice_block)
+	
+	# Apply changes and emit resolution signals
 	if result.success:
 		_apply_combat_results(result)
-		if not confirmed_attacks.is_empty():
-			emit_signal("attacks_resolved", active_fighter_id, confirmed_attacks[0].target, result)
-			emit_signal("fight_resolved", active_fighter_id, confirmed_attacks[0].target, result)  # Compatibility signal
-		emit_signal("dice_rolled", result.get("dice", {}))
+		
+		# Emit resolution signals for each target
+		for assignment in confirmed_attacks:
+			emit_signal("attacks_resolved", active_fighter_id, assignment.target, result)
+			emit_signal("fight_resolved", active_fighter_id, assignment.target, result)  # Compatibility signal
 	
-	log_phase_message("Combat resolved for %s" % active_fighter_id)
-	return result
+	# Clear confirmed attacks after resolution
+	confirmed_attacks.clear()
+	
+	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
+	
+	return create_result(true, result.get("diffs", []), result.get("log_text", ""))
+
+func _show_mathhammer_predictions() -> void:
+	# Use mathhammer to calculate expected results before rolling
+	if not confirmed_attacks.is_empty():
+		# Build config for mathhammer simulation
+		var attacker_unit = get_unit(active_fighter_id)
+		var defender_units = {}
+		
+		# Collect all target units
+		for attack in confirmed_attacks:
+			var target_id = attack.get("target", "")
+			if target_id != "" and not defender_units.has(target_id):
+				defender_units[target_id] = get_unit(target_id)
+		
+		# For now, show basic prediction text
+		# TODO: Integrate full mathhammer simulation for melee
+		var prediction_text = "Expected: Calculating melee predictions for %s vs %d targets..." % [
+			attacker_unit.get("meta", {}).get("name", active_fighter_id),
+			defender_units.size()
+		]
+		
+		# Display predictions via dice_rolled signal (like shooting phase)
+		emit_signal("dice_rolled", {
+			"context": "mathhammer_prediction", 
+			"message": prediction_text
+		})
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
 	var result = _process_pile_in(action)  # Reuse pile in logic
@@ -447,8 +563,13 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# Mark unit as complete and advance fight sequence
 	units_that_fought.append(action.unit_id)
 	active_fighter_id = ""
-	current_fight_index += 1
 	confirmed_attacks.clear()
+	
+	# Advance to next fighter using new subphase system
+	advance_to_next_fighter()
+	
+	# Legacy support - update old index
+	current_fight_index += 1
 	
 	# Check if more units to fight
 	if current_fight_index < fight_sequence.size():
@@ -463,6 +584,11 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Skip this unit and advance to next
 	units_that_fought.append(action.unit_id)
+	
+	# Advance to next fighter using new subphase system
+	advance_to_next_fighter()
+	
+	# Legacy support - update old index
 	current_fight_index += 1
 	
 	if current_fight_index < fight_sequence.size():
@@ -673,11 +799,18 @@ func get_available_actions() -> Array:
 				"description": "Assign attacks"
 			})
 	
-	# If attacks are assigned, can confirm and resolve
+	# If attacks are assigned, can confirm them
 	if not pending_attacks.is_empty():
 		actions.append({
-			"type": "CONFIRM_AND_RESOLVE_ATTACKS",
-			"description": "Resolve combat"
+			"type": "CONFIRM_AND_RESOLVE_ATTACKS", 
+			"description": "Confirm attacks"
+		})
+	
+	# If attacks are confirmed, can roll dice
+	if not confirmed_attacks.is_empty() and pending_attacks.is_empty():
+		actions.append({
+			"type": "ROLL_DICE",
+			"description": "Roll dice"
 		})
 	
 	# If attacks resolved, can consolidate
@@ -817,5 +950,95 @@ func get_current_fight_state() -> Dictionary:
 		"pending_attacks": pending_attacks,
 		"confirmed_attacks": confirmed_attacks,
 		"units_that_fought": units_that_fought,
-		"resolution_state": resolution_state
+		"resolution_state": resolution_state,
+		# New subphase data
+		"fights_first_sequence": fights_first_sequence,
+		"normal_sequence": normal_sequence,
+		"fights_last_sequence": fights_last_sequence,
+		"current_subphase": current_subphase,
+		"current_subphase_player": current_subphase_player
 	}
+
+func get_eligible_fighters_for_player(player: int) -> Dictionary:
+	"""Get eligible fighters for a specific player in current subphase"""
+	var player_key = str(player)
+	var result = {
+		"fights_first": [],
+		"normal": [],
+		"current_subphase": current_subphase,
+		"active_player": current_subphase_player == player
+	}
+	
+	# Get Fights First units that haven't fought
+	if player_key in fights_first_sequence:
+		for unit_id in fights_first_sequence[player_key]:
+			if unit_id not in units_that_fought:
+				result["fights_first"].append(unit_id)
+	
+	# Get Normal units that haven't fought
+	if player_key in normal_sequence:
+		for unit_id in normal_sequence[player_key]:
+			if unit_id not in units_that_fought:
+				result["normal"].append(unit_id)
+	
+	return result
+
+func advance_to_next_fighter() -> void:
+	"""Move to next fighter after one completes fighting"""
+	# Check if we need to switch players or subphases
+	var current_player_key = str(current_subphase_player)
+	var other_player = 2 if current_subphase_player == 1 else 1
+	var other_player_key = str(other_player)
+	
+	# Count remaining eligible units
+	var current_player_remaining = 0
+	var other_player_remaining = 0
+	
+	if current_subphase == "FIGHTS_FIRST":
+		for unit_id in fights_first_sequence[current_player_key]:
+			if unit_id not in units_that_fought:
+				current_player_remaining += 1
+		for unit_id in fights_first_sequence[other_player_key]:
+			if unit_id not in units_that_fought:
+				other_player_remaining += 1
+				
+		# Check if we should switch players
+		if other_player_remaining > 0:
+			# Alternate to other player
+			current_subphase_player = other_player
+			log_phase_message("Switching to player %d for Fights First" % other_player)
+		elif current_player_remaining > 0:
+			# Stay with current player
+			log_phase_message("Continuing with player %d for Fights First" % current_subphase_player)
+		else:
+			# Move to Normal subphase
+			log_phase_message("All Fights First units have fought, moving to Normal subphase")
+			current_subphase = "NORMAL"
+			# Start with player 1 or whoever has units
+			if normal_sequence["1"].size() > 0:
+				current_subphase_player = 1
+			elif normal_sequence["2"].size() > 0:
+				current_subphase_player = 2
+	
+	elif current_subphase == "NORMAL":
+		for unit_id in normal_sequence[current_player_key]:
+			if unit_id not in units_that_fought:
+				current_player_remaining += 1
+		for unit_id in normal_sequence[other_player_key]:
+			if unit_id not in units_that_fought:
+				other_player_remaining += 1
+				
+		# Check if we should switch players
+		if other_player_remaining > 0:
+			# Alternate to other player
+			current_subphase_player = other_player
+			log_phase_message("Switching to player %d for Normal fights" % other_player)
+		elif current_player_remaining > 0:
+			# Stay with current player
+			log_phase_message("Continuing with player %d for Normal fights" % current_subphase_player)
+		else:
+			# All units have fought
+			log_phase_message("All units have fought")
+			# Could transition to FIGHTS_LAST if we implement it
+	
+	emit_signal("fight_sequence_updated")

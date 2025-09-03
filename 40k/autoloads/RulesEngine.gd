@@ -709,6 +709,7 @@ static func _generate_weapon_id(weapon_name: String) -> String:
 	var weapon_id = weapon_name.to_lower()
 	weapon_id = weapon_id.replace(" ", "_")
 	weapon_id = weapon_id.replace("-", "_")
+	weapon_id = weapon_id.replace("–", "_")  # Handle em dash
 	weapon_id = weapon_id.replace("'", "")
 	return weapon_id
 
@@ -732,6 +733,7 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 		for weapon in weapons:
 			var weapon_name = weapon.get("name", "")
 			var generated_id = _generate_weapon_id(weapon_name)
+			
 			
 			if generated_id == weapon_id:
 				# Convert weapon format to profile format expected by UI
@@ -1332,5 +1334,324 @@ static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
 		if not rule_recognized:
 			print("Warning: Unknown weapon special rule: ", rule_name)
 			# Don't mark as invalid, just warn
+	
+	return result
+
+# ===== MELEE COMBAT FUNCTIONS =====
+
+# Main melee combat resolution entry point
+static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = RNGService.new()
+	
+	var result = {
+		"success": true,
+		"phase": "FIGHT",
+		"diffs": [],
+		"dice": [],
+		"log_text": ""
+	}
+	
+	var actor_unit_id = action.get("actor_unit_id", "")
+	var assignments = action.get("payload", {}).get("assignments", [])
+	
+	if assignments.is_empty():
+		result.success = false
+		result.log_text = "No attack assignments provided"
+		return result
+	
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	
+	if actor_unit.is_empty():
+		result.success = false
+		result.log_text = "Actor unit not found"
+		return result
+	
+	# Process each attack assignment
+	for assignment in assignments:
+		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service)
+		result.diffs.append_array(assignment_result.diffs)
+		result.dice.append_array(assignment_result.dice)
+		if assignment_result.log_text:
+			result.log_text += assignment_result.log_text + "\n"
+	
+	return result
+
+# Resolve a single melee assignment (models with weapon -> target)
+static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {
+		"diffs": [],
+		"dice": [],
+		"log_text": ""
+	}
+	
+	var attacker_id = assignment.get("attacker", "")
+	var target_id = assignment.get("target", "")
+	var weapon_id = assignment.get("weapon", "")
+	var attacking_models = assignment.get("models", [])
+	
+	if weapon_id.is_empty():
+		result.log_text = "No weapon specified for melee attack"
+		return result
+	
+	# Get weapon profile (melee weapons use same format as ranged)
+	var weapon = get_weapon_profile(weapon_id)
+	if weapon.is_empty():
+		result.log_text = "Weapon profile not found: " + weapon_id
+		return result
+	
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_id, {})
+	var target_unit = units.get(target_id, {})
+	
+	if attacker_unit.is_empty() or target_unit.is_empty():
+		result.log_text = "Attacker or target unit not found"
+		return result
+	
+	# Calculate total attacks
+	var total_attacks = 0
+	var attacker_models = attacker_unit.get("models", [])
+	
+	for model_index in range(attacker_models.size()):
+		var model = attacker_models[model_index]
+		if not model.get("alive", true):
+			continue
+			
+		# If specific models assigned, check if this model is included
+		if not attacking_models.is_empty() and not str(model_index) in attacking_models:
+			continue
+		
+		# Add attacks from this model
+		var weapon_attacks = weapon.get("attacks", 1)
+		total_attacks += weapon_attacks
+	
+	if total_attacks == 0:
+		result.log_text = "No valid attacking models"
+		return result
+	
+	# Get combat stats
+	var attacker_stats = attacker_unit.get("meta", {}).get("stats", {})
+	var target_stats = target_unit.get("meta", {}).get("stats", {})
+	
+	var weapon_skill = attacker_stats.get("weapon_skill", 4)
+	var strength = weapon.get("strength", attacker_stats.get("strength", 3))
+	var toughness = target_stats.get("toughness", 4)
+	var ap = weapon.get("ap", 0)
+	var damage = weapon.get("damage", 1)
+	var armor_save = target_stats.get("save", 6)
+	
+	# Roll to hit (using Weapon Skill instead of Ballistic Skill)
+	var hit_rolls = rng.roll_d6(total_attacks)
+	var hits = 0
+	for roll in hit_rolls:
+		var success = roll >= weapon_skill
+		if success:
+			hits += 1
+		result.dice.append({
+			"context": "hit_roll_melee",
+			"roll": roll,
+			"target": weapon_skill,
+			"success": success,
+			"weapon": weapon_id
+		})
+	
+	if hits == 0:
+		result.log_text = "Melee: %d attacks, 0 hits" % total_attacks
+		return result
+	
+	# Roll to wound (same logic as shooting)
+	var wound_target = _calculate_wound_threshold(strength, toughness)
+	var wound_rolls = rng.roll_d6(hits)
+	var wounds = 0
+	for roll in wound_rolls:
+		var success = roll >= wound_target
+		if success:
+			wounds += 1
+		result.dice.append({
+			"context": "wound_roll",
+			"roll": roll,
+			"target": wound_target,
+			"success": success,
+			"strength": strength,
+			"toughness": toughness
+		})
+	
+	if wounds == 0:
+		result.log_text = "Melee: %d attacks, %d hits, 0 wounds" % [total_attacks, hits]
+		return result
+	
+	# Apply armor saves (same logic as shooting)
+	var modified_save = armor_save - ap
+	var save_rolls = rng.roll_d6(wounds)
+	var failed_saves = 0
+	for roll in save_rolls:
+		var success = roll >= modified_save
+		if not success:
+			failed_saves += 1
+		result.dice.append({
+			"context": "save_roll",
+			"roll": roll,
+			"target": modified_save,
+			"success": success,
+			"ap": ap,
+			"original_save": armor_save
+		})
+	
+	if failed_saves == 0:
+		result.log_text = "Melee: %d attacks, %d hits, %d wounds, 0 failed saves" % [total_attacks, hits, wounds]
+		return result
+	
+	# Apply damage to target unit
+	var damage_result = _apply_damage_to_unit(target_id, failed_saves, damage, board, rng)
+	result.diffs.append_array(damage_result.diffs)
+	
+	result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d casualties" % [total_attacks, hits, wounds, damage_result.casualties]
+	
+	return result
+
+# Get fight priority for unit
+static func get_fight_priority(unit: Dictionary) -> int:
+	# Check if unit charged this turn
+	if unit.get("flags", {}).get("charged_this_turn", false):
+		return 0  # FIGHTS_FIRST
+	
+	# Check for Fights First ability
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		if "fights_first" in str(ability).to_lower():
+			return 0  # FIGHTS_FIRST
+	
+	# Check for Fights Last debuff
+	var status_effects = unit.get("status_effects", {})
+	if status_effects.get("fights_last", false):
+		return 2  # FIGHTS_LAST
+	
+	return 1  # NORMAL
+
+# Check if two models are in engagement range
+static func is_in_engagement_range(model1_pos: Vector2, model2_pos: Vector2, base1_mm: float = 25.0, base2_mm: float = 25.0) -> bool:
+	# Calculate edge-to-edge distance
+	var center_distance_mm = model1_pos.distance_to(model2_pos)
+	var base_separation = (base1_mm + base2_mm) / 2.0
+	var edge_distance_mm = center_distance_mm - base_separation
+	
+	# 1" engagement range (25.4mm)
+	return edge_distance_mm <= 25.4
+
+# Check if any models from two units are in engagement range
+static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
+	var models1 = unit1.get("models", [])
+	var models2 = unit2.get("models", [])
+	
+	for model1 in models1:
+		if not model1.get("alive", true):
+			continue
+		
+		var pos1_data = model1.get("position", {})
+		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0))
+		var base1_mm = model1.get("base_mm", 25.0)
+		
+		for model2 in models2:
+			if not model2.get("alive", true):
+				continue
+			
+			var pos2_data = model2.get("position", {})
+			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0))
+			var base2_mm = model2.get("base_mm", 25.0)
+			
+			if is_in_engagement_range(pos1, pos2, base1_mm, base2_mm):
+				return true
+	
+	return false
+
+# Get melee weapons for a unit
+static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var unit_weapons = {}
+	
+	# Use provided board or get from GameState
+	var units = {}
+	if not board.is_empty():
+		units = board.get("units", {})
+	else:
+		units = GameState.state.get("units", {})
+	
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return unit_weapons
+	
+	var models = unit.get("models", [])
+	
+	for model_index in range(models.size()):
+		var model = models[model_index]
+		if not model.get("alive", true):
+			continue
+		
+		var model_id = "m" + str(model_index)
+		var model_weapons = []
+		
+		# Get weapons from model or unit meta
+		var weapons_data = unit.get("meta", {}).get("weapons", [])
+		
+		for weapon in weapons_data:
+			# Check if this is a melee weapon
+			if weapon.get("type", "").to_lower() == "melee":
+				model_weapons.append(weapon.get("name", "Unknown Weapon"))
+		
+		if not model_weapons.is_empty():
+			unit_weapons[model_id] = model_weapons
+	
+	return unit_weapons
+
+# Helper function to apply damage to a unit (reused from shooting)
+static func _apply_damage_to_unit(unit_id: String, failed_saves: int, damage_per_wound: int, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {"diffs": [], "casualties": 0}
+	
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return result
+	
+	var models = unit.get("models", [])
+	var wounds_to_allocate = failed_saves
+	
+	# Simple damage allocation - apply to first alive model
+	for model_index in range(models.size()):
+		if wounds_to_allocate <= 0:
+			break
+			
+		var model = models[model_index]
+		if not model.get("alive", true):
+			continue
+		
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var max_wounds = model.get("wounds", 1)
+		
+		# Apply damage
+		var wounds_dealt = min(wounds_to_allocate, damage_per_wound)
+		var new_wounds = current_wounds - wounds_dealt
+		
+		if new_wounds <= 0:
+			# Model dies
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [unit_id, model_index],
+				"value": false
+			})
+			result.diffs.append({
+				"op": "set", 
+				"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
+				"value": 0
+			})
+			result.casualties += 1
+			wounds_to_allocate -= 1
+		else:
+			# Model survives with reduced wounds
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
+				"value": new_wounds
+			})
+			wounds_to_allocate -= 1
 	
 	return result

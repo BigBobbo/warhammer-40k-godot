@@ -22,10 +22,14 @@ extends CanvasLayer
 @onready var reset_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ResetButton
 @onready var confirm_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton
 
+var unit_stats_panel: Control
+var mathhammer_ui: Control
+var save_load_dialog: AcceptDialog
 var deployment_controller: Node
 var movement_controller: Node
 var shooting_controller: Node
 var charge_controller: Node
+var fight_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
@@ -41,8 +45,17 @@ func _ready() -> void:
 	board_view.queue_redraw()
 	setup_deployment_zones()
 	
+	# Move HUD_Bottom to top and create stats panel at bottom
+	_restructure_ui_layout()
+	
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
+	
+	# Setup Mathhammer UI
+	_setup_mathhammer_ui()
+	
+	# Setup Save/Load Dialog
+	_setup_save_load_dialog()
 	
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
@@ -56,21 +69,45 @@ func _ready() -> void:
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
 
-func _fix_hud_layout() -> void:
-	# Prevent HUD_Right from overlapping with HUD_Bottom
-	# HUD_Bottom is 100px tall, so HUD_Right should stop 100px from bottom
-	var hud_right = get_node("HUD_Right")
+func _restructure_ui_layout() -> void:
+	# Move HUD_Bottom to top of screen
 	var hud_bottom = get_node("HUD_Bottom")
+	if hud_bottom:
+		hud_bottom.anchor_top = 0.0
+		hud_bottom.anchor_bottom = 0.0
+		hud_bottom.offset_top = 0.0
+		hud_bottom.offset_bottom = 100.0
+		print("Moved HUD_Bottom to top of screen")
 	
-	if hud_right and hud_bottom:
-		# Get the height of the bottom panel
-		var bottom_height = 100.0  # This matches the offset_top = -100 in the scene
+	# Create unit stats panel at bottom
+	_setup_unit_stats_panel()
+
+func _fix_hud_layout() -> void:
+	# Adjust both left and right HUD panels for proper layout
+	var hud_left = get_node("HUD_Left")
+	var hud_right = get_node("HUD_Right")
+	
+	# Reserve space for the unit stats panel at bottom (40px collapsed, up to 300px expanded)
+	var bottom_height = 300.0  # Max height when expanded
+	var top_height = 100.0    # Space for top panel
+	
+	if hud_left:
+		# Adjust HUD_Left to not overlap with panels
+		hud_left.anchor_bottom = 1.0
+		hud_left.offset_bottom = -bottom_height
+		hud_left.anchor_top = 0.0
+		hud_left.offset_top = top_height  # Leave space for top panel
 		
+		print("Fixed HUD layout: HUD_Left adjusted for new layout")
+	
+	if hud_right:
 		# Adjust HUD_Right to not overlap with bottom panel
 		hud_right.anchor_bottom = 1.0
 		hud_right.offset_bottom = -bottom_height
+		hud_right.anchor_top = 0.0
+		hud_right.offset_top = top_height  # Leave space for top panel
 		
-		print("Fixed HUD layout: HUD_Right bottom offset set to -", bottom_height)
+		print("Fixed HUD layout: HUD_Right adjusted for new layout")
 	
 	# Adjust unit list to take less space, giving more room to phase panels
 	var unit_list = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
@@ -79,6 +116,279 @@ func _fix_hud_layout() -> void:
 		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		unit_list.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
 		print("Adjusted unit list: fixed height to 150px")
+
+func _setup_unit_stats_panel() -> void:
+	# Try to load the scene file, but fall back to programmatic creation with the script
+	var stats_panel_scene_path = "res://40k/scenes/UnitStatsPanel.tscn"
+	
+	print("Attempting to load UnitStatsPanel scene from: ", stats_panel_scene_path)
+	
+	# Try loading the scene
+	var stats_panel_scene = load(stats_panel_scene_path)
+	if stats_panel_scene:
+		print("Scene file loaded successfully")
+		unit_stats_panel = stats_panel_scene.instantiate()
+		print("UnitStatsPanel instantiated from scene file")
+	else:
+		# Create the panel programmatically with full UI structure
+		print("Scene file not found or failed to load, creating programmatically...")
+		unit_stats_panel = _create_stats_panel_programmatically()
+	
+	if unit_stats_panel:
+		# Position at bottom - start expanded by default
+		unit_stats_panel.anchor_top = 1.0
+		unit_stats_panel.anchor_bottom = 1.0
+		unit_stats_panel.anchor_left = 0.0
+		unit_stats_panel.anchor_right = 1.0
+		unit_stats_panel.offset_top = -300  # Start expanded (300px height)
+		unit_stats_panel.offset_bottom = 0
+		
+		add_child(unit_stats_panel)
+		print("Unit stats panel created and added to scene")
+
+func _create_stats_panel_programmatically() -> PanelContainer:
+	print("Creating unit stats panel with full UI structure...")
+	
+	var panel = PanelContainer.new()
+	panel.name = "UnitStatsPanel"
+	
+	# Main VBox container
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBox"
+	panel.add_child(vbox)
+	
+	# Header with toggle button
+	var header = HBoxContainer.new()
+	header.name = "Header"
+	header.custom_minimum_size = Vector2(0, 40)
+	vbox.add_child(header)
+	
+	var toggle_button = Button.new()
+	toggle_button.name = "ToggleButton"
+	toggle_button.text = "▲ Unit Stats"
+	toggle_button.custom_minimum_size = Vector2(120, 30)
+	toggle_button.add_theme_font_size_override("font_size", 14)
+	header.add_child(toggle_button)
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spacer)
+	
+	# Scroll container for content
+	var scroll = ScrollContainer.new()
+	scroll.name = "ScrollContainer"
+	scroll.custom_minimum_size = Vector2(0, 260)
+	vbox.add_child(scroll)
+	
+	# Content VBox
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	
+	# Keywords section
+	var keywords_container = HBoxContainer.new()
+	content.add_child(keywords_container)
+	
+	var keywords_title = Label.new()
+	keywords_title.text = "Keywords: "
+	keywords_title.add_theme_font_size_override("font_size", 12)
+	keywords_container.add_child(keywords_title)
+	
+	var keywords_label = Label.new()
+	keywords_label.name = "KeywordsLabel"
+	keywords_label.text = "TEST KEYWORDS - Panel Working!"
+	keywords_label.add_theme_font_size_override("font_size", 12)
+	keywords_container.add_child(keywords_label)
+	
+	# Separator
+	content.add_child(HSeparator.new())
+	
+	# Stats section
+	var stats_container = VBoxContainer.new()
+	content.add_child(stats_container)
+	
+	var stats_title = Label.new()
+	stats_title.text = "UNIT STATS"
+	stats_title.add_theme_font_size_override("font_size", 14)
+	stats_container.add_child(stats_title)
+	
+	var stats_label = Label.new()
+	stats_label.name = "StatsLabel"
+	stats_label.text = "M6\" | T4 | Sv3+ | W2 | Ld6+ | OC2 (PROGRAMMATIC TEST)"
+	stats_label.add_theme_font_size_override("font_size", 16)
+	stats_container.add_child(stats_label)
+	
+	# Separator
+	content.add_child(HSeparator.new())
+	
+	# Weapons section
+	var weapons_container = VBoxContainer.new()
+	weapons_container.name = "WeaponsContainer"
+	content.add_child(weapons_container)
+	
+	var weapons_title = Label.new()
+	weapons_title.text = "WEAPONS"
+	weapons_title.add_theme_font_size_override("font_size", 14)
+	weapons_container.add_child(weapons_title)
+	
+	var weapons_test = Label.new()
+	weapons_test.text = "✓ Toggle button should be visible above\n✓ This content should be visible\n✓ Panel should be at screen bottom"
+	weapons_test.add_theme_font_size_override("font_size", 12)
+	weapons_container.add_child(weapons_test)
+	
+	# Store collapsed state as a property of the panel
+	panel.set_meta("is_collapsed", false)
+	
+	# Connect toggle button with proper state tracking
+	toggle_button.pressed.connect(func():
+		var is_collapsed = panel.get_meta("is_collapsed", false)
+		is_collapsed = !is_collapsed
+		panel.set_meta("is_collapsed", is_collapsed)
+		print("Toggle clicked - collapsed: ", is_collapsed)
+		
+		# Update button text
+		toggle_button.text = "▼ Unit Stats" if is_collapsed else "▲ Unit Stats"
+		
+		# Update content visibility
+		scroll.visible = !is_collapsed
+		print("Setting scroll visible to: ", !is_collapsed)
+		
+		# Set panel size immediately
+		if is_collapsed:
+			panel.custom_minimum_size.y = 40
+			panel.offset_top = -40
+			panel.size.y = 40
+		else:
+			panel.custom_minimum_size.y = 300
+			panel.offset_top = -300
+			panel.size.y = 300
+		
+		print("Set panel height to: ", panel.custom_minimum_size.y)
+		print("Set panel offset to: ", panel.offset_top)
+		print("Set panel size to: ", panel.size.y)
+		
+		# Force the panel to update its layout
+		panel.set_deferred("size:y", panel.custom_minimum_size.y)
+		
+		# Debug output after a frame
+		panel.get_tree().create_timer(0.1).timeout.connect(func():
+			print("After update - Panel size: ", panel.size)
+			print("After update - Panel offset_top: ", panel.offset_top)
+			print("After update - Scroll visible: ", scroll.visible)
+		)
+	)
+	
+	# Add display_unit method to the panel for showing unit data
+	panel.set_meta("display_unit", func(unit_data: Dictionary):
+		print("Displaying unit data for: ", unit_data.get("id", "unknown"))
+		
+		# Update keywords
+		if keywords_label and unit_data.has("meta"):
+			var meta = unit_data["meta"]
+			if meta.has("keywords"):
+				keywords_label.text = ", ".join(meta["keywords"])
+		
+		# Update stats
+		if stats_label and unit_data.has("meta"):
+			var meta = unit_data["meta"]
+			if meta.has("stats"):
+				var stats = meta["stats"]
+				stats_label.text = "M%d\" | T%d | Sv%d+ | W%d | Ld%d+ | OC%d" % [
+					stats.get("move", 0),
+					stats.get("toughness", 0),
+					stats.get("save", 0),
+					stats.get("wounds", 0),
+					stats.get("leadership", 0),
+					stats.get("objective_control", 0)
+				]
+		
+		# Clear and update weapons
+		for child in weapons_container.get_children():
+			if child != weapons_title:
+				child.queue_free()
+		
+		if unit_data.has("meta") and unit_data["meta"].has("weapons"):
+			var weapons = unit_data["meta"]["weapons"]
+			for weapon in weapons:
+				var weapon_label = Label.new()
+				var weapon_type = weapon.get("type", "Unknown")
+				var weapon_name = weapon.get("name", "Unknown")
+				var weapon_stats = ""
+				
+				if weapon_type == "Ranged":
+					weapon_stats = "Range: %s\" | A: %s | BS: %s+ | S: %s | AP: %s | D: %s" % [
+						weapon.get("range", "-"),
+						weapon.get("attacks", "-"),
+						weapon.get("ballistic_skill", "-"),
+						weapon.get("strength", "-"),
+						weapon.get("ap", "-"),
+						weapon.get("damage", "-")
+					]
+				else:  # Melee
+					weapon_stats = "Melee | A: %s | WS: %s+ | S: %s | AP: %s | D: %s" % [
+						weapon.get("attacks", "-"),
+						weapon.get("weapon_skill", "-"),
+						weapon.get("strength", "-"),
+						weapon.get("ap", "-"),
+						weapon.get("damage", "-")
+					]
+				
+				weapon_label.text = "• %s (%s): %s" % [weapon_name, weapon_type, weapon_stats]
+				weapon_label.add_theme_font_size_override("font_size", 11)
+				weapons_container.add_child(weapon_label)
+		
+		print("Unit data display updated")
+	)
+	
+	print("Programmatic panel created with toggle functionality and display_unit method")
+	return panel
+
+func _setup_mathhammer_ui() -> void:
+	# Create MathhhammerUI and add it to the left HUD
+	print("Setting up Mathhammer UI...")
+	
+	# Create the MathhhammerUI instance using preload
+	var MathhhammerUIClass = preload("res://scripts/MathhhammerUI.gd")
+	mathhammer_ui = MathhhammerUIClass.new()
+	mathhammer_ui.name = "MathhhammerUI"
+	
+	if mathhammer_ui:
+		# Add to the left HUD VBox container 
+		var hud_left_vbox = get_node("HUD_Left/VBoxContainer")
+		if hud_left_vbox:
+			# Add the Mathhammer UI to the left HUD
+			hud_left_vbox.add_child(mathhammer_ui)
+			print("Mathhammer UI added to left HUD")
+		else:
+			print("ERROR: Could not find HUD_Left/VBoxContainer!")
+			return
+		
+		print("Mathhammer UI successfully integrated into left side of main UI")
+	else:
+		print("ERROR: Failed to create MathhhammerUI instance!")
+
+func _setup_save_load_dialog() -> void:
+	# Load and instantiate the SaveLoadDialog scene
+	print("Setting up Save/Load Dialog...")
+	
+	var dialog_scene = preload("res://scenes/SaveLoadDialog.tscn")
+	save_load_dialog = dialog_scene.instantiate()
+	save_load_dialog.name = "SaveLoadDialog"
+	
+	# Add to scene tree
+	add_child(save_load_dialog)
+	
+	# Connect dialog signals
+	save_load_dialog.save_requested.connect(_on_save_requested)
+	save_load_dialog.load_requested.connect(_on_load_requested)
+	save_load_dialog.delete_requested.connect(_on_delete_requested)
+	
+	# Hide initially
+	save_load_dialog.hide()
+	
+	print("Save/Load Dialog setup completed")
 
 func setup_deployment_zones() -> void:
 	var zone1 = BoardState.get_deployment_zone_for_player(1)
@@ -103,6 +413,9 @@ func setup_phase_controllers() -> void:
 	if charge_controller:
 		charge_controller.queue_free()
 		charge_controller = null
+	if fight_controller:
+		fight_controller.queue_free()
+		fight_controller = null
 	
 	# Wait a frame for cleanup to complete before creating new controllers
 	await get_tree().process_frame
@@ -117,6 +430,8 @@ func setup_phase_controllers() -> void:
 			setup_shooting_controller()
 		GameStateData.Phase.CHARGE:
 			setup_charge_controller()
+		GameStateData.Phase.FIGHT:
+			setup_fight_controller()
 		_:
 			print("No controller for phase: ", current_phase)
 
@@ -273,6 +588,40 @@ func setup_charge_controller() -> void:
 		charge_controller.ui_update_requested.connect(_on_charge_ui_update_requested)
 		print("Connected ui_update_requested signal")
 
+func setup_fight_controller() -> void:
+	print("Setting up FightController...")
+	fight_controller = preload("res://scripts/FightController.gd").new()
+	fight_controller.name = "FightController"
+	add_child(fight_controller)
+	
+	# Get the current phase instance from PhaseManager
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance:
+		print("Phase instance found: ", phase_instance.get_class())
+		
+		# Check if it's a FightPhase
+		var is_fight_phase = false
+		if phase_instance.has_signal("fighter_selected"):
+			is_fight_phase = true
+		elif phase_instance.get("phase_type") == GameStateData.Phase.FIGHT:
+			is_fight_phase = true
+		
+		if is_fight_phase:
+			fight_controller.set_phase(phase_instance)
+			print("Connected FightController to FightPhase")
+		else:
+			print("WARNING: Phase instance is not a FightPhase, skipping signal connections")
+	else:
+		print("WARNING: No phase instance found!")
+	
+	# Connect fight controller signals
+	if not fight_controller.fight_action_requested.is_connected(_on_fight_action_requested):
+		fight_controller.fight_action_requested.connect(_on_fight_action_requested)
+		print("Connected fight_action_requested signal")
+	if not fight_controller.ui_update_requested.is_connected(_on_fight_ui_update_requested):
+		fight_controller.ui_update_requested.connect(_on_fight_ui_update_requested)
+		print("Connected ui_update_requested signal")
+
 func connect_signals() -> void:
 	unit_list.item_selected.connect(_on_unit_selected)
 	undo_button.pressed.connect(_on_undo_pressed)
@@ -305,6 +654,21 @@ func _input(event: InputEvent) -> void:
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
 		get_viewport().set_input_as_handled()
+		return
+	
+	# ESC key handling for save/load dialog
+	# Only handle ESC if dialog is not visible (to avoid interfering with dialog input)
+	if event.is_action_pressed("ui_cancel"):
+		if save_load_dialog and not save_load_dialog.visible:
+			_toggle_save_load_menu()
+			get_viewport().set_input_as_handled()
+			return
+		elif save_load_dialog and save_load_dialog.visible:
+			# Let the dialog handle ESC (it has dialog_close_on_escape = true)
+			return
+	
+	# Don't process other input while dialog is open
+	if save_load_dialog and save_load_dialog.visible:
 		return
 	
 	# Debug: Check for [ key directly for save
@@ -512,6 +876,24 @@ func _on_unit_selected(index: int) -> void:
 		return
 	
 	var unit_id = unit_list.get_item_metadata(index)
+	
+	# Show detailed stats in bottom panel
+	var unit_data = GameState.get_unit(unit_id)
+	print("Main: Unit selected - ", unit_id)
+	print("Main: Unit data available - ", unit_data != null)
+	print("Main: Unit stats panel available - ", unit_stats_panel != null)
+	
+	if unit_data and unit_stats_panel:
+		# Try the programmatic display_unit function stored as metadata
+		var display_func = unit_stats_panel.get_meta("display_unit", null)
+		if display_func:
+			print("Main: Calling programmatic display_unit function")
+			display_func.call(unit_data)
+		elif unit_stats_panel.has_method("display_unit"):
+			print("Main: Calling display_unit method")
+			unit_stats_panel.display_unit(unit_data)
+		else:
+			print("Main: No display_unit method available!")
 	
 	# Handle unit selection based on current phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
@@ -962,6 +1344,84 @@ func _on_save_failed(error: String) -> void:
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
 
+# Save/Load Dialog handlers
+func _toggle_save_load_menu() -> void:
+	if save_load_dialog.visible:
+		save_load_dialog.hide()
+		print("Save/Load dialog hidden")
+	else:
+		# Show the dialog and ensure it gets focus
+		save_load_dialog.show_dialog()
+		print("Save/Load dialog shown")
+
+func _on_save_requested(save_name: String) -> void:
+	print("Main: Save requested with name: ", save_name)
+	
+	# Create metadata with user description
+	var user_description = save_name
+	var metadata = {
+		"type": "manual",
+		"description": user_description
+	}
+	
+	# Show saving notification
+	_show_save_notification("Saving...", Color.YELLOW)
+	
+	# Perform save
+	var success = SaveLoadManager.save_game(save_name, metadata)
+	if not success:
+		_show_save_notification("Save failed!", Color.RED)
+
+func _on_load_requested(save_file: String) -> void:
+	print("Main: Load requested for file: ", save_file)
+	
+	# Show loading notification
+	_show_save_notification("Loading...", Color.YELLOW)
+	
+	# Perform load
+	var success = SaveLoadManager.load_game(save_file)
+	if success:
+		_show_save_notification("Game loaded!", Color.BLUE)
+		
+		# Update current phase
+		current_phase = GameState.get_current_phase()
+		
+		# Sync BoardState with loaded GameState
+		_sync_board_state_with_game_state()
+		
+		# Recreate phase controllers for the loaded phase
+		await setup_phase_controllers()
+		
+		# Give controllers time to initialize
+		await get_tree().process_frame
+		
+		# Refresh all UI elements
+		refresh_unit_list()
+		update_ui()
+		update_ui_for_phase()
+		update_deployment_zone_visibility()
+		
+		# Recreate visual tokens for deployed units
+		_recreate_unit_visuals()
+		
+		# Notify PhaseManager of the loaded state
+		if PhaseManager.has_method("transition_to_phase"):
+			PhaseManager.transition_to_phase(current_phase)
+	else:
+		_show_save_notification("Load failed!", Color.RED)
+
+func _on_delete_requested(save_file: String) -> void:
+	print("Main: Delete requested for file: ", save_file)
+	
+	# Perform deletion
+	var success = SaveLoadManager.delete_save_file(save_file)
+	if success:
+		_show_save_notification("Save deleted!", Color.ORANGE)
+		print("Save file deleted successfully: ", save_file)
+	else:
+		_show_save_notification("Delete failed!", Color.RED)
+		print("Failed to delete save file: ", save_file)
+
 func _refresh_after_load() -> void:
 	# Completely refresh the UI to match loaded state
 	refresh_unit_list()
@@ -1178,15 +1638,11 @@ func _on_charge_action_requested(action: Dictionary) -> void:
 			if result.success:
 				print("Main: Charge action succeeded")
 				
-				# Apply any state changes
-				var changes = result.get("changes", [])
-				if not changes.is_empty():
-					PhaseManager.apply_state_changes(changes)
-				
-				# Update UI after successful action
+				# Update UI after successful action (state changes applied by BasePhase)
 				update_after_charge_action()
 			else:
 				print("Main: Charge action failed: ", result.get("error", "Unknown error"))
+				print("Main: Full charge action result: ", result)
 		else:
 			print("Main: Unexpected result from charge action")
 	else:
@@ -1197,7 +1653,40 @@ func _on_charge_ui_update_requested() -> void:
 	if current_phase == GameStateData.Phase.CHARGE:
 		update_ui()
 
+func _on_fight_action_requested(action: Dictionary) -> void:
+	print("Main: Received fight action request: ", action.get("type", ""))
+	
+	# Process fight action through the phase
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	
+	if phase_instance and phase_instance.has_method("execute_action"):
+		var result = phase_instance.execute_action(action)
+		if result.has("success"):
+			if result.success:
+				print("Main: Fight action succeeded")
+				
+				# Apply any state changes
+				var changes = result.get("changes", [])
+				if not changes.is_empty():
+					PhaseManager.apply_state_changes(changes)
+				
+				# Update UI after successful action
+				update_after_fight_action()
+			else:
+				print("Main: Fight action failed: ", result.get("error", "Unknown error"))
+		else:
+			print("Main: Unexpected result from fight action")
+	else:
+		print("Main: No phase instance or execute_action method")
+
+func _on_fight_ui_update_requested() -> void:
+	# Update UI when FightController requests it
+	if current_phase == GameStateData.Phase.FIGHT:
+		update_ui()
+
 func update_after_charge_action() -> void:
+	print("DEBUG: update_after_charge_action called")
+	
 	# Refresh visuals and UI after a charge action
 	_recreate_unit_visuals()
 	refresh_unit_list()
@@ -1206,6 +1695,18 @@ func update_after_charge_action() -> void:
 	# Update charge controller state
 	if charge_controller:
 		charge_controller._refresh_ui()
+	
+	print("DEBUG: Charge action visual update completed")
+
+func update_after_fight_action() -> void:
+	# Refresh visuals and UI after a fight action
+	_recreate_unit_visuals()  # This should handle dead model removal
+	refresh_unit_list()
+	update_ui()
+	
+	# Update fight controller state
+	if fight_controller:
+		fight_controller._refresh_fight_sequence()
 
 func update_after_shooting_action() -> void:
 	# Refresh visuals and UI after a shooting action
