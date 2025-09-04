@@ -22,6 +22,8 @@ var active_charges: Dictionary = {}     # unit_id -> charge_data
 var pending_charges: Dictionary = {}    # units awaiting resolution  
 var dice_log: Array = []
 var units_that_charged: Array = []     # Track which units have completed charges
+var current_charging_unit = null       # Track which unit is actively charging
+var completed_charges: Array = []      # Units that finished charging this phase
 
 func _init():
 	phase_type = GameStateData.Phase.CHARGE
@@ -32,6 +34,8 @@ func _on_phase_enter() -> void:
 	pending_charges.clear() 
 	dice_log.clear()
 	units_that_charged.clear()
+	current_charging_unit = null
+	completed_charges.clear()
 	
 	_initialize_charge()
 
@@ -59,12 +63,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 	
 	match action_type:
+		"SELECT_CHARGE_UNIT":
+			return _validate_select_charge_unit(action)
 		"DECLARE_CHARGE":
 			return _validate_declare_charge(action)
 		"CHARGE_ROLL":
 			return _validate_charge_roll(action)
 		"APPLY_CHARGE_MOVE":
 			return _validate_apply_charge_move(action)
+		"COMPLETE_UNIT_CHARGE":
+			return _validate_complete_unit_charge(action)
 		"SKIP_CHARGE":
 			return _validate_skip_charge(action)
 		"END_CHARGE":
@@ -74,22 +82,61 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
+	print("DEBUG: ChargePhase.process_action called with type: ", action_type)
 	
 	match action_type:
+		"SELECT_CHARGE_UNIT":
+			return _process_select_charge_unit(action)
 		"DECLARE_CHARGE":
 			return _process_declare_charge(action)
 		"CHARGE_ROLL":
 			return _process_charge_roll(action)
 		"APPLY_CHARGE_MOVE":
+			print("DEBUG: Processing APPLY_CHARGE_MOVE action")
 			return _process_apply_charge_move(action)
+		"COMPLETE_UNIT_CHARGE":
+			return _process_complete_unit_charge(action)
 		"SKIP_CHARGE":
 			return _process_skip_charge(action)
 		"END_CHARGE":
 			return _process_end_charge(action)
 		_:
+			print("DEBUG: Unknown action type in ChargePhase: ", action_type)
 			return create_result(false, [], "Unknown action type: " + action_type)
 
 # Validation Methods
+
+func _validate_select_charge_unit(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+	
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+	
+	if not _can_unit_charge(unit):
+		return {"valid": false, "errors": ["Unit cannot charge"]}
+	
+	if unit_id in completed_charges:
+		return {"valid": false, "errors": ["Unit has already charged this phase"]}
+	
+	return {"valid": true, "errors": []}
+
+func _validate_complete_unit_charge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if unit_id != current_charging_unit:
+		return {"valid": false, "errors": ["Unit is not currently charging"]}
+	
+	return {"valid": true, "errors": []}
 
 func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -111,7 +158,7 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	if not _can_unit_charge(unit):
 		return {"valid": false, "errors": ["Unit cannot charge"]}
 	
-	if unit_id in units_that_charged:
+	if unit_id in completed_charges:
 		return {"valid": false, "errors": ["Unit has already charged this phase"]}
 	
 	# Validate each target
@@ -172,7 +219,7 @@ func _validate_skip_charge(action: Dictionary) -> Dictionary:
 	if unit.is_empty():
 		return {"valid": false, "errors": ["Unit not found"]}
 	
-	if unit_id in units_that_charged:
+	if unit_id in completed_charges:
 		return {"valid": false, "errors": ["Unit has already acted this phase"]}
 	
 	return {"valid": true, "errors": []}
@@ -182,6 +229,32 @@ func _validate_end_charge(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 # Processing Methods
+
+func _process_select_charge_unit(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	current_charging_unit = unit_id
+	
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("Selected %s for charging" % unit_name)
+	
+	emit_signal("unit_selected_for_charge", unit_id)
+	
+	return create_result(true, [])
+
+func _process_complete_unit_charge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	
+	completed_charges.append(unit_id)
+	current_charging_unit = null
+	
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("Completed charge sequence for %s" % unit_name)
+	
+	# Don't end phase - allow selection of next unit
+	return create_result(true, [])
 
 func _process_declare_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -247,14 +320,27 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
 	var per_model_paths = payload.get("per_model_paths", {})
+	
+	# Enhanced validation - check for empty per_model_paths
+	if per_model_paths.is_empty():
+		print("ERROR: No model paths provided for charge movement")
+		return create_result(false, [], "No model paths provided")
+	
 	print("DEBUG: unit_id = ", unit_id)
 	print("DEBUG: per_model_paths = ", per_model_paths)
 	print("DEBUG: pending_charges = ", pending_charges)
+	
+	if not pending_charges.has(unit_id):
+		print("ERROR: No pending charge data found for unit ", unit_id)
+		return create_result(false, [], "No pending charge data found")
+	
 	var charge_data = pending_charges[unit_id]
 	print("DEBUG: charge_data = ", charge_data)
 	
 	# Final validation
+	print("DEBUG: About to validate charge movement constraints")
 	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	print("DEBUG: Validation result: ", validation)
 	if not validation.valid:
 		# Charge fails - no movement applied
 		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
@@ -275,18 +361,26 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		print("DEBUG: Processing model ", model_id, " with path ", path)
-		if path is Array and path.size() > 0:
-			var final_pos = path[-1]  # Last position in path
-			var model_index = _get_model_index(unit_id, model_id)
-			print("DEBUG: Model index for ", model_id, " is ", model_index)
-			if model_index >= 0:
-				var change = {
-					"op": "set",
-					"path": "units.%s.models.%d.position" % [unit_id, model_index],
-					"value": {"x": final_pos[0], "y": final_pos[1]}
-				}
-				print("DEBUG: Adding change: ", change)
-				changes.append(change)
+		
+		if not (path is Array and path.size() > 0):
+			print("WARNING: Invalid path for model ", model_id, " - skipping")
+			continue
+			
+		var final_pos = path[-1]  # Last position in path
+		var model_index = _get_model_index(unit_id, model_id)
+		print("DEBUG: Model index for ", model_id, " is ", model_index)
+		
+		if model_index < 0:
+			print("ERROR: Invalid model_index for ", model_id, " - model not found in unit")
+			continue
+			
+		var change = {
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"value": {"x": final_pos[0], "y": final_pos[1]}
+		}
+		print("DEBUG: Adding change: ", change)
+		changes.append(change)
 	
 	# Mark unit as charged and grant Fights First
 	changes.append({
@@ -303,6 +397,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# Clean up charge state
 	units_that_charged.append(unit_id)
 	pending_charges.erase(unit_id)
+	# Don't mark as completed yet - wait for COMPLETE_UNIT_CHARGE action
 	
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
@@ -316,6 +411,8 @@ func _process_skip_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	
 	units_that_charged.append(unit_id)
+	completed_charges.append(unit_id)
+	current_charging_unit = null
 	
 	# Clear any pending charge for this unit
 	if pending_charges.has(unit_id):
@@ -681,7 +778,7 @@ func get_available_actions() -> Array:
 	# Units that can declare charges
 	for unit_id in units:
 		var unit = units[unit_id]
-		if _can_unit_charge(unit) and unit_id not in units_that_charged:
+		if _can_unit_charge(unit) and unit_id not in completed_charges:
 			
 			# If no charge declared, can declare charge
 			if not pending_charges.has(unit_id):
@@ -726,7 +823,7 @@ func _should_complete_phase() -> bool:
 	
 	for unit_id in units:
 		var unit = units[unit_id]
-		if _can_unit_charge(unit) and unit_id not in units_that_charged:
+		if _can_unit_charge(unit) and unit_id not in completed_charges:
 			return false
 	
 	return true
@@ -739,6 +836,21 @@ func get_pending_charges() -> Dictionary:
 
 func get_units_that_charged() -> Array:
 	return units_that_charged
+
+func get_eligible_charge_units() -> Array:
+	var eligible = []
+	var current_player = get_current_player()
+	var units = get_units_for_player(current_player)
+	
+	for unit_id in units:
+		var unit = units[unit_id]
+		if _can_unit_charge(unit) and unit_id not in completed_charges:
+			eligible.append(unit_id)
+	
+	return eligible
+
+func get_completed_charges() -> Array:
+	return completed_charges
 
 func has_pending_charge(unit_id: String) -> bool:
 	return pending_charges.has(unit_id)
