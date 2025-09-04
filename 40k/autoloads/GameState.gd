@@ -216,6 +216,11 @@ func get_current_phase() -> Phase:
 func get_active_player() -> int:
 	return state["meta"]["active_player"]
 
+func get_faction_name(player: int) -> String:
+	if state.has("factions") and state.factions.has(str(player)):
+		return state.factions[str(player)].get("name", "Player " + str(player))
+	return "Player " + str(player)
+
 func get_turn_number() -> int:
 	return state["meta"]["turn_number"]
 

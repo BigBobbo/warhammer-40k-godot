@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://b5gtyqpr3xktt"]
+[gd_scene load_steps=5 format=3 uid="uid://b5gtyqpr3xktt"]
 
 [ext_resource type="Script" uid="uid://o6wrk15crjyd" path="res://scripts/Main.gd" id="1_uu5k7"]
 [ext_resource type="Script" uid="uid://b4qtegojmcp2n" path="res://scripts/BoardVisual.gd" id="2_board"]
 [ext_resource type="Script" uid="uid://c0tcro85as1j5" path="res://scripts/DeploymentZoneVisual.gd" id="3_zone"]
+[ext_resource type="Script" uid="uid://dk12myirluqy5" path="res://scripts/UnitStatsPanel.gd" id="4_stats"]
 
 [node name="Main" type="CanvasLayer"]
 script = ExtResource("1_uu5k7")
@@ -58,6 +59,15 @@ size_flags_horizontal = 10
 disabled = true
 text = "End Deployment"
 
+[node name="HUD_Left" type="PanelContainer" parent="."]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 400.0
+size_flags_horizontal = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD_Left"]
+layout_mode = 2
+
 [node name="HUD_Right" type="PanelContainer" parent="."]
 anchors_preset = 11
 anchor_left = 1.0
@@ -106,3 +116,197 @@ text = "Reset Unit"
 visible = false
 layout_mode = 2
 text = "Confirm"
+
+[node name="UnitStatsPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(0, 300)
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -300.0
+script = ExtResource("4_stats")
+
+[node name="VBox" type="VBoxContainer" parent="UnitStatsPanel"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="UnitStatsPanel/VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+
+[node name="ToggleButton" type="Button" parent="UnitStatsPanel/VBox/Header"]
+custom_minimum_size = Vector2(120, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "▲ Unit Stats"
+
+[node name="Spacer" type="Control" parent="UnitStatsPanel/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MainContent" type="HBoxContainer" parent="UnitStatsPanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayerSection" type="HBoxContainer" parent="UnitStatsPanel/VBox/MainContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.5
+
+[node name="PlayerUnitsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerUnitsPanel"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerUnitsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Player Units"
+
+[node name="PlayerUnitsList" type="ItemList" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerUnitsPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 12
+
+[node name="PlayerStatsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.6
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel"]
+layout_mode = 2
+
+[node name="PlayerStatsContent" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayerKeywordsContainer" type="HBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="KeywordsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Keywords: "
+
+[node name="PlayerKeywordsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="HSeparator" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="PlayerStatsContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="StatsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerStatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "UNIT STATS"
+
+[node name="PlayerStatsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerStatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+
+[node name="HSeparator2" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="PlayerWeaponsContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="HSeparator3" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="PlayerAbilitiesContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="HSeparator4" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="PlayerCompositionContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+layout_mode = 2
+
+[node name="VSeparator" type="VSeparator" parent="UnitStatsPanel/VBox/MainContent"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="EnemySection" type="HBoxContainer" parent="UnitStatsPanel/VBox/MainContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.5
+
+[node name="EnemyUnitsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyUnitsPanel"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyUnitsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Enemy Units"
+
+[node name="EnemyUnitsList" type="ItemList" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyUnitsPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 12
+
+[node name="EnemyStatsPanel" type="PanelContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.6
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel"]
+layout_mode = 2
+
+[node name="EnemyStatsContent" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EnemyKeywordsContainer" type="HBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="KeywordsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Keywords: "
+
+[node name="EnemyKeywordsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+
+[node name="HSeparator" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="EnemyStatsContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="StatsTitle" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyStatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "UNIT STATS"
+
+[node name="EnemyStatsLabel" type="Label" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyStatsContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+
+[node name="HSeparator2" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="EnemyWeaponsContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="HSeparator3" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="EnemyAbilitiesContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="HSeparator4" type="HSeparator" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2
+
+[node name="EnemyCompositionContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+layout_mode = 2

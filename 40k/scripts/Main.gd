@@ -118,33 +118,27 @@ func _fix_hud_layout() -> void:
 		print("Adjusted unit list: fixed height to 150px")
 
 func _setup_unit_stats_panel() -> void:
-	# Try to load the scene file, but fall back to programmatic creation with the script
-	var stats_panel_scene_path = "res://40k/scenes/UnitStatsPanel.tscn"
-	
-	print("Attempting to load UnitStatsPanel scene from: ", stats_panel_scene_path)
-	
-	# Try loading the scene
-	var stats_panel_scene = load(stats_panel_scene_path)
-	if stats_panel_scene:
-		print("Scene file loaded successfully")
-		unit_stats_panel = stats_panel_scene.instantiate()
-		print("UnitStatsPanel instantiated from scene file")
-	else:
-		# Create the panel programmatically with full UI structure
-		print("Scene file not found or failed to load, creating programmatically...")
-		unit_stats_panel = _create_stats_panel_programmatically()
+	# UnitStatsPanel is now directly in the Main.tscn scene file
+	print("Looking for UnitStatsPanel in scene...")
+	unit_stats_panel = get_node_or_null("UnitStatsPanel")
 	
 	if unit_stats_panel:
-		# Position at bottom - start expanded by default
-		unit_stats_panel.anchor_top = 1.0
-		unit_stats_panel.anchor_bottom = 1.0
-		unit_stats_panel.anchor_left = 0.0
-		unit_stats_panel.anchor_right = 1.0
-		unit_stats_panel.offset_top = -300  # Start expanded (300px height)
-		unit_stats_panel.offset_bottom = 0
+		print("Found UnitStatsPanel in scene structure")
 		
-		add_child(unit_stats_panel)
-		print("Unit stats panel created and added to scene")
+		# Connect to the unit_selected signal from the panel
+		if unit_stats_panel.has_signal("unit_selected"):
+			unit_stats_panel.unit_selected.connect(_on_unit_stats_panel_unit_selected)
+			print("Connected to unit_selected signal from UnitStatsPanel")
+		else:
+			print("Warning: UnitStatsPanel does not have unit_selected signal")
+		
+		# Initialize the panel with current phase
+		if unit_stats_panel.has_method("populate_unit_lists"):
+			var phase_name = GameStateData.Phase.keys()[current_phase]
+			unit_stats_panel.populate_unit_lists(phase_name)
+			print("Initialized UnitStatsPanel unit lists for phase: ", phase_name)
+	else:
+		print("ERROR: UnitStatsPanel not found in scene! Check Main.tscn")
 
 func _create_stats_panel_programmatically() -> PanelContainer:
 	print("Creating unit stats panel with full UI structure...")
@@ -781,15 +775,22 @@ func focus_on_player2_zone() -> void:
 		print("Focused view on Player 2 zone at: ", center)
 
 func refresh_unit_list() -> void:
+	# Update the new bottom panel unit lists (always visible for comparison)
+	if unit_stats_panel and unit_stats_panel.has_method("populate_unit_lists"):
+		var phase_name = GameStateData.Phase.keys()[current_phase]
+		unit_stats_panel.populate_unit_lists(phase_name)
+		print("Refreshed bottom panel unit lists for phase: ", phase_name)
+	
+	# Right panel unit list - phase-specific functionality
 	unit_list.clear()
 	var active_player = GameState.get_active_player()
 	
-	# Different list based on current phase
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			# Show undeployed units during deployment
+			# Show only undeployed units during deployment in right panel
+			unit_list.visible = true
 			var units = GameState.get_undeployed_units_for_player(active_player)
-			print("Refreshing unit list for deployment - found ", units.size(), " undeployed units")
+			print("Refreshing right panel unit list for deployment - found ", units.size(), " undeployed units")
 			
 			for unit_id in units:
 				var unit_data = GameState.get_unit(unit_id)
@@ -800,13 +801,13 @@ func refresh_unit_list() -> void:
 				unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 		
 		GameStateData.Phase.MOVEMENT:
-			# Show deployed units during movement
+			# Show deployed units during movement in right panel
+			unit_list.visible = true
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
 			
 			for unit_id in all_units:
 				var unit = all_units[unit_id]
-				# Render units that are deployed or have moved/acted
 				var unit_status = unit.get("status", 0)
 				if unit_status >= GameStateData.UnitStatus.DEPLOYED:
 					var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -818,10 +819,11 @@ func refresh_unit_list() -> void:
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 					deployed_count += 1
 			
-			print("Refreshing unit list for movement - found ", deployed_count, " deployed units")
+			print("Refreshing right panel unit list for movement - found ", deployed_count, " deployed units")
 		
 		_:
-			# Default behavior for other phases
+			# Default: show all units for active player in right panel
+			unit_list.visible = true
 			var all_units = GameState.get_units_for_player(active_player)
 			for unit_id in all_units:
 				var unit = all_units[unit_id]
@@ -921,6 +923,45 @@ func _on_unit_selected(index: int) -> void:
 	
 	update_ui()
 
+func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void:
+	var unit_data = GameState.get_unit(unit_id)
+	if not unit_data:
+		print("Main: Unit not found - ", unit_id)
+		return
+	
+	print("Main: Unit selected from bottom panel - ", unit_id, " (enemy: ", is_enemy, ")")
+	
+	# Show the unit card with unit info
+	show_unit_card(unit_id)
+	
+	# Handle selection based on phase and unit ownership
+	if not is_enemy:  # Player unit selected
+		# Handle unit selection based on current phase
+		if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
+			deployment_controller.begin_deploy(unit_id)
+			unit_list.visible = false
+		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+			# Pass unit selection to MovementController
+			movement_controller.active_unit_id = unit_id
+			print("Selected unit for movement: ", unit_id)
+			update_movement_card_buttons()
+			
+			# AUTO-START NORMAL MOVE FOR EASIER TESTING
+			print("Auto-starting Normal Move for easier testing...")
+			var action = {
+				"type": "BEGIN_NORMAL_MOVE",
+				"actor_unit_id": unit_id,
+				"payload": {}
+			}
+			_on_movement_action_requested(action)
+			status_label.text = "Drag models to move them (Normal Move mode)"
+	else:  # Enemy unit selected
+		# For enemy units, just show the card for viewing
+		print("Enemy unit selected for viewing: ", unit_id)
+		# Could add additional enemy-specific functionality here
+	
+	update_ui()
+
 func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
 	unit_name_label.text = unit_data["meta"]["name"]
@@ -933,17 +974,29 @@ func update_unit_card_buttons() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
-				var placed = deployment_controller.get_placed_count()
 				var current_unit_id = deployment_controller.get_current_unit()
-				var unit_data = GameState.get_unit(current_unit_id)
-				var total = unit_data["models"].size()
-				
-				models_label.text = "Models: %d/%d" % [placed, total]
-				
-				# Show buttons based on deployment progress
-				undo_button.visible = placed > 0
-				reset_button.visible = false  # No reset in deployment
-				confirm_button.visible = placed == total
+				if current_unit_id and current_unit_id != "":
+					var unit_data = GameState.get_unit(current_unit_id)
+					if unit_data and unit_data.has("models"):
+						var placed = deployment_controller.get_placed_count()
+						var total = unit_data["models"].size()
+						
+						models_label.text = "Models: %d/%d" % [placed, total]
+						
+						# Show buttons based on deployment progress
+						undo_button.visible = placed > 0
+						reset_button.visible = false  # No reset in deployment
+						confirm_button.visible = placed == total
+					else:
+						# No active deployment, hide buttons
+						undo_button.visible = false
+						reset_button.visible = false
+						confirm_button.visible = false
+				else:
+					# No unit being deployed, hide deployment buttons
+					undo_button.visible = false
+					reset_button.visible = false
+					confirm_button.visible = false
 		
 		GameStateData.Phase.MOVEMENT:
 			update_movement_card_buttons()
