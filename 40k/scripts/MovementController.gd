@@ -35,9 +35,36 @@ var illegal_reason_label: Label
 var unit_list: ItemList
 var dice_log_display: RichTextLabel
 
+# New UI elements for 4-section layout
+var selected_unit_label: Label
+var unit_mode_label: Label
+var mode_button_group: ButtonGroup
+var normal_radio: CheckBox
+var advance_radio: CheckBox
+var fall_back_radio: CheckBox
+var stationary_radio: CheckBox
+
 # Path tracking
 var current_path: Array = []  # Array of Vector2 points
 var path_valid: bool = false
+
+# Helper function to get unit movement stat with proper error handling
+func get_unit_movement(unit: Dictionary) -> float:
+	# Try the expected path first
+	if unit.has("meta") and unit.meta.has("stats") and unit.meta.stats.has("move"):
+		var movement = float(unit.meta.stats.move)
+		return movement
+	
+	# Try nested get with type safety
+	var stats = unit.get("meta", {}).get("stats", {})
+	if stats and stats.has("move"):
+		var movement = float(stats.get("move"))
+		return movement
+	
+	# Log warning and return default
+	var unit_name = unit.get("meta", {}).get("name", "Unknown")
+	push_warning("MovementController: Unit %s missing movement stat, using default: 6" % unit_name)
+	return 6.0
 
 func _ready() -> void:
 	set_process_unhandled_input(true)
@@ -137,59 +164,207 @@ func _setup_bottom_hud() -> void:
 	if not main_container:
 		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
 		return
+	
+	# Remove existing movement containers (MovementInfo and MovementButtons)
+	var existing_movement_info = main_container.get_node_or_null("MovementInfo")
+	if existing_movement_info:
+		print("MovementController: Removing MovementInfo container (moved to right panel)")
+		main_container.remove_child(existing_movement_info)
+		existing_movement_info.free()
+	
+	var existing_buttons = main_container.get_node_or_null("MovementButtons") 
+	if existing_buttons:
+		# Check if End Phase button exists and preserve it
+		var end_phase_btn = existing_buttons.get_node_or_null("EndPhaseButton")
+		if end_phase_btn:
+			print("MovementController: Preserving End Phase button in top panel")
+			existing_buttons.remove_child(end_phase_btn)
+			
+			# Add separator before End Phase button
+			main_container.add_child(VSeparator.new())
+			main_container.add_child(end_phase_btn)  # Move to main container
 		
-	# Always recreate movement HUD elements to avoid duplication
-	var container = main_container.get_node_or_null("MovementInfo")
-	if container:
-		print("MovementController: Removing existing MovementInfo container")
-		main_container.remove_child(container)
-		container.free()
+		print("MovementController: Removing MovementButtons container (moved to right panel)")
+		main_container.remove_child(existing_buttons)
+		existing_buttons.free()
+	else:
+		# If MovementButtons doesn't exist, create End Phase button directly
+		print("MovementController: Creating End Phase button in top panel")
+		main_container.add_child(VSeparator.new())
+		
+		var end_phase_button = Button.new()
+		end_phase_button.name = "EndPhaseButton"
+		end_phase_button.text = "End Movement Phase"
+		end_phase_button.pressed.connect(_on_end_phase_pressed)
+		main_container.add_child(end_phase_button)
+
+func _setup_right_panel() -> void:
+	var container = hud_right.get_node_or_null("VBoxContainer")
+	if not container:
+		container = VBoxContainer.new()
+		container.name = "VBoxContainer" 
+		hud_right.add_child(container)
 	
-	container = HBoxContainer.new()
-	container.name = "MovementInfo"
-	main_container.add_child(container)
+	# Clear existing movement-specific containers
+	var existing_actions = container.get_node_or_null("MovementActions")
+	if existing_actions:
+		print("MovementController: Removing existing MovementActions container")
+		container.remove_child(existing_actions)
+		existing_actions.free()
 	
-	# Add separator before movement controls
-	container.add_child(VSeparator.new())
+	# Clear any existing 4-section containers to avoid duplication
+	for section_name in ["Section1_UnitList", "Section2_UnitDetails", "Section3_ModeSelection", "Section4_Actions"]:
+		var existing_section = container.get_node_or_null(section_name)
+		if existing_section:
+			container.remove_child(existing_section)
+			existing_section.free()
 	
-	# Movement cap display
+	# SECTION 1: Unit List with Status
+	_create_section1_unit_list(container)
+	container.add_child(HSeparator.new())
+	
+	# SECTION 2: Selected Unit Details  
+	_create_section2_unit_details(container)
+	container.add_child(HSeparator.new())
+	
+	# SECTION 3: Movement Mode Selection
+	_create_section3_mode_selection(container) 
+	container.add_child(HSeparator.new())
+	
+	# SECTION 4: Action Buttons & Distance Info
+	_create_section4_actions(container)
+	
+	# Keep dice log at bottom
+	_create_dice_log_display(container)
+
+func _create_section1_unit_list(parent: VBoxContainer) -> void:
+	var section = VBoxContainer.new()
+	section.name = "Section1_UnitList"
+	
+	var label = Label.new()
+	label.text = "Units Eligible to Move"
+	label.add_theme_font_size_override("font_size", 14)
+	section.add_child(label)
+	
+	# Use existing unit list or create new one
+	if not unit_list:
+		unit_list = ItemList.new()
+		unit_list.name = "UnitListPanel" 
+		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		unit_list.custom_minimum_size = Vector2(0, 120)
+	
+	# Connect unit selection signal
+	if not unit_list.item_selected.is_connected(_on_unit_selected):
+		unit_list.item_selected.connect(_on_unit_selected)
+	
+	section.add_child(unit_list)
+	parent.add_child(section)
+
+func _create_section2_unit_details(parent: VBoxContainer) -> void:
+	var section = VBoxContainer.new()
+	section.name = "Section2_UnitDetails"
+	
+	var label = Label.new()
+	label.text = "Selected Unit Details"
+	label.add_theme_font_size_override("font_size", 14) 
+	section.add_child(label)
+	
+	selected_unit_label = Label.new()
+	selected_unit_label.text = "Unit: None Selected"
+	section.add_child(selected_unit_label)
+	
+	unit_mode_label = Label.new() 
+	unit_mode_label.text = "Mode: -"
+	section.add_child(unit_mode_label)
+	
+	parent.add_child(section)
+
+func _create_section3_mode_selection(parent: VBoxContainer) -> void:
+	var section = VBoxContainer.new()
+	section.name = "Section3_ModeSelection"
+	
+	var label = Label.new()
+	label.text = "Movement Mode"
+	label.add_theme_font_size_override("font_size", 14)
+	section.add_child(label)
+	
+	# Create radio button group
+	mode_button_group = ButtonGroup.new()
+	
+	var button_container = HBoxContainer.new()
+	button_container.name = "ModeButtons"
+	
+	# Create radio buttons (CheckBox with ButtonGroup for radio behavior)
+	normal_radio = CheckBox.new()
+	normal_radio.text = "Normal" 
+	normal_radio.toggle_mode = true
+	normal_radio.button_group = mode_button_group
+	normal_radio.pressed.connect(_on_normal_move_pressed)
+	button_container.add_child(normal_radio)
+	
+	advance_radio = CheckBox.new()
+	advance_radio.text = "Advance"
+	advance_radio.toggle_mode = true  
+	advance_radio.button_group = mode_button_group
+	advance_radio.pressed.connect(_on_advance_pressed)
+	button_container.add_child(advance_radio)
+	
+	fall_back_radio = CheckBox.new()
+	fall_back_radio.text = "Fall Back"
+	fall_back_radio.toggle_mode = true
+	fall_back_radio.button_group = mode_button_group  
+	fall_back_radio.pressed.connect(_on_fall_back_pressed)
+	button_container.add_child(fall_back_radio)
+	
+	stationary_radio = CheckBox.new()
+	stationary_radio.text = "Stay Still" 
+	stationary_radio.toggle_mode = true
+	stationary_radio.button_group = mode_button_group
+	stationary_radio.pressed.connect(_on_remain_stationary_pressed) 
+	button_container.add_child(stationary_radio)
+	
+	section.add_child(button_container)
+	parent.add_child(section)
+
+func _create_section4_actions(parent: VBoxContainer) -> void:
+	var section = VBoxContainer.new()  
+	section.name = "Section4_Actions"
+	
+	var label = Label.new()
+	label.text = "Movement Actions"
+	label.add_theme_font_size_override("font_size", 14)
+	section.add_child(label)
+	
+	# Distance information (moved from top panel)
+	var distance_info = VBoxContainer.new()
+	distance_info.name = "DistanceInfo"
+	
 	move_cap_label = Label.new()
 	move_cap_label.text = "Move: 0\""
-	container.add_child(move_cap_label)
+	distance_info.add_child(move_cap_label)
 	
-	# Inches used display
-	inches_used_label = Label.new()
+	inches_used_label = Label.new()  
 	inches_used_label.text = "Used: 0\""
-	container.add_child(inches_used_label)
+	distance_info.add_child(inches_used_label)
 	
-	# Inches left display
 	inches_left_label = Label.new()
-	inches_left_label.text = "Left: 0\""
-	container.add_child(inches_left_label)
+	inches_left_label.text = "Left: 0\"" 
+	distance_info.add_child(inches_left_label)
 	
-	# Illegal reason display
 	illegal_reason_label = Label.new()
 	illegal_reason_label.text = ""
 	illegal_reason_label.modulate = Color.RED
-	container.add_child(illegal_reason_label)
+	distance_info.add_child(illegal_reason_label)
 	
-	# Action buttons - clean up existing first
-	var existing_buttons = main_container.get_node_or_null("MovementButtons")
-	if existing_buttons:
-		print("MovementController: Removing existing MovementButtons container")
-		main_container.remove_child(existing_buttons)
-		existing_buttons.free()
+	section.add_child(distance_info)
 	
+	# Action buttons (moved from top panel)
 	var button_container = HBoxContainer.new()
-	button_container.name = "MovementButtons"
-	main_container.add_child(button_container)
-	
-	# Add separator before movement buttons
-	button_container.add_child(VSeparator.new())
+	button_container.name = "ActionButtons"
 	
 	var undo_button = Button.new()
 	undo_button.text = "Undo Model"
-	undo_button.pressed.connect(_on_undo_model_pressed)
+	undo_button.pressed.connect(_on_undo_model_pressed) 
 	button_container.add_child(undo_button)
 	
 	var reset_button = Button.new()
@@ -197,83 +372,41 @@ func _setup_bottom_hud() -> void:
 	reset_button.pressed.connect(_on_reset_unit_pressed)
 	button_container.add_child(reset_button)
 	
-	var confirm_button = Button.new()
+	var confirm_button = Button.new()  
 	confirm_button.text = "Confirm Move"
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
 	button_container.add_child(confirm_button)
 	
-	# Add separator
-	button_container.add_child(VSeparator.new())
-	
-	# Add End Movement Phase button
-	var end_phase_button = Button.new()
-	end_phase_button.name = "EndPhaseButton"
-	end_phase_button.text = "End Movement Phase"
-	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	button_container.add_child(end_phase_button)
+	section.add_child(button_container)
+	parent.add_child(section)
 
-func _setup_right_panel() -> void:
-	var container = hud_right.get_node_or_null("VBoxContainer")
-	if not container:
-		container = VBoxContainer.new()
-		container.name = "VBoxContainer"
-		hud_right.add_child(container)
-	
-	# Use existing unit list if not already set
-	if not unit_list:
-		unit_list = container.get_node_or_null("UnitListPanel")
-		if unit_list:
-			# Connect to existing unit list
-			if not unit_list.item_selected.is_connected(_on_unit_selected):
-				unit_list.item_selected.connect(_on_unit_selected)
-	
-	# Always recreate movement action buttons to avoid timing issues after loading
-	var action_container = container.get_node_or_null("MovementActions")
-	if action_container:
-		print("MovementController: Removing existing MovementActions container immediately")
-		container.remove_child(action_container)
-		action_container.free()
-	
-	print("MovementController: Creating new MovementActions container")
-	action_container = VBoxContainer.new()
-	action_container.name = "MovementActions"
-	container.add_child(action_container)
-	
-	var normal_button = Button.new()
-	normal_button.text = "Normal Move"
-	normal_button.pressed.connect(_on_normal_move_pressed)
-	action_container.add_child(normal_button)
-	
-	var advance_button = Button.new()
-	advance_button.text = "Advance"
-	advance_button.pressed.connect(_on_advance_pressed)
-	action_container.add_child(advance_button)
-	print("MovementController: Added Advance button")
-	
-	var fall_back_button = Button.new()
-	fall_back_button.text = "Fall Back"
-	fall_back_button.pressed.connect(_on_fall_back_pressed)
-	action_container.add_child(fall_back_button)
-	print("MovementController: Added Fall Back button")
-	
-	var stationary_button = Button.new()
-	stationary_button.text = "Remain Stationary"
-	stationary_button.pressed.connect(_on_remain_stationary_pressed)
-	action_container.add_child(stationary_button)
-	
+func _create_dice_log_display(parent: VBoxContainer) -> void:
 	# Create dice log display only if it doesn't exist
 	if not dice_log_display:
-		var existing_dice_log = container.get_node_or_null("DiceLog")
+		var existing_dice_log = parent.get_node_or_null("DiceLog")
 		if not existing_dice_log:
 			var dice_label = Label.new()
 			dice_label.text = "Dice Log:"
-			container.add_child(dice_label)
+			parent.add_child(dice_label)
 			
 			dice_log_display = RichTextLabel.new()
 			dice_log_display.name = "DiceLog"
 			dice_log_display.custom_minimum_size = Vector2(300, 200)  # Increased height to use more space
 			dice_log_display.bbcode_enabled = true
-			container.add_child(dice_log_display)
+			parent.add_child(dice_log_display)
+
+func _update_selected_unit_display() -> void:
+	if selected_unit_label:
+		var unit_name = "None Selected"
+		if active_unit_id != "" and current_phase:
+			var unit = current_phase.get_unit(active_unit_id)
+			if unit:
+				unit_name = unit.get("meta", {}).get("name", active_unit_id)
+		selected_unit_label.text = "Unit: " + unit_name
+		
+	if unit_mode_label:
+		var mode_text = "Mode: " + active_mode if active_mode != "" else "Mode: -"
+		unit_mode_label.text = mode_text
 
 func set_phase(phase) -> void:  # Remove type hint to accept any phase
 	# Only set if it's actually a MovementPhase
@@ -349,6 +482,8 @@ func _refresh_unit_list() -> void:
 				status = " [ADVANCING]"
 			elif unit.get("flags", {}).get("fell_back", false):
 				status = " [FALLING BACK]"
+			elif active_unit_id == unit_id:
+				status = " [ACTIVE]"
 			
 			unit_list.add_item(unit_name + status)
 			unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
@@ -359,6 +494,7 @@ func _on_unit_selected(index: int) -> void:
 	active_unit_id = unit_id
 	print("MovementController: Unit selected - ", unit_id)
 	_highlight_unit_models(unit_id)
+	_update_selected_unit_display()  # NEW: Update section 2
 	emit_signal("ui_update_requested")
 
 func _highlight_unit_models(unit_id: String) -> void:
@@ -477,8 +613,14 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 			unit = GameState.get_unit(unit_id)
 			
 		if unit:
-			move_cap_inches = unit.get("flags", {}).get("move_cap_inches", 6.0)
-			print("Move cap set to: ", move_cap_inches, " inches")
+			# Try to get from flags first (set by movement phase), fallback to unit stats
+			var move_cap_from_flags = unit.get("flags", {}).get("move_cap_inches", -1.0)
+			if move_cap_from_flags > 0:
+				move_cap_inches = move_cap_from_flags
+				print("Move cap from flags: ", move_cap_inches, " inches")
+			else:
+				move_cap_inches = get_unit_movement(unit)
+				print("Move cap from unit stats: ", move_cap_inches, " inches")
 			_update_movement_display()
 		else:
 			print("ERROR: Could not get unit data!")
@@ -935,18 +1077,20 @@ func _update_staged_moves_visual() -> void:
 		if active_moves.has(active_unit_id):
 			var move_data = active_moves[active_unit_id]
 			
-			# Track which models have paths
-			var models_with_paths = {}
+			# Group staged moves by model to build complete paths
+			var models_with_segments = {}
 			
-			# Process staged moves
+			# Collect all segments for each model
 			for staged_move in move_data.get("staged_moves", []):
 				var model_id = staged_move.get("model_id", "")
 				if model_id != "" and staged_move.has("from") and staged_move.has("dest"):
-					models_with_paths[model_id] = staged_move
+					if not models_with_segments.has(model_id):
+						models_with_segments[model_id] = []
+					models_with_segments[model_id].append(staged_move)
 			
-			# Create or update Line2D for each model with a path
-			for model_id in models_with_paths:
-				var move = models_with_paths[model_id]
+			# Create or update Line2D for each model with segments
+			for model_id in models_with_segments:
+				var segments = models_with_segments[model_id]
 				
 				# Get or create Line2D for this model
 				var line: Line2D
@@ -961,14 +1105,19 @@ func _update_staged_moves_visual() -> void:
 					board_root.add_child(line)
 					model_path_visuals[model_id] = line
 				
-				# Add the path points
-				line.add_point(move.from)
-				line.add_point(move.dest)
+				# Add all segments to create the complete path
+				for i in range(segments.size()):
+					var segment = segments[i]
+					# For the first segment, add the 'from' point
+					if i == 0:
+						line.add_point(segment.from)
+					# Always add the 'dest' point
+					line.add_point(segment.dest)
 			
 			# Remove Line2D for models that no longer have paths
 			var models_to_remove = []
 			for model_id in model_path_visuals:
-				if not models_with_paths.has(model_id):
+				if not models_with_segments.has(model_id):
 					var line = model_path_visuals[model_id]
 					if line and is_instance_valid(line):
 						line.queue_free()
