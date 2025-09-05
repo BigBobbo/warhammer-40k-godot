@@ -43,6 +43,8 @@ var normal_radio: CheckBox
 var advance_radio: CheckBox
 var fall_back_radio: CheckBox
 var stationary_radio: CheckBox
+var confirm_mode_button: Button
+var advance_roll_label: Label
 
 # Path tracking
 var current_path: Array = []  # Array of Vector2 points
@@ -324,6 +326,19 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	button_container.add_child(stationary_radio)
 	
 	section.add_child(button_container)
+	
+	# Add confirmation button
+	confirm_mode_button = Button.new()
+	confirm_mode_button.text = "Confirm Movement Mode"
+	confirm_mode_button.pressed.connect(_on_confirm_mode_pressed)
+	section.add_child(confirm_mode_button)
+	
+	# Add dice result display (hidden initially)
+	advance_roll_label = Label.new()
+	advance_roll_label.text = "Advance Roll: -"
+	advance_roll_label.visible = false
+	section.add_child(advance_roll_label)
+	
 	parent.add_child(section)
 
 func _create_section4_actions(parent: VBoxContainer) -> void:
@@ -444,6 +459,9 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("unit_move_reset"):
 				if not phase.unit_move_reset.is_connected(_on_unit_move_reset):
 					phase.unit_move_reset.connect(_on_unit_move_reset)
+			if phase.has_signal("movement_mode_locked"):
+				if not phase.movement_mode_locked.is_connected(_on_movement_mode_locked):
+					phase.movement_mode_locked.connect(_on_movement_mode_locked)
 			
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -474,18 +492,18 @@ func _refresh_unit_list() -> void:
 		if unit_id != "" and not added_units.has(unit_id):
 			var unit = current_phase.get_unit(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			var status = ""
+			var status = _get_unit_movement_status(unit_id)
+			var status_text = ""
 			
-			if unit.get("flags", {}).get("moved", false):
-				status = " [MOVED]"
-			elif unit.get("flags", {}).get("advanced", false):
-				status = " [ADVANCING]"
-			elif unit.get("flags", {}).get("fell_back", false):
-				status = " [FALLING BACK]"
-			elif active_unit_id == unit_id:
-				status = " [ACTIVE]"
+			match status:
+				"not_moved":
+					status_text = " [YET TO MOVE]"
+				"moving":
+					status_text = " [CURRENTLY MOVING]"
+				"completed":
+					status_text = " [COMPLETED MOVING]"
 			
-			unit_list.add_item(unit_name + status)
+			unit_list.add_item(unit_name + status_text)
 			unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 			added_units[unit_id] = true
 
@@ -495,12 +513,29 @@ func _on_unit_selected(index: int) -> void:
 	print("MovementController: Unit selected - ", unit_id)
 	_highlight_unit_models(unit_id)
 	_update_selected_unit_display()  # NEW: Update section 2
+	_update_fall_back_visibility()  # NEW: Update Fall Back visibility based on engagement
+	_reset_mode_selection_for_new_unit(unit_id)  # NEW: Reset mode selection for new unit
 	emit_signal("ui_update_requested")
 
 func _highlight_unit_models(unit_id: String) -> void:
 	# Visual feedback for selected unit
 	# This would highlight all models in the unit on the board
 	pass
+
+func _get_unit_movement_status(unit_id: String) -> String:
+	if not current_phase or not current_phase.active_moves:
+		return "not_moved"
+	
+	if not current_phase.active_moves.has(unit_id):
+		return "not_moved"
+	
+	var move_data = current_phase.active_moves[unit_id]
+	if move_data.get("completed", false):
+		return "completed"
+	elif unit_id == active_unit_id:
+		return "moving"
+	else:
+		return "not_moved"
 
 func _on_normal_move_pressed() -> void:
 	print("Normal move button pressed for unit: ", active_unit_id)
@@ -597,6 +632,169 @@ func _on_end_phase_pressed() -> void:
 	}
 	emit_signal("move_action_requested", action)
 
+func _on_confirm_mode_pressed() -> void:
+	if not active_unit_id:
+		return
+	
+	var selected_mode = _get_selected_movement_mode()
+	if selected_mode == "":
+		print("No movement mode selected!")
+		return
+	
+	# Lock the mode
+	emit_signal("move_action_requested", {
+		"type": "LOCK_MOVEMENT_MODE",
+		"actor_unit_id": active_unit_id,
+		"payload": {"mode": selected_mode}
+	})
+	
+	# Handle mode-specific actions
+	match selected_mode:
+		"ADVANCE":
+			_roll_advance_dice()
+		"REMAIN_STATIONARY":
+			_complete_stationary_move()
+	
+	# Update UI state
+	_update_mode_buttons_state(false)  # Disable mode changes
+	confirm_mode_button.disabled = true
+
+func _get_selected_movement_mode() -> String:
+	if normal_radio and normal_radio.button_pressed:
+		return "NORMAL"
+	elif advance_radio and advance_radio.button_pressed:
+		return "ADVANCE"
+	elif fall_back_radio and fall_back_radio.button_pressed:
+		return "FALL_BACK"
+	elif stationary_radio and stationary_radio.button_pressed:
+		return "REMAIN_STATIONARY"
+	return ""
+
+func _roll_advance_dice() -> void:
+	# Simple dice roll - in a full implementation this would use the game's dice system
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var dice_result = rng.randi_range(1, 6)
+	
+	advance_roll_label.text = "Advance Roll: %d\"" % dice_result
+	advance_roll_label.visible = true
+	
+	# Update movement cap with advance bonus
+	emit_signal("move_action_requested", {
+		"type": "SET_ADVANCE_BONUS",
+		"actor_unit_id": active_unit_id,
+		"payload": {"bonus": dice_result}
+	})
+	
+	# Update the movement display to show the new total
+	_update_movement_display_with_advance(dice_result)
+
+func _complete_stationary_move() -> void:
+	# Immediately complete the unit's movement for stationary
+	emit_signal("move_action_requested", {
+		"type": "REMAIN_STATIONARY",
+		"actor_unit_id": active_unit_id,
+		"payload": {}
+	})
+
+func _update_mode_buttons_state(enabled: bool) -> void:
+	if normal_radio:
+		normal_radio.disabled = not enabled
+	if advance_radio:
+		advance_radio.disabled = not enabled
+	if fall_back_radio:
+		fall_back_radio.disabled = not enabled
+	if stationary_radio:
+		stationary_radio.disabled = not enabled
+
+func _update_fall_back_visibility() -> void:
+	if not fall_back_radio or not active_unit_id or not current_phase:
+		return
+	
+	# Check if the selected unit is engaged
+	var is_engaged = false
+	if current_phase.has_method("_is_unit_engaged"):
+		is_engaged = current_phase._is_unit_engaged(active_unit_id)
+	
+	fall_back_radio.visible = is_engaged
+	
+	# If not engaged and Fall Back was selected, reset to Normal
+	if not is_engaged and fall_back_radio.button_pressed:
+		if normal_radio:
+			normal_radio.button_pressed = true
+
+func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
+	# Check if this unit already has its mode locked
+	var mode_is_locked = false
+	if current_phase and current_phase.active_moves.has(unit_id):
+		mode_is_locked = current_phase.active_moves[unit_id].get("mode_locked", false)
+	
+	if mode_is_locked:
+		# Unit's mode is already locked, disable all controls
+		_update_mode_buttons_state(false)
+		if confirm_mode_button:
+			confirm_mode_button.disabled = true
+		
+		# Show the locked mode in the UI
+		var locked_mode = current_phase.active_moves[unit_id].get("mode", "")
+		_set_mode_radio_for_locked_mode(locked_mode)
+		
+		# Show advance roll if it's an advance move
+		if locked_mode == "ADVANCE" and advance_roll_label:
+			var advance_roll = current_phase.active_moves[unit_id].get("advance_roll", 0)
+			if advance_roll > 0:
+				advance_roll_label.text = "Advance Roll: %d\"" % advance_roll
+				advance_roll_label.visible = true
+				# Also update the movement display to show the total
+				_update_movement_display_with_advance(advance_roll)
+			else:
+				advance_roll_label.visible = false
+		else:
+			# For non-advance locked modes, update display normally
+			_update_movement_display()
+	else:
+		# Unit's mode is not locked, enable fresh selection
+		_update_mode_buttons_state(true)
+		if confirm_mode_button:
+			confirm_mode_button.disabled = false
+		
+		# Reset to default (Normal) selection
+		if normal_radio:
+			normal_radio.button_pressed = true
+		
+		# Hide advance roll label
+		if advance_roll_label:
+			advance_roll_label.visible = false
+		
+		# Update display for fresh unit
+		_update_movement_display()
+
+func _set_mode_radio_for_locked_mode(mode: String) -> void:
+	# Clear all selections first
+	if normal_radio:
+		normal_radio.button_pressed = false
+	if advance_radio:
+		advance_radio.button_pressed = false
+	if fall_back_radio:
+		fall_back_radio.button_pressed = false
+	if stationary_radio:
+		stationary_radio.button_pressed = false
+	
+	# Set the correct radio based on locked mode
+	match mode:
+		"NORMAL":
+			if normal_radio:
+				normal_radio.button_pressed = true
+		"ADVANCE":
+			if advance_radio:
+				advance_radio.button_pressed = true
+		"FALL_BACK":
+			if fall_back_radio:
+				fall_back_radio.button_pressed = true
+		"REMAIN_STATIONARY":
+			if stationary_radio:
+				stationary_radio.button_pressed = true
+
 func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	print("MovementController: Unit move begun - ", unit_id, " mode: ", mode)
 	active_unit_id = unit_id
@@ -683,6 +881,19 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	model_path_visuals.clear()
 	
 	_update_movement_display()
+	emit_signal("ui_update_requested")
+
+func _on_movement_mode_locked(unit_id: String, mode: String) -> void:
+	print("MovementController: Movement mode locked for %s: %s" % [unit_id, mode])
+	
+	# Update UI state to reflect the locked mode
+	_update_mode_buttons_state(false)  # Disable mode buttons
+	if confirm_mode_button:
+		confirm_mode_button.disabled = true
+	
+	# Refresh unit list to update status display
+	_refresh_unit_list()
+	
 	emit_signal("ui_update_requested")
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1232,6 +1443,35 @@ func _update_movement_display_with_preview(used: float, left: float, valid: bool
 	if inches_left_label:
 		inches_left_label.text = "Left: %.1f\"" % left
 		inches_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
+
+func _update_movement_display_with_advance(dice_result: int) -> void:
+	# Get the current unit to calculate base movement
+	if not current_phase or not active_unit_id:
+		return
+		
+	var unit = current_phase.get_unit(active_unit_id)
+	if unit.is_empty():
+		return
+	
+	var base_movement = 6.0  # Default movement
+	if unit.has("meta") and unit.meta.has("stats") and unit.meta.stats.has("move"):
+		base_movement = float(unit.meta.stats.move)
+	
+	# Calculate new total movement (base + advance roll)
+	var total_movement = base_movement + dice_result
+	move_cap_inches = total_movement
+	
+	# Update the display to show the new total
+	if move_cap_label:
+		move_cap_label.text = "Move: %.1f\" (Base %d\" + Advance %d\")" % [total_movement, base_movement, dice_result]
+	
+	# Reset the used/left display since we haven't started moving yet
+	if inches_used_label:
+		inches_used_label.text = "Used: 0.0\""
+		inches_used_label.modulate = Color.WHITE
+	if inches_left_label:
+		inches_left_label.text = "Left: %.1f\"" % total_movement
+		inches_left_label.modulate = Color.WHITE
 
 func _update_dice_log_display(dice_log: Array) -> void:
 	if not dice_log_display:

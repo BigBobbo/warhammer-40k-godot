@@ -9,12 +9,31 @@ signal model_drop_preview(unit_id: String, model_id: String, path_px: Array, inc
 signal model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2)
 signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
+signal movement_mode_locked(unit_id: String, mode: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 
 # Movement state tracking
 var active_moves: Dictionary = {}  # unit_id -> move_data
 var dice_log: Array = []
+
+# Helper function to get unit movement stat with proper error handling
+func get_unit_movement(unit: Dictionary) -> float:
+	# Try the expected path first
+	if unit.has("meta") and unit.meta.has("stats") and unit.meta.stats.has("move"):
+		var movement = float(unit.meta.stats.move)
+		return movement
+	
+	# Try nested get with type safety
+	var stats = unit.get("meta", {}).get("stats", {})
+	if stats and stats.has("move"):
+		var movement = float(stats.get("move"))
+		return movement
+	
+	# Log warning and return default
+	var unit_name = unit.get("meta", {}).get("name", "Unknown")
+	push_warning("Unit %s missing movement stat, using default: 6" % unit_name)
+	return 6.0
 
 func _init():
 	phase_type = GameStateData.Phase.MOVEMENT
@@ -75,6 +94,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_confirm_unit_move(action)
 		"REMAIN_STATIONARY":
 			return _validate_remain_stationary(action)
+		"LOCK_MOVEMENT_MODE":
+			return _validate_lock_movement_mode(action)
+		"SET_ADVANCE_BONUS":
+			return _validate_set_advance_bonus(action)
 		"END_MOVEMENT":
 			return _validate_end_movement(action)
 		_:
@@ -102,6 +125,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_confirm_unit_move(action)
 		"REMAIN_STATIONARY":
 			return _process_remain_stationary(action)
+		"LOCK_MOVEMENT_MODE":
+			return _process_lock_movement_mode(action)
+		"SET_ADVANCE_BONUS":
+			return _process_set_advance_bonus(action)
 		"END_MOVEMENT":
 			return _process_end_movement(action)
 		_:
@@ -333,11 +360,14 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
-	var move_inches = unit.get("meta", {}).get("stats", {}).get("move", 6)
+	var move_inches = get_unit_movement(unit)
 	
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
+		"mode_locked": false,  # Track if mode is confirmed
+		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
+		"advance_roll": 0,  # Store advance dice result
 		"model_moves": [],
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
@@ -359,7 +389,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
-	var move_inches = unit.get("meta", {}).get("stats", {}).get("move", 6)
+	var move_inches = get_unit_movement(unit)
 	
 	# Roll D6 for advance
 	var rng = RandomNumberGenerator.new()
@@ -369,7 +399,10 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
+		"mode_locked": false,  # Track if mode is confirmed
+		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": total_move,
+		"advance_roll": advance_roll,  # Store advance dice result
 		"model_moves": [],
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
@@ -404,11 +437,14 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
-	var move_inches = unit.get("meta", {}).get("stats", {}).get("move", 6)
+	var move_inches = get_unit_movement(unit)
 	
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
+		"mode_locked": false,  # Track if mode is confirmed
+		"completed": false,  # Track if unit has completed movement
 		"move_cap_inches": move_inches,
+		"advance_roll": 0,  # Not used for Fall Back but kept for consistency
 		"model_moves": [],
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
@@ -504,13 +540,8 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
 	
-	# Remove any existing staged move for this model to replace it
-	for i in range(move_data.staged_moves.size() - 1, -1, -1):
-		if move_data.staged_moves[i].model_id == model_id:
-			move_data.staged_moves.remove_at(i)
-			break
-	
-	# Add new staged move
+	# Instead of replacing, add this as a new segment
+	# Keep all segments to show the complete path
 	move_data.staged_moves.append({
 		"model_id": model_id,
 		"from": current_pos,
@@ -664,12 +695,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 	
-	# Clean up active move
-	active_moves.erase(unit_id)
-	
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Confirmed %s move for %s" % [move_data.mode.to_lower(), unit_name])
+	
+	# Mark unit as completed before cleanup
+	move_data["completed"] = true
 	
 	emit_signal("unit_move_confirmed", unit_id, {"mode": move_data.mode, "models_moved": move_data.model_moves.size()})
 	
@@ -694,7 +725,84 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 	
 	log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
 	
+	# Mark unit as completed in active_moves
+	if active_moves.has(unit_id):
+		active_moves[unit_id]["completed"] = true
+	else:
+		active_moves[unit_id] = {
+			"mode": "REMAIN_STATIONARY",
+			"mode_locked": true,
+			"completed": true,
+			"move_cap_inches": 0,
+			"advance_roll": 0,
+			"model_moves": [],
+			"staged_moves": [],
+			"original_positions": {},
+			"model_distances": {},
+			"dice_rolls": []
+		}
+	
+	emit_signal("unit_move_confirmed", unit_id, {"mode": "REMAIN_STATIONARY", "distance": 0})
+	
 	return create_result(true, changes)
+
+func _validate_lock_movement_mode(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["Unit has not begun movement"]}
+	
+	if active_moves[unit_id].get("mode_locked", false):
+		return {"valid": false, "errors": ["Movement mode already locked"]}
+	
+	return {"valid": true}
+
+func _process_lock_movement_mode(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var mode = action.get("payload", {}).get("mode", "")
+	
+	if active_moves.has(unit_id):
+		active_moves[unit_id]["mode_locked"] = true
+		if mode != "":
+			active_moves[unit_id]["mode"] = mode
+		
+		emit_signal("movement_mode_locked", unit_id, active_moves[unit_id]["mode"])
+		log_phase_message("Locked movement mode for %s: %s" % [get_unit(unit_id).get("meta", {}).get("name", unit_id), active_moves[unit_id]["mode"]])
+	
+	return create_result(true, [])
+
+func _validate_set_advance_bonus(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["Unit has not begun movement"]}
+	
+	if active_moves[unit_id].get("mode", "") != "ADVANCE":
+		return {"valid": false, "errors": ["Unit is not advancing"]}
+	
+	return {"valid": true}
+
+func _process_set_advance_bonus(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var bonus = action.get("payload", {}).get("bonus", 0)
+	
+	if active_moves.has(unit_id):
+		active_moves[unit_id]["advance_roll"] = bonus
+		var unit = get_unit(unit_id)
+		var base_move = get_unit_movement(unit)
+		active_moves[unit_id]["move_cap_inches"] = base_move + bonus
+		
+		log_phase_message("Set advance bonus for %s: +%d\" (total: %d\")" % [
+			unit.get("meta", {}).get("name", unit_id),
+			bonus,
+			active_moves[unit_id]["move_cap_inches"]
+		])
+	
+	return create_result(true, [])
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("Ending Movement Phase")
