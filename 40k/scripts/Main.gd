@@ -906,9 +906,8 @@ func _on_unit_selected(index: int) -> void:
 		# Pass unit selection to MovementController
 		movement_controller.active_unit_id = unit_id
 		print("Selected unit for movement: ", unit_id)
-		# Show movement options in the unit card
-		show_unit_card(unit_id)
-		update_movement_card_buttons()
+		# REMOVED: show_unit_card(unit_id) - MovementController handles its own UI
+		# REMOVED: update_movement_card_buttons() - MovementController handles its own UI
 		
 		# AUTO-START NORMAL MOVE FOR EASIER TESTING
 		# In production, user would click a movement type button
@@ -931,8 +930,9 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 	
 	print("Main: Unit selected from bottom panel - ", unit_id, " (enemy: ", is_enemy, ")")
 	
-	# Show the unit card with unit info
-	show_unit_card(unit_id)
+	# Show the unit card with unit info (but not during movement phase)
+	if current_phase != GameStateData.Phase.MOVEMENT:
+		show_unit_card(unit_id)
 	
 	# Handle selection based on phase and unit ownership
 	if not is_enemy:  # Player unit selected
@@ -944,7 +944,7 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 			# Pass unit selection to MovementController
 			movement_controller.active_unit_id = unit_id
 			print("Selected unit for movement: ", unit_id)
-			update_movement_card_buttons()
+			# REMOVED: update_movement_card_buttons() - MovementController handles its own UI
 			
 			# AUTO-START NORMAL MOVE FOR EASIER TESTING
 			print("Auto-starting Normal Move for easier testing...")
@@ -999,10 +999,16 @@ func update_unit_card_buttons() -> void:
 					confirm_button.visible = false
 		
 		GameStateData.Phase.MOVEMENT:
-			update_movement_card_buttons()
+			# CHANGE: Don't call update_movement_card_buttons() - MovementController manages its own UI
+			unit_card.visible = false
 
 func update_movement_card_buttons() -> void:
 	if not movement_controller:
+		return
+	
+	# EARLY EXIT: Don't show UnitCard during movement phase
+	if current_phase == GameStateData.Phase.MOVEMENT:
+		unit_card.visible = false
 		return
 	
 	# Show movement buttons if there's an active move

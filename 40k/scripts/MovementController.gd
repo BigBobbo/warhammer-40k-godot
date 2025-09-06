@@ -192,13 +192,13 @@ func _setup_bottom_hud() -> void:
 	else:
 		# If MovementButtons doesn't exist, create End Phase button directly
 		print("MovementController: Creating End Phase button in top panel")
-		main_container.add_child(VSeparator.new())
+		# main_container.add_child(VSeparator.new())
 		
-		var end_phase_button = Button.new()
-		end_phase_button.name = "EndPhaseButton"
-		end_phase_button.text = "End Movement Phase"
-		end_phase_button.pressed.connect(_on_end_phase_pressed)
-		main_container.add_child(end_phase_button)
+		# var end_phase_button = Button.new()
+		# end_phase_button.name = "EndPhaseButton"
+		# end_phase_button.text = "End Movement Phase"
+		# end_phase_button.pressed.connect(_on_end_phase_pressed)
+		# main_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
 	var container = hud_right.get_node_or_null("VBoxContainer")
@@ -223,21 +223,21 @@ func _setup_right_panel() -> void:
 	
 	# SECTION 1: Unit List with Status
 	_create_section1_unit_list(container)
-	container.add_child(HSeparator.new())
+	# container.add_child(HSeparator.new())
 	
 	# SECTION 2: Selected Unit Details  
 	_create_section2_unit_details(container)
-	container.add_child(HSeparator.new())
+	# container.add_child(HSeparator.new())
 	
 	# SECTION 3: Movement Mode Selection
 	_create_section3_mode_selection(container) 
-	container.add_child(HSeparator.new())
+	# container.add_child(HSeparator.new())
 	
 	# SECTION 4: Action Buttons & Distance Info
 	_create_section4_actions(container)
 	
 	# Keep dice log at bottom
-	_create_dice_log_display(container)
+	# _create_dice_log_display(container)
 
 func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()
