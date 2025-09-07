@@ -105,6 +105,18 @@ func _exit_tree() -> void:
 	var movement_actions = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/MovementActions")
 	if movement_actions and is_instance_valid(movement_actions):
 		movement_actions.queue_free()
+	
+	# ENHANCEMENT: Explicitly clean up all 4 movement sections
+	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	if container and is_instance_valid(container):
+		# Remove all movement-specific sections
+		for section_name in ["Section1_UnitList", "Section2_UnitDetails", 
+							"Section3_ModeSelection", "Section4_Actions"]:
+			var section = container.get_node_or_null(section_name)
+			if section and is_instance_valid(section):
+				print("MovementController: Cleaning up section: ", section_name)
+				container.remove_child(section)
+				section.queue_free()
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes

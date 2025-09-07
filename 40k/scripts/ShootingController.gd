@@ -62,6 +62,19 @@ func _exit_tree() -> void:
 	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")  
 	if shooting_panel and is_instance_valid(shooting_panel):
 		shooting_panel.queue_free()
+	
+	# Restore visibility of UnitListPanel and UnitCard when leaving shooting phase
+	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	if container and is_instance_valid(container):
+		var unit_list_panel = container.get_node_or_null("UnitListPanel")
+		if unit_list_panel and is_instance_valid(unit_list_panel):
+			print("ShootingController: Restoring UnitListPanel visibility")
+			unit_list_panel.visible = true
+		
+		var unit_card = container.get_node_or_null("UnitCard")
+		if unit_card and is_instance_valid(unit_card):
+			print("ShootingController: Restoring UnitCard visibility")
+			unit_card.visible = true
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -262,6 +275,19 @@ func set_phase(phase: BasePhase) -> void:
 		
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
+		
+		# Hide UnitListPanel and UnitCard when shooting phase starts
+		var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+		if container:
+			var unit_list_panel = container.get_node_or_null("UnitListPanel")
+			if unit_list_panel:
+				print("ShootingController: Hiding UnitListPanel on phase start")
+				unit_list_panel.visible = false
+			
+			var unit_card = container.get_node_or_null("UnitCard")
+			if unit_card:
+				print("ShootingController: Hiding UnitCard on phase start")
+				unit_card.visible = false
 		
 		_refresh_unit_list()
 		
@@ -625,10 +651,32 @@ func _cleanup_existing_ui() -> void:
 		if existing_controls:
 			existing_controls.queue_free()
 	
-	# Remove existing shooting panel if present  
+	# ENHANCEMENT: Proactively clear any movement phase residuals
 	if hud_right:
 		var container = hud_right.get_node_or_null("VBoxContainer")
 		if container:
+			# Clear any remaining movement sections
+			for section_name in ["Section1_UnitList", "Section2_UnitDetails", 
+								"Section3_ModeSelection", "Section4_Actions"]:
+				var section = container.get_node_or_null(section_name)
+				if section:
+					print("ShootingController: Cleaning up residual movement section: ", section_name)
+					container.remove_child(section)
+					section.queue_free()
+			
+			# Hide UnitListPanel if present
+			var unit_list_panel = container.get_node_or_null("UnitListPanel")
+			if unit_list_panel:
+				print("ShootingController: Hiding UnitListPanel")
+				unit_list_panel.visible = false
+			
+			# Hide UnitCard if present
+			var unit_card = container.get_node_or_null("UnitCard")
+			if unit_card:
+				print("ShootingController: Hiding UnitCard")
+				unit_card.visible = false
+			
+			# Clear any other non-shooting UI elements
 			var existing_panel = container.get_node_or_null("ShootingPanel")
 			if existing_panel:
 				existing_panel.queue_free()

@@ -821,6 +821,12 @@ func refresh_unit_list() -> void:
 			
 			print("Refreshing right panel unit list for movement - found ", deployed_count, " deployed units")
 		
+		GameStateData.Phase.SHOOTING:
+			# Hide unit list during shooting phase - shooting controller handles its own UI
+			unit_list.visible = false
+			unit_list.clear()
+			print("Refreshing right panel unit list for shooting - unit list hidden")
+		
 		_:
 			# Default: show all units for active player in right panel
 			unit_list.visible = true
@@ -1556,6 +1562,9 @@ func update_ui_for_phase() -> void:
 			p2_zone.visible = true
 			# Hide movement action buttons during deployment
 			_show_movement_action_buttons(false)
+			# Show unit list and unit card during deployment phase
+			unit_list.visible = true
+			unit_card.visible = true
 			
 		GameStateData.Phase.MOVEMENT:
 			phase_label.text = "Movement Phase"
@@ -1566,11 +1575,17 @@ func update_ui_for_phase() -> void:
 			p2_zone.visible = false
 			# Show movement action buttons
 			_show_movement_action_buttons(true)
+			# Show unit list and unit card during movement phase
+			unit_list.visible = true
+			unit_card.visible = true
 			
 		GameStateData.Phase.SHOOTING:
 			phase_label.text = "Shooting Phase"
 			end_deployment_button.visible = true
 			end_deployment_button.text = "End Shooting"
+			# Hide unit list and unit card during shooting phase
+			unit_list.visible = false
+			unit_card.visible = false
 			
 		GameStateData.Phase.CHARGE:
 			phase_label.text = "Charge Phase"
