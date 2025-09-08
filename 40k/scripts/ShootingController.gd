@@ -59,22 +59,18 @@ func _exit_tree() -> void:
 	if shooting_controls and is_instance_valid(shooting_controls):
 		shooting_controls.queue_free()
 	
-	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")  
+	# ENHANCEMENT: Comprehensive right panel cleanup
+	var shooting_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingPanel")
 	if shooting_panel and is_instance_valid(shooting_panel):
+		shooting_panel.get_parent().remove_child(shooting_panel)
 		shooting_panel.queue_free()
 	
-	# Restore visibility of UnitListPanel and UnitCard when leaving shooting phase
-	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
-	if container and is_instance_valid(container):
-		var unit_list_panel = container.get_node_or_null("UnitListPanel")
-		if unit_list_panel and is_instance_valid(unit_list_panel):
-			print("ShootingController: Restoring UnitListPanel visibility")
-			unit_list_panel.visible = true
-		
-		var unit_card = container.get_node_or_null("UnitCard")
-		if unit_card and is_instance_valid(unit_card):
-			print("ShootingController: Restoring UnitCard visibility")
-			unit_card.visible = true
+	var shooting_scroll = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer")
+	if shooting_scroll and is_instance_valid(shooting_scroll):
+		shooting_scroll.get_parent().remove_child(shooting_scroll)
+		shooting_scroll.queue_free()
+	
+	# DON'T restore UnitListPanel/UnitCard visibility here - let Main.gd handle it
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -153,6 +149,7 @@ func _setup_bottom_hud() -> void:
 	controls_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
+	# Main.gd already handles cleanup before controller creation
 	# Check for existing VBoxContainer in HUD_Right
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:
@@ -187,11 +184,13 @@ func _setup_right_panel() -> void:
 				child.free()
 	
 	# Create UI elements (existing logic)
+	print("ShootingController: Creating shooting UI elements")
 	# Title
 	var title = Label.new()
 	title.text = "Shooting Controls"
 	title.add_theme_font_size_override("font_size", 16)
 	shooting_panel.add_child(title)
+	print("ShootingController: Added title to shooting panel")
 	
 	shooting_panel.add_child(HSeparator.new())
 	
@@ -258,6 +257,8 @@ func _setup_right_panel() -> void:
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	shooting_panel.add_child(dice_log_display)
+	
+	print("ShootingController: Finished creating shooting UI - panel should be visible!")
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase

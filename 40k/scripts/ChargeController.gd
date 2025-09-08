@@ -71,6 +71,17 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 	_clear_movement_visuals()
+	
+	# ENHANCEMENT: Comprehensive right panel cleanup
+	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	if container and is_instance_valid(container):
+		var charge_elements = ["ChargePanel", "ChargeScrollContainer", "ChargeActions"]
+		for element in charge_elements:
+			var node = container.get_node_or_null(element)
+			if node and is_instance_valid(node):
+				print("ChargeController: Removing element: ", element)
+				container.remove_child(node)
+				node.queue_free()
 
 func _input(event: InputEvent) -> void:
 	if not awaiting_movement:
@@ -297,6 +308,7 @@ func _setup_bottom_hud() -> void:
 	container.add_child(charge_status_label)
 
 func _setup_right_panel() -> void:
+	# Main.gd already handles cleanup before controller creation
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:
 		container = VBoxContainer.new()

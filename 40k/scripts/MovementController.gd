@@ -213,6 +213,7 @@ func _setup_bottom_hud() -> void:
 		# main_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
+	# Main.gd already handles cleanup before controller creation
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:
 		container = VBoxContainer.new()

@@ -65,9 +65,16 @@ func _exit_tree() -> void:
 	if fight_controls and is_instance_valid(fight_controls):
 		fight_controls.queue_free()
 	
-	var fight_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/FightPanel")  
-	if fight_panel and is_instance_valid(fight_panel):
-		fight_panel.queue_free()
+	# ENHANCEMENT: Comprehensive right panel cleanup
+	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
+	if container and is_instance_valid(container):
+		var fight_elements = ["FightPanel", "FightScrollContainer", "FightSequence", "FightActions"]
+		for element in fight_elements:
+			var node = container.get_node_or_null(element)
+			if node and is_instance_valid(node):
+				print("FightController: Removing element: ", element)
+				container.remove_child(node)
+				node.queue_free()
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -169,6 +176,7 @@ func _setup_bottom_hud() -> void:
 	controls_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
+	# Main.gd already handles cleanup before controller creation
 	# Check for existing VBoxContainer in HUD_Right
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:

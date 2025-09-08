@@ -394,6 +394,9 @@ func setup_deployment_zones() -> void:
 	update_deployment_zone_visibility()
 
 func setup_phase_controllers() -> void:
+	# ENHANCEMENT: Clear right panel before cleanup
+	_clear_right_panel_phase_ui()
+	
 	# Clean up existing controllers
 	if deployment_controller:
 		deployment_controller.queue_free()
@@ -411,8 +414,12 @@ func setup_phase_controllers() -> void:
 		fight_controller.queue_free()
 		fight_controller = null
 	
-	# Wait a frame for cleanup to complete before creating new controllers
+	# Wait TWO frames for complete cleanup
 	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# ENHANCEMENT: Clear again after controller cleanup
+	_clear_right_panel_phase_ui()
 	
 	# Setup controller based on current phase
 	match current_phase:
@@ -1211,6 +1218,9 @@ func _perform_quick_load() -> void:
 	if success:
 		_show_save_notification("Game loaded!", Color.BLUE)
 		
+		# ENHANCEMENT: Clear UI before phase setup
+		_clear_right_panel_phase_ui()
+		
 		# Update current phase
 		current_phase = GameState.get_current_phase()
 		print("Loaded phase: ", GameStateData.Phase.keys()[current_phase])
@@ -1448,6 +1458,9 @@ func _on_load_requested(save_file: String) -> void:
 	if success:
 		_show_save_notification("Game loaded!", Color.BLUE)
 		
+		# ENHANCEMENT: Clear UI before phase setup
+		_clear_right_panel_phase_ui()
+		
 		# Update current phase
 		current_phase = GameState.get_current_phase()
 		
@@ -1551,6 +1564,7 @@ func _on_phase_completed(phase: GameStateData.Phase) -> void:
 	print("Phase completed: ", GameStateData.Phase.keys()[phase])
 
 func update_ui_for_phase() -> void:
+	# setup_phase_controllers() already handles right panel cleanup
 	# Update UI based on current phase
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
@@ -1827,3 +1841,80 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 	
 	print("Could not find token to move, falling back to full recreation")
 	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
+
+func _clear_right_panel_phase_ui() -> void:
+	"""Completely clear all phase-specific UI from right panel"""
+	var container = get_node_or_null("HUD_Right/VBoxContainer")
+	if not container:
+		print("WARNING: Right panel VBoxContainer not found")
+		return
+	
+	# List of known phase-specific UI elements to remove
+	var phase_ui_patterns = [
+		# Movement phase sections
+		"Section1_UnitList", "Section2_UnitDetails", 
+		"Section3_ModeSelection", "Section4_Actions",
+		"MovementActions", "MovementPanel",
+		
+		# Shooting phase elements
+		"ShootingPanel", "ShootingScrollContainer",
+		"ShootingControls", "WeaponTree", "TargetBasket",
+		
+		# Charge phase elements
+		"ChargePanel", "ChargeScrollContainer",
+		"ChargeActions", "ChargeStatus",
+		
+		# Fight phase elements
+		"FightPanel", "FightScrollContainer",
+		"FightSequence", "FightActions",
+		
+		# Generic phase elements
+		"PhasePanel", "PhaseControls", "PhaseActions"
+	]
+	
+	# Remove all matching elements
+	for pattern in phase_ui_patterns:
+		var node = container.get_node_or_null(pattern)
+		if node and is_instance_valid(node):
+			print("Main: Removing phase UI element: ", pattern)
+			container.remove_child(node)
+			node.queue_free()
+	
+	# Also remove any unknown dynamic children (defensive)
+	var children_to_check = container.get_children()
+	for child in children_to_check:
+		# Keep only persistent UI elements
+		if child.name in ["UnitListPanel", "UnitCard"]:
+			# These might be shown/hidden based on phase
+			continue
+		# Remove if it looks like phase-specific UI
+		if "Section" in child.name or "Panel" in child.name or "Actions" in child.name:
+			print("Main: Removing unrecognized phase UI: ", child.name)
+			container.remove_child(child)
+			child.queue_free()
+
+func _debug_check_right_panel() -> void:
+	"""Debug method to validate right panel state"""
+	var container = get_node_or_null("HUD_Right/VBoxContainer")
+	if not container:
+		print("DEBUG: No VBoxContainer found")
+		return
+	
+	print("DEBUG: Right panel children:")
+	for child in container.get_children():
+		print("  - ", child.name, " (", child.get_class(), ")")
+	
+	# Check for wrong phase UI
+	var current_phase_name = GameStateData.Phase.keys()[current_phase]
+	print("DEBUG: Current phase: ", current_phase_name)
+	
+	# Flag any mismatched UI
+	if current_phase != GameStateData.Phase.MOVEMENT:
+		for section in ["Section1_UnitList", "Section2_UnitDetails", 
+					   "Section3_ModeSelection", "Section4_Actions"]:
+			if container.get_node_or_null(section):
+				print("ERROR: Movement UI found in wrong phase!")
+	
+	if current_phase != GameStateData.Phase.SHOOTING:
+		if container.get_node_or_null("ShootingPanel"):
+			print("ERROR: Shooting UI found in wrong phase!")
