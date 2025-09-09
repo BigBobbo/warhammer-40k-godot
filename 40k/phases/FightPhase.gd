@@ -140,8 +140,8 @@ func _initialize_fight_sequence() -> void:
 
 func _check_for_combats() -> void:
 	if fight_sequence.size() == 0:
-		log_phase_message("No units in combat, completing phase")
-		emit_signal("phase_completed")
+		log_phase_message("No units in combat, ready to end fight phase")
+		# Don't auto-complete - wait for END_FIGHT action
 	else:
 		log_phase_message("Found %d units in fight sequence" % fight_sequence.size())
 		if fight_sequence.size() > 0:
@@ -169,6 +169,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_skip_unit(action)
 		"HEROIC_INTERVENTION":
 			return _validate_heroic_intervention_action(action)
+		"END_FIGHT":
+			return _validate_end_fight(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -194,6 +196,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_skip_unit(action)
 		"HEROIC_INTERVENTION":
 			return _process_heroic_intervention(action)
+		"END_FIGHT":
+			return _process_end_fight(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -576,8 +580,8 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 		var next_unit = fight_sequence[current_fight_index]
 		log_phase_message("Next to fight: %s" % next_unit)
 	else:
-		log_phase_message("All units have fought, phase complete")
-		emit_signal("phase_completed")
+		log_phase_message("All units have fought, ready to end fight phase")
+		# Don't auto-complete - wait for END_FIGHT action
 	
 	return result
 
@@ -595,8 +599,8 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 		var next_unit = fight_sequence[current_fight_index]
 		log_phase_message("Skipped %s, next to fight: %s" % [action.unit_id, next_unit])
 	else:
-		log_phase_message("All units processed, phase complete")
-		emit_signal("phase_completed")
+		log_phase_message("All units processed, ready to end fight phase")
+		# Don't auto-complete - wait for END_FIGHT action
 	
 	return create_result(true, [])
 
@@ -821,13 +825,22 @@ func get_available_actions() -> Array:
 			"description": "Consolidate %s" % active_fighter_id
 		})
 	
+	# Add END_FIGHT action when appropriate
+	if fight_sequence.is_empty() or current_fight_index >= fight_sequence.size():
+		actions.append({
+			"type": "END_FIGHT",
+			"description": "End Fight Phase"
+		})
+		log_phase_message("Adding END_FIGHT action - all units processed or no fights")
+	
 	log_phase_message("Returning %d available actions: %s" % [actions.size(), str(actions)])
 	log_phase_message("=== END get_available_actions DEBUG ===")
 	return actions
 
 func _should_complete_phase() -> bool:
-	# Phase completes when all units in fight sequence have fought
-	return current_fight_index >= fight_sequence.size()
+	# Phase only completes when explicitly requested via END_FIGHT action
+	# Don't auto-complete based on fight sequence anymore
+	return false
 
 # Legacy method compatibility (for existing helper methods)
 func _is_unit_in_combat(unit: Dictionary) -> bool:
@@ -939,6 +952,15 @@ func _validate_heroic_intervention_action(action: Dictionary) -> Dictionary:
 	# - Check timing (at start of fight phase)
 	
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_end_fight(action: Dictionary) -> Dictionary:
+	# END_FIGHT is always valid - it's the manual way to end the fight phase
+	return {"valid": true, "errors": []}
+
+func _process_end_fight(action: Dictionary) -> Dictionary:
+	log_phase_message("Fight phase ended manually")
+	emit_signal("phase_completed")
+	return create_result(true, [])
 
 # State access methods
 func get_current_fight_state() -> Dictionary:

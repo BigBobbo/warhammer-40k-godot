@@ -43,11 +43,8 @@ func _on_phase_enter() -> void:
 	active_moves.clear()
 	dice_log.clear()
 	
-	# Movement phase should always start with Player 1
-	# (In a full game, this would alternate based on who has initiative)
-	if GameState.get_active_player() != 1:
-		log_phase_message("Setting active player to 1 for movement phase")
-		GameState.set_active_player(1)
+	# Movement phase continues with the current active player
+	# Player switching only happens during scoring phase transitions
 	
 	_initialize_movement()
 
