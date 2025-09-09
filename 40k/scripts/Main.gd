@@ -26,10 +26,12 @@ var unit_stats_panel: Control
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
 var deployment_controller: Node
+var command_controller: Node
 var movement_controller: Node
 var shooting_controller: Node
 var charge_controller: Node
 var fight_controller: Node
+var scoring_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
@@ -401,6 +403,9 @@ func setup_phase_controllers() -> void:
 	if deployment_controller:
 		deployment_controller.queue_free()
 		deployment_controller = null
+	if command_controller:
+		command_controller.queue_free()
+		command_controller = null
 	if movement_controller:
 		movement_controller.queue_free()
 		movement_controller = null
@@ -413,6 +418,9 @@ func setup_phase_controllers() -> void:
 	if fight_controller:
 		fight_controller.queue_free()
 		fight_controller = null
+	if scoring_controller:
+		scoring_controller.queue_free()
+		scoring_controller = null
 	
 	# Wait TWO frames for complete cleanup
 	await get_tree().process_frame
@@ -425,6 +433,8 @@ func setup_phase_controllers() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
+		GameStateData.Phase.COMMAND:
+			setup_command_controller()
 		GameStateData.Phase.MOVEMENT:
 			setup_movement_controller()
 		GameStateData.Phase.SHOOTING:
@@ -433,6 +443,8 @@ func setup_phase_controllers() -> void:
 			setup_charge_controller()
 		GameStateData.Phase.FIGHT:
 			setup_fight_controller()
+		GameStateData.Phase.SCORING:
+			setup_scoring_controller()
 		_:
 			print("No controller for phase: ", current_phase)
 
@@ -441,6 +453,38 @@ func setup_deployment_controller() -> void:
 	deployment_controller.name = "DeploymentController"
 	add_child(deployment_controller)
 	deployment_controller.set_layers(token_layer, ghost_layer)
+
+func setup_command_controller() -> void:
+	print("Setting up CommandController...")
+	command_controller = preload("res://scripts/CommandController.gd").new()
+	command_controller.name = "CommandController"
+	add_child(command_controller)
+	
+	# Get the current phase instance from PhaseManager
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance:
+		print("Phase instance found: ", phase_instance.get_class())
+		
+		# Check if it's a CommandPhase
+		var is_command_phase = false
+		if phase_instance.get("phase_type") == GameStateData.Phase.COMMAND:
+			is_command_phase = true
+		
+		if is_command_phase:
+			command_controller.set_phase(phase_instance)
+			print("Connected CommandController to CommandPhase")
+		else:
+			print("WARNING: Phase instance is not a CommandPhase, skipping signal connections")
+	else:
+		print("WARNING: No phase instance found!")
+	
+	# Connect command controller signals
+	if not command_controller.command_action_requested.is_connected(_on_command_action_requested):
+		command_controller.command_action_requested.connect(_on_command_action_requested)
+		print("Connected command_action_requested signal")
+	if not command_controller.ui_update_requested.is_connected(_on_command_ui_update_requested):
+		command_controller.ui_update_requested.connect(_on_command_ui_update_requested)
+		print("Connected ui_update_requested signal")
 
 func setup_movement_controller() -> void:
 	print("Setting up MovementController...")
@@ -621,6 +665,38 @@ func setup_fight_controller() -> void:
 		print("Connected fight_action_requested signal")
 	if not fight_controller.ui_update_requested.is_connected(_on_fight_ui_update_requested):
 		fight_controller.ui_update_requested.connect(_on_fight_ui_update_requested)
+		print("Connected ui_update_requested signal")
+
+func setup_scoring_controller() -> void:
+	print("Setting up ScoringController...")
+	scoring_controller = preload("res://scripts/ScoringController.gd").new()
+	scoring_controller.name = "ScoringController"
+	add_child(scoring_controller)
+	
+	# Get the current phase instance from PhaseManager
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance:
+		print("Phase instance found: ", phase_instance.get_class())
+		
+		# Check if it's a ScoringPhase
+		var is_scoring_phase = false
+		if phase_instance.get("phase_type") == GameStateData.Phase.SCORING:
+			is_scoring_phase = true
+		
+		if is_scoring_phase:
+			scoring_controller.set_phase(phase_instance)
+			print("Connected ScoringController to ScoringPhase")
+		else:
+			print("WARNING: Phase instance is not a ScoringPhase, skipping signal connections")
+	else:
+		print("WARNING: No phase instance found!")
+	
+	# Connect scoring controller signals
+	if not scoring_controller.scoring_action_requested.is_connected(_on_scoring_action_requested):
+		scoring_controller.scoring_action_requested.connect(_on_scoring_action_requested)
+		print("Connected scoring_action_requested signal")
+	if not scoring_controller.ui_update_requested.is_connected(_on_scoring_ui_update_requested):
+		scoring_controller.ui_update_requested.connect(_on_scoring_ui_update_requested)
 		print("Connected ui_update_requested signal")
 
 func connect_signals() -> void:
@@ -833,6 +909,12 @@ func refresh_unit_list() -> void:
 			unit_list.visible = false
 			unit_list.clear()
 			print("Refreshing right panel unit list for shooting - unit list hidden")
+		
+		GameStateData.Phase.CHARGE:
+			# Hide unit list during charge phase - charge controller handles its own UI
+			unit_list.visible = false
+			unit_list.clear()
+			print("Refreshing right panel unit list for charge - unit list hidden")
 		
 		_:
 			# Default: show all units for active player in right panel
@@ -1580,6 +1662,18 @@ func update_ui_for_phase() -> void:
 			unit_list.visible = true
 			unit_card.visible = true
 			
+		GameStateData.Phase.COMMAND:
+			phase_label.text = "Command Phase"
+			end_deployment_button.visible = false  # Command phase has its own "End Command Phase" button
+			# Hide deployment zones during command phase
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons during command
+			_show_movement_action_buttons(false)
+			# Hide unit list and unit card during command phase
+			unit_list.visible = false
+			unit_card.visible = false
+			
 		GameStateData.Phase.MOVEMENT:
 			phase_label.text = "Movement Phase"
 			end_deployment_button.visible = true
@@ -1603,13 +1697,23 @@ func update_ui_for_phase() -> void:
 			
 		GameStateData.Phase.CHARGE:
 			phase_label.text = "Charge Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Charge"
+			# Hide main end button during charge phase - ChargeController handles its own End Charge Phase button
+			end_deployment_button.visible = false
+			# Hide unit list and unit card during charge phase
+			unit_list.visible = false
+			unit_card.visible = false
 			
 		GameStateData.Phase.FIGHT:
 			phase_label.text = "Fight Phase"
 			end_deployment_button.visible = true
 			end_deployment_button.text = "End Fight"
+			
+		GameStateData.Phase.SCORING:
+			phase_label.text = "Scoring Phase"
+			end_deployment_button.visible = false  # Scoring phase has its own "End Turn" button
+			# Hide unit list and unit card during scoring phase
+			unit_list.visible = false
+			unit_card.visible = false
 			
 		GameStateData.Phase.MORALE:
 			phase_label.text = "Morale Phase"
@@ -1753,10 +1857,8 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 			if result.success:
 				print("Main: Fight action succeeded")
 				
-				# Apply any state changes
-				var changes = result.get("changes", [])
-				if not changes.is_empty():
-					PhaseManager.apply_state_changes(changes)
+				# Note: State changes are already applied by BasePhase.execute_action()
+				# No need to apply them again here
 				
 				# Update UI after successful action
 				update_after_fight_action()
@@ -1771,6 +1873,82 @@ func _on_fight_ui_update_requested() -> void:
 	# Update UI when FightController requests it
 	if current_phase == GameStateData.Phase.FIGHT:
 		update_ui()
+
+func _on_scoring_action_requested(action: Dictionary) -> void:
+	print("Main: Received scoring action request: ", action.get("type", ""))
+	
+	# Process scoring action through the phase
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	
+	if phase_instance and phase_instance.has_method("execute_action"):
+		var result = phase_instance.execute_action(action)
+		if result.has("success"):
+			if result.success:
+				print("Main: Scoring action succeeded")
+				
+				# Note: State changes are already applied by BasePhase.execute_action()
+				# No need to apply them again here
+				
+				# Update UI after successful action
+				update_after_scoring_action()
+			else:
+				print("Main: Scoring action failed: ", result.get("error", "Unknown error"))
+		else:
+			print("Main: Unexpected result from scoring action")
+	else:
+		print("Main: No phase instance or execute_action method")
+
+func _on_command_action_requested(action: Dictionary) -> void:
+	print("Main: Received command action request: ", action.get("type", ""))
+	
+	# Process command action through the phase
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	
+	if phase_instance and phase_instance.has_method("execute_action"):
+		var result = phase_instance.execute_action(action)
+		if result.has("success"):
+			if result.success:
+				print("Main: Command action succeeded")
+				
+				# Note: State changes are already applied by BasePhase.execute_action()
+				# No need to apply them again here
+				
+				# Update UI after successful action
+				update_after_command_action()
+			else:
+				print("Main: Command action failed: ", result.get("error", "Unknown error"))
+		else:
+			print("Main: Unexpected result from command action")
+	else:
+		print("Main: No phase instance or execute_action method")
+
+func _on_command_ui_update_requested() -> void:
+	# Update UI when CommandController requests it
+	if current_phase == GameStateData.Phase.COMMAND:
+		update_ui()
+
+func update_after_command_action() -> void:
+	# Refresh UI after a command action
+	refresh_unit_list()
+	update_ui()
+	
+	# Update command controller state
+	if command_controller:
+		command_controller._refresh_ui()
+
+func _on_scoring_ui_update_requested() -> void:
+	# Update UI when ScoringController requests it
+	if current_phase == GameStateData.Phase.SCORING:
+		update_ui()
+
+func update_after_scoring_action() -> void:
+	# Refresh UI after a scoring action (mainly for turn switching)
+	refresh_unit_list()
+	update_ui()
+	
+	# Update scoring controller state
+	if scoring_controller:
+		scoring_controller._refresh_ui()
 
 func update_after_charge_action() -> void:
 	print("DEBUG: update_after_charge_action called")

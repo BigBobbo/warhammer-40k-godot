@@ -230,82 +230,29 @@ func _setup_bottom_hud() -> void:
 		main_container.remove_child(existing_controls)
 		existing_controls.free()
 	
-	var container = HBoxContainer.new()
-	container.name = "ChargeControls"
-	main_container.add_child(container)
+	# Remove any existing end phase button
+	var existing_end_button = main_container.get_node_or_null("EndChargePhaseButton")
+	if existing_end_button:
+		main_container.remove_child(existing_end_button)
+		existing_end_button.free()
 	
-	# Add separator before charge controls
-	container.add_child(VSeparator.new())
+	# Add separator before end button
+	var separator = VSeparator.new()
+	separator.name = "ChargeSeparator"
+	main_container.add_child(separator)
 	
-	# Charge info label
-	charge_info_label = Label.new()
-	charge_info_label.text = "Step 1: Select a unit from the list below to begin charge"
-	container.add_child(charge_info_label)
+	# Add spacer to push button to the right
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_container.add_child(spacer)
 	
-	# Charge distance display labels (initially hidden)
-	charge_distance_label = Label.new()
-	charge_distance_label.text = "Charge: 0\""
-	charge_distance_label.visible = false
-	container.add_child(charge_distance_label)
-	
-	charge_used_label = Label.new()
-	charge_used_label.text = "Used: 0.0\""
-	charge_used_label.visible = false
-	container.add_child(charge_used_label)
-	
-	charge_left_label = Label.new()
-	charge_left_label.text = "Left: 0.0\""
-	charge_left_label.visible = false
-	container.add_child(charge_left_label)
-	
-	# Add separator
-	container.add_child(VSeparator.new())
-	
-	# Declare charge button
-	declare_button = Button.new()
-	declare_button.text = "Declare Charge"
-	declare_button.disabled = true
-	declare_button.pressed.connect(_on_declare_charge_pressed)
-	container.add_child(declare_button)
-	
-	# Roll charge button
-	roll_button = Button.new()
-	roll_button.text = "Roll 2D6"
-	roll_button.disabled = true
-	roll_button.pressed.connect(_on_roll_charge_pressed)
-	container.add_child(roll_button)
-	
-	# Skip charge button
-	skip_button = Button.new()
-	skip_button.text = "Skip Charge"
-	skip_button.disabled = true
-	skip_button.pressed.connect(_on_skip_charge_pressed)
-	container.add_child(skip_button)
-	
-	# Add separator
-	container.add_child(VSeparator.new())
-	
-	# Next unit button
-	next_unit_button = Button.new()
-	next_unit_button.text = "Select Next Unit"
-	next_unit_button.disabled = true
-	next_unit_button.visible = false
-	next_unit_button.pressed.connect(_on_next_unit_pressed)
-	container.add_child(next_unit_button)
-	
-	# End phase button
+	# SIMPLIFIED: Only End phase button in top bar (right-aligned, compact size)
 	end_phase_button = Button.new()
+	end_phase_button.name = "EndChargePhaseButton"
 	end_phase_button.text = "End Charge Phase"
+	end_phase_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	container.add_child(end_phase_button)
-	
-	# Add separator
-	container.add_child(VSeparator.new())
-	
-	# Charge status label
-	charge_status_label = Label.new()
-	charge_status_label.text = ""
-	container.add_child(charge_status_label)
+	main_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation
@@ -368,6 +315,89 @@ func _setup_right_panel() -> void:
 	dice_log_display.custom_minimum_size = Vector2(200, 100)
 	dice_log_display.bbcode_enabled = true
 	charge_panel.add_child(dice_log_display)
+	
+	# ADD: Action buttons section after dice log
+	charge_panel.add_child(HSeparator.new())
+	
+	# Charge status display (moved from top bar)
+	var status_label = Label.new()
+	status_label.text = "Charge Actions:"
+	status_label.add_theme_font_size_override("font_size", 14)
+	charge_panel.add_child(status_label)
+	
+	# Charge info label (moved from top bar)
+	charge_info_label = Label.new()
+	charge_info_label.text = "Step 1: Select a unit from the list above to begin charge"
+	charge_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	charge_panel.add_child(charge_info_label)
+	
+	# Action buttons container
+	var action_button_container = VBoxContainer.new()
+	action_button_container.name = "ChargeActionButtons"
+	
+	# First row: Main action buttons
+	var main_buttons = HBoxContainer.new()
+	
+	declare_button = Button.new()
+	declare_button.text = "Declare Charge"
+	declare_button.disabled = true
+	declare_button.pressed.connect(_on_declare_charge_pressed)
+	main_buttons.add_child(declare_button)
+	
+	roll_button = Button.new()
+	roll_button.text = "Roll 2D6"
+	roll_button.disabled = true
+	roll_button.pressed.connect(_on_roll_charge_pressed)
+	main_buttons.add_child(roll_button)
+	
+	action_button_container.add_child(main_buttons)
+	
+	# Second row: Secondary buttons
+	var secondary_buttons = HBoxContainer.new()
+	
+	skip_button = Button.new()
+	skip_button.text = "Skip Charge"
+	skip_button.disabled = true
+	skip_button.pressed.connect(_on_skip_charge_pressed)
+	secondary_buttons.add_child(skip_button)
+	
+	next_unit_button = Button.new()
+	next_unit_button.text = "Select Next Unit"
+	next_unit_button.disabled = true
+	next_unit_button.visible = false
+	next_unit_button.pressed.connect(_on_next_unit_pressed)
+	secondary_buttons.add_child(next_unit_button)
+	
+	action_button_container.add_child(secondary_buttons)
+	
+	charge_panel.add_child(action_button_container)
+	
+	# Distance tracking section (moved from top bar, initially hidden)
+	var distance_container = VBoxContainer.new()
+	distance_container.name = "DistanceTracking"
+	
+	charge_distance_label = Label.new()
+	charge_distance_label.text = "Charge: 0\""
+	charge_distance_label.visible = false
+	distance_container.add_child(charge_distance_label)
+	
+	charge_used_label = Label.new()
+	charge_used_label.text = "Used: 0.0\""
+	charge_used_label.visible = false
+	distance_container.add_child(charge_used_label)
+	
+	charge_left_label = Label.new()
+	charge_left_label.text = "Left: 0.0\""
+	charge_left_label.visible = false
+	distance_container.add_child(charge_left_label)
+	
+	charge_panel.add_child(distance_container)
+	
+	# Charge status (moved from top bar)
+	charge_status_label = Label.new()
+	charge_status_label.text = ""
+	charge_status_label.add_theme_font_size_override("font_size", 12)
+	charge_panel.add_child(charge_status_label)
 
 func set_phase(phase_instance) -> void:
 	current_phase = phase_instance
@@ -766,9 +796,26 @@ func _clear_movement_visuals() -> void:
 	movement_lines.clear()
 
 func _add_confirm_button() -> void:
-	var container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not container:
-		print("DEBUG: No HBoxContainer found for confirm button")
+	# Add confirm button to right panel instead of top bar
+	var right_container = hud_right.get_node_or_null("VBoxContainer")
+	if not right_container:
+		print("DEBUG: No VBoxContainer found in right panel for confirm button")
+		return
+	
+	var charge_scroll = right_container.get_node_or_null("ChargeScrollContainer")
+	if not charge_scroll:
+		print("DEBUG: No ChargeScrollContainer found for confirm button")
+		return
+	
+	var charge_panel = charge_scroll.get_node_or_null("ChargePanel")
+	if not charge_panel:
+		print("DEBUG: No ChargePanel found for confirm button")
+		return
+	
+	# Find the action buttons container to add confirm button
+	var action_container = charge_panel.get_node_or_null("ChargeActionButtons")
+	if not action_container:
+		print("DEBUG: No ChargeActionButtons container found for confirm button")
 		return
 	
 	confirm_button = Button.new()
@@ -776,9 +823,13 @@ func _add_confirm_button() -> void:
 	confirm_button.visible = false
 	print("DEBUG: Connecting confirm button signal...")
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
-	print("DEBUG: Signal connected, adding to container...")
-	container.add_child(confirm_button)
-	print("DEBUG: Confirm button created and added to container")
+	print("DEBUG: Signal connected, adding to right panel...")
+	
+	# Add confirm button as a separate row in action container
+	var confirm_row = HBoxContainer.new()
+	confirm_row.add_child(confirm_button)
+	action_container.add_child(confirm_row)
+	print("DEBUG: Confirm button created and added to right panel")
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
