@@ -916,6 +916,12 @@ func refresh_unit_list() -> void:
 			unit_list.clear()
 			print("Refreshing right panel unit list for charge - unit list hidden")
 		
+		GameStateData.Phase.FIGHT:
+			# Hide unit list during fight phase - fight controller handles its own UI
+			unit_list.visible = false
+			unit_list.clear()
+			print("Refreshing right panel unit list for fight - unit list hidden")
+		
 		_:
 			# Default: show all units for active player in right panel
 			unit_list.visible = true
@@ -1705,8 +1711,7 @@ func update_ui_for_phase() -> void:
 			
 		GameStateData.Phase.FIGHT:
 			phase_label.text = "Fight Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Fight"
+			end_deployment_button.visible = false  # FightController handles its own "End Fight Phase" button
 			
 		GameStateData.Phase.SCORING:
 			phase_label.text = "Scoring Phase"

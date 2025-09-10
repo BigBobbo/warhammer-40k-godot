@@ -72,6 +72,31 @@ func _exit_tree() -> void:
 		target_highlights.queue_free()
 	_clear_movement_visuals()
 	
+	# Clean up bottom HUD elements (End Charge Phase button and related)
+	var hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
+	if hud_bottom:
+		var main_container = hud_bottom.get_node_or_null("HBoxContainer")
+		if main_container and is_instance_valid(main_container):
+			# Remove End Charge Phase button
+			var end_button = main_container.get_node_or_null("EndChargePhaseButton")
+			if end_button and is_instance_valid(end_button):
+				print("ChargeController: Removing End Charge Phase button")
+				main_container.remove_child(end_button)
+				end_button.queue_free()
+			
+			# Remove the separator we added
+			var separator = main_container.get_node_or_null("ChargeSeparator")
+			if separator and is_instance_valid(separator):
+				main_container.remove_child(separator)
+				separator.queue_free()
+			
+			# Remove any spacer controls we added
+			for child in main_container.get_children():
+				if child is Control and not (child is Button or child is Label or child is VSeparator):
+					if child.size_flags_horizontal == Control.SIZE_EXPAND_FILL:
+						main_container.remove_child(child)
+						child.queue_free()
+	
 	# ENHANCEMENT: Comprehensive right panel cleanup
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
@@ -446,6 +471,33 @@ func _refresh_ui() -> void:
 	print("ChargeController: Refreshing UI for player ", current_player)
 	print("ChargeController: Eligible units from phase: ", eligible_unit_ids)
 	print("ChargeController: Completed charges: ", current_phase.get_completed_charges() if current_phase.has_method("get_completed_charges") else "N/A")
+	
+	# Debug help: Show why units might not be eligible
+	if eligible_unit_ids.is_empty():
+		print("ChargeController: No units eligible for charge. Checking reasons...")
+		for unit_id in units:
+			var unit = units[unit_id]
+			var status = unit.get("status", 0)
+			var flags = unit.get("flags", {})
+			var status_name = GameStateData.UnitStatus.keys()[status] if status < GameStateData.UnitStatus.size() else "UNKNOWN"
+			
+			print("  Unit ", unit_id, " (", unit.get("meta", {}).get("name", unit_id), "):")
+			print("    Status: ", status, " (", status_name, ")")
+			print("    Flags: ", flags)
+			
+			# Check specific blocking conditions
+			if not (status == GameStateData.UnitStatus.DEPLOYED or status == GameStateData.UnitStatus.MOVED or status == GameStateData.UnitStatus.SHOT):
+				print("    BLOCKED: Status must be DEPLOYED, MOVED, or SHOT")
+			elif flags.get("cannot_charge", false):
+				print("    BLOCKED: Unit has 'cannot_charge' flag")
+			elif flags.get("advanced", false):
+				print("    BLOCKED: Unit has 'advanced' flag (Advanced units cannot charge)")
+			elif flags.get("fell_back", false):
+				print("    BLOCKED: Unit has 'fell_back' flag")
+			elif unit_id in current_phase.get_completed_charges():
+				print("    BLOCKED: Unit has already charged this phase")
+			else:
+				print("    SHOULD BE ELIGIBLE - this might be a bug")
 	
 	var can_charge_count = 0
 	for unit_id in eligible_unit_ids:

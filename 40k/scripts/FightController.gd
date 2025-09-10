@@ -60,10 +60,30 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 	
-	# Clean up UI containers
-	var fight_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/FightControls")
-	if fight_controls and is_instance_valid(fight_controls):
-		fight_controls.queue_free()
+	# Clean up UI elements from bottom HUD
+	var hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
+	if hud_bottom:
+		var main_container = hud_bottom.get_node_or_null("HBoxContainer")
+		if main_container:
+			# Remove the spacer
+			var spacer = main_container.get_node_or_null("FightPhaseSpacer")
+			if spacer and is_instance_valid(spacer):
+				main_container.remove_child(spacer)
+				spacer.queue_free()
+			
+			# Remove the fight phase button
+			var fight_button = main_container.get_node_or_null("FightPhaseButton")
+			if fight_button and is_instance_valid(fight_button):
+				main_container.remove_child(fight_button)
+				fight_button.queue_free()
+				print("FightController: Removed End Fight Phase button")
+			
+			# Remove any legacy FightControls container
+			var fight_controls = main_container.get_node_or_null("FightControls")
+			if fight_controls and is_instance_valid(fight_controls):
+				main_container.remove_child(fight_controls)
+				fight_controls.queue_free()
+				print("FightController: Removed legacy FightControls container")
 	
 	# ENHANCEMENT: Comprehensive right panel cleanup
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
@@ -120,60 +140,31 @@ func _setup_bottom_hud() -> void:
 		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
 		return
 	
-	# Check for existing fight controls container
-	var controls_container = main_container.get_node_or_null("FightControls")
-	if not controls_container:
-		controls_container = HBoxContainer.new()
-		controls_container.name = "FightControls"
-		main_container.add_child(controls_container)
-		
-		# Add separator before fight controls
-		controls_container.add_child(VSeparator.new())
-	else:
-		# Clear existing children to prevent duplicates
-		print("FightController: Removing existing fight controls children (", controls_container.get_children().size(), " children)")
-		for child in controls_container.get_children():
-			controls_container.remove_child(child)
-			child.free()
+	# Clean up any existing fight phase button
+	var existing_button = main_container.get_node_or_null("FightPhaseButton")
+	if existing_button:
+		main_container.remove_child(existing_button)
+		existing_button.queue_free()
 	
-	# Phase label
-	var phase_label = Label.new()
-	phase_label.text = "FIGHT PHASE"
-	phase_label.add_theme_font_size_override("font_size", 18)
-	controls_container.add_child(phase_label)
+	# Clean up any existing fight controls container (legacy)
+	var existing_controls = main_container.get_node_or_null("FightControls")
+	if existing_controls:
+		main_container.remove_child(existing_controls)
+		existing_controls.free()
 	
-	# Separator
-	controls_container.add_child(VSeparator.new())
+	# Add a spacer to push the button to the right
+	var spacer = Control.new()
+	spacer.name = "FightPhaseSpacer"
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_container.add_child(spacer)
 	
-	# Fight sequence status
-	var sequence_label = Label.new()
-	sequence_label.text = "No active fights"
-	sequence_label.name = "SequenceLabel"
-	controls_container.add_child(sequence_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
-	# Action buttons
-	pile_in_button = Button.new()
-	pile_in_button.text = "Pile In"
-	pile_in_button.pressed.connect(_on_pile_in_pressed)
-	pile_in_button.disabled = true
-	controls_container.add_child(pile_in_button)
-	
-	consolidate_button = Button.new()
-	consolidate_button.text = "Consolidate"
-	consolidate_button.pressed.connect(_on_consolidate_pressed)
-	consolidate_button.disabled = true
-	controls_container.add_child(consolidate_button)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
+	# Create End Fight Phase button directly in the main container (right-aligned)
 	var end_phase_button = Button.new()
+	end_phase_button.name = "FightPhaseButton"
 	end_phase_button.text = "End Fight Phase"
+	end_phase_button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	controls_container.add_child(end_phase_button)
+	main_container.add_child(end_phase_button)
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation
@@ -281,6 +272,46 @@ func _setup_right_panel() -> void:
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	fight_panel.add_child(dice_log_display)
+	
+	# ADD: Action buttons section (moved from top bar)
+	fight_panel.add_child(HSeparator.new())
+	
+	# Fight status display (moved from top bar)
+	var status_section_label = Label.new()
+	status_section_label.text = "Fight Status:"
+	status_section_label.add_theme_font_size_override("font_size", 14)
+	fight_panel.add_child(status_section_label)
+	
+	# Fight sequence status (moved from top bar)
+	var fight_sequence_status = Label.new()
+	fight_sequence_status.text = "No active fights"
+	fight_sequence_status.name = "SequenceLabel"
+	fight_panel.add_child(fight_sequence_status)
+	
+	# Action buttons container
+	var action_section_label = Label.new()
+	action_section_label.text = "Movement Actions:"
+	action_section_label.add_theme_font_size_override("font_size", 14)
+	fight_panel.add_child(action_section_label)
+	
+	var action_button_container = HBoxContainer.new()
+	action_button_container.name = "FightMovementButtons"
+	
+	# Pile In button (moved from top bar)
+	pile_in_button = Button.new()
+	pile_in_button.text = "Pile In"
+	pile_in_button.pressed.connect(_on_pile_in_pressed)
+	pile_in_button.disabled = true
+	action_button_container.add_child(pile_in_button)
+	
+	# Consolidate button (moved from top bar)
+	consolidate_button = Button.new()
+	consolidate_button.text = "Consolidate"
+	consolidate_button.pressed.connect(_on_consolidate_pressed)
+	consolidate_button.disabled = true
+	action_button_container.add_child(consolidate_button)
+	
+	fight_panel.add_child(action_button_container)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -372,8 +403,8 @@ func _refresh_fight_sequence() -> void:
 		unit_selector.add_item(unit_name)
 		unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 	
-	# Update sequence label in bottom HUD
-	var sequence_label = hud_bottom.get_node_or_null("HBoxContainer/FightControls/SequenceLabel")
+	# Update sequence label in right panel (moved from bottom HUD)
+	var sequence_label = hud_right.get_node_or_null("VBoxContainer/FightScrollContainer/FightPanel/SequenceLabel")
 	
 	# Refresh available actions to populate fight controls
 	_refresh_available_actions()
