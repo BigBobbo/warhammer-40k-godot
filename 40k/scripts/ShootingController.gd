@@ -20,6 +20,7 @@ var board_view: Node2D
 var los_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
+var los_debug_visual: Node2D  # New LoS debug visualization
 var hud_bottom: Control
 var hud_right: Control
 
@@ -98,6 +99,12 @@ func _create_shooting_visuals() -> void:
 	los_visual.add_point(Vector2.ZERO)
 	los_visual.clear_points()
 	board_root.add_child(los_visual)
+	
+	# Create LoS debug visualization
+	los_debug_visual = preload("res://scripts/LoSDebugVisual.gd").new()
+	los_debug_visual.name = "LoSDebugVisual"
+	board_root.add_child(los_debug_visual)
+	print("ShootingController: Added LoS debug visualization")
 	
 	# Create range visualization node
 	range_visual = Node2D.new()
@@ -361,6 +368,11 @@ func _refresh_unit_list() -> void:
 			
 			unit_selector.add_item(unit_name)
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
+	
+	# Auto-select first unit for debugging if we have units
+	if unit_selector.get_item_count() > 0 and active_shooter_id == "":
+		unit_selector.select(0)
+		_on_unit_selected(0)
 
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
@@ -402,12 +414,20 @@ func _highlight_targets() -> void:
 	if not board_view or eligible_targets.is_empty():
 		return
 	
+	# Clear previous LoS lines
+	if los_debug_visual:
+		los_debug_visual.clear_los_lines()
+	
 	# Highlight each eligible target
 	for target_id in eligible_targets:
 		var target_data = eligible_targets[target_id]
 		var is_in_range = target_data.get("in_range", true)
 		var color = HIGHLIGHT_COLOR_ELIGIBLE if is_in_range else HIGHLIGHT_COLOR_INELIGIBLE
 		_create_target_highlight(target_id, color)
+		
+		# Visualize LoS to this target if debug is enabled
+		if los_debug_visual and los_debug_visual.debug_enabled and active_shooter_id != "":
+			_visualize_los_to_target(active_shooter_id, target_id)
 
 func _create_target_highlight(unit_id: String, color: Color) -> void:
 	if not target_highlights or not current_phase:
@@ -466,6 +486,7 @@ func _clear_target_highlights() -> void:
 	if target_highlights:
 		for child in target_highlights.get_children():
 			child.queue_free()
+
 
 func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
 	if not los_visual or not current_phase:
@@ -627,6 +648,9 @@ func _highlight_enemies_by_range(shooter_unit: Dictionary, weapon_ranges: Dictio
 		# Highlight the unit based on range status
 		if is_in_range:
 			_create_target_highlight(enemy_id, HIGHLIGHT_COLOR_ELIGIBLE)
+			# Debug: Visualize LoS to this target
+			if los_debug_visual and los_debug_visual.debug_enabled:
+				_visualize_los_to_target(active_shooter_id, enemy_id)
 		else:
 			_create_target_highlight(enemy_id, Color(0.5, 0.5, 0.5, 0.3))  # Gray for out of range
 
@@ -644,6 +668,58 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	elif pos is Vector2:
 		return pos
 	return Vector2.ZERO
+
+func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
+	if not los_debug_visual or not current_phase:
+		return
+	
+	var shooter_unit = GameState.get_unit(shooter_id)
+	var target_unit = GameState.get_unit(target_id)
+	
+	if shooter_unit.is_empty() or target_unit.is_empty():
+		return
+	
+	var board = GameState.create_snapshot()
+	
+	# Use enhanced LoS visualization for each model pair
+	for shooter_model in shooter_unit.get("models", []):
+		if not shooter_model.get("alive", true):
+			continue
+			
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			
+			# Enhanced LoS visualization shows base-aware sight lines
+			los_debug_visual.visualize_enhanced_los(shooter_model, target_model, board)
+	
+	print("[ShootingController] Enhanced LoS visualization: %s → %s" % [shooter_id, target_id])
+
+func _get_closest_model_position(from_unit: Dictionary, to_unit: Dictionary) -> Vector2:
+	# Find the model in from_unit closest to any model in to_unit
+	var min_distance = INF
+	var best_pos = Vector2.ZERO
+	
+	for from_model in from_unit.get("models", []):
+		if not from_model.get("alive", true):
+			continue
+		var f_pos = _get_model_position(from_model)
+		if f_pos == Vector2.ZERO:
+			continue
+		
+		for to_model in to_unit.get("models", []):
+			if not to_model.get("alive", true):
+				continue
+			var t_pos = _get_model_position(to_model)
+			if t_pos == Vector2.ZERO:
+				continue
+			
+			var dist = f_pos.distance_to(t_pos)
+			if dist < min_distance:
+				min_distance = dist
+				best_pos = f_pos
+	
+	return best_pos
 
 func _cleanup_existing_ui() -> void:
 	# Remove existing shooting controls if present
@@ -684,16 +760,89 @@ func _cleanup_existing_ui() -> void:
 
 # Signal handlers
 
+func _on_unit_selected_for_shooting(unit_id: String) -> void:
+	print("ShootingController: Unit selected for shooting: ", unit_id)
+	active_shooter_id = unit_id
+	weapon_assignments.clear()
+	
+	# Clear previous visualizations
+	if los_debug_visual:
+		los_debug_visual.clear_los_lines()
+	
+	# Request targets and trigger LoS visualization
+	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
+	_highlight_targets()
+	_refresh_weapon_tree()
+	_update_ui_state()
+	_show_range_indicators()
+	
+	# Visualize LoS to all eligible targets
+	if los_debug_visual and los_debug_visual.debug_enabled:
+		print("ShootingController: Visualizing LoS to ", eligible_targets.size(), " targets")
+		for target_id in eligible_targets:
+			_visualize_los_to_target(unit_id, target_id)
+
+func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
+	print("ShootingController: Targets available for ", unit_id, ": ", targets.size())
+	active_shooter_id = unit_id
+	eligible_targets = targets
+	# Don't call _highlight_targets here since _show_range_indicators handles it
+	_refresh_weapon_tree()
+	# Show range indicators which will also highlight enemies
+	_show_range_indicators()
+	
+	# Trigger LoS visualization for each eligible target
+	if los_debug_visual and los_debug_visual.debug_enabled:
+		print("ShootingController: Visualizing LoS to ", targets.size(), " targets")
+		for target_id in targets:
+			_visualize_los_to_target(unit_id, target_id)
+
+func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
+	print("ShootingController: Shooting resolved for ", shooter_id, " -> ", target_id)
+	# Update visuals after shooting
+	_clear_visuals()
+	active_shooter_id = ""
+	eligible_targets.clear()
+	weapon_assignments.clear()
+	_refresh_weapon_tree()
+	# Clear LoS visualization after shooting
+	if los_debug_visual:
+		los_debug_visual.clear_los_lines()
+
+func _on_dice_rolled(dice_data: Dictionary) -> void:
+	if not dice_log_display:
+		return
+	
+	# Get data from the dice roll
+	var context = dice_data.get("context", "Roll")
+	var rolls = dice_data.get("rolls", dice_data.get("rolls_raw", []))
+	var successes = dice_data.get("successes", -1)
+	
+	# Format the display text
+	var log_text = "[b]%s:[/b] %s" % [context.capitalize(), str(rolls)]
+	if successes >= 0:
+		log_text += " → %d successes" % successes
+	log_text += "\n"
+	
+	dice_log_display.append_text(log_text)
+
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
 		return
 	
 	var unit_id = unit_selector.get_item_metadata(index)
 	if unit_id:
+		# Clear previous LoS visualizations
+		if los_debug_visual:
+			los_debug_visual.clear_los_lines()
+		
 		emit_signal("shoot_action_requested", {
 			"type": "SELECT_SHOOTER",
 			"actor_unit_id": unit_id
 		})
+		
+		# Manually trigger visualization
+		_on_unit_selected_for_shooting(unit_id)
 
 func _on_weapon_tree_item_selected() -> void:
 	if not weapon_tree:
@@ -728,40 +877,6 @@ func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_
 	var first_target = eligible_targets.keys()[0]
 	print("DEBUG: Button clicked - auto-assigning target: ", first_target)
 	_select_target_for_current_weapon(first_target)
-
-func _on_unit_selected_for_shooting(unit_id: String) -> void:
-	active_shooter_id = unit_id
-	weapon_assignments.clear()
-	_refresh_weapon_tree()
-	_update_ui_state()
-	_show_range_indicators()
-
-func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
-	eligible_targets = targets
-	# Don't call _highlight_targets here since _show_range_indicators handles it
-	_refresh_weapon_tree()
-	# Show range indicators which will also highlight enemies
-	_show_range_indicators()
-
-func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
-	# Update visuals after shooting
-	_clear_visuals()
-	active_shooter_id = ""
-	eligible_targets.clear()
-	weapon_assignments.clear()
-	_refresh_unit_list()
-	_update_ui_state()
-
-func _on_dice_rolled(dice_data: Dictionary) -> void:
-	if not dice_log_display:
-		return
-	
-	var context = dice_data.get("context", "")
-	var rolls = dice_data.get("rolls_raw", [])
-	var successes = dice_data.get("successes", 0)
-	
-	var log_text = "[b]%s:[/b] %s → %d successes\n" % [context.capitalize(), str(rolls), successes]
-	dice_log_display.append_text(log_text)
 
 func _on_clear_pressed() -> void:
 	emit_signal("shoot_action_requested", {

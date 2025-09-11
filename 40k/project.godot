@@ -32,6 +32,7 @@ PhaseManager="*res://autoloads/PhaseManager.gd"
 TurnManager="*res://autoloads/TurnManager.gd"
 RulesEngine="*res://autoloads/RulesEngine.gd"
 TerrainManager="*res://autoloads/TerrainManager.gd"
+EnhancedLineOfSight="*res://autoloads/EnhancedLineOfSight.gd"
 
 [editor_plugins]
 

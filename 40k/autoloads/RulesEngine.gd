@@ -459,14 +459,23 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 			# Check range
 			var distance = actor_pos.distance_to(target_pos)
 			if distance <= range_px:
-				# Check LoS
-				if _check_line_of_sight(actor_pos, target_pos, board):
+				# Check LoS with enhanced base-aware visibility
+				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}
 	
 	return {"visible": false, "reason": "No valid targets in range and LoS"}
 
-static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
-	# Check terrain features for line of sight blocking
+static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
+	# Enhanced mode with model data for base-aware visibility checking
+	if not shooter_model.is_empty() and not target_model.is_empty():
+		var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
+		return result.has_los
+	
+	# Fallback to legacy point-to-point for backward compatibility
+	return _check_legacy_line_of_sight(from_pos, to_pos, board)
+
+static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
+	# Original simple line of sight checking (preserved for backward compatibility)
 	var terrain_features = board.get("terrain_features", [])
 	
 	for terrain_piece in terrain_features:
