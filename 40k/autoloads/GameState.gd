@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { DEPLOYMENT, MOVEMENT, SHOOTING, CHARGE, FIGHT, MORALE }
+enum Phase { DEPLOYMENT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT }
 
 # The complete game state as a dictionary
@@ -19,6 +19,7 @@ func initialize_default_state() -> void:
 		"meta": {
 			"game_id": generate_game_id(),
 			"turn_number": 1,
+			"battle_round": 1,  # Track battle rounds (1-5 in standard 40K)
 			"active_player": 1,  # Player 1 should start
 			"phase": Phase.DEPLOYMENT,
 			"created_at": Time.get_unix_time_from_system(),
@@ -37,7 +38,8 @@ func initialize_default_state() -> void:
 				}
 			],
 			"objectives": [],
-			"terrain": []
+			"terrain": [],
+			"terrain_features": []  # Added for terrain system
 		},
 		"units": {},  # Start empty, will be populated by army loading
 		"players": {
@@ -51,6 +53,10 @@ func initialize_default_state() -> void:
 	
 	# Load default armies
 	_load_default_armies()
+	
+	# Initialize terrain features from TerrainManager
+	if TerrainManager and TerrainManager.terrain_features.size() > 0:
+		state.board["terrain_features"] = TerrainManager.terrain_features.duplicate(true)
 
 func _load_default_armies() -> void:
 	print("GameState: Loading default armies...")
@@ -269,6 +275,17 @@ func set_active_player(player: int) -> void:
 func advance_turn() -> void:
 	state["meta"]["turn_number"] += 1
 
+# Battle Round Management Methods
+func get_battle_round() -> int:
+	return state["meta"].get("battle_round", 1)
+
+func advance_battle_round() -> void:
+	state["meta"]["battle_round"] = get_battle_round() + 1
+	print("GameState: Advanced to battle round ", get_battle_round())
+
+func is_game_complete() -> bool:
+	return get_battle_round() > 5
+
 func add_action_to_phase_log(action: Dictionary) -> void:
 	state["phase_log"].append(action)
 
@@ -284,7 +301,14 @@ func commit_phase_log_to_history() -> void:
 
 # Create a deep copy of the current state
 func create_snapshot() -> Dictionary:
-	return _deep_copy_dict(state)
+	# Create base snapshot
+	var snapshot = _deep_copy_dict(state)
+	
+	# Add terrain features from TerrainManager
+	if TerrainManager and TerrainManager.terrain_features.size() > 0:
+		snapshot.board["terrain_features"] = TerrainManager.terrain_features.duplicate(true)
+	
+	return snapshot
 
 func _deep_copy_dict(dict: Dictionary) -> Dictionary:
 	var copy = {}
@@ -312,6 +336,14 @@ func _deep_copy_array(array: Array) -> Array:
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
+	
+	# Load terrain features if present
+	if state.has("board") and state.board.has("terrain_features"):
+		var terrain_features = state.board.get("terrain_features", [])
+		if terrain_features.size() > 0 and TerrainManager:
+			# Clear and reload terrain
+			TerrainManager.terrain_features = terrain_features.duplicate(true)
+			TerrainManager.emit_signal("terrain_loaded", TerrainManager.terrain_features)
 
 # Validation
 func validate_state() -> Dictionary:

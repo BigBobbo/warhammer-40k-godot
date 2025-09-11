@@ -31,6 +31,7 @@ GameManager="*res://autoloads/GameManager.gd"
 PhaseManager="*res://autoloads/PhaseManager.gd"
 TurnManager="*res://autoloads/TurnManager.gd"
 RulesEngine="*res://autoloads/RulesEngine.gd"
+TerrainManager="*res://autoloads/TerrainManager.gd"
 
 [editor_plugins]
 
@@ -38,6 +39,11 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [input]
 
+ui_cancel={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194305,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
 zoom_in={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":61,"key_label":0,"unicode":43,"location":0,"echo":false,"script":null)
@@ -56,10 +62,5 @@ quick_save={
 quick_load={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194318,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
-]
-}
-ui_cancel={
-"deadzone": 0.5,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194305,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }

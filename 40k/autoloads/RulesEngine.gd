@@ -466,37 +466,137 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	return {"visible": false, "reason": "No valid targets in range and LoS"}
 
 static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
-	# MVP: Simple LoS check against obscuring terrain
-	var terrain = board.get("board", {}).get("terrain", [])
+	# Check terrain features for line of sight blocking
+	var terrain_features = board.get("terrain_features", [])
 	
-	for terrain_piece in terrain:
-		if terrain_piece.get("type", "") == "obscuring":
-			var poly = terrain_piece.get("poly", [])
-			if _segment_intersects_polygon(from_pos, to_pos, poly):
-				return false
+	for terrain_piece in terrain_features:
+		# Only tall terrain (>5") blocks LoS completely
+		if terrain_piece.get("height_category", "") == "tall":
+			var polygon = terrain_piece.get("polygon", PackedVector2Array())
+			if _segment_intersects_polygon(from_pos, to_pos, polygon):
+				# Check if both models are outside the terrain
+				# (models inside can see out and be seen)
+				if not _point_in_polygon(from_pos, polygon) and not _point_in_polygon(to_pos, polygon):
+					return false
 	
 	return true
 
-static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly: Array) -> bool:
-	# MVP: Treat polygon as rectangle bounds
-	if poly.is_empty():
+static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
+	# Use Godot's Geometry2D for proper polygon intersection
+	var polygon_packed: PackedVector2Array
+	
+	if poly is PackedVector2Array:
+		polygon_packed = poly
+	elif poly is Array:
+		# Convert Array to PackedVector2Array
+		polygon_packed = PackedVector2Array()
+		for vertex in poly:
+			if vertex is Dictionary:
+				polygon_packed.append(Vector2(vertex.get("x", 0), vertex.get("y", 0)))
+			elif vertex is Vector2:
+				polygon_packed.append(vertex)
+	else:
 		return false
 	
-	var min_x = INF
-	var max_x = -INF
-	var min_y = INF
-	var max_y = -INF
+	if polygon_packed.is_empty():
+		return false
 	
-	for vertex in poly:
-		var x = vertex.get("x", 0) if vertex is Dictionary else vertex.x
-		var y = vertex.get("y", 0) if vertex is Dictionary else vertex.y
-		min_x = min(min_x, x)
-		max_x = max(max_x, x)
-		min_y = min(min_y, y)
-		max_y = max(max_y, y)
+	# Check if line segment intersects any edge of the polygon
+	for i in range(polygon_packed.size()):
+		var edge_start = polygon_packed[i]
+		var edge_end = polygon_packed[(i + 1) % polygon_packed.size()]
+		
+		if Geometry2D.segment_intersects_segment(seg_start, seg_end, edge_start, edge_end):
+			return true
 	
-	# Check if segment intersects rectangle
-	return _segment_rect_intersection(seg_start, seg_end, Vector2(min_x, min_y), Vector2(max_x, max_y))
+	return false
+
+# Helper function to check if a point is inside a polygon
+static func _point_in_polygon(point: Vector2, poly) -> bool:
+	var polygon_packed: PackedVector2Array
+	
+	if poly is PackedVector2Array:
+		polygon_packed = poly
+	elif poly is Array:
+		# Convert Array to PackedVector2Array
+		polygon_packed = PackedVector2Array()
+		for vertex in poly:
+			if vertex is Dictionary:
+				polygon_packed.append(Vector2(vertex.get("x", 0), vertex.get("y", 0)))
+			elif vertex is Vector2:
+				polygon_packed.append(vertex)
+	else:
+		return false
+	
+	return Geometry2D.is_point_in_polygon(point, polygon_packed)
+
+# ==========================================
+# COVER SYSTEM
+# ==========================================
+
+# Check if a target position has benefit of cover from a shooter position
+static func check_benefit_of_cover(target_pos: Vector2, shooter_pos: Vector2, board: Dictionary) -> bool:
+	var terrain_features = board.get("terrain_features", [])
+	
+	for terrain_piece in terrain_features:
+		if terrain_piece.get("type", "") != "ruins":
+			continue
+		
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+		
+		# Target within terrain gets cover
+		if _point_in_polygon(target_pos, polygon):
+			return true
+		
+		# Target behind terrain (LoS crosses terrain)
+		if _segment_intersects_polygon(shooter_pos, target_pos, polygon):
+			# Check if shooter is not inside the same terrain piece
+			if not _point_in_polygon(shooter_pos, polygon):
+				return true
+	
+	return false
+
+# Check if any models in a unit have cover from the shooting unit
+static func check_unit_has_cover(target_unit_id: String, shooter_unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+	var shooter_unit = units.get(shooter_unit_id, {})
+	
+	if target_unit.is_empty() or shooter_unit.is_empty():
+		return false
+	
+	# Get average shooter position (simplified)
+	var shooter_positions = []
+	for model in shooter_unit.get("models", []):
+		if model.get("alive", true):
+			var pos = _get_model_position(model)
+			if pos != Vector2.ZERO:
+				shooter_positions.append(pos)
+	
+	if shooter_positions.is_empty():
+		return false
+	
+	var avg_shooter_pos = Vector2.ZERO
+	for pos in shooter_positions:
+		avg_shooter_pos += pos
+	avg_shooter_pos /= shooter_positions.size()
+	
+	# Check if majority of target models have cover
+	var models_in_cover = 0
+	var total_alive_models = 0
+	
+	for model in target_unit.get("models", []):
+		if model.get("alive", true):
+			total_alive_models += 1
+			var model_pos = _get_model_position(model)
+			if model_pos != Vector2.ZERO:
+				if check_benefit_of_cover(model_pos, avg_shooter_pos, board):
+					models_in_cover += 1
+	
+	# Unit has cover if majority of models are in cover
+	return models_in_cover > (total_alive_models / 2.0)
 
 static func _segment_rect_intersection(seg_start: Vector2, seg_end: Vector2, rect_min: Vector2, rect_max: Vector2) -> bool:
 	# Check if segment intersects axis-aligned rectangle
@@ -527,64 +627,37 @@ static func _segment_rect_intersection(seg_start: Vector2, seg_end: Vector2, rec
 	return true
 
 static func _check_model_has_cover(model: Dictionary, shooting_unit_id: String, board: Dictionary) -> bool:
-	# MVP: Check if model is in or behind light cover
+	# Check if model has benefit of cover from ruins terrain
 	var model_pos = _get_model_position(model)
 	if not model_pos:
 		return false
 	
-	var terrain = board.get("board", {}).get("terrain", [])
 	var units = board.get("units", {})
 	var shooting_unit = units.get(shooting_unit_id, {})
 	
-	# Check if model is inside light cover terrain
-	for terrain_piece in terrain:
-		if terrain_piece.get("type", "") == "light_cover":
-			var poly = terrain_piece.get("poly", [])
-			if _point_in_polygon(model_pos, poly):
-				return true
-	
-	# Check if LoS crosses light cover (model behind it)
-	var shooting_models = shooting_unit.get("models", [])
-	for shooter in shooting_models:
-		if not shooter.get("alive", true):
-			continue
-		
-		var shooter_pos = _get_model_position(shooter)
-		if not shooter_pos:
-			continue
-		
-		for terrain_piece in terrain:
-			if terrain_piece.get("type", "") == "light_cover":
-				var poly = terrain_piece.get("poly", [])
-				if _segment_intersects_polygon(shooter_pos, model_pos, poly):
-					# Check if target is behind cover (further from shooter than cover)
-					var cover_center = _polygon_center(poly)
-					var dist_to_cover = shooter_pos.distance_to(cover_center)
-					var dist_to_target = shooter_pos.distance_to(model_pos)
-					if dist_to_target > dist_to_cover:
-						return true
-	
-	return false
-
-static func _point_in_polygon(point: Vector2, poly: Array) -> bool:
-	# MVP: Rectangle bounds check
-	if poly.is_empty():
+	if shooting_unit.is_empty():
 		return false
 	
-	var min_x = INF
-	var max_x = -INF
-	var min_y = INF
-	var max_y = -INF
+	# Get average shooter position for cover determination
+	var shooter_positions = []
+	for shooter in shooting_unit.get("models", []):
+		if shooter.get("alive", true):
+			var shooter_pos = _get_model_position(shooter)
+			if shooter_pos != Vector2.ZERO:
+				shooter_positions.append(shooter_pos)
 	
-	for vertex in poly:
-		var x = vertex.get("x", 0) if vertex is Dictionary else vertex.x
-		var y = vertex.get("y", 0) if vertex is Dictionary else vertex.y
-		min_x = min(min_x, x)
-		max_x = max(max_x, x)
-		min_y = min(min_y, y)
-		max_y = max(max_y, y)
+	if shooter_positions.is_empty():
+		return false
 	
-	return point.x >= min_x and point.x <= max_x and point.y >= min_y and point.y <= max_y
+	# Use average shooter position for cover check
+	var avg_shooter_pos = Vector2.ZERO
+	for pos in shooter_positions:
+		avg_shooter_pos += pos
+	avg_shooter_pos /= shooter_positions.size()
+	
+	# Check if model has benefit of cover using our new cover system
+	return check_benefit_of_cover(model_pos, avg_shooter_pos, board)
+
 
 static func _polygon_center(poly: Array) -> Vector2:
 	if poly.is_empty():

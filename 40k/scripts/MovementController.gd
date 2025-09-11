@@ -1249,6 +1249,11 @@ func _validate_move_path(path: Array, distance_inches: float) -> bool:
 		illegal_reason_label.text = "Exceeds movement cap"
 		return false
 	
+	# Check terrain traversal
+	if not _validate_terrain_traversal(path):
+		# Error message set by the traversal function
+		return false
+	
 	# Check end position for engagement range
 	if path.size() >= 2:
 		var end_pos = path[-1]
@@ -1258,6 +1263,40 @@ func _validate_move_path(path: Array, distance_inches: float) -> bool:
 		return true
 	
 	return false
+
+func _validate_terrain_traversal(path: Array) -> bool:
+	# Check if the movement path can traverse terrain based on unit type
+	if path.size() < 2:
+		return true
+	
+	var unit = GameState.get_unit(active_unit_id)
+	if unit.is_empty():
+		return true
+	
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var is_infantry = "INFANTRY" in keywords
+	var is_vehicle = "VEHICLE" in keywords
+	var is_monster = "MONSTER" in keywords
+	
+	# Check each segment of the path
+	for i in range(path.size() - 1):
+		var start_pos = path[i]
+		var end_pos = path[i + 1]
+		
+		# Check if path segment crosses terrain
+		for terrain_piece in TerrainManager.terrain_features:
+			if TerrainManager.check_line_intersects_terrain(start_pos, end_pos, terrain_piece):
+				# Check if unit can move through this terrain
+				if not TerrainManager.can_unit_move_through_terrain(keywords, terrain_piece):
+					if is_vehicle:
+						illegal_reason_label.text = "Vehicles cannot move through ruins"
+					elif is_monster:
+						illegal_reason_label.text = "Monsters cannot move through ruins"
+					else:
+						illegal_reason_label.text = "Cannot move through terrain"
+					return false
+	
+	return true
 
 func _should_snap_to_grid() -> bool:
 	# Check settings for grid snap

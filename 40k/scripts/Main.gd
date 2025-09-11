@@ -59,6 +59,9 @@ func _ready() -> void:
 	# Setup Save/Load Dialog
 	_setup_save_load_dialog()
 	
+	# Setup Terrain
+	_setup_terrain()
+	
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
@@ -364,6 +367,84 @@ func _setup_mathhammer_ui() -> void:
 		print("Mathhammer UI successfully integrated into left side of main UI")
 	else:
 		print("ERROR: Failed to create MathhhammerUI instance!")
+
+func _setup_terrain() -> void:
+	print("Setting up terrain system...")
+	
+	# Create terrain visual layer
+	var terrain_visual = preload("res://scripts/TerrainVisual.gd").new()
+	terrain_visual.name = "TerrainVisual"
+	$BoardRoot.add_child(terrain_visual)
+	print("Added TerrainVisual to BoardRoot")
+	
+	# Add terrain toggle button to top HUD
+	var hud_container = $HUD_Bottom/HBoxContainer
+	if hud_container:
+		# Add separator
+		var separator = VSeparator.new()
+		hud_container.add_child(separator)
+		
+		# Create terrain toggle button
+		var terrain_button = Button.new()
+		terrain_button.name = "TerrainToggleButton"
+		terrain_button.text = "Toggle Terrain"
+		terrain_button.toggle_mode = true
+		terrain_button.button_pressed = true  # Start with terrain visible
+		terrain_button.toggled.connect(_on_terrain_toggle)
+		hud_container.add_child(terrain_button)
+		
+		# Create terrain info label
+		var terrain_label = Label.new()
+		terrain_label.name = "TerrainInfoLabel"
+		terrain_label.text = "Terrain: Layout 2"
+		terrain_label.add_theme_font_size_override("font_size", 12)
+		hud_container.add_child(terrain_label)
+		
+		# Add LoS debug toggle button
+		var los_button = Button.new()
+		los_button.name = "LoSDebugButton"
+		los_button.text = "LoS Debug (L)"
+		los_button.toggle_mode = true
+		los_button.button_pressed = true  # Start with debug on
+		los_button.toggled.connect(func(pressed): _toggle_los_debug())
+		hud_container.add_child(los_button)
+		
+		print("Added terrain UI controls to HUD")
+
+func _on_terrain_toggle(pressed: bool) -> void:
+	TerrainManager.set_terrain_visibility(pressed)
+	print("Terrain visibility: ", pressed)
+
+func _toggle_los_debug() -> void:
+	# Find LoS debug visual
+	var los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
+	if los_debug:
+		los_debug.toggle_debug()
+		print("LoS debug visualization: ", los_debug.debug_enabled)
+		_show_toast("LoS Debug: " + ("ON" if los_debug.debug_enabled else "OFF"))
+	else:
+		print("LoS debug visual not found")
+
+func _show_toast(message: String, duration: float = 2.0) -> void:
+	# Show a temporary message on screen
+	var toast = Label.new()
+	toast.text = message
+	toast.add_theme_font_size_override("font_size", 20)
+	toast.add_theme_color_override("font_color", Color.YELLOW)
+	toast.add_theme_color_override("font_shadow_color", Color.BLACK)
+	toast.add_theme_constant_override("shadow_offset_x", 2)
+	toast.add_theme_constant_override("shadow_offset_y", 2)
+	
+	# Position at top center
+	var viewport_size = get_viewport().get_visible_rect().size
+	toast.position = Vector2(viewport_size.x / 2 - 100, 150)
+	
+	add_child(toast)
+	
+	# Auto-remove after duration
+	await get_tree().create_timer(duration).timeout
+	if is_instance_valid(toast):
+		toast.queue_free()
 
 func _setup_save_load_dialog() -> void:
 	# Load and instantiate the SaveLoadDialog scene
@@ -730,6 +811,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_9:
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
+		get_viewport().set_input_as_handled()
+		return
+	
+	# LoS debug toggle - KEY_L
+	if event is InputEventKey and event.pressed and event.keycode == KEY_L:
+		print("LoS debug toggle key (L) pressed!")
+		_toggle_los_debug()
 		get_viewport().set_input_as_handled()
 		return
 	
