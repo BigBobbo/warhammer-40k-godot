@@ -8,6 +8,10 @@ func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
 	print("CommandPhase: Entering command phase for player ", get_current_player())
 	print("CommandPhase: Battle round ", GameState.get_battle_round())
+	
+	# Check objectives at start of command phase
+	if MissionManager:
+		MissionManager.check_all_objectives()
 
 func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")
@@ -47,7 +51,11 @@ func process_action(action: Dictionary) -> Dictionary:
 func _handle_end_command() -> Dictionary:
 	var current_player = get_current_player()
 	
-	print("CommandPhase: Player %d ending command phase, proceeding to movement" % current_player)
+	print("CommandPhase: Player %d ending command phase" % current_player)
+	
+	# Score primary objectives before ending phase
+	if MissionManager:
+		MissionManager.score_primary_objectives()
 	
 	# Emit phase completion signal to proceed to next phase
 	emit_signal("phase_completed")
@@ -55,7 +63,7 @@ func _handle_end_command() -> Dictionary:
 	# No state changes needed - just complete the phase
 	return {
 		"success": true,
-		"message": "Command phase ended, proceeding to movement phase"
+		"message": "Command phase ended, objectives scored"
 	}
 
 func _should_complete_phase() -> bool:

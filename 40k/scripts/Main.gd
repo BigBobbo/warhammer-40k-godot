@@ -47,6 +47,9 @@ func _ready() -> void:
 	board_view.queue_redraw()
 	setup_deployment_zones()
 	
+	# Setup objectives on the board
+	_setup_objectives()
+	
 	# Move HUD_Bottom to top and create stats panel at bottom
 	_restructure_ui_layout()
 	
@@ -414,6 +417,41 @@ func _setup_terrain() -> void:
 func _on_terrain_toggle(pressed: bool) -> void:
 	TerrainManager.set_terrain_visibility(pressed)
 	print("Terrain visibility: ", pressed)
+
+func _setup_objectives() -> void:
+	print("Setting up objectives on board...")
+	
+	# Create objectives container
+	var objectives_container = Node2D.new()
+	objectives_container.name = "Objectives"
+	objectives_container.z_index = -8  # Between board and deployment zones
+	board_view.add_child(objectives_container)
+	
+	if MissionManager:
+		var objectives = GameState.state.board.get("objectives", [])
+		print("Main: Creating visuals for %d objectives" % objectives.size())
+		
+		for obj in objectives:
+			var obj_visual = preload("res://scripts/ObjectiveVisual.gd").new()
+			obj_visual.setup(obj)
+			objectives_container.add_child(obj_visual)
+			
+			# Store reference in MissionManager for easy access
+			MissionManager.objectives_visual_refs[obj.id] = obj_visual
+			
+			# Connect to control changes
+			MissionManager.objective_control_changed.connect(
+				func(obj_id, controller):
+					if obj_id == obj.id:
+						obj_visual.update_control(controller)
+			)
+		
+		# Do initial control check
+		MissionManager.check_all_objectives()
+		
+		print("Main: Objectives setup complete")
+	else:
+		print("Main: MissionManager not available, skipping objectives")
 
 func _toggle_los_debug() -> void:
 	# Find LoS debug visual
@@ -818,6 +856,31 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_L:
 		print("LoS debug toggle key (L) pressed!")
 		_toggle_los_debug()
+		get_viewport().set_input_as_handled()
+		return
+	
+	# Objective control check debug - KEY_O
+	if event is InputEventKey and event.pressed and event.keycode == KEY_O:
+		print("\n=== MANUAL OBJECTIVE CONTROL CHECK (O key pressed) ===")
+		if MissionManager:
+			MissionManager.check_all_objectives()
+			var control_summary = MissionManager.get_objective_control_summary()
+			print("Control Summary:")
+			print("  Player 1 controlled: %d" % control_summary.player1_controlled)
+			print("  Player 2 controlled: %d" % control_summary.player2_controlled)
+			print("  Contested: %d" % control_summary.contested)
+			print("\nObjective Status:")
+			for obj_id in control_summary.objectives:
+				var controller = control_summary.objectives[obj_id]
+				var control_text = "Contested"
+				if controller == 1:
+					control_text = "Player 1"
+				elif controller == 2:
+					control_text = "Player 2"
+				print("  %s: %s" % [obj_id, control_text])
+		else:
+			print("MissionManager not available!")
+		print("=== END OBJECTIVE CONTROL CHECK ===\n")
 		get_viewport().set_input_as_handled()
 		return
 	

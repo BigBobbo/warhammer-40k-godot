@@ -143,6 +143,71 @@ func _setup_right_panel() -> void:
 	cp_label.text = "Command Points: Not Implemented"
 	cp_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	command_panel.add_child(cp_label)
+	
+	# Add objective status section
+	command_panel.add_child(HSeparator.new())
+	
+	var objectives_section = VBoxContainer.new()
+	objectives_section.name = "ObjectivesSection"
+	command_panel.add_child(objectives_section)
+	
+	var obj_title = Label.new()
+	obj_title.text = "Objectives"
+	obj_title.add_theme_font_size_override("font_size", 14)
+	objectives_section.add_child(obj_title)
+	
+	# Show objective control status
+	if MissionManager:
+		var control_summary = MissionManager.get_objective_control_summary()
+		for obj_id in control_summary.objectives:
+			var obj_label = Label.new()
+			var controller = control_summary.objectives[obj_id]
+			var control_text = "Uncontrolled"
+			var text_color = Color(0.7, 0.7, 0.7)
+			if controller == 1:
+				control_text = "Player 1"
+				text_color = Color(0.4, 0.6, 1.0)  # Blue
+			elif controller == 2:
+				control_text = "Player 2"
+				text_color = Color(1.0, 0.4, 0.4)  # Red
+			else:
+				control_text = "Contested"
+				text_color = Color(1.0, 1.0, 0.5)  # Yellow
+			
+			obj_label.text = "%s: %s" % [obj_id.replace("obj_", "").to_upper(), control_text]
+			obj_label.add_theme_color_override("font_color", text_color)
+			objectives_section.add_child(obj_label)
+	
+	# Show VP status
+	command_panel.add_child(HSeparator.new())
+	
+	var vp_section = VBoxContainer.new()
+	vp_section.name = "VPSection"
+	command_panel.add_child(vp_section)
+	
+	var vp_title = Label.new()
+	vp_title.text = "Victory Points"
+	vp_title.add_theme_font_size_override("font_size", 14)
+	vp_section.add_child(vp_title)
+	
+	if MissionManager:
+		var vp_summary = MissionManager.get_vp_summary()
+		
+		var p1_vp_label = Label.new()
+		p1_vp_label.text = "Player 1: %d VP (Primary: %d)" % [
+			vp_summary.player1.total,
+			vp_summary.player1.primary
+		]
+		p1_vp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+		vp_section.add_child(p1_vp_label)
+		
+		var p2_vp_label = Label.new()
+		p2_vp_label.text = "Player 2: %d VP (Primary: %d)" % [
+			vp_summary.player2.total,
+			vp_summary.player2.primary
+		]
+		p2_vp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		vp_section.add_child(p2_vp_label)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
