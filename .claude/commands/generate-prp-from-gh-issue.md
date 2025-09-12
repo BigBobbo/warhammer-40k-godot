@@ -6,6 +6,8 @@ Generate a complete PRP for general feature implementation with thorough researc
 
 The AI agent only gets the context you are appending to the PRP and training data. Assume the AI agent has access to the codebase and the same knowledge cutoff as you, so its important that your research findings are included or referenced in the PRP. The Agent has Websearch capabilities, so pass urls to documentation and examples.
 
+Ask clarifying questions where nessesary
+
 Reminder:
 - The warhammer core rules that this game is replicating can be found here: https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
 - The Godot documentation can be found here: https://docs.godotengine.org/en/4.4/

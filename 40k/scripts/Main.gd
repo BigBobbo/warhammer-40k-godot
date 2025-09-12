@@ -65,6 +65,9 @@ func _ready() -> void:
 	# Setup Terrain
 	_setup_terrain()
 	
+	# Setup Measuring Tape
+	_setup_measuring_tape()
+	
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
@@ -371,6 +374,35 @@ func _setup_mathhammer_ui() -> void:
 	else:
 		print("ERROR: Failed to create MathhhammerUI instance!")
 
+func _setup_measuring_tape() -> void:
+	print("Setting up measuring tape visual...")
+	
+	# Create measuring tape visual layer
+	var measuring_tape_visual = preload("res://scripts/MeasuringTapeVisual.gd").new()
+	measuring_tape_visual.name = "MeasuringTapeVisual"
+	$BoardRoot.add_child(measuring_tape_visual)
+	print("Added MeasuringTapeVisual to BoardRoot")
+	print("Measuring Tape: Hold 't' and drag to measure, press 'y' to clear all measurements")
+	
+	# Add measuring tape save toggle to top HUD
+	var hud_container = $HUD_Bottom/HBoxContainer
+	if hud_container:
+		# Add separator
+		var separator = VSeparator.new()
+		hud_container.add_child(separator)
+		
+		# Create measuring tape save toggle button
+		var tape_save_button = CheckBox.new()
+		tape_save_button.name = "MeasuringTapeSaveToggle"
+		tape_save_button.text = "Save Measurements"
+		tape_save_button.button_pressed = SettingsService.get_save_measurements()
+		tape_save_button.toggled.connect(_on_measuring_tape_save_toggle)
+		tape_save_button.tooltip_text = "Enable to persist measurement lines in save files"
+		tape_save_button.add_theme_font_size_override("font_size", 12)
+		hud_container.add_child(tape_save_button)
+		
+		print("Added measuring tape save toggle to HUD")
+
 func _setup_terrain() -> void:
 	print("Setting up terrain system...")
 	
@@ -418,6 +450,14 @@ func _on_terrain_toggle(pressed: bool) -> void:
 	TerrainManager.set_terrain_visibility(pressed)
 	print("Terrain visibility: ", pressed)
 
+func _on_measuring_tape_save_toggle(pressed: bool) -> void:
+	SettingsService.set_save_measurements(pressed)
+	print("Measuring tape save persistence: ", pressed)
+	if pressed:
+		_show_toast("Measurements will be saved with game state")
+	else:
+		_show_toast("Measurements will NOT be saved")
+
 func _setup_objectives() -> void:
 	print("Setting up objectives on board...")
 	
@@ -425,7 +465,7 @@ func _setup_objectives() -> void:
 	var objectives_container = Node2D.new()
 	objectives_container.name = "Objectives"
 	objectives_container.z_index = -8  # Between board and deployment zones
-	board_view.add_child(objectives_container)
+	$BoardRoot.add_child(objectives_container)
 	
 	if MissionManager:
 		var objectives = GameState.state.board.get("objectives", [])
@@ -883,6 +923,38 @@ func _input(event: InputEvent) -> void:
 		print("=== END OBJECTIVE CONTROL CHECK ===\n")
 		get_viewport().set_input_as_handled()
 		return
+	
+	# Measuring Tape controls - 't' to measure, 'y' to clear
+	if event is InputEventKey:
+		# Start/stop measuring with 't' key
+		if event.keycode == KEY_T:
+			if event.pressed and not MeasuringTapeManager.is_measuring:
+				var mouse_pos = get_viewport().get_mouse_position()
+				var world_pos = screen_to_world_position(mouse_pos)
+				MeasuringTapeManager.start_measurement(world_pos)
+				get_viewport().set_input_as_handled()
+			elif not event.pressed and MeasuringTapeManager.is_measuring:
+				var mouse_pos = get_viewport().get_mouse_position()
+				var world_pos = screen_to_world_position(mouse_pos)
+				if MeasuringTapeManager.can_add_measurement():
+					MeasuringTapeManager.complete_measurement(world_pos)
+				else:
+					print("Maximum number of measurements reached (10). Clear with 'y' key.")
+					MeasuringTapeManager.cancel_measurement()
+				get_viewport().set_input_as_handled()
+			return
+		
+		# Clear all measurements with 'y' key
+		if event.pressed and event.keycode == KEY_Y:
+			MeasuringTapeManager.clear_all_measurements()
+			print("All measurements cleared")
+			get_viewport().set_input_as_handled()
+			return
+	
+	# Update measurement preview while dragging
+	if event is InputEventMouseMotion and MeasuringTapeManager.is_measuring:
+		var world_pos = screen_to_world_position(event.position)
+		MeasuringTapeManager.update_measurement(world_pos)
 	
 	# ESC key handling for save/load dialog
 	# Only handle ESC if dialog is not visible (to avoid interfering with dialog input)

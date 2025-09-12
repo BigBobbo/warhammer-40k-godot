@@ -99,7 +99,9 @@ func check_all_objectives() -> void:
 			print("MissionManager: %s control changed from %d to %d" % [obj.id, old_controller, controller])
 
 func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
-	var control_radius = Measurement.inches_to_px(3.0)
+	# Control radius is 3" + 20mm (radius of objective marker)
+	# 20mm = 0.78740157 inches, so total is 3.78740157 inches
+	var control_radius = Measurement.inches_to_px(3.78740157)
 	var obj_pos = objective.position
 	
 	var player1_oc = 0
@@ -168,7 +170,7 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	
 	# Log units in range if any
 	if units_in_range.size() > 0:
-		print("MissionManager: Units within 3\" of %s:" % objective.id)
+		print("MissionManager: Units within control range (3.79\") of %s:" % objective.id)
 		for unit_desc in units_in_range:
 			print("  - %s" % unit_desc)
 		print("  Total OC - Player 1: %d, Player 2: %d" % [player1_oc, player2_oc])

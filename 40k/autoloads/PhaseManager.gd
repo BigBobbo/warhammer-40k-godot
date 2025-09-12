@@ -20,10 +20,12 @@ func _ready() -> void:
 func register_phase_classes() -> void:
 	# Register phase implementations
 	phase_classes[GameStateData.Phase.DEPLOYMENT] = preload("res://phases/DeploymentPhase.gd")
+	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
 	phase_classes[GameStateData.Phase.MOVEMENT] = preload("res://phases/MovementPhase.gd")
 	phase_classes[GameStateData.Phase.SHOOTING] = preload("res://phases/ShootingPhase.gd")
 	phase_classes[GameStateData.Phase.CHARGE] = preload("res://phases/ChargePhase.gd")
 	phase_classes[GameStateData.Phase.FIGHT] = preload("res://phases/FightPhase.gd")
+	phase_classes[GameStateData.Phase.SCORING] = preload("res://phases/ScoringPhase.gd")
 	phase_classes[GameStateData.Phase.MORALE] = preload("res://phases/MoralePhase.gd")
 
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
@@ -78,9 +80,11 @@ func advance_to_next_phase() -> void:
 		transition_to_phase(GameStateData.Phase.DEPLOYMENT)
 
 func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
-	# Define the standard 40k phase order
+	# Define the standard 40k phase order with Command and Scoring phases
 	match current:
 		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.COMMAND
+		GameStateData.Phase.COMMAND:
 			return GameStateData.Phase.MOVEMENT
 		GameStateData.Phase.MOVEMENT:
 			return GameStateData.Phase.SHOOTING
@@ -89,14 +93,31 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 		GameStateData.Phase.CHARGE:
 			return GameStateData.Phase.FIGHT
 		GameStateData.Phase.FIGHT:
-			return GameStateData.Phase.MORALE
+			return GameStateData.Phase.SCORING
+		GameStateData.Phase.SCORING:
+			# After scoring, player switching already happened in ScoringPhase
+			var current_player = GameState.get_active_player()
+			var battle_round = GameState.get_battle_round()
+			
+			print("PhaseManager: After scoring, current player is ", current_player, ", battle round is ", battle_round)
+			
+			# If current_player == 2, Player 1 just finished their turn -> Player 2's turn starts
+			# If current_player == 1, Player 2 just finished their turn -> new battle round for Player 1
+			
+			# Always go to COMMAND phase for the next player (deployment only happens once at game start)
+			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.MORALE:
-			return GameStateData.Phase.DEPLOYMENT  # Next turn
+			return GameStateData.Phase.DEPLOYMENT  # Next turn (legacy support)
 		_:
 			return GameStateData.Phase.DEPLOYMENT
 
 func _on_phase_completed() -> void:
 	var completed_phase = get_current_phase()
+	
+	# Check for game end before advancing
+	if completed_phase == GameStateData.Phase.SCORING and GameState.is_game_complete():
+		_handle_game_end()
+		return
 	
 	# Commit current phase log to history before transitioning
 	GameState.commit_phase_log_to_history()
@@ -105,6 +126,19 @@ func _on_phase_completed() -> void:
 	
 	# Advance to next phase
 	advance_to_next_phase()
+
+func _handle_game_end() -> void:
+	print("PhaseManager: Game completed after 5 battle rounds!")
+	print("PhaseManager: Final battle round: ", GameState.get_battle_round())
+	
+	# Commit final phase log
+	GameState.commit_phase_log_to_history()
+	
+	# Emit completion signal
+	emit_signal("phase_completed", GameStateData.Phase.SCORING)
+	
+	# Could emit a game_completed signal here in the future
+	# For now, just stay in scoring phase
 
 func _on_phase_action_taken(action: Dictionary) -> void:
 	# Record action in phase log

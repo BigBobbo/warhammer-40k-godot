@@ -43,19 +43,19 @@ func _setup_layout_2() -> void:
 	_add_terrain_piece("ruins_1", Vector2(720, 200), Vector2(240, 160), HeightCategory.TALL, 90.0)
 	_add_terrain_piece("ruins_2", Vector2(1040, 2200), Vector2(240, 160), HeightCategory.TALL, 90.0)
 	_add_terrain_piece("ruins_3", Vector2(440, 1080), Vector2(240, 160), HeightCategory.TALL, 90.0)  # Rotated 45 degrees
-	_add_terrain_piece("ruins_4", Vector2(1320, 680), Vector2(240, 160), HeightCategory.TALL, 90.0)  # Rotated -45 degrees
+	_add_terrain_piece("ruins_4", Vector2(1320, 1320), Vector2(240, 160), HeightCategory.TALL, 90.0)  # Rotated -45 degrees
 	
 	# 10" x 5" ruins (2 pieces) - 400x200 pixels
-	_add_terrain_piece("ruins_5", Vector2(220, 1400), Vector2(400, 200), HeightCategory.TALL, 90.0)  # Rotated 30 degrees
-	_add_terrain_piece("ruins_6", Vector2(1500, 1000), Vector2(400, 200), HeightCategory.MEDIUM, 90.0)  # Rotated -30 degrees
+	_add_terrain_piece("ruins_5", Vector2(260, 1400), Vector2(400, 200), HeightCategory.TALL, 90.0)  # Rotated 30 degrees
+	_add_terrain_piece("ruins_6", Vector2(1500, 1000), Vector2(400, 200), HeightCategory.TALL, 90.0)  # Rotated -30 degrees
 	
 	# 12" x 6" ruins (6 pieces) - 480x240 pixels
 	_add_terrain_piece("ruins_7", Vector2(1360, 320), Vector2(480, 240), HeightCategory.TALL, 0.0)  # Slight rotation
 	_add_terrain_piece("ruins_8", Vector2(400, 440), Vector2(480, 240), HeightCategory.MEDIUM, 0.0)
 	_add_terrain_piece("ruins_9", Vector2(1360, 1960), Vector2(480, 240), HeightCategory.LOW, 0.0)
 	_add_terrain_piece("ruins_10", Vector2(400, 2080), Vector2(480, 240), HeightCategory.TALL, 0.0)
-	_add_terrain_piece("ruins_11", Vector2(880, 760), Vector2(480, 240), HeightCategory.MEDIUM, 45.0)  # Rotated 60 degrees
-	_add_terrain_piece("ruins_12", Vector2(880, 1640), Vector2(480, 240), HeightCategory.TALL, 45.0)
+	_add_terrain_piece("ruins_11", Vector2(880, 760), Vector2(480, 240), HeightCategory.MEDIUM, -45.0)  # Rotated 60 degrees
+	_add_terrain_piece("ruins_12", Vector2(880, 1640), Vector2(480, 240), HeightCategory.TALL, -45.0)
 
 func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0) -> void:
 	# Create polygon from position and size (rectangle)

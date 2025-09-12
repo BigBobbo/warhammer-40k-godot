@@ -127,27 +127,28 @@ func test_objective_control_higher_oc_wins():
 			  "Player 2 should control with higher OC (3 vs 1)")
 
 func test_objective_control_range():
-	# Test that units must be within 3" to control
+	# Test that units must be within 3.78740157" (3" + 20mm) to control
 	var center_pos = Vector2(Measurement.inches_to_px(22), Measurement.inches_to_px(30))
+	var control_radius = 3.78740157  # 3" + 20mm
 	
-	# Unit just inside 3" range
+	# Unit just inside control range
 	var inside_unit = {
 		"owner": 1,
 		"status": GameStateData.UnitStatus.DEPLOYED,
 		"meta": {"stats": {"objective_control": 2}},
 		"models": [
-			{"position": center_pos + Vector2(Measurement.inches_to_px(2.9), 0), "alive": true}
+			{"position": center_pos + Vector2(Measurement.inches_to_px(control_radius - 0.1), 0), "alive": true}
 		],
 		"flags": {}
 	}
 	
-	# Unit just outside 3" range
+	# Unit just outside control range
 	var outside_unit = {
 		"owner": 2,
 		"status": GameStateData.UnitStatus.DEPLOYED,
 		"meta": {"stats": {"objective_control": 2}},
 		"models": [
-			{"position": center_pos + Vector2(Measurement.inches_to_px(3.1), 0), "alive": true}
+			{"position": center_pos + Vector2(Measurement.inches_to_px(control_radius + 0.1), 0), "alive": true}
 		],
 		"flags": {}
 	}
@@ -159,7 +160,7 @@ func test_objective_control_range():
 	
 	# Player 1 should control (inside range)
 	assert_eq(MissionManager.objective_control_state["obj_center"], 1,
-			  "Only units within 3\" should control")
+			  "Only units within 3.78740157\" should control")
 
 func test_battle_shocked_no_control():
 	# Test that battle-shocked units have OC = 0

@@ -6,6 +6,7 @@ extends Node
 signal deployment_side_changed(player: int)
 signal deployment_phase_complete()
 signal turn_advanced(turn_number: int)
+signal battle_round_advanced(round: int)
 signal phase_transition_requested(from_phase: GameStateData.Phase, to_phase: GameStateData.Phase)
 
 func _ready() -> void:
@@ -20,6 +21,22 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 	match completed_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			emit_signal("deployment_phase_complete")
+		GameStateData.Phase.SCORING:
+			# Scoring phase handles player switching and battle round advancement
+			# Check if battle round was advanced during scoring phase
+			var current_battle_round = GameState.get_battle_round()
+			var current_player = GameState.get_active_player()
+			
+			# If we're at player 1 after scoring, battle round was advanced
+			if current_player == 1:
+				print("TurnManager: Battle round advanced to ", current_battle_round)
+				emit_signal("battle_round_advanced", current_battle_round)
+				
+				# Check for game end
+				if GameState.is_game_complete():
+					print("TurnManager: Game completed after 5 battle rounds!")
+			
+			print("TurnManager: Player turn switched to Player ", current_player)
 		GameStateData.Phase.MORALE:
 			# End of turn, advance turn number
 			var new_turn = GameState.get_turn_number() + 1

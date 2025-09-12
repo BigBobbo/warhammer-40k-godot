@@ -308,6 +308,20 @@ func create_snapshot() -> Dictionary:
 	if TerrainManager and TerrainManager.terrain_features.size() > 0:
 		snapshot.board["terrain_features"] = TerrainManager.terrain_features.duplicate(true)
 	
+	# Add measuring tape data if persistence is enabled
+	if MeasuringTapeManager and MeasuringTapeManager.save_measurements:
+		var tape_data = MeasuringTapeManager.get_save_data()
+		if not tape_data.is_empty():
+			snapshot["measuring_tape"] = tape_data
+			print("[GameState] Adding %d measurements to snapshot" % tape_data.size())
+		else:
+			print("[GameState] No measurements to save (empty data)")
+	else:
+		if not MeasuringTapeManager:
+			print("[GameState] MeasuringTapeManager not available")
+		else:
+			print("[GameState] Measuring tape persistence disabled")
+	
 	return snapshot
 
 func _deep_copy_dict(dict: Dictionary) -> Dictionary:
@@ -344,6 +358,16 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 			# Clear and reload terrain
 			TerrainManager.terrain_features = terrain_features.duplicate(true)
 			TerrainManager.emit_signal("terrain_loaded", TerrainManager.terrain_features)
+	
+	# Load measuring tape data if present
+	if state.has("measuring_tape") and MeasuringTapeManager:
+		print("[GameState] Found measuring tape data in save, loading %d measurements" % state["measuring_tape"].size())
+		MeasuringTapeManager.load_save_data(state["measuring_tape"])
+	else:
+		if state.has("measuring_tape"):
+			print("[GameState] Has measuring_tape but MeasuringTapeManager not available")
+		else:
+			print("[GameState] No measuring_tape data in save")
 
 # Validation
 func validate_state() -> Dictionary:
