@@ -2,7 +2,7 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1757637676.37095,
+		"timestamp": 1757629307.17725,
 		"version": "1.0.0"
 	},
 	"board": {
@@ -674,35 +674,11 @@
 		}
 	},
 	"history": [],
-	"measuring_tape": [
-		{
-			"distance": 28.7711212158203,
-			"from": {
-				"x": 534.9443359375,
-				"y": 1704.44409179688
-			},
-			"to": {
-				"x": 1321.61083984375,
-				"y": 864.444152832031
-			}
-		},
-		{
-			"distance": 31.6157409667969,
-			"from": {
-				"x": 414.9443359375,
-				"y": 811.110778808594
-			},
-			"to": {
-				"x": 1348.27734375,
-				"y": 1664.44409179688
-			}
-		}
-	],
 	"meta": {
 		"active_player": 1,
 		"battle_round": 1,
-		"created_at": 1757637661.84907,
-		"game_id": "e2928c17-4db8-c434-9d9a--397611495398e9b4",
+		"created_at": 1757629240.80214,
+		"game_id": "be53999d-a8a0-4591-93d1--728ac1e7912a9ae3",
 		"phase": 0,
 		"turn_number": 1,
 		"version": "1.0.0"

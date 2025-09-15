@@ -1,0 +1,1556 @@
+{
+	"_serialization": {
+		"game_version": "1.0.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1757965887.51228,
+		"version": "1.0.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1,
+				"poly": [
+					{
+						"x": 0,
+						"y": 0
+					},
+					{
+						"x": 44,
+						"y": 0
+					},
+					{
+						"x": 44,
+						"y": 12
+					},
+					{
+						"x": 0,
+						"y": 12
+					}
+				]
+			},
+			{
+				"player": 2,
+				"poly": [
+					{
+						"x": 0,
+						"y": 48
+					},
+					{
+						"x": 44,
+						"y": 48
+					},
+					{
+						"x": 44,
+						"y": 60
+					},
+					{
+						"x": 0,
+						"y": 60
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40
+			},
+			{
+				"id": "obj_tl",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 560.0
+				},
+				"radius_mm": 40
+			},
+			{
+				"id": "obj_tr",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 560.0
+				},
+				"radius_mm": 40
+			},
+			{
+				"id": "obj_bl",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 1840.0
+				},
+				"radius_mm": 40
+			},
+			{
+				"id": "obj_br",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1840.0
+				},
+				"radius_mm": 40
+			}
+		],
+		"size": {
+			"height": 60,
+			"width": 44
+		},
+		"terrain": [],
+		"terrain_features": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 80.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 720.0,
+					"y": 200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1040.0,
+					"y": 2200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_3",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 960.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 1080.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_4",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1320.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_5",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 1400.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_6",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1000.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_7",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 320.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_8",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 560.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "ruins_9",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_10",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 2200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 2080.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_11",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 675.147216796875
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1014.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 760.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_12",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 1724.85278320312
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 1385.44152832031
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1640.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"type": "ruins"
+			}
+		]
+	},
+	"factions": {
+		"1": {
+			"detachment": "Shield Host",
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 1000.0,
+			"team_name": ""
+		},
+		"2": {
+			"detachment": "Shield Host",
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 1000.0,
+			"team_name": ""
+		}
+	},
+	"history": [],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 1,
+		"created_at": 1757965286.48564,
+		"from_menu": true,
+		"game_config": {
+			"deployment": "hammer_anvil",
+			"mission": "take_and_hold",
+			"player1_army": "adeptus_custodes",
+			"player2_army": "adeptus_custodes",
+			"terrain": "layout_2"
+		},
+		"game_id": "0d89bf3e-b7fd-7ee0-a3fa--7447ea38888434a3",
+		"phase": 0,
+		"turn_number": 1,
+		"version": "1.0.0"
+	},
+	"phase_log": [],
+	"players": {
+		"1": {
+			"cp": 3,
+			"vp": 0
+		},
+		"2": {
+			"cp": 3,
+			"vp": 0
+		}
+	},
+	"units": {
+		"U_BLADE_CHAMPION_A": {
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [
+					"Adamantine Talisman (+25 pts)"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Blade Champion",
+				"points": 145.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanus",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BLADE_CHAMPION_A",
+			"status": 0
+		},
+		"U_CALADIUS_GRAV-TANK_E": {
+			"flags": {
+
+			},
+			"id": "U_CALADIUS_GRAV-TANK_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "D3",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability.",
+						"name": "Advanced Firepower",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CALADIUS GRAV-TANK",
+					"FLY",
+					"IMPERIUM",
+					"VEHICLE"
+				],
+				"name": "Caladius Grav-tank",
+				"points": 215.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 10.0,
+					"objective_control": 4.0,
+					"save": 2.0,
+					"toughness": 11.0,
+					"wounds": 14.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Caladius Grav-tank",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "4",
+						"ballistic_skill": "2",
+						"damage": "D6+2",
+						"name": "Twin arachnus heavy blaze cannon",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Twin lastrum bolt cannon",
+						"range": "36",
+						"special_rules": "sustained hits 1",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 170.0,
+					"current_wounds": 14.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 14.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CALADIUS_GRAV-TANK_E",
+			"status": 0
+		},
+		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
+			"flags": {
+
+			},
+			"id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "1",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model is selected to fight, you can select one enemy unit within Engagement Range of it and roll one D6, adding 2 to the result if this model made a Charge move this turn: on a 4-5, that enemy unit suffers D3 mortal wounds; on a 6+, that enemy unit suffers 3 mortal wounds.",
+						"name": "Dread Foe",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"CONTEMPTOR-ACHILLUS DREADNOUGHT",
+					"IMPERIUM",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Contemptor-Achillus Dreadnought",
+				"points": 155.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 10.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Contemptor-Achillus Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Achillus dreadspear",
+						"range": "12",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Infernus incinerator",
+						"range": "12",
+						"special_rules": "torrent, ignores cover",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "2",
+						"damage": "3",
+						"name": "Twin adrathic destructor",
+						"range": "18",
+						"special_rules": "twin-linked",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "D6+1",
+						"name": "Achillus dreadspear",
+						"range": "Melee",
+						"special_rules": "lance",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 60.0,
+					"current_wounds": 10.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 10.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+			"status": 0
+		},
+		"U_CUSTODIAN_GUARD_B": {
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Add 1 to the bearer's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Wargear"
+					},
+					{
+						"description": "Add 1 to the Objective Control characteristic of models in the bearer's unit.",
+						"name": "Vexilla",
+						"type": "Wargear"
+					},
+					{
+						"description": "Each time a model in this unit makes an attack, re-roll a Wound roll of 1. While this unit is within range of an objective marker you control, you can re-roll the Wound roll instead.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 170.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"Custodian Guard",
+					"Custodian Guard (Shield), Praesidium Shield"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Sentinel blade",
+						"range": "12",
+						"special_rules": "assault, pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Misericordia",
+						"range": "Melee",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "1",
+						"name": "Sentinel blade",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_B",
+			"status": 0
+		},
+		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
+			"flags": {
+
+			},
+			"id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "1",
+						"type": "Core"
+					},
+					{
+						"description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy.",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time an attack targets this model, an unmodified saving throw of 6 reflects the attack back at the attacker - the attacking model's unit suffers 1 mortal wound after all of the attacking model's attacks have been resolved.",
+						"name": "Eternal Protector",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"IMPERIUM",
+					"TELEMON HEAVY DREADNOUGHT",
+					"VEHICLE",
+					"WALKER"
+				],
+				"name": "Telemon Heavy Dreadnought",
+				"points": 265.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 8.0,
+					"objective_control": 5.0,
+					"save": 2.0,
+					"toughness": 12.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Telemon Heavy Dreadnought",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Telemon Caestus",
+						"range": "12",
+						"special_rules": "twin-linked",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Spiculus bolt launcher",
+						"range": "36",
+						"special_rules": "",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "8",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Iliastus accelerator culverin",
+						"range": "48",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Telemon Caestus",
+						"range": "Melee",
+						"special_rules": "",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "16",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Telemon Storm Cannon",
+						"range": "72",
+						"special_rules": "",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-4",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "D6+1",
+						"name": "Twin arachnus las-blaze",
+						"range": "48",
+						"special_rules": "twin-linked",
+						"strength": "14",
+						"type": "Ranged"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+			"status": 0
+		},
+		"U_WITCHSEEKERS_C": {
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 50.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WITCHSEEKERS_C",
+			"status": 0
+		},
+		"U_WITCHSEEKERS_D": {
+			"flags": {
+
+			},
+			"id": "U_WITCHSEEKERS_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"parameter": "6\"",
+						"type": "Core"
+					},
+					{
+						"description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds.",
+						"name": "Daughters of the Abyss",
+						"type": "Datasheet"
+					},
+					{
+						"description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test.",
+						"name": "Sanctified Flames",
+						"type": "Datasheet"
+					}
+				],
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"WITCHSEEKERS"
+				],
+				"name": "Witchseekers",
+				"points": 65.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Witchseeker Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Witchseekers",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"Witchseeker Sister Superior",
+					"Witchseeker"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": null,
+						"damage": "1",
+						"name": "Witchseeker flamer",
+						"range": "12",
+						"special_rules": "ignores cover, torrent",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": null,
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WITCHSEEKERS_D",
+			"status": 0
+		}
+	}
+}

@@ -1,5 +1,6 @@
 {
-	"created_at": 1757637676.36811,
+	"auto_generated": true,
+	"created_at": 1757702455.5986,
 	"game_state": {
 		"active_player": 1,
 		"game_id": "e2928c17-4db8-c434-9d9a--397611495398e9b4",
@@ -8,9 +9,9 @@
 	},
 	"save_info": {
 		"description": "",
-		"save_type": "quicksave",
+		"save_type": "autosave",
 		"tags": []
 	},
-	"type": "quicksave",
+	"type": "autosave",
 	"version": "1.0.0"
 }

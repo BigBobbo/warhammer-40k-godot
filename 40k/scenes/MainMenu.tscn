@@ -1,0 +1,134 @@
+[gd_scene load_steps=2 format=3 uid="uid://bmenu7xr8qyla"]
+
+[ext_resource type="Script" path="res://scripts/MainMenu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.1, 0.1, 0.15, 1)
+
+[node name="MenuContainer" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -250.0
+offset_right = 300.0
+offset_bottom = 250.0
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="MenuContainer"]
+layout_mode = 2
+text = "Warhammer 40,000 Battle Simulator"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="HSeparator" type="HSeparator" parent="MenuContainer"]
+layout_mode = 2
+
+[node name="MissionSection" type="VBoxContainer" parent="MenuContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MissionLabel" type="Label" parent="MenuContainer/MissionSection"]
+layout_mode = 2
+text = "Mission Settings"
+theme_override_font_sizes/font_size = 20
+
+[node name="TerrainContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="TerrainLabel" type="Label" parent="MenuContainer/MissionSection/TerrainContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Terrain Layout:"
+
+[node name="TerrainDropdown" type="OptionButton" parent="MenuContainer/MissionSection/TerrainContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="MissionContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="MissionLabel" type="Label" parent="MenuContainer/MissionSection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Primary Mission:"
+
+[node name="MissionDropdown" type="OptionButton" parent="MenuContainer/MissionSection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="DeploymentContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+layout_mode = 2
+
+[node name="DeploymentLabel" type="Label" parent="MenuContainer/MissionSection/DeploymentContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Deployment Zone:"
+
+[node name="DeploymentDropdown" type="OptionButton" parent="MenuContainer/MissionSection/DeploymentContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="HSeparator2" type="HSeparator" parent="MenuContainer"]
+layout_mode = 2
+
+[node name="ArmySection" type="VBoxContainer" parent="MenuContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ArmyLabel" type="Label" parent="MenuContainer/ArmySection"]
+layout_mode = 2
+text = "Army Selection"
+theme_override_font_sizes/font_size = 20
+
+[node name="Player1Container" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player1Label" type="Label" parent="MenuContainer/ArmySection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 1 Army:"
+
+[node name="Player1Dropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="Player2Container" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player2Label" type="Label" parent="MenuContainer/ArmySection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 2 Army:"
+
+[node name="Player2Dropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="HSeparator3" type="HSeparator" parent="MenuContainer"]
+layout_mode = 2
+
+[node name="ButtonSection" type="VBoxContainer" parent="MenuContainer"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="StartButton" type="Button" parent="MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Start Game"
+
+[node name="LoadButton" type="Button" parent="MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Load Game"

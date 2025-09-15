@@ -1,0 +1,8 @@
+Godot Engine v4.4.1.stable.official.49a5bc7b6 - https://godotengine.org
+
+[1;31mERROR:[0;91m Attempt to open script 'res://validation_test.gd' resulted in error 'File not found'.
+[0;90m   at: load_source_code (modules/gdscript/gdscript.cpp:1115)[0m
+[1;31mERROR:[0;91m Failed loading resource: res://validation_test.gd. Make sure resources have been imported by opening the project in the editor at least once.
+[0;90m   at: _load (core/io/resource_loader.cpp:344)[0m
+[1;31mERROR:[0;91m Can't load script: validation_test.gd
+[0;90m   at: start (main/main.cpp:3927)[0m

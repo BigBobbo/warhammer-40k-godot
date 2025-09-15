@@ -1,0 +1,17 @@
+{
+	"created_at": 1757629307.1725,
+	"description": "trdt tape",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "be53999d-a8a0-4591-93d1--728ac1e7912a9ae3",
+		"phase": 0,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "trdt tape",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

@@ -1,0 +1,17 @@
+{
+	"created_at": 1757631245.88415,
+	"description": "tape",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "3f75e547-2397-5f1b-b641-6f79cab5e8b6bd8e",
+		"phase": 0,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "tape",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

@@ -1,0 +1,17 @@
+{
+	"created_at": 1756859417.49414,
+	"description": "End of shooting",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c3998bdc-a3c9-6315-adac-2b12b62e5c00cecf",
+		"phase": 2,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "End of shooting",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

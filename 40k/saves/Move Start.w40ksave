@@ -2,7 +2,7 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1757637676.37095,
+		"timestamp": 1756841480.17406,
 		"version": "1.0.0"
 	},
 	"board": {
@@ -50,612 +50,12 @@
 				]
 			}
 		],
-		"objectives": [
-			{
-				"id": "obj_center",
-				"position": {
-					"_type": "Vector2",
-					"x": 880.0,
-					"y": 1200.0
-				},
-				"radius_mm": 40
-			},
-			{
-				"id": "obj_tl",
-				"position": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 560.0
-				},
-				"radius_mm": 40
-			},
-			{
-				"id": "obj_tr",
-				"position": {
-					"_type": "Vector2",
-					"x": 1360.0,
-					"y": 560.0
-				},
-				"radius_mm": 40
-			},
-			{
-				"id": "obj_bl",
-				"position": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 1840.0
-				},
-				"radius_mm": 40
-			},
-			{
-				"id": "obj_br",
-				"position": {
-					"_type": "Vector2",
-					"x": 1360.0,
-					"y": 1840.0
-				},
-				"radius_mm": 40
-			}
-		],
+		"objectives": [],
 		"size": {
 			"height": 60,
 			"width": 44
 		},
-		"terrain": [],
-		"terrain_features": [
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_1",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 800.0,
-							"y": 80.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 800.0,
-							"y": 320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 80.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 720.0,
-					"y": 200.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 240.0,
-					"y": 160.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_2",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 2080.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 2320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 960.0,
-							"y": 2320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 960.0,
-							"y": 2080.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 1040.0,
-					"y": 2200.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 240.0,
-					"y": 160.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_3",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 520.0,
-							"y": 960.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 520.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 360.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 360.0,
-							"y": 960.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 440.0,
-					"y": 1080.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 240.0,
-					"y": 160.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_4",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 1400.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1400.0,
-							"y": 1440.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1240.0,
-							"y": 1440.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1240.0,
-							"y": 1200.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 1320.0,
-					"y": 1320.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 240.0,
-					"y": 160.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_5",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 360.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 360.0,
-							"y": 1600.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 1600.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 1200.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 260.0,
-					"y": 1400.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 200.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_6",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 800.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1400.0,
-							"y": 1200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1400.0,
-							"y": 800.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 1500.0,
-					"y": 1000.0
-				},
-				"rotation": 90.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 200.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_7",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 440.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 440.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 1360.0,
-					"y": 320.0
-				},
-				"rotation": 0.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "medium",
-				"id": "ruins_8",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 320.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 560.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 560.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 440.0
-				},
-				"rotation": 0.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "low",
-				"id": "ruins_9",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 1840.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 1840.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1600.0,
-							"y": 2080.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 1120.0,
-							"y": 2080.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 1360.0,
-					"y": 1960.0
-				},
-				"rotation": 0.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_10",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 1960.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 1960.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 640.0,
-							"y": 2200.0
-						},
-						{
-							"_type": "Vector2",
-							"x": 160.0,
-							"y": 2200.0
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 400.0,
-					"y": 2080.0
-				},
-				"rotation": 0.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "medium",
-				"id": "ruins_11",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 625.441528320312,
-							"y": 844.852783203125
-						},
-						{
-							"_type": "Vector2",
-							"x": 964.852783203125,
-							"y": 505.441558837891
-						},
-						{
-							"_type": "Vector2",
-							"x": 1134.55847167969,
-							"y": 675.147216796875
-						},
-						{
-							"_type": "Vector2",
-							"x": 795.147216796875,
-							"y": 1014.55847167969
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 880.0,
-					"y": 760.0
-				},
-				"rotation": -45.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			},
-			{
-				"can_move_through": {
-					"INFANTRY": true,
-					"MONSTER": false,
-					"VEHICLE": false
-				},
-				"height_category": "tall",
-				"id": "ruins_12",
-				"polygon": {
-					"_type": "PackedVector2Array",
-					"data": [
-						{
-							"_type": "Vector2",
-							"x": 625.441528320312,
-							"y": 1724.85278320312
-						},
-						{
-							"_type": "Vector2",
-							"x": 964.852783203125,
-							"y": 1385.44152832031
-						},
-						{
-							"_type": "Vector2",
-							"x": 1134.55847167969,
-							"y": 1555.14721679688
-						},
-						{
-							"_type": "Vector2",
-							"x": 795.147216796875,
-							"y": 1894.55847167969
-						}
-					]
-				},
-				"position": {
-					"_type": "Vector2",
-					"x": 880.0,
-					"y": 1640.0
-				},
-				"rotation": -45.0,
-				"size": {
-					"_type": "Vector2",
-					"x": 480.0,
-					"y": 240.0
-				},
-				"type": "ruins"
-			}
-		]
+		"terrain": []
 	},
 	"factions": {
 		"1": {
@@ -673,37 +73,410 @@
 			"team_name": ""
 		}
 	},
-	"history": [],
-	"measuring_tape": [
+	"history": [
 		{
-			"distance": 28.7711212158203,
-			"from": {
-				"x": 534.9443359375,
-				"y": 1704.44409179688
-			},
-			"to": {
-				"x": 1321.61083984375,
-				"y": 864.444152832031
-			}
-		},
-		{
-			"distance": 31.6157409667969,
-			"from": {
-				"x": 414.9443359375,
-				"y": 811.110778808594
-			},
-			"to": {
-				"x": 1348.27734375,
-				"y": 1664.44409179688
-			}
+			"actions": [
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 54.8505859375,
+							"y": 429.028198242188
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841405.4324,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BLADE_CHAMPION_A"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 58.183837890625,
+							"y": 1959.02819824219
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841408.28288,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_STRIKE_FORCE_A"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 304.8505859375,
+							"y": 435.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 394.850341796875,
+							"y": 439.028198242188
+						},
+						{
+							"_type": "Vector2",
+							"x": 464.850341796875,
+							"y": 435.69482421875
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841412.75235,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CUSTODIAN_GUARD_B"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 381.517333984375,
+							"y": 1972.36145019531
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841415.47126,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WARBOSS_B"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 641.517333984375,
+							"y": 425.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 748.183837890625,
+							"y": 425.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 851.517333984375,
+							"y": 425.69482421875
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841419.85635,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WITCHSEEKERS_C"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 551.517333984375,
+							"y": 1962.36145019531
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841423.19109,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WARBOSS_C"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1121.51733398438,
+							"y": 429.028198242188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1244.85034179688,
+							"y": 429.028198242188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1171.51733398438,
+							"y": 369.028198242188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1298.18383789062,
+							"y": 372.361450195312
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841427.22676,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WITCHSEEKERS_D"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 784.850341796875,
+							"y": 1972.36145019531
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841430.37797,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1561.51733398438,
+							"y": 192.361450195312
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841433.26431,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CALADIUS_GRAV-TANK_E"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1674.85034179688,
+							"y": 2355.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1674.85034179688,
+							"y": 2279.0283203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1674.85034179688,
+							"y": 2215.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1674.85034179688,
+							"y": 2082.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1594.85034179688,
+							"y": 2082.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1594.85034179688,
+							"y": 2175.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1561.51733398438,
+							"y": 2215.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1561.51733398438,
+							"y": 2312.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1508.18383789062,
+							"y": 2312.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1508.18383789062,
+							"y": 2239.0283203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1508.18383789062,
+							"y": 2179.0283203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1508.18383789062,
+							"y": 2039.02819824219
+						},
+						{
+							"_type": "Vector2",
+							"x": 1421.51733398438,
+							"y": 2042.36145019531
+						},
+						{
+							"_type": "Vector2",
+							"x": 1421.51733398438,
+							"y": 2149.0283203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 1638.18383789062,
+							"y": 1965.69470214844
+						},
+						{
+							"_type": "Vector2",
+							"x": 1718.18383789062,
+							"y": 1965.69470214844
+						},
+						{
+							"_type": "Vector2",
+							"x": 1438.18383789062,
+							"y": 2265.69482421875
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841444.81906,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_E"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1458.18383789062,
+							"y": 382.361450195312
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841448.48718,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 494.850341796875,
+							"y": 2262.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 341.517333984375,
+							"y": 2252.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 261.517333984375,
+							"y": 2335.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 404.850341796875,
+							"y": 2325.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 428.183837890625,
+							"y": 2275.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 428.183837890625,
+							"y": 2192.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 338.183837890625,
+							"y": 2192.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 291.517333984375,
+							"y": 2222.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 134.8505859375,
+							"y": 2252.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 141.517333984375,
+							"y": 2142.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 214.8505859375,
+							"y": 2175.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 261.517333984375,
+							"y": 2122.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 354.8505859375,
+							"y": 2122.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 451.517333984375,
+							"y": 2119.0283203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 501.517333984375,
+							"y": 2142.361328125
+						},
+						{
+							"_type": "Vector2",
+							"x": 574.850341796875,
+							"y": 2175.69482421875
+						},
+						{
+							"_type": "Vector2",
+							"x": 614.850341796875,
+							"y": 2359.0283203125
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841458.89177,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BOYZ_F"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 978.183837890625,
+							"y": 255.69482421875
+						}
+					],
+					"phase": 0,
+					"player": 1,
+					"timestamp": 1756841461.87657,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+				},
+				{
+					"model_positions": [
+						{
+							"_type": "Vector2",
+							"x": 1024.85034179688,
+							"y": 2152.361328125
+						}
+					],
+					"phase": 0,
+					"player": 2,
+					"timestamp": 1756841474.21672,
+					"type": "DEPLOY_UNIT",
+					"unit_id": "U_BATTLEWAGON_G"
+				}
+			],
+			"phase": 0,
+			"turn": 1
 		}
 	],
 	"meta": {
 		"active_player": 1,
-		"battle_round": 1,
-		"created_at": 1757637661.84907,
-		"game_id": "e2928c17-4db8-c434-9d9a--397611495398e9b4",
-		"phase": 0,
+		"created_at": 1756841391.79978,
+		"game_id": "c3998bdc-a3c9-6315-adac-2b12b62e5c00cecf",
+		"phase": 1,
 		"turn_number": 1,
 		"version": "1.0.0"
 	},
@@ -889,14 +662,17 @@
 					"base_mm": 180.0,
 					"current_wounds": 16.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 1024.85034179688,
+						"y": 2152.361328125
+					},
 					"status_effects": [],
 					"wounds": 16.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_BATTLEWAGON_G",
-			"status": 0
+			"status": 2
 		},
 		"U_BLADE_CHAMPION_A": {
 			"flags": {
@@ -1001,14 +777,17 @@
 					"base_mm": 40.0,
 					"current_wounds": 6.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 54.8505859375,
+						"y": 429.028198242188
+					},
 					"status_effects": [],
 					"wounds": 6.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_BLADE_CHAMPION_A",
-			"status": 0
+			"status": 2
 		},
 		"U_BOYZ_E": {
 			"flags": {
@@ -1171,7 +950,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 1674.85034179688,
+						"y": 2355.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1180,7 +962,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m2",
-					"position": null,
+					"position": {
+						"x": 1674.85034179688,
+						"y": 2279.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1189,7 +974,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m3",
-					"position": null,
+					"position": {
+						"x": 1674.85034179688,
+						"y": 2215.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1198,7 +986,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m4",
-					"position": null,
+					"position": {
+						"x": 1674.85034179688,
+						"y": 2082.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1207,7 +998,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m5",
-					"position": null,
+					"position": {
+						"x": 1594.85034179688,
+						"y": 2082.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1216,7 +1010,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m6",
-					"position": null,
+					"position": {
+						"x": 1594.85034179688,
+						"y": 2175.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1225,7 +1022,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m7",
-					"position": null,
+					"position": {
+						"x": 1561.51733398438,
+						"y": 2215.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1234,7 +1034,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m8",
-					"position": null,
+					"position": {
+						"x": 1561.51733398438,
+						"y": 2312.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1243,7 +1046,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m9",
-					"position": null,
+					"position": {
+						"x": 1508.18383789062,
+						"y": 2312.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1252,7 +1058,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m10",
-					"position": null,
+					"position": {
+						"x": 1508.18383789062,
+						"y": 2239.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1261,7 +1070,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m11",
-					"position": null,
+					"position": {
+						"x": 1508.18383789062,
+						"y": 2179.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1270,7 +1082,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m12",
-					"position": null,
+					"position": {
+						"x": 1508.18383789062,
+						"y": 2039.02819824219
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1279,7 +1094,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m13",
-					"position": null,
+					"position": {
+						"x": 1421.51733398438,
+						"y": 2042.36145019531
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1288,7 +1106,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m14",
-					"position": null,
+					"position": {
+						"x": 1421.51733398438,
+						"y": 2149.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1297,7 +1118,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m15",
-					"position": null,
+					"position": {
+						"x": 1638.18383789062,
+						"y": 1965.69470214844
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1306,7 +1130,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m16",
-					"position": null,
+					"position": {
+						"x": 1718.18383789062,
+						"y": 1965.69470214844
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1315,14 +1142,17 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m17",
-					"position": null,
+					"position": {
+						"x": 1438.18383789062,
+						"y": 2265.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_BOYZ_E",
-			"status": 0
+			"status": 2
 		},
 		"U_BOYZ_F": {
 			"flags": {
@@ -1485,7 +1315,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 494.850341796875,
+						"y": 2262.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1494,7 +1327,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m2",
-					"position": null,
+					"position": {
+						"x": 341.517333984375,
+						"y": 2252.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1503,7 +1339,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m3",
-					"position": null,
+					"position": {
+						"x": 261.517333984375,
+						"y": 2335.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1512,7 +1351,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m4",
-					"position": null,
+					"position": {
+						"x": 404.850341796875,
+						"y": 2325.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1521,7 +1363,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m5",
-					"position": null,
+					"position": {
+						"x": 428.183837890625,
+						"y": 2275.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1530,7 +1375,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m6",
-					"position": null,
+					"position": {
+						"x": 428.183837890625,
+						"y": 2192.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1539,7 +1387,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m7",
-					"position": null,
+					"position": {
+						"x": 338.183837890625,
+						"y": 2192.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1548,7 +1399,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m8",
-					"position": null,
+					"position": {
+						"x": 291.517333984375,
+						"y": 2222.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1557,7 +1411,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m9",
-					"position": null,
+					"position": {
+						"x": 134.8505859375,
+						"y": 2252.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1566,7 +1423,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m10",
-					"position": null,
+					"position": {
+						"x": 141.517333984375,
+						"y": 2142.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1575,7 +1435,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m11",
-					"position": null,
+					"position": {
+						"x": 214.8505859375,
+						"y": 2175.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1584,7 +1447,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m12",
-					"position": null,
+					"position": {
+						"x": 261.517333984375,
+						"y": 2122.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1593,7 +1459,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m13",
-					"position": null,
+					"position": {
+						"x": 354.8505859375,
+						"y": 2122.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1602,7 +1471,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m14",
-					"position": null,
+					"position": {
+						"x": 451.517333984375,
+						"y": 2119.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1611,7 +1483,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m15",
-					"position": null,
+					"position": {
+						"x": 501.517333984375,
+						"y": 2142.361328125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1620,7 +1495,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m16",
-					"position": null,
+					"position": {
+						"x": 574.850341796875,
+						"y": 2175.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -1629,14 +1507,17 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m17",
-					"position": null,
+					"position": {
+						"x": 614.850341796875,
+						"y": 2359.0283203125
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_BOYZ_F",
-			"status": 0
+			"status": 2
 		},
 		"U_CALADIUS_GRAV-TANK_E": {
 			"flags": {
@@ -1729,14 +1610,17 @@
 					"base_mm": 170.0,
 					"current_wounds": 14.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 1561.51733398438,
+						"y": 192.361450195312
+					},
 					"status_effects": [],
 					"wounds": 14.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_CALADIUS_GRAV-TANK_E",
-			"status": 0
+			"status": 2
 		},
 		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
 			"flags": {
@@ -1840,14 +1724,17 @@
 					"base_mm": 60.0,
 					"current_wounds": 10.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 978.183837890625,
+						"y": 255.69482421875
+					},
 					"status_effects": [],
 					"wounds": 10.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
-			"status": 0
+			"status": 2
 		},
 		"U_CUSTODIAN_GUARD_B": {
 			"flags": {
@@ -1977,7 +1864,10 @@
 					"base_mm": 40.0,
 					"current_wounds": 3.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 304.8505859375,
+						"y": 435.69482421875
+					},
 					"status_effects": [],
 					"wounds": 3.0
 				},
@@ -1986,7 +1876,10 @@
 					"base_mm": 40.0,
 					"current_wounds": 3.0,
 					"id": "m2",
-					"position": null,
+					"position": {
+						"x": 394.850341796875,
+						"y": 439.028198242188
+					},
 					"status_effects": [],
 					"wounds": 3.0
 				},
@@ -1995,14 +1888,17 @@
 					"base_mm": 40.0,
 					"current_wounds": 3.0,
 					"id": "m3",
-					"position": null,
+					"position": {
+						"x": 464.850341796875,
+						"y": 435.69482421875
+					},
 					"status_effects": [],
 					"wounds": 3.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_CUSTODIAN_GUARD_B",
-			"status": 0
+			"status": 2
 		},
 		"U_STRIKE_FORCE_A": {
 			"flags": {
@@ -2030,14 +1926,17 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 58.183837890625,
+						"y": 1959.02819824219
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_STRIKE_FORCE_A",
-			"status": 0
+			"status": 2
 		},
 		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
 			"flags": {
@@ -2164,14 +2063,17 @@
 					"base_mm": 100.0,
 					"current_wounds": 12.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 1458.18383789062,
+						"y": 382.361450195312
+					},
 					"status_effects": [],
 					"wounds": 12.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
-			"status": 0
+			"status": 2
 		},
 		"U_WARBOSS_B": {
 			"flags": {
@@ -2293,14 +2195,17 @@
 					"base_mm": 40.0,
 					"current_wounds": 6.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 381.517333984375,
+						"y": 1972.36145019531
+					},
 					"status_effects": [],
 					"wounds": 6.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_WARBOSS_B",
-			"status": 0
+			"status": 2
 		},
 		"U_WARBOSS_C": {
 			"flags": {
@@ -2422,14 +2327,17 @@
 					"base_mm": 40.0,
 					"current_wounds": 6.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 551.517333984375,
+						"y": 1962.36145019531
+					},
 					"status_effects": [],
 					"wounds": 6.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_WARBOSS_C",
-			"status": 0
+			"status": 2
 		},
 		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
 			"flags": {
@@ -2520,14 +2428,17 @@
 					"base_mm": 50.0,
 					"current_wounds": 7.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 784.850341796875,
+						"y": 1972.36145019531
+					},
 					"status_effects": [],
 					"wounds": 7.0
 				}
 			],
 			"owner": 2,
 			"squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
-			"status": 0
+			"status": 2
 		},
 		"U_WITCHSEEKERS_C": {
 			"flags": {
@@ -2616,7 +2527,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 641.517333984375,
+						"y": 425.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -2625,7 +2539,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m2",
-					"position": null,
+					"position": {
+						"x": 748.183837890625,
+						"y": 425.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -2634,14 +2551,17 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m3",
-					"position": null,
+					"position": {
+						"x": 851.517333984375,
+						"y": 425.69482421875
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_WITCHSEEKERS_C",
-			"status": 0
+			"status": 2
 		},
 		"U_WITCHSEEKERS_D": {
 			"flags": {
@@ -2730,7 +2650,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m1",
-					"position": null,
+					"position": {
+						"x": 1121.51733398438,
+						"y": 429.028198242188
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -2739,7 +2662,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m2",
-					"position": null,
+					"position": {
+						"x": 1244.85034179688,
+						"y": 429.028198242188
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -2748,7 +2674,10 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m3",
-					"position": null,
+					"position": {
+						"x": 1171.51733398438,
+						"y": 369.028198242188
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				},
@@ -2757,14 +2686,17 @@
 					"base_mm": 32.0,
 					"current_wounds": 1.0,
 					"id": "m4",
-					"position": null,
+					"position": {
+						"x": 1298.18383789062,
+						"y": 372.361450195312
+					},
 					"status_effects": [],
 					"wounds": 1.0
 				}
 			],
 			"owner": 1,
 			"squad_id": "U_WITCHSEEKERS_D",
-			"status": 0
+			"status": 2
 		}
 	}
 }

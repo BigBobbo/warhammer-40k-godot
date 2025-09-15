@@ -1,0 +1,17 @@
+{
+	"created_at": 1756841374.38522,
+	"description": "tesr",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "6ccda0b8-0227-c5e6-81cc-532538830dc62948",
+		"phase": 4,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "tesr",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

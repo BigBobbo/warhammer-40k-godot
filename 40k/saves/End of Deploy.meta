@@ -1,0 +1,17 @@
+{
+	"created_at": 1756841473.20095,
+	"description": "End of Deploy",
+	"game_state": {
+		"active_player": 2,
+		"game_id": "c3998bdc-a3c9-6315-adac-2b12b62e5c00cecf",
+		"phase": 0,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "End of Deploy",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

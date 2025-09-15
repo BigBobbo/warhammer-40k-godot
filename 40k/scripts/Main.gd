@@ -37,6 +37,20 @@ var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 
 func _ready() -> void:
+	# Check if we're coming from main menu or loading a save
+	var from_menu = GameState.state.meta.has("from_menu") if GameState.state.has("meta") else false
+	var from_save = GameState.state.meta.has("from_save") if GameState.state.has("meta") else false
+	
+	if not from_menu and not from_save:
+		# Legacy path: direct load for testing
+		print("Main: Direct load detected, initializing default state")
+		GameState.initialize_default_state()
+	else:
+		if from_menu:
+			print("Main: Loading from main menu with configuration")
+		elif from_save:
+			print("Main: Loading from saved game")
+	
 	# Initialize view to show whole board
 	view_zoom = 0.3
 	view_offset = Vector2(0, 0)  # Start at top-left

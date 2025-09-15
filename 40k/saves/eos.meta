@@ -1,0 +1,17 @@
+{
+	"created_at": 1756925319.32771,
+	"description": "eos",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c3998bdc-a3c9-6315-adac-2b12b62e5c00cecf",
+		"phase": 2,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "eos",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

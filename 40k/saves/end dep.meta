@@ -1,0 +1,17 @@
+{
+	"created_at": 1757005968.30296,
+	"description": "end dep",
+	"game_state": {
+		"active_player": 2,
+		"game_id": "3a179388-ed1c-6229-92ab--7c6a06ea62a5e021",
+		"phase": 0,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "end dep",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

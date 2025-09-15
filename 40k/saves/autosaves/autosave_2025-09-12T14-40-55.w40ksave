@@ -2,50 +2,50 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1757637676.37095,
+		"timestamp": 1757702455.60186,
 		"version": "1.0.0"
 	},
 	"board": {
 		"deployment_zones": [
 			{
-				"player": 1,
+				"player": 1.0,
 				"poly": [
 					{
-						"x": 0,
-						"y": 0
+						"x": 0.0,
+						"y": 0.0
 					},
 					{
-						"x": 44,
-						"y": 0
+						"x": 44.0,
+						"y": 0.0
 					},
 					{
-						"x": 44,
-						"y": 12
+						"x": 44.0,
+						"y": 12.0
 					},
 					{
-						"x": 0,
-						"y": 12
+						"x": 0.0,
+						"y": 12.0
 					}
 				]
 			},
 			{
-				"player": 2,
+				"player": 2.0,
 				"poly": [
 					{
-						"x": 0,
-						"y": 48
+						"x": 0.0,
+						"y": 48.0
 					},
 					{
-						"x": 44,
-						"y": 48
+						"x": 44.0,
+						"y": 48.0
 					},
 					{
-						"x": 44,
-						"y": 60
+						"x": 44.0,
+						"y": 60.0
 					},
 					{
-						"x": 0,
-						"y": 60
+						"x": 0.0,
+						"y": 60.0
 					}
 				]
 			}
@@ -58,7 +58,7 @@
 					"x": 880.0,
 					"y": 1200.0
 				},
-				"radius_mm": 40
+				"radius_mm": 40.0
 			},
 			{
 				"id": "obj_tl",
@@ -67,7 +67,7 @@
 					"x": 400.0,
 					"y": 560.0
 				},
-				"radius_mm": 40
+				"radius_mm": 40.0
 			},
 			{
 				"id": "obj_tr",
@@ -76,7 +76,7 @@
 					"x": 1360.0,
 					"y": 560.0
 				},
-				"radius_mm": 40
+				"radius_mm": 40.0
 			},
 			{
 				"id": "obj_bl",
@@ -85,7 +85,7 @@
 					"x": 400.0,
 					"y": 1840.0
 				},
-				"radius_mm": 40
+				"radius_mm": 40.0
 			},
 			{
 				"id": "obj_br",
@@ -94,12 +94,12 @@
 					"x": 1360.0,
 					"y": 1840.0
 				},
-				"radius_mm": 40
+				"radius_mm": 40.0
 			}
 		],
 		"size": {
-			"height": 60,
-			"width": 44
+			"height": 60.0,
+			"width": 44.0
 		},
 		"terrain": [],
 		"terrain_features": [
@@ -700,22 +700,22 @@
 	],
 	"meta": {
 		"active_player": 1,
-		"battle_round": 1,
+		"battle_round": 1.0,
 		"created_at": 1757637661.84907,
 		"game_id": "e2928c17-4db8-c434-9d9a--397611495398e9b4",
 		"phase": 0,
-		"turn_number": 1,
+		"turn_number": 1.0,
 		"version": "1.0.0"
 	},
 	"phase_log": [],
 	"players": {
 		"1": {
-			"cp": 3,
-			"vp": 0
+			"cp": 3.0,
+			"vp": 0.0
 		},
 		"2": {
-			"cp": 3,
-			"vp": 0
+			"cp": 3.0,
+			"vp": 0.0
 		}
 	},
 	"units": {
@@ -894,9 +894,9 @@
 					"wounds": 16.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_BATTLEWAGON_G",
-			"status": 0
+			"status": 0.0
 		},
 		"U_BLADE_CHAMPION_A": {
 			"flags": {
@@ -1006,9 +1006,9 @@
 					"wounds": 6.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_BLADE_CHAMPION_A",
-			"status": 0
+			"status": 0.0
 		},
 		"U_BOYZ_E": {
 			"flags": {
@@ -1320,9 +1320,9 @@
 					"wounds": 1.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_BOYZ_E",
-			"status": 0
+			"status": 0.0
 		},
 		"U_BOYZ_F": {
 			"flags": {
@@ -1634,9 +1634,9 @@
 					"wounds": 1.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_BOYZ_F",
-			"status": 0
+			"status": 0.0
 		},
 		"U_CALADIUS_GRAV-TANK_E": {
 			"flags": {
@@ -1734,9 +1734,9 @@
 					"wounds": 14.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_CALADIUS_GRAV-TANK_E",
-			"status": 0
+			"status": 0.0
 		},
 		"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H": {
 			"flags": {
@@ -1845,9 +1845,9 @@
 					"wounds": 10.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
-			"status": 0
+			"status": 0.0
 		},
 		"U_CUSTODIAN_GUARD_B": {
 			"flags": {
@@ -2000,9 +2000,9 @@
 					"wounds": 3.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_CUSTODIAN_GUARD_B",
-			"status": 0
+			"status": 0.0
 		},
 		"U_STRIKE_FORCE_A": {
 			"flags": {
@@ -2035,9 +2035,9 @@
 					"wounds": 1.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_STRIKE_FORCE_A",
-			"status": 0
+			"status": 0.0
 		},
 		"U_TELEMON_HEAVY_DREADNOUGHT_I": {
 			"flags": {
@@ -2169,9 +2169,9 @@
 					"wounds": 12.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
-			"status": 0
+			"status": 0.0
 		},
 		"U_WARBOSS_B": {
 			"flags": {
@@ -2298,9 +2298,9 @@
 					"wounds": 6.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_WARBOSS_B",
-			"status": 0
+			"status": 0.0
 		},
 		"U_WARBOSS_C": {
 			"flags": {
@@ -2427,9 +2427,9 @@
 					"wounds": 6.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_WARBOSS_C",
-			"status": 0
+			"status": 0.0
 		},
 		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
 			"flags": {
@@ -2525,9 +2525,9 @@
 					"wounds": 7.0
 				}
 			],
-			"owner": 2,
+			"owner": 2.0,
 			"squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
-			"status": 0
+			"status": 0.0
 		},
 		"U_WITCHSEEKERS_C": {
 			"flags": {
@@ -2639,9 +2639,9 @@
 					"wounds": 1.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_WITCHSEEKERS_C",
-			"status": 0
+			"status": 0.0
 		},
 		"U_WITCHSEEKERS_D": {
 			"flags": {
@@ -2762,9 +2762,9 @@
 					"wounds": 1.0
 				}
 			],
-			"owner": 1,
+			"owner": 1.0,
 			"squad_id": "U_WITCHSEEKERS_D",
-			"status": 0
+			"status": 0.0
 		}
 	}
 }
