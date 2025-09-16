@@ -23,11 +23,19 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 	if shooter_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
 		return {"has_los": false, "reason": "Invalid model positions", "sight_line": [], "attempted_lines": []}
 	
-	var shooter_radius = Measurement.base_radius_px(shooter_model.get("base_mm", 32))
-	var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-	
-	# Progressive sampling: center, edges, then circumference points
-	var sample_points = _generate_base_sample_points(shooter_pos, shooter_radius, target_pos, target_radius)
+	# Get model rotations for shape-aware sampling
+	var shooter_rotation = shooter_model.get("rotation", 0.0)
+	var target_rotation = target_model.get("rotation", 0.0)
+
+	# Create shape instances using existing base shape infrastructure
+	var shooter_shape = _get_model_shape(shooter_model)
+	var target_shape = _get_model_shape(target_model)
+
+	# Shape-aware sampling: considers base types and rotation
+	var sample_points = _generate_shape_aware_sample_points(
+		shooter_shape, shooter_pos, shooter_rotation,
+		target_shape, target_pos, target_rotation
+	)
 	
 	var attempted_lines = []
 	
@@ -69,39 +77,160 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		"blocking_terrain": blocking_terrain
 	}
 
-# Sample point generation for different base sizes with intelligent density
-static func _generate_base_sample_points(shooter_pos: Vector2, shooter_radius: float, target_pos: Vector2, target_radius: float) -> Dictionary:
+# Robust shape creation with fallbacks for backward compatibility
+static func _get_model_shape(model: Dictionary) -> BaseShape:
+	if not model.has("base_type"):
+		# Legacy model - default to circular
+		var radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		return CircularBase.new(radius)
+
+	# Try to create shape, fall back to circular on error
+	var shape = Measurement.create_base_shape(model)
+	if shape == null:
+		push_warning("Failed to create base shape for model %s, using circular fallback" % model.get("id", "unknown"))
+		var radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		return CircularBase.new(radius)
+
+	return shape
+
+# Shape-aware sample point generation with intelligent density
+static func _generate_shape_aware_sample_points(
+	shooter_shape: BaseShape, shooter_pos: Vector2, shooter_rotation: float,
+	target_shape: BaseShape, target_pos: Vector2, target_rotation: float
+) -> Dictionary:
 	var distance_inches = Measurement.px_to_inches(shooter_pos.distance_to(target_pos))
-	var max_base_mm = int(max(Measurement.px_to_mm(shooter_radius * 2), Measurement.px_to_mm(target_radius * 2)))
-	
-	# Determine sample density based on distance and base sizes
-	var sample_density = _determine_sample_density(distance_inches, max_base_mm)
-	
-	var shooter_points = _generate_circle_sample_points(shooter_pos, shooter_radius, sample_density)
-	var target_points = _generate_circle_sample_points(target_pos, target_radius, sample_density)
-	
+
+	# Enhanced density calculation considering shape types
+	var sample_density = _determine_sample_density_enhanced(distance_inches, shooter_shape, target_shape)
+
+	# Generate shape-specific sample points
+	var shooter_points = _generate_shape_sample_points(shooter_shape, shooter_pos, shooter_rotation, sample_density)
+	var target_points = _generate_shape_sample_points(target_shape, target_pos, target_rotation, sample_density)
+
 	return {
 		"shooter": shooter_points,
 		"target": target_points,
 		"density": sample_density
 	}
 
-# Generate sample points around a circle based on density
+# Shape-aware sample point generation dispatcher
+static func _generate_shape_sample_points(shape: BaseShape, position: Vector2, rotation: float, density: int) -> Array:
+	match shape.get_type():
+		"circular":
+			return _generate_circular_sample_points(shape as CircularBase, position, rotation, density)
+		"rectangular":
+			return _generate_rectangular_sample_points(shape as RectangularBase, position, rotation, density)
+		"oval":
+			return _generate_oval_sample_points(shape as OvalBase, position, rotation, density)
+		_:
+			# Fallback to circular for unknown types
+			var circular_shape = CircularBase.new(20.0)  # Default radius
+			return _generate_circular_sample_points(circular_shape, position, rotation, density)
+
+# Generate sample points for circular bases (maintains current behavior)
+static func _generate_circular_sample_points(shape: CircularBase, position: Vector2, rotation: float, density: int) -> Array:
+	var points = []
+
+	# Always include center point
+	points.append(position)
+
+	# Add edge points based on density
+	for i in range(density):
+		var angle = (i * 2 * PI) / density
+		var edge_point = position + Vector2(cos(angle), sin(angle)) * shape.radius
+		points.append(edge_point)
+
+	return points
+
+# Generate sample points for rectangular bases (corner + edge sampling)
+static func _generate_rectangular_sample_points(shape: RectangularBase, position: Vector2, rotation: float, density: int) -> Array:
+	var points = []
+
+	# Always include center point
+	points.append(position)
+
+	# Add corner points (extreme points)
+	var corners = shape._get_world_corners(position, rotation)
+	points.append_array(corners)
+
+	# Add edge points along each side for terrain gap scenarios
+	if density >= 6:  # Only for medium+ density
+		for i in range(4):
+			var start = corners[i]
+			var end = corners[(i + 1) % 4]
+			# Add 2 intermediate points along each edge
+			points.append(start.lerp(end, 0.33))
+			points.append(start.lerp(end, 0.67))
+
+	return points
+
+# Generate sample points for oval bases (angular + edge sampling)
+static func _generate_oval_sample_points(shape: OvalBase, position: Vector2, rotation: float, density: int) -> Array:
+	var points = []
+
+	# Always include center point
+	points.append(position)
+
+	# Use angular sampling like circles but with shape-aware edge calculation
+	for i in range(density):
+		var angle = (i * 2 * PI) / density
+		var local_point = Vector2(
+			shape.length * cos(angle),
+			shape.width * sin(angle)
+		)
+		var world_point = shape.to_world_space(local_point, position, rotation)
+		points.append(world_point)
+
+	# For high density, add intermediate points along major/minor axes
+	if density >= 8:
+		# Major axis points (additional points along length)
+		for t in [0.25, 0.5, 0.75]:
+			var major_local = Vector2(shape.length * (1.0 - 2.0 * t), 0)
+			points.append(shape.to_world_space(major_local, position, rotation))
+
+		# Minor axis points (additional points along width)
+		for t in [0.25, 0.5, 0.75]:
+			var minor_local = Vector2(0, shape.width * (1.0 - 2.0 * t))
+			points.append(shape.to_world_space(minor_local, position, rotation))
+
+	return points
+
+# Legacy function: Generate sample points around a circle based on density
 static func _generate_circle_sample_points(center: Vector2, radius: float, density: int) -> Array:
 	var points = []
-	
+
 	# Always include center point
 	points.append(center)
-	
+
 	# Add edge points based on density
 	for i in range(density):
 		var angle = (i * 2 * PI) / density
 		var point = center + Vector2(cos(angle), sin(angle)) * radius
 		points.append(point)
-	
+
 	return points
 
-# Determine sample density based on distance and base size
+# Enhanced density calculation considering shape types
+static func _determine_sample_density_enhanced(distance_inches: float, shooter_shape: BaseShape, target_shape: BaseShape) -> int:
+	var base_density = 4  # Minimum density
+
+	# Increase density for closer targets
+	if distance_inches <= 12.0:
+		base_density = 6
+	if distance_inches <= 6.0:
+		base_density = 8
+
+	# Increase density for non-circular shapes (they have more complex edges)
+	if shooter_shape.get_type() != "circular" or target_shape.get_type() != "circular":
+		base_density = max(base_density, 6)
+
+	# Maximum density for rectangular shapes in close combat
+	if distance_inches <= 6.0 and (shooter_shape.get_type() == "rectangular" or target_shape.get_type() == "rectangular"):
+		base_density = 8
+
+	return base_density
+
+# Legacy function for backward compatibility
 static func _determine_sample_density(distance_inches: float, base_size_mm: int) -> int:
 	# Use fewer samples for distant or small targets
 	if distance_inches > 24.0 or base_size_mm <= 32:

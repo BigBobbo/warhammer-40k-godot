@@ -339,3 +339,224 @@ func test_benchmark_multiple_checks():
 	
 	# Target: < 5ms average per check for simple cases
 	assert_lt(avg_time, 10.0, "Average check time should be reasonable (<10ms, got %.2fms)" % avg_time)
+
+# ===== NON-CIRCULAR BASE TESTS =====
+
+func test_rectangular_base_line_of_sight():
+	# Test rectangular vs circular visibility
+	gut.p("Testing rectangular base line of sight")
+
+	var rectangular_shooter = {
+		"id": "rect_shooter",
+		"base_type": "rectangular",
+		"base_dimensions": {"length": 100, "width": 60},
+		"position": {"x": 200, "y": 200},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	var circular_target = {
+		"id": "circ_target",
+		"base_type": "circular",
+		"base_mm": 32,
+		"position": {"x": 400, "y": 250},
+		"alive": true
+	}
+
+	var result = EnhancedLineOfSight.check_enhanced_visibility(rectangular_shooter, circular_target, test_board)
+
+	assert_true(result.has_los, "Rectangular to circular should find visibility")
+	assert_gt(result.attempted_lines.size(), 1, "Should attempt multiple sight lines for rectangular base")
+
+func test_oval_base_line_of_sight():
+	# Test oval vs circular visibility
+	gut.p("Testing oval base line of sight")
+
+	var oval_shooter = {
+		"id": "oval_shooter",
+		"base_type": "oval",
+		"base_dimensions": {"length": 170, "width": 105},
+		"position": {"x": 200, "y": 200},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	var circular_target = {
+		"id": "circ_target",
+		"base_type": "circular",
+		"base_mm": 32,
+		"position": {"x": 500, "y": 250},
+		"alive": true
+	}
+
+	var result = EnhancedLineOfSight.check_enhanced_visibility(oval_shooter, circular_target, test_board)
+
+	assert_true(result.has_los, "Oval to circular should find visibility")
+	assert_gt(result.attempted_lines.size(), 1, "Should attempt multiple sight lines for oval base")
+
+func test_mixed_base_types_in_combat():
+	# Test various combinations: oval vs rectangular, rectangular vs circular, etc.
+	gut.p("Testing mixed base types in combat scenarios")
+
+	var rectangular_model = {
+		"id": "rect_1",
+		"base_type": "rectangular",
+		"base_dimensions": {"length": 120, "width": 80},
+		"position": {"x": 300, "y": 300},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	var oval_model = {
+		"id": "oval_1",
+		"base_type": "oval",
+		"base_dimensions": {"length": 150, "width": 90},
+		"position": {"x": 600, "y": 350},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	# Test rectangular vs oval
+	var rect_to_oval = EnhancedLineOfSight.check_enhanced_visibility(rectangular_model, oval_model, test_board)
+	assert_true(rect_to_oval.has_los, "Rectangular to oval should find visibility")
+
+	# Test oval vs rectangular (reverse)
+	var oval_to_rect = EnhancedLineOfSight.check_enhanced_visibility(oval_model, rectangular_model, test_board)
+	assert_true(oval_to_rect.has_los, "Oval to rectangular should find visibility")
+
+func test_rotated_models_visibility():
+	# Verify rotation affects visibility correctly for all shapes
+	gut.p("Testing rotated models visibility")
+
+	var rectangular_model = {
+		"id": "rect_rotated",
+		"base_type": "rectangular",
+		"base_dimensions": {"length": 100, "width": 40},
+		"position": {"x": 300, "y": 300},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	var target_model = {
+		"id": "target",
+		"base_type": "circular",
+		"base_mm": 32,
+		"position": {"x": 450, "y": 320},
+		"alive": true
+	}
+
+	# Test with no rotation
+	var no_rotation = EnhancedLineOfSight.check_enhanced_visibility(rectangular_model, target_model, test_board)
+	assert_true(no_rotation.has_los, "Should have LoS with no rotation")
+
+	# Test with 90 degree rotation
+	rectangular_model.rotation = PI / 2
+	var rotated = EnhancedLineOfSight.check_enhanced_visibility(rectangular_model, target_model, test_board)
+	assert_true(rotated.has_los, "Should still have LoS with rotation")
+
+func test_edge_point_sampling():
+	# Verify that non-circular shapes sample points along edges, not just corners
+	gut.p("Testing edge point sampling for non-circular shapes")
+
+	var rectangular_model = {
+		"id": "rect_edge_test",
+		"base_type": "rectangular",
+		"base_dimensions": {"length": 80, "width": 60},
+		"position": {"x": 200, "y": 200},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	# Use enhanced density to ensure edge sampling
+	var shape = Measurement.create_base_shape(rectangular_model)
+	var sample_points = EnhancedLineOfSight._generate_rectangular_sample_points(shape, Vector2(200, 200), 0.0, 8)
+
+	# Should have center + 4 corners + edge points for high density
+	assert_gt(sample_points.size(), 5, "Rectangular shape should generate multiple sample points including edges")
+
+	# Verify center point is included
+	assert_true(sample_points.has(Vector2(200, 200)), "Should include center point")
+
+func test_terrain_gap_scenario():
+	# Test where extreme points are blocked but edge points have clear LoS
+	gut.p("Testing terrain gap scenario with non-circular bases")
+
+	var rectangular_shooter = {
+		"id": "rect_gap_test",
+		"base_type": "rectangular",
+		"base_dimensions": {"length": 80, "width": 40},
+		"position": {"x": 250, "y": 300},
+		"rotation": 0.0,
+		"alive": true
+	}
+
+	var target_model = {
+		"id": "target_gap",
+		"base_type": "circular",
+		"base_mm": 32,
+		"position": {"x": 550, "y": 300},
+		"alive": true
+	}
+
+	# Add terrain that blocks center but might allow edge visibility
+	test_board.terrain_features = [{
+		"id": "gap_terrain",
+		"type": "ruins",
+		"height_category": "tall",
+		"polygon": PackedVector2Array([
+			Vector2(380, 280),
+			Vector2(420, 280),
+			Vector2(420, 320),
+			Vector2(380, 320)
+		])
+	}]
+
+	var result = EnhancedLineOfSight.check_enhanced_visibility(rectangular_shooter, target_model, test_board)
+
+	# This test verifies the system attempts edge-based visibility
+	assert_gt(result.attempted_lines.size(), 1, "Should attempt multiple sight lines for gap scenario")
+
+func test_enhanced_density_for_non_circular():
+	# Test the enhanced density calculation for non-circular shapes
+	gut.p("Testing enhanced density calculation for non-circular shapes")
+
+	var circular_shape = CircularBase.new(20.0)
+	var rectangular_shape = RectangularBase.new(80.0, 60.0)
+	var oval_shape = OvalBase.new(85.0, 52.5)
+
+	# Close distance - non-circular shapes should get higher density
+	var close_circ_density = EnhancedLineOfSight._determine_sample_density_enhanced(8.0, circular_shape, circular_shape)
+	var close_rect_density = EnhancedLineOfSight._determine_sample_density_enhanced(8.0, rectangular_shape, circular_shape)
+	var close_oval_density = EnhancedLineOfSight._determine_sample_density_enhanced(8.0, oval_shape, circular_shape)
+
+	assert_gte(close_rect_density, close_circ_density, "Rectangular shapes should get at least as much density as circular")
+	assert_gte(close_oval_density, close_circ_density, "Oval shapes should get at least as much density as circular")
+
+	# Very close rectangular combat should use maximum density
+	var max_density = EnhancedLineOfSight._determine_sample_density_enhanced(4.0, rectangular_shape, rectangular_shape)
+	assert_eq(max_density, 8, "Close rectangular combat should use maximum density")
+
+func test_backward_compatibility():
+	# Test that models without base_type still work (default to circular)
+	gut.p("Testing backward compatibility with legacy models")
+
+	var legacy_shooter = {
+		"id": "legacy_shooter",
+		"base_mm": 32,
+		"position": {"x": 200, "y": 200},
+		"alive": true
+		# No base_type - should default to circular
+	}
+
+	var legacy_target = {
+		"id": "legacy_target",
+		"base_mm": 40,
+		"position": {"x": 400, "y": 200},
+		"alive": true
+		# No base_type - should default to circular
+	}
+
+	var result = EnhancedLineOfSight.check_enhanced_visibility(legacy_shooter, legacy_target, test_board)
+
+	assert_true(result.has_los, "Legacy models should still work")
+	assert_eq(result.method, "center_to_center", "Legacy models should use fast center-to-center path")

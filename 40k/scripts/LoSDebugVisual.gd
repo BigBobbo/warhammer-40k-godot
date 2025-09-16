@@ -259,47 +259,78 @@ func _get_unit_center(unit: Dictionary) -> Vector2:
 
 # ===== ENHANCED LINE OF SIGHT VISUALIZATION =====
 
-# Visualize enhanced LoS checking with base-aware sight lines
+# Visualize enhanced LoS checking with shape-aware sight lines and sample points
 func visualize_enhanced_los(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary) -> void:
 	if not debug_enabled:
 		return
-	
+
 	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
-	
+
 	if result.has_los:
 		# Draw successful sight line in green
 		add_los_line(result.sight_line[0], result.sight_line[1], LOS_COLOR_CLEAR)
-		# Draw base circles to show sample areas
+
+		# Draw base shapes to show sample areas
 		_draw_base_outline(shooter_model, Color.GREEN)
 		_draw_base_outline(target_model, Color.GREEN)
-		
+
+		# Show sample points that were generated
+		_draw_sample_points_for_model(shooter_model, Color.CYAN)
+		_draw_sample_points_for_model(target_model, Color.YELLOW)
+
 		print("[LoSDebugVisual] Enhanced LoS: CLEAR via %s" % result.method)
 	else:
 		# Draw blocked attempts in red, show blocking terrain
 		_draw_blocked_sight_attempts(result.attempted_lines, result.blocking_terrain)
+
+		# Draw base shapes in red to show they're blocked
 		_draw_base_outline(shooter_model, Color.RED)
 		_draw_base_outline(target_model, Color.RED)
-		
+
+		# Show sample points that were attempted
+		_draw_sample_points_for_model(shooter_model, Color(1.0, 0.5, 0.5))  # Light red
+		_draw_sample_points_for_model(target_model, Color(1.0, 0.8, 0.8))   # Lighter red
+
 		print("[LoSDebugVisual] Enhanced LoS: BLOCKED by %s" % str(result.blocking_terrain))
-	
+
 	queue_redraw()
 
-# Draw base outline to show sampling area
+# Draw shape-aware base outline to show sampling area
 func _draw_base_outline(model: Dictionary, color: Color) -> void:
 	var pos = _get_model_position_from_dict(model)
 	if pos == Vector2.ZERO:
 		return
-	
-	var radius = Measurement.base_radius_px(model.get("base_mm", 32))
-	
-	# Create a base outline circle
+
+	var rotation = model.get("rotation", 0.0)
+	var shape = Measurement.create_base_shape(model)
+
+	if shape == null:
+		# Fallback to circular for missing shape data
+		var radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		_draw_circular_base_outline(pos, radius, rotation, color)
+		return
+
+	# Draw shape-specific outline
+	match shape.get_type():
+		"circular":
+			_draw_circular_base_outline(pos, shape.radius, rotation, color)
+		"rectangular":
+			_draw_rectangular_base_outline(pos, shape, rotation, color)
+		"oval":
+			_draw_oval_base_outline(pos, shape, rotation, color)
+		_:
+			# Unknown shape - fallback to circular
+			var radius = Measurement.base_radius_px(model.get("base_mm", 32))
+			_draw_circular_base_outline(pos, radius, rotation, color)
+
+# Draw circular base outline
+func _draw_circular_base_outline(pos: Vector2, radius: float, rotation: float, color: Color) -> void:
 	var outline = Node2D.new()
 	outline.position = pos
-	outline.set_script(GDScript.new())
+	outline.rotation = rotation
 	outline.set_meta("base_color", color)
 	outline.set_meta("base_radius", radius)
-	
-	# Add custom draw script for the base outline
+
 	var script_source = """
 extends Node2D
 
@@ -309,10 +340,10 @@ func _ready():
 func _draw():
 	var color = get_meta("base_color", Color.GREEN)
 	var radius = get_meta("base_radius", 30.0)
-	
+
 	# Draw base circle outline
 	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 2.0, true)
-	
+
 	# Draw cross at center
 	var cross_size = 5.0
 	draw_line(Vector2(-cross_size, 0), Vector2(cross_size, 0), color, 2.0)
@@ -321,14 +352,209 @@ func _draw():
 	outline.set_script(GDScript.new())
 	outline.get_script().source_code = script_source
 	outline.get_script().reload()
-	
+
 	add_child(outline)
-	
-	# Auto-remove after 3 seconds
-	get_tree().create_timer(3.0).timeout.connect(func(): 
-		if is_instance_valid(outline):
-			outline.queue_free()
+	_auto_remove_after_delay(outline, 3.0)
+
+# Draw rectangular base outline
+func _draw_rectangular_base_outline(pos: Vector2, shape: RectangularBase, rotation: float, color: Color) -> void:
+	var outline = Node2D.new()
+	outline.position = pos
+	outline.rotation = rotation
+	outline.set_meta("base_color", color)
+	outline.set_meta("base_length", shape.length)
+	outline.set_meta("base_width", shape.width)
+
+	var script_source = """
+extends Node2D
+
+func _ready():
+	queue_redraw()
+
+func _draw():
+	var color = get_meta("base_color", Color.GREEN)
+	var length = get_meta("base_length", 60.0)
+	var width = get_meta("base_width", 40.0)
+
+	var half_length = length / 2
+	var half_width = width / 2
+
+	# Draw rectangle outline
+	var rect_points = PackedVector2Array([
+		Vector2(-half_length, -half_width),
+		Vector2(half_length, -half_width),
+		Vector2(half_length, half_width),
+		Vector2(-half_length, half_width),
+		Vector2(-half_length, -half_width)  # Close the shape
+	])
+
+	draw_polyline(rect_points, color, 2.0)
+
+	# Draw cross at center
+	var cross_size = 5.0
+	draw_line(Vector2(-cross_size, 0), Vector2(cross_size, 0), color, 2.0)
+	draw_line(Vector2(0, -cross_size), Vector2(0, cross_size), color, 2.0)
+
+	# Draw orientation arrow (forward direction)
+	var arrow_start = Vector2(0, -half_width - 10)
+	var arrow_end = Vector2(0, -half_width - 20)
+	draw_line(arrow_start, arrow_end, color, 3.0)
+	draw_line(arrow_end, arrow_end + Vector2(-3, 3), color, 2.0)
+	draw_line(arrow_end, arrow_end + Vector2(3, 3), color, 2.0)
+"""
+	outline.set_script(GDScript.new())
+	outline.get_script().source_code = script_source
+	outline.get_script().reload()
+
+	add_child(outline)
+	_auto_remove_after_delay(outline, 3.0)
+
+# Draw oval base outline
+func _draw_oval_base_outline(pos: Vector2, shape: OvalBase, rotation: float, color: Color) -> void:
+	var outline = Node2D.new()
+	outline.position = pos
+	outline.rotation = rotation
+	outline.set_meta("base_color", color)
+	outline.set_meta("base_length", shape.length)
+	outline.set_meta("base_width", shape.width)
+
+	var script_source = """
+extends Node2D
+
+func _ready():
+	queue_redraw()
+
+func _draw():
+	var color = get_meta("base_color", Color.GREEN)
+	var length = get_meta("base_length", 42.5)  # Half-length
+	var width = get_meta("base_width", 26.25)   # Half-width
+
+	# Generate ellipse points
+	var points = PackedVector2Array()
+	var segments = 32
+
+	for i in range(segments + 1):
+		var angle = (i * TAU) / segments
+		var point = Vector2(
+			length * cos(angle),
+			width * sin(angle)
+		)
+		points.append(point)
+
+	# Draw oval outline
+	draw_polyline(points, color, 2.0)
+
+	# Draw cross at center
+	var cross_size = 5.0
+	draw_line(Vector2(-cross_size, 0), Vector2(cross_size, 0), color, 2.0)
+	draw_line(Vector2(0, -cross_size), Vector2(0, cross_size), color, 2.0)
+
+	# Draw major axis indicator
+	draw_line(Vector2(-length, 0), Vector2(-length + 10, 0), color, 3.0)
+	draw_line(Vector2(length - 10, 0), Vector2(length, 0), color, 3.0)
+"""
+	outline.set_script(GDScript.new())
+	outline.get_script().source_code = script_source
+	outline.get_script().reload()
+
+	add_child(outline)
+	_auto_remove_after_delay(outline, 3.0)
+
+# Helper function to auto-remove nodes after delay
+func _auto_remove_after_delay(node: Node, delay: float) -> void:
+	get_tree().create_timer(delay).timeout.connect(func():
+		if is_instance_valid(node):
+			node.queue_free()
 	)
+
+# Draw sample points for a model based on its shape type
+func _draw_sample_points_for_model(model: Dictionary, color: Color) -> void:
+	var pos = _get_model_position_from_dict(model)
+	if pos == Vector2.ZERO:
+		return
+
+	var rotation = model.get("rotation", 0.0)
+	var shape = Measurement.create_base_shape(model)
+
+	if shape == null:
+		return
+
+	# Generate sample points using the same logic as the LoS system
+	var distance_to_screen_center = pos.distance_to(Vector2(960, 600))  # Approximate screen center
+	var distance_inches = Measurement.px_to_inches(distance_to_screen_center)
+	var dummy_shape = CircularBase.new(20.0)  # For density calculation
+	var density = EnhancedLineOfSight._determine_sample_density_enhanced(distance_inches, shape, dummy_shape)
+
+	var sample_points = EnhancedLineOfSight._generate_shape_sample_points(shape, pos, rotation, density)
+
+	# Draw each sample point
+	for point in sample_points:
+		_draw_sample_point(point, color)
+
+# Draw a single sample point with a small circle and label
+func _draw_sample_point(point: Vector2, color: Color) -> void:
+	var point_visual = Node2D.new()
+	point_visual.position = point
+	point_visual.set_meta("point_color", color)
+
+	var script_source = """
+extends Node2D
+
+func _ready():
+	queue_redraw()
+
+func _draw():
+	var color = get_meta("point_color", Color.CYAN)
+
+	# Draw small filled circle
+	draw_circle(Vector2.ZERO, 3.0, color)
+
+	# Draw border
+	draw_arc(Vector2.ZERO, 3.0, 0, TAU, 8, Color.WHITE, 1.0, true)
+"""
+	point_visual.set_script(GDScript.new())
+	point_visual.get_script().source_code = script_source
+	point_visual.get_script().reload()
+
+	add_child(point_visual)
+	_auto_remove_after_delay(point_visual, 4.0)  # Keep sample points a bit longer
+
+# Enhanced visualization function that shows all sample points and attempted lines
+func visualize_enhanced_los_detailed(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary) -> void:
+	if not debug_enabled:
+		return
+
+	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
+
+	# Always draw base outlines
+	_draw_base_outline(shooter_model, Color.BLUE)
+	_draw_base_outline(target_model, Color.GREEN)
+
+	# Always draw sample points
+	_draw_sample_points_for_model(shooter_model, Color.CYAN)
+	_draw_sample_points_for_model(target_model, Color.YELLOW)
+
+	# Draw all attempted lines with different colors
+	if result.has("attempted_lines"):
+		for line_data in result.attempted_lines:
+			var line_color = LOS_COLOR_CLEAR if not line_data.blocked else Color(1.0, 0.5, 0.5, 0.3)
+			add_los_line(line_data.from, line_data.to, line_color)
+
+	# Highlight the successful line if any
+	if result.has_los and result.has("sight_line") and result.sight_line.size() >= 2:
+		add_los_line(result.sight_line[0], result.sight_line[1], Color.GREEN, [])  # Successful line in bright green
+
+	# Show blocking terrain
+	if result.has("blocking_terrain"):
+		for terrain_id in result.blocking_terrain:
+			_highlight_terrain(terrain_id, TERRAIN_BLOCKED_COLOR)
+
+	queue_redraw()
+
+	print("[LoSDebugVisual] Detailed Enhanced LoS: %s via %s" % [
+		"CLEAR" if result.has_los else "BLOCKED",
+		result.get("method", "unknown")
+	])
 
 # Draw blocked sight attempts to show why LoS failed
 func _draw_blocked_sight_attempts(attempted_lines: Array, blocking_terrain: Array) -> void:
