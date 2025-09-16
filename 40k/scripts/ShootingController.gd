@@ -54,7 +54,12 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
-	
+
+	# Clean up LoS debug visualization
+	if los_debug_visual and is_instance_valid(los_debug_visual):
+		los_debug_visual.clear_all_debug_visuals()
+		los_debug_visual.queue_free()
+
 	# Clean up UI containers
 	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
 	if shooting_controls and is_instance_valid(shooting_controls):
@@ -764,10 +769,10 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	print("ShootingController: Unit selected for shooting: ", unit_id)
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
-	
-	# Clear previous visualizations
-	if los_debug_visual:
-		los_debug_visual.clear_los_lines()
+
+	# Clear previous visualizations (comprehensive cleanup)
+	if los_debug_visual and is_instance_valid(los_debug_visual):
+		los_debug_visual.clear_all_debug_visuals()
 	
 	# Request targets and trigger LoS visualization
 	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
@@ -829,12 +834,12 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
 		return
-	
+
 	var unit_id = unit_selector.get_item_metadata(index)
 	if unit_id:
-		# Clear previous LoS visualizations
-		if los_debug_visual:
-			los_debug_visual.clear_los_lines()
+		# Clear previous LoS visualizations (comprehensive cleanup)
+		if los_debug_visual and is_instance_valid(los_debug_visual):
+			los_debug_visual.clear_all_debug_visuals()
 		
 		emit_signal("shoot_action_requested", {
 			"type": "SELECT_SHOOTER",

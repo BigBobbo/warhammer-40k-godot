@@ -18,6 +18,29 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 func exit_phase() -> void:
 	_on_phase_exit()
 
+	# Clear debug visualizations on any phase exit
+	_clear_debug_visualizations()
+
+# Helper method to clear debug visualizations safely
+func _clear_debug_visualizations() -> void:
+	# Try to get the main scene root
+	var main_loop = Engine.get_main_loop()
+	if not main_loop or not main_loop is SceneTree:
+		return
+
+	var root = main_loop.current_scene
+	if not root:
+		return
+
+	# Navigate to the LoSDebugVisual node
+	var board_root = root.get_node_or_null("BoardRoot")
+	if not board_root:
+		return
+
+	var los_debug = board_root.get_node_or_null("LoSDebugVisual")
+	if los_debug and is_instance_valid(los_debug) and los_debug.has_method("clear_all_debug_visuals"):
+		los_debug.clear_all_debug_visuals()
+
 func _on_phase_enter() -> void:
 	# Override in concrete phases for phase-specific setup
 	pass

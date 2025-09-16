@@ -1,4 +1,5 @@
 extends Node2D
+class_name LoSDebugVisual
 
 # LoSDebugVisual - Visual debugging for Line of Sight mechanics
 # Shows LoS lines and highlights terrain that blocks or provides cover
@@ -131,7 +132,9 @@ func add_los_line(from: Vector2, to: Vector2, color: Color = LOS_COLOR_CLEAR, in
 	queue_redraw()
 
 func clear_los_lines() -> void:
+	var count = los_lines.size()
 	los_lines.clear()
+	print("[LoSDebugVisual] Cleared LoS lines (", count, " lines)")
 	queue_redraw()
 
 func _highlight_terrain(terrain_id: String, color: Color) -> void:
@@ -156,9 +159,35 @@ func _restore_terrain_highlight(terrain_id: String) -> void:
 
 func clear_all_highlights() -> void:
 	# Clear all terrain highlights
+	var count = highlighted_terrain.size()
 	for terrain_id in highlighted_terrain:
 		_restore_terrain_highlight(terrain_id)
 	highlighted_terrain.clear()
+	print("[LoSDebugVisual] Cleared terrain highlights (", count, " highlights)")
+
+func clear_all_debug_visuals() -> void:
+	# Comprehensive cleanup method for all LoS debug visualizations
+	clear_los_lines()
+	clear_all_highlights()
+	print("[LoSDebugVisual] Cleared all debug visualizations")
+
+# Global access method for cross-controller cleanup
+static func get_global_instance() -> LoSDebugVisual:
+	# Try to get the main scene root
+	var main_loop = Engine.get_main_loop()
+	if not main_loop or not main_loop is SceneTree:
+		return null
+
+	var root = main_loop.current_scene
+	if not root:
+		return null
+
+	# Navigate to the LoSDebugVisual node
+	var board_root = root.get_node_or_null("BoardRoot")
+	if not board_root:
+		return null
+
+	return board_root.get_node_or_null("LoSDebugVisual")
 
 func _check_line_intersects_terrain(from: Vector2, to: Vector2, polygon: PackedVector2Array) -> bool:
 	# Check if line segment intersects polygon

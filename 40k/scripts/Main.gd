@@ -1651,24 +1651,27 @@ func _recreate_unit_visuals() -> void:
 func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 	# Use the existing TokenVisual class
 	var token = preload("res://scripts/TokenVisual.gd").new()
-	
+
 	# Set properties
 	var unit = GameState.get_unit(unit_id)
 	token.owner_player = unit.get("owner", 1)
 	token.radius = Measurement.base_radius_px(model.get("base_mm", 32))
 	token.is_preview = false
-	
+
+	# Set the complete model data for proper shape handling
+	token.set_model_data(model)
+
 	# Extract model number from ID (e.g., "m1" -> 1)
 	var model_id = model.get("id", "m1")
 	if model_id.begins_with("m"):
 		token.model_number = model_id.substr(1).to_int()
 	else:
 		token.model_number = 1
-	
+
 	# Set metadata for charge movement and other controllers
 	token.set_meta("unit_id", unit_id)
 	token.set_meta("model_id", model_id)
-	
+
 	return token
 
 func _debug_load_system():
@@ -1735,8 +1738,22 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 
 func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Load completed: %s" % file_path)
+
+	# Clear debug visualizations after load
+	_clear_debug_visualizations()
+
 	# Force UI refresh after loading
 	call_deferred("_refresh_after_load")
+
+# Helper method to clear debug visualizations safely
+func _clear_debug_visualizations() -> void:
+	var board_root = get_node_or_null("BoardRoot")
+	if not board_root:
+		return
+
+	var los_debug = board_root.get_node_or_null("LoSDebugVisual")
+	if los_debug and is_instance_valid(los_debug) and los_debug.has_method("clear_all_debug_visuals"):
+		los_debug.clear_all_debug_visuals()
 
 func _on_save_failed(error: String) -> void:
 	print("Save failed: %s" % error)
