@@ -7,6 +7,7 @@ signal models_placed_changed()
 var unit_id: String = ""
 var model_idx: int = -1
 var temp_positions: Array = []
+var temp_rotations: Array = []  # Store rotations for each model
 var token_layer: Node2D
 var ghost_layer: Node2D
 var ghost_sprite: Node2D = null
@@ -14,17 +15,44 @@ var placed_tokens: Array = []
 
 func _ready() -> void:
 	set_process(true)
+	set_process_unhandled_input(true)
 
 func set_layers(tokens: Node2D, ghosts: Node2D) -> void:
 	token_layer = tokens
 	ghost_layer = ghosts
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_placing() or not ghost_sprite:
+		return
+
+	# Handle rotation controls during deployment
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_Q:
+			# Rotate left
+			if ghost_sprite.has_method("rotate_by"):
+				ghost_sprite.rotate_by(-PI/12)  # 15 degrees
+		elif event.keycode == KEY_E:
+			# Rotate right
+			if ghost_sprite.has_method("rotate_by"):
+				ghost_sprite.rotate_by(PI/12)  # 15 degrees
+	elif event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			# Rotate with mouse wheel
+			if ghost_sprite.has_method("rotate_by"):
+				ghost_sprite.rotate_by(PI/12)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			if ghost_sprite.has_method("rotate_by"):
+				ghost_sprite.rotate_by(-PI/12)
+
 func begin_deploy(_unit_id: String) -> void:
 	unit_id = _unit_id
 	model_idx = 0
 	temp_positions.clear()
+	temp_rotations.clear()
 	var unit_data = GameState.get_unit(unit_id)
 	temp_positions.resize(unit_data["models"].size())
+	temp_rotations.resize(unit_data["models"].size())
+	temp_rotations.fill(0.0)
 	
 	# Update through PhaseManager instead of BoardState
 	if has_node("/root/PhaseManager"):
@@ -55,39 +83,56 @@ func get_placed_count() -> int:
 func try_place_at(world_pos: Vector2) -> void:
 	if not is_placing():
 		return
-	
+
 	if model_idx >= temp_positions.size():
 		return
-	
+
 	var unit_data = GameState.get_unit(unit_id)
-	var base_mm = unit_data["models"][model_idx]["base_mm"]
-	var radius_px = Measurement.base_radius_px(base_mm)
+	var model_data = unit_data["models"][model_idx]
 	var active_player = GameState.get_active_player()
 	var zone = BoardState.get_deployment_zone_for_player(active_player)
-	
-	# Check if wholly within deployment zone
-	if not _circle_wholly_in_polygon(world_pos, radius_px, zone):
+
+	# Get current rotation from ghost
+	var rotation = 0.0
+	if ghost_sprite and ghost_sprite.has_method("get_base_rotation"):
+		rotation = ghost_sprite.get_base_rotation()
+
+	# Check if wholly within deployment zone based on shape
+	var base_type = model_data.get("base_type", "circular")
+	var is_in_zone = false
+
+	if base_type == "circular":
+		var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+		is_in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+	else:
+		# For non-circular bases, use shape-aware validation
+		is_in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+
+	if not is_in_zone:
 		_show_toast("Must be wholly within your deployment zone")
 		return
-	
+
 	# Check for overlap with existing models
-	if _overlaps_with_existing_models(world_pos, radius_px):
+	if _overlaps_with_existing_models_shape(world_pos, model_data, rotation):
 		_show_toast("Cannot overlap with existing models")
 		return
-	
+
+	# Store position and rotation (rotation already captured above)
 	temp_positions[model_idx] = world_pos
-	_spawn_preview_token(unit_id, model_idx, world_pos)
+	temp_rotations[model_idx] = rotation
+	_spawn_preview_token(unit_id, model_idx, world_pos, rotation)
 	model_idx += 1
-	
+
 	_check_coherency_warning()
 	emit_signal("models_placed_changed")
-	
+
 	if model_idx < temp_positions.size():
 		_update_ghost_for_next_model()
 
 func undo() -> void:
 	_clear_previews()
 	temp_positions.fill(null)
+	temp_rotations.fill(0.0)  # Reset rotations to default
 	model_idx = 0
 	
 	# Update through PhaseManager instead of BoardState
@@ -113,6 +158,7 @@ func confirm() -> void:
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
 		"model_positions": model_positions,
+		"model_rotations": temp_rotations,  # Added to fix Battlewagon save/load issue
 		"phase": GameStateData.Phase.DEPLOYMENT,
 		"player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
@@ -124,9 +170,12 @@ func confirm() -> void:
 		if phase_manager.current_phase_instance and phase_manager.current_phase_instance.has_method("execute_action"):
 			var result = phase_manager.current_phase_instance.execute_action(deployment_action)
 			if result.success:
-				print("Deployment successful via PhaseManager")
+				print("[DeploymentController] Deployment successful for unit: ", unit_id)
+				print("[DeploymentController] Action should trigger turn switch")
 			else:
-				print("Deployment failed: ", result.get("error", "Unknown error"))
+				print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
+				print("[DeploymentController] Errors: ", result.get("errors", []))
+				push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
 	
 	_finalize_tokens()
 	_clear_previews()
@@ -135,7 +184,8 @@ func confirm() -> void:
 	unit_id = ""
 	model_idx = -1
 	temp_positions.clear()
-	
+	temp_rotations.clear()  # Added to properly clear rotations
+
 	emit_signal("unit_confirmed")
 	
 	if GameState.all_units_deployed():
@@ -144,16 +194,19 @@ func confirm() -> void:
 func _create_ghost() -> void:
 	if ghost_sprite != null:
 		ghost_sprite.queue_free()
-	
+
 	ghost_sprite = preload("res://scripts/GhostVisual.gd").new()
 	ghost_sprite.name = "GhostPreview"
-	
+
 	var unit_data = GameState.get_unit(unit_id)
 	if model_idx < unit_data["models"].size():
-		var base_mm = unit_data["models"][model_idx]["base_mm"]
+		var model_data = unit_data["models"][model_idx]
+		var base_mm = model_data["base_mm"]
 		ghost_sprite.radius = Measurement.base_radius_px(base_mm)
 		ghost_sprite.owner_player = unit_data["owner"]
-	
+		# Set the complete model data for shape handling
+		ghost_sprite.set_model_data(model_data)
+
 	ghost_layer.add_child(ghost_sprite)
 
 func _remove_ghost() -> void:
@@ -164,35 +217,45 @@ func _remove_ghost() -> void:
 func _update_ghost_for_next_model() -> void:
 	if ghost_sprite == null:
 		return
-	
+
 	var unit_data = GameState.get_unit(unit_id)
 	if model_idx < unit_data["models"].size():
-		var base_mm = unit_data["models"][model_idx]["base_mm"]
+		var model_data = unit_data["models"][model_idx]
+		var base_mm = model_data["base_mm"]
 		ghost_sprite.radius = Measurement.base_radius_px(base_mm)
+		# Update model data for the next model
+		ghost_sprite.set_model_data(model_data)
+		# Reset rotation for new model
+		ghost_sprite.set_base_rotation(0.0)
 		ghost_sprite.queue_redraw()
 
-func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2) -> void:
-	var token = _create_token_visual(unit_id, model_index, pos, true)
+func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2, rotation: float = 0.0) -> void:
+	var token = _create_token_visual(unit_id, model_index, pos, true, rotation)
 	placed_tokens.append(token)
 	token_layer.add_child(token)
 
-func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_preview: bool = false) -> Node2D:
+func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_preview: bool = false, rotation: float = 0.0) -> Node2D:
 	var token = Node2D.new()
 	token.position = pos
 	token.name = "Token_%s_%d" % [unit_id, model_index]
-	
+
 	var unit_data = GameState.get_unit(unit_id)
-	var base_mm = unit_data["models"][model_index]["base_mm"]
+	var model_data = unit_data["models"][model_index].duplicate()
+	# Add rotation to model data
+	model_data["rotation"] = rotation
+	var base_mm = model_data["base_mm"]
 	var radius_px = Measurement.base_radius_px(base_mm)
-	
+
 	var base_circle = preload("res://scripts/TokenVisual.gd").new()
 	base_circle.radius = radius_px
 	base_circle.owner_player = unit_data["owner"]
 	base_circle.is_preview = is_preview
 	base_circle.model_number = model_index + 1
-	
+	# Set the complete model data for shape handling
+	base_circle.set_model_data(model_data)
+
 	token.add_child(base_circle)
-	
+
 	return token
 
 func _clear_previews() -> void:
@@ -273,6 +336,80 @@ func _check_coherency_warning() -> void:
 	if incoherent:
 		_show_toast("Warning: Some models >2″ from unit mates", Color.YELLOW)
 
+func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation: float, polygon: PackedVector2Array) -> bool:
+	# Create the base shape
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		return false
+
+	# For circular, use existing method
+	if shape.get_type() == "circular":
+		return _circle_wholly_in_polygon(center, shape.radius, polygon)
+
+	# For non-circular shapes, check if all corners are inside
+	var bounds = shape.get_bounds()
+	var corners = [
+		Vector2(bounds.position.x, bounds.position.y),
+		Vector2(bounds.position.x + bounds.size.x, bounds.position.y),
+		Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y),
+		Vector2(bounds.position.x, bounds.position.y + bounds.size.y)
+	]
+
+	# Transform corners to world space
+	for corner in corners:
+		var world_corner = shape.to_world_space(corner, center, rotation)
+		if not Geometry2D.is_point_in_polygon(world_corner, polygon):
+			return false
+
+	return true
+
+func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		return false
+
+	# Check overlap with already placed models in current unit
+	var unit_data = GameState.get_unit(unit_id)
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:
+			var other_model_data = unit_data["models"][i]
+			var other_rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
+			if _shapes_overlap(pos, model_data, rotation, temp_positions[i], other_model_data, other_rotation):
+				return true
+
+	# Check overlap with all deployed models from all units
+	var all_units = GameState.state.get("units", {})
+	for other_unit_id in all_units:
+		var other_unit = all_units[other_unit_id]
+		if other_unit["status"] == GameStateData.UnitStatus.DEPLOYED:
+			for model in other_unit["models"]:
+				var model_position = model.get("position", null)
+				if model_position:
+					var other_pos = Vector2(model_position.x, model_position.y)
+					var other_rotation = model.get("rotation", 0.0)
+					if _shapes_overlap(pos, model_data, rotation, other_pos, model, other_rotation):
+						return true
+
+	return false
+
+func _shapes_overlap(pos1: Vector2, model1: Dictionary, rot1: float, pos2: Vector2, model2: Dictionary, rot2: float) -> bool:
+	# Simple distance check for now - can be improved with actual shape collision
+	var shape1 = Measurement.create_base_shape(model1)
+	var shape2 = Measurement.create_base_shape(model2)
+
+	if not shape1 or not shape2:
+		return false
+
+	# For simplicity, use bounding circle check
+	var radius1 = _get_bounding_radius(shape1)
+	var radius2 = _get_bounding_radius(shape2)
+
+	return pos1.distance_to(pos2) < (radius1 + radius2)
+
+func _get_bounding_radius(shape: BaseShape) -> float:
+	var bounds = shape.get_bounds()
+	return max(bounds.size.x, bounds.size.y) / 2.0
+
 func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 	# Check overlap with already placed models in current unit
 	for placed_pos in temp_positions:
@@ -281,7 +418,7 @@ func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 			var other_radius = radius  # Same unit, same base size
 			if distance < (radius + other_radius):
 				return true
-	
+
 	# Check overlap with all deployed models from all units
 	var all_units = GameState.state.get("units", {})
 	for other_unit_id in all_units:
@@ -313,15 +450,27 @@ func _process(delta: float) -> void:
 		# Get mouse position in world coordinates
 		var mouse_pos = _get_world_mouse_position()
 		ghost_sprite.position = mouse_pos
-		
+
 		var unit_data = GameState.get_unit(unit_id)
-		var base_mm = unit_data["models"][model_idx]["base_mm"]
-		var radius_px = Measurement.base_radius_px(base_mm)
+		var model_data = unit_data["models"][model_idx]
 		var active_player = GameState.get_active_player()
 		var zone = BoardState.get_deployment_zone_for_player(active_player)
-		
-		# Check both deployment zone and model overlap
-		var is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models(mouse_pos, radius_px)
+
+		# Get current rotation from ghost
+		var rotation = 0.0
+		if ghost_sprite.has_method("get_rotation"):
+			rotation = ghost_sprite.get_rotation()
+
+		# Check both deployment zone and model overlap based on shape
+		var is_valid = false
+		var base_type = model_data.get("base_type", "circular")
+
+		if base_type == "circular":
+			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+			is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models(mouse_pos, radius_px)
+		else:
+			is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
+
 		if ghost_sprite.has_method("set_validity"):
 			ghost_sprite.set_validity(is_valid)
 

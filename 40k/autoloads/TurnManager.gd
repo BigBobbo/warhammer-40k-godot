@@ -51,30 +51,43 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 func _on_phase_action_taken(action: Dictionary) -> void:
 	var action_type = action.get("type", "")
 	var current_phase = GameState.get_current_phase()
-	
+
+	print("[TurnManager] Received action: ", action_type)
+	print("[TurnManager] Current phase: ", current_phase)
+
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if action_type == "DEPLOY_UNIT":
+				print("[TurnManager] Processing DEPLOY_UNIT action")
+				print("[TurnManager] Unit deployed: ", action.get("unit_id", "Unknown"))
 				check_deployment_alternation()
 
 # Deployment phase management (backwards compatibility)
 func check_deployment_alternation() -> void:
 	var player1_has_units = _has_undeployed_units(1)
 	var player2_has_units = _has_undeployed_units(2)
-	
+
+	print("[TurnManager] Player 1 has undeployed units: ", player1_has_units)
+	print("[TurnManager] Player 2 has undeployed units: ", player2_has_units)
+
 	if not player1_has_units and not player2_has_units:
+		print("[TurnManager] All units deployed - phase will complete")
 		# All units deployed - phase will complete automatically
 		return
-	
+
 	var current_player = GameState.get_active_player()
-	
+	print("[TurnManager] Current active player: ", current_player)
+
 	# Simple alternation - if both players have units, just alternate every time
 	if player1_has_units and player2_has_units:
+		print("[TurnManager] Both players have units - alternating")
 		alternate_active_player()
 	# If only one player has units left, switch to that player if needed
 	elif player1_has_units and current_player != 1:
+		print("[TurnManager] Only Player 1 has units - switching to Player 1")
 		_set_active_player(1)
 	elif player2_has_units and current_player != 2:
+		print("[TurnManager] Only Player 2 has units - switching to Player 2")
 		_set_active_player(2)
 
 func alternate_active_player() -> void:

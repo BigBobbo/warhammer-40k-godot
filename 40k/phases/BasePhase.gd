@@ -43,23 +43,31 @@ func process_action(action: Dictionary) -> Dictionary:
 
 # Execute an action (validate + process + apply)
 func execute_action(action: Dictionary) -> Dictionary:
+	print("[BasePhase] Executing action: ", action.get("type", "UNKNOWN"))
+	print("[BasePhase] For unit: ", action.get("unit_id", "N/A"))
+
 	var validation = validate_action(action)
 	if not validation.valid:
+		print("[BasePhase] Action validation failed: ", validation.errors)
 		return {"success": false, "errors": validation.errors}
-	
+
 	var result = process_action(action)
 	if result.success:
+		print("[BasePhase] Action processed successfully")
 		# Apply the state changes if they exist
 		if result.has("changes") and result.changes is Array:
 			PhaseManager.apply_state_changes(result.changes)
-		
+
 		# Record the action
+		print("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)
-		
+
 		# Check if this action completes the phase
 		if _should_complete_phase():
 			emit_signal("phase_completed")
-	
+	else:
+		print("[BasePhase] Action processing failed")
+
 	return result
 
 # Check if the phase should be completed
