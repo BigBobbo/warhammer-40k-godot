@@ -133,6 +133,15 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and dragging_model:
 		_handle_mouse_motion(event.global_position)
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey:
+		# Keyboard rotation controls during charge movement
+		if event.pressed and dragging_model:
+			if event.keycode == KEY_Q:
+				_rotate_dragging_model(-PI/12)  # Rotate 15 degrees left
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_E:
+				_rotate_dragging_model(PI/12)  # Rotate 15 degrees right
+				get_viewport().set_input_as_handled()
 
 func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
@@ -938,15 +947,20 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		ghost_visual = Node2D.new()
 		ghost_visual.name = "ChargeGhost_" + model_id
 		board_root.add_child(ghost_visual)
-		
-		# Create ghost circle matching model base size
-		var base_mm = model.get("base_mm", 32)
-		var radius = Measurement.base_radius_px(base_mm)
-		
-		var circle = preload("res://scripts/CircleShape.gd").new()
-		circle.radius = radius
-		circle.color = Color(0, 1, 0, 0.7)  # Semi-transparent green
-		ghost_visual.add_child(circle)
+
+		# Use TokenVisual for proper shape rendering
+		var ghost_token = preload("res://scripts/TokenVisual.gd").new()
+		var unit = GameState.get_unit(active_unit_id)
+		ghost_token.owner_player = unit.get("owner", 1)
+		ghost_token.is_preview = true
+		ghost_token.model_number = 0  # Don't show number for ghost
+		# Set the complete model data for shape handling
+		ghost_token.set_model_data(model)
+
+		# Set ghost appearance
+		ghost_token.position = Vector2.ZERO
+		ghost_visual.add_child(ghost_token)
+		ghost_visual.modulate = Color(0, 1, 0, 0.7)  # Semi-transparent green
 		ghost_visual.position = world_pos
 		
 		# Create movement line to show the path
@@ -1117,16 +1131,26 @@ func _update_model_position_in_gamestate(unit_id: String, model_id: String, new_
 	if unit.is_empty():
 		print("ERROR: Cannot find unit ", unit_id, " in GameState")
 		return
-	
+
 	var models = unit.get("models", [])
 	for i in range(models.size()):
 		var model = models[i]
 		if model.get("id", "") == model_id:
 			# Update the position directly in GameState
 			GameState.state.units[unit_id].models[i].position = {"x": new_pos.x, "y": new_pos.y}
-			print("DEBUG: Updated GameState position for ", model_id, " to ", new_pos)
+
+			# Also update rotation if this model has been rotated
+			if dragging_model and dragging_model.get("id", "") == model_id:
+				var new_rotation = dragging_model.get("rotation", 0.0)
+				GameState.state.units[unit_id].models[i].rotation = new_rotation
+				print("DEBUG: Updated GameState position and rotation for ", model_id, " to ", new_pos, " and ", rad_to_deg(new_rotation), " degrees")
+
+				# Update the actual token visual with the new rotation data
+				_update_token_rotation(unit_id, model_id, new_rotation)
+			else:
+				print("DEBUG: Updated GameState position for ", model_id, " to ", new_pos)
 			return
-	
+
 	print("ERROR: Could not find model ", model_id, " in unit ", unit_id)
 
 func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
@@ -1612,3 +1636,56 @@ func _update_charge_distance_display_with_preview(distance_moved: float, valid: 
 	
 	charge_left_label.text = "Left: %.1f\"" % left
 	charge_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
+
+# Rotation functions for charge movement
+func _rotate_dragging_model(angle: float) -> void:
+	if not dragging_model:
+		return
+
+	# Check if model has a non-circular base
+	var base_type = dragging_model.get("base_type", "circular")
+	if base_type == "circular":
+		return  # No rotation needed for circular bases
+
+	# Update the models rotation
+	var current_rotation = dragging_model.get("rotation", 0.0)
+	var new_rotation = current_rotation + angle
+	dragging_model["rotation"] = new_rotation
+
+	# Update the ghost visual if it exists
+	if ghost_visual and ghost_visual.get_child_count() > 0:
+		var ghost_token = ghost_visual.get_child(0)
+		if ghost_token.has_method("set_model_data"):
+			ghost_token.set_model_data(dragging_model)
+			ghost_token.queue_redraw()
+
+	print("DEBUG: Rotated charge model by ", rad_to_deg(angle), " degrees. New rotation: ", rad_to_deg(new_rotation))
+
+func _update_token_rotation(unit_id: String, model_id: String, new_rotation: float) -> void:
+	# Find and update the actual token visual with new model data including rotation
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		print("ERROR: TokenLayer not found, cannot update token rotation")
+		return
+
+	# Find the specific token for this model
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
+			continue
+
+		var token_unit_id = child.get_meta("unit_id")
+		var token_model_id = child.get_meta("model_id")
+
+		if token_unit_id == unit_id and token_model_id == model_id:
+			# Found the token! Update its model data
+			var token_visual = child.get_child(0)  # TokenVisual is first child
+			if token_visual and token_visual.has_method("set_model_data"):
+				# Get the updated model data from GameState
+				var unit = GameState.get_unit(unit_id)
+				for model in unit.get("models", []):
+					if model.get("id", "") == model_id:
+						token_visual.set_model_data(model)
+						print("DEBUG: Updated token visual rotation for ", model_id, " to ", rad_to_deg(new_rotation), " degrees")
+						return
+
+	print("WARNING: Could not find token visual for rotation update: unit=", unit_id, " model=", model_id)
