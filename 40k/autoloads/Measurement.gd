@@ -51,3 +51,68 @@ func edge_to_edge_distance_inches(pos1: Vector2, radius1_mm: float, pos2: Vector
 	var r1_px = base_radius_px(radius1_mm)
 	var r2_px = base_radius_px(radius2_mm)
 	return px_to_inches(edge_to_edge_distance_px(pos1, r1_px, pos2, r2_px))
+
+# Shape-aware distance calculations
+func create_base_shape(model: Dictionary) -> BaseShape:
+	var base_type = model.get("base_type", "circular")
+	var base_mm = model.get("base_mm", 32)
+	var base_dimensions = model.get("base_dimensions", {})
+
+	match base_type:
+		"circular":
+			var radius = base_radius_px(base_mm)
+			return CircularBase.new(radius)
+		"rectangular":
+			var length_mm = base_dimensions.get("length", base_mm)
+			var width_mm = base_dimensions.get("width", base_mm * 0.6)
+			var length_px = mm_to_px(length_mm)
+			var width_px = mm_to_px(width_mm)
+			return RectangularBase.new(length_px, width_px)
+		"oval":
+			var length_mm = base_dimensions.get("length", base_mm)
+			var width_mm = base_dimensions.get("width", base_mm * 0.6)
+			var length_px = mm_to_px(length_mm)
+			var width_px = mm_to_px(width_mm)
+			return OvalBase.new(length_px, width_px)
+		_:
+			# Default to circular
+			var radius = base_radius_px(base_mm)
+			return CircularBase.new(radius)
+
+func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float:
+	var pos1 = model1.get("position", Vector2.ZERO)
+	var pos2 = model2.get("position", Vector2.ZERO)
+	var rotation1 = model1.get("rotation", 0.0)
+	var rotation2 = model2.get("rotation", 0.0)
+
+	var shape1 = create_base_shape(model1)
+	var shape2 = create_base_shape(model2)
+
+	# Get the closest edge points between the two shapes
+	var edge1 = shape1.get_closest_edge_point(pos2, pos1, rotation1)
+	var edge2 = shape2.get_closest_edge_point(pos1, pos2, rotation2)
+
+	return edge1.distance_to(edge2)
+
+func model_to_model_distance_inches(model1: Dictionary, model2: Dictionary) -> float:
+	return px_to_inches(model_to_model_distance_px(model1, model2))
+
+func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
+	# Check if two models' bases overlap
+	var pos1 = model1.get("position", Vector2.ZERO)
+	var pos2 = model2.get("position", Vector2.ZERO)
+
+	# Handle position as Dictionary or Vector2
+	if pos1 is Dictionary:
+		pos1 = Vector2(pos1.get("x", 0), pos1.get("y", 0))
+	if pos2 is Dictionary:
+		pos2 = Vector2(pos2.get("x", 0), pos2.get("y", 0))
+
+	var rotation1 = model1.get("rotation", 0.0)
+	var rotation2 = model2.get("rotation", 0.0)
+
+	var shape1 = create_base_shape(model1)
+	var shape2 = create_base_shape(model2)
+
+	# Use the shape's overlaps_with method for proper collision detection
+	return shape1.overlaps_with(shape2, pos1, rotation1, pos2, rotation2)

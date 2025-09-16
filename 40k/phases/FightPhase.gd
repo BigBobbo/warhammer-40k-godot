@@ -293,7 +293,12 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 		# Check movement is toward closest enemy
 		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
 			errors.append("Model %s must pile in toward closest enemy" % model_id)
-	
+
+	# Check for model overlaps
+	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
+	if not overlap_check.valid:
+		errors.append_array(overlap_check.errors)
+
 	# Check unit coherency maintained
 	var coherency_check = _validate_unit_coherency(unit_id, movements)
 	if not coherency_check.get("valid", false):
@@ -912,15 +917,70 @@ func _find_enemies_in_engagement_range(unit: Dictionary) -> Array:
 	var enemies = []
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
-	
+
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
-		
+
 		if other_owner != unit_owner and _units_in_engagement_range(unit, other_unit):
 			enemies.append(other_unit_id)
-	
+
 	return enemies
+
+func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) -> Dictionary:
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	# Get unit and models
+	var unit = all_units.get(unit_id, {})
+	var models = unit.get("models", [])
+
+	# Check each model's new position
+	for model_id in movements:
+		var new_pos = movements[model_id]
+		if new_pos is Vector2:
+			# Get the model data
+			var model_index = int(model_id) if model_id is String else model_id
+			if model_index < models.size():
+				var model = models[model_index]
+
+				# Build model dict with new position
+				var check_model = model.duplicate()
+				check_model["position"] = new_pos
+
+				# Check against all other models
+				for check_unit_id in all_units:
+					var check_unit = all_units[check_unit_id]
+					var check_models = check_unit.get("models", [])
+
+					for i in range(check_models.size()):
+						var other_model = check_models[i]
+
+						# Skip self
+						if check_unit_id == unit_id and i == model_index:
+							continue
+
+						# Skip dead models
+						if not other_model.get("alive", true):
+							continue
+
+						# Get position (use new position if this model is also moving)
+						var other_position = _get_model_position(check_unit_id, str(i))
+						if check_unit_id == unit_id and movements.has(str(i)):
+							other_position = movements[str(i)]
+
+						if other_position == null:
+							continue
+
+						# Build other model dict with position
+						var other_model_check = other_model.duplicate()
+						other_model_check["position"] = other_position
+
+						# Check for overlap
+						if Measurement.models_overlap(check_model, other_model_check):
+							errors.append("Model %s would overlap with %s/%d" % [model_id, check_unit_id, i])
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 # Legacy method compatibility 
 func _validate_heroic_intervention_action(action: Dictionary) -> Dictionary:

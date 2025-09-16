@@ -229,7 +229,11 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model.get("base_mm", 32)):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
-	
+
+	# Check model overlap
+	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
+		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_stage_model_move(action: Dictionary) -> Dictionary:
@@ -284,7 +288,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model.get("base_mm", 32)):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
-	
+
+	# Check model overlap
+	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
+		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_undo_last_model_move(action: Dictionary) -> Dictionary:
@@ -506,6 +514,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
 	var model_id = payload.get("model_id", "")
 	var dest = payload.get("dest", [])
+	var rotation = payload.get("rotation", 0.0)
 	var dest_vec = Vector2(dest[0], dest[1])
 	
 	var move_data = active_moves[unit_id]
@@ -543,6 +552,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 		"model_id": model_id,
 		"from": current_pos,
 		"dest": dest_vec,
+		"rotation": rotation,  # Preserve rotation
 		"distance": distance_inches,  # Keep individual segment distance for display
 		"total_distance": total_distance_for_model,  # Track total from origin
 		"crosses_enemy": crosses_enemy
@@ -635,14 +645,22 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"model_id": staged_move.model_id,
 			"from": staged_move.get("from"),
 			"dest": staged_move.dest,
+			"rotation": staged_move.get("rotation", 0.0),
 			"crosses_enemy": staged_move.get("crosses_enemy", false)
 		})
-		
+
 		# Update model position in game state
 		changes.append({
 			"op": "set",
 			"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, staged_move.model_id)],
 			"value": {"x": staged_move.dest.x, "y": staged_move.dest.y}
+		})
+
+		# Update model rotation in game state
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.rotation" % [unit_id, _get_model_index(unit_id, staged_move.model_id)],
+			"value": staged_move.get("rotation", 0.0)
 		})
 	
 	# Clear staged moves after converting them
@@ -970,6 +988,60 @@ func _segment_intersects_circle(seg_start: Vector2, seg_end: Vector2, circle_cen
 	var closest_point = seg_start + seg_vec * t
 	var distance = closest_point.distance_to(circle_center)
 	return distance <= radius
+
+func _position_overlaps_other_models(unit_id: String, model_id: String, position: Vector2, model_data: Dictionary = {}) -> bool:
+	# Check if a position would overlap with any other models
+	# Returns true if there's an overlap (invalid position)
+	var units = game_state_snapshot.get("units", {})
+
+	# Build a model dict for the checking position
+	var check_model = model_data.duplicate() if not model_data.is_empty() else _get_model_in_unit(unit_id, model_id)
+	check_model["position"] = position
+
+	for check_unit_id in units:
+		var unit = units[check_unit_id]
+		# Check models in all units (friendly and enemy)
+		var models = unit.get("models", [])
+
+		for i in range(models.size()):
+			var other_model = models[i]
+			var other_model_id = other_model.get("id", "m%d" % (i+1))
+
+			# Skip self
+			if check_unit_id == unit_id and other_model_id == model_id:
+				continue
+
+			# Skip dead models
+			if not other_model.get("alive", true):
+				continue
+
+			# Get the current position of the other model
+			# Check if it has a staged position in active moves
+			var other_position = null
+			if active_moves.has(check_unit_id):
+				var move_data = active_moves[check_unit_id]
+				# Check if this model has a staged position
+				for staged_move in move_data.get("staged_moves", []):
+					if staged_move.get("model_id") == other_model_id:
+						other_position = staged_move.get("dest")
+						break
+
+			# If no staged position, use actual position
+			if other_position == null:
+				other_position = _get_model_position(other_model)
+
+			if other_position == null:
+				continue
+
+			# Build other model dict with correct position
+			var other_model_check = other_model.duplicate()
+			other_model_check["position"] = other_position
+
+			# Check for overlap using the Measurement utility
+			if Measurement.models_overlap(check_model, other_model_check):
+				return true
+
+	return false
 
 func _position_intersects_terrain(pos: Vector2, base_mm: int) -> bool:
 	# MVP: Check against terrain polygons

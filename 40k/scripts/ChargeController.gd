@@ -977,29 +977,36 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 func _update_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
 		return
-	
+
 	var model_id = dragging_model.get("id", "")
-	
+
 	# TEMPORARY: Don't move the actual token during drag to prevent disappearing
 	# Just update the ghost visual instead
 	if ghost_visual:
 		ghost_visual.position = world_pos
-	
+
 	# Update movement line
 	if model_id in movement_lines:
 		var line = movement_lines[model_id]
 		if line.get_point_count() > 1:
 			line.set_point_position(1, world_pos)
-	
+
 	# Check if position is valid (within charge distance and rules)
 	var is_valid = _validate_charge_position(dragging_model, world_pos)
-	
+
+	# Update ghost visual color based on validity
+	if ghost_visual:
+		if is_valid:
+			ghost_visual.modulate = Color(0, 1, 0, 0.7)  # Green for valid
+		else:
+			ghost_visual.modulate = Color(1, 0, 0, 0.7)  # Red for invalid
+
 	# Calculate distance moved for display
 	var original_pos = dragging_model.get("original_position")
 	if original_pos:
 		var distance_moved_px = original_pos.distance_to(world_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
-		
+
 		# Update distance display with preview
 		_update_charge_distance_display_with_preview(distance_moved_inches, is_valid)
 
@@ -1022,16 +1029,21 @@ func _end_model_drag(world_pos: Vector2) -> void:
 			# Update distance display for this model
 			_update_charge_distance_display(model_id, distance_moved_inches)
 		
-		# Store the new position
-		moved_models[model_id] = world_pos
-		
-		# Move the visual token to the new position (only on successful drag end)
-		print("DEBUG: Moving token visual after successful drag")
-		_move_token_visual(active_unit_id, model_id, world_pos)
-		
-		# Update the model position in GameState directly
-		print("DEBUG: Updating GameState position after successful drag")
+		# Store the new position AND rotation
+		moved_models[model_id] = {
+			"position": world_pos,
+			"rotation": dragging_model.get("rotation", 0.0)
+		}
+
+		# IMPORTANT: Update GameState FIRST with position and rotation
+		# This ensures GameState has the correct data before we update visuals
+		print("DEBUG: Updating GameState position and rotation FIRST")
 		_update_model_position_in_gamestate(active_unit_id, model_id, world_pos)
+
+		# NOW update the visual token (after GameState has been updated)
+		print("DEBUG: Moving token visual after GameState update")
+		var model_rotation = dragging_model.get("rotation", 0.0)
+		_move_token_visual(active_unit_id, model_id, world_pos, model_rotation)
 		
 		# Remove from models to move
 		models_to_move.erase(model_id)
@@ -1057,11 +1069,18 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Invalid position! Must be within %d\" and reach engagement range" % charge_distance
 		
-		# Revert token to original position if drag was invalid
+		# Revert token to original position and rotation if drag was invalid
 		var original_pos = dragging_model.get("original_position")
 		if original_pos:
-			_move_token_visual(active_unit_id, model_id, original_pos)
-			print("DEBUG: Reverted token ", model_id, " to original position ", original_pos)
+			# Get original rotation from GameState
+			var original_rotation = 0.0
+			var unit = GameState.get_unit(active_unit_id)
+			for model in unit.get("models", []):
+				if model.get("id", "") == model_id:
+					original_rotation = model.get("rotation", 0.0)
+					break
+			_move_token_visual(active_unit_id, model_id, original_pos, original_rotation)
+			print("DEBUG: Reverted token ", model_id, " to original position ", original_pos, " and rotation ", rad_to_deg(original_rotation), " degrees")
 	
 	# Clean up ghost visual and movement line
 	if ghost_visual:
@@ -1077,7 +1096,7 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	
 	dragging_model = null
 
-func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2) -> void:
+func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rotation: float = 0.0) -> void:
 	# Find and move the actual token visual on screen
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if not token_layer:
@@ -1108,7 +1127,48 @@ func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2) -> 
 				child.visible = true  # Ensure it stays visible
 				child.modulate = Color.WHITE  # Ensure it's not faded
 				child.z_index = 10  # Bring to front to ensure it's not hidden
-				
+
+				# Always update rotation when we're moving a model during charge
+				# Priority: Use dragging_model rotation if available, otherwise use passed rotation
+				var new_rotation = 0.0
+				var should_update_rotation = false
+
+				if dragging_model and dragging_model.get("id", "") == model_id:
+					# This is the model we're dragging - use its current rotation
+					new_rotation = dragging_model.get("rotation", 0.0)
+					should_update_rotation = true
+					print("DEBUG: Using rotation from dragging_model: ", rad_to_deg(new_rotation), " degrees")
+				else:
+					# Use the rotation parameter that was passed
+					new_rotation = rotation
+					should_update_rotation = true
+					print("DEBUG: Using passed rotation: ", rad_to_deg(new_rotation), " degrees")
+
+				# Apply rotation update if needed
+				if should_update_rotation and child.get_child_count() > 0:
+					var token_visual = child.get_child(0)
+					if token_visual and token_visual.has_method("set_model_data"):
+						# IMPORTANT: Use dragging_model if available (has correct rotation)
+						var model_data = null
+						if dragging_model and dragging_model.get("id", "") == model_id:
+							# Use dragging_model which has all the current data
+							model_data = dragging_model.duplicate()
+						else:
+							# Fall back to GameState but update rotation
+							var unit = GameState.get_unit(unit_id)
+							for model in unit.get("models", []):
+								if model.get("id", "") == model_id:
+									model_data = model.duplicate()
+									model_data["rotation"] = new_rotation
+									break
+
+						if model_data:
+							token_visual.set_model_data(model_data)
+							token_visual.queue_redraw()
+							print("DEBUG: Updated token rotation to ", rad_to_deg(new_rotation), " degrees")
+						else:
+							print("WARNING: No model data found for rotation update")
+
 				# Double-check final state
 				print("DEBUG: Token moved to position: ", child.position)
 				print("DEBUG: Token global_position: ", child.global_position)
@@ -1144,9 +1204,7 @@ func _update_model_position_in_gamestate(unit_id: String, model_id: String, new_
 				var new_rotation = dragging_model.get("rotation", 0.0)
 				GameState.state.units[unit_id].models[i].rotation = new_rotation
 				print("DEBUG: Updated GameState position and rotation for ", model_id, " to ", new_pos, " and ", rad_to_deg(new_rotation), " degrees")
-
-				# Update the actual token visual with the new rotation data
-				_update_token_rotation(unit_id, model_id, new_rotation)
+				# NOTE: We don't update the token visual here because _move_token_visual will be called after this
 			else:
 				print("DEBUG: Updated GameState position for ", model_id, " to ", new_pos)
 			return
@@ -1158,29 +1216,37 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 	var old_pos = _get_model_position(model)
 	if old_pos == null:
 		return false
-	
+
 	var distance_moved = Measurement.px_to_inches(old_pos.distance_to(new_pos))
 	if distance_moved > charge_distance:
 		print("Movement too far: ", distance_moved, " > ", charge_distance)
 		return false
-	
-	# Check 2: For individual model validation during drag, we're more lenient
+
+	# Check 2: Model overlap detection
+	if _check_position_would_overlap(model, new_pos):
+		print("Position would overlap with another model")
+		return false
+
+	# Check 3: For individual model validation during drag, we're more lenient
 	# We only require that the model is moving toward an enemy (not strict engagement)
 	# The full unit validation will happen when confirming the charge
 	print("DEBUG: Model position validation passed for individual drag")
-	
+
 	return true
 
 func _on_confirm_charge_moves() -> void:
 	print("DEBUG: _on_confirm_charge_moves called!")
 	print("Confirming charge moves for ", active_unit_id)
 	
-	# Build the per-model paths for the charge action
+	# Build the per-model paths and rotations for the charge action
 	var per_model_paths = {}
+	var per_model_rotations = {}
 	print("DEBUG: Building per_model_paths from moved_models: ", moved_models.keys())
 	for model_id in moved_models:
-		var new_pos = moved_models[model_id]
-		print("DEBUG: Processing moved model ", model_id, " to position ", new_pos)
+		var move_data = moved_models[model_id]
+		var new_pos = move_data["position"] if move_data is Dictionary else move_data
+		var new_rotation = move_data["rotation"] if move_data is Dictionary and move_data.has("rotation") else 0.0
+		print("DEBUG: Processing moved model ", model_id, " to position ", new_pos, " with rotation ", rad_to_deg(new_rotation), " degrees")
 		# For charge moves, we just need start and end positions
 		var unit = GameState.get_unit(active_unit_id)
 		var old_pos = null
@@ -1188,19 +1254,21 @@ func _on_confirm_charge_moves() -> void:
 			if model.get("id", "") == model_id:
 				old_pos = _get_model_position(model)
 				break
-		
+
 		if old_pos and new_pos:
 			per_model_paths[model_id] = [[old_pos.x, old_pos.y], [new_pos.x, new_pos.y]]
-			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id])
+			per_model_rotations[model_id] = new_rotation
+			print("DEBUG: Created path for ", model_id, ": ", per_model_paths[model_id], " with rotation: ", rad_to_deg(new_rotation))
 		else:
 			print("DEBUG: Failed to create path for ", model_id, " - old_pos: ", old_pos, " new_pos: ", new_pos)
-	
-	# Send APPLY_CHARGE_MOVE action with the paths we built
+
+	# Send APPLY_CHARGE_MOVE action with the paths and rotations we built
 	var action = {
 		"type": "APPLY_CHARGE_MOVE",
 		"actor_unit_id": active_unit_id,
 		"payload": {
-			"per_model_paths": per_model_paths
+			"per_model_paths": per_model_paths,
+			"per_model_rotations": per_model_rotations
 		}
 	}
 	
@@ -1638,6 +1706,66 @@ func _update_charge_distance_display_with_preview(distance_moved: float, valid: 
 	charge_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
 
 # Rotation functions for charge movement
+func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
+	# Check if placing the model at the given position would overlap
+	if not current_phase:
+		return false
+
+	var unit_id = active_unit_id
+	var model_id = model.get("id", "")
+
+	# Build a test model with the new position
+	var test_model = model.duplicate()
+	test_model["position"] = new_pos
+
+	# Get all units and check for overlaps
+	# Access the game state units directly
+	var units = {}
+	if current_phase and current_phase.has_method("get_game_state_snapshot"):
+		var state_snapshot = current_phase.get_game_state_snapshot()
+		units = state_snapshot.get("units", {})
+	else:
+		# Fallback to GameState if phase not available
+		units = GameState.state.get("units", {})
+
+	for check_unit_id in units:
+		var check_unit = units[check_unit_id]
+		var check_models = check_unit.get("models", [])
+
+		for check_model in check_models:
+			var check_model_id = check_model.get("id", "")
+
+			# Skip self
+			if check_unit_id == unit_id and check_model_id == model_id:
+				continue
+
+			# Skip dead models
+			if not check_model.get("alive", true):
+				continue
+
+			# Get the current position of the other model
+			# For other charging models in same unit, check their moved positions
+			var other_position = _get_model_position(check_model)
+			if check_unit_id == unit_id and moved_models.has(check_model_id):
+				var moved_data = moved_models[check_model_id]
+				if moved_data is Dictionary and moved_data.has("position"):
+					other_position = moved_data["position"]
+				elif moved_data is Vector2:
+					other_position = moved_data
+
+			if other_position == null:
+				continue
+
+			# Build other model dict with position
+			var other_model_check = check_model.duplicate()
+			other_model_check["position"] = other_position
+
+			# Check for overlap
+			if Measurement.models_overlap(test_model, other_model_check):
+				return true
+
+	return false
+
 func _rotate_dragging_model(angle: float) -> void:
 	if not dragging_model:
 		return
@@ -1658,6 +1786,12 @@ func _rotate_dragging_model(angle: float) -> void:
 		if ghost_token.has_method("set_model_data"):
 			ghost_token.set_model_data(dragging_model)
 			ghost_token.queue_redraw()
+
+	# IMPORTANT: Also update the actual token visual immediately during rotation
+	# This ensures the rotation is visible right away, not just when drag ends
+	var model_id = dragging_model.get("id", "")
+	if model_id != "" and active_unit_id != "":
+		_update_token_rotation(active_unit_id, model_id, new_rotation)
 
 	print("DEBUG: Rotated charge model by ", rad_to_deg(angle), " degrees. New rotation: ", rad_to_deg(new_rotation))
 
@@ -1680,12 +1814,24 @@ func _update_token_rotation(unit_id: String, model_id: String, new_rotation: flo
 			# Found the token! Update its model data
 			var token_visual = child.get_child(0)  # TokenVisual is first child
 			if token_visual and token_visual.has_method("set_model_data"):
-				# Get the updated model data from GameState
-				var unit = GameState.get_unit(unit_id)
-				for model in unit.get("models", []):
-					if model.get("id", "") == model_id:
-						token_visual.set_model_data(model)
-						print("DEBUG: Updated token visual rotation for ", model_id, " to ", rad_to_deg(new_rotation), " degrees")
-						return
+				# IMPORTANT: Use dragging_model if available (it has the updated rotation)
+				# Otherwise fall back to GameState (but update rotation)
+				var model_data = null
+				if dragging_model and dragging_model.get("id", "") == model_id:
+					# Use dragging_model which has the current rotation
+					model_data = dragging_model.duplicate()
+				else:
+					# Get from GameState but update the rotation
+					var unit = GameState.get_unit(unit_id)
+					for model in unit.get("models", []):
+						if model.get("id", "") == model_id:
+							model_data = model.duplicate()
+							model_data["rotation"] = new_rotation
+							break
+
+				if model_data:
+					token_visual.set_model_data(model_data)
+					print("DEBUG: Updated token visual rotation for ", model_id, " to ", rad_to_deg(new_rotation), " degrees")
+					return
 
 	print("WARNING: Could not find token visual for rotation update: unit=", unit_id, " model=", model_id)

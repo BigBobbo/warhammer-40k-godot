@@ -320,6 +320,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
 	var per_model_paths = payload.get("per_model_paths", {})
+	var per_model_rotations = payload.get("per_model_rotations", {})
 	
 	# Enhanced validation - check for empty per_model_paths
 	if per_model_paths.is_empty():
@@ -379,8 +380,19 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.models.%d.position" % [unit_id, model_index],
 			"value": {"x": final_pos[0], "y": final_pos[1]}
 		}
-		print("DEBUG: Adding change: ", change)
+		print("DEBUG: Adding position change: ", change)
 		changes.append(change)
+
+		# Also apply rotation if provided
+		if per_model_rotations.has(model_id):
+			var rotation = per_model_rotations[model_id]
+			var rotation_change = {
+				"op": "set",
+				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"value": rotation
+			}
+			print("DEBUG: Adding rotation change: ", rotation_change)
+			changes.append(rotation_change)
 	
 	# Mark unit as charged and grant Fights First
 	changes.append({
@@ -588,7 +600,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 	var errors = []
 	var rolled_distance = charge_data.distance
 	var target_ids = charge_data.targets
-	
+
 	# 1. Validate path distances
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
@@ -596,22 +608,27 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			var path_distance = Measurement.distance_polyline_inches(path)
 			if path_distance > rolled_distance:
 				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance])
-	
-	# 2. Validate engagement range with ALL targets
+
+	# 2. Validate no model overlaps
+	var overlap_validation = _validate_no_model_overlaps(unit_id, per_model_paths)
+	if not overlap_validation.valid:
+		errors.append_array(overlap_validation.errors)
+
+	# 3. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
-	
-	# 3. Validate unit coherency
+
+	# 4. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge(unit_id, per_model_paths)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
-	
-	# 4. Validate base-to-base if possible
+
+	# 5. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
@@ -830,6 +847,67 @@ func _should_complete_phase() -> bool:
 
 func get_dice_log() -> Array:
 	return dice_log
+
+func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	# Get all models from the charging unit
+	var unit = all_units.get(unit_id, {})
+	var models = unit.get("models", [])
+
+	# Check each model's final position
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		# Build model dict with final position
+		var check_model = model.duplicate()
+		check_model["position"] = final_pos
+
+		# Check against all other models (both friendly and enemy)
+		for check_unit_id in all_units:
+			var check_unit = all_units[check_unit_id]
+			var check_models = check_unit.get("models", [])
+
+			for i in range(check_models.size()):
+				var other_model = check_models[i]
+				var other_model_id = other_model.get("id", "m%d" % (i+1))
+
+				# Skip self
+				if check_unit_id == unit_id and other_model_id == model_id:
+					continue
+
+				# Skip dead models
+				if not other_model.get("alive", true):
+					continue
+
+				# Get the current position of the other model
+				# For other charging models in same unit, use their final positions
+				var other_position = _get_model_position(other_model)
+				if check_unit_id == unit_id and per_model_paths.has(other_model_id):
+					var other_path = per_model_paths[other_model_id]
+					if other_path is Array and other_path.size() > 0:
+						other_position = Vector2(other_path[-1][0], other_path[-1][1])
+
+				if other_position == null:
+					continue
+
+				# Build other model dict with correct position
+				var other_model_check = other_model.duplicate()
+				other_model_check["position"] = other_position
+
+				# Check for overlap
+				if Measurement.models_overlap(check_model, other_model_check):
+					errors.append("Model %s would overlap with %s/%s" % [model_id, check_unit_id, other_model_id])
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func get_pending_charges() -> Dictionary:
 	return pending_charges
