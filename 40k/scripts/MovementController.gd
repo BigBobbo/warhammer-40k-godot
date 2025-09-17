@@ -17,6 +17,25 @@ var selected_model: Dictionary = {}
 var dragging_model: bool = false
 var drag_start_pos: Vector2
 
+# Rotation and pivot state
+var rotating_model: bool = false
+var rotation_start_angle: float = 0.0
+var model_start_rotation: float = 0.0
+var pivot_cost_paid: bool = false
+var pivot_cost_inches: float = 2.0  # Standard pivot cost
+
+# Multi-selection state
+var selected_models: Array = []  # Array of model dictionaries
+var selection_mode: String = "SINGLE"  # SINGLE, MULTI, DRAG_BOX
+var drag_box_active: bool = false
+var drag_box_start: Vector2
+var drag_box_end: Vector2
+var selection_visual: NinePatchRect
+var selection_indicators: Array = []  # Visual indicators for selected models
+var group_dragging: bool = false
+var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2
+var group_formation_offsets: Dictionary = {}  # model_id -> Vector2 (relative to group center)
+
 # UI References
 var board_view: Node2D
 var path_visual: Line2D
@@ -92,6 +111,16 @@ func _exit_tree() -> void:
 		if line and is_instance_valid(line):
 			line.queue_free()
 	model_path_visuals.clear()
+
+	# Clean up multi-selection visuals
+	if selection_visual and is_instance_valid(selection_visual):
+		selection_visual.queue_free()
+
+	# Clean up selection indicators
+	for indicator in selection_indicators:
+		if indicator and is_instance_valid(indicator):
+			indicator.queue_free()
+	selection_indicators.clear()
 	
 	# Clean up UI containers
 	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementInfo")
@@ -171,6 +200,14 @@ func _create_path_visuals() -> void:
 	ghost_visual = Node2D.new()
 	ghost_visual.name = "MovementGhostVisual"
 	board_root.add_child(ghost_visual)
+
+	# Create selection box visual for drag-box selection
+	selection_visual = NinePatchRect.new()
+	selection_visual.name = "MultiSelectionBox"
+	selection_visual.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	selection_visual.modulate = Color(0.5, 0.8, 1.0, 0.3)  # Light blue transparent
+	selection_visual.visible = false
+	board_root.add_child(selection_visual)
 
 func _setup_bottom_hud() -> void:
 	# Get the main HBox container in bottom HUD
@@ -913,21 +950,64 @@ func _unhandled_input(event: InputEvent) -> void:
 	# In debug mode, let DebugManager handle all input
 	if DebugManager and DebugManager.is_debug_active():
 		return
-		
+
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				print("MovementController: Mouse pressed at ", event.position)
-				_start_model_drag(event.position)
+				# Multi-selection input handling
+				if Input.is_key_pressed(KEY_CTRL):
+					_handle_ctrl_click_selection(event.position)
+				elif Input.is_key_pressed(KEY_SHIFT) and _should_start_drag_box():
+					# Require Shift key for drag-box selection to avoid conflicts
+					_start_drag_box_selection(event.position)
+				elif selected_models.size() > 0:
+					# Check if we're clicking on a selected model to start group drag
+					if _is_clicking_on_selected_model(event.position):
+						_start_group_movement(event.position)
+					else:
+						# Clicking elsewhere clears selection and starts single model selection
+						_handle_single_model_selection(event.position)
+				else:
+					_handle_single_model_selection(event.position)
 			else:
-				if dragging_model:
+				if drag_box_active:
+					_complete_drag_box_selection(event.position)
+				elif group_dragging:
+					_end_group_drag(event.position)
+				elif dragging_model:
 					print("MovementController: Mouse released, ending drag")
 					_end_model_drag(event.position)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# Right-click for rotation
+			if event.pressed:
+				_start_model_rotation(event.position)
+			else:
+				if rotating_model:
+					_end_model_rotation(event.position)
 	elif event is InputEventMouseMotion:
-		if dragging_model:
+		if drag_box_active:
+			_update_drag_box_selection(event.position)
+		elif group_dragging:
+			_update_group_drag(event.position)
+		elif dragging_model:
 			_update_model_drag(event.position)
+		elif rotating_model:
+			_update_model_rotation(event.position)
 		else:
 			_update_hover_preview(event.position)
+	elif event is InputEventKey and event.pressed:
+		# Multi-selection keyboard shortcuts
+		if event.keycode == KEY_A and Input.is_key_pressed(KEY_CTRL):
+			_select_all_unit_models()
+		elif event.keycode == KEY_ESCAPE:
+			_clear_selection()
+		# Keyboard rotation controls - work during dragging or when model selected
+		elif (selected_model.size() > 0 or selected_models.size() > 0):
+			if event.keycode == KEY_Q:
+				_rotate_model_by_angle(-PI/12)  # Rotate 15 degrees left
+			elif event.keycode == KEY_E:
+				_rotate_model_by_angle(PI/12)  # Rotate 15 degrees right
 
 func _start_model_drag(mouse_pos: Vector2) -> void:
 	print("Starting model drag. Active unit: ", active_unit_id, " Mode: ", active_mode)
@@ -984,38 +1064,48 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
 		return
-	
+
 	# Get the board transform from Main
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
 	var world_pos: Vector2
-	
+
 	if board_root:
 		world_pos = board_root.transform.affine_inverse() * mouse_pos
 	else:
 		world_pos = get_global_mouse_position()
-	
+
 	# Snap to grid if enabled
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
-	
+
 	# Update path
 	current_path = [drag_start_pos, world_pos]
-	
+
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches(current_path)
-	
+
 	# Get the model's already accumulated distance
 	var already_used = _get_accumulated_distance()
 	var total_distance = already_used + distance_inches
 	var inches_left = move_cap_inches - total_distance
-	
+
 	# Check validity based on total distance
 	path_valid = total_distance <= move_cap_inches
-	
+
+	# Also check for model overlaps
+	var overlap_detected = false
+	if path_valid and current_phase:
+		overlap_detected = _check_position_would_overlap(world_pos)
+		if overlap_detected:
+			path_valid = false
+			if illegal_reason_label:
+				illegal_reason_label.text = "Cannot overlap other models"
+
 	# Update visuals
 	_update_path_visual()
 	_update_ruler_visual()
 	_update_ghost_position(world_pos)
+	_update_ghost_validity(!overlap_detected and total_distance <= move_cap_inches)
 	# Show total distance used (already accumulated + current drag)
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 
@@ -1043,12 +1133,20 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
 	print("Distance moved: ", distance_inches, " inches")
-	
+
 	# Get accumulated distance to check against cap
 	var accumulated = _get_accumulated_distance()
 	var total_distance = accumulated + distance_inches
 	var valid = total_distance <= move_cap_inches
-	
+
+	# Also check for model overlap
+	var overlap_detected = false
+	if valid and current_phase:
+		overlap_detected = _check_position_would_overlap(world_pos)
+		if overlap_detected:
+			valid = false
+			print("Move rejected: position would overlap with another model")
+
 	if valid:
 		print("Move is valid, sending STAGE_MODEL_MOVE action")
 		print("  From: ", drag_start_pos, " To: ", world_pos)
@@ -1061,13 +1159,17 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 			"actor_unit_id": active_unit_id,
 			"payload": {
 				"model_id": selected_model.model_id,
-				"dest": [world_pos.x, world_pos.y]
+				"dest": [world_pos.x, world_pos.y],
+				"rotation": selected_model.get("rotation", 0.0)  # Preserve rotation
 			}
 		}
 		print("  Action: ", action)
 		emit_signal("move_action_requested", action)
 	else:
-		print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", move_cap_inches, ")")
+		if overlap_detected:
+			print("Move invalid: position would overlap with another model")
+		else:
+			print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", move_cap_inches, ")")
 	
 	# Clear drag state
 	dragging_model = false
@@ -1088,17 +1190,62 @@ func _get_model_near_position(world_pos: Vector2, tolerance: float) -> Dictionar
 	# Find model within tolerance distance
 	if not current_phase:
 		return {}
-	
-	var units = current_phase.game_state_snapshot.get("units", {})
+
+	# FIRST: Check visual tokens on the board for actual positions
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if token_layer:
+		var closest_model = {}
+		var closest_distance = INF
+
+		for child in token_layer.get_children():
+			if not child.has_meta("unit_id") or not child.has_meta("model_id"):
+				continue
+
+			var unit_id = child.get_meta("unit_id")
+			var model_id = child.get_meta("model_id")
+
+			# Get the actual visual position of the token
+			var visual_pos = child.position
+			var distance = world_pos.distance_to(visual_pos)
+
+			# Check if within tolerance + base radius
+			var base_radius = 16.0  # Default 32mm base
+			if child.has_method("get_base_radius"):
+				base_radius = child.get_base_radius()
+			elif child.has_meta("base_mm"):
+				base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
+
+			if distance <= (base_radius + tolerance) and distance < closest_distance:
+				closest_distance = distance
+				closest_model = {
+					"unit_id": unit_id,
+					"model_id": model_id,
+					"position": visual_pos,
+					"base_mm": child.get_meta("base_mm", 32)
+				}
+
+		if not closest_model.is_empty():
+			return closest_model
+
+	# FALLBACK: If no visual tokens found, use game state
+	# Get units for both players and combine them
+	var all_units = {}
+	var player1_units = GameState.get_units_for_player(1)
+	var player2_units = GameState.get_units_for_player(2)
+	for unit_id in player1_units:
+		all_units[unit_id] = player1_units[unit_id]
+	for unit_id in player2_units:
+		all_units[unit_id] = player2_units[unit_id]
+
 	var closest_model = {}
 	var closest_distance = INF
-	
-	for unit_id in units:
-		var unit = units[unit_id]
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
 		# Only check units owned by active player
 		if unit.get("owner", 0) != GameState.get_active_player():
 			continue
-			
+
 		var models = unit.get("models", [])
 		
 		for i in range(models.size()):
@@ -1118,36 +1265,87 @@ func _get_model_near_position(world_pos: Vector2, tolerance: float) -> Dictionar
 			else:
 				continue
 			
-			var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+			# Use shape-aware collision detection with tolerance
+			var base_shape = Measurement.create_base_shape(model)
+			var model_rotation = model.get("rotation", 0.0)
 			var distance = world_pos.distance_to(model_pos)
-			
-			# Check if click is within model's base + tolerance
-			if distance <= (base_radius + tolerance):
+
+			# For tolerance, we'll expand the shape check or use distance as fallback
+			var within_shape = base_shape.contains_point(world_pos, model_pos, model_rotation)
+			var within_tolerance = distance <= tolerance
+
+			if within_shape or within_tolerance:
 				if distance < closest_distance:
 					closest_distance = distance
-					closest_model = {
-						"unit_id": unit_id,
-						"model_id": model.get("id", "m%d" % (i+1)),
-						"position": model_pos,
-						"base_mm": model.get("base_mm", 32)
-					}
+					# Return complete model data for proper shape handling
+					closest_model = model.duplicate()
+					closest_model["unit_id"] = unit_id
+					closest_model["model_id"] = model.get("id", "m%d" % (i+1))
+					closest_model["position"] = model_pos
 	
 	return closest_model
 
 func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 	# Find which model is at the given position
 	# Returns {unit_id, model_id, position, base_mm} or empty dict
-	
+
 	if not current_phase:
 		print("No current phase for model detection")
 		return {}
-	
-	var units = current_phase.game_state_snapshot.get("units", {})
+
+	# FIRST: Check visual tokens on the board for actual positions
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if token_layer:
+		var closest_model = {}
+		var closest_distance = INF
+
+		for child in token_layer.get_children():
+			if not child.has_meta("unit_id") or not child.has_meta("model_id"):
+				continue
+
+			var unit_id = child.get_meta("unit_id")
+			var model_id = child.get_meta("model_id")
+
+			# Get the actual visual position of the token
+			var visual_pos = child.position
+			var distance = world_pos.distance_to(visual_pos)
+
+			# Get base size from the model data or use default
+			var base_radius = 16.0  # Default 32mm base
+			if child.has_method("get_base_radius"):
+				base_radius = child.get_base_radius()
+			elif child.has_meta("base_mm"):
+				base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
+
+			# Check if position is within the model's base
+			if distance <= base_radius:
+				if distance < closest_distance:
+					closest_distance = distance
+					closest_model = {
+						"unit_id": unit_id,
+						"model_id": model_id,
+						"position": visual_pos,
+						"base_mm": child.get_meta("base_mm", 32)
+					}
+
+		if not closest_model.is_empty():
+			return closest_model
+
+	# FALLBACK: If no visual tokens found, use game state (for initialization)
+	# Get units for both players and combine them
+	var all_units = {}
+	var player1_units = GameState.get_units_for_player(1)
+	var player2_units = GameState.get_units_for_player(2)
+	for unit_id in player1_units:
+		all_units[unit_id] = player1_units[unit_id]
+	for unit_id in player2_units:
+		all_units[unit_id] = player2_units[unit_id]
+
 	var closest_model = {}
 	var closest_distance = INF
-	
-	for unit_id in units:
-		var unit = units[unit_id]
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
 		var models = unit.get("models", [])
 		
 		# Get staged move data if available
@@ -1188,21 +1386,22 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 				else:
 					continue
 			
-			var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-			var distance = world_pos.distance_to(model_pos)
-			
-			# Check if click is within model's base
-			if distance <= base_radius:
+			# Use shape-aware collision detection
+			var base_shape = Measurement.create_base_shape(model)
+			var model_rotation = model.get("rotation", 0.0)
+
+			# Check if click is within model's base using proper shape
+			if base_shape.contains_point(world_pos, model_pos, model_rotation):
+				var distance = world_pos.distance_to(model_pos)
 				# Use closest model if multiple overlap
 				if distance < closest_distance:
 					closest_distance = distance
-					closest_model = {
-						"unit_id": unit_id,
-						"model_id": model_id,
-						"position": model_pos,
-						"base_mm": model.get("base_mm", 32),
-						"is_staged": staged_pos_found
-					}
+					closest_model = model.duplicate()  # Copy all model data
+					# Add movement-specific fields
+					closest_model["unit_id"] = unit_id
+					closest_model["model_id"] = model_id
+					closest_model["position"] = model_pos
+					closest_model["is_staged"] = staged_pos_found
 	
 	if not closest_model.is_empty():
 		print("Found model at distance ", closest_distance, " pixels")
@@ -1213,8 +1412,8 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 	else:
 		# Debug: Show all model positions (both staged and original)
 		print("No model found at ", world_pos, ". Model positions:")
-		for unit_id in units:
-			var unit = units[unit_id]
+		for unit_id in all_units:
+			var unit = all_units[unit_id]
 			if unit.get("owner", 0) == GameState.get_active_player():
 				var move_data = {}
 				if current_phase.has_method("get_active_move_data"):
@@ -1406,19 +1605,20 @@ func _clear_ruler_visual() -> void:
 func _show_ghost_visual(model: Dictionary) -> void:
 	# Create semi-transparent preview of model
 	_clear_ghost_visual()
-	
-	# Use TokenVisual for consistency
-	var ghost_token = preload("res://scripts/TokenVisual.gd").new()
+
+	# Use GhostVisual for preview
+	var ghost_token = preload("res://scripts/GhostVisual.gd").new()
 	ghost_token.radius = Measurement.base_radius_px(model.get("base_mm", 32))
 	ghost_token.owner_player = GameState.get_active_player()
-	ghost_token.is_preview = true
-	ghost_token.model_number = 0  # Don't show number for ghost
-	
+	ghost_token.is_valid_position = true  # Start as valid
+	# Set the complete model data for shape handling
+	ghost_token.set_model_data(model)
+
 	# Set the token at origin (0,0) relative to ghost_visual
 	ghost_token.position = Vector2.ZERO
 	ghost_visual.add_child(ghost_token)
-	ghost_visual.modulate = Color(1, 1, 1, 0.5)  # Make semi-transparent
-	
+	ghost_visual.modulate = Color(1, 1, 1, 0.8)  # Slightly transparent
+
 	print("Created ghost visual with radius: ", ghost_token.radius)
 
 func _update_ghost_position(world_pos: Vector2) -> void:
@@ -1456,20 +1656,56 @@ func _get_accumulated_distance() -> float:
 	return 0.0
 
 func _update_movement_display() -> void:
-	var accumulated = _get_accumulated_distance()
 	if move_cap_label:
 		move_cap_label.text = "Move: %.1f\"" % move_cap_inches
-	if inches_used_label:
-		if selected_model.is_empty():
-			inches_used_label.text = "Staged: -"
-		else:
-			var model_id = selected_model.get("model_id", "")
+
+	# Handle group selection display
+	if selected_models.size() > 1:
+		_update_group_movement_display()
+	elif selected_models.size() == 1:
+		# Single model from multi-selection
+		var model_data = selected_models[0]
+		var model_id = model_data.get("model_id", "")
+		var accumulated = _get_model_accumulated_distance(model_id)
+
+		if inches_used_label:
 			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
-	if inches_left_label:
-		if selected_model.is_empty():
-			inches_left_label.text = "Left: -"
-		else:
+		if inches_left_label:
 			inches_left_label.text = "Left: %.1f\"" % (move_cap_inches - accumulated)
+	elif not selected_model.is_empty():
+		# Original single model selection
+		var accumulated = _get_accumulated_distance()
+		var model_id = selected_model.get("model_id", "")
+
+		if inches_used_label:
+			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
+		if inches_left_label:
+			inches_left_label.text = "Left: %.1f\"" % (move_cap_inches - accumulated)
+	else:
+		# No selection
+		if inches_used_label:
+			inches_used_label.text = "Staged: -"
+		if inches_left_label:
+			inches_left_label.text = "Left: -"
+
+func _get_model_accumulated_distance(model_id: String) -> float:
+	"""Get accumulated distance for a specific model"""
+	if not current_phase or not active_unit_id or model_id == "":
+		return 0.0
+
+	# Check if phase has active_moves data
+	if current_phase.has_method("get_active_move_data"):
+		var move_data = current_phase.get_active_move_data(active_unit_id)
+		if move_data and move_data.has("model_distances"):
+			return move_data.model_distances.get(model_id, 0.0)
+	elif current_phase != null and "active_moves" in current_phase:
+		var active_moves = current_phase.active_moves
+		if active_moves.has(active_unit_id):
+			var move_data = active_moves[active_unit_id]
+			if move_data.has("model_distances"):
+				return move_data.model_distances.get(model_id, 0.0)
+
+	return 0.0
 
 func _update_end_phase_button() -> void:
 	# Update End Phase button state based on whether there are active moves
@@ -1536,3 +1772,853 @@ func _update_dice_log_display(dice_log: Array) -> void:
 			text += "Rolls: %s\n" % str(entry.rolls)
 		text += "\n"
 		dice_log_display.append_text(text)
+
+# Rotation functions
+func _start_model_rotation(mouse_pos: Vector2) -> void:
+	if selected_model.is_empty():
+		return
+
+	# Check if model has a non-circular base
+	var base_type = selected_model.get("base_type", "circular")
+	if base_type == "circular":
+		return  # No rotation needed for circular bases
+
+	rotating_model = true
+	var model_pos = selected_model.get("position", Vector2.ZERO)
+	var to_mouse = mouse_pos - model_pos
+	rotation_start_angle = to_mouse.angle()
+	model_start_rotation = selected_model.get("rotation", 0.0)
+
+	print("Starting rotation for model with base type: ", base_type)
+
+func _update_model_rotation(mouse_pos: Vector2) -> void:
+	if not rotating_model or selected_model.is_empty():
+		return
+
+	var model_pos = selected_model.get("position", Vector2.ZERO)
+	var to_mouse = mouse_pos - model_pos
+	var current_angle = to_mouse.angle()
+	var angle_diff = current_angle - rotation_start_angle
+
+	var new_rotation = model_start_rotation + angle_diff
+	_apply_rotation_to_model(new_rotation)
+
+func _end_model_rotation(mouse_pos: Vector2) -> void:
+	if not rotating_model:
+		return
+
+	rotating_model = false
+	_check_and_apply_pivot_cost()
+
+	print("Ended rotation. New rotation: ", selected_model.get("rotation", 0.0))
+
+func _rotate_model_by_angle(angle: float) -> void:
+	if selected_model.is_empty():
+		return
+
+	var base_type = selected_model.get("base_type", "circular")
+	if base_type == "circular":
+		return
+
+	var current_rotation = selected_model.get("rotation", 0.0)
+	var new_rotation = current_rotation + angle
+	_apply_rotation_to_model(new_rotation)
+	_check_and_apply_pivot_cost()
+
+func _apply_rotation_to_model(new_rotation: float) -> void:
+	# Update the model's rotation
+	selected_model["rotation"] = new_rotation
+
+	# Update the model in GameState
+	var unit = GameState.get_unit(active_unit_id)
+	if unit:
+		var models = unit.get("models", [])
+		var model_id = selected_model.get("id", selected_model.get("model_id", ""))
+		for i in range(models.size()):
+			if models[i].get("id", "m%d" % (i+1)) == model_id:
+				models[i]["rotation"] = new_rotation
+				break
+
+	# Update the visual if it exists
+	if current_phase and current_phase.has_method("update_model_rotation"):
+		current_phase.update_model_rotation(active_unit_id, selected_model["id"], new_rotation)
+
+	# Update any ghost visual
+	if ghost_visual and ghost_visual.get_child_count() > 0:
+		var ghost_token = ghost_visual.get_child(0)
+		if ghost_token.has_method("set_model_data"):
+			ghost_token.set_model_data(selected_model)
+			ghost_token.queue_redraw()
+
+	# Update token visual directly
+	_update_model_token_visual(selected_model)
+
+func _check_and_apply_pivot_cost() -> void:
+	if pivot_cost_paid:
+		return  # Already paid this movement
+
+	# Check if this model needs pivot cost
+	var base_type = selected_model.get("base_type", "circular")
+	if base_type == "circular":
+		return  # No pivot cost for circular bases
+
+	# Check if model is a vehicle or monster
+	var keywords = selected_model.get("meta", {}).get("keywords", [])
+	var needs_pivot_cost = false
+	for keyword in keywords:
+		if keyword in ["VEHICLE", "MONSTER"]:
+			needs_pivot_cost = true
+			break
+
+	if not needs_pivot_cost:
+		return
+
+	# Apply pivot cost
+	pivot_cost_paid = true
+	var remaining_movement = move_cap_inches - _get_accumulated_distance()
+	remaining_movement -= pivot_cost_inches
+
+	if remaining_movement < 0:
+		print("WARNING: Pivot cost exceeds remaining movement!")
+		# Show warning to player
+		if illegal_reason_label:
+			illegal_reason_label.text = "Pivot cost exceeds movement!"
+			illegal_reason_label.modulate = Color.RED
+
+	print("Applied pivot cost of ", pivot_cost_inches, " inches")
+	_update_movement_display()
+
+func _reset_pivot_cost() -> void:
+	pivot_cost_paid = false
+
+func _update_model_token_visual(model: Dictionary) -> void:
+	# Find and update the token visual directly
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	var unit_id = model.get("unit_id", "")
+	var model_id = model.get("id", model.get("model_id", ""))
+
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and \
+		   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
+			if child.has_method("set_model_data"):
+				child.set_model_data(model)
+				child.queue_redraw()
+			break
+
+func _check_position_would_overlap(position: Vector2) -> bool:
+	# Check if placing the selected model at the given position would overlap
+	if not current_phase or selected_model.is_empty():
+		return false
+
+	var unit_id = selected_model.get("unit_id", "")
+	var model_id = selected_model.get("model_id", "")
+
+	# Use the MovementPhase's overlap check function
+	if current_phase.has_method("_position_overlaps_other_models"):
+		var model_copy = selected_model.duplicate()
+		model_copy["position"] = position
+		return current_phase._position_overlaps_other_models(unit_id, model_id, position, model_copy)
+
+	return false
+
+func _update_ghost_validity(is_valid: bool) -> void:
+	# Update the ghost visual to show if position is valid
+	if ghost_visual and ghost_visual.get_child_count() > 0:
+		var ghost_token = ghost_visual.get_child(0)
+		if ghost_token.has_method("set_validity"):
+			ghost_token.set_validity(is_valid)
+		elif ghost_token.has_method("is_valid_position"):
+			ghost_token.is_valid_position = is_valid
+			ghost_token.queue_redraw()
+
+# MULTI-SELECTION SYSTEM FUNCTIONS
+
+func _handle_ctrl_click_selection(mouse_pos: Vector2) -> void:
+	"""Handle Ctrl+click for multi-model selection/deselection"""
+	if active_unit_id == "" or active_mode == "":
+		print("Cannot select - no active unit or mode")
+		return
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	var model = _get_model_at_position(world_pos)
+	if model.is_empty():
+		model = _get_model_near_position(world_pos, 10.0)
+		if model.is_empty():
+			return
+
+	if model.unit_id != active_unit_id:
+		print("Model belongs to different unit: ", model.unit_id, " vs ", active_unit_id)
+		return
+
+	# Check if model is already selected
+	var model_index = _find_selected_model_index(model.model_id)
+	if model_index >= 0:
+		# Deselect the model
+		selected_models.remove_at(model_index)
+		print("Deselected model: ", model.model_id)
+	else:
+		# Select the model
+		selected_models.append(model)
+		print("Selected model: ", model.model_id)
+
+	selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
+	_update_model_selection_visuals()
+	_update_movement_display()
+
+func _handle_single_model_selection(mouse_pos: Vector2) -> void:
+	"""Handle single model selection (clears existing multi-selection)"""
+	# Clear existing multi-selection
+	_clear_selection()
+
+	# Proceed with existing single model selection logic
+	_start_model_drag(mouse_pos)
+
+func _should_start_drag_box() -> bool:
+	"""Determine if we should start drag-box selection (requires Shift key)"""
+	# Start drag box only when Shift is held and we're not clicking directly on a model
+	# This prevents conflicts with normal drag-to-move operations
+	return not _is_clicking_on_model(get_global_mouse_position())
+
+func _is_clicking_on_model(world_pos: Vector2) -> bool:
+	"""Check if the mouse position is over a model"""
+	var model = _get_model_at_position(world_pos)
+	if model.is_empty():
+		model = _get_model_near_position(world_pos, 10.0)
+	return not model.is_empty()
+
+func _is_clicking_on_selected_model(mouse_pos: Vector2) -> bool:
+	"""Check if the mouse position is over one of the selected models"""
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	var clicked_model = _get_model_at_position(world_pos)
+	if clicked_model.is_empty():
+		clicked_model = _get_model_near_position(world_pos, 10.0)
+		if clicked_model.is_empty():
+			return false
+
+	# Check if this model is in our selected models list
+	var clicked_model_id = clicked_model.get("model_id", "")
+	for selected_model in selected_models:
+		if selected_model.get("model_id", "") == clicked_model_id:
+			return true
+
+	return false
+
+func _start_drag_box_selection(mouse_pos: Vector2) -> void:
+	"""Start drag-box selection"""
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	drag_box_active = true
+	drag_box_start = world_pos
+	drag_box_end = world_pos
+	selection_mode = "DRAG_BOX"
+
+	# Show selection box
+	if selection_visual:
+		selection_visual.visible = true
+		_update_drag_box_visual()
+
+	print("Started drag-box selection at: ", world_pos)
+
+func _update_drag_box_selection(mouse_pos: Vector2) -> void:
+	"""Update drag-box selection during mouse drag"""
+	if not drag_box_active:
+		return
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	drag_box_end = world_pos
+	_update_drag_box_visual()
+
+func _complete_drag_box_selection(mouse_pos: Vector2) -> void:
+	"""Complete drag-box selection and select models within the box"""
+	if not drag_box_active:
+		return
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	drag_box_end = world_pos
+	drag_box_active = false
+
+	# Hide selection box
+	if selection_visual:
+		selection_visual.visible = false
+
+	# Select models within the drag box
+	_select_models_in_box()
+
+	# Update selection mode
+	selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
+	_update_model_selection_visuals()
+	_update_movement_display()
+
+	print("Completed drag-box selection. Selected ", selected_models.size(), " models")
+
+func _update_drag_box_visual() -> void:
+	"""Update the visual representation of the drag box"""
+	if not selection_visual or not drag_box_active:
+		return
+
+	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
+	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
+	var size = max_pos - min_pos
+
+	# Only show if drag box is large enough
+	if size.length() > 10.0:
+		selection_visual.position = min_pos
+		selection_visual.size = size
+		selection_visual.visible = true
+	else:
+		selection_visual.visible = false
+
+func _select_models_in_box() -> void:
+	"""Select all models from the active unit within the drag box"""
+	if not current_phase or active_unit_id == "":
+		return
+
+	# Clear existing selection
+	_clear_selection()
+
+	# Define the selection rectangle
+	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
+	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
+
+	print("Selecting models in box from (", min_pos, ") to (", max_pos, ")")
+
+	# Get the actual visual tokens from the board to check their current positions
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		print("ERROR: Cannot find TokenLayer")
+		return
+
+	# Iterate through all tokens and check if they belong to our unit and are in the box
+	for child in token_layer.get_children():
+		# Check if this token belongs to our active unit
+		if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
+			continue
+
+		if not child.has_meta("model_id"):
+			continue
+
+		var model_id = child.get_meta("model_id")
+
+		# Get the actual visual position of the token
+		var visual_pos = child.position
+
+		# Check if this visual position is within the selection box
+		if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
+		   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
+			# Get the model data from the game state
+			var model = _get_model_by_id(active_unit_id, model_id)
+			if model.is_empty():
+				continue
+
+			var model_data = model.duplicate()
+			model_data["unit_id"] = active_unit_id
+			model_data["model_id"] = model_id
+			model_data["position"] = visual_pos  # Use the actual visual position
+			selected_models.append(model_data)
+			print("  Selected model ", model_id, " at visual position ", visual_pos)
+
+func _find_selected_model_index(model_id: String) -> int:
+	"""Find the index of a model in the selected_models array"""
+	for i in range(selected_models.size()):
+		if selected_models[i].get("model_id", "") == model_id:
+			return i
+	return -1
+
+func _clear_selection() -> void:
+	"""Clear all selected models and visual indicators"""
+	selected_models.clear()
+	selection_mode = "SINGLE"
+	_clear_selection_indicators()
+	_update_movement_display()
+
+func _clear_selection_indicators() -> void:
+	"""Clear all visual selection indicators"""
+	for indicator in selection_indicators:
+		if indicator and is_instance_valid(indicator):
+			indicator.queue_free()
+	selection_indicators.clear()
+
+func _update_model_selection_visuals() -> void:
+	"""Update visual indicators for selected models"""
+	# Clear existing indicators
+	_clear_selection_indicators()
+
+	# Create selection indicators for each selected model
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		return
+
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	for model_data in selected_models:
+		var model_id = model_data.get("model_id", "")
+
+		# Find the actual visual token to get its current position
+		var visual_pos = model_data.position  # Default to stored position
+
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == active_unit_id and \
+			   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
+				visual_pos = child.position
+				model_data.position = visual_pos  # Update cached position
+				break
+
+		var indicator = _create_selection_indicator(model_data)
+		if indicator:
+			board_root.add_child(indicator)
+			selection_indicators.append(indicator)
+
+func _create_selection_indicator(model_data: Dictionary) -> Control:
+	"""Create a visual indicator for a selected model"""
+	var indicator = ColorRect.new()
+	indicator.name = "SelectionIndicator_" + model_data.get("model_id", "")
+
+	# Set appearance
+	indicator.color = Color(0.5, 0.8, 1.0, 0.6)  # Light blue
+	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Position and size based on model
+	var model_pos = model_data.get("position", Vector2.ZERO)
+	var base_radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
+
+	indicator.position = model_pos - Vector2(base_radius, base_radius)
+	indicator.size = Vector2(base_radius * 2, base_radius * 2)
+
+	return indicator
+
+func _start_group_movement(mouse_pos: Vector2) -> void:
+	"""Start group movement for selected models"""
+	if selected_models.is_empty():
+		return
+
+	print("Starting group movement with ", selected_models.size(), " models")
+
+	# Get world position for the mouse click
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	# Calculate formation offsets relative to group center
+	group_formation_offsets = _calculate_formation_offsets(selected_models)
+
+	# Store starting positions for each model
+	group_drag_start_positions.clear()
+	for model_data in selected_models:
+		group_drag_start_positions[model_data.model_id] = model_data.position
+
+	# Set drag start position to the clicked point
+	drag_start_pos = world_pos
+	group_dragging = true
+
+	# Create ghost visuals for all selected models
+	_create_group_ghost_visuals()
+
+	# Position the ghost visual container at the origin - ghosts have absolute positions
+	ghost_visual.position = Vector2.ZERO
+	ghost_visual.visible = true
+
+	# Update display - this should show initial "Group Max Used" values
+	_update_group_movement_display()
+
+func _calculate_formation_offsets(models: Array) -> Dictionary:
+	"""Calculate relative positions within the group formation"""
+	if models.is_empty():
+		return {}
+
+	var formation_center = _calculate_group_center(models)
+	var offsets = {}
+
+	for model_data in models:
+		var offset = model_data.position - formation_center
+		offsets[model_data.model_id] = offset
+
+	return offsets
+
+func _calculate_group_center(models: Array) -> Vector2:
+	"""Calculate the center point of a group of models"""
+	if models.is_empty():
+		return Vector2.ZERO
+
+	var total_pos = Vector2.ZERO
+	for model_data in models:
+		total_pos += model_data.position
+
+	return total_pos / models.size()
+
+func _update_group_movement_display() -> void:
+	"""Update UI displays for group movement information"""
+	if selected_models.size() <= 1:
+		return
+
+	var min_remaining = INF
+	var max_used = 0.0
+
+	for model_data in selected_models:
+		var model_id = model_data.model_id
+		var used = 0.0
+
+		# Get distance from current move data if available
+		if current_phase and current_phase.active_moves.has(active_unit_id):
+			var move_data = current_phase.active_moves[active_unit_id]
+			used = move_data.model_distances.get(model_id, 0.0)
+
+		var remaining = move_cap_inches - used
+		min_remaining = min(min_remaining, remaining)
+		max_used = max(max_used, used)
+
+	if inches_used_label:
+		inches_used_label.text = "Group Max Used: %.1f\"" % max_used
+	if inches_left_label:
+		inches_left_label.text = "Group Min Left: %.1f\"" % min_remaining
+
+func _select_all_unit_models() -> void:
+	"""Select all models in the active unit (Ctrl+A functionality)"""
+	if not current_phase or active_unit_id == "":
+		return
+
+	_clear_selection()
+
+	# Use current game state, not snapshot
+	var unit = current_phase.get_unit(active_unit_id)
+	if unit.is_empty():
+		return
+
+	var models = unit.get("models", [])
+
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = model.get("id", "m%d" % (i+1))
+		var model_data = model.duplicate()
+		model_data["unit_id"] = active_unit_id
+		model_data["model_id"] = model_id
+		model_data["position"] = _get_model_position(model)
+		selected_models.append(model_data)
+
+	selection_mode = "MULTI" if selected_models.size() > 1 else "SINGLE"
+	_update_model_selection_visuals()
+	_update_movement_display()
+
+	print("Selected all ", selected_models.size(), " models in unit")
+
+func _update_group_drag(mouse_pos: Vector2) -> void:
+	"""Update group drag movement"""
+	if not group_dragging or selected_models.is_empty():
+		return
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	# Calculate drag vector from drag start position
+	var drag_vector = world_pos - drag_start_pos
+
+	# Update ghost positions to show preview
+	for child in ghost_visual.get_children():
+		var model_id = child.get_meta("model_id", "")
+		var start_pos = group_drag_start_positions.get(model_id, Vector2.ZERO)
+
+		# Update ghost position maintaining formation
+		child.position = start_pos + drag_vector
+		child.visible = true  # Ensure ghost is visible
+
+		# Update the ghost's validity if it has the method
+		if child.has_method("queue_redraw"):
+			child.queue_redraw()
+
+	# Calculate and display live distance updates for each model
+	if current_phase and "active_moves" in current_phase and current_phase.active_moves.has(active_unit_id):
+		var move_data = current_phase.active_moves[active_unit_id]
+		var min_remaining = INF
+		var max_used = 0.0
+
+		for model_data in selected_models:
+			var model_id = model_data.model_id
+			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
+			var new_pos = start_pos + drag_vector
+
+			# Calculate distance for this drag
+			var drag_distance = Measurement.distance_inches(start_pos, new_pos)
+
+			# Get previously accumulated distance
+			var previous_distance = move_data.model_distances.get(model_id, 0.0)
+
+			# Total distance would be previous + current drag
+			var total_distance = previous_distance + drag_distance
+
+			# Update tracking
+			var remaining = move_cap_inches - total_distance
+			min_remaining = min(min_remaining, remaining)
+			max_used = max(max_used, total_distance)
+
+		# Update the UI labels directly
+		if inches_used_label:
+			inches_used_label.text = "Group Max Used: %.1f\"" % max_used
+		if inches_left_label:
+			inches_left_label.text = "Group Min Left: %.1f\"" % min_remaining
+
+		# Validate the move and update ghost colors based on validity
+		if max_used > move_cap_inches:
+			# Some models exceed their movement - show invalid state
+			for child in ghost_visual.get_children():
+				if child.has_method("set_validity"):
+					child.set_validity(false)
+				elif child.has_method("queue_redraw"):
+					child.is_valid_position = false
+					child.queue_redraw()
+		else:
+			# Movement is valid
+			for child in ghost_visual.get_children():
+				if child.has_method("set_validity"):
+					child.set_validity(true)
+				elif child.has_method("queue_redraw"):
+					child.is_valid_position = true
+					child.queue_redraw()
+
+func _end_group_drag(mouse_pos: Vector2) -> void:
+	"""End group drag movement - now async to handle batch processing"""
+	if not group_dragging:
+		return
+
+	print("Ending group drag with ", selected_models.size(), " models")
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * mouse_pos
+	else:
+		world_pos = get_global_mouse_position()
+
+	# Calculate final drag vector
+	var drag_vector = world_pos - drag_start_pos
+
+	# Send movement actions for all models in the group
+	if current_phase:
+		print("Processing group movement for ", selected_models.size(), " models")
+
+		# Build a batch of moves to send together
+		var batch_moves = []
+		for model_data in selected_models:
+			var model_id = model_data.model_id
+			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
+			var new_pos = start_pos + drag_vector
+			var rotation = model_data.get("rotation", 0.0)
+
+			batch_moves.append({
+				"model_id": model_id,
+				"dest": [new_pos.x, new_pos.y],
+				"rotation": rotation,
+				"start_pos": start_pos
+			})
+			print("  Preparing move for model ", model_id, " from ", start_pos, " to ", new_pos)
+
+		# Send all moves in a batch to ensure they're processed together
+		if batch_moves.size() > 0:
+			# Option 1: Send individual moves with a small delay between them
+			var delay_timer = 0.0
+			for move in batch_moves:
+				var action = {
+					"type": "STAGE_MODEL_MOVE",
+					"actor_unit_id": active_unit_id,
+					"payload": {
+						"model_id": move.model_id,
+						"dest": move.dest,
+						"rotation": move.rotation
+					}
+				}
+				emit_signal("move_action_requested", action)
+
+				# Add small delay to ensure signal processing completes
+				await get_tree().create_timer(0.01).timeout
+
+			print("Successfully sent ", batch_moves.size(), " move actions")
+
+			# Verify all models were staged
+			await get_tree().create_timer(0.1).timeout  # Wait for processing
+			_verify_staged_moves(batch_moves)
+
+	group_dragging = false
+
+	# Clear the group drag state
+	group_drag_start_positions.clear()
+	group_formation_offsets.clear()
+
+	# Clear ghost visuals
+	_clear_ghost_visual()
+
+	# Update displays
+	_update_movement_display()
+	_update_model_selection_visuals()
+
+func _calculate_group_center_from_positions(positions: Dictionary) -> Vector2:
+	"""Calculate center from a dictionary of model_id -> Vector2 positions"""
+	if positions.is_empty():
+		return Vector2.ZERO
+
+	var total_pos = Vector2.ZERO
+	for model_id in positions:
+		total_pos += positions[model_id]
+
+	return total_pos / positions.size()
+
+func _get_model_position(model: Dictionary) -> Vector2:
+	"""Get the position of a model from its data dictionary"""
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+func _get_model_by_id(unit_id: String, model_id: String) -> Dictionary:
+	"""Get a specific model from a unit by its ID"""
+	if not current_phase:
+		return {}
+
+	var unit = current_phase.get_unit(unit_id)
+	if unit.is_empty():
+		return {}
+
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("id", "") == model_id:
+			return model
+
+	return {}
+
+func _verify_staged_moves(expected_moves: Array) -> void:
+	"""Verify that all expected moves were successfully staged"""
+	if not current_phase or not "active_moves" in current_phase:
+		print("[WARNING] Cannot verify staged moves - no active moves data")
+		return
+
+	if not current_phase.active_moves.has(active_unit_id):
+		print("[WARNING] No active moves for unit ", active_unit_id)
+		return
+
+	var move_data = current_phase.active_moves[active_unit_id]
+	var staged_moves = move_data.get("staged_moves", [])
+
+	# Build a set of staged model IDs
+	var staged_model_ids = {}
+	for staged_move in staged_moves:
+		staged_model_ids[staged_move.get("model_id", "")] = true
+
+	# Check which models are missing
+	var missing_models = []
+	for expected_move in expected_moves:
+		var model_id = expected_move.get("model_id", "")
+		if not staged_model_ids.has(model_id):
+			missing_models.append(model_id)
+
+	if missing_models.size() > 0:
+		print("[WARNING] The following models failed to stage moves: ", missing_models)
+		print("  Retrying failed models...")
+
+		# Retry the missing models
+		for expected_move in expected_moves:
+			var model_id = expected_move.get("model_id", "")
+			if model_id in missing_models:
+				var action = {
+					"type": "STAGE_MODEL_MOVE",
+					"actor_unit_id": active_unit_id,
+					"payload": {
+						"model_id": model_id,
+						"dest": expected_move.dest,
+						"rotation": expected_move.rotation
+					}
+				}
+				print("  Retrying move for model ", model_id)
+				emit_signal("move_action_requested", action)
+	else:
+		print("All ", expected_moves.size(), " models successfully staged for movement")
+
+func _create_group_ghost_visuals() -> void:
+	"""Create ghost visuals for all selected models in the group"""
+	# Clear existing ghost visuals
+	_clear_ghost_visual()
+
+	if selected_models.is_empty():
+		return
+
+	# Make ghost_visual visible and slightly transparent
+	ghost_visual.visible = true
+	ghost_visual.modulate = Color(1, 1, 1, 0.6)  # More transparent for group
+
+	# Create a ghost for each selected model
+	for model_data in selected_models:
+		# Create a ghost visual using the GhostVisual script
+		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
+		ghost_token.name = "GhostModel_" + model_data.get("model_id", "")
+
+		# Set up the ghost properties
+		ghost_token.radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
+		ghost_token.owner_player = GameState.get_active_player() if GameState else 1
+		ghost_token.is_valid_position = true  # Start as valid, update during drag
+
+		# Initialize the ghost with the model's data
+		ghost_token.set_model_data(model_data)
+
+		# Position ghost at model's current position
+		ghost_token.position = model_data.get("position", Vector2.ZERO)
+
+		# Store metadata for tracking
+		ghost_token.set_meta("model_id", model_data.get("model_id", ""))
+		ghost_token.set_meta("formation_offset", group_formation_offsets.get(model_data.get("model_id", ""), Vector2.ZERO))
+		ghost_token.set_meta("start_position", model_data.get("position", Vector2.ZERO))
+
+		ghost_visual.add_child(ghost_token)
+
+	print("Created ", ghost_visual.get_child_count(), " ghost visuals for group movement")

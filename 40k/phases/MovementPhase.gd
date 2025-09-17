@@ -377,7 +377,11 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
 		"model_distances": {},  # NEW: Track per-model distances
-		"dice_rolls": []
+		"dice_rolls": [],
+		# Multi-selection group movement support
+		"group_moves": [],  # Track group movement operations
+		"group_selection": [],  # Current multi-selected models
+		"group_formation": {}  # Relative positions within group
 	}
 	
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
@@ -412,7 +416,11 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
 		"model_distances": {},  # NEW: Track per-model distances
-		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}]
+		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}],
+		# Multi-selection group movement support
+		"group_moves": [],  # Track group movement operations
+		"group_selection": [],  # Current multi-selected models
+		"group_formation": {}  # Relative positions within group
 	}
 	
 	dice_log.append({
@@ -455,7 +463,11 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		"original_positions": {},  # NEW: Track starting positions for reset
 		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
-		"battle_shocked": unit.get("status_effects", {}).get("battle_shocked", false)
+		"battle_shocked": unit.get("status_effects", {}).get("battle_shocked", false),
+		# Multi-selection group movement support
+		"group_moves": [],  # Track group movement operations
+		"group_selection": [],  # Current multi-selected models
+		"group_formation": {}  # Relative positions within group
 	}
 	
 	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
@@ -516,7 +528,9 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	var dest = payload.get("dest", [])
 	var rotation = payload.get("rotation", 0.0)
 	var dest_vec = Vector2(dest[0], dest[1])
-	
+
+	print("[MovementPhase] Processing STAGE_MODEL_MOVE for model ", model_id, " to ", dest_vec)
+
 	var move_data = active_moves[unit_id]
 	var model = _get_model_in_unit(unit_id, model_id)
 	
@@ -546,8 +560,17 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
 	
-	# Instead of replacing, add this as a new segment
-	# Keep all segments to show the complete path
+	# Remove any existing staged move for this model to prevent duplicates
+	var moves_to_remove = []
+	for i in range(move_data.staged_moves.size()):
+		if move_data.staged_moves[i].model_id == model_id:
+			moves_to_remove.append(i)
+
+	# Remove in reverse order to maintain indices
+	for i in range(moves_to_remove.size() - 1, -1, -1):
+		move_data.staged_moves.remove_at(moves_to_remove[i])
+
+	# Add the new staged move
 	move_data.staged_moves.append({
 		"model_id": model_id,
 		"from": current_pos,
@@ -637,9 +660,18 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	var move_data = active_moves[unit_id]
 	var changes = []
 	var additional_dice = []
-	
+
+	print("[MovementPhase] Confirming unit move with ", move_data.staged_moves.size(), " staged moves")
+
+	# Get unique model IDs
+	var unique_models = {}
+	for staged_move in move_data.staged_moves:
+		unique_models[staged_move.model_id] = true
+	print("[MovementPhase] Processing ", unique_models.size(), " unique models")
+
 	# Convert staged moves to permanent moves
 	for staged_move in move_data.staged_moves:
+		print("  Confirming move for model ", staged_move.model_id, " to ", staged_move.dest)
 		# Add to permanent moves
 		move_data.model_moves.append({
 			"model_id": staged_move.model_id,
@@ -754,7 +786,11 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"staged_moves": [],
 			"original_positions": {},
 			"model_distances": {},
-			"dice_rolls": []
+			"dice_rolls": [],
+			# Multi-selection group movement support
+			"group_moves": [],  # Track group movement operations
+			"group_selection": [],  # Current multi-selected models
+			"group_formation": {}  # Relative positions within group
 		}
 	
 	emit_signal("unit_move_confirmed", unit_id, {"mode": "REMAIN_STATIONARY", "distance": 0})
@@ -1202,6 +1238,170 @@ func get_active_move_data(unit_id: String) -> Dictionary:
 	if active_moves.has(unit_id):
 		return active_moves[unit_id]
 	return {}
+
+# GROUP MOVEMENT VALIDATION FUNCTIONS
+
+func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_id: String) -> Dictionary:
+	"""Process and validate group movement for multiple models"""
+	var group_validation = {"valid": true, "errors": [], "individual_distances": {}}
+
+	if not active_moves.has(unit_id):
+		group_validation.valid = false
+		group_validation.errors.append("No active move data for unit")
+		return group_validation
+
+	var move_data = active_moves[unit_id]
+	var move_cap_inches = move_data.move_cap_inches
+
+	for model_data in selected_models:
+		var model_id = model_data.model_id
+		var original_pos = move_data.original_positions.get(model_id, model_data.position)
+		var new_pos = model_data.position + drag_vector
+
+		# Calculate individual distance
+		var total_distance = Measurement.distance_inches(original_pos, new_pos)
+		group_validation.individual_distances[model_id] = total_distance
+
+		# Validate against movement cap
+		if total_distance > move_cap_inches:
+			group_validation.valid = false
+			group_validation.errors.append("Model %s exceeds movement cap (%.1f\" > %.1f\")" % [model_id, total_distance, move_cap_inches])
+
+		# Check for terrain collisions
+		if _check_terrain_collision(new_pos):
+			group_validation.valid = false
+			group_validation.errors.append("Model %s would collide with terrain" % model_id)
+
+		# Check for model overlaps
+		if _would_overlap_other_models(unit_id, model_id, new_pos, model_data):
+			group_validation.valid = false
+			group_validation.errors.append("Model %s would overlap with another model" % model_id)
+
+	return group_validation
+
+func _validate_group_movement(group_moves: Array, unit_id: String) -> Dictionary:
+	"""Validate a group of movement actions for coherency and rule compliance"""
+	var validation_result = {"valid": true, "errors": [], "warnings": []}
+
+	if not active_moves.has(unit_id):
+		validation_result.valid = false
+		validation_result.errors.append("No active move data for unit")
+		return validation_result
+
+	var move_data = active_moves[unit_id]
+
+	for move in group_moves:
+		var model_id = move.get("model_id", "")
+		var dest_pos = Vector2(move.get("dest", [0, 0])[0], move.get("dest", [0, 0])[1])
+
+		# Individual validations
+		if not _validate_individual_move_internal(unit_id, model_id, dest_pos):
+			validation_result.valid = false
+			validation_result.errors.append("Invalid move for model %s" % model_id)
+
+	# Check unit coherency for the entire group
+	if not _check_group_unit_coherency(group_moves, unit_id):
+		validation_result.warnings.append("Group movement may break unit coherency")
+
+	return validation_result
+
+func _validate_individual_move_internal(unit_id: String, model_id: String, dest_pos: Vector2) -> bool:
+	"""Internal validation for a single model move"""
+	if not active_moves.has(unit_id):
+		return false
+
+	var move_data = active_moves[unit_id]
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+
+	# Find the model
+	var model = null
+	for m in models:
+		if m.get("id", "") == model_id:
+			model = m
+			break
+
+	if not model:
+		return false
+
+	# Check distance limit
+	var original_pos = move_data.original_positions.get(model_id, _get_model_position(model))
+	var total_distance = Measurement.distance_inches(original_pos, dest_pos)
+
+	if total_distance > move_data.move_cap_inches:
+		return false
+
+	# Check terrain collision
+	if _check_terrain_collision(dest_pos):
+		return false
+
+	# Check model overlap
+	if _would_overlap_other_models(unit_id, model_id, dest_pos, model):
+		return false
+
+	return true
+
+func _check_group_unit_coherency(group_moves: Array, unit_id: String) -> bool:
+	"""Check if a group of moves maintains unit coherency"""
+	var unit = get_unit(unit_id)
+	if not unit:
+		return false
+
+	var models = unit.get("models", [])
+	if models.size() <= 1:
+		return true  # Single model units are always coherent
+
+	# Create a dictionary of final positions for all models
+	var final_positions = {}
+
+	# Add positions for models not being moved
+	for model in models:
+		if not model.get("alive", true):
+			continue
+		var model_id = model.get("id", "")
+		final_positions[model_id] = _get_model_position(model)
+
+	# Update positions for models being moved
+	for move in group_moves:
+		var model_id = move.get("model_id", "")
+		var dest = move.get("dest", [0, 0])
+		final_positions[model_id] = Vector2(dest[0], dest[1])
+
+	# Check coherency rules
+	var model_count = final_positions.size()
+	var coherency_distance = 2.0 * 25.4  # 2 inches in mm
+
+	for model_id1 in final_positions:
+		var pos1 = final_positions[model_id1]
+		var connections = 0
+
+		for model_id2 in final_positions:
+			if model_id1 == model_id2:
+				continue
+
+			var pos2 = final_positions[model_id2]
+			var distance_mm = pos1.distance_to(pos2)
+
+			if distance_mm <= coherency_distance:
+				connections += 1
+
+		# Coherency rules based on unit size
+		var required_connections = 1 if model_count <= 6 else 2
+
+		if connections < required_connections:
+			return false
+
+	return true
+
+func _check_terrain_collision(position: Vector2) -> bool:
+	"""Check if a position collides with terrain"""
+	# Implementation depends on terrain system
+	# For now, return false (no collision)
+	return false
+
+func _would_overlap_other_models(unit_id: String, model_id: String, position: Vector2, model_data: Dictionary) -> bool:
+	"""Check if placing a model at the given position would overlap with other models"""
+	return _position_overlaps_other_models(unit_id, model_id, position, model_data)
 
 # Override create_result to support additional data
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:
