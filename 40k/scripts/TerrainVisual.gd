@@ -88,7 +88,36 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 	container.add_child(piece)
 	container.add_child(border)
 	container.add_child(label)
-	
+
+	# Add walls if present
+	var walls = terrain_data.get("walls", [])
+	if walls.size() > 0:
+		# Add walls directly to the TerrainVisual, not the container
+		for wall in walls:
+			var line = Line2D.new()
+			line.add_point(wall.get("start", Vector2.ZERO))
+			line.add_point(wall.get("end", Vector2.ZERO))
+			# Set wall thickness and colors
+			match wall.get("type", "solid"):
+				"solid":
+					line.default_color = Color(0.3, 0.3, 0.3, 1.0)  # Dark grey for solid walls
+					line.width = 6.0
+				"window":
+					line.default_color = Color(0.5, 0.7, 1.0, 0.8)  # Light blue for windows
+					line.width = 4.0
+				"door":
+					line.default_color = Color(0.6, 0.4, 0.2, 0.9)  # Brown for doors
+					line.width = 5.0
+
+			line.z_index = 10  # High z-index
+			line.z_as_relative = false
+			line.visible = true
+
+			# Add directly to TerrainVisual (self), not container
+			add_child(line)
+
+			print("[TerrainVisual] Added wall line from ", wall.get("start"), " to ", wall.get("end"), " type: ", wall.get("type", "solid"))
+
 	add_child(container)
 	
 	# Store reference

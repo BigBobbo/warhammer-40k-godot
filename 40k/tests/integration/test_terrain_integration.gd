@@ -148,6 +148,224 @@ func test_terrain_layout_2_setup():
 	assert_gt(medium_count, 0, "Should have at least some medium terrain")
 	assert_gt(low_count, 0, "Should have at least some low terrain")
 
+func test_movement_blocked_by_walls():
+	# Setup terrain with walls
+	TerrainManager.load_terrain_layout("layout_2")
+
+	# Setup a vehicle unit
+	var vehicle_unit = {
+		"id": "U_VEHICLE",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Test Vehicle",
+			"keywords": ["VEHICLE"],
+			"stats": {"move": 10}
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": {"x": 1300, "y": 320}}
+		]
+	}
+
+	GameState.set_unit("U_VEHICLE", vehicle_unit)
+
+	# Create movement controller
+	var movement_controller = preload("res://scripts/MovementController.gd").new()
+	movement_controller.active_unit_id = "U_VEHICLE"
+
+	# Test path that crosses a wall in ruins_7 (which has walls)
+	var path = [
+		Vector2(1100, 320),  # Start outside ruins_7
+		Vector2(1600, 320)   # End on other side, crossing wall
+	]
+
+	var valid = movement_controller._validate_terrain_traversal(path)
+	assert_false(valid, "Vehicle should not be able to move through walls")
+
+	# Test infantry can move through same path
+	var infantry_unit = {
+		"id": "U_INFANTRY",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Test Infantry",
+			"keywords": ["INFANTRY"],
+			"stats": {"move": 6}
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": {"x": 1300, "y": 320}}
+		]
+	}
+
+	GameState.set_unit("U_INFANTRY", infantry_unit)
+	movement_controller.active_unit_id = "U_INFANTRY"
+
+	valid = movement_controller._validate_terrain_traversal(path)
+	assert_true(valid, "Infantry should be able to move through walls")
+
+	# Clean up
+	movement_controller.queue_free()
+
+func test_los_through_ruins_with_walls():
+	# Setup terrain with walls
+	TerrainManager.load_terrain_layout("layout_2")
+
+	# Setup units on opposite sides of a solid wall
+	var shooter_unit = {
+		"id": "U_SHOOTER",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Test Shooter",
+			"keywords": ["INFANTRY"],
+			"weapons": [{
+				"name": "Bolt Rifle",
+				"type": "Ranged",
+				"range": "30",
+				"attacks": "2",
+				"bs": "3",
+				"strength": "4",
+				"ap": "1",
+				"damage": "1"
+			}]
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": {"x": 1360, "y": 200}, "wounds": 2, "current_wounds": 2}
+		]
+	}
+
+	var target_unit = {
+		"id": "U_TARGET",
+		"owner": 2,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Test Target",
+			"keywords": ["INFANTRY"]
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": {"x": 1360, "y": 440}, "wounds": 1, "current_wounds": 1}
+		]
+	}
+
+	GameState.set_unit("U_SHOOTER", shooter_unit)
+	GameState.set_unit("U_TARGET", target_unit)
+
+	# Check LoS - should be blocked by wall in ruins_7
+	var has_los = LineOfSightCalculator.check_line_of_sight(
+		Vector2(1360, 200),  # Shooter north of ruins_7
+		Vector2(1360, 440),  # Target south of ruins_7
+		TerrainManager.terrain_features
+	)
+
+	assert_false(has_los, "LoS should be blocked by wall in ruins_7")
+
+func test_flying_unit_crosses_wall():
+	# Setup terrain with walls
+	TerrainManager.load_terrain_layout("layout_2")
+
+	# Setup a flying vehicle unit
+	var flying_unit = {
+		"id": "U_FLYING",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Test Flying Vehicle",
+			"keywords": ["VEHICLE", "FLY"],
+			"stats": {"move": 14}
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": {"x": 1100, "y": 320}}
+		]
+	}
+
+	GameState.set_unit("U_FLYING", flying_unit)
+
+	# Create movement controller
+	var movement_controller = preload("res://scripts/MovementController.gd").new()
+	movement_controller.active_unit_id = "U_FLYING"
+
+	# Test path that crosses a wall
+	var path = [
+		Vector2(1100, 320),  # Start
+		Vector2(1600, 320)   # End, crossing wall
+	]
+
+	var valid = movement_controller._validate_terrain_traversal(path)
+	assert_true(valid, "Flying unit should be able to move over walls")
+
+	# Clean up
+	movement_controller.queue_free()
+
+func test_window_allows_los():
+	# Setup test terrain with window
+	TerrainManager.terrain_features = [{
+		"id": "test_ruins",
+		"type": "ruins",
+		"polygon": PackedVector2Array([
+			Vector2(100, 100),
+			Vector2(300, 100),
+			Vector2(300, 300),
+			Vector2(100, 300)
+		]),
+		"height_category": "tall",
+		"walls": [{
+			"start": Vector2(100, 200),
+			"end": Vector2(300, 200),
+			"type": "window",
+			"blocks_los": false,
+			"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true}
+		}]
+	}]
+
+	# Check LoS through window
+	var has_los = LineOfSightCalculator.check_line_of_sight(
+		Vector2(200, 150),  # Shooter inside ruins
+		Vector2(200, 250),  # Target on other side of window
+		TerrainManager.terrain_features
+	)
+
+	assert_true(has_los, "LoS should be allowed through window")
+
+func test_wall_visual_rendering():
+	# Setup terrain visual
+	var terrain_visual = preload("res://scripts/TerrainVisual.gd").new()
+
+	# Add terrain with walls
+	var terrain_data = {
+		"id": "test_terrain",
+		"polygon": PackedVector2Array([
+			Vector2(100, 100),
+			Vector2(200, 100),
+			Vector2(200, 200),
+			Vector2(100, 200)
+		]),
+		"height_category": "tall",
+		"position": Vector2(150, 150),
+		"walls": [{
+			"start": Vector2(100, 100),
+			"end": Vector2(200, 100),
+			"type": "solid"
+		}]
+	}
+
+	terrain_visual._add_terrain_piece(terrain_data)
+
+	# Check that container was created with wall visual
+	assert_eq(terrain_visual.get_child_count(), 1, "Should have terrain container")
+
+	var container = terrain_visual.get_child(0)
+	var has_wall_visual = false
+	for child in container.get_children():
+		if child is WallVisual:
+			has_wall_visual = true
+			assert_eq(child.wall_lines.size(), 1, "Wall visual should have one wall")
+			break
+
+	assert_true(has_wall_visual, "Terrain should have wall visual component")
+
+	# Clean up
+	terrain_visual.queue_free()
+
 func test_save_load_with_terrain():
 	# Setup initial state with terrain
 	var initial_terrain = TerrainManager.terrain_features.duplicate(true)

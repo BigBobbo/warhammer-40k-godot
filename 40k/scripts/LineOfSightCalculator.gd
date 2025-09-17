@@ -65,6 +65,10 @@ static func check_line_of_sight(from: Vector2, to: Vector2, terrain_features: Ar
 		if _terrain_blocks_los(from, to, terrain):
 			return false
 
+		# Check walls within this terrain piece
+		if _walls_block_los(from, to, terrain):
+			return false
+
 	return true
 
 # Check if terrain blocks line of sight
@@ -87,6 +91,17 @@ static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary)
 			return true
 
 	return false
+
+# Check if walls block line of sight
+static func _walls_block_los(from: Vector2, to: Vector2, terrain: Dictionary) -> bool:
+	var walls = terrain.get("walls", [])
+
+	for wall in walls:
+		if wall.get("blocks_los", true):  # Default to blocking if not specified
+			if TerrainManager.check_line_intersects_wall(from, to, wall):
+				return true  # Wall blocks LoS
+
+	return false  # No blocking walls found
 
 # Calculate optimal bounds for visibility checking
 static func _calculate_check_bounds(models: Array, max_range: float, board_width: float, board_height: float) -> Rect2:

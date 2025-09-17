@@ -1494,6 +1494,19 @@ func _validate_terrain_traversal(path: Array) -> bool:
 					else:
 						illegal_reason_label.text = "Cannot move through terrain"
 					return false
+
+			# Check walls within this terrain piece
+			var walls = terrain_piece.get("walls", [])
+			for wall in walls:
+				if TerrainManager.check_line_intersects_wall(start_pos, end_pos, wall):
+					if not TerrainManager.can_unit_cross_wall(keywords, wall):
+						if is_vehicle:
+							illegal_reason_label.text = "Vehicles cannot move through walls"
+						elif is_monster:
+							illegal_reason_label.text = "Monsters cannot move through walls"
+						else:
+							illegal_reason_label.text = "Cannot move through wall"
+						return false
 	
 	return true
 

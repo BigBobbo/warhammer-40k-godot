@@ -57,6 +57,9 @@ func _setup_layout_2() -> void:
 	_add_terrain_piece("ruins_11", Vector2(880, 760), Vector2(480, 240), HeightCategory.MEDIUM, -45.0)  # Rotated 60 degrees
 	_add_terrain_piece("ruins_12", Vector2(880, 1640), Vector2(480, 240), HeightCategory.TALL, -45.0)
 
+	# Add walls to terrain pieces based on layout diagram
+	_add_sample_walls_to_terrain()
+
 func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0) -> void:
 	# Create polygon from position and size (rectangle)
 	var half_size = size * 0.5
@@ -146,6 +149,179 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 func set_terrain_visibility(visible: bool) -> void:
 	terrain_visible = visible
 	emit_signal("terrain_visibility_changed", visible)
+
+# Wall management methods
+func add_wall_to_terrain(terrain_id: String, wall_data: Dictionary) -> void:
+	for terrain in terrain_features:
+		if terrain.id == terrain_id:
+			if not terrain.has("walls"):
+				terrain["walls"] = []
+			terrain.walls.append(wall_data)
+			emit_signal("terrain_loaded", terrain_features)
+			break
+
+func check_line_intersects_wall(from_pos: Vector2, to_pos: Vector2, wall: Dictionary) -> bool:
+	var wall_start = wall.get("start", Vector2.ZERO)
+	var wall_end = wall.get("end", Vector2.ZERO)
+
+	# Check if movement line intersects wall segment
+	var intersection = Geometry2D.segment_intersects_segment(
+		from_pos, to_pos, wall_start, wall_end
+	)
+	return intersection != null
+
+func can_unit_cross_wall(unit_keywords: Array, wall: Dictionary) -> bool:
+	var blocks_movement = wall.get("blocks_movement", {})
+
+	# Check each keyword
+	for keyword in unit_keywords:
+		if blocks_movement.get(keyword, true) == false:
+			return true
+
+	# Check FLY keyword separately - flying units go over walls
+	if "FLY" in unit_keywords:
+		return true
+
+	return false
+
+func _add_walls_to_terrain(terrain_id: String, walls: Array) -> void:
+	for terrain in terrain_features:
+		if terrain.id == terrain_id:
+			terrain["walls"] = walls
+			break
+
+func _add_sample_walls_to_terrain() -> void:
+	# Add walls to select terrain pieces based on the layout diagram
+	# These walls represent the light grey sections in the attached layout
+
+	# ruins_1 - 6"x4" piece at (720, 200), rotated 90 degrees
+	# Since it's rotated 90 degrees, width and height are swapped
+	var ruins_1_walls = []
+	var r1_pos = Vector2(720, 200)
+	# After 90 degree rotation: original 240x160 becomes 160x240
+	var r1_half = Vector2(80, 120)  # Half of rotated size
+	ruins_1_walls.append({
+		"id": "ruins_1_wall_north",
+		"start": Vector2(640, 80),  # Left edge of rotated ruins_1
+		"end": Vector2(800, 80),    # Right edge of rotated ruins_1
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	ruins_1_walls.append({
+		"id": "ruins_1_wall_west",
+		"start": Vector2(640, 80),   # Top-left corner
+		"end": Vector2(640, 200),    # Mid-left side
+		"type": "window",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": false
+	})
+	_add_walls_to_terrain("ruins_1", ruins_1_walls)
+
+	# ruins_7 - 12"x6" piece at (1360, 320), no rotation
+	var ruins_7_walls = []
+	# Position: 1360, 320; Size: 480x240
+	# Boundaries: x: 1120-1600, y: 200-440
+	ruins_7_walls.append({
+		"id": "ruins_7_wall_north",
+		"start": Vector2(1120, 200),  # Top-left corner
+		"end": Vector2(1600, 200),    # Top-right corner
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	ruins_7_walls.append({
+		"id": "ruins_7_wall_south",
+		"start": Vector2(1120, 440),  # Bottom-left corner
+		"end": Vector2(1600, 440),    # Bottom-right corner
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	ruins_7_walls.append({
+		"id": "ruins_7_wall_west",
+		"start": Vector2(1120, 280),  # Left side, upper third
+		"end": Vector2(1120, 360),    # Left side, lower third
+		"type": "door",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": false
+	})
+	# Add an east wall with a window
+	ruins_7_walls.append({
+		"id": "ruins_7_wall_east",
+		"start": Vector2(1600, 250),  # Right side
+		"end": Vector2(1600, 390),    # Right side
+		"type": "window",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": false  # Windows don't block line of sight
+	})
+	_add_walls_to_terrain("ruins_7", ruins_7_walls)
+
+	# ruins_8 - 12"x6" piece at (400, 440), no rotation
+	var ruins_8_walls = []
+	# Position: 400, 440; Size: 480x240
+	# Boundaries: x: 160-640, y: 320-560
+	ruins_8_walls.append({
+		"id": "ruins_8_wall_east",
+		"start": Vector2(640, 320),   # Right side, top
+		"end": Vector2(640, 560),     # Right side, bottom
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	ruins_8_walls.append({
+		"id": "ruins_8_wall_center",
+		"start": Vector2(280, 440),   # Center horizontal wall, left
+		"end": Vector2(520, 440),     # Center horizontal wall, right
+		"type": "window",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": false
+	})
+	_add_walls_to_terrain("ruins_8", ruins_8_walls)
+
+	# ruins_10 - 12"x6" piece at (400, 2080), no rotation
+	var ruins_10_walls = []
+	# Position: 400, 2080; Size: 480x240
+	# Boundaries: x: 160-640, y: 1960-2200
+	ruins_10_walls.append({
+		"id": "ruins_10_wall_north",
+		"start": Vector2(160, 1960),   # Top-left corner
+		"end": Vector2(640, 1960),     # Top-right corner
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	ruins_10_walls.append({
+		"id": "ruins_10_wall_west",
+		"start": Vector2(160, 1960),   # Left side, top
+		"end": Vector2(160, 2200),     # Left side, bottom
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	_add_walls_to_terrain("ruins_10", ruins_10_walls)
+
+	# ruins_11 - 12"x6" piece at (880, 760), rotated -45 degrees
+	var ruins_11_walls = []
+	# For rotated piece, calculate wall along one edge
+	var r11_pos = Vector2(880, 760)
+	var r11_rot = deg_to_rad(-45.0)
+
+	# Top edge of rotated rectangle
+	var start_offset = Vector2(-240, -120).rotated(r11_rot)
+	var end_offset = Vector2(240, -120).rotated(r11_rot)
+
+	ruins_11_walls.append({
+		"id": "ruins_11_wall_north",
+		"start": r11_pos + start_offset,
+		"end": r11_pos + end_offset,
+		"type": "solid",
+		"blocks_movement": {"INFANTRY": false, "VEHICLE": true, "MONSTER": true},
+		"blocks_los": true
+	})
+	_add_walls_to_terrain("ruins_11", ruins_11_walls)
+
+	print("[TerrainManager] Added walls to terrain pieces")
 
 func toggle_terrain_visibility() -> void:
 	set_terrain_visibility(not terrain_visible)
