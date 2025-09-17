@@ -425,7 +425,14 @@ func _setup_terrain() -> void:
 	terrain_visual.name = "TerrainVisual"
 	$BoardRoot.add_child(terrain_visual)
 	print("Added TerrainVisual to BoardRoot")
-	
+
+	# Create Line of Sight visual layer
+	var los_visual = preload("res://scripts/LineOfSightVisual.gd").new()
+	los_visual.name = "LineOfSightVisual"
+	$BoardRoot.add_child(los_visual)
+	print("Added LineOfSightVisual to BoardRoot")
+	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
+
 	# Add terrain toggle button to top HUD
 	var hud_container = $HUD_Bottom/HBoxContainer
 	if hud_container:

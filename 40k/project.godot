@@ -35,6 +35,7 @@ TerrainManager="*res://autoloads/TerrainManager.gd"
 EnhancedLineOfSight="*res://autoloads/EnhancedLineOfSight.gd"
 MissionManager="*res://autoloads/MissionManager.gd"
 MeasuringTapeManager="*res://autoloads/MeasuringTapeManager.gd"
+LineOfSightManager="*res://autoloads/LineOfSightManager.gd"
 
 [editor_plugins]
 
