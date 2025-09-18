@@ -19,6 +19,12 @@ var formation_size: int = 5  # Models per formation group
 var formation_preview_ghosts: Array = []  # Ghost visuals for formation
 var formation_anchor_pos: Vector2  # Where user clicks to place formation
 
+# Model repositioning state
+var repositioning_model: bool = false
+var reposition_model_index: int = -1
+var reposition_start_pos: Vector2
+var reposition_ghost: Node2D = null
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -31,18 +37,43 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_placing():
 		return
 
-	# Check if we have ghosts to work with
-	if not ghost_sprite and formation_preview_ghosts.is_empty():
+	# Check if we have ghosts to work with (unless repositioning)
+	if not repositioning_model and not ghost_sprite and formation_preview_ghosts.is_empty():
 		return
 
 	# Handle clicks for formation placement
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			var mouse_pos = _get_world_mouse_position()
-			if formation_mode != "SINGLE":
-				try_place_formation_at(mouse_pos)
-			else:
-				try_place_at(mouse_pos)
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				var mouse_pos = _get_world_mouse_position()
+
+				# Check for shift+click on deployed model for repositioning
+				if Input.is_key_pressed(KEY_SHIFT):
+					var deployed_model = _get_deployed_model_at_position(mouse_pos)
+					if not deployed_model.is_empty():
+						_start_model_repositioning(deployed_model)
+						return
+
+				# Handle repositioning end
+				if repositioning_model:
+					_end_model_repositioning(mouse_pos)
+					return
+
+				# Normal placement logic
+				if formation_mode != "SINGLE":
+					try_place_formation_at(mouse_pos)
+				else:
+					try_place_at(mouse_pos)
+				return
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			# Cancel repositioning on right-click
+			if repositioning_model:
+				_cancel_model_repositioning()
+				return
+
+	elif event is InputEventMouseMotion:
+		if repositioning_model:
+			_update_model_repositioning(event.position)
 			return
 
 	# Handle rotation controls during deployment (single mode only)
@@ -547,6 +578,15 @@ func _process(delta: float) -> void:
 
 	var mouse_pos = _get_world_mouse_position()
 
+	# Handle repositioning ghost updates (highest priority)
+	if repositioning_model and reposition_ghost:
+		reposition_ghost.position = mouse_pos
+		var unit_data = GameState.get_unit(unit_id)
+		var model_data = unit_data["models"][reposition_model_index]
+		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index)
+		reposition_ghost.set_validity(is_valid)
+		return
+
 	# Handle formation mode ghost updates
 	if formation_mode != "SINGLE" and not formation_preview_ghosts.is_empty():
 		_update_formation_ghost_positions(mouse_pos)
@@ -733,3 +773,177 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 			return false
 
 	return true
+
+# Model Repositioning Functions
+func _get_deployed_model_at_position(world_pos: Vector2) -> Dictionary:
+	"""Find deployed model from current unit at given position"""
+	if unit_id == "" or temp_positions.is_empty():
+		return {}
+
+	var unit_data = GameState.get_unit(unit_id)
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:  # Model is placed
+			var model_pos = temp_positions[i]
+			var model_data = unit_data["models"][i]
+			var base_mm = model_data.get("base_mm", 32)
+			var radius = Measurement.base_radius_px(base_mm)
+
+			if world_pos.distance_to(model_pos) <= radius:
+				return {
+					"model_index": i,
+					"position": model_pos,
+					"model_data": model_data
+				}
+
+	return {}
+
+func _start_model_repositioning(deployed_model: Dictionary) -> void:
+	"""Begin repositioning a deployed model"""
+	repositioning_model = true
+	reposition_model_index = deployed_model.model_index
+	reposition_start_pos = deployed_model.position
+
+	print("Starting repositioning of model ", reposition_model_index)
+
+	# Create ghost visual for repositioning
+	var model_data = deployed_model.model_data
+	reposition_ghost = preload("res://scripts/GhostVisual.gd").new()
+	reposition_ghost.name = "RepositionGhost"
+	reposition_ghost.radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
+	reposition_ghost.owner_player = GameState.get_active_player()
+	reposition_ghost.set_model_data(model_data)
+	ghost_layer.add_child(reposition_ghost)
+
+	# Make the original token semi-transparent during repositioning
+	for token in placed_tokens:
+		if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
+			token.modulate.a = 0.3  # Make original semi-transparent
+			break
+
+func _update_model_repositioning(mouse_pos: Vector2) -> void:
+	"""Update ghost position during repositioning"""
+	if not repositioning_model or not reposition_ghost:
+		return
+
+	var world_pos = _get_world_mouse_position()
+	reposition_ghost.position = world_pos
+
+	# Validate new position
+	var unit_data = GameState.get_unit(unit_id)
+	var model_data = unit_data["models"][reposition_model_index]
+	var is_valid = _validate_reposition(world_pos, model_data, reposition_model_index)
+
+	reposition_ghost.set_validity(is_valid)
+
+func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_index: int) -> bool:
+	"""Validate if repositioning is allowed at the given position"""
+	var active_player = GameState.get_active_player()
+	var zone = BoardState.get_deployment_zone_for_player(active_player)
+	var base_type = model_data.get("base_type", "circular")
+
+	# Check deployment zone
+	var in_zone = false
+	if base_type == "circular":
+		var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+		in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+	else:
+		var rotation = temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
+		in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+
+	if not in_zone:
+		return false
+
+	# Check overlap (excluding the model being repositioned)
+	return not _would_overlap_excluding_self(world_pos, model_data, model_index)
+
+func _would_overlap_excluding_self(pos: Vector2, model_data: Dictionary, exclude_index: int) -> bool:
+	"""Check for overlaps excluding the model being repositioned"""
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		return false
+
+	# Check overlap with other models in current unit (excluding self)
+	var unit_data = GameState.get_unit(unit_id)
+	for i in range(temp_positions.size()):
+		if i != exclude_index and temp_positions[i] != null:
+			var other_model_data = unit_data["models"][i]
+			var other_rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
+			var self_rotation = temp_rotations[exclude_index] if exclude_index < temp_rotations.size() else 0.0
+			if _shapes_overlap(pos, model_data, self_rotation, temp_positions[i], other_model_data, other_rotation):
+				return true
+
+	# Check overlap with all deployed models from other units
+	var all_units = GameState.state.get("units", {})
+	for other_unit_id in all_units:
+		if other_unit_id == unit_id:
+			continue  # Skip current unit, already checked above
+
+		var other_unit = all_units[other_unit_id]
+		if other_unit["status"] == GameStateData.UnitStatus.DEPLOYED:
+			for model in other_unit["models"]:
+				var model_position = model.get("position", null)
+				if model_position:
+					var other_pos = Vector2(model_position.x, model_position.y)
+					var other_rotation = model.get("rotation", 0.0)
+					var self_rotation = temp_rotations[exclude_index] if exclude_index < temp_rotations.size() else 0.0
+					if _shapes_overlap(pos, model_data, self_rotation, other_pos, model, other_rotation):
+						return true
+
+	return false
+
+func _end_model_repositioning(mouse_pos: Vector2) -> void:
+	"""Complete model repositioning"""
+	if not repositioning_model:
+		return
+
+	var world_pos = _get_world_mouse_position()
+	var unit_data = GameState.get_unit(unit_id)
+	var model_data = unit_data["models"][reposition_model_index]
+
+	# Validate final position
+	if _validate_reposition(world_pos, model_data, reposition_model_index):
+		# Update position
+		temp_positions[reposition_model_index] = world_pos
+
+		# Update the token position
+		for token in placed_tokens:
+			if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
+				token.position = world_pos
+				token.modulate.a = 1.0  # Restore full opacity
+				break
+
+		print("Model ", reposition_model_index, " repositioned to ", world_pos)
+		emit_signal("models_placed_changed")
+		_check_coherency_warning()
+	else:
+		# Revert to original position
+		for token in placed_tokens:
+			if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
+				token.modulate.a = 1.0  # Restore full opacity
+				break
+		_show_toast("Invalid position for repositioning")
+
+	_cleanup_repositioning()
+
+func _cancel_model_repositioning() -> void:
+	"""Cancel model repositioning and restore original state"""
+	if not repositioning_model:
+		return
+
+	# Restore original token opacity
+	for token in placed_tokens:
+		if is_instance_valid(token) and token.name == "Token_%s_%d" % [unit_id, reposition_model_index]:
+			token.modulate.a = 1.0
+			break
+
+	_cleanup_repositioning()
+
+func _cleanup_repositioning() -> void:
+	"""Clean up repositioning state"""
+	repositioning_model = false
+	reposition_model_index = -1
+	reposition_start_pos = Vector2.ZERO
+
+	if reposition_ghost and is_instance_valid(reposition_ghost):
+		reposition_ghost.queue_free()
+		reposition_ghost = null
