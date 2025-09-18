@@ -634,6 +634,59 @@ func setup_deployment_controller() -> void:
 	add_child(deployment_controller)
 	deployment_controller.set_layers(token_layer, ghost_layer)
 
+	# Add formation UI controls to unit card
+	_setup_formation_ui()
+
+func _setup_formation_ui() -> void:
+	# Check if formation controls already exist
+	var existing_controls = unit_card.get_node_or_null("FormationControls")
+	if existing_controls:
+		existing_controls.queue_free()
+
+	var formation_container = HBoxContainer.new()
+	formation_container.name = "FormationControls"
+
+	var formation_label = Label.new()
+	formation_label.text = "Deploy Formation:"
+	formation_container.add_child(formation_label)
+
+	# Create button group for exclusive selection
+	var button_group = ButtonGroup.new()
+
+	# Single mode button
+	var single_btn = Button.new()
+	single_btn.text = "Single"
+	single_btn.toggle_mode = true
+	single_btn.button_pressed = true  # Default to single mode
+	single_btn.button_group = button_group
+	single_btn.pressed.connect(_on_formation_mode_changed.bind("SINGLE"))
+	formation_container.add_child(single_btn)
+
+	# Spread formation button
+	var spread_btn = Button.new()
+	spread_btn.text = "Spread (2\")"
+	spread_btn.toggle_mode = true
+	spread_btn.button_group = button_group
+	spread_btn.pressed.connect(_on_formation_mode_changed.bind("SPREAD"))
+	formation_container.add_child(spread_btn)
+
+	# Tight formation button
+	var tight_btn = Button.new()
+	tight_btn.text = "Tight"
+	tight_btn.toggle_mode = true
+	tight_btn.button_group = button_group
+	tight_btn.pressed.connect(_on_formation_mode_changed.bind("TIGHT"))
+	formation_container.add_child(tight_btn)
+
+	# Add below unit name (position 2 in the VBoxContainer)
+	unit_card.add_child(formation_container)
+	if unit_card.get_child_count() > 2:
+		unit_card.move_child(formation_container, 2)
+
+func _on_formation_mode_changed(mode: String) -> void:
+	if deployment_controller:
+		deployment_controller.set_formation_mode(mode)
+
 func setup_command_controller() -> void:
 	print("Setting up CommandController...")
 	command_controller = preload("res://scripts/CommandController.gd").new()
@@ -1025,11 +1078,11 @@ func _input(event: InputEvent) -> void:
 			var ui_rect = get_viewport().get_visible_rect()
 			var right_hud_rect = Rect2(ui_rect.size.x - 400, 0, 400, ui_rect.size.y)  # Right HUD area
 			var bottom_hud_rect = Rect2(0, ui_rect.size.y - 100, ui_rect.size.x, 100)  # Bottom HUD area
-			
+
 			if not right_hud_rect.has_point(event.position) and not bottom_hud_rect.has_point(event.position):
-				var world_pos = screen_to_world_position(event.position)
-				deployment_controller.try_place_at(world_pos)
-				get_viewport().set_input_as_handled()
+				# DeploymentController now handles formation vs single placement internally
+				# via its _unhandled_input, so we don't need to call anything here
+				pass  # Let DeploymentController handle it
 
 func screen_to_world_position(screen_pos: Vector2) -> Vector2:
 	# Convert screen position to world position using our transform
