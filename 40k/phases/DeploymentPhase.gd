@@ -119,7 +119,13 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 	# Check overlap with other models
 	if _position_overlaps_existing_models(position, radius_px, unit.get("id", "")):
 		errors.append("Model cannot overlap with existing models")
-	
+
+	# Check overlap with walls
+	var test_model = model.duplicate()
+	test_model["position"] = position
+	if Measurement.model_overlaps_any_wall(test_model):
+		errors.append("Model cannot overlap with walls")
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_switch_player_action(action: Dictionary) -> Dictionary:
@@ -144,9 +150,10 @@ func process_action(action: Dictionary) -> Dictionary:
 func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.unit_id
 	var model_positions = action.model_positions
+	var model_rotations = action.get("model_rotations", [])
 	var changes = []
-	
-	# Update model positions
+
+	# Update model positions and rotations
 	for i in range(model_positions.size()):
 		var pos = model_positions[i]
 		if pos != null:
@@ -155,6 +162,14 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 				"path": "units.%s.models.%d.position" % [unit_id, i],
 				"value": {"x": pos.x, "y": pos.y}
 			})
+
+			# Apply rotation if provided
+			if i < model_rotations.size() and model_rotations[i] != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.rotation" % [unit_id, i],
+					"value": model_rotations[i]
+				})
 	
 	# Update unit status to deployed
 	changes.append({

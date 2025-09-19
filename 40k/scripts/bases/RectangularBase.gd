@@ -245,3 +245,23 @@ func _rectangles_overlap_sat(corners1: Array, corners2: Array) -> bool:
 				return false  # Found a separating axis
 
 	return true  # No separating axis found, shapes overlap
+
+func overlaps_with_segment(position: Vector2, rotation: float, seg_start: Vector2, seg_end: Vector2) -> bool:
+	# Get rectangle corners
+	var corners = _get_world_corners(position, rotation)
+
+	# Check if segment endpoints are inside rectangle
+	if contains_point(seg_start, position, rotation) or contains_point(seg_end, position, rotation):
+		return true
+
+	# Check if segment intersects any edge of the rectangle
+	for i in range(4):
+		var corner1 = corners[i]
+		var corner2 = corners[(i + 1) % 4]
+
+		# Check if segment intersects this edge
+		var intersection = Geometry2D.segment_intersects_segment(seg_start, seg_end, corner1, corner2)
+		if intersection != null:
+			return true
+
+	return false

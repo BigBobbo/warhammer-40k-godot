@@ -82,3 +82,17 @@ func overlaps_with(other: BaseShape, my_position: Vector2, my_rotation: float, o
 			return true
 
 		return false
+
+func overlaps_with_segment(position: Vector2, rotation: float, seg_start: Vector2, seg_end: Vector2) -> bool:
+	# Find closest point on segment to circle center
+	var seg_vec = seg_end - seg_start
+	if seg_vec.length_squared() == 0:
+		# Degenerate segment - check point distance
+		return position.distance_to(seg_start) <= radius
+
+	var center_vec = position - seg_start
+	var t = clamp(center_vec.dot(seg_vec) / seg_vec.length_squared(), 0.0, 1.0)
+	var closest_point = seg_start + t * seg_vec
+
+	# Check if closest point is within radius
+	return closest_point.distance_to(position) <= radius

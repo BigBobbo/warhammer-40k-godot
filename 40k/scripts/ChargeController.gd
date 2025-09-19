@@ -1764,6 +1764,10 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
 			if Measurement.models_overlap(test_model, other_model_check):
 				return true
 
+	# Also check wall collision
+	if Measurement.model_overlaps_any_wall(test_model):
+		return true
+
 	return false
 
 func _rotate_dragging_model(angle: float) -> void:

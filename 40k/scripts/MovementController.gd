@@ -1092,14 +1092,23 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Check validity based on total distance
 	path_valid = total_distance <= move_cap_inches
 
-	# Also check for model overlaps
+	# Also check for model overlaps and wall collisions
 	var overlap_detected = false
+	var overlap_reason = ""
 	if path_valid and current_phase:
+		# Check model overlap
 		overlap_detected = _check_position_would_overlap(world_pos)
 		if overlap_detected:
 			path_valid = false
+			# Check which type of overlap it is
+			var test_model = selected_model.duplicate()
+			test_model["position"] = world_pos
+			if Measurement.model_overlaps_any_wall(test_model):
+				overlap_reason = "Cannot overlap with walls"
+			else:
+				overlap_reason = "Cannot overlap other models"
 			if illegal_reason_label:
-				illegal_reason_label.text = "Cannot overlap other models"
+				illegal_reason_label.text = overlap_reason
 
 	# Update visuals
 	_update_path_visual()
@@ -1933,7 +1942,15 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 	if current_phase.has_method("_position_overlaps_other_models"):
 		var model_copy = selected_model.duplicate()
 		model_copy["position"] = position
-		return current_phase._position_overlaps_other_models(unit_id, model_id, position, model_copy)
+		if current_phase._position_overlaps_other_models(unit_id, model_id, position, model_copy):
+			return true
+
+	# Also check wall overlap
+	if selected_model:
+		var test_model = selected_model.duplicate()
+		test_model["position"] = position
+		if Measurement.model_overlaps_any_wall(test_model):
+			return true
 
 	return false
 
@@ -2420,8 +2437,33 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			inches_left_label.text = "Group Min Left: %.1f\"" % min_remaining
 
 		# Validate the move and update ghost colors based on validity
-		if max_used > move_cap_inches:
-			# Some models exceed their movement - show invalid state
+		var any_wall_collision = false
+
+		# Check wall collisions for each model
+		for model_data in selected_models:
+			var model_id = model_data.model_id
+			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
+			var new_pos = start_pos + drag_vector
+
+			# Get the full model data with base information from GameState
+			var full_model = _get_model_by_id(active_unit_id, model_id)
+			if full_model.is_empty():
+				# Fallback to using model_data if we can't get full data
+				full_model = model_data
+
+			# Check if this position would overlap with walls
+			var test_model = full_model.duplicate()
+			test_model["position"] = new_pos
+
+			if Measurement.model_overlaps_any_wall(test_model):
+				any_wall_collision = true
+				if illegal_reason_label:
+					illegal_reason_label.text = "Cannot overlap with walls"
+					illegal_reason_label.modulate = Color.RED
+				break
+
+		if max_used > move_cap_inches or any_wall_collision:
+			# Some models exceed their movement or collide with walls - show invalid state
 			for child in ghost_visual.get_children():
 				if child.has_method("set_validity"):
 					child.set_validity(false)
@@ -2458,6 +2500,54 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 	# Send movement actions for all models in the group
 	if current_phase:
 		print("Processing group movement for ", selected_models.size(), " models")
+
+		# First, validate that all moves are legal (no wall collisions)
+		var all_moves_valid = true
+		var invalid_reason = ""
+
+		for model_data in selected_models:
+			var model_id = model_data.model_id
+			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
+			var new_pos = start_pos + drag_vector
+
+			# Get the full model data with base information from GameState
+			var full_model = _get_model_by_id(active_unit_id, model_id)
+			if full_model.is_empty():
+				print("ERROR: Could not get full model data for ", model_id)
+				continue
+
+			# Check if this position would overlap with walls
+			var test_model = full_model.duplicate()
+			test_model["position"] = new_pos
+
+			if Measurement.model_overlaps_any_wall(test_model):
+				all_moves_valid = false
+				invalid_reason = "Model %s would overlap with walls" % model_id
+				print("ERROR: ", invalid_reason)
+				break
+
+			# Also check model overlaps
+			if _check_position_would_overlap(new_pos):
+				all_moves_valid = false
+				invalid_reason = "Model %s would overlap with other models" % model_id
+				print("ERROR: ", invalid_reason)
+				break
+
+		# Only proceed with moves if all are valid
+		if not all_moves_valid:
+			print("Group move cancelled: ", invalid_reason)
+			# Show error message to user
+			if illegal_reason_label:
+				illegal_reason_label.text = invalid_reason
+				illegal_reason_label.modulate = Color.RED
+
+			# Clear the drag but don't move anything
+			group_dragging = false
+			group_drag_start_positions.clear()
+			group_formation_offsets.clear()
+			_clear_ghost_visual()
+			_update_model_selection_visuals()
+			return
 
 		# Build a batch of moves to send together
 		var batch_moves = []

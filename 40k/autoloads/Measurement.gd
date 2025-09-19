@@ -116,3 +116,29 @@ func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
 
 	# Use the shape's overlaps_with method for proper collision detection
 	return shape1.overlaps_with(shape2, pos1, rotation1, pos2, rotation2)
+
+# New function to check if a model overlaps with a wall
+func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
+	var pos = model.get("position", Vector2.ZERO)
+
+	# Handle position as Dictionary or Vector2
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+
+	var rotation = model.get("rotation", 0.0)
+	var shape = create_base_shape(model)
+
+	var wall_start = wall.get("start", Vector2.ZERO)
+	var wall_end = wall.get("end", Vector2.ZERO)
+
+	# Delegate to shape-specific collision check
+	return shape.overlaps_with_segment(pos, rotation, wall_start, wall_end)
+
+# Check if model overlaps with any walls in terrain
+func model_overlaps_any_wall(model: Dictionary) -> bool:
+	for terrain in TerrainManager.terrain_features:
+		var walls = terrain.get("walls", [])
+		for wall in walls:
+			if model_overlaps_wall(model, wall):
+				return true
+	return false

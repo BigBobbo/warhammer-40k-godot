@@ -201,3 +201,43 @@ func overlaps_with(other: BaseShape, my_position: Vector2, my_rotation: float, o
 				return true
 
 		return false
+
+func overlaps_with_segment(position: Vector2, rotation: float, seg_start: Vector2, seg_end: Vector2) -> bool:
+	# Check if segment endpoints are inside oval
+	if contains_point(seg_start, position, rotation) or contains_point(seg_end, position, rotation):
+		return true
+
+	# Transform segment to local space
+	var local_start = to_local_space(seg_start, position, rotation)
+	var local_end = to_local_space(seg_end, position, rotation)
+
+	# Check for intersection using line-ellipse intersection algorithm
+	var seg_vec = local_end - local_start
+	if seg_vec.length_squared() == 0:
+		return contains_point(seg_start, position, rotation)
+
+	# Parametric line equation: P = local_start + t * seg_vec (0 <= t <= 1)
+	# Ellipse equation: (x/a)^2 + (y/b)^2 = 1
+	var a = length
+	var b = width
+	var dx = seg_vec.x
+	var dy = seg_vec.y
+	var px = local_start.x
+	var py = local_start.y
+
+	# Quadratic equation coefficients
+	var A = (dx * dx) / (a * a) + (dy * dy) / (b * b)
+	var B = 2.0 * ((px * dx) / (a * a) + (py * dy) / (b * b))
+	var C = (px * px) / (a * a) + (py * py) / (b * b) - 1.0
+
+	var discriminant = B * B - 4.0 * A * C
+
+	if discriminant < 0:
+		return false  # No intersection
+
+	# Calculate intersection parameters
+	var t1 = (-B - sqrt(discriminant)) / (2.0 * A)
+	var t2 = (-B + sqrt(discriminant)) / (2.0 * A)
+
+	# Check if any intersection is within the segment (0 <= t <= 1)
+	return (t1 >= 0.0 and t1 <= 1.0) or (t2 >= 0.0 and t2 <= 1.0)

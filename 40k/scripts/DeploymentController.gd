@@ -174,6 +174,14 @@ func try_place_at(world_pos: Vector2) -> void:
 		_show_toast("Cannot overlap with existing models")
 		return
 
+	# Check for overlap with walls
+	var test_model = model_data.duplicate()
+	test_model["position"] = world_pos
+	test_model["rotation"] = rotation
+	if Measurement.model_overlaps_any_wall(test_model):
+		_show_toast("Cannot overlap with walls")
+		return
+
 	# Store position and rotation (rotation already captured above)
 	temp_positions[model_idx] = world_pos
 	temp_rotations[model_idx] = rotation
@@ -616,6 +624,14 @@ func _process(delta: float) -> void:
 		else:
 			is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
 
+		# Also check wall collision
+		if is_valid:
+			var test_model = model_data.duplicate()
+			test_model["position"] = mouse_pos
+			test_model["rotation"] = rotation
+			if Measurement.model_overlaps_any_wall(test_model):
+				is_valid = false
+
 		if ghost_sprite.has_method("set_validity"):
 			ghost_sprite.set_validity(is_valid)
 
@@ -771,6 +787,13 @@ func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: Pa
 			return false
 		if _overlaps_with_existing_models_shape(pos, model_data, 0.0):
 			return false
+
+	# Check wall collision
+	var test_model = model_data.duplicate()
+	test_model["position"] = pos
+	test_model["rotation"] = 0.0
+	if Measurement.model_overlaps_any_wall(test_model):
+		return false
 
 	return true
 

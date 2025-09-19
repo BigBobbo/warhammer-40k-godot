@@ -53,3 +53,8 @@ func to_local_space(world_point: Vector2, position: Vector2, rotation: float) ->
 func overlaps_with(other: BaseShape, my_position: Vector2, my_rotation: float, other_position: Vector2, other_rotation: float) -> bool:
 	push_error("BaseShape.overlaps_with() must be overridden")
 	return false
+
+# Check if shape overlaps with a line segment (for wall collision)
+func overlaps_with_segment(position: Vector2, rotation: float, seg_start: Vector2, seg_end: Vector2) -> bool:
+	push_error("BaseShape.overlaps_with_segment() must be overridden")
+	return false

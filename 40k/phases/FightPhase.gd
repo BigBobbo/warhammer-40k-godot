@@ -980,6 +980,10 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 						if Measurement.models_overlap(check_model, other_model_check):
 							errors.append("Model %s would overlap with %s/%d" % [model_id, check_unit_id, i])
 
+				# Check for wall collision
+				if Measurement.model_overlaps_any_wall(check_model):
+					errors.append("Model %s would overlap with walls" % model_id)
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Legacy method compatibility 
