@@ -204,16 +204,33 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
-	
+
+	var unit = get_unit(unit_id)
+
+	# Check if this is a transport with firing deck
+	if unit.has("transport_data") and unit.transport_data.get("firing_deck", 0) > 0:
+		var has_eligible_embarked = false
+		for embarked_id in unit.transport_data.get("embarked_units", []):
+			var embarked = get_unit(embarked_id)
+			if embarked and not embarked.get("flags", {}).get("has_shot", false):
+				has_eligible_embarked = true
+				break
+
+		if has_eligible_embarked:
+			# Show firing deck dialog to select which embarked models will shoot
+			call_deferred("_show_firing_deck_dialog", unit_id)
+			log_phase_message("Selected transport %s - choosing firing deck models" % unit.get("meta", {}).get("name", unit_id))
+			return create_result(true, [])
+
+	# Normal shooting flow
 	# Get eligible targets
 	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	
+
 	emit_signal("unit_selected_for_shooting", unit_id)
 	emit_signal("targets_available", unit_id, eligible_targets)
-	
-	var unit = get_unit(unit_id)
+
 	log_phase_message("Selected %s for shooting" % unit.get("meta", {}).get("name", unit_id))
-	
+
 	return create_result(true, [])
 
 func _process_assign_target(action: Dictionary) -> Dictionary:
@@ -384,18 +401,32 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 func _can_unit_shoot(unit: Dictionary) -> bool:
 	var status = unit.get("status", 0)
 	var flags = unit.get("flags", {})
-	
+
+	# Check if unit is embarked (can't shoot directly, only through transport's firing deck)
+	if unit.get("embarked_in", null) != null:
+		return false
+
 	# Check if unit is deployed
 	if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
 		return false
-	
+
 	# Check restriction flags
 	if flags.get("cannot_shoot", false):
 		return false
-	
+
 	if flags.get("has_shot", false):
 		return false
-	
+
+	# Check if this is a transport with firing deck capability
+	if unit.has("transport_data") and unit.transport_data.get("firing_deck", 0) > 0:
+		# Transport with firing deck can shoot if it has embarked units
+		if unit.transport_data.get("embarked_units", []).size() > 0:
+			# Check if any embarked unit hasn't shot yet
+			for embarked_id in unit.transport_data.embarked_units:
+				var embarked = get_unit(embarked_id)
+				if embarked and not embarked.get("flags", {}).get("has_shot", false):
+					return true  # Transport can use firing deck
+
 	# Check if unit is in engagement range (MVP: units in engagement cannot shoot)
 	if flags.get("in_engagement", false):
 		return false
@@ -540,5 +571,56 @@ func validate_loaded_state() -> bool:
 		if target.is_empty():
 			print("WARNING: Invalid target in assignments: ", assignment.target_unit_id)
 			return false
-	
+
 	return true
+
+# Transport Firing Deck support
+
+func _show_firing_deck_dialog(transport_id: String) -> void:
+	"""Show dialog to select which embarked models will shoot through firing deck"""
+	var transport = get_unit(transport_id)
+	var firing_deck_capacity = transport.transport_data.get("firing_deck", 0)
+	var embarked_units = transport.transport_data.get("embarked_units", [])
+
+	# Create firing deck dialog
+	var dialog_script = load("res://scripts/FiringDeckDialog.gd")
+	var dialog = dialog_script.new()
+	dialog.setup(transport_id, embarked_units, firing_deck_capacity)
+	dialog.models_selected.connect(_on_firing_deck_models_selected.bind(transport_id))
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_firing_deck_models_selected(selected_weapons: Array, transport_id: String) -> void:
+	"""Handle selection of weapons from embarked units for firing deck"""
+	# Store the selected weapons as part of transport's temporary shooting state
+	if not resolution_state.has("firing_deck_weapons"):
+		resolution_state["firing_deck_weapons"] = {}
+
+	resolution_state["firing_deck_weapons"][transport_id] = selected_weapons
+
+	# Mark those units as having shot
+	var changes = []
+	for weapon_data in selected_weapons:
+		var unit_id = weapon_data.get("unit_id", "")
+		if unit_id != "":
+			changes.append({
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % unit_id,
+				"value": true
+			})
+
+	# Apply state changes
+	if changes.size() > 0:
+		# Apply through parent if it exists
+		if get_parent() and get_parent().has_method("apply_state_changes"):
+			get_parent().apply_state_changes(changes)
+
+	# Now proceed with normal target selection for the transport
+	# The transport will use the selected weapons from embarked units
+	var eligible_targets = RulesEngine.get_eligible_targets(transport_id, game_state_snapshot)
+
+	emit_signal("unit_selected_for_shooting", transport_id)
+	emit_signal("targets_available", transport_id, eligible_targets)
+
+	log_phase_message("Firing deck weapons selected for %s" % get_unit(transport_id).get("meta", {}).get("name", transport_id))

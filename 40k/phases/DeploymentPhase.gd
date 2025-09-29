@@ -190,7 +190,12 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Deployed %s" % unit_name)
-	
+
+	# Check if this is a transport and show embark dialog
+	if _unit_has_transport_capacity(unit_id):
+		# Defer showing dialog until after this action completes
+		call_deferred("_show_transport_embark_dialog", unit_id)
+
 	return create_result(true, changes)
 
 func _process_switch_player(action: Dictionary) -> Dictionary:
@@ -251,6 +256,9 @@ func _has_undeployed_units(player: int) -> bool:
 	var units = get_units_for_player(player)
 	for unit_id in units:
 		var unit = units[unit_id]
+		# Skip units that are embarked (they're considered deployed when inside a transport)
+		if unit.get("embarked_in", null) != null:
+			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			return true
 	return false
@@ -274,6 +282,46 @@ func _all_units_deployed() -> bool:
 
 # Player switching is now handled by TurnManager via the action_taken signal
 # These methods have been removed to avoid conflicts with TurnManager
+
+func _unit_has_transport_capacity(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	return unit.has("transport_data") and unit.transport_data.get("capacity", 0) > 0
+
+func _show_transport_embark_dialog(transport_id: String) -> void:
+	# Create and show the embark dialog
+	var dialog_script = load("res://scripts/TransportEmbarkDialog.gd")
+	var dialog = dialog_script.new()
+	dialog.setup(transport_id)
+	dialog.units_selected.connect(_on_deployment_embark_selected.bind(transport_id))
+
+	# Add to scene tree and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	log_phase_message("Showing embark dialog for transport: %s" % transport_id)
+
+func _on_deployment_embark_selected(unit_ids: Array, transport_id: String) -> void:
+	log_phase_message("Processing embark for %d units into transport %s" % [unit_ids.size(), transport_id])
+
+	# Embark each selected unit
+	for unit_id in unit_ids:
+		# Use TransportManager to handle the embarkation
+		TransportManager.embark_unit(unit_id, transport_id)
+
+		# Mark embarked units as deployed
+		var changes = [
+			{"op": "set", "path": "units.%s.status" % unit_id, "value": GameStateData.UnitStatus.DEPLOYED}
+		]
+
+		# Apply changes through PhaseManager
+		if get_parent() and get_parent().has_method("apply_state_changes"):
+			get_parent().apply_state_changes(changes)
+
+		_apply_changes_to_local_state(changes)
+
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Embarked %s" % unit_name)
 
 func _apply_changes_to_local_state(changes: Array) -> void:
 	for change in changes:

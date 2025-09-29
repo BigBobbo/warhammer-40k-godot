@@ -88,6 +88,9 @@ func get_unit_movement(unit: Dictionary) -> float:
 	return 6.0
 
 func _ready() -> void:
+	# Add to group so DisembarkController can find us
+	add_to_group("movement_controller")
+
 	set_process_unhandled_input(true)
 	set_process(true)  # Enable process for debugging
 	_setup_ui_references()
@@ -553,6 +556,12 @@ func _refresh_unit_list() -> void:
 				"completed":
 					status_text = " [COMPLETED MOVING]"
 			
+			# Show if unit is embarked (special case - can still be selected to disembark)
+			if unit.get("embarked_in", null) != null:
+				var transport = GameState.get_unit(unit.embarked_in)
+				var transport_name = transport.get("meta", {}).get("name", unit.embarked_in) if transport else "Transport"
+				status_text = " [Embarked in %s]" % transport_name
+
 			unit_list.add_item(unit_name + status_text)
 			unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 			added_units[unit_id] = true
@@ -561,11 +570,69 @@ func _on_unit_selected(index: int) -> void:
 	var unit_id = unit_list.get_item_metadata(index)
 	active_unit_id = unit_id
 	print("MovementController: Unit selected - ", unit_id)
+
+	# Check if unit is embarked and needs to disembark
+	var unit = GameState.get_unit(unit_id)
+	if unit and unit.get("embarked_in", null) != null:
+		_handle_embarked_unit_selected(unit_id)
+		return
+
 	_highlight_unit_models(unit_id)
 	_update_selected_unit_display()  # NEW: Update section 2
 	_update_fall_back_visibility()  # NEW: Update Fall Back visibility based on engagement
 	_reset_mode_selection_for_new_unit(unit_id)  # NEW: Reset mode selection for new unit
 	emit_signal("ui_update_requested")
+
+# This function has been moved below to avoid duplication
+
+func begin_unit_movement(unit_id: String) -> void:
+	"""Begin movement for a unit (called after disembark if transport hasn't moved)"""
+	print("MovementController: Beginning movement for unit ", unit_id)
+
+	# Set this unit as active
+	active_unit_id = unit_id
+	active_mode = "NORMAL"  # Default to normal movement
+
+	# Find unit in list and select it
+	for i in range(unit_list.get_item_count()):
+		if unit_list.get_item_metadata(i) == unit_id:
+			unit_list.select(i)
+			unit_list.emit_signal("item_selected", i)  # Ensure selection is processed
+			break
+
+	# Get unit data for movement cap
+	var unit = GameState.get_unit(unit_id)
+	if unit:
+		move_cap_inches = get_unit_movement(unit)
+		print("MovementController: Unit %s has movement cap of %d inches" % [unit_id, move_cap_inches])
+
+		# Important: Set the unit's status to ensure it can be moved
+		if unit.status == GameStateData.UnitStatus.DEPLOYED:
+			print("MovementController: Unit status is DEPLOYED, ready to move")
+
+	# Request normal move action from phase to initialize movement state
+	if current_phase:
+		print("MovementController: Sending BEGIN_NORMAL_MOVE action to phase")
+		var action = {
+			"type": "BEGIN_NORMAL_MOVE",
+			"actor_unit_id": unit_id
+		}
+		emit_signal("move_action_requested", action)
+
+		# Update UI
+		_update_selected_unit_display()
+		_update_fall_back_visibility()
+		_reset_mode_selection_for_new_unit(unit_id)
+
+		# Set normal mode as selected
+		if normal_radio:
+			normal_radio.button_pressed = true
+
+		emit_signal("ui_update_requested")
+	else:
+		print("MovementController: WARNING - No current phase set, cannot begin movement")
+
+		print("MovementController: Movement initiated for unit %s with mode %s" % [unit_id, active_mode])
 
 func _highlight_unit_models(unit_id: String) -> void:
 	# Visual feedback for selected unit
@@ -1516,8 +1583,99 @@ func _validate_terrain_traversal(path: Array) -> bool:
 						else:
 							illegal_reason_label.text = "Cannot move through wall"
 						return false
-	
+
 	return true
+
+func _handle_embarked_unit_selected(unit_id: String) -> void:
+	"""Handle selection of an embarked unit - show disembark dialog"""
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return
+
+	print("MovementController: Unit %s is embarked, showing disembark dialog" % unit_id)
+
+	# Create and show disembark dialog
+	var dialog_script = load("res://scripts/DisembarkDialog.gd")
+	var dialog = dialog_script.new()
+	dialog.setup(unit_id)
+	dialog.disembark_confirmed.connect(_on_disembark_confirmed.bind(unit_id))
+	dialog.disembark_canceled.connect(_on_disembark_canceled.bind(unit_id))
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_disembark_confirmed(unit_id: String) -> void:
+	"""Handle disembark confirmation - start placement controller"""
+	print("MovementController: Starting disembark placement for unit %s" % unit_id)
+
+	# Create disembark controller for model placement
+	var controller = preload("res://scripts/DisembarkController.gd").new()
+	controller.disembark_completed.connect(_on_disembark_completed)
+	controller.disembark_canceled.connect(_on_disembark_canceled)
+
+	# Add to scene
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if board_root:
+		board_root.add_child(controller)
+	else:
+		get_tree().root.add_child(controller)
+
+	# Start disembark placement
+	controller.start_disembark(unit_id)
+
+func _on_disembark_completed(unit_id: String, positions: Array) -> void:
+	"""Handle successful disembark - update game state"""
+	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
+
+	# Use TransportManager to handle the disembark
+	TransportManager.disembark_unit(unit_id, positions)
+
+	# CRITICAL: Refresh board visuals to show the disembarked models
+	var main = get_node_or_null("/root/Main")
+	if main and main.has_method("_recreate_unit_visuals"):
+		print("MovementController: Refreshing board visuals after disembark")
+		main._recreate_unit_visuals()
+
+	# Refresh UI to show disembarked unit
+	_refresh_unit_list()
+
+	# Check if the disembarked unit can move
+	var unit = GameState.get_unit(unit_id)
+	if unit and not unit.get("flags", {}).get("cannot_move", false):
+		print("MovementController: Disembarked unit can move")
+		# The MovementPhase will handle initializing movement for the unit
+		# We just need to update our UI to show the unit as selected
+		active_unit_id = unit_id
+		active_mode = "NORMAL"
+
+		# Get unit movement cap
+		if unit:
+			move_cap_inches = get_unit_movement(unit)
+			print("MovementController: Unit %s has movement cap of %d inches" % [unit_id, move_cap_inches])
+
+		# Update UI to show this unit is selected
+		_update_selected_unit_display()
+		_update_fall_back_visibility()
+		emit_signal("ui_update_requested")
+
+		# Find and select the unit in the list
+		for i in range(unit_list.get_item_count()):
+			if unit_list.get_item_metadata(i) == unit_id:
+				unit_list.select(i)
+				break
+	else:
+		print("MovementController: Disembarked unit cannot move (transport already moved)")
+		# Clear selection since unit can't do anything else
+		active_unit_id = ""
+		_update_selected_unit_display()
+
+func _on_disembark_canceled(unit_id: String) -> void:
+	"""Handle canceled disembark"""
+	print("MovementController: Disembark canceled for unit %s" % unit_id)
+
+	# Clear selection
+	active_unit_id = ""
+	_update_selected_unit_display()
 
 func _should_snap_to_grid() -> bool:
 	# Check settings for grid snap

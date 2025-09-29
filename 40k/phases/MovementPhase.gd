@@ -42,14 +42,21 @@ func _on_phase_enter() -> void:
 	log_phase_message("Entering Movement Phase")
 	active_moves.clear()
 	dice_log.clear()
-	
+
+	# Connect to TransportManager to handle disembark completion
+	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
+		TransportManager.disembark_completed.connect(_on_transport_manager_disembark_completed)
+
 	# Movement phase continues with the current active player
 	# Player switching only happens during scoring phase transitions
-	
+
 	_initialize_movement()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Movement Phase")
+	# Disconnect from TransportManager
+	if TransportManager and TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
+		TransportManager.disembark_completed.disconnect(_on_transport_manager_disembark_completed)
 	# Clear any temporary movement data
 	for unit_id in active_moves:
 		_clear_unit_move_state(unit_id)
@@ -97,6 +104,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_set_advance_bonus(action)
 		"END_MOVEMENT":
 			return _validate_end_movement(action)
+		"DISEMBARK_UNIT":
+			return _validate_disembark_unit(action)
+		"CONFIRM_DISEMBARK":
+			return _validate_confirm_disembark(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -128,6 +139,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_set_advance_bonus(action)
 		"END_MOVEMENT":
 			return _process_end_movement(action)
+		"DISEMBARK_UNIT":
+			return _process_disembark_unit(action)
+		"CONFIRM_DISEMBARK":
+			return _process_confirm_disembark(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -137,25 +152,34 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	if unit_id == "":
 		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	
+
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
-	
+
 	if unit.get("owner", 0) != get_current_player():
 		return {"valid": false, "errors": ["Unit does not belong to active player"]}
-	
+
+	# Check if unit is embarked - if so, trigger disembark flow instead
+	if unit.get("embarked_in", null) != null:
+		# This will be handled by showing disembark dialog
+		return {"valid": false, "errors": ["Unit is embarked - must disembark first"], "show_disembark": true}
+
 	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 		return {"valid": false, "errors": ["Unit is not deployed"]}
-	
+
 	# Check if unit has already moved
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
-	
+
+	# Check if unit cannot move due to disembarking restrictions
+	if unit.get("flags", {}).get("cannot_move", false):
+		return {"valid": false, "errors": ["Unit cannot move (disembarked from transport that moved)"]}
+
 	# Check if unit is in engagement range (cannot use Normal Move if engaged)
 	if _is_unit_engaged(unit_id):
 		return {"valid": false, "errors": ["Unit is engaged, must Fall Back instead"]}
-	
+
 	return {"valid": true, "errors": []}
 
 func _validate_begin_advance(action: Dictionary) -> Dictionary:
@@ -241,12 +265,13 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
 	var model_id = payload.get("model_id", "")
 	var dest = payload.get("dest", [])
-	
+
 	if unit_id == "" or model_id == "" or dest.size() != 2:
 		return {"valid": false, "errors": ["Missing required fields"]}
-	
+
 	# Check if unit has an active move
 	if not active_moves.has(unit_id):
+		log_phase_message("ERROR: No active move for unit %s. Active moves: %s" % [unit_id, active_moves.keys()])
 		return {"valid": false, "errors": ["No active move for unit"]}
 	
 	var move_data = active_moves[unit_id]
@@ -272,12 +297,16 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	
 	# Get the model's original position
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
-	
+	log_phase_message("DEBUG: Validating move for model %s" % model_id)
+	log_phase_message("  Original pos: %s, Current pos: %s, Dest: %s" % [original_pos, current_pos, dest_vec])
+
 	# Calculate total distance from original position to destination
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	
+	log_phase_message("  Distance calculation: %.2f inches" % total_distance_for_model)
+
 	# Check if this specific model's distance exceeds cap
 	if total_distance_for_model > move_data.move_cap_inches:
+		log_phase_message("  FAILED: Distance %.1f\" exceeds cap %.1f\"" % [total_distance_for_model, move_data.move_cap_inches])
 		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, move_data.move_cap_inches]]}
 	
 	# Check engagement range restrictions for the destination
@@ -748,9 +777,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	
 	# Mark unit as completed before cleanup
 	move_data["completed"] = true
-	
+
 	emit_signal("unit_move_confirmed", unit_id, {"mode": move_data.mode, "models_moved": move_data.model_moves.size()})
-	
+
+	# Check for embark opportunity after movement
+	if not unit.get("disembarked_this_phase", false):
+		call_deferred("_check_embark_opportunity", unit_id)
+
 	return create_result(true, changes, "", {"dice": additional_dice})
 
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
@@ -1419,3 +1452,399 @@ func create_result(success: bool, changes: Array = [], error: String = "", addit
 		result["error"] = error
 	
 	return result
+
+# Transport-related methods
+
+func _check_embark_opportunity(unit_id: String) -> void:
+	"""Check if a unit that just moved can embark in a nearby transport"""
+	var unit = get_unit(unit_id)
+	if not unit:
+		return
+
+	# Skip if unit is a transport itself
+	if unit.has("transport_data"):
+		return
+
+	# Get unit's center position
+	var unit_pos = _get_unit_center_position(unit_id)
+	if unit_pos == Vector2.ZERO:
+		return
+
+	# Find friendly transports within 3"
+	var player = unit.owner
+	for transport_id in game_state_snapshot.units:
+		var transport = game_state_snapshot.units[transport_id]
+
+		# Skip if not same owner
+		if transport.owner != player:
+			continue
+
+		# Skip if not a transport
+		if not transport.has("transport_data") or transport.transport_data.get("capacity", 0) == 0:
+			continue
+
+		# Skip if transport is the same unit
+		if transport_id == unit_id:
+			continue
+
+		# Get transport position
+		var transport_pos = _get_unit_center_position(transport_id)
+		if transport_pos == Vector2.ZERO:
+			continue
+
+		# Check if all models are within 3" of transport
+		var all_within_range = true
+		for model in unit.models:
+			if not model.alive or model.position == null:
+				continue
+
+			var model_pos = Vector2(model.position.x, model.position.y)
+			var dist_inches = Measurement.distance_inches(model_pos, transport_pos)
+
+			# Account for transport base size
+			var transport_base_radius_inches = 0.0
+			if transport.models.size() > 0 and transport.models[0].alive:
+				var radius_px = Measurement.base_radius_px(transport.models[0].base_mm)
+				transport_base_radius_inches = Measurement.px_to_inches(radius_px)
+
+			if dist_inches - transport_base_radius_inches > 3.0:
+				all_within_range = false
+				break
+
+		if all_within_range:
+			# Check if unit can embark
+			var can_embark = TransportManager.can_embark(unit_id, transport_id)
+			if can_embark.valid:
+				_show_embark_prompt(unit_id, transport_id)
+				return  # Only show one prompt at a time
+
+func _show_embark_prompt(unit_id: String, transport_id: String) -> void:
+	"""Show dialog asking if player wants to embark unit"""
+	var dialog = ConfirmationDialog.new()
+	var unit = get_unit(unit_id)
+	var transport = get_unit(transport_id)
+
+	dialog.title = "Embark Unit"
+	dialog.dialog_text = "Do you want to embark %s into %s?" % [
+		unit.meta.get("name", unit_id),
+		transport.meta.get("name", transport_id)
+	]
+
+	dialog.get_ok_button().text = "Embark"
+	dialog.get_cancel_button().text = "Stay Deployed"
+
+	dialog.confirmed.connect(func():
+		TransportManager.embark_unit(unit_id, transport_id)
+		log_phase_message("Unit %s embarked in transport %s" % [
+			unit.meta.get("name", unit_id),
+			transport.meta.get("name", transport_id)
+		])
+		dialog.queue_free()
+	)
+
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _get_unit_center_position(unit_id: String) -> Vector2:
+	"""Get the center position of a unit (average of all alive models)"""
+	var unit = get_unit(unit_id)
+	if not unit:
+		return Vector2.ZERO
+
+	var center = Vector2.ZERO
+	var count = 0
+
+	for model in unit.models:
+		if model.alive and model.position != null:
+			center += Vector2(model.position.x, model.position.y)
+			count += 1
+
+	if count > 0:
+		center /= count
+
+	return center
+
+# Add new actions for transport operations
+
+func validate_action_with_transport_check(action: Dictionary) -> Dictionary:
+	"""Enhanced validation that checks for transport operations"""
+	var action_type = action.get("type", "")
+
+	# Check for disembark action
+	if action_type == "DISEMBARK_UNIT":
+		return _validate_disembark_unit(action)
+	elif action_type == "CONFIRM_DISEMBARK":
+		return _validate_confirm_disembark(action)
+
+	# For normal movement actions, check if unit is embarked
+	var movement_actions = ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"]
+	if action_type in movement_actions:
+		var unit_id = action.get("actor_unit_id", "")
+		if unit_id != "":
+			var unit = get_unit(unit_id)
+			if unit and unit.get("embarked_in", null) != null:
+				# Redirect to disembark flow
+				return {"valid": false, "redirect_to": "DISEMBARK", "unit_id": unit_id}
+
+	# Otherwise use normal validation
+	return validate_action(action)
+
+func _validate_disembark_unit(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	if unit.get("embarked_in", null) == null:
+		return {"valid": false, "errors": ["Unit is not embarked"]}
+
+	var validation = TransportManager.can_disembark(unit_id)
+	if not validation.valid:
+		return {"valid": false, "errors": [validation.reason]}
+
+	return {"valid": true, "errors": []}
+
+func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var positions = action.get("payload", {}).get("positions", [])
+
+	if positions.size() == 0:
+		return {"valid": false, "errors": ["No positions provided for disembark"]}
+
+	# Validate each position
+	var unit = get_unit(unit_id)
+	var transport_id = unit.get("embarked_in", null)
+	var transport = get_unit(transport_id)
+
+	if not transport:
+		return {"valid": false, "errors": ["Transport not found"]}
+
+	# Get transport position for range check
+	var transport_pos = _get_unit_center_position(transport_id)
+	print("DEBUG MovementPhase: Transport position: ", transport_pos)
+
+	for i in range(positions.size()):
+		if i >= unit.models.size():
+			break
+
+		if not unit.models[i].alive:
+			continue
+
+		var pos = positions[i]
+		print("DEBUG MovementPhase: Model position: ", pos)
+
+		var dist_center_to_center = Measurement.distance_inches(pos, transport_pos)
+		print("DEBUG MovementPhase: Center-to-center distance (inches): ", dist_center_to_center)
+
+		# Calculate edge-to-edge distance (center-to-center minus both radii)
+		var transport_base_radius_inches = 0.0
+		if transport.models.size() > 0:
+			var radius_px = Measurement.base_radius_px(transport.models[0].base_mm)
+			transport_base_radius_inches = Measurement.px_to_inches(radius_px)
+
+		var dist_edge_to_edge = dist_center_to_center - transport_base_radius_inches
+		print("DEBUG MovementPhase: Edge-to-edge distance (inches): ", dist_edge_to_edge)
+
+		if dist_edge_to_edge > 3.0:
+			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % dist_edge_to_edge]}
+
+		# Check engagement range
+		if _position_in_engagement_range(pos, unit.owner):
+			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
+
+	return {"valid": true, "errors": []}
+
+func _position_in_engagement_range(pos: Vector2, owner: int) -> bool:
+	"""Check if a position is within engagement range of any enemy model"""
+	var enemy_player = 3 - owner
+	for enemy_id in game_state_snapshot.units:
+		var enemy = game_state_snapshot.units[enemy_id]
+		if enemy.owner != enemy_player:
+			continue
+
+		# Skip embarked enemies
+		if enemy.get("embarked_in", null) != null:
+			continue
+
+		for model in enemy.models:
+			if not model.alive or model.position == null:
+				continue
+
+			var model_pos = Vector2(model.position.x, model.position.y)
+			if Measurement.distance_inches(pos, model_pos) <= 1.0:
+				return true
+
+	return false
+
+# Disembark action handlers
+
+func _process_disembark_unit(action: Dictionary) -> Dictionary:
+	"""Start the disembark process by showing dialog"""
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
+
+	# Check if unit can disembark
+	var validation = TransportManager.can_disembark(unit_id)
+	if not validation.valid:
+		return create_result(false, [], validation.reason)
+
+	# Show disembark dialog
+	call_deferred("_show_disembark_dialog", unit_id)
+
+	log_phase_message("Starting disembark for %s" % unit.meta.get("name", unit_id))
+	return create_result(true, [])
+
+func _show_disembark_dialog(unit_id: String) -> void:
+	"""Show disembark confirmation dialog"""
+	var dialog = preload("res://scripts/DisembarkDialog.gd").new()
+	dialog.setup(unit_id)
+	dialog.disembark_confirmed.connect(_on_disembark_confirmed.bind(unit_id))
+	dialog.disembark_cancelled.connect(_on_disembark_cancelled.bind(unit_id))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_disembark_confirmed(unit_id: String) -> void:
+	"""Handle disembark confirmation - start placement"""
+	var controller = preload("res://scripts/DisembarkController.gd").new()
+	controller.disembark_completed.connect(_on_disembark_placement_completed)
+	controller.disembark_cancelled.connect(_on_disembark_placement_cancelled)
+	get_tree().root.add_child(controller)
+	controller.start_disembark(unit_id)
+
+func _on_disembark_cancelled(unit_id: String) -> void:
+	"""Handle disembark cancellation"""
+	log_phase_message("Disembark cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
+
+func _on_disembark_placement_completed(unit_id: String, positions: Array) -> void:
+	"""Handle completed disembark placement"""
+	# Use TransportManager to handle the disembark
+	TransportManager.disembark_unit(unit_id, positions)
+
+	var unit = get_unit(unit_id)
+	log_phase_message("Unit %s disembarked" % unit.meta.get("name", unit_id))
+
+	# Check if unit can move after disembark (if transport hasn't moved)
+	var unit_refreshed = get_unit(unit_id)  # Get updated unit state
+	if not unit_refreshed.get("flags", {}).get("cannot_move", false):
+		# Unit can move - initialize movement for them
+		call_deferred("_offer_movement_after_disembark", unit_id)
+
+func _offer_movement_after_disembark(unit_id: String) -> void:
+	"""Offer the option to move after disembark if transport hasn't moved"""
+	var unit = get_unit(unit_id)
+
+	# Check if unit can still move
+	if unit.get("flags", {}).get("cannot_move", false):
+		return  # Unit cannot move due to transport restrictions
+
+	# Automatically initialize movement for the unit (no dialog needed)
+	# The unit can move, so set up the movement state immediately
+	log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
+	_initialize_movement_for_disembarked_unit(unit_id)
+
+func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
+	"""Initialize movement state for a unit that just disembarked"""
+	log_phase_message("Initializing movement for disembarked unit: %s" % unit_id)
+	var unit = get_unit(unit_id)
+	var move_inches = get_unit_movement(unit)
+
+	log_phase_message("Setting up active_moves for %s with %d\" movement" % [unit_id, move_inches])
+
+	# Set up active movement similar to BEGIN_NORMAL_MOVE
+	active_moves[unit_id] = {
+		"mode": "NORMAL",
+		"mode_locked": true,  # Lock to normal move since they just disembarked
+		"completed": false,
+		"move_cap_inches": move_inches,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"model_distances": {},
+		"dice_rolls": [],
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {},
+		"accumulated_distance": 0.0  # Track distance moved
+	}
+
+	# Store original positions for reset capability
+	log_phase_message("Storing original positions for %s models" % unit_id)
+	for i in range(unit.models.size()):
+		var model = unit.models[i]
+		if model.alive and model.position:
+			var pos = Vector2(model.position.x, model.position.y)
+			active_moves[unit_id]["original_positions"][model.id] = pos
+			active_moves[unit_id]["model_distances"][model.id] = 0.0
+			log_phase_message("  Model %s original position: %s" % [model.id, pos])
+
+	# Apply movement capability state changes
+	var changes = [
+		{
+			"op": "set",
+			"path": "units.%s.flags.move_cap_inches" % unit_id,
+			"value": move_inches
+		}
+	]
+
+	# Apply through parent if it exists (PhaseManager)
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update our local copy of the state
+	var local_unit = game_state_snapshot.units[unit_id]
+	if not local_unit.has("flags"):
+		local_unit["flags"] = {}
+	local_unit.flags["move_cap_inches"] = move_inches
+
+	log_phase_message("Active moves successfully set up for %s. Total active moves: %s" % [unit_id, active_moves.keys()])
+
+	emit_signal("unit_move_begun", unit_id, "NORMAL")
+	log_phase_message("Movement initialized for disembarked unit %s (M: %d\")" % [unit.meta.get("name", unit_id), move_inches])
+
+func _on_disembark_placement_cancelled(unit_id: String) -> void:
+	"""Handle cancelled disembark placement"""
+	log_phase_message("Disembark placement cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
+
+func _on_transport_manager_disembark_completed(unit_id: String) -> void:
+	"""Handle disembark completion from TransportManager (via MovementController)"""
+	log_phase_message("TransportManager reports disembark completed for %s" % unit_id)
+
+	# IMPORTANT: Update our local snapshot to get the new positions after disembark
+	# The TransportManager just updated GameState, so we need fresh data
+	game_state_snapshot = GameState.state.duplicate(true)
+	log_phase_message("Refreshed game state snapshot after disembark")
+
+	# Check if the unit can move after disembark
+	var unit = get_unit(unit_id)
+	if unit and not unit.get("flags", {}).get("cannot_move", false):
+		# Unit can move - initialize movement for them
+		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
+		_initialize_movement_for_disembarked_unit(unit_id)
+	else:
+		log_phase_message("Unit %s cannot move after disembark (transport moved)" % unit.meta.get("name", unit_id))
+
+func _process_confirm_disembark(action: Dictionary) -> Dictionary:
+	"""Process confirmation of disembark positions"""
+	var unit_id = action.get("actor_unit_id", "")
+	var positions = action.get("payload", {}).get("positions", [])
+
+	# Validate positions
+	var validation = _validate_confirm_disembark(action)
+	if not validation.valid:
+		return create_result(false, [], validation.errors[0])
+
+	# Execute disembark
+	TransportManager.disembark_unit(unit_id, positions)
+
+	var unit = get_unit(unit_id)
+	log_phase_message("Unit %s disembarked via action" % unit.meta.get("name", unit_id))
+
+	return create_result(true, [])

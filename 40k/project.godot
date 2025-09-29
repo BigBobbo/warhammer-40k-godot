@@ -36,6 +36,7 @@ EnhancedLineOfSight="*res://autoloads/EnhancedLineOfSight.gd"
 MissionManager="*res://autoloads/MissionManager.gd"
 MeasuringTapeManager="*res://autoloads/MeasuringTapeManager.gd"
 LineOfSightManager="*res://autoloads/LineOfSightManager.gd"
+TransportManager="*res://autoloads/TransportManager.gd"
 
 [editor_plugins]
 

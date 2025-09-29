@@ -130,7 +130,49 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Ensure flags exist
 			if not unit.has("flags"):
 				unit["flags"] = {}
-			
+
+			# Add transport-related fields
+			unit["embarked_in"] = null  # Transport unit ID if embarked
+			unit["disembarked_this_phase"] = false  # Track disembark status
+
+			# Check if unit has TRANSPORT keyword and add transport_data
+			if unit.has("meta") and unit.meta.has("keywords"):
+				if "TRANSPORT" in unit.meta.keywords:
+					# Parse transport abilities to extract capacity
+					var capacity = 0
+					var capacity_keywords = []
+					var firing_deck = 0
+
+					if unit.meta.has("abilities"):
+						for ability in unit.meta.abilities:
+							if ability.has("name") and ability.name == "TRANSPORT":
+								# Parse capacity from description
+								var desc = ability.get("description", "")
+								# Look for pattern like "transport capacity of 22 ORKS INFANTRY"
+								var regex = RegEx.new()
+								regex.compile("transport capacity of (\\d+)")
+								var match = regex.search(desc)
+								if match:
+									capacity = int(match.get_string(1))
+
+								# Extract keywords (e.g., "ORKS INFANTRY")
+								if desc.contains("ORKS INFANTRY"):
+									capacity_keywords = ["ORKS", "INFANTRY"]
+							elif ability.has("name") and ability.name == "FIRING DECK":
+								var desc = ability.get("description", "")
+								var regex = RegEx.new()
+								regex.compile("Firing Deck (\\d+)")
+								var match = regex.search(desc)
+								if match:
+									firing_deck = int(match.get_string(1))
+
+					unit["transport_data"] = {
+						"capacity": capacity,
+						"capacity_keywords": capacity_keywords,
+						"embarked_units": [],
+						"firing_deck": firing_deck
+					}
+
 			print("Processed unit: ", unit_id, " for player ", player)
 	
 	current_army_data = army_data
