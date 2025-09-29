@@ -123,34 +123,97 @@ func _draw_range_indicator() -> void:
 	# Get the 3" range in pixels
 	var range_px = Measurement.inches_to_px(3.0)
 
-	# For non-circular bases, we need to draw a more complex shape
-	# For simplicity, we'll draw a larger version of the base shape
-	var effective_range = range_px
-	if transport_base_shape and transport_base_shape.get_type() == "circular":
-		var circular_base = transport_base_shape as CircularBase
-		effective_range += circular_base.radius
-	elif transport_base_shape and transport_base_shape.get_type() == "rectangular":
-		# For rectangular, use the larger dimension
-		var rect_base = transport_base_shape as RectangularBase
-		effective_range += max(rect_base.length, rect_base.width) / 2.0
-	elif transport_base_shape and transport_base_shape.get_type() == "oval":
-		# For oval, use the larger dimension
-		var oval_base = transport_base_shape as OvalBase
-		effective_range += max(oval_base.length, oval_base.width) / 2.0
+	# Create a shape that represents 3" from the transport's actual base shape
+	if transport_base_shape:
+		_draw_shape_based_range(range_visual, range_px)
+	else:
+		# Fallback to circular
+		_draw_circular_range(range_visual, range_px)
 
-	# Custom draw using _draw override would be better, but for now use Line2D
+func _draw_shape_based_range(range_visual: Node2D, range_px: float) -> void:
+	var shape_type = transport_base_shape.get_type()
+
+	if shape_type == "circular":
+		var circular_base = transport_base_shape as CircularBase
+		var total_radius = circular_base.radius + range_px
+		_draw_circular_range_with_radius(range_visual, total_radius)
+
+	elif shape_type == "rectangular":
+		var rect_base = transport_base_shape as RectangularBase
+		# Create an expanded rectangle: original dimensions + 2 * range_px
+		var expanded_length = rect_base.length + (2 * range_px)
+		var expanded_width = rect_base.width + (2 * range_px)
+		_draw_rectangular_range(range_visual, expanded_length, expanded_width)
+
+	elif shape_type == "oval":
+		var oval_base = transport_base_shape as OvalBase
+		# Create an expanded oval: original dimensions + 2 * range_px
+		var expanded_length = oval_base.length + (2 * range_px)
+		var expanded_width = oval_base.width + (2 * range_px)
+		_draw_oval_range(range_visual, expanded_length, expanded_width)
+
+func _draw_circular_range(range_visual: Node2D, range_px: float) -> void:
+	# Fallback for when we don't have transport shape info
+	var default_radius = Measurement.base_radius_px(32) + range_px
+	_draw_circular_range_with_radius(range_visual, default_radius)
+
+func _draw_circular_range_with_radius(range_visual: Node2D, radius: float) -> void:
 	var circle_points = PackedVector2Array()
 	var segments = 64
 	for i in range(segments + 1):
 		var angle = (i / float(segments)) * TAU
-		var point = transport_position + Vector2(cos(angle), sin(angle)) * effective_range
+		var point = transport_position + Vector2(cos(angle), sin(angle)) * radius
 		circle_points.append(point)
 
 	var line = Line2D.new()
 	line.points = circle_points
 	line.default_color = RANGE_COLOR
 	line.width = 2.0
-	line.z_index = -1  # Draw below models
+	line.z_index = -1
+	range_visual.add_child(line)
+
+func _draw_rectangular_range(range_visual: Node2D, length: float, width: float) -> void:
+	# Draw an expanded rectangle
+	var half_length = length / 2
+	var half_width = width / 2
+
+	var corners = [
+		Vector2(-half_length, -half_width),
+		Vector2(half_length, -half_width),
+		Vector2(half_length, half_width),
+		Vector2(-half_length, half_width),
+		Vector2(-half_length, -half_width)  # Close the shape
+	]
+
+	# Transform to world position
+	var world_points = PackedVector2Array()
+	for corner in corners:
+		world_points.append(transport_position + corner)
+
+	var line = Line2D.new()
+	line.points = world_points
+	line.default_color = RANGE_COLOR
+	line.width = 2.0
+	line.z_index = -1
+	range_visual.add_child(line)
+
+func _draw_oval_range(range_visual: Node2D, length: float, width: float) -> void:
+	# Draw an expanded oval using parametric equations
+	var oval_points = PackedVector2Array()
+	var segments = 64
+
+	for i in range(segments + 1):
+		var t = (i / float(segments)) * TAU
+		var x = (length / 2.0) * cos(t)
+		var y = (width / 2.0) * sin(t)
+		var point = transport_position + Vector2(x, y)
+		oval_points.append(point)
+
+	var line = Line2D.new()
+	line.points = oval_points
+	line.default_color = RANGE_COLOR
+	line.width = 2.0
+	line.z_index = -1
 	range_visual.add_child(line)
 
 func _create_ghost_for_model(idx: int) -> void:
@@ -188,17 +251,27 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 	var model = unit_data.models[model_idx]
 
 	# Must be within 3" of transport edge
-	# Calculate distance from the edge of the transport's base shape
+	# Calculate distance from the edge of the transport's base shape to the edge of the model's base
 	var dist_from_edge: float
 
 	if transport_base_shape:
-		# Get the closest point on the transport's edge to our position
-		var closest_edge_point = transport_base_shape.get_closest_edge_point(pos, transport_position, 0.0)
-		dist_from_edge = pos.distance_to(closest_edge_point)
+		# Create the disembarking model's base shape for more accurate measurement
+		var model_base_shape = Measurement.create_base_shape(model)
+
+		# Get the closest point on the transport's edge to the model's position
+		var closest_transport_edge = transport_base_shape.get_closest_edge_point(pos, transport_position, 0.0)
+
+		# Get the closest point on the model's edge to the transport
+		var closest_model_edge = model_base_shape.get_closest_edge_point(closest_transport_edge, pos, 0.0)
+
+		# Calculate edge-to-edge distance
+		dist_from_edge = closest_transport_edge.distance_to(closest_model_edge)
 	else:
 		# Fallback to simple circular calculation
 		var dist_from_center = pos.distance_to(transport_position)
-		dist_from_edge = dist_from_center - Measurement.base_radius_px(32)
+		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		var transport_radius = Measurement.base_radius_px(32)
+		dist_from_edge = dist_from_center - transport_radius - model_radius
 
 	var dist_inches = Measurement.px_to_inches(dist_from_edge)
 
