@@ -17,7 +17,7 @@ var ghost_visuals: Array = []
 var placed_tokens: Array = []
 var current_model_idx: int = 0
 var transport_position: Vector2
-var transport_base_radius: float = 0.0
+var transport_base_shape: BaseShape = null  # Store the transport's base shape
 
 # Visual layers
 var ghost_layer: Node2D
@@ -69,11 +69,12 @@ func start_disembark(p_unit_id: String) -> void:
 	# Calculate transport center position
 	transport_position = _calculate_transport_center()
 
-	# Get transport base radius for range calculation
+	# Get transport base shape for range calculation
 	if transport_data.models.size() > 0:
-		transport_base_radius = Measurement.base_radius_px(transport_data.models[0].base_mm)
+		transport_base_shape = Measurement.create_base_shape(transport_data.models[0])
 	else:
-		transport_base_radius = 0.0
+		# Fallback to circular base
+		transport_base_shape = CircularBase.new(Measurement.base_radius_px(32))
 
 	# Initialize positions array
 	model_positions.clear()
@@ -119,15 +120,30 @@ func _draw_range_indicator() -> void:
 	var range_visual = Node2D.new()
 	range_indicator.add_child(range_visual)
 
-	# Draw range circle (3" + transport base radius)
-	var range_px = Measurement.inches_to_px(3.0) + transport_base_radius
+	# Get the 3" range in pixels
+	var range_px = Measurement.inches_to_px(3.0)
+
+	# For non-circular bases, we need to draw a more complex shape
+	# For simplicity, we'll draw a larger version of the base shape
+	var effective_range = range_px
+	if transport_base_shape and transport_base_shape.get_type() == "circular":
+		var circular_base = transport_base_shape as CircularBase
+		effective_range += circular_base.radius
+	elif transport_base_shape and transport_base_shape.get_type() == "rectangular":
+		# For rectangular, use the larger dimension
+		var rect_base = transport_base_shape as RectangularBase
+		effective_range += max(rect_base.length, rect_base.width) / 2.0
+	elif transport_base_shape and transport_base_shape.get_type() == "oval":
+		# For oval, use the larger dimension
+		var oval_base = transport_base_shape as OvalBase
+		effective_range += max(oval_base.length, oval_base.width) / 2.0
 
 	# Custom draw using _draw override would be better, but for now use Line2D
 	var circle_points = PackedVector2Array()
 	var segments = 64
 	for i in range(segments + 1):
 		var angle = (i / float(segments)) * TAU
-		var point = transport_position + Vector2(cos(angle), sin(angle)) * range_px
+		var point = transport_position + Vector2(cos(angle), sin(angle)) * effective_range
 		circle_points.append(point)
 
 	var line = Line2D.new()
@@ -148,9 +164,8 @@ func _create_ghost_for_model(idx: int) -> void:
 	var model = unit_data.models[actual_idx]
 
 	var ghost = preload("res://scripts/GhostVisual.gd").new()
-	ghost.radius = Measurement.base_radius_px(model.base_mm)
 	ghost.owner_player = unit_data.owner
-	ghost.set_model_data(model)
+	ghost.set_model_data(model)  # This sets up the base shape
 	ghost.modulate.a = 0.6  # Semi-transparent
 
 	ghost_layer.add_child(ghost)
@@ -171,11 +186,20 @@ func _get_actual_model_index(placement_idx: int) -> int:
 
 func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 	var model = unit_data.models[model_idx]
-	var model_radius = Measurement.base_radius_px(model.base_mm)
 
 	# Must be within 3" of transport edge
-	var dist_from_center = pos.distance_to(transport_position)
-	var dist_from_edge = dist_from_center - transport_base_radius
+	# Calculate distance from the edge of the transport's base shape
+	var dist_from_edge: float
+
+	if transport_base_shape:
+		# Get the closest point on the transport's edge to our position
+		var closest_edge_point = transport_base_shape.get_closest_edge_point(pos, transport_position, 0.0)
+		dist_from_edge = pos.distance_to(closest_edge_point)
+	else:
+		# Fallback to simple circular calculation
+		var dist_from_center = pos.distance_to(transport_position)
+		dist_from_edge = dist_from_center - Measurement.base_radius_px(32)
+
 	var dist_inches = Measurement.px_to_inches(dist_from_edge)
 
 	# Allow placement within 3" of transport edge
@@ -197,17 +221,19 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 			if not enemy_model.alive or enemy_model.position == null:
 				continue
 
-			var enemy_pos = Vector2(enemy_model.position.x, enemy_model.position.y)
-			var enemy_radius = Measurement.base_radius_px(enemy_model.base_mm)
+			# Create a test model for shape-aware distance check
+			var test_model = model.duplicate()
+			test_model["position"] = {"x": pos.x, "y": pos.y}
+
+			# Use shape-aware distance calculation
+			var distance = Measurement.model_to_model_distance_px(test_model, enemy_model)
 			var engagement_dist = Measurement.inches_to_px(1.0)
 
-			# Check edge-to-edge distance
-			var edge_dist = pos.distance_to(enemy_pos) - model_radius - enemy_radius
-			if edge_dist <= engagement_dist:
+			if distance <= engagement_dist:
 				return {"valid": false, "reason": "Cannot disembark within Engagement Range"}
 
 	# Check for model overlaps
-	if _check_model_overlap(pos, model_radius, model_idx):
+	if _check_model_overlap(pos, model_idx):
 		return {"valid": false, "reason": "Model would overlap"}
 
 	# Check wall overlaps
@@ -221,14 +247,21 @@ func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 
 	return {"valid": true}
 
-func _check_model_overlap(pos: Vector2, radius: float, exclude_idx: int) -> bool:
+func _check_model_overlap(pos: Vector2, exclude_idx: int) -> bool:
+	# Get the current model's data for proper shape checking
+	var current_model = unit_data.models[exclude_idx].duplicate()
+	current_model["position"] = {"x": pos.x, "y": pos.y}
+
 	# Check against already placed models from this unit
 	for i in range(model_positions.size()):
 		if i != exclude_idx and model_positions[i] != null:
 			var other_pos = model_positions[i]
 			var other_idx = _get_actual_model_index(i)
-			var other_radius = Measurement.base_radius_px(unit_data.models[other_idx].base_mm)
-			if pos.distance_to(other_pos) < radius + other_radius:
+			var other_model = unit_data.models[other_idx].duplicate()
+			other_model["position"] = {"x": other_pos.x, "y": other_pos.y}
+
+			# Use proper shape-aware overlap detection
+			if Measurement.models_overlap(current_model, other_model):
 				return true
 
 	# Check against all other deployed models
@@ -247,10 +280,8 @@ func _check_model_overlap(pos: Vector2, radius: float, exclude_idx: int) -> bool
 			if not check_model.alive or check_model.position == null:
 				continue
 
-			var check_pos = Vector2(check_model.position.x, check_model.position.y)
-			var check_radius = Measurement.base_radius_px(check_model.base_mm)
-
-			if pos.distance_to(check_pos) < radius + check_radius:
+			# Use proper shape-aware overlap detection
+			if Measurement.models_overlap(current_model, check_model):
 				return true
 
 	return false

@@ -82,6 +82,13 @@ func create_base_shape(model: Dictionary) -> BaseShape:
 func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float:
 	var pos1 = model1.get("position", Vector2.ZERO)
 	var pos2 = model2.get("position", Vector2.ZERO)
+
+	# Handle position as Dictionary or Vector2
+	if pos1 is Dictionary:
+		pos1 = Vector2(pos1.get("x", 0), pos1.get("y", 0))
+	if pos2 is Dictionary:
+		pos2 = Vector2(pos2.get("x", 0), pos2.get("y", 0))
+
 	var rotation1 = model1.get("rotation", 0.0)
 	var rotation2 = model2.get("rotation", 0.0)
 

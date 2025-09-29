@@ -590,6 +590,11 @@
           "wounds": 14,
           "current_wounds": 14,
           "base_mm": 170,
+          "base_type": "oval",
+          "base_dimensions": {
+            "length": 170,
+            "width": 105
+          },
           "position": null,
           "alive": true,
           "status_effects": []

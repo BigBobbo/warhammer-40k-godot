@@ -78,14 +78,17 @@ func _ready() -> void:
 	
 	# Setup Terrain
 	_setup_terrain()
-	
+
 	# Setup Measuring Tape
 	_setup_measuring_tape()
-	
+
+	# Setup Transport Panel
+	_setup_transport_panel()
+
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
-	
+
 	connect_signals()
 	refresh_unit_list()
 	update_ui()
@@ -474,10 +477,174 @@ func _on_terrain_toggle(pressed: bool) -> void:
 func _on_measuring_tape_save_toggle(pressed: bool) -> void:
 	SettingsService.set_save_measurements(pressed)
 	print("Measuring tape save persistence: ", pressed)
-	if pressed:
-		_show_toast("Measurements will be saved with game state")
+
+func _setup_transport_panel() -> void:
+	print("Setting up transport panel...")
+
+	# Add transport info panel to HUD_Right
+	var hud_right = get_node_or_null("HUD_Right/VBoxContainer")
+	if not hud_right:
+		print("ERROR: HUD_Right/VBoxContainer not found for transport panel")
+		return
+
+	# Create transport panel container
+	var transport_panel = PanelContainer.new()
+	transport_panel.name = "TransportPanel"
+	transport_panel.visible = false  # Hidden by default
+	transport_panel.custom_minimum_size = Vector2(250, 120)
+
+	# Create VBox for transport info
+	var vbox = VBoxContainer.new()
+	transport_panel.add_child(vbox)
+
+	# Title label
+	var title_label = Label.new()
+	title_label.name = "TransportTitle"
+	title_label.text = "Transport Status"
+	title_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(title_label)
+
+	# Separator
+	vbox.add_child(HSeparator.new())
+
+	# Transport info label
+	var info_label = RichTextLabel.new()
+	info_label.name = "TransportInfo"
+	info_label.custom_minimum_size = Vector2(0, 60)
+	info_label.bbcode_enabled = true
+	info_label.fit_content = true
+	vbox.add_child(info_label)
+
+	# Action buttons container
+	var button_container = HBoxContainer.new()
+	button_container.name = "TransportActions"
+	vbox.add_child(button_container)
+
+	# Embark button (for units near transports)
+	var embark_button = Button.new()
+	embark_button.name = "EmbarkButton"
+	embark_button.text = "Embark"
+	embark_button.visible = false
+	embark_button.pressed.connect(_on_embark_button_pressed)
+	button_container.add_child(embark_button)
+
+	# Disembark button (for embarked units)
+	var disembark_button = Button.new()
+	disembark_button.name = "DisembarkButton"
+	disembark_button.text = "Disembark"
+	disembark_button.visible = false
+	disembark_button.pressed.connect(_on_disembark_button_pressed)
+	button_container.add_child(disembark_button)
+
+	# Add panel to HUD_Right
+	hud_right.add_child(transport_panel)
+	hud_right.move_child(transport_panel, 0)  # Place at top
+
+	print("Transport panel added to HUD_Right")
+
+func _on_embark_button_pressed() -> void:
+	print("Embark button pressed")
+	# Movement controller handles embark logic
+
+func _on_disembark_button_pressed() -> void:
+	print("Disembark button pressed")
+	# Movement controller handles disembark logic
+
+func update_transport_panel(unit_id: String = "") -> void:
+	"""Update transport panel based on selected unit"""
+	var transport_panel = get_node_or_null("HUD_Right/VBoxContainer/TransportPanel")
+	if not transport_panel:
+		return
+
+	var info_label = transport_panel.get_node("VBoxContainer/TransportInfo")
+	var embark_button = transport_panel.get_node("VBoxContainer/TransportActions/EmbarkButton")
+	var disembark_button = transport_panel.get_node("VBoxContainer/TransportActions/DisembarkButton")
+
+	if unit_id == "":
+		transport_panel.visible = false
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		transport_panel.visible = false
+		return
+
+	# Check if unit is a transport
+	if unit.has("transport_data"):
+		transport_panel.visible = true
+		var transport_data = unit.transport_data
+		var capacity = transport_data.get("capacity", 0)
+		var embarked_count = 0
+		for e_unit in TransportManager.get_embarked_units(unit_id):
+			embarked_count += e_unit.models.filter(func(m): return m.get("alive", true)).size()
+		var embarked_units = TransportManager.get_embarked_units(unit_id)
+
+		var info_text = "[b]Transport: %s[/b]\n" % unit.meta.get("name", unit_id)
+		info_text += "Capacity: %d/%d models\n" % [embarked_count, capacity]
+
+		if embarked_units.size() > 0:
+			info_text += "[color=green]Embarked units:[/color]\n"
+			for embarked_unit in embarked_units:
+				info_text += "• %s\n" % embarked_unit.meta.get("name", embarked_unit.id)
+		else:
+			info_text += "[color=gray]No embarked units[/color]\n"
+
+		if transport_data.get("firing_deck", 0) > 0:
+			info_text += "[color=yellow]Firing Deck: %d models[/color]" % transport_data.firing_deck
+
+		info_label.text = info_text
+		embark_button.visible = false
+		disembark_button.visible = false
+
+	# Check if unit is embarked
+	elif unit.get("embarked_in", null) != null:
+		transport_panel.visible = true
+		var transport = GameState.get_unit(unit.embarked_in)
+		var transport_name = transport.meta.get("name", unit.embarked_in) if transport else "Unknown"
+
+		var info_text = "[b]%s[/b]\n" % unit.meta.get("name", unit_id)
+		info_text += "[color=blue]Embarked in: %s[/color]\n" % transport_name
+
+		# Check if can disembark (only in movement phase)
+		if current_phase == GameStateData.Phase.MOVEMENT:
+			var can_disembark = TransportManager.can_disembark(unit_id)
+			if can_disembark.valid:
+				info_text += "[color=green]Can disembark[/color]"
+				disembark_button.visible = true
+			else:
+				info_text += "[color=red]Cannot disembark: %s[/color]" % can_disembark.reason
+				disembark_button.visible = false
+		else:
+			disembark_button.visible = false
+
+		info_label.text = info_text
+		embark_button.visible = false
+
+	# Check if unit can embark (only in movement/deployment phases)
+	elif current_phase in [GameStateData.Phase.DEPLOYMENT, GameStateData.Phase.MOVEMENT]:
+		# Check for nearby transports
+		var player = unit.get("owner", 0)
+		var can_embark_in_any = false
+
+		for t_id in GameState.state.units:
+			var transport = GameState.state.units[t_id]
+			if transport.owner == player and transport.has("transport_data"):
+				var validation = TransportManager.can_embark(unit_id, t_id)
+				if validation.valid:
+					can_embark_in_any = true
+					break
+
+		if can_embark_in_any:
+			transport_panel.visible = true
+			var info_text = "[b]%s[/b]\n" % unit.meta.get("name", unit_id)
+			info_text += "[color=green]Transport available nearby[/color]"
+			info_label.text = info_text
+			embark_button.visible = true
+			disembark_button.visible = false
+		else:
+			transport_panel.visible = false
 	else:
-		_show_toast("Measurements will NOT be saved")
+		transport_panel.visible = false
 
 func _setup_objectives() -> void:
 	print("Setting up objectives on board...")
@@ -721,7 +888,8 @@ func setup_command_controller() -> void:
 
 func setup_movement_controller() -> void:
 	print("Setting up MovementController...")
-	movement_controller = preload("res://scripts/MovementController.gd").new()
+	var movement_controller_script = load("res://scripts/MovementController.gd")
+	movement_controller = movement_controller_script.new()
 	movement_controller.name = "MovementController"
 	add_child(movement_controller)
 	
@@ -1274,15 +1442,18 @@ func update_ui() -> void:
 func _on_unit_selected(index: int) -> void:
 	if deployment_controller and deployment_controller.is_placing():
 		return
-	
+
 	var unit_id = unit_list.get_item_metadata(index)
-	
+
 	# Show detailed stats in bottom panel
 	var unit_data = GameState.get_unit(unit_id)
 	print("Main: Unit selected - ", unit_id)
 	print("Main: Unit data available - ", unit_data != null)
 	print("Main: Unit stats panel available - ", unit_stats_panel != null)
-	
+
+	# Update transport panel for selected unit
+	update_transport_panel(unit_id)
+
 	if unit_data and unit_stats_panel:
 		# Try the programmatic display_unit function stored as metadata
 		var display_func = unit_stats_panel.get_meta("display_unit", null)
@@ -1297,9 +1468,16 @@ func _on_unit_selected(index: int) -> void:
 	
 	# Handle unit selection based on current phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
-		deployment_controller.begin_deploy(unit_id)
-		show_unit_card(unit_id)
-		unit_list.visible = false
+		# Check if this is a transport unit
+		var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
+		if "TRANSPORT" in unit_keywords:
+			# For transports, show dialog to select units to embark
+			_show_transport_deployment_dialog(unit_id)
+		else:
+			# For non-transport units, deploy normally
+			deployment_controller.begin_deploy(unit_id)
+			show_unit_card(unit_id)
+			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Pass unit selection to MovementController
 		movement_controller.active_unit_id = unit_id
@@ -1336,8 +1514,15 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 	if not is_enemy:  # Player unit selected
 		# Handle unit selection based on current phase
 		if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
-			deployment_controller.begin_deploy(unit_id)
-			unit_list.visible = false
+			# Check if this is a transport unit
+			var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
+			if "TRANSPORT" in unit_keywords:
+				# For transports, show dialog to select units to embark
+				_show_transport_deployment_dialog(unit_id)
+			else:
+				# For non-transport units, deploy normally
+				deployment_controller.begin_deploy(unit_id)
+				unit_list.visible = false
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 			# Pass unit selection to MovementController
 			movement_controller.active_unit_id = unit_id
@@ -1672,7 +1857,12 @@ func _recreate_unit_visuals() -> void:
 	for unit_id in units:
 		var unit = units[unit_id]
 		print("  Processing unit ", unit_id, " - status: ", unit.get("status", 0))
-		
+
+		# Skip embarked units - they shouldn't be visible
+		if unit.get("embarked_in", null) != null:
+			print("    Unit is embarked - skipping visual creation")
+			continue
+
 		# Render units that are deployed or have moved/acted
 		var status = unit.get("status", 0)
 		if status >= GameStateData.UnitStatus.DEPLOYED:
@@ -1715,10 +1905,9 @@ func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 	# Set properties
 	var unit = GameState.get_unit(unit_id)
 	token.owner_player = unit.get("owner", 1)
-	token.radius = Measurement.base_radius_px(model.get("base_mm", 32))
 	token.is_preview = false
 
-	# Set the complete model data for proper shape handling
+	# Pass complete model data for base shape handling
 	token.set_model_data(model)
 
 	# Extract model number from ID (e.g., "m1" -> 1)
@@ -1943,7 +2132,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	current_phase = new_phase
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
-	
+
+	# Clear transport panel when phase changes
+	update_transport_panel("")
+
 	await setup_phase_controllers()
 	update_ui_for_phase()
 	
@@ -2389,6 +2581,26 @@ func _clear_right_panel_phase_ui() -> void:
 			print("Main: Removing unrecognized phase UI: ", child.name)
 			container.remove_child(child)
 			child.queue_free()
+
+func _show_transport_deployment_dialog(transport_id: String) -> void:
+	"""Show info about deploying a transport and offer to embark units"""
+	print("Main: Transport selected for deployment: ", transport_id)
+
+	var transport = GameState.get_unit(transport_id)
+	var transport_name = transport.get("meta", {}).get("name", transport_id)
+
+	# For now, deploy the transport empty
+	# Units can be embarked after deployment by deploying them directly into the transport
+	print("Main: Deploying transport ", transport_name, " - deploy INFANTRY units afterwards to embark them")
+
+	# Update status to inform user
+	if status_label:
+		status_label.text = "Deploying %s - Deploy INFANTRY units after to embark them" % transport_name
+
+	# Deploy the transport
+	deployment_controller.begin_deploy(transport_id)
+	show_unit_card(transport_id)
+	unit_list.visible = false
 
 func _debug_check_right_panel() -> void:
 	"""Debug method to validate right panel state"""

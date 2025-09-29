@@ -336,8 +336,6 @@ func _create_ghost() -> void:
 	var unit_data = GameState.get_unit(unit_id)
 	if model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
-		var base_mm = model_data["base_mm"]
-		ghost_sprite.radius = Measurement.base_radius_px(base_mm)
 		ghost_sprite.owner_player = unit_data["owner"]
 		# Set the complete model data for shape handling
 		ghost_sprite.set_model_data(model_data)
@@ -356,8 +354,6 @@ func _update_ghost_for_next_model() -> void:
 	var unit_data = GameState.get_unit(unit_id)
 	if model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
-		var base_mm = model_data["base_mm"]
-		ghost_sprite.radius = Measurement.base_radius_px(base_mm)
 		# Update model data for the next model
 		ghost_sprite.set_model_data(model_data)
 		# Reset rotation for new model
@@ -379,10 +375,7 @@ func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_pr
 	# Add rotation to model data
 	model_data["rotation"] = rotation
 	var base_mm = model_data["base_mm"]
-	var radius_px = Measurement.base_radius_px(base_mm)
-
 	var base_circle = preload("res://scripts/TokenVisual.gd").new()
-	base_circle.radius = radius_px
 	base_circle.owner_player = unit_data["owner"]
 	base_circle.is_preview = is_preview
 	base_circle.model_number = model_index + 1
@@ -725,7 +718,6 @@ func _create_formation_ghosts(count: int) -> void:
 		var model_data = unit_data["models"][model_index]
 		var ghost = preload("res://scripts/GhostVisual.gd").new()
 		ghost.name = "FormationGhost_%d" % i
-		ghost.radius = Measurement.base_radius_px(model_data["base_mm"])
 		ghost.owner_player = unit_data["owner"]
 		ghost.set_model_data(model_data)
 		ghost.modulate.a = 0.6  # Slightly transparent for formation ghosts
@@ -832,7 +824,6 @@ func _start_model_repositioning(deployed_model: Dictionary) -> void:
 	var model_data = deployed_model.model_data
 	reposition_ghost = preload("res://scripts/GhostVisual.gd").new()
 	reposition_ghost.name = "RepositionGhost"
-	reposition_ghost.radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
 	reposition_ghost.owner_player = GameState.get_active_player()
 	reposition_ghost.set_model_data(model_data)
 	ghost_layer.add_child(reposition_ghost)
