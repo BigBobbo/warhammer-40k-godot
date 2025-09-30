@@ -3,6 +3,10 @@ extends GutTest
 # Test melee dice display format and functionality
 # Tests the fixes from GitHub Issue #32
 
+func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 func test_melee_dice_format():
 	# Test dice result format matches expected structure
 	var rng = RulesEngine.RNGService.new()

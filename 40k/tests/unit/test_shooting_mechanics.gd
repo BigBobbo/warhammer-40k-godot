@@ -6,6 +6,9 @@ var test_board: Dictionary
 var rng_service
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Setup test board state
 	test_board = {
 		"units": {

@@ -6,6 +6,9 @@ var los_calculator: LineOfSightCalculator
 var test_terrain: Array
 
 func before_each() -> void:
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	los_calculator = LineOfSightCalculator.new()
 	test_terrain = []
 

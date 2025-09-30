@@ -3,6 +3,9 @@ extends GutTest
 # Integration tests for terrain system with other game systems
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Reset game state
 	GameState.initialize_default_state()
 	

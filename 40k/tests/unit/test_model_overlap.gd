@@ -3,6 +3,9 @@ extends GutTest
 # Test overlap detection for models in movement phase
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	gut.p("Setting up test...")
 
 func after_each():

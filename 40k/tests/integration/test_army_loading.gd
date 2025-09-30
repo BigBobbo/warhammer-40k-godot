@@ -6,6 +6,9 @@ extends GutTest
 var original_game_state: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Backup original game state
 	if GameState:
 		original_game_state = GameState.state.duplicate(true)

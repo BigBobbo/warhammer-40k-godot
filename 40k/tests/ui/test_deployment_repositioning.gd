@@ -2,24 +2,31 @@ extends GutTest
 
 # test_deployment_repositioning.gd - Unit tests for deployment model repositioning feature
 
-var dc: DeploymentController
+var dc  # DeploymentController - no type hint to avoid parse error
 var test_unit_id: String = "test_unit"
 var test_model_data: Dictionary = {
 	"base_mm": 32,
 	"base_type": "circular"
 }
-var test_unit: Dictionary = {
-	"id": test_unit_id,
-	"owner": 1,
-	"status": GameStateData.UnitStatus.UNDEPLOYED,
-	"models": [
-		{"base_mm": 32, "base_type": "circular"},
-		{"base_mm": 32, "base_type": "circular"},
-		{"base_mm": 32, "base_type": "circular"}
-	]
-}
+var test_unit: Dictionary  # Initialized in before_each
 
-func setup_deployment_controller() -> DeploymentController:
+func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
+	# Initialize test unit (requires GameStateData to be loaded)
+	test_unit = {
+		"id": test_unit_id,
+		"owner": 1,
+		"status": GameStateData.UnitStatus.UNDEPLOYED,
+		"models": [
+			{"base_mm": 32, "base_type": "circular"},
+			{"base_mm": 32, "base_type": "circular"},
+			{"base_mm": 32, "base_type": "circular"}
+		]
+	}
+
+func setup_deployment_controller():
 	"""Helper to set up a deployment controller for testing"""
 	dc = DeploymentController.new()
 
@@ -31,20 +38,24 @@ func setup_deployment_controller() -> DeploymentController:
 	dc.set_layers(token_layer, ghost_layer)
 
 	# Setup test state
-	GameState.state = {
-		"units": {test_unit_id: test_unit},
-		"meta": {"active_player": 1}
-	}
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
+		game_state.state = {
+			"units": {test_unit_id: test_unit},
+			"meta": {"active_player": 1}
+		}
 
 	# Setup deployment zone
-	BoardState.deployment_zones = {
-		1: {"poly": [
-			{"x": 0, "y": 0},
-			{"x": 1000, "y": 0},
-			{"x": 1000, "y": 500},
-			{"x": 0, "y": 500}
-		]}
-	}
+	if Engine.has_singleton("BoardState"):
+		var board_state = Engine.get_singleton("BoardState")
+		board_state.deployment_zones = {
+			1: {"poly": [
+				{"x": 0, "y": 0},
+				{"x": 1000, "y": 0},
+				{"x": 1000, "y": 500},
+				{"x": 0, "y": 500}
+			]}
+		}
 
 	return dc
 
@@ -154,7 +165,9 @@ func test_coherency_maintenance():
 	for i in range(5):
 		large_unit["models"].append({"base_mm": 32, "base_type": "circular"})
 
-	GameState.state["units"][test_unit_id] = large_unit
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
+		game_state.state["units"][test_unit_id] = large_unit
 	dc.begin_deploy(test_unit_id)
 
 	# Place models in formation
@@ -192,7 +205,9 @@ func test_reposition_with_different_base_shapes():
 
 	var rect_unit = test_unit.duplicate()
 	rect_unit["models"] = [rect_model_data, rect_model_data]
-	GameState.state["units"][test_unit_id] = rect_unit
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
+		game_state.state["units"][test_unit_id] = rect_unit
 
 	dc.begin_deploy(test_unit_id)
 	dc.try_place_at(Vector2(400, 400))

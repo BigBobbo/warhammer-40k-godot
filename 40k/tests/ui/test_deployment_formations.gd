@@ -6,6 +6,9 @@ var deployment_controller: Node
 var unit_data: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	deployment_controller = preload("res://scripts/DeploymentController.gd").new()
 
 	# Create test unit data with 10 models
@@ -25,11 +28,13 @@ func before_each():
 		})
 
 	# Mock GameState to return our test unit
-	GameState.state = {
-		"units": {
-			"test_unit": unit_data
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
+		game_state.state = {
+			"units": {
+				"test_unit": unit_data
+			}
 		}
-	}
 
 func after_each():
 	if deployment_controller:

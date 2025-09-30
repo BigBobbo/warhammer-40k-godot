@@ -8,6 +8,9 @@ var main_scene
 var camera: Camera2D
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Load the main scene for UI testing
 	scene_runner = get_scene_runner()
 	scene_runner.load_scene("res://scenes/Main.tscn")
@@ -31,9 +34,10 @@ func after_each():
 
 func reset_game_state():
 	# Reset GameState to known clean state
-	if GameState:
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
 		var clean_state = TestDataFactory.create_clean_state()
-		GameState.load_from_snapshot(clean_state)
+		game_state.load_from_snapshot(clean_state)
 
 # Button interaction methods
 func click_button(button_name: String):
@@ -47,15 +51,15 @@ func click_button(button_name: String):
 	scene_runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	await await_input_processed()
 
-func assert_button_visible(button_name: String, visible: bool = true):
+func assert_button_visible(button_name: String, visible: bool = true, message: String = ""):
 	var button = find_ui_element(button_name, Button)
 	assert_not_null(button, "Button should exist: " + button_name)
-	assert_eq(visible, button.visible, "Button " + button_name + " visibility should be " + str(visible))
+	assert_eq(visible, button.visible, message if message else "Button " + button_name + " visibility should be " + str(visible))
 
-func assert_button_enabled(button_name: String, enabled: bool = true):
+func assert_button_enabled(button_name: String, enabled: bool = true, message: String = ""):
 	var button = find_ui_element(button_name, Button)
 	assert_not_null(button, "Button should exist: " + button_name)
-	assert_eq(enabled, not button.disabled, "Button " + button_name + " enabled state should be " + str(enabled))
+	assert_eq(enabled, not button.disabled, message if message else "Button " + button_name + " enabled state should be " + str(enabled))
 
 # Mouse simulation methods
 func drag_model(from_pos: Vector2, to_pos: Vector2):
@@ -153,8 +157,9 @@ func get_unit_list_count() -> int:
 
 # Phase transition helpers
 func transition_to_phase(phase: GameStateData.Phase):
-	if PhaseManager:
-		PhaseManager.transition_to_phase(phase)
+	if Engine.has_singleton("PhaseManager"):
+		var phase_manager = Engine.get_singleton("PhaseManager")
+		phase_manager.transition_to_phase(phase)
 		await await_input_processed()
 
 func click_end_phase_button():
@@ -207,10 +212,10 @@ func assert_status_message(expected_text: String):
 	assert_not_null(status_label, "Status label should exist")
 	assert_eq(expected_text, status_label.text, "Status should show correct message")
 
-func assert_unit_card_visible(visible: bool = true):
+func assert_unit_card_visible(visible: bool = true, message: String = ""):
 	var unit_card = find_ui_element("UnitCard", VBoxContainer)
 	assert_not_null(unit_card, "Unit card should exist")
-	assert_eq(visible, unit_card.visible, "Unit card visibility should be " + str(visible))
+	assert_eq(visible, unit_card.visible, message if message else "Unit card visibility should be " + str(visible))
 
 # Camera and viewport helpers
 func get_test_viewport() -> Viewport:
@@ -220,6 +225,15 @@ func wait_for_ui_update():
 	# Wait multiple frames for UI to fully update
 	await await_input_processed()
 	await await_input_processed()
+
+# Collection assertion helpers
+func assert_has(container, item, message: String = ""):
+	var contains = item in container
+	assert_true(contains, message if message else str(container) + " should contain " + str(item))
+
+func assert_does_not_have(container, item, message: String = ""):
+	var contains = item in container
+	assert_false(contains, message if message else str(container) + " should not contain " + str(item))
 
 # Error handling helpers
 func expect_no_errors():

@@ -7,6 +7,9 @@ var test_game_state: GameStateData
 var initial_snapshot: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Create a fresh GameState instance for testing
 	test_game_state = GameStateData.new()
 	test_game_state.initialize_default_state()

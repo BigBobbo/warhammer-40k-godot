@@ -8,6 +8,9 @@ class_name TestNonCircularLoS
 var test_board: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Set up clean test environment
 	test_board = {
 		"terrain_features": [],

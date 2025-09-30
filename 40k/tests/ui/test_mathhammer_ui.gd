@@ -7,17 +7,20 @@ var mathhammer_ui: MathhhammerUI
 var test_scene: Node
 
 func before_each():
+	# Ensure autoloads are available in headless mode
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Create test scene
 	test_scene = Node.new()
 	add_child(test_scene)
-	
+
 	# Create MathhhammerUI instance
 	mathhammer_ui = MathhhammerUI.new()
 	test_scene.add_child(mathhammer_ui)
-	
+
 	# Setup mock game state
 	_setup_mock_game_state()
-	
+
 	# Wait for _ready to complete
 	await get_tree().process_frame
 
@@ -29,8 +32,9 @@ func after_each():
 
 func _setup_mock_game_state():
 	# Create mock units for testing
-	if GameState:
-		GameState.state = {
+	if Engine.has_singleton("GameState"):
+		var game_state = Engine.get_singleton("GameState")
+		game_state.state = {
 			"units": {
 				"TEST_ATTACKER": {
 					"id": "TEST_ATTACKER",

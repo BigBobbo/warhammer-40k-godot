@@ -5,6 +5,9 @@ extends GutTest
 var test_board: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	test_board = {
 		"units": {},
 		"terrain_features": [],

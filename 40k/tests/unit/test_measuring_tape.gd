@@ -3,6 +3,9 @@ extends GutTest
 # Unit tests for MeasuringTapeManager functionality
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Clear any existing measurements before each test
 	if MeasuringTapeManager:
 		MeasuringTapeManager.clear_all_measurements()

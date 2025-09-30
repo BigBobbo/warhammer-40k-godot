@@ -8,6 +8,9 @@ var test_unit: Dictionary
 var test_large_unit: Dictionary
 
 func before_each() -> void:
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Create test transport with capacity
 	test_transport = {
 		"id": "TRANSPORT_1",

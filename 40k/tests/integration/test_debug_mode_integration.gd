@@ -7,6 +7,9 @@ var original_game_state: Dictionary
 var main_scene: Node
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Store original game state
 	if GameState:
 		original_game_state = GameState.state.duplicate(true)

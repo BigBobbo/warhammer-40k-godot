@@ -7,8 +7,11 @@ var army_manager: ArmyListManager
 var test_army_data: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	army_manager = ArmyListManager.new()
-	
+
 	# Create test army data
 	test_army_data = {
 		"faction": {

@@ -12,10 +12,13 @@ var last_phase_changed: GameStateData.Phase
 var last_action: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Create a mock GameState for testing
 	mock_game_state = GameStateData.new()
 	mock_game_state.initialize_default_state()
-	
+
 	# Create PhaseManager instance
 	test_phase_manager = preload("res://autoloads/PhaseManager.gd").new()
 	add_child(test_phase_manager)

@@ -6,6 +6,9 @@ extends GutTest
 var test_measurement: Node
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	test_measurement = preload("res://autoloads/Measurement.gd").new()
 
 func after_each():

@@ -8,6 +8,9 @@ var phase_instance
 var test_state: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	test_state = TestDataFactory.create_test_game_state()
 	setup_phase_instance()
 
@@ -125,10 +128,19 @@ func assert_dice_rolled(result: Dictionary, dice_type: String, message: String =
 	assert_true(result.has("dice"), "Result should contain dice information")
 	var dice_results = result.get("dice", [])
 	var found_dice_type = false
-	
+
 	for dice_result in dice_results:
 		if dice_result.get("context", "") == dice_type:
 			found_dice_type = true
 			break
-	
+
 	assert_true(found_dice_type, message if message else "Should have rolled dice for " + dice_type)
+
+# Collection assertion helpers
+func assert_has(container, item, message: String = ""):
+	var contains = item in container
+	assert_true(contains, message if message else str(container) + " should contain " + str(item))
+
+func assert_does_not_have(container, item, message: String = ""):
+	var contains = item in container
+	assert_false(contains, message if message else str(container) + " should not contain " + str(item))

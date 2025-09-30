@@ -8,6 +8,9 @@ var mock_attacker: Dictionary
 var mock_defender: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Setup test configuration
 	mock_attacker = {
 		"unit_id": "TEST_ATTACKER",

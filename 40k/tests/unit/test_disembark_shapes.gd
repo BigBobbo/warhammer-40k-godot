@@ -1,5 +1,9 @@
 extends GutTest
 
+func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 func test_rectangular_transport_disembark_range():
 	# Create a rectangular transport (Battlewagon)
 	var transport_model = {

@@ -4,6 +4,9 @@ extends GutTest
 # Tests objective placement, control calculation, and VP scoring
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Reset game state for each test
 	GameState.initialize_default_state()
 	

@@ -10,6 +10,9 @@ var temp_save_file: String
 var initial_state: Dictionary
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Create test instances
 	game_state = GameStateData.new()
 	game_state.initialize_default_state()

@@ -6,6 +6,9 @@ extends GutTest
 var debug_manager: Node
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Get reference to the DebugManager autoload
 	debug_manager = DebugManager
 	

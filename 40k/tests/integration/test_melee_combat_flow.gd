@@ -8,6 +8,9 @@ var fight_phase: FightPhase
 var fight_controller: FightController
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	test_game_state = GameStateData.new()
 	fight_phase = FightPhase.new()
 	fight_controller = FightController.new()

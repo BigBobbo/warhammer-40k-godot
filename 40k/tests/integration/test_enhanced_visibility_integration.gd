@@ -9,6 +9,9 @@ var test_state: Dictionary
 var shooting_controller: Node
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Set up clean game state with two units
 	test_state = {
 		"current_phase": "shooting",

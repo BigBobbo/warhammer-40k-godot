@@ -2,6 +2,10 @@ extends GutTest
 
 # Unit tests for wall mechanics in terrain system
 
+func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 func test_vehicle_cannot_cross_wall():
 	var wall = {
 		"start": Vector2(100, 100),

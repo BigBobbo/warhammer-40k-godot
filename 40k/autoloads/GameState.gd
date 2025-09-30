@@ -53,39 +53,43 @@ func initialize_default_state() -> void:
 	
 	# Load default armies
 	_load_default_armies()
-	
+
 	# Initialize terrain features from TerrainManager
-	if TerrainManager and TerrainManager.terrain_features.size() > 0:
-		state.board["terrain_features"] = TerrainManager.terrain_features.duplicate(true)
+	if Engine.has_singleton("TerrainManager"):
+		var terrain_manager = Engine.get_singleton("TerrainManager")
+		if terrain_manager and terrain_manager.terrain_features.size() > 0:
+			state.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
 func _load_default_armies() -> void:
 	print("GameState: Loading default armies...")
 	
 	# Check if ArmyListManager is available
-	if not ArmyListManager:
+	if not Engine.has_singleton("ArmyListManager"):
 		print("GameState: ArmyListManager not available, falling back to placeholder armies")
 		_initialize_placeholder_armies()
 		return
-	
+
+	var army_list_manager = Engine.get_singleton("ArmyListManager")
+
 	# Try to load test army for Player 1 (Adeptus Custodes)
-	var player1_army = ArmyListManager.load_army_list("adeptus_custodes", 1)
+	var player1_army = army_list_manager.load_army_list("adeptus_custodes", 1)
 	if not player1_army.is_empty():
 		print("GameState: Loading Adeptus Custodes army for Player 1")
-		ArmyListManager.apply_army_to_game_state(player1_army, 1)
+		army_list_manager.apply_army_to_game_state(player1_army, 1)
 	else:
 		print("GameState: Failed to load Adeptus Custodes, trying Space Marines for Player 1")
-		player1_army = ArmyListManager.load_army_list("space_marines", 1)
+		player1_army = army_list_manager.load_army_list("space_marines", 1)
 		if not player1_army.is_empty():
-			ArmyListManager.apply_army_to_game_state(player1_army, 1)
+			army_list_manager.apply_army_to_game_state(player1_army, 1)
 		else:
 			print("GameState: Failed to load Space Marines, using placeholder for Player 1")
 			_initialize_placeholder_armies_player(1)
-	
+
 	# Load opponent army (Orks for Player 2)
-	var player2_army = ArmyListManager.load_army_list("orks", 2)
+	var player2_army = army_list_manager.load_army_list("orks", 2)
 	if not player2_army.is_empty():
 		print("GameState: Loading Orks army for Player 2")
-		ArmyListManager.apply_army_to_game_state(player2_army, 2)
+		army_list_manager.apply_army_to_game_state(player2_army, 2)
 	else:
 		print("GameState: Failed to load Orks, using placeholder for Player 2")
 		_initialize_placeholder_armies_player(2)
@@ -305,22 +309,25 @@ func create_snapshot() -> Dictionary:
 	var snapshot = _deep_copy_dict(state)
 	
 	# Add terrain features from TerrainManager
-	if TerrainManager and TerrainManager.terrain_features.size() > 0:
-		snapshot.board["terrain_features"] = TerrainManager.terrain_features.duplicate(true)
-	
+	if Engine.has_singleton("TerrainManager"):
+		var terrain_manager = Engine.get_singleton("TerrainManager")
+		if terrain_manager and terrain_manager.terrain_features.size() > 0:
+			snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
+
 	# Add measuring tape data if persistence is enabled
-	if MeasuringTapeManager and MeasuringTapeManager.save_measurements:
-		var tape_data = MeasuringTapeManager.get_save_data()
-		if not tape_data.is_empty():
-			snapshot["measuring_tape"] = tape_data
-			print("[GameState] Adding %d measurements to snapshot" % tape_data.size())
-		else:
-			print("[GameState] No measurements to save (empty data)")
-	else:
-		if not MeasuringTapeManager:
-			print("[GameState] MeasuringTapeManager not available")
+	if Engine.has_singleton("MeasuringTapeManager"):
+		var measuring_tape_manager = Engine.get_singleton("MeasuringTapeManager")
+		if measuring_tape_manager and measuring_tape_manager.save_measurements:
+			var tape_data = measuring_tape_manager.get_save_data()
+			if not tape_data.is_empty():
+				snapshot["measuring_tape"] = tape_data
+				print("[GameState] Adding %d measurements to snapshot" % tape_data.size())
+			else:
+				print("[GameState] No measurements to save (empty data)")
 		else:
 			print("[GameState] Measuring tape persistence disabled")
+	else:
+		print("[GameState] MeasuringTapeManager not available")
 	
 	return snapshot
 
@@ -354,15 +361,17 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 	# Load terrain features if present
 	if state.has("board") and state.board.has("terrain_features"):
 		var terrain_features = state.board.get("terrain_features", [])
-		if terrain_features.size() > 0 and TerrainManager:
+		if terrain_features.size() > 0 and Engine.has_singleton("TerrainManager"):
+			var terrain_manager = Engine.get_singleton("TerrainManager")
 			# Clear and reload terrain
-			TerrainManager.terrain_features = terrain_features.duplicate(true)
-			TerrainManager.emit_signal("terrain_loaded", TerrainManager.terrain_features)
-	
+			terrain_manager.terrain_features = terrain_features.duplicate(true)
+			terrain_manager.emit_signal("terrain_loaded", terrain_manager.terrain_features)
+
 	# Load measuring tape data if present
-	if state.has("measuring_tape") and MeasuringTapeManager:
+	if state.has("measuring_tape") and Engine.has_singleton("MeasuringTapeManager"):
+		var measuring_tape_manager = Engine.get_singleton("MeasuringTapeManager")
 		print("[GameState] Found measuring tape data in save, loading %d measurements" % state["measuring_tape"].size())
-		MeasuringTapeManager.load_save_data(state["measuring_tape"])
+		measuring_tape_manager.load_save_data(state["measuring_tape"])
 	else:
 		if state.has("measuring_tape"):
 			print("[GameState] Has measuring_tape but MeasuringTapeManager not available")

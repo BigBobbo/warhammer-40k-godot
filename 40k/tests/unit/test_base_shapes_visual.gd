@@ -1,5 +1,9 @@
 extends GutTest
 
+func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 func test_battlewagon_has_rectangular_base():
 	var army = ArmyListManager.load_army_list("orks", 2)
 	var battlewagon = army.units.get("U_BATTLEWAGON_G")

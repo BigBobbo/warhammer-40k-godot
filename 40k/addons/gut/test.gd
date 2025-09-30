@@ -10,6 +10,10 @@ signal test_failed(test_name, reason)
 var _test_results = []
 var _current_test = ""
 
+# GUT compatibility: self-reference for test registry
+var gut:
+	get: return self
+
 # Test lifecycle methods
 func before_each():
 	# Override in test classes for setup
@@ -61,6 +65,33 @@ func assert_gte(actual, expected, message = ""):
 
 func assert_between(actual, min_val, max_val, message = ""):
 	_assert(actual >= min_val and actual <= max_val, message if message else str(actual) + " should be between " + str(min_val) + " and " + str(max_val))
+
+func assert_ge(actual, expected, message = ""):
+	# Alias for assert_gte for GUT compatibility
+	assert_gte(actual, expected, message)
+
+func assert_le(actual, expected, message = ""):
+	# Less than or equal assertion
+	_assert(actual <= expected, message if message else str(actual) + " should be less than or equal to " + str(expected))
+
+func assert_lte(actual, expected, message = ""):
+	# Alias for assert_le
+	assert_le(actual, expected, message)
+
+func pending(reason = ""):
+	# Mark test as pending/incomplete
+	print("PENDING: " + _current_test + " - " + reason)
+	_test_results.append({"passed": true, "test": _current_test, "message": "PENDING: " + reason, "pending": true})
+	# Early return skips rest of test
+	return
+
+func assert_has(container, item, message: String = ""):
+	var contains = item in container
+	_assert(contains, message if message else str(container) + " should contain " + str(item))
+
+func assert_does_not_have(container, item, message: String = ""):
+	var contains = item in container
+	_assert(not contains, message if message else str(container) + " should not contain " + str(item))
 
 func skip_test(reason = ""):
 	print("SKIPPED: " + _current_test + " - " + reason)

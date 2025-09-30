@@ -5,8 +5,11 @@ extends GutTest
 var phase: MovementPhase
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	phase = preload("res://phases/MovementPhase.gd").new()
-	
+
 	# Create a minimal game state for testing
 	var test_state = {
 		"game_id": "test_game",

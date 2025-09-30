@@ -10,6 +10,9 @@ var turn_manager: Node
 var action_logger: Node
 
 func before_each():
+	# Ensure autoloads available
+	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+
 	# Get autoload references
 	if Engine.has_singleton("GameManager"):
 		game_manager = Engine.get_singleton("GameManager")
