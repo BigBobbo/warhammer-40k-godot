@@ -37,27 +37,50 @@ var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 
 func _ready() -> void:
-	# Check if we're coming from main menu or loading a save
+	# DEBUG: Check current state before any initialization
+	print("Main: _ready() called")
+	print("Main: Current units count BEFORE check: ", GameState.state.get("units", {}).size())
+	if GameState.state.get("units", {}).size() > 0:
+		print("Main: Unit IDs in GameState: ", GameState.state.units.keys())
+	if GameState.state.has("meta"):
+		print("Main: Meta flags: ", GameState.state.meta.keys())
+		if GameState.state.meta.has("game_config"):
+			print("Main: Game config: ", GameState.state.meta.game_config)
+
+	# Check if we're coming from main menu, multiplayer lobby, or loading a save
 	var from_menu = GameState.state.meta.has("from_menu") if GameState.state.has("meta") else false
 	var from_save = GameState.state.meta.has("from_save") if GameState.state.has("meta") else false
-	
-	if not from_menu and not from_save:
+	var from_multiplayer = GameState.state.meta.has("from_multiplayer_lobby") if GameState.state.has("meta") else false
+
+	print("Main: from_menu=", from_menu, " from_save=", from_save, " from_multiplayer=", from_multiplayer)
+
+	if not from_menu and not from_save and not from_multiplayer:
 		# Legacy path: direct load for testing
-		print("Main: Direct load detected, initializing default state")
+		print("Main: ❌ Direct load detected, initializing default state")
 		GameState.initialize_default_state()
+		print("Main: Units after initialize_default_state: ", GameState.state.units.size())
 	else:
 		if from_menu:
-			print("Main: Loading from main menu with configuration")
+			print("Main: ✓ Loading from main menu with configuration")
 		elif from_save:
-			print("Main: Loading from saved game")
+			print("Main: ✓ Loading from saved game")
+		elif from_multiplayer:
+			print("Main: ✓ Loading from multiplayer lobby with armies already loaded")
+			print("Main: Units count AFTER multiplayer check: ", GameState.state.units.size())
 	
 	# Initialize view to show whole board
 	view_zoom = 0.3
 	view_offset = Vector2(0, 0)  # Start at top-left
 	update_view_transform()
-	
+
+	# Initialize PhaseManager with deployment phase NOW that armies are loaded
+	var phase_manager = get_node("/root/PhaseManager")
+	if phase_manager and not phase_manager.current_phase_instance:
+		print("Main: Initializing deployment phase with ", GameState.state.units.size(), " units")
+		phase_manager.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+
 	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
-	
+
 	board_view.queue_redraw()
 	setup_deployment_zones()
 	
@@ -1124,6 +1147,12 @@ func connect_signals() -> void:
 	SaveLoadManager.load_completed.connect(_on_load_completed)
 	SaveLoadManager.save_failed.connect(_on_save_failed)
 	SaveLoadManager.load_failed.connect(_on_load_failed)
+
+	# Connect multiplayer sync signals
+	if has_node("/root/GameManager"):
+		var game_manager = get_node("/root/GameManager")
+		game_manager.result_applied.connect(_on_network_result_applied)
+		print("Main: Connected to GameManager.result_applied signal")
 	
 
 func _input(event: InputEvent) -> void:
@@ -2010,6 +2039,15 @@ func _on_save_failed(error: String) -> void:
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
 
+# Multiplayer sync handler
+func _on_network_result_applied(result: Dictionary) -> void:
+	print("Main: Network result applied, recreating visuals")
+	# Recreate unit visuals to reflect the new state
+	_recreate_unit_visuals()
+	# Update UI to show current state
+	update_ui()
+	refresh_unit_list()
+
 # Save/Load Dialog handlers
 func _toggle_save_load_menu() -> void:
 	if save_load_dialog.visible:
@@ -2236,57 +2274,47 @@ func update_ui_for_phase() -> void:
 
 func _on_movement_action_requested(action: Dictionary) -> void:
 	print("Main: Received movement action request: ", action.type)
-	
-	# Process movement action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	print("Main: Phase instance is: ", phase_instance)
-	
-	if phase_instance:
-		print("Main: Phase instance class: ", phase_instance.get_class())
-		print("Main: Phase has execute_action: ", phase_instance.has_method("execute_action"))
-		
-		if phase_instance.has_method("execute_action"):
-			print("Main: Executing action through phase")
-			var result = phase_instance.execute_action(action)
-			print("Main: Action result: ", result)
-			
-			if result.get("success", false):
-				print("Main: Movement action succeeded")
-				
-				# Handle different action types
-				match action.type:
-					"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
-						# Movement has begun, mode should be set in controller
-						print("Movement mode initiated: ", action.type)
-					"SET_MODEL_DEST":
-						print("Main: Processing SET_MODEL_DEST - updating visuals for ", action.actor_unit_id, "/", action.payload.model_id)
-						_update_model_visual(action.actor_unit_id, action.payload.model_id, action.payload.dest)
-					"UNDO_LAST_MODEL_MOVE":
-						print("Model move undone")
-						_recreate_unit_visuals()
-					"RESET_UNIT_MOVE":
-						print("Unit movement reset")
-						_recreate_unit_visuals()
-					"CONFIRM_UNIT_MOVE":
-						print("Unit movement confirmed")
-						# Clear the active unit in controller
-						if movement_controller:
-							movement_controller.active_unit_id = ""
-							movement_controller.active_mode = ""
-				
-				# Update UI after successful action
-				update_movement_card_buttons()
-			else:
-				print("Movement action failed: ", result.get("error", "Unknown error"))
-				if result.has("errors"):
-					for error in result.errors:
-						print("  - ", error)
-				# Show error in status label
-				status_label.text = "Error: " + result.get("error", "Action failed")
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+	print("Main: Action result: ", result)
+
+	if result.get("success", false):
+		if result.get("pending", false):
+			print("Main: Movement action submitted to network")
 		else:
-			print("Main: Phase instance doesn't have execute_action method!")
+			print("Main: Movement action succeeded")
+
+			# Handle different action types
+			match action.type:
+				"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
+					# Movement has begun, mode should be set in controller
+					print("Movement mode initiated: ", action.type)
+				"SET_MODEL_DEST":
+					print("Main: Processing SET_MODEL_DEST - updating visuals for ", action.actor_unit_id, "/", action.payload.model_id)
+					_update_model_visual(action.actor_unit_id, action.payload.model_id, action.payload.dest)
+				"UNDO_LAST_MODEL_MOVE":
+					print("Model move undone")
+					_recreate_unit_visuals()
+				"RESET_UNIT_MOVE":
+					print("Unit movement reset")
+					_recreate_unit_visuals()
+				"CONFIRM_UNIT_MOVE":
+					print("Unit movement confirmed")
+					# Clear the active unit in controller
+					if movement_controller:
+						movement_controller.active_unit_id = ""
+						movement_controller.active_mode = ""
+
+			# Update UI after successful action
+			update_movement_card_buttons()
 	else:
-		print("Main: No phase instance!")
+		print("Movement action failed: ", result.get("error", "Unknown error"))
+		if result.has("errors"):
+			for error in result.errors:
+				print("  - ", error)
+		# Show error in status label
+		status_label.text = "Error: " + result.get("error", "Action failed")
 
 func _show_movement_action_buttons(show: bool) -> void:
 	# Show or hide movement action buttons
@@ -2307,22 +2335,21 @@ func _on_movement_ui_update_requested() -> void:
 
 func _on_shooting_action_requested(action: Dictionary) -> void:
 	print("Main: Received shooting action request: ", action.get("type", ""))
-	
-	# Process shooting action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	
-	if phase_instance and phase_instance.has_method("execute_action"):
-		var result = phase_instance.execute_action(action)
-		if result.has("success"):
-			if result.success:
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+
+	if result.has("success"):
+		if result.success:
+			if result.get("pending", false):
+				print("Main: Shooting action submitted to network")
+			else:
 				print("Main: Shooting action succeeded")
 				update_after_shooting_action()
-			else:
-				print("Main: Shooting action failed: ", result.get("error", "Unknown error"))
 		else:
-			print("Main: Unexpected result from shooting action")
+			print("Main: Shooting action failed: ", result.get("error", "Unknown error"))
 	else:
-		print("Main: No phase instance or execute_action method")
+		print("Main: Unexpected result from shooting action")
 
 func _on_shooting_ui_update_requested() -> void:
 	# Update UI when ShootingController requests it
@@ -2331,25 +2358,23 @@ func _on_shooting_ui_update_requested() -> void:
 
 func _on_charge_action_requested(action: Dictionary) -> void:
 	print("Main: Received charge action request: ", action.get("type", ""))
-	
-	# Process charge action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	
-	if phase_instance and phase_instance.has_method("execute_action"):
-		var result = phase_instance.execute_action(action)
-		if result.has("success"):
-			if result.success:
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+
+	if result.has("success"):
+		if result.success:
+			if result.get("pending", false):
+				print("Main: Charge action submitted to network")
+			else:
 				print("Main: Charge action succeeded")
-				
 				# Update UI after successful action (state changes applied by BasePhase)
 				update_after_charge_action()
-			else:
-				print("Main: Charge action failed: ", result.get("error", "Unknown error"))
-				print("Main: Full charge action result: ", result)
 		else:
-			print("Main: Unexpected result from charge action")
+			print("Main: Charge action failed: ", result.get("error", "Unknown error"))
+			print("Main: Full charge action result: ", result)
 	else:
-		print("Main: No phase instance or execute_action method")
+		print("Main: Unexpected result from charge action")
 
 func _on_charge_ui_update_requested() -> void:
 	# Update UI when ChargeController requests it
@@ -2358,27 +2383,24 @@ func _on_charge_ui_update_requested() -> void:
 
 func _on_fight_action_requested(action: Dictionary) -> void:
 	print("Main: Received fight action request: ", action.get("type", ""))
-	
-	# Process fight action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	
-	if phase_instance and phase_instance.has_method("execute_action"):
-		var result = phase_instance.execute_action(action)
-		if result.has("success"):
-			if result.success:
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+
+	if result.has("success"):
+		if result.success:
+			if result.get("pending", false):
+				print("Main: Fight action submitted to network")
+			else:
 				print("Main: Fight action succeeded")
-				
 				# Note: State changes are already applied by BasePhase.execute_action()
 				# No need to apply them again here
-				
 				# Update UI after successful action
 				update_after_fight_action()
-			else:
-				print("Main: Fight action failed: ", result.get("error", "Unknown error"))
 		else:
-			print("Main: Unexpected result from fight action")
+			print("Main: Fight action failed: ", result.get("error", "Unknown error"))
 	else:
-		print("Main: No phase instance or execute_action method")
+		print("Main: Unexpected result from fight action")
 
 func _on_fight_ui_update_requested() -> void:
 	# Update UI when FightController requests it
@@ -2387,51 +2409,45 @@ func _on_fight_ui_update_requested() -> void:
 
 func _on_scoring_action_requested(action: Dictionary) -> void:
 	print("Main: Received scoring action request: ", action.get("type", ""))
-	
-	# Process scoring action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	
-	if phase_instance and phase_instance.has_method("execute_action"):
-		var result = phase_instance.execute_action(action)
-		if result.has("success"):
-			if result.success:
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+
+	if result.has("success"):
+		if result.success:
+			if result.get("pending", false):
+				print("Main: Scoring action submitted to network")
+			else:
 				print("Main: Scoring action succeeded")
-				
 				# Note: State changes are already applied by BasePhase.execute_action()
 				# No need to apply them again here
-				
 				# Update UI after successful action
 				update_after_scoring_action()
-			else:
-				print("Main: Scoring action failed: ", result.get("error", "Unknown error"))
 		else:
-			print("Main: Unexpected result from scoring action")
+			print("Main: Scoring action failed: ", result.get("error", "Unknown error"))
 	else:
-		print("Main: No phase instance or execute_action method")
+		print("Main: Unexpected result from scoring action")
 
 func _on_command_action_requested(action: Dictionary) -> void:
 	print("Main: Received command action request: ", action.get("type", ""))
-	
-	# Process command action through the phase
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	
-	if phase_instance and phase_instance.has_method("execute_action"):
-		var result = phase_instance.execute_action(action)
-		if result.has("success"):
-			if result.success:
+
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(action)
+
+	if result.has("success"):
+		if result.success:
+			if result.get("pending", false):
+				print("Main: Command action submitted to network")
+			else:
 				print("Main: Command action succeeded")
-				
 				# Note: State changes are already applied by BasePhase.execute_action()
 				# No need to apply them again here
-				
 				# Update UI after successful action
 				update_after_command_action()
-			else:
-				print("Main: Command action failed: ", result.get("error", "Unknown error"))
 		else:
-			print("Main: Unexpected result from command action")
+			print("Main: Command action failed: ", result.get("error", "Unknown error"))
 	else:
-		print("Main: No phase instance or execute_action method")
+		print("Main: Unexpected result from command action")
 
 func _on_command_ui_update_requested() -> void:
 	# Update UI when CommandController requests it

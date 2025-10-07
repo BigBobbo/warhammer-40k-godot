@@ -13,9 +13,10 @@ var phase_classes: Dictionary = {}
 func _ready() -> void:
 	# Register all available phase classes
 	register_phase_classes()
-	
-	# Start with deployment phase
-	transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+
+	# Don't automatically start deployment phase here
+	# Let the Main scene initialize it after armies are loaded
+	print("[PhaseManager] Ready - awaiting explicit phase initialization")
 
 func register_phase_classes() -> void:
 	# Register phase implementations
@@ -56,8 +57,14 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 			print("[PhaseManager] WARNING: No action_taken signal")
 		
 		# Enter the new phase
-		current_phase_instance.enter_phase(GameState.create_snapshot())
-		
+		var snapshot = GameState.create_snapshot()
+		print("[PhaseManager] Creating snapshot for phase ", new_phase)
+		print("[PhaseManager] Snapshot has ", snapshot.get("units", {}).size(), " units")
+		if snapshot.has("units") and snapshot.units.size() > 0:
+			print("[PhaseManager] Unit IDs: ", snapshot.units.keys())
+
+		current_phase_instance.enter_phase(snapshot)
+
 		emit_signal("phase_changed", new_phase)
 	else:
 		push_error("No implementation found for phase: " + str(new_phase))

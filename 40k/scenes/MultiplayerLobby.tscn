@@ -1,0 +1,202 @@
+[gd_scene load_steps=2 format=3 uid="uid://kt6m1oj1m4kw"]
+
+[ext_resource type="Script" path="res://scripts/MultiplayerLobby.gd" id="1_lobby"]
+
+[node name="MultiplayerLobby" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_lobby")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.1, 0.1, 0.15, 1)
+
+[node name="LobbyContainer" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -500.0
+offset_right = 350.0
+offset_bottom = 500.0
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="LobbyContainer"]
+layout_mode = 2
+text = "Multiplayer Lobby"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+
+[node name="HSeparator" type="HSeparator" parent="LobbyContainer"]
+layout_mode = 2
+
+[node name="ModeSelection" type="VBoxContainer" parent="LobbyContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="ModeLabel" type="Label" parent="LobbyContainer/ModeSelection"]
+layout_mode = 2
+text = "Select Connection Mode"
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+
+[node name="ButtonsContainer" type="HBoxContainer" parent="LobbyContainer/ModeSelection"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 20
+
+[node name="HostButton" type="Button" parent="LobbyContainer/ModeSelection/ButtonsContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 60)
+text = "Host Game"
+theme_override_font_sizes/font_size = 20
+
+[node name="JoinButton" type="Button" parent="LobbyContainer/ModeSelection/ButtonsContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 60)
+text = "Join Game"
+theme_override_font_sizes/font_size = 20
+
+[node name="HSeparator2" type="HSeparator" parent="LobbyContainer"]
+layout_mode = 2
+
+[node name="ConnectionSettings" type="VBoxContainer" parent="LobbyContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="SettingsLabel" type="Label" parent="LobbyContainer/ConnectionSettings"]
+layout_mode = 2
+text = "Connection Settings"
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="PortContainer" type="HBoxContainer" parent="LobbyContainer/ConnectionSettings"]
+layout_mode = 2
+alignment = 1
+
+[node name="PortLabel" type="Label" parent="LobbyContainer/ConnectionSettings/PortContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+text = "Port:"
+theme_override_font_sizes/font_size = 16
+
+[node name="PortInput" type="LineEdit" parent="LobbyContainer/ConnectionSettings/PortContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "7777"
+placeholder_text = "Port number"
+alignment = 1
+
+[node name="IPContainer" type="HBoxContainer" parent="LobbyContainer/ConnectionSettings"]
+layout_mode = 2
+alignment = 1
+
+[node name="IPLabel" type="Label" parent="LobbyContainer/ConnectionSettings/IPContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+text = "IP Address:"
+theme_override_font_sizes/font_size = 16
+
+[node name="IPInput" type="LineEdit" parent="LobbyContainer/ConnectionSettings/IPContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 0)
+text = "127.0.0.1"
+placeholder_text = "Host IP address"
+alignment = 1
+
+[node name="HSeparator3" type="HSeparator" parent="LobbyContainer"]
+layout_mode = 2
+
+[node name="ArmySelection" type="VBoxContainer" parent="LobbyContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="ArmyLabel" type="Label" parent="LobbyContainer/ArmySelection"]
+layout_mode = 2
+text = "Army Selection"
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+
+[node name="Player1Container" type="HBoxContainer" parent="LobbyContainer/ArmySelection"]
+layout_mode = 2
+alignment = 1
+
+[node name="Player1Label" type="Label" parent="LobbyContainer/ArmySelection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 1 Army:"
+theme_override_font_sizes/font_size = 16
+
+[node name="Player1Dropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 40)
+
+[node name="Player2Container" type="HBoxContainer" parent="LobbyContainer/ArmySelection"]
+layout_mode = 2
+alignment = 1
+
+[node name="Player2Label" type="Label" parent="LobbyContainer/ArmySelection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 2 Army:"
+theme_override_font_sizes/font_size = 16
+
+[node name="Player2Dropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 40)
+
+[node name="HSeparator4_Army" type="HSeparator" parent="LobbyContainer"]
+layout_mode = 2
+
+[node name="StatusSection" type="VBoxContainer" parent="LobbyContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="StatusLabel" type="Label" parent="LobbyContainer/StatusSection"]
+layout_mode = 2
+text = "Status: Not Connected"
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+
+[node name="InfoLabel" type="Label" parent="LobbyContainer/StatusSection"]
+layout_mode = 2
+text = "Select Host or Join to begin"
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="PlayerListLabel" type="Label" parent="LobbyContainer/StatusSection"]
+layout_mode = 2
+text = "Connected Players: 0/2"
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 1
+
+[node name="HSeparator5" type="HSeparator" parent="LobbyContainer"]
+layout_mode = 2
+
+[node name="ActionButtons" type="HBoxContainer" parent="LobbyContainer"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 20
+
+[node name="StartGameButton" type="Button" parent="LobbyContainer/ActionButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 50)
+disabled = true
+text = "Start Game"
+theme_override_font_sizes/font_size = 18
+
+[node name="DisconnectButton" type="Button" parent="LobbyContainer/ActionButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 50)
+disabled = true
+text = "Disconnect"
+theme_override_font_sizes/font_size = 18
+
+[node name="BackButton" type="Button" parent="LobbyContainer/ActionButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 50)
+text = "Back to Menu"
+theme_override_font_sizes/font_size = 18
