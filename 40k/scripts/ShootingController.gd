@@ -122,43 +122,9 @@ func _create_shooting_visuals() -> void:
 	board_root.add_child(target_highlights)
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
-	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not main_container:
-		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
-		return
-	
-	# Check for existing shooting controls container
-	var controls_container = main_container.get_node_or_null("ShootingControls")
-	if not controls_container:
-		controls_container = HBoxContainer.new()
-		controls_container.name = "ShootingControls"
-		main_container.add_child(controls_container)
-		
-		# Add separator before shooting controls
-		controls_container.add_child(VSeparator.new())
-	else:
-		# Clear existing children to prevent duplicates - use immediate cleanup
-		print("ShootingController: Removing existing shooting controls children (", controls_container.get_children().size(), " children)")
-		for child in controls_container.get_children():
-			controls_container.remove_child(child)
-			child.free()
-	
-	# Create UI elements (existing logic)
-	# Phase label
-	var phase_label = Label.new()
-	phase_label.text = "SHOOTING PHASE"
-	phase_label.add_theme_font_size_override("font_size", 18)
-	controls_container.add_child(phase_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
-	# Action buttons
-	var end_phase_button = Button.new()
-	end_phase_button.text = "End Shooting Phase"
-	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	controls_container.add_child(end_phase_button)
+	# NOTE: Main.gd now handles the phase action button
+	# ShootingController only manages shooting-specific UI in the right panel
+	pass
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation

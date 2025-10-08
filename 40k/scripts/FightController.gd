@@ -71,12 +71,7 @@ func _exit_tree() -> void:
 				main_container.remove_child(spacer)
 				spacer.queue_free()
 			
-			# Remove the fight phase button
-			var fight_button = main_container.get_node_or_null("FightPhaseButton")
-			if fight_button and is_instance_valid(fight_button):
-				main_container.remove_child(fight_button)
-				fight_button.queue_free()
-				print("FightController: Removed End Fight Phase button")
+			# Main.gd now handles phase action button cleanup
 			
 			# Remove any legacy FightControls container
 			var fight_controls = main_container.get_node_or_null("FightControls")
@@ -134,37 +129,9 @@ func _create_fight_visuals() -> void:
 	board_root.add_child(target_highlights)
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
-	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not main_container:
-		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
-		return
-	
-	# Clean up any existing fight phase button
-	var existing_button = main_container.get_node_or_null("FightPhaseButton")
-	if existing_button:
-		main_container.remove_child(existing_button)
-		existing_button.queue_free()
-	
-	# Clean up any existing fight controls container (legacy)
-	var existing_controls = main_container.get_node_or_null("FightControls")
-	if existing_controls:
-		main_container.remove_child(existing_controls)
-		existing_controls.free()
-	
-	# Add a spacer to push the button to the right
-	var spacer = Control.new()
-	spacer.name = "FightPhaseSpacer"
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_container.add_child(spacer)
-	
-	# Create End Fight Phase button directly in the main container (right-aligned)
-	var end_phase_button = Button.new()
-	end_phase_button.name = "FightPhaseButton"
-	end_phase_button.text = "End Fight Phase"
-	end_phase_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	main_container.add_child(end_phase_button)
+	# NOTE: Main.gd now handles the phase action button
+	# FightController only manages fight-specific UI in the right panel
+	pass
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation

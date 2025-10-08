@@ -15,7 +15,6 @@ var hud_bottom: Control
 var hud_right: Control
 
 # UI Elements
-var end_command_button: Button
 var phase_info_label: Label
 
 func _ready() -> void:
@@ -51,54 +50,9 @@ func _setup_ui_references() -> void:
 		_setup_right_panel()
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
-	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not main_container:
-		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
-		return
-	
-	# Check for existing command controls container
-	var controls_container = main_container.get_node_or_null("CommandControls")
-	if not controls_container:
-		controls_container = HBoxContainer.new()
-		controls_container.name = "CommandControls"
-		main_container.add_child(controls_container)
-		
-		# Add separator before command controls
-		controls_container.add_child(VSeparator.new())
-	else:
-		# Clear existing children to prevent duplicates
-		print("CommandController: Removing existing command controls children (", controls_container.get_children().size(), " children)")
-		for child in controls_container.get_children():
-			controls_container.remove_child(child)
-			child.free()
-	
-	# Phase label
-	var phase_label = Label.new()
-	phase_label.text = "COMMAND PHASE"
-	phase_label.add_theme_font_size_override("font_size", 18)
-	controls_container.add_child(phase_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
-	# Phase info
-	phase_info_label = Label.new()
-	var current_player = GameState.get_active_player()
-	var battle_round = GameState.get_battle_round()
-	phase_info_label.text = "Player %d - Round %d" % [current_player, battle_round]
-	phase_info_label.name = "PhaseInfoLabel"
-	controls_container.add_child(phase_info_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
-	# End Command Phase button
-	end_command_button = Button.new()
-	end_command_button.text = "End Command Phase"
-	end_command_button.pressed.connect(_on_end_command_pressed)
-	end_command_button.add_theme_font_size_override("font_size", 14)
-	controls_container.add_child(end_command_button)
+	# NOTE: Main.gd now handles the phase action button
+	# CommandController only needs to set up phase-specific info if needed
+	pass
 
 func _setup_right_panel() -> void:
 	# Check for existing VBoxContainer in HUD_Right

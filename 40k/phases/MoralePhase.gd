@@ -43,6 +43,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_stratagem_action(action)
 		"SKIP_MORALE":
 			return _validate_skip_morale_action(action)
+		"END_MORALE":
+			return {"valid": true, "errors": []}  # Always valid to end morale phase
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -132,6 +134,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_stratagem(action)
 		"SKIP_MORALE":
 			return _process_skip_morale(action)
+		"END_MORALE":
+			return _process_end_morale(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -247,6 +251,11 @@ func _process_skip_morale(action: Dictionary) -> Dictionary:
 	
 	log_phase_message("Skipped morale test for %s (special rule)" % unit_id)
 	return create_result(true, changes)
+
+func _process_end_morale(action: Dictionary) -> Dictionary:
+	log_phase_message("Ending Morale Phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
 
 func get_available_actions() -> Array:
 	var actions = []

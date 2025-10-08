@@ -53,11 +53,11 @@ text = "Player 1 (Defender)"
 layout_mode = 2
 text = "Select a unit to deploy"
 
-[node name="EndDeploymentButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
+[node name="PhaseActionButton" type="Button" parent="HUD_Bottom/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 10
 disabled = true
-text = "End Deployment"
+text = "End Phase"
 
 [node name="HUD_Left" type="PanelContainer" parent="."]
 anchors_preset = 9

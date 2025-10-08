@@ -213,44 +213,9 @@ func _create_path_visuals() -> void:
 	board_root.add_child(selection_visual)
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
-	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not main_container:
-		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
-		return
-	
-	# Remove existing movement containers (MovementInfo and MovementButtons)
-	var existing_movement_info = main_container.get_node_or_null("MovementInfo")
-	if existing_movement_info:
-		print("MovementController: Removing MovementInfo container (moved to right panel)")
-		main_container.remove_child(existing_movement_info)
-		existing_movement_info.free()
-	
-	var existing_buttons = main_container.get_node_or_null("MovementButtons") 
-	if existing_buttons:
-		# Check if End Phase button exists and preserve it
-		var end_phase_btn = existing_buttons.get_node_or_null("EndPhaseButton")
-		if end_phase_btn:
-			print("MovementController: Preserving End Phase button in top panel")
-			existing_buttons.remove_child(end_phase_btn)
-			
-			# Add separator before End Phase button
-			main_container.add_child(VSeparator.new())
-			main_container.add_child(end_phase_btn)  # Move to main container
-		
-		print("MovementController: Removing MovementButtons container (moved to right panel)")
-		main_container.remove_child(existing_buttons)
-		existing_buttons.free()
-	else:
-		# If MovementButtons doesn't exist, create End Phase button directly
-		print("MovementController: Creating End Phase button in top panel")
-		# main_container.add_child(VSeparator.new())
-		
-		# var end_phase_button = Button.new()
-		# end_phase_button.name = "EndPhaseButton"
-		# end_phase_button.text = "End Movement Phase"
-		# end_phase_button.pressed.connect(_on_end_phase_pressed)
-		# main_container.add_child(end_phase_button)
+	# NOTE: Main.gd now handles the phase action button
+	# MovementController only manages movement-specific UI in the right panel
+	pass
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation
@@ -485,7 +450,6 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 		if phase.has_signal("unit_move_begun"):
 			current_phase = phase
 			print("MovementController: Phase set successfully")
-			_update_end_phase_button()
 			
 			# Connect to phase signals
 			if not phase.unit_move_begun.is_connected(_on_unit_move_begun):
@@ -788,10 +752,16 @@ func _get_selected_movement_mode() -> String:
 	return ""
 
 func _roll_advance_dice() -> void:
-	# Simple dice roll - in a full implementation this would use the game's dice system
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
-	var dice_result = rng.randi_range(1, 6)
+	# Dice roll with deterministic seed for multiplayer
+	var rng_seed = -1
+	if has_node("/root/NetworkManager"):
+		var net_mgr = get_node("/root/NetworkManager")
+		if net_mgr.is_networked() and net_mgr.is_host():
+			rng_seed = net_mgr.get_next_rng_seed()
+
+	var rng_service = RulesEngine.RNGService.new(rng_seed)
+	var rolls = rng_service.roll_d6(1)
+	var dice_result = rolls[0]
 	
 	advance_roll_label.text = "Advance Roll: %d\"" % dice_result
 	advance_roll_label.visible = true
@@ -983,7 +953,6 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	
 	_update_movement_display()
 	_refresh_unit_list()
-	_update_end_phase_button()
 	emit_signal("ui_update_requested")
 
 func _on_unit_move_reset(unit_id: String) -> void:
@@ -1788,10 +1757,9 @@ func _show_ghost_visual(model: Dictionary) -> void:
 
 	# Use GhostVisual for preview
 	var ghost_token = preload("res://scripts/GhostVisual.gd").new()
-	ghost_token.radius = Measurement.base_radius_px(model.get("base_mm", 32))
 	ghost_token.owner_player = GameState.get_active_player()
 	ghost_token.is_valid_position = true  # Start as valid
-	# Set the complete model data for shape handling
+	# Set the complete model data for shape handling (this sets up the base shape)
 	ghost_token.set_model_data(model)
 
 	# Set the token at origin (0,0) relative to ghost_visual
@@ -1799,7 +1767,7 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	ghost_visual.add_child(ghost_token)
 	ghost_visual.modulate = Color(1, 1, 1, 0.8)  # Slightly transparent
 
-	print("Created ghost visual with radius: ", ghost_token.radius)
+	print("Created ghost visual for model")
 
 func _update_ghost_position(world_pos: Vector2) -> void:
 	if ghost_visual:
@@ -1887,16 +1855,6 @@ func _get_model_accumulated_distance(model_id: String) -> float:
 
 	return 0.0
 
-func _update_end_phase_button() -> void:
-	# Update End Phase button state based on whether there are active moves
-	var end_phase_button = hud_bottom.get_node_or_null("MovementButtons/EndPhaseButton")
-	if end_phase_button:
-		# Button is disabled if there are active moves
-		end_phase_button.disabled = active_unit_id != ""
-		if active_unit_id != "":
-			end_phase_button.tooltip_text = "Confirm or reset current move first"
-		else:
-			end_phase_button.tooltip_text = "End the Movement Phase and proceed to Shooting"
 
 func _update_movement_display_with_preview(used: float, left: float, valid: bool) -> void:
 	if move_cap_label:
@@ -2865,9 +2823,10 @@ func _create_group_ghost_visuals() -> void:
 		ghost_token.name = "GhostModel_" + model_data.get("model_id", "")
 
 		# Set up the ghost properties
-		ghost_token.radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
 		ghost_token.owner_player = GameState.get_active_player() if GameState else 1
 		ghost_token.is_valid_position = true  # Start as valid, update during drag
+		# Set model data to configure base shape
+		ghost_token.set_model_data(model_data)
 
 		# Initialize the ghost with the model's data
 		ghost_token.set_model_data(model_data)

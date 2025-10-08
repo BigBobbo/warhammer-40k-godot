@@ -381,9 +381,39 @@ func process_score_objective(action: Dictionary) -> Dictionary:
 
 func process_end_scoring(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_SCORING action")
+
+	var current_player = GameState.get_active_player()
+	var next_player = 2 if current_player == 1 else 1
 	var next_phase = _get_next_phase(GameStateData.Phase.SCORING)
+
+	print("GameManager: Player %d ending turn, switching to player %d" % [current_player, next_player])
+
+	var diffs = [
+		{
+			"op": "set",
+			"path": "meta.phase",
+			"value": next_phase
+		},
+		{
+			"op": "set",
+			"path": "meta.active_player",
+			"value": next_player
+		}
+	]
+
+	# If Player 2 just finished their turn, advance battle round
+	if current_player == 2:
+		var new_battle_round = GameState.get_battle_round() + 1
+		print("GameManager: Completing battle round, advancing to battle round %d" % new_battle_round)
+
+		diffs.append({
+			"op": "set",
+			"path": "meta.battle_round",
+			"value": new_battle_round
+		})
+
 	_trigger_phase_completion()
-	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+	return {"success": true, "diffs": diffs}
 
 # ============================================================================
 # MORALE ACTION PROCESSORS

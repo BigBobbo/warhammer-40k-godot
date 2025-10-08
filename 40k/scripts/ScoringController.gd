@@ -15,7 +15,6 @@ var hud_bottom: Control
 var hud_right: Control
 
 # UI Elements
-var end_turn_button: Button
 var battle_round_label: Label
 var turn_info_label: Label
 
@@ -52,19 +51,22 @@ func _setup_ui_references() -> void:
 		_setup_right_panel()
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
+	# NOTE: Main.gd now handles the phase action button (End Turn)
+	# ScoringController only manages scoring-specific UI in the right panel
+
+	# Get the main HBox container in bottom HUD for labels
 	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
 	if not main_container:
 		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
 		return
-	
-	# Check for existing scoring controls container
+
+	# Check for existing scoring controls container (for info labels only)
 	var controls_container = main_container.get_node_or_null("ScoringControls")
 	if not controls_container:
 		controls_container = HBoxContainer.new()
 		controls_container.name = "ScoringControls"
 		main_container.add_child(controls_container)
-		
+
 		# Add separator before scoring controls
 		controls_container.add_child(VSeparator.new())
 	else:
@@ -73,42 +75,23 @@ func _setup_bottom_hud() -> void:
 		for child in controls_container.get_children():
 			controls_container.remove_child(child)
 			child.free()
-	
-	# Phase label
-	var phase_label = Label.new()
-	phase_label.text = "SCORING PHASE"
-	phase_label.add_theme_font_size_override("font_size", 18)
-	controls_container.add_child(phase_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
+
 	# Battle round info
 	battle_round_label = Label.new()
 	battle_round_label.text = "Battle Round " + str(GameState.get_battle_round())
 	battle_round_label.name = "BattleRoundLabel"
 	battle_round_label.add_theme_font_size_override("font_size", 14)
 	controls_container.add_child(battle_round_label)
-	
+
 	# Separator
 	controls_container.add_child(VSeparator.new())
-	
+
 	# Turn info
 	turn_info_label = Label.new()
 	var current_player = GameState.get_active_player()
 	turn_info_label.text = "Player %d Turn" % current_player
 	turn_info_label.name = "TurnInfoLabel"
 	controls_container.add_child(turn_info_label)
-	
-	# Separator
-	controls_container.add_child(VSeparator.new())
-	
-	# End Turn button
-	end_turn_button = Button.new()
-	end_turn_button.text = "End Turn"
-	end_turn_button.pressed.connect(_on_end_turn_pressed)
-	end_turn_button.add_theme_font_size_override("font_size", 16)
-	controls_container.add_child(end_turn_button)
 
 func _setup_right_panel() -> void:
 	# Check for existing VBoxContainer in HUD_Right
@@ -186,9 +169,7 @@ func _refresh_ui() -> void:
 	
 	# Check if game is complete
 	if GameState.is_game_complete():
-		if end_turn_button:
-			end_turn_button.text = "Game Complete!"
-			end_turn_button.disabled = true
+		# Main.gd will handle disabling the phase action button
 		print("ScoringController: Game is complete after 5 battle rounds!")
 
 func _on_end_turn_pressed() -> void:

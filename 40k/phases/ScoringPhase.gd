@@ -15,7 +15,7 @@ func _on_phase_exit() -> void:
 func get_available_actions() -> Array:
 	return [
 		{
-			"type": "END_TURN",
+			"type": "END_SCORING",
 			"description": "End Turn",
 			"player": get_current_player()
 		}
@@ -24,14 +24,14 @@ func get_available_actions() -> Array:
 func validate_action(action: Dictionary) -> Dictionary:
 	var errors = []
 	var action_type = action.get("type", "")
-	
+
 	match action_type:
-		"END_TURN":
-			# END_TURN is always valid in scoring phase
+		"END_SCORING", "END_TURN":  # Support both for backward compatibility
+			# END_SCORING/END_TURN is always valid in scoring phase
 			pass
 		_:
 			errors.append("Unknown action type: %s" % action_type)
-	
+
 	return {
 		"valid": errors.size() == 0,
 		"errors": errors
@@ -39,7 +39,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
-		"END_TURN":
+		"END_SCORING", "END_TURN":  # Support both for backward compatibility
 			return _handle_end_turn()
 		_:
 			return {"success": false, "error": "Unknown action type"}

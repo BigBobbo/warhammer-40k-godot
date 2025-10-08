@@ -44,7 +44,6 @@ var declare_button: Button
 var roll_button: Button
 var skip_button: Button
 var next_unit_button: Button
-var end_phase_button: Button
 var charge_status_label: Label
 var dice_log_display: RichTextLabel
 
@@ -77,18 +76,7 @@ func _exit_tree() -> void:
 	if hud_bottom:
 		var main_container = hud_bottom.get_node_or_null("HBoxContainer")
 		if main_container and is_instance_valid(main_container):
-			# Remove End Charge Phase button
-			var end_button = main_container.get_node_or_null("EndChargePhaseButton")
-			if end_button and is_instance_valid(end_button):
-				print("ChargeController: Removing End Charge Phase button")
-				main_container.remove_child(end_button)
-				end_button.queue_free()
-			
-			# Remove the separator we added
-			var separator = main_container.get_node_or_null("ChargeSeparator")
-			if separator and is_instance_valid(separator):
-				main_container.remove_child(separator)
-				separator.queue_free()
+			# Main.gd now handles phase action button cleanup
 			
 			# Remove any spacer controls we added
 			for child in main_container.get_children():
@@ -252,41 +240,9 @@ func _create_charge_visuals() -> void:
 	board_root.add_child(target_highlights)
 
 func _setup_bottom_hud() -> void:
-	# Get the main HBox container in bottom HUD
-	var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-	if not main_container:
-		print("ERROR: Cannot find HBoxContainer in HUD_Bottom")
-		return
-	
-	# Clean up existing charge controls
-	var existing_controls = main_container.get_node_or_null("ChargeControls")
-	if existing_controls:
-		main_container.remove_child(existing_controls)
-		existing_controls.free()
-	
-	# Remove any existing end phase button
-	var existing_end_button = main_container.get_node_or_null("EndChargePhaseButton")
-	if existing_end_button:
-		main_container.remove_child(existing_end_button)
-		existing_end_button.free()
-	
-	# Add separator before end button
-	var separator = VSeparator.new()
-	separator.name = "ChargeSeparator"
-	main_container.add_child(separator)
-	
-	# Add spacer to push button to the right
-	var spacer = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_container.add_child(spacer)
-	
-	# SIMPLIFIED: Only End phase button in top bar (right-aligned, compact size)
-	end_phase_button = Button.new()
-	end_phase_button.name = "EndChargePhaseButton"
-	end_phase_button.text = "End Charge Phase"
-	end_phase_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	end_phase_button.pressed.connect(_on_end_phase_pressed)
-	main_container.add_child(end_phase_button)
+	# NOTE: Main.gd now handles the phase action button
+	# ChargeController only manages charge-specific UI in the right panel
+	pass
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation

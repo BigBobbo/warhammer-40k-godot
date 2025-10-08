@@ -11,7 +11,7 @@ extends CanvasLayer
 @onready var phase_label: Label = $HUD_Bottom/HBoxContainer/PhaseLabel
 @onready var active_player_badge: Label = $HUD_Bottom/HBoxContainer/ActivePlayerBadge
 @onready var status_label: Label = $HUD_Bottom/HBoxContainer/StatusLabel
-@onready var end_deployment_button: Button = $HUD_Bottom/HBoxContainer/EndDeploymentButton
+@onready var phase_action_button: Button = $HUD_Bottom/HBoxContainer/PhaseActionButton
 
 @onready var unit_list: ItemList = $HUD_Right/VBoxContainer/UnitListPanel
 @onready var unit_card: VBoxContainer = $HUD_Right/VBoxContainer/UnitCard
@@ -1128,7 +1128,7 @@ func connect_signals() -> void:
 	undo_button.pressed.connect(_on_undo_pressed)
 	reset_button.pressed.connect(_on_reset_pressed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
-	end_deployment_button.pressed.connect(_on_end_deployment_pressed)
+	# Phase action button connection will be handled in update_ui_for_phase()
 	
 	# Phase management signals
 	PhaseManager.phase_changed.connect(_on_phase_changed)
@@ -1440,10 +1440,10 @@ func update_ui() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if GameState.all_units_deployed():
-				end_deployment_button.disabled = false
+				phase_action_button.disabled = false
 				status_label.text = "All units deployed! Click 'End Deployment' to continue."
 			else:
-				end_deployment_button.disabled = true
+				phase_action_button.disabled = true
 				if deployment_controller and deployment_controller.is_placing():
 					var unit_id = deployment_controller.get_current_unit()
 					var unit_data = GameState.get_unit(unit_id)
@@ -1462,11 +1462,11 @@ func update_ui() -> void:
 					status_label.text = "Choose movement type (Normal/Advance/etc.)"
 			else:
 				status_label.text = "Select a unit to move"
-			end_deployment_button.disabled = false
-		
+			phase_action_button.disabled = false
+
 		_:
 			status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
-			end_deployment_button.disabled = false
+			phase_action_button.disabled = false
 
 func _on_unit_selected(index: int) -> void:
 	if deployment_controller and deployment_controller.is_placing():
@@ -1723,7 +1723,7 @@ func _on_deployment_side_changed(player: int) -> void:
 
 func _on_deployment_complete() -> void:
 	status_label.text = "Deployment complete!"
-	end_deployment_button.disabled = false
+	phase_action_button.disabled = false
 
 func _on_end_deployment_pressed() -> void:
 	# Route end-phase actions through the action system for multiplayer sync
@@ -2285,15 +2285,109 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 func _on_phase_completed(phase: GameStateData.Phase) -> void:
 	print("Phase completed: ", GameStateData.Phase.keys()[phase])
 
-func update_ui_for_phase() -> void:
-	# setup_phase_controllers() already handles right panel cleanup
-	# Update UI based on current phase
+func _get_phase_label_text(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
+		GameStateData.Phase.COMMAND: return "Command Phase"
+		GameStateData.Phase.MOVEMENT: return "Movement Phase"
+		GameStateData.Phase.SHOOTING: return "Shooting Phase"
+		GameStateData.Phase.CHARGE: return "Charge Phase"
+		GameStateData.Phase.FIGHT: return "Fight Phase"
+		GameStateData.Phase.SCORING: return "Scoring Phase"
+		GameStateData.Phase.MORALE: return "Morale Phase"
+		_: return "Unknown Phase"
+
+func _get_phase_button_text(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
+		GameStateData.Phase.COMMAND: return "End Command Phase"
+		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
+		GameStateData.Phase.SHOOTING: return "End Shooting Phase"
+		GameStateData.Phase.CHARGE: return "End Charge Phase"
+		GameStateData.Phase.FIGHT: return "End Fight Phase"
+		GameStateData.Phase.SCORING: return "End Turn"
+		GameStateData.Phase.MORALE: return "End Morale Phase"
+		_: return "End Phase"
+
+func _clear_phase_ui_artifacts() -> void:
+	# Remove any dynamically added phase-specific buttons from HUD_Bottom
+	var hbox = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hbox:
+		return
+
+	for child in hbox.get_children():
+		if child.name in ["ScoringControls", "MovementButtons", "EndChargePhaseButton",
+						  "FightPhaseButton", "CommandControls", "ChargeControls"]:
+			print("Main: Removing phase UI artifact: ", child.name)
+			hbox.remove_child(child)
+			child.queue_free()
+
+func _on_phase_action_pressed() -> void:
+	# Handle phase action button press based on current phase
+	print("Main: Phase action button pressed for phase: ", GameStateData.Phase.keys()[current_phase])
+
+	# For multiplayer sync, we need to route phase end actions through the network system
+	var action = {}
+
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			phase_label.text = "Deployment Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Deployment"
-			# Hide deployment zones during other phases
+			_on_end_deployment_pressed()  # Already handles network routing
+			return
+		GameStateData.Phase.COMMAND:
+			action = {"type": "END_COMMAND"}
+		GameStateData.Phase.MOVEMENT:
+			action = {"type": "END_MOVEMENT"}
+		GameStateData.Phase.SHOOTING:
+			action = {"type": "END_SHOOTING"}
+		GameStateData.Phase.CHARGE:
+			action = {"type": "END_CHARGE"}
+		GameStateData.Phase.FIGHT:
+			action = {"type": "END_FIGHT"}
+		GameStateData.Phase.SCORING:
+			if GameState.is_game_complete():
+				print("Main: Game is complete, cannot advance phase")
+				return
+			action = {"type": "END_SCORING"}
+		GameStateData.Phase.MORALE:
+			action = {"type": "END_MORALE"}
+		_:
+			print("WARNING: Unknown phase for action button: ", current_phase)
+			return
+
+	# Route through NetworkIntegration for multiplayer sync
+	print("Main: Routing phase end action through network: ", action.type)
+	var result = NetworkIntegration.route_action(action)
+
+	if not result.get("success", false):
+		print("Main: Failed to end phase: ", result.get("error", "Unknown error"))
+		# If network routing fails, try local advance as fallback for single player
+		if not NetworkManager.is_networked():
+			print("Main: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func update_ui_for_phase() -> void:
+	# Clear any phase-specific UI artifacts first
+	_clear_phase_ui_artifacts()
+
+	# Update phase label
+	phase_label.text = _get_phase_label_text(current_phase)
+
+	# Configure the single action button for current phase
+	phase_action_button.visible = true
+	phase_action_button.text = _get_phase_button_text(current_phase)
+	phase_action_button.disabled = false
+
+	# Disconnect all previous connections
+	if phase_action_button.pressed.is_connected(_on_phase_action_pressed):
+		phase_action_button.pressed.disconnect(_on_phase_action_pressed)
+
+	# Connect to the standardized handler
+	phase_action_button.pressed.connect(_on_phase_action_pressed)
+
+	# Phase-specific UI configurations (zones, panels, etc.)
+	match current_phase:
+		GameStateData.Phase.DEPLOYMENT:
+			# Show deployment zones
 			p1_zone.visible = true
 			p2_zone.visible = true
 			# Hide movement action buttons during deployment
@@ -2301,10 +2395,8 @@ func update_ui_for_phase() -> void:
 			# Show unit list and unit card during deployment phase
 			unit_list.visible = true
 			unit_card.visible = true
-			
+
 		GameStateData.Phase.COMMAND:
-			phase_label.text = "Command Phase"
-			end_deployment_button.visible = false  # Command phase has its own "End Command Phase" button
 			# Hide deployment zones during command phase
 			p1_zone.visible = false
 			p2_zone.visible = false
@@ -2313,11 +2405,8 @@ func update_ui_for_phase() -> void:
 			# Hide unit list and unit card during command phase
 			unit_list.visible = false
 			unit_card.visible = false
-			
+
 		GameStateData.Phase.MOVEMENT:
-			phase_label.text = "Movement Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Movement"
 			# Hide deployment zones during movement
 			p1_zone.visible = false
 			p2_zone.visible = false
@@ -2326,39 +2415,55 @@ func update_ui_for_phase() -> void:
 			# Show unit list and unit card during movement phase
 			unit_list.visible = true
 			unit_card.visible = true
-			
+
 		GameStateData.Phase.SHOOTING:
-			phase_label.text = "Shooting Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Shooting"
+			# Hide deployment zones
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
 			# Hide unit list and unit card during shooting phase
 			unit_list.visible = false
 			unit_card.visible = false
-			
+
 		GameStateData.Phase.CHARGE:
-			phase_label.text = "Charge Phase"
-			# Hide main end button during charge phase - ChargeController handles its own End Charge Phase button
-			end_deployment_button.visible = false
+			# Hide deployment zones
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
 			# Hide unit list and unit card during charge phase
 			unit_list.visible = false
 			unit_card.visible = false
-			
+
 		GameStateData.Phase.FIGHT:
-			phase_label.text = "Fight Phase"
-			end_deployment_button.visible = false  # FightController handles its own "End Fight Phase" button
-			
+			# Hide deployment zones
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Unit list visibility handled by FightController
+
 		GameStateData.Phase.SCORING:
-			phase_label.text = "Scoring Phase"
-			end_deployment_button.visible = false  # Scoring phase has its own "End Turn" button
+			# Hide deployment zones
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
 			# Hide unit list and unit card during scoring phase
 			unit_list.visible = false
 			unit_card.visible = false
-			
+
 		GameStateData.Phase.MORALE:
-			phase_label.text = "Morale Phase"
-			end_deployment_button.visible = true
-			end_deployment_button.text = "End Morale"
-	
+			# Hide deployment zones
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Show unit list and unit card
+			unit_list.visible = true
+			unit_card.visible = true
+
 	refresh_unit_list()
 	update_ui()
 
