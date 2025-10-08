@@ -21,6 +21,8 @@ func process_action(action: Dictionary) -> Dictionary:
 		# Deployment actions
 		"DEPLOY_UNIT":
 			return process_deploy_unit(action)
+		"END_DEPLOYMENT":
+			return process_end_deployment(action)
 
 		# Movement actions
 		"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
@@ -85,6 +87,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_score_objective(action)
 		"END_SCORING":
 			return process_end_scoring(action)
+
+		# Morale actions
+		"END_MORALE":
+			return process_end_morale(action)
 
 		_:
 			return {"success": false, "error": "Unknown action type: " + str(action.get("type", "UNKNOWN"))}
@@ -161,6 +167,12 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 		"diffs": diffs,
 		"log_text": log_text
 	}
+
+func process_end_deployment(action: Dictionary) -> Dictionary:
+	print("GameManager: Processing END_DEPLOYMENT action")
+	var next_phase = _get_next_phase(GameStateData.Phase.DEPLOYMENT)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 func apply_result(result: Dictionary) -> void:
 	if not result["success"]:
@@ -272,7 +284,10 @@ func process_set_advance_bonus(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_movement(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_MOVEMENT action")
+	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 func process_disembark(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
@@ -294,7 +309,10 @@ func process_allocate_wounds(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_shooting(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_SHOOTING action")
+	var next_phase = _get_next_phase(GameStateData.Phase.SHOOTING)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 # ============================================================================
 # CHARGE ACTION PROCESSORS
@@ -307,7 +325,10 @@ func process_roll_charge(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_charge(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_CHARGE action")
+	var next_phase = _get_next_phase(GameStateData.Phase.CHARGE)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 # ============================================================================
 # FIGHT ACTION PROCESSORS
@@ -320,7 +341,10 @@ func process_resolve_fight(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_fight(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_FIGHT action")
+	var next_phase = _get_next_phase(GameStateData.Phase.FIGHT)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 # ============================================================================
 # COMMAND ACTION PROCESSORS
@@ -330,7 +354,23 @@ func process_use_stratagem(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_command(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_COMMAND action")
+
+	# Calculate next phase
+	var next_phase = _get_next_phase(GameStateData.Phase.COMMAND)
+	print("GameManager: Advancing from COMMAND to phase ", next_phase)
+
+	# Create diff for phase change
+	var diffs = [{
+		"op": "set",
+		"path": "meta.phase",
+		"value": next_phase
+	}]
+
+	# Trigger phase completion (this will update PhaseManager on host)
+	_trigger_phase_completion()
+
+	return {"success": true, "diffs": diffs}
 
 # ============================================================================
 # SCORING ACTION PROCESSORS
@@ -340,11 +380,68 @@ func process_score_objective(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": []}
 
 func process_end_scoring(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	print("GameManager: Processing END_SCORING action")
+	var next_phase = _get_next_phase(GameStateData.Phase.SCORING)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+
+# ============================================================================
+# MORALE ACTION PROCESSORS
+# ============================================================================
+
+func process_end_morale(action: Dictionary) -> Dictionary:
+	print("GameManager: Processing END_MORALE action")
+	var next_phase = _get_next_phase(GameStateData.Phase.MORALE)
+	_trigger_phase_completion()
+	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+func _trigger_phase_completion() -> void:
+	"""
+	Triggers the current phase to complete by emitting the phase_completed signal.
+	This is used by "end phase" actions (END_COMMAND, END_MOVEMENT, etc.) to
+	advance to the next phase in multiplayer mode.
+	"""
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	if phase_mgr:
+		var current_phase_instance = phase_mgr.get_current_phase_instance()
+		if current_phase_instance and current_phase_instance.has_signal("phase_completed"):
+			print("GameManager: Emitting phase_completed signal on current phase")
+			current_phase_instance.emit_signal("phase_completed")
+		else:
+			push_warning("GameManager: Could not emit phase_completed - no phase instance")
+	else:
+		push_warning("GameManager: PhaseManager not available to trigger phase completion")
+
+func _get_next_phase(current: int) -> int:
+	"""
+	Returns the next phase in the standard 40k phase sequence.
+	This mirrors PhaseManager._get_next_phase() logic.
+	"""
+	match current:
+		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.COMMAND
+		GameStateData.Phase.COMMAND:
+			return GameStateData.Phase.MOVEMENT
+		GameStateData.Phase.MOVEMENT:
+			return GameStateData.Phase.SHOOTING
+		GameStateData.Phase.SHOOTING:
+			return GameStateData.Phase.CHARGE
+		GameStateData.Phase.CHARGE:
+			return GameStateData.Phase.FIGHT
+		GameStateData.Phase.FIGHT:
+			return GameStateData.Phase.SCORING
+		GameStateData.Phase.SCORING:
+			# After scoring, always go to command phase for next player
+			return GameStateData.Phase.COMMAND
+		GameStateData.Phase.MORALE:
+			# Legacy support - morale phase leads to deployment (next turn)
+			return GameStateData.Phase.DEPLOYMENT
+		_:
+			return GameStateData.Phase.DEPLOYMENT
 
 func _has_undeployed_units(player: int) -> bool:
 	"""Check if a player has any undeployed units remaining"""

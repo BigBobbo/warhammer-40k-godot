@@ -213,6 +213,21 @@ func _load_game_from_path(file_path: String) -> bool:
 	
 	emit_signal("load_completed", file_path, metadata)
 	print("SaveLoadManager: Game loaded successfully from %s" % file_path)
+
+	# Sync state with multiplayer clients if in networked game
+	print("SaveLoadManager: Checking for multiplayer...")
+	print("SaveLoadManager: NetworkManager exists: ", NetworkManager != null)
+	if NetworkManager:
+		print("SaveLoadManager: is_networked(): ", NetworkManager.is_networked())
+		print("SaveLoadManager: is_host(): ", NetworkManager.is_host())
+
+	if NetworkManager and NetworkManager.is_networked():
+		print("SaveLoadManager: *** MULTIPLAYER DETECTED - SYNCING LOADED STATE ***")
+		NetworkManager.sync_loaded_state()
+		print("SaveLoadManager: *** SYNC CALL COMPLETED ***")
+	else:
+		print("SaveLoadManager: Single-player mode or not connected - skipping sync")
+
 	return true
 
 # Autosave functionality

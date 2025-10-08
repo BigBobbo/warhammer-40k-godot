@@ -1726,26 +1726,40 @@ func _on_deployment_complete() -> void:
 	end_deployment_button.disabled = false
 
 func _on_end_deployment_pressed() -> void:
-	# Handle end of current phase
+	# Route end-phase actions through the action system for multiplayer sync
+	var action = {}
+
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			print("Ending deployment phase...")
-			# Signal phase completion to PhaseManager
-			var phase_instance = PhaseManager.get_current_phase_instance()
-			if phase_instance:
-				phase_instance.emit_signal("phase_completed")
-				
+			print("Ending deployment phase via action system...")
+			action = {"type": "END_DEPLOYMENT"}
+
 		GameStateData.Phase.MOVEMENT:
-			print("Ending movement phase...")
-			var phase_instance = PhaseManager.get_current_phase_instance()
-			if phase_instance:
-				phase_instance.emit_signal("phase_completed")
-				
+			print("Ending movement phase via action system...")
+			action = {"type": "END_MOVEMENT"}
+
+		GameStateData.Phase.SHOOTING:
+			print("Ending shooting phase via action system...")
+			action = {"type": "END_SHOOTING"}
+
+		GameStateData.Phase.MORALE:
+			print("Ending morale phase via action system...")
+			action = {"type": "END_MORALE"}
+
 		_:
-			print("Ending phase: ", current_phase)
-			var phase_instance = PhaseManager.get_current_phase_instance()
-			if phase_instance:
-				phase_instance.emit_signal("phase_completed")
+			print("Ending phase: ", current_phase, " via action system...")
+			# Generic end-phase action
+			action = {"type": "END_PHASE"}
+
+	# Route through NetworkIntegration for multiplayer support
+	if action.has("type"):
+		var result = NetworkIntegration.route_action(action)
+		if result.get("pending", false):
+			print("Main: End-phase action submitted to network")
+		elif result.get("success", false):
+			print("Main: End-phase action succeeded")
+		else:
+			print("Main: End-phase action failed: ", result.get("error", "Unknown"))
 
 func _perform_quick_save() -> void:
 	print("========================================")
@@ -1801,7 +1815,13 @@ func _perform_quick_load() -> void:
 	print("QUICK LOAD TRIGGERED WITH ] KEY")
 	print("========================================")
 	print("Pre-load game state meta: ", GameState.state.get("meta", {}))
-	
+
+	# Check if we're in multiplayer as a client
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host():
+		_show_save_notification("Only host can load games in multiplayer", Color.RED)
+		push_warning("Main: Client attempted to load during multiplayer - blocked")
+		return
+
 	# Show immediate UI feedback
 	_show_save_notification("Loading...", Color.YELLOW)
 	
@@ -2042,6 +2062,38 @@ func _on_load_failed(error: String) -> void:
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
 	print("Main: Network result applied, recreating visuals")
+
+	# Check if phase changed
+	var diffs = result.get("diffs", [])
+	var phase_changed = false
+	var new_phase = null
+
+	for diff in diffs:
+		if diff.get("op") == "set" and diff.get("path") == "meta.phase":
+			phase_changed = true
+			new_phase = diff.get("value")
+			break
+
+	# If phase changed, update phase managers and controllers
+	if phase_changed and new_phase != null:
+		print("Main: Phase changed via network to: ", new_phase)
+		current_phase = new_phase
+
+		# Transition PhaseManager to new phase
+		if PhaseManager and PhaseManager.has_method("transition_to_phase"):
+			print("Main: Transitioning PhaseManager to phase: ", new_phase)
+			PhaseManager.transition_to_phase(new_phase)
+
+		# Wait for phase transition
+		await get_tree().process_frame
+
+		# Recreate phase controllers for new phase
+		print("Main: Recreating phase controllers for new phase")
+		await setup_phase_controllers()
+
+		# Update phase-specific UI
+		update_ui_for_phase()
+
 	# Recreate unit visuals to reflect the new state
 	_recreate_unit_visuals()
 	# Update UI to show current state
@@ -2131,13 +2183,51 @@ func _on_delete_requested(save_file: String) -> void:
 
 func _refresh_after_load() -> void:
 	# Completely refresh the UI to match loaded state
+	print("Main: _refresh_after_load() called")
+
+	# Get the current phase from GameState
+	current_phase = GameState.get_current_phase()
+	print("Main: Loaded phase is: ", current_phase)
+
+	# CRITICAL: Transition PhaseManager to loaded phase FIRST
+	# This creates the phase instance that controllers will reference
+	print("Main: Transitioning PhaseManager to loaded phase: ", current_phase)
+	if PhaseManager and PhaseManager.has_method("transition_to_phase"):
+		PhaseManager.transition_to_phase(current_phase)
+		print("Main: Phase transition complete")
+	else:
+		print("Main: WARNING - Could not transition to phase (PhaseManager not available)")
+
+	# Wait one frame for phase transition to complete
+	await get_tree().process_frame
+
+	# CRITICAL: Recreate phase controllers for the loaded phase
+	# This ensures phase-specific UI (like "End Command Phase" button) works
+	# Controllers will now reference the correct phase instance from PhaseManager
+	print("Main: Recreating phase controllers after load...")
+	await setup_phase_controllers()
+
+	# Wait one frame for controllers to initialize
+	await get_tree().process_frame
+
+	# Refresh UI elements
 	refresh_unit_list()
 	update_ui()
 	update_deployment_zone_visibility()
-	
+
+	# CRITICAL: Recreate unit visuals on the battlefield
+	print("Main: Recreating unit visuals after load...")
+	_recreate_unit_visuals()
+	print("Main: Unit visuals recreated")
+
 	# Clear any active deployment
 	if deployment_controller and deployment_controller.is_placing():
 		deployment_controller.undo()
+
+	# Update phase-specific UI
+	update_ui_for_phase()
+
+	print("Main: _refresh_after_load() complete")
 
 func update_deployment_zone_visibility() -> void:
 	# Show the active player's zone more prominently

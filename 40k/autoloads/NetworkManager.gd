@@ -148,8 +148,9 @@ func _send_action_to_host(action: Dictionary) -> void:
 	print("NetworkManager: Validation result: ", validation)
 
 	if not validation.valid:
-		print("NetworkManager: REJECTING action: ", validation.reason)
-		_reject_action.rpc_id(peer_id, action.get("type", ""), validation.reason)
+		var reason = validation.get("reason", "Unknown validation error")
+		print("NetworkManager: REJECTING action: ", reason)
+		_reject_action.rpc_id(peer_id, action.get("type", ""), reason)
 		return
 
 	print("NetworkManager: Action VALIDATED, applying via GameManager")
@@ -192,6 +193,95 @@ func _send_initial_state(snapshot: Dictionary) -> void:
 
 	print("NetworkManager: State synchronized")
 	emit_signal("game_started")
+
+# ============================================================================
+# LOAD SYNCHRONIZATION - State sync after host loads a saved game
+# ============================================================================
+
+@rpc("authority", "call_remote", "reliable")
+func _send_loaded_state(snapshot: Dictionary, save_name: String) -> void:
+	"""
+	Called by host to synchronize loaded game state to clients.
+	Similar to _send_initial_state() but used for mid-game loads.
+	"""
+	print("NetworkManager: ========================================")
+	print("NetworkManager: CLIENT RECEIVED LOADED STATE RPC")
+	print("NetworkManager: ========================================")
+	print("NetworkManager: Save name: ", save_name)
+	print("NetworkManager: Snapshot keys: ", snapshot.keys())
+	print("NetworkManager: Snapshot has ", snapshot.get("units", {}).size(), " units")
+	print("NetworkManager: Snapshot turn: ", snapshot.get("meta", {}).get("turn_number", "unknown"))
+
+	# Replace local state with host's loaded state
+	print("NetworkManager: Applying loaded state to GameState...")
+	game_state.load_from_snapshot(snapshot)
+	print("NetworkManager: State applied, GameState now has ", game_state.state.get("units", {}).size(), " units")
+
+	# Trigger UI refresh on client side
+	print("NetworkManager: Triggering UI refresh on client...")
+	_refresh_client_ui_after_load(snapshot)
+
+	print("NetworkManager: Loaded state synchronized")
+	print("NetworkManager: ========================================")
+
+func _refresh_client_ui_after_load(snapshot: Dictionary) -> void:
+	"""
+	Triggers UI refresh on client after receiving loaded state.
+	Notifies Main scene to refresh all game elements.
+	"""
+	# Get Main scene if it exists
+	var main_scene = get_tree().current_scene
+	if main_scene and main_scene.has_method("_refresh_after_load"):
+		print("NetworkManager: Triggering client UI refresh")
+		main_scene._refresh_after_load()
+
+		# Show notification to client
+		if main_scene.has_method("_show_save_notification"):
+			var turn = snapshot.get("meta", {}).get("turn_number", 0)
+			var phase = snapshot.get("meta", {}).get("phase", "Unknown")
+			main_scene._show_save_notification(
+				"Host loaded game (Turn %d, %s)" % [turn, phase],
+				Color.CYAN
+			)
+	else:
+		print("NetworkManager: Warning - Could not trigger client UI refresh")
+
+func sync_loaded_state() -> void:
+	"""
+	Called by SaveLoadManager after host loads a game.
+	Broadcasts the loaded state to all connected clients.
+	"""
+	if not is_networked():
+		print("NetworkManager: Not in multiplayer, skipping load sync")
+		return
+
+	if not is_host():
+		push_error("NetworkManager: Only host can sync loaded state!")
+		return
+
+	print("NetworkManager: ========================================")
+	print("NetworkManager: SYNCING LOADED STATE TO CLIENTS")
+	print("NetworkManager: ========================================")
+
+	# Create snapshot of current (newly loaded) state
+	var snapshot = game_state.create_snapshot()
+	print("NetworkManager: Created snapshot with keys: ", snapshot.keys())
+	print("NetworkManager: Snapshot has ", snapshot.get("units", {}).size(), " units")
+	print("NetworkManager: Snapshot turn: ", snapshot.get("meta", {}).get("turn_number", "unknown"))
+
+	# Get save name from metadata if available
+	var save_name = snapshot.get("meta", {}).get("save_name", "Unknown")
+
+	# Check if we have connected peers
+	var peer_count = multiplayer.get_peers().size()
+	print("NetworkManager: Broadcasting to ", peer_count, " connected peers")
+	print("NetworkManager: Connected peer IDs: ", multiplayer.get_peers())
+
+	# Broadcast to all clients
+	_send_loaded_state.rpc(snapshot, save_name)
+
+	print("NetworkManager: Loaded state sync RPC sent")
+	print("NetworkManager: ========================================")
 
 # Initiates game start for both host and all clients
 @rpc("authority", "call_local", "reliable")

@@ -8,6 +8,7 @@ extends Control
 @onready var player1_dropdown: OptionButton = $MenuContainer/ArmySection/Player1Container/Player1Dropdown
 @onready var player2_dropdown: OptionButton = $MenuContainer/ArmySection/Player2Container/Player2Dropdown
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
+@onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
 
 # Configuration options
@@ -71,7 +72,13 @@ func _setup_dropdowns() -> void:
 
 func _connect_signals() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)
+	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
+
+	# Show/hide multiplayer button based on feature flag
+	multiplayer_button.visible = FeatureFlags.is_multiplayer_available()
+	print("MainMenu: Multiplayer button visible: ", multiplayer_button.visible)
+
 	print("MainMenu: Signals connected")
 
 func _setup_save_load_dialog() -> void:
@@ -160,6 +167,11 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	
 	print("MainMenu: Game initialization complete. Total units: ", GameState.state.units.size())
 
+func _on_multiplayer_button_pressed() -> void:
+	print("MainMenu: Multiplayer button pressed")
+	# Transition to multiplayer lobby
+	get_tree().change_scene_to_file("res://scenes/MultiplayerLobby.tscn")
+
 func _on_load_button_pressed() -> void:
 	print("MainMenu: Load button pressed")
 	if save_load_dialog:
@@ -169,7 +181,13 @@ func _on_load_button_pressed() -> void:
 
 func _on_load_requested(save_file: String) -> void:
 	print("MainMenu: Load requested for file: ", save_file)
-	
+
+	# Check if we're in multiplayer (shouldn't be from main menu, but safety check)
+	if NetworkManager and NetworkManager.is_networked():
+		print("MainMenu: Cannot load during active multiplayer session")
+		# Could show error dialog here
+		return
+
 	if SaveLoadManager:
 		var success = SaveLoadManager.load_game(save_file)
 		if success:
