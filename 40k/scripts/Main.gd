@@ -23,6 +23,8 @@ extends CanvasLayer
 @onready var confirm_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton
 
 var unit_stats_panel: Control
+var left_panel_toggle_button: Button
+var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
 var deployment_controller: Node
@@ -119,6 +121,10 @@ func _ready() -> void:
 
 	# Setup Transport Panel
 	_setup_transport_panel()
+
+	# Setup left panel toggle and hide by default
+	_setup_left_panel_toggle()
+	_hide_left_panel()
 
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
@@ -3009,3 +3015,49 @@ func _debug_check_right_panel() -> void:
 	if current_phase != GameStateData.Phase.SHOOTING:
 		if container.get_node_or_null("ShootingPanel"):
 			print("ERROR: Shooting UI found in wrong phase!")
+
+func _setup_left_panel_toggle() -> void:
+	"""Setup toggle button for left panel in top HUD"""
+	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_bottom:
+		print("ERROR: Could not find HUD_Bottom/HBoxContainer for left panel toggle")
+		return
+
+	# Create toggle button
+	left_panel_toggle_button = Button.new()
+	left_panel_toggle_button.name = "LeftPanelToggle"
+	left_panel_toggle_button.text = "Show Mathhammer"
+	left_panel_toggle_button.pressed.connect(_on_left_panel_toggle_pressed)
+
+	# Add to the beginning of the HBox (before phase label)
+	hud_bottom.add_child(left_panel_toggle_button)
+	hud_bottom.move_child(left_panel_toggle_button, 0)
+
+	print("Left panel toggle button added to top HUD")
+
+func _hide_left_panel() -> void:
+	"""Hide the left panel by default"""
+	var hud_left = get_node_or_null("HUD_Left")
+	if hud_left:
+		hud_left.visible = false
+		is_left_panel_visible = false
+		print("Left panel hidden by default")
+
+func _on_left_panel_toggle_pressed() -> void:
+	"""Toggle visibility of left panel"""
+	var hud_left = get_node_or_null("HUD_Left")
+	if not hud_left:
+		print("ERROR: Could not find HUD_Left to toggle")
+		return
+
+	is_left_panel_visible = !is_left_panel_visible
+	hud_left.visible = is_left_panel_visible
+
+	# Update button text
+	if left_panel_toggle_button:
+		if is_left_panel_visible:
+			left_panel_toggle_button.text = "Hide Mathhammer"
+		else:
+			left_panel_toggle_button.text = "Show Mathhammer"
+
+	print("Left panel visibility toggled: ", is_left_panel_visible)
