@@ -129,26 +129,21 @@ func _exit_tree() -> void:
 	var movement_info = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementInfo")
 	if movement_info and is_instance_valid(movement_info):
 		movement_info.queue_free()
-	
+
 	var movement_buttons = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/MovementButtons")
 	if movement_buttons and is_instance_valid(movement_buttons):
 		movement_buttons.queue_free()
-	
-	var movement_actions = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/MovementActions")
-	if movement_actions and is_instance_valid(movement_actions):
-		movement_actions.queue_free()
-	
-	# ENHANCEMENT: Explicitly clean up all 4 movement sections
+
+	# Clean up right panel elements (standard pattern)
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
-		# Remove all movement-specific sections
-		for section_name in ["Section1_UnitList", "Section2_UnitDetails", 
-							"Section3_ModeSelection", "Section4_Actions"]:
-			var section = container.get_node_or_null(section_name)
-			if section and is_instance_valid(section):
-				print("MovementController: Cleaning up section: ", section_name)
-				container.remove_child(section)
-				section.queue_free()
+		var movement_elements = ["MovementScrollContainer", "MovementPanel"]
+		for element in movement_elements:
+			var node = container.get_node_or_null(element)
+			if node and is_instance_valid(node):
+				print("MovementController: Removing element: ", element)
+				container.remove_child(node)
+				node.queue_free()
 
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
@@ -222,40 +217,42 @@ func _setup_right_panel() -> void:
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:
 		container = VBoxContainer.new()
-		container.name = "VBoxContainer" 
+		container.name = "VBoxContainer"
 		hud_right.add_child(container)
-	
-	# Clear existing movement-specific containers
-	var existing_actions = container.get_node_or_null("MovementActions")
-	if existing_actions:
-		print("MovementController: Removing existing MovementActions container")
-		container.remove_child(existing_actions)
-		existing_actions.free()
-	
-	# Clear any existing 4-section containers to avoid duplication
-	for section_name in ["Section1_UnitList", "Section2_UnitDetails", "Section3_ModeSelection", "Section4_Actions"]:
-		var existing_section = container.get_node_or_null(section_name)
-		if existing_section:
-			container.remove_child(existing_section)
-			existing_section.free()
-	
+
+	# Hide persistent UI elements (UnitListPanel, UnitCard)
+	var persistent_unit_list = container.get_node_or_null("UnitListPanel")
+	if persistent_unit_list:
+		persistent_unit_list.visible = false  # Movement phase has its own unit list
+
+	var unit_card = container.get_node_or_null("UnitCard")
+	if unit_card:
+		unit_card.visible = false  # Not used in movement phase
+
+	# Create scroll container with standard naming
+	var scroll_container = ScrollContainer.new()
+	scroll_container.name = "MovementScrollContainer"
+	scroll_container.custom_minimum_size = Vector2(250, 400)
+	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	container.add_child(scroll_container)
+
+	# Create movement panel with standard naming
+	var movement_panel = VBoxContainer.new()
+	movement_panel.name = "MovementPanel"
+	movement_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll_container.add_child(movement_panel)
+
 	# SECTION 1: Unit List with Status
-	_create_section1_unit_list(container)
-	# container.add_child(HSeparator.new())
-	
-	# SECTION 2: Selected Unit Details  
-	_create_section2_unit_details(container)
-	# container.add_child(HSeparator.new())
-	
+	_create_section1_unit_list(movement_panel)
+
+	# SECTION 2: Selected Unit Details
+	_create_section2_unit_details(movement_panel)
+
 	# SECTION 3: Movement Mode Selection
-	_create_section3_mode_selection(container) 
-	# container.add_child(HSeparator.new())
-	
+	_create_section3_mode_selection(movement_panel)
+
 	# SECTION 4: Action Buttons & Distance Info
-	_create_section4_actions(container)
-	
-	# Keep dice log at bottom
-	# _create_dice_log_display(container)
+	_create_section4_actions(movement_panel)
 
 func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()

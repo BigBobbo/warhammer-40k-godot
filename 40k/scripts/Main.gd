@@ -39,6 +39,8 @@ var view_zoom: float = 1.0
 func _ready() -> void:
 	# DEBUG: Check current state before any initialization
 	print("Main: _ready() called")
+	print("Main: DebugLogger log file path: ", DebugLogger.get_real_log_file_path())
+	DebugLogger.info("Main._ready() called", {})
 	print("Main: Current units count BEFORE check: ", GameState.state.get("units", {}).size())
 	if GameState.state.get("units", {}).size() > 0:
 		print("Main: Unit IDs in GameState: ", GameState.state.units.keys())
@@ -79,6 +81,16 @@ func _ready() -> void:
 		print("Main: Initializing deployment phase with ", GameState.state.units.size(), " units")
 		phase_manager.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
 
+		# DEBUG: Verify phase was created correctly
+		await get_tree().process_frame
+		var phase_inst = phase_manager.get_current_phase_instance()
+		if phase_inst:
+			print("Main: Phase instance created - class: ", phase_inst.get_class())
+			print("Main: Phase instance script: ", phase_inst.get_script())
+			print("Main: Phase has validate_action: ", phase_inst.has_method("validate_action"))
+		else:
+			print("Main: ERROR - No phase instance after transition!")
+
 	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
 
 	board_view.queue_redraw()
@@ -115,7 +127,13 @@ func _ready() -> void:
 	connect_signals()
 	refresh_unit_list()
 	update_ui()
-	
+
+	# CRITICAL FIX: Must call update_ui_for_phase() to properly configure the phase action button
+	# This sets the correct button text and connects the signal handler
+	print("Main: ⚠️ Calling update_ui_for_phase() for initial phase setup")
+	update_ui_for_phase()
+	print("Main: ⚠️ Initial phase UI setup complete")
+
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
@@ -579,9 +597,15 @@ func update_transport_panel(unit_id: String = "") -> void:
 	if not transport_panel:
 		return
 
-	var info_label = transport_panel.get_node("VBoxContainer/TransportInfo")
-	var embark_button = transport_panel.get_node("VBoxContainer/TransportActions/EmbarkButton")
-	var disembark_button = transport_panel.get_node("VBoxContainer/TransportActions/DisembarkButton")
+	var info_label = transport_panel.get_node_or_null("VBoxContainer/TransportInfo")
+	var embark_button = transport_panel.get_node_or_null("VBoxContainer/TransportActions/EmbarkButton")
+	var disembark_button = transport_panel.get_node_or_null("VBoxContainer/TransportActions/DisembarkButton")
+
+	# If any child nodes are missing, the panel structure is invalid
+	if not info_label or not embark_button or not disembark_button:
+		print("WARNING: TransportPanel structure is incomplete, hiding panel")
+		transport_panel.visible = false
+		return
 
 	if unit_id == "":
 		transport_panel.visible = false
@@ -823,6 +847,10 @@ func setup_deployment_controller() -> void:
 	deployment_controller.name = "DeploymentController"
 	add_child(deployment_controller)
 	deployment_controller.set_layers(token_layer, ghost_layer)
+
+	# Connect controller signals
+	deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
+	deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
 
 	# Add formation UI controls to unit card
 	_setup_formation_ui()
@@ -1439,11 +1467,24 @@ func update_ui() -> void:
 	# Phase-specific UI updates
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			if GameState.all_units_deployed():
+			var all_deployed = GameState.all_units_deployed()
+			print("Main: ⚠️ update_ui() - DEPLOYMENT phase - all_deployed: ", all_deployed)
+			print("Main: ⚠️ Button state BEFORE change - disabled: ", phase_action_button.disabled, " text: '", phase_action_button.text, "'")
+			DebugLogger.info("update_ui deployment check", {
+				"all_deployed": all_deployed,
+				"current_button_disabled": phase_action_button.disabled,
+				"button_text": phase_action_button.text
+			})
+
+			if all_deployed:
 				phase_action_button.disabled = false
 				status_label.text = "All units deployed! Click 'End Deployment' to continue."
+				print("Main: ⚠️ update_ui() - Setting button ENABLED (all deployed)")
+				print("Main: ⚠️ Button state AFTER enable - disabled: ", phase_action_button.disabled)
 			else:
 				phase_action_button.disabled = true
+				print("Main: ⚠️ update_ui() - Setting button DISABLED (not all deployed)")
+				print("Main: ⚠️ Button state AFTER disable - disabled: ", phase_action_button.disabled)
 				if deployment_controller and deployment_controller.is_placing():
 					var unit_id = deployment_controller.get_current_unit()
 					var unit_data = GameState.get_unit(unit_id)
@@ -1713,8 +1754,23 @@ func _on_unit_confirmed() -> void:
 	update_ui()
 
 func _on_models_placed_changed() -> void:
+	print("Main: ⚠️ _on_models_placed_changed() called")
+	DebugLogger.info("Models placed changed signal received", {})
+
 	update_unit_card_buttons()
+
+	print("Main: Calling update_ui() after models_placed_changed")
 	update_ui()
+
+	# Check if all units are deployed now
+	var all_units_deployed = GameState.all_units_deployed()
+	print("Main: ⚠️ After update_ui - all_units_deployed: ", all_units_deployed, " button_disabled: ", phase_action_button.disabled)
+	DebugLogger.info("After models_placed update_ui", {
+		"all_units_deployed": all_units_deployed,
+		"button_disabled": phase_action_button.disabled,
+		"button_text": phase_action_button.text,
+		"button_visible": phase_action_button.visible
+	})
 
 func _on_deployment_side_changed(player: int) -> void:
 	refresh_unit_list()
@@ -1726,12 +1782,18 @@ func _on_deployment_complete() -> void:
 	phase_action_button.disabled = false
 
 func _on_end_deployment_pressed() -> void:
+	print("Main: ========== _on_end_deployment_pressed CALLED ==========")
+	DebugLogger.info("_on_end_deployment_pressed called", {
+		"current_phase": GameStateData.Phase.keys()[current_phase]
+	})
+
 	# Route end-phase actions through the action system for multiplayer sync
 	var action = {}
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
-			print("Ending deployment phase via action system...")
+			print("Main: Ending deployment phase via action system...")
+			DebugLogger.info("Ending deployment phase", {})
 			action = {"type": "END_DEPLOYMENT"}
 
 		GameStateData.Phase.MOVEMENT:
@@ -1753,13 +1815,26 @@ func _on_end_deployment_pressed() -> void:
 
 	# Route through NetworkIntegration for multiplayer support
 	if action.has("type"):
+		print("Main: ⚠️ Calling NetworkIntegration.route_action with action: ", action)
+		DebugLogger.info("Routing END_DEPLOYMENT action", {"action_type": action.type})
+
 		var result = NetworkIntegration.route_action(action)
+
+		print("Main: ⚠️ NetworkIntegration.route_action returned: ", result)
+		DebugLogger.info("END_DEPLOYMENT action result", {
+			"result": result,
+			"pending": result.get("pending", false),
+			"success": result.get("success", false),
+			"error": result.get("error", "none")
+		})
+
 		if result.get("pending", false):
 			print("Main: End-phase action submitted to network")
 		elif result.get("success", false):
 			print("Main: End-phase action succeeded")
 		else:
-			print("Main: End-phase action failed: ", result.get("error", "Unknown"))
+			print("Main: ⚠️ End-phase action FAILED: ", result.get("error", "Unknown"))
+			DebugLogger.info("END_DEPLOYMENT FAILED", {"error": result.get("error", "Unknown")})
 
 func _perform_quick_save() -> void:
 	print("========================================")
@@ -2324,7 +2399,17 @@ func _clear_phase_ui_artifacts() -> void:
 
 func _on_phase_action_pressed() -> void:
 	# Handle phase action button press based on current phase
-	print("Main: Phase action button pressed for phase: ", GameStateData.Phase.keys()[current_phase])
+	print("Main: ========== PHASE ACTION BUTTON PRESSED ==========")
+	print("Main: ⚠️⚠️⚠️ BUTTON WAS ACTUALLY CLICKED ⚠️⚠️⚠️")
+	print("Main: Current phase: ", GameStateData.Phase.keys()[current_phase])
+	print("Main: Button text: ", phase_action_button.text)
+	print("Main: Button disabled: ", phase_action_button.disabled)
+	DebugLogger.info("⚠️ Phase action button CLICKED", {
+		"phase": GameStateData.Phase.keys()[current_phase],
+		"button_text": phase_action_button.text,
+		"button_disabled": phase_action_button.disabled,
+		"timestamp": Time.get_ticks_msec()
+	})
 
 	# For multiplayer sync, we need to route phase end actions through the network system
 	var action = {}
@@ -2369,20 +2454,64 @@ func update_ui_for_phase() -> void:
 	# Clear any phase-specific UI artifacts first
 	_clear_phase_ui_artifacts()
 
+	print("Main: ========== UPDATE UI FOR PHASE ==========")
+	print("Main: Current phase: ", GameStateData.Phase.keys()[current_phase])
+	DebugLogger.info("update_ui_for_phase START", {
+		"phase": GameStateData.Phase.keys()[current_phase],
+		"button_exists": phase_action_button != null,
+		"button_path": phase_action_button.get_path() if phase_action_button else "null"
+	})
+	DebugLogger.info("Updating UI for phase", {
+		"phase": GameStateData.Phase.keys()[current_phase]
+	})
+
 	# Update phase label
 	phase_label.text = _get_phase_label_text(current_phase)
 
 	# Configure the single action button for current phase
 	phase_action_button.visible = true
 	phase_action_button.text = _get_phase_button_text(current_phase)
-	phase_action_button.disabled = false
+
+	# Set initial disabled state based on phase
+	# Deployment phase starts disabled (enabled when all units deployed)
+	# Other phases start enabled
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		# Check if all units are deployed to determine button state
+		var all_deployed = GameState.all_units_deployed()
+		phase_action_button.disabled = not all_deployed
+		print("Main: Deployment phase - all_units_deployed: ", all_deployed, " button_disabled: ", phase_action_button.disabled)
+		DebugLogger.info("Deployment button state", {
+			"all_deployed": all_deployed,
+			"button_disabled": phase_action_button.disabled
+		})
+	else:
+		phase_action_button.disabled = false
+
+	print("Main: Phase button configured - text: '", phase_action_button.text, "' visible: ", phase_action_button.visible, " disabled: ", phase_action_button.disabled)
+	DebugLogger.info("Phase button configured", {
+		"text": phase_action_button.text,
+		"visible": phase_action_button.visible,
+		"disabled": phase_action_button.disabled
+	})
 
 	# Disconnect all previous connections
-	if phase_action_button.pressed.is_connected(_on_phase_action_pressed):
+	var was_connected = phase_action_button.pressed.is_connected(_on_phase_action_pressed)
+	if was_connected:
 		phase_action_button.pressed.disconnect(_on_phase_action_pressed)
+		print("Main: Disconnected previous phase action button connection")
 
 	# Connect to the standardized handler
 	phase_action_button.pressed.connect(_on_phase_action_pressed)
+	print("Main: Connected phase action button to _on_phase_action_pressed")
+
+	# Verify the connection worked
+	var is_now_connected = phase_action_button.pressed.is_connected(_on_phase_action_pressed)
+	print("Main: ⚠️ VERIFICATION - Button connected: ", is_now_connected)
+	DebugLogger.info("Phase button signal connected", {
+		"was_previously_connected": was_connected,
+		"is_now_connected": is_now_connected,
+		"connection_verified": is_now_connected
+	})
 
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
@@ -2395,6 +2524,9 @@ func update_ui_for_phase() -> void:
 			# Show unit list and unit card during deployment phase
 			unit_list.visible = true
 			unit_card.visible = true
+			# Update button state based on deployment status
+			if GameState.all_units_deployed():
+				phase_action_button.disabled = false
 
 		GameStateData.Phase.COMMAND:
 			# Hide deployment zones during command phase
@@ -2748,30 +2880,39 @@ func _clear_right_panel_phase_ui() -> void:
 	if not container:
 		print("WARNING: Right panel VBoxContainer not found")
 		return
-	
+
 	# List of known phase-specific UI elements to remove
 	var phase_ui_patterns = [
-		# Movement phase sections
-		"Section1_UnitList", "Section2_UnitDetails", 
+		# Standardized scroll containers (new naming convention)
+		"DeploymentScrollContainer", "CommandScrollContainer",
+		"MovementScrollContainer", "ShootingScrollContainer",
+		"ChargeScrollContainer", "FightScrollContainer",
+		"ScoringScrollContainer", "MoraleScrollContainer",
+
+		# Standardized panels (new naming convention)
+		"DeploymentPanel", "CommandPanel",
+		"MovementPanel", "ShootingPanel",
+		"ChargePanel", "FightPanel",
+		"ScoringPanel", "MoralePanel",
+
+		# Legacy Movement phase sections (to be removed after refactor)
+		"Section1_UnitList", "Section2_UnitDetails",
 		"Section3_ModeSelection", "Section4_Actions",
-		"MovementActions", "MovementPanel",
-		
-		# Shooting phase elements
-		"ShootingPanel", "ShootingScrollContainer",
+		"MovementActions",
+
+		# Legacy Shooting phase elements
 		"ShootingControls", "WeaponTree", "TargetBasket",
-		
-		# Charge phase elements
-		"ChargePanel", "ChargeScrollContainer",
+
+		# Legacy Charge phase elements
 		"ChargeActions", "ChargeStatus",
-		
-		# Fight phase elements
-		"FightPanel", "FightScrollContainer",
+
+		# Legacy Fight phase elements
 		"FightSequence", "FightActions",
-		
+
 		# Generic phase elements
 		"PhasePanel", "PhaseControls", "PhaseActions"
 	]
-	
+
 	# Remove all matching elements
 	for pattern in phase_ui_patterns:
 		var node = container.get_node_or_null(pattern)
@@ -2779,19 +2920,27 @@ func _clear_right_panel_phase_ui() -> void:
 			print("Main: Removing phase UI element: ", pattern)
 			container.remove_child(node)
 			node.queue_free()
-	
+
 	# Also remove any unknown dynamic children (defensive)
 	var children_to_check = container.get_children()
 	for child in children_to_check:
 		# Keep only persistent UI elements
-		if child.name in ["UnitListPanel", "UnitCard"]:
-			# These might be shown/hidden based on phase
+		if child.name in ["UnitListPanel", "UnitCard", "TransportPanel"]:
 			continue
 		# Remove if it looks like phase-specific UI
-		if "Section" in child.name or "Panel" in child.name or "Actions" in child.name:
+		if "Section" in child.name or "Panel" in child.name or "Actions" in child.name or "ScrollContainer" in child.name:
 			print("Main: Removing unrecognized phase UI: ", child.name)
 			container.remove_child(child)
 			child.queue_free()
+
+	# Reset visibility of persistent UI elements to defaults
+	var unit_list = container.get_node_or_null("UnitListPanel")
+	if unit_list:
+		unit_list.visible = true  # Default visible
+
+	var unit_card = container.get_node_or_null("UnitCard")
+	if unit_card:
+		unit_card.visible = false  # Default hidden
 
 func _show_transport_deployment_dialog(transport_id: String) -> void:
 	"""Show info about deploying a transport and offer to embark units"""

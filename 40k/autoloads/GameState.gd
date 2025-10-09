@@ -257,11 +257,20 @@ func has_undeployed_units(player: int) -> bool:
 	return get_undeployed_units_for_player(player).size() > 0
 
 func all_units_deployed() -> bool:
+	var undeployed_list = []
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
+		# Skip units that are embarked (they're deployed when inside a transport)
+		if unit.get("embarked_in", null) != null:
+			continue
 		if unit["status"] == UnitStatus.UNDEPLOYED:
-			return false
-	return true
+			undeployed_list.append(unit_id + " (player " + str(unit.get("owner", 0)) + ")")
+
+	var all_deployed = undeployed_list.size() == 0
+	if not all_deployed:
+		print("GameState: ⚠️ all_units_deployed check - Undeployed units: ", undeployed_list)
+
+	return all_deployed
 
 func get_deployment_zone_for_player(player: int) -> Dictionary:
 	for zone in state["board"]["deployment_zones"]:

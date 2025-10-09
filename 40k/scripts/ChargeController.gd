@@ -261,7 +261,7 @@ func _setup_right_panel() -> void:
 	# Create scroll container for better layout
 	var scroll_container = ScrollContainer.new()
 	scroll_container.name = "ChargeScrollContainer"
-	scroll_container.custom_minimum_size = Vector2(200, 400)  # Increased from 250 to 400
+	scroll_container.custom_minimum_size = Vector2(250, 400)  # Standard size across all phases
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Take available space
 	container.add_child(scroll_container)
 	
