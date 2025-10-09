@@ -383,9 +383,12 @@ func _validate_remain_stationary(action: Dictionary) -> Dictionary:
 
 func _validate_end_movement(action: Dictionary) -> Dictionary:
 	# Check if there are any active moves that need to be resolved
-	if not active_moves.is_empty():
-		return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
-	
+	# Only incomplete moves should block phase end
+	for unit_id in active_moves:
+		var move_data = active_moves[unit_id]
+		if not move_data.get("completed", false):
+			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
+
 	# Player can always choose to end the phase
 	return {"valid": true, "errors": []}
 
@@ -429,10 +432,16 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
 	
-	# Roll D6 for advance
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
-	var advance_roll = rng.randi_range(1, 6)
+	# Roll D6 for advance (with deterministic seed for multiplayer)
+	var rng_seed = -1
+	if has_node("/root/NetworkManager"):
+		var net_mgr = get_node("/root/NetworkManager")
+		if net_mgr.is_networked() and net_mgr.is_host():
+			rng_seed = net_mgr.get_next_rng_seed()
+
+	var rng_service = RulesEngine.RNGService.new(rng_seed)
+	var rolls = rng_service.roll_d6(1)
+	var advance_roll = rolls[0]
 	var total_move = move_inches + advance_roll
 	
 	active_moves[unit_id] = {
@@ -919,14 +928,20 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 	if models_to_test.is_empty():
 		return {"changes": [], "dice": []}
 	
-	# Roll D6 for each model
-	var rng = RandomNumberGenerator.new()
-	rng.randomize()
+	# Roll D6 for each model (with deterministic seed for multiplayer)
+	var rng_seed = -1
+	if has_node("/root/NetworkManager"):
+		var net_mgr = get_node("/root/NetworkManager")
+		if net_mgr.is_networked() and net_mgr.is_host():
+			rng_seed = net_mgr.get_next_rng_seed()
+
+	var rng_service = RulesEngine.RNGService.new(rng_seed)
 	var casualties = 0
 	var rolls = []
-	
+
 	for model_data in models_to_test:
-		var roll = rng.randi_range(1, 6)
+		var roll_result = rng_service.roll_d6(1)
+		var roll = roll_result[0]
 		rolls.append(roll)
 		if roll <= 2:
 			casualties += 1
@@ -1241,8 +1256,14 @@ func get_available_actions() -> Array:
 				"description": "Undo last model"
 			})
 	
-	# Add End Movement Phase action if no active moves
-	if active_moves.is_empty():
+	# Add End Movement Phase action if no incomplete moves
+	var has_incomplete_moves = false
+	for unit_id in active_moves:
+		if not active_moves[unit_id].get("completed", false):
+			has_incomplete_moves = true
+			break
+
+	if not has_incomplete_moves:
 		actions.append({
 			"type": "END_MOVEMENT",
 			"description": "End Movement Phase"

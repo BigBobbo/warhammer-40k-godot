@@ -45,6 +45,7 @@ var ghost_visual: Node2D
 var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for individual paths
 var hud_bottom: Control
 var hud_right: Control
+var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
 
 # UI Elements
 var move_cap_label: Label
@@ -145,6 +146,9 @@ func _exit_tree() -> void:
 				container.remove_child(node)
 				node.queue_free()
 
+	# Reset UI setup flag
+	ui_setup_complete = false
+
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
 	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
@@ -213,6 +217,11 @@ func _setup_bottom_hud() -> void:
 	pass
 
 func _setup_right_panel() -> void:
+	# Prevent duplicate UI creation
+	if ui_setup_complete:
+		print("MovementController: UI already setup, skipping duplicate creation")
+		return
+
 	# Main.gd already handles cleanup before controller creation
 	var container = hud_right.get_node_or_null("VBoxContainer")
 	if not container:
@@ -229,8 +238,16 @@ func _setup_right_panel() -> void:
 	if unit_card:
 		unit_card.visible = false  # Not used in movement phase
 
+	# Check if movement scroll container already exists
+	var scroll_container = container.get_node_or_null("MovementScrollContainer")
+	if scroll_container:
+		# Already exists, shouldn't happen but clean it up and recreate
+		print("MovementController: WARNING - Removing existing MovementScrollContainer")
+		container.remove_child(scroll_container)
+		scroll_container.queue_free()
+
 	# Create scroll container with standard naming
-	var scroll_container = ScrollContainer.new()
+	scroll_container = ScrollContainer.new()
 	scroll_container.name = "MovementScrollContainer"
 	scroll_container.custom_minimum_size = Vector2(250, 400)
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -253,6 +270,10 @@ func _setup_right_panel() -> void:
 
 	# SECTION 4: Action Buttons & Distance Info
 	_create_section4_actions(movement_panel)
+
+	# Mark UI setup as complete
+	ui_setup_complete = true
+	print("MovementController: UI setup complete")
 
 func _create_section1_unit_list(parent: VBoxContainer) -> void:
 	var section = VBoxContainer.new()
@@ -537,6 +558,19 @@ func _on_unit_selected(index: int) -> void:
 	if unit and unit.get("embarked_in", null) != null:
 		_handle_embarked_unit_selected(unit_id)
 		return
+
+	# Get unit movement cap
+	if unit:
+		move_cap_inches = get_unit_movement(unit)
+		print("MovementController: Unit %s has movement cap of %.1f inches" % [unit_id, move_cap_inches])
+
+	# Request phase to begin movement (this will trigger _on_unit_move_begun callback)
+	if current_phase:
+		var action = {
+			"type": "BEGIN_NORMAL_MOVE",
+			"actor_unit_id": unit_id
+		}
+		emit_signal("move_action_requested", action)
 
 	_highlight_unit_models(unit_id)
 	_update_selected_unit_display()  # NEW: Update section 2
@@ -841,15 +875,16 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 		_update_mode_buttons_state(true)
 		if confirm_mode_button:
 			confirm_mode_button.disabled = false
-		
+
 		# Reset to default (Normal) selection
+		active_mode = "NORMAL"  # Set mode variable
 		if normal_radio:
 			normal_radio.button_pressed = true
-		
+
 		# Hide advance roll label
 		if advance_roll_label:
 			advance_roll_label.visible = false
-		
+
 		# Update display for fresh unit
 		_update_movement_display()
 

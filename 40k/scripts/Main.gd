@@ -2169,8 +2169,30 @@ func _on_network_result_applied(result: Dictionary) -> void:
 		# Update phase-specific UI
 		update_ui_for_phase()
 
-	# Recreate unit visuals to reflect the new state
-	_recreate_unit_visuals()
+	# Check if this is a staging action (doesn't modify GameState, only phase-local state)
+	# These actions already update visuals via signals, so skip recreation
+	var action_type = result.get("action_type", "")
+	var is_staging_action = action_type in [
+		"STAGE_MODEL_MOVE",           # Movement staging
+		"PREVIEW_MODEL_MOVE",         # Movement preview
+		"BEGIN_NORMAL_MOVE",          # Movement initialization
+		"BEGIN_ADVANCE",              # Movement initialization
+		"BEGIN_FALL_BACK",            # Movement initialization
+		"LOCK_MOVEMENT_MODE",         # Movement mode lock
+		"SET_ADVANCE_BONUS",          # Movement dice roll
+		"UNDO_LAST_MODEL_MOVE",       # Movement undo (handles own visuals)
+		"RESET_UNIT_MOVE",            # Movement reset (handles own visuals)
+		"SELECT_TARGET",              # Shooting target selection
+		"DECLARE_CHARGE",             # Charge declaration
+	]
+
+	# Only recreate visuals if state actually changed in GameState
+	if not is_staging_action and diffs.size() > 0:
+		# Recreate unit visuals to reflect the new state
+		_recreate_unit_visuals()
+	elif not is_staging_action:
+		print("Main: Skipping visual recreation - no state changes")
+
 	# Update UI to show current state
 	update_ui()
 	refresh_unit_list()
