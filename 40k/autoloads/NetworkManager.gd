@@ -117,7 +117,17 @@ func submit_action(action: Dictionary) -> void:
 		var validation = validate_action(action, peer_id)
 
 		if not validation.valid:
-			push_error("NetworkManager: Host action rejected: %s" % validation.get("reason", "Unknown reason"))
+			var error_msg = "Deployment validation failed"
+			if validation.has("errors") and validation.errors.size() > 0:
+				error_msg = validation.errors[0]
+			push_error("NetworkManager: Host action rejected: %s" % validation.get("reason", error_msg))
+
+			# Notify UI of validation failure
+			if has_node("/root/Main"):
+				var main = get_node("/root/Main")
+				if main.has_method("show_error_toast"):
+					main.call_deferred("show_error_toast", error_msg)
+
 			return
 
 		# Execute via GameManager
@@ -345,21 +355,30 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		print("NetworkManager: VALIDATION FAILED - missing type")
 		return {"valid": false, "reason": "Invalid action schema - missing type"}
 
-	# Layer 2: Authority validation
-	var claimed_player = action.get("player", -1)
-	var peer_player = peer_to_player_map.get(peer_id, -1)
-	print("NetworkManager: claimed_player=%d, peer_player=%d (from peer_to_player_map)" % [claimed_player, peer_player])
-	print("NetworkManager: peer_to_player_map = ", peer_to_player_map)
-	if claimed_player != peer_player:
-		print("NetworkManager: VALIDATION FAILED - player mismatch")
-		return {"valid": false, "reason": "Player ID mismatch (claimed=%d, expected=%d)" % [claimed_player, peer_player]}
+	# Check if this is a phase control action that bypasses player validation
+	var action_type = action.get("type", "")
+	var phase_control_actions = ["END_DEPLOYMENT", "END_PHASE"]  # Actions that any player can trigger
+	var is_phase_control = action_type in phase_control_actions
 
-	# Layer 3: Turn validation
-	var active_player = game_state.get_active_player()
-	print("NetworkManager: active_player=%d" % active_player)
-	if claimed_player != active_player:
-		print("NetworkManager: VALIDATION FAILED - not player's turn")
-		return {"valid": false, "reason": "Not your turn"}
+	if is_phase_control:
+		print("NetworkManager: Phase control action '%s' - skipping player/turn validation" % action_type)
+		# Skip layers 2 & 3 for phase control actions - go straight to game rules validation
+	else:
+		# Layer 2: Authority validation (only for player-specific actions)
+		var claimed_player = action.get("player", -1)
+		var peer_player = peer_to_player_map.get(peer_id, -1)
+		print("NetworkManager: claimed_player=%d, peer_player=%d (from peer_to_player_map)" % [claimed_player, peer_player])
+		print("NetworkManager: peer_to_player_map = ", peer_to_player_map)
+		if claimed_player != peer_player:
+			print("NetworkManager: VALIDATION FAILED - player mismatch")
+			return {"valid": false, "reason": "Player ID mismatch (claimed=%d, expected=%d)" % [claimed_player, peer_player]}
+
+		# Layer 3: Turn validation (only for player-specific actions)
+		var active_player = game_state.get_active_player()
+		print("NetworkManager: active_player=%d" % active_player)
+		if claimed_player != active_player:
+			print("NetworkManager: VALIDATION FAILED - not player's turn")
+			return {"valid": false, "reason": "Not your turn"}
 
 	# Layer 4: Game rules validation (delegate to phase)
 	var phase_mgr = get_node("/root/PhaseManager")

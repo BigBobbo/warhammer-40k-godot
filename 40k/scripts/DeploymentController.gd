@@ -25,6 +25,10 @@ var reposition_model_index: int = -1
 var reposition_start_pos: Vector2
 var reposition_ghost: Node2D = null
 
+# Transport embark state
+var pending_embark_units: Array = []  # Units to embark after deployment
+var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dialog
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -284,11 +288,54 @@ func undo() -> void:
 	_remove_ghost()
 
 func confirm() -> void:
+	# Check if this is a transport - if so, show embark dialog FIRST
+	if _is_transport(unit_id) and not is_awaiting_embark_dialog:
+		DebugLogger.info("Transport being deployed - showing embark dialog before confirmation", {
+			"unit_id": unit_id
+		})
+		is_awaiting_embark_dialog = true
+		_show_transport_embark_dialog()
+		return  # Don't proceed with deployment yet - wait for dialog
+
+	# Proceed with actual deployment (called either directly for non-transports, or after embark dialog closes)
+	_complete_deployment()
+
+func _is_transport(unit_id: String) -> bool:
+	var unit = GameState.get_unit(unit_id)
+	return unit.has("transport_data") and unit.transport_data.get("capacity", 0) > 0
+
+func _show_transport_embark_dialog() -> void:
+	DebugLogger.info("Creating transport embark dialog", {"unit_id": unit_id})
+
+	var dialog_script = load("res://scripts/TransportEmbarkDialog.gd")
+	var dialog = dialog_script.new()
+	dialog.setup(unit_id)
+	dialog.units_selected.connect(_on_embark_units_selected)
+
+	# Add to scene tree and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_embark_units_selected(unit_ids: Array) -> void:
+	DebugLogger.info("Embark dialog closed", {
+		"transport_id": unit_id,
+		"selected_units": unit_ids,
+		"count": unit_ids.size()
+	})
+
+	# Store units to embark AFTER deployment completes
+	pending_embark_units = unit_ids
+	is_awaiting_embark_dialog = false
+
+	# Now proceed with actual deployment
+	_complete_deployment()
+
+func _complete_deployment() -> void:
 	# Create deployment action for PhaseManager
 	var model_positions = []
 	for pos in temp_positions:
 		model_positions.append(pos)
-	
+
 	var deployment_action = {
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
@@ -298,7 +345,7 @@ func confirm() -> void:
 		"player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
-	
+
 	# Route through NetworkIntegration (handles multiplayer and single-player)
 	var result = NetworkIntegration.route_action(deployment_action)
 
@@ -308,24 +355,52 @@ func confirm() -> void:
 		else:
 			print("[DeploymentController] Deployment successful for unit: ", unit_id)
 			print("[DeploymentController] Action should trigger turn switch")
+
+		# Handle embarkation if units were selected
+		if pending_embark_units.size() > 0:
+			DebugLogger.info("Processing embarkation for selected units", {
+				"transport_id": unit_id,
+				"units_to_embark": pending_embark_units
+			})
+			_process_embarkation(unit_id, pending_embark_units)
+			pending_embark_units = []
 	else:
 		print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
 		print("[DeploymentController] Errors: ", result.get("errors", []))
 		push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
-	
+
 	_finalize_tokens()
 	_clear_previews()
 	_remove_ghost()
-	
+
 	unit_id = ""
 	model_idx = -1
 	temp_positions.clear()
 	temp_rotations.clear()  # Added to properly clear rotations
 
 	emit_signal("unit_confirmed")
-	
+
 	if GameState.all_units_deployed():
 		emit_signal("deployment_complete")
+
+func _process_embarkation(transport_id: String, unit_ids: Array) -> void:
+	for unit_id in unit_ids:
+		# Use TransportManager to handle the embarkation
+		TransportManager.embark_unit(unit_id, transport_id)
+
+		# Mark embarked units as deployed via PhaseManager
+		if has_node("/root/PhaseManager"):
+			var phase_manager = get_node("/root/PhaseManager")
+			if phase_manager.current_phase_instance:
+				phase_manager.apply_state_changes([{
+					"op": "set",
+					"path": "units.%s.status" % unit_id,
+					"value": GameStateData.UnitStatus.DEPLOYED
+				}])
+
+		var unit = GameState.get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("[DeploymentController] Embarked %s in %s" % [unit_name, transport_id])
 
 func _create_ghost() -> void:
 	if ghost_sprite != null:

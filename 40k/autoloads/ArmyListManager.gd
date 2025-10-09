@@ -155,9 +155,25 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 								if match:
 									capacity = int(match.get_string(1))
 
-								# Extract keywords (e.g., "ORKS INFANTRY")
-								if desc.contains("ORKS INFANTRY"):
-									capacity_keywords = ["ORKS", "INFANTRY"]
+								# Extract keywords (e.g., "22 ORKS INFANTRY models" or "10 INFANTRY models")
+								# Pattern: "capacity of <num> <KEYWORD1> <KEYWORD2>... models"
+								var keyword_regex = RegEx.new()
+								keyword_regex.compile("capacity of \\d+ ([A-Z ]+) models")
+								var keyword_match = keyword_regex.search(desc)
+								if keyword_match:
+									var keywords_str = keyword_match.get_string(1).strip_edges()
+									# Split by spaces and filter out common words
+									var raw_keywords = keywords_str.split(" ")
+									for keyword in raw_keywords:
+										keyword = keyword.strip_edges()
+										if keyword.length() > 0:
+											capacity_keywords.append(keyword)
+
+									DebugLogger.debug("Parsed transport capacity keywords", {
+										"unit_id": unit_id,
+										"description": desc,
+										"keywords": capacity_keywords
+									})
 							elif ability.has("name") and ability.name == "FIRING DECK":
 								var desc = ability.get("description", "")
 								var regex = RegEx.new()

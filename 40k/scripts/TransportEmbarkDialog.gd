@@ -26,6 +26,12 @@ func _ready() -> void:
 	get_ok_button().text = "Confirm Embarkation"
 	get_ok_button().pressed.connect(_on_confirm_pressed)
 
+	# Add "Skip" button - using cancel button
+	# In Godot 4.x, add_cancel_button() creates and returns the cancel button
+	var cancel_button = add_cancel_button("Deploy Without Embarking")
+	# Connect to the 'canceled' signal (Godot 4.x American spelling)
+	canceled.connect(_on_skip_pressed)
+
 	# Create main container
 	vbox = VBoxContainer.new()
 	vbox.set_custom_minimum_size(Vector2(400, 300))
@@ -53,8 +59,18 @@ func setup(p_transport_id: String) -> void:
 	transport_id = p_transport_id
 	var transport = GameState.get_unit(transport_id)
 
+	DebugLogger.info("TransportEmbarkDialog.setup called", {
+		"transport_id": transport_id,
+		"transport_exists": transport != null,
+		"has_transport_data": transport.has("transport_data") if transport else false
+	})
+
 	if not transport or not transport.has("transport_data"):
 		print("ERROR: Invalid transport unit: ", transport_id)
+		DebugLogger.error("Invalid transport for embark dialog", {
+			"transport_id": transport_id,
+			"transport_exists": transport != null
+		})
 		queue_free()
 		return
 
@@ -75,44 +91,61 @@ func setup(p_transport_id: String) -> void:
 	# Get available units for embarking
 	_populate_available_units(transport.owner)
 
+	DebugLogger.info("Available units for embarkation", {
+		"transport_id": transport_id,
+		"player": transport.owner,
+		"available_count": available_units.size(),
+		"capacity": capacity,
+		"capacity_keywords": capacity_keywords
+	})
+
 	# Create checkboxes for each available unit
 	_create_unit_checkboxes()
 
 func _populate_available_units(player: int) -> void:
 	available_units.clear()
+	var all_units = GameState.state.units
+	var filtered_out = []
 
 	# Get all units belonging to the same player
-	for unit_id in GameState.state.units:
-		var unit = GameState.state.units[unit_id]
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		var reason = ""
 
 		# Skip if not same owner
 		if unit.owner != player:
-			continue
-
+			reason = "wrong_owner"
 		# Skip if already deployed
-		if unit.status != GameState.UnitStatus.UNDEPLOYED:
-			continue
-
+		elif unit.status != GameStateData.UnitStatus.UNDEPLOYED:
+			reason = "already_deployed"
 		# Skip transports (they can't embark in other transports)
-		if unit.has("transport_data"):
-			continue
-
+		elif unit.has("transport_data"):
+			reason = "is_transport"
 		# Skip if already embarked
-		if unit.get("embarked_in", null) != null:
-			continue
-
+		elif unit.get("embarked_in", null) != null:
+			reason = "already_embarked"
 		# Check if unit can embark (has required keywords)
-		if capacity_keywords.size() > 0:
-			if not _has_required_keywords(unit, capacity_keywords):
-				continue
-
+		elif capacity_keywords.size() > 0 and not _has_required_keywords(unit, capacity_keywords):
+			reason = "missing_keywords"
 		# Check if unit would fit
-		var model_count = _get_alive_model_count(unit)
-		if model_count <= capacity:
+		elif _get_alive_model_count(unit) > capacity:
+			reason = "too_large"
+		else:
+			# Unit is eligible
+			var model_count = _get_alive_model_count(unit)
 			available_units.append({
 				"unit": unit,
 				"model_count": model_count
 			})
+			continue
+
+		filtered_out.append({"unit_id": unit_id, "reason": reason})
+
+	DebugLogger.debug("Unit filtering complete", {
+		"total_units": all_units.size(),
+		"eligible_units": available_units.size(),
+		"filtered_out": filtered_out
+	})
 
 func _has_required_keywords(unit: Dictionary, required: Array) -> bool:
 	if not unit.has("meta") or not unit.meta.has("keywords"):
@@ -211,6 +244,20 @@ func _update_capacity_label() -> void:
 		capacity_label.modulate = Color.RED
 
 func _on_confirm_pressed() -> void:
+	DebugLogger.info("Embarkation confirmed", {
+		"transport_id": transport_id,
+		"selected_units": selected_units,
+		"count": selected_units.size()
+	})
 	emit_signal("units_selected", selected_units)
+	hide()
+	queue_free()
+
+func _on_skip_pressed() -> void:
+	DebugLogger.info("User skipped embarkation", {
+		"transport_id": transport_id
+	})
+	# Emit empty array to signal no embarkation
+	emit_signal("units_selected", [])
 	hide()
 	queue_free()
