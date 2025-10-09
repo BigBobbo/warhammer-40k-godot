@@ -114,31 +114,32 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 
 func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary) -> Dictionary:
 	var errors = []
-	
+
 	# Get model info
 	var models = unit.get("models", [])
 	if model_index >= models.size():
 		errors.append("Model index out of range")
 		return {"valid": false, "errors": errors}
-	
+
 	var model = models[model_index]
-	var base_mm = model.get("base_mm", 32)
-	var radius_px = _base_radius_px(base_mm)
-	
+	var rotation = 0.0  # Validation uses default rotation
+
 	# Check deployment zone - convert zone from inches to pixels
 	var zone_poly_inches = zone.get("poly", [])
 	var zone_poly_pixels = _convert_zone_inches_to_pixels(zone_poly_inches)
-	
-	if not _circle_wholly_in_polygon(position, radius_px, zone_poly_pixels):
+
+	# Use shape-aware validation
+	if not _shape_wholly_in_polygon(position, model, rotation, zone_poly_pixels):
 		errors.append("Model must be wholly within deployment zone")
-	
-	# Check overlap with other models
-	if _position_overlaps_existing_models(position, radius_px, unit.get("id", "")):
+
+	# Check overlap with other models using shape-aware collision
+	if _position_overlaps_existing_models_shape(position, model, rotation, unit.get("id", "")):
 		errors.append("Model cannot overlap with existing models")
 
 	# Check overlap with walls
 	var test_model = model.duplicate()
 	test_model["position"] = position
+	test_model["rotation"] = rotation
 	if Measurement.model_overlaps_any_wall(test_model):
 		errors.append("Model cannot overlap with walls")
 
@@ -479,7 +480,7 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 
 func _position_overlaps_existing_models(pos: Vector2, radius: float, current_unit_id: String) -> bool:
 	var units = game_state_snapshot.get("units", {})
-	
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
@@ -492,5 +493,62 @@ func _position_overlaps_existing_models(pos: Vector2, radius: float, current_uni
 					var distance = pos.distance_to(model_pos)
 					if distance < (radius + model_radius):
 						return true
-	
+
+	return false
+
+func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation: float, polygon: PackedVector2Array) -> bool:
+	"""Check if a model's base shape is wholly within a polygon"""
+	# Create the base shape
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		return false
+
+	# For circular, use existing method
+	var base_type = model_data.get("base_type", "circular")
+	if base_type == "circular":
+		var radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
+		return _circle_wholly_in_polygon(center, radius, polygon)
+
+	# For non-circular shapes, check if all corners are inside
+	var bounds = shape.get_bounds()
+	var corners = [
+		Vector2(bounds.position.x, bounds.position.y),
+		Vector2(bounds.position.x + bounds.size.x, bounds.position.y),
+		Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y),
+		Vector2(bounds.position.x, bounds.position.y + bounds.size.y)
+	]
+
+	# Transform corners to world space
+	for corner in corners:
+		var world_corner = shape.to_world_space(corner, center, rotation)
+		if not Geometry2D.is_point_in_polygon(world_corner, polygon):
+			return false
+
+	return true
+
+func _position_overlaps_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float, current_unit_id: String) -> bool:
+	"""Check if a model's shape overlaps with any existing deployed models"""
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		return false
+
+	var units = game_state_snapshot.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+			var models = unit.get("models", [])
+			for model in models:
+				var model_pos_dict = model.get("position", null)
+				if model_pos_dict != null:
+					var model_pos = Vector2(model_pos_dict.get("x", 0), model_pos_dict.get("y", 0))
+					var other_rotation = model.get("rotation", 0.0)
+
+					# Create shape for existing model
+					var other_shape = Measurement.create_base_shape(model)
+					if other_shape:
+						# Use shape-based collision detection
+						if shape.overlaps_with(other_shape, pos, rotation, model_pos, other_rotation):
+							return true
+
 	return false

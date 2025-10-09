@@ -299,18 +299,19 @@ func confirm() -> void:
 		"timestamp": Time.get_unix_time_from_system()
 	}
 	
-	# Execute through PhaseManager
-	if has_node("/root/PhaseManager"):
-		var phase_manager = get_node("/root/PhaseManager")
-		if phase_manager.current_phase_instance and phase_manager.current_phase_instance.has_method("execute_action"):
-			var result = phase_manager.current_phase_instance.execute_action(deployment_action)
-			if result.success:
-				print("[DeploymentController] Deployment successful for unit: ", unit_id)
-				print("[DeploymentController] Action should trigger turn switch")
-			else:
-				print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
-				print("[DeploymentController] Errors: ", result.get("errors", []))
-				push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
+	# Route through NetworkIntegration (handles multiplayer and single-player)
+	var result = NetworkIntegration.route_action(deployment_action)
+
+	if result.success:
+		if result.get("pending", false):
+			print("[DeploymentController] Deployment submitted to network for unit: ", unit_id)
+		else:
+			print("[DeploymentController] Deployment successful for unit: ", unit_id)
+			print("[DeploymentController] Action should trigger turn switch")
+	else:
+		print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
+		print("[DeploymentController] Errors: ", result.get("errors", []))
+		push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
 	
 	_finalize_tokens()
 	_clear_previews()
@@ -535,8 +536,23 @@ func _shapes_overlap(pos1: Vector2, model1: Dictionary, rot1: float, pos2: Vecto
 	return pos1.distance_to(pos2) < (radius1 + radius2)
 
 func _get_bounding_radius(shape: BaseShape) -> float:
+	"""Calculate bounding circle radius for a shape"""
 	var bounds = shape.get_bounds()
-	return max(bounds.size.x, bounds.size.y) / 2.0
+
+	# For accurate bounding circle, use half the diagonal
+	# This ensures the circle fully contains the shape
+	var diagonal = Vector2(bounds.size.x, bounds.size.y).length()
+	return diagonal / 2.0
+
+func _get_shape_max_extent(model_data: Dictionary) -> float:
+	"""Get maximum extent of a model's base shape for spacing calculations"""
+	var shape = Measurement.create_base_shape(model_data)
+	if not shape:
+		# Fallback to circular assumption
+		return Measurement.base_radius_px(model_data.get("base_mm", 32))
+
+	var bounds = shape.get_bounds()
+	return max(bounds.size.x, bounds.size.y)
 
 func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 	# Check overlap with already placed models in current unit
@@ -667,10 +683,24 @@ func _get_unplaced_model_indices() -> Array:
 func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: int) -> Array:
 	"""Calculate positions for maximum spread (2 inch coherency)"""
 	var positions = []
-	var base_radius = Measurement.base_radius_px(base_mm)
+
+	# Get first model data to determine base type
+	var unit_data = GameState.get_unit(unit_id)
+	var remaining_indices = _get_unplaced_model_indices()
+	if remaining_indices.is_empty():
+		return positions
+
+	var model_data = unit_data["models"][remaining_indices[0]]
+	var shape = Measurement.create_base_shape(model_data)
+
+	# Use bounding box for spacing calculations
+	var bounds = shape.get_bounds()
 	var spacing_inches = 2.0  # Maximum coherency distance
 	var spacing_px = Measurement.inches_to_px(spacing_inches)
-	var total_spacing = spacing_px + (base_radius * 2)
+
+	# For spacing, use the maximum dimension of the base
+	var base_extent = max(bounds.size.x, bounds.size.y)
+	var total_spacing = spacing_px + base_extent
 
 	# Arrange in rows of 5
 	var cols = min(5, model_count)
@@ -688,8 +718,22 @@ func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: 
 func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int) -> Array:
 	"""Calculate positions for tight formation (bases touching)"""
 	var positions = []
-	var base_radius = Measurement.base_radius_px(base_mm)
-	var spacing_px = base_radius * 2 + 1  # 1px gap to prevent overlap
+
+	# Get first model data to determine base type
+	var unit_data = GameState.get_unit(unit_id)
+	var remaining_indices = _get_unplaced_model_indices()
+	if remaining_indices.is_empty():
+		return positions
+
+	var model_data = unit_data["models"][remaining_indices[0]]
+	var shape = Measurement.create_base_shape(model_data)
+
+	# Use bounding box for spacing calculations
+	var bounds = shape.get_bounds()
+
+	# For tight formation, use actual dimensions plus minimal gap
+	var base_extent = max(bounds.size.x, bounds.size.y)
+	var spacing_px = base_extent + 1  # 1px gap to prevent overlap
 
 	# Arrange in rows of 5
 	var cols = min(5, model_count)
@@ -800,10 +844,11 @@ func _get_deployed_model_at_position(world_pos: Vector2) -> Dictionary:
 		if temp_positions[i] != null:  # Model is placed
 			var model_pos = temp_positions[i]
 			var model_data = unit_data["models"][i]
-			var base_mm = model_data.get("base_mm", 32)
-			var radius = Measurement.base_radius_px(base_mm)
+			var rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
-			if world_pos.distance_to(model_pos) <= radius:
+			# Use shape-aware hit detection
+			var shape = Measurement.create_base_shape(model_data)
+			if shape and shape.contains_point(world_pos, model_pos, rotation):
 				return {
 					"model_index": i,
 					"position": model_pos,
