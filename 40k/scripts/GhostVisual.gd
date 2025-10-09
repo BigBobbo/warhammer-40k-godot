@@ -43,5 +43,15 @@ func set_model_data(data: Dictionary) -> void:
 
 func set_base_rotation(rot: float) -> void:
 	base_rotation = rot
-	rotation = rot
+	# Don't set Node2D rotation - the shape handles rotation in draw()
+	queue_redraw()
+
+func get_base_rotation() -> float:
+	"""Get the current rotation of the ghost base"""
+	return base_rotation
+
+func rotate_by(angle: float) -> void:
+	"""Rotate the ghost by the given angle (in radians)"""
+	base_rotation += angle
+	# Don't set Node2D rotation - the shape handles rotation in draw()
 	queue_redraw()
