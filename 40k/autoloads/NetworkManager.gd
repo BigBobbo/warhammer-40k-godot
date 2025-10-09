@@ -181,7 +181,36 @@ func _broadcast_result(result: Dictionary) -> void:
 	# Update phase snapshot so it stays in sync with GameState
 	_update_phase_snapshot()
 
+	# MULTIPLAYER FIX: Re-emit phase-specific signals for client visual updates
+	# When host applies actions, it emits signals that update visuals
+	# Clients need to emit the same signals after applying results
+	_emit_client_visual_updates(result)
+
 	print("NetworkManager: Client finished applying result")
+
+func _emit_client_visual_updates(result: Dictionary) -> void:
+	"""Emit phase-specific signals on client after applying result for visual updates"""
+	var action_type = result.get("action_type", "")
+	var action_data = result.get("action_data", {})
+
+	# Get current phase instance
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if not phase_manager or not phase_manager.current_phase_instance:
+		return
+
+	var phase = phase_manager.current_phase_instance
+
+	# Handle movement phase visual updates
+	if action_type == "STAGE_MODEL_MOVE":
+		if phase.has_signal("model_drop_committed"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			var model_id = action_data.get("payload", {}).get("model_id", "")
+			var dest = action_data.get("payload", {}).get("dest", [])
+
+			if unit_id != "" and model_id != "" and dest.size() == 2:
+				var dest_vec = Vector2(dest[0], dest[1])
+				print("NetworkManager: Client emitting model_drop_committed for ", unit_id, "/", model_id, " at ", dest_vec)
+				phase.emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
 
 # Initial state sync when client joins
 @rpc("authority", "call_remote", "reliable")
@@ -334,12 +363,20 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 
 	# Layer 4: Game rules validation (delegate to phase)
 	var phase_mgr = get_node("/root/PhaseManager")
+	print("NetworkManager: phase_mgr = ", phase_mgr)
 	if phase_mgr:
 		var phase = phase_mgr.get_current_phase_instance()
+		print("NetworkManager: current_phase_instance = ", phase)
+		if phase:
+			print("NetworkManager: phase class = ", phase.get_class())
+			print("NetworkManager: phase has validate_action? ", phase.has_method("validate_action"))
 		if phase and phase.has_method("validate_action"):
+			print("NetworkManager: Calling phase.validate_action()")
 			var phase_validation = phase.validate_action(action)
 			print("NetworkManager: Phase validation result = ", phase_validation)
 			return phase_validation
+		else:
+			print("NetworkManager: No phase or no validate_action method")
 
 	print("NetworkManager: VALIDATION PASSED (no phase validation)")
 	return {"valid": true}

@@ -12,6 +12,11 @@ func apply_action(action: Dictionary) -> Dictionary:
 		if result.has("changes") and not result.has("diffs"):
 			result["diffs"] = result["changes"]
 
+		# Add action type and data to result so consumers can identify what happened
+		# This is needed for client-side visual updates in multiplayer
+		result["action_type"] = action.get("type", "")
+		result["action_data"] = action
+
 		apply_result(result)
 		action_history.append(action)
 	return result
@@ -256,32 +261,32 @@ func set_value_at_path(path: String, value) -> void:
 # ============================================================================
 
 func process_begin_move(action: Dictionary) -> Dictionary:
-	# Movement actions are handled by MovementPhase - just acknowledge
-	return {"success": true, "diffs": []}
+	# Movement actions must be executed by the phase to update active_moves
+	return _delegate_to_current_phase(action)
 
 func process_set_model_dest(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_stage_model_move(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_confirm_move(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_undo_last_move(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_reset_move(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_remain_stationary(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_lock_movement_mode(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_set_advance_bonus(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_end_movement(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_MOVEMENT action")
@@ -290,23 +295,23 @@ func process_end_movement(action: Dictionary) -> Dictionary:
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
 
 func process_disembark(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_confirm_disembark(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 # ============================================================================
 # SHOOTING ACTION PROCESSORS
 # ============================================================================
 
 func process_select_target(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_resolve_attacks(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_allocate_wounds(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_end_shooting(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_SHOOTING action")
@@ -319,10 +324,10 @@ func process_end_shooting(action: Dictionary) -> Dictionary:
 # ============================================================================
 
 func process_declare_charge(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_roll_charge(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_end_charge(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_CHARGE action")
@@ -335,10 +340,10 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 # ============================================================================
 
 func process_fight_target(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_resolve_fight(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	return _delegate_to_current_phase(action)
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")
@@ -428,6 +433,28 @@ func process_end_morale(action: Dictionary) -> Dictionary:
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
+	"""
+	Delegates an action to the current phase for execution.
+	This is used for actions that modify phase-local state (like active_moves in MovementPhase).
+	"""
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	if not phase_mgr:
+		push_error("GameManager: PhaseManager not available for action delegation")
+		return {"success": false, "error": "PhaseManager not available"}
+
+	var current_phase = phase_mgr.get_current_phase_instance()
+	if not current_phase:
+		push_error("GameManager: No current phase instance for action delegation")
+		return {"success": false, "error": "No active phase"}
+
+	if not current_phase.has_method("execute_action"):
+		push_error("GameManager: Current phase does not have execute_action method")
+		return {"success": false, "error": "Phase cannot execute actions"}
+
+	# Execute the action on the phase
+	return current_phase.execute_action(action)
 
 func _trigger_phase_completion() -> void:
 	"""
