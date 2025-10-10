@@ -81,6 +81,11 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if result.has("changes") and result.changes is Array:
 			PhaseManager.apply_state_changes(result.changes)
 
+			# CRITICAL: Update our local snapshot after applying changes
+			# Otherwise get_unit() will read stale data from the old snapshot
+			game_state_snapshot = GameState.create_snapshot()
+			print("[BasePhase] Refreshed game_state_snapshot after applying changes")
+
 		# Record the action
 		print("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)

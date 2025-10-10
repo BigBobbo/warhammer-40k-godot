@@ -384,12 +384,62 @@ func _validate_remain_stationary(action: Dictionary) -> Dictionary:
 func _validate_end_movement(action: Dictionary) -> Dictionary:
 	# Check if there are any active moves that need to be resolved
 	# Only incomplete moves should block phase end
+	# NOTE: Check both local active_moves AND synced GameState to ensure multiplayer compatibility
+
+	log_phase_message("=== END_MOVEMENT VALIDATION START ===")
+	log_phase_message("Active moves count: %d" % active_moves.size())
+	log_phase_message("Active moves keys: %s" % str(active_moves.keys()))
+
+	# Get all deployed units for current player
+	var current_player = get_current_player()
+	var all_units = get_units_for_player(current_player)
+	log_phase_message("Total deployed units for player %d: %d" % [current_player, all_units.size()])
+
+	# Check which units have moved
+	var moved_count = 0
+	var unacted_count = 0
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		var has_moved = unit.get("flags", {}).get("moved", false)
+		if has_moved:
+			moved_count += 1
+			log_phase_message("  ✓ Unit %s has moved" % unit_id)
+		else:
+			unacted_count += 1
+			log_phase_message("  ✗ Unit %s has NOT moved (not marked in flags)" % unit_id)
+
+	log_phase_message("Summary: %d moved, %d not moved" % [moved_count, unacted_count])
+
 	for unit_id in active_moves:
 		var move_data = active_moves[unit_id]
-		if not move_data.get("completed", false):
+		# Check if unit has been marked as moved in GameState (synced across network)
+		var unit = get_unit(unit_id)
+		var has_moved = unit.get("flags", {}).get("moved", false)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+		log_phase_message("Checking active_move for unit %s (%s)" % [unit_id, unit_name])
+		log_phase_message("  - flags.moved: %s" % str(has_moved))
+		log_phase_message("  - staged_moves: %d" % move_data.get("staged_moves", []).size())
+		log_phase_message("  - model_moves: %d" % move_data.get("model_moves", []).size())
+		log_phase_message("  - completed flag: %s" % str(move_data.get("completed", false)))
+
+		# If not marked as moved in GameState, check if move was actually started
+		if not has_moved:
+			# Allow ending if no models have been moved (just initialized but not acted on)
+			if move_data.get("staged_moves", []).is_empty() and move_data.get("model_moves", []).is_empty():
+				# Unit was initialized for movement but never actually moved - this is OK
+				log_phase_message("  → ALLOWING: Movement initialized but no models moved")
+				continue
+
+			# Unit has staged or committed moves that haven't been confirmed
+			log_phase_message("  → BLOCKING: Unit has uncommitted moves!")
+			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
 			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
 
 	# Player can always choose to end the phase
+	log_phase_message("=== END_MOVEMENT VALIDATION PASSED ===")
 	return {"valid": true, "errors": []}
 
 # Processing Methods
@@ -898,8 +948,10 @@ func _process_set_advance_bonus(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
-	log_phase_message("Ending Movement Phase")
+	log_phase_message("=== PROCESSING END_MOVEMENT ===")
+	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
 	emit_signal("phase_completed")
+	log_phase_message("=== END_MOVEMENT COMPLETE ===")
 	return create_result(true, [])
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
@@ -1257,32 +1309,38 @@ func get_available_actions() -> Array:
 			})
 	
 	# Add End Movement Phase action if no incomplete moves
+	# Check using synced GameState to ensure multiplayer compatibility
 	var has_incomplete_moves = false
+	log_phase_message("[get_available_actions] Checking if END_MOVEMENT should be available...")
+	log_phase_message("[get_available_actions] Active moves: %s" % str(active_moves.keys()))
+
 	for unit_id in active_moves:
-		if not active_moves[unit_id].get("completed", false):
+		var unit = get_unit(unit_id)
+		var has_moved = unit.get("flags", {}).get("moved", false)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("[get_available_actions]   Unit %s (%s): flags.moved = %s" % [unit_id, unit_name, str(has_moved)])
+		if not has_moved:
 			has_incomplete_moves = true
+			log_phase_message("[get_available_actions]   → This unit has incomplete moves!")
 			break
 
 	if not has_incomplete_moves:
+		log_phase_message("[get_available_actions] ✓ Adding END_MOVEMENT action")
 		actions.append({
 			"type": "END_MOVEMENT",
 			"description": "End Movement Phase"
 		})
+	else:
+		log_phase_message("[get_available_actions] ✗ NOT adding END_MOVEMENT (incomplete moves exist)")
 	
 	return actions
 
 func _should_complete_phase() -> bool:
-	# Check if all units have moved or been marked as stationary
-	var current_player = get_current_player()
-	var units = get_units_for_player(current_player)
-	
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
-			if not unit.get("flags", {}).get("moved", false):
-				return false
-	
-	return true
+	# Movement phase should NOT auto-complete
+	# Phase completion must be explicit via END_MOVEMENT action for:
+	# 1. User control - player may want to use stratagems before ending phase
+	# 2. Multiplayer sync - phase transitions must be synchronized via actions
+	return false
 
 func get_dice_log() -> Array:
 	return dice_log

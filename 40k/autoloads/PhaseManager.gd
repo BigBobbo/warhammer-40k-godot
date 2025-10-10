@@ -30,18 +30,32 @@ func register_phase_classes() -> void:
 	phase_classes[GameStateData.Phase.MORALE] = preload("res://phases/MoralePhase.gd")
 
 func transition_to_phase(new_phase: GameStateData.Phase) -> void:
+	print("[PhaseManager] transition_to_phase called for: ", GameStateData.Phase.keys()[new_phase])
+
 	# Exit current phase if one exists
 	if current_phase_instance != null:
+		print("[PhaseManager] Exiting current phase: ", current_phase_instance.get_class())
 		current_phase_instance.exit_phase()
 		current_phase_instance.queue_free()
 		current_phase_instance = null
-	
+
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
-	
+
 	# Create and initialize new phase instance
 	if phase_classes.has(new_phase):
-		current_phase_instance = phase_classes[new_phase].new()
+		print("[PhaseManager] Creating new phase instance for: ", GameStateData.Phase.keys()[new_phase])
+		var phase_script = phase_classes[new_phase]
+		print("[PhaseManager] Phase script: ", phase_script)
+
+		# Create node and attach script
+		var phase_node = Node.new()
+		phase_node.set_script(phase_script)
+		current_phase_instance = phase_node as BasePhase
+
+		print("[PhaseManager] Created instance class: ", current_phase_instance.get_class())
+		print("[PhaseManager] Instance script: ", current_phase_instance.get_script())
+		print("[PhaseManager] Instance has validate_action: ", current_phase_instance.has_method("validate_action"))
 		add_child(current_phase_instance)
 		
 		# Connect phase signals
@@ -73,6 +87,20 @@ func get_current_phase() -> GameStateData.Phase:
 	return GameState.get_current_phase()
 
 func get_current_phase_instance() -> BasePhase:
+	if current_phase_instance:
+		print("[PhaseManager] get_current_phase_instance returning: ", current_phase_instance.get_class())
+		print("[PhaseManager] Instance script path: ", current_phase_instance.get_script().resource_path if current_phase_instance.get_script() else "no script")
+		print("[PhaseManager] Instance has validate_action: ", current_phase_instance.has_method("validate_action"))
+
+		# Check if this is actually a DeploymentPhase
+		var script = current_phase_instance.get_script()
+		if script:
+			var script_path = script.resource_path
+			print("[PhaseManager] ⚠️ Script path: ", script_path)
+			if "Deployment" in script_path:
+				print("[PhaseManager] ⚠️ This SHOULD be a DeploymentPhase!")
+	else:
+		print("[PhaseManager] get_current_phase_instance returning: null")
 	return current_phase_instance
 
 func advance_to_next_phase() -> void:
@@ -182,7 +210,7 @@ func _set_state_value(path: String, value) -> void:
 	var parts = path.split(".")
 	if parts.is_empty():
 		return
-	
+
 	var current = GameState.state
 	for i in range(parts.size() - 1):
 		var part = parts[i]
@@ -193,11 +221,14 @@ func _set_state_value(path: String, value) -> void:
 			else:
 				return
 		else:
-			if current is Dictionary and current.has(part):
+			if current is Dictionary:
+				# Create missing keys in the path
+				if not current.has(part):
+					current[part] = {}
 				current = current[part]
 			else:
 				return
-	
+
 	var final_key = parts[-1]
 	if final_key.is_valid_int():
 		var index = final_key.to_int()
