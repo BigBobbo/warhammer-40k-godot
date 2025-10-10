@@ -753,17 +753,21 @@ func _show_toast(message: String, duration: float = 2.0) -> void:
 	toast.add_theme_color_override("font_shadow_color", Color.BLACK)
 	toast.add_theme_constant_override("shadow_offset_x", 2)
 	toast.add_theme_constant_override("shadow_offset_y", 2)
-	
+
 	# Position at top center
 	var viewport_size = get_viewport().get_visible_rect().size
 	toast.position = Vector2(viewport_size.x / 2 - 100, 150)
-	
+
 	add_child(toast)
-	
+
 	# Auto-remove after duration
 	await get_tree().create_timer(duration).timeout
 	if is_instance_valid(toast):
 		toast.queue_free()
+
+func show_error_toast(message: String) -> void:
+	# Public wrapper for showing error toasts (called by NetworkManager)
+	_show_toast("ERROR: " + message, 5.0)
 
 func _setup_save_load_dialog() -> void:
 	# Load and instantiate the SaveLoadDialog scene
@@ -810,6 +814,9 @@ func setup_phase_controllers() -> void:
 		movement_controller.queue_free()
 		movement_controller = null
 	if shooting_controller:
+		# ENHANCEMENT: Clear visuals before freeing controller
+		if shooting_controller.has_method("_clear_visuals"):
+			shooting_controller._clear_visuals()
 		shooting_controller.queue_free()
 		shooting_controller = null
 	if charge_controller:
@@ -1795,29 +1802,30 @@ func _on_end_deployment_pressed() -> void:
 
 	# Route end-phase actions through the action system for multiplayer sync
 	var action = {}
+	var active_player = GameState.get_active_player()
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			print("Main: Ending deployment phase via action system...")
 			DebugLogger.info("Ending deployment phase", {})
-			action = {"type": "END_DEPLOYMENT"}
+			action = {"type": "END_DEPLOYMENT", "player": active_player}
 
 		GameStateData.Phase.MOVEMENT:
 			print("Ending movement phase via action system...")
-			action = {"type": "END_MOVEMENT"}
+			action = {"type": "END_MOVEMENT", "player": active_player}
 
 		GameStateData.Phase.SHOOTING:
 			print("Ending shooting phase via action system...")
-			action = {"type": "END_SHOOTING"}
+			action = {"type": "END_SHOOTING", "player": active_player}
 
 		GameStateData.Phase.MORALE:
 			print("Ending morale phase via action system...")
-			action = {"type": "END_MORALE"}
+			action = {"type": "END_MORALE", "player": active_player}
 
 		_:
 			print("Ending phase: ", current_phase, " via action system...")
 			# Generic end-phase action
-			action = {"type": "END_PHASE"}
+			action = {"type": "END_PHASE", "player": active_player}
 
 	# Route through NetworkIntegration for multiplayer support
 	if action.has("type"):
@@ -2441,28 +2449,29 @@ func _on_phase_action_pressed() -> void:
 
 	# For multiplayer sync, we need to route phase end actions through the network system
 	var action = {}
+	var active_player = GameState.get_active_player()
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			_on_end_deployment_pressed()  # Already handles network routing
 			return
 		GameStateData.Phase.COMMAND:
-			action = {"type": "END_COMMAND"}
+			action = {"type": "END_COMMAND", "player": active_player}
 		GameStateData.Phase.MOVEMENT:
-			action = {"type": "END_MOVEMENT"}
+			action = {"type": "END_MOVEMENT", "player": active_player}
 		GameStateData.Phase.SHOOTING:
-			action = {"type": "END_SHOOTING"}
+			action = {"type": "END_SHOOTING", "player": active_player}
 		GameStateData.Phase.CHARGE:
-			action = {"type": "END_CHARGE"}
+			action = {"type": "END_CHARGE", "player": active_player}
 		GameStateData.Phase.FIGHT:
-			action = {"type": "END_FIGHT"}
+			action = {"type": "END_FIGHT", "player": active_player}
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")
 				return
-			action = {"type": "END_SCORING"}
+			action = {"type": "END_SCORING", "player": active_player}
 		GameStateData.Phase.MORALE:
-			action = {"type": "END_MORALE"}
+			action = {"type": "END_MORALE", "player": active_player}
 		_:
 			print("WARNING: Unknown phase for action button: ", current_phase)
 			return

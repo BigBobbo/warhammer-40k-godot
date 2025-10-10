@@ -34,6 +34,11 @@ func _on_phase_enter() -> void:
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Shooting Phase")
+
+	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
+	# This ensures range circles and other visuals are removed immediately
+	_clear_shooting_visuals()
+
 	# Clear shooting flags
 	_clear_phase_flags()
 
@@ -446,6 +451,47 @@ func _clear_phase_flags() -> void:
 		var unit = units[unit_id]
 		if unit.has("flags"):
 			unit.flags.erase("has_shot")
+
+func _clear_shooting_visuals() -> void:
+	"""Clear all shooting-related visuals from the board when phase ends"""
+	# Get the ShootingController from Main
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		print("ShootingPhase: Warning - Main node not found for visual cleanup")
+		return
+
+	var shooting_controller = main.get("shooting_controller")
+	if shooting_controller and is_instance_valid(shooting_controller):
+		print("ShootingPhase: Clearing shooting visuals via controller")
+		# Call controller's cleanup method
+		if shooting_controller.has_method("_clear_visuals"):
+			shooting_controller._clear_visuals()
+		print("ShootingPhase: Shooting visuals cleared")
+	else:
+		# Fallback: If controller already freed, clean up BoardRoot directly
+		print("ShootingPhase: Controller not available, cleaning BoardRoot directly")
+		_cleanup_boardroot_visuals()
+
+func _cleanup_boardroot_visuals() -> void:
+	"""Fallback cleanup - remove shooting visuals directly from BoardRoot"""
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		return
+
+	# Remove shooting-specific visual nodes
+	var visual_names = [
+		"ShootingRangeVisual",
+		"ShootingLoSVisual",
+		"ShootingTargetHighlights",
+		"LoSDebugVisual"
+	]
+
+	for visual_name in visual_names:
+		var visual_node = board_root.get_node_or_null(visual_name)
+		if visual_node and is_instance_valid(visual_node):
+			print("ShootingPhase: Removing ", visual_name, " from BoardRoot")
+			board_root.remove_child(visual_node)
+			visual_node.queue_free()
 
 func get_available_actions() -> Array:
 	var actions = []

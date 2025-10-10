@@ -520,13 +520,25 @@ func _show_range_label(position: Vector2, text: String) -> void:
 	range_visual.add_child(label)
 
 func _clear_visuals() -> void:
-	if los_visual:
+	"""Clear all shooting visual elements from the board"""
+	print("ShootingController: Clearing all visuals")
+
+	# Clear LoS line
+	if los_visual and is_instance_valid(los_visual):
 		los_visual.clear_points()
-	if range_visual:
-		for child in range_visual.get_children():
-			child.queue_free()
-	_clear_target_highlights()
+
+	# Clear range indicators (this clears children of range_visual)
 	_clear_range_indicators()
+
+	# Clear target highlights
+	_clear_target_highlights()
+
+	# Clear LoS debug visuals if present
+	if los_debug_visual and is_instance_valid(los_debug_visual):
+		if los_debug_visual.has_method("clear_all_debug_visuals"):
+			los_debug_visual.clear_all_debug_visuals()
+
+	print("ShootingController: All visuals cleared")
 
 func _show_range_indicators() -> void:
 	_clear_range_indicators()
