@@ -207,10 +207,12 @@ func apply_diff(diff: Dictionary) -> void:
 	var op = diff["op"]
 	var path = diff["path"]
 	var value = diff.get("value", null)
-	
+
 	match op:
 		"set":
 			set_value_at_path(path, value)
+		"remove":
+			remove_value_at_path(path)
 
 func set_value_at_path(path: String, value) -> void:
 	var parts = path.split(".")
@@ -257,6 +259,50 @@ func set_value_at_path(path: String, value) -> void:
 			push_error("GameManager: Array index out of bounds for final key: %s[%d]" % [path, index])
 	else:
 		push_error("GameManager: Cannot set value at %s (not dict/array)" % path)
+
+func remove_value_at_path(path: String) -> void:
+	var parts = path.split(".")
+	if parts.is_empty():
+		return
+
+	# Get GameState reference
+	var game_state = get_node_or_null("/root/GameState")
+	if not game_state:
+		push_error("GameManager: Cannot find GameState")
+		return
+
+	# Navigate to parent of the value to remove
+	var current = game_state.state
+	for i in range(parts.size() - 1):
+		var part = parts[i]
+		if current is Dictionary:
+			if current.has(part):
+				current = current[part]
+			else:
+				push_error("GameManager: Path not found in state: %s (part: %s)" % [path, part])
+				return
+		elif current is Array:
+			var index = part.to_int()
+			if index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				push_error("GameManager: Array index out of bounds: %s[%d]" % [path, index])
+				return
+		else:
+			push_error("GameManager: Cannot traverse path at %s (not dict/array)" % part)
+			return
+
+	# Remove the final key
+	var final_key = parts[-1]
+	if current is Dictionary:
+		if current.has(final_key):
+			print("GameManager: Removing %s" % path)
+			current.erase(final_key)
+		else:
+			# Not an error - flag might already be absent
+			pass
+	else:
+		push_error("GameManager: Cannot remove value at %s (parent is not a dictionary)" % path)
 
 # ============================================================================
 # MOVEMENT ACTION PROCESSORS
@@ -395,18 +441,22 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 
 	print("GameManager: Player %d ending turn, switching to player %d" % [current_player, next_player])
 
-	var diffs = [
-		{
-			"op": "set",
-			"path": "meta.phase",
-			"value": next_phase
-		},
-		{
-			"op": "set",
-			"path": "meta.active_player",
-			"value": next_player
-		}
-	]
+	# Reset unit flags for the player whose turn is starting
+	var diffs = _create_flag_reset_diffs(next_player)
+
+	# Add phase transition
+	diffs.append({
+		"op": "set",
+		"path": "meta.phase",
+		"value": next_phase
+	})
+
+	# Add player switch
+	diffs.append({
+		"op": "set",
+		"path": "meta.active_player",
+		"value": next_player
+	})
 
 	# If Player 2 just finished their turn, advance battle round
 	if current_player == 2:
@@ -510,3 +560,57 @@ func _has_undeployed_units(player: int) -> bool:
 		if unit.get("owner", 0) == player and unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			return true
 	return false
+
+func _create_flag_reset_diffs(player: int) -> Array:
+	"""Create diffs to reset per-turn action flags for a player's units"""
+	var diffs = []
+	var units = GameState.state.get("units", {})
+
+	if units.is_empty():
+		print("GameManager: No units found in game state, skipping flag reset")
+		return diffs
+
+	var reset_count = 0
+	var flags_to_reset = [
+		"moved", "advanced", "fell_back", "remained_stationary",
+		"cannot_shoot", "cannot_charge", "cannot_move",
+		"has_shot", "charged_this_turn", "fights_first",
+		"move_cap_inches"
+	]
+
+	for unit_id in units:
+		var unit = units[unit_id]
+
+		# Only reset flags for units belonging to the player whose turn is starting
+		if unit.get("owner", 0) != player:
+			continue
+
+		# Skip embarked units (they don't act while inside transports)
+		if unit.get("embarked_in", null) != null:
+			continue
+
+		var flags = unit.get("flags", {})
+		if flags.is_empty():
+			continue
+
+		var reset_flags_for_unit = []
+
+		for flag in flags_to_reset:
+			if flags.has(flag):
+				diffs.append({
+					"op": "remove",
+					"path": "units.%s.flags.%s" % [unit_id, flag]
+				})
+				reset_flags_for_unit.append(flag)
+
+		if not reset_flags_for_unit.is_empty():
+			reset_count += 1
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			print("GameManager:   Reset flags for %s: %s" % [unit_name, reset_flags_for_unit])
+
+	if reset_count > 0:
+		print("GameManager: Resetting flags for %d units owned by player %d" % [reset_count, player])
+	else:
+		print("GameManager: No flags to reset for player %d units" % player)
+
+	return diffs
