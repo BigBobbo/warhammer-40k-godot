@@ -26,6 +26,8 @@ func process_action(action: Dictionary) -> Dictionary:
 		# Deployment actions
 		"DEPLOY_UNIT":
 			return process_deploy_unit(action)
+		"EMBARK_UNITS_DEPLOYMENT":
+			return _delegate_to_current_phase(action)
 		"END_DEPLOYMENT":
 			return process_end_deployment(action)
 

@@ -358,12 +358,33 @@ func _complete_deployment() -> void:
 
 		# Handle embarkation if units were selected
 		if pending_embark_units.size() > 0:
+			print("[DeploymentController] ===== EMBARKATION TRIGGERED =====")
+			print("[DeploymentController] Transport: %s, Units: %s" % [unit_id, str(pending_embark_units)])
+
 			DebugLogger.info("Processing embarkation for selected units", {
 				"transport_id": unit_id,
 				"units_to_embark": pending_embark_units
 			})
-			_process_embarkation(unit_id, pending_embark_units)
+
+			# Check if we're in multiplayer mode
+			var network_manager = get_node_or_null("/root/NetworkManager")
+			var is_networked = network_manager != null and network_manager.is_networked()
+
+			print("[DeploymentController] NetworkManager found: %s, is_networked: %s" % [str(network_manager != null), str(is_networked)])
+
+			if is_networked:
+				# In multiplayer, send action for synchronization
+				print("[DeploymentController] MULTIPLAYER MODE - sending embarkation action")
+				_send_embarkation_action(unit_id, pending_embark_units)
+			else:
+				# In single-player, execute directly for immediate effect
+				print("[DeploymentController] SINGLE-PLAYER MODE - processing embarkation directly")
+				_process_embarkation(unit_id, pending_embark_units)
+
 			pending_embark_units = []
+			print("[DeploymentController] ===== EMBARKATION COMPLETE =====")
+		else:
+			print("[DeploymentController] No pending embark units (size: %d)" % pending_embark_units.size())
 	else:
 		print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
 		print("[DeploymentController] Errors: ", result.get("errors", []))
@@ -383,10 +404,58 @@ func _complete_deployment() -> void:
 	if GameState.all_units_deployed():
 		emit_signal("deployment_complete")
 
+func _send_embarkation_action(transport_id: String, unit_ids: Array) -> void:
+	"""Send embarkation action through network sync (multiplayer only)"""
+	var embark_action = {
+		"type": "EMBARK_UNITS_DEPLOYMENT",
+		"transport_id": transport_id,
+		"unit_ids": unit_ids,
+		"phase": GameStateData.Phase.DEPLOYMENT,
+		"player": GameState.get_active_player(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(embark_action)
+
+	if result.success:
+		DebugLogger.info("Embarkation action sent successfully", {
+			"transport_id": transport_id,
+			"unit_count": unit_ids.size()
+		})
+	else:
+		push_error("Embarkation action failed: " + str(result.get("error", "Unknown")))
+		DebugLogger.error("Failed to send embarkation action", {
+			"transport_id": transport_id,
+			"unit_ids": unit_ids,
+			"error": result.get("error", "Unknown")
+		})
+
 func _process_embarkation(transport_id: String, unit_ids: Array) -> void:
+	"""Process embarkation directly (single-player mode)"""
+	print("[DeploymentController] _process_embarkation called with transport: %s, units: %s" % [transport_id, str(unit_ids)])
+
 	for unit_id in unit_ids:
+		print("[DeploymentController] Processing embarkation for unit: %s" % unit_id)
+
+		# Check if unit exists and is undeployed
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			push_error("[DeploymentController] Unit not found: %s" % unit_id)
+			continue
+
+		var unit_status = unit.get("status", -1)
+		print("[DeploymentController] Unit %s status before embark: %d (0=UNDEPLOYED, 1=DEPLOYING, 2=DEPLOYED)" % [unit_id, unit_status])
+
 		# Use TransportManager to handle the embarkation
-		TransportManager.embark_unit(unit_id, transport_id)
+		var can_embark_result = TransportManager.can_embark(unit_id, transport_id)
+		print("[DeploymentController] Can embark? %s" % str(can_embark_result))
+
+		if can_embark_result.valid:
+			TransportManager.embark_unit(unit_id, transport_id)
+			print("[DeploymentController] embark_unit() called successfully")
+		else:
+			push_error("[DeploymentController] Cannot embark %s: %s" % [unit_id, can_embark_result.reason])
+			continue
 
 		# Mark embarked units as deployed via PhaseManager
 		if has_node("/root/PhaseManager"):
@@ -397,8 +466,14 @@ func _process_embarkation(transport_id: String, unit_ids: Array) -> void:
 					"path": "units.%s.status" % unit_id,
 					"value": GameStateData.UnitStatus.DEPLOYED
 				}])
+				print("[DeploymentController] Set status to DEPLOYED for %s" % unit_id)
 
-		var unit = GameState.get_unit(unit_id)
+		# Verify embarkation
+		unit = GameState.get_unit(unit_id)
+		var embarked_in = unit.get("embarked_in", null)
+		var final_status = unit.get("status", -1)
+		print("[DeploymentController] After embark - embarked_in: %s, status: %d" % [str(embarked_in), final_status])
+
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("[DeploymentController] Embarked %s in %s" % [unit_name, transport_id])
 

@@ -67,6 +67,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"END_DEPLOYMENT":
 			print("DeploymentPhase: Matched END_DEPLOYMENT")
 			return _validate_end_deployment_action(action)
+		"EMBARK_UNITS_DEPLOYMENT":
+			print("DeploymentPhase: Matched EMBARK_UNITS_DEPLOYMENT")
+			return _validate_embark_units_deployment(action)
 		_:
 			print("DeploymentPhase: NO MATCH - fell through to default case")
 			print("DeploymentPhase: Returning unknown action error")
@@ -167,6 +170,92 @@ func _validate_end_deployment_action(action: Dictionary) -> Dictionary:
 	print("DeploymentPhase: END_DEPLOYMENT validation PASSED")
 	return {"valid": true, "errors": []}
 
+func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
+	"""Validate that units can embark in a transport during deployment"""
+	print("DeploymentPhase: ===== VALIDATING EMBARK_UNITS_DEPLOYMENT =====")
+	print("DeploymentPhase: Action: ", action)
+	var errors = []
+
+	# Check required fields
+	if not action.has("transport_id"):
+		errors.append("Missing transport_id")
+	if not action.has("unit_ids"):
+		errors.append("Missing unit_ids")
+
+	if errors.size() > 0:
+		print("DeploymentPhase: Validation FAILED - missing fields: ", errors)
+		return {"valid": false, "errors": errors}
+
+	var transport_id = action.transport_id
+	var unit_ids = action.unit_ids
+	print("DeploymentPhase: Transport ID: %s, Unit IDs: %s" % [transport_id, str(unit_ids)])
+
+	# Check if transport exists
+	var transport = get_unit(transport_id)
+	if transport.is_empty():
+		errors.append("Transport not found: " + transport_id)
+		return {"valid": false, "errors": errors}
+
+	# Note: We don't strictly check if transport is DEPLOYED because in multiplayer,
+	# this action may arrive before the deployment action is fully processed.
+	# The transport should be deployed by the time this action is processed.
+
+	# Check if transport has transport_data
+	if not transport.has("transport_data"):
+		errors.append("Unit is not a transport: " + transport_id)
+		return {"valid": false, "errors": errors}
+
+	var capacity = transport.transport_data.get("capacity", 0)
+	var capacity_keywords = transport.transport_data.get("capacity_keywords", [])
+	var currently_embarked = transport.transport_data.get("embarked_units", [])
+
+	# Count current embarked models
+	var current_count = 0
+	for embarked_id in currently_embarked:
+		var embarked_unit = get_unit(embarked_id)
+		if not embarked_unit.is_empty():
+			current_count += _count_alive_models(embarked_unit)
+
+	# Validate each unit to embark
+	# IMPORTANT: Check against transport owner, not active player!
+	# Deployment switches turns, so active player may have changed by the time embarkation arrives
+	var transport_owner = transport.get("owner", 0)
+	var total_new_models = 0
+
+	for unit_id in unit_ids:
+		var unit = get_unit(unit_id)
+
+		if unit.is_empty():
+			errors.append("Unit not found: " + unit_id)
+			continue
+
+		# Must be undeployed
+		if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+			errors.append("Unit must be undeployed to embark during deployment: " + unit_id)
+			continue
+
+		# Must belong to same player as transport (not necessarily active player)
+		if unit.get("owner", 0) != transport_owner:
+			errors.append("Unit does not belong to transport owner: " + unit_id)
+			continue
+
+		# Check keywords if required
+		if capacity_keywords.size() > 0:
+			if not _unit_has_keywords(unit, capacity_keywords):
+				errors.append("Unit missing required keywords %s: %s" % [str(capacity_keywords), unit_id])
+				continue
+
+		# Count models
+		var model_count = _count_alive_models(unit)
+		total_new_models += model_count
+
+	# Check capacity
+	if current_count + total_new_models > capacity:
+		errors.append("Insufficient capacity: %d/%d (adding %d)" % [current_count + total_new_models, capacity, total_new_models])
+
+	print("DeploymentPhase: Validation complete - valid: %s, errors: %s" % [str(errors.size() == 0), str(errors)])
+	return {"valid": errors.size() == 0, "errors": errors}
+
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 
@@ -177,6 +266,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_switch_player(action)
 		"END_DEPLOYMENT":
 			return _process_end_deployment(action)
+		"EMBARK_UNITS_DEPLOYMENT":
+			return _process_embark_units_deployment(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -265,6 +356,63 @@ func _process_end_deployment(action: Dictionary) -> Dictionary:
 	print("DeploymentPhase: ⚠️ Returning result: ", result)
 	DebugLogger.info("_process_end_deployment returning", {"result": result})
 	return result
+
+func _process_embark_units_deployment(action: Dictionary) -> Dictionary:
+	"""Process units embarking in a transport during deployment"""
+	print("DeploymentPhase: ===== PROCESSING EMBARK_UNITS_DEPLOYMENT =====")
+	var transport_id = action.transport_id
+	var unit_ids = action.unit_ids
+	var changes = []
+
+	print("DeploymentPhase: Transport ID: %s, Unit IDs: %s" % [transport_id, str(unit_ids)])
+
+	DebugLogger.info("Processing embarkation during deployment", {
+		"transport_id": transport_id,
+		"unit_ids": unit_ids,
+		"count": unit_ids.size()
+	})
+
+	# For each unit to embark
+	for unit_id in unit_ids:
+		# Set embarked_in field
+		changes.append({
+			"op": "set",
+			"path": "units.%s.embarked_in" % unit_id,
+			"value": transport_id
+		})
+
+		# Set status to DEPLOYED (embarked units count as deployed)
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % unit_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Unit %s embarked in transport %s" % [unit_name, transport_id])
+
+	# Update transport's embarked_units list
+	var transport = get_unit(transport_id)
+	var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+	current_embarked.append_array(unit_ids)
+
+	changes.append({
+		"op": "set",
+		"path": "units.%s.transport_data.embarked_units" % transport_id,
+		"value": current_embarked
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update local snapshot
+	_apply_changes_to_local_state(changes)
+
+	log_phase_message("Embarked %d units in transport %s" % [unit_ids.size(), transport_id])
+
+	return create_result(true, changes)
 
 func get_available_actions() -> Array:
 	var actions = []
@@ -512,3 +660,24 @@ func _position_overlaps_existing_models_shape(pos: Vector2, model_data: Dictiona
 
 # Transport embark dialog is now handled by DeploymentController BEFORE deployment
 # No need to detect transport deployments here anymore
+
+# Helper functions for embarkation validation
+func _unit_has_keywords(unit: Dictionary, required_keywords: Array) -> bool:
+	"""Check if unit has all required keywords"""
+	if not unit.has("meta") or not unit.meta.has("keywords"):
+		return false
+
+	var unit_keywords = unit.meta.keywords
+	for keyword in required_keywords:
+		if not keyword in unit_keywords:
+			return false
+	return true
+
+func _count_alive_models(unit: Dictionary) -> int:
+	"""Count alive models in a unit"""
+	var count = 0
+	if unit.has("models"):
+		for model in unit.models:
+			if model.get("alive", true):
+				count += 1
+	return count
