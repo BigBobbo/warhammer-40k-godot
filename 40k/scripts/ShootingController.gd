@@ -655,28 +655,110 @@ func _get_model_position(model: Dictionary) -> Vector2:
 func _visualize_los_to_target(shooter_id: String, target_id: String) -> void:
 	if not los_debug_visual or not current_phase:
 		return
-	
+
 	var shooter_unit = GameState.get_unit(shooter_id)
 	var target_unit = GameState.get_unit(target_id)
-	
+
 	if shooter_unit.is_empty() or target_unit.is_empty():
 		return
-	
+
 	var board = GameState.create_snapshot()
-	
+
 	# Use enhanced LoS visualization for each model pair
 	for shooter_model in shooter_unit.get("models", []):
 		if not shooter_model.get("alive", true):
 			continue
-			
+
 		for target_model in target_unit.get("models", []):
 			if not target_model.get("alive", true):
 				continue
-			
+
 			# Enhanced LoS visualization shows base-aware sight lines
 			los_debug_visual.visualize_enhanced_los(shooter_model, target_model, board)
-	
+
 	print("[ShootingController] Enhanced LoS visualization: %s → %s" % [shooter_id, target_id])
+
+# Public API for refreshing LoS debug visuals
+# Called when LoS debug is toggled ON while a shooter is already active
+func refresh_los_debug_visuals() -> void:
+	print("[ShootingController] refresh_los_debug_visuals called")
+	print("  los_debug_visual exists: ", los_debug_visual != null)
+	if los_debug_visual:
+		print("  los_debug_visual.debug_enabled: ", los_debug_visual.debug_enabled)
+	print("  active_shooter_id: ", active_shooter_id)
+	print("  eligible_targets count: ", eligible_targets.size())
+
+	if not los_debug_visual:
+		print("[ShootingController] ERROR: los_debug_visual is null!")
+		return
+
+	if not los_debug_visual.debug_enabled:
+		print("[ShootingController] ERROR: debug_enabled is false!")
+		return
+
+	if active_shooter_id == "":
+		print("[ShootingController] No active shooter")
+		return
+
+	# Clear existing visuals first
+	los_debug_visual.clear_all_debug_visuals()
+
+	# If no eligible targets, visualize LoS to ALL enemy units to show why they're not eligible
+	if eligible_targets.is_empty():
+		print("[ShootingController] No eligible targets - visualizing LoS to ALL enemy units for debugging")
+		if current_phase:
+			var current_player = current_phase.get_current_player()
+			var enemy_player = 1 if current_player == 0 else 0
+
+			print("[ShootingController] Current player: %d, Enemy player: %d" % [current_player, enemy_player])
+
+			# Get ALL units from GameState to debug
+			var all_units = GameState.get_units()
+			print("[ShootingController] Total units in GameState: %d" % all_units.size())
+			for unit_id in all_units:
+				var unit = all_units[unit_id]
+				var owner = unit.get("owner", -1)
+				var name = unit.get("meta", {}).get("name", "Unknown")
+				var status = unit.get("status", -1)
+				print("  Unit %s: owner=%d, name=%s, status=%d" % [unit_id, owner, name, status])
+
+			var enemy_units = current_phase.get_units_for_player(enemy_player)
+			print("[ShootingController] Enemy units from phase: %d" % enemy_units.size())
+
+			if enemy_units.is_empty():
+				print("[ShootingController] Phase query returned empty - trying direct GameState query")
+				# Try getting enemy units directly from GameState
+				var enemy_units_direct = {}
+				for unit_id in all_units:
+					var unit = all_units[unit_id]
+					if unit.get("owner", -1) == enemy_player:
+						enemy_units_direct[unit_id] = unit
+
+				print("[ShootingController] Direct GameState query found %d enemy units" % enemy_units_direct.size())
+
+				if enemy_units_direct.is_empty():
+					print("[ShootingController] WARNING: No enemy units found anywhere!")
+					var main = get_node_or_null("/root/Main")
+					if main and main.has_method("_show_toast"):
+						main._show_toast("LoS Debug: No enemy units found", 3.0)
+					return
+
+				# Use direct query results
+				enemy_units = enemy_units_direct
+
+			print("[ShootingController] Visualizing LoS to %d enemy units" % enemy_units.size())
+			for enemy_id in enemy_units:
+				print("[ShootingController] Visualizing LoS to enemy unit: %s" % enemy_id)
+				_visualize_los_to_target(active_shooter_id, enemy_id)
+		return
+
+	print("[ShootingController] Refreshing LoS debug visuals for active shooter: %s" % active_shooter_id)
+	print("[ShootingController] Visualizing LoS to %d eligible targets" % eligible_targets.size())
+
+	# Re-visualize LoS to all eligible targets
+	for target_id in eligible_targets:
+		print("[ShootingController] Visualizing LoS to target: %s" % target_id)
+		_visualize_los_to_target(active_shooter_id, target_id)
 
 func _get_closest_model_position(from_unit: Dictionary, to_unit: Dictionary) -> Vector2:
 	# Find the model in from_unit closest to any model in to_unit

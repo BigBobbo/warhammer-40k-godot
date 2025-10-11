@@ -735,12 +735,32 @@ func _setup_objectives() -> void:
 		print("Main: MissionManager not available, skipping objectives")
 
 func _toggle_los_debug() -> void:
-	# Find LoS debug visual
-	var los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
+	# Try to get LoS debug visual from ShootingController first (if in shooting phase)
+	var shooting_controller = get_node_or_null("ShootingController")
+	var los_debug = null
+
+	if shooting_controller and "los_debug_visual" in shooting_controller and shooting_controller.los_debug_visual:
+		los_debug = shooting_controller.los_debug_visual
+		print("LoS debug: Using ShootingController's instance")
+	else:
+		# Fallback to finding it in BoardRoot
+		los_debug = get_node_or_null("BoardRoot/LoSDebugVisual")
+		print("LoS debug: Using BoardRoot instance (fallback)")
+
 	if los_debug:
+		var was_enabled = los_debug.debug_enabled
+		print("LoS debug: Was enabled: ", was_enabled)
 		los_debug.toggle_debug()
-		print("LoS debug visualization: ", los_debug.debug_enabled)
-		_show_toast("LoS Debug: " + ("ON" if los_debug.debug_enabled else "OFF"))
+		var is_now_enabled = los_debug.debug_enabled
+		print("LoS debug visualization: ", is_now_enabled)
+		_show_toast("LoS Debug: " + ("ON" if is_now_enabled else "OFF"))
+
+		# If we just turned debug ON, refresh visuals if shooting phase is active
+		if not was_enabled and is_now_enabled and shooting_controller:
+			print("LoS debug: Calling refresh on ShootingController")
+			if shooting_controller.has_method("refresh_los_debug_visuals"):
+				shooting_controller.refresh_los_debug_visuals()
+				print("LoS debug: Refreshed visuals for active shooter")
 	else:
 		print("LoS debug visual not found")
 
@@ -2891,15 +2911,11 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 	# Find the existing token in token_layer
 	if token_layer:
 		for child in token_layer.get_children():
-			if child.has_meta("unit_id"):
-			if child.has_meta("model_id"):
-			
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 				print("Moving token visual to ", dest_px)
 				child.position = dest_px
 				return
-	else:
-	
+
 	print("Could not find token to move, falling back to full recreation")
 	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
 
