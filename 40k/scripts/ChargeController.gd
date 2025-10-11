@@ -133,41 +133,53 @@ func _input(event: InputEvent) -> void:
 
 func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
-	
+
 	# Try a simpler approach - check token visual nodes directly
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
 	if not token_layer:
 		print("DEBUG: TokenLayer not found")
 		return
-	
+
 	print("DEBUG: Models to move: ", models_to_move)
-	
+
 	# Check each token in the layer
 	for child in token_layer.get_children():
 		if not child.has_meta("unit_id") or not child.has_meta("model_id"):
 			continue
-			
+
 		var unit_id = child.get_meta("unit_id")
 		var model_id = child.get_meta("model_id")
-		
+
 		# Check if this is our charging unit and a model we need to move
 		if unit_id != active_unit_id or model_id not in models_to_move:
 			continue
-		
+
 		# Check if the click is on this token
 		var token_global_pos = child.global_position
 		var token_radius = 25.2  # Standard token radius in pixels
-		
+
 		var distance = token_global_pos.distance_to(global_pos)
 		print("DEBUG: Token ", model_id, " at global ", token_global_pos, " distance from click: ", distance)
-		
+
 		if distance <= token_radius:
 			print("DEBUG: Clicked on model ", model_id)
-			
-			# Get the model data
+
+			# Get the model data from GameState
 			var unit = GameState.get_unit(active_unit_id)
+			print("DEBUG: Retrieved unit from GameState: ", unit.get("meta", {}).get("name", "unknown"))
+
 			for model in unit.get("models", []):
 				if model.get("id", "") == model_id:
+					# Log the complete model data from GameState
+					print("DEBUG: Model data from GameState:")
+					print("  id: ", model.get("id", "NOT SET"))
+					print("  base_mm: ", model.get("base_mm", "NOT SET"))
+					print("  base_type: ", model.get("base_type", "NOT SET"))
+					print("  base_dimensions: ", model.get("base_dimensions", "NOT SET"))
+					print("  rotation: ", model.get("rotation", "NOT SET"))
+					print("  position: ", model.get("position", "NOT SET"))
+					print("  Full model keys: ", model.keys())
+
 					dragging_model = model
 					# Convert token position to BoardRoot local coordinates
 					var board_root = get_node_or_null("/root/Main/BoardRoot")
@@ -175,7 +187,7 @@ func _handle_mouse_down(global_pos: Vector2) -> void:
 						var local_pos = board_root.to_local(token_global_pos)
 						_start_model_drag(model, local_pos)
 					return
-	
+
 	print("DEBUG: No model found at click position")
 
 func _handle_mouse_motion(global_pos: Vector2) -> void:
@@ -889,13 +901,20 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 	var model_id = model.get("id", "")
 	print("Starting drag for model ", model_id)
-	
+
+	# DEBUG: Verify model data completeness
+	print("DEBUG: Model Dictionary keys: ", model.keys())
+	print("DEBUG: Model base_type: ", model.get("base_type", "NOT SET"))
+	print("DEBUG: Model base_mm: ", model.get("base_mm", "NOT SET"))
+	print("DEBUG: Model base_dimensions: ", model.get("base_dimensions", "NOT SET"))
+	print("DEBUG: Model rotation: ", model.get("rotation", 0.0))
+
 	# Store the original position in case we need to revert
 	var original_pos = _get_model_position(model)
 	if original_pos:
 		# Store original position in the model for reverting if needed
 		dragging_model["original_position"] = original_pos
-	
+
 	# Create ghost visual to show where the model will be moved
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
 	if board_root:
@@ -904,21 +923,22 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		ghost_visual.name = "ChargeGhost_" + model_id
 		board_root.add_child(ghost_visual)
 
-		# Use TokenVisual for proper shape rendering
-		var ghost_token = preload("res://scripts/TokenVisual.gd").new()
+		# Use GhostVisual for consistent ghost rendering across all controllers
+		var ghost_token = preload("res://scripts/GhostVisual.gd").new()
 		var unit = GameState.get_unit(active_unit_id)
 		ghost_token.owner_player = unit.get("owner", 1)
-		ghost_token.is_preview = true
-		ghost_token.model_number = 0  # Don't show number for ghost
 		# Set the complete model data for shape handling
 		ghost_token.set_model_data(model)
+		# Set initial rotation if model has one
+		if model.has("rotation"):
+			ghost_token.set_base_rotation(model.get("rotation", 0.0))
 
 		# Set ghost appearance
 		ghost_token.position = Vector2.ZERO
 		ghost_visual.add_child(ghost_token)
 		ghost_visual.modulate = Color(0, 1, 0, 0.7)  # Semi-transparent green
 		ghost_visual.position = world_pos
-		
+
 		# Create movement line to show the path
 		var line = Line2D.new()
 		line.width = 2
@@ -927,7 +947,7 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		line.add_point(world_pos)
 		board_root.add_child(line)
 		movement_lines[model_id] = line
-		
+
 		print("DEBUG: Created ghost visual and movement line for ", model_id)
 
 func _update_model_drag(world_pos: Vector2) -> void:
@@ -1740,10 +1760,13 @@ func _rotate_dragging_model(angle: float) -> void:
 	var new_rotation = current_rotation + angle
 	dragging_model["rotation"] = new_rotation
 
-	# Update the ghost visual if it exists
+	# Update the ghost visual if it exists - use GhostVisual's set_base_rotation method
 	if ghost_visual and ghost_visual.get_child_count() > 0:
 		var ghost_token = ghost_visual.get_child(0)
-		if ghost_token.has_method("set_model_data"):
+		if ghost_token.has_method("set_base_rotation"):
+			ghost_token.set_base_rotation(new_rotation)
+		elif ghost_token.has_method("set_model_data"):
+			# Fallback for compatibility
 			ghost_token.set_model_data(dragging_model)
 			ghost_token.queue_redraw()
 

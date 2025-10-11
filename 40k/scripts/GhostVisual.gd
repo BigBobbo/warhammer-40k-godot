@@ -13,6 +13,8 @@ func _ready() -> void:
 func _draw() -> void:
 	if not base_shape:
 		# Fallback to circular if no shape defined
+		print("WARNING: GhostVisual._draw() called with null base_shape! Using fallback circle.")
+		print("  model_data: ", model_data)
 		base_shape = CircularBase.new(20.0)
 
 	var fill_color: Color
@@ -38,7 +40,14 @@ func set_validity(valid: bool) -> void:
 
 func set_model_data(data: Dictionary) -> void:
 	model_data = data
+	print("DEBUG GhostVisual.set_model_data() called with data: ", data.keys())
+	print("  base_type: ", data.get("base_type", "NOT SET"))
+	print("  base_mm: ", data.get("base_mm", "NOT SET"))
+	print("  base_dimensions: ", data.get("base_dimensions", "NOT SET"))
 	base_shape = Measurement.create_base_shape(data)
+	print("  Created base_shape: ", base_shape, " type: ", base_shape.get_type() if base_shape else "NULL")
+	if base_shape:
+		print("  Base shape bounds: ", base_shape.get_bounds())
 	queue_redraw()
 
 func set_base_rotation(rot: float) -> void:

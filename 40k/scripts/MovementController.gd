@@ -66,6 +66,9 @@ var stationary_radio: CheckBox
 var confirm_mode_button: Button
 var advance_roll_label: Label
 
+# Flag to prevent duplicate actions when programmatically setting radio buttons
+var setting_radio_programmatically: bool = false
+
 # Path tracking
 var current_path: Array = []  # Array of Vector2 points
 var path_valid: bool = false
@@ -310,11 +313,18 @@ func _create_section2_unit_details(parent: VBoxContainer) -> void:
 	selected_unit_label = Label.new()
 	selected_unit_label.text = "Unit: None Selected"
 	section.add_child(selected_unit_label)
-	
-	unit_mode_label = Label.new() 
-	unit_mode_label.text = "Mode: -"
+
+	unit_mode_label = Label.new()
+	unit_mode_label.text = "Mode: Normal Move (Default)"
 	section.add_child(unit_mode_label)
-	
+
+	# Add helpful hint
+	var hint_label = Label.new()
+	hint_label.text = "Drag models to move, or select a different mode below"
+	hint_label.add_theme_font_size_override("font_size", 11)
+	hint_label.modulate = Color(0.7, 0.7, 0.7)  # Slightly dimmed hint text
+	section.add_child(hint_label)
+
 	parent.add_child(section)
 
 func _create_section3_mode_selection(parent: VBoxContainer) -> void:
@@ -362,13 +372,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	button_container.add_child(stationary_radio)
 	
 	section.add_child(button_container)
-	
-	# Add confirmation button
-	confirm_mode_button = Button.new()
-	confirm_mode_button.text = "Confirm Movement Mode"
-	confirm_mode_button.pressed.connect(_on_confirm_mode_pressed)
-	section.add_child(confirm_mode_button)
-	
+
 	# Add dice result display (hidden initially)
 	advance_roll_label = Label.new()
 	advance_roll_label.text = "Advance Roll: -"
@@ -456,7 +460,17 @@ func _update_selected_unit_display() -> void:
 		selected_unit_label.text = "Unit: " + unit_name
 		
 	if unit_mode_label:
-		var mode_text = "Mode: " + active_mode if active_mode != "" else "Mode: -"
+		var mode_text = "Mode: "
+		if active_mode == "NORMAL" or active_mode == "":
+			mode_text += "Normal Move (Default)"
+		elif active_mode == "ADVANCE":
+			mode_text += "Advance"
+		elif active_mode == "FALL_BACK":
+			mode_text += "Fall Back"
+		elif active_mode == "REMAIN_STATIONARY":
+			mode_text += "Remain Stationary"
+		else:
+			mode_text += active_mode
 		unit_mode_label.text = mode_text
 
 func set_phase(phase) -> void:  # Remove type hint to accept any phase
@@ -619,9 +633,11 @@ func begin_unit_movement(unit_id: String) -> void:
 		_update_fall_back_visibility()
 		_reset_mode_selection_for_new_unit(unit_id)
 
-		# Set normal mode as selected
+		# Set normal mode as selected (programmatically, don't trigger signal)
 		if normal_radio:
+			setting_radio_programmatically = true
 			normal_radio.button_pressed = true
+			setting_radio_programmatically = false
 
 		emit_signal("ui_update_requested")
 	else:
@@ -650,6 +666,10 @@ func _get_unit_movement_status(unit_id: String) -> String:
 		return "not_moved"
 
 func _on_normal_move_pressed() -> void:
+	# Ignore if we're setting the radio programmatically
+	if setting_radio_programmatically:
+		return
+
 	print("Normal move button pressed for unit: ", active_unit_id)
 	if active_unit_id == "":
 		print("No unit selected!")
@@ -669,6 +689,10 @@ func _on_normal_move_pressed() -> void:
 	print("Signal emitted, waiting for phase response...")
 
 func _on_advance_pressed() -> void:
+	# Ignore if we're setting the radio programmatically
+	if setting_radio_programmatically:
+		return
+
 	print("Advance button pressed for unit: ", active_unit_id)
 	if active_unit_id == "":
 		print("No unit selected for advance!")
@@ -682,7 +706,15 @@ func _on_advance_pressed() -> void:
 	print("Emitting advance action: ", action)
 	emit_signal("move_action_requested", action)
 
+	# Automatically roll the advance dice
+	# This used to require clicking "Confirm Movement Mode"
+	call_deferred("_roll_advance_dice")
+
 func _on_fall_back_pressed() -> void:
+	# Ignore if we're setting the radio programmatically
+	if setting_radio_programmatically:
+		return
+
 	if active_unit_id == "":
 		return
 	
@@ -694,6 +726,10 @@ func _on_fall_back_pressed() -> void:
 	emit_signal("move_action_requested", action)
 
 func _on_remain_stationary_pressed() -> void:
+	# Ignore if we're setting the radio programmatically
+	if setting_radio_programmatically:
+		return
+
 	if active_unit_id == "":
 		return
 	
@@ -703,6 +739,15 @@ func _on_remain_stationary_pressed() -> void:
 		"payload": {}
 	}
 	emit_signal("move_action_requested", action)
+
+	# Mark as completed immediately (no dragging needed)
+	# Clear active unit since this unit is done
+	active_unit_id = ""
+	call_deferred("_update_selected_unit_display")
+
+	# Refresh unit list to show this unit as moved
+	if unit_list:
+		call_deferred("_populate_unit_list")
 
 func _on_undo_model_pressed() -> void:
 	if active_unit_id == "":
@@ -769,7 +814,6 @@ func _on_confirm_mode_pressed() -> void:
 	
 	# Update UI state
 	_update_mode_buttons_state(false)  # Disable mode changes
-	confirm_mode_button.disabled = true
 
 func _get_selected_movement_mode() -> String:
 	if normal_radio and normal_radio.button_pressed:
@@ -850,9 +894,7 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	if mode_is_locked:
 		# Unit's mode is already locked, disable all controls
 		_update_mode_buttons_state(false)
-		if confirm_mode_button:
-			confirm_mode_button.disabled = true
-		
+
 		# Show the locked mode in the UI
 		var locked_mode = current_phase.active_moves[unit_id].get("mode", "")
 		_set_mode_radio_for_locked_mode(locked_mode)
@@ -873,13 +915,13 @@ func _reset_mode_selection_for_new_unit(unit_id: String) -> void:
 	else:
 		# Unit's mode is not locked, enable fresh selection
 		_update_mode_buttons_state(true)
-		if confirm_mode_button:
-			confirm_mode_button.disabled = false
 
 		# Reset to default (Normal) selection
 		active_mode = "NORMAL"  # Set mode variable
 		if normal_radio:
+			setting_radio_programmatically = true
 			normal_radio.button_pressed = true
+			setting_radio_programmatically = false
 
 		# Hide advance roll label
 		if advance_roll_label:
@@ -1003,12 +1045,10 @@ func _on_unit_move_reset(unit_id: String) -> void:
 
 func _on_movement_mode_locked(unit_id: String, mode: String) -> void:
 	print("MovementController: Movement mode locked for %s: %s" % [unit_id, mode])
-	
+
 	# Update UI state to reflect the locked mode
 	_update_mode_buttons_state(false)  # Disable mode buttons
-	if confirm_mode_button:
-		confirm_mode_button.disabled = true
-	
+
 	# Refresh unit list to update status display
 	_refresh_unit_list()
 	
@@ -1294,12 +1334,22 @@ func _get_model_near_position(world_pos: Vector2, tolerance: float) -> Dictionar
 
 			if distance <= (base_radius + tolerance) and distance < closest_distance:
 				closest_distance = distance
-				closest_model = {
-					"unit_id": unit_id,
-					"model_id": model_id,
-					"position": visual_pos,
-					"base_mm": child.get_meta("base_mm", 32)
-				}
+				# Fetch complete model data from GameState for proper shape handling
+				var unit = GameState.get_unit(unit_id)
+				if not unit.is_empty():
+					var models = unit.get("models", [])
+					for model_data in models:
+						if model_data.get("id", "") == model_id:
+							# Return complete model data including base_type, base_dimensions, rotation
+							closest_model = model_data.duplicate()
+							closest_model["unit_id"] = unit_id
+							closest_model["model_id"] = model_id
+							closest_model["position"] = visual_pos
+							print("DEBUG MovementController: Found model via token visual, fetched complete data from GameState")
+							print("  base_mm: ", closest_model.get("base_mm", "NOT SET"))
+							print("  base_type: ", closest_model.get("base_type", "NOT SET"))
+							print("  base_dimensions: ", closest_model.get("base_dimensions", "NOT SET"))
+							break
 
 		if not closest_model.is_empty():
 			return closest_model
@@ -1398,12 +1448,22 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 			if distance <= base_radius:
 				if distance < closest_distance:
 					closest_distance = distance
-					closest_model = {
-						"unit_id": unit_id,
-						"model_id": model_id,
-						"position": visual_pos,
-						"base_mm": child.get_meta("base_mm", 32)
-					}
+					# Fetch complete model data from GameState for proper shape handling
+					var unit = GameState.get_unit(unit_id)
+					if not unit.is_empty():
+						var models = unit.get("models", [])
+						for model_data in models:
+							if model_data.get("id", "") == model_id:
+								# Return complete model data including base_type, base_dimensions, rotation
+								closest_model = model_data.duplicate()
+								closest_model["unit_id"] = unit_id
+								closest_model["model_id"] = model_id
+								closest_model["position"] = visual_pos
+								print("DEBUG MovementController._get_model_at_position: Fetched complete data from GameState")
+								print("  base_mm: ", closest_model.get("base_mm", "NOT SET"))
+								print("  base_type: ", closest_model.get("base_type", "NOT SET"))
+								print("  base_dimensions: ", closest_model.get("base_dimensions", "NOT SET"))
+								break
 
 		if not closest_model.is_empty():
 			return closest_model
@@ -1794,6 +1854,11 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	# Set the complete model data for shape handling (this sets up the base shape)
 	ghost_token.set_model_data(model)
 
+	# Set initial rotation if model has one
+	if model.has("rotation"):
+		ghost_token.set_base_rotation(model.get("rotation", 0.0))
+		print("DEBUG: Set initial ghost rotation to ", rad_to_deg(model.get("rotation", 0.0)), " degrees")
+
 	# Set the token at origin (0,0) relative to ghost_visual
 	ghost_token.position = Vector2.ZERO
 	ghost_visual.add_child(ghost_token)
@@ -2013,10 +2078,15 @@ func _apply_rotation_to_model(new_rotation: float) -> void:
 	if current_phase and current_phase.has_method("update_model_rotation"):
 		current_phase.update_model_rotation(active_unit_id, selected_model["id"], new_rotation)
 
-	# Update any ghost visual
+	# Update any ghost visual with the new rotation
 	if ghost_visual and ghost_visual.get_child_count() > 0:
 		var ghost_token = ghost_visual.get_child(0)
-		if ghost_token.has_method("set_model_data"):
+		# Use set_base_rotation for immediate visual update
+		if ghost_token.has_method("set_base_rotation"):
+			ghost_token.set_base_rotation(new_rotation)
+			print("DEBUG: Updated ghost rotation to ", rad_to_deg(new_rotation), " degrees")
+		elif ghost_token.has_method("set_model_data"):
+			# Fallback: update complete model data
 			ghost_token.set_model_data(selected_model)
 			ghost_token.queue_redraw()
 
