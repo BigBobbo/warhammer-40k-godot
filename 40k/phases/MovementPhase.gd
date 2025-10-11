@@ -78,7 +78,12 @@ func _initialize_movement() -> void:
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	
+
+	# Check base phase validation first (handles DEBUG_MOVE)
+	var base_validation = super.validate_action(action)
+	if not base_validation.get("valid", true):
+		return base_validation
+
 	match action_type:
 		"BEGIN_NORMAL_MOVE":
 			return _validate_begin_normal_move(action)
@@ -108,6 +113,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_disembark_unit(action)
 		"CONFIRM_DISEMBARK":
 			return _validate_confirm_disembark(action)
+		"DEBUG_MOVE":
+			# Already validated by base class
+			return {"valid": true}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 

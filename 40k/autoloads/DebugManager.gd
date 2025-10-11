@@ -17,7 +17,7 @@ var debug_selected_model: Dictionary = {}
 const TOKEN_CLICK_RADIUS: float = 30.0
 
 func _ready() -> void:
-	print("DebugManager initialized")
+	DebugLogger.info("DebugManager initialized")
 	set_process_unhandled_input(false)  # Only process input when in debug mode
 
 # Main API
@@ -30,8 +30,8 @@ func toggle_debug_mode() -> void:
 func enter_debug_mode() -> void:
 	if debug_mode_active:
 		return
-	
-	print("Entering DEBUG MODE")
+
+	DebugLogger.info("Entering DEBUG MODE")
 	
 	# Store current phase state
 	if PhaseManager and PhaseManager.current_phase_instance:
@@ -55,8 +55,8 @@ func enter_debug_mode() -> void:
 func exit_debug_mode() -> void:
 	if not debug_mode_active:
 		return
-	
-	print("Exiting DEBUG MODE")
+
+	DebugLogger.info("Exiting DEBUG MODE")
 	
 	debug_mode_active = false
 	set_process_unhandled_input(false)  # Disable debug input handling
@@ -74,7 +74,7 @@ func exit_debug_mode() -> void:
 	
 	# Phase restoration is automatic since we never changed it
 	if was_in_phase:
-		print("Returning to previous phase: ", previous_phase)
+		DebugLogger.info("Returning to previous phase: %s" % previous_phase)
 
 func is_debug_active() -> bool:
 	return debug_mode_active
@@ -100,14 +100,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _start_debug_drag(screen_pos: Vector2) -> void:
 	var world_pos = _screen_to_world_position(screen_pos)
 	var model = _find_model_at_position_debug(world_pos)
-	
+
 	if not model.is_empty():
 		debug_drag_active = true
 		debug_selected_model = model
-		print("Debug: Started dragging ", model.model_id, " from unit ", model.unit_id)
-		
-		# Visual feedback
-		_highlight_dragged_model(model)
+		DebugLogger.debug("Started dragging %s from unit %s" % [model.model_id, model.unit_id])
+
+		# Create ghost visual for drag feedback
+		_create_debug_ghost(model)
 
 func _update_debug_drag(screen_pos: Vector2) -> void:
 	if not debug_drag_active or debug_selected_model.is_empty():
@@ -121,21 +121,24 @@ func _update_debug_drag(screen_pos: Vector2) -> void:
 func _end_debug_drag(screen_pos: Vector2) -> void:
 	if not debug_drag_active or debug_selected_model.is_empty():
 		return
-	
+
 	var world_pos = _screen_to_world_position(screen_pos)
-	
-	# Update model position directly in game state
-	_update_model_position_debug(debug_selected_model.unit_id, debug_selected_model.model_id, world_pos)
-	
-	print("Debug: Moved ", debug_selected_model.model_id, " to ", world_pos)
-	
+
+	# Update model position via NetworkManager if in multiplayer, otherwise direct update
+	if NetworkManager and NetworkManager.is_networked():
+		_update_model_position_networked(debug_selected_model.unit_id, debug_selected_model.model_id, world_pos)
+	else:
+		_update_model_position_debug(debug_selected_model.unit_id, debug_selected_model.model_id, world_pos)
+
+	DebugLogger.debug("Moved model %s to %s" % [debug_selected_model.model_id, world_pos])
+
 	# Clear drag state
 	debug_drag_active = false
 	debug_selected_model.clear()
-	
+
 	# Clear visual feedback
 	_clear_drag_visuals()
-	
+
 	# Trigger visual refresh
 	_refresh_board_visuals()
 
@@ -151,9 +154,9 @@ func _find_model_at_position_debug(world_pos: Vector2) -> Dictionary:
 			# Skip dead models
 			if not model.get("alive", true):
 				continue
-				
-			var pos_dict = model.get("position", {})
-			if pos_dict.is_empty() or pos_dict.get("x") == null or pos_dict.get("y") == null:
+
+			var pos_dict = model.get("position")
+			if not pos_dict or not (pos_dict is Dictionary) or pos_dict.is_empty() or not pos_dict.has("x") or not pos_dict.has("y"):
 				continue
 				
 			var model_pos = Vector2(pos_dict.get("x", 0), pos_dict.get("y", 0))
@@ -170,15 +173,15 @@ func _find_model_at_position_debug(world_pos: Vector2) -> Dictionary:
 	
 	return closest_model
 
-# Update model position directly in game state (debug mode only)
+# Update model position directly in game state (debug mode only - single player)
 func _update_model_position_debug(unit_id: String, model_id: String, new_position: Vector2) -> void:
 	if not GameState.state.units.has(unit_id):
-		push_error("Debug: Unit not found: " + unit_id)
+		DebugLogger.error("Debug: Unit not found: %s" % unit_id)
 		return
-	
+
 	var unit = GameState.state.units[unit_id]
 	var models = unit.get("models", [])
-	
+
 	for i in range(models.size()):
 		if models[i].get("id", "") == model_id:
 			models[i]["position"] = {
@@ -189,6 +192,23 @@ func _update_model_position_debug(unit_id: String, model_id: String, new_positio
 			GameState.state.units[unit_id]["models"] = models
 			break
 
+func _update_model_position_networked(unit_id: String, model_id: String, new_position: Vector2) -> void:
+	"""Update model position via NetworkManager for multiplayer sync"""
+	# Create a DEBUG_MOVE action
+	var action = {
+		"type": "DEBUG_MOVE",
+		"unit_id": unit_id,
+		"model_id": model_id,
+		"position": [new_position.x, new_position.y],
+		"player": GameState.get_active_player(),  # Use current player for validation
+		"timestamp": Time.get_ticks_msec()
+	}
+
+	DebugLogger.info("Debug: Submitting DEBUG_MOVE action for %s/%s to %s" % [unit_id, model_id, new_position])
+
+	# Submit through NetworkManager
+	NetworkManager.submit_action(action)
+
 # Visual overlay management
 func _show_debug_overlay() -> void:
 	if debug_overlay:
@@ -198,7 +218,7 @@ func _show_debug_overlay() -> void:
 	# Create debug overlay dynamically
 	var main_node = get_node_or_null("/root/Main")
 	if not main_node:
-		push_error("Debug: Main node not found")
+		DebugLogger.error("Debug: Main node not found")
 		return
 	
 	# Create a simple overlay
@@ -280,9 +300,57 @@ func _update_all_tokens_debug_state(debug_active: bool) -> void:
 			token.set_debug_mode(debug_active)
 
 # Visual feedback helpers
-func _highlight_dragged_model(model_data: Dictionary) -> void:
-	# This would highlight the selected model
-	pass
+func _create_debug_ghost(model_data: Dictionary) -> void:
+	"""Create a ghost visual for the dragged model"""
+	var main_node = get_node_or_null("/root/Main")
+	if not main_node:
+		DebugLogger.error("Debug: Main node not found for ghost creation")
+		return
+
+	var ghost_layer = main_node.get_node_or_null("BoardRoot/GhostLayer")
+	if not ghost_layer:
+		DebugLogger.error("Debug: GhostLayer not found")
+		return
+
+	# Clear any existing ghosts
+	for child in ghost_layer.get_children():
+		child.queue_free()
+
+	# Get full model data from GameState for proper shape
+	var full_model = _get_full_model_data(model_data.unit_id, model_data.model_id)
+	if full_model.is_empty():
+		DebugLogger.error("Debug: Could not find full model data for %s/%s" % [model_data.unit_id, model_data.model_id])
+		return
+
+	# Create GhostVisual instance (it's a script, not a scene)
+	var ghost = preload("res://scripts/GhostVisual.gd").new()
+	ghost.name = "DebugModeGhost"
+
+	# Get unit for player ownership
+	var unit = GameState.state.units.get(model_data.unit_id, {})
+	ghost.owner_player = unit.get("owner", 1)
+
+	# Set model data for proper shape/size
+	ghost.set_model_data(full_model)
+
+	# Position at model's current location
+	ghost.position = model_data.position
+	ghost.set_validity(true)  # Debug mode allows any position
+
+	ghost_layer.add_child(ghost)
+	DebugLogger.debug("Debug: Created ghost visual at %s with base_type=%s" % [model_data.position, full_model.get("base_type", "circular")])
+
+func _get_full_model_data(unit_id: String, model_id: String) -> Dictionary:
+	"""Get complete model data including base_type and dimensions"""
+	if not GameState.state.units.has(unit_id):
+		return {}
+
+	var unit = GameState.state.units[unit_id]
+	for model in unit.get("models", []):
+		if model.get("id") == model_id:
+			return model
+
+	return {}
 
 func _update_ghost_position(world_pos: Vector2) -> void:
 	# Update ghost visual position during drag

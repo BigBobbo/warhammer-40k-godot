@@ -46,33 +46,26 @@ func _initialize_deployment() -> void:
 	log_phase_message("Deployment phase initialized")
 
 func validate_action(action: Dictionary) -> Dictionary:
-	print("DeploymentPhase: ========== validate_action CALLED ==========")
-	print("DeploymentPhase: Full action dictionary: ", action)
 	var action_type = action.get("type", "")
-	print("DeploymentPhase: action_type = '", action_type, "' (length: ", action_type.length(), ")")
-	print("DeploymentPhase: action_type == 'END_DEPLOYMENT': ", action_type == "END_DEPLOYMENT")
-	DebugLogger.info("DeploymentPhase.validate_action", {
-		"action_type": action_type,
-		"full_action": str(action),
-		"phase_class": get_class()
-	})
+
+	# Check base phase validation first (handles DEBUG_MOVE)
+	var base_validation = super.validate_action(action)
+	if not base_validation.get("valid", true):
+		return base_validation
 
 	match action_type:
 		"DEPLOY_UNIT":
-			print("DeploymentPhase: Matched DEPLOY_UNIT")
 			return _validate_deploy_unit_action(action)
 		"SWITCH_PLAYER":
-			print("DeploymentPhase: Matched SWITCH_PLAYER")
 			return _validate_switch_player_action(action)
 		"END_DEPLOYMENT":
-			print("DeploymentPhase: Matched END_DEPLOYMENT")
 			return _validate_end_deployment_action(action)
 		"EMBARK_UNITS_DEPLOYMENT":
-			print("DeploymentPhase: Matched EMBARK_UNITS_DEPLOYMENT")
 			return _validate_embark_units_deployment(action)
+		"DEBUG_MOVE":
+			# Already validated by base class
+			return {"valid": true}
 		_:
-			print("DeploymentPhase: NO MATCH - fell through to default case")
-			print("DeploymentPhase: Returning unknown action error")
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
 func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
@@ -159,21 +152,14 @@ func _validate_switch_player_action(action: Dictionary) -> Dictionary:
 func _validate_end_deployment_action(action: Dictionary) -> Dictionary:
 	# Can only end deployment if all units are deployed
 	var all_deployed = _all_units_deployed()
-	print("DeploymentPhase: _validate_end_deployment_action - all_deployed: ", all_deployed)
-	DebugLogger.info("DeploymentPhase._validate_end_deployment_action", {
-		"all_deployed": all_deployed
-	})
 
 	if not all_deployed:
 		return {"valid": false, "errors": ["Not all units have been deployed"]}
 
-	print("DeploymentPhase: END_DEPLOYMENT validation PASSED")
 	return {"valid": true, "errors": []}
 
 func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
 	"""Validate that units can embark in a transport during deployment"""
-	print("DeploymentPhase: ===== VALIDATING EMBARK_UNITS_DEPLOYMENT =====")
-	print("DeploymentPhase: Action: ", action)
 	var errors = []
 
 	# Check required fields
@@ -183,12 +169,10 @@ func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
 		errors.append("Missing unit_ids")
 
 	if errors.size() > 0:
-		print("DeploymentPhase: Validation FAILED - missing fields: ", errors)
 		return {"valid": false, "errors": errors}
 
 	var transport_id = action.transport_id
 	var unit_ids = action.unit_ids
-	print("DeploymentPhase: Transport ID: %s, Unit IDs: %s" % [transport_id, str(unit_ids)])
 
 	# Check if transport exists
 	var transport = get_unit(transport_id)
@@ -253,7 +237,6 @@ func _validate_embark_units_deployment(action: Dictionary) -> Dictionary:
 	if current_count + total_new_models > capacity:
 		errors.append("Insufficient capacity: %d/%d (adding %d)" % [current_count + total_new_models, capacity, total_new_models])
 
-	print("DeploymentPhase: Validation complete - valid: %s, errors: %s" % [str(errors.size() == 0), str(errors)])
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func process_action(action: Dictionary) -> Dictionary:
@@ -341,36 +324,18 @@ func _process_switch_player(action: Dictionary) -> Dictionary:
 	return create_result(true, changes)
 
 func _process_end_deployment(action: Dictionary) -> Dictionary:
-	print("DeploymentPhase: ⚠️⚠️⚠️ _process_end_deployment CALLED ⚠️⚠️⚠️")
-	DebugLogger.info("DeploymentPhase._process_end_deployment", {"action": action})
-
 	log_phase_message("Deployment phase ending - all units deployed")
 
 	# Emit phase_completed signal to trigger phase transition
-	print("DeploymentPhase: ⚠️ Emitting phase_completed signal")
-	DebugLogger.info("Emitting phase_completed signal", {})
 	emit_signal("phase_completed")
-	print("DeploymentPhase: ⚠️ phase_completed signal emitted")
 
-	var result = create_result(true, [])
-	print("DeploymentPhase: ⚠️ Returning result: ", result)
-	DebugLogger.info("_process_end_deployment returning", {"result": result})
-	return result
+	return create_result(true, [])
 
 func _process_embark_units_deployment(action: Dictionary) -> Dictionary:
 	"""Process units embarking in a transport during deployment"""
-	print("DeploymentPhase: ===== PROCESSING EMBARK_UNITS_DEPLOYMENT =====")
 	var transport_id = action.transport_id
 	var unit_ids = action.unit_ids
 	var changes = []
-
-	print("DeploymentPhase: Transport ID: %s, Unit IDs: %s" % [transport_id, str(unit_ids)])
-
-	DebugLogger.info("Processing embarkation during deployment", {
-		"transport_id": transport_id,
-		"unit_ids": unit_ids,
-		"count": unit_ids.size()
-	})
 
 	# For each unit to embark
 	for unit_id in unit_ids:
@@ -470,32 +435,19 @@ func _get_undeployed_units_for_player(player: int) -> Array:
 func _all_units_deployed() -> bool:
 	# CRITICAL: Use GameState directly instead of game_state_snapshot
 	# The snapshot may be stale and not reflect recent deployments
-	print("DeploymentPhase: ⚠️ Checking deployment status - using GameState directly")
-
-	var undeployed_list = []
 	var units = GameState.state.get("units", {})
 
 	for unit_id in units:
 		var unit = units[unit_id]
 		# Skip embarked units (they're deployed when inside a transport)
 		if unit.get("embarked_in", null) != null:
-			print("  - Skipping ", unit_id, " (embarked)")
 			continue
 
 		var status = unit.get("status", 0)
 		if status == GameStateData.UnitStatus.UNDEPLOYED:
-			var owner = unit.get("owner", unit.get("player", 0))
-			undeployed_list.append(unit_id + " (owner:" + str(owner) + " status:" + str(status) + ")")
-			print("  - UNDEPLOYED: ", unit_id, " owner=", owner, " status=", status)
+			return false
 
-	var all_deployed = undeployed_list.size() == 0
-	print("DeploymentPhase: ⚠️ Deployment check result: all_deployed=", all_deployed)
-
-	if not all_deployed:
-		print("DeploymentPhase: ⚠️ Still undeployed: ", undeployed_list)
-		DebugLogger.info("Undeployed units remaining", {"units": undeployed_list})
-
-	return all_deployed
+	return true
 
 # Player switching is now handled by TurnManager via the action_taken signal
 # Transport embark dialog is now handled by DeploymentController BEFORE deployment

@@ -99,6 +99,10 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_MORALE":
 			return process_end_morale(action)
 
+		# Debug actions
+		"DEBUG_MOVE":
+			return process_debug_move(action)
+
 		_:
 			return {"success": false, "error": "Unknown action type: " + str(action.get("type", "UNKNOWN"))}
 
@@ -481,6 +485,53 @@ func process_end_morale(action: Dictionary) -> Dictionary:
 	var next_phase = _get_next_phase(GameStateData.Phase.MORALE)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+
+# ============================================================================
+# DEBUG ACTION PROCESSORS
+# ============================================================================
+
+func process_debug_move(action: Dictionary) -> Dictionary:
+	"""Handle debug mode model movement - bypasses normal phase restrictions"""
+	var unit_id = action.get("unit_id", "")
+	var model_id = action.get("model_id", "")
+	var position = action.get("position", [])
+
+	if unit_id == "" or model_id == "" or position.size() != 2:
+		return {"success": false, "error": "Invalid DEBUG_MOVE action data"}
+
+	# Validate unit exists
+	if not GameState.state.units.has(unit_id):
+		return {"success": false, "error": "Unit not found: " + unit_id}
+
+	var unit = GameState.state.units[unit_id]
+	var models = unit.get("models", [])
+
+	# Find model index
+	var model_index = -1
+	for i in range(models.size()):
+		if models[i].get("id") == model_id:
+			model_index = i
+			break
+
+	if model_index == -1:
+		return {"success": false, "error": "Model not found: " + model_id}
+
+	# Create diff for position update
+	var diff = {
+		"op": "set",
+		"path": "units.%s.models.%d.position" % [unit_id, model_index],
+		"value": {"x": position[0], "y": position[1]}
+	}
+
+	var unit_name = unit.get("meta", {}).get("name", "Unknown")
+	var log_text = "[DEBUG] Moved %s model %s to (%d, %d)" % [unit_name, model_id, position[0], position[1]]
+
+	return {
+		"success": true,
+		"phase": "DEBUG",
+		"diffs": [diff],
+		"log_text": log_text
+	}
 
 # ============================================================================
 # HELPER FUNCTIONS

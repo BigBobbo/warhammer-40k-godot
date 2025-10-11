@@ -26,16 +26,25 @@ func get_available_actions() -> Array:
 	]
 
 func validate_action(action: Dictionary) -> Dictionary:
-	var errors = []
 	var action_type = action.get("type", "")
-	
+
+	# Check base phase validation first (handles DEBUG_MOVE)
+	var base_validation = super.validate_action(action)
+	if not base_validation.get("valid", true):
+		return base_validation
+
+	var errors = []
+
 	match action_type:
 		"END_COMMAND":
 			# END_COMMAND is always valid in command phase
 			pass
+		"DEBUG_MOVE":
+			# Already validated by base class
+			return {"valid": true, "errors": []}
 		_:
 			errors.append("Unknown action type: %s" % action_type)
-	
+
 	return {
 		"valid": errors.size() == 0,
 		"errors": errors

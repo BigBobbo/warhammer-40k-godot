@@ -51,6 +51,16 @@ func _on_phase_exit() -> void:
 
 # Validate if an action is legal in this phase
 func validate_action(action: Dictionary) -> Dictionary:
+	var action_type = action.get("type", "")
+
+	# Debug mode bypasses normal validation
+	if action_type == "DEBUG_MOVE":
+		# Only allow if debug mode is active
+		if DebugManager and DebugManager.is_debug_active():
+			return {"valid": true}
+		else:
+			return {"valid": false, "reason": "Debug mode not active", "errors": ["Debug mode must be active to use DEBUG_MOVE"]}
+
 	# Override in concrete phases for phase-specific validation
 	return {"valid": true, "errors": []}
 
