@@ -58,34 +58,25 @@ func create_base_shape(model: Dictionary) -> BaseShape:
 	var base_mm = model.get("base_mm", 32)
 	var base_dimensions = model.get("base_dimensions", {})
 
-	print("DEBUG Measurement.create_base_shape:")
-	print("  base_type: ", base_type)
-	print("  base_mm: ", base_mm)
-	print("  base_dimensions: ", base_dimensions)
-
 	match base_type:
 		"circular":
 			var radius = base_radius_px(base_mm)
-			print("  Creating CircularBase with radius: ", radius, "px (from ", base_mm, "mm)")
 			return CircularBase.new(radius)
 		"rectangular":
 			var length_mm = base_dimensions.get("length", base_mm)
 			var width_mm = base_dimensions.get("width", base_mm * 0.6)
 			var length_px = mm_to_px(length_mm)
 			var width_px = mm_to_px(width_mm)
-			print("  Creating RectangularBase: ", length_px, "px x ", width_px, "px")
 			return RectangularBase.new(length_px, width_px)
 		"oval":
 			var length_mm = base_dimensions.get("length", base_mm)
 			var width_mm = base_dimensions.get("width", base_mm * 0.6)
 			var length_px = mm_to_px(length_mm)
 			var width_px = mm_to_px(width_mm)
-			print("  Creating OvalBase: ", length_px, "px x ", width_px, "px")
 			return OvalBase.new(length_px, width_px)
 		_:
 			# Default to circular
 			var radius = base_radius_px(base_mm)
-			print("  FALLBACK: Creating CircularBase with radius: ", radius, "px")
 			return CircularBase.new(radius)
 
 func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float:
