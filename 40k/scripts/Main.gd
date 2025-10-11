@@ -2842,7 +2842,6 @@ func update_after_scoring_action() -> void:
 		scoring_controller._refresh_ui()
 
 func update_after_charge_action() -> void:
-	print("DEBUG: update_after_charge_action called")
 	
 	# Refresh visuals and UI after a charge action
 	_recreate_unit_visuals()
@@ -2853,7 +2852,6 @@ func update_after_charge_action() -> void:
 	if charge_controller:
 		charge_controller._refresh_ui()
 	
-	print("DEBUG: Charge action visual update completed")
 
 func update_after_fight_action() -> void:
 	# Refresh visuals and UI after a fight action
@@ -2891,22 +2889,16 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 	
 	# For staged moves, we want to move the visual token directly without updating GameState
 	# Find the existing token in token_layer
-	print("DEBUG: Looking for token in token_layer")
 	if token_layer:
-		print("DEBUG: Token layer found, searching for token with unit_id: ", unit_id, " and model_id: ", model_id)
 		for child in token_layer.get_children():
-			print("DEBUG: Child: ", child.name, ", has unit_id meta: ", child.has_meta("unit_id"), ", has model_id meta: ", child.has_meta("model_id"))
 			if child.has_meta("unit_id"):
-				print("DEBUG: Child unit_id: ", child.get_meta("unit_id"))
 			if child.has_meta("model_id"):
-				print("DEBUG: Child model_id: ", child.get_meta("model_id"))
 			
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 				print("Moving token visual to ", dest_px)
 				child.position = dest_px
 				return
 	else:
-		print("DEBUG: token_layer not found!")
 	
 	print("Could not find token to move, falling back to full recreation")
 	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
@@ -3003,16 +2995,13 @@ func _debug_check_right_panel() -> void:
 	"""Debug method to validate right panel state"""
 	var container = get_node_or_null("HUD_Right/VBoxContainer")
 	if not container:
-		print("DEBUG: No VBoxContainer found")
 		return
 	
-	print("DEBUG: Right panel children:")
 	for child in container.get_children():
 		print("  - ", child.name, " (", child.get_class(), ")")
 	
 	# Check for wrong phase UI
 	var current_phase_name = GameStateData.Phase.keys()[current_phase]
-	print("DEBUG: Current phase: ", current_phase_name)
 	
 	# Flag any mismatched UI
 	if current_phase != GameStateData.Phase.MOVEMENT:

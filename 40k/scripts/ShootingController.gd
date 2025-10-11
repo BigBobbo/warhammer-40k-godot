@@ -858,7 +858,6 @@ func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_
 		
 	# Auto-assign first available target
 	var first_target = eligible_targets.keys()[0]
-	print("DEBUG: Button clicked - auto-assigning target: ", first_target)
 	_select_target_for_current_weapon(first_target)
 
 func _on_clear_pressed() -> void:
@@ -914,10 +913,8 @@ func _input(event: InputEvent) -> void:
 		if board_root:
 			# Convert screen position to board local position
 			var mouse_pos = board_root.get_local_mouse_position()
-			print("DEBUG: Mouse click at board position: ", mouse_pos)
 			_handle_board_click(mouse_pos)
 		else:
-			print("DEBUG: BoardRoot not found, using global position")
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_click(mouse_pos)
 	
@@ -935,14 +932,12 @@ func _input(event: InputEvent) -> void:
 func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected
 	if not weapon_tree:
-		print("DEBUG: No weapon tree")
 		return
 		
 	var selected_weapon = weapon_tree.get_selected()
 	if not selected_weapon:
 		if dice_log_display:
 			dice_log_display.append_text("[color=red]Please select a weapon first![/color]\n")
-		print("DEBUG: No weapon selected")
 		return
 	
 	# Check if click is on an eligible target
@@ -950,17 +945,13 @@ func _handle_board_click(position: Vector2) -> void:
 	var closest_distance = INF
 	var closest_model_pos = Vector2.ZERO
 	
-	print("DEBUG: Checking click at position: ", position)
-	print("DEBUG: Available targets: ", eligible_targets.keys())
 	
 	for target_id in eligible_targets:
 		var unit = current_phase.get_unit(target_id)
-		print("DEBUG: Checking unit ", target_id, " with ", unit.get("models", []).size(), " models")
 		for model in unit.get("models", []):
 			if not model.get("alive", true):
 				continue
 			var model_pos = _get_model_position(model)
-			print("DEBUG: Model at ", model_pos)
 			var distance = model_pos.distance_to(position)
 			if distance < closest_distance:
 				closest_distance = distance
@@ -969,15 +960,12 @@ func _handle_board_click(position: Vector2) -> void:
 	
 	# Use a larger click threshold to make selection easier
 	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
-		print("DEBUG: Selecting target: ", closest_target, " at distance: ", closest_distance)
 		_select_target_for_current_weapon(closest_target)
 	else:
-		print("DEBUG: No target close enough. Closest was: ", closest_target, " at distance: ", closest_distance, " at position: ", closest_model_pos)
 		
 		# If no target is close enough, let's try a different approach - just select the first available target
 		if not eligible_targets.is_empty():
 			var first_target = eligible_targets.keys()[0]
-			print("DEBUG: Auto-selecting first available target: ", first_target)
 			_select_target_for_current_weapon(first_target)
 
 func _handle_board_hover(position: Vector2) -> void:

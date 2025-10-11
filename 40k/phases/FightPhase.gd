@@ -311,14 +311,10 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	var target_id = action.get("target_id", "")
 	var weapon_id = action.get("weapon_id", "")
 	var errors = []
-	
-	print("DEBUG: Validating ASSIGN_ATTACKS action: unit_id='", unit_id, "', target_id='", target_id, "', weapon_id='", weapon_id, "'")
-	print("DEBUG: active_fighter_id='", active_fighter_id, "'")
-	
+
 	# Check unit is active fighter
 	if unit_id != active_fighter_id:
 		errors.append("Not the active fighter")
-		print("DEBUG: Unit is not the active fighter")
 		return {"valid": false, "errors": errors}
 	
 	# Check required fields
@@ -459,21 +455,16 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var target_id = action.get("target_id", "")
 	var weapon_id = action.get("weapon_id", "")
-	
-	print("DEBUG: Processing ASSIGN_ATTACKS: unit_id='", unit_id, "', target_id='", target_id, "', weapon_id='", weapon_id, "'")
-	
+
 	pending_attacks.append({
 		"attacker": unit_id,
 		"target": target_id,
 		"weapon": weapon_id,
 		"models": action.get("attacking_models", [])
 	})
-	
-	print("DEBUG: Added attack to pending_attacks, count now: ", pending_attacks.size())
+
 	log_phase_message("Assigned %s attacks to %s" % [weapon_id, target_id])
-	var result = create_result(true, [])
-	print("DEBUG: ASSIGN_ATTACKS returning result: ", result)
-	return result
+	return create_result(true, [])
 
 func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
@@ -682,6 +673,8 @@ func _get_model_position(unit_id: String, model_id: String) -> Vector2:
 		var model = models[i]
 		if str(i) == model_id or model.get("id", "") == model_id:
 			var pos = model.get("position", {})
+			if pos == null:
+				return Vector2.ZERO
 			return Vector2(pos.get("x", 0), pos.get("y", 0))
 	
 	return Vector2.ZERO
@@ -715,6 +708,8 @@ func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2
 				continue
 			
 			var model_pos_data = model.get("position", {})
+			if model_pos_data == null:
+				continue
 			var model_pos = Vector2(model_pos_data.get("x", 0), model_pos_data.get("y", 0))
 			var distance = from_pos.distance_to(model_pos)
 			
@@ -740,6 +735,8 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 			all_positions.append(new_positions[model_id])
 		else:
 			var pos_data = model.get("position", {})
+			if pos_data == null:
+				continue
 			all_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
 	
 	# Check 2" coherency rule (simplified)
@@ -879,17 +876,21 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			continue
 		
 		var pos1_data = model1.get("position", {})
+		if pos1_data == null:
+			continue
 		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0))
 		var base1_mm = model1.get("base_mm", 25.0)
-		
+
 		if pos1 == Vector2.ZERO:
 			continue
-		
+
 		for model2 in models2:
 			if not model2.get("alive", true):
 				continue
-			
+
 			var pos2_data = model2.get("position", {})
+			if pos2_data == null:
+				continue
 			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0))
 			var base2_mm = model2.get("base_mm", 25.0)
 			

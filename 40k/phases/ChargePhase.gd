@@ -82,8 +82,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	print("DEBUG: ChargePhase.process_action called with type: ", action_type)
-	
+
 	match action_type:
 		"SELECT_CHARGE_UNIT":
 			return _process_select_charge_unit(action)
@@ -92,7 +91,6 @@ func process_action(action: Dictionary) -> Dictionary:
 		"CHARGE_ROLL":
 			return _process_charge_roll(action)
 		"APPLY_CHARGE_MOVE":
-			print("DEBUG: Processing APPLY_CHARGE_MOVE action")
 			return _process_apply_charge_move(action)
 		"COMPLETE_UNIT_CHARGE":
 			return _process_complete_unit_charge(action)
@@ -101,7 +99,6 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_CHARGE":
 			return _process_end_charge(action)
 		_:
-			print("DEBUG: Unknown action type in ChargePhase: ", action_type)
 			return create_result(false, [], "Unknown action type: " + action_type)
 
 # Validation Methods
@@ -316,32 +313,24 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	return create_result(true, [], "", {"dice": [dice_result]})
 
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
-	print("DEBUG: _process_apply_charge_move called with action: ", action)
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
 	var per_model_paths = payload.get("per_model_paths", {})
 	var per_model_rotations = payload.get("per_model_rotations", {})
-	
+
 	# Enhanced validation - check for empty per_model_paths
 	if per_model_paths.is_empty():
 		print("ERROR: No model paths provided for charge movement")
 		return create_result(false, [], "No model paths provided")
-	
-	print("DEBUG: unit_id = ", unit_id)
-	print("DEBUG: per_model_paths = ", per_model_paths)
-	print("DEBUG: pending_charges = ", pending_charges)
-	
+
 	if not pending_charges.has(unit_id):
 		print("ERROR: No pending charge data found for unit ", unit_id)
 		return create_result(false, [], "No pending charge data found")
-	
+
 	var charge_data = pending_charges[unit_id]
-	print("DEBUG: charge_data = ", charge_data)
-	
+
 	# Final validation
-	print("DEBUG: About to validate charge movement constraints")
 	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
-	print("DEBUG: Validation result: ", validation)
 	if not validation.valid:
 		# Charge fails - no movement applied
 		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
@@ -356,31 +345,27 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	
 	# Apply successful charge movement
 	var changes = []
-	print("DEBUG: Applying successful charge movement")
-	
+
 	# Update model positions
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
-		print("DEBUG: Processing model ", model_id, " with path ", path)
-		
+
 		if not (path is Array and path.size() > 0):
 			print("WARNING: Invalid path for model ", model_id, " - skipping")
 			continue
-			
+
 		var final_pos = path[-1]  # Last position in path
 		var model_index = _get_model_index(unit_id, model_id)
-		print("DEBUG: Model index for ", model_id, " is ", model_index)
-		
+
 		if model_index < 0:
 			print("ERROR: Invalid model_index for ", model_id, " - model not found in unit")
 			continue
-			
+
 		var change = {
 			"op": "set",
 			"path": "units.%s.models.%d.position" % [unit_id, model_index],
 			"value": {"x": final_pos[0], "y": final_pos[1]}
 		}
-		print("DEBUG: Adding position change: ", change)
 		changes.append(change)
 
 		# Also apply rotation if provided
@@ -391,7 +376,6 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
 				"value": rotation
 			}
-			print("DEBUG: Adding rotation change: ", rotation_change)
 			changes.append(rotation_change)
 	
 	# Mark unit as charged and grant Fights First
@@ -413,10 +397,9 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
-	
-	print("DEBUG: Returning ", changes.size(), " changes: ", changes)
+
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
-	
+
 	return create_result(true, changes)
 
 func _process_skip_charge(action: Dictionary) -> Dictionary:

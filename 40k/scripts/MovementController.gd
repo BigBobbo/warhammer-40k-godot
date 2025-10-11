@@ -1507,7 +1507,6 @@ func _get_model_at_position(world_pos: Vector2) -> Dictionary:
 					if staged_move.get("model_id") == model_id:
 						model_pos = staged_move.get("dest", Vector2.ZERO)
 						staged_pos_found = true
-						print("DEBUG: Found staged position for ", model_id, " at ", model_pos)
 						break
 			
 			# Fall back to original position if no staged position
@@ -1857,7 +1856,6 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	# Set initial rotation if model has one
 	if model.has("rotation"):
 		ghost_token.set_base_rotation(model.get("rotation", 0.0))
-		print("DEBUG: Set initial ghost rotation to ", rad_to_deg(model.get("rotation", 0.0)), " degrees")
 
 	# Set the token at origin (0,0) relative to ghost_visual
 	ghost_token.position = Vector2.ZERO
@@ -2084,7 +2082,6 @@ func _apply_rotation_to_model(new_rotation: float) -> void:
 		# Use set_base_rotation for immediate visual update
 		if ghost_token.has_method("set_base_rotation"):
 			ghost_token.set_base_rotation(new_rotation)
-			print("DEBUG: Updated ghost rotation to ", rad_to_deg(new_rotation), " degrees")
 		elif ghost_token.has_method("set_model_data"):
 			# Fallback: update complete model data
 			ghost_token.set_model_data(selected_model)

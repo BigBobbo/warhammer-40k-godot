@@ -148,7 +148,6 @@ func _setup_right_panel() -> void:
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
-	print("DEBUG: ScoringController.set_phase called with phase type: ", phase.get_class() if phase else "null")
 	
 	if phase:
 		# Update UI elements with current game state

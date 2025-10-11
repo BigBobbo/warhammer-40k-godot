@@ -672,7 +672,6 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Update per-model distance tracking
 	move_data.model_distances[model_id] = total_distance_for_model
 	
-	print("DEBUG: Model ", model_id, " moved from ", current_pos, " to ", dest_vec)
 	print("  - Distance this segment: ", distance_inches, "\"")
 	print("  - Total distance from origin: ", total_distance_for_model, "\"")
 	print("  - Remaining for this model: ", (move_data.move_cap_inches - total_distance_for_model), "\"")
