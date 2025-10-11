@@ -18,6 +18,7 @@ var formation_mode: String = "SINGLE"  # SINGLE, SPREAD, TIGHT
 var formation_size: int = 5  # Models per formation group
 var formation_preview_ghosts: Array = []  # Ghost visuals for formation
 var formation_anchor_pos: Vector2  # Where user clicks to place formation
+var formation_rotation: float = 0.0  # Rotation angle for formation (radians)
 
 # Model repositioning state
 var repositioning_model: bool = false
@@ -80,24 +81,40 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_model_repositioning(event.position)
 			return
 
-	# Handle rotation controls during deployment (single mode only)
-	if formation_mode == "SINGLE" and ghost_sprite and event is InputEventKey and event.pressed:
+	# Handle rotation controls during deployment
+	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_Q:
 			# Rotate left
-			if ghost_sprite.has_method("rotate_by"):
-				ghost_sprite.rotate_by(-PI/12)  # 15 degrees
+			if formation_mode == "SINGLE":
+				# Rotate individual model ghost
+				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
+					ghost_sprite.rotate_by(-PI/12)  # 15 degrees
+			else:
+				# Rotate formation
+				formation_rotation -= PI/12  # 15 degrees counter-clockwise
 		elif event.keycode == KEY_E:
 			# Rotate right
-			if ghost_sprite.has_method("rotate_by"):
-				ghost_sprite.rotate_by(PI/12)  # 15 degrees
+			if formation_mode == "SINGLE":
+				# Rotate individual model ghost
+				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
+					ghost_sprite.rotate_by(PI/12)  # 15 degrees
+			else:
+				# Rotate formation
+				formation_rotation += PI/12  # 15 degrees clockwise
 	elif event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			# Rotate with mouse wheel
-			if ghost_sprite.has_method("rotate_by"):
-				ghost_sprite.rotate_by(PI/12)
+			if formation_mode == "SINGLE":
+				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
+					ghost_sprite.rotate_by(PI/12)
+			else:
+				formation_rotation += PI/12
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			if ghost_sprite.has_method("rotate_by"):
-				ghost_sprite.rotate_by(-PI/12)
+			if formation_mode == "SINGLE":
+				if ghost_sprite and ghost_sprite.has_method("rotate_by"):
+					ghost_sprite.rotate_by(-PI/12)
+			else:
+				formation_rotation -= PI/12
 
 func begin_deploy(_unit_id: String) -> void:
 	unit_id = _unit_id
@@ -108,6 +125,7 @@ func begin_deploy(_unit_id: String) -> void:
 	temp_positions.resize(unit_data["models"].size())
 	temp_rotations.resize(unit_data["models"].size())
 	temp_rotations.fill(0.0)
+	formation_rotation = 0.0  # Reset formation rotation for new unit
 
 	# Update through PhaseManager instead of BoardState
 	if has_node("/root/PhaseManager"):
@@ -218,9 +236,9 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 
 	match formation_mode:
 		"SPREAD":
-			positions = calculate_spread_formation(world_pos, models_to_place, base_mm)
+			positions = calculate_spread_formation(world_pos, models_to_place, base_mm, formation_rotation)
 		"TIGHT":
-			positions = calculate_tight_formation(world_pos, models_to_place, base_mm)
+			positions = calculate_tight_formation(world_pos, models_to_place, base_mm, formation_rotation)
 
 	# Validate all positions
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
@@ -807,6 +825,7 @@ func _get_world_mouse_position() -> Vector2:
 # Formation mode management
 func set_formation_mode(mode: String) -> void:
 	formation_mode = mode
+	formation_rotation = 0.0  # Reset rotation when changing modes
 	print("[DeploymentController] Formation mode set to: ", mode)
 
 	# If we're currently placing, update the ghosts
@@ -830,7 +849,7 @@ func _get_unplaced_model_indices() -> Array:
 	return unplaced
 
 # Formation calculation functions
-func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: int) -> Array:
+func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Array:
 	"""Calculate positions for maximum spread (2 inch coherency)"""
 	var positions = []
 
@@ -861,11 +880,15 @@ func calculate_spread_formation(anchor_pos: Vector2, model_count: int, base_mm: 
 		var row = floor(i / cols)
 		var x_offset = (col - cols/2.0) * total_spacing
 		var y_offset = row * total_spacing
-		positions.append(anchor_pos + Vector2(x_offset, y_offset))
+		var base_pos = Vector2(x_offset, y_offset)
+
+		# Apply rotation around origin, then translate to anchor
+		var rotated_pos = base_pos.rotated(rotation)
+		positions.append(anchor_pos + rotated_pos)
 
 	return positions
 
-func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int) -> Array:
+func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: int, rotation: float = 0.0) -> Array:
 	"""Calculate positions for tight formation (bases touching)"""
 	var positions = []
 
@@ -894,7 +917,11 @@ func calculate_tight_formation(anchor_pos: Vector2, model_count: int, base_mm: i
 		var row = floor(i / cols)
 		var x_offset = (col - cols/2.0) * spacing_px
 		var y_offset = row * spacing_px
-		positions.append(anchor_pos + Vector2(x_offset, y_offset))
+		var base_pos = Vector2(x_offset, y_offset)
+
+		# Apply rotation around origin, then translate to anchor
+		var rotated_pos = base_pos.rotated(rotation)
+		positions.append(anchor_pos + rotated_pos)
 
 	return positions
 
@@ -941,9 +968,9 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 	var positions = []
 	match formation_mode:
 		"SPREAD":
-			positions = calculate_spread_formation(mouse_pos, formation_preview_ghosts.size(), base_mm)
+			positions = calculate_spread_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
 		"TIGHT":
-			positions = calculate_tight_formation(mouse_pos, formation_preview_ghosts.size(), base_mm)
+			positions = calculate_tight_formation(mouse_pos, formation_preview_ghosts.size(), base_mm, formation_rotation)
 
 	# Update ghost positions and validity
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
