@@ -67,7 +67,13 @@ func create_host(port: int = 7777) -> int:
 	network_mode = NetworkMode.HOST
 	peer_to_player_map[1] = 1  # Host is player 1
 
-	print("NetworkManager: Hosting on port ", port)
+	# Update window title to show player number
+	DisplayServer.window_set_title("40k Game - PLAYER 1 (HOST)")
+
+	print("========================================")
+	print("   YOU ARE: PLAYER 1 (HOST)")
+	print("   Hosting on port: ", port)
+	print("========================================")
 	return OK
 
 func join_as_client(ip: String, port: int = 7777) -> int:
@@ -259,12 +265,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					phase.emit_signal("targets_available", unit_id, eligible_targets)
 
 	# Handle shooting phase saves_required signal
-	# This happens when CONFIRM_TARGETS triggers RESOLVE_SHOOTING which needs saves
+	# This happens when CONFIRM_TARGETS, RESOLVE_SHOOTING, or RESOLVE_WEAPON_SEQUENCE needs saves
 	print("NetworkManager:   Checking for saves_required...")
 	print("NetworkManager:   action_type == CONFIRM_TARGETS: ", action_type == "CONFIRM_TARGETS")
 	print("NetworkManager:   action_type == RESOLVE_SHOOTING: ", action_type == "RESOLVE_SHOOTING")
+	print("NetworkManager:   action_type == RESOLVE_WEAPON_SEQUENCE: ", action_type == "RESOLVE_WEAPON_SEQUENCE")
 
-	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING":
+	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING" or action_type == "RESOLVE_WEAPON_SEQUENCE":
 		print("NetworkManager:   Action type matches, checking for save_data_list...")
 		# Check if the result contains save_data_list (indicating saves are needed)
 		var save_data_list = result.get("save_data_list", [])
@@ -569,6 +576,15 @@ func _on_peer_connected(peer_id: int) -> void:
 		var my_peer_id = multiplayer.get_unique_id()
 		peer_to_player_map[my_peer_id] = 2
 		print("NetworkManager: Client set peer_to_player_map[%d] = 2" % my_peer_id)
+
+		# Update window title to show player number
+		DisplayServer.window_set_title("40k Game - PLAYER 2 (CLIENT)")
+
+		print("========================================")
+		print("   YOU ARE: PLAYER 2 (CLIENT)")
+		print("   Connected to host")
+		print("========================================")
+
 		emit_signal("peer_connected", peer_id)
 		emit_signal("game_started")
 
