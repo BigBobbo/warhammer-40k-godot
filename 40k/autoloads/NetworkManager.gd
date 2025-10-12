@@ -117,10 +117,13 @@ func submit_action(action: Dictionary) -> void:
 		var validation = validate_action(action, peer_id)
 
 		if not validation.valid:
-			var error_msg = "Deployment validation failed"
-			if validation.has("errors") and validation.errors.size() > 0:
+			# Get error message from either "reason" or first "errors" entry
+			var error_msg = validation.get("reason", "Validation failed")
+			if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
 				error_msg = validation.errors[0]
-			push_error("NetworkManager: Host action rejected: %s" % validation.get("reason", error_msg))
+			print("NetworkManager: Host validation failed: ", error_msg)
+			print("NetworkManager: Full validation result: ", validation)
+			push_error("NetworkManager: Host action rejected: %s" % error_msg)
 
 			# Notify UI of validation failure
 			if has_node("/root/Main"):
@@ -158,8 +161,12 @@ func _send_action_to_host(action: Dictionary) -> void:
 	print("NetworkManager: Validation result: ", validation)
 
 	if not validation.valid:
+		# Get reason from either "reason" field or first error in "errors" array
 		var reason = validation.get("reason", "Unknown validation error")
+		if reason == "Unknown validation error" and validation.has("errors") and validation.errors.size() > 0:
+			reason = validation.errors[0]
 		print("NetworkManager: REJECTING action: ", reason)
+		print("NetworkManager: Full validation result: ", validation)
 		_reject_action.rpc_id(peer_id, action.get("type", ""), reason)
 		return
 
@@ -181,6 +188,12 @@ func _send_action_to_host(action: Dictionary) -> void:
 @rpc("authority", "call_remote", "reliable")
 func _broadcast_result(result: Dictionary) -> void:
 	print("NetworkManager: _broadcast_result received, is_host = ", is_host())
+	print("NetworkManager: Result keys: ", result.keys())
+	print("NetworkManager: Action type: ", result.get("action_type", "NONE"))
+	print("NetworkManager: Has save_data_list: ", result.has("save_data_list"))
+	if result.has("save_data_list"):
+		print("NetworkManager: save_data_list size: ", result.get("save_data_list", []).size())
+
 	if is_host():
 		return  # Host already applied locally
 
@@ -194,21 +207,30 @@ func _broadcast_result(result: Dictionary) -> void:
 	# MULTIPLAYER FIX: Re-emit phase-specific signals for client visual updates
 	# When host applies actions, it emits signals that update visuals
 	# Clients need to emit the same signals after applying results
+	print("NetworkManager: Client calling _emit_client_visual_updates")
 	_emit_client_visual_updates(result)
 
 	print("NetworkManager: Client finished applying result")
 
 func _emit_client_visual_updates(result: Dictionary) -> void:
 	"""Emit phase-specific signals on client after applying result for visual updates"""
+	print("NetworkManager: _emit_client_visual_updates START")
 	var action_type = result.get("action_type", "")
 	var action_data = result.get("action_data", {})
+	print("NetworkManager:   action_type = ", action_type)
 
 	# Get current phase instance
 	var phase_manager = get_node_or_null("/root/PhaseManager")
-	if not phase_manager or not phase_manager.current_phase_instance:
+	if not phase_manager:
+		print("NetworkManager:   ERROR - PhaseManager not found!")
+		return
+	if not phase_manager.current_phase_instance:
+		print("NetworkManager:   ERROR - No current_phase_instance!")
 		return
 
 	var phase = phase_manager.current_phase_instance
+	print("NetworkManager:   phase = ", phase)
+	print("NetworkManager:   phase has saves_required signal: ", phase.has_signal("saves_required"))
 
 	# Handle movement phase visual updates
 	if action_type == "STAGE_MODEL_MOVE":
@@ -221,6 +243,51 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var dest_vec = Vector2(dest[0], dest[1])
 				print("NetworkManager: Client emitting model_drop_committed for ", unit_id, "/", model_id, " at ", dest_vec)
 				phase.emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
+
+	# Handle shooting phase SELECT_SHOOTER visual updates
+	if action_type == "SELECT_SHOOTER":
+		if phase.has_signal("unit_selected_for_shooting"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			if unit_id != "":
+				print("NetworkManager: Client emitting unit_selected_for_shooting for ", unit_id)
+				phase.emit_signal("unit_selected_for_shooting", unit_id)
+
+				# Also emit targets_available with eligible targets
+				if phase.has_signal("targets_available"):
+					var eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
+					print("NetworkManager: Client emitting targets_available with %d targets" % eligible_targets.size())
+					phase.emit_signal("targets_available", unit_id, eligible_targets)
+
+	# Handle shooting phase saves_required signal
+	# This happens when CONFIRM_TARGETS triggers RESOLVE_SHOOTING which needs saves
+	print("NetworkManager:   Checking for saves_required...")
+	print("NetworkManager:   action_type == CONFIRM_TARGETS: ", action_type == "CONFIRM_TARGETS")
+	print("NetworkManager:   action_type == RESOLVE_SHOOTING: ", action_type == "RESOLVE_SHOOTING")
+
+	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING":
+		print("NetworkManager:   Action type matches, checking for save_data_list...")
+		# Check if the result contains save_data_list (indicating saves are needed)
+		var save_data_list = result.get("save_data_list", [])
+		print("NetworkManager:   save_data_list = ", save_data_list)
+		print("NetworkManager:   save_data_list.is_empty() = ", save_data_list.is_empty())
+
+		if not save_data_list.is_empty() and phase.has_signal("saves_required"):
+			print("NetworkManager: ✅ Client re-emitting saves_required signal with %d targets" % save_data_list.size())
+			phase.emit_signal("saves_required", save_data_list)
+
+			# Also store the pending_save_data on the client's phase instance
+			if "pending_save_data" in phase:
+				phase.pending_save_data = save_data_list
+				print("NetworkManager: ✅ Client stored pending_save_data")
+			else:
+				print("NetworkManager:   WARNING - phase doesn't have pending_save_data property")
+		else:
+			if save_data_list.is_empty():
+				print("NetworkManager:   ❌ save_data_list is empty")
+			if not phase.has_signal("saves_required"):
+				print("NetworkManager:   ❌ phase doesn't have saves_required signal")
+
+	print("NetworkManager: _emit_client_visual_updates END")
 
 # Initial state sync when client joins
 @rpc("authority", "call_remote", "reliable")
@@ -355,14 +422,30 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		print("NetworkManager: VALIDATION FAILED - missing type")
 		return {"valid": false, "reason": "Invalid action schema - missing type"}
 
-	# Check if this is a phase control action that bypasses player validation
+	# Check if this is a phase control action or reactive action that bypasses player/turn validation
 	var action_type = action.get("type", "")
-	var phase_control_actions = ["END_DEPLOYMENT", "END_PHASE"]  # Actions that any player can trigger
-	var is_phase_control = action_type in phase_control_actions
+	var exempt_actions = [
+		"END_DEPLOYMENT",
+		"END_PHASE",
+		"EMBARK_UNITS_DEPLOYMENT",
+		"APPLY_SAVES"  # Reactive action - defender responds during attacker's turn
+	]
+	var is_exempt = action_type in exempt_actions
 
-	if is_phase_control:
-		print("NetworkManager: Phase control action '%s' - skipping player/turn validation" % action_type)
-		# Skip layers 2 & 3 for phase control actions - go straight to game rules validation
+	if is_exempt:
+		print("NetworkManager: Exempt action '%s' - skipping turn validation (allows reactive actions)" % action_type)
+		# Skip turn validation for exempt actions - go straight to game rules validation
+		# EMBARK_UNITS_DEPLOYMENT: part of the deployment action that just switched turns
+		# APPLY_SAVES: reactive action where defender responds during attacker's turn
+
+		# Still validate player authority (that the peer is who they claim to be)
+		if action_type == "APPLY_SAVES":
+			var claimed_player = action.get("player", -1)
+			var peer_player = peer_to_player_map.get(peer_id, -1)
+			print("NetworkManager: APPLY_SAVES authority check - claimed=%d, peer=%d" % [claimed_player, peer_player])
+			if claimed_player != peer_player:
+				print("NetworkManager: VALIDATION FAILED - player mismatch for APPLY_SAVES")
+				return {"valid": false, "reason": "Player ID mismatch (claimed=%d, expected=%d)" % [claimed_player, peer_player]}
 	else:
 		# Layer 2: Authority validation (only for player-specific actions)
 		var claimed_player = action.get("player", -1)
@@ -482,6 +565,10 @@ func _on_peer_connected(peer_id: int) -> void:
 		# Client successfully connected to host
 		# The peer_id here is the server (always 1)
 		print("NetworkManager: Successfully connected to host")
+		# Client is always player 2
+		var my_peer_id = multiplayer.get_unique_id()
+		peer_to_player_map[my_peer_id] = 2
+		print("NetworkManager: Client set peer_to_player_map[%d] = 2" % my_peer_id)
 		emit_signal("peer_connected", peer_id)
 		emit_signal("game_started")
 

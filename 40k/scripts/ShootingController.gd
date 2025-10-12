@@ -16,6 +16,7 @@ var selected_target_id: String = ""
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
 var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
+var save_dialog_showing: bool = false  # Prevent multiple dialogs
 
 # UI References
 var board_view: Node2D
@@ -293,6 +294,9 @@ func set_phase(phase: BasePhase) -> void:
 			phase.shooting_resolved.connect(_on_shooting_resolved)
 		if not phase.dice_rolled.is_connected(_on_dice_rolled):
 			phase.dice_rolled.connect(_on_dice_rolled)
+		if not phase.saves_required.is_connected(_on_saves_required):
+			phase.saves_required.connect(_on_saves_required)
+			print("ShootingController: Connected to saves_required signal")
 		
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
@@ -383,9 +387,23 @@ func _refresh_unit_list() -> void:
 			unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 	
 	# Auto-select first unit for debugging if we have units
+	# BUT only if it's the local player's turn in multiplayer
 	if unit_selector.get_item_count() > 0 and active_shooter_id == "":
-		unit_selector.select(0)
-		_on_unit_selected(0)
+		var should_auto_select = false
+
+		if NetworkManager.is_networked():
+			# In multiplayer: Only auto-select if it's our turn
+			var local_peer_id = multiplayer.get_unique_id()
+			var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+			var active_player = current_phase.get_current_player() if current_phase else -1
+			should_auto_select = (local_player == active_player)
+		else:
+			# In single-player: Always auto-select
+			should_auto_select = true
+
+		if should_auto_select:
+			unit_selector.select(0)
+			_on_unit_selected(0)
 
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
@@ -965,6 +983,117 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 	dice_log_display.append_text(log_text)
 
+func _on_saves_required(save_data_list: Array) -> void:
+	"""Show SaveDialog when defender needs to make saves"""
+	print("========================================")
+	print("ShootingController: _on_saves_required CALLED")
+	print("ShootingController: Saves required for %d targets" % save_data_list.size())
+	print("ShootingController: is_networked = ", NetworkManager.is_networked())
+	print("ShootingController: is_host = ", NetworkManager.is_host())
+
+	if save_data_list.is_empty():
+		print("ShootingController: Warning - empty save data list")
+		return
+
+	# IMPORTANT: For Phase 1 MVP, we only show ONE dialog for the FIRST target
+	# Even if multiple targets need saves, we process them one at a time
+	# This prevents multiple exclusive window errors
+	var save_data = save_data_list[0]
+	print("ShootingController: save_data keys = ", save_data.keys())
+
+	# Get the target unit to determine who the defender is
+	var target_unit_id = save_data.get("target_unit_id", "")
+	print("ShootingController: target_unit_id = ", target_unit_id)
+	if target_unit_id == "":
+		push_error("ShootingController: No target_unit_id in save data")
+		return
+
+	var target_unit = GameState.get_unit(target_unit_id)
+	print("ShootingController: target_unit found = ", not target_unit.is_empty())
+	if target_unit.is_empty():
+		push_error("ShootingController: Target unit not found: " + target_unit_id)
+		return
+
+	var defender_player = target_unit.get("owner", 0)
+	print("ShootingController: Defender is player %d" % defender_player)
+
+	# Determine if this local player should see the dialog
+	var should_show_dialog = false
+
+	if NetworkManager.is_networked():
+		# Multiplayer: Only show dialog if this peer controls the defending player
+		var local_peer_id = multiplayer.get_unique_id()
+		print("ShootingController: local_peer_id = ", local_peer_id)
+		print("ShootingController: peer_to_player_map = ", NetworkManager.peer_to_player_map)
+		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		print("ShootingController: Local player is %d (peer %d)" % [local_player, local_peer_id])
+		print("ShootingController: defender_player = %d" % defender_player)
+		print("ShootingController: local_player == defender_player: ", local_player == defender_player)
+		should_show_dialog = (local_player == defender_player)
+	else:
+		# Single player: Always show dialog (local player controls both sides)
+		print("ShootingController: Single-player mode - always showing dialog")
+		should_show_dialog = true
+
+	print("ShootingController: should_show_dialog = ", should_show_dialog)
+
+	if not should_show_dialog:
+		print("ShootingController: Not showing dialog - not the defending player")
+		# Show feedback in dice log for the attacker
+		if dice_log_display:
+			dice_log_display.append_text("[color=yellow]⚠ Waiting for defender to make saves...[/color]\n")
+		print("========================================")
+		return
+
+	# DEBOUNCE: Prevent multiple dialogs from being created
+	if save_dialog_showing:
+		print("ShootingController: ❌ Dialog already showing, ignoring duplicate signal")
+		print("========================================")
+		return
+
+	save_dialog_showing = true
+	print("ShootingController: ✅ Showing SaveDialog for defender")
+
+	# Show feedback in dice log
+	if dice_log_display:
+		dice_log_display.append_text("[color=yellow]⚠ You must make saves![/color]\n")
+
+	# Close any existing AcceptDialog instances to prevent multiple exclusive windows
+	# This is a more aggressive cleanup to avoid the exclusive window error
+	print("ShootingController: Checking for existing dialogs...")
+	var root_children = get_tree().root.get_children()
+	for child in root_children:
+		if child is AcceptDialog:
+			print("ShootingController: Closing existing AcceptDialog: %s" % child.name)
+			child.hide()
+			child.queue_free()
+
+	# Wait one frame for cleanup to complete
+	await get_tree().process_frame
+
+	# Load SaveDialog script
+	var save_dialog_script = preload("res://scripts/SaveDialog.gd")
+	var dialog = save_dialog_script.new()
+
+	# Connect to save_complete signal to clear the debounce flag
+	dialog.save_complete.connect(func():
+		print("ShootingController: Save complete, clearing dialog flag")
+		save_dialog_showing = false
+	)
+
+	# Add to scene tree FIRST (so _ready() runs and creates UI elements)
+	get_tree().root.add_child(dialog)
+
+	# Setup with save data AFTER _ready() has run, passing defender_player
+	dialog.setup(save_data, defender_player)
+
+	# Show dialog
+	dialog.popup_centered()
+
+	print("ShootingController: SaveDialog shown for %s (defender=player %d)" %
+		[save_data.get("target_unit_name", "Unknown"), defender_player])
+	print("========================================")
+
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
 		return
@@ -974,14 +1103,20 @@ func _on_unit_selected(index: int) -> void:
 		# Clear previous LoS visualizations (comprehensive cleanup)
 		if los_debug_visual and is_instance_valid(los_debug_visual):
 			los_debug_visual.clear_all_debug_visuals()
-		
+
+		print("ShootingController: User selected unit %s from list" % unit_id)
+
+		# Emit action request - visualization will be triggered when action is confirmed
 		emit_signal("shoot_action_requested", {
 			"type": "SELECT_SHOOTER",
 			"actor_unit_id": unit_id
 		})
-		
-		# Manually trigger visualization
-		_on_unit_selected_for_shooting(unit_id)
+
+		# DON'T call _on_unit_selected_for_shooting() here in multiplayer
+		# The phase will emit unit_selected_for_shooting signal after processing the action
+		# For single-player, we can call it immediately for responsiveness
+		if not NetworkManager.is_networked():
+			_on_unit_selected_for_shooting(unit_id)
 
 func _on_weapon_tree_item_selected() -> void:
 	if not weapon_tree:
