@@ -88,19 +88,64 @@ const UNIT_WEAPONS = {
 # RNG Service for deterministic dice rolling
 class RNGService:
 	var rng: RandomNumberGenerator
-	
+
 	func _init(seed_value: int = -1):
 		rng = RandomNumberGenerator.new()
 		if seed_value >= 0:
 			rng.seed = seed_value
 		else:
 			rng.randomize()
-	
+
 	func roll_d6(count: int) -> Array:
 		var rolls = []
 		for i in count:
 			rolls.append(rng.randi_range(1, 6))
 		return rolls
+
+# ==========================================
+# SHOOTING MODIFIERS (Phase 1 MVP)
+# ==========================================
+
+# Hit modifier flags (can be combined with bitwise OR)
+enum HitModifier {
+	NONE = 0,
+	REROLL_ONES = 1,    # Re-roll 1s to hit
+	PLUS_ONE = 2,       # +1 to hit
+	MINUS_ONE = 4,      # -1 to hit (cover, moved, etc.)
+}
+
+# Apply hit modifiers to a single roll
+# Returns the modified roll value and any re-roll that occurred
+static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> Dictionary:
+	var result = {
+		"original_roll": roll,
+		"modified_roll": roll,
+		"rerolled": false,
+		"reroll_value": 0,
+		"modifier_applied": 0
+	}
+
+	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
+	if (modifiers & HitModifier.REROLL_ONES) and roll == 1:
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+
+	# Step 2: Then apply numeric modifiers (capped at net +1/-1)
+	var net_modifier = 0
+	if modifiers & HitModifier.PLUS_ONE:
+		net_modifier += 1
+	if modifiers & HitModifier.MINUS_ONE:
+		net_modifier -= 1
+
+	# Cap modifiers at +1/-1 maximum
+	net_modifier = clamp(net_modifier, -1, 1)
+
+	result.modifier_applied = net_modifier
+	result.modified_roll += net_modifier
+
+	return result
 
 # Main shooting resolution entry point
 static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
@@ -172,19 +217,49 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var total_attacks = model_ids.size() * attacks_per_model
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
-	
-	# Roll to hit
+
+	# Get hit modifiers from assignment (Phase 1 MVP)
+	var hit_modifiers = HitModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+		var hit_mods = assignment.modifiers.hit
+		if hit_mods.get("reroll_ones", false):
+			hit_modifiers |= HitModifier.REROLL_ONES
+		if hit_mods.get("plus_one", false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+		if hit_mods.get("minus_one", false):
+			hit_modifiers |= HitModifier.MINUS_ONE
+
+	# Roll to hit with modifiers
 	var hit_rolls = rng.roll_d6(total_attacks)
 	var bs = weapon_profile.get("bs", 4)
 	var hits = 0
+	var modified_rolls = []
+	var reroll_data = []
+
 	for roll in hit_rolls:
-		if roll >= bs:
+		# Apply modifiers to this roll
+		var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+		var final_roll = modifier_result.modified_roll
+		modified_rolls.append(final_roll)
+
+		# Track re-rolls for dice log
+		if modifier_result.rerolled:
+			reroll_data.append({
+				"original": modifier_result.original_roll,
+				"rerolled_to": modifier_result.reroll_value
+			})
+
+		# Check if hit
+		if final_roll >= bs:
 			hits += 1
-	
+
 	result.dice.append({
 		"context": "to_hit",
 		"threshold": str(bs) + "+",
 		"rolls_raw": hit_rolls,
+		"rolls_modified": modified_rolls,
+		"rerolls": reroll_data,
+		"modifiers_applied": hit_modifiers,
 		"successes": hits
 	})
 	

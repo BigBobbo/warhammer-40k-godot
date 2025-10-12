@@ -14,6 +14,8 @@ var active_shooter_id: String = ""
 var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var selected_target_id: String = ""
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
+var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
+var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
 
 # UI References
 var board_view: Node2D
@@ -31,6 +33,13 @@ var target_basket: ItemList
 var confirm_button: Button
 var clear_button: Button
 var dice_log_display: RichTextLabel
+
+# Modifier UI elements (Phase 1 MVP)
+var modifier_panel: VBoxContainer
+var modifier_label: Label
+var reroll_ones_checkbox: CheckBox
+var plus_one_checkbox: CheckBox
+var minus_one_checkbox: CheckBox
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -198,7 +207,40 @@ func _setup_right_panel() -> void:
 	weapon_tree.item_selected.connect(_on_weapon_tree_item_selected)
 	weapon_tree.button_clicked.connect(_on_weapon_tree_button_clicked)
 	shooting_panel.add_child(weapon_tree)
-	
+
+	shooting_panel.add_child(HSeparator.new())
+
+	# Modifier panel (Phase 1 MVP)
+	modifier_label = Label.new()
+	modifier_label.text = "Hit Modifiers:"
+	shooting_panel.add_child(modifier_label)
+
+	modifier_panel = VBoxContainer.new()
+	modifier_panel.name = "ModifierPanel"
+
+	reroll_ones_checkbox = CheckBox.new()
+	reroll_ones_checkbox.text = "Re-roll 1s to Hit"
+	reroll_ones_checkbox.toggled.connect(_on_reroll_ones_toggled)
+	modifier_panel.add_child(reroll_ones_checkbox)
+
+	plus_one_checkbox = CheckBox.new()
+	plus_one_checkbox.text = "+1 To Hit"
+	plus_one_checkbox.toggled.connect(_on_plus_one_toggled)
+	modifier_panel.add_child(plus_one_checkbox)
+
+	minus_one_checkbox = CheckBox.new()
+	minus_one_checkbox.text = "-1 To Hit"
+	minus_one_checkbox.toggled.connect(_on_minus_one_toggled)
+	modifier_panel.add_child(minus_one_checkbox)
+
+	shooting_panel.add_child(modifier_panel)
+
+	# Initially hide modifiers until a weapon is selected
+	modifier_panel.visible = false
+	modifier_label.visible = false
+
+	shooting_panel.add_child(HSeparator.new())
+
 	# Target basket
 	var basket_label = Label.new()
 	basket_label.text = "Current Targets:"
@@ -348,36 +390,51 @@ func _refresh_unit_list() -> void:
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
 		return
-	
+
 	weapon_tree.clear()
 	var root = weapon_tree.create_item()
-	
+
 	# Get unit weapons from RulesEngine
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 	var weapon_counts = {}
-	
+
 	# Count weapons by type
 	for model_id in unit_weapons:
 		for weapon_id in unit_weapons[model_id]:
 			if not weapon_counts.has(weapon_id):
 				weapon_counts[weapon_id] = 0
 			weapon_counts[weapon_id] += 1
-	
+
 	# Create tree items for each weapon type
 	for weapon_id in weapon_counts:
 		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 		var weapon_item = weapon_tree.create_item(root)
 		weapon_item.set_text(0, "%s (x%d)" % [weapon_profile.get("name", weapon_id), weapon_counts[weapon_id]])
 		weapon_item.set_metadata(0, weapon_id)
-		
+
 		# Add target selector in second column
 		if eligible_targets.size() > 0:
-			weapon_item.set_text(1, "[Click to Select]")
-			weapon_item.set_selectable(0, true)  # Make the weapon selectable
-			weapon_item.set_selectable(1, false) # Don't make column 1 selectable
-			
-			# Add a button to auto-assign the first available target
-			weapon_item.add_button(1, preload("res://icon.svg"), 0, false, "Auto-assign first target")
+			# AUTO-TARGET: If only one eligible target, auto-assign it (Phase 1 MVP)
+			if eligible_targets.size() == 1:
+				var only_target_id = eligible_targets.keys()[0]
+				var only_target_name = eligible_targets[only_target_id].unit_name
+				weapon_item.set_text(1, only_target_name + " [AUTO]")
+				weapon_item.set_custom_bg_color(1, Color(0.2, 0.6, 0.2, 0.3))  # Green tint
+
+				# Show feedback in dice log
+				if dice_log_display:
+					dice_log_display.append_text("[color=cyan]Auto-selected %s for %s (only eligible target)[/color]\n" %
+						[only_target_name, weapon_profile.get("name", weapon_id)])
+
+				# Auto-assign this target
+				_auto_assign_target(weapon_id, only_target_id)
+			else:
+				weapon_item.set_text(1, "[Click to Select]")
+				weapon_item.set_selectable(0, true)  # Make the weapon selectable
+				weapon_item.set_selectable(1, false) # Don't make column 1 selectable
+
+				# Add a button to auto-assign the first available target
+				weapon_item.add_button(1, preload("res://icon.svg"), 0, false, "Auto-assign first target")
 
 func _highlight_targets() -> void:
 	_clear_target_highlights()
@@ -877,18 +934,35 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
-	
+
 	# Get data from the dice roll
 	var context = dice_data.get("context", "Roll")
-	var rolls = dice_data.get("rolls", dice_data.get("rolls_raw", []))
+	var rolls_raw = dice_data.get("rolls_raw", [])
+	var rolls_modified = dice_data.get("rolls_modified", [])
+	var rerolls = dice_data.get("rerolls", [])
 	var successes = dice_data.get("successes", -1)
-	
-	# Format the display text
-	var log_text = "[b]%s:[/b] %s" % [context.capitalize(), str(rolls)]
+	var threshold = dice_data.get("threshold", "")
+
+	# Format the display text with modifier effects
+	var log_text = "[b]%s[/b] (need %s):\n" % [context.capitalize().replace("_", " "), threshold]
+
+	# Show re-rolls if any occurred
+	if not rerolls.is_empty():
+		log_text += "  [color=yellow]Re-rolled:[/color] "
+		for reroll in rerolls:
+			log_text += "[s]%d[/s]→%d " % [reroll.original, reroll.rerolled_to]
+		log_text += "\n"
+
+	# Show rolls (use modified if available, otherwise raw)
+	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
+	log_text += "  Rolls: %s" % str(display_rolls)
+
+	# Show success count
 	if successes >= 0:
-		log_text += " → %d successes" % successes
+		log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+
 	log_text += "\n"
-	
+
 	dice_log_display.append_text(log_text)
 
 func _on_unit_selected(index: int) -> void:
@@ -912,22 +986,31 @@ func _on_unit_selected(index: int) -> void:
 func _on_weapon_tree_item_selected() -> void:
 	if not weapon_tree:
 		return
-		
+
 	var selected = weapon_tree.get_selected()
 	if not selected:
 		return
-		
+
 	var weapon_id = selected.get_metadata(0)
 	if weapon_id:
+		# Store selected weapon for modifier application
+		selected_weapon_id = weapon_id
+
 		# Visual feedback - highlight the selected weapon
 		selected.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.5))
-		
+
 		# Update instruction text in column 1
 		selected.set_text(1, "[Click enemy to assign]")
-		
+
+		# Show modifier panel and load modifiers for this weapon
+		if modifier_panel and modifier_label:
+			modifier_panel.visible = true
+			modifier_label.visible = true
+			_load_modifiers_for_weapon(weapon_id)
+
 		# Show a message to the user
 		if dice_log_display:
-			dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit or use the button to assign target[/color]\n" % 
+			dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit or use the button to assign target[/color]\n" %
 				RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id))
 
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
@@ -1081,21 +1164,28 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	
 	# Assign target
 	weapon_assignments[weapon_id] = target_id
-	
+
 	# Get model IDs for this weapon
 	var model_ids = []
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 	for model_id in unit_weapons:
 		if weapon_id in unit_weapons[model_id]:
 			model_ids.append(model_id)
-	
+
+	# Include modifiers in the assignment (Phase 1 MVP)
+	var payload = {
+		"weapon_id": weapon_id,
+		"target_unit_id": target_id,
+		"model_ids": model_ids
+	}
+
+	# Add modifiers if they exist for this weapon
+	if weapon_modifiers.has(weapon_id):
+		payload["modifiers"] = weapon_modifiers[weapon_id]
+
 	emit_signal("shoot_action_requested", {
 		"type": "ASSIGN_TARGET",
-		"payload": {
-			"weapon_id": weapon_id,
-			"target_unit_id": target_id,
-			"model_ids": model_ids
-		}
+		"payload": payload
 	})
 	
 	# Update UI
@@ -1108,4 +1198,107 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=green]✓ Assigned %s to target %s[/color]\n" % [weapon_name, target_name])
 	
+	_update_ui_state()
+
+# ==========================================
+# MODIFIER SYSTEM (Phase 1 MVP)
+# ==========================================
+
+func _load_modifiers_for_weapon(weapon_id: String) -> void:
+	"""Load existing modifiers for a weapon into the UI checkboxes"""
+	# Initialize modifiers if they don't exist
+	if not weapon_modifiers.has(weapon_id):
+		weapon_modifiers[weapon_id] = {
+			"hit": {
+				"reroll_ones": false,
+				"plus_one": false,
+				"minus_one": false
+			}
+		}
+	
+	var mods = weapon_modifiers[weapon_id].hit
+	
+	# Update checkboxes without triggering signals
+	if reroll_ones_checkbox:
+		reroll_ones_checkbox.set_pressed_no_signal(mods.reroll_ones)
+	if plus_one_checkbox:
+		plus_one_checkbox.set_pressed_no_signal(mods.plus_one)
+	if minus_one_checkbox:
+		minus_one_checkbox.set_pressed_no_signal(mods.minus_one)
+
+func _on_reroll_ones_toggled(button_pressed: bool) -> void:
+	"""Handle re-roll 1s to hit checkbox toggle"""
+	if selected_weapon_id == "":
+		return
+	
+	if not weapon_modifiers.has(selected_weapon_id):
+		weapon_modifiers[selected_weapon_id] = {"hit": {}}
+	
+	weapon_modifiers[selected_weapon_id].hit["reroll_ones"] = button_pressed
+	
+	if dice_log_display:
+		var status = "enabled" if button_pressed else "disabled"
+		dice_log_display.append_text("[color=cyan]Re-roll 1s to Hit %s for %s[/color]\n" % 
+			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
+
+func _on_plus_one_toggled(button_pressed: bool) -> void:
+	"""Handle +1 to hit checkbox toggle"""
+	if selected_weapon_id == "":
+		return
+	
+	if not weapon_modifiers.has(selected_weapon_id):
+		weapon_modifiers[selected_weapon_id] = {"hit": {}}
+	
+	weapon_modifiers[selected_weapon_id].hit["plus_one"] = button_pressed
+	
+	if dice_log_display:
+		var status = "enabled" if button_pressed else "disabled"
+		dice_log_display.append_text("[color=cyan]+1 To Hit %s for %s[/color]\n" % 
+			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
+
+func _on_minus_one_toggled(button_pressed: bool) -> void:
+	"""Handle -1 to hit checkbox toggle"""
+	if selected_weapon_id == "":
+		return
+	
+	if not weapon_modifiers.has(selected_weapon_id):
+		weapon_modifiers[selected_weapon_id] = {"hit": {}}
+	
+	weapon_modifiers[selected_weapon_id].hit["minus_one"] = button_pressed
+	
+	if dice_log_display:
+		var status = "enabled" if button_pressed else "disabled"
+		dice_log_display.append_text("[color=cyan]-1 To Hit %s for %s[/color]\n" % 
+			[status, RulesEngine.get_weapon_profile(selected_weapon_id).get("name", selected_weapon_id)])
+
+func _auto_assign_target(weapon_id: String, target_id: String) -> void:
+	"""Auto-assign a target to a weapon (used when only one eligible target exists)"""
+	# Mark as assigned
+	weapon_assignments[weapon_id] = target_id
+
+	# Get model IDs for this weapon
+	var model_ids = []
+	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+	for model_id in unit_weapons:
+		if weapon_id in unit_weapons[model_id]:
+			model_ids.append(model_id)
+
+	# Include modifiers in the assignment
+	var payload = {
+		"weapon_id": weapon_id,
+		"target_unit_id": target_id,
+		"model_ids": model_ids
+	}
+
+	# Add modifiers if they exist for this weapon
+	if weapon_modifiers.has(weapon_id):
+		payload["modifiers"] = weapon_modifiers[weapon_id]
+
+	# Emit assignment action
+	emit_signal("shoot_action_requested", {
+		"type": "ASSIGN_TARGET",
+		"payload": payload
+	})
+
+	# Update UI state
 	_update_ui_state()
