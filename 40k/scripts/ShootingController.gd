@@ -297,7 +297,13 @@ func set_phase(phase: BasePhase) -> void:
 		if not phase.saves_required.is_connected(_on_saves_required):
 			phase.saves_required.connect(_on_saves_required)
 			print("ShootingController: Connected to saves_required signal")
-		
+		if not phase.weapon_order_required.is_connected(_on_weapon_order_required):
+			phase.weapon_order_required.connect(_on_weapon_order_required)
+			print("ShootingController: Connected to weapon_order_required signal")
+		if not phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
+			phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
+			print("ShootingController: Connected to next_weapon_confirmation_required signal")
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -953,8 +959,16 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
 
-	# Get data from the dice roll
+	# Check if this is a weapon progress message (sequential resolution)
 	var context = dice_data.get("context", "Roll")
+	if context == "weapon_progress":
+		var message = dice_data.get("message", "")
+		var current_index = dice_data.get("current_index", 0)
+		var total_weapons = dice_data.get("total_weapons", 0)
+		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
+		return
+
+	# Get data from the dice roll
 	var rolls_raw = dice_data.get("rolls_raw", [])
 	var rolls_modified = dice_data.get("rolls_modified", [])
 	var rerolls = dice_data.get("rerolls", [])
@@ -1038,10 +1052,9 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("ShootingController: should_show_dialog = ", should_show_dialog)
 
 	if not should_show_dialog:
-		print("ShootingController: Not showing dialog - not the defending player")
-		# Show feedback in dice log for the attacker
-		if dice_log_display:
-			dice_log_display.append_text("[color=yellow]⚠ Waiting for defender to make saves...[/color]\n")
+		print("ShootingController: Not showing dialog - not the defending player (attacker)")
+		# Don't show "waiting" message for attacker - dice rolls will update automatically
+		# The attacker should see the dice rolls, not a waiting message
 		print("========================================")
 		return
 
@@ -1092,6 +1105,196 @@ func _on_saves_required(save_data_list: Array) -> void:
 
 	print("ShootingController: SaveDialog shown for %s (defender=player %d)" %
 		[save_data.get("target_unit_name", "Unknown"), defender_player])
+	print("========================================")
+
+func _on_weapon_order_required(assignments: Array) -> void:
+	"""Show WeaponOrderDialog when multiple weapon types are assigned"""
+	print("========================================")
+	print("ShootingController: _on_weapon_order_required CALLED")
+	print("ShootingController: Assignments: %d" % assignments.size())
+
+	# Check if this is the attacking player in multiplayer
+	var should_show_dialog = false
+
+	if NetworkManager.is_networked():
+		# Multiplayer: Only show dialog if this peer is the attacker
+		var local_peer_id = multiplayer.get_unique_id()
+		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		var active_player = current_phase.get_current_player() if current_phase else -1
+		print("ShootingController: local_player = %d, active_player = %d" % [local_player, active_player])
+		should_show_dialog = (local_player == active_player)
+	else:
+		# Single player: Always show dialog
+		should_show_dialog = true
+
+	if not should_show_dialog:
+		print("ShootingController: Not showing weapon order dialog - not the attacking player")
+		print("========================================")
+		return
+
+	# Show feedback in dice log
+	if dice_log_display:
+		dice_log_display.append_text("[b][color=cyan]Multiple weapon types detected - choose firing order...[/color][/b]\n")
+
+	# Close any existing AcceptDialog instances
+	print("ShootingController: Checking for existing dialogs...")
+	var root_children = get_tree().root.get_children()
+	for child in root_children:
+		if child is AcceptDialog:
+			print("ShootingController: Closing existing AcceptDialog: %s" % child.name)
+			child.hide()
+			child.queue_free()
+
+	# Wait one frame for cleanup
+	await get_tree().process_frame
+
+	# Load WeaponOrderDialog script
+	var weapon_order_dialog_script = preload("res://scripts/WeaponOrderDialog.gd")
+	var dialog = weapon_order_dialog_script.new()
+
+	# Connect to weapon_order_confirmed signal
+	dialog.weapon_order_confirmed.connect(_on_weapon_order_confirmed)
+
+	# Add to scene tree FIRST (so _ready() runs)
+	get_tree().root.add_child(dialog)
+
+	# Setup with assignments AND pass the current_phase for signal connections
+	dialog.setup(assignments, current_phase)
+
+	# Show dialog
+	dialog.popup_centered()
+
+	print("ShootingController: WeaponOrderDialog shown and connected to phase signals")
+	print("========================================")
+
+func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
+	"""Handle weapon order confirmation from WeaponOrderDialog"""
+	print("========================================")
+	print("ShootingController: _on_weapon_order_confirmed CALLED")
+	print("ShootingController: Weapon order confirmed - fast_roll=%s, weapons=%d" % [fast_roll, weapon_order.size()])
+
+	# Show feedback in dice log
+	if dice_log_display:
+		if fast_roll:
+			dice_log_display.append_text("[color=cyan]Fast rolling all weapons at once...[/color]\n")
+		else:
+			dice_log_display.append_text("[color=cyan]Starting sequential weapon resolution...[/color]\n")
+
+	# Build the action
+	var action = {
+		"type": "RESOLVE_WEAPON_SEQUENCE",
+		"payload": {
+			"weapon_order": weapon_order,
+			"fast_roll": fast_roll
+		}
+	}
+
+	print("ShootingController: Emitting shoot_action_requested signal...")
+	print("ShootingController: Action = ", action)
+	print("ShootingController: Signal connected? ", shoot_action_requested.is_connected(_on_weapon_order_confirmed))
+
+	# Emit action to resolve weapon sequence
+	emit_signal("shoot_action_requested", action)
+
+	print("ShootingController: Signal emitted successfully")
+	print("========================================")
+
+func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_index: int) -> void:
+	"""Handle next weapon confirmation in sequential mode"""
+	print("========================================")
+	print("ShootingController: _on_next_weapon_confirmation_required CALLED")
+	print("ShootingController: Remaining weapons: %d, current_index: %d" % [remaining_weapons.size(), current_index])
+
+	# Check if this is for the local attacking player
+	var should_show_dialog = false
+
+	if NetworkManager.is_networked():
+		var local_peer_id = multiplayer.get_unique_id()
+		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		var active_player = current_phase.get_current_player() if current_phase else -1
+		should_show_dialog = (local_player == active_player)
+		print("ShootingController: local_player=%d, active_player=%d, should_show=%s" % [local_player, active_player, should_show_dialog])
+	else:
+		should_show_dialog = true
+
+	if not should_show_dialog:
+		print("ShootingController: Not showing confirmation dialog - not the attacking player")
+		print("========================================")
+		return
+
+	# Show feedback in dice log
+	if dice_log_display:
+		dice_log_display.append_text("[b][color=yellow]>>> Weapon complete - Choose next weapon <<<[/color][/b]\n")
+
+	# Show weapon order dialog with remaining weapons
+	# User can reorder or just click "Sequential" to continue with current order
+	print("ShootingController: Showing WeaponOrderDialog for remaining weapons")
+
+	# Close any existing dialogs
+	var root_children = get_tree().root.get_children()
+	for child in root_children:
+		if child is AcceptDialog:
+			print("ShootingController: Closing existing dialog: %s" % child.name)
+			child.hide()
+			child.queue_free()
+
+	await get_tree().process_frame
+
+	# Load WeaponOrderDialog
+	var weapon_order_dialog_script = preload("res://scripts/WeaponOrderDialog.gd")
+	var dialog = weapon_order_dialog_script.new()
+
+	# Connect to weapon_order_confirmed signal - but handle it differently
+	dialog.weapon_order_confirmed.connect(_on_next_weapon_order_confirmed)
+
+	# Add to scene tree
+	get_tree().root.add_child(dialog)
+
+	# Setup with remaining weapons AND pass the current_phase
+	dialog.setup(remaining_weapons, current_phase)
+
+	# Customize the title to show it's a continuation
+	dialog.title = "Choose Next Weapon (%d remaining)" % remaining_weapons.size()
+
+	# Show dialog
+	dialog.popup_centered()
+
+	print("ShootingController: WeaponOrderDialog shown for next weapon selection")
+	print("========================================")
+
+func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
+	"""Handle next weapon order confirmation (mid-sequence)"""
+	print("========================================")
+	print("ShootingController: _on_next_weapon_order_confirmed CALLED")
+	print("ShootingController: Weapon order: %d weapons, fast_roll=%s" % [weapon_order.size(), fast_roll])
+
+	# Show feedback in dice log
+	if dice_log_display:
+		dice_log_display.append_text("[color=cyan]Continuing to next weapon...[/color]\n")
+
+	# If fast_roll is true in mid-sequence, just resolve all remaining weapons at once
+	if fast_roll:
+		# Build action to resolve remaining weapons as fast roll
+		var action = {
+			"type": "RESOLVE_WEAPON_SEQUENCE",
+			"payload": {
+				"weapon_order": weapon_order,
+				"fast_roll": true,
+				"is_reorder": true
+			}
+		}
+		emit_signal("shoot_action_requested", action)
+	else:
+		# Continue sequential - either with reordered weapons or same order
+		var action = {
+			"type": "CONTINUE_SEQUENCE",
+			"payload": {
+				"weapon_order": weapon_order
+			}
+		}
+		emit_signal("shoot_action_requested", action)
+
+	print("ShootingController: Action emitted")
 	print("========================================")
 
 func _on_unit_selected(index: int) -> void:

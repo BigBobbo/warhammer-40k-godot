@@ -348,17 +348,35 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 			print("After update - Scroll visible: ", scroll.visible)
 		)
 	)
-	
+
+	# Store references to UI elements for the display_unit callback
+	panel.set_meta("_keywords_label", keywords_label)
+	panel.set_meta("_stats_label", stats_label)
+	panel.set_meta("_weapons_container", weapons_container)
+	panel.set_meta("_weapons_title", weapons_title)
+
 	# Add display_unit method to the panel for showing unit data
-	panel.set_meta("display_unit", func(unit_data: Dictionary):
+	panel.set_meta("display_unit", _create_display_unit_callback(panel))
+	
+	print("Programmatic panel created with toggle functionality and display_unit method")
+	return panel
+
+func _create_display_unit_callback(panel: PanelContainer) -> Callable:
+	"""Create a callable for displaying unit data in the transport panel"""
+	return func(unit_data: Dictionary):
 		print("Displaying unit data for: ", unit_data.get("id", "unknown"))
-		
+
+		var keywords_label = panel.get_meta("_keywords_label")
+		var stats_label = panel.get_meta("_stats_label")
+		var weapons_container = panel.get_meta("_weapons_container")
+		var weapons_title = panel.get_meta("_weapons_title")
+
 		# Update keywords
 		if keywords_label and unit_data.has("meta"):
 			var meta = unit_data["meta"]
 			if meta.has("keywords"):
 				keywords_label.text = ", ".join(meta["keywords"])
-		
+
 		# Update stats
 		if stats_label and unit_data.has("meta"):
 			var meta = unit_data["meta"]
@@ -372,47 +390,44 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 					stats.get("leadership", 0),
 					stats.get("objective_control", 0)
 				]
-		
+
 		# Clear and update weapons
-		for child in weapons_container.get_children():
-			if child != weapons_title:
-				child.queue_free()
-		
-		if unit_data.has("meta") and unit_data["meta"].has("weapons"):
-			var weapons = unit_data["meta"]["weapons"]
-			for weapon in weapons:
-				var weapon_label = Label.new()
-				var weapon_type = weapon.get("type", "Unknown")
-				var weapon_name = weapon.get("name", "Unknown")
-				var weapon_stats = ""
-				
-				if weapon_type == "Ranged":
-					weapon_stats = "Range: %s\" | A: %s | BS: %s+ | S: %s | AP: %s | D: %s" % [
-						weapon.get("range", "-"),
-						weapon.get("attacks", "-"),
-						weapon.get("ballistic_skill", "-"),
-						weapon.get("strength", "-"),
-						weapon.get("ap", "-"),
-						weapon.get("damage", "-")
-					]
-				else:  # Melee
-					weapon_stats = "Melee | A: %s | WS: %s+ | S: %s | AP: %s | D: %s" % [
-						weapon.get("attacks", "-"),
-						weapon.get("weapon_skill", "-"),
-						weapon.get("strength", "-"),
-						weapon.get("ap", "-"),
-						weapon.get("damage", "-")
-					]
-				
-				weapon_label.text = "• %s (%s): %s" % [weapon_name, weapon_type, weapon_stats]
-				weapon_label.add_theme_font_size_override("font_size", 11)
-				weapons_container.add_child(weapon_label)
-		
+		if weapons_container:
+			for child in weapons_container.get_children():
+				if child != weapons_title:
+					child.queue_free()
+
+			if unit_data.has("meta") and unit_data["meta"].has("weapons"):
+				var weapons = unit_data["meta"]["weapons"]
+				for weapon in weapons:
+					var weapon_label = Label.new()
+					var weapon_type = weapon.get("type", "Unknown")
+					var weapon_name = weapon.get("name", "Unknown")
+					var weapon_stats = ""
+
+					if weapon_type == "Ranged":
+						weapon_stats = "Range: %s\" | A: %s | BS: %s+ | S: %s | AP: %s | D: %s" % [
+							weapon.get("range", "-"),
+							weapon.get("attacks", "-"),
+							weapon.get("ballistic_skill", "-"),
+							weapon.get("strength", "-"),
+							weapon.get("ap", "-"),
+							weapon.get("damage", "-")
+						]
+					else:  # Melee
+						weapon_stats = "Melee | A: %s | WS: %s+ | S: %s | AP: %s | D: %s" % [
+							weapon.get("attacks", "-"),
+							weapon.get("weapon_skill", "-"),
+							weapon.get("strength", "-"),
+							weapon.get("ap", "-"),
+							weapon.get("damage", "-")
+						]
+
+					weapon_label.text = "• %s (%s): %s" % [weapon_name, weapon_type, weapon_stats]
+					weapon_label.add_theme_font_size_override("font_size", 11)
+					weapons_container.add_child(weapon_label)
+
 		print("Unit data display updated")
-	)
-	
-	print("Programmatic panel created with toggle functionality and display_unit method")
-	return panel
 
 func _setup_mathhammer_ui() -> void:
 	# Create MathhhammerUI and add it to the left HUD
@@ -1080,9 +1095,6 @@ func setup_shooting_controller() -> void:
 	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
 		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
 		print("Connected ui_update_requested signal")
-
-	# NEW: Ensure UI is updated after controller setup
-	emit_signal("ui_update_requested")
 
 func setup_charge_controller() -> void:
 	print("Setting up ChargeController...")
@@ -2718,10 +2730,15 @@ func _on_movement_ui_update_requested() -> void:
 		update_movement_card_buttons()
 
 func _on_shooting_action_requested(action: Dictionary) -> void:
+	print("========================================")
+	print("Main: _on_shooting_action_requested CALLED")
 	print("Main: Received shooting action request: ", action.get("type", ""))
+	print("Main: Full action = ", action)
 
 	# Route through NetworkIntegration (handles multiplayer and single-player)
+	print("Main: Routing action through NetworkIntegration...")
 	var result = NetworkIntegration.route_action(action)
+	print("Main: NetworkIntegration returned result = ", result)
 
 	if result.has("success"):
 		if result.success:
@@ -2734,6 +2751,8 @@ func _on_shooting_action_requested(action: Dictionary) -> void:
 			print("Main: Shooting action failed: ", result.get("error", "Unknown error"))
 	else:
 		print("Main: Unexpected result from shooting action")
+
+	print("========================================")
 
 func _on_shooting_ui_update_requested() -> void:
 	# Update UI when ShootingController requests it

@@ -8,7 +8,7 @@ signal los_check_performed(from_pos: Vector2, to_pos: Vector2, blocked: bool, te
 
 var los_lines: Array = []  # Array of LoS line data
 var highlighted_terrain: Dictionary = {}  # terrain_id -> original_color
-var debug_enabled: bool = true
+var debug_enabled: bool = false
 var terrain_visual_ref: Node2D = null
 
 # Visual settings
@@ -169,6 +169,8 @@ func clear_all_debug_visuals() -> void:
 	# Comprehensive cleanup method for all LoS debug visualizations
 	clear_los_lines()
 	clear_all_highlights()
+	_remove_all_child_visuals()  # NEW: Remove child nodes
+	queue_redraw()
 	print("[LoSDebugVisual] Cleared all debug visualizations")
 
 # Global access method for cross-controller cleanup
@@ -222,10 +224,28 @@ func set_debug_enabled(enabled: bool) -> void:
 	if not enabled:
 		clear_los_lines()
 		clear_all_highlights()
+		_remove_all_child_visuals()  # NEW: Remove child Node2D objects
 	queue_redraw()
 
 func toggle_debug() -> void:
 	set_debug_enabled(not debug_enabled)
+
+func _remove_all_child_visuals() -> void:
+	# Remove all child Node2D objects created for debug visualization
+	# This includes base outlines, sample points, and other debug nodes
+	var children_to_remove = []
+
+	for child in get_children():
+		# Only remove nodes we created (Node2D instances with no scene file)
+		if child is Node2D and not child.scene_file_path:
+			children_to_remove.append(child)
+
+	for child in children_to_remove:
+		remove_child(child)
+		child.queue_free()
+
+	if children_to_remove.size() > 0:
+		print("[LoSDebugVisual] Removed ", children_to_remove.size(), " child visualization nodes")
 
 # Helper function to test LoS between units
 func test_los_between_units(shooter_id: String, target_id: String) -> void:

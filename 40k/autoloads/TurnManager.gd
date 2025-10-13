@@ -60,8 +60,8 @@ func _on_phase_action_taken(action: Dictionary) -> void:
 			if action_type == "DEPLOY_UNIT":
 				print("[TurnManager] Processing DEPLOY_UNIT action")
 				print("[TurnManager] Unit deployed: ", action.get("unit_id", "Unknown"))
-				# Player switching is now handled by GameManager via network-synced diffs
-				# No need to call check_deployment_alternation() here
+				# Switch players after each unit deployment
+				check_deployment_alternation()
 
 # Deployment phase management (backwards compatibility)
 func check_deployment_alternation() -> void:

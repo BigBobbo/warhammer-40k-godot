@@ -1,0 +1,2 @@
+The debug output of godot is being piped to files in the format /Users/.../Library/Application Support/Godot/app_userdata/40k/logs/debug_YYYYMMDD_HHMMSS.log
+Find the most recent log, read it, and based on the conversation up to this point understand what the issue is and fix it.

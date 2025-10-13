@@ -12,11 +12,13 @@ config_version=5
 
 config/name="40k"
 run/main_scene="res://scenes/MainMenu.tscn"
-config/features=PackedStringArray("4.4", "Forward Plus")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
 
+FeatureFlags="*res://autoloads/FeatureFlags.gd"
+DebugLogger="*res://autoloads/DebugLogger.gd"
 SettingsService="*res://autoloads/SettingsService.gd"
 Measurement="*res://autoloads/Measurement.gd"
 ArmyListManager="*res://autoloads/ArmyListManager.gd"
@@ -37,6 +39,12 @@ MissionManager="*res://autoloads/MissionManager.gd"
 MeasuringTapeManager="*res://autoloads/MeasuringTapeManager.gd"
 LineOfSightManager="*res://autoloads/LineOfSightManager.gd"
 TransportManager="*res://autoloads/TransportManager.gd"
+NetworkManager="*res://autoloads/NetworkManager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=1024
 
 [editor_plugins]
 
@@ -69,3 +77,10 @@ quick_load={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194318,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_s3tc_bptc=true
+textures/vram_compression/import_etc2_astc=true

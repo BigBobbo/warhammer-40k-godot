@@ -59,11 +59,13 @@ HUD_Right/VBoxContainer/
 - ✓ FightController.gd
 - ✓ ShootingController.gd
 
-### 2. Movement Phase Bug Fix
+### 2. Movement Phase Bug Fix (Single Player + Multiplayer)
 
 **Problem:** Movement phase couldn't be ended even when all units had moved and were confirmed.
 
-**Root Cause:** The `_validate_end_movement()` function checked if `active_moves` was empty, but confirmed moves remained in the dictionary (marked as `completed: true`) instead of being removed.
+**Root Causes:**
+1. **Initial Issue (Single Player):** The `_validate_end_movement()` function checked if `active_moves` was empty, but confirmed moves remained in the dictionary (marked as `completed: true`) instead of being removed.
+2. **Multiplayer Issue:** The `completed` flag in `active_moves` is **local to each phase instance** and not synchronized across the network, so client couldn't see host's completed moves.
 
 **Error Message:**
 ```
@@ -73,32 +75,38 @@ NetworkManager: Phase validation result = {
 }
 ```
 
-**Solution:** Changed validation to check for **incomplete** moves rather than any moves.
+**Solution:** Changed validation to use **synchronized GameState data** (`units.X.flags.moved`) instead of local `active_moves` state.
 
 **Files Modified:**
 
-1. **40k/phases/MovementPhase.gd** (line 384-393)
-   - Updated `_validate_end_movement()` to only block on incomplete moves
-   - Now iterates through `active_moves` and checks `completed` flag
+1. **40k/phases/MovementPhase.gd** (line 384-399)
+   - Updated `_validate_end_movement()` to check GameState's `flags.moved` instead of local `completed` flag
+   - Now uses synchronized data that both host and client can see
+   - Added comment explaining multiplayer compatibility
 
-2. **40k/phases/MovementPhase.gd** (line 1259-1270)
-   - Updated `get_available_actions()` to show END_MOVEMENT when all moves are completed
-   - Changed from checking `active_moves.is_empty()` to checking for incomplete moves
+2. **40k/phases/MovementPhase.gd** (line 1265-1279)
+   - Updated `get_available_actions()` to use same GameState check
+   - Ensures END_MOVEMENT button appears correctly on both host and client
 
-**Before:**
-```gdscript
-func _validate_end_movement(action: Dictionary) -> Dictionary:
-    if not active_moves.is_empty():
-        return {"valid": false, "errors": ["There are active moves..."]}
-    return {"valid": true, "errors": []}
-```
+**Key Insight:** `active_moves` is ephemeral/local state that doesn't sync across network. Always use GameState for validation that needs to work in multiplayer.
 
-**After:**
+**Before (Broken in Multiplayer):**
 ```gdscript
 func _validate_end_movement(action: Dictionary) -> Dictionary:
     for unit_id in active_moves:
         var move_data = active_moves[unit_id]
-        if not move_data.get("completed", false):
+        if not move_data.get("completed", false):  # ❌ Local only!
+            return {"valid": false, "errors": ["There are active moves..."]}
+    return {"valid": true, "errors": []}
+```
+
+**After (Works in Multiplayer):**
+```gdscript
+func _validate_end_movement(action: Dictionary) -> Dictionary:
+    for unit_id in active_moves:
+        var unit = get_unit(unit_id)
+        var has_moved = unit.get("flags", {}).get("moved", false)  # ✓ Synced!
+        if not has_moved:
             return {"valid": false, "errors": ["There are active moves..."]}
     return {"valid": true, "errors": []}
 ```
@@ -131,9 +139,11 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 4. **Scalability**: Easy to add new phases following the pattern
 
 ### Movement Phase Fix
-1. **Gameplay Unblocked**: Players can now properly end movement phase
+1. **Gameplay Unblocked**: Players can now properly end movement phase (both single player and multiplayer)
 2. **Correct Validation**: Only incomplete moves block phase progression
 3. **Better UX**: END_MOVEMENT button appears when all units are confirmed
+4. **Multiplayer Compatible**: Uses synchronized GameState instead of local phase state
+5. **Network Resilient**: Validation works correctly on both host and client
 
 ## Related Documentation
 
@@ -160,9 +170,19 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 - [x] Consistent ScrollContainer sizing across phases
 - [x] Proper visibility management of persistent UI elements
 - [x] Movement phase can be properly ended when all units have moved
+- [x] Movement phase validation works correctly in multiplayer (host and client)
+- [x] Phase validation uses synchronized GameState instead of local ephemeral state
+
+## Key Multiplayer Lesson Learned
+
+**Critical Discovery:** Phase-local variables like `active_moves` are **not synchronized** across the network. Each phase instance (host and client) has its own copy. For validation logic that needs to work in multiplayer, **always use GameState** which is properly synchronized via action diffs.
+
+**Pattern to Follow:**
+- ✅ **DO**: Use `get_unit(unit_id).flags.moved` (synchronized via GameState)
+- ❌ **DON'T**: Use `active_moves[unit_id].completed` (local phase state, not synced)
 
 ---
 
 **Completed by:** Claude Code
 **Date:** 2025-10-09
-**Issues Resolved:** #102 (+ Movement Phase Bug)
+**Issues Resolved:** #102 (Right Panel Standardization) + Movement Phase Bug (Single Player + Multiplayer)

@@ -27,6 +27,10 @@ Implement a feature using using the PRP file.
    - Run each validation command
    - Fix any failures
    - Re-run until all pass
+   - The debug output of godot is being piped to files in the format /Users/.../Library/Application Support/Godot/app_userdata/40k/logs/debug_YYYYMMDD_HHMMSS.log
+   Or if that is not working To find log location use : print(DebugLogger.get_real_log_file_path())
+   If neither of these work alert the user and ask for next steps.
+   The debug output should be used for validation
 
 5. **Complete**
    - Ensure all checklist items done

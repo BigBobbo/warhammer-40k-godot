@@ -264,14 +264,57 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					print("NetworkManager: Client emitting targets_available with %d targets" % eligible_targets.size())
 					phase.emit_signal("targets_available", unit_id, eligible_targets)
 
+	# Handle shooting phase weapon_order_required signal
+	# This happens when CONFIRM_TARGETS detects multiple weapon types
+	print("NetworkManager:   Checking for weapon_order_required...")
+	if action_type == "CONFIRM_TARGETS":
+		var weapon_order_required = result.get("weapon_order_required", false)
+		print("NetworkManager:   weapon_order_required = ", weapon_order_required)
+
+		if weapon_order_required and phase.has_signal("weapon_order_required"):
+			var confirmed_assignments = result.get("confirmed_assignments", [])
+			print("NetworkManager: ✅ Client re-emitting weapon_order_required signal with %d assignments" % confirmed_assignments.size())
+			phase.emit_signal("weapon_order_required", confirmed_assignments)
+
+			# Also update the client's phase resolution_state
+			if "resolution_state" in phase:
+				phase.resolution_state = {
+					"phase": "awaiting_weapon_order",
+					"assignments": confirmed_assignments
+				}
+				print("NetworkManager: ✅ Client updated resolution_state")
+
+	# Handle next_weapon_confirmation_required signal for sequential mode
+	# This happens when APPLY_SAVES completes and there are more weapons
+	print("NetworkManager:   Checking for sequential_pause...")
+	if action_type == "APPLY_SAVES":
+		var sequential_pause = result.get("sequential_pause", false)
+		print("NetworkManager:   sequential_pause = ", sequential_pause)
+
+		if sequential_pause and phase.has_signal("next_weapon_confirmation_required"):
+			var remaining_weapons = result.get("remaining_weapons", [])
+			var current_index = result.get("current_weapon_index", 0)
+			print("NetworkManager: ✅ Client re-emitting next_weapon_confirmation_required with %d remaining weapons" % remaining_weapons.size())
+			phase.emit_signal("next_weapon_confirmation_required", remaining_weapons, current_index)
+
+	# Handle dice_rolled signal - re-emit dice data so attacker sees updates
+	# This happens when actions contain dice data (hits, wounds, etc.)
+	print("NetworkManager:   Checking for dice data...")
+	var dice_data = result.get("dice", [])
+	if not dice_data.is_empty() and phase.has_signal("dice_rolled"):
+		print("NetworkManager: ✅ Client re-emitting dice_rolled signals for %d dice blocks" % dice_data.size())
+		for dice_block in dice_data:
+			phase.emit_signal("dice_rolled", dice_block)
+
 	# Handle shooting phase saves_required signal
-	# This happens when CONFIRM_TARGETS, RESOLVE_SHOOTING, or RESOLVE_WEAPON_SEQUENCE needs saves
+	# This happens when CONFIRM_TARGETS, RESOLVE_SHOOTING, RESOLVE_WEAPON_SEQUENCE, or APPLY_SAVES needs saves
 	print("NetworkManager:   Checking for saves_required...")
 	print("NetworkManager:   action_type == CONFIRM_TARGETS: ", action_type == "CONFIRM_TARGETS")
 	print("NetworkManager:   action_type == RESOLVE_SHOOTING: ", action_type == "RESOLVE_SHOOTING")
 	print("NetworkManager:   action_type == RESOLVE_WEAPON_SEQUENCE: ", action_type == "RESOLVE_WEAPON_SEQUENCE")
+	print("NetworkManager:   action_type == APPLY_SAVES: ", action_type == "APPLY_SAVES")
 
-	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING" or action_type == "RESOLVE_WEAPON_SEQUENCE":
+	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "APPLY_SAVES":
 		print("NetworkManager:   Action type matches, checking for save_data_list...")
 		# Check if the result contains save_data_list (indicating saves are needed)
 		var save_data_list = result.get("save_data_list", [])

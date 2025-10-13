@@ -151,7 +151,7 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> D
 static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
 		rng_service = RNGService.new()
-	
+
 	var result = {
 		"success": true,
 		"phase": "SHOOTING",
@@ -159,23 +159,23 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 		"dice": [],
 		"log_text": ""
 	}
-	
+
 	var actor_unit_id = action.get("actor_unit_id", "")
 	var assignments = action.get("payload", {}).get("assignments", [])
-	
+
 	if assignments.is_empty():
 		result.success = false
 		result.log_text = "No weapon assignments provided"
 		return result
-	
+
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
-	
+
 	if actor_unit.is_empty():
 		result.success = false
 		result.log_text = "Actor unit not found"
 		return result
-	
+
 	# Process each weapon assignment
 	for assignment in assignments:
 		var assignment_result = _resolve_assignment(assignment, actor_unit_id, board, rng_service)
@@ -183,7 +183,170 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 		result.dice.append_array(assignment_result.dice)
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
-	
+
+	return result
+
+# Shooting resolution that stops before saves (for interactive save system)
+static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	if not rng_service:
+		rng_service = RNGService.new()
+
+	var result = {
+		"success": true,
+		"phase": "SHOOTING",
+		"dice": [],
+		"log_text": "",
+		"save_data_list": []  # Array of save data for each assignment
+	}
+
+	var actor_unit_id = action.get("actor_unit_id", "")
+	var assignments = action.get("payload", {}).get("assignments", [])
+
+	if assignments.is_empty():
+		result.success = false
+		result.log_text = "No weapon assignments provided"
+		return result
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+
+	if actor_unit.is_empty():
+		result.success = false
+		result.log_text = "Actor unit not found"
+		return result
+
+	# Process each weapon assignment up to wounds
+	for assignment in assignments:
+		var assignment_result = _resolve_assignment_until_wounds(assignment, actor_unit_id, board, rng_service)
+
+		if assignment_result.has("dice"):
+			result.dice.append_array(assignment_result.dice)
+
+		if assignment_result.has("log_text") and assignment_result.log_text:
+			result.log_text += assignment_result.log_text + "\n"
+
+		# If wounds were caused, add save data
+		if assignment_result.has("save_data") and assignment_result.save_data.get("success", false):
+			result.save_data_list.append(assignment_result.save_data)
+
+	return result
+
+# Resolve assignment up to wound stage (stops before saves)
+static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+	var result = {
+		"dice": [],
+		"log_text": ""
+	}
+
+	var model_ids = assignment.get("model_ids", [])
+	var weapon_id = assignment.get("weapon_id", "")
+	var target_unit_id = assignment.get("target_unit_id", "")
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if target_unit.is_empty():
+		result.log_text = "Target unit not found"
+		return result
+
+	# Get weapon profile
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		result.log_text = "Unknown weapon: " + weapon_id
+		return result
+
+	# Calculate total attacks
+	var attacks_per_model = weapon_profile.get("attacks", 1)
+	var total_attacks = model_ids.size() * attacks_per_model
+	if assignment.has("attacks_override") and assignment.attacks_override != null:
+		total_attacks = assignment.attacks_override
+
+	# Get hit modifiers
+	var hit_modifiers = HitModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+		var hit_mods = assignment.modifiers.hit
+		if hit_mods.get("reroll_ones", false):
+			hit_modifiers |= HitModifier.REROLL_ONES
+		if hit_mods.get("plus_one", false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+		if hit_mods.get("minus_one", false):
+			hit_modifiers |= HitModifier.MINUS_ONE
+
+	# Roll to hit
+	var hit_rolls = rng.roll_d6(total_attacks)
+	var bs = weapon_profile.get("bs", 4)
+	var hits = 0
+	var modified_rolls = []
+	var reroll_data = []
+
+	for roll in hit_rolls:
+		var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+		var final_roll = modifier_result.modified_roll
+		modified_rolls.append(final_roll)
+
+		if modifier_result.rerolled:
+			reroll_data.append({
+				"original": modifier_result.original_roll,
+				"rerolled_to": modifier_result.reroll_value
+			})
+
+		if final_roll >= bs:
+			hits += 1
+
+	result.dice.append({
+		"context": "to_hit",
+		"threshold": str(bs) + "+",
+		"rolls_raw": hit_rolls,
+		"rolls_modified": modified_rolls,
+		"rerolls": reroll_data,
+		"modifiers_applied": hit_modifiers,
+		"successes": hits
+	})
+
+	if hits == 0:
+		result.log_text = "%s → %s: No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id)]
+		return result
+
+	# Roll to wound
+	var strength = weapon_profile.get("strength", 4)
+	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var wound_threshold = _calculate_wound_threshold(strength, toughness)
+
+	var wound_rolls = rng.roll_d6(hits)
+	var wounds_caused = 0
+	for roll in wound_rolls:
+		if roll >= wound_threshold:
+			wounds_caused += 1
+
+	result.dice.append({
+		"context": "to_wound",
+		"threshold": str(wound_threshold) + "+",
+		"rolls_raw": wound_rolls,
+		"successes": wounds_caused
+	})
+
+	if wounds_caused == 0:
+		result.log_text = "%s → %s: %d hits, no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits]
+		return result
+
+	# STOP HERE - Prepare save data instead of auto-resolving
+	var save_data = prepare_save_resolution(
+		wounds_caused,
+		target_unit_id,
+		actor_unit_id,
+		weapon_profile,
+		board
+	)
+
+	result["save_data"] = save_data
+	result.log_text = "%s → %s: %d hits, %d wounds - awaiting saves" % [
+		actor_unit.get("meta", {}).get("name", actor_unit_id),
+		target_unit.get("meta", {}).get("name", target_unit_id),
+		hits,
+		wounds_caused
+	]
+
 	return result
 
 # Resolve a single weapon assignment (models with weapon -> target)
@@ -1810,5 +1973,247 @@ static func _apply_damage_to_unit(unit_id: String, failed_saves: int, damage_per
 				"value": new_wounds
 			})
 			wounds_to_allocate -= 1
-	
+
+	return result
+
+# ==========================================
+# INTERACTIVE SAVE RESOLUTION (Phase 1 MVP)
+# ==========================================
+
+# Prepare save resolution data for interactive defender input
+# Called after wound rolls to transfer control to defender
+static func prepare_save_resolution(
+	wounds_caused: int,
+	target_unit_id: String,
+	shooter_unit_id: String,
+	weapon_profile: Dictionary,
+	board: Dictionary
+) -> Dictionary:
+	"""
+	Prepares all data needed for interactive save resolution.
+	Returns save requirements without auto-resolving.
+	"""
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if target_unit.is_empty():
+		return {"success": false, "error": "Target unit not found"}
+
+	var ap = weapon_profile.get("ap", 0)
+	var damage = weapon_profile.get("damage", 1)
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+
+	# Get model allocation requirements (prioritize wounded models)
+	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
+
+	# Calculate save profile for each model
+	var model_save_profiles = []
+	for model_info in allocation_info.models:
+		var model = model_info.model
+		var has_cover = _check_model_has_cover(model, shooter_unit_id, board)
+		var save_result = _calculate_save_needed(base_save, ap, has_cover, model.get("invuln", 0))
+
+		model_save_profiles.append({
+			"model_id": model_info.model_id,
+			"model_index": model_info.model_index,
+			"is_wounded": model_info.is_wounded,
+			"current_wounds": model.get("current_wounds", model.get("wounds", 1)),
+			"max_wounds": model.get("wounds", 1),
+			"has_cover": has_cover,
+			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
+			"using_invuln": save_result.use_invuln,
+			"invuln_value": save_result.inv if save_result.use_invuln else 0,
+			"armour_value": save_result.armour
+		})
+
+	return {
+		"success": true,
+		"wounds_to_save": wounds_caused,
+		"target_unit_id": target_unit_id,
+		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+		"shooter_unit_id": shooter_unit_id,
+		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
+		"ap": ap,
+		"damage": damage,
+		"base_save": base_save,
+		"model_save_profiles": model_save_profiles,
+		"allocation_priority": allocation_info.priority_model_ids
+	}
+
+# Get save allocation requirements (which models can/must receive wounds)
+static func _get_save_allocation_requirements(target_unit: Dictionary, shooter_unit_id: String, board: Dictionary) -> Dictionary:
+	var models = target_unit.get("models", [])
+	var model_list = []
+	var priority_model_ids = []  # Models that must be allocated to first (wounded models)
+
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = model.get("id", "m%d" % i)
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var max_wounds = model.get("wounds", 1)
+		var is_wounded = current_wounds < max_wounds
+
+		model_list.append({
+			"model_id": model_id,
+			"model_index": i,
+			"model": model,
+			"is_wounded": is_wounded
+		})
+
+		if is_wounded:
+			priority_model_ids.append(model_id)
+
+	return {
+		"models": model_list,
+		"priority_model_ids": priority_model_ids
+	}
+
+# Auto-allocate wounds following 10e rules (wounded models first)
+static func auto_allocate_wounds(wounds_count: int, save_data: Dictionary) -> Array:
+	"""
+	Returns an array of wound allocations: [{model_id, model_index}, ...]
+	Following 10e rules: allocate to previously wounded models first
+	"""
+	var allocations = []
+	var remaining_wounds = wounds_count
+	var model_profiles = save_data.model_save_profiles
+
+	# First pass: Allocate to wounded models
+	for profile in model_profiles:
+		if remaining_wounds <= 0:
+			break
+
+		# Check if this model is in the priority list (wounded)
+		if profile.model_id in save_data.allocation_priority:
+			allocations.append({
+				"model_id": profile.model_id,
+				"model_index": profile.model_index
+			})
+			remaining_wounds -= 1
+
+	# Second pass: Allocate remaining wounds to unwounded models
+	if remaining_wounds > 0:
+		for profile in model_profiles:
+			if remaining_wounds <= 0:
+				break
+
+			# Skip models we already allocated to
+			var already_allocated = false
+			for allocation in allocations:
+				if allocation.model_id == profile.model_id:
+					already_allocated = true
+					break
+
+			if not already_allocated:
+				allocations.append({
+					"model_id": profile.model_id,
+					"model_index": profile.model_index
+				})
+				remaining_wounds -= 1
+
+	return allocations
+
+# Roll saves for allocated wounds
+static func roll_saves_batch(
+	allocations: Array,
+	save_data: Dictionary,
+	rng_service: RNGService
+) -> Dictionary:
+	"""
+	Rolls saves for all allocated wounds.
+	Returns save results with rolls and outcomes.
+	"""
+	var results = []
+
+	for allocation in allocations:
+		var model_id = allocation.model_id
+
+		# Find save profile for this model
+		var save_profile = null
+		for profile in save_data.model_save_profiles:
+			if profile.model_id == model_id:
+				save_profile = profile
+				break
+
+		if not save_profile:
+			continue
+
+		# Roll save
+		var save_roll = rng_service.roll_d6(1)[0]
+		var save_needed = save_profile.save_needed
+		var saved = save_roll >= save_needed
+
+		results.append({
+			"model_id": model_id,
+			"model_index": allocation.model_index,
+			"roll": save_roll,
+			"needed": save_needed,
+			"saved": saved,
+			"using_invuln": save_profile.using_invuln,
+			"has_cover": save_profile.has_cover
+		})
+
+	return {
+		"success": true,
+		"save_results": results
+	}
+
+# Apply damage from failed saves
+static func apply_save_damage(
+	save_results: Array,
+	save_data: Dictionary,
+	board: Dictionary
+) -> Dictionary:
+	"""
+	Applies damage to models that failed their saves.
+	Returns diffs and casualty count.
+	"""
+	var result = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	var target_unit_id = save_data.target_unit_id
+	var damage_per_wound = save_data.damage
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if target_unit.is_empty():
+		return result
+
+	var models = target_unit.get("models", [])
+
+	for save_result in save_results:
+		if save_result.saved:
+			continue  # No damage if save succeeded
+
+		var model_index = save_result.model_index
+		if model_index < 0 or model_index >= models.size():
+			continue
+
+		var model = models[model_index]
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var new_wounds = max(0, current_wounds - damage_per_wound)
+
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, model_index],
+			"value": new_wounds
+		})
+
+		result.damage_applied += damage_per_wound
+
+		if new_wounds == 0:
+			# Model destroyed
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [target_unit_id, model_index],
+				"value": false
+			})
+			result.casualties += 1
+
 	return result

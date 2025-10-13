@@ -57,7 +57,15 @@ func process_action(action: Dictionary) -> Dictionary:
 		"CONFIRM_DISEMBARK":
 			return process_confirm_disembark(action)
 
-		# Shooting actions
+		# Shooting actions (new phase-based system)
+		"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS":
+			return _delegate_to_current_phase(action)
+		"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "SKIP_UNIT":
+			return _delegate_to_current_phase(action)
+		"SHOOT", "APPLY_SAVES", "RESOLVE_WEAPON_SEQUENCE", "CONTINUE_SEQUENCE":
+			return _delegate_to_current_phase(action)
+
+		# Legacy shooting actions (kept for compatibility)
 		"SELECT_TARGET", "DESELECT_TARGET":
 			return process_select_target(action)
 		"RESOLVE_ATTACKS":

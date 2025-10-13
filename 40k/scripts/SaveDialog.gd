@@ -131,9 +131,23 @@ func _update_attack_info() -> void:
 
 	var ap_text = str(ap) if ap >= 0 else str(ap)  # Display as -1, -2, etc.
 
-	attack_info_label.text = "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\nWounds to Save: %d" % [
-		attacker, weapon, ap_text, damage, wounds
-	]
+	# Check for weapon sequence context
+	var sequence_context = save_data.get("sequence_context", {})
+	var title_text = ""
+
+	if not sequence_context.is_empty():
+		var current_weapon = sequence_context.get("current_weapon", 0)
+		var total_weapons = sequence_context.get("total_weapons", 0)
+		title_text = "[WEAPON %d of %d]\n" % [current_weapon, total_weapons]
+		title_text += "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\nWounds to Save: %d" % [
+			attacker, weapon, ap_text, damage, wounds
+		]
+	else:
+		title_text = "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\nWounds to Save: %d" % [
+			attacker, weapon, ap_text, damage, wounds
+		]
+
+	attack_info_label.text = title_text
 	attack_info_label.modulate = Color(1.0, 0.8, 0.8)  # Light red tint
 
 func _update_save_stats() -> void:

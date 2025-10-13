@@ -27,11 +27,8 @@ var deployment_options = [
 	# Future: Add Dawn of War, Search and Destroy, etc.
 ]
 
-var army_options = [
-	{"id": "adeptus_custodes", "name": "Adeptus Custodes"},
-	{"id": "space_marines", "name": "Space Marines"},
-	{"id": "orks", "name": "Orks"}
-]
+# Army options - dynamically populated from ArmyListManager
+var army_options = []
 
 var save_load_dialog: AcceptDialog
 
@@ -45,30 +42,102 @@ func _ready() -> void:
 	terrain_dropdown.selected = 0
 	mission_dropdown.selected = 0
 	deployment_dropdown.selected = 0
-	player1_dropdown.selected = 0  # Custodes
-	player2_dropdown.selected = 2  # Orks
-	
+
+	# Set default army selections based on available armies
+	_set_default_army_selections()
+
 	print("MainMenu: Ready with default selections")
 
 func _setup_dropdowns() -> void:
 	# Populate terrain dropdown
 	for option in terrain_options:
 		terrain_dropdown.add_item(option.name)
-	
+
 	# Populate mission dropdown
 	for option in mission_options:
 		mission_dropdown.add_item(option.name)
-	
+
 	# Populate deployment dropdown
 	for option in deployment_options:
 		deployment_dropdown.add_item(option.name)
-	
-	# Populate army dropdowns
+
+	# Dynamically populate army dropdowns from ArmyListManager
+	_load_available_armies()
 	for option in army_options:
 		player1_dropdown.add_item(option.name)
 		player2_dropdown.add_item(option.name)
-	
-	print("MainMenu: Dropdowns populated")
+
+	print("MainMenu: Dropdowns populated with ", army_options.size(), " armies")
+
+func _load_available_armies() -> void:
+	# Dynamically load available armies from ArmyListManager
+	army_options.clear()
+
+	if not ArmyListManager:
+		print("MainMenu: Warning - ArmyListManager not available, using empty army list")
+		return
+
+	var available_armies = ArmyListManager.get_available_armies()
+
+	if available_armies.is_empty():
+		print("MainMenu: Warning - No armies found in armies/ directory")
+		# Add a fallback option
+		army_options.append({"id": "placeholder", "name": "No Armies Available"})
+		return
+
+	# Convert army IDs to display names
+	for army_id in available_armies:
+		var display_name = _format_army_name(army_id)
+		army_options.append({"id": army_id, "name": display_name})
+
+	# Sort armies alphabetically by display name
+	army_options.sort_custom(func(a, b): return a.name < b.name)
+
+	print("MainMenu: Loaded ", army_options.size(), " armies: ", army_options.map(func(a): return a.name))
+
+func _format_army_name(army_id: String) -> String:
+	# Convert army_id (e.g., "adeptus_custodes") to display name (e.g., "Adeptus Custodes")
+	var words = army_id.split("_")
+	var formatted_words = []
+
+	for word in words:
+		if word.is_empty():
+			continue
+		# Capitalize first letter of each word
+		var capitalized = word[0].to_upper() + word.substr(1)
+		formatted_words.append(capitalized)
+
+	return " ".join(formatted_words)
+
+func _set_default_army_selections() -> void:
+	# Set intelligent defaults for army selections
+	if army_options.is_empty():
+		return
+
+	# Try to find specific armies for defaults
+	var player1_index = 0
+	var player2_index = min(1, army_options.size() - 1)  # Different army if possible
+
+	# Prefer A_C_test for Player 1 if available
+	for i in range(army_options.size()):
+		if army_options[i].id == "A_C_test":
+			player1_index = i
+			break
+
+	# Prefer ORK_test for Player 2 if available
+	for i in range(army_options.size()):
+		if army_options[i].id == "ORK_test":
+			player2_index = i
+			break
+
+	# Ensure players have different armies if possible
+	if player1_index == player2_index and army_options.size() > 1:
+		player2_index = (player1_index + 1) % army_options.size()
+
+	player1_dropdown.selected = player1_index
+	player2_dropdown.selected = player2_index
+
+	print("MainMenu: Default armies set - Player 1: ", army_options[player1_index].name, ", Player 2: ", army_options[player2_index].name)
 
 func _connect_signals() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)

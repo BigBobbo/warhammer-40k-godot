@@ -35,8 +35,11 @@ func _draw() -> void:
 		fill_color = Color(0.8, 0.2, 0.2, 0.8 if is_preview else 1.0)
 		border_color = Color(0.6, 0.1, 0.1, 1.0)
 
-	# Use base shape's draw method
-	base_shape.draw(self, Vector2.ZERO, 0.0, fill_color, border_color, border_width)
+	# Get rotation from model data (defaults to 0.0 for circular bases)
+	var rotation = model_data.get("rotation", 0.0)
+
+	# Use base shape's draw method with rotation
+	base_shape.draw(self, Vector2.ZERO, rotation, fill_color, border_color, border_width)
 
 	# Draw model number
 	var font = ThemeDB.fallback_font

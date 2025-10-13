@@ -1,0 +1,333 @@
+{
+    "faction": {
+      "name": "Adeptus Custodes",
+      "points": 1000,
+      "detachment": "Shield Host",
+      "player_name": "",
+      "team_name": ""
+    },
+    "units": {
+      "U_BLADE_CHAMPION_A": {
+        "id": "U_BLADE_CHAMPION_A",
+        "squad_id": "U_BLADE_CHAMPION_A",
+        "owner": 1,
+        "status": "UNDEPLOYED",
+        "meta": {
+          "name": "Blade Champion",
+          "keywords": [
+            "ADEPTUS CUSTODES",
+            "BLADE CHAMPION",
+            "CHARACTER",
+            "IMPERIUM",
+            "INFANTRY"
+          ],
+          "stats": {
+            "move": 6,
+            "toughness": 6,
+            "save": 2,
+            "wounds": 6,
+            "leadership": 6,
+            "objective_control": 2
+          },
+          "points": 145,
+          "is_warlord": false,
+          "enhancements": [
+            "Adamantine Talisman (+25 pts)"
+          ],
+          "wargear": [],
+          "weapons": [
+            {
+              "name": "Vaultswords – Behemor",
+              "type": "Melee",
+              "range": "Melee",
+              "attacks": "6",
+              "weapon_skill": "2",
+              "strength": "7",
+              "ap": "-2",
+              "damage": "2",
+              "special_rules": "precision"
+            },
+            {
+              "name": "Vaultswords – Hurricanus",
+              "type": "Melee",
+              "range": "Melee",
+              "attacks": "9",
+              "weapon_skill": "2",
+              "strength": "5",
+              "ap": "-1",
+              "damage": "1",
+              "special_rules": "sustained hits 1"
+            },
+            {
+              "name": "Vaultswords – Victus",
+              "type": "Melee",
+              "range": "Melee",
+              "attacks": "5",
+              "weapon_skill": "2",
+              "strength": "6",
+              "ap": "-3",
+              "damage": "3",
+              "special_rules": "devastating wounds"
+            }
+          ],
+          "abilities": [
+            {
+              "name": "Deep Strike",
+              "type": "Core",
+              "description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting."
+            },
+            {
+              "name": "Core",
+              "type": "Core",
+              "description": ""
+            },
+            {
+              "name": "Martial Ka'tah",
+              "type": "Faction",
+              "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            },
+            {
+              "name": "Swift Onslaught",
+              "type": "Datasheet",
+              "description": "While this model is leading a unit, you can re-roll Charge rolls made for that unit"
+            },
+            {
+              "name": "Martial Inspiration",
+              "type": "Datasheet",
+              "description": "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced."
+            }
+          ],
+          "unit_composition": [
+            {
+              "description": "1 Blade Champion",
+              "line": 1
+            }
+          ]
+        },
+        "models": [
+          {
+            "id": "m1",
+            "wounds": 6,
+            "current_wounds": 6,
+            "base_mm": 40,
+            "position": null,
+            "alive": true,
+            "status_effects": []
+          }
+        ]
+      },
+      "U_WITCHSEEKERS_C": {
+        "id": "U_WITCHSEEKERS_C",
+        "squad_id": "U_WITCHSEEKERS_C",
+        "owner": 1,
+        "status": "UNDEPLOYED",
+        "meta": {
+          "name": "Witchseekers",
+          "keywords": [
+            "ADEPTUS CUSTODES",
+            "ANATHEMA PSYKANA",
+            "IMPERIUM",
+            "INFANTRY",
+            "WITCHSEEKERS"
+          ],
+          "stats": {
+            "move": 6,
+            "toughness": 3,
+            "save": 3,
+            "wounds": 1,
+            "leadership": 6,
+            "objective_control": 1
+          },
+          "points": 50,
+          "is_warlord": false,
+          "enhancements": [],
+          "wargear": [
+            "Witchseeker Sister Superior",
+            "Witchseeker"
+          ],
+          "weapons": [
+            {
+              "name": "Witchseeker flamer",
+              "type": "Ranged",
+              "range": "12",
+              "attacks": "D6",
+              "ballistic_skill": null,
+              "strength": "4",
+              "ap": "0",
+              "damage": "1",
+              "special_rules": "ignores cover, torrent"
+            },
+            {
+              "name": "Close combat weapon",
+              "type": "Melee",
+              "range": "Melee",
+              "attacks": "2",
+              "weapon_skill": "3",
+              "strength": "3",
+              "ap": "0",
+              "damage": "1"
+            }
+          ],
+          "abilities": [
+            {
+              "name": "Core",
+              "type": "Core",
+              "description": "",
+              "parameter": "6\""
+            },
+            {
+              "name": "Daughters of the Abyss",
+              "type": "Datasheet",
+              "description": "Models in this unit have the Feel No Pain 3+ ability against Psychic Attacks and mortal wounds."
+            },
+            {
+              "name": "Sanctified Flames",
+              "type": "Datasheet",
+              "description": "In your Shooting phase, after this unit has shot, select one enemy unit hit by one or more of those attacks. That enemy unit must take a Battle-shock test."
+            }
+          ],
+          "unit_composition": [
+            {
+              "description": "1 Witchseeker Sister Superior",
+              "line": 1
+            },
+            {
+              "description": "3-9 Witchseekers",
+              "line": 2
+            }
+          ]
+        },
+        "models": [
+          {
+            "id": "m1",
+            "wounds": 1,
+            "current_wounds": 1,
+            "base_mm": 32,
+            "position": null,
+            "alive": true,
+            "status_effects": []
+          },
+          {
+            "id": "m2",
+            "wounds": 1,
+            "current_wounds": 1,
+            "base_mm": 32,
+            "position": null,
+            "alive": true,
+            "status_effects": []
+          },
+          {
+            "id": "m3",
+            "wounds": 1,
+            "current_wounds": 1,
+            "base_mm": 32,
+            "position": null,
+            "alive": true,
+            "status_effects": []
+          }
+        ]
+      },
+      "U_CALADIUS_GRAV-TANK_E": {
+        "id": "U_CALADIUS_GRAV-TANK_E",
+        "squad_id": "U_CALADIUS_GRAV-TANK_E",
+        "owner": 1,
+        "status": "UNDEPLOYED",
+        "meta": {
+          "name": "Caladius Grav-tank",
+          "keywords": [
+            "ADEPTUS CUSTODES",
+            "CALADIUS GRAV-TANK",
+            "FLY",
+            "IMPERIUM",
+            "VEHICLE"
+          ],
+          "stats": {
+            "move": 10,
+            "toughness": 11,
+            "save": 2,
+            "wounds": 14,
+            "leadership": 6,
+            "objective_control": 4
+          },
+          "points": 215,
+          "is_warlord": false,
+          "enhancements": [],
+          "wargear": [],
+          "weapons": [
+            {
+              "name": "Twin arachnus heavy blaze cannon",
+              "type": "Ranged",
+              "range": "48",
+              "attacks": "4",
+              "ballistic_skill": "2",
+              "strength": "12",
+              "ap": "-3",
+              "damage": "D6+2",
+              "special_rules": "twin-linked"
+            },
+            {
+              "name": "Twin lastrum bolt cannon",
+              "type": "Ranged",
+              "range": "36",
+              "attacks": "3",
+              "ballistic_skill": "2",
+              "strength": "6",
+              "ap": "-1",
+              "damage": "1",
+              "special_rules": "sustained hits 1"
+            },
+            {
+              "name": "Armoured hull",
+              "type": "Melee",
+              "range": "Melee",
+              "attacks": "4",
+              "weapon_skill": "4",
+              "strength": "6",
+              "ap": "0",
+              "damage": "1"
+            }
+          ],
+          "abilities": [
+            {
+              "name": "Core",
+              "type": "Core",
+              "description": "",
+              "parameter": "D3"
+            },
+            {
+              "name": "Martial Ka'tah",
+              "type": "Faction",
+              "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            },
+            {
+              "name": "Advanced Firepower",
+              "type": "Datasheet",
+              "description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability."
+            }
+          ],
+          "unit_composition": [
+            {
+              "description": "1 Caladius Grav-tank",
+              "line": 1
+            }
+          ]
+        },
+        "models": [
+          {
+            "id": "m1",
+            "wounds": 14,
+            "current_wounds": 14,
+            "base_mm": 170,
+            "base_type": "oval",
+            "base_dimensions": {
+              "length": 170,
+              "width": 105
+            },
+            "position": null,
+            "alive": true,
+            "status_effects": []
+          }
+        ]
+      }
+    }
+  }
