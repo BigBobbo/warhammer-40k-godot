@@ -834,10 +834,23 @@ func setup_deployment_zones() -> void:
 	
 	update_deployment_zone_visibility()
 
+var _setting_up_controllers: bool = false  # Semaphore to prevent concurrent setup
+
 func setup_phase_controllers() -> void:
+	# CRITICAL: Prevent concurrent calls that create duplicate controllers
+	if _setting_up_controllers:
+		print("Main: setup_phase_controllers() already running - waiting for completion...")
+		while _setting_up_controllers:
+			await get_tree().process_frame
+		print("Main: Previous setup_phase_controllers() completed - skipping duplicate call")
+		return
+
+	_setting_up_controllers = true
+	print("Main: setup_phase_controllers() STARTING (semaphore locked)")
+
 	# ENHANCEMENT: Clear right panel before cleanup
 	_clear_right_panel_phase_ui()
-	
+
 	# Clean up existing controllers
 	if deployment_controller:
 		deployment_controller.queue_free()
@@ -849,11 +862,39 @@ func setup_phase_controllers() -> void:
 		movement_controller.queue_free()
 		movement_controller = null
 	if shooting_controller:
+		# CRITICAL: Disconnect ALL signals before freeing to prevent lingering connections
+		print("Main: Cleaning up shooting_controller instance ID: ", shooting_controller.get_instance_id())
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance is ShootingPhase:
+			# Disconnect all phase signals
+			if phase_instance.unit_selected_for_shooting.is_connected(shooting_controller._on_unit_selected_for_shooting):
+				phase_instance.unit_selected_for_shooting.disconnect(shooting_controller._on_unit_selected_for_shooting)
+				print("Main: Disconnected unit_selected_for_shooting")
+			if phase_instance.targets_available.is_connected(shooting_controller._on_targets_available):
+				phase_instance.targets_available.disconnect(shooting_controller._on_targets_available)
+				print("Main: Disconnected targets_available")
+			if phase_instance.shooting_resolved.is_connected(shooting_controller._on_shooting_resolved):
+				phase_instance.shooting_resolved.disconnect(shooting_controller._on_shooting_resolved)
+				print("Main: Disconnected shooting_resolved")
+			if phase_instance.dice_rolled.is_connected(shooting_controller._on_dice_rolled):
+				phase_instance.dice_rolled.disconnect(shooting_controller._on_dice_rolled)
+				print("Main: Disconnected dice_rolled")
+			if phase_instance.saves_required.is_connected(shooting_controller._on_saves_required):
+				phase_instance.saves_required.disconnect(shooting_controller._on_saves_required)
+				print("Main: Disconnected saves_required")
+			if phase_instance.weapon_order_required.is_connected(shooting_controller._on_weapon_order_required):
+				phase_instance.weapon_order_required.disconnect(shooting_controller._on_weapon_order_required)
+				print("Main: Disconnected weapon_order_required")
+			if phase_instance.next_weapon_confirmation_required.is_connected(shooting_controller._on_next_weapon_confirmation_required):
+				phase_instance.next_weapon_confirmation_required.disconnect(shooting_controller._on_next_weapon_confirmation_required)
+				print("Main: Disconnected next_weapon_confirmation_required")
+
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):
 			shooting_controller._clear_visuals()
 		shooting_controller.queue_free()
 		shooting_controller = null
+		print("Main: Shooting controller queued for deletion")
 	if charge_controller:
 		charge_controller.queue_free()
 		charge_controller = null
@@ -889,6 +930,10 @@ func setup_phase_controllers() -> void:
 			setup_scoring_controller()
 		_:
 			print("No controller for phase: ", current_phase)
+
+	# CRITICAL: Unlock semaphore when done
+	_setting_up_controllers = false
+	print("Main: setup_phase_controllers() COMPLETE (semaphore unlocked)")
 
 func setup_deployment_controller() -> void:
 	deployment_controller = preload("res://scripts/DeploymentController.gd").new()
@@ -1065,24 +1110,10 @@ func setup_shooting_controller() -> void:
 			is_shooting_phase = true
 		
 		if is_shooting_phase:
+			# CRITICAL FIX: set_phase() already connects ALL phase signals internally
+			# Connecting them here creates duplicate connections!
+			# DO NOT duplicate signal connections - set_phase() handles everything
 			shooting_controller.set_phase(phase_instance)
-			
-			# Connect phase signals to shooting controller
-			if not phase_instance.unit_selected_for_shooting.is_connected(shooting_controller._on_unit_selected_for_shooting):
-				phase_instance.unit_selected_for_shooting.connect(shooting_controller._on_unit_selected_for_shooting)
-				print("Connected unit_selected_for_shooting signal")
-			if phase_instance.has_signal("targets_available"):
-				if not phase_instance.targets_available.is_connected(shooting_controller._on_targets_available):
-					phase_instance.targets_available.connect(shooting_controller._on_targets_available)
-					print("Connected targets_available signal")
-			if phase_instance.has_signal("shooting_resolved"):
-				if not phase_instance.shooting_resolved.is_connected(shooting_controller._on_shooting_resolved):
-					phase_instance.shooting_resolved.connect(shooting_controller._on_shooting_resolved)
-					print("Connected shooting_resolved signal")
-			if phase_instance.has_signal("dice_rolled"):
-				if not phase_instance.dice_rolled.is_connected(shooting_controller._on_dice_rolled):
-					phase_instance.dice_rolled.connect(shooting_controller._on_dice_rolled)
-					print("Connected dice_rolled signal")
 		else:
 			print("WARNING: Phase instance is not a ShootingPhase, skipping signal connections")
 	else:

@@ -17,6 +17,9 @@ var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
 var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
+var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
+var active_allocation_overlay: WoundAllocationOverlay = null  # Track active overlay instance
+var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
 
 # UI References
 var board_view: Node2D
@@ -171,6 +174,15 @@ func _setup_right_panel() -> void:
 				shooting_panel.remove_child(child)
 				child.free()
 	
+	# Ensure the shooting_panel exists and is valid
+	if not shooting_panel:
+		push_error("ShootingController: shooting_panel is null!")
+		return
+
+	# Make sure panel is visible
+	shooting_panel.visible = true
+	scroll_container.visible = true
+
 	# Create UI elements (existing logic)
 	print("ShootingController: Creating shooting UI elements")
 	# Title
@@ -278,31 +290,64 @@ func _setup_right_panel() -> void:
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	shooting_panel.add_child(dice_log_display)
-	
+
 	print("ShootingController: Finished creating shooting UI - panel should be visible!")
+	print("ShootingController: UI Debug Info:")
+	print("  - shooting_panel children: ", shooting_panel.get_child_count())
+	print("  - shooting_panel visible: ", shooting_panel.visible)
+	print("  - scroll_container visible: ", scroll_container.visible)
+	print("  - container visible: ", container.visible)
+	print("  - hud_right visible: ", hud_right.visible if hud_right else "hud_right is null")
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
-	
+
 	if phase and phase is ShootingPhase:
-		# Connect to phase signals
-		if not phase.unit_selected_for_shooting.is_connected(_on_unit_selected_for_shooting):
-			phase.unit_selected_for_shooting.connect(_on_unit_selected_for_shooting)
-		if not phase.targets_available.is_connected(_on_targets_available):
-			phase.targets_available.connect(_on_targets_available)
-		if not phase.shooting_resolved.is_connected(_on_shooting_resolved):
-			phase.shooting_resolved.connect(_on_shooting_resolved)
-		if not phase.dice_rolled.is_connected(_on_dice_rolled):
-			phase.dice_rolled.connect(_on_dice_rolled)
-		if not phase.saves_required.is_connected(_on_saves_required):
-			phase.saves_required.connect(_on_saves_required)
-			print("ShootingController: Connected to saves_required signal")
-		if not phase.weapon_order_required.is_connected(_on_weapon_order_required):
-			phase.weapon_order_required.connect(_on_weapon_order_required)
-			print("ShootingController: Connected to weapon_order_required signal")
-		if not phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
-			phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
-			print("ShootingController: Connected to next_weapon_confirmation_required signal")
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ ShootingController.set_phase() CALLED")
+		print("║ ShootingController Instance ID: ", get_instance_id())
+		print("║ Phase Instance ID: ", phase.get_instance_id())
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# CRITICAL FIX: Disconnect before connecting to prevent duplicate signal connections
+		# The is_connected() check was unreliable, so we guarantee single connection by
+		# disconnecting first (harmless if not connected)
+
+		if phase.unit_selected_for_shooting.is_connected(_on_unit_selected_for_shooting):
+			phase.unit_selected_for_shooting.disconnect(_on_unit_selected_for_shooting)
+			print("║ Disconnected existing unit_selected_for_shooting connection")
+		phase.unit_selected_for_shooting.connect(_on_unit_selected_for_shooting)
+
+		if phase.targets_available.is_connected(_on_targets_available):
+			phase.targets_available.disconnect(_on_targets_available)
+			print("║ Disconnected existing targets_available connection")
+		phase.targets_available.connect(_on_targets_available)
+
+		if phase.shooting_resolved.is_connected(_on_shooting_resolved):
+			phase.shooting_resolved.disconnect(_on_shooting_resolved)
+			print("║ Disconnected existing shooting_resolved connection")
+		phase.shooting_resolved.connect(_on_shooting_resolved)
+
+		if phase.dice_rolled.is_connected(_on_dice_rolled):
+			phase.dice_rolled.disconnect(_on_dice_rolled)
+			print("║ Disconnected existing dice_rolled connection")
+		phase.dice_rolled.connect(_on_dice_rolled)
+
+		if phase.saves_required.is_connected(_on_saves_required):
+			phase.saves_required.disconnect(_on_saves_required)
+			print("║ Disconnected existing saves_required connection from instance ", get_instance_id())
+		phase.saves_required.connect(_on_saves_required)
+		print("║ Connected saves_required signal to instance ", get_instance_id())
+
+		if phase.weapon_order_required.is_connected(_on_weapon_order_required):
+			phase.weapon_order_required.disconnect(_on_weapon_order_required)
+			print("║ Disconnected existing weapon_order_required connection")
+		phase.weapon_order_required.connect(_on_weapon_order_required)
+
+		if phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
+			phase.next_weapon_confirmation_required.disconnect(_on_next_weapon_confirmation_required)
+			print("║ Disconnected existing next_weapon_confirmation_required connection")
+		phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
 
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
@@ -998,114 +1043,182 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	dice_log_display.append_text(log_text)
 
 func _on_saves_required(save_data_list: Array) -> void:
-	"""Show SaveDialog when defender needs to make saves"""
-	print("========================================")
-	print("ShootingController: _on_saves_required CALLED")
-	print("ShootingController: Saves required for %d targets" % save_data_list.size())
-	print("ShootingController: is_networked = ", NetworkManager.is_networked())
-	print("ShootingController: is_host = ", NetworkManager.is_host())
+	"""Show WoundAllocationOverlay when defender needs to make saves"""
 
-	if save_data_list.is_empty():
-		print("ShootingController: Warning - empty save data list")
+	# CRITICAL: Prevent re-entrant calls (signal connected multiple times)
+	if processing_saves_signal:
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ ❌ DUPLICATE SIGNAL BLOCKED")
+		print("║ Already processing saves_required signal")
+		print("║ Timestamp: ", Time.get_ticks_msec())
+		print("║ This is likely due to the signal being connected multiple times")
+		print("╚═══════════════════════════════════════════════════════════════")
 		return
 
-	# IMPORTANT: For Phase 1 MVP, we only show ONE dialog for the FIRST target
-	# Even if multiple targets need saves, we process them one at a time
-	# This prevents multiple exclusive window errors
-	var save_data = save_data_list[0]
-	print("ShootingController: save_data keys = ", save_data.keys())
+	processing_saves_signal = true
 
-	# Get the target unit to determine who the defender is
+	# COMPREHENSIVE LOGGING: Track every call to this function
+	var timestamp = Time.get_ticks_msec()
+	var call_stack = get_stack()
+	var caller_info = "unknown"
+	if call_stack.size() > 1:
+		caller_info = str(call_stack[1])
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SAVES_REQUIRED RECEIVED (ShootingController)")
+	print("║ Timestamp: ", timestamp)
+	print("║ ShootingController Instance ID: ", get_instance_id())
+	print("║ Function: ShootingController._on_saves_required")
+	print("║ Call stack depth: ", call_stack.size())
+	print("║ Caller: ", caller_info)
+	print("║ Save data list size: ", save_data_list.size())
+	print("║ processing_saves_signal was: false (now set to true)")
+
+	if save_data_list.is_empty():
+		print("║ ⚠️  WARNING: Empty save data list - RETURNING")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_saves_signal = false
+		return
+
+	var save_data = save_data_list[0]
+	var target = save_data.get("target_unit_id", "unknown")
+	var weapon = save_data.get("weapon_name", "unknown")
+	var wounds = save_data.get("wounds_to_save", 0)
+
+	print("║ Target: ", target)
+	print("║ Weapon: ", weapon)
+	print("║ Wounds: ", wounds)
+
+	# ENHANCED DEBOUNCE: Check if overlay already exists for this weapon/target
+	if active_allocation_overlay != null and is_instance_valid(active_allocation_overlay):
+		var existing_target = active_allocation_overlay.save_data.get("target_unit_id", "")
+		var existing_weapon = active_allocation_overlay.save_data.get("weapon_name", "")
+		var existing_wounds = active_allocation_overlay.save_data.get("wounds_to_save", 0)
+
+		print("║ ")
+		print("║ ⚠️  DEBOUNCE CHECK:")
+		print("║   Active overlay exists: YES")
+		print("║   Existing: weapon='%s', target='%s', wounds=%d" % [existing_weapon, existing_target, existing_wounds])
+		print("║   Incoming: weapon='%s', target='%s', wounds=%d" % [weapon, target, wounds])
+
+		if existing_target == target and existing_weapon == weapon:
+			print("║   ")
+			print("║   ❌ DUPLICATE DETECTED - IGNORING THIS CALL")
+			print("║   This is a duplicate signal emission for the same weapon/target")
+			print("╚═══════════════════════════════════════════════════════════════")
+			return
+		else:
+			print("║   ")
+			print("║   ✅ Different weapon/target - allowing new overlay")
+	else:
+		print("║ ")
+		print("║ Active overlay exists: NO")
+		print("║ This is the first allocation for this combat")
+
+	print("║ ")
+	print("║ PROCEEDING WITH OVERLAY CREATION...")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Get defender
 	var target_unit_id = save_data.get("target_unit_id", "")
-	print("ShootingController: target_unit_id = ", target_unit_id)
 	if target_unit_id == "":
 		push_error("ShootingController: No target_unit_id in save data")
+		processing_saves_signal = false
 		return
 
 	var target_unit = GameState.get_unit(target_unit_id)
-	print("ShootingController: target_unit found = ", not target_unit.is_empty())
 	if target_unit.is_empty():
 		push_error("ShootingController: Target unit not found: " + target_unit_id)
+		processing_saves_signal = false
 		return
 
 	var defender_player = target_unit.get("owner", 0)
-	print("ShootingController: Defender is player %d" % defender_player)
 
 	# Determine if this local player should see the dialog
 	var should_show_dialog = false
+	var local_player = -1
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ PLAYER ROLE CHECK")
 
 	if NetworkManager.is_networked():
-		# Multiplayer: Only show dialog if this peer controls the defending player
 		var local_peer_id = multiplayer.get_unique_id()
-		print("ShootingController: local_peer_id = ", local_peer_id)
-		print("ShootingController: peer_to_player_map = ", NetworkManager.peer_to_player_map)
-		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
-		print("ShootingController: Local player is %d (peer %d)" % [local_player, local_peer_id])
-		print("ShootingController: defender_player = %d" % defender_player)
-		print("ShootingController: local_player == defender_player: ", local_player == defender_player)
+		local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
 		should_show_dialog = (local_player == defender_player)
+		print("║ Mode: MULTIPLAYER")
+		print("║ Local peer ID: ", local_peer_id)
+		print("║ Local player: ", local_player)
+		print("║ Defender player: ", defender_player)
+		print("║ Should show dialog: ", should_show_dialog)
 	else:
-		# Single player: Always show dialog (local player controls both sides)
-		print("ShootingController: Single-player mode - always showing dialog")
 		should_show_dialog = true
-
-	print("ShootingController: should_show_dialog = ", should_show_dialog)
+		print("║ Mode: SINGLE PLAYER")
+		print("║ Should show dialog: TRUE (always in single player)")
 
 	if not should_show_dialog:
-		print("ShootingController: Not showing dialog - not the defending player (attacker)")
-		# Don't show "waiting" message for attacker - dice rolls will update automatically
-		# The attacker should see the dice rolls, not a waiting message
-		print("========================================")
+		print("║ ")
+		print("║ ❌ NOT SHOWING DIALOG - Not the defending player")
+		print("║ This client is the attacker, not the defender")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_saves_signal = false
 		return
 
-	# DEBOUNCE: Prevent multiple dialogs from being created
-	if save_dialog_showing:
-		print("ShootingController: ❌ Dialog already showing, ignoring duplicate signal")
-		print("========================================")
+	print("║ ")
+	print("║ ✅ SHOWING DIALOG - This is the defending player")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Temporarily disable ShootingController's input processing
+	set_process_input(false)
+	set_process_unhandled_input(false)
+
+	# Create WoundAllocationOverlay
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ CREATING WOUND ALLOCATION OVERLAY")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ Target: ", target)
+	print("║ Weapon: ", weapon)
+	print("║ Wounds: ", wounds)
+
+	var overlay = WoundAllocationOverlay.new()
+	print("║ Overlay instance created: ", overlay)
+	print("║ Overlay instance ID: ", overlay.get_instance_id())
+
+	# Store reference to active overlay
+	active_allocation_overlay = overlay
+	print("║ Stored in active_allocation_overlay")
+
+	# Connect to allocation_complete signal to clear the reference
+	overlay.allocation_complete.connect(func(_summary):
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ WOUND ALLOCATION COMPLETE")
+		print("║ Timestamp: ", Time.get_ticks_msec())
+		print("║ Clearing overlay reference and processing flag")
+		print("╚═══════════════════════════════════════════════════════════════")
+		active_allocation_overlay = null  # Clear reference
+		processing_saves_signal = false  # Reset flag to allow next allocation
+		set_process_input(true)
+		set_process_unhandled_input(true)
+	)
+	print("║ Connected to allocation_complete signal")
+
+	# Add to scene tree
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		push_error("ShootingController: /root/Main not found!")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_saves_signal = false
 		return
 
-	save_dialog_showing = true
-	print("ShootingController: ✅ Showing SaveDialog for defender")
+	main.add_child(overlay)
+	print("║ Added overlay to Main scene tree")
 
-	# Show feedback in dice log
-	if dice_log_display:
-		dice_log_display.append_text("[color=yellow]⚠ You must make saves![/color]\n")
-
-	# Close any existing AcceptDialog instances to prevent multiple exclusive windows
-	# This is a more aggressive cleanup to avoid the exclusive window error
-	print("ShootingController: Checking for existing dialogs...")
-	var root_children = get_tree().root.get_children()
-	for child in root_children:
-		if child is AcceptDialog:
-			print("ShootingController: Closing existing AcceptDialog: %s" % child.name)
-			child.hide()
-			child.queue_free()
-
-	# Wait one frame for cleanup to complete
+	# Wait one frame to ensure _ready() has been called
 	await get_tree().process_frame
 
-	# Load SaveDialog script
-	var save_dialog_script = preload("res://scripts/SaveDialog.gd")
-	var dialog = save_dialog_script.new()
-
-	# Connect to save_complete signal to clear the debounce flag
-	dialog.save_complete.connect(func():
-		print("ShootingController: Save complete, clearing dialog flag")
-		save_dialog_showing = false
-	)
-
-	# Add to scene tree FIRST (so _ready() runs and creates UI elements)
-	get_tree().root.add_child(dialog)
-
-	# Setup with save data AFTER _ready() has run, passing defender_player
-	dialog.setup(save_data, defender_player)
-
-	# Show dialog
-	dialog.popup_centered()
-
-	print("ShootingController: SaveDialog shown for %s (defender=player %d)" %
-		[save_data.get("target_unit_name", "Unknown"), defender_player])
-	print("========================================")
+	# Setup with save data
+	overlay.setup(save_data, defender_player)
+	print("║ Overlay setup complete")
+	print("╚═══════════════════════════════════════════════════════════════")
 
 func _on_weapon_order_required(assignments: Array) -> void:
 	"""Show WeaponOrderDialog when multiple weapon types are assigned"""
@@ -1402,13 +1515,18 @@ func _update_ui_state() -> void:
 			target_basket.add_item("%s → %s" % [weapon_profile.get("name", weapon_id), target_name])
 
 func _input(event: InputEvent) -> void:
+	# CRITICAL: Skip ALL input handling if wound allocation dialog is showing
+	if save_dialog_showing:
+		print("ShootingController: Skipping input - wound allocation in progress")
+		return
+
 	if not current_phase or not current_phase is ShootingPhase:
 		return
-	
+
 	# Only handle input if we have an active shooter and eligible targets
 	if active_shooter_id == "" or eligible_targets.is_empty():
 		return
-	
+
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# Get the board root which contains the units
