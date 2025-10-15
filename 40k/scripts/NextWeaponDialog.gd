@@ -4,6 +4,7 @@ extends AcceptDialog
 # Displays attack summary, dice details, and remaining weapons
 
 signal continue_confirmed(weapon_order: Array, fast_roll: bool)
+signal shooting_complete_confirmed  # NEW: Signals shooting is complete (no more weapons)
 
 var remaining_weapons: Array = []
 var current_index: int = 0
@@ -253,17 +254,31 @@ func _on_continue_pressed() -> void:
 	print("║ NEXT WEAPON DIALOG: CONTINUE PRESSED")
 	print("║ remaining_weapons.size(): ", remaining_weapons.size())
 	print("║ current_index: ", current_index)
-	print("║ Emitting continue_confirmed signal with:")
-	print("║   - remaining_weapons array (size %d)" % remaining_weapons.size())
-	print("║   - fast_roll = false")
-	for i in range(min(3, remaining_weapons.size())):
-		var weapon = remaining_weapons[i]
-		print("║   Weapon %d: %s" % [i, weapon.get("weapon_id", "UNKNOWN")])
-	if remaining_weapons.size() > 3:
-		print("║   ... and %d more weapons" % (remaining_weapons.size() - 3))
-	print("╚═══════════════════════════════════════════════════════════════")
 
-	# Emit with fast_roll = false to continue sequential mode
-	emit_signal("continue_confirmed", remaining_weapons, false)
-	hide()
-	queue_free()
+	if remaining_weapons.is_empty():
+		# No weapons remaining - this is the completion case
+		print("║ No remaining weapons - completing shooting")
+		print("║ Emitting shooting_complete_confirmed signal")
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Emit signal to complete shooting (ShootingController will handle)
+		emit_signal("shooting_complete_confirmed")
+		hide()
+		queue_free()
+	else:
+		# More weapons remain - continue sequence
+		print("║ %d weapons remaining - continuing sequence" % remaining_weapons.size())
+		print("║ Emitting continue_confirmed signal with:")
+		print("║   - remaining_weapons array (size %d)" % remaining_weapons.size())
+		print("║   - fast_roll = false")
+		for i in range(min(3, remaining_weapons.size())):
+			var weapon = remaining_weapons[i]
+			print("║   Weapon %d: %s" % [i, weapon.get("weapon_id", "UNKNOWN")])
+		if remaining_weapons.size() > 3:
+			print("║   ... and %d more weapons" % (remaining_weapons.size() - 3))
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Emit with fast_roll = false to continue sequential mode
+		emit_signal("continue_confirmed", remaining_weapons, false)
+		hide()
+		queue_free()

@@ -307,8 +307,9 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# Handle next_weapon_confirmation_required signal for sequential mode
 	# This happens when APPLY_SAVES completes OR when RESOLVE_WEAPON_SEQUENCE has no wounds (miss) OR when CONTINUE_SEQUENCE needs next weapon
+	# OR when CONFIRM_TARGETS resolves a single weapon that misses (no saves needed)
 	print("NetworkManager:   Checking for sequential_pause...")
-	if action_type == "APPLY_SAVES" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "CONTINUE_SEQUENCE":
+	if action_type == "APPLY_SAVES" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "CONTINUE_SEQUENCE" or action_type == "CONFIRM_TARGETS":
 		var sequential_pause = result.get("sequential_pause", false)
 		print("NetworkManager:   sequential_pause = ", sequential_pause)
 

@@ -99,6 +99,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_saves(action)
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
 			return _validate_continue_sequence(action)
+		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
+			return _validate_complete_shooting_for_unit(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -147,6 +149,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"CONTINUE_SEQUENCE":  # Continue to next weapon in sequential mode
 			print("ShootingPhase: Matched CONTINUE_SEQUENCE")
 			return _process_continue_sequence(action)
+		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
+			print("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
+			return _process_complete_shooting_for_unit(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -382,6 +387,13 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	var weapon_count = unique_weapons.size()
 	print("ShootingPhase: Merged and confirmed %d assignments with %d unique weapon types" % [confirmed_assignments.size(), weapon_count])
 
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ WEAPON COUNT CHECK IN _process_confirm_targets")
+	print("║ weapon_count: ", weapon_count)
+	print("║ Will enter sequential mode: ", weapon_count >= 2)
+	print("║ Single weapon path: ", weapon_count == 1)
+	print("╚═══════════════════════════════════════════════════════════════")
+
 	# If 2+ weapon types, emit signal for weapon ordering dialog
 	if weapon_count >= 2:
 		log_phase_message("Multiple weapon types detected - awaiting weapon order selection")
@@ -401,10 +413,18 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 		})
 
 	# Single weapon type - proceed with normal resolution
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SINGLE WEAPON PATH - _process_confirm_targets")
+	print("║ Initializing resolution_state with mode: 'ready'")
+	print("║ This is NOT sequential mode")
+	print("║ Calling _process_resolve_shooting() directly")
+	print("╚═══════════════════════════════════════════════════════════════")
+
 	# Initialize resolution state
 	resolution_state = {
 		"current_assignment": 0,
-		"phase": "ready"  # ready, hitting, wounding, saving, damage
+		"phase": "ready",  # ready, hitting, wounding, saving, damage
+		"mode": ""  # EXPLICITLY empty - not sequential
 	}
 
 	# AUTO-RESOLVE: Immediately trigger shooting resolution
@@ -412,6 +432,14 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 
 	# Call resolution directly
 	var resolve_result = _process_resolve_shooting({})
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SINGLE WEAPON - _process_resolve_shooting returned")
+	print("║ resolve_result.success: ", resolve_result.success)
+	print("║ resolve_result has save_data_list: ", resolve_result.has("save_data_list"))
+	if resolve_result.has("save_data_list"):
+		print("║ save_data_list size: ", resolve_result.get("save_data_list", []).size())
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	# Combine results
 	if resolve_result.success:
@@ -421,6 +449,27 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 		# CRITICAL: Copy save_data_list for multiplayer sync
 		if resolve_result.has("save_data_list"):
 			initial_result["save_data_list"] = resolve_result.get("save_data_list", [])
+		# CRITICAL FIX: Copy sequential_pause and related data for single weapon miss!
+		if resolve_result.has("sequential_pause"):
+			initial_result["sequential_pause"] = resolve_result.get("sequential_pause", false)
+			initial_result["remaining_weapons"] = resolve_result.get("remaining_weapons", [])
+			initial_result["last_weapon_result"] = resolve_result.get("last_weapon_result", {})
+			initial_result["current_weapon_index"] = resolve_result.get("current_weapon_index", 0)
+			initial_result["total_weapons"] = resolve_result.get("total_weapons", 1)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SINGLE WEAPON - Returning from _process_confirm_targets")
+	if initial_result.has("sequential_pause"):
+		print("║ ✅ sequential_pause INCLUDED in result: ", initial_result.get("sequential_pause", false))
+		print("║ ✅ remaining_weapons size: ", initial_result.get("remaining_weapons", []).size())
+		print("║ ✅ last_weapon_result exists: ", initial_result.has("last_weapon_result"))
+	elif resolve_result.has("save_data_list") and not resolve_result.get("save_data_list", []).is_empty():
+		print("║ Result will trigger saves dialog")
+		print("║ After saves, _process_apply_saves will be called")
+	else:
+		print("║ ⚠️  WARNING: No sequential_pause or save_data_list in result!")
+		print("║ This weapon likely missed and dialog won't show!")
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	return initial_result
 
@@ -456,7 +505,80 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	var save_data_list = result.get("save_data_list", [])
 
 	if save_data_list.is_empty():
-		# No wounds caused - complete immediately
+		# No wounds caused
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ NO WOUNDS CAUSED - Weapon missed!")
+		print("║ resolution_state.mode: '", resolution_state.get("mode", ""), "'")
+		print("║ Is single weapon: ", resolution_state.get("mode", "") == "")
+		print("║ active_shooter_id: ", active_shooter_id)
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Check if this is single weapon mode (not sequential)
+		var mode = resolution_state.get("mode", "")
+		if mode != "sequential" and active_shooter_id != "":
+			# Single weapon that missed - show results dialog before completing
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ 🎯 SINGLE WEAPON MISS - Showing results dialog")
+			print("║ Building last_weapon_result for missed shot...")
+			print("╚═══════════════════════════════════════════════════════════════")
+
+			# Build last weapon result for missed shot
+			var last_weapon_result = {}
+			if not confirmed_assignments.is_empty():
+				var assignment = confirmed_assignments[0]
+				var weapon_id = assignment.get("weapon_id", "")
+				var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+				var target_unit_id = assignment.get("target_unit_id", "")
+				var target_unit = get_unit(target_unit_id)
+
+				# Extract hit data from dice_data
+				var hits = 0
+				var total_attacks = 0
+				for dice_block in dice_data:
+					if dice_block.get("context", "") == "hit_roll":
+						hits = dice_block.get("successes", 0)
+						total_attacks = dice_block.get("rolls_raw", []).size()
+						break
+
+				last_weapon_result = {
+					"weapon_id": weapon_id,
+					"weapon_name": weapon_profile.get("name", weapon_id),
+					"target_unit_id": target_unit_id,
+					"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+					"hits": hits,
+					"wounds": 0,  # No wounds caused
+					"saves_failed": 0,
+					"casualties": 0,
+					"total_attacks": total_attacks,
+					"dice_rolls": dice_data
+				}
+
+				print("║ last_weapon_result built:")
+				print("║   weapon: ", last_weapon_result.get("weapon_name", ""))
+				print("║   hits: ", hits, " / ", total_attacks)
+				print("║   wounds: 0 (missed)")
+				print("║   casualties: 0")
+
+			# Emit signal with EMPTY remaining_weapons (signals completion)
+			print("║")
+			print("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL (for miss)")
+			print("╚═══════════════════════════════════════════════════════════════")
+
+			emit_signal("next_weapon_confirmation_required", [], 0, last_weapon_result)
+
+			# Return with pause indicator - completion will happen when user clicks "Complete Shooting"
+			# IMPORTANT: Do NOT mark has_shot yet - that happens when user confirms
+			return create_result(true, [], "Single weapon missed - awaiting confirmation", {
+				"sequential_pause": true,
+				"remaining_weapons": [],
+				"last_weapon_result": last_weapon_result,
+				"current_weapon_index": 0,
+				"total_weapons": 1,
+				"dice": dice_data
+			})
+
+		# Sequential mode - already handled with dialog
+		print("║ Sequential mode - completing immediately")
 		var shooter_id = active_shooter_id  # Store before clearing
 		var changes = [{
 			"op": "set",
@@ -782,80 +904,57 @@ func _resolve_next_weapon() -> Dictionary:
 		print("ShootingPhase: Incremented current_index to %d" % resolution_state.current_index)
 		print("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index))
 
-		# Check if there are more weapons to resolve
-		if resolution_state.current_index < weapon_order.size():
-			# PAUSE: Don't auto-continue to next weapon (same as after saves)
-			# Wait for attacker to confirm before continuing
-			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
-			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
+		# ALWAYS PAUSE for attacker to confirm (even if last weapon)
+		# Wait for attacker to confirm before continuing or completing
+		print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
+		print("ShootingPhase: Weapons remaining: ", weapon_order.size() - resolution_state.current_index)
 
-			# NEW: Build remaining weapons with validation
-			var remaining_weapons = []
+		# Build remaining weapons with validation (may be empty array if this is the last weapon)
+		var remaining_weapons = []
 
-			print("╔═══════════════════════════════════════════════════════════════")
-			print("║ BUILDING REMAINING WEAPONS (after miss)")
-			print("║ weapon_order.size() = %d" % weapon_order.size())
-			print("║ current_index = %d" % resolution_state.current_index)
-			print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ BUILDING REMAINING WEAPONS (after miss)")
+		print("║ weapon_order.size() = %d" % weapon_order.size())
+		print("║ current_index = %d" % resolution_state.current_index)
+		print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
 
-			for i in range(resolution_state.current_index, weapon_order.size()):
-				var weapon = weapon_order[i]
-				remaining_weapons.append(weapon)
+		for i in range(resolution_state.current_index, weapon_order.size()):
+			var weapon = weapon_order[i]
+			remaining_weapons.append(weapon)
 
-				# Validate weapon structure
-				var remaining_weapon_id = weapon.get("weapon_id", "")
-				if remaining_weapon_id == "":
-					push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
-					print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
-					print("║   Full weapon object: %s" % str(weapon))
-				else:
-					print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+			# Validate weapon structure
+			var remaining_weapon_id = weapon.get("weapon_id", "")
+			if remaining_weapon_id == "":
+				push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
+				print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
+				print("║   Full weapon object: %s" % str(weapon))
+			else:
+				print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
 
-			print("║ Total remaining weapons: %d" % remaining_weapons.size())
-			print("╚═══════════════════════════════════════════════════════════════")
+		print("║ Total remaining weapons: %d" % remaining_weapons.size())
+		if remaining_weapons.is_empty():
+			print("║ ✓ This is the FINAL weapon - dialog will show 'Complete Shooting' button")
+		print("╚═══════════════════════════════════════════════════════════════")
 
-			# Get last weapon result for dialog display
-			var last_weapon_result = _get_last_weapon_result()
+		# Get last weapon result for dialog display
+		var last_weapon_result = _get_last_weapon_result()
 
-			# Emit signal to show confirmation dialog to attacker
-			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
+		# Emit signal to show confirmation dialog to attacker
+		# NOTE: remaining_weapons may be EMPTY if this is the final weapon
+		emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
-			# Return success with pause indicator for multiplayer sync
-			print("ShootingPhase: Returning result with sequential_pause indicator")
-			print("========================================")
-			return create_result(true, [], "Weapon %d complete (0 hits) - awaiting next weapon confirmation" % (current_index + 1), {
-				"sequential_pause": true,
-				"current_weapon_index": resolution_state.current_index,
-				"total_weapons": weapon_order.size(),
-				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
-				"remaining_weapons": remaining_weapons,
-				"last_weapon_result": last_weapon_result,
-				"dice": dice_data
-			})
-		else:
-			# All weapons complete (after final weapon missed)
-			print("ShootingPhase: All weapons in sequence complete (after miss)!")
-			log_phase_message("All weapons resolved sequentially")
-
-			# Mark shooter as done
-			var shooter_id = active_shooter_id  # Store before clearing
-			units_that_shot.append(active_shooter_id)
-			var changes = [{
-				"op": "set",
-				"path": "units.%s.flags.has_shot" % active_shooter_id,
-				"value": true
-			}]
-
-			# Clear state
-			active_shooter_id = ""
-			confirmed_assignments.clear()
-			resolution_state.clear()
-
-			# Emit signal to clear visuals
-			emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
-
-			print("========================================")
-			return create_result(true, changes, "Sequential weapon resolution complete - no hits on final weapon")
+		# Return success with pause indicator for multiplayer sync
+		print("ShootingPhase: Returning result with sequential_pause indicator")
+		print("========================================")
+		return create_result(true, [], "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
+			"sequential_pause": true,
+			"current_weapon_index": resolution_state.current_index,
+			"total_weapons": weapon_order.size(),
+			"weapons_remaining": weapon_order.size() - resolution_state.current_index,
+			"remaining_weapons": remaining_weapons,
+			"last_weapon_result": last_weapon_result,
+			"dice": dice_data
+		})
 
 	# Store save data and trigger interactive saves
 	pending_save_data = save_data_list
@@ -1275,6 +1374,49 @@ func _validate_continue_sequence(action: Dictionary) -> Dictionary:
 
 	return {"valid": true, "errors": []}
 
+func _validate_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
+	"""Validate completing shooting for a unit after final weapon"""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	if unit_id != active_shooter_id:
+		return {"valid": false, "errors": ["Unit is not the active shooter"]}
+
+	return {"valid": true, "errors": []}
+
+func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
+	"""Mark shooter as done and clear state"""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING PHASE: COMPLETE_SHOOTING_FOR_UNIT")
+	print("║ Unit ID: ", unit_id)
+	print("║ This is triggered when user views final weapon results")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	units_that_shot.append(unit_id)
+
+	# Clear state
+	var shooter_id = active_shooter_id  # Store before clearing
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+
+	log_phase_message("Shooting complete for unit %s" % unit_id)
+
+	# Emit signal to clear visuals
+	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+	return create_result(true, changes, "Shooting complete")
+
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
 	print("╔═══════════════════════════════════════════════════════════════")
@@ -1359,9 +1501,18 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	var is_sequential = (mode == "sequential")
 
 	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SEQUENTIAL MODE CHECK")
-	print("║ mode: ", mode)
+	print("║ MODE CHECK IN _process_apply_saves")
+	print("║ resolution_state keys: ", resolution_state.keys())
+	print("║ mode from resolution_state: '", mode, "'")
 	print("║ is_sequential: ", is_sequential)
+	print("║ active_shooter_id: ", active_shooter_id)
+	print("║ confirmed_assignments.size(): ", confirmed_assignments.size())
+	print("║")
+	print("║ PATH DECISION:")
+	if is_sequential:
+		print("║ → Will take SEQUENTIAL path (lines 1401-1508)")
+	else:
+		print("║ → Will take SINGLE WEAPON path (lines 1510+)")
 	print("╚═══════════════════════════════════════════════════════════════")
 
 	if is_sequential:
@@ -1418,96 +1569,154 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			print("ShootingPhase: Moving to next weapon index: %d" % resolution_state.current_index)
 			print("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index))
 
-			# Check if there are more weapons to resolve
-			if resolution_state.current_index < weapon_order.size():
-				# PAUSE: Don't auto-continue to next weapon
-				# Wait for attacker to confirm before continuing
-				print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
-				print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
+			# ALWAYS PAUSE for attacker to confirm (even if last weapon)
+			# Wait for attacker to confirm before continuing or completing
+			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
+			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
 
-				# NEW: Build remaining weapons with validation
-				var remaining_weapons = []
+			# Build remaining weapons with validation (may be empty array if this is the last weapon)
+			var remaining_weapons = []
 
-				print("╔═══════════════════════════════════════════════════════════════")
-				print("║ BUILDING REMAINING WEAPONS (after saves)")
-				print("║ weapon_order.size() = %d" % weapon_order.size())
-				print("║ current_index = %d" % resolution_state.current_index)
-				print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ BUILDING REMAINING WEAPONS (after saves)")
+			print("║ weapon_order.size() = %d" % weapon_order.size())
+			print("║ current_index = %d" % resolution_state.current_index)
+			print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
 
-				for i in range(resolution_state.current_index, weapon_order.size()):
-					var weapon = weapon_order[i]
-					remaining_weapons.append(weapon)
+			for i in range(resolution_state.current_index, weapon_order.size()):
+				var weapon = weapon_order[i]
+				remaining_weapons.append(weapon)
 
-					# Validate weapon structure
-					var remaining_weapon_id = weapon.get("weapon_id", "")
-					if remaining_weapon_id == "":
-						push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
-						print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
-						print("║   Full weapon object: %s" % str(weapon))
-					else:
-						print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+				# Validate weapon structure
+				var remaining_weapon_id = weapon.get("weapon_id", "")
+				if remaining_weapon_id == "":
+					push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
+					print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
+					print("║   Full weapon object: %s" % str(weapon))
+				else:
+					print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
 
-				print("║ Total remaining weapons: %d" % remaining_weapons.size())
-				print("╚═══════════════════════════════════════════════════════════════")
+			print("║ Total remaining weapons: %d" % remaining_weapons.size())
+			if remaining_weapons.is_empty():
+				print("║ ✓ This is the FINAL weapon - dialog will show 'Complete Shooting' button")
+			print("╚═══════════════════════════════════════════════════════════════")
 
-				# Get last weapon result for dialog display
-				var last_weapon_result = _get_last_weapon_result()
+			# Get last weapon result for dialog display
+			var last_weapon_result = _get_last_weapon_result()
 
-				# Emit signal to show confirmation dialog to attacker
-				print("╔═══════════════════════════════════════════════════════════════")
-				print("║ EMITTING next_weapon_confirmation_required SIGNAL")
-				print("║ remaining_weapons.size(): ", remaining_weapons.size())
-				print("║ current_index: ", resolution_state.current_index)
-				print("║ last_weapon_result keys: ", last_weapon_result.keys())
-				print("╚═══════════════════════════════════════════════════════════════")
-				emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
+			# Emit signal to show confirmation dialog to attacker
+			# NOTE: remaining_weapons may be EMPTY if this is the final weapon
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ EMITTING next_weapon_confirmation_required SIGNAL")
+			print("║ remaining_weapons.size(): ", remaining_weapons.size())
+			print("║ current_index: ", resolution_state.current_index)
+			print("║ last_weapon_result keys: ", last_weapon_result.keys())
+			print("╚═══════════════════════════════════════════════════════════════")
+			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
-				# Return success with pause indicator for multiplayer sync
-				var result = create_result(true, all_diffs, "Weapon %d complete - awaiting next weapon confirmation" % (current_index + 1), {
-					"sequential_pause": true,
-					"current_weapon_index": resolution_state.current_index,
-					"total_weapons": weapon_order.size(),
-					"weapons_remaining": weapon_order.size() - resolution_state.current_index,
-					"remaining_weapons": remaining_weapons,
-					"last_weapon_result": last_weapon_result
-				})
+			# Return success with pause indicator for multiplayer sync
+			var result = create_result(true, all_diffs, "Weapon %d complete - awaiting confirmation" % (current_index + 1), {
+				"sequential_pause": true,
+				"current_weapon_index": resolution_state.current_index,
+				"total_weapons": weapon_order.size(),
+				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
+				"remaining_weapons": remaining_weapons,
+				"last_weapon_result": last_weapon_result
+			})
 
-				print("╔═══════════════════════════════════════════════════════════════")
-				print("║ APPLY_SAVES RESULT (with sequential_pause)")
-				print("║ result.sequential_pause: ", result.get("sequential_pause", false))
-				print("║ result.remaining_weapons.size(): ", result.get("remaining_weapons", []).size())
-				print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
-				print("╚═══════════════════════════════════════════════════════════════")
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ APPLY_SAVES RESULT (with sequential_pause)")
+			print("║ result.sequential_pause: ", result.get("sequential_pause", false))
+			print("║ result.remaining_weapons.size(): ", result.get("remaining_weapons", []).size())
+			print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
+			print("╚═══════════════════════════════════════════════════════════════")
 
-				return result
-			else:
-				# All weapons complete
-				print("ShootingPhase: All weapons in sequence complete!")
-				print("========================================")
-				# Fall through to normal completion below
+			return result
 
-	# Normal mode or end of sequential mode - mark shooter as done
-	var shooter_id = active_shooter_id  # Store before clearing
-	all_diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.has_shot" % active_shooter_id,
-		"value": true
+	# Normal mode (single weapon) or fast mode - show results dialog before completing
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ 🎯 SINGLE WEAPON PATH REACHED! (Line 1548)")
+	print("║ mode: '", mode, "'")
+	print("║ total_casualties: ", total_casualties)
+	print("║ confirmed_assignments.size(): ", confirmed_assignments.size())
+	print("║ all_diffs.size(): ", all_diffs.size())
+	print("║")
+	print("║ NOW: Building last_weapon_result...")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Build last weapon result for single weapon case
+	var last_weapon_result = {}
+	if not confirmed_assignments.is_empty():
+		print("║ ✓ confirmed_assignments NOT empty, building result...")
+		var assignment = confirmed_assignments[0]
+		var weapon_id = assignment.get("weapon_id", "")
+		print("║   weapon_id: ", weapon_id)
+
+		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+		print("║   weapon_name: ", weapon_profile.get("name", weapon_id))
+
+		var target_unit_id = assignment.get("target_unit_id", "")
+		var target_unit = get_unit(target_unit_id)
+		print("║   target: ", target_unit.get("meta", {}).get("name", target_unit_id))
+
+		# Build result from save data
+		var saves_failed = 0
+		for save_result in save_results_list:
+			saves_failed += save_result.get("saves_failed", 0)
+
+		print("║   saves_failed: ", saves_failed)
+		print("║   casualties: ", total_casualties)
+
+		last_weapon_result = {
+			"weapon_id": weapon_id,
+			"weapon_name": weapon_profile.get("name", weapon_id),
+			"target_unit_id": target_unit_id,
+			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+			"hits": 0,  # We don't have this data easily accessible in single weapon mode
+			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
+			"saves_failed": saves_failed,
+			"casualties": total_casualties,
+			"total_attacks": 0,  # We don't have this data easily accessible
+			"dice_rolls": []
+		}
+		print("║ ✓ last_weapon_result built successfully!")
+	else:
+		print("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
+
+	# Emit signal with EMPTY remaining_weapons (signals completion)
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL")
+	print("║ Signal name: 'next_weapon_confirmation_required'")
+	print("║ Parameter 1 (remaining_weapons): [] (empty array)")
+	print("║ Parameter 2 (current_index): 0")
+	print("║ Parameter 3 (last_weapon_result): ", last_weapon_result)
+	print("║")
+	print("║ This signal should trigger ShootingController to show dialog!")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	emit_signal("next_weapon_confirmation_required", [], 0, last_weapon_result)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ✅ Signal emitted successfully!")
+	print("║ Returning result with sequential_pause=true")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Return with pause indicator (completion will happen when user clicks "Complete Shooting")
+	var result = create_result(true, all_diffs, "Single weapon complete - awaiting confirmation", {
+		"sequential_pause": true,
+		"remaining_weapons": [],
+		"last_weapon_result": last_weapon_result,
+		"current_weapon_index": 0,
+		"total_weapons": 1
 	})
 
-	units_that_shot.append(active_shooter_id)
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ 🎬 SINGLE WEAPON PATH COMPLETE")
+	print("║ Returning to caller with result")
+	print("║ User should now see NextWeaponDialog")
+	print("╚═══════════════════════════════════════════════════════════════")
 
-	# Clear state
-	pending_save_data.clear()
-	active_shooter_id = ""
-	confirmed_assignments.clear()
-	resolution_state.clear()
-
-	log_phase_message("Save resolution complete - %d total casualties" % total_casualties)
-
-	# Emit resolved signal to clear visuals
-	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
-
-	return create_result(true, all_diffs, "Saves resolved")
+	return result
 
 func _process_continue_sequence(action: Dictionary) -> Dictionary:
 	"""Process continuation to next weapon in sequential mode"""

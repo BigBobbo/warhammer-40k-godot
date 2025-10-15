@@ -1363,19 +1363,12 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	print("ShootingController: Remaining weapons: %d, current_index: %d" % [remaining_weapons.size(), current_index])
 	print("ShootingController: Last weapon result keys: %s" % str(last_weapon_result.keys()))
 
-	# NEW: Validate remaining_weapons
+	# Note: remaining_weapons CAN be empty - this is the final weapon case!
 	if remaining_weapons.is_empty():
-		push_error("ShootingController: remaining_weapons is EMPTY - cannot show dialog!")
-		print("ShootingController: ❌ No weapons to show in dialog")
-		print("========================================")
+		print("ShootingController: ✓ Empty remaining_weapons - this is the FINAL weapon")
+		print("ShootingController: Dialog will show 'Complete Shooting' button")
 
-		# Show error message to user
-		if dice_log_display:
-			dice_log_display.append_text("[color=red]ERROR: No remaining weapons found! This is a bug.[/color]\n")
-
-		return
-
-	# NEW: Validate last_weapon_result
+	# Validate last_weapon_result
 	if last_weapon_result.is_empty():
 		push_warning("ShootingController: last_weapon_result is EMPTY - showing dialog without summary")
 
@@ -1434,6 +1427,9 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 
 	# Connect to confirmation signal - when user clicks Continue, show WeaponOrderDialog
 	dialog.continue_confirmed.connect(_on_show_weapon_order_from_next_weapon_dialog)
+
+	# NEW: Connect to completion signal - when user clicks "Complete Shooting"
+	dialog.shooting_complete_confirmed.connect(_on_shooting_complete)
 
 	# Add to scene tree
 	get_tree().root.add_child(dialog)
@@ -1548,6 +1544,35 @@ func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> vo
 
 	print("║ Action emitted successfully")
 	print("╚═══════════════════════════════════════════════════════════════")
+
+func _on_shooting_complete() -> void:
+	"""Handle shooting completion after final weapon"""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: SHOOTING COMPLETE")
+	print("║ User confirmed completion after viewing final weapon results")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Get the current active shooter ID before clearing
+	var shooter_id = active_shooter_id
+
+	if shooter_id == "":
+		print("WARNING: No active shooter when shooting_complete_confirmed received")
+		return
+
+	# Emit action to mark shooter as complete
+	emit_signal("shoot_action_requested", {
+		"type": "COMPLETE_SHOOTING_FOR_UNIT",
+		"actor_unit_id": shooter_id
+	})
+
+	# Clear local state
+	active_shooter_id = ""
+	weapon_assignments.clear()
+	_clear_visuals()
+
+	# Show feedback in dice log
+	if dice_log_display:
+		dice_log_display.append_text("[b][color=green]✓ Shooting complete for unit[/color][/b]\n")
 
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
