@@ -426,9 +426,9 @@ func _refresh_attack_tree() -> void:
 			weapon_item.set_text(1, "[Click to Select]")
 			weapon_item.set_selectable(0, true)
 			weapon_item.set_selectable(1, false)
-			
-			# Add auto-assign button
-			weapon_item.add_button(1, preload("res://icon.svg"), 0, false, "Auto-assign first target")
+
+			# REMOVED: Icon button for consistency with ShootingController
+			# Users can select weapon, then click enemy unit to assign target
 
 func _show_engagement_indicators() -> void:
 	_clear_range_indicators()

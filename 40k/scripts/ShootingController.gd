@@ -37,6 +37,8 @@ var target_basket: ItemList
 var confirm_button: Button
 var clear_button: Button
 var dice_log_display: RichTextLabel
+var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
+var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
 
 # Modifier UI elements (Phase 1 MVP)
 var modifier_panel: VBoxContainer
@@ -210,7 +212,25 @@ func _setup_right_panel() -> void:
 	var weapon_label = Label.new()
 	weapon_label.text = "Weapon Assignments:"
 	shooting_panel.add_child(weapon_label)
-	
+
+	# Create "Apply to All" button container (initially hidden)
+	auto_target_button_container = HBoxContainer.new()
+	auto_target_button_container.name = "AutoTargetContainer"
+	auto_target_button_container.visible = false  # Hidden until first weapon assigned
+
+	var auto_target_label = Label.new()
+	auto_target_label.text = "Same target for all:"
+	auto_target_button_container.add_child(auto_target_label)
+
+	var apply_to_all_button = Button.new()
+	apply_to_all_button.name = "ApplyToAllButton"
+	apply_to_all_button.text = "Apply to All Weapons"
+	apply_to_all_button.custom_minimum_size = Vector2(150, 30)
+	apply_to_all_button.pressed.connect(_on_apply_to_all_pressed)
+	auto_target_button_container.add_child(apply_to_all_button)
+
+	shooting_panel.add_child(auto_target_button_container)
+
 	weapon_tree = Tree.new()
 	weapon_tree.custom_minimum_size = Vector2(230, 120)
 	weapon_tree.columns = 2
@@ -502,8 +522,8 @@ func _refresh_weapon_tree() -> void:
 				weapon_item.set_selectable(0, true)  # Make the weapon selectable
 				weapon_item.set_selectable(1, false) # Don't make column 1 selectable
 
-				# Add a button to auto-assign the first available target
-				weapon_item.add_button(1, preload("res://icon.svg"), 0, false, "Auto-assign first target")
+				# REMOVED: Icon button that was making rows too tall
+				# Users can select weapon, then click enemy unit to assign target
 
 func _highlight_targets() -> void:
 	_clear_target_highlights()
@@ -956,17 +976,22 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
 
+	# NEW: Hide auto-target button when selecting new shooter
+	if auto_target_button_container:
+		auto_target_button_container.visible = false
+	last_assigned_target_id = ""
+
 	# Clear previous visualizations (comprehensive cleanup)
 	if los_debug_visual and is_instance_valid(los_debug_visual):
 		los_debug_visual.clear_all_debug_visuals()
-	
+
 	# Request targets and trigger LoS visualization
 	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
 	_highlight_targets()
 	_refresh_weapon_tree()
 	_update_ui_state()
 	_show_range_indicators()
-	
+
 	# Visualize LoS to all eligible targets
 	if los_debug_visual and los_debug_visual.debug_enabled:
 		print("ShootingController: Visualizing LoS to ", eligible_targets.size(), " targets")
@@ -1491,14 +1516,32 @@ func _on_weapon_tree_item_selected() -> void:
 
 	var weapon_id = selected.get_metadata(0)
 	if weapon_id:
+		# DEBUG: Log weapon selection
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ WEAPON SELECTED IN TREE")
+		print("║ Weapon ID: ", weapon_id)
+		print("║ Weapon Name: ", RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id))
+		print("║ Has assignment: ", weapon_assignments.has(weapon_id))
+		if weapon_assignments.has(weapon_id):
+			print("║ Assigned to: ", weapon_assignments[weapon_id])
+			print("║ Target name: ", eligible_targets.get(weapon_assignments[weapon_id], {}).get("unit_name", "Unknown"))
+		print("║ Current tree text column 1: ", selected.get_text(1))
+
 		# Store selected weapon for modifier application
 		selected_weapon_id = weapon_id
 
 		# Visual feedback - highlight the selected weapon
 		selected.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.5))
 
-		# Update instruction text in column 1
-		selected.set_text(1, "[Click enemy to assign]")
+		# FIX: Only update instruction text if weapon doesn't have a target assigned yet
+		if not weapon_assignments.has(weapon_id):
+			print("║ Setting text to '[Click enemy to assign]' (no assignment)")
+			selected.set_text(1, "[Click enemy to assign]")
+		else:
+			print("║ Keeping existing assignment text (weapon already assigned)")
+
+		print("║ After update, tree text column 1: ", selected.get_text(1))
+		print("╚═══════════════════════════════════════════════════════════════")
 
 		# Show modifier panel and load modifiers for this weapon
 		if modifier_panel and modifier_label:
@@ -1508,8 +1551,12 @@ func _on_weapon_tree_item_selected() -> void:
 
 		# Show a message to the user
 		if dice_log_display:
-			dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit or use the button to assign target[/color]\n" %
-				RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id))
+			var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+			if weapon_assignments.has(weapon_id):
+				var target_name = eligible_targets.get(weapon_assignments[weapon_id], {}).get("unit_name", "Unknown")
+				dice_log_display.append_text("[color=yellow]Selected %s (currently assigned to %s)[/color]\n" % [weapon_name, target_name])
+			else:
+				dice_log_display.append_text("[color=yellow]Selected %s - Click on an enemy unit to assign target[/color]\n" % weapon_name)
 
 func _on_weapon_tree_button_clicked(item: TreeItem, column: int, id: int, mouse_button_index: int) -> void:
 	if not item or column != 1:
@@ -1528,6 +1575,12 @@ func _on_clear_pressed() -> void:
 		"type": "CLEAR_ALL_ASSIGNMENTS"
 	})
 	weapon_assignments.clear()
+
+	# NEW: Hide auto-target button when clearing assignments
+	if auto_target_button_container:
+		auto_target_button_container.visible = false
+	last_assigned_target_id = ""
+
 	_update_ui_state()
 
 func _on_confirm_pressed() -> void:
@@ -1547,19 +1600,39 @@ func _on_end_phase_pressed() -> void:
 	})
 
 func _update_ui_state() -> void:
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ UPDATE UI STATE CALLED")
+	print("║ weapon_assignments count: ", weapon_assignments.size())
+
 	if confirm_button:
 		confirm_button.disabled = weapon_assignments.is_empty()
 	if clear_button:
 		clear_button.disabled = weapon_assignments.is_empty()
-	
+
 	# Update target basket
 	if target_basket:
 		target_basket.clear()
+		print("║ Updating target basket:")
 		for weapon_id in weapon_assignments:
 			var target_id = weapon_assignments[weapon_id]
 			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 			var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
-			target_basket.add_item("%s → %s" % [weapon_profile.get("name", weapon_id), target_name])
+			var display_text = "%s → %s" % [weapon_profile.get("name", weapon_id), target_name]
+			target_basket.add_item(display_text)
+			print("║   Added to basket: ", display_text)
+
+	# DEBUG: Also log what's in the weapon tree
+	print("║ Current weapon tree display:")
+	var root = weapon_tree.get_root()
+	if root:
+		var child = root.get_first_child()
+		while child:
+			var wpn_id = child.get_metadata(0)
+			var wpn_name = child.get_text(0)
+			var target_text = child.get_text(1)
+			print("║   - %s | Target: %s | Assigned: %s" % [wpn_name, target_text, weapon_assignments.has(wpn_id)])
+			child = child.get_next()
+	print("╚═══════════════════════════════════════════════════════════════")
 
 func _input(event: InputEvent) -> void:
 	# CRITICAL: Skip ALL input handling if wound allocation dialog is showing
@@ -1628,13 +1701,14 @@ func _handle_board_click(position: Vector2) -> void:
 	
 	# Use a larger click threshold to make selection easier
 	if closest_target != "" and closest_distance < 500:  # Very large threshold for testing
+		print("[ShootingController] Click detected - assigning target: %s (distance: %.1f)" % [closest_target, closest_distance])
 		_select_target_for_current_weapon(closest_target)
 	else:
-		
-		# If no target is close enough, let's try a different approach - just select the first available target
-		if not eligible_targets.is_empty():
-			var first_target = eligible_targets.keys()[0]
-			_select_target_for_current_weapon(first_target)
+		# REMOVED FALLBACK: Don't auto-assign first target if click misses
+		# This was causing weapons to be incorrectly reassigned
+		print("[ShootingController] Click missed all targets (closest: %s at %.1f px). Please click directly on enemy model." % [closest_target if closest_target != "" else "none", closest_distance])
+		if dice_log_display:
+			dice_log_display.append_text("[color=red]Click missed - please click directly on an enemy model[/color]\n")
 
 func _handle_board_hover(position: Vector2) -> void:
 	# Show LoS line to hovered target
@@ -1656,17 +1730,38 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	# Get currently selected weapon from tree
 	if not weapon_tree:
 		return
-	
+
 	var selected = weapon_tree.get_selected()
 	if not selected:
 		return
-	
+
 	var weapon_id = selected.get_metadata(0)
 	if not weapon_id:
 		return
-	
+
+	# DEBUG: Log target assignment
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ TARGET ASSIGNMENT")
+	print("║ Weapon ID: ", weapon_id)
+	print("║ Weapon Name: ", RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id))
+	print("║ Target ID: ", target_id)
+	print("║ Target Name: ", eligible_targets.get(target_id, {}).get("unit_name", "Unknown"))
+	print("║ Previous assignment: ", weapon_assignments.get(weapon_id, "None"))
+
 	# Assign target
 	weapon_assignments[weapon_id] = target_id
+
+	print("║ Assignment stored in weapon_assignments dictionary")
+	print("║ Current weapon_assignments state:")
+	for wpn_id in weapon_assignments:
+		var wpn_name = RulesEngine.get_weapon_profile(wpn_id).get("name", wpn_id)
+		var tgt_id = weapon_assignments[wpn_id]
+		var tgt_name = eligible_targets.get(tgt_id, {}).get("unit_name", "Unknown")
+		print("║   - %s → %s" % [wpn_name, tgt_name])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# NEW: Store last assigned target for "Apply to All" feature
+	last_assigned_target_id = target_id
 
 	# Get model IDs for this weapon
 	var model_ids = []
@@ -1690,17 +1785,27 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 		"type": "ASSIGN_TARGET",
 		"payload": payload
 	})
-	
+
 	# Update UI
 	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
 	selected.set_text(1, target_name)
 	selected.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))  # Red background for assigned target
-	
+
+	# NEW: Show "Apply to All" button if there are unassigned weapons remaining
+	var unassigned_count = _count_unassigned_weapons()
+	if unassigned_count > 0 and auto_target_button_container:
+		auto_target_button_container.visible = true
+
+		# Update button text to show how many weapons will be affected
+		var apply_button = auto_target_button_container.get_node_or_null("ApplyToAllButton")
+		if apply_button:
+			apply_button.text = "Apply to %d Remaining Weapons" % unassigned_count
+
 	# Show feedback
 	if dice_log_display:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=green]✓ Assigned %s to target %s[/color]\n" % [weapon_name, target_name])
-	
+
 	_update_ui_state()
 
 # ==========================================
@@ -1802,6 +1907,95 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		"type": "ASSIGN_TARGET",
 		"payload": payload
 	})
+
+	# Update UI state
+	_update_ui_state()
+
+# ==========================================
+# APPLY TO ALL SYSTEM
+# ==========================================
+
+func _count_unassigned_weapons() -> int:
+	"""Count how many weapons don't have targets assigned yet"""
+	var root = weapon_tree.get_root()
+	if not root:
+		return 0
+
+	var unassigned = 0
+	var child = root.get_first_child()
+
+	while child:
+		var weapon_id = child.get_metadata(0)
+		if weapon_id and not weapon_assignments.has(weapon_id):
+			unassigned += 1
+		child = child.get_next()
+
+	return unassigned
+
+func _on_apply_to_all_pressed() -> void:
+	"""Apply the last assigned target to all unassigned weapons"""
+	if last_assigned_target_id == "" or not eligible_targets.has(last_assigned_target_id):
+		print("ERROR: No valid target to apply")
+		return
+
+	var target_name = eligible_targets.get(last_assigned_target_id, {}).get("unit_name", last_assigned_target_id)
+
+	# Get all weapons from the tree
+	var root = weapon_tree.get_root()
+	if not root:
+		return
+
+	var assigned_count = 0
+	var child = root.get_first_child()
+
+	while child:
+		var weapon_id = child.get_metadata(0)
+
+		# Check if this weapon is not yet assigned
+		if weapon_id and not weapon_assignments.has(weapon_id):
+			# Get model IDs for this weapon
+			var model_ids = []
+			var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+			for model_id in unit_weapons:
+				if weapon_id in unit_weapons[model_id]:
+					model_ids.append(model_id)
+
+			# Assign target
+			weapon_assignments[weapon_id] = last_assigned_target_id
+
+			# Update UI for this weapon
+			child.set_text(1, target_name)
+			child.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))
+
+			# Build payload for network sync
+			var payload = {
+				"weapon_id": weapon_id,
+				"target_unit_id": last_assigned_target_id,
+				"model_ids": model_ids
+			}
+
+			# Add modifiers if they exist
+			if weapon_modifiers.has(weapon_id):
+				payload["modifiers"] = weapon_modifiers[weapon_id]
+
+			# Emit assignment action
+			emit_signal("shoot_action_requested", {
+				"type": "ASSIGN_TARGET",
+				"payload": payload
+			})
+
+			assigned_count += 1
+
+		child = child.get_next()
+
+	# Hide the "Apply to All" button since all weapons are now assigned
+	if auto_target_button_container:
+		auto_target_button_container.visible = false
+
+	# Show feedback
+	if dice_log_display:
+		dice_log_display.append_text("[color=green]✓ Applied target %s to %d weapons[/color]\n" %
+			[target_name, assigned_count])
 
 	# Update UI state
 	_update_ui_state()
