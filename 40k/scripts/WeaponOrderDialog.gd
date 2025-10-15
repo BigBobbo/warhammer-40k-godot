@@ -98,6 +98,7 @@ func _ready() -> void:
 	# Make this button prominent with green color
 	continue_button.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
 	button_hbox.add_child(continue_button)
+	continue_button.visible = false  # Hidden - users should use "Start Sequence" or "Fast Roll All"
 
 	vbox.add_child(HSeparator.new())
 
