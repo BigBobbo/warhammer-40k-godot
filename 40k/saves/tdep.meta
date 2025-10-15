@@ -1,0 +1,17 @@
+{
+	"created_at": 1759969234.84337,
+	"description": "tdep",
+	"game_state": {
+		"active_player": 2,
+		"game_id": "2dad84c5-6160-e807-9c66--10404541e12dddad",
+		"phase": 0,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "tdep",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

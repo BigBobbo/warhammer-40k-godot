@@ -142,6 +142,17 @@ func submit_action(action: Dictionary) -> void:
 		# Execute via GameManager
 		var result = game_manager.apply_action(action)
 		print("NetworkManager: Host applied action, result.success = ", result.success)
+
+		# CRITICAL LOGGING: Check if result contains sequential_pause for APPLY_SAVES
+		if action.get("type") == "APPLY_SAVES":
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ HOST APPLIED OWN APPLY_SAVES - CHECKING RESULT")
+			print("║ result.success: ", result.success)
+			print("║ result.sequential_pause: ", result.get("sequential_pause", false))
+			print("║ result.remaining_weapons: ", result.get("remaining_weapons", []).size() if result.has("remaining_weapons") else "MISSING")
+			print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
+			print("╚═══════════════════════════════════════════════════════════════")
+
 		if result.success:
 			# Broadcast the result to client
 			print("NetworkManager: Broadcasting result to clients")
@@ -180,6 +191,16 @@ func _send_action_to_host(action: Dictionary) -> void:
 	# Execute via GameManager - this applies the state changes AND emits result_applied signal
 	var result = game_manager.apply_action(action)
 	print("NetworkManager: Host applied client action, result.success = ", result.success)
+
+	# CRITICAL LOGGING: Check if result contains sequential_pause for APPLY_SAVES
+	if action.get("type") == "APPLY_SAVES":
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ HOST APPLIED CLIENT APPLY_SAVES - CHECKING RESULT")
+		print("║ result.success: ", result.success)
+		print("║ result.sequential_pause: ", result.get("sequential_pause", false))
+		print("║ result.remaining_weapons: ", result.get("remaining_weapons", []).size() if result.has("remaining_weapons") else "MISSING")
+		print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
+		print("╚═══════════════════════════════════════════════════════════════")
 
 	if result.success:
 		# Update phase snapshot so next validation sees the changes
@@ -294,8 +315,29 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		if sequential_pause and phase.has_signal("next_weapon_confirmation_required"):
 			var remaining_weapons = result.get("remaining_weapons", [])
 			var current_index = result.get("current_weapon_index", 0)
+
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ CLIENT RE-EMITTING next_weapon_confirmation_required")
+			print("║ remaining_weapons.size(): ", remaining_weapons.size())
+			print("║ current_index: ", current_index)
+			print("║ Local peer: ", multiplayer.get_unique_id())
+			print("║ Local player: ", peer_to_player_map.get(multiplayer.get_unique_id(), -1))
+			print("║ Active player: ", game_state.get_active_player() if game_state else -1)
+
+			# Validate remaining weapons
+			for i in range(remaining_weapons.size()):
+				var weapon = remaining_weapons[i]
+				print("║   Weapon %d: %s" % [i, weapon.get("weapon_id", "MISSING")])
+
+			print("╚═══════════════════════════════════════════════════════════════")
+
 			print("NetworkManager: ✅ Client re-emitting next_weapon_confirmation_required with %d remaining weapons" % remaining_weapons.size())
 			phase.emit_signal("next_weapon_confirmation_required", remaining_weapons, current_index)
+		else:
+			if not sequential_pause:
+				print("NetworkManager: ℹ️ No sequential_pause in result - NOT re-emitting signal")
+			elif not phase.has_signal("next_weapon_confirmation_required"):
+				print("NetworkManager: ⚠️ Phase doesn't have next_weapon_confirmation_required signal!")
 
 	# Handle dice_rolled signal - re-emit dice data so attacker sees updates
 	# This happens when actions contain dice data (hits, wounds, etc.)
@@ -315,27 +357,53 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	print("NetworkManager:   action_type == APPLY_SAVES: ", action_type == "APPLY_SAVES")
 
 	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "APPLY_SAVES":
-		print("NetworkManager:   Action type matches, checking for save_data_list...")
-		# Check if the result contains save_data_list (indicating saves are needed)
 		var save_data_list = result.get("save_data_list", [])
-		print("NetworkManager:   save_data_list = ", save_data_list)
-		print("NetworkManager:   save_data_list.is_empty() = ", save_data_list.is_empty())
 
 		if not save_data_list.is_empty() and phase.has_signal("saves_required"):
-			print("NetworkManager: ✅ Client re-emitting saves_required signal with %d targets" % save_data_list.size())
-			phase.emit_signal("saves_required", save_data_list)
+			# NEW: Only re-emit if local player is the defender
+			var first_save_data = save_data_list[0]
+			var target_unit_id = first_save_data.get("target_unit_id", "")
 
-			# Also store the pending_save_data on the client's phase instance
-			if "pending_save_data" in phase:
-				phase.pending_save_data = save_data_list
-				print("NetworkManager: ✅ Client stored pending_save_data")
+			if target_unit_id != "":
+				var target_unit = GameState.get_unit(target_unit_id)
+				var defender_player = target_unit.get("owner", -1)
+
+				var local_peer_id = multiplayer.get_unique_id()
+				var local_player = peer_to_player_map.get(local_peer_id, -1)
+
+				print("NetworkManager:   Defender check: local=%d, defender=%d" % [local_player, defender_player])
+
+				if local_player == defender_player:
+					# LOGGING: Track NetworkManager re-emission
+					var timestamp = Time.get_ticks_msec()
+					var weapon = first_save_data.get("weapon_name", "unknown")
+					var wounds = first_save_data.get("wounds_to_save", 0)
+
+					print("╔═══════════════════════════════════════════════════════════════")
+					print("║ SAVES_REQUIRED RE-EMISSION (from NetworkManager)")
+					print("║ Timestamp: ", timestamp)
+					print("║ Source: NetworkManager._emit_client_visual_updates")
+					print("║ Action Type: ", action_type)
+					print("║ Local peer ID: ", local_peer_id)
+					print("║ Local player: ", local_player)
+					print("║ Defender player: ", defender_player)
+					print("║ Target: ", target_unit_id)
+					print("║ Weapon: ", weapon)
+					print("║ Wounds: ", wounds)
+					print("║ Save data list size: ", save_data_list.size())
+					print("╚═══════════════════════════════════════════════════════════════")
+
+					print("NetworkManager: ✅ Client (defender) re-emitting saves_required signal")
+					phase.emit_signal("saves_required", save_data_list)
+
+					# Also store the pending_save_data on the client's phase instance
+					if "pending_save_data" in phase:
+						phase.pending_save_data = save_data_list
+						print("NetworkManager: ✅ Client stored pending_save_data")
+				else:
+					print("NetworkManager: ℹ️ Client (attacker) skipping saves_required re-emission - local=%d is not defender=%d" % [local_player, defender_player])
 			else:
-				print("NetworkManager:   WARNING - phase doesn't have pending_save_data property")
-		else:
-			if save_data_list.is_empty():
-				print("NetworkManager:   ❌ save_data_list is empty")
-			if not phase.has_signal("saves_required"):
-				print("NetworkManager:   ❌ phase doesn't have saves_required signal")
+				print("NetworkManager:   ⚠️ No target_unit_id, skipping saves_required check")
 
 	print("NetworkManager: _emit_client_visual_updates END")
 

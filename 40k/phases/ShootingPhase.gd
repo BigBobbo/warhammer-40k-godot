@@ -746,10 +746,30 @@ func _resolve_next_weapon() -> Dictionary:
 			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
 			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
 
-			# Get remaining weapons for potential reordering
+			# NEW: Build remaining weapons with validation
 			var remaining_weapons = []
+
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ BUILDING REMAINING WEAPONS (after miss)")
+			print("║ weapon_order.size() = %d" % weapon_order.size())
+			print("║ current_index = %d" % resolution_state.current_index)
+			print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+
 			for i in range(resolution_state.current_index, weapon_order.size()):
-				remaining_weapons.append(weapon_order[i])
+				var weapon = weapon_order[i]
+				remaining_weapons.append(weapon)
+
+				# Validate weapon structure
+				var remaining_weapon_id = weapon.get("weapon_id", "")
+				if remaining_weapon_id == "":
+					push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
+					print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
+					print("║   Full weapon object: %s" % str(weapon))
+				else:
+					print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+
+			print("║ Total remaining weapons: %d" % remaining_weapons.size())
+			print("╚═══════════════════════════════════════════════════════════════")
 
 			# Emit signal to show confirmation dialog to attacker
 			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index)
@@ -1184,6 +1204,13 @@ func _validate_continue_sequence(action: Dictionary) -> Dictionary:
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ APPLY_SAVES PROCESSING START")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ resolution_state: ", resolution_state)
+	print("║ pending_save_data.size(): ", pending_save_data.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
 	var payload = action.get("payload", {})
 	var save_results_list = payload.get("save_results_list", [])
 
@@ -1195,12 +1222,37 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		if i >= pending_save_data.size():
 			break
 
-		var save_result = save_results_list[i]
+		var save_result_summary = save_results_list[i]
 		var save_data = pending_save_data[i]
+
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ PROCESSING SAVE RESULT %d" % i)
+		print("║ save_result_summary keys: ", save_result_summary.keys())
+		print("║ Has save_results: ", save_result_summary.has("save_results"))
+		print("║ Has allocation_history: ", save_result_summary.has("allocation_history"))
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Convert allocation_history to save_results format if needed
+		var save_results = []
+		if save_result_summary.has("save_results"):
+			save_results = save_result_summary.save_results
+		elif save_result_summary.has("allocation_history"):
+			# Convert allocation_history format to save_results format
+			print("║ Converting allocation_history to save_results format")
+			for alloc in save_result_summary.allocation_history:
+				save_results.append({
+					"saved": alloc.get("saved", false),
+					"model_id": alloc.get("model_id", ""),
+					"model_index": alloc.get("model_index", 0),  # CRITICAL: RulesEngine needs this!
+					"roll": alloc.get("roll", 0),
+					"damage": alloc.get("damage", 0),
+					"model_destroyed": alloc.get("model_destroyed", false)
+				})
+			print("║ Converted %d allocation entries to save_results" % save_results.size())
 
 		# Apply damage using RulesEngine
 		var damage_result = RulesEngine.apply_save_damage(
-			save_result.save_results,
+			save_results,
 			save_data,
 			game_state_snapshot
 		)
@@ -1211,14 +1263,16 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 		# Log results
 		var target_name = save_data.get("target_unit_name", "Unknown")
-		var saved_count = 0
-		var failed_count = 0
+		var saved_count = save_result_summary.get("saves_passed", 0)
+		var failed_count = save_result_summary.get("saves_failed", 0)
 
-		for sr in save_result.save_results:
-			if sr.saved:
-				saved_count += 1
-			else:
-				failed_count += 1
+		# Fall back to counting if not in summary
+		if saved_count == 0 and failed_count == 0:
+			for sr in save_results:
+				if sr.get("saved", false):
+					saved_count += 1
+				else:
+					failed_count += 1
 
 		log_phase_message("%s: %d saves passed, %d failed → %d casualties" % [
 			target_name,
@@ -1230,6 +1284,12 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")
 	var is_sequential = (mode == "sequential")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SEQUENTIAL MODE CHECK")
+	print("║ mode: ", mode)
+	print("║ is_sequential: ", is_sequential)
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	if is_sequential:
 		# Sequential mode - record results and PAUSE for attacker to confirm next weapon
@@ -1268,22 +1328,56 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
 				print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
 
-				# Get remaining weapons for potential reordering
+				# NEW: Build remaining weapons with validation
 				var remaining_weapons = []
+
+				print("╔═══════════════════════════════════════════════════════════════")
+				print("║ BUILDING REMAINING WEAPONS (after saves)")
+				print("║ weapon_order.size() = %d" % weapon_order.size())
+				print("║ current_index = %d" % resolution_state.current_index)
+				print("║ Expected remaining = %d" % (weapon_order.size() - resolution_state.current_index))
+
 				for i in range(resolution_state.current_index, weapon_order.size()):
-					remaining_weapons.append(weapon_order[i])
+					var weapon = weapon_order[i]
+					remaining_weapons.append(weapon)
+
+					# Validate weapon structure
+					var remaining_weapon_id = weapon.get("weapon_id", "")
+					if remaining_weapon_id == "":
+						push_error("ShootingPhase: Weapon at index %d has EMPTY weapon_id!" % i)
+						print("║ ⚠️  WARNING: Weapon %d has no weapon_id" % i)
+						print("║   Full weapon object: %s" % str(weapon))
+					else:
+						print("║ Added weapon %d: %s" % [i, remaining_weapon_id])
+
+				print("║ Total remaining weapons: %d" % remaining_weapons.size())
+				print("╚═══════════════════════════════════════════════════════════════")
 
 				# Emit signal to show confirmation dialog to attacker
+				print("╔═══════════════════════════════════════════════════════════════")
+				print("║ EMITTING next_weapon_confirmation_required SIGNAL")
+				print("║ remaining_weapons.size(): ", remaining_weapons.size())
+				print("║ current_index: ", resolution_state.current_index)
+				print("╚═══════════════════════════════════════════════════════════════")
 				emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index)
 
 				# Return success with pause indicator for multiplayer sync
-				return create_result(true, all_diffs, "Weapon %d complete - awaiting next weapon confirmation" % (current_index + 1), {
+				var result = create_result(true, all_diffs, "Weapon %d complete - awaiting next weapon confirmation" % (current_index + 1), {
 					"sequential_pause": true,
 					"current_weapon_index": resolution_state.current_index,
 					"total_weapons": weapon_order.size(),
 					"weapons_remaining": weapon_order.size() - resolution_state.current_index,
 					"remaining_weapons": remaining_weapons
 				})
+
+				print("╔═══════════════════════════════════════════════════════════════")
+				print("║ APPLY_SAVES RESULT (with sequential_pause)")
+				print("║ result.sequential_pause: ", result.get("sequential_pause", false))
+				print("║ result.remaining_weapons.size(): ", result.get("remaining_weapons", []).size())
+				print("║ result.current_weapon_index: ", result.get("current_weapon_index", -1))
+				print("╚═══════════════════════════════════════════════════════════════")
+
+				return result
 			else:
 				# All weapons complete
 				print("ShootingPhase: All weapons in sequence complete!")

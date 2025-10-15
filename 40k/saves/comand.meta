@@ -1,0 +1,17 @@
+{
+	"created_at": 1760023112.216,
+	"description": "comand",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "253be3c0-679f-6e0a-8e44-7b1ec7915f3f21ab",
+		"phase": 1,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "comand",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

@@ -1,0 +1,17 @@
+{
+	"created_at": 1760119021.71531,
+	"description": "test-fri1",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "5641fcaf-e451-f0d6-ad52--3e151731261f8735",
+		"phase": 1,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "test-fri1",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

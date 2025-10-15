@@ -106,6 +106,10 @@ func _ready() -> void:
 
 func setup(assignments: Array, phase = null) -> void:
 	"""Setup the dialog with weapon assignments from shooting phase"""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ WeaponOrderDialog.setup() CALLED")
+	print("║ Assignments count: %d" % assignments.size())
+
 	weapon_assignments = assignments.duplicate(true)
 	weapon_order.clear()
 	weapon_data.clear()
@@ -113,18 +117,41 @@ func setup(assignments: Array, phase = null) -> void:
 	current_phase = phase
 	is_resolving = false
 
+	# NEW: Validate assignments
+	if assignments.is_empty():
+		push_error("WeaponOrderDialog: Received EMPTY assignments array!")
+		print("║ ❌ ERROR: No assignments provided")
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Show error in dialog
+		instruction_label.text = "ERROR: No weapons provided!\nThis is a bug - please report."
+		instruction_label.add_theme_color_override("font_color", Color.RED)
+		return
+
 	# Connect to phase signals if available
 	if current_phase and current_phase.has_signal("dice_rolled"):
 		if not current_phase.dice_rolled.is_connected(_on_dice_rolled):
 			current_phase.dice_rolled.connect(_on_dice_rolled)
-			print("WeaponOrderDialog: Connected to phase dice_rolled signal")
+			print("║ Connected to phase dice_rolled signal")
 
 	# Group assignments by weapon type
-	var weapon_groups = {}  # weapon_id -> {assignments: [], count: 0, total_damage: 0}
+	var weapon_groups = {}
+	var skipped_count = 0  # NEW: Track skipped weapons
 
 	for assignment in weapon_assignments:
 		var weapon_id = assignment.get("weapon_id", "")
+
+		# NEW: Log each assignment
+		print("║ Processing assignment:")
+		print("║   weapon_id: '%s'" % weapon_id)
+		print("║   target_unit_id: '%s'" % assignment.get("target_unit_id", ""))
+		print("║   model_ids: %s" % str(assignment.get("model_ids", [])))
+
 		if weapon_id == "":
+			skipped_count += 1
+			push_error("WeaponOrderDialog: Assignment has EMPTY weapon_id, skipping!")
+			print("║   ❌ SKIPPED (empty weapon_id)")
+			print("║   Full assignment: %s" % str(assignment))
 			continue
 
 		if not weapon_groups.has(weapon_id):
@@ -137,6 +164,19 @@ func setup(assignments: Array, phase = null) -> void:
 
 		weapon_groups[weapon_id].assignments.append(assignment)
 		weapon_groups[weapon_id].count += assignment.get("model_ids", []).size()
+		print("║   ✓ Added to group '%s' (count: %d)" % [weapon_id, weapon_groups[weapon_id].count])
+
+	# NEW: Check if all weapons were skipped
+	if weapon_groups.is_empty():
+		push_error("WeaponOrderDialog: All weapons were SKIPPED due to empty weapon_id!")
+		print("║ ❌ ERROR: No valid weapons found (skipped %d)" % skipped_count)
+		print("║ This likely means weapon_order in ShootingPhase is corrupted")
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Show error in dialog
+		instruction_label.text = "ERROR: All weapons have missing IDs!\nweapon_order may be corrupted.\nThis is a bug - please report."
+		instruction_label.add_theme_color_override("font_color", Color.RED)
+		return
 
 	# Calculate total damage potential for each weapon
 	for weapon_id in weapon_groups:
@@ -167,7 +207,9 @@ func setup(assignments: Array, phase = null) -> void:
 	# Build UI
 	_rebuild_weapon_list()
 
-	print("WeaponOrderDialog setup complete with %d weapon types" % weapon_order.size())
+	print("║ Total weapon types: %d" % weapon_order.size())
+	print("║ Skipped assignments: %d" % skipped_count)
+	print("╚═══════════════════════════════════════════════════════════════")
 
 func _compare_weapon_damage(a: String, b: String) -> bool:
 	"""Compare weapon damage for sorting (used by sort_custom)"""

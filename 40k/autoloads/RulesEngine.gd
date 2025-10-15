@@ -1010,17 +1010,22 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	var weapons = unit.get("meta", {}).get("weapons", [])
 	var models = unit.get("models", [])
 	var result = {}
-	
-	# Assign all weapons to all alive models (simplified approach)
+
+	# First, collect unique weapon IDs from unit's weapon list
+	# This prevents duplicate weapons from causing multiple assignments
+	var unique_weapon_ids = []
+	for weapon in weapons:
+		if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
+			var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+			if weapon_id not in unique_weapon_ids:
+				unique_weapon_ids.append(weapon_id)
+
+	# Assign unique weapons to all alive models
 	for model in models:
 		var model_id = model.get("id", "")
 		if model_id != "" and model.get("alive", true):
-			result[model_id] = []
-			for weapon in weapons:
-				if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
-					var weapon_id = _generate_weapon_id(weapon.get("name", ""))
-					result[model_id].append(weapon_id)
-	
+			result[model_id] = unique_weapon_ids.duplicate()
+
 	return result
 
 # Helper function to generate consistent weapon IDs from names

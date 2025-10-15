@@ -2124,6 +2124,103 @@ func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 
 	return token
 
+func update_unit_visuals(unit_id: String) -> void:
+	"""Update visual tokens for a specific unit"""
+	print("╔══════════════════════════════════════════════════════════════════")
+	print("║ Main.update_unit_visuals() CALLED")
+	print("║ unit_id: ", unit_id)
+	print("╚══════════════════════════════════════════════════════════════════")
+
+	var unit = GameState.get_unit(unit_id)
+	print("Main: Unit lookup result:")
+	print("  - unit.is_empty(): ", unit.is_empty())
+
+	if unit.is_empty():
+		push_error("Main: ❌ Unit not found in GameState: ", unit_id)
+		return
+
+	print("Main: Unit found: ", unit.get("meta", {}).get("name", unit_id))
+
+	# Iterate through model tokens in TokenLayer (NOT BoardView!)
+	var token_layer = $BoardRoot/TokenLayer
+	print("Main: TokenLayer lookup:")
+	print("  - token_layer is null: ", token_layer == null)
+
+	if not token_layer:
+		push_error("Main: ❌ TokenLayer not found!")
+		return
+
+	print("Main: TokenLayer found at: ", token_layer.get_path())
+
+	var models = unit.get("models", [])
+	print("Main: Unit has %d models" % models.size())
+
+	var tokens_updated = 0
+	var tokens_hidden = 0
+	var tokens_not_found = 0
+
+	for i in range(models.size()):
+		var model = models[i]
+		var model_id = model.get("id", "m%d" % i)
+		var model_alive = model.get("alive", true)
+
+		print("Main: Processing model %d/%d: %s (alive=%s)" % [i+1, models.size(), model_id, model_alive])
+
+		# Find token visual for this model BY METADATA (tokens don't have names!)
+		print("  - Searching token_layer children for unit_id=%s, model_id=%s" % [unit_id, model_id])
+
+		var token = null
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.has_meta("model_id"):
+				if child.get_meta("unit_id") == unit_id and child.get_meta("model_id") == model_id:
+					token = child
+					break
+
+		print("  - token found: ", token != null)
+
+		if token:
+			print("  - Token found at: ", token.get_path())
+			print("  - Token visible before: ", token.visible)
+
+			if model_alive:
+				# Model is alive → ensure visible
+				token.visible = true
+				print("  - ✅ Model alive → token.visible = true")
+			else:
+				# Model is dead → hide token
+				token.visible = false
+				tokens_hidden += 1
+				print("╔══════════════════════════════════════════════════════════════════")
+				print("║ ✅ 💀 MODEL TOKEN HIDDEN")
+				print("║ Unit: ", unit_id)
+				print("║ Model: ", model_id)
+				print("║ Token path: ", token.get_path())
+				print("║ Token visible: false")
+				print("╚══════════════════════════════════════════════════════════════════")
+
+			tokens_updated += 1
+		else:
+			tokens_not_found += 1
+			push_error("Main: ⚠ Token not found for unit_id=%s, model_id=%s" % [unit_id, model_id])
+
+	print("╔══════════════════════════════════════════════════════════════════")
+	print("║ Main.update_unit_visuals() COMPLETE")
+	print("║ Unit: ", unit_id)
+	print("║ Models processed: ", models.size())
+	print("║ Tokens updated: ", tokens_updated)
+	print("║ Tokens hidden: ", tokens_hidden)
+	print("║ Tokens not found: ", tokens_not_found)
+	print("╚══════════════════════════════════════════════════════════════════")
+
+func refresh_all_model_visuals() -> void:
+	"""Refresh visual state of all model tokens based on GameState"""
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		update_unit_visuals(unit_id)
+
+	print("Main: Refreshed all model visuals")
+
 func _debug_load_system():
 	print("\n=== Quick Load Debug ===")
 	

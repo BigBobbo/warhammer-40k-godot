@@ -1187,13 +1187,32 @@ func _on_saves_required(save_data_list: Array) -> void:
 	active_allocation_overlay = overlay
 	print("║ Stored in active_allocation_overlay")
 
-	# Connect to allocation_complete signal to clear the reference
-	overlay.allocation_complete.connect(func(_summary):
+	# Connect to allocation_complete signal to clear the reference AND submit APPLY_SAVES
+	overlay.allocation_complete.connect(func(summary):
 		print("╔═══════════════════════════════════════════════════════════════")
 		print("║ WOUND ALLOCATION COMPLETE")
 		print("║ Timestamp: ", Time.get_ticks_msec())
+		print("║ Summary: ", summary)
+		print("║ Submitting APPLY_SAVES action to network...")
+
+		# Build APPLY_SAVES action from summary
+		var apply_saves_action = {
+			"type": "APPLY_SAVES",
+			"payload": {
+				"save_results_list": [summary]  # Wrap summary in array as expected by phase
+			}
+		}
+
+		print("║ Action built: ", apply_saves_action)
+		print("║ Emitting shoot_action_requested signal...")
+
+		# Submit action through Main (which routes through NetworkManager)
+		emit_signal("shoot_action_requested", apply_saves_action)
+
+		print("║ APPLY_SAVES action submitted successfully")
 		print("║ Clearing overlay reference and processing flag")
 		print("╚═══════════════════════════════════════════════════════════════")
+
 		active_allocation_overlay = null  # Clear reference
 		processing_saves_signal = false  # Reset flag to allow next allocation
 		set_process_input(true)
@@ -1318,6 +1337,33 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	print("ShootingController: _on_next_weapon_confirmation_required CALLED")
 	print("ShootingController: Remaining weapons: %d, current_index: %d" % [remaining_weapons.size(), current_index])
 
+	# NEW: Validate remaining_weapons
+	if remaining_weapons.is_empty():
+		push_error("ShootingController: remaining_weapons is EMPTY - cannot show dialog!")
+		print("ShootingController: ❌ No weapons to show in dialog")
+		print("========================================")
+
+		# Show error message to user
+		if dice_log_display:
+			dice_log_display.append_text("[color=red]ERROR: No remaining weapons found! This is a bug.[/color]\n")
+
+		return
+
+	# NEW: Validate weapon structure
+	print("ShootingController: Validating remaining weapons structure...")
+	for i in range(remaining_weapons.size()):
+		var weapon = remaining_weapons[i]
+		var weapon_id = weapon.get("weapon_id", "")
+		var target_id = weapon.get("target_unit_id", "")
+		var model_ids = weapon.get("model_ids", [])
+
+		if weapon_id == "":
+			push_error("ShootingController: Weapon %d has EMPTY weapon_id!" % i)
+			print("  ❌ Weapon %d: weapon_id is EMPTY" % i)
+			print("     Full object: %s" % str(weapon))
+		else:
+			print("  ✓ Weapon %d: %s → %s (%d models)" % [i, weapon_id, target_id, model_ids.size()])
+
 	# Check if this is for the local attacking player
 	var should_show_dialog = false
 
@@ -1364,6 +1410,7 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	get_tree().root.add_child(dialog)
 
 	# Setup with remaining weapons AND pass the current_phase
+	print("ShootingController: Calling dialog.setup() with %d weapons" % remaining_weapons.size())
 	dialog.setup(remaining_weapons, current_phase)
 
 	# Customize the title to show it's a continuation

@@ -1,0 +1,17 @@
+{
+	"created_at": 1759084106.92952,
+	"description": "trans sep28",
+	"game_state": {
+		"active_player": 2,
+		"game_id": "63b4ead8-d293-ebc6-bd71-5535c64298d95971",
+		"phase": 1,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "trans sep28",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}
