@@ -306,9 +306,9 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				print("NetworkManager: ✅ Client updated resolution_state")
 
 	# Handle next_weapon_confirmation_required signal for sequential mode
-	# This happens when APPLY_SAVES completes and there are more weapons
+	# This happens when APPLY_SAVES completes OR when RESOLVE_WEAPON_SEQUENCE has no wounds (miss) OR when CONTINUE_SEQUENCE needs next weapon
 	print("NetworkManager:   Checking for sequential_pause...")
-	if action_type == "APPLY_SAVES":
+	if action_type == "APPLY_SAVES" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "CONTINUE_SEQUENCE":
 		var sequential_pause = result.get("sequential_pause", false)
 		print("NetworkManager:   sequential_pause = ", sequential_pause)
 
@@ -318,6 +318,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 			print("╔═══════════════════════════════════════════════════════════════")
 			print("║ CLIENT RE-EMITTING next_weapon_confirmation_required")
+			print("║ Action type: ", action_type)
 			print("║ remaining_weapons.size(): ", remaining_weapons.size())
 			print("║ current_index: ", current_index)
 			print("║ Local peer: ", multiplayer.get_unique_id())
