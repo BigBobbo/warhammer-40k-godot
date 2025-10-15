@@ -11,7 +11,7 @@ signal shooting_resolved(unit_id: String, target_unit_id: String, result: Dictio
 signal dice_rolled(dice_data: Dictionary)
 signal saves_required(save_data_list: Array)  # For interactive save resolution
 signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ weapon types
-signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int)  # For sequential resolution pause
+signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -723,6 +723,41 @@ func _resolve_next_weapon() -> Dictionary:
 	log_phase_message(result.get("log_text", "Weapon attacks complete"))
 	print("ShootingPhase: Log text: ", result.get("log_text", ""))
 
+	# Extract dice data for storage
+	var hit_data = {}
+	var wound_data = {}
+
+	for dice_block in dice_data:
+		var context = dice_block.get("context", "")
+		if context == "hit_roll":
+			hit_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"rerolls": dice_block.get("rerolls", []),
+				"threshold": dice_block.get("threshold", "")
+			}
+		elif context == "wound_roll":
+			wound_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"threshold": dice_block.get("threshold", "")
+			}
+
+	# Get target unit name for display
+	var target_unit = get_unit(current_assignment.target_unit_id)
+	var target_unit_name = target_unit.get("meta", {}).get("name", current_assignment.target_unit_id)
+
+	# Store dice data in resolution_state for later retrieval (when saves complete)
+	resolution_state.last_weapon_dice_data = dice_data
+	resolution_state.last_weapon_hit_data = hit_data
+	resolution_state.last_weapon_wound_data = wound_data
+	resolution_state.last_weapon_target_name = target_unit_name
+	resolution_state.last_weapon_target_id = current_assignment.target_unit_id
+
 	# Check if saves are needed
 	var save_data_list = result.get("save_data_list", [])
 	print("ShootingPhase: save_data_list.size() = %d" % save_data_list.size())
@@ -732,8 +767,16 @@ func _resolve_next_weapon() -> Dictionary:
 		print("ShootingPhase: ⚠ No wounds caused by this weapon")
 		resolution_state.completed_weapons.append({
 			"weapon_id": weapon_id,
+			"target_unit_id": current_assignment.target_unit_id,
+			"target_unit_name": target_unit_name,
 			"wounds": 0,
-			"casualties": 0
+			"casualties": 0,
+			"hits": hit_data.get("successes", 0),
+			"total_attacks": hit_data.get("total", 0),
+			"saves_failed": 0,
+			"dice_rolls": dice_data,
+			"hit_data": hit_data,
+			"wound_data": wound_data
 		})
 		resolution_state.current_index += 1
 		print("ShootingPhase: Incremented current_index to %d" % resolution_state.current_index)
@@ -771,8 +814,11 @@ func _resolve_next_weapon() -> Dictionary:
 			print("║ Total remaining weapons: %d" % remaining_weapons.size())
 			print("╚═══════════════════════════════════════════════════════════════")
 
+			# Get last weapon result for dialog display
+			var last_weapon_result = _get_last_weapon_result()
+
 			# Emit signal to show confirmation dialog to attacker
-			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index)
+			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
 			# Return success with pause indicator for multiplayer sync
 			print("ShootingPhase: Returning result with sequential_pause indicator")
@@ -783,6 +829,7 @@ func _resolve_next_weapon() -> Dictionary:
 				"total_weapons": weapon_order.size(),
 				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
 				"remaining_weapons": remaining_weapons,
+				"last_weapon_result": last_weapon_result,
 				"dice": dice_data
 			})
 		else:
@@ -902,6 +949,32 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 			break
 	
 	return has_alive
+
+func _get_last_weapon_result() -> Dictionary:
+	"""Build complete result summary for last weapon"""
+	var completed = resolution_state.get("completed_weapons", [])
+	if completed.is_empty():
+		return {}
+
+	var last_weapon = completed[completed.size() - 1]
+	var weapon_profile = RulesEngine.get_weapon_profile(last_weapon.get("weapon_id", ""))
+
+	return {
+		"weapon_id": last_weapon.get("weapon_id", ""),
+		"weapon_name": weapon_profile.get("name", last_weapon.get("weapon_id", "Unknown")),
+		"target_unit_id": last_weapon.get("target_unit_id", ""),
+		"target_unit_name": last_weapon.get("target_unit_name", "Unknown"),
+		"hits": last_weapon.get("hits", 0),
+		"wounds": last_weapon.get("wounds", 0),
+		"saves_failed": last_weapon.get("saves_failed", 0),
+		"casualties": last_weapon.get("casualties", 0),
+		"dice_rolls": last_weapon.get("dice_rolls", []),
+		"total_attacks": last_weapon.get("total_attacks", 0),
+		"hit_data": last_weapon.get("hit_data", {}),
+		"wound_data": last_weapon.get("wound_data", {}),
+		"skipped": last_weapon.get("skipped", false),
+		"skip_reason": last_weapon.get("skip_reason", "")
+	}
 
 func _close_save_dialogs() -> void:
 	"""Close any open SaveDialog when phase changes"""
@@ -1302,13 +1375,37 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 		if current_index < weapon_order.size():
 			var weapon_id = weapon_order[current_index].get("weapon_id", "")
+			var current_assignment_data = weapon_order[current_index]
 			print("ShootingPhase: Completed weapon %d: %s" % [current_index + 1, weapon_id])
 
-			# Record completed weapon
+			# Calculate saves_failed from save results
+			var saves_failed = 0
+			for save_result in save_results_list:
+				saves_failed += save_result.get("saves_failed", 0)
+
+			# Get dice data from resolution_state (stored when weapon was resolved)
+			var dice_data = resolution_state.get("last_weapon_dice_data", [])
+			var hit_data = resolution_state.get("last_weapon_hit_data", {})
+			var wound_data = resolution_state.get("last_weapon_wound_data", {})
+			var target_unit_name = resolution_state.get("last_weapon_target_name", "Unknown")
+			var target_unit_id = resolution_state.get("last_weapon_target_id", "")
+
+			var hits = hit_data.get("successes", 0)
+			var total_attacks = hit_data.get("total", 0)
+
+			# Record completed weapon with full data
 			resolution_state.completed_weapons.append({
 				"weapon_id": weapon_id,
+				"target_unit_id": target_unit_id,
+				"target_unit_name": target_unit_name,
 				"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
-				"casualties": total_casualties
+				"casualties": total_casualties,
+				"hits": hits,
+				"total_attacks": total_attacks,
+				"saves_failed": saves_failed,
+				"dice_rolls": dice_data,
+				"hit_data": hit_data,
+				"wound_data": wound_data
 			})
 
 			# Move to next weapon INDEX
@@ -1353,13 +1450,17 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				print("║ Total remaining weapons: %d" % remaining_weapons.size())
 				print("╚═══════════════════════════════════════════════════════════════")
 
+				# Get last weapon result for dialog display
+				var last_weapon_result = _get_last_weapon_result()
+
 				# Emit signal to show confirmation dialog to attacker
 				print("╔═══════════════════════════════════════════════════════════════")
 				print("║ EMITTING next_weapon_confirmation_required SIGNAL")
 				print("║ remaining_weapons.size(): ", remaining_weapons.size())
 				print("║ current_index: ", resolution_state.current_index)
+				print("║ last_weapon_result keys: ", last_weapon_result.keys())
 				print("╚═══════════════════════════════════════════════════════════════")
-				emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index)
+				emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
 				# Return success with pause indicator for multiplayer sync
 				var result = create_result(true, all_diffs, "Weapon %d complete - awaiting next weapon confirmation" % (current_index + 1), {
@@ -1367,7 +1468,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"current_weapon_index": resolution_state.current_index,
 					"total_weapons": weapon_order.size(),
 					"weapons_remaining": weapon_order.size() - resolution_state.current_index,
-					"remaining_weapons": remaining_weapons
+					"remaining_weapons": remaining_weapons,
+					"last_weapon_result": last_weapon_result
 				})
 
 				print("╔═══════════════════════════════════════════════════════════════")
@@ -1409,36 +1511,82 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 func _process_continue_sequence(action: Dictionary) -> Dictionary:
 	"""Process continuation to next weapon in sequential mode"""
-	print("========================================")
-	print("ShootingPhase: _process_continue_sequence CALLED")
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING PHASE: _process_continue_sequence CALLED")
+	print("║")
 
 	var payload = action.get("payload", {})
 	var updated_weapon_order = payload.get("weapon_order", [])
 
-	print("ShootingPhase: updated_weapon_order provided: ", not updated_weapon_order.is_empty())
-	print("ShootingPhase: current resolution_state = ", resolution_state)
+	print("║ CURRENT STATE:")
+	print("║   resolution_state.current_index: ", resolution_state.get("current_index", 0))
+	print("║   resolution_state.weapon_order.size(): ", resolution_state.get("weapon_order", []).size())
+	print("║   resolution_state.completed_weapons: ", resolution_state.get("completed_weapons", []).size())
+	print("║")
+	print("║ ACTION PAYLOAD:")
+	print("║   updated_weapon_order provided: ", not updated_weapon_order.is_empty())
+	print("║   updated_weapon_order.size(): ", updated_weapon_order.size())
+	if not updated_weapon_order.is_empty():
+		print("║   First 3 weapons in updated order:")
+		for i in range(min(3, updated_weapon_order.size())):
+			print("║     %d: %s" % [i, updated_weapon_order[i].get("weapon_id", "UNKNOWN")])
+	print("║")
 
 	# If attacker provided a new weapon order (reordering), update it
 	if not updated_weapon_order.is_empty():
-		print("ShootingPhase: Attacker reordered weapons, updating weapon_order")
+		print("║ REORDERING: Attacker provided new weapon order")
 		# Keep completed weapons, update remaining
 		var current_index = resolution_state.get("current_index", 0)
 		var original_order = resolution_state.get("weapon_order", [])
+
+		print("║   current_index: ", current_index)
+		print("║   original_order.size(): ", original_order.size())
+		print("║   Keeping first %d completed weapons" % current_index)
 
 		# Build new complete order: completed weapons + reordered remaining weapons
 		var new_complete_order = []
 		for i in range(current_index):
 			if i < original_order.size():
 				new_complete_order.append(original_order[i])
+				print("║   Kept completed weapon %d: %s" % [i, original_order[i].get("weapon_id", "UNKNOWN")])
 
+		print("║   Appending %d reordered weapons" % updated_weapon_order.size())
 		new_complete_order.append_array(updated_weapon_order)
-		resolution_state.weapon_order = new_complete_order
-		print("ShootingPhase: Updated weapon order with %d weapons" % new_complete_order.size())
 
-	# Continue with next weapon
-	print("ShootingPhase: Calling _resolve_next_weapon()...")
+		print("║")
+		print("║   NEW COMPLETE ORDER (%d weapons):" % new_complete_order.size())
+		for i in range(min(5, new_complete_order.size())):
+			var status = "✓ COMPLETED" if i < current_index else "⏳ PENDING"
+			print("║     %d: %s %s" % [i, new_complete_order[i].get("weapon_id", "UNKNOWN"), status])
+		if new_complete_order.size() > 5:
+			print("║     ... and %d more weapons" % (new_complete_order.size() - 5))
+
+		resolution_state.weapon_order = new_complete_order
+		print("║   Updated resolution_state.weapon_order")
+	else:
+		print("║ NO REORDERING: Using existing weapon order")
+
+	print("║")
+	print("║ FINAL STATE BEFORE _resolve_next_weapon():")
+	print("║   current_index: ", resolution_state.get("current_index", 0))
+	print("║   weapon_order.size(): ", resolution_state.get("weapon_order", []).size())
+	print("║   Next weapon to resolve: index %d" % resolution_state.get("current_index", 0))
+	if resolution_state.get("current_index", 0) < resolution_state.get("weapon_order", []).size():
+		var next_weapon = resolution_state.get("weapon_order", [])[resolution_state.get("current_index", 0)]
+		print("║   Next weapon ID: %s" % next_weapon.get("weapon_id", "UNKNOWN"))
+	print("║")
+	print("║ Calling _resolve_next_weapon()...")
+	print("╚═══════════════════════════════════════════════════════════════")
+
 	var next_result = _resolve_next_weapon()
-	print("ShootingPhase: _resolve_next_weapon returned = ", next_result)
-	print("========================================")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ _resolve_next_weapon() RETURNED")
+	print("║   success: ", next_result.get("success", false))
+	print("║   log_text: ", next_result.get("log_text", ""))
+	if next_result.has("sequential_pause"):
+		print("║   sequential_pause: ", next_result.get("sequential_pause", false))
+		print("║   weapons_remaining: ", next_result.get("weapons_remaining", 0))
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	return next_result

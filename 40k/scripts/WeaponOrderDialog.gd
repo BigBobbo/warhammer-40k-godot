@@ -88,6 +88,17 @@ func _ready() -> void:
 	close_button.visible = false  # Hidden until sequence complete or fast roll
 	button_hbox.add_child(close_button)
 
+	# NEW: Continue button for mid-sequence progression
+	# Make it visible by default so user can always progress
+	var continue_button = Button.new()
+	continue_button.name = "ContinueButton"
+	continue_button.text = "Continue to Next Weapon"
+	continue_button.pressed.connect(_on_continue_next_weapon_pressed)
+	continue_button.custom_minimum_size = Vector2(220, 40)
+	# Make this button prominent with green color
+	continue_button.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+	button_hbox.add_child(continue_button)
+
 	vbox.add_child(HSeparator.new())
 
 	# Dice log section
@@ -357,6 +368,20 @@ func _on_start_sequence_pressed() -> void:
 
 	# Emit signal but DON'T close the dialog
 	emit_signal("weapon_order_confirmed", ordered_assignments, false)
+
+func _on_continue_next_weapon_pressed() -> void:
+	"""Continue to next weapon in sequential mode (mid-sequence)"""
+	print("WeaponOrderDialog: Continue to next weapon pressed")
+
+	# Build ordered assignments based on current weapon_order
+	var ordered_assignments = []
+	for weapon_id in weapon_order:
+		ordered_assignments.append_array(weapon_data[weapon_id].assignments)
+
+	# Emit with fast_roll = false to continue sequential
+	emit_signal("weapon_order_confirmed", ordered_assignments, false)
+	hide()
+	queue_free()
 
 func _on_close_pressed() -> void:
 	"""Close the dialog"""

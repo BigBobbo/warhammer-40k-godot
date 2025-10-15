@@ -1356,11 +1356,12 @@ func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	print("ShootingController: Signal emitted successfully")
 	print("========================================")
 
-func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_index: int) -> void:
+func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary) -> void:
 	"""Handle next weapon confirmation in sequential mode"""
 	print("========================================")
 	print("ShootingController: _on_next_weapon_confirmation_required CALLED")
 	print("ShootingController: Remaining weapons: %d, current_index: %d" % [remaining_weapons.size(), current_index])
+	print("ShootingController: Last weapon result keys: %s" % str(last_weapon_result.keys()))
 
 	# NEW: Validate remaining_weapons
 	if remaining_weapons.is_empty():
@@ -1373,6 +1374,10 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 			dice_log_display.append_text("[color=red]ERROR: No remaining weapons found! This is a bug.[/color]\n")
 
 		return
+
+	# NEW: Validate last_weapon_result
+	if last_weapon_result.is_empty():
+		push_warning("ShootingController: last_weapon_result is EMPTY - showing dialog without summary")
 
 	# NEW: Validate weapon structure
 	print("ShootingController: Validating remaining weapons structure...")
@@ -1408,11 +1413,55 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 
 	# Show feedback in dice log
 	if dice_log_display:
-		dice_log_display.append_text("[b][color=yellow]>>> Weapon complete - Choose next weapon <<<[/color][/b]\n")
+		var weapon_name = last_weapon_result.get("weapon_name", "Unknown")
+		var casualties = last_weapon_result.get("casualties", 0)
+		dice_log_display.append_text("[b][color=yellow]>>> %s complete: %d casualties <<<[/color][/b]\n" %
+			[weapon_name, casualties])
 
-	# Show weapon order dialog with remaining weapons
-	# User can reorder or just click "Sequential" to continue with current order
-	print("ShootingController: Showing WeaponOrderDialog for remaining weapons")
+	# Close any existing dialogs
+	var root_children = get_tree().root.get_children()
+	for child in root_children:
+		if child is AcceptDialog:
+			print("ShootingController: Closing existing dialog: %s" % child.name)
+			child.hide()
+			child.queue_free()
+
+	await get_tree().process_frame
+
+	# Load NextWeaponDialog
+	var weapon_dialog_script = preload("res://scripts/NextWeaponDialog.gd")
+	var dialog = weapon_dialog_script.new()
+
+	# Connect to confirmation signal - when user clicks Continue, show WeaponOrderDialog
+	dialog.continue_confirmed.connect(_on_show_weapon_order_from_next_weapon_dialog)
+
+	# Add to scene tree
+	get_tree().root.add_child(dialog)
+
+	# Setup with enhanced data
+	print("ShootingController: Calling dialog.setup() with %d weapons and last weapon result" % remaining_weapons.size())
+	dialog.setup(remaining_weapons, current_index, last_weapon_result)
+
+	# Show dialog
+	dialog.popup_centered()
+
+	print("ShootingController: NextWeaponDialog shown with last weapon results")
+	print("========================================")
+
+func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fast_roll: bool) -> void:
+	"""Show WeaponOrderDialog after NextWeaponDialog's Continue button is pressed"""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: RECEIVED continue_confirmed SIGNAL")
+	print("║ Handler: _on_show_weapon_order_from_next_weapon_dialog")
+	print("║ remaining_weapons.size(): ", remaining_weapons.size())
+	print("║ fast_roll: ", fast_roll)
+	print("║ Weapons received:")
+	for i in range(min(3, remaining_weapons.size())):
+		var weapon = remaining_weapons[i]
+		print("║   Weapon %d: %s → %s" % [i, weapon.get("weapon_id", "UNKNOWN"), weapon.get("target_unit_id", "UNKNOWN")])
+	if remaining_weapons.size() > 3:
+		print("║   ... and %d more weapons" % (remaining_weapons.size() - 3))
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	# Close any existing dialogs
 	var root_children = get_tree().root.get_children()
@@ -1428,14 +1477,16 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	var weapon_order_dialog_script = preload("res://scripts/WeaponOrderDialog.gd")
 	var dialog = weapon_order_dialog_script.new()
 
-	# Connect to weapon_order_confirmed signal - but handle it differently
+	# Connect to weapon_order_confirmed signal
 	dialog.weapon_order_confirmed.connect(_on_next_weapon_order_confirmed)
 
 	# Add to scene tree
 	get_tree().root.add_child(dialog)
 
 	# Setup with remaining weapons AND pass the current_phase
-	print("ShootingController: Calling dialog.setup() with %d weapons" % remaining_weapons.size())
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: SHOWING WEAPON ORDER DIALOG")
+	print("║ Passing %d weapons to dialog.setup()" % remaining_weapons.size())
 	dialog.setup(remaining_weapons, current_phase)
 
 	# Customize the title to show it's a continuation
@@ -1444,14 +1495,24 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	# Show dialog
 	dialog.popup_centered()
 
-	print("ShootingController: WeaponOrderDialog shown for next weapon selection")
-	print("========================================")
+	print("║ WeaponOrderDialog shown successfully")
+	print("║ Waiting for weapon_order_confirmed signal...")
+	print("╚═══════════════════════════════════════════════════════════════")
 
 func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	"""Handle next weapon order confirmation (mid-sequence)"""
-	print("========================================")
-	print("ShootingController: _on_next_weapon_order_confirmed CALLED")
-	print("ShootingController: Weapon order: %d weapons, fast_roll=%s" % [weapon_order.size(), fast_roll])
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: WEAPON ORDER CONFIRMED")
+	print("║ Handler: _on_next_weapon_order_confirmed")
+	print("║ weapon_order.size(): ", weapon_order.size())
+	print("║ fast_roll: ", fast_roll)
+	print("║ Weapons in order:")
+	for i in range(min(3, weapon_order.size())):
+		var weapon = weapon_order[i]
+		print("║   %d: %s → %s" % [i, weapon.get("weapon_id", "UNKNOWN"), weapon.get("target_unit_id", "UNKNOWN")])
+	if weapon_order.size() > 3:
+		print("║   ... and %d more weapons" % (weapon_order.size() - 3))
+	print("║")
 
 	# Show feedback in dice log
 	if dice_log_display:
@@ -1459,6 +1520,7 @@ func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> vo
 
 	# If fast_roll is true in mid-sequence, just resolve all remaining weapons at once
 	if fast_roll:
+		print("║ MODE: Fast Roll - resolving all remaining weapons at once")
 		# Build action to resolve remaining weapons as fast roll
 		var action = {
 			"type": "RESOLVE_WEAPON_SEQUENCE",
@@ -1468,8 +1530,11 @@ func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> vo
 				"is_reorder": true
 			}
 		}
+		print("║ Emitting action: RESOLVE_WEAPON_SEQUENCE")
+		print("║ Action payload: ", action)
 		emit_signal("shoot_action_requested", action)
 	else:
+		print("║ MODE: Sequential - continuing to next weapon")
 		# Continue sequential - either with reordered weapons or same order
 		var action = {
 			"type": "CONTINUE_SEQUENCE",
@@ -1477,10 +1542,12 @@ func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> vo
 				"weapon_order": weapon_order
 			}
 		}
+		print("║ Emitting action: CONTINUE_SEQUENCE")
+		print("║ Action payload: ", action)
 		emit_signal("shoot_action_requested", action)
 
-	print("ShootingController: Action emitted")
-	print("========================================")
+	print("║ Action emitted successfully")
+	print("╚═══════════════════════════════════════════════════════════════")
 
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:

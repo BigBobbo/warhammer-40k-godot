@@ -315,12 +315,15 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		if sequential_pause and phase.has_signal("next_weapon_confirmation_required"):
 			var remaining_weapons = result.get("remaining_weapons", [])
 			var current_index = result.get("current_weapon_index", 0)
+			var last_weapon_result = result.get("last_weapon_result", {})
 
 			print("╔═══════════════════════════════════════════════════════════════")
 			print("║ CLIENT RE-EMITTING next_weapon_confirmation_required")
 			print("║ Action type: ", action_type)
 			print("║ remaining_weapons.size(): ", remaining_weapons.size())
 			print("║ current_index: ", current_index)
+			print("║ last_weapon_result.size(): ", last_weapon_result.size())
+			print("║ last_weapon_result.weapon_name: ", last_weapon_result.get("weapon_name", "MISSING"))
 			print("║ Local peer: ", multiplayer.get_unique_id())
 			print("║ Local player: ", peer_to_player_map.get(multiplayer.get_unique_id(), -1))
 			print("║ Active player: ", game_state.get_active_player() if game_state else -1)
@@ -333,7 +336,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("╚═══════════════════════════════════════════════════════════════")
 
 			print("NetworkManager: ✅ Client re-emitting next_weapon_confirmation_required with %d remaining weapons" % remaining_weapons.size())
-			phase.emit_signal("next_weapon_confirmation_required", remaining_weapons, current_index)
+			phase.emit_signal("next_weapon_confirmation_required", remaining_weapons, current_index, last_weapon_result)
 		else:
 			if not sequential_pause:
 				print("NetworkManager: ℹ️ No sequential_pause in result - NOT re-emitting signal")
