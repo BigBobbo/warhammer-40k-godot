@@ -47,6 +47,9 @@ func _on_phase_exit() -> void:
 	# This ensures range circles and other visuals are removed immediately
 	_clear_shooting_visuals()
 
+	# NEW: Clear death markers from board at phase end
+	_clear_death_markers()
+
 	# Clear shooting flags
 	_clear_phase_flags()
 
@@ -330,7 +333,41 @@ func _process_clear_all_assignments(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_confirm_targets(action: Dictionary) -> Dictionary:
-	confirmed_assignments = pending_assignments.duplicate(true)
+	# CRITICAL FIX: Merge assignments with the same weapon_id to ensure all models
+	# with the same weapon type are batched together
+	var merged_assignments = {}
+	for assignment in pending_assignments:
+		var weapon_id = assignment.get("weapon_id", "")
+		var target_unit_id = assignment.get("target_unit_id", "")
+
+		# Create unique key: weapon_id + target_unit_id
+		var key = weapon_id + "_" + target_unit_id
+
+		if merged_assignments.has(key):
+			# Merge model_ids with existing assignment
+			var existing = merged_assignments[key]
+			var existing_model_ids = existing.get("model_ids", [])
+			var new_model_ids = assignment.get("model_ids", [])
+
+			# Combine model IDs (avoid duplicates)
+			for model_id in new_model_ids:
+				if model_id not in existing_model_ids:
+					existing_model_ids.append(model_id)
+
+			existing["model_ids"] = existing_model_ids
+
+			# Merge modifiers if present
+			if assignment.has("modifiers"):
+				existing["modifiers"] = assignment.get("modifiers", {})
+		else:
+			# First assignment for this weapon+target combo
+			merged_assignments[key] = assignment.duplicate(true)
+
+	# Convert merged assignments back to array
+	confirmed_assignments = []
+	for key in merged_assignments:
+		confirmed_assignments.append(merged_assignments[key])
+
 	pending_assignments.clear()
 
 	emit_signal("shooting_begun", active_shooter_id)
@@ -343,7 +380,7 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 		unique_weapons[weapon_id] = true
 
 	var weapon_count = unique_weapons.size()
-	print("ShootingPhase: Confirmed %d assignments with %d unique weapon types" % [confirmed_assignments.size(), weapon_count])
+	print("ShootingPhase: Merged and confirmed %d assignments with %d unique weapon types" % [confirmed_assignments.size(), weapon_count])
 
 	# If 2+ weapon types, emit signal for weapon ordering dialog
 	if weapon_count >= 2:
@@ -439,6 +476,26 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	# Store save data and trigger interactive saves
 	pending_save_data = save_data_list
+
+	# LOGGING: Track saves_required emission
+	var timestamp = Time.get_ticks_msec()
+	var save_context = {
+		"timestamp": timestamp,
+		"source": "ShootingPhase._process_resolve_shooting",
+		"save_count": save_data_list.size(),
+		"target": save_data_list[0].get("target_unit_id", "unknown") if save_data_list.size() > 0 else "none",
+		"weapon": save_data_list[0].get("weapon_name", "unknown") if save_data_list.size() > 0 else "none",
+		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0
+	}
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SAVES_REQUIRED EMISSION #1 (from resolve_shooting)")
+	print("║ Timestamp: ", timestamp)
+	print("║ Source: ShootingPhase._process_resolve_shooting (line 444)")
+	print("║ Target: ", save_context.target)
+	print("║ Weapon: ", save_context.weapon)
+	print("║ Wounds: ", save_context.wounds)
+	print("║ Save data list size: ", save_data_list.size())
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	# Emit signal to show save dialog (handled by ShootingController or Main)
 	emit_signal("saves_required", save_data_list)
@@ -671,8 +728,8 @@ func _resolve_next_weapon() -> Dictionary:
 	print("ShootingPhase: save_data_list.size() = %d" % save_data_list.size())
 
 	if save_data_list.is_empty():
-		# No wounds - move to next weapon
-		print("ShootingPhase: ⚠ No wounds caused by this weapon, moving to next weapon")
+		# No wounds - but still PAUSE for attacker to confirm next weapon (sequential mode)
+		print("ShootingPhase: ⚠ No wounds caused by this weapon")
 		resolution_state.completed_weapons.append({
 			"weapon_id": weapon_id,
 			"wounds": 0,
@@ -680,11 +737,58 @@ func _resolve_next_weapon() -> Dictionary:
 		})
 		resolution_state.current_index += 1
 		print("ShootingPhase: Incremented current_index to %d" % resolution_state.current_index)
-		print("ShootingPhase: Recursing to _resolve_next_weapon()...")
-		print("========================================")
+		print("ShootingPhase: Weapons remaining: %d" % (weapon_order.size() - resolution_state.current_index))
 
-		# Continue with next weapon
-		return _resolve_next_weapon()
+		# Check if there are more weapons to resolve
+		if resolution_state.current_index < weapon_order.size():
+			# PAUSE: Don't auto-continue to next weapon (same as after saves)
+			# Wait for attacker to confirm before continuing
+			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon (no hits)")
+			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
+
+			# Get remaining weapons for potential reordering
+			var remaining_weapons = []
+			for i in range(resolution_state.current_index, weapon_order.size()):
+				remaining_weapons.append(weapon_order[i])
+
+			# Emit signal to show confirmation dialog to attacker
+			emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index)
+
+			# Return success with pause indicator for multiplayer sync
+			print("ShootingPhase: Returning result with sequential_pause indicator")
+			print("========================================")
+			return create_result(true, [], "Weapon %d complete (0 hits) - awaiting next weapon confirmation" % (current_index + 1), {
+				"sequential_pause": true,
+				"current_weapon_index": resolution_state.current_index,
+				"total_weapons": weapon_order.size(),
+				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
+				"remaining_weapons": remaining_weapons,
+				"dice": dice_data
+			})
+		else:
+			# All weapons complete (after final weapon missed)
+			print("ShootingPhase: All weapons in sequence complete (after miss)!")
+			log_phase_message("All weapons resolved sequentially")
+
+			# Mark shooter as done
+			var shooter_id = active_shooter_id  # Store before clearing
+			units_that_shot.append(active_shooter_id)
+			var changes = [{
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % active_shooter_id,
+				"value": true
+			}]
+
+			# Clear state
+			active_shooter_id = ""
+			confirmed_assignments.clear()
+			resolution_state.clear()
+
+			# Emit signal to clear visuals
+			emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+			print("========================================")
+			return create_result(true, changes, "Sequential weapon resolution complete - no hits on final weapon")
 
 	# Store save data and trigger interactive saves
 	pending_save_data = save_data_list
@@ -697,6 +801,28 @@ func _resolve_next_weapon() -> Dictionary:
 			"total_weapons": weapon_order.size(),
 			"weapon_name": RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		}
+
+	# LOGGING: Track saves_required emission
+	var timestamp = Time.get_ticks_msec()
+	var save_context = {
+		"timestamp": timestamp,
+		"source": "ShootingPhase._resolve_next_weapon",
+		"save_count": save_data_list.size(),
+		"target": save_data_list[0].get("target_unit_id", "unknown") if save_data_list.size() > 0 else "none",
+		"weapon": save_data_list[0].get("weapon_name", "unknown") if save_data_list.size() > 0 else "none",
+		"wounds": save_data_list[0].get("wounds_to_save", 0) if save_data_list.size() > 0 else 0,
+		"sequence_weapon": current_index + 1,
+		"sequence_total": weapon_order.size()
+	}
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SAVES_REQUIRED EMISSION #2 (from resolve_next_weapon)")
+	print("║ Timestamp: ", timestamp)
+	print("║ Source: ShootingPhase._resolve_next_weapon (line 750)")
+	print("║ Target: ", save_context.target)
+	print("║ Weapon: ", save_context.weapon, " (", save_context.sequence_weapon, "/", save_context.sequence_total, ")")
+	print("║ Wounds: ", save_context.wounds)
+	print("║ Save data list size: ", save_data_list.size())
+	print("╚═══════════════════════════════════════════════════════════════")
 
 	# Emit signal to show save dialog
 	print("ShootingPhase: ✅ Emitting saves_required signal with %d save data entries" % save_data_list.size())
@@ -827,6 +953,29 @@ func _cleanup_boardroot_visuals() -> void:
 			print("ShootingPhase: Removing ", visual_name, " from BoardRoot")
 			board_root.remove_child(visual_node)
 			visual_node.queue_free()
+
+func _clear_death_markers() -> void:
+	"""Clear all death markers from the board at phase end"""
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		print("ShootingPhase: Warning - Main node not found for death marker cleanup")
+		return
+
+	var board_view = main.get_node_or_null("BoardRoot/BoardView")
+	if not board_view:
+		print("ShootingPhase: Warning - BoardView not found for death marker cleanup")
+		return
+
+	# Find WoundAllocationBoardHighlights instance
+	var highlighter = board_view.get_node_or_null("WoundHighlights")
+	if highlighter and is_instance_valid(highlighter):
+		if highlighter.has_method("clear_death_markers"):
+			highlighter.clear_death_markers()
+			print("ShootingPhase: Cleared death markers via highlighter")
+		else:
+			print("ShootingPhase: Warning - highlighter has no clear_death_markers method")
+	else:
+		print("ShootingPhase: No highlighter found to clear death markers")
 
 func get_available_actions() -> Array:
 	var actions = []
