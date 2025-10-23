@@ -47,17 +47,17 @@ func _on_phase_exit() -> void:
 func _initialize_charge() -> void:
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
 	var can_charge = false
 	for unit_id in units:
 		var unit = units[unit_id]
 		if _can_unit_charge(unit):
 			can_charge = true
 			break
-	
+
 	if not can_charge:
-		log_phase_message("No units available for charging, completing phase")
-		emit_signal("phase_completed")
+		log_phase_message("No units available for charging, ready to end phase")
+		# Don't auto-complete - wait for END_CHARGE action
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")

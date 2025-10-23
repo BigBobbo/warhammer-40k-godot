@@ -59,17 +59,17 @@ func _on_phase_exit() -> void:
 func _initialize_shooting() -> void:
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
 	var can_shoot = false
 	for unit_id in units:
 		var unit = units[unit_id]
 		if _can_unit_shoot(unit):
 			can_shoot = true
 			break
-	
+
 	if not can_shoot:
-		log_phase_message("No units available for shooting, completing phase")
-		emit_signal("phase_completed")
+		log_phase_message("No units available for shooting, ready to end phase")
+		# Don't auto-complete - wait for END_SHOOTING action
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")

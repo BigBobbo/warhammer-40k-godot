@@ -32,20 +32,35 @@ func test_shooting_phase_init():
 func test_shooting_phase_enter():
 	assert_not_null(shooting_phase.game_state_snapshot, "Should have game state snapshot after enter")
 
-func test_shooting_phase_auto_complete():
-	# Test auto-completion when no units can shoot
+func test_shooting_phase_no_auto_complete():
+	# Test that phase does NOT auto-complete when no units can shoot
+	# User must explicitly click "End Shooting Phase"
 	var no_shoot_state = TestDataFactory.create_test_game_state()
-	
-	# Mark all friendly units as having advanced (cannot shoot)
+
+	# Mark all friendly units as having shot (cannot shoot again)
 	for unit_id in no_shoot_state.units:
 		var unit = no_shoot_state.units[unit_id]
 		if unit.owner == 1:  # Assuming player 1 is current player
-			unit.advanced = true
-	
+			if not unit.has("flags"):
+				unit["flags"] = {}
+			unit.flags["has_shot"] = true
+
+	# Set up signal spy to detect phase_completed
+	var phase_completed_emitted = false
+	shooting_phase.phase_completed.connect(func(): phase_completed_emitted = true)
+
 	shooting_phase.enter_phase(no_shoot_state)
-	
-	# Phase should auto-complete if no units can shoot
-	# This depends on implementation - may emit phase_completed signal
+
+	# Phase should NOT auto-complete - user must explicitly end it
+	assert_false(phase_completed_emitted, "Phase should not auto-complete when no units can shoot")
+
+	# User must explicitly end the phase
+	var end_action = {
+		"type": "END_SHOOTING"
+	}
+	var result = shooting_phase.process_action(end_action)
+	assert_true(result.success, "END_SHOOTING action should succeed")
+	assert_true(phase_completed_emitted, "Phase should complete only after explicit END_SHOOTING action")
 
 func test_shooting_phase_exit():
 	shooting_phase.exit_phase()
