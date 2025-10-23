@@ -1,5 +1,6 @@
 {
-	"created_at": 1761241832.25598,
+	"created_at": 1761241838.51934,
+	"description": "ch",
 	"game_state": {
 		"active_player": 2,
 		"game_id": "c52dcbc4-b19f-5515-b906-7caeaaaccca895fb",
@@ -7,10 +8,10 @@
 		"turn": 1
 	},
 	"save_info": {
-		"description": "",
-		"save_type": "quicksave",
+		"description": "ch",
+		"save_type": "manual",
 		"tags": []
 	},
-	"type": "quicksave",
+	"type": "manual",
 	"version": "1.0.0"
 }

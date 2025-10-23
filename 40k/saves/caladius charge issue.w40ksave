@@ -2,7 +2,7 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1761241832.25705,
+		"timestamp": 1761241954.49716,
 		"version": "1.0.0"
 	},
 	"board": {
@@ -222,11 +222,390 @@
 			],
 			"phase": 3.0,
 			"turn": 1.0
+		},
+		{
+			"actions": [
+				{
+					"actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+					"player": 2,
+					"timestamp": 1761241704.37114,
+					"type": "SELECT_SHOOTER"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"player": 2,
+					"timestamp": 1761241705.53716,
+					"type": "SELECT_SHOOTER"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"modifiers": {
+							"hit": {
+								"minus_one": false,
+								"plus_one": false,
+								"reroll_ones": false
+							}
+						},
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "big_shoota"
+					},
+					"player": 2,
+					"timestamp": 1761241732.05796,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "kannon___frag"
+					},
+					"player": 2,
+					"timestamp": 1761241733.6916,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "kannon___shell"
+					},
+					"player": 2,
+					"timestamp": 1761241733.69203,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "killkannon"
+					},
+					"player": 2,
+					"timestamp": 1761241733.69265,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "lobba"
+					},
+					"player": 2,
+					"timestamp": 1761241733.69305,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+						"weapon_id": "zzap_gun"
+					},
+					"player": 2,
+					"timestamp": 1761241733.6934,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"player": 2,
+					"timestamp": 1761241738.22686,
+					"type": "CONFIRM_TARGETS"
+				},
+				{
+					"payload": {
+						"fast_roll": false,
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "zzap_gun"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "big_shoota"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "killkannon"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___frag"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___shell"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241742.34629,
+					"type": "RESOLVE_WEAPON_SEQUENCE"
+				},
+				{
+					"payload": {
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "big_shoota"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "killkannon"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___frag"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___shell"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241745.83149,
+					"type": "CONTINUE_SEQUENCE"
+				},
+				{
+					"payload": {
+						"save_results_list": [
+							{
+								"allocation_history": [
+									{
+										"damage": 0,
+										"model_destroyed": false,
+										"model_id": "m1",
+										"model_index": 0,
+										"needed": 2,
+										"roll": 3,
+										"saved": true,
+										"wound_index": 0
+									}
+								],
+								"models_destroyed": 0,
+								"saves_failed": 0,
+								"saves_passed": 1,
+								"total_damage": 0,
+								"total_wounds": 1
+							}
+						]
+					},
+					"player": 1,
+					"timestamp": 1761241748.94972,
+					"type": "APPLY_SAVES"
+				},
+				{
+					"payload": {
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "killkannon"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___frag"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___shell"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241752.30123,
+					"type": "CONTINUE_SEQUENCE"
+				},
+				{
+					"payload": {
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___frag"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___shell"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241754.50236,
+					"type": "CONTINUE_SEQUENCE"
+				},
+				{
+					"payload": {
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "kannon___shell"
+							},
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241756.7032,
+					"type": "CONTINUE_SEQUENCE"
+				},
+				{
+					"payload": {
+						"weapon_order": [
+							{
+								"model_ids": [
+									"m1"
+								],
+								"target_unit_id": "U_CALADIUS_GRAV-TANK_E",
+								"weapon_id": "lobba"
+							}
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241758.63713,
+					"type": "CONTINUE_SEQUENCE"
+				},
+				{
+					"actor_unit_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+					"player": 2,
+					"timestamp": 1761241767.72574,
+					"type": "SELECT_SHOOTER"
+				},
+				{
+					"payload": {
+						"model_ids": [
+							"m1"
+						],
+						"modifiers": {
+							"hit": {
+								"minus_one": false,
+								"plus_one": false,
+								"reroll_ones": false
+							}
+						},
+						"target_unit_id": "U_WITCHSEEKERS_C",
+						"weapon_id": "big_shoota"
+					},
+					"player": 2,
+					"timestamp": 1761241773.57947,
+					"type": "ASSIGN_TARGET"
+				},
+				{
+					"player": 2,
+					"timestamp": 1761241776.06298,
+					"type": "CONFIRM_TARGETS"
+				}
+			],
+			"phase": 3,
+			"turn": 1.0
+		},
+		{
+			"actions": [
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+						"target_unit_ids": [
+							"U_CALADIUS_GRAV-TANK_E"
+						]
+					},
+					"player": 2,
+					"timestamp": 1761241846.66224,
+					"type": "DECLARE_CHARGE"
+				}
+			],
+			"phase": 4,
+			"turn": 1.0
 		}
 	],
 	"meta": {
-		"active_player": 2.0,
-		"battle_round": 2.0,
+		"active_player": 1,
+		"battle_round": 3,
 		"created_at": 1761239037.19324,
 		"from_multiplayer_lobby": true,
 		"game_config": {
@@ -234,11 +613,27 @@
 			"player2_army": "ORK_test"
 		},
 		"game_id": "c52dcbc4-b19f-5515-b906-7caeaaaccca895fb",
-		"phase": 4,
+		"phase": 2,
 		"turn_number": 1.0,
 		"version": "1.0.0"
 	},
-	"phase_log": [],
+	"phase_log": [
+		{
+			"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+			"payload": {
+
+			},
+			"player": 1,
+			"timestamp": 1761241907.01958,
+			"type": "BEGIN_NORMAL_MOVE"
+		},
+		{
+			"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+			"player": 1,
+			"timestamp": 1761241907.02308,
+			"type": "BEGIN_NORMAL_MOVE"
+		}
+	],
 	"players": {
 		"1": {
 			"cp": 3.0,
@@ -573,10 +968,7 @@
 			"disembarked_this_phase": false,
 			"embarked_in": null,
 			"flags": {
-				"advanced": true,
-				"cannot_charge": true,
-				"cannot_shoot": true,
-				"moved": true
+				"move_cap_inches": 10.0
 			},
 			"id": "U_CALADIUS_GRAV-TANK_E",
 			"meta": {
@@ -907,8 +1299,8 @@
 					"current_wounds": 7.0,
 					"id": "m1",
 					"position": {
-						"x": 900.0,
-						"y": 1126.66662597656
+						"x": 893.333312988281,
+						"y": 1120.0
 					},
 					"status_effects": [],
 					"wounds": 7.0

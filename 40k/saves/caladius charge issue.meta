@@ -1,0 +1,17 @@
+{
+	"created_at": 1761241954.49481,
+	"description": "caladius charge issue",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "c52dcbc4-b19f-5515-b906-7caeaaaccca895fb",
+		"phase": 2,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "caladius charge issue",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}
