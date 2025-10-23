@@ -366,7 +366,7 @@ func test_active_moves_cleanup():
 # Test measurement and distance calculations
 func test_movement_distance_calculation():
 	if not movement_phase.has_method("calculate_move_distance"):
-		skip_test("Movement distance calculation method not available")
+		pending("Movement distance calculation method not available")
 		return
 	
 	var from_pos = Vector2(100, 100)

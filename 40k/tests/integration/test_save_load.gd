@@ -39,7 +39,7 @@ func after_each():
 # Test basic save functionality
 func test_basic_save():
 	if not save_manager:
-		skip_test("SaveLoadManager not available")
+		pending("SaveLoadManager not available")
 		return
 	
 	# Modify game state
@@ -63,7 +63,7 @@ func test_basic_save():
 
 func test_basic_load():
 	if not save_manager:
-		skip_test("SaveLoadManager not available")
+		pending("SaveLoadManager not available")
 		return
 	
 	# Create a save first
@@ -141,7 +141,7 @@ func test_save_load_round_trip():
 
 func test_state_serialization():
 	if not state_serializer:
-		skip_test("StateSerializer not available")
+		pending("StateSerializer not available")
 		return
 	
 	var test_state = game_state.create_snapshot()
@@ -295,7 +295,7 @@ func test_concurrent_save_operations():
 
 func test_auto_save_functionality():
 	if not save_manager:
-		skip_test("SaveLoadManager not available")
+		pending("SaveLoadManager not available")
 		return
 	
 	# Test auto-save triggers
@@ -321,7 +321,7 @@ func test_auto_save_functionality():
 
 func test_quick_save_load():
 	if not save_manager:
-		skip_test("SaveLoadManager not available")
+		pending("SaveLoadManager not available")
 		return
 	
 	# Test quick save
@@ -496,7 +496,7 @@ func test_save_compression():
 func test_backward_compatibility_minified_to_pretty():
 	# Test loading old minified saves with new pretty-print system
 	if not state_serializer:
-		skip_test("StateSerializer not available")
+		pending("StateSerializer not available")
 		return
 	
 	# Create test state
@@ -524,7 +524,7 @@ func test_backward_compatibility_minified_to_pretty():
 func test_forward_compatibility_pretty_to_minified():
 	# Test loading new pretty saves with old minified system
 	if not state_serializer:
-		skip_test("StateSerializer not available")
+		pending("StateSerializer not available")
 		return
 	
 	# Create test state
@@ -553,7 +553,7 @@ func test_forward_compatibility_pretty_to_minified():
 func test_save_file_readability():
 	# Verify save files are human-readable
 	if not save_manager or not state_serializer:
-		skip_test("Save components not available")
+		pending("Save components not available")
 		return
 	
 	# Enable pretty print

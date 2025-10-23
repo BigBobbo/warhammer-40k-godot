@@ -97,7 +97,7 @@ func test_edge_to_edge_visibility():
 	var result = EnhancedLineOfSight.check_enhanced_visibility(test_shooter_model, test_target_model, test_board)
 	
 	# This might be true or false depending on exact geometry, but should complete without error
-	assert_is_not_null(result.has_los, "Should return valid LoS result")
+	assert_not_null(result.has_los, "Should return valid LoS result")
 	assert_eq(result.method, "edge_to_edge", "Should use edge-to-edge method if successful")
 
 func test_circumference_visibility():
@@ -313,7 +313,7 @@ func test_enhanced_finds_edge_cases_legacy_misses():
 	
 	# This is the key test - enhanced should potentially find LoS that legacy misses
 	# Due to the geometric complexity, we primarily test that enhanced doesn't crash
-	assert_is_not_null(enhanced_result.has_los, "Enhanced should return valid result")
+	assert_not_null(enhanced_result.has_los, "Enhanced should return valid result")
 	
 	gut.p("Legacy: %s, Enhanced: %s" % [
 		"CLEAR" if legacy_result else "BLOCKED",

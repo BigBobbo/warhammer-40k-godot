@@ -239,6 +239,21 @@ func _broadcast_result(result: Dictionary) -> void:
 
 	print("NetworkManager: Client finished applying result")
 
+func _broadcast_result_from_phase_manager(result: Dictionary) -> void:
+	"""
+	Called by PhaseManager when phases auto-advance on the host.
+	Broadcasts the phase change to all clients.
+	"""
+	if not is_host():
+		push_error("NetworkManager: _broadcast_result_from_phase_manager called on non-host!")
+		return
+
+	print("NetworkManager: Broadcasting auto-phase-advance from PhaseManager")
+	print("NetworkManager: Result: ", result)
+
+	# Broadcast to all clients
+	_broadcast_result.rpc(result)
+
 func _emit_client_visual_updates(result: Dictionary) -> void:
 	"""Emit phase-specific signals on client after applying result for visual updates"""
 	print("NetworkManager: _emit_client_visual_updates START")
@@ -591,14 +606,36 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 	print("NetworkManager: phase_mgr = ", phase_mgr)
 	if phase_mgr:
 		var phase = phase_mgr.get_current_phase_instance()
-		print("NetworkManager: current_phase_instance = ", phase)
+		var game_state_phase = game_state.get_current_phase()
+
+		# DIAGNOSTIC: Check for phase mismatch between GameState and PhaseManager
+		print("NetworkManager: ⚠️ PHASE SYNC CHECK")
+		print("NetworkManager:   GameState.meta.phase: ", GameStateData.Phase.keys()[game_state_phase])
 		if phase:
-			print("NetworkManager: phase class = ", phase.get_class())
-			print("NetworkManager: phase has validate_action? ", phase.has_method("validate_action"))
+			var phase_script_path = phase.get_script().resource_path if phase.get_script() else "unknown"
+			print("NetworkManager:   PhaseManager instance script: ", phase_script_path)
+			print("NetworkManager:   Phase class: ", phase.get_class())
+			print("NetworkManager:   Phase has validate_action: ", phase.has_method("validate_action"))
+		else:
+			print("NetworkManager:   PhaseManager instance: NULL")
+
+		print("NetworkManager: current_phase_instance = ", phase)
 		if phase and phase.has_method("validate_action"):
 			print("NetworkManager: Calling phase.validate_action()")
 			var phase_validation = phase.validate_action(action)
 			print("NetworkManager: Phase validation result = ", phase_validation)
+
+			# If validation fails, add diagnostic info
+			if not phase_validation.valid:
+				print("NetworkManager: ❌ Phase validation FAILED")
+				print("NetworkManager:   Action type: ", action.get("type"))
+				print("NetworkManager:   Claimed player: ", action.get("player", -1))
+				print("NetworkManager:   Active player: ", game_state.get_active_player())
+				print("NetworkManager:   GameState phase: ", GameStateData.Phase.keys()[game_state_phase])
+				if phase:
+					print("NetworkManager:   PhaseManager phase script: ", phase.get_script().resource_path if phase.get_script() else "unknown")
+				print("NetworkManager:   Validation errors: ", phase_validation.get("errors", []))
+
 			return phase_validation
 		else:
 			print("NetworkManager: No phase or no validate_action method")

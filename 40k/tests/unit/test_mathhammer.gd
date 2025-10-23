@@ -88,7 +88,7 @@ func test_simulation_runs_successfully():
 	
 	assert_not_null(result, "Simulation should return a result")
 	assert_eq(result.trials_run, 1000, "Should run correct number of trials")
-	assert_ge(result.total_damage, 0, "Total damage should be non-negative")
+	assert_gte(result.total_damage, 0, "Total damage should be non-negative")
 
 func test_simulation_with_zero_trials():
 	# Test edge case with zero trials
@@ -102,7 +102,7 @@ func test_simulation_with_excessive_trials():
 	test_config.trials = 200000
 	var result = Mathhammer.simulate_combat(test_config)
 	
-	assert_le(result.trials_run, 100000, "Should enforce maximum trials")
+	assert_lte(result.trials_run, 100000, "Should enforce maximum trials")
 
 func test_damage_distribution():
 	# Test damage distribution calculation
@@ -124,28 +124,28 @@ func test_statistical_summary():
 	assert_false(result.statistical_summary.is_empty(), "Should have statistical summary")
 	assert_true(result.statistical_summary.has("mean_damage"), "Should have mean damage")
 	assert_true(result.statistical_summary.has("median_damage"), "Should have median damage")
-	assert_ge(result.statistical_summary.mean_damage, 0, "Mean damage should be non-negative")
+	assert_gte(result.statistical_summary.mean_damage, 0, "Mean damage should be non-negative")
 
 func test_kill_probability_calculation():
 	# Test kill probability with easy target
 	test_config.trials = 100
 	var result = Mathhammer.simulate_combat(test_config)
 	
-	assert_ge(result.kill_probability, 0.0, "Kill probability should be >= 0")
-	assert_le(result.kill_probability, 1.0, "Kill probability should be <= 1")
+	assert_gte(result.kill_probability, 0.0, "Kill probability should be >= 0")
+	assert_lte(result.kill_probability, 1.0, "Kill probability should be <= 1")
 
 func test_expected_survivors_calculation():
 	# Test expected survivors calculation
 	var result = Mathhammer.simulate_combat(test_config)
 	
-	assert_ge(result.expected_survivors, 0.0, "Expected survivors should be non-negative")
+	assert_gte(result.expected_survivors, 0.0, "Expected survivors should be non-negative")
 
 func test_damage_efficiency_calculation():
 	# Test damage efficiency calculation
 	var result = Mathhammer.simulate_combat(test_config)
 	
-	assert_ge(result.damage_efficiency, 0.0, "Damage efficiency should be non-negative")
-	assert_le(result.damage_efficiency, 1.0, "Damage efficiency should be <= 1.0")
+	assert_gte(result.damage_efficiency, 0.0, "Damage efficiency should be non-negative")
+	assert_lte(result.damage_efficiency, 1.0, "Damage efficiency should be <= 1.0")
 
 func test_percentile_calculations():
 	# Test percentile calculations
@@ -155,8 +155,8 @@ func test_percentile_calculations():
 	var median = result.get_damage_percentile(0.5)
 	var p75 = result.get_damage_percentile(0.75)
 	
-	assert_le(p25, median, "25th percentile should be <= median")
-	assert_le(median, p75, "Median should be <= 75th percentile")
+	assert_lte(p25, median, "25th percentile should be <= median")
+	assert_lte(median, p75, "Median should be <= 75th percentile")
 
 func test_reproducible_results_with_seed():
 	# Test that same seed produces same results

@@ -28,15 +28,12 @@ var result_json_path = null
 var lgr = GutUtils.get_logger()
 var gut_config = null
 
-var error_tracker = GutUtils.get_error_tracker()
-
 var _hid_gut = null;
 # Lazy loaded gut instance.  Settable for testing purposes.
 var gut = _hid_gut :
 	get:
 		if(_hid_gut == null):
-			_hid_gut = Gut.new(lgr)
-			_hid_gut.error_tracker = error_tracker
+			_hid_gut = Gut.new()
 		return _hid_gut
 	set(val):
 		_hid_gut = val
@@ -125,8 +122,6 @@ func _end_run(override_exit_code=EXIT_OK):
 	if(_ran_from_editor):
 		_write_results_for_gut_panel()
 
-	GutErrorTracker.deregister_logger(error_tracker)
-
 	_handle_quit(gut_config.options.should_exit,
 		gut_config.options.should_exit_on_success,
 		override_exit_code)
@@ -162,9 +157,7 @@ func run_tests(show_gui=true):
 	_setup_gui(show_gui)
 
 	if(gut_config.options.dirs.size() + gut_config.options.tests.size() == 0):
-		var err_text = "You do not have any directories configured, so GUT " + \
-			"doesn't know where to find the tests.  Tell GUT where to find the " + \
-			"tests and GUT shall run the tests."
+		var err_text = "You do not have any directories configured, so GUT doesn't know where to find the tests.  Tell GUT where to find the tests and GUT shall run the tests."
 		lgr.error(err_text)
 		push_error(err_text)
 		_end_run(EXIT_ERROR)
@@ -184,13 +177,12 @@ func run_tests(show_gui=true):
 			_gut_layer.add_child(gut)
 		else:
 			add_child(gut)
-	
-	if(!gut.end_run.is_connected(_on_tests_finished)):
-		gut.end_run.connect(_on_tests_finished)
+
+	gut.end_run.connect(_on_tests_finished)
 
 	gut_config.apply_options(gut)
 	var run_rest_of_scripts = gut_config.options.unit_test_name == ''
-	GutErrorTracker.register_logger(error_tracker)
+
 	gut.test_scripts(run_rest_of_scripts)
 
 
@@ -207,7 +199,6 @@ func quit(exit_code):
 	# Sometimes quitting takes a few seconds.  This gives some indicator
 	# of what is going on.
 	_gui.set_title("Exiting")
-
 	await get_tree().process_frame
 
 	lgr.info(str('Exiting with code ', exit_code))

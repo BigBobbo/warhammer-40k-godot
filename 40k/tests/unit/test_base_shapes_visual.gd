@@ -74,7 +74,7 @@ func test_distance_calculation_with_shapes():
 	# minus half the rectangle length (90mm) minus the infantry radius (16mm)
 	# 300px - 90mm_in_px - 16mm_in_px converted to inches
 	var expected_min = Measurement.px_to_inches(300 - Measurement.mm_to_px(90) - Measurement.mm_to_px(16))
-	assert_ge(distance, expected_min - 0.1)  # Allow small tolerance
+	assert_gte(distance, expected_min - 0.1)  # Allow small tolerance
 
 func test_models_overlap_with_shapes():
 	var rect_model = {

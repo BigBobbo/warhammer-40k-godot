@@ -37,7 +37,7 @@ func after_each():
 # Test game initialization flow
 func test_game_initialization_sequence():
 	if not game_manager:
-		skip_test("GameManager not available")
+		pending("GameManager not available")
 		return
 	
 	# Test that game initializes all systems correctly
@@ -55,7 +55,7 @@ func test_game_initialization_sequence():
 
 func test_action_logging_integration():
 	if not action_logger or not game_state:
-		skip_test("ActionLogger or GameState not available")
+		pending("ActionLogger or GameState not available")
 		return
 	
 	# Perform action that should be logged
@@ -83,7 +83,7 @@ func test_action_logging_integration():
 
 func test_turn_and_phase_coordination():
 	if not turn_manager or not phase_manager or not game_state:
-		skip_test("TurnManager, PhaseManager, or GameState not available")
+		pending("TurnManager, PhaseManager, or GameState not available")
 		return
 	
 	var initial_turn = game_state.get_turn_number()
@@ -104,7 +104,7 @@ func test_turn_and_phase_coordination():
 
 func test_measurement_system_integration():
 	if not Engine.has_singleton("Measurement"):
-		skip_test("Measurement system not available")
+		pending("Measurement system not available")
 		return
 	
 	var measurement = Engine.get_singleton("Measurement")
@@ -123,7 +123,7 @@ func test_measurement_system_integration():
 
 func test_board_state_coordination():
 	if not Engine.has_singleton("BoardState"):
-		skip_test("BoardState not available")
+		pending("BoardState not available")
 		return
 	
 	var board_state = Engine.get_singleton("BoardState")
@@ -139,7 +139,7 @@ func test_board_state_coordination():
 
 func test_replay_system_integration():
 	if not Engine.has_singleton("ReplayManager") or not action_logger:
-		skip_test("ReplayManager or ActionLogger not available")
+		pending("ReplayManager or ActionLogger not available")
 		return
 	
 	var replay_manager = Engine.get_singleton("ReplayManager")
@@ -170,7 +170,7 @@ func test_replay_system_integration():
 
 func test_settings_service_integration():
 	if not Engine.has_singleton("SettingsService"):
-		skip_test("SettingsService not available")
+		pending("SettingsService not available")
 		return
 	
 	var settings = Engine.get_singleton("SettingsService")
@@ -188,7 +188,7 @@ func test_settings_service_integration():
 func test_multi_phase_scenario():
 	# Test complete scenario across multiple phases
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	var scenario_log = []
@@ -226,7 +226,7 @@ func test_multi_phase_scenario():
 func test_error_propagation():
 	# Test that errors in one system are handled by others
 	if not game_state:
-		skip_test("GameState not available")
+		pending("GameState not available")
 		return
 	
 	# Create invalid state
@@ -248,7 +248,7 @@ func test_error_propagation():
 func test_concurrent_system_updates():
 	# Test multiple systems updating simultaneously
 	if not game_state:
-		skip_test("GameState not available")
+		pending("GameState not available")
 		return
 	
 	var initial_turn = game_state.get_turn_number()
@@ -286,7 +286,7 @@ func test_memory_management_across_systems():
 func test_signal_chains():
 	# Test signal propagation between systems
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	var signals_received = []
@@ -335,7 +335,7 @@ func test_performance_under_load():
 func test_state_consistency_across_systems():
 	# Test that all systems maintain consistent view of game state
 	if not game_state:
-		skip_test("GameState not available")
+		pending("GameState not available")
 		return
 	
 	# Modify state
@@ -359,7 +359,7 @@ func test_state_consistency_across_systems():
 func test_system_recovery_after_failure():
 	# Test system recovery after component failure
 	if not game_state:
-		skip_test("GameState not available")
+		pending("GameState not available")
 		return
 	
 	# Save good state
@@ -383,7 +383,7 @@ func test_system_recovery_after_failure():
 func test_cross_system_data_flow():
 	# Test data flowing between multiple systems
 	if not action_logger or not game_state:
-		skip_test("ActionLogger or GameState not available")
+		pending("ActionLogger or GameState not available")
 		return
 	
 	# Create action in one system

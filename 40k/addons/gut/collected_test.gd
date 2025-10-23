@@ -40,8 +40,6 @@ var orphans = 0
 
 var was_run = false
 
-var collected_script : WeakRef = null
-
 
 func did_pass():
 	return is_passing()

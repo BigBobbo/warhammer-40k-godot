@@ -1,17 +1,10 @@
 class CallParameters:
 	var p_name = null
 	var default = null
-	var vararg = false
 
 	func _init(n,d):
 		p_name = n
 		default = d
-
-	func get_signature():
-		if(vararg):
-			return "...args: Array"
-		else:
-			return str(p_name, "=", default)
 
 
 # ------------------------------------------------------------------------------
@@ -34,6 +27,7 @@ class CallParameters:
 # default_args []
 
 var _lgr = GutUtils.get_logger()
+var default_vararg_arg_count = 10
 const PARAM_PREFIX = 'p_'
 
 # ------------------------------------------------------
@@ -123,7 +117,7 @@ func _make_stub_default(method, index):
 	return str('__gutdbl.default_val("', method, '",', index, ')')
 
 
-func _make_arg_array(method_meta):
+func _make_arg_array(method_meta, override_size):
 	var to_return = []
 
 	var has_unsupported_defaults = false
@@ -133,10 +127,17 @@ func _make_arg_array(method_meta):
 		var dflt_text = _make_stub_default(method_meta.name, i)
 		to_return.append(CallParameters.new(PARAM_PREFIX + pname, dflt_text))
 
-	if(method_meta.flags & METHOD_FLAG_VARARG):
-		var cp = CallParameters.new("args", "")
-		cp.vararg = true
-		to_return.append(cp)
+	var extra_params = GutUtils.nvl(override_size, 0)
+	if(extra_params == 0):
+		if(method_meta.flags & METHOD_FLAG_VARARG):
+			extra_params = default_vararg_arg_count
+
+	# Add in extra parameters from stub settings.
+	if(extra_params > 0):
+		for i in range(method_meta.args.size(), extra_params):
+			var pname = str(PARAM_PREFIX, 'arg', i)
+			var dflt_text = _make_stub_default(method_meta.name, i)
+			to_return.append(CallParameters.new(pname, dflt_text))
 
 	return [has_unsupported_defaults, to_return];
 
@@ -151,7 +152,7 @@ func _get_arg_text(arg_array):
 	var text = ''
 
 	for i in range(arg_array.size()):
-		text += arg_array[i].get_signature()
+		text += str(arg_array[i].p_name, '=', arg_array[i].default)
 		if(i != arg_array.size() -1):
 			text += ', '
 
@@ -215,9 +216,10 @@ func _get_init_text(meta, args, method_params, param_array):
 func get_function_text(meta, override_size=null):
 	var method_params = ''
 	var text = null
-	var result = _make_arg_array(meta)
+	var result = _make_arg_array(meta, override_size)
 	var has_unsupported = result[0]
 	var args = result[1]
+	var vararg_warning = ""
 
 	var param_array = _get_spy_call_parameters_text(args)
 	if(has_unsupported):
@@ -231,6 +233,9 @@ func get_function_text(meta, override_size=null):
 	if(param_array == 'null'):
 		param_array = '[]'
 
+	if(meta.flags & METHOD_FLAG_VARARG and override_size == null):
+		vararg_warning = "__gutdbl.vararg_warning()\n\t"
+
 	if(method_params != null):
 		if(meta.name == '_init'):
 			text =  _get_init_text(meta, args, method_params, param_array)
@@ -241,6 +246,7 @@ func get_function_text(meta, override_size=null):
 				"method_name":meta.name,
 				"param_array":param_array,
 				"super_call":_get_super_call_text(meta.name, args),
+				"vararg_warning":vararg_warning,
 			})
 
 	return text

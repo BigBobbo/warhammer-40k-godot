@@ -138,7 +138,7 @@ func test_weapon_grouping_display():
 		var log_text = fight_controller.dice_log_display.get_parsed_text()
 		# Should see both attack sequences for the same weapon
 		var chainsword_mentions = log_text.count("Chainsword")
-		assert_ge(chainsword_mentions, 2, "Should show multiple chainsword attacks")
+		assert_gte(chainsword_mentions, 2, "Should show multiple chainsword attacks")
 
 func test_mathhammer_prediction_display():
 	# Test mathhammer prediction display format
@@ -244,51 +244,47 @@ func _setup_test_fight_phase() -> FightPhase:
 
 func _simulate_combat_sequence(controller: FightController, phase: FightPhase) -> bool:
 	# Simplified combat sequence simulation
-	try:
-		# Setup phase connection
-		controller.set_phase(phase)
-		
-		# Simulate unit selection
-		var select_action = {
-			"type": "SELECT_FIGHTER",
-			"unit_id": "space_marine_tactical"
-		}
-		var result = phase.process_action(select_action)
-		
-		if not result.get("success", false):
-			return false
-		
-		# Simulate attack assignment
-		var attack_action = {
-			"type": "ASSIGN_ATTACKS",
-			"unit_id": "space_marine_tactical",
-			"payload": {
-				"target_unit_id": "ork_boyz",
-				"weapon_id": "chainsword",
-				"model_ids": ["0"]
-			}
-		}
-		result = phase.process_action(attack_action)
-		
-		if not result.get("success", false):
-			return false
-		
-		# Simulate attack confirmation
-		var confirm_action = {
-			"type": "CONFIRM_AND_RESOLVE_ATTACKS"
-		}
-		result = phase.process_action(confirm_action)
-		
-		if not result.get("success", false):
-			return false
-		
-		# Simulate dice rolling
-		var dice_action = {
-			"type": "ROLL_DICE"
-		}
-		result = phase.process_action(dice_action)
-		
-		return result.get("success", false)
-		
-	except:
+	# Setup phase connection
+	controller.set_phase(phase)
+
+	# Simulate unit selection
+	var select_action = {
+		"type": "SELECT_FIGHTER",
+		"unit_id": "space_marine_tactical"
+	}
+	var result = phase.process_action(select_action)
+
+	if not result.get("success", false):
 		return false
+
+	# Simulate attack assignment
+	var attack_action = {
+		"type": "ASSIGN_ATTACKS",
+		"unit_id": "space_marine_tactical",
+		"payload": {
+			"target_unit_id": "ork_boyz",
+			"weapon_id": "chainsword",
+			"model_ids": ["0"]
+		}
+	}
+	result = phase.process_action(attack_action)
+
+	if not result.get("success", false):
+		return false
+
+	# Simulate attack confirmation
+	var confirm_action = {
+		"type": "CONFIRM_AND_RESOLVE_ATTACKS"
+	}
+	result = phase.process_action(confirm_action)
+
+	if not result.get("success", false):
+		return false
+
+	# Simulate dice rolling
+	var dice_action = {
+		"type": "ROLL_DICE"
+	}
+	result = phase.process_action(dice_action)
+
+	return result.get("success", false)

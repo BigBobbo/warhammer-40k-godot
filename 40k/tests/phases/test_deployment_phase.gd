@@ -111,7 +111,7 @@ func test_deploy_unit_outside_deployment_zone():
 
 func test_deploy_enemy_unit():
 	# Try to deploy an enemy unit
-	var enemy_units = get_units_for_player(2)  # Assuming current player is 1
+	var enemy_units = test_state.get("units", {})  # Get all units from test state
 	
 	if enemy_units.size() > 0:
 		var enemy_unit_id = enemy_units.keys()[0]
@@ -176,7 +176,7 @@ func test_all_units_deployed_check():
 		var result = deployment_phase._all_units_deployed()
 		assert_true(result is bool, "Should return boolean")
 	else:
-		skip_test("_all_units_deployed method not accessible")
+		pending("_all_units_deployed method not accessible")
 
 func test_deployment_completion():
 	# Test phase completion when all units are deployed
@@ -332,7 +332,7 @@ func test_battlewagon_deployment_switches_turn():
 	}
 
 	# Set Player 2 as active
-	initial_state.meta.active_player = 2
+	initial_state.current_player = 2
 	deployment_phase.enter_phase(initial_state)
 
 	# Create deployment action with rotation
@@ -370,7 +370,7 @@ func test_battlewagon_save_load_preserves_rotation():
 			"rotation": 0.0
 		}]
 	}
-	initial_state.meta.active_player = 2
+	initial_state.current_player = 2
 	deployment_phase.enter_phase(initial_state)
 
 	# Deploy with specific rotation

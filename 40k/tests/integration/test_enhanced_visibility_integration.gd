@@ -146,7 +146,7 @@ func test_enhanced_los_with_large_models():
 	var visibility_result = RulesEngine._check_target_visibility("unit_1", "unit_2", "bolter", test_state)
 	
 	# Enhanced LoS should potentially find edge visibility where legacy wouldn't
-	assert_is_not_null(visibility_result.visible, "Should return valid visibility result")
+	assert_not_null(visibility_result.visible, "Should return valid visibility result")
 	gut.p("Large model visibility result: %s" % str(visibility_result.visible))
 
 func test_cover_interaction():
@@ -226,7 +226,7 @@ func test_complex_terrain_scenario():
 	var visibility_result = RulesEngine._check_target_visibility("unit_1", "unit_2", "bolter", test_state)
 	
 	# With complex terrain, LoS may or may not be blocked, but should complete without error
-	assert_is_not_null(visibility_result.visible, "Should return valid result with complex terrain")
+	assert_not_null(visibility_result.visible, "Should return valid result with complex terrain")
 	gut.p("Complex terrain visibility: %s" % str(visibility_result.visible))
 
 func test_models_inside_ruins():

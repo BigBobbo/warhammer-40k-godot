@@ -6,7 +6,7 @@ extends BaseUITest
 func test_camera_zoom_with_mouse_wheel():
 	# Test zooming in and out with mouse wheel
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_zoom = camera.zoom if camera.has_property("zoom") else Vector2.ONE
@@ -38,7 +38,7 @@ func test_camera_zoom_with_mouse_wheel():
 func test_camera_zoom_limits():
 	# Test camera zoom limits (min and max zoom)
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	# Zoom in many times to hit max zoom limit
@@ -69,7 +69,7 @@ func test_camera_zoom_limits():
 func test_camera_pan_with_middle_mouse():
 	# Test camera panning with middle mouse button drag
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_pos = camera.global_position
@@ -107,7 +107,7 @@ func test_camera_pan_with_middle_mouse():
 func test_camera_pan_with_wasd():
 	# Test camera panning with WASD keys
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_pos = camera.global_position
@@ -132,7 +132,7 @@ func test_camera_pan_with_wasd():
 func test_camera_edge_scrolling():
 	# Test camera scrolling when mouse approaches screen edge
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_pos = camera.global_position
@@ -156,7 +156,7 @@ func test_camera_edge_scrolling():
 func test_camera_bounds():
 	# Test that camera respects world bounds
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	# Try to pan camera way outside the game board
@@ -210,7 +210,7 @@ func test_camera_focus_on_unit():
 func test_camera_zoom_keyboard_shortcuts():
 	# Test zoom in/out with + and - keys
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_zoom = camera.zoom if camera.has_property("zoom") else Vector2.ONE
@@ -244,7 +244,7 @@ func test_camera_zoom_keyboard_shortcuts():
 func test_camera_reset():
 	# Test resetting camera to default position/zoom
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	# Move and zoom camera away from defaults
@@ -272,7 +272,7 @@ func test_minimap_interaction():
 	# Test clicking on minimap to move camera
 	var minimap = find_ui_element("Minimap", Control)
 	if not minimap or not camera:
-		skip_test("Minimap or camera not available")
+		pending("Minimap or camera not available")
 		return
 	
 	var initial_camera_pos = camera.global_position
@@ -291,7 +291,7 @@ func test_minimap_interaction():
 func test_camera_smooth_movement():
 	# Test that camera movement is smooth (not jerky)
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_pos = camera.global_position
@@ -324,7 +324,7 @@ func test_camera_smooth_movement():
 func test_camera_follow_mode():
 	# Test camera follow mode (following selected unit)
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	# Enable follow mode if available
@@ -381,7 +381,7 @@ func test_grid_display_toggle():
 func test_camera_shake_on_events():
 	# Test camera shake on dramatic events (explosions, etc.)
 	if not camera:
-		skip_test("Camera not available in test environment")
+		pending("Camera not available in test environment")
 		return
 	
 	var initial_pos = camera.global_position
