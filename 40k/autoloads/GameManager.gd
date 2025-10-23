@@ -76,10 +76,18 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_end_shooting(action)
 
 		# Charge actions
+		"SELECT_CHARGE_UNIT":
+			return _delegate_to_current_phase(action)
 		"DECLARE_CHARGE":
 			return process_declare_charge(action)
-		"ROLL_CHARGE":
+		"CHARGE_ROLL":
 			return process_roll_charge(action)
+		"APPLY_CHARGE_MOVE":
+			return _delegate_to_current_phase(action)
+		"COMPLETE_UNIT_CHARGE":
+			return _delegate_to_current_phase(action)
+		"SKIP_CHARGE":
+			return _delegate_to_current_phase(action)
 		"END_CHARGE":
 			return process_end_charge(action)
 

@@ -16,6 +16,7 @@ var selected_targets: Array = []
 var charge_distance: int = 0
 var awaiting_roll: bool = false
 var awaiting_movement: bool = false
+var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to prevent duplicates
 
 # Charge movement tracking
 var models_to_move: Array = []  # Models that still need to move
@@ -416,7 +417,11 @@ func set_phase(phase_instance) -> void:
 	if current_phase.has_signal("charge_roll_made"):
 		if not current_phase.charge_roll_made.is_connected(_on_charge_roll_made):
 			current_phase.charge_roll_made.connect(_on_charge_roll_made)
-	
+
+	if current_phase.has_signal("dice_rolled"):
+		if not current_phase.dice_rolled.is_connected(_on_dice_rolled):
+			current_phase.dice_rolled.connect(_on_dice_rolled)
+
 	if current_phase.has_signal("charge_resolved"):
 		if not current_phase.charge_resolved.is_connected(_on_charge_resolved):
 			current_phase.charge_resolved.connect(_on_charge_resolved)
@@ -1535,10 +1540,13 @@ func _on_charge_targets_available(unit_id: String, targets: Dictionary) -> void:
 
 func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	print("Charge roll made: ", unit_id, " rolled ", distance, " (", dice, ")")
-	
+
 	charge_distance = distance
 	awaiting_roll = false
-	
+
+	# Mark that we've processed this charge roll (prevents duplicate processing from dice_rolled signal)
+	last_processed_charge_roll = {"unit_id": unit_id, "distance": distance}
+
 	# Update dice log
 	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
 		unit_id, distance, dice[0], dice[1]
@@ -1572,6 +1580,70 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 		_reset_unit_selection()
 	
 	_update_button_states()
+
+func _on_dice_rolled(dice_data: Dictionary) -> void:
+	"""Handle dice_rolled signal from ChargePhase - critical for multiplayer sync"""
+	if not is_instance_valid(dice_log_display):
+		return
+
+	print("ChargeController: _on_dice_rolled called with data: ", dice_data)
+
+	# Extract dice data
+	var context = dice_data.get("context", "")
+	var unit_id = dice_data.get("unit_id", "")
+	var unit_name = dice_data.get("unit_name", unit_id)
+	var rolls = dice_data.get("rolls", [])
+	var total = dice_data.get("total", 0)
+
+	# Only process charge rolls
+	if context != "charge_roll" or rolls.size() != 2:
+		return
+
+	# Check if this charge roll was already processed by _on_charge_roll_made
+	# This prevents duplicate processing on the host (which receives both signals)
+	if last_processed_charge_roll.get("unit_id", "") == unit_id and last_processed_charge_roll.get("distance", -1) == total:
+		print("ChargeController: Skipping duplicate charge roll processing (already handled by charge_roll_made)")
+		return
+
+	# Format and display charge roll
+	if true:
+		var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
+			unit_name, total, rolls[0], rolls[1]
+		]
+		dice_log_display.append_text(dice_text)
+		print("ChargeController: Added dice roll to display: ", dice_text.strip_edges())
+
+		# Apply the same success/failure logic as _on_charge_roll_made
+		# This ensures clients see the same feedback as the host
+		charge_distance = total
+		awaiting_roll = false
+
+		# Check if charge is successful (can at least one model reach engagement range?)
+		var success = _is_charge_successful(unit_id, total, selected_targets)
+
+		if success:
+			awaiting_movement = true
+			if is_instance_valid(charge_info_label):
+				charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [total, total]
+			if is_instance_valid(dice_log_display):
+				dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+
+			# Enable charge movement for this unit
+			_enable_charge_movement(unit_id, total)
+
+			# Show charge distance tracking
+			_show_charge_distance_display(total)
+		else:
+			awaiting_movement = false
+			if is_instance_valid(charge_info_label):
+				charge_info_label.text = "Failed! Rolled %d\" - not enough to reach target" % total
+			if is_instance_valid(dice_log_display):
+				dice_log_display.append_text("[color=red]Charge failed! Rolled distance insufficient to reach engagement range.[/color]\n")
+
+			# Reset for next unit
+			_reset_unit_selection()
+
+		_update_button_states()
 
 func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> void:
 	print("Charge resolved: ", unit_id, " success: ", success)
