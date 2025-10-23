@@ -300,7 +300,8 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		"unit_id": unit_id,
 		"unit_name": get_unit(unit_id).get("meta", {}).get("name", unit_id),
 		"rolls": rolls,
-		"total": total_distance
+		"total": total_distance,
+		"targets": charge_data.targets  # Include targets so clients can determine success
 	}
 	dice_log.append(dice_result)
 	

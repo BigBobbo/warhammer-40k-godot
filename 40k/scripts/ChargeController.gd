@@ -733,6 +733,35 @@ func _log_unit_positions(unit_id: String, label: String) -> void:
 		else:
 			print("  Model ", i, " (", model.get("id", ""), "): no position")
 
+func _get_charge_targets_from_phase(unit_id: String) -> Array:
+	"""Get the declared charge targets from ChargePhase's synced game state.
+
+	This ensures both charging and defending players use the same target list
+	when determining charge success, fixing the bug where defending players
+	always see "charge failed" due to empty local selected_targets.
+
+	NOTE: This only works on the host where pending_charges is populated.
+	Clients should use targets from dice_data instead.
+	"""
+	if not current_phase:
+		print("WARNING: No current_phase available to get charge targets")
+		return []
+
+	if not current_phase.has_method("get_pending_charges"):
+		print("ERROR: current_phase doesn't have get_pending_charges method")
+		return []
+
+	var pending = current_phase.get_pending_charges()
+	if not pending.has(unit_id):
+		print("WARNING: No pending charge found for unit ", unit_id, " (this is expected on clients)")
+		return []
+
+	var charge_data = pending[unit_id]
+	var targets = charge_data.get("targets", [])
+
+	print("Retrieved ", targets.size(), " targets from phase for unit ", unit_id, ": ", targets)
+	return targets
+
 func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
 	# Check if at least one model can reach engagement range (1") of any target
 	var unit = GameState.get_unit(unit_id)
@@ -1555,7 +1584,9 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 		dice_log_display.append_text(dice_text)
 	
 	# Check if charge is successful (can at least one model reach engagement range?)
-	var success = _is_charge_successful(unit_id, distance, selected_targets)
+	# Get targets from phase's synced game state (not local UI state)
+	var targets = _get_charge_targets_from_phase(unit_id)
+	var success = _is_charge_successful(unit_id, distance, targets)
 	
 	if success:
 		awaiting_movement = true
@@ -1594,6 +1625,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var unit_name = dice_data.get("unit_name", unit_id)
 	var rolls = dice_data.get("rolls", [])
 	var total = dice_data.get("total", 0)
+	var targets = dice_data.get("targets", [])  # Get targets from synced dice data
 
 	# Only process charge rolls
 	if context != "charge_roll" or rolls.size() != 2:
@@ -1619,7 +1651,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		awaiting_roll = false
 
 		# Check if charge is successful (can at least one model reach engagement range?)
-		var success = _is_charge_successful(unit_id, total, selected_targets)
+		# Use targets from dice_data (synced across network) instead of local UI state
+		print("DEBUG: Using targets from dice_data: ", targets)
+		var success = _is_charge_successful(unit_id, total, targets)
 
 		if success:
 			awaiting_movement = true
