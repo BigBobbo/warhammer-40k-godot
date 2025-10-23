@@ -42,6 +42,11 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
 
+	# MULTIPLAYER FIX: Broadcast phase change to all clients
+	if NetworkManager.is_networked() and NetworkManager.is_host():
+		print("[PhaseManager] Broadcasting phase change to clients: ", GameStateData.Phase.keys()[new_phase])
+		NetworkManager.broadcast_phase_change(new_phase)
+
 	# Create and initialize new phase instance
 	if phase_classes.has(new_phase):
 		print("[PhaseManager] Creating new phase instance for: ", GameStateData.Phase.keys()[new_phase])

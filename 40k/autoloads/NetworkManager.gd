@@ -722,6 +722,34 @@ func _on_connection_failed() -> void:
 	network_mode = NetworkMode.OFFLINE
 
 # ============================================================================
+# PHASE SYNCHRONIZATION
+# ============================================================================
+
+func broadcast_phase_change(new_phase: GameStateData.Phase) -> void:
+	"""Broadcast phase change from host to all clients"""
+	if not is_networked() or not is_host():
+		return
+
+	print("NetworkManager: Broadcasting phase change to clients: ", GameStateData.Phase.keys()[new_phase])
+	_receive_phase_change.rpc(new_phase)
+
+@rpc("authority", "call_remote", "reliable")
+func _receive_phase_change(new_phase: GameStateData.Phase) -> void:
+	"""Client receives phase change from host and applies it"""
+	if is_host():
+		return  # Host already transitioned locally
+
+	print("NetworkManager: Client received phase change: ", GameStateData.Phase.keys()[new_phase])
+
+	# Get PhaseManager and trigger transition on client
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if phase_manager:
+		print("NetworkManager: Transitioning client to phase: ", GameStateData.Phase.keys()[new_phase])
+		phase_manager.transition_to_phase(new_phase)
+	else:
+		push_error("NetworkManager: PhaseManager not found on client!")
+
+# ============================================================================
 # PHASE SNAPSHOT MANAGEMENT
 # ============================================================================
 
