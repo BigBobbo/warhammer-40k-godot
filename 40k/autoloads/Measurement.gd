@@ -86,8 +86,13 @@ func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float
 	# Handle position as Dictionary or Vector2
 	if pos1 is Dictionary:
 		pos1 = Vector2(pos1.get("x", 0), pos1.get("y", 0))
+	elif pos1 == null:
+		pos1 = Vector2.ZERO
+
 	if pos2 is Dictionary:
 		pos2 = Vector2(pos2.get("x", 0), pos2.get("y", 0))
+	elif pos2 == null:
+		pos2 = Vector2.ZERO
 
 	var rotation1 = model1.get("rotation", 0.0)
 	var rotation2 = model2.get("rotation", 0.0)
@@ -112,8 +117,13 @@ func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
 	# Handle position as Dictionary or Vector2
 	if pos1 is Dictionary:
 		pos1 = Vector2(pos1.get("x", 0), pos1.get("y", 0))
+	elif pos1 == null:
+		pos1 = Vector2.ZERO
+
 	if pos2 is Dictionary:
 		pos2 = Vector2(pos2.get("x", 0), pos2.get("y", 0))
+	elif pos2 == null:
+		pos2 = Vector2.ZERO
 
 	var rotation1 = model1.get("rotation", 0.0)
 	var rotation2 = model2.get("rotation", 0.0)
@@ -131,6 +141,8 @@ func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 	# Handle position as Dictionary or Vector2
 	if pos is Dictionary:
 		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos == null:
+		pos = Vector2.ZERO
 
 	var rotation = model.get("rotation", 0.0)
 	var shape = create_base_shape(model)
@@ -149,3 +161,10 @@ func model_overlaps_any_wall(model: Dictionary) -> bool:
 			if model_overlaps_wall(model, wall):
 				return true
 	return false
+
+# Shape-aware engagement range check
+# This is the recommended function for all engagement range checks throughout the codebase
+func is_in_engagement_range_shape_aware(model1: Dictionary, model2: Dictionary, er_inches: float = 1.0) -> bool:
+	var distance_px = model_to_model_distance_px(model1, model2)
+	var er_px = inches_to_px(er_inches)
+	return distance_px <= er_px

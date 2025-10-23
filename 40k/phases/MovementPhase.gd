@@ -259,7 +259,7 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": er_check.errors}
 	
 	# Check terrain collision
-	if _position_intersects_terrain(dest_vec, model.get("base_mm", 32)):
+	if _position_intersects_terrain(dest_vec, model):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap
@@ -323,7 +323,7 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": er_check.errors}
 	
 	# Check terrain collision
-	if _position_intersects_terrain(dest_vec, model.get("base_mm", 32)):
+	if _position_intersects_terrain(dest_vec, model):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap
@@ -1059,30 +1059,30 @@ func _is_unit_engaged(unit_id: String) -> bool:
 	return false
 
 func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Vector2) -> bool:
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
 	var model = _get_model_in_unit(unit_id, model_id)
-	var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-	
-	# Check against all enemy units
+
+	# Create a temporary model dict with the proposed position for shape-aware checks
+	var model_at_pos = model.duplicate()
+	model_at_pos["position"] = pos
+
+	# Check against all enemy units using shape-aware distance
 	var current_player = get_current_player()
 	var units = game_state_snapshot.get("units", {})
-	
+
 	for enemy_unit_id in units:
 		var enemy_unit = units[enemy_unit_id]
 		if enemy_unit.get("owner", 0) == current_player:
 			continue  # Skip friendly units
-		
+
 		var enemy_models = enemy_unit.get("models", [])
 		for enemy_model in enemy_models:
 			if not enemy_model.get("alive", true):
 				continue
 			var enemy_pos = _get_model_position(enemy_model)
 			if enemy_pos:
-				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-				var edge_distance = pos.distance_to(enemy_pos) - model_radius - enemy_radius
-				if edge_distance <= er_px:
+				if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
 					return true
-	
+
 	return false
 
 func _check_engagement_range_at_position(unit_id: String, model_id: String, dest: Vector2, mode: String) -> Dictionary:
@@ -1098,29 +1098,54 @@ func _check_engagement_range_at_position(unit_id: String, model_id: String, dest
 	return {"valid": true, "errors": []}
 
 func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: int) -> bool:
-	var model_radius = Measurement.base_radius_px(base_mm)
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
-	
-	# Check if path segment crosses any enemy model bases
+	# Check if path segment crosses any enemy model bases using shape-aware overlap
+	# Sample points along the path and check for overlap at each point
 	var current_player = get_current_player()
 	var units = game_state_snapshot.get("units", {})
-	
-	for enemy_unit_id in units:
-		var enemy_unit = units[enemy_unit_id]
-		if enemy_unit.get("owner", 0) == current_player:
-			continue
-		
-		var enemy_models = enemy_unit.get("models", [])
-		for enemy_model in enemy_models:
-			if not enemy_model.get("alive", true):
+
+	# Get a reference model to build temporary model dicts for path checking
+	# We'll use the first alive model from the unit
+	var reference_model = null
+	var unit = units.get(unit_id, {})
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			reference_model = model.duplicate()
+			break
+
+	if reference_model == null:
+		return false  # No alive models to check
+
+	# Sample points along the path (approximately every 10 pixels for good coverage)
+	var path_length = from.distance_to(to)
+	var num_samples = max(2, int(path_length / 10.0))
+
+	for i in range(num_samples + 1):
+		var t = float(i) / float(num_samples)
+		var sample_pos = from.lerp(to, t)
+
+		# Create a temporary model at this position
+		var model_at_pos = reference_model.duplicate()
+		model_at_pos["position"] = sample_pos
+
+		# Check against all enemy models
+		for enemy_unit_id in units:
+			var enemy_unit = units[enemy_unit_id]
+			if enemy_unit.get("owner", 0) == current_player:
 				continue
-			var enemy_pos = _get_model_position(enemy_model)
-			if enemy_pos:
-				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-				# Check if line segment intersects circle
-				if _segment_intersects_circle(from, to, enemy_pos, enemy_radius + model_radius + er_px):
-					return true
-	
+
+			var enemy_models = enemy_unit.get("models", [])
+			for enemy_model in enemy_models:
+				if not enemy_model.get("alive", true):
+					continue
+				var enemy_pos = _get_model_position(enemy_model)
+				if enemy_pos:
+					# Use shape-aware overlap check or engagement range check
+					if Measurement.models_overlap(model_at_pos, enemy_model):
+						return true
+					# Also check if within engagement range (path can't cross ER)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
+						return true
+
 	return false
 
 func _segment_intersects_circle(seg_start: Vector2, seg_end: Vector2, circle_center: Vector2, radius: float) -> bool:
@@ -1186,17 +1211,24 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 
 	return false
 
-func _position_intersects_terrain(pos: Vector2, base_mm: int) -> bool:
-	# MVP: Check against terrain polygons
+func _position_intersects_terrain(pos: Vector2, model: Dictionary) -> bool:
+	# Check against terrain polygons using shape-aware bounds
 	var terrain = game_state_snapshot.get("board", {}).get("terrain", [])
-	var model_radius = Measurement.base_radius_px(base_mm)
-	
+
+	# Create the base shape to get accurate bounds
+	var base_shape = Measurement.create_base_shape(model)
+	var bounds = base_shape.get_bounds()
+
+	# Use the maximum dimension of the bounds as the expansion
+	# This provides better coverage for non-circular bases
+	var expansion = max(bounds.size.x, bounds.size.y) / 2.0
+
 	for terrain_piece in terrain:
 		if terrain_piece.get("type", "") == "impassable":
 			var poly = terrain_piece.get("poly", [])
-			if _point_in_expanded_polygon(pos, poly, model_radius):
+			if _point_in_expanded_polygon(pos, poly, expansion):
 				return true
-	
+
 	return false
 
 func _point_in_expanded_polygon(point: Vector2, poly: Array, expansion: float) -> bool:

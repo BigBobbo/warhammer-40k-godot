@@ -467,74 +467,66 @@ func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 	var models = unit.get("models", [])
 	var current_player = get_current_player()
 	var all_units = game_state_snapshot.get("units", {})
-	
+
 	for model in models:
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position(model)
 		if model_pos == null:
 			continue
-		
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
-		
-		# Check against all enemy models
+
+		# Check against all enemy models using shape-aware distance
 		for enemy_unit_id in all_units:
 			var enemy_unit = all_units[enemy_unit_id]
 			if enemy_unit.get("owner", 0) == current_player:
 				continue  # Skip friendly units
-			
+
 			for enemy_model in enemy_unit.get("models", []):
 				if not enemy_model.get("alive", true):
 					continue
-				
+
 				var enemy_pos = _get_model_position(enemy_model)
 				if enemy_pos == null:
 					continue
-				
-				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-				var edge_distance = model_pos.distance_to(enemy_pos) - model_radius - enemy_radius
-				
-				if edge_distance <= er_px:
+
+				# Use shape-aware engagement range check
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, ENGAGEMENT_RANGE_INCHES):
 					return true
-	
+
 	return false
 
 func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 	var unit = get_unit(unit_id)
 	var target = get_unit(target_id)
-	
+
 	if unit.is_empty() or target.is_empty():
 		return false
-	
-	# Find closest edge-to-edge distance between any models
+
+	# Find closest edge-to-edge distance between any models using shape-aware calculations
 	var min_distance = INF
-	
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position(model)
 		if model_pos == null:
 			continue
-		
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		
+
 		for target_model in target.get("models", []):
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position(target_model)
 			if target_pos == null:
 				continue
-			
-			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-			var edge_distance = Measurement.edge_to_edge_distance_px(model_pos, model_radius, target_pos, target_radius)
-			var distance_inches = Measurement.px_to_inches(edge_distance)
-			
+
+			# Use shape-aware distance calculation
+			var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+
 			min_distance = min(min_distance, distance_inches)
-	
+
 	return min_distance <= CHARGE_RANGE_INCHES
 
 func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
@@ -616,81 +608,80 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	var errors = []
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
 	var current_player = get_current_player()
 	var all_units = game_state_snapshot.get("units", {})
-	
+
 	# Check that unit ends within ER of ALL targets
 	for target_id in target_ids:
 		var target_unit = all_units.get(target_id, {})
 		if target_unit.is_empty():
 			continue
-		
+
 		var unit_in_er_of_target = false
-		
+
 		for model_id in per_model_paths:
 			var path = per_model_paths[model_id]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
 				var model = _get_model_in_unit(unit_id, model_id)
-				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				
-				# Check if this model is in ER of any target model
+
+				# Create a temporary model dict with the final position for shape-aware checks
+				var model_at_final_pos = model.duplicate()
+				model_at_final_pos["position"] = final_pos
+
+				# Check if this model is in ER of any target model using shape-aware distance
 				for target_model in target_unit.get("models", []):
 					if not target_model.get("alive", true):
 						continue
-					
+
 					var target_pos = _get_model_position(target_model)
 					if target_pos == null:
 						continue
-					
-					var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-					var edge_distance = final_pos.distance_to(target_pos) - model_radius - target_radius
-					
-					if edge_distance <= er_px:
+
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, ENGAGEMENT_RANGE_INCHES):
 						unit_in_er_of_target = true
 						break
-				
+
 				if unit_in_er_of_target:
 					break
-		
+
 		if not unit_in_er_of_target:
 			var target_name = target_unit.get("meta", {}).get("name", target_id)
 			errors.append("Must end within engagement range of all targets: " + target_name)
-	
+
 	# Check that unit does NOT end in ER of non-target enemies
 	for enemy_unit_id in all_units:
 		var enemy_unit = all_units[enemy_unit_id]
 		if enemy_unit.get("owner", 0) == current_player:
 			continue  # Skip friendly
-		
+
 		if enemy_unit_id in target_ids:
 			continue  # Skip declared targets
-		
+
 		# Check if any charging model ends in ER of this non-target
 		for model_id in per_model_paths:
 			var path = per_model_paths[model_id]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
 				var model = _get_model_in_unit(unit_id, model_id)
-				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				
+
+				# Create a temporary model dict with the final position for shape-aware checks
+				var model_at_final_pos = model.duplicate()
+				model_at_final_pos["position"] = final_pos
+
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
 						continue
-					
+
 					var enemy_pos = _get_model_position(enemy_model)
 					if enemy_pos == null:
 						continue
-					
-					var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-					var edge_distance = final_pos.distance_to(enemy_pos) - model_radius - enemy_radius
-					
-					if edge_distance <= er_px:
+
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
