@@ -91,11 +91,25 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_CHARGE":
 			return process_end_charge(action)
 
-		# Fight actions
-		"SELECT_FIGHT_TARGET":
-			return process_fight_target(action)
-		"RESOLVE_FIGHT":
-			return process_resolve_fight(action)
+		# Fight actions (modern phase-based system)
+		"SELECT_FIGHTER":
+			return _delegate_to_current_phase(action)
+		"SELECT_MELEE_WEAPON":
+			return _delegate_to_current_phase(action)
+		"PILE_IN":
+			return _delegate_to_current_phase(action)
+		"ASSIGN_ATTACKS":
+			return _delegate_to_current_phase(action)
+		"CONFIRM_AND_RESOLVE_ATTACKS":
+			return _delegate_to_current_phase(action)
+		"ROLL_DICE":
+			return _delegate_to_current_phase(action)
+		"CONSOLIDATE":
+			return _delegate_to_current_phase(action)
+		"SKIP_UNIT":
+			return _delegate_to_current_phase(action)
+		"HEROIC_INTERVENTION":
+			return _delegate_to_current_phase(action)
 		"END_FIGHT":
 			return process_end_fight(action)
 
@@ -407,11 +421,15 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 # FIGHT ACTION PROCESSORS
 # ============================================================================
 
-func process_fight_target(action: Dictionary) -> Dictionary:
-	return _delegate_to_current_phase(action)
-
-func process_resolve_fight(action: Dictionary) -> Dictionary:
-	return _delegate_to_current_phase(action)
+# Legacy fight processors - DEPRECATED
+# These were replaced by modern action routing in process_action()
+# Kept as comments for reference during transition period
+#
+# func process_fight_target(action: Dictionary) -> Dictionary:
+#     return _delegate_to_current_phase(action)
+#
+# func process_resolve_fight(action: Dictionary) -> Dictionary:
+#     return _delegate_to_current_phase(action)
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")

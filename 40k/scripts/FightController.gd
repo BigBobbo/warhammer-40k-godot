@@ -1111,11 +1111,10 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	
 	emit_signal("fight_action_requested", {
 		"type": "ASSIGN_ATTACKS",
-		"payload": {
-			"weapon_id": weapon_id,
-			"target_unit_id": target_id,
-			"model_ids": model_ids
-		}
+		"unit_id": current_fighter_id,
+		"target_id": target_id,
+		"weapon_id": weapon_id,
+		"attacking_models": model_ids
 	})
 	
 	# Update UI
