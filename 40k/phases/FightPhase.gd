@@ -666,15 +666,17 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# Switch to next player
 	_switch_selecting_player()
 
-	# Request next fight selection
-	_emit_fight_selection_required()
+	# IMPORTANT: For multiplayer sync, we need to capture the dialog data BEFORE emitting
+	# the signal so we can send it to clients
+	var dialog_data = _build_fight_selection_dialog_data()
 
-	# IMPORTANT: For multiplayer sync, add a flag to the result so NetworkManager
-	# knows to trigger fight selection on ALL clients
+	# Request next fight selection on host
+	emit_signal("fight_selection_required", dialog_data)
+
+	# Add flag and data to result for NetworkManager to trigger on clients
 	var result = create_result(true, changes)
-
-	# Add custom metadata to trigger dialog on all clients
 	result["trigger_fight_selection"] = true
+	result["fight_selection_data"] = dialog_data
 
 	return result
 
@@ -723,8 +725,37 @@ func _get_defending_player() -> int:
 	var active_player = GameState.get_active_player()
 	return 2 if active_player == 1 else 1
 
-func _emit_fight_selection_required() -> void:
-	"""Emit signal to show fight selection dialog with current state"""
+func _build_fight_selection_dialog_data_internal() -> Dictionary:
+	"""Internal version that builds dialog data without triggering transitions.
+	Used when we're already inside a transition to avoid recursion."""
+	log_phase_message("=== REQUESTING FIGHT SELECTION ===")
+	log_phase_message("Current Subphase: %s" % Subphase.keys()[current_subphase])
+	log_phase_message("Selecting Player: %d" % current_selecting_player)
+
+	# Get eligible units for current player and subphase
+	var eligible_units = _get_eligible_units_for_selection()
+	log_phase_message("Eligible Units: %d" % eligible_units.size())
+	if not eligible_units.is_empty():
+		log_phase_message("Available: %s" % str(eligible_units.keys()))
+
+	# Build dialog data
+	var dialog_data = {
+		"current_subphase": Subphase.keys()[current_subphase],
+		"selecting_player": current_selecting_player,
+		"eligible_units": eligible_units,
+		"fights_first_units": fights_first_sequence,
+		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"units_that_fought": units_that_fought
+	}
+
+	log_phase_message("Emitting fight_selection_required signal")
+	log_phase_message("===================================")
+
+	return dialog_data
+
+func _build_fight_selection_dialog_data() -> Dictionary:
+	"""Build dialog data for fight selection. Extracted for multiplayer sync.
+	Handles player switching and subphase transitions."""
 	log_phase_message("=== REQUESTING FIGHT SELECTION ===")
 	log_phase_message("Current Subphase: %s" % Subphase.keys()[current_subphase])
 	log_phase_message("Selecting Player: %d" % current_selecting_player)
@@ -748,8 +779,8 @@ func _emit_fight_selection_required() -> void:
 			# No units left in this subphase, transition
 			log_phase_message("Still no eligible units, transitioning subphase")
 			log_phase_message("===================================")
-			_transition_subphase()
-			return
+			var transition_data = _transition_subphase()
+			return transition_data  # Return data from new subphase or empty dict if phase complete
 
 	# Build dialog data
 	var dialog_data = {
@@ -763,7 +794,14 @@ func _emit_fight_selection_required() -> void:
 
 	log_phase_message("Emitting fight_selection_required signal")
 	log_phase_message("===================================")
-	emit_signal("fight_selection_required", dialog_data)
+
+	return dialog_data
+
+func _emit_fight_selection_required() -> void:
+	"""Emit signal to show fight selection dialog with current state"""
+	var dialog_data = _build_fight_selection_dialog_data()
+	if not dialog_data.is_empty():
+		emit_signal("fight_selection_required", dialog_data)
 
 func _get_eligible_units_for_selection() -> Dictionary:
 	"""Get units eligible for selection by current player in current subphase"""
@@ -789,8 +827,9 @@ func _switch_selecting_player() -> void:
 	current_selecting_player = 2 if current_selecting_player == 1 else 1
 	log_phase_message("Selection SWITCHED: Player %d → Player %d" % [old_player, current_selecting_player])
 
-func _transition_subphase() -> void:
-	"""Transition from Fights First to Remaining Combats or complete phase"""
+func _transition_subphase() -> Dictionary:
+	"""Transition from Fights First to Remaining Combats or complete phase.
+	Returns dialog data for the new subphase if there are units to fight, empty dict otherwise."""
 	if current_subphase == Subphase.FIGHTS_FIRST:
 		log_phase_message("Fights First complete. Starting Remaining Combats.")
 		emit_signal("subphase_transition", "FIGHTS_FIRST", "REMAINING_COMBATS")
@@ -802,12 +841,16 @@ func _transition_subphase() -> void:
 		if normal_sequence["1"].is_empty() and normal_sequence["2"].is_empty():
 			log_phase_message("No remaining combats. Fight Phase complete.")
 			emit_signal("phase_completed")
+			return {}
 		else:
-			_emit_fight_selection_required()
+			# Build and return dialog data for new subphase WITHOUT calling _emit_fight_selection_required
+			# The caller will handle emitting the signal
+			return _build_fight_selection_dialog_data_internal()
 	else:
 		# Remaining Combats complete
 		log_phase_message("Fight Phase complete.")
 		emit_signal("phase_completed")
+		return {}
 
 func _build_alternating_sequence(units: Array) -> Array:
 	# Build alternating sequence by player for fair activation

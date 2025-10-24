@@ -10,7 +10,6 @@ signal ui_update_requested()
 
 # Fight state
 var current_phase = null  # Can be FightPhase or null
-var current_fighter_id: String = ""
 var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var fight_sequence: Array = []  # Units in fight order
 var current_fight_index: int = -1
@@ -24,6 +23,10 @@ var range_visual: Node2D
 var target_highlights: Node2D
 var hud_bottom: Control
 var hud_right: Control
+
+# Track current fighting unit and its owner
+var current_fighter_id: String = ""
+var current_fighter_owner: int = -1
 
 # UI Elements
 var unit_selector: ItemList
@@ -296,11 +299,34 @@ func set_phase(phase: BasePhase) -> void:
 			phase.dice_rolled.connect(_on_dice_rolled)
 		if phase.has_signal("fight_sequence_updated") and not phase.fight_sequence_updated.is_connected(_on_fight_sequence_updated):
 			phase.fight_sequence_updated.connect(_on_fight_sequence_updated)
-		
+
+		# Connect to new dialog signals for subphase system
+		if phase.has_signal("fight_selection_required") and not phase.fight_selection_required.is_connected(_on_fight_selection_required):
+			phase.fight_selection_required.connect(_on_fight_selection_required)
+		if phase.has_signal("pile_in_required") and not phase.pile_in_required.is_connected(_on_pile_in_required):
+			phase.pile_in_required.connect(_on_pile_in_required)
+		if phase.has_signal("attack_assignment_required") and not phase.attack_assignment_required.is_connected(_on_attack_assignment_required):
+			phase.attack_assignment_required.connect(_on_attack_assignment_required)
+		if phase.has_signal("attack_assigned") and not phase.attack_assigned.is_connected(_on_attack_assigned):
+			phase.attack_assigned.connect(_on_attack_assigned)
+		if phase.has_signal("consolidate_required") and not phase.consolidate_required.is_connected(_on_consolidate_required):
+			phase.consolidate_required.connect(_on_consolidate_required)
+		if phase.has_signal("subphase_transition") and not phase.subphase_transition.is_connected(_on_subphase_transition):
+			phase.subphase_transition.connect(_on_subphase_transition)
+
 		print("DEBUG: FightController signals connected, setting up UI")
-		
+
 		# Ensure UI is set up after phase assignment
 		_setup_ui_references()
+
+		# IMPORTANT: Check if we missed the initial fight_selection_required signal
+		# This happens because phase emits the signal during enter_phase, before we connect
+		if phase.has_method("_emit_fight_selection_required"):
+			print("DEBUG: Re-triggering fight selection after signal connection")
+			# Give the phase a moment to finish setup, then re-emit
+			await get_tree().create_timer(0.1).timeout
+			if current_phase and current_phase.has_method("_emit_fight_selection_required"):
+				current_phase._emit_fight_selection_required()
 		
 		_refresh_fight_sequence()
 		
@@ -1129,5 +1155,200 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	if dice_log_display:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=green]✓ Assigned %s attacks to %s[/color]\n" % [weapon_name, target_name])
-	
+
 	_update_ui_state()
+
+# New dialog handler functions for subphase system
+func _on_fight_selection_required(data: Dictionary) -> void:
+	"""Show fight selection dialog when phase requests it"""
+	print("DEBUG: FightController._on_fight_selection_required called")
+	print("DEBUG: Dialog data: subphase=%s, player=%d, eligible=%d" % [
+		data.get("current_subphase", "?"),
+		data.get("selecting_player", 0),
+		data.get("eligible_units", {}).size()
+	])
+
+	# Close any existing fight selection dialog first (for multiplayer sync)
+	# Find and close existing dialogs that might be open
+	for child in get_tree().root.get_children():
+		if child is AcceptDialog and child.get_script() == load("res://dialogs/FightSelectionDialog.gd"):
+			print("DEBUG: Closing existing fight selection dialog")
+			child.queue_free()
+
+	# Load the dialog script
+	var dialog_script = load("res://dialogs/FightSelectionDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load FightSelectionDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(data, current_phase)
+	dialog.fighter_selected.connect(_on_fighter_selected_from_dialog)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("DEBUG: Fight selection dialog shown")
+
+func _on_fighter_selected_from_dialog(unit_id: String) -> void:
+	"""Submit SELECT_FIGHTER action when unit selected from dialog"""
+	# Get the unit's owner as the player, not the active player
+	# In Fight Phase, the selecting player may not be the active player
+	var unit = GameState.get_unit(unit_id)
+	var player_id = unit.get("owner", GameState.get_active_player())
+
+	# Store for subsequent actions in this activation
+	current_fighter_id = unit_id
+	current_fighter_owner = player_id
+
+	var action = {
+		"type": "SELECT_FIGHTER",
+		"unit_id": unit_id,
+		"player": player_id
+	}
+	emit_signal("fight_action_requested", action)
+
+func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
+	"""Show pile-in dialog"""
+	var dialog_script = load("res://dialogs/PileInDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load PileInDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, max_distance, current_phase)
+	dialog.pile_in_confirmed.connect(_on_pile_in_confirmed.bind(unit_id))
+	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
+	"""Submit PILE_IN action with movements"""
+	var action = {
+		"type": "PILE_IN",
+		"unit_id": unit_id,
+		"movements": movements,
+		"player": current_fighter_owner
+	}
+	emit_signal("fight_action_requested", action)
+
+func _on_pile_in_skipped(unit_id: String) -> void:
+	"""Submit PILE_IN action with no movements"""
+	_on_pile_in_confirmed({}, unit_id)
+
+func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> void:
+	"""Show attack assignment dialog"""
+	print("[FightController] Attack assignment required for ", unit_id)
+	print("[FightController] Eligible targets: ", targets.keys())
+
+	# Wait for previous dialog to close
+	await get_tree().create_timer(0.3).timeout
+
+	print("[FightController] Loading AttackAssignmentDialog...")
+	var dialog_script = load("res://dialogs/AttackAssignmentDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load AttackAssignmentDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	print("[FightController] Setting up dialog...")
+	dialog.setup(unit_id, targets, current_phase)
+	dialog.attacks_confirmed.connect(_on_attacks_confirmed)
+	get_tree().root.add_child(dialog)
+	print("[FightController] Showing attack assignment dialog...")
+	dialog.popup_centered()
+
+func _on_attacks_confirmed(assignments: Array) -> void:
+	"""Submit attack assignments and trigger resolution"""
+	print("[FightController] Attacks confirmed, processing %d assignments" % assignments.size())
+
+	# First, send individual ASSIGN_ATTACKS actions to populate pending_attacks
+	for assignment in assignments:
+		var assign_action = {
+			"type": "ASSIGN_ATTACKS",
+			"unit_id": assignment.get("attacker", ""),
+			"target_id": assignment.get("target", ""),
+			"weapon_id": assignment.get("weapon", ""),
+			"attacking_models": assignment.get("models", []),
+			"player": current_fighter_owner
+		}
+		print("[FightController] Sending ASSIGN_ATTACKS: ", assign_action)
+		emit_signal("fight_action_requested", assign_action)
+		# Small delay to ensure actions process in order
+		await get_tree().create_timer(0.05).timeout
+
+	# Now confirm the attacks
+	var confirm_action = {
+		"type": "CONFIRM_AND_RESOLVE_ATTACKS",
+		"player": current_fighter_owner
+	}
+	print("[FightController] Sending CONFIRM_AND_RESOLVE_ATTACKS")
+	emit_signal("fight_action_requested", confirm_action)
+
+	# Then trigger dice rolling
+	var roll_action = {
+		"type": "ROLL_DICE",
+		"player": current_fighter_owner
+	}
+	# Delay slightly to let confirmation process
+	await get_tree().create_timer(0.1).timeout
+	print("[FightController] Sending ROLL_DICE")
+	emit_signal("fight_action_requested", roll_action)
+
+func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
+	"""Show consolidate dialog"""
+	var dialog_script = load("res://dialogs/ConsolidateDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load ConsolidateDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, max_distance, current_phase)
+	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id))
+	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
+	"""Submit CONSOLIDATE action with movements"""
+	var action = {
+		"type": "CONSOLIDATE",
+		"unit_id": unit_id,
+		"movements": movements,
+		"player": current_fighter_owner
+	}
+	emit_signal("fight_action_requested", action)
+
+	# Clear tracking after activation complete
+	current_fighter_id = ""
+	current_fighter_owner = -1
+
+func _on_consolidate_skipped(unit_id: String) -> void:
+	"""Submit CONSOLIDATE action with no movements"""
+	_on_consolidate_confirmed({}, unit_id)
+
+func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void:
+	"""Show notification when transitioning between subphases"""
+	if dice_log_display:
+		dice_log_display.append_text("\n[color=yellow]=== %s Complete ===[/color]\n" % from_subphase)
+		dice_log_display.append_text("[color=yellow]Starting %s...[/color]\n\n" % to_subphase)
+
+func _on_attack_assigned(attacker_id: String, target_id: String, weapon_id: String) -> void:
+	"""Display attack assignment to both host and client"""
+	print("[FightController] Attack assigned: %s → %s with %s" % [attacker_id, target_id, weapon_id])
+
+	# Get unit names for display
+	var attacker = current_phase.get_unit(attacker_id) if current_phase else {}
+	var target = current_phase.get_unit(target_id) if current_phase else {}
+	var attacker_name = attacker.get("meta", {}).get("name", attacker_id)
+	var target_name = target.get("meta", {}).get("name", target_id)
+
+	# Get weapon name (convert ID back to display name)
+	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+	var weapon_name = weapon_profile.get("name", weapon_id)
+
+	# Show in dice log for both players
+	if dice_log_display:
+		dice_log_display.append_text("[color=green]✓ %s assigned %s attacks to %s[/color]\n" % [attacker_name, weapon_name, target_name])

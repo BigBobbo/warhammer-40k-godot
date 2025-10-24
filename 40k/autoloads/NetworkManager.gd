@@ -419,11 +419,31 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
 		print("NetworkManager: Result has trigger_fight_selection flag")
-		if phase.has_signal("fight_selection_required") and phase.has_method("_emit_fight_selection_required"):
-			print("NetworkManager: Client triggering fight_selection_required signal")
-			phase._emit_fight_selection_required()
+		var dialog_data = result.get("fight_selection_data", {})
+		if not dialog_data.is_empty() and phase.has_signal("fight_selection_required"):
+			print("NetworkManager: Client re-emitting fight_selection_required with subphase: %s, player: %d" % [
+				dialog_data.get("current_subphase", "UNKNOWN"),
+				dialog_data.get("selecting_player", -1)
+			])
+			# Update client's local subphase state to match host
+			if "current_subphase" in dialog_data and "current_subphase" in phase:
+				var subphase_name = dialog_data["current_subphase"]
+				# Convert string to enum value
+				if subphase_name == "FIGHTS_FIRST":
+					phase.current_subphase = phase.Subphase.FIGHTS_FIRST
+				elif subphase_name == "REMAINING_COMBATS":
+					phase.current_subphase = phase.Subphase.REMAINING_COMBATS
+				print("NetworkManager: Updated client current_subphase to: %s" % subphase_name)
+
+			# Update client's selecting player to match host
+			if "selecting_player" in dialog_data and "current_selecting_player" in phase:
+				phase.current_selecting_player = dialog_data["selecting_player"]
+				print("NetworkManager: Updated client current_selecting_player to: %d" % dialog_data["selecting_player"])
+
+			# Emit the signal with the host's dialog data
+			phase.emit_signal("fight_selection_required", dialog_data)
 		else:
-			print("NetworkManager: ⚠️ Phase doesn't support fight_selection_required")
+			print("NetworkManager: ⚠️ Missing fight_selection_data or phase doesn't support signal")
 
 	# Handle pile_in_required signal (after SELECT_FIGHTER)
 	if result.get("trigger_pile_in", false):
