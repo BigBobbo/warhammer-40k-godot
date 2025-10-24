@@ -353,15 +353,21 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 		for dice_block in dice_data:
 			phase.emit_signal("dice_rolled", dice_block)
 
-	# Handle shooting phase saves_required signal
-	# This happens when CONFIRM_TARGETS, RESOLVE_SHOOTING, RESOLVE_WEAPON_SEQUENCE, or APPLY_SAVES needs saves
+	# Handle saves_required signal (for both shooting and fight phases)
+	# This happens when shooting or melee attacks generate wounds that need saves
 	print("NetworkManager:   Checking for saves_required...")
 	print("NetworkManager:   action_type == CONFIRM_TARGETS: ", action_type == "CONFIRM_TARGETS")
 	print("NetworkManager:   action_type == RESOLVE_SHOOTING: ", action_type == "RESOLVE_SHOOTING")
 	print("NetworkManager:   action_type == RESOLVE_WEAPON_SEQUENCE: ", action_type == "RESOLVE_WEAPON_SEQUENCE")
 	print("NetworkManager:   action_type == APPLY_SAVES: ", action_type == "APPLY_SAVES")
+	print("NetworkManager:   action_type == ROLL_DICE (fight): ", action_type == "ROLL_DICE")
+	print("NetworkManager:   action_type == CONFIRM_AND_RESOLVE_ATTACKS (fight): ", action_type == "CONFIRM_AND_RESOLVE_ATTACKS")
 
-	if action_type == "CONFIRM_TARGETS" or action_type == "RESOLVE_SHOOTING" or action_type == "RESOLVE_WEAPON_SEQUENCE" or action_type == "APPLY_SAVES":
+	# Check for both shooting and fight phase action types
+	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES"]
+	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS"]
+
+	if is_shooting_action or is_fight_action:
 		var save_data_list = result.get("save_data_list", [])
 
 		if not save_data_list.is_empty() and phase.has_signal("saves_required"):
@@ -409,6 +415,48 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					print("NetworkManager: ℹ️ Client (attacker) skipping saves_required re-emission - local=%d is not defender=%d" % [local_player, defender_player])
 			else:
 				print("NetworkManager:   ⚠️ No target_unit_id, skipping saves_required check")
+
+	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
+	if result.get("trigger_fight_selection", false):
+		print("NetworkManager: Result has trigger_fight_selection flag")
+		if phase.has_signal("fight_selection_required") and phase.has_method("_emit_fight_selection_required"):
+			print("NetworkManager: Client triggering fight_selection_required signal")
+			phase._emit_fight_selection_required()
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support fight_selection_required")
+
+	# Handle pile_in_required signal (after SELECT_FIGHTER)
+	if result.get("trigger_pile_in", false):
+		print("NetworkManager: Result has trigger_pile_in flag")
+		var unit_id = result.get("pile_in_unit_id", "")
+		var distance = result.get("pile_in_distance", 3.0)
+		if phase.has_signal("pile_in_required") and unit_id != "":
+			print("NetworkManager: Client re-emitting pile_in_required for unit %s" % unit_id)
+			phase.emit_signal("pile_in_required", unit_id, distance)
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support pile_in_required or missing unit_id")
+
+	# Handle attack_assignment_required signal (after PILE_IN)
+	if result.get("trigger_attack_assignment", false):
+		print("NetworkManager: Result has trigger_attack_assignment flag")
+		var unit_id = result.get("attack_unit_id", "")
+		var targets = result.get("attack_targets", [])
+		if phase.has_signal("attack_assignment_required") and unit_id != "":
+			print("NetworkManager: Client re-emitting attack_assignment_required for unit %s, targets: %s" % [unit_id, str(targets)])
+			phase.emit_signal("attack_assignment_required", unit_id, targets)
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support attack_assignment_required or missing unit_id")
+
+	# Handle consolidate_required signal (after ROLL_DICE)
+	if result.get("trigger_consolidate", false):
+		print("NetworkManager: Result has trigger_consolidate flag")
+		var unit_id = result.get("consolidate_unit_id", "")
+		var distance = result.get("consolidate_distance", 3.0)
+		if phase.has_signal("consolidate_required") and unit_id != "":
+			print("NetworkManager: Client re-emitting consolidate_required for unit %s" % unit_id)
+			phase.emit_signal("consolidate_required", unit_id, distance)
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
 
 	print("NetworkManager: _emit_client_visual_updates END")
 

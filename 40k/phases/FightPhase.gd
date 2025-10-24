@@ -16,6 +16,14 @@ signal consolidate_preview(unit_id: String, movements: Dictionary)
 signal dice_rolled(dice_data: Dictionary)
 signal fight_order_determined(fight_sequence: Array)
 
+# New signals for subphase dialog system
+signal fight_selection_required(data: Dictionary)
+signal pile_in_required(unit_id: String, max_distance: float)
+signal attack_assignment_required(unit_id: String, eligible_targets: Dictionary)
+signal attack_assigned(attacker_id: String, target_id: String, weapon_id: String)  # Notify when an attack is assigned
+signal consolidate_required(unit_id: String, max_distance: float)
+signal subphase_transition(from_subphase: String, to_subphase: String)
+
 # Fight state tracking
 var active_fighter_id: String = ""
 var selected_weapon_id: String = ""  # Currently selected weapon for active fighter
@@ -29,10 +37,9 @@ var units_that_fought: Array = []
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
-var normal_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
+var normal_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs, called "remaining_units" in PRP
 var fights_last_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
-var current_subphase: String = "FIGHTS_FIRST"  # "FIGHTS_FIRST", "NORMAL", or "FIGHTS_LAST"
-var current_subphase_player: int = 1  # Which player is currently selecting in this subphase
+var current_selecting_player: int = 2  # Which player is currently selecting (defending player starts)
 
 # Fight priority tiers
 enum FightPriority {
@@ -40,6 +47,15 @@ enum FightPriority {
 	NORMAL = 1,
 	FIGHTS_LAST = 2
 }
+
+# Subphase enum
+enum Subphase {
+	FIGHTS_FIRST,
+	REMAINING_COMBATS,
+	COMPLETE
+}
+
+var current_subphase: Subphase = Subphase.FIGHTS_FIRST
 
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
@@ -107,36 +123,32 @@ func _initialize_fight_sequence() -> void:
 		else:
 			log_phase_message("Unit %s is NOT in combat" % unit_name)
 	
-	# Set initial subphase
-	if fights_first_sequence["1"].size() > 0 or fights_first_sequence["2"].size() > 0:
-		current_subphase = "FIGHTS_FIRST"
-		# Start with player who has units that can fight first
-		if fights_first_sequence["1"].size() > 0:
-			current_subphase_player = 1
-		else:
-			current_subphase_player = 2
-	elif normal_sequence["1"].size() > 0 or normal_sequence["2"].size() > 0:
-		current_subphase = "NORMAL"
-		if normal_sequence["1"].size() > 0:
-			current_subphase_player = 1
-		else:
-			current_subphase_player = 2
-	
-	# Build legacy fight_sequence for compatibility
-	fight_sequence = _build_alternating_sequence(fights_first_sequence["1"] + fights_first_sequence["2"])
-	fight_sequence.append_array(_build_alternating_sequence(normal_sequence["1"] + normal_sequence["2"]))
-	fight_sequence.append_array(_build_alternating_sequence(fights_last_sequence["1"] + fights_last_sequence["2"]))
-	
+	# Set initial subphase and defending player (per 10e rules)
+	current_subphase = Subphase.FIGHTS_FIRST
+	current_selecting_player = _get_defending_player()
+
+	log_phase_message("=== FIGHT PHASE INITIALIZATION ===")
+	log_phase_message("Active Player: %d" % GameState.get_active_player())
+	log_phase_message("Defending Player (starts first): %d" % current_selecting_player)
 	log_phase_message("Fight sequences initialized:")
 	log_phase_message("  Fights First P1: %s" % str(fights_first_sequence["1"]))
 	log_phase_message("  Fights First P2: %s" % str(fights_first_sequence["2"]))
 	log_phase_message("  Normal P1: %s" % str(normal_sequence["1"]))
 	log_phase_message("  Normal P2: %s" % str(normal_sequence["2"]))
-	log_phase_message("  Current subphase: %s, Player: %d" % [current_subphase, current_subphase_player])
-	
+	log_phase_message("  Current subphase: %s, Selecting Player: %d (defending)" % [Subphase.keys()[current_subphase], current_selecting_player])
+	log_phase_message("===================================")
+
+	# Build legacy fight_sequence for compatibility
+	fight_sequence = _build_alternating_sequence(fights_first_sequence["1"] + fights_first_sequence["2"])
+	fight_sequence.append_array(_build_alternating_sequence(normal_sequence["1"] + normal_sequence["2"]))
+	fight_sequence.append_array(_build_alternating_sequence(fights_last_sequence["1"] + fights_last_sequence["2"]))
+
 	emit_signal("fight_order_determined", fight_sequence)
 	emit_signal("fight_sequence_updated")
 	emit_signal("fight_sequence_updated", fight_sequence)  # Compatibility signal
+
+	# Emit fight selection required signal to show dialog
+	_emit_fight_selection_required()
 
 func _check_for_combats() -> void:
 	if fight_sequence.size() == 0:
@@ -147,9 +159,37 @@ func _check_for_combats() -> void:
 		if fight_sequence.size() > 0:
 			log_phase_message("First to fight: %s" % fight_sequence[0])
 
+func execute_action(action: Dictionary) -> Dictionary:
+	"""Override to emit dialog signals after action processing"""
+	var result = super.execute_action(action)
+
+	# After successful action execution, emit appropriate dialog signals
+	# This ensures signals are emitted on BOTH host and client in multiplayer
+	if result.success:
+		var action_type = action.get("type", "")
+		match action_type:
+			"SELECT_FIGHTER":
+				# Emit pile_in_required signal
+				if active_fighter_id != "":
+					log_phase_message("[execute_action] Emitting pile_in_required for %s" % active_fighter_id)
+					emit_signal("pile_in_required", active_fighter_id, 3.0)
+			"PILE_IN":
+				# Emit attack_assignment_required signal
+				if active_fighter_id != "":
+					var targets = _get_eligible_melee_targets(active_fighter_id)
+					log_phase_message("[execute_action] Emitting attack_assignment_required for %s" % active_fighter_id)
+					emit_signal("attack_assignment_required", active_fighter_id, targets)
+			"ROLL_DICE":
+				# Emit consolidate_required signal
+				if active_fighter_id != "":
+					log_phase_message("[execute_action] Emitting consolidate_required for %s" % active_fighter_id)
+					emit_signal("consolidate_required", active_fighter_id, 3.0)
+
+	return result
+
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	
+
 	match action_type:
 		"SELECT_FIGHTER":
 			return _validate_select_fighter(action)
@@ -205,41 +245,40 @@ func process_action(action: Dictionary) -> Dictionary:
 func _validate_select_fighter(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var errors = []
-	
+
 	# Check if unit_id is provided
 	if unit_id == "":
 		errors.append("Missing unit_id")
 		return {"valid": false, "errors": errors}
-	
-	# Check if fight sequence is empty
-	if fight_sequence.is_empty():
-		errors.append("No fight sequence established")
-		return {"valid": false, "errors": errors}
-	
-	# Check it's this unit's turn in sequence
-	if current_fight_index >= fight_sequence.size():
-		errors.append("All units have fought")
-		return {"valid": false, "errors": errors}
-	
-	if fight_sequence[current_fight_index] != unit_id:
-		errors.append("Not this unit's turn to fight (expected: %s)" % fight_sequence[current_fight_index])
-		return {"valid": false, "errors": errors}
-	
-	# Check unit hasn't already fought
-	if unit_id in units_that_fought:
-		errors.append("Unit has already fought")
-		return {"valid": false, "errors": errors}
-	
-	# Check unit exists and is in engagement range
+
+	# Check it's the right player's turn
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		errors.append("Unit not found")
 		return {"valid": false, "errors": errors}
-	
+
+	if unit.owner != current_selecting_player:
+		errors.append("Not your turn to select (Player %d's turn)" % current_selecting_player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is eligible in current subphase
+	var player_key = str(current_selecting_player)
+	var source_list = fights_first_sequence if current_subphase == Subphase.FIGHTS_FIRST else normal_sequence
+
+	if unit_id not in source_list.get(player_key, []):
+		errors.append("Unit not eligible in this subphase")
+		return {"valid": false, "errors": errors}
+
+	# Check unit hasn't already fought
+	if unit_id in units_that_fought:
+		errors.append("Unit has already fought")
+		return {"valid": false, "errors": errors}
+
+	# Check unit is in engagement range
 	if not _is_unit_in_combat(unit):
 		errors.append("Unit not in engagement range")
 		return {"valid": false, "errors": errors}
-	
+
 	return {"valid": true}
 
 func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
@@ -402,15 +441,25 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 # Action processing methods
 func _process_select_fighter(action: Dictionary) -> Dictionary:
 	active_fighter_id = action.unit_id
-	
-	# Get eligible targets (enemy units within engagement)
-	var targets = _get_eligible_melee_targets(active_fighter_id)
+
+	log_phase_message("Player %d selects %s to fight" % [
+		current_selecting_player,
+		get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
+	])
+
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
 	emit_signal("fighter_selected", active_fighter_id)  # Compatibility signal
-	emit_signal("targets_available", active_fighter_id, targets)
-	
-	log_phase_message("Selected %s to fight" % active_fighter_id)
-	return create_result(true, [])
+
+	# Start unit activation sequence: Pile In → Attack → Consolidate
+	log_phase_message("Emitting pile_in_required for %s" % active_fighter_id)
+	emit_signal("pile_in_required", active_fighter_id, 3.0)
+
+	# Add metadata for NetworkManager to re-emit signal on client
+	var result = create_result(true, [])
+	result["trigger_pile_in"] = true
+	result["pile_in_unit_id"] = active_fighter_id
+	result["pile_in_distance"] = 3.0
+	return result
 
 func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
@@ -430,14 +479,15 @@ func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 func _process_pile_in(action: Dictionary) -> Dictionary:
 	var changes = []
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
-	
+
 	# Handle single position movement (from FightController) vs movements dict
 	var movements = action.get("movements", {})
 	if movements.is_empty() and action.has("position"):
 		# Convert single position to movements dict for first model
 		var position = action.get("position")
 		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
-	
+
+	# Apply movements (if any provided)
 	for model_id in movements:
 		var new_pos = movements[model_id]
 		changes.append({
@@ -445,10 +495,20 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 			"path": "units.%s.models.%s.position" % [unit_id, model_id],
 			"value": {"x": new_pos.x, "y": new_pos.y}
 		})
-	
+
 	emit_signal("pile_in_preview", unit_id, movements)
 	log_phase_message("Unit %s piled in" % unit_id)
-	return create_result(true, changes)
+
+	# After pile-in, request attack assignment
+	var targets = _get_eligible_melee_targets(unit_id)
+	emit_signal("attack_assignment_required", unit_id, targets)
+
+	# Add metadata for NetworkManager to re-emit signal on client
+	var result = create_result(true, changes)
+	result["trigger_attack_assignment"] = true
+	result["attack_unit_id"] = unit_id
+	result["attack_targets"] = targets
+	return result
 
 func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	# Mirror ShootingPhase weapon assignment pattern
@@ -464,6 +524,10 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	})
 
 	log_phase_message("Assigned %s attacks to %s" % [weapon_id, target_id])
+
+	# Emit signal so both host and client can update UI
+	emit_signal("attack_assigned", unit_id, target_id, weapon_id)
+
 	return create_result(true, [])
 
 func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
@@ -526,10 +590,25 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	
 	# Clear confirmed attacks after resolution
 	confirmed_attacks.clear()
-	
+
 	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
-	
-	return create_result(true, result.get("diffs", []), result.get("log_text", ""))
+
+	# After attacks, request consolidate
+	emit_signal("consolidate_required", active_fighter_id, 3.0)
+
+	# Add metadata for NetworkManager to re-emit signal on client
+	var final_result = create_result(true, result.get("diffs", []), result.get("log_text", ""))
+	final_result["trigger_consolidate"] = true
+	final_result["consolidate_unit_id"] = active_fighter_id
+	final_result["consolidate_distance"] = 3.0
+
+	# Preserve dice and save_data_list from combat resolution
+	if result.has("dice"):
+		final_result["dice"] = result["dice"]
+	if result.has("save_data_list"):
+		final_result["save_data_list"] = result["save_data_list"]
+
+	return final_result
 
 func _show_mathhammer_predictions() -> void:
 	# Use mathhammer to calculate expected results before rolling
@@ -558,46 +637,62 @@ func _show_mathhammer_predictions() -> void:
 		})
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
-	var result = _process_pile_in(action)  # Reuse pile in logic
-	
-	# Mark unit as complete and advance fight sequence
-	units_that_fought.append(action.unit_id)
+	var changes = []
+	var unit_id = action.get("unit_id", "")
+	var movements = action.get("movements", {})
+
+	# Apply movements
+	for model_id in movements:
+		var new_pos = movements[model_id]
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%s.position" % [unit_id, model_id],
+			"value": {"x": new_pos.x, "y": new_pos.y}
+		})
+
+	# Mark unit as having fought
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_fought" % unit_id,
+		"value": true
+	})
+	units_that_fought.append(unit_id)
 	active_fighter_id = ""
 	confirmed_attacks.clear()
-	
-	# Advance to next fighter using new subphase system
-	advance_to_next_fighter()
-	
+
 	# Legacy support - update old index
 	current_fight_index += 1
-	
-	# Check if more units to fight
-	if current_fight_index < fight_sequence.size():
-		var next_unit = fight_sequence[current_fight_index]
-		log_phase_message("Next to fight: %s" % next_unit)
-	else:
-		log_phase_message("All units have fought, ready to end fight phase")
-		# Don't auto-complete - wait for END_FIGHT action
-	
+
+	# Switch to next player
+	_switch_selecting_player()
+
+	# Request next fight selection
+	_emit_fight_selection_required()
+
+	# IMPORTANT: For multiplayer sync, add a flag to the result so NetworkManager
+	# knows to trigger fight selection on ALL clients
+	var result = create_result(true, changes)
+
+	# Add custom metadata to trigger dialog on all clients
+	result["trigger_fight_selection"] = true
+
 	return result
 
 func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Skip this unit and advance to next
 	units_that_fought.append(action.unit_id)
-	
-	# Advance to next fighter using new subphase system
-	advance_to_next_fighter()
-	
+	active_fighter_id = ""
+
 	# Legacy support - update old index
 	current_fight_index += 1
-	
-	if current_fight_index < fight_sequence.size():
-		var next_unit = fight_sequence[current_fight_index]
-		log_phase_message("Skipped %s, next to fight: %s" % [action.unit_id, next_unit])
-	else:
-		log_phase_message("All units processed, ready to end fight phase")
-		# Don't auto-complete - wait for END_FIGHT action
-	
+
+	# Switch to next player
+	_switch_selecting_player()
+
+	# Request next fight selection
+	_emit_fight_selection_required()
+
+	log_phase_message("Skipped unit %s" % action.unit_id)
 	return create_result(true, [])
 
 func _process_heroic_intervention(action: Dictionary) -> Dictionary:
@@ -622,6 +717,97 @@ func _get_fight_priority(unit: Dictionary) -> int:
 		return FightPriority.FIGHTS_LAST
 	
 	return FightPriority.NORMAL
+
+func _get_defending_player() -> int:
+	"""Returns the defending player (non-active player)"""
+	var active_player = GameState.get_active_player()
+	return 2 if active_player == 1 else 1
+
+func _emit_fight_selection_required() -> void:
+	"""Emit signal to show fight selection dialog with current state"""
+	log_phase_message("=== REQUESTING FIGHT SELECTION ===")
+	log_phase_message("Current Subphase: %s" % Subphase.keys()[current_subphase])
+	log_phase_message("Selecting Player: %d" % current_selecting_player)
+
+	# Get eligible units for current player and subphase
+	var eligible_units = _get_eligible_units_for_selection()
+	log_phase_message("Eligible Units: %d" % eligible_units.size())
+	if not eligible_units.is_empty():
+		log_phase_message("Available: %s" % str(eligible_units.keys()))
+
+	if eligible_units.is_empty():
+		# Current player has no units, switch to opponent
+		log_phase_message("No eligible units for Player %d, switching..." % current_selecting_player)
+		_switch_selecting_player()
+		eligible_units = _get_eligible_units_for_selection()
+		log_phase_message("After switch, Player %d has %d eligible units" % [current_selecting_player, eligible_units.size()])
+		if not eligible_units.is_empty():
+			log_phase_message("Available: %s" % str(eligible_units.keys()))
+
+		if eligible_units.is_empty():
+			# No units left in this subphase, transition
+			log_phase_message("Still no eligible units, transitioning subphase")
+			log_phase_message("===================================")
+			_transition_subphase()
+			return
+
+	# Build dialog data
+	var dialog_data = {
+		"current_subphase": Subphase.keys()[current_subphase],
+		"selecting_player": current_selecting_player,
+		"eligible_units": eligible_units,
+		"fights_first_units": fights_first_sequence,
+		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"units_that_fought": units_that_fought
+	}
+
+	log_phase_message("Emitting fight_selection_required signal")
+	log_phase_message("===================================")
+	emit_signal("fight_selection_required", dialog_data)
+
+func _get_eligible_units_for_selection() -> Dictionary:
+	"""Get units eligible for selection by current player in current subphase"""
+	var eligible = {}
+	var player_key = str(current_selecting_player)
+	var source_list = fights_first_sequence if current_subphase == Subphase.FIGHTS_FIRST else normal_sequence
+
+	for unit_id in source_list.get(player_key, []):
+		if unit_id not in units_that_fought:
+			var unit = get_unit(unit_id)
+			if not unit.is_empty():
+				eligible[unit_id] = {
+					"name": unit.get("meta", {}).get("name", unit_id),
+					"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
+					"targets": _get_eligible_melee_targets(unit_id)
+				}
+
+	return eligible
+
+func _switch_selecting_player() -> void:
+	"""Switch to the other player for unit selection"""
+	var old_player = current_selecting_player
+	current_selecting_player = 2 if current_selecting_player == 1 else 1
+	log_phase_message("Selection SWITCHED: Player %d → Player %d" % [old_player, current_selecting_player])
+
+func _transition_subphase() -> void:
+	"""Transition from Fights First to Remaining Combats or complete phase"""
+	if current_subphase == Subphase.FIGHTS_FIRST:
+		log_phase_message("Fights First complete. Starting Remaining Combats.")
+		emit_signal("subphase_transition", "FIGHTS_FIRST", "REMAINING_COMBATS")
+
+		current_subphase = Subphase.REMAINING_COMBATS
+		current_selecting_player = _get_defending_player()  # Reset to defender
+
+		# Check if there are any remaining combats
+		if normal_sequence["1"].is_empty() and normal_sequence["2"].is_empty():
+			log_phase_message("No remaining combats. Fight Phase complete.")
+			emit_signal("phase_completed")
+		else:
+			_emit_fight_selection_required()
+	else:
+		# Remaining Combats complete
+		log_phase_message("Fight Phase complete.")
+		emit_signal("phase_completed")
 
 func _build_alternating_sequence(units: Array) -> Array:
 	# Build alternating sequence by player for fair activation
@@ -1043,7 +1229,7 @@ func get_current_fight_state() -> Dictionary:
 		"normal_sequence": normal_sequence,
 		"fights_last_sequence": fights_last_sequence,
 		"current_subphase": current_subphase,
-		"current_subphase_player": current_subphase_player
+		"current_selecting_player": current_selecting_player
 	}
 
 func get_eligible_fighters_for_player(player: int) -> Dictionary:
@@ -1053,7 +1239,7 @@ func get_eligible_fighters_for_player(player: int) -> Dictionary:
 		"fights_first": [],
 		"normal": [],
 		"current_subphase": current_subphase,
-		"active_player": current_subphase_player == player
+		"active_player": current_selecting_player == player
 	}
 	
 	# Get Fights First units that haven't fought
@@ -1073,15 +1259,15 @@ func get_eligible_fighters_for_player(player: int) -> Dictionary:
 func advance_to_next_fighter() -> void:
 	"""Move to next fighter after one completes fighting"""
 	# Check if we need to switch players or subphases
-	var current_player_key = str(current_subphase_player)
-	var other_player = 2 if current_subphase_player == 1 else 1
+	var current_player_key = str(current_selecting_player)
+	var other_player = 2 if current_selecting_player == 1 else 1
 	var other_player_key = str(other_player)
 	
 	# Count remaining eligible units
 	var current_player_remaining = 0
 	var other_player_remaining = 0
 	
-	if current_subphase == "FIGHTS_FIRST":
+	if current_subphase == Subphase.FIGHTS_FIRST:
 		for unit_id in fights_first_sequence[current_player_key]:
 			if unit_id not in units_that_fought:
 				current_player_remaining += 1
@@ -1092,22 +1278,22 @@ func advance_to_next_fighter() -> void:
 		# Check if we should switch players
 		if other_player_remaining > 0:
 			# Alternate to other player
-			current_subphase_player = other_player
+			current_selecting_player = other_player
 			log_phase_message("Switching to player %d for Fights First" % other_player)
 		elif current_player_remaining > 0:
 			# Stay with current player
-			log_phase_message("Continuing with player %d for Fights First" % current_subphase_player)
+			log_phase_message("Continuing with player %d for Fights First" % current_selecting_player)
 		else:
 			# Move to Normal subphase
 			log_phase_message("All Fights First units have fought, moving to Normal subphase")
-			current_subphase = "NORMAL"
+			current_subphase = Subphase.REMAINING_COMBATS
 			# Start with player 1 or whoever has units
 			if normal_sequence["1"].size() > 0:
-				current_subphase_player = 1
+				current_selecting_player = 1
 			elif normal_sequence["2"].size() > 0:
-				current_subphase_player = 2
+				current_selecting_player = 2
 	
-	elif current_subphase == "NORMAL":
+	elif current_subphase == Subphase.REMAINING_COMBATS:
 		for unit_id in normal_sequence[current_player_key]:
 			if unit_id not in units_that_fought:
 				current_player_remaining += 1
@@ -1118,11 +1304,11 @@ func advance_to_next_fighter() -> void:
 		# Check if we should switch players
 		if other_player_remaining > 0:
 			# Alternate to other player
-			current_subphase_player = other_player
+			current_selecting_player = other_player
 			log_phase_message("Switching to player %d for Normal fights" % other_player)
 		elif current_player_remaining > 0:
 			# Stay with current player
-			log_phase_message("Continuing with player %d for Normal fights" % current_subphase_player)
+			log_phase_message("Continuing with player %d for Normal fights" % current_selecting_player)
 		else:
 			# All units have fought
 			log_phase_message("All units have fought")
