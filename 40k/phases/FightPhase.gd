@@ -258,7 +258,11 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": errors}
 
 	if unit.owner != current_selecting_player:
-		errors.append("Not your turn to select (Player %d's turn)" % current_selecting_player)
+		var error_msg = "Not your turn to select (Player %d's turn, you are Player %d)" % [current_selecting_player, unit.owner]
+		errors.append(error_msg)
+		log_phase_message("VALIDATION FAILED: Player %d tried to select unit owned by Player %d during Player %d's selection" % [
+			unit.owner, unit.owner, current_selecting_player
+		])
 		return {"valid": false, "errors": errors}
 
 	# Check unit is eligible in current subphase

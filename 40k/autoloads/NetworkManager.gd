@@ -619,15 +619,28 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"END_DEPLOYMENT",
 		"END_PHASE",
 		"EMBARK_UNITS_DEPLOYMENT",
-		"APPLY_SAVES"  # Reactive action - defender responds during attacker's turn
+		"APPLY_SAVES",  # Reactive action - defender responds during attacker's turn
+		# Fight Phase actions - players alternate during active player's turn
+		"SELECT_FIGHTER",
+		"SELECT_MELEE_WEAPON",
+		"PILE_IN",
+		"ASSIGN_ATTACKS",
+		"CONFIRM_AND_RESOLVE_ATTACKS",
+		"ROLL_DICE",
+		"CONSOLIDATE",
+		"SKIP_UNIT",
+		"HEROIC_INTERVENTION",
+		"END_FIGHT"
 	]
 	var is_exempt = action_type in exempt_actions
 
 	if is_exempt:
-		print("NetworkManager: Exempt action '%s' - skipping turn validation (allows reactive actions)" % action_type)
+		print("NetworkManager: Exempt action '%s' - skipping turn validation (allows reactive/cross-turn actions)" % action_type)
 		# Skip turn validation for exempt actions - go straight to game rules validation
 		# EMBARK_UNITS_DEPLOYMENT: part of the deployment action that just switched turns
 		# APPLY_SAVES: reactive action where defender responds during attacker's turn
+		# Fight Phase actions: cross-turn actions where players alternate activating units during active player's turn
+		#   - Once a player selects a unit, ALL subsequent actions for that activation occur during opponent's turn
 
 		# Still validate player authority (that the peer is who they claim to be)
 		if action_type == "APPLY_SAVES":
