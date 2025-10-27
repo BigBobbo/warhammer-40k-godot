@@ -116,3 +116,84 @@ func test_circular_base_backward_compatibility():
 	var expected_radius = Measurement.mm_to_px(32) / 2.0
 	assert_almost_eq(bounds.size.x, expected_radius * 2, 0.1, "Width should be diameter")
 	assert_almost_eq(bounds.size.y, expected_radius * 2, 0.1, "Height should be diameter")
+
+func test_oval_deployment_no_false_positive_overlap():
+	"""Test that oval bases don't trigger false overlap with bounding circles"""
+
+	# Create two Caladius models (170mm x 105mm ovals)
+	var model1_data = {
+		"base_mm": 170,
+		"base_type": "oval",
+		"base_dimensions": {"length": 170, "width": 105},
+		"position": Vector2(0, 0),
+		"rotation": 0.0
+	}
+
+	var model2_data = {
+		"base_mm": 170,
+		"base_type": "oval",
+		"base_dimensions": {"length": 170, "width": 105},
+		"position": Vector2(200, 0),  # 200px apart horizontally
+		"rotation": 0.0
+	}
+
+	# Models should NOT overlap
+	# Bounding circle approach: radius ~85mm each, 200px apart -> MIGHT falsely report overlap
+	# Actual shape approach: ovals don't touch -> correctly reports no overlap
+
+	var shape1 = Measurement.create_base_shape(model1_data)
+	var shape2 = Measurement.create_base_shape(model2_data)
+
+	var overlaps = shape1.overlaps_with(shape2,
+		model1_data.position, model1_data.rotation,
+		model2_data.position, model2_data.rotation)
+
+	assert_false(overlaps, "Oval bases 200px apart should not overlap")
+
+func test_caladius_deployment_near_edge():
+	"""Test that Caladius can deploy near zone edge where bounding circle would fail"""
+
+	# Deployment zone polygon (simplified)
+	var zone = PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(1000, 0),
+		Vector2(1000, 500),
+		Vector2(0, 500)
+	])
+
+	# Caladius positioned near edge
+	# Oval is 170mm x 105mm (~267px x 165px)
+	# Position 150px from edge - actual oval fits, bounding circle doesn't
+	var caladius_data = {
+		"base_mm": 170,
+		"base_type": "oval",
+		"base_dimensions": {"length": 170, "width": 105},
+		"rotation": PI / 2  # Rotated 90 degrees (narrow side toward edge)
+	}
+
+	var position = Vector2(150, 250)  # Near left edge
+
+	# Test using shape-aware zone validation
+	var shape = Measurement.create_base_shape(caladius_data)
+	assert_not_null(shape, "Should create oval shape")
+
+	# Get all corners of the oval in world space
+	var bounds = shape.get_bounds()
+	var corners = [
+		Vector2(-bounds.size.x/2, -bounds.size.y/2),
+		Vector2(bounds.size.x/2, -bounds.size.y/2),
+		Vector2(bounds.size.x/2, bounds.size.y/2),
+		Vector2(-bounds.size.x/2, bounds.size.y/2)
+	]
+
+	# Transform corners to world space with rotation
+	var all_in_zone = true
+	for corner in corners:
+		var rotated = corner.rotated(caladius_data.rotation)
+		var world_corner = position + rotated
+		var in_zone = Geometry2D.is_point_in_polygon(world_corner, zone)
+		if not in_zone:
+			all_in_zone = false
+			break
+
+	assert_true(all_in_zone, "Rotated Caladius should fit 150px from edge")

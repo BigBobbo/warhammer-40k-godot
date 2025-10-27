@@ -690,27 +690,15 @@ func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, 
 	return false
 
 func _shapes_overlap(pos1: Vector2, model1: Dictionary, rot1: float, pos2: Vector2, model2: Dictionary, rot2: float) -> bool:
-	# Simple distance check for now - can be improved with actual shape collision
+	# Use actual shape collision detection from BaseShape API
 	var shape1 = Measurement.create_base_shape(model1)
 	var shape2 = Measurement.create_base_shape(model2)
 
 	if not shape1 or not shape2:
 		return false
 
-	# For simplicity, use bounding circle check
-	var radius1 = _get_bounding_radius(shape1)
-	var radius2 = _get_bounding_radius(shape2)
-
-	return pos1.distance_to(pos2) < (radius1 + radius2)
-
-func _get_bounding_radius(shape: BaseShape) -> float:
-	"""Calculate bounding circle radius for a shape"""
-	var bounds = shape.get_bounds()
-
-	# For accurate bounding circle, use half the diagonal
-	# This ensures the circle fully contains the shape
-	var diagonal = Vector2(bounds.size.x, bounds.size.y).length()
-	return diagonal / 2.0
+	# Use shape-aware collision (works for all shape combinations)
+	return shape1.overlaps_with(shape2, pos1, rot1, pos2, rot2)
 
 func _get_shape_max_extent(model_data: Dictionary) -> float:
 	"""Get maximum extent of a model's base shape for spacing calculations"""
