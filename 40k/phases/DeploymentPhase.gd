@@ -567,19 +567,52 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 		var radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
 		return _circle_wholly_in_polygon(center, radius, polygon)
 
-	# For non-circular shapes, check if all corners are inside
-	var bounds = shape.get_bounds()
-	var corners = [
-		Vector2(bounds.position.x, bounds.position.y),
-		Vector2(bounds.position.x + bounds.size.x, bounds.position.y),
-		Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y),
-		Vector2(bounds.position.x, bounds.position.y + bounds.size.y)
-	]
+	# Generate sample points around the shape's edge
+	var sample_points = []
 
-	# Transform corners to world space
-	for corner in corners:
-		var world_corner = shape.to_world_space(corner, center, rotation)
-		if not Geometry2D.is_point_in_polygon(world_corner, polygon):
+	if shape.get_type() == "oval":
+		# For ovals, sample points around the ellipse perimeter
+		var oval = shape as OvalBase
+		var num_samples = 16  # Check 16 points around the ellipse
+
+		for i in range(num_samples):
+			var angle = (i * TAU) / num_samples
+			# Points on ellipse: (a*cos(θ), b*sin(θ))
+			var local_point = Vector2(
+				oval.length * cos(angle),
+				oval.width * sin(angle)
+			)
+			sample_points.append(local_point)
+	elif shape.get_type() == "rectangular":
+		# For rectangles, check the 4 corners
+		var bounds = shape.get_bounds()
+		var half_width = bounds.size.x / 2.0
+		var half_height = bounds.size.y / 2.0
+
+		sample_points = [
+			Vector2(-half_width, -half_height),
+			Vector2(half_width, -half_height),
+			Vector2(half_width, half_height),
+			Vector2(-half_width, half_height)
+		]
+	else:
+		# Fallback: use bounding box corners
+		var bounds = shape.get_bounds()
+		var half_width = bounds.size.x / 2.0
+		var half_height = bounds.size.y / 2.0
+
+		sample_points = [
+			Vector2(-half_width, -half_height),
+			Vector2(half_width, -half_height),
+			Vector2(half_width, half_height),
+			Vector2(-half_width, half_height)
+		]
+
+	# Transform sample points to world space and check if in polygon
+	for local_point in sample_points:
+		var world_point = shape.to_world_space(local_point, center, rotation)
+
+		if not Geometry2D.is_point_in_polygon(world_point, polygon):
 			return false
 
 	return true
