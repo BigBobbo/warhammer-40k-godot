@@ -843,17 +843,19 @@ func _transition_subphase() -> Dictionary:
 
 		# Check if there are any remaining combats
 		if normal_sequence["1"].is_empty() and normal_sequence["2"].is_empty():
-			log_phase_message("No remaining combats. Fight Phase complete.")
-			emit_signal("phase_completed")
+			log_phase_message("No remaining combats. All eligible units have fought.")
+			log_phase_message("Waiting for player to click 'End Fight Phase' button.")
+			# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
 			return {}
 		else:
 			# Build and return dialog data for new subphase WITHOUT calling _emit_fight_selection_required
 			# The caller will handle emitting the signal
 			return _build_fight_selection_dialog_data_internal()
 	else:
-		# Remaining Combats complete
-		log_phase_message("Fight Phase complete.")
-		emit_signal("phase_completed")
+		# Remaining Combats complete - all eligible units have fought
+		log_phase_message("All eligible units have fought in Fight Phase.")
+		log_phase_message("Waiting for player to click 'End Fight Phase' button.")
+		# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
 		return {}
 
 func _build_alternating_sequence(units: Array) -> Array:
@@ -1061,12 +1063,28 @@ func get_available_actions() -> Array:
 		})
 	
 	# Add END_FIGHT action when appropriate
-	if fight_sequence.is_empty() or current_fight_index >= fight_sequence.size():
+	# The END_FIGHT button should ALWAYS be available to the active player
+	# This allows them to end the fight phase even if there are eligible units
+	var can_end_fight = false
+
+	# Can always end if no units are in combat
+	if fight_sequence.is_empty():
+		can_end_fight = true
+		log_phase_message("Adding END_FIGHT action - no units in combat")
+	# Can end if all eligible units have fought
+	elif _all_eligible_units_have_fought():
+		can_end_fight = true
+		log_phase_message("Adding END_FIGHT action - all eligible units have fought")
+	# Also allow ending if using legacy system and all units processed
+	elif current_fight_index >= fight_sequence.size():
+		can_end_fight = true
+		log_phase_message("Adding END_FIGHT action - all units processed (legacy)")
+
+	if can_end_fight:
 		actions.append({
 			"type": "END_FIGHT",
 			"description": "End Fight Phase"
 		})
-		log_phase_message("Adding END_FIGHT action - all units processed or no fights")
 	
 	log_phase_message("Returning %d available actions: %s" % [actions.size(), str(actions)])
 	log_phase_message("=== END get_available_actions DEBUG ===")
@@ -1076,6 +1094,28 @@ func _should_complete_phase() -> bool:
 	# Phase only completes when explicitly requested via END_FIGHT action
 	# Don't auto-complete based on fight sequence anymore
 	return false
+
+func _all_eligible_units_have_fought() -> bool:
+	"""Check if all eligible units in all subphases have fought"""
+	# Check Fights First subphase
+	for player_key in ["1", "2"]:
+		for unit_id in fights_first_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				return false
+
+	# Check Normal/Remaining Combats subphase
+	for player_key in ["1", "2"]:
+		for unit_id in normal_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				return false
+
+	# Check Fights Last subphase (if implemented)
+	for player_key in ["1", "2"]:
+		for unit_id in fights_last_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				return false
+
+	return true
 
 # Legacy method compatibility (for existing helper methods)
 func _is_unit_in_combat(unit: Dictionary) -> bool:
