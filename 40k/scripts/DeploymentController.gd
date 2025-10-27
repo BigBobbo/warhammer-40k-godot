@@ -641,23 +641,74 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 
 	# For circular, use existing method
 	if shape.get_type() == "circular":
-		return _circle_wholly_in_polygon(center, shape.radius, polygon)
+		var circular = shape as CircularBase
+		return _circle_wholly_in_polygon(center, circular.radius, polygon)
 
-	# For non-circular shapes, check if all corners are inside
-	var bounds = shape.get_bounds()
-	var corners = [
-		Vector2(bounds.position.x, bounds.position.y),
-		Vector2(bounds.position.x + bounds.size.x, bounds.position.y),
-		Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y),
-		Vector2(bounds.position.x, bounds.position.y + bounds.size.y)
-	]
+	# For non-circular shapes, we need to check multiple points around the edge
+	print("\n=== DEBUG: Zone Validation for %s ===" % shape.get_type())
+	print("Center: ", center)
+	print("Rotation: %.2f degrees (%.4f radians)" % [rad_to_deg(rotation), rotation])
 
-	# Transform corners to world space
-	for corner in corners:
-		var world_corner = shape.to_world_space(corner, center, rotation)
-		if not Geometry2D.is_point_in_polygon(world_corner, polygon):
+	# Generate sample points around the shape's edge
+	var sample_points = []
+
+	if shape.get_type() == "oval":
+		# For ovals, sample points around the ellipse perimeter
+		var oval = shape as OvalBase
+		var num_samples = 16  # Check 16 points around the ellipse
+		print("Oval shape - length: %.2f, width: %.2f" % [oval.length, oval.width])
+
+		for i in range(num_samples):
+			var angle = (i * TAU) / num_samples
+			# Points on ellipse: (a*cos(θ), b*sin(θ))
+			var local_point = Vector2(
+				oval.length * cos(angle),
+				oval.width * sin(angle)
+			)
+			sample_points.append(local_point)
+	elif shape.get_type() == "rectangular":
+		# For rectangles, check the 4 corners
+		var bounds = shape.get_bounds()
+		var half_width = bounds.size.x / 2.0
+		var half_height = bounds.size.y / 2.0
+
+		sample_points = [
+			Vector2(-half_width, -half_height),
+			Vector2(half_width, -half_height),
+			Vector2(half_width, half_height),
+			Vector2(-half_width, half_height)
+		]
+	else:
+		# Fallback: use bounding box corners
+		var bounds = shape.get_bounds()
+		var half_width = bounds.size.x / 2.0
+		var half_height = bounds.size.y / 2.0
+
+		sample_points = [
+			Vector2(-half_width, -half_height),
+			Vector2(half_width, -half_height),
+			Vector2(half_width, half_height),
+			Vector2(-half_width, half_height)
+		]
+
+	print("Checking %d sample points" % sample_points.size())
+
+	# Transform sample points to world space and check if in polygon
+	var point_idx = 0
+	for local_point in sample_points:
+		var world_point = shape.to_world_space(local_point, center, rotation)
+		var in_poly = Geometry2D.is_point_in_polygon(world_point, polygon)
+
+		if point_idx < 4 or not in_poly:  # Only print first 4 and failures
+			print("Point %d: local=%s -> world=%s, in_polygon=%s" % [point_idx, local_point, world_point, in_poly])
+
+		if not in_poly:
+			print("❌ FAILED: Point outside polygon")
 			return false
 
+		point_idx += 1
+
+	print("✅ SUCCESS: All %d points in polygon" % sample_points.size())
 	return true
 
 func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float) -> bool:

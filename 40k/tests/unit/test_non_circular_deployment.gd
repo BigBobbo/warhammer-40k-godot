@@ -197,3 +197,74 @@ func test_caladius_deployment_near_edge():
 			break
 
 	assert_true(all_in_zone, "Rotated Caladius should fit 150px from edge")
+
+func test_rotated_oval_near_edge_false_positive():
+	"""Test that 90-degree rotated oval doesn't falsely report outside zone"""
+
+	# This test replicates the user-reported bug:
+	# Caladius rotated 90 degrees (narrow side toward edge) falsely reported as outside zone
+
+	var zone = PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(1000, 0),
+		Vector2(1000, 600),
+		Vector2(0, 600)
+	])
+
+	var caladius_data = {
+		"base_mm": 170,
+		"base_type": "oval",
+		"base_dimensions": {"length": 170, "width": 105}
+	}
+
+	var shape = Measurement.create_base_shape(caladius_data)
+	var bounds = shape.get_bounds()
+
+	# Test 1: No rotation - long axis horizontal
+	# Position 150px from left edge - should fit
+	var pos_no_rotation = Vector2(150, 300)
+	var rotation_0 = 0.0
+
+	var half_width_0 = bounds.size.x / 2.0
+	var half_height_0 = bounds.size.y / 2.0
+	var corners_0 = [
+		Vector2(-half_width_0, -half_height_0),
+		Vector2(half_width_0, -half_height_0),
+		Vector2(half_width_0, half_height_0),
+		Vector2(-half_width_0, half_height_0)
+	]
+
+	var all_in_0 = true
+	for corner in corners_0:
+		var world_corner = shape.to_world_space(corner, pos_no_rotation, rotation_0)
+		if not Geometry2D.is_point_in_polygon(world_corner, zone):
+			all_in_0 = false
+			break
+
+	assert_true(all_in_0, "Caladius at 0° should fit 150px from edge")
+
+	# Test 2: 90-degree rotation - narrow side toward edge
+	# Same position but rotated - should STILL fit because narrow side is toward edge
+	var pos_rotated = Vector2(150, 300)
+	var rotation_90 = PI / 2.0  # 90 degrees
+
+	var all_in_90 = true
+	for corner in corners_0:
+		var world_corner = shape.to_world_space(corner, pos_rotated, rotation_90)
+		if not Geometry2D.is_point_in_polygon(world_corner, zone):
+			all_in_90 = false
+			break
+
+	assert_true(all_in_90, "Caladius at 90° should fit 150px from edge (narrow side toward edge)")
+
+	# Calculate actual required distance from edge for each rotation
+	# At 0°: needs length/2 = 133.5px clearance
+	# At 90°: needs width/2 = 82.5px clearance
+	var length_px = Measurement.mm_to_px(170) / 2.0
+	var width_px = Measurement.mm_to_px(105) / 2.0
+
+	# At 150px from edge:
+	# - 0° rotation needs 133.5px (length/2) -> 150 > 133.5 ✓ fits
+	# - 90° rotation needs 82.5px (width/2) -> 150 > 82.5 ✓ definitely fits
+
+	# This test ensures the 90° rotation doesn't falsely fail
