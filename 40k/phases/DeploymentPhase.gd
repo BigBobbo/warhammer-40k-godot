@@ -82,19 +82,20 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	
 	var unit_id = action.unit_id
 	var model_positions = action.model_positions
-	
+	var model_rotations = action.get("model_rotations", [])
+
 	# Check if unit exists and is undeployed
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		errors.append("Unit not found: " + unit_id)
 	elif unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
 		errors.append("Unit is not available for deployment: " + unit_id)
-	
+
 	# Check if unit belongs to active player
 	var active_player = get_current_player()
 	if unit.get("owner", 0) != active_player:
 		errors.append("Unit does not belong to active player")
-	
+
 	# Validate model positions
 	if model_positions is Array:
 		var unit_owner = unit.get("owner", 0)
@@ -102,13 +103,14 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 		for i in range(model_positions.size()):
 			var pos = model_positions[i]
 			if pos != null:
-				var validation = _validate_model_position(pos, unit, i, deployment_zone)
+				var rotation = model_rotations[i] if i < model_rotations.size() else 0.0
+				var validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
 				if not validation.valid:
 					errors.append_array(validation.errors)
 	
 	return {"valid": errors.size() == 0, "errors": errors}
 
-func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary) -> Dictionary:
+func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary, rotation: float = 0.0) -> Dictionary:
 	var errors = []
 
 	# Get model info
@@ -118,7 +120,6 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 		return {"valid": false, "errors": errors}
 
 	var model = models[model_index]
-	var rotation = 0.0  # Validation uses default rotation
 
 	# Check deployment zone - convert zone from inches to pixels
 	var zone_poly_inches = zone.get("poly", [])

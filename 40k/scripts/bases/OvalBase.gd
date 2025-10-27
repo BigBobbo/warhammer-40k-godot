@@ -226,14 +226,9 @@ func overlaps_with_segment(position: Vector2, rotation: float, seg_start: Vector
 	var py = local_start.y
 
 	# Quadratic equation coefficients
-	# Use slightly shrunk ellipse (1px clearance) to avoid false positives from floating point errors
-	var clearance_px = 1.0
-	var a_shrunk = max(a - clearance_px, 1.0)
-	var b_shrunk = max(b - clearance_px, 1.0)
-
-	var A = (dx * dx) / (a_shrunk * a_shrunk) + (dy * dy) / (b_shrunk * b_shrunk)
-	var B = 2.0 * ((px * dx) / (a_shrunk * a_shrunk) + (py * dy) / (b_shrunk * b_shrunk))
-	var C = (px * px) / (a_shrunk * a_shrunk) + (py * py) / (b_shrunk * b_shrunk) - 1.0
+	var A = (dx * dx) / (a * a) + (dy * dy) / (b * b)
+	var B = 2.0 * ((px * dx) / (a * a) + (py * dy) / (b * b))
+	var C = (px * px) / (a * a) + (py * py) / (b * b) - 1.0
 
 	var discriminant = B * B - 4.0 * A * C
 
