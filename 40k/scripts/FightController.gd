@@ -16,6 +16,18 @@ var current_fight_index: int = -1
 var pending_pile_in_unit: String = ""
 var pending_consolidate_unit: String = ""
 
+# Pile-in/Consolidate interactive mode
+var pile_in_active: bool = false
+var consolidate_active: bool = false
+var pile_in_unit_id: String = ""
+var pile_in_dialog_ref: Node = null
+var original_model_positions: Dictionary = {}  # model_id -> Vector2
+var current_model_positions: Dictionary = {}   # model_id -> Vector2
+var dragging_model: Node2D = null
+var drag_model_id: String = ""
+var drag_offset: Vector2 = Vector2.ZERO
+var drag_start_pos: Vector2 = Vector2.ZERO
+
 # UI References
 var board_view: Node2D
 var movement_visual: Line2D
@@ -23,6 +35,12 @@ var range_visual: Node2D
 var target_highlights: Node2D
 var hud_bottom: Control
 var hud_right: Control
+
+# Pile-in visual indicators
+var pile_in_visuals: Node2D = null  # Container for all pile-in visuals
+var range_circles: Dictionary = {}  # model_id -> Node2D (circle showing 3" range)
+var direction_lines: Dictionary = {}  # model_id -> Line2D (to closest enemy)
+var coherency_lines: Array = []  # Array of Line2D showing unit coherency
 
 # Track current fighting unit and its owner
 var current_fighter_id: String = ""
@@ -1041,19 +1059,29 @@ func _on_end_phase_pressed() -> void:
 func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is FightPhase:
 		return
-	
-	# Handle pile in or consolidate movement
+
+	# Debug: Log when pile-in mode is active
+	if event is InputEventMouseButton:
+		print("[FightController] _input: pile_in_active=", pile_in_active, " consolidate_active=", consolidate_active)
+
+	# Handle interactive pile-in mode - process at input level to bypass dialog
+	if pile_in_active or consolidate_active:
+		_handle_pile_in_input(event)
+		get_viewport().set_input_as_handled()  # Prevent dialog from blocking
+		return
+
+	# Handle pile in or consolidate movement (legacy)
 	if (pending_pile_in_unit != "" or pending_consolidate_unit != "") and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var board_root = get_node_or_null("/root/Main/BoardRoot")
 		if board_root:
 			var mouse_pos = board_root.get_local_mouse_position()
 			_handle_movement_click(mouse_pos)
 		return
-	
+
 	# Only handle target selection input if we have an active fighter and eligible targets
 	if current_fighter_id == "" or eligible_targets.is_empty():
 		return
-	
+
 	# Handle clicking on units for target selection
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var board_root = get_node_or_null("/root/Main/BoardRoot")
@@ -1244,7 +1272,7 @@ func _on_fighter_selected_from_dialog(unit_id: String) -> void:
 	emit_signal("fight_action_requested", action)
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
-	"""Show pile-in dialog"""
+	"""Show pile-in dialog and enable interactive movement"""
 	var dialog_script = load("res://dialogs/PileInDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load PileInDialog.gd")
@@ -1252,18 +1280,40 @@ func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
-	dialog.setup(unit_id, max_distance, current_phase)
+	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
 	dialog.pile_in_confirmed.connect(_on_pile_in_confirmed.bind(unit_id))
 	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id))
+	dialog.tree_exiting.connect(_on_pile_in_dialog_closed)
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
+	# Enable pile-in mode
+	_enable_pile_in_mode(unit_id, dialog)
+
 func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 	"""Submit PILE_IN action with movements"""
+	print("[FightController] Pile-in confirmed with movements: ", movements)
+
+	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
+	var converted_movements = {}
+	if not movements.is_empty() and current_phase:
+		var unit = current_phase.get_unit(unit_id)
+		if unit:
+			var models = unit.get("models", [])
+			for model_id in movements:
+				# Find the array index for this model_id
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_movements[str(i)] = movements[model_id]
+						print("[FightController] Converted ", model_id, " to index ", i)
+						break
+
+	print("[FightController] Converted movements: ", converted_movements)
+
 	var action = {
 		"type": "PILE_IN",
 		"unit_id": unit_id,
-		"movements": movements,
+		"movements": converted_movements,
 		"player": current_fighter_owner
 	}
 	emit_signal("fight_action_requested", action)
@@ -1333,7 +1383,7 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 	emit_signal("fight_action_requested", roll_action)
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
-	"""Show consolidate dialog"""
+	"""Show consolidate dialog and enable interactive movement"""
 	var dialog_script = load("res://dialogs/ConsolidateDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load ConsolidateDialog.gd")
@@ -1341,11 +1391,15 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
-	dialog.setup(unit_id, max_distance, current_phase)
+	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
 	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id))
 	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))
+	dialog.tree_exiting.connect(_on_consolidate_dialog_closed)
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
+
+	# Enable consolidate mode (uses same system as pile-in)
+	_enable_consolidate_mode(unit_id, dialog)
 
 func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 	"""Submit CONSOLIDATE action with movements"""
@@ -1388,3 +1442,496 @@ func _on_attack_assigned(attacker_id: String, target_id: String, weapon_id: Stri
 	# Show in dice log for both players
 	if dice_log_display:
 		dice_log_display.append_text("[color=green]✓ %s assigned %s attacks to %s[/color]\n" % [attacker_name, weapon_name, target_name])
+
+# ============================================================================
+# PILE-IN/CONSOLIDATE INTERACTIVE MODE
+# ============================================================================
+
+func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
+	"""Enable interactive pile-in mode for the unit"""
+	pile_in_active = true
+	pile_in_unit_id = unit_id
+	pile_in_dialog_ref = dialog
+
+	# Store original positions for all models in the unit
+	var unit = current_phase.get_unit(unit_id) if current_phase else null
+	if not unit:
+		push_error("Failed to get unit for pile-in: " + unit_id)
+		return
+
+	original_model_positions.clear()
+	current_model_positions.clear()
+
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		var model = models[i]
+		var pos_data = model.get("position", {})
+		if pos_data == null:
+			continue
+		var pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+		# Use the model's actual ID (e.g., "m1", "m2") not the array index
+		var model_id = model.get("id", "m%d" % (i+1))
+		original_model_positions[model_id] = pos
+		current_model_positions[model_id] = pos
+		print("[FightController] Stored position for model ", model_id, " at ", pos)
+
+	# Create visual indicators
+	_create_pile_in_visuals()
+
+	print("[FightController] Pile-in mode enabled for ", unit_id)
+
+func _disable_pile_in_mode() -> void:
+	"""Disable pile-in mode and clean up"""
+	pile_in_active = false
+	consolidate_active = false
+	pile_in_unit_id = ""
+	pile_in_dialog_ref = null
+	original_model_positions.clear()
+	current_model_positions.clear()
+	dragging_model = null
+	drag_model_id = ""
+
+	# Clean up visual indicators
+	_clear_pile_in_visuals()
+
+	print("[FightController] Pile-in mode disabled")
+
+func _on_pile_in_dialog_closed() -> void:
+	"""Handle pile-in dialog being closed"""
+	_disable_pile_in_mode()
+
+func _create_pile_in_visuals() -> void:
+	"""Create visual indicators for pile-in movement"""
+	_clear_pile_in_visuals()
+
+	if not board_view:
+		return
+
+	# Create container for all pile-in visuals
+	pile_in_visuals = Node2D.new()
+	pile_in_visuals.name = "PileInVisuals"
+	pile_in_visuals.z_index = 100  # Draw on top
+	board_view.add_child(pile_in_visuals)
+
+	# Create range circles for each model (3" radius)
+	for model_id in original_model_positions:
+		var pos = original_model_positions[model_id]
+		var circle = _create_range_circle(pos, 3.0)
+		circle.name = "RangeCircle_" + model_id
+		pile_in_visuals.add_child(circle)
+		range_circles[model_id] = circle
+
+	# Create direction lines for each model
+	for model_id in original_model_positions:
+		var line = Line2D.new()
+		line.width = 2.0
+		line.default_color = Color.YELLOW
+		line.name = "DirectionLine_" + model_id
+		pile_in_visuals.add_child(line)
+		direction_lines[model_id] = line
+
+	# Update visuals to show initial state
+	_update_pile_in_visuals()
+
+func _create_range_circle(center: Vector2, radius_inches: float) -> Node2D:
+	"""Create a circle showing movement range"""
+	var circle = Node2D.new()
+	var line = Line2D.new()
+	line.width = 2.0
+	line.default_color = Color(0.3, 0.6, 1.0, 0.5)  # Light blue, semi-transparent
+
+	# Create circle points
+	var radius_px = Measurement.inches_to_px(radius_inches)
+	var num_points = 64
+	for i in range(num_points + 1):
+		var angle = (i / float(num_points)) * TAU
+		var point = center + Vector2(cos(angle), sin(angle)) * radius_px
+		line.add_point(point)
+
+	circle.add_child(line)
+	return circle
+
+func _clear_pile_in_visuals() -> void:
+	"""Remove all pile-in visual indicators"""
+	if pile_in_visuals and is_instance_valid(pile_in_visuals):
+		pile_in_visuals.queue_free()
+		pile_in_visuals = null
+
+	range_circles.clear()
+	direction_lines.clear()
+	coherency_lines.clear()
+
+func _update_pile_in_visuals() -> void:
+	"""Update visual feedback for current model positions"""
+	if not pile_in_active or not current_phase:
+		return
+
+	# Update direction lines
+	for model_id in current_model_positions:
+		if not direction_lines.has(model_id):
+			continue
+
+		var line = direction_lines[model_id]
+		var current_pos = current_model_positions[model_id]
+		var original_pos = original_model_positions.get(model_id, current_pos)
+
+		# Find closest enemy position
+		var closest_enemy = _find_closest_enemy_pos(current_pos)
+
+		# Draw line from current position to closest enemy
+		line.clear_points()
+		if closest_enemy != Vector2.ZERO:
+			line.add_point(current_pos)
+			line.add_point(closest_enemy)
+
+			# Color based on whether movement is valid (closer to enemy)
+			var original_dist = original_pos.distance_to(closest_enemy)
+			var current_dist = current_pos.distance_to(closest_enemy)
+			var is_closer = current_dist <= original_dist
+
+			# Validate distance limit
+			var move_distance = Measurement.distance_inches(original_pos, current_pos)
+			var distance_ok = move_distance <= 3.0
+
+			# Set color based on validation
+			if is_closer and distance_ok:
+				line.default_color = Color.GREEN
+			else:
+				line.default_color = Color.RED
+
+	# Update coherency lines (show connections between models)
+	_update_coherency_visuals()
+
+func _update_coherency_visuals() -> void:
+	"""Update coherency lines between models"""
+	# Clear old coherency lines
+	for line in coherency_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	coherency_lines.clear()
+
+	if not pile_in_visuals or not is_instance_valid(pile_in_visuals):
+		return
+
+	# Create lines showing 2" coherency connections
+	var positions = current_model_positions.values()
+	for i in range(positions.size()):
+		for j in range(i + 1, positions.size()):
+			var pos1 = positions[i]
+			var pos2 = positions[j]
+			var dist = Measurement.distance_inches(pos1, pos2)
+
+			if dist <= 2.0:  # Within coherency range
+				var line = Line2D.new()
+				line.width = 1.0
+				line.default_color = Color(0.0, 1.0, 0.0, 0.3)  # Green, transparent
+				line.add_point(pos1)
+				line.add_point(pos2)
+				pile_in_visuals.add_child(line)
+				coherency_lines.append(line)
+
+func _find_closest_enemy_pos(from_pos: Vector2) -> Vector2:
+	"""Find the closest enemy model position"""
+	if not current_phase or pile_in_unit_id == "":
+		return Vector2.ZERO
+
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	var unit_owner = unit.get("owner", 0)
+	var all_units = current_phase.game_state_snapshot.get("units", {})
+	var closest_pos = Vector2.ZERO
+	var closest_distance = INF
+
+	for other_unit_id in all_units:
+		var other_unit = all_units[other_unit_id]
+		if other_unit.get("owner", 0) == unit_owner:
+			continue  # Skip same army
+
+		var models = other_unit.get("models", [])
+		for model in models:
+			if not model.get("alive", true):
+				continue
+
+			var model_pos_data = model.get("position", {})
+			if model_pos_data == null:
+				continue
+			var model_pos = Vector2(model_pos_data.get("x", 0), model_pos_data.get("y", 0))
+			var distance = from_pos.distance_to(model_pos)
+
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_pos = model_pos
+
+	return closest_pos
+
+func get_pile_in_movements() -> Dictionary:
+	"""Get current movements for submission"""
+	var movements = {}
+	for model_id in current_model_positions:
+		if current_model_positions[model_id] != original_model_positions[model_id]:
+			movements[model_id] = current_model_positions[model_id]
+	return movements
+
+func reset_pile_in_movements() -> void:
+	"""Reset all model positions to original"""
+	print("[FightController] reset_pile_in_movements called - STACK TRACE:")
+	print_stack()
+
+	for model_id in original_model_positions:
+		current_model_positions[model_id] = original_model_positions[model_id]
+
+	# Move visual models back to original positions
+	_apply_model_positions_to_scene()
+	_update_pile_in_visuals()
+
+	print("[FightController] Pile-in movements reset")
+
+func _apply_model_positions_to_scene() -> void:
+	"""Apply current_model_positions to the actual model tokens in the scene"""
+	if pile_in_unit_id == "":
+		return
+
+	# Get token layer
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	# Update each model token's position
+	for model_id in current_model_positions:
+		# Find the token with matching metadata
+		for token in token_layer.get_children():
+			if token.has_meta("unit_id") and token.has_meta("model_id"):
+				if token.get_meta("unit_id") == pile_in_unit_id and token.get_meta("model_id") == model_id:
+					token.position = current_model_positions[model_id]
+					break
+
+func _handle_pile_in_input(event: InputEvent) -> void:
+	"""Handle input events during pile-in mode"""
+	if not board_view:
+		print("[FightController] Pile-in input: no board_view")
+		return
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		print("[FightController] Pile-in input: no board_root")
+		return
+
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			# Start dragging
+			var mouse_pos = board_root.get_local_mouse_position()
+			print("[FightController] Mouse down at: ", mouse_pos)
+			_start_model_drag_pile_in(mouse_pos)
+		else:
+			# End dragging
+			print("[FightController] Mouse up")
+			_end_model_drag_pile_in()
+	elif event is InputEventMouseMotion and dragging_model:
+		# Update drag
+		var mouse_pos = board_root.get_local_mouse_position()
+		_update_model_drag_pile_in(mouse_pos)
+
+func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
+	"""Start dragging a model during pile-in"""
+	print("[FightController] _start_model_drag_pile_in called, pile_in_unit_id=", pile_in_unit_id)
+
+	if pile_in_unit_id == "":
+		print("[FightController] No pile_in_unit_id")
+		return
+
+	# Get token layer from BoardRoot
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		print("[FightController] Could not find TokenLayer")
+		return
+
+	print("[FightController] Checking ", current_model_positions.size(), " models")
+
+	# Find which model token is being clicked
+	# Models are individual TokenVisual nodes in token_layer with metadata
+	for model_id in current_model_positions:
+		var model_pos = current_model_positions[model_id]
+		var distance_to_mouse = mouse_pos.distance_to(model_pos)
+
+		print("[FightController] Model ", model_id, " at ", model_pos, " distance: ", distance_to_mouse)
+
+		# Check if click is within model's base (50px radius for easier clicking)
+		if distance_to_mouse < 50.0:
+			print("[FightController] Distance check passed! Looking for token with unit_id=", pile_in_unit_id, " model_id=", model_id)
+			# Find the actual token in token_layer with matching metadata
+			var tokens_checked = 0
+			for token in token_layer.get_children():
+				tokens_checked += 1
+				if token.has_meta("unit_id") and token.has_meta("model_id"):
+					var token_unit_id = token.get_meta("unit_id")
+					var token_model_id = token.get_meta("model_id")
+					print("[FightController]   Token ", tokens_checked, ": unit_id=", token_unit_id, " model_id=", token_model_id)
+
+					if token_unit_id == pile_in_unit_id and token_model_id == model_id:
+						dragging_model = token
+						drag_model_id = model_id
+						drag_start_pos = model_pos
+						drag_offset = model_pos - mouse_pos
+
+						print("[FightController] Started dragging model token ", model_id)
+						return
+
+			print("[FightController] Checked ", tokens_checked, " tokens but none matched")
+
+	print("[FightController] No model found near click position")
+
+func _update_model_drag_pile_in(mouse_pos: Vector2) -> void:
+	"""Update model position during drag"""
+	if drag_model_id == "" or not dragging_model:
+		return
+
+	var new_pos = mouse_pos + drag_offset
+
+	# Update position tracking
+	current_model_positions[drag_model_id] = new_pos
+
+	# Update visual position
+	if dragging_model:
+		dragging_model.position = new_pos
+
+	# Check for overlaps and update visual feedback
+	var has_overlap = _check_model_overlaps(drag_model_id, new_pos)
+	_update_model_overlap_visual(dragging_model, has_overlap)
+
+	# Update visual indicators
+	_update_pile_in_visuals()
+
+	# Update dialog with current movements if possible
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
+		pile_in_dialog_ref.update_movements(get_pile_in_movements())
+
+func _end_model_drag_pile_in() -> void:
+	"""End model drag"""
+	if drag_model_id == "":
+		return
+
+	print("[FightController] Ended dragging model ", drag_model_id)
+
+	var original_pos = original_model_positions.get(drag_model_id, Vector2.ZERO)
+	var final_pos = current_model_positions[drag_model_id]
+	var reverted = false
+
+	# Check for overlaps - if overlapping, revert to original position
+	if _check_model_overlaps(drag_model_id, final_pos):
+		print("[FightController] Model would overlap - reverting to original position")
+		current_model_positions[drag_model_id] = original_pos
+		if dragging_model:
+			dragging_model.position = original_pos
+		reverted = true
+	else:
+		# Validate final position
+		var distance = Measurement.distance_inches(original_pos, final_pos)
+
+		# Check if movement exceeds 3"
+		if distance > 3.0:
+			# Snap back to maximum 3" distance in the same direction
+			var direction = (final_pos - original_pos).normalized()
+			var max_distance_px = Measurement.inches_to_px(3.0)
+			var clamped_pos = original_pos + direction * max_distance_px
+			current_model_positions[drag_model_id] = clamped_pos
+
+			if dragging_model:
+				dragging_model.position = clamped_pos
+
+			print("[FightController] Clamped movement to 3\" limit")
+
+	# Clear overlap visual feedback
+	if dragging_model:
+		_update_model_overlap_visual(dragging_model, false)
+
+	# Clear drag state
+	dragging_model = null
+	drag_model_id = ""
+	drag_start_pos = Vector2.ZERO
+
+	# Final visual update
+	_update_pile_in_visuals()
+
+	# Update dialog
+	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
+		pile_in_dialog_ref.update_movements(get_pile_in_movements())
+
+func _enable_consolidate_mode(unit_id: String, dialog: Node) -> void:
+	"""Enable interactive consolidate mode (uses same system as pile-in)"""
+	consolidate_active = true
+	# Reuse the pile-in infrastructure
+	_enable_pile_in_mode(unit_id, dialog)
+	print("[FightController] Consolidate mode enabled for ", unit_id)
+
+func _on_consolidate_dialog_closed() -> void:
+	"""Handle consolidate dialog being closed"""
+	_disable_pile_in_mode()
+
+func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
+	"""Check if a model at the given position would overlap with any other models"""
+	if not current_phase or pile_in_unit_id == "":
+		return false
+
+	# Get the moving model's data
+	var unit = current_phase.get_unit(pile_in_unit_id)
+	if not unit:
+		return false
+
+	var models = unit.get("models", [])
+	var moving_model = null
+	for model in models:
+		if model.get("id", "") == moving_model_id:
+			moving_model = model
+			break
+
+	if not moving_model:
+		return false
+
+	# Create a temporary model dict with the new position for overlap checking
+	var check_model = moving_model.duplicate()
+	check_model["position"] = new_pos
+
+	# Check against all other models in all units
+	var all_units = current_phase.game_state_snapshot.get("units", {})
+	for check_unit_id in all_units:
+		var check_unit = all_units[check_unit_id]
+		var check_models = check_unit.get("models", [])
+
+		for i in range(check_models.size()):
+			var other_model = check_models[i]
+
+			# Skip self
+			if check_unit_id == pile_in_unit_id and other_model.get("id", "") == moving_model_id:
+				continue
+
+			# Skip dead models
+			if not other_model.get("alive", true):
+				continue
+
+			# Use position from current_model_positions if this is a friendly model being moved
+			var other_pos = other_model.get("position", {})
+			if other_pos == null:
+				continue
+
+			var other_model_check = other_model.duplicate()
+			if check_unit_id == pile_in_unit_id:
+				var other_id = other_model.get("id", "")
+				if other_id in current_model_positions:
+					other_model_check["position"] = current_model_positions[other_id]
+
+			# Check for overlap using Measurement system
+			if Measurement.models_overlap(check_model, other_model_check):
+				print("[FightController] Overlap detected with ", check_unit_id, "/", other_model.get("id", ""))
+				return true
+
+	return false
+
+func _update_model_overlap_visual(token: Node2D, has_overlap: bool) -> void:
+	"""Update visual feedback to show if a model is overlapping"""
+	if not token:
+		return
+
+	# Change the model's modulate color to indicate overlap
+	if has_overlap:
+		token.modulate = Color(1.0, 0.3, 0.3, 1.0)  # Red tint
+	else:
+		token.modulate = Color(1.0, 1.0, 1.0, 1.0)  # Normal
