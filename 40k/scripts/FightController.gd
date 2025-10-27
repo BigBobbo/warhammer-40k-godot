@@ -955,12 +955,48 @@ func _on_fight_resolved(fighter_id: String, results: Dictionary) -> void:
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
-	
+
 	var context = dice_data.get("context", "")
-	var rolls = dice_data.get("rolls_raw", [])
+	var rolls_raw = dice_data.get("rolls_raw", [])
 	var successes = dice_data.get("successes", 0)
-	
-	var log_text = "[b]%s:[/b] %s → %d successes\n" % [context.capitalize(), str(rolls), successes]
+	var threshold = dice_data.get("threshold", "")
+	var weapon = dice_data.get("weapon", "")
+
+	# Format context name
+	var context_name = context.capitalize().replace("_", " ")
+
+	# Build display text
+	var log_text = "[b]%s[/b]" % context_name
+
+	# Add weapon info if present
+	if weapon != "":
+		var weapon_profile = RulesEngine.get_weapon_profile(weapon)
+		if weapon_profile:
+			log_text += " (%s)" % weapon_profile.get("name", weapon)
+
+	# Add threshold
+	if threshold != "":
+		log_text += " (need %s)" % threshold
+
+	log_text += ":\n"
+
+	# Color-code individual dice results
+	if not rolls_raw.is_empty():
+		var target_num = int(threshold.replace("+", "")) if threshold != "" else 4
+		var colored_rolls = []
+		for roll in rolls_raw:
+			if roll >= target_num:
+				colored_rolls.append("[color=green]%d[/color]" % roll)
+			else:
+				colored_rolls.append("[color=gray]%d[/color]" % roll)
+
+		log_text += "  Rolls: [%s]" % ", ".join(colored_rolls)
+	else:
+		log_text += "  Rolls: %s" % str(rolls_raw)
+
+	# Add success count
+	log_text += " → [b][color=green]%d successes[/color][/b]\n" % successes
+
 	dice_log_display.append_text(log_text)
 
 func _on_fight_sequence_updated(sequence: Array, index: int) -> void:

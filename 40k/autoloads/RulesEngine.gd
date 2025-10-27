@@ -1770,16 +1770,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var hit_rolls = rng.roll_d6(total_attacks)
 	var hits = 0
 	for roll in hit_rolls:
-		var success = roll >= weapon_skill
-		if success:
+		if roll >= weapon_skill:
 			hits += 1
-		result.dice.append({
-			"context": "hit_roll_melee",
-			"roll": roll,
-			"target": weapon_skill,
-			"success": success,
-			"weapon": weapon_id
-		})
+
+	# Aggregate dice block (like shooting phase)
+	result.dice.append({
+		"context": "hit_roll_melee",
+		"threshold": str(weapon_skill) + "+",
+		"rolls_raw": hit_rolls,
+		"successes": hits,
+		"weapon": weapon_id,
+		"total_attacks": total_attacks
+	})
 	
 	if hits == 0:
 		result.log_text = "Melee: %d attacks, 0 hits" % total_attacks
@@ -1790,17 +1792,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var wound_rolls = rng.roll_d6(hits)
 	var wounds = 0
 	for roll in wound_rolls:
-		var success = roll >= wound_target
-		if success:
+		if roll >= wound_target:
 			wounds += 1
-		result.dice.append({
-			"context": "wound_roll",
-			"roll": roll,
-			"target": wound_target,
-			"success": success,
-			"strength": strength,
-			"toughness": toughness
-		})
+
+	# Aggregate dice block
+	result.dice.append({
+		"context": "wound_roll",
+		"threshold": str(wound_target) + "+",
+		"rolls_raw": wound_rolls,
+		"successes": wounds,
+		"strength": strength,
+		"toughness": toughness
+	})
 	
 	if wounds == 0:
 		result.log_text = "Melee: %d attacks, %d hits, 0 wounds" % [total_attacks, hits]
@@ -1809,19 +1812,23 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Apply armor saves (same logic as shooting)
 	var modified_save = armor_save - ap
 	var save_rolls = rng.roll_d6(wounds)
-	var failed_saves = 0
+	var successful_saves = 0
 	for roll in save_rolls:
-		var success = roll >= modified_save
-		if not success:
-			failed_saves += 1
-		result.dice.append({
-			"context": "save_roll",
-			"roll": roll,
-			"target": modified_save,
-			"success": success,
-			"ap": ap,
-			"original_save": armor_save
-		})
+		if roll >= modified_save:
+			successful_saves += 1
+
+	var failed_saves = wounds - successful_saves
+
+	# Aggregate dice block
+	result.dice.append({
+		"context": "save_roll",
+		"threshold": str(modified_save) + "+",
+		"rolls_raw": save_rolls,
+		"successes": successful_saves,
+		"failed": failed_saves,
+		"ap": ap,
+		"original_save": armor_save
+	})
 	
 	if failed_saves == 0:
 		result.log_text = "Melee: %d attacks, %d hits, %d wounds, 0 failed saves" % [total_attacks, hits, wounds]

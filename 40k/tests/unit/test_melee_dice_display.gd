@@ -29,14 +29,14 @@ func test_melee_dice_format():
 	assert_eq(hit_result.context, "hit_roll_melee")
 	assert_true(hit_result.has("rolls_raw"), "Should have rolls_raw field")
 	assert_true(hit_result.has("successes"), "Should have successes field")
-	assert_true(hit_result.has("target"), "Should have target field")
+	assert_true(hit_result.has("threshold"), "Should have threshold field")
 	assert_true(hit_result.has("weapon"), "Should have weapon field")
 	assert_true(hit_result.has("total_attacks"), "Should have total_attacks field")
-	
+
 	# Verify data types
 	assert_true(hit_result.rolls_raw is Array, "rolls_raw should be Array")
 	assert_true(hit_result.successes is int, "successes should be int")
-	assert_true(hit_result.target is int, "target should be int")
+	assert_true(hit_result.threshold is String, "threshold should be String like '3+'")
 	assert_true(hit_result.total_attacks is int, "total_attacks should be int")
 
 func test_wound_roll_format():
@@ -58,8 +58,7 @@ func test_wound_roll_format():
 		assert_eq(wound_result.context, "wound_roll")
 		assert_true(wound_result.has("rolls_raw"), "Should have rolls_raw field")
 		assert_true(wound_result.has("successes"), "Should have successes field")
-		assert_true(wound_result.has("target"), "Should have target field")
-		assert_true(wound_result.has("weapon"), "Should have weapon field")
+		assert_true(wound_result.has("threshold"), "Should have threshold field")
 		assert_true(wound_result.has("strength"), "Should have strength field")
 		assert_true(wound_result.has("toughness"), "Should have toughness field")
 
@@ -74,17 +73,16 @@ func test_save_roll_format():
 	# Find save roll result
 	var save_result = null
 	for dice_entry in result.dice:
-		if dice_entry.context == "armor_save":
+		if dice_entry.context == "save_roll":
 			save_result = dice_entry
 			break
-	
+
 	if save_result:  # Only test if there were wounds that led to save rolls
-		assert_eq(save_result.context, "armor_save")
+		assert_eq(save_result.context, "save_roll")
 		assert_true(save_result.has("rolls_raw"), "Should have rolls_raw field")
 		assert_true(save_result.has("successes"), "Should have successes field")
-		assert_true(save_result.has("failures"), "Should have failures field")
-		assert_true(save_result.has("target"), "Should have target field")
-		assert_true(save_result.has("weapon"), "Should have weapon field")
+		assert_true(save_result.has("failed"), "Should have failed field")
+		assert_true(save_result.has("threshold"), "Should have threshold field")
 		assert_true(save_result.has("ap"), "Should have ap field")
 		assert_true(save_result.has("original_save"), "Should have original_save field")
 
@@ -126,11 +124,12 @@ func test_dice_rolls_contain_proper_data():
 		assert_le(roll, 6, "Dice roll should be at most 6")
 	
 	# Verify successes calculation
+	var target_value = int(hit_result.threshold.replace("+", ""))
 	var expected_successes = 0
 	for roll in hit_result.rolls_raw:
-		if roll >= hit_result.target:
+		if roll >= target_value:
 			expected_successes += 1
-	
+
 	assert_eq(hit_result.successes, expected_successes, "Successes should match manual count")
 
 # Helper functions to create test data
