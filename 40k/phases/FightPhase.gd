@@ -578,7 +578,13 @@ func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dicti
 			var pos_data = model.get("position", {})
 			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
 
-	# Check if any model will be within 3" of any objective
+	# Check if any model will be within 3" of any objective edge
+	# Objectives have 40mm radius = ~0.787"
+	# Range is 3" from edge, so 3.787" from center
+	const OBJECTIVE_RADIUS_MM = 40.0
+	var objective_radius_inches = OBJECTIVE_RADIUS_MM / 25.4
+	var effective_range = 3.0 + objective_radius_inches  # 3" from edge
+
 	for model_pos in final_positions:
 		for objective in objectives:
 			var obj_pos = objective.get("position", Vector2.ZERO)
@@ -586,7 +592,7 @@ func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dicti
 				continue
 
 			var distance = Measurement.distance_inches(model_pos, obj_pos)
-			if distance <= 3.0:  # Within objective range
+			if distance <= effective_range:  # Within 3" of objective edge
 				return true
 
 	return false
