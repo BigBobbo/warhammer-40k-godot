@@ -24,7 +24,10 @@ Successfully implemented interactive pile-in and consolidate movement for the Fi
   - `_handle_pile_in_input()` - Process input events
   - `_start_model_drag_pile_in()` - Begin model drag
   - `_update_model_drag_pile_in()` - Update drag position
-  - `_end_model_drag_pile_in()` - Complete drag with validation
+  - `_end_model_drag_pile_in()` - Complete drag with validation (lines 1828-1899)
+    - **Enhanced**: Now checks if model moves closer to nearest enemy
+    - **Auto-revert**: Models that don't move toward enemy snap back to original position
+    - **No invalid moves**: Reverted moves don't count as pile-in movements
   - `_enable_consolidate_mode()` - Enable consolidate (reuses pile-in)
   - `_on_consolidate_dialog_closed()` - Clean up on dialog close
 

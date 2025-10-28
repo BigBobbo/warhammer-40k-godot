@@ -1403,10 +1403,28 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 
 func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 	"""Submit CONSOLIDATE action with movements"""
+	print("[FightController] Consolidate confirmed with movements: ", movements)
+
+	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
+	var converted_movements = {}
+	if not movements.is_empty() and current_phase:
+		var unit = current_phase.get_unit(unit_id)
+		if unit:
+			var models = unit.get("models", [])
+			for model_id in movements:
+				# Find the array index for this model_id
+				for i in range(models.size()):
+					if models[i].get("id", "") == model_id:
+						converted_movements[str(i)] = movements[model_id]
+						print("[FightController] Converted ", model_id, " to index ", i)
+						break
+
+	print("[FightController] Converted movements: ", converted_movements)
+
 	var action = {
 		"type": "CONSOLIDATE",
 		"unit_id": unit_id,
-		"movements": movements,
+		"movements": converted_movements,
 		"player": current_fighter_owner
 	}
 	emit_signal("fight_action_requested", action)
@@ -1482,6 +1500,9 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 
 func _disable_pile_in_mode() -> void:
 	"""Disable pile-in mode and clean up"""
+	print("[FightController] _disable_pile_in_mode called - STACK TRACE:")
+	print_stack()
+
 	pile_in_active = false
 	consolidate_active = false
 	pile_in_unit_id = ""
@@ -1826,18 +1847,40 @@ func _end_model_drag_pile_in() -> void:
 		# Validate final position
 		var distance = Measurement.distance_inches(original_pos, final_pos)
 
-		# Check if movement exceeds 3"
-		if distance > 3.0:
-			# Snap back to maximum 3" distance in the same direction
-			var direction = (final_pos - original_pos).normalized()
-			var max_distance_px = Measurement.inches_to_px(3.0)
-			var clamped_pos = original_pos + direction * max_distance_px
-			current_model_positions[drag_model_id] = clamped_pos
+		# Check if model moved at all
+		if distance > 0.01:  # Threshold to detect actual movement
+			# Check if movement is toward closest enemy
+			var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
+			if closest_enemy_pos != Vector2.ZERO:
+				var old_distance_to_enemy = original_pos.distance_to(closest_enemy_pos)
+				var new_distance_to_enemy = final_pos.distance_to(closest_enemy_pos)
 
-			if dragging_model:
-				dragging_model.position = clamped_pos
+				# If not moving closer (or moving away), revert
+				if new_distance_to_enemy >= old_distance_to_enemy:
+					print("[FightController] Model not moving closer to enemy - reverting to original position")
+					print("  Old distance: %.2f\", New distance: %.2f\"" % [
+						Measurement.px_to_inches(old_distance_to_enemy),
+						Measurement.px_to_inches(new_distance_to_enemy)
+					])
+					current_model_positions[drag_model_id] = original_pos
+					if dragging_model:
+						dragging_model.position = original_pos
+					reverted = true
 
-			print("[FightController] Clamped movement to 3\" limit")
+		# If not reverted, check distance limits
+		if not reverted:
+			# Check if movement exceeds 3"
+			if distance > 3.0:
+				# Snap back to maximum 3" distance in the same direction
+				var direction = (final_pos - original_pos).normalized()
+				var max_distance_px = Measurement.inches_to_px(3.0)
+				var clamped_pos = original_pos + direction * max_distance_px
+				current_model_positions[drag_model_id] = clamped_pos
+
+				if dragging_model:
+					dragging_model.position = clamped_pos
+
+				print("[FightController] Clamped movement to 3\" limit")
 
 	# Clear overlap visual feedback
 	if dragging_model:

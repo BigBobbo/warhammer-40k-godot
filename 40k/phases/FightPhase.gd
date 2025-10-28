@@ -412,21 +412,176 @@ func _validate_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_consolidate(action: Dictionary) -> Dictionary:
-	# Identical validation to pile in but happens after fighting
+	# Consolidate has different rules than pile-in:
+	# 1. Try to end in engagement range (closer to enemy, base contact if possible)
+	# 2. If can't maintain engagement, move toward closest objective
+	# 3. If neither is possible, no consolidation allowed
 	var unit_id = action.get("unit_id", "")
+	var movements = action.get("movements", {})
 	var errors = []
-	
+
 	# Check unit is active fighter and has fought
 	if unit_id != active_fighter_id:
 		errors.append("Not the active fighter")
 		return {"valid": false, "errors": errors}
-	
+
 	# Unit must have resolved attacks (pending_attacks should be empty)
 	if not pending_attacks.is_empty():
 		errors.append("Must resolve attacks before consolidating")
-	
-	# Use same movement validation as pile in
-	return _validate_pile_in(action)
+		return {"valid": false, "errors": errors}
+
+	# If no movements provided, it's a skip - always valid
+	if movements.is_empty():
+		return {"valid": true, "errors": []}
+
+	# Determine which consolidate mode is available
+	var unit = get_unit(unit_id)
+	var consolidate_mode = _determine_consolidate_mode(unit, movements)
+
+	log_phase_message("[Consolidate] Mode for %s: %s" % [unit_id, consolidate_mode])
+
+	if consolidate_mode == "ENGAGEMENT":
+		# Validate engagement range consolidate
+		return _validate_consolidate_engagement_range(unit_id, movements)
+	elif consolidate_mode == "OBJECTIVE":
+		# Validate objective-based consolidate
+		return _validate_consolidate_objective(unit_id, movements)
+	else:
+		# No valid consolidation possible
+		if not movements.is_empty():
+			errors.append("No valid consolidation possible (cannot maintain engagement or reach objectives)")
+		return {"valid": errors.is_empty(), "errors": errors}
+
+func _determine_consolidate_mode(unit: Dictionary, movements: Dictionary) -> String:
+	"""Determine which consolidate mode applies:
+	- ENGAGEMENT: Can end in engagement range with at least one enemy
+	- OBJECTIVE: Cannot stay in engagement, but can reach objective
+	- NONE: Neither is possible"""
+
+	# Check if unit can end in engagement range after movements
+	var can_maintain_engagement = _can_unit_maintain_engagement_after_movement(unit, movements)
+
+	if can_maintain_engagement:
+		return "ENGAGEMENT"
+
+	# Check if unit can reach an objective
+	var can_reach_objective = _can_unit_reach_objective_after_movement(unit, movements)
+
+	if can_reach_objective:
+		return "OBJECTIVE"
+
+	return "NONE"
+
+func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
+	"""Check if the unit will be in engagement range with at least one enemy after movements"""
+	var unit_id = unit.get("id", "")
+	var models = unit.get("models", [])
+	var all_units = game_state_snapshot.get("units", {})
+	var unit_owner = unit.get("owner", 0)
+
+	# Build positions after movement
+	var final_positions = []
+	for i in models.size():
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = str(i)
+		if model_id in movements:
+			final_positions.append(movements[model_id])
+		else:
+			var pos_data = model.get("position", {})
+			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
+
+	# Check if any of our models will be in engagement range
+	for our_pos in final_positions:
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if other_unit.get("owner", 0) == unit_owner:
+				continue
+
+			var enemy_models = other_unit.get("models", [])
+			for enemy_model in enemy_models:
+				if not enemy_model.get("alive", true):
+					continue
+
+				var enemy_pos_data = enemy_model.get("position", {})
+				var enemy_pos = Vector2(enemy_pos_data.get("x", 0), enemy_pos_data.get("y", 0))
+
+				# Check engagement range (1")
+				var distance = Measurement.distance_inches(our_pos, enemy_pos)
+				if distance <= 1.0:
+					return true
+
+	return false
+
+func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
+	"""Check if unit can reach an objective after movement"""
+	# TODO: Implement objective tracking and range checking
+	# For now, return false (no objective mode)
+	return false
+
+func _validate_consolidate_engagement_range(unit_id: String, movements: Dictionary) -> Dictionary:
+	"""Validate consolidate when ending in engagement range"""
+	var errors = []
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+
+	# Each model must:
+	# 1. Move max 3"
+	# 2. End closer to closest enemy
+	# 3. End in base contact if possible
+	# 4. Maintain unit coherency
+	# 5. Not overlap other models
+
+	for model_id in movements:
+		var old_pos = _get_model_position(unit_id, model_id)
+		var new_pos = movements[model_id]
+
+		if old_pos == Vector2.ZERO:
+			errors.append("Model %s position not found" % model_id)
+			continue
+
+		# Check 3" movement limit
+		var distance = Measurement.distance_inches(old_pos, new_pos)
+		if distance > 3.0:
+			errors.append("Model %s consolidate exceeds 3\" limit (%.1f\")" % [model_id, distance])
+
+		# Check movement is toward closest enemy
+		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
+			errors.append("Model %s must consolidate toward closest enemy" % model_id)
+
+	# Check for model overlaps
+	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
+	if not overlap_check.valid:
+		errors.append_array(overlap_check.errors)
+
+	# Check unit coherency maintained
+	var coherency_check = _validate_unit_coherency(unit_id, movements)
+	if not coherency_check.get("valid", false):
+		errors.append_array(coherency_check.get("errors", []))
+
+	# Check unit ends in engagement range
+	if not _can_unit_maintain_engagement_after_movement(unit, movements):
+		errors.append("Unit must end within Engagement Range of at least one enemy")
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> Dictionary:
+	"""Validate consolidate when moving toward objective (fallback mode)"""
+	var errors = []
+
+	# Each model must:
+	# 1. Move max 3"
+	# 2. Move toward closest objective marker
+	# 3. Unit must end within range of objective
+	# 4. Maintain unit coherency
+	# 5. Not overlap other models
+
+	# TODO: Implement objective-based validation
+	errors.append("Objective-based consolidation not yet implemented")
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
