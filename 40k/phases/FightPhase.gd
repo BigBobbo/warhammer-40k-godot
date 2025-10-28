@@ -578,24 +578,66 @@ func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dicti
 			var pos_data = model.get("position", {})
 			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
 
-	# Check if any model will be within 3" of any objective edge
+	# Check if any model's BASE EDGE will be within 3" of objective BASE EDGE
+	# This is edge-to-edge distance using proper base shape calculations
 	# Objectives have 40mm radius = ~0.787"
-	# Range is 3" from edge, so 3.787" from center
 	const OBJECTIVE_RADIUS_MM = 40.0
-	var objective_radius_inches = OBJECTIVE_RADIUS_MM / 25.4
-	var effective_range = 3.0 + objective_radius_inches  # 3" from edge
 
-	for model_pos in final_positions:
+	for i in models.size():
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = str(i)
+		var model_pos: Vector2
+		if model_id in movements:
+			model_pos = movements[model_id]
+		else:
+			var pos_data = model.get("position", {})
+			model_pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+
+		# Create model with position for shape-aware distance calculation
+		var model_with_pos = model.duplicate()
+		model_with_pos["position"] = model_pos
+
 		for objective in objectives:
 			var obj_pos = objective.get("position", Vector2.ZERO)
 			if obj_pos == Vector2.ZERO:
 				continue
 
-			var distance = Measurement.distance_inches(model_pos, obj_pos)
-			if distance <= effective_range:  # Within 3" of objective edge
+			# Calculate shape-aware edge-to-edge distance from model to objective
+			var edge_distance = _model_to_objective_distance_inches(model_with_pos, obj_pos, OBJECTIVE_RADIUS_MM)
+
+			# Check if edge-to-edge distance is within 3"
+			if edge_distance <= 3.0:
 				return true
 
 	return false
+
+func _model_to_objective_distance_inches(model: Dictionary, objective_pos: Vector2, objective_radius_mm: float) -> float:
+	"""Calculate edge-to-edge distance from model base to objective marker.
+	Handles circular, oval, and rectangular bases correctly."""
+	var model_pos = model.get("position", Vector2.ZERO)
+	if model_pos is Dictionary:
+		model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+
+	var rotation = model.get("rotation", 0.0)
+
+	# Create model's base shape
+	var model_shape = Measurement.create_base_shape(model)
+
+	# Get closest point on model's base edge to objective center
+	var closest_point_on_model = model_shape.get_closest_edge_point(objective_pos, model_pos, rotation)
+
+	# Distance from model edge to objective center
+	var distance_to_center_px = closest_point_on_model.distance_to(objective_pos)
+
+	# Convert to inches and subtract objective radius
+	var distance_to_center_inches = Measurement.px_to_inches(distance_to_center_px)
+	var objective_radius_inches = objective_radius_mm / 25.4
+
+	# Edge-to-edge distance
+	return distance_to_center_inches - objective_radius_inches
 
 func _validate_consolidate_engagement_range(unit_id: String, movements: Dictionary) -> Dictionary:
 	"""Validate consolidate when ending in engagement range"""
