@@ -454,23 +454,63 @@ func _validate_consolidate(action: Dictionary) -> Dictionary:
 
 func _determine_consolidate_mode(unit: Dictionary, movements: Dictionary) -> String:
 	"""Determine which consolidate mode applies:
-	- ENGAGEMENT: Can end in engagement range with at least one enemy
-	- OBJECTIVE: Cannot stay in engagement, but can reach objective
+	- ENGAGEMENT: Can end in engagement range with at least one enemy (within 4" total distance)
+	- OBJECTIVE: Cannot reach engagement, but can reach objective
 	- NONE: Neither is possible"""
 
-	# Check if unit can end in engagement range after movements
-	var can_maintain_engagement = _can_unit_maintain_engagement_after_movement(unit, movements)
+	# Check if it's POSSIBLE for unit to end in engagement range
+	# "if possible" means: can ANY model get within 1" of an enemy with 3" movement?
+	var can_reach_engagement = _can_unit_reach_engagement_range(unit)
 
-	if can_maintain_engagement:
+	if can_reach_engagement:
 		return "ENGAGEMENT"
 
-	# Check if unit can reach an objective
+	# If cannot reach engagement, try objective mode
 	var can_reach_objective = _can_unit_reach_objective_after_movement(unit, movements)
 
 	if can_reach_objective:
 		return "OBJECTIVE"
 
 	return "NONE"
+
+func _can_unit_reach_engagement_range(unit: Dictionary) -> bool:
+	"""Check if it's POSSIBLE for unit to reach engagement range with 3" movement.
+	This means: is ANY enemy model within 4" of ANY friendly model?
+	(3" consolidate movement + 1" engagement range)"""
+	var models = unit.get("models", [])
+	var all_units = game_state_snapshot.get("units", {})
+	var unit_owner = unit.get("owner", 0)
+
+	# Check each of our models
+	for model in models:
+		if not model.get("alive", true):
+			continue
+
+		var pos_data = model.get("position", {})
+		if pos_data == null:
+			continue
+		var our_pos = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+
+		# Check against all enemy models
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if other_unit.get("owner", 0) == unit_owner:
+				continue
+
+			var enemy_models = other_unit.get("models", [])
+			for enemy_model in enemy_models:
+				if not enemy_model.get("alive", true):
+					continue
+
+				var enemy_pos_data = enemy_model.get("position", {})
+				var enemy_pos = Vector2(enemy_pos_data.get("x", 0), enemy_pos_data.get("y", 0))
+
+				# Check if within 4" (3" move + 1" engagement)
+				var distance = Measurement.distance_inches(our_pos, enemy_pos)
+				if distance <= 4.0:
+					return true
+
+	return false
 
 func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
 	"""Check if the unit will be in engagement range with at least one enemy after movements"""
@@ -516,9 +556,39 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 	return false
 
 func _can_unit_reach_objective_after_movement(unit: Dictionary, movements: Dictionary) -> bool:
-	"""Check if unit can reach an objective after movement"""
-	# TODO: Implement objective tracking and range checking
-	# For now, return false (no objective mode)
+	"""Check if unit can reach an objective after movement.
+	At least one model must end within range of an objective (3" range as per rules)."""
+	var objectives = GameState.state.board.get("objectives", [])
+	if objectives.is_empty():
+		return false
+
+	var models = unit.get("models", [])
+
+	# Build final positions after movement
+	var final_positions = []
+	for i in models.size():
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = str(i)
+		if model_id in movements:
+			final_positions.append(movements[model_id])
+		else:
+			var pos_data = model.get("position", {})
+			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
+
+	# Check if any model will be within 3" of any objective
+	for model_pos in final_positions:
+		for objective in objectives:
+			var obj_pos = objective.get("position", Vector2.ZERO)
+			if obj_pos == Vector2.ZERO:
+				continue
+
+			var distance = Measurement.distance_inches(model_pos, obj_pos)
+			if distance <= 3.0:  # Within objective range
+				return true
+
 	return false
 
 func _validate_consolidate_engagement_range(unit_id: String, movements: Dictionary) -> Dictionary:
@@ -570,18 +640,81 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 func _validate_consolidate_objective(unit_id: String, movements: Dictionary) -> Dictionary:
 	"""Validate consolidate when moving toward objective (fallback mode)"""
 	var errors = []
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+	var objectives = GameState.state.board.get("objectives", [])
+
+	if objectives.is_empty():
+		errors.append("No objectives available for consolidate")
+		return {"valid": false, "errors": errors}
 
 	# Each model must:
 	# 1. Move max 3"
 	# 2. Move toward closest objective marker
-	# 3. Unit must end within range of objective
+	# 3. Unit must end within range of objective (at least one model)
 	# 4. Maintain unit coherency
 	# 5. Not overlap other models
 
-	# TODO: Implement objective-based validation
-	errors.append("Objective-based consolidation not yet implemented")
+	for model_id in movements:
+		var old_pos = _get_model_position(unit_id, model_id)
+		var new_pos = movements[model_id]
+
+		if old_pos == Vector2.ZERO:
+			errors.append("Model %s position not found" % model_id)
+			continue
+
+		# Check 3" movement limit
+		var distance = Measurement.distance_inches(old_pos, new_pos)
+		if distance > 3.0:
+			errors.append("Model %s consolidate exceeds 3\" limit (%.1f\")" % [model_id, distance])
+
+		# Check movement is toward closest objective
+		if not _is_moving_toward_closest_objective(old_pos, new_pos, objectives):
+			errors.append("Model %s must consolidate toward closest objective" % model_id)
+
+	# Check for model overlaps
+	var overlap_check = _validate_no_overlaps_for_movement(unit_id, movements)
+	if not overlap_check.valid:
+		errors.append_array(overlap_check.errors)
+
+	# Check unit coherency maintained
+	var coherency_check = _validate_unit_coherency(unit_id, movements)
+	if not coherency_check.get("valid", false):
+		errors.append_array(coherency_check.get("errors", []))
+
+	# Check unit ends within range of objective
+	if not _can_unit_reach_objective_after_movement(unit, movements):
+		errors.append("At least one model must end within 3\" of an objective marker")
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+func _is_moving_toward_closest_objective(old_pos: Vector2, new_pos: Vector2, objectives: Array) -> bool:
+	"""Check if model is moving toward the closest objective marker"""
+	var closest_obj_pos = _find_closest_objective_position(old_pos, objectives)
+	if closest_obj_pos == Vector2.ZERO:
+		return true  # No objectives found, allow movement
+
+	# Check if new position is closer to objective than old position
+	var old_distance = old_pos.distance_to(closest_obj_pos)
+	var new_distance = new_pos.distance_to(closest_obj_pos)
+	return new_distance <= old_distance
+
+func _find_closest_objective_position(from_pos: Vector2, objectives: Array) -> Vector2:
+	"""Find the closest objective marker position"""
+	var closest_pos = Vector2.ZERO
+	var closest_distance = INF
+
+	for objective in objectives:
+		var obj_pos = objective.get("position", Vector2.ZERO)
+		if obj_pos == Vector2.ZERO:
+			continue
+
+		var distance = from_pos.distance_to(obj_pos)
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_pos = obj_pos
+
+	return closest_pos
 
 func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")

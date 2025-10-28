@@ -141,15 +141,15 @@ func _get_consolidate_mode_text() -> String:
 	if not phase_reference:
 		return "Drag models on the battlefield to consolidate\nUp to %.1f\" toward closest enemy" % max_distance
 
-	# Check if unit is currently in engagement range
+	# Check if unit can reach engagement range
 	var unit = phase_reference.get_unit(unit_id)
-	var in_engagement = _is_unit_in_engagement_range(unit)
+	var can_reach_engagement = phase_reference._can_unit_reach_engagement_range(unit) if phase_reference.has_method("_can_unit_reach_engagement_range") else true
 
-	if in_engagement:
+	if can_reach_engagement:
 		return "Consolidate: Move up to %.1f\"\n• Must end closer to closest enemy\n• Must end in base contact if possible\n• Must remain in Engagement Range" % max_distance
 	else:
-		# Not in engagement - would need objective fallback
-		return "Consolidate: Move up to %.1f\"\n• Move toward closest objective marker\n• Must end within range of objective\n(Objective mode - not fully implemented)" % max_distance
+		# Too far from enemies - objective mode
+		return "Consolidate: Move up to %.1f\"\n• Move toward closest objective marker\n• At least one model must end within 3\" of objective\n• Must maintain Unit Coherency" % max_distance
 
 func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 	"""Check if unit is currently in engagement range with any enemy"""

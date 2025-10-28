@@ -1684,6 +1684,23 @@ func _find_closest_enemy_pos(from_pos: Vector2) -> Vector2:
 
 	return closest_pos
 
+func _find_closest_objective_pos(from_pos: Vector2, objectives: Array) -> Vector2:
+	"""Find the closest objective marker position"""
+	var closest_pos = Vector2.ZERO
+	var closest_distance = INF
+
+	for objective in objectives:
+		var obj_pos = objective.get("position", Vector2.ZERO)
+		if obj_pos == Vector2.ZERO:
+			continue
+
+		var distance = from_pos.distance_to(obj_pos)
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_pos = obj_pos
+
+	return closest_pos
+
 func get_pile_in_movements() -> Dictionary:
 	"""Get current movements for submission"""
 	var movements = {}
@@ -1849,23 +1866,64 @@ func _end_model_drag_pile_in() -> void:
 
 		# Check if model moved at all
 		if distance > 0.01:  # Threshold to detect actual movement
-			# Check if movement is toward closest enemy
-			var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
-			if closest_enemy_pos != Vector2.ZERO:
-				var old_distance_to_enemy = original_pos.distance_to(closest_enemy_pos)
-				var new_distance_to_enemy = final_pos.distance_to(closest_enemy_pos)
+			# For consolidate, check which mode applies
+			if consolidate_active and current_phase:
+				var unit = current_phase.get_unit(pile_in_unit_id)
+				var can_reach_engagement = current_phase._can_unit_reach_engagement_range(unit) if current_phase.has_method("_can_unit_reach_engagement_range") else true
 
-				# If not moving closer (or moving away), revert
-				if new_distance_to_enemy >= old_distance_to_enemy:
-					print("[FightController] Model not moving closer to enemy - reverting to original position")
-					print("  Old distance: %.2f\", New distance: %.2f\"" % [
-						Measurement.px_to_inches(old_distance_to_enemy),
-						Measurement.px_to_inches(new_distance_to_enemy)
-					])
-					current_model_positions[drag_model_id] = original_pos
-					if dragging_model:
-						dragging_model.position = original_pos
-					reverted = true
+				if can_reach_engagement:
+					# ENGAGEMENT mode - must move toward enemy
+					var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
+					if closest_enemy_pos != Vector2.ZERO:
+						var old_distance_to_enemy = original_pos.distance_to(closest_enemy_pos)
+						var new_distance_to_enemy = final_pos.distance_to(closest_enemy_pos)
+
+						if new_distance_to_enemy >= old_distance_to_enemy:
+							print("[FightController] Model not moving closer to enemy - reverting to original position")
+							print("  Old distance: %.2f\", New distance: %.2f\"" % [
+								Measurement.px_to_inches(old_distance_to_enemy),
+								Measurement.px_to_inches(new_distance_to_enemy)
+							])
+							current_model_positions[drag_model_id] = original_pos
+							if dragging_model:
+								dragging_model.position = original_pos
+							reverted = true
+				else:
+					# OBJECTIVE mode - must move toward objective
+					var objectives = GameState.state.board.get("objectives", [])
+					if not objectives.is_empty():
+						var closest_obj_pos = _find_closest_objective_pos(original_pos, objectives)
+						if closest_obj_pos != Vector2.ZERO:
+							var old_distance_to_obj = original_pos.distance_to(closest_obj_pos)
+							var new_distance_to_obj = final_pos.distance_to(closest_obj_pos)
+
+							if new_distance_to_obj >= old_distance_to_obj:
+								print("[FightController] Model not moving closer to objective - reverting to original position")
+								print("  Old distance: %.2f\", New distance: %.2f\"" % [
+									Measurement.px_to_inches(old_distance_to_obj),
+									Measurement.px_to_inches(new_distance_to_obj)
+								])
+								current_model_positions[drag_model_id] = original_pos
+								if dragging_model:
+									dragging_model.position = original_pos
+								reverted = true
+			else:
+				# Pile-in mode - always check toward enemy
+				var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
+				if closest_enemy_pos != Vector2.ZERO:
+					var old_distance_to_enemy = original_pos.distance_to(closest_enemy_pos)
+					var new_distance_to_enemy = final_pos.distance_to(closest_enemy_pos)
+
+					if new_distance_to_enemy >= old_distance_to_enemy:
+						print("[FightController] Model not moving closer to enemy - reverting to original position")
+						print("  Old distance: %.2f\", New distance: %.2f\"" % [
+							Measurement.px_to_inches(old_distance_to_enemy),
+							Measurement.px_to_inches(new_distance_to_enemy)
+						])
+						current_model_positions[drag_model_id] = original_pos
+						if dragging_model:
+							dragging_model.position = original_pos
+						reverted = true
 
 		# If not reverted, check distance limits
 		if not reverted:
