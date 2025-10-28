@@ -911,7 +911,13 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# Resolve with RulesEngine
 	var rng_service = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(melee_action, game_state_snapshot, rng_service)
-	
+
+	# Debug logging for state changes
+	if result.has("diffs") and not result.diffs.is_empty():
+		print("[FightPhase] RulesEngine returned %d state changes" % result.diffs.size())
+		for diff in result.diffs:
+			print("  - %s: %s = %s" % [diff.op, diff.path, diff.value])
+
 	if not result.success:
 		return create_result(false, [], result.get("log_text", "Melee combat failed"))
 	
@@ -919,14 +925,11 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	for dice_block in result.get("dice", []):
 		emit_signal("dice_rolled", dice_block)
 	
-	# Apply changes and emit resolution signals
+	# Emit resolution signals for each target
 	if result.success:
-		_apply_combat_results(result)
-		
-		# Emit resolution signals for each target
 		for assignment in confirmed_attacks:
 			emit_signal("attacks_resolved", active_fighter_id, assignment.target, result)
-			emit_signal("fight_resolved", active_fighter_id, assignment.target, result)  # Compatibility signal
+			emit_signal("fight_resolved", active_fighter_id, result)  # Compatibility signal (2 params)
 	
 	# Clear confirmed attacks after resolution
 	confirmed_attacks.clear()
@@ -1325,15 +1328,6 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 			errors.append("Model %d breaks unit coherency (>2\" from all other models)" % i)
 	
 	return {"valid": errors.is_empty(), "errors": errors}
-
-func _apply_combat_results(result: Dictionary) -> void:
-	# Apply state changes from combat resolution
-	var changes = result.get("changes", [])
-	if changes.is_empty():
-		changes = result.get("diffs", [])  # RulesEngine uses "diffs"
-	
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes(changes)
 
 func _clear_unit_fight_state(unit_id: String) -> void:
 	# Clear any temporary fight flags
