@@ -1,0 +1,156 @@
+{
+	"_serialization": {
+		"game_version": "1.0.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1761617531.44648,
+		"version": "1.0.0",
+		"test_save": true,
+		"description": "Test save for multiplayer deployment phase testing"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1,
+				"poly": [
+					{"x": 0.0, "y": 0.0},
+					{"x": 44.0, "y": 0.0},
+					{"x": 44.0, "y": 12.0},
+					{"x": 0.0, "y": 12.0}
+				]
+			},
+			{
+				"player": 2,
+				"poly": [
+					{"x": 0.0, "y": 48.0},
+					{"x": 44.0, "y": 48.0},
+					{"x": 44.0, "y": 60.0},
+					{"x": 0.0, "y": 60.0}
+				]
+			}
+		],
+		"size": {
+			"x": 44.0,
+			"y": 60.0
+		}
+	},
+	"game_state": {
+		"current_phase": "Deployment",
+		"current_turn": 1,
+		"phase_step": 0,
+		"player_turn": 1,
+		"round_number": 1,
+		"game_started": true,
+		"deployment_complete": {
+			"1": false,
+			"2": false
+		}
+	},
+	"mission": {
+		"deployment_type": "hammer_anvil",
+		"mission_type": "take_and_hold",
+		"objectives": [
+			{"id": "obj_1", "position": {"x": 11.0, "y": 20.0}},
+			{"id": "obj_2", "position": {"x": 22.0, "y": 30.0}},
+			{"id": "obj_3", "position": {"x": 33.0, "y": 40.0}},
+			{"id": "obj_4", "position": {"x": 11.0, "y": 40.0}},
+			{"id": "obj_5", "position": {"x": 33.0, "y": 20.0}}
+		],
+		"terrain_layout": "layout_2"
+	},
+	"players": {
+		"1": {
+			"army": "space_marines",
+			"command_points": 0,
+			"name": "Player 1",
+			"player_id": 1,
+			"score": 0
+		},
+		"2": {
+			"army": "chaos_marines",
+			"command_points": 0,
+			"name": "Player 2",
+			"player_id": 2,
+			"score": 0
+		}
+	},
+	"terrain": [
+		{
+			"id": "terrain_1",
+			"position": {"x": 8.0, "y": 15.0},
+			"size": {"x": 4.0, "y": 4.0},
+			"type": "ruins"
+		},
+		{
+			"id": "terrain_2",
+			"position": {"x": 32.0, "y": 45.0},
+			"size": {"x": 4.0, "y": 4.0},
+			"type": "ruins"
+		},
+		{
+			"id": "terrain_3",
+			"position": {"x": 22.0, "y": 30.0},
+			"size": {"x": 6.0, "y": 3.0},
+			"type": "obscuring"
+		}
+	],
+	"units": {
+		"player_1": [
+			{
+				"id": "unit_p1_1",
+				"name": "Intercessor Squad",
+				"unit_type": "intercessors",
+				"models_count": 5,
+				"deployed": false,
+				"position": null,
+				"models": []
+			},
+			{
+				"id": "unit_p1_2",
+				"name": "Captain",
+				"unit_type": "captain",
+				"models_count": 1,
+				"deployed": false,
+				"position": null,
+				"models": []
+			},
+			{
+				"id": "unit_p1_3",
+				"name": "Tactical Squad",
+				"unit_type": "tactical_squad",
+				"models_count": 10,
+				"deployed": false,
+				"position": null,
+				"models": []
+			}
+		],
+		"player_2": [
+			{
+				"id": "unit_p2_1",
+				"name": "Chaos Space Marines",
+				"unit_type": "chaos_marines",
+				"models_count": 10,
+				"deployed": false,
+				"position": null,
+				"models": []
+			},
+			{
+				"id": "unit_p2_2",
+				"name": "Chaos Lord",
+				"unit_type": "chaos_lord",
+				"models_count": 1,
+				"deployed": false,
+				"position": null,
+				"models": []
+			},
+			{
+				"id": "unit_p2_3",
+				"name": "Cultists",
+				"unit_type": "cultists",
+				"models_count": 10,
+				"deployed": false,
+				"position": null,
+				"models": []
+			}
+		]
+	}
+}

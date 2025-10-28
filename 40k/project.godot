@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+TestModeHandler="*res://autoloads/TestModeHandler.gd"
 FeatureFlags="*res://autoloads/FeatureFlags.gd"
 DebugLogger="*res://autoloads/DebugLogger.gd"
 SettingsService="*res://autoloads/SettingsService.gd"
