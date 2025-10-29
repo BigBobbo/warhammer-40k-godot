@@ -203,13 +203,21 @@ func _load_game_from_path(file_path: String) -> bool:
 	
 	# Load state into GameState
 	print("SaveLoadManager: Loading snapshot into GameState...")
+	print("SaveLoadManager: Snapshot has units: ", game_state.has("units"))
+	if game_state.has("units"):
+		print("SaveLoadManager: Units in snapshot: %d" % game_state["units"].size())
+		print("SaveLoadManager: Unit IDs in snapshot: %s" % str(game_state["units"].keys()))
+
 	GameState.load_from_snapshot(game_state)
-	
+
 	# Verify the load worked
 	print("SaveLoadManager: Verifying load...")
 	var current_state = GameState.create_snapshot()
 	if current_state.has("meta"):
 		print("SaveLoadManager: Current game meta after load: ", current_state["meta"])
+	if current_state.has("units"):
+		print("SaveLoadManager: Units in GameState after load: %d" % current_state["units"].size())
+		print("SaveLoadManager: Unit IDs in GameState after load: %s" % str(current_state["units"].keys()))
 	
 	emit_signal("load_completed", file_path, metadata)
 	print("SaveLoadManager: Game loaded successfully from %s" % file_path)

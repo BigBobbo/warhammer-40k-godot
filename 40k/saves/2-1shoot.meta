@@ -1,0 +1,17 @@
+{
+	"created_at": 1761261095.59798,
+	"description": "2-1shoot",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "096bdd04-dc98-59c6-ac90--16d674dd3205be3f",
+		"phase": 3,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "2-1shoot",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

@@ -7,14 +7,19 @@ class_name GameInstance
 var process_id: int = -1
 var instance_name: String = ""
 var port: int = 7777
+var host_port: int = 7777  # Port the host is listening on (for client to connect to)
 var log_file_path: String = ""
 var log_monitor: LogMonitor
 var window_position: Vector2i
 var is_host: bool = false
+var save_file: String = ""  # Optional save file to auto-load
 
 # Process management
 var _process: int = -1
 var _start_time: float = 0.0
+
+# Command simulation
+var _command_sequence: int = 0
 
 signal instance_ready()
 signal peer_connected(peer_id: int)
@@ -23,9 +28,11 @@ signal game_started()
 signal save_loaded(save_name: String)
 signal connection_established()
 
-func _init(name: String, host: bool = false, custom_port: int = -1):
+func _init(name: String, host: bool = false, custom_port: int = -1, auto_load_save: String = "", connect_to_port: int = 7777):
 	instance_name = name
 	is_host = host
+	save_file = auto_load_save
+	host_port = connect_to_port  # Port to connect to (for clients)
 
 	# Dynamic port allocation if not specified
 	if custom_port > 0:
@@ -71,10 +78,15 @@ func launch() -> bool:
 	else:
 		args.append("--auto-join")
 		args.append("--host-ip=127.0.0.1")
-		args.append("--host-port=7777")  # Always connect to default host port
+		args.append("--host-port=%d" % host_port)  # Connect to the actual host port
 
 	# Add instance identifier for logging
 	args.append("--instance-name=%s" % instance_name)
+
+	# Add save file if specified
+	if save_file != "":
+		args.append("--auto-load-save=%s" % save_file)
+		print("[GameInstance] Auto-loading save file: %s" % save_file)
 
 	# Get godot executable path
 	var godot_path = OS.get_executable_path()
@@ -182,7 +194,21 @@ func terminate():
 	process_id = -1
 
 func _wait_for_seconds(seconds: float):
-	await Engine.get_main_loop().create_timer(seconds).timeout
+	var main_loop = Engine.get_main_loop()
+	if main_loop:
+		var timer = main_loop.create_timer(seconds)
+		if timer:
+			await timer.timeout
+		else:
+			# Fallback busy wait if timer creation fails
+			var start = Time.get_ticks_msec()
+			while Time.get_ticks_msec() - start < (seconds * 1000):
+				pass
+	else:
+		# Fallback busy wait if no main loop
+		var start = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - start < (seconds * 1000):
+			pass
 
 func _on_connection_detected(peer_id: int, connected: bool):
 	if connected:
@@ -193,3 +219,7 @@ func _on_connection_detected(peer_id: int, connected: bool):
 func _on_game_state_changed(state: Dictionary):
 	if state.has("game_started") and state["game_started"]:
 		game_started.emit()
+
+func get_next_sequence() -> int:
+	_command_sequence += 1
+	return _command_sequence

@@ -22,13 +22,13 @@ signal error_detected(error_msg: String)
 signal phase_changed(phase_name: String)
 signal action_logged(action: String)
 
-# Log patterns to watch for
+# Log patterns to watch for (updated to match actual NetworkManager output)
 const PATTERNS = {
-	"peer_connected": "Peer connected: peer_id=(\\d+)",
-	"peer_disconnected": "Peer disconnected: peer_id=(\\d+)",
+	"peer_connected": "NetworkManager: Peer connected - (\\d+)",
+	"peer_disconnected": "NetworkManager: Peer disconnected - (\\d+)",
 	"host_created": "YOU ARE: PLAYER 1 \\(HOST\\)",
-	"client_connected": "YOU ARE: PLAYER 2 \\(CLIENT\\)",
-	"game_started": "Game started",
+	"client_connected": "YOU ARE: PLAYER 2 \\(CLIENT\\)|TestModeHandler: Client connected",
+	"game_started": "Game started|GAME_STARTED",
 	"save_loaded": "Save loaded: (.+)",
 	"phase_started": "Phase started: (.+)",
 	"error": "ERROR: (.+)",

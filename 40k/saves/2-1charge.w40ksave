@@ -2,7 +2,7 @@
 	"_serialization": {
 		"game_version": "1.0.0",
 		"serializer": "StateSerializer",
-		"timestamp": 1761617531.44648,
+		"timestamp": 1761268801.46361,
 		"version": "1.0.0"
 	},
 	"board": {
@@ -120,22 +120,247 @@
 			"team_name": ""
 		}
 	},
-	"history": [],
+	"history": [
+		{
+			"actions": [
+				{
+					"phase": 0.0,
+					"player": 2.0,
+					"timestamp": 1761243564.67838,
+					"transport_id": "U_BATTLEWAGON_G",
+					"type": "EMBARK_UNITS_DEPLOYMENT",
+					"unit_ids": [
+						"U_WARBOSS_B",
+						"U_WARBOSS_IN_MEGA_ARMOUR_D"
+					]
+				}
+			],
+			"phase": 0.0,
+			"turn": 1.0
+		},
+		{
+			"actions": [
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+
+					},
+					"player": 1.0,
+					"timestamp": 1761243591.56192,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"player": 1.0,
+					"timestamp": 1761243591.56529,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+
+					},
+					"player": 1.0,
+					"timestamp": 1761243593.07627,
+					"type": "BEGIN_ADVANCE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+						"bonus": 5.0
+					},
+					"player": 1.0,
+					"timestamp": 1761243593.08288,
+					"type": "SET_ADVANCE_BONUS"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+						"dest": [
+							1245.55541992188,
+							931.631958007812
+						],
+						"model_id": "m1",
+						"rotation": 0.0
+					},
+					"player": 1.0,
+					"timestamp": 1761243596.02868,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+
+					},
+					"player": 1.0,
+					"timestamp": 1761243597.12757,
+					"type": "CONFIRM_UNIT_MOVE"
+				}
+			],
+			"phase": 2.0,
+			"turn": 1.0
+		},
+		{
+			"actions": [
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+
+					},
+					"player": 2.0,
+					"timestamp": 1761243612.44457,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"player": 2.0,
+					"timestamp": 1761243612.44491,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+
+					},
+					"player": 2.0,
+					"timestamp": 1761243613.35239,
+					"type": "BEGIN_ADVANCE"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+						"bonus": 5.0
+					},
+					"player": 2.0,
+					"timestamp": 1761243613.35316,
+					"type": "SET_ADVANCE_BONUS"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+						"dest": [
+							1161.11108398438,
+							1536.66662597656
+						],
+						"model_id": "m1",
+						"rotation": 0.523598775598299
+					},
+					"player": 2.0,
+					"timestamp": 1761243617.31744,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_BATTLEWAGON_G",
+					"payload": {
+
+					},
+					"player": 2.0,
+					"timestamp": 1761243618.47182,
+					"type": "CONFIRM_UNIT_MOVE"
+				}
+			],
+			"phase": 2.0,
+			"turn": 1.0
+		},
+		{
+			"actions": [
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+
+					},
+					"player": 1.0,
+					"timestamp": 1761261079.58539,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"player": 1.0,
+					"timestamp": 1761261079.59501,
+					"type": "BEGIN_NORMAL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+						"dest": [
+							1233.33325195312,
+							1316.66662597656
+						],
+						"model_id": "m1",
+						"rotation": 0.0
+					},
+					"player": 1.0,
+					"timestamp": 1761261083.00988,
+					"type": "STAGE_MODEL_MOVE"
+				},
+				{
+					"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+					"payload": {
+
+					},
+					"player": 1.0,
+					"timestamp": 1761261084.05731,
+					"type": "CONFIRM_UNIT_MOVE"
+				}
+			],
+			"phase": 2.0,
+			"turn": 1.0
+		}
+	],
 	"meta": {
 		"active_player": 1.0,
 		"battle_round": 2.0,
-		"created_at": 1761577723.90277,
+		"created_at": 1761243517.46899,
 		"from_multiplayer_lobby": true,
 		"game_config": {
 			"player1_army": "A_C_test",
 			"player2_army": "ORK_test"
 		},
-		"game_id": "0cb8f966-8318-4020-b636--35435b0403b1e55f",
-		"phase": 1,
+		"game_id": "096bdd04-dc98-59c6-ac90--16d674dd3205be3f",
+		"phase": 4,
 		"turn_number": 1.0,
 		"version": "1.0.0"
 	},
-	"phase_log": [],
+	"phase_log": [
+		{
+			"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+			"payload": {
+				"target_unit_ids": []
+			},
+			"player": 1,
+			"timestamp": 1761268785.55395,
+			"type": "DECLARE_CHARGE"
+		},
+		{
+			"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+			"player": 1,
+			"timestamp": 1761268785.90376,
+			"type": "CHARGE_ROLL"
+		},
+		{
+			"actor_unit_id": "U_CALADIUS_GRAV-TANK_E",
+			"payload": {
+				"per_model_paths": {
+					"m1": [
+						[
+							1260.0,
+							1363.33325195312
+						],
+						[
+							1260.0,
+							1363.33325195312
+						]
+					]
+				},
+				"per_model_rotations": {
+					"m1": 0.0
+				}
+			},
+			"player": 1,
+			"timestamp": 1761268790.19475,
+			"type": "APPLY_CHARGE_MOVE"
+		}
+	],
 	"players": {
 		"1": {
 			"cp": 3.0,
@@ -151,7 +376,10 @@
 			"disembarked_this_phase": false,
 			"embarked_in": null,
 			"flags": {
-
+				"advanced": true,
+				"cannot_charge": true,
+				"cannot_shoot": true,
+				"moved": true
 			},
 			"id": "U_BATTLEWAGON_G",
 			"meta": {
@@ -325,10 +553,10 @@
 					"current_wounds": 16.0,
 					"id": "m1",
 					"position": {
-						"x": 886.666625976562,
-						"y": 2020.0
+						"x": 1161.11108398438,
+						"y": 1536.66662597656
 					},
-					"rotation": 0.0,
+					"rotation": 0.523598775598299,
 					"status_effects": [],
 					"wounds": 16.0
 				}
@@ -342,7 +570,10 @@
 					"ORKS",
 					"INFANTRY"
 				],
-				"embarked_units": [],
+				"embarked_units": [
+					"U_WARBOSS_B",
+					"U_WARBOSS_IN_MEGA_ARMOUR_D"
+				],
 				"firing_deck": 0.0
 			}
 		},
@@ -452,8 +683,8 @@
 					"current_wounds": 6.0,
 					"id": "m1",
 					"position": {
-						"x": 1142.22216796875,
-						"y": 1254.44445800781
+						"x": 973.333374023438,
+						"y": 431.631958007812
 					},
 					"rotation": 0.0,
 					"status_effects": [],
@@ -468,7 +699,9 @@
 			"disembarked_this_phase": false,
 			"embarked_in": null,
 			"flags": {
-
+				"charged_this_turn": true,
+				"fights_first": true,
+				"moved": true
 			},
 			"id": "U_CALADIUS_GRAV-TANK_E",
 			"meta": {
@@ -562,11 +795,16 @@
 					"base_type": "oval",
 					"current_wounds": 14.0,
 					"id": "m1",
-					"position": {
-						"x": 1208.888671875,
-						"y": 1084.44445800781
+					"original_position": {
+						"_type": "Vector2",
+						"x": 1233.33325195312,
+						"y": 1316.66662597656
 					},
-					"rotation": 0.785398163397448,
+					"position": {
+						"x": 1260.0,
+						"y": 1363.33325195312
+					},
+					"rotation": 0.0,
 					"status_effects": [],
 					"wounds": 14.0
 				}
@@ -577,7 +815,7 @@
 		},
 		"U_WARBOSS_B": {
 			"disembarked_this_phase": false,
-			"embarked_in": null,
+			"embarked_in": "U_BATTLEWAGON_G",
 			"flags": {
 
 			},
@@ -697,11 +935,7 @@
 					"base_mm": 40.0,
 					"current_wounds": 6.0,
 					"id": "m1",
-					"position": {
-						"x": 1213.33325195312,
-						"y": 1973.33325195312
-					},
-					"rotation": 0.0,
+					"position": null,
 					"status_effects": [],
 					"wounds": 6.0
 				}
@@ -712,9 +946,9 @@
 		},
 		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
 			"disembarked_this_phase": false,
-			"embarked_in": null,
+			"embarked_in": "U_BATTLEWAGON_G",
 			"flags": {
-				"moved": true
+
 			},
 			"id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
 			"meta": {
@@ -801,11 +1035,7 @@
 					"base_mm": 50.0,
 					"current_wounds": 7.0,
 					"id": "m1",
-					"position": {
-						"x": 1195.20068359375,
-						"y": 724.113708496094
-					},
-					"rotation": 0.0,
+					"position": null,
 					"status_effects": [],
 					"wounds": 7.0
 				}
@@ -899,13 +1129,13 @@
 			},
 			"models": [
 				{
-					"alive": false,
+					"alive": true,
 					"base_mm": 32.0,
-					"current_wounds": 0.0,
+					"current_wounds": 1.0,
 					"id": "m1",
 					"position": {
-						"x": 678.36279296875,
-						"y": 453.187286376953
+						"x": 974.425048828125,
+						"y": 331.584503173828
 					},
 					"rotation": 0.0,
 					"status_effects": [],
@@ -917,8 +1147,8 @@
 					"current_wounds": 1.0,
 					"id": "m2",
 					"position": {
-						"x": 286.666656494141,
-						"y": 856.666625976562
+						"x": 1024.06750488281,
+						"y": 318.282836914062
 					},
 					"rotation": 0.0,
 					"status_effects": [],
@@ -930,8 +1160,8 @@
 					"current_wounds": 1.0,
 					"id": "m3",
 					"position": {
-						"x": 1228.888671875,
-						"y": 634.444396972656
+						"x": 1073.71008300781,
+						"y": 304.981140136719
 					},
 					"rotation": 0.0,
 					"status_effects": [],

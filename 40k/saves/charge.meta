@@ -1,0 +1,17 @@
+{
+	"created_at": 1761578008.95722,
+	"description": "charge",
+	"game_state": {
+		"active_player": 2,
+		"game_id": "0cb8f966-8318-4020-b636--35435b0403b1e55f",
+		"phase": 4,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "charge",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}
