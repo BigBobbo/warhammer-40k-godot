@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # NetworkManager - Multiplayer networking for Warhammer 40K game
 # Note: No class_name since this is an autoload singleton
@@ -8,6 +9,7 @@ signal peer_connected(peer_id: int)
 signal peer_disconnected(peer_id: int)
 signal connection_failed(reason: String)
 signal game_started()
+signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT }
@@ -31,9 +33,13 @@ func _ready() -> void:
 		print("NetworkManager: Multiplayer disabled via feature flag")
 		return
 
-	# Get references to other autoloads
-	game_manager = get_node("/root/GameManager")
-	game_state = get_node("/root/GameState")
+	# Get references to other autoloads (use get_node_or_null for safety)
+	game_manager = get_node_or_null("/root/GameManager")
+	game_state = get_node_or_null("/root/GameState")
+	if not game_manager:
+		push_warning("NetworkManager: GameManager not available at startup")
+	if not game_state:
+		push_warning("NetworkManager: GameState not available at startup")
 
 	# Connect to multiplayer signals
 	multiplayer.peer_connected.connect(_on_peer_connected)
@@ -668,21 +674,24 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 			return {"valid": false, "reason": "Not your turn"}
 
 	# Layer 4: Game rules validation (delegate to phase)
-	var phase_mgr = get_node("/root/PhaseManager")
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
 	print("NetworkManager: phase_mgr = ", phase_mgr)
-	if phase_mgr:
-		var phase = phase_mgr.get_current_phase_instance()
-		print("NetworkManager: current_phase_instance = ", phase)
-		if phase:
-			print("NetworkManager: phase class = ", phase.get_class())
-			print("NetworkManager: phase has validate_action? ", phase.has_method("validate_action"))
-		if phase and phase.has_method("validate_action"):
-			print("NetworkManager: Calling phase.validate_action()")
-			var phase_validation = phase.validate_action(action)
-			print("NetworkManager: Phase validation result = ", phase_validation)
-			return phase_validation
-		else:
-			print("NetworkManager: No phase or no validate_action method")
+	if not phase_mgr:
+		push_warning("NetworkManager: PhaseManager not available for validation")
+		return {"valid": true, "reason": "No phase validation available"}
+
+	var phase = phase_mgr.get_current_phase_instance()
+	print("NetworkManager: current_phase_instance = ", phase)
+	if phase:
+		print("NetworkManager: phase class = ", phase.get_class())
+		print("NetworkManager: phase has validate_action? ", phase.has_method("validate_action"))
+	if phase and phase.has_method("validate_action"):
+		print("NetworkManager: Calling phase.validate_action()")
+		var phase_validation = phase.validate_action(action)
+		print("NetworkManager: Phase validation result = ", phase_validation)
+		return phase_validation
+	else:
+		print("NetworkManager: No phase or no validate_action method")
 
 	print("NetworkManager: VALIDATION PASSED (no phase validation)")
 	return {"valid": true}
@@ -690,7 +699,9 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 @rpc("authority", "call_remote", "reliable")
 func _reject_action(action_type: String, reason: String) -> void:
 	push_error("NetworkManager: Action rejected: %s - %s" % [action_type, reason])
-	# TODO: Show UI error message to player
+	# Emit signal so UI can display rejection reason to player
+	action_rejected.emit(action_type, reason)
+	print("NetworkManager: Emitted action_rejected signal - type=%s, reason=%s" % [action_type, reason])
 
 # ============================================================================
 # PHASE 3: TURN TIMER - Timeout Enforcement

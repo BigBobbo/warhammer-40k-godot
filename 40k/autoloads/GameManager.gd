@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal result_applied(result: Dictionary)
 signal action_logged(log_text: String)
@@ -17,8 +18,20 @@ func apply_action(action: Dictionary) -> Dictionary:
 		result["action_type"] = action.get("type", "")
 		result["action_data"] = action
 
+		# Capture reverse diffs BEFORE applying changes (for undo support)
+		var diffs = result.get("diffs", [])
+		var reverse_diffs = _create_reverse_diffs(diffs)
+
 		apply_result(result)
 		action_history.append(action)
+
+		# Store reverse diffs for undo (only if there were actual changes)
+		if not reverse_diffs.is_empty():
+			undo_history.append(reverse_diffs)
+		else:
+			# Store empty array to keep histories aligned
+			undo_history.append([])
+
 	return result
 
 func process_action(action: Dictionary) -> Dictionary:
@@ -141,6 +154,48 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 	var model_positions = action.get("model_positions", [])
 	var model_rotations = action.get("model_rotations", [])
 	var diffs = []
+
+	# Validate deployment zone
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return {
+			"success": false,
+			"message": "Unit not found: %s" % unit_id
+		}
+
+	# First try to get owner from top level, then from meta
+	var owner_player = unit.get("owner", 0)
+	if owner_player == 0:
+		owner_player = unit.get("meta", {}).get("player", 0)
+	if owner_player == 0:
+		return {
+			"success": false,
+			"message": "Unit has no owner player"
+		}
+
+	# Check all model positions are within deployment zone
+	# Positions are in pixels, need to convert for validation
+	# Standard deployment zones: Player 1 at bottom, Player 2 at top
+	# Board is 44x60 inches (1760x2400 pixels at 40px/inch)
+	const PIXELS_PER_INCH = 40.0
+	const DEPLOYMENT_ZONE_DEPTH_PX = 480.0  # 12 inches * 40 px/inch
+	const BOARD_HEIGHT_PX = 2400.0  # 60 inches * 40 px/inch
+
+	for pos in model_positions:
+		if pos != null:
+			var valid_deployment = false
+			if owner_player == 1:
+				# Player 1 deploys at bottom of board (low y values)
+				valid_deployment = pos.y >= 0 and pos.y <= DEPLOYMENT_ZONE_DEPTH_PX
+			elif owner_player == 2:
+				# Player 2 deploys at top of board (high y values)
+				valid_deployment = pos.y >= (BOARD_HEIGHT_PX - DEPLOYMENT_ZONE_DEPTH_PX) and pos.y <= BOARD_HEIGHT_PX
+
+			if not valid_deployment:
+				return {
+					"success": false,
+					"message": "Unit cannot be deployed outside deployment zone (position y=%d px is invalid for player %d)" % [pos.y, owner_player]
+				}
 
 	# Create diffs for each model's position and rotation
 	for i in range(model_positions.size()):
@@ -686,24 +741,114 @@ func deploy_unit(unit_id: String, position: Vector2) -> bool:
 	print("GameManager: deploy_unit() result: success=%s" % result.get("success", false))
 	return result.get("success", false)
 
+var undo_history: Array = []  # Stores reverse diffs for each action
+
 func undo_last_action() -> bool:
 	"""
-	Undo the last action performed.
-	For now, this is a stub - proper undo would require action history management.
+	Undo the last action performed by reversing its diffs.
 	"""
 	print("GameManager: undo_last_action() called")
 
-	if action_history.is_empty():
+	if action_history.is_empty() or undo_history.is_empty():
 		push_warning("GameManager: No actions to undo")
 		return false
 
-	# Remove last action from history
+	# Remove last action and its undo data
 	var last_action = action_history.pop_back()
-	print("GameManager: Removed last action from history: %s" % last_action.get("type", "UNKNOWN"))
+	var reverse_diffs = undo_history.pop_back()
 
-	# TODO: Implement proper undo by reversing the diffs
-	# For now, just return success to unblock tests
+	print("GameManager: Undoing action: %s with %d reverse diffs" % [last_action.get("type", "UNKNOWN"), reverse_diffs.size()])
+
+	# Apply the reverse diffs to restore previous state
+	for diff in reverse_diffs:
+		apply_diff(diff)
+
+	# Emit state changed so UI updates
+	var game_state = get_node_or_null("/root/GameState")
+	if game_state and game_state.has_signal("state_changed"):
+		game_state.emit_signal("state_changed")
+
 	return true
+
+func _create_reverse_diffs(diffs: Array) -> Array:
+	"""
+	Create reverse diffs that can undo the given diffs.
+	For 'set' operations, we need to capture the current value before it changes.
+	For 'remove' operations, we capture what was removed.
+	"""
+	var reverse = []
+	var game_state = get_node_or_null("/root/GameState")
+	if not game_state:
+		return reverse
+
+	for diff in diffs:
+		var op = diff.get("op", "")
+		var path = diff.get("path", "")
+
+		match op:
+			"set":
+				# Capture current value before it's overwritten
+				var current_value = _get_value_at_path(path)
+				if current_value != null:
+					# Reverse is to set back to the old value
+					reverse.append({
+						"op": "set",
+						"path": path,
+						"value": current_value
+					})
+				else:
+					# Value didn't exist before, reverse is to remove it
+					reverse.append({
+						"op": "remove",
+						"path": path
+					})
+			"remove":
+				# Capture value being removed so we can restore it
+				var current_value = _get_value_at_path(path)
+				if current_value != null:
+					reverse.append({
+						"op": "set",
+						"path": path,
+						"value": current_value
+					})
+
+	# Reverse the order so undos happen in reverse sequence
+	reverse.reverse()
+	return reverse
+
+func _get_value_at_path(path: String):
+	"""
+	Get the current value at a path in GameState.
+	Returns null if path doesn't exist.
+	"""
+	var parts = path.split(".")
+	if parts.is_empty():
+		return null
+
+	var game_state = get_node_or_null("/root/GameState")
+	if not game_state:
+		return null
+
+	var current = game_state.state
+	for part in parts:
+		if current is Dictionary:
+			if current.has(part):
+				current = current[part]
+			else:
+				return null
+		elif current is Array:
+			var index = part.to_int()
+			if index >= 0 and index < current.size():
+				current = current[index]
+			else:
+				return null
+		else:
+			return null
+
+	# Deep copy to avoid reference issues
+	if current is Dictionary or current is Array:
+		return current.duplicate(true)
+	return current
 
 func complete_deployment(player_id: int) -> bool:
 	"""
