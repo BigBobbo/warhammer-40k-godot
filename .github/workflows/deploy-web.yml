@@ -97,24 +97,13 @@ jobs:
           name: web-build
           path: web-build
 
-      - name: Install Butler
-        run: |
-          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
-          unzip butler.zip
-          chmod +x butler
-          ./butler -V
-
-      - name: Login to itch.io
-        env:
-          BUTLER_API_KEY: ${{ secrets.ITCH_BUTLER_KEY }}
-        run: |
-          ./butler login
-
-      - name: Push to itch.io
-        env:
-          BUTLER_API_KEY: ${{ secrets.ITCH_BUTLER_KEY }}
-        run: |
-          ./butler push web-build ${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:html5
+      - name: Install and Run Butler
+        uses: robpc/itchio-upload-action@v2
+        with:
+          path: web-build
+          project: ${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}
+          channel: html5
+          api-key: ${{ secrets.ITCH_BUTLER_KEY }}
 
       - name: Deployment Summary
         run: |
