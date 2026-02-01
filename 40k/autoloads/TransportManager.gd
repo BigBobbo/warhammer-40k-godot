@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # TransportManager - Manages embark/disembark operations for transport units
 # This autoload handles all transport-related logic and validation

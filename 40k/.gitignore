@@ -1,3 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Local development config (contains local server URL)
+server_config.local.json
+
+# Export builds
+exports/

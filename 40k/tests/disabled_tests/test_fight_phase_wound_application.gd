@@ -1,14 +1,22 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
+const FightPhase = preload("res://phases/FightPhase.gd")
 
 var fight_phase: FightPhase
 var test_state: Dictionary
+var _game_state
 
 func before_each():
 	fight_phase = FightPhase.new()
 	add_child_autofree(fight_phase)
 
+	_game_state = Engine.get_singleton("GameState")
+	if _game_state == null:
+		push_error("GameState singleton unavailable")
+		return
+
 	# Set up GameState mock
-	GameState.state = {
+	_game_state.state = {
 		"meta": {
 			"active_player": 1,
 			"turn": 1,
@@ -28,11 +36,11 @@ func test_wounds_applied_after_melee_combat():
 	test_state = _create_warboss_vs_witchseeker_scenario()
 
 	# Initialize game state with test units
-	GameState.state["units"] = test_state["units"]
+	_game_state.state["units"] = test_state["units"]
 	fight_phase.enter_phase(test_state)
 
 	# Get initial state
-	var witchseeker = GameState.state["units"]["witchseeker_1"]
+	var witchseeker = _game_state.state["units"]["witchseeker_1"]
 	var initial_alive_count = _count_alive_models(witchseeker)
 	print("[Test] Initial alive Witchseekers: %d" % initial_alive_count)
 	assert_eq(initial_alive_count, 3, "Should start with 3 alive Witchseekers")
@@ -85,8 +93,8 @@ func test_wounds_applied_after_melee_combat():
 
 	assert_true(roll_result.success, "Dice roll should succeed")
 
-	# Verify wounds were applied - check GameState.state, not snapshot
-	witchseeker = GameState.state["units"]["witchseeker_1"]
+	# Verify wounds were applied - check _game_state.state, not snapshot
+	witchseeker = _game_state.state["units"]["witchseeker_1"]
 	var final_alive_count = _count_alive_models(witchseeker)
 	print("[Test] Final alive Witchseekers: %d" % final_alive_count)
 
@@ -105,7 +113,7 @@ func test_state_changes_included_in_result():
 	"""Verify that ROLL_DICE action returns state changes in result"""
 	test_state = _create_warboss_vs_witchseeker_scenario()
 
-	GameState.state["units"] = test_state["units"]
+	_game_state.state["units"] = test_state["units"]
 	fight_phase.enter_phase(test_state)
 
 	# Execute fight sequence

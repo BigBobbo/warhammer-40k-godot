@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for LoS debug toggle functionality
 # Tests default state, toggle behavior, and visual cleanup

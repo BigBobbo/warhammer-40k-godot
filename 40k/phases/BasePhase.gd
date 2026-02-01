@@ -1,6 +1,9 @@
 extends Node
 class_name BasePhase
 
+const GameStateData = preload("res://autoloads/GameState.gd")
+
+
 # BasePhase - Abstract base class for all game phases
 # Defines the standard interface that all phases must implement
 

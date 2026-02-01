@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 var fight_phase: FightPhase
 var test_state: Dictionary

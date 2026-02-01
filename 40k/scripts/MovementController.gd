@@ -1,6 +1,9 @@
 extends Node2D
 class_name MovementController
 
+const GameStateData = preload("res://autoloads/GameState.gd")
+
+
 # MovementController - Handles UI interactions for the Movement Phase
 # Manages model dragging, path visualization, and movement validation
 

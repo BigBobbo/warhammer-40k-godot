@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # TurnManager - Manages turn flow and phase transitions using the new modular system
 # Now works with PhaseManager and GameState instead of BoardState

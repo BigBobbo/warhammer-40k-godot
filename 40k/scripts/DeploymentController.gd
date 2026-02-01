@@ -1,4 +1,8 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BaseShape = preload("res://scripts/bases/BaseShape.gd")
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 signal deployment_complete()
 signal unit_confirmed()

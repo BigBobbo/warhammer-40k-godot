@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Integration tests for the complete shooting phase flow
 # Tests the full pipeline from unit selection through damage resolution

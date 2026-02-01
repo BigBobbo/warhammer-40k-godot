@@ -1,0 +1,2711 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+DEBUG: System args: ["-s", "addons/gut/gut_cmdln.gd", "-gdir", "res://tests/integration/", "-gprefix", "test_", "-gsuffix", ".gd", "-gexit"]
+DEBUG: User args: []
+DEBUG: Combined args: ["-s", "addons/gut/gut_cmdln.gd", "-gdir", "res://tests/integration/", "-gprefix", "test_", "-gsuffix", ".gd", "-gexit"]
+DEBUG: Processing arg[0]: '-s'
+DEBUG: Processing arg[1]: 'addons/gut/gut_cmdln.gd'
+DEBUG: Processing arg[2]: '-gdir'
+DEBUG: Processing arg[3]: 'res://tests/integration/'
+DEBUG: Processing arg[4]: '-gprefix'
+DEBUG: Processing arg[5]: 'test_'
+DEBUG: Processing arg[6]: '-gsuffix'
+DEBUG: Processing arg[7]: '.gd'
+DEBUG: Processing arg[8]: '-gexit'
+=== GUT Test Runner ===
+DEBUG: specific_test_file = ''
+DEBUG: specific_test_method = ''
+DEBUG: Found 3 test files
+Running tests in: res://tests/integration//test_multiplayer_deployment.gd
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_basic_multiplayer_connection
+
+[TEST] test_basic_multiplayer_connection
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_144936.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_144936.log
+[GameInstance] Successfully launched Host (PID: 91534)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:50:21] [INFO.0000000] DebugLogger initialized - Session: 20251129_145021
+[2025-11-29 14:50:21] [INFO.0000000] Log file: user://logs/debug_20251129_145021.log
+[2025-11-29 14:50:21] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:50:21] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145021
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Successfully launched Client (PID: 91539)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91534_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91534_cmd_001_result.json
+TestModeHandler: Processing command file host_91534_cmd_001.json
+TestModeHandler: Executing command from file: host_91534_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91534_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+[TEST] PASSED: Basic connection established
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91534_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91534_cmd_002_result.json
+TestModeHandler: Processing command file host_91534_cmd_002.json
+TestModeHandler: Executing command from file: host_91534_cmd_002.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91534_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-50-26.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_144936.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_save_load
+
+[TEST] test_deployment_save_load
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Successfully launched Host (PID: 91540)
+[Test] Host instance launched successfully on port 8000
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Successfully launched Client (PID: 91551)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:50:37] [INFO.0000000] DebugLogger initialized - Session: 20251129_145037
+[2025-11-29 14:50:37] [INFO.0000000] Log file: user://logs/debug_20251129_145037.log
+[2025-11-29 14:50:37] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145037.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:50:37] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145037
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91540_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91540_cmd_001_result.json
+TestModeHandler: Processing command file host_91540_cmd_001.json
+TestModeHandler: Executing command from file: host_91540_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91540_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91540_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91540_cmd_002_result.json
+TestModeHandler: Processing command file host_91540_cmd_002.json
+TestModeHandler: Executing command from file: host_91540_cmd_002.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91540_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Client performing action: get_game_state with params: {  }
+[Test] Writing command file: client_91551_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: client_91551_cmd_001_result.json
+TestModeHandler: Processing command file client_91551_cmd_001.json
+TestModeHandler: Executing command from file: client_91551_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: client_91551_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] PASSED: Deployment save loaded and synced
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91540_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91540_cmd_003_result.json
+TestModeHandler: Processing command file host_91540_cmd_003.json
+TestModeHandler: Executing command from file: host_91540_cmd_003.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91540_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-50-41.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145021.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_single_unit
+
+[TEST] test_deployment_single_unit
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145037.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145037.log
+[GameInstance] Successfully launched Host (PID: 91559)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:50:53] [INFO.0000000] DebugLogger initialized - Session: 20251129_145053
+[2025-11-29 14:50:53] [INFO.0000000] Log file: user://logs/debug_20251129_145053.log
+[2025-11-29 14:50:53] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145053.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:50:53] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145053
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145053.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145053.log
+[GameInstance] Successfully launched Client (PID: 91566)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91559_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_001_result.json
+TestModeHandler: Processing command file host_91559_cmd_001.json
+TestModeHandler: Executing command from file: host_91559_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91559_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+[TEST] Using auto-loaded save: deployment_start
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91559_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_002_result.json
+TestModeHandler: Processing command file host_91559_cmd_002.json
+TestModeHandler: Executing command from file: host_91559_cmd_002.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91559_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91559_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_003_result.json
+TestModeHandler: Processing command file host_91559_cmd_003.json
+TestModeHandler: Executing command from file: host_91559_cmd_003.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91559_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[TEST] Player 1 undeployed units: ["U_INTERCESSORS_A", "U_TACTICAL_A"]
+[TEST] Using unit: U_INTERCESSORS_A
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 100.0, "y": 100.0 } }
+[Test] Writing command file: host_91559_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_004_result.json
+TestModeHandler: Processing command file host_91559_cmd_004.json
+TestModeHandler: Executing command from file: host_91559_cmd_004.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (100.0, 100.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91559_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91559_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_005_result.json
+TestModeHandler: Processing command file host_91559_cmd_005.json
+TestModeHandler: Executing command from file: host_91559_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91559_cmd_005_result.json
+TestModeHandler: Command executed and result written
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:01] [INFO.0000000] DebugLogger initialized - Session: 20251129_145101
+[2025-11-29 14:51:01] [INFO.0000000] Log file: user://logs/debug_20251129_145101.log
+[2025-11-29 14:51:01] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:01] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145101
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+[Test] Client performing action: get_game_state with params: {  }
+[Test] Writing command file: client_91566_cmd_001.json
+[Test] Waiting for result file...
+TestModeHandler: Processing command file client_91566_cmd_001.json
+[Test] Polling for result file: client_91566_cmd_001_result.json
+TestModeHandler: Executing command from file: client_91566_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: client_91566_cmd_001_result.json
+TestModeHandler: Command executed and result written
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Host units count: 4
+[TEST] Client units count: 4
+[TEST] PASSED: Unit deployment successful
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91559_cmd_006.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91559_cmd_006_result.json
+TestModeHandler: Processing command file host_91559_cmd_006.json
+TestModeHandler: Executing command from file: host_91559_cmd_006.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91559_cmd_006_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-51-01.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145037.log
+TestModeHandler: Set window position to (800, 100)
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145053.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_outside_zone
+
+[TEST] test_deployment_outside_zone
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[GameInstance] Successfully launched Host (PID: 91580)
+[Test] Host instance launched successfully on port 8000
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:11] [INFO.0000000] DebugLogger initialized - Session: 20251129_145111
+[2025-11-29 14:51:11] [INFO.0000000] Log file: user://logs/debug_20251129_145111.log
+[2025-11-29 14:51:11] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145111.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:11] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145111
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[GameInstance] Successfully launched Client (PID: 91585)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91580_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91580_cmd_001_result.json
+TestModeHandler: Processing command file host_91580_cmd_001.json
+TestModeHandler: Executing command from file: host_91580_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91580_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91580_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91580_cmd_002_result.json
+TestModeHandler: Processing command file host_91580_cmd_002.json
+TestModeHandler: Executing command from file: host_91580_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91580_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 22.0, "y": 30.0 } }
+[Test] Writing command file: host_91580_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91580_cmd_003_result.json
+TestModeHandler: Processing command file host_91580_cmd_003.json
+TestModeHandler: Executing command from file: host_91580_cmd_003.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (22.0, 30.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 22.0, "y": 30.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 22.0, "y": 30.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 22.0, "y": 30.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 22.0, "y": 30.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 22.0, "y": 30.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91580_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+ASSERTION FAILED: test_deployment_outside_zone - Deployment outside zone should be rejected
+[TEST] Deployment correctly rejected: Unit deployed successfully
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91580_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91580_cmd_004_result.json
+TestModeHandler: Processing command file host_91580_cmd_004.json
+TestModeHandler: Executing command from file: host_91580_cmd_004.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91580_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-51-16.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145101.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_alternating_turns
+
+[TEST] test_deployment_alternating_turns
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145111.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145111.log
+[GameInstance] Successfully launched Host (PID: 91590)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:20] [INFO.0000000] DebugLogger initialized - Session: 20251129_145120
+[2025-11-29 14:51:20] [INFO.0000000] Log file: user://logs/debug_20251129_145120.log
+[2025-11-29 14:51:20] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145120.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:20] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145120
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145120.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145120.log
+[GameInstance] Successfully launched Client (PID: 91595)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91590_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_001_result.json
+TestModeHandler: Processing command file host_91590_cmd_001.json
+TestModeHandler: Executing command from file: host_91590_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91590_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:26] [INFO.0000000] DebugLogger initialized - Session: 20251129_145126
+[2025-11-29 14:51:26] [INFO.0000000] Log file: user://logs/debug_20251129_145126.log
+[2025-11-29 14:51:26] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145126.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:26] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145126
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91590_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_002_result.json
+TestModeHandler: Processing command file host_91590_cmd_002.json
+TestModeHandler: Executing command from file: host_91590_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91590_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[TEST] Using unit: U_INTERCESSORS_A
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91590_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_003_result.json
+TestModeHandler: Processing command file host_91590_cmd_003.json
+TestModeHandler: Executing command from file: host_91590_cmd_003.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91590_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Initial turn: Player 0.0
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 100.0, "y": 100.0 } }
+[Test] Writing command file: host_91590_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_004_result.json
+TestModeHandler: Processing command file host_91590_cmd_004.json
+TestModeHandler: Executing command from file: host_91590_cmd_004.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (100.0, 100.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91590_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Joining host at 127.0.0.1
+MultiplayerLobby: Join button pressed
+NetworkManager: Connecting to 127.0.0.1:7777
+MultiplayerLobby: Attempting to join 127.0.0.1:7777
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91590_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_005_result.json
+TestModeHandler: Processing command file host_91590_cmd_005.json
+TestModeHandler: Executing command from file: host_91590_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91590_cmd_005_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Turn after deployment: Player 0.0
+[TEST] Turn alternation test completed
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91590_cmd_006.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91590_cmd_006_result.json
+TestModeHandler: Processing command file host_91590_cmd_006.json
+TestModeHandler: Executing command from file: host_91590_cmd_006.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91590_cmd_006_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-51-30.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145111.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145120.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_wrong_turn
+
+[TEST] test_deployment_wrong_turn
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145126.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145126.log
+[GameInstance] Successfully launched Host (PID: 91598)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:34] [INFO.0000000] DebugLogger initialized - Session: 20251129_145134
+[2025-11-29 14:51:34] [INFO.0000000] Log file: user://logs/debug_20251129_145134.log
+[2025-11-29 14:51:34] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145134.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:34] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145134
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145134.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145134.log
+[GameInstance] Successfully launched Client (PID: 91602)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91598_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91598_cmd_001_result.json
+TestModeHandler: Processing command file host_91598_cmd_001.json
+TestModeHandler: Executing command from file: host_91598_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91598_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:41] [INFO.0000000] DebugLogger initialized - Session: 20251129_145141
+[2025-11-29 14:51:41] [INFO.0000000] Log file: user://logs/debug_20251129_145141.log
+[2025-11-29 14:51:41] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145141.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:41] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145141
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91598_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91598_cmd_002_result.json
+TestModeHandler: Processing command file host_91598_cmd_002.json
+TestModeHandler: Executing command from file: host_91598_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91598_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[TEST] Using Player 2 unit: U_BOYZ_A
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91598_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91598_cmd_003_result.json
+TestModeHandler: Processing command file host_91598_cmd_003.json
+TestModeHandler: Executing command from file: host_91598_cmd_003.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91598_cmd_003_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Current turn: Player 0.0
+[Test] Client performing action: deploy_unit with params: { "unit_id": "U_BOYZ_A", "position": { "x": 100.0, "y": 2100.0 } }
+[Test] Writing command file: client_91602_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: client_91602_cmd_001_result.json
+TestModeHandler: Processing command file client_91602_cmd_001.json
+TestModeHandler: Executing command from file: client_91602_cmd_001.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_BOYZ_A, position: (100.0, 2100.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 22 changes/diffs
+GameManager: Setting units.U_BOYZ_A.models.0.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.0.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.1.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.1.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.2.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.2.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.3.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.3.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.4.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.4.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.5.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.5.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.6.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.6.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.7.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.7.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.8.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.8.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.models.9.position = { "x": 100.0, "y": 2100.0 }
+GameManager: Setting units.U_BOYZ_A.models.9.rotation = 0.0
+GameManager: Setting units.U_BOYZ_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: client_91602_cmd_001_result.json
+TestModeHandler: Command executed and result written
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+[TEST] Wrong turn deployment result: success=true message=Unit deployed successfully
+ASSERTION FAILED: test_deployment_wrong_turn - Player 2 should not be able to deploy when it's not their turn
+[TEST] PASSED: Wrong turn deployment correctly rejected
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91598_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91598_cmd_004_result.json
+TestModeHandler: Processing command file host_91598_cmd_004.json
+TestModeHandler: Executing command from file: host_91598_cmd_004.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91598_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-51-43.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145126.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145134.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_blocked_by_terrain
+
+[TEST] test_deployment_blocked_by_terrain
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145141.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145141.log
+[GameInstance] Successfully launched Host (PID: 91607)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:48] [INFO.0000000] DebugLogger initialized - Session: 20251129_145148
+[2025-11-29 14:51:48] [INFO.0000000] Log file: user://logs/debug_20251129_145148.log
+[2025-11-29 14:51:48] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145148.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:48] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145148
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145148.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145148.log
+[GameInstance] Successfully launched Client (PID: 91611)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91607_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91607_cmd_001_result.json
+TestModeHandler: Processing command file host_91607_cmd_001.json
+TestModeHandler: Executing command from file: host_91607_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91607_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:51:54] [INFO.0000000] DebugLogger initialized - Session: 20251129_145154
+[2025-11-29 14:51:54] [INFO.0000000] Log file: user://logs/debug_20251129_145154.log
+[2025-11-29 14:51:54] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145154.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:51:54] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145154
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91607_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91607_cmd_002_result.json
+TestModeHandler: Processing command file host_91607_cmd_002.json
+TestModeHandler: Executing command from file: host_91607_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91607_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[TEST] Using unit: U_INTERCESSORS_A
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 320.0, "y": 240.0 } }
+[Test] Writing command file: host_91607_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91607_cmd_003_result.json
+TestModeHandler: Processing command file host_91607_cmd_003.json
+TestModeHandler: Executing command from file: host_91607_cmd_003.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (320.0, 240.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 320.0, "y": 240.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 320.0, "y": 240.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 320.0, "y": 240.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 320.0, "y": 240.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 320.0, "y": 240.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91607_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+[TEST] Terrain blocking result: success=true message=Unit deployed successfully
+ASSERTION FAILED: test_deployment_blocked_by_terrain - Deployment should be blocked by terrain: Unit deployed successfully
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91607_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91607_cmd_004_result.json
+TestModeHandler: Processing command file host_91607_cmd_004.json
+TestModeHandler: Executing command from file: host_91607_cmd_004.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91607_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-51-56.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145141.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145148.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_unit_coherency
+
+[TEST] test_deployment_unit_coherency
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145154.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145154.log
+[GameInstance] Successfully launched Host (PID: 91617)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:01] [INFO.0000000] DebugLogger initialized - Session: 20251129_145201
+[2025-11-29 14:52:01] [INFO.0000000] Log file: user://logs/debug_20251129_145201.log
+[2025-11-29 14:52:01] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145201.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:01] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145201
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145201.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145201.log
+[GameInstance] Successfully launched Client (PID: 91622)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91617_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91617_cmd_001_result.json
+TestModeHandler: Processing command file host_91617_cmd_001.json
+TestModeHandler: Executing command from file: host_91617_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91617_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:07] [INFO.0000000] DebugLogger initialized - Session: 20251129_145207
+[2025-11-29 14:52:07] [INFO.0000000] Log file: user://logs/debug_20251129_145207.log
+[2025-11-29 14:52:07] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145207.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:07] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145207
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91617_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91617_cmd_002_result.json
+TestModeHandler: Processing command file host_91617_cmd_002.json
+TestModeHandler: Executing command from file: host_91617_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91617_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[TEST] Using unit: U_INTERCESSORS_A
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 200.0, "y": 200.0 } }
+[Test] Writing command file: host_91617_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91617_cmd_003_result.json
+TestModeHandler: Processing command file host_91617_cmd_003.json
+TestModeHandler: Executing command from file: host_91617_cmd_003.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (200.0, 200.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 200.0, "y": 200.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 200.0, "y": 200.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 200.0, "y": 200.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 200.0, "y": 200.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 200.0, "y": 200.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91617_cmd_003_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+[TEST] Multi-model deployment result: success=true message=Unit deployed successfully
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91617_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91617_cmd_004_result.json
+TestModeHandler: Processing command file host_91617_cmd_004.json
+TestModeHandler: Executing command from file: host_91617_cmd_004.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91617_cmd_004_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Unit U_INTERCESSORS_A has 5 models, all positioned correctly
+[TEST] Unit coherency test completed with assertions
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91617_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91617_cmd_005_result.json
+TestModeHandler: Processing command file host_91617_cmd_005.json
+TestModeHandler: Executing command from file: host_91617_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91617_cmd_005_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-52-10.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145154.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145201.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_completion_both_players
+
+[TEST] test_deployment_completion_both_players
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145207.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145207.log
+[GameInstance] Successfully launched Host (PID: 91626)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:14] [INFO.0000000] DebugLogger initialized - Session: 20251129_145214
+[2025-11-29 14:52:14] [INFO.0000000] Log file: user://logs/debug_20251129_145214.log
+[2025-11-29 14:52:14] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145214.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:14] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145214
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145214.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145214.log
+[GameInstance] Successfully launched Client (PID: 91629)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91626_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91626_cmd_001_result.json
+TestModeHandler: Processing command file host_91626_cmd_001.json
+TestModeHandler: Executing command from file: host_91626_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91626_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:20] [INFO.0000000] DebugLogger initialized - Session: 20251129_145220
+[2025-11-29 14:52:20] [INFO.0000000] Log file: user://logs/debug_20251129_145220.log
+[2025-11-29 14:52:20] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145220.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:20] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145220
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: complete_deployment with params: { "player_id": 1 }
+[Test] Writing command file: host_91626_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91626_cmd_002_result.json
+TestModeHandler: Processing command file host_91626_cmd_002.json
+TestModeHandler: Executing command from file: host_91626_cmd_002.json
+TestModeHandler: Executing action: complete_deployment
+TestModeHandler: Handling complete_deployment action
+GameManager: complete_deployment() called for player 1
+GameManager: Processing END_DEPLOYMENT action
+[PhaseManager] get_current_phase_instance returning: null
+WARNING: GameManager: Could not emit phase_completed - no phase instance
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _trigger_phase_completion (res://autoloads/GameManager.gd:664)
+         [1] process_end_deployment (res://autoloads/GameManager.gd:270)
+         [2] process_action (res://autoloads/GameManager.gd:45)
+         [3] apply_action (res://autoloads/GameManager.gd:10)
+         [4] complete_deployment (res://autoloads/GameManager.gd:867)
+         [5] _handle_complete_deployment (res://autoloads/TestModeHandler.gd:686)
+         [6] _execute_command (res://autoloads/TestModeHandler.gd:440)
+         [7] _execute_command_file (res://autoloads/TestModeHandler.gd:415)
+         [8] _check_for_commands (res://autoloads/TestModeHandler.gd:386)
+         [9] _process (res://autoloads/TestModeHandler.gd:372)
+GameManager: Applying result with 1 changes/diffs
+GameManager: Setting meta.phase = 1
+GameManager: complete_deployment() result: success=true
+TestModeHandler: Result written to: host_91626_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Player 1 deployment complete
+[TEST] Player 1 complete: success=true
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91626_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91626_cmd_003_result.json
+TestModeHandler: Processing command file host_91626_cmd_003.json
+TestModeHandler: Executing command from file: host_91626_cmd_003.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Command, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91626_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Phase after P1 complete: Command
+[Test] Client performing action: complete_deployment with params: { "player_id": 2 }
+[Test] Writing command file: client_91629_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: client_91629_cmd_001_result.json
+TestModeHandler: Processing command file client_91629_cmd_001.json
+TestModeHandler: Executing command from file: client_91629_cmd_001.json
+TestModeHandler: Executing action: complete_deployment
+TestModeHandler: Handling complete_deployment action
+GameManager: complete_deployment() called for player 2
+GameManager: Processing END_DEPLOYMENT action
+[PhaseManager] get_current_phase_instance returning: null
+WARNING: GameManager: Could not emit phase_completed - no phase instance
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _trigger_phase_completion (res://autoloads/GameManager.gd:664)
+         [1] process_end_deployment (res://autoloads/GameManager.gd:270)
+         [2] process_action (res://autoloads/GameManager.gd:45)
+         [3] apply_action (res://autoloads/GameManager.gd:10)
+         [4] complete_deployment (res://autoloads/GameManager.gd:867)
+         [5] _handle_complete_deployment (res://autoloads/TestModeHandler.gd:686)
+         [6] _execute_command (res://autoloads/TestModeHandler.gd:440)
+         [7] _execute_command_file (res://autoloads/TestModeHandler.gd:415)
+         [8] _check_for_commands (res://autoloads/TestModeHandler.gd:386)
+         [9] _process (res://autoloads/TestModeHandler.gd:372)
+GameManager: Applying result with 1 changes/diffs
+GameManager: Setting meta.phase = 1
+GameManager: complete_deployment() result: success=true
+TestModeHandler: Result written to: client_91629_cmd_001_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Joining host at 127.0.0.1
+MultiplayerLobby: Join button pressed
+NetworkManager: Connecting to 127.0.0.1:7777
+MultiplayerLobby: Attempting to join 127.0.0.1:7777
+[Test] Result file found!
+[Test] Action completed: success=true, message=Player 2 deployment complete
+[TEST] Player 2 complete: success=true
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91626_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91626_cmd_004_result.json
+TestModeHandler: Processing command file host_91626_cmd_004.json
+TestModeHandler: Processing command file host_91626_cmd_004.json
+TestModeHandler: Executing command from file: host_91626_cmd_004.json
+TestModeHandler: Executing command from file: host_91626_cmd_004.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: get_game_state - Phase: Command, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91626_cmd_004_result.json
+TestModeHandler: Result written to: host_91626_cmd_004_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[TEST] Phase after both complete: Deployment
+[TEST] Deployment completion test finished
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91626_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91626_cmd_005_result.json
+TestModeHandler: Processing command file host_91626_cmd_005.json
+TestModeHandler: Processing command file host_91626_cmd_005.json
+TestModeHandler: Executing command from file: host_91626_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Command, Turn: 0, Player: 0
+TestModeHandler: Executing command from file: host_91626_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91626_cmd_005_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Result written to: host_91626_cmd_005_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-52-26.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145207.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145214.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_undo_action
+
+[TEST] test_deployment_undo_action
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Args -> ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145220.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145220.log
+[GameInstance] Successfully launched Host (PID: 91636)
+[Test] Host instance launched successfully on port 8000
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (100, 100), "window_size": (600, 480), "is_host": true, "port": 8000, "instance_name": "Host" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:30] [INFO.0000000] DebugLogger initialized - Session: 20251129_145230
+[2025-11-29 14:52:30] [INFO.0000000] Log file: user://logs/debug_20251129_145230.log
+[2025-11-29 14:52:30] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145230.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:30] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145230
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (100, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-host...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 4.1 INTEL-18.8.6 - Compatibility - Using Device: Intel Inc. - Intel(R) Iris(TM) Graphics 6100
+
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Creating host on port 8000
+MultiplayerLobby: Host button pressed
+ERROR: Couldn't create an ENet host.
+   at: _create (modules/enet/enet_connection.cpp:318)
+   GDScript backtrace (most recent call first):
+       [0] create_host (res://autoloads/NetworkManager.gd:66)
+       [1] _on_host_button_pressed (res://scripts/MultiplayerLobby.gd:68)
+       [2] _schedule_auto_host (res://autoloads/TestModeHandler.gd:178)
+NetworkManager: Failed to create host - 20
+MultiplayerLobby: Error - Failed to create host. Error code: 20
+TestModeHandler: Waiting for client to connect...
+TestModeHandler: Listening for peer connection...
+TestModeHandler: Args -> ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145230.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145230.log
+[GameInstance] Successfully launched Client (PID: 91641)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91636_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91636_cmd_001_result.json
+TestModeHandler: Processing command file host_91636_cmd_001.json
+TestModeHandler: Executing command from file: host_91636_cmd_001.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91636_cmd_001_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test] Connection verified - action simulation working!
+========================================
+   RUNNING IN TEST MODE
+   Config: { "window_position": (800, 100), "window_size": (600, 480), "is_host": false, "host_ip": "127.0.0.1", "host_port": 8000, "instance_name": "Client" }
+========================================
+TestModeHandler: Command directories ready
+  Commands: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/commands
+  Results: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_commands/results
+[2025-11-29 14:52:36] [INFO.0000000] DebugLogger initialized - Session: 20251129_145236
+[2025-11-29 14:52:36] [INFO.0000000] Log file: user://logs/debug_20251129_145236.log
+[2025-11-29 14:52:36] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145236.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:36] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145236
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+TestModeHandler: Set window position to (800, 100)
+TestModeHandler: Set window size to (600, 480)
+TestModeHandler: Scheduling auto-join...
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+TestModeHandler: Current scene: MainMenu
+TestModeHandler: Triggering multiplayer mode...
+MainMenu: Multiplayer button pressed
+MultiplayerLobby: Army selection initialized with 5 armies
+MultiplayerLobby: Ready
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_91636_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91636_cmd_002_result.json
+TestModeHandler: Processing command file host_91636_cmd_002.json
+TestModeHandler: Executing command from file: host_91636_cmd_002.json
+TestModeHandler: Executing action: get_available_units
+TestModeHandler: Handling get_available_units action
+TestModeHandler: Player 1 units: ["U_INTERCESSORS_A", "U_TACTICAL_A"] (undeployed: ["U_INTERCESSORS_A", "U_TACTICAL_A"])
+TestModeHandler: Player 2 units: ["U_BOYZ_A", "U_GRETCHIN_A"] (undeployed: ["U_BOYZ_A", "U_GRETCHIN_A"])
+TestModeHandler: Result written to: host_91636_cmd_002_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Available units retrieved
+[Test] Host performing action: deploy_unit with params: { "unit_id": "U_INTERCESSORS_A", "position": { "x": 100.0, "y": 100.0 } }
+[Test] Writing command file: host_91636_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91636_cmd_003_result.json
+TestModeHandler: Processing command file host_91636_cmd_003.json
+TestModeHandler: Executing command from file: host_91636_cmd_003.json
+TestModeHandler: Executing action: deploy_unit
+TestModeHandler: Handling deploy_unit action
+GameManager: deploy_unit() called - unit_id: U_INTERCESSORS_A, position: (100.0, 100.0)
+GameManager: Total units in GameState: 4
+GameManager: Unit IDs: ["U_INTERCESSORS_A", "U_TACTICAL_A", "U_BOYZ_A", "U_GRETCHIN_A"]
+GameManager: Switching active player from 1 to 2
+GameManager: Applying result with 12 changes/diffs
+GameManager: Setting units.U_INTERCESSORS_A.models.0.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.0.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.1.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.1.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.2.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.2.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.3.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.3.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.models.4.position = { "x": 100.0, "y": 100.0 }
+GameManager: Setting units.U_INTERCESSORS_A.models.4.rotation = 0.0
+GameManager: Setting units.U_INTERCESSORS_A.status = 2
+GameManager: Setting meta.active_player = 2
+GameManager: deploy_unit() result: success=true
+TestModeHandler: Result written to: host_91636_cmd_003_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Unit deployed successfully
+[Test] Host performing action: undo_deployment with params: {  }
+[Test] Writing command file: host_91636_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91636_cmd_004_result.json
+TestModeHandler: Processing command file host_91636_cmd_004.json
+TestModeHandler: Executing command from file: host_91636_cmd_004.json
+TestModeHandler: Executing action: undo_deployment
+TestModeHandler: Handling undo_deployment action
+GameManager: undo_last_action() called
+GameManager: Undoing action: DEPLOY_UNIT with 12 reverse diffs
+GameManager: Setting meta.active_player = 1
+GameManager: Setting units.U_INTERCESSORS_A.status = 0
+GameManager: Removing units.U_INTERCESSORS_A.models.4.rotation
+GameManager: Removing units.U_INTERCESSORS_A.models.4.position
+GameManager: Removing units.U_INTERCESSORS_A.models.3.rotation
+GameManager: Removing units.U_INTERCESSORS_A.models.3.position
+GameManager: Removing units.U_INTERCESSORS_A.models.2.rotation
+GameManager: Removing units.U_INTERCESSORS_A.models.2.position
+GameManager: Removing units.U_INTERCESSORS_A.models.1.rotation
+GameManager: Removing units.U_INTERCESSORS_A.models.1.position
+GameManager: Removing units.U_INTERCESSORS_A.models.0.rotation
+GameManager: Removing units.U_INTERCESSORS_A.models.0.position
+TestModeHandler: Result written to: host_91636_cmd_004_result.json
+TestModeHandler: Command executed and result written
+TestModeHandler: Lobby scene: MultiplayerLobby
+TestModeHandler: Joining host at 127.0.0.1
+MultiplayerLobby: Join button pressed
+NetworkManager: Connecting to 127.0.0.1:7777
+MultiplayerLobby: Attempting to join 127.0.0.1:7777
+[Test] Result file found!
+[Test] Action completed: success=true, message=Deployment undone
+[TEST] Undo result: success=true message=Deployment undone
+[TEST] Undo test completed
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_91636_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_91636_cmd_005_result.json
+TestModeHandler: Processing command file host_91636_cmd_005.json
+TestModeHandler: Executing command from file: host_91636_cmd_005.json
+TestModeHandler: Executing action: get_game_state
+TestModeHandler: Handling get_game_state action
+TestModeHandler: get_game_state - Phase: Deployment, Turn: 0, Player: 0
+TestModeHandler: Result written to: host_91636_cmd_005_result.json
+TestModeHandler: Command executed and result written
+[Test] Result file found!
+[Test] Action completed: success=true, message=Game state retrieved
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-11-29T14-52-41.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145220.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145230.log
+Running tests in: res://tests/integration//test_assault_keyword_integration.gd
+  Running: test_validate_shoot_allows_assault_weapon_after_advance
+  Running: test_validate_shoot_blocks_non_assault_weapon_after_advance
+  Running: test_validate_shoot_allows_all_weapons_without_advance
+  Running: test_validate_shoot_blocks_fell_back_unit
+  Running: test_is_assault_weapon_function
+  Running: test_unit_has_assault_weapons_function
+Running tests in: res://tests/integration//test_heavy_keyword_integration.gd
+  Running: test_heavy_bonus_applied_when_unit_remained_stationary
+SCRIPT ERROR: Invalid operands 'int' and 'bool' in operator '=='.
+          at: assert_true (res://addons/gut/test.gd:37)
+          GDScript backtrace (most recent call first):
+              [0] assert_true (res://addons/gut/test.gd:37)
+              [1] test_heavy_bonus_applied_when_unit_remained_stationary (res://tests/integration/test_heavy_keyword_integration.gd:280)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:154)
+              [3] run_tests (res://addons/gut/gut_cmdln.gd:81)
+              [4] _init (res://addons/gut/gut_cmdln.gd:15)
+  Running: test_heavy_bonus_not_applied_when_unit_moved
+  Running: test_heavy_bonus_not_applied_to_non_heavy_weapon
+SCRIPT ERROR: Invalid operands 'int' and 'bool' in operator '=='.
+          at: assert_false (res://addons/gut/test.gd:40)
+          GDScript backtrace (most recent call first):
+              [0] assert_false (res://addons/gut/test.gd:40)
+              [1] test_heavy_bonus_not_applied_to_non_heavy_weapon (res://tests/integration/test_heavy_keyword_integration.gd:302)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:154)
+              [3] run_tests (res://addons/gut/gut_cmdln.gd:81)
+              [4] _init (res://addons/gut/gut_cmdln.gd:15)
+  Running: test_heavy_bonus_not_applied_when_remained_stationary_flag_not_set
+  Running: test_heavy_bonus_capped_at_plus_one
+  Running: test_heavy_bonus_cancels_with_minus_one
+  Running: test_heavy_bonus_with_additional_plus_one_still_capped
+  Running: test_is_heavy_weapon_function
+  Running: test_unit_has_heavy_weapons_function
+  Running: test_remained_stationary_flag_lifecycle
+  Running: test_moved_and_remained_stationary_mutually_exclusive
+
+=== Test Results ===
+Total: 60, Passed: 57, Failed: 3
+TestModeHandler: Args -> ["-s", "addons/gut/gut_cmdln.gd", "-gdir", "res://tests/integration/", "-gprefix", "test_", "-gsuffix", ".gd", "-gexit"]
+[2025-11-29 14:52:44] [INFO.0000000] DebugLogger initialized - Session: 20251129_145244
+[2025-11-29 14:52:44] [INFO.0000000] Log file: user://logs/debug_20251129_145244.log
+[2025-11-29 14:52:44] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251129_145244.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-11-29 14:52:44] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251129_145244
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+[2025-11-29 14:52:44] [INFO.0000000] DebugLogger shutting down - Session: 20251129_145244

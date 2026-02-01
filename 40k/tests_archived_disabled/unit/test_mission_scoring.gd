@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # test_mission_scoring.gd - Unit tests for mission scoring system
 # Tests objective placement, control calculation, and VP scoring

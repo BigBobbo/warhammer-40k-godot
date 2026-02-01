@@ -1,6 +1,9 @@
 extends BasePhase
 class_name ScoringPhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # ScoringPhase - Placeholder phase for scoring functionality
 # Currently just provides "End Turn" functionality to switch between players
 

@@ -1,0 +1,23 @@
+{
+	"client_connected": true,
+	"configuration": {
+		"capture_screenshots_on_failure": true,
+		"capture_screenshots_on_success": false,
+		"save_state_on_completion": true,
+		"use_dynamic_ports": true,
+		"visual_debugging": true
+	},
+	"failure_message": "",
+	"final_game_state": {
+		"current_phase": "Deployment",
+		"current_turn": 0.0,
+		"player_turn": 0.0,
+		"units": {
+
+		}
+	},
+	"host_connected": true,
+	"status": "PASSED",
+	"test_name": "",
+	"timestamp": "2025-11-19T21-47-22"
+}

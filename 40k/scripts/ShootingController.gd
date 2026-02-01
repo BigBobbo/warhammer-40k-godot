@@ -1,6 +1,9 @@
 extends Node2D
 class_name ShootingController
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # ShootingController - Handles UI interactions for the Shooting Phase
 # Manages unit selection, target visualization, weapon assignment UI
 
@@ -483,6 +486,12 @@ func _refresh_weapon_tree() -> void:
 	weapon_tree.clear()
 	var root = weapon_tree.create_item()
 
+	# PISTOL RULES: Check if unit is in engagement range
+	# ASSAULT RULES: Check if unit has advanced
+	var shooter_unit = GameState.get_unit(active_shooter_id)
+	var in_engagement = shooter_unit.get("flags", {}).get("in_engagement", false)
+	var has_advanced = shooter_unit.get("flags", {}).get("advanced", false)
+
 	# Get unit weapons from RulesEngine
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 	var weapon_counts = {}
@@ -498,8 +507,93 @@ func _refresh_weapon_tree() -> void:
 	for weapon_id in weapon_counts:
 		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 		var weapon_item = weapon_tree.create_item(root)
-		weapon_item.set_text(0, "%s (x%d)" % [weapon_profile.get("name", weapon_id), weapon_counts[weapon_id]])
+
+		# PISTOL RULES: Check if weapon is a Pistol
+		# ASSAULT RULES: Check if weapon is an Assault weapon
+		# HEAVY RULES: Check if weapon is Heavy
+		# RAPID FIRE RULES: Check if weapon is Rapid Fire
+		# LETHAL HITS (PRP-010): Check if weapon has Lethal Hits
+		# SUSTAINED HITS (PRP-011): Check if weapon has Sustained Hits
+		# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
+		# BLAST (PRP-013): Check if weapon has Blast
+		# TORRENT (PRP-014): Check if weapon has Torrent (auto-hit)
+		var is_pistol = RulesEngine.is_pistol_weapon(weapon_id)
+		var is_assault = RulesEngine.is_assault_weapon(weapon_id)
+		var is_heavy = RulesEngine.is_heavy_weapon(weapon_id)
+		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
+		var has_lethal_hits = RulesEngine.has_lethal_hits(weapon_id)
+		var sustained_hits_display = RulesEngine.get_sustained_hits_display(weapon_id)
+		var has_devastating_wounds = RulesEngine.has_devastating_wounds(weapon_id)
+		var is_blast = RulesEngine.is_blast_weapon(weapon_id)
+		var is_torrent = RulesEngine.is_torrent_weapon(weapon_id)
+		var weapon_name = weapon_profile.get("name", weapon_id)
+
+		# Build display name with keyword indicators
+		var display_name = ""
+		var indicators = []
+		if is_torrent:
+			indicators.append("T")  # Torrent indicator (PRP-014) - first because it's most impactful
+		if is_pistol:
+			indicators.append("P")
+		if is_assault:
+			indicators.append("A")
+		if is_heavy:
+			indicators.append("H")
+		if rapid_fire_value > 0:
+			indicators.append("RF%d" % rapid_fire_value)
+		if has_lethal_hits:
+			indicators.append("LH")  # Lethal Hits indicator
+		if sustained_hits_display != "":
+			indicators.append(sustained_hits_display)  # Sustained Hits indicator (e.g., "SH 1" or "SH D3")
+		if has_devastating_wounds:
+			indicators.append("DW")  # Devastating Wounds indicator (PRP-012)
+		if is_blast:
+			indicators.append("B")  # Blast indicator (PRP-013)
+
+		if not indicators.is_empty():
+			display_name = "[%s] %s (x%d)" % ["/".join(indicators), weapon_name, weapon_counts[weapon_id]]
+		else:
+			display_name = "%s (x%d)" % [weapon_name, weapon_counts[weapon_id]]
+
+		weapon_item.set_text(0, display_name)
 		weapon_item.set_metadata(0, weapon_id)
+
+		# PISTOL RULES: Disable non-Pistol weapons when in engagement
+		# ASSAULT RULES: Disable non-Assault weapons when unit has advanced
+		var weapon_disabled = false
+		var disable_reason = ""
+
+		if in_engagement and not is_pistol:
+			weapon_disabled = true
+			disable_reason = "[Disabled - In Engagement]"
+		elif has_advanced and not is_assault:
+			weapon_disabled = true
+			disable_reason = "[Disabled - Unit Advanced]"
+
+		if weapon_disabled:
+			# Gray out and disable non-usable weapons
+			weapon_item.set_custom_color(0, Color(0.5, 0.5, 0.5))
+			weapon_item.set_custom_color(1, Color(0.5, 0.5, 0.5))
+			weapon_item.set_selectable(0, false)
+			weapon_item.set_selectable(1, false)
+			weapon_item.set_text(1, disable_reason)
+			weapon_item.set_custom_bg_color(0, Color(0.3, 0.3, 0.3, 0.3))
+
+			# Show feedback in dice log (only once)
+			if dice_log_display and weapon_counts[weapon_id] > 0:
+				if in_engagement and not is_pistol:
+					dice_log_display.append_text("[color=gray]%s disabled - Only PISTOL weapons can be used in engagement range[/color]\n" % weapon_name)
+				elif has_advanced and not is_assault:
+					dice_log_display.append_text("[color=gray]%s disabled - Only ASSAULT weapons can be used after Advancing[/color]\n" % weapon_name)
+			continue  # Skip auto-target and target selection for disabled weapons
+
+		# Highlight Pistol weapons when in engagement
+		if in_engagement and is_pistol:
+			weapon_item.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.3))  # Green tint for available Pistols
+
+		# Highlight Assault weapons when unit has advanced
+		if has_advanced and is_assault:
+			weapon_item.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.3))  # Green tint for available Assault weapons
 
 		# Add target selector in second column
 		if eligible_targets.size() > 0:
@@ -711,22 +805,31 @@ func _show_range_indicators() -> void:
 	for model in shooter_unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position(model)
 		if model_pos == Vector2.ZERO:
 			continue
-		
+
 		# Draw range circles for each weapon type
 		for weapon_id in weapon_ranges:
 			var range_inches = weapon_ranges[weapon_id]
 			var range_px = Measurement.inches_to_px(range_inches)
-			
+
 			# Create a circle to show weapon range
 			var circle = preload("res://scripts/RangeCircle.gd").new()
 			circle.position = model_pos
 			circle.setup(range_px, weapon_id)
 			range_visual.add_child(circle)
-	
+
+			# RAPID FIRE: Add half-range circle for Rapid Fire weapons (orange color)
+			var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
+			if rapid_fire_value > 0:
+				var half_range_px = range_px / 2.0
+				var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
+				half_range_circle.position = model_pos
+				half_range_circle.setup(half_range_px, weapon_id + " (RF %d)" % rapid_fire_value, Color.ORANGE)
+				range_visual.add_child(half_range_circle)
+
 	# Highlight enemies within range with different colors
 	_highlight_enemies_by_range(shooter_unit, weapon_ranges)
 
@@ -1038,6 +1141,35 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
 		return
 
+	# TORRENT (PRP-014): Handle auto_hit context for Torrent weapons
+	if context == "auto_hit":
+		var total_attacks = dice_data.get("total_attacks", 0)
+		var hits = dice_data.get("successes", 0)
+		var message = dice_data.get("message", "Torrent: automatic hits")
+		var log_text = "[b][color=lime]TORRENT - Automatic Hits[/color][/b]\n"
+		log_text += "  [color=lime]%s[/color]\n" % message
+
+		# Show Blast bonus if this is a Torrent + Blast weapon
+		var blast_weapon = dice_data.get("blast_weapon", false)
+		if blast_weapon:
+			var target_model_count = dice_data.get("target_model_count", 0)
+			var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
+			var blast_minimum_applied = dice_data.get("blast_minimum_applied", false)
+			if blast_minimum_applied:
+				log_text += "  [color=lime][BLAST] Minimum 3 attacks (target has %d models)[/color]\n" % target_model_count
+			if blast_bonus_attacks > 0:
+				log_text += "  [color=lime][BLAST] +%d bonus attacks (%d models)[/color]\n" % [blast_bonus_attacks, target_model_count]
+
+		# Note if weapon has Lethal Hits or Sustained Hits (they won't trigger)
+		var lethal_hits_weapon = dice_data.get("lethal_hits_weapon", false)
+		var sustained_hits_weapon = dice_data.get("sustained_hits_weapon", false)
+		if lethal_hits_weapon or sustained_hits_weapon:
+			log_text += "  [color=gray]Note: Lethal/Sustained Hits don't trigger (no hit roll)[/color]\n"
+
+		log_text += "  [b][color=green]→ %d hits proceeding to wound roll[/color][/b]\n" % hits
+		dice_log_display.append_text(log_text)
+		return
+
 	# Get data from the dice roll
 	var rolls_raw = dice_data.get("rolls_raw", [])
 	var rolls_modified = dice_data.get("rolls_modified", [])
@@ -1047,6 +1179,47 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 	# Format the display text with modifier effects
 	var log_text = "[b]%s[/b] (need %s):\n" % [context.capitalize().replace("_", " "), threshold]
+
+	# Show Heavy bonus if applied
+	var heavy_bonus_applied = dice_data.get("heavy_bonus_applied", false)
+	if heavy_bonus_applied:
+		log_text += "  [color=cyan][HEAVY] +1 to hit (unit stationary)[/color]\n"
+
+	# Show Rapid Fire bonus if applied
+	var rapid_fire_bonus = dice_data.get("rapid_fire_bonus", 0)
+	if rapid_fire_bonus > 0:
+		var rf_value = dice_data.get("rapid_fire_value", 1)
+		var models_in_half = dice_data.get("models_in_half_range", 0)
+		var base_attacks = dice_data.get("base_attacks", 0)
+		log_text += "  [color=orange][RAPID FIRE %d] +%d attacks (%d models in half range, %d base attacks)[/color]\n" % [rf_value, rapid_fire_bonus, models_in_half, base_attacks]
+
+	# BLAST (PRP-013): Show Blast bonus and minimum if applied
+	var blast_weapon = dice_data.get("blast_weapon", false)
+	if blast_weapon and context == "to_hit":
+		var target_model_count = dice_data.get("target_model_count", 0)
+		var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
+		var blast_minimum_applied = dice_data.get("blast_minimum_applied", false)
+		var blast_original_attacks = dice_data.get("blast_original_attacks", 0)
+
+		if blast_minimum_applied:
+			log_text += "  [color=lime][BLAST] Minimum 3 attacks (target has %d models)[/color]\n" % target_model_count
+		if blast_bonus_attacks > 0:
+			log_text += "  [color=lime][BLAST] +%d attacks (%d models in target = +%d per 5)[/color]\n" % [blast_bonus_attacks, target_model_count, target_model_count / 5]
+		elif blast_bonus_attacks == 0 and not blast_minimum_applied:
+			log_text += "  [color=gray][BLAST] No bonus (%d models in target < 5)[/color]\n" % target_model_count
+
+	# LETHAL HITS (PRP-010): Show Lethal Hits indicator and auto-wounds
+	var lethal_hits_weapon = dice_data.get("lethal_hits_weapon", false)
+	if lethal_hits_weapon and context == "to_hit":
+		log_text += "  [color=magenta][LETHAL HITS] Critical hits (6s) auto-wound![/color]\n"
+
+	# SUSTAINED HITS (PRP-011): Show Sustained Hits indicator
+	var sustained_hits_weapon = dice_data.get("sustained_hits_weapon", false)
+	if sustained_hits_weapon and context == "to_hit":
+		var sh_value = dice_data.get("sustained_hits_value", 0)
+		var sh_is_dice = dice_data.get("sustained_hits_is_dice", false)
+		var sh_display = "D%d" % sh_value if sh_is_dice else str(sh_value)
+		log_text += "  [color=cyan][SUSTAINED HITS %s] Critical hits (6s) generate +%s extra hits![/color]\n" % [sh_display, sh_display]
 
 	# Show re-rolls if any occurred
 	if not rerolls.is_empty():
@@ -1059,9 +1232,26 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var display_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
 	log_text += "  Rolls: %s" % str(display_rolls)
 
+	# CRITICAL HIT TRACKING (PRP-031): Show critical hits for to_hit rolls
+	var critical_hits = dice_data.get("critical_hits", 0)
+	if context == "to_hit" and critical_hits > 0:
+		log_text += " [color=magenta](%d critical)[/color]" % critical_hits
+
 	# Show success count
 	if successes >= 0:
 		log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+
+	# SUSTAINED HITS (PRP-011): Show bonus hits generated for to_hit rolls
+	var sustained_bonus_hits = dice_data.get("sustained_bonus_hits", 0)
+	if context == "to_hit" and sustained_bonus_hits > 0:
+		var total_for_wounds = dice_data.get("total_hits_for_wounds", 0)
+		log_text += "\n  [color=cyan][SUSTAINED HITS] +%d bonus hits → %d total hits for wound roll[/color]" % [sustained_bonus_hits, total_for_wounds]
+
+	# LETHAL HITS (PRP-010): Show auto-wounds for wound rolls
+	var lethal_auto_wounds = dice_data.get("lethal_hits_auto_wounds", 0)
+	if context == "to_wound" and lethal_auto_wounds > 0:
+		var wounds_from_rolls = dice_data.get("wounds_from_rolls", 0)
+		log_text += "\n  [color=magenta][LETHAL HITS] %d auto-wounds + %d from rolls[/color]" % [lethal_auto_wounds, wounds_from_rolls]
 
 	log_text += "\n"
 

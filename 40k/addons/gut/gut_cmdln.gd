@@ -7,65 +7,111 @@ var test_directories = ["res://tests"]
 var test_pattern = "test_*.gd"
 var xml_output_file = ""
 var exit_on_completion = false
-var specific_test = ""
+var specific_test_file = ""
+var specific_test_method = ""
 
 func _init():
 	parse_command_line_args()
-	run_tests()
+
+func _initialize():
+	# _initialize() is called after the SceneTree is fully set up
+	# This ensures autoloads are loaded and Engine.get_main_loop() works
+	run_tests_deferred.call_deferred()
+
+func run_tests_deferred():
+	# Run tests after the first frame to ensure everything is initialized
+	await run_tests()
 
 func parse_command_line_args():
+	# Get both regular and user args
 	var args = OS.get_cmdline_args()
-	for i in range(args.size()):
-		var arg = args[i]
-		match arg:
-			"-gdir":
-				if i + 1 < args.size():
-					test_directories = [args[i + 1]]
-			"-gtest":
-				if i + 1 < args.size():
-					specific_test = args[i + 1]
-			"-gxmlfile":
-				if i + 1 < args.size():
-					xml_output_file = args[i + 1]
-			"-gexit":
-				exit_on_completion = true
-			"-gpattern":
-				if i + 1 < args.size():
-					test_pattern = args[i + 1]
+	var user_args = OS.get_cmdline_user_args()
+
+	# Combine them for processing
+	var all_args = args + user_args
+
+	print("DEBUG: System args: ", args)
+	print("DEBUG: User args: ", user_args)
+	print("DEBUG: Combined args: ", all_args)
+
+	for i in range(all_args.size()):
+		var arg = all_args[i]
+		print("DEBUG: Processing arg[%d]: '%s'" % [i, arg])
+
+		# Handle both "-gdir value" and "-gdir=value" styles
+		if arg.begins_with("-gdir="):
+			test_directories = [arg.substr(6)]
+		elif arg == "-gdir" and i + 1 < all_args.size():
+			test_directories = [all_args[i + 1]]
+		elif arg.begins_with("-gfile="):
+			specific_test_file = arg.substr(7)
+		elif arg == "-gfile" and i + 1 < all_args.size():
+			specific_test_file = all_args[i + 1]
+		elif arg.begins_with("-gtest="):
+			specific_test_method = arg.substr(7)
+		elif arg == "-gtest" and i + 1 < all_args.size():
+			specific_test_method = all_args[i + 1]
+		elif arg.begins_with("-gxmlfile="):
+			xml_output_file = arg.substr(10)
+		elif arg == "-gxmlfile" and i + 1 < all_args.size():
+			xml_output_file = all_args[i + 1]
+		elif arg == "-gexit":
+			exit_on_completion = true
+		elif arg.begins_with("-gprefix="):
+			test_pattern = arg.substr(9) + "*.gd"
+		elif arg == "-gprefix" and i + 1 < all_args.size():
+			test_pattern = all_args[i + 1] + "*.gd"
+		elif arg.begins_with("-gpattern="):
+			test_pattern = arg.substr(10)
+		elif arg == "-gpattern" and i + 1 < all_args.size():
+			test_pattern = all_args[i + 1]
 
 func run_tests():
 	print("=== GUT Test Runner ===")
-	
+	print("DEBUG: specific_test_file = '%s'" % specific_test_file)
+	print("DEBUG: specific_test_method = '%s'" % specific_test_method)
+
 	var test_files = []
-	
-	if specific_test != "":
-		test_files = [specific_test]
+
+	if specific_test_file != "":
+		# Use specific file, resolve path if needed
+		var file_path = specific_test_file
+		if not file_path.begins_with("res://"):
+			# Try to find the file in test directories
+			for dir in test_directories:
+				var full_path = dir + "/" + file_path
+				if FileAccess.file_exists(full_path):
+					file_path = full_path
+					break
+		test_files = [file_path]
+		print("DEBUG: Using specific file: %s" % file_path)
 	else:
 		test_files = find_test_files()
-	
+		print("DEBUG: Found %d test files" % test_files.size())
+
 	var total_tests = 0
 	var passed_tests = 0
 	var failed_tests = 0
 	var test_results = []
-	
+
 	for test_file in test_files:
 		print("Running tests in: " + test_file)
-		var results = run_test_file(test_file)
+		var results = await run_test_file(test_file)
 		test_results.append_array(results)
-		
+
 		for result in results:
 			total_tests += 1
 			if result.passed:
 				passed_tests += 1
 			else:
 				failed_tests += 1
-	
+
 	print("\n=== Test Results ===")
 	print("Total: %d, Passed: %d, Failed: %d" % [total_tests, passed_tests, failed_tests])
-	
+
 	if xml_output_file != "":
 		write_xml_results(test_results)
-	
+
 	if exit_on_completion:
 		quit(failed_tests)
 
@@ -96,13 +142,14 @@ func run_test_file(file_path: String) -> Array:
 	if script == null:
 		print("Failed to load test file: " + file_path)
 		return []
-	
+
 	var test_instance = script.new()
 	if not test_instance.has_method("before_all"):
 		print("Test file does not extend GutTest: " + file_path)
 		return []
-	
-	# SceneTree doesn't have add_child, so we'll work with the test instance directly
+
+	# Add test instance to the scene tree so get_tree() works
+	root.add_child(test_instance)
 	
 	# Run test lifecycle
 	test_instance.before_all()
@@ -110,18 +157,28 @@ func run_test_file(file_path: String) -> Array:
 	var test_methods = []
 	for method in test_instance.get_method_list():
 		if method.name.begins_with("test_"):
-			test_methods.append(method.name)
-	
+			# Filter by specific test method if specified
+			if specific_test_method == "" or method.name == specific_test_method:
+				test_methods.append(method.name)
+
 	var results = []
 	for test_method in test_methods:
 		test_instance._current_test = test_method
 		test_instance.before_each()
-		
+
 		print("  Running: " + test_method)
-		test_instance.call(test_method)
-		
+
+		# Call the test method and handle both sync and async tests
+		var test_result = test_instance.call(test_method)
+
+		# If the test returns a coroutine (async), wait for it to complete
+		if test_result is Signal:
+			await test_result
+
 		test_instance.after_each()
-		
+		if test_instance.has_method("_post_test_cleanup"):
+			test_instance._post_test_cleanup()
+
 		# Get results from this test
 		for result in test_instance._test_results:
 			if result.test == test_method:

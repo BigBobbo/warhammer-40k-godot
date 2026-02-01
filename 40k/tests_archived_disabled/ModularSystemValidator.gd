@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # ModularSystemValidator - Comprehensive testing and validation for the modular phase system
 # Run this script to verify that all components are working correctly

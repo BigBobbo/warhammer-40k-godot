@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Test suite for the Transport system functionality
 # Tests embark/disembark mechanics, capacity checks, and firing deck

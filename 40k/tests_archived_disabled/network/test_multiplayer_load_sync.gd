@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Tests multiplayer load synchronization
 # Tests for GitHub Issue #99: Multiplayer Load Synchronization

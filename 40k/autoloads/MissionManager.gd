@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # MissionManager - Handles mission objectives, control, and victory point scoring
 # Implements the "Take and Hold" primary mission for the MVP

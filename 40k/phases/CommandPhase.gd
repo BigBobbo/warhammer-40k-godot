@@ -1,6 +1,9 @@
 extends BasePhase
 class_name CommandPhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # CommandPhase - Placeholder phase for command functionality
 # Currently just provides "End Command Phase" functionality to proceed to Movement
 

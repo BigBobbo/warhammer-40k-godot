@@ -1,6 +1,9 @@
 extends BasePhase
 class_name ChargePhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # ChargePhase - Full implementation of the Charge phase following 10e rules
 # Supports: Charge declarations, 2D6 charge rolls, movement validation, engagement range
 

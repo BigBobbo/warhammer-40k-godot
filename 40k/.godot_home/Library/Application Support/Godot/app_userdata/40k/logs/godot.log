@@ -1,0 +1,46 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+host_837_cmd_001.json
+host_837_cmd_004.json
+host_837_cmd_005.json
+host_837_cmd_002.json
+host_837_cmd_003.json
+TestModeHandler: Args -> ["-s", "res://scripts/list_commands.gd"]
+ERROR: Condition "ret != noErr" is true. Returning: ""
+   at: get_system_ca_certificates (platform/macos/os_macos.mm:991)
+[2025-10-29 20:46:53] [INFO.0000000] DebugLogger initialized - Session: 20251029_204653
+[2025-10-29 20:46:53] [INFO.0000000] Log file: user://logs/debug_20251029_204653.log
+[2025-10-29 20:46:53] [INFO.0000000] Real path: /Users/robertocallaghan/Documents/claude/godotv2/40k/.godot_home/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_204653.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-10-29 20:46:53] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251029_204653
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+[2025-10-29 20:46:53] [INFO.0000000] DebugLogger shutting down - Session: 20251029_204653

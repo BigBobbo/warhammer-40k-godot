@@ -1,7 +1,9 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # SaveLoadManager - High-level interface for game save and load operations
 # Provides comprehensive save file management with metadata and validation
+# Supports both file system (desktop) and localStorage/IndexedDB (web)
 
 signal save_completed(file_path: String, metadata: Dictionary)
 signal load_completed(file_path: String, metadata: Dictionary)
@@ -12,10 +14,14 @@ signal autosave_completed(file_path: String)
 const SAVE_EXTENSION = ".w40ksave"
 const METADATA_EXTENSION = ".meta"
 const BACKUP_EXTENSION = ".backup"
+const WEB_STORAGE_PREFIX = "w40k_save_"
 
 var save_directory: String = "res://saves/"
 var autosave_directory: String = "res://saves/autosaves/"
 var backup_directory: String = "res://saves/backups/"
+
+# Browser storage mode
+var is_web_platform: bool = false
 
 var autosave_enabled: bool = true
 var autosave_interval: float = 300.0  # 5 minutes
@@ -26,7 +32,17 @@ var autosave_timer: Timer = null
 var last_save_path: String = ""
 
 func _ready() -> void:
-	_initialize_directories()
+	is_web_platform = OS.has_feature("web")
+
+	if is_web_platform:
+		print("SaveLoadManager: Running on web platform - using browser storage")
+		# On web, we use localStorage/IndexedDB instead of file system
+		save_directory = "web://"
+		autosave_directory = "web://autosaves/"
+		backup_directory = "web://backups/"
+	else:
+		_initialize_directories()
+
 	_setup_autosave_timer()
 
 func _initialize_directories() -> void:
@@ -63,14 +79,20 @@ func _setup_autosave_timer() -> void:
 # Main save/load interface
 func save_game(file_name: String, metadata: Dictionary = {}) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
+
+	if is_web_platform:
+		return _save_game_to_path_web(sanitized_name, metadata)
+
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
-	
 	return _save_game_to_path(save_path, metadata)
 
 func load_game(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
+
+	if is_web_platform:
+		return _load_game_from_path_web(sanitized_name)
+
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
-	
 	return _load_game_from_path(save_path)
 
 func save_game_to_slot(slot: int, metadata: Dictionary = {}) -> bool:
@@ -302,6 +324,9 @@ func _get_autosave_files() -> Array:
 
 # Save file management
 func get_save_files() -> Array:
+	if is_web_platform:
+		return get_save_files_web()
+
 	var save_files = []
 	var dir = DirAccess.open(save_directory)
 	
@@ -326,25 +351,33 @@ func get_save_files() -> Array:
 
 func delete_save_file(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
+
+	if is_web_platform:
+		return _web_delete_from_storage(sanitized_name)
+
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
-	
+
 	var success = true
-	
+
 	# Delete save file
 	if FileAccess.file_exists(save_path):
 		var error = DirAccess.remove_absolute(save_path)
 		if error != OK:
 			success = false
-	
+
 	# Delete metadata file
 	if FileAccess.file_exists(meta_path):
 		DirAccess.remove_absolute(meta_path)
-	
+
 	return success
 
 func save_exists(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
+
+	if is_web_platform:
+		return _web_storage_exists(sanitized_name)
+
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return FileAccess.file_exists(save_path)
 
@@ -544,10 +577,234 @@ func print_save_info() -> void:
 	print("Autosave enabled: %s" % str(autosave_enabled))
 	print("Autosave interval: %.1f seconds" % autosave_interval)
 	print("Last save: %s" % last_save_path)
-	
+
 	for save_info in save_files:
 		print("  - %s (Turn %d, Phase %s)" % [
 			save_info.display_name,
 			save_info.metadata.get("game_state", {}).get("turn", 0),
 			str(save_info.metadata.get("game_state", {}).get("phase", "Unknown"))
 		])
+
+# ============================================================================
+# WEB PLATFORM STORAGE - localStorage/IndexedDB support for browser
+# ============================================================================
+
+func _web_storage_key(save_name: String) -> String:
+	"""Generate localStorage key for a save."""
+	return WEB_STORAGE_PREFIX + save_name
+
+func _web_save_to_storage(save_name: String, data: String) -> bool:
+	"""Save data to browser localStorage."""
+	if not is_web_platform:
+		return false
+
+	var key = _web_storage_key(save_name)
+
+	# Use JavaScript localStorage API
+	var js_code = """
+		try {
+			localStorage.setItem('%s', '%s');
+			return true;
+		} catch (e) {
+			console.error('Failed to save to localStorage:', e);
+			return false;
+		}
+	""" % [key, data.c_escape()]
+
+	var result = JavaScriptBridge.eval(js_code)
+	return result == true
+
+func _web_load_from_storage(save_name: String) -> String:
+	"""Load data from browser localStorage."""
+	if not is_web_platform:
+		return ""
+
+	var key = _web_storage_key(save_name)
+
+	var js_code = """
+		try {
+			return localStorage.getItem('%s') || '';
+		} catch (e) {
+			console.error('Failed to load from localStorage:', e);
+			return '';
+		}
+	""" % key
+
+	var result = JavaScriptBridge.eval(js_code)
+	return str(result) if result else ""
+
+func _web_delete_from_storage(save_name: String) -> bool:
+	"""Delete data from browser localStorage."""
+	if not is_web_platform:
+		return false
+
+	var key = _web_storage_key(save_name)
+
+	var js_code = """
+		try {
+			localStorage.removeItem('%s');
+			return true;
+		} catch (e) {
+			console.error('Failed to delete from localStorage:', e);
+			return false;
+		}
+	""" % key
+
+	var result = JavaScriptBridge.eval(js_code)
+	return result == true
+
+func _web_get_save_list() -> Array:
+	"""Get list of all saves from browser localStorage."""
+	if not is_web_platform:
+		return []
+
+	var js_code = """
+		try {
+			var saves = [];
+			var prefix = '%s';
+			for (var i = 0; i < localStorage.length; i++) {
+				var key = localStorage.key(i);
+				if (key && key.startsWith(prefix)) {
+					saves.push(key.substring(prefix.length));
+				}
+			}
+			return JSON.stringify(saves);
+		} catch (e) {
+			console.error('Failed to list localStorage saves:', e);
+			return '[]';
+		}
+	""" % WEB_STORAGE_PREFIX
+
+	var result = JavaScriptBridge.eval(js_code)
+	if result:
+		var json = JSON.new()
+		var parse_result = json.parse(str(result))
+		if parse_result == OK and json.data is Array:
+			return json.data
+
+	return []
+
+func _web_storage_exists(save_name: String) -> bool:
+	"""Check if a save exists in browser localStorage."""
+	if not is_web_platform:
+		return false
+
+	var key = _web_storage_key(save_name)
+
+	var js_code = """
+		return localStorage.getItem('%s') !== null;
+	""" % key
+
+	var result = JavaScriptBridge.eval(js_code)
+	return result == true
+
+# Override save methods for web platform
+func _save_game_to_path_web(save_name: String, metadata: Dictionary) -> bool:
+	"""Web-specific save implementation using localStorage."""
+	print("SaveLoadManager: [WEB] Saving game: ", save_name)
+
+	# Prepare metadata
+	var save_metadata = _create_save_metadata(metadata)
+
+	# Get current game state
+	var game_state = GameState.create_snapshot()
+	if game_state.is_empty():
+		emit_signal("save_failed", "Failed to get game state")
+		return false
+
+	# Serialize
+	var serialized_data = StateSerializer.serialize_game_state(game_state)
+	if serialized_data.is_empty():
+		emit_signal("save_failed", "Failed to serialize game state")
+		return false
+
+	# Create combined data with metadata
+	var combined_data = {
+		"metadata": save_metadata,
+		"game_data": serialized_data
+	}
+	var json_data = JSON.stringify(combined_data)
+
+	# Save to localStorage
+	if not _web_save_to_storage(save_name, json_data):
+		emit_signal("save_failed", "Failed to save to browser storage")
+		return false
+
+	last_save_path = "web://" + save_name
+	emit_signal("save_completed", last_save_path, save_metadata)
+	print("SaveLoadManager: [WEB] Game saved successfully: ", save_name)
+	return true
+
+func _load_game_from_path_web(save_name: String) -> bool:
+	"""Web-specific load implementation using localStorage."""
+	print("SaveLoadManager: [WEB] Loading game: ", save_name)
+
+	# Load from localStorage
+	var json_data = _web_load_from_storage(save_name)
+	if json_data.is_empty():
+		emit_signal("load_failed", "Save not found: " + save_name)
+		return false
+
+	# Parse combined data
+	var json = JSON.new()
+	var parse_result = json.parse(json_data)
+	if parse_result != OK or not json.data is Dictionary:
+		emit_signal("load_failed", "Failed to parse save data")
+		return false
+
+	var combined_data = json.data
+	var metadata = combined_data.get("metadata", {})
+	var serialized_data = combined_data.get("game_data", "")
+
+	if serialized_data.is_empty():
+		emit_signal("load_failed", "Save data is empty")
+		return false
+
+	# Deserialize
+	var game_state = StateSerializer.deserialize_game_state(serialized_data)
+	if game_state.is_empty():
+		emit_signal("load_failed", "Failed to deserialize save data")
+		return false
+
+	# Load into GameState
+	GameState.load_from_snapshot(game_state)
+
+	emit_signal("load_completed", "web://" + save_name, metadata)
+	print("SaveLoadManager: [WEB] Game loaded successfully: ", save_name)
+
+	# Sync state with multiplayer clients if in networked game
+	if NetworkManager and NetworkManager.is_networked():
+		NetworkManager.sync_loaded_state()
+
+	return true
+
+# Override get_save_files for web platform
+func get_save_files_web() -> Array:
+	"""Get list of saves from browser localStorage."""
+	var save_files = []
+	var save_names = _web_get_save_list()
+
+	for save_name in save_names:
+		# Skip autosaves and metadata entries
+		if save_name.begins_with("autosaves/") or save_name.ends_with(METADATA_EXTENSION):
+			continue
+
+		var json_data = _web_load_from_storage(save_name)
+		var metadata = {}
+
+		if not json_data.is_empty():
+			var json = JSON.new()
+			if json.parse(json_data) == OK and json.data is Dictionary:
+				metadata = json.data.get("metadata", {})
+
+		var save_info = {
+			"file_name": save_name + SAVE_EXTENSION,
+			"display_name": save_name,
+			"file_path": "web://" + save_name,
+			"metadata": metadata
+		}
+		save_files.append(save_info)
+
+	# Sort by modification time (newest first)
+	save_files.sort_custom(_compare_save_info_times)
+	return save_files

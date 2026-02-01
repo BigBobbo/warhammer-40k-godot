@@ -1,4 +1,6 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # Unit tests for BasePhase class
 # Tests the abstract base functionality that all phases inherit

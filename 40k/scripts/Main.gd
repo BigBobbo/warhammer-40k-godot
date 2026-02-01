@@ -1,4 +1,8 @@
 extends CanvasLayer
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
+const ShootingPhase = preload("res://phases/ShootingPhase.gd")
+const NetworkIntegration = preload("res://utils/NetworkIntegration.gd")
 
 @onready var camera: Camera2D = $BoardRoot/Camera2D
 @onready var board_view: Node2D = $BoardRoot/BoardView

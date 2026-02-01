@@ -119,7 +119,24 @@ func setup(p_save_data: Dictionary, p_defender_player: int = 0) -> void:
 	_update_attack_info()
 	_update_save_stats()
 	_update_model_display()
-	_add_to_dice_log("Awaiting defender to roll saves...", Color.YELLOW)
+
+	# DEVASTATING WOUNDS (PRP-012): Show devastating wounds info in dice log
+	var has_dw = save_data.get("has_devastating_wounds", false)
+	var dw_count = save_data.get("devastating_wounds", 0)
+	var dw_damage = save_data.get("devastating_damage", 0)
+
+	if has_dw and dw_count > 0:
+		_add_to_dice_log("DEVASTATING WOUNDS: %d critical wounds (unsaveable)" % dw_count, Color.ORANGE_RED)
+		_add_to_dice_log("Auto-applying %d damage (no saves allowed)" % dw_damage, Color.ORANGE_RED)
+		_add_to_dice_log("", Color.WHITE)
+
+	if save_data.wounds_to_save > 0:
+		_add_to_dice_log("Awaiting defender to roll %d saves..." % save_data.wounds_to_save, Color.YELLOW)
+	else:
+		_add_to_dice_log("No saves needed - all wounds were Devastating Wounds", Color.YELLOW)
+		# If no saveable wounds, skip straight to apply
+		roll_button.disabled = true
+		apply_button.disabled = false
 
 func _update_attack_info() -> void:
 	"""Display incoming attack information"""
@@ -128,6 +145,12 @@ func _update_attack_info() -> void:
 	var ap = save_data.get("ap", 0)
 	var damage = save_data.get("damage", 1)
 	var wounds = save_data.get("wounds_to_save", 0)
+
+	# DEVASTATING WOUNDS (PRP-012): Get devastating wounds info
+	var has_dw = save_data.get("has_devastating_wounds", false)
+	var dw_count = save_data.get("devastating_wounds", 0)
+	var dw_damage = save_data.get("devastating_damage", 0)
+	var total_wounds = save_data.get("total_wounds", wounds)
 
 	var ap_text = str(ap) if ap >= 0 else str(ap)  # Display as -1, -2, etc.
 
@@ -139,13 +162,22 @@ func _update_attack_info() -> void:
 		var current_weapon = sequence_context.get("current_weapon", 0)
 		var total_weapons = sequence_context.get("total_weapons", 0)
 		title_text = "[WEAPON %d of %d]\n" % [current_weapon, total_weapons]
-		title_text += "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\nWounds to Save: %d" % [
-			attacker, weapon, ap_text, damage, wounds
-		]
+
+	# Build weapon info with [DW] indicator if applicable
+	var weapon_display = weapon
+	if has_dw:
+		weapon_display = "[DW] " + weapon
+
+	title_text += "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\n" % [
+		attacker, weapon_display, ap_text, damage
+	]
+
+	# DEVASTATING WOUNDS: Show saveable vs unsaveable wounds
+	if has_dw and dw_count > 0:
+		title_text += "Total Wounds: %d (%d Devastating, %d Saveable)\n" % [total_wounds, dw_count, wounds]
+		title_text += "DEVASTATING WOUNDS: %d damage (NO SAVE ALLOWED)" % dw_damage
 	else:
-		title_text = "Attacker: %s\nWeapon: %s (AP%s, Damage %d)\nWounds to Save: %d" % [
-			attacker, weapon, ap_text, damage, wounds
-		]
+		title_text += "Wounds to Save: %d" % wounds
 
 	attack_info_label.text = title_text
 	attack_info_label.modulate = Color(1.0, 0.8, 0.8)  # Light red tint
@@ -242,15 +274,27 @@ func _on_roll_saves_pressed() -> void:
 	"""Roll all saves using RulesEngine"""
 	roll_button.disabled = true
 
-	# Create RNG service
-	var rng_service = RulesEngine.RNGService.new()
+	# DEVASTATING WOUNDS (PRP-012): Handle case with no saves to roll
+	if allocations.is_empty():
+		# All wounds were devastating wounds - create empty save results
+		save_results = {
+			"success": true,
+			"save_results": [],
+			"target_unit_id": save_data.target_unit_id,
+			"damage": save_data.damage,
+			"failed_saves": 0,
+			"passed_saves": 0
+		}
+	else:
+		# Create RNG service
+		var rng_service = RulesEngine.RNGService.new()
 
-	# Roll saves
-	save_results = RulesEngine.roll_saves_batch(
-		allocations,
-		save_data,
-		rng_service
-	)
+		# Roll saves
+		save_results = RulesEngine.roll_saves_batch(
+			allocations,
+			save_data,
+			rng_service
+		)
 
 	# Display results
 	_display_save_results()
@@ -296,8 +340,26 @@ func _display_save_results() -> void:
 	_add_to_dice_log("", Color.WHITE)
 	_add_to_dice_log("Summary: %d saved, %d failed" % [passed, failed], Color.YELLOW)
 
+	# DEVASTATING WOUNDS (PRP-012): Include devastating wounds in summary
+	var has_dw = save_data.get("has_devastating_wounds", false)
+	var dw_count = save_data.get("devastating_wounds", 0)
+	var dw_damage = save_data.get("devastating_damage", 0)
+
+	if has_dw and dw_count > 0:
+		_add_to_dice_log("+ %d DEVASTATING WOUNDS (%d auto-damage)" % [dw_count, dw_damage], Color.ORANGE_RED)
+
 func _on_apply_damage_pressed() -> void:
 	"""Apply damage and close dialog"""
+	# DEVASTATING WOUNDS (PRP-012): Include devastating damage in save results
+	var has_dw = save_data.get("has_devastating_wounds", false)
+	var dw_damage = save_data.get("devastating_damage", 0)
+	var dw_count = save_data.get("devastating_wounds", 0)
+
+	# Add devastating wounds info to save_results so damage application includes it
+	save_results["devastating_wounds"] = dw_count
+	save_results["devastating_damage"] = dw_damage
+	save_results["has_devastating_wounds"] = has_dw
+
 	# Create APPLY_SAVES action with results
 	# IMPORTANT: Use defender_player, NOT the active player (who is the attacker)
 	var action = {
@@ -309,6 +371,8 @@ func _on_apply_damage_pressed() -> void:
 	}
 
 	print("SaveDialog: Submitting APPLY_SAVES action with player=%d" % defender_player)
+	if has_dw and dw_count > 0:
+		print("SaveDialog: Including %d devastating wounds (%d damage)" % [dw_count, dw_damage])
 
 	# Submit action through NetworkManager
 	NetworkManager.submit_action(action)

@@ -1,4 +1,6 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # PhaseManager - Orchestrates phase transitions and manages the current active phase
 # This is the central controller for the modular phase system

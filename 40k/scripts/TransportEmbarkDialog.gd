@@ -1,4 +1,5 @@
 extends AcceptDialog
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # TransportEmbarkDialog - Modal dialog for selecting units to embark during deployment
 # Shows available units and allows selection up to transport capacity

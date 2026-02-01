@@ -1,6 +1,9 @@
 extends Node2D
 class_name ScoringController
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # ScoringController - Handles UI interactions for the Scoring Phase
 # Manages turn switching and battle round display
 

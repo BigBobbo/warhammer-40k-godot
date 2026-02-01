@@ -1,4 +1,6 @@
 extends BasePhaseTest
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # MoralePhase GUT Tests - Validates the Morale Phase implementation  
 # Tests battleshock tests, unit fleeing, leadership modifiers, and morale completion

@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # TestModeHandler - Handles command-line arguments for automated testing
 # Allows the game to be launched in specific modes for integration testing
@@ -19,13 +20,26 @@ var current_test_mode: TestMode = TestMode.NONE
 # Command simulation system
 var _command_dir: String = ""
 var _result_dir: String = ""
+var _command_dir_res: String = ""
+var _result_dir_res: String = ""
 var _check_interval: float = 0.1  # Check every 100ms
 var _time_since_check: float = 0.0
 var _sequence_counter: int = 0
+var _game_state_cache = null
+const COMMANDS_SUBDIR := "test_results/test_commands/commands"
+const RESULTS_SUBDIR := "test_results/test_commands/results"
+const TEST_ARTIFACTS_SUBDIR := "test_results/test_artifacts"
+const TEST_SAVES_SUBDIR := "test_results/test_artifacts/saves"
 
-func _ready() -> void:
+func _init():
 	_parse_command_line_arguments()
 
+func _gs():
+	if _game_state_cache == null:
+		_game_state_cache = get_node_or_null("/root/GameState")
+	return _game_state_cache
+
+func _ready() -> void:
 	if is_test_mode:
 		print("========================================")
 		print("   RUNNING IN TEST MODE")
@@ -38,6 +52,15 @@ func _ready() -> void:
 
 func _parse_command_line_arguments():
 	var args = OS.get_cmdline_args()
+	var dir = DirAccess.open("res://")
+	if dir:
+		dir.make_dir_recursive("test_results/test_commands")
+	var args_file = FileAccess.open("res://test_results/test_commands/args_log.txt", FileAccess.WRITE_READ)
+	if args_file:
+		args_file.seek_end()
+		args_file.store_line("ARGS: " + str(args))
+		args_file.close()
+	print("TestModeHandler: Args -> ", args)
 
 	for i in range(args.size()):
 		var arg = args[i]
@@ -105,6 +128,7 @@ func _parse_command_line_arguments():
 			continue
 
 func _setup_test_mode():
+	set_process(true)
 	# Apply window configuration if specified
 	if test_config.has("window_position"):
 		var pos = test_config["window_position"]
@@ -165,16 +189,54 @@ func _schedule_auto_host():
 			else:
 				print("TestModeHandler: ERROR - Lobby doesn't have _on_start_game_button_pressed method")
 
+			# Wait for scene to change to Main
+			await get_tree().create_timer(2.0).timeout
+
+			# IMPORTANT: Initialize deployment phase if not already initialized
+			var phase_mgr = get_node_or_null("/root/PhaseManager")
+			if phase_mgr and not phase_mgr.current_phase_instance:
+				print("TestModeHandler: Initializing deployment phase in PhaseManager")
+				phase_mgr.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+				await get_tree().process_frame  # Let phase initialize
+			elif phase_mgr and phase_mgr.current_phase_instance:
+				print("TestModeHandler: PhaseManager already has phase instance")
+
 			# Wait for game scene to load and verify phase initialization
 			await get_tree().create_timer(3.0).timeout  # Increased wait time for scene load
+
+			# Wait for GameState singleton to be ready before checking phase
+			var max_gs_retries = 20
+			var gs_retry_count = 0
+			while gs_retry_count < max_gs_retries:
+				var gs = _gs()
+				if gs and gs.has_method("get_current_phase"):
+					print("TestModeHandler: GameState singleton is ready")
+					break
+				print("TestModeHandler: Waiting for GameState singleton (attempt %d/%d)" % [gs_retry_count+1, max_gs_retries])
+				await get_tree().process_frame
+				gs_retry_count += 1
+
+			if gs_retry_count >= max_gs_retries:
+				push_error("TestModeHandler: GameState singleton failed to initialize after %d attempts" % max_gs_retries)
+				return
 
 			# Verify phase initialization with retry logic
 			var max_retries = 10
 			var retry_count = 0
 			while retry_count < max_retries:
-				var current_phase = GameState.get_current_phase()
+				var current_phase = _gs().get_current_phase()
 				if current_phase == GameStateData.Phase.DEPLOYMENT:
 					print("TestModeHandler: Game successfully in Deployment phase")
+
+					# IMPORTANT: Ensure PhaseManager has a phase instance
+					var phase_mgr_check = get_node_or_null("/root/PhaseManager")
+					if phase_mgr_check and not phase_mgr_check.current_phase_instance:
+						print("TestModeHandler: PhaseManager has no instance - initializing deployment phase")
+						phase_mgr_check.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+						await get_tree().process_frame  # Let the phase initialize
+					elif phase_mgr_check and phase_mgr_check.current_phase_instance:
+						print("TestModeHandler: PhaseManager already has phase instance")
+
 					break
 
 				print("TestModeHandler: Waiting for Deployment phase (attempt %d/%d) - current phase: %d" % [retry_count+1, max_retries, current_phase])
@@ -230,7 +292,8 @@ func _auto_load_save(save_path: String):
 	print("TestModeHandler: Auto-loading save: ", save_path)
 
 	# Trigger save load through SaveLoadManager
-	if SaveLoadManager:
+	var save_manager = get_node_or_null("/root/SaveLoadManager")
+	if save_manager:
 		# Add file extension if not present
 		if not save_path.ends_with(".w40ksave"):
 			save_path = save_path + ".w40ksave"
@@ -241,11 +304,13 @@ func _auto_load_save(save_path: String):
 			save_path = "tests/saves/" + save_path
 			print("TestModeHandler: Loading test save from: ", save_path)
 
-		if SaveLoadManager.has_method("load_game"):
-			SaveLoadManager.load_game(save_path)
+		if save_manager.has_method("load_game"):
+			save_manager.load_game(save_path)
 			print("TestModeHandler: Called SaveLoadManager.load_game(%s)" % save_path)
 		else:
 			print("TestModeHandler: SaveLoadManager doesn't have load_game method")
+	else:
+		print("TestModeHandler: SaveLoadManager not available; skipping auto-load")
 
 func _wait_for_peer_connection() -> void:
 	# Wait for NetworkManager to signal that a peer has connected
@@ -281,30 +346,17 @@ func get_test_port() -> int:
 # ============================================================================
 
 func _setup_command_directories():
-	# Setup directory paths
-	_command_dir = OS.get_user_data_dir() + "/test_commands/commands/"
-	_result_dir = OS.get_user_data_dir() + "/test_commands/results/"
-
-	var base_dir = OS.get_user_data_dir() + "/test_commands"
-
-	# Create directories if they don't exist
-	var dir = DirAccess.open(OS.get_user_data_dir())
-	if not dir:
-		push_error("TestModeHandler: Failed to open user data dir")
+	var root = DirAccess.open("res://")
+	if not root:
+		push_error("TestModeHandler: Failed to open project root")
 		return
 
-	if not dir.dir_exists("test_commands"):
-		dir.make_dir("test_commands")
+	root.make_dir_recursive(COMMANDS_SUBDIR)
+	root.make_dir_recursive(RESULTS_SUBDIR)
 
-	dir = DirAccess.open(base_dir)
-	if not dir:
-		push_error("TestModeHandler: Failed to open test_commands dir")
-		return
-
-	if not dir.dir_exists("commands"):
-		dir.make_dir("commands")
-	if not dir.dir_exists("results"):
-		dir.make_dir("results")
+	_command_dir = ProjectSettings.globalize_path("res://" + COMMANDS_SUBDIR)
+	_result_dir = ProjectSettings.globalize_path("res://" + RESULTS_SUBDIR)
+	_command_dir_res = "res://" + COMMANDS_SUBDIR  # Set the res:// path for checking
 
 	print("TestModeHandler: Command directories ready")
 	print("  Commands: ", _command_dir)
@@ -320,8 +372,9 @@ func _process(delta: float):
 		_check_for_commands()
 
 func _check_for_commands():
-	var dir = DirAccess.open(_command_dir)
+	var dir = DirAccess.open(_command_dir_res)
 	if not dir:
+		print("TestModeHandler: Command directory not accessible: ", _command_dir_res)
 		return
 
 	dir.list_dir_begin()
@@ -329,13 +382,14 @@ func _check_for_commands():
 
 	while file_name != "":
 		if file_name.ends_with(".json") and not file_name.begins_with("."):
+			print("TestModeHandler: Processing command file ", file_name)
 			_execute_command_file(file_name)
 		file_name = dir.get_next()
 
 	dir.list_dir_end()
 
 func _execute_command_file(file_name: String):
-	var file_path = _command_dir + file_name
+	var file_path = _command_dir + "/" + file_name
 	var file = FileAccess.open(file_path, FileAccess.READ)
 
 	if not file:
@@ -401,7 +455,7 @@ func _execute_command(command: Dictionary) -> Dictionary:
 
 func _write_result(command_file: String, sequence: int, result: Dictionary, execution_time: int):
 	var result_file_name = command_file.replace(".json", "_result.json")
-	var result_path = _result_dir + result_file_name
+	var result_path = _result_dir + "/" + result_file_name
 
 	var result_data = {
 		"version": "1.0",
@@ -496,8 +550,8 @@ func _handle_load_save(params: Dictionary) -> Dictionary:
 	await get_tree().create_timer(0.5).timeout
 
 	# Verify units were loaded
-	var game_state = get_node_or_null("/root/GameState")
-	if game_state and game_state.state.has("units"):
+	var game_state = _gs()
+	if game_state and game_state.state and game_state.state.has("units"):
 		var unit_count = game_state.state.units.size()
 		var unit_ids = game_state.state.units.keys()
 		print("TestModeHandler: Save loaded, %d units found" % unit_count)
@@ -549,10 +603,10 @@ func _handle_deploy_unit(params: Dictionary) -> Dictionary:
 		}
 
 	# Check if we're in deployment phase (via GameState)
-	var game_state = get_node_or_null("/root/GameState")
-	if game_state:
+	var game_state = _gs()
+	if game_state and game_state.has_method("get_current_phase"):
 		var current_phase = game_state.get_current_phase()
-		if current_phase != game_state.Phase.DEPLOYMENT:
+		if current_phase != GameStateData.Phase.DEPLOYMENT:
 			return {
 				"success": false,
 				"message": "Not in deployment phase (current: %s)" % current_phase,
@@ -665,27 +719,27 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 		}
 
 	# Get phase information from GameState
-	var game_state = get_node_or_null("/root/GameState")
+	var game_state = _gs()
 	var phase_name = "Unknown"
-	if game_state:
+	if game_state and game_state.has_method("get_current_phase"):
 		var current_phase = game_state.get_current_phase()
 		# Convert enum to string
 		match current_phase:
-			game_state.Phase.DEPLOYMENT:
+			GameStateData.Phase.DEPLOYMENT:
 				phase_name = "Deployment"
-			game_state.Phase.COMMAND:
+			GameStateData.Phase.COMMAND:
 				phase_name = "Command"
-			game_state.Phase.MOVEMENT:
+			GameStateData.Phase.MOVEMENT:
 				phase_name = "Movement"
-			game_state.Phase.SHOOTING:
+			GameStateData.Phase.SHOOTING:
 				phase_name = "Shooting"
-			game_state.Phase.CHARGE:
+			GameStateData.Phase.CHARGE:
 				phase_name = "Charge"
-			game_state.Phase.FIGHT:
+			GameStateData.Phase.FIGHT:
 				phase_name = "Fight"
-			game_state.Phase.SCORING:
+			GameStateData.Phase.SCORING:
 				phase_name = "Scoring"
-			game_state.Phase.MORALE:
+			GameStateData.Phase.MORALE:
 				phase_name = "Morale"
 
 	# Collect game state information
@@ -703,10 +757,9 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 		state_data["player_turn"]
 	])
 
-	# Try to get unit information
-	if game_manager.has_method("get_all_units"):
-		var units = game_manager.get_all_units()
-		state_data["units"] = units
+	# Try to get unit information from GameState directly
+	if game_state and game_state.state.has("units"):
+		state_data["units"] = game_state.state.get("units", {})
 
 	return {
 		"success": true,
@@ -717,7 +770,7 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 func _handle_get_available_units(params: Dictionary) -> Dictionary:
 	print("TestModeHandler: Handling get_available_units action")
 
-	var game_state = get_node_or_null("/root/GameState")
+	var game_state = _gs()
 	if not game_state:
 		return {
 			"success": false,
@@ -767,16 +820,14 @@ func _handle_capture_screenshot(params: Dictionary) -> Dictionary:
 	print("TestModeHandler: Handling capture_screenshot action")
 
 	var filename = params.get("filename", "screenshot_%s.png" % Time.get_ticks_msec())
-	var artifacts_dir = OS.get_user_data_dir() + "/test_artifacts/screenshots/"
+	var artifacts_dir = ProjectSettings.globalize_path("res://" + TEST_ARTIFACTS_SUBDIR) + "/screenshots"
 
 	# Ensure directory exists
-	var dir = DirAccess.open(OS.get_user_data_dir())
-	if not dir.dir_exists("test_artifacts"):
-		dir.make_dir("test_artifacts")
-	if not dir.dir_exists("test_artifacts/screenshots"):
-		dir.make_dir("test_artifacts/screenshots")
+	var dir = DirAccess.open("res://")
+	if dir:
+		dir.make_dir_recursive(TEST_ARTIFACTS_SUBDIR + "/screenshots")
 
-	var full_path = artifacts_dir + filename
+	var full_path = artifacts_dir + "/" + filename
 
 	# Capture screenshot
 	var viewport = get_tree().root.get_viewport()
@@ -811,12 +862,9 @@ func _handle_save_game_state(params: Dictionary) -> Dictionary:
 		}
 
 	# Ensure test artifacts directory exists
-	var user_data_dir = OS.get_user_data_dir()
-	var dir = DirAccess.open(user_data_dir)
-	if not dir.dir_exists("test_artifacts"):
-		dir.make_dir("test_artifacts")
-	if not dir.dir_exists("test_artifacts/saves"):
-		dir.make_dir("test_artifacts/saves")
+	var dir = DirAccess.open("res://")
+	if dir:
+		dir.make_dir_recursive(TEST_SAVES_SUBDIR)
 
 	# Save the game state
 	var success = save_load_manager.save_game(save_name)

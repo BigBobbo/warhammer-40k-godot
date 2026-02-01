@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Test melee dice display format and functionality
 # Tests the fixes from GitHub Issue #32

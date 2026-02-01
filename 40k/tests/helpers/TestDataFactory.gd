@@ -1,6 +1,9 @@
 extends RefCounted
 class_name TestDataFactory
 
+const GameStateData = preload("res://autoloads/GameState.gd")
+
+
 # Factory class for generating consistent test data
 # Provides standardized game states, units, and scenarios for testing
 

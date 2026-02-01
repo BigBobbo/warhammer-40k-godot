@@ -1,4 +1,6 @@
 extends Node2D
+const BaseShape = preload("res://scripts/bases/BaseShape.gd")
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
 
 var owner_player: int = 1
 var is_valid_position: bool = true

@@ -1,9 +1,9 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+class_name BenchmarkEnhancedLoS
 
 # Performance benchmarks for Enhanced Line of Sight
 # Compares enhanced vs legacy performance and validates performance targets
 
-class_name BenchmarkEnhancedLoS
 
 var test_board: Dictionary
 var benchmark_iterations: int = 100

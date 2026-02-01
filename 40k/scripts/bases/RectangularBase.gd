@@ -1,6 +1,10 @@
 extends BaseShape
 class_name RectangularBase
 
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+
+
 # Rectangular base implementation
 # Used for vehicles like the Ork Battlewagon
 

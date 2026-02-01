@@ -1,6 +1,9 @@
 extends BasePhase
 class_name FightPhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # FightPhase - Full implementation for the Fight phase following 10e rules
 # Supports fight sequencing, pile in, attack resolution, and consolidation
 

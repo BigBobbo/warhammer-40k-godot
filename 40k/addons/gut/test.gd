@@ -9,6 +9,7 @@ signal test_failed(test_name, reason)
 
 var _test_results = []
 var _current_test = ""
+var _autofree_nodes: Array = []
 
 # GUT compatibility: self-reference for test registry
 var gut:
@@ -122,6 +123,17 @@ func wait_for_signal(signal_obj, timeout = 2.0):
 	timer.queue_free()
 	return result
 
+func add_child_autofree(node):
+	if node != null:
+		_autofree_nodes.append(node)
+	return node
+
+func _post_test_cleanup():
+	for node in _autofree_nodes:
+		if node is Node and is_instance_valid(node):
+			node.queue_free()
+	_autofree_nodes.clear()
+
 # Input processing wait
 func await_input_processed():
 	await get_tree().process_frame
@@ -136,64 +148,29 @@ func _assert(condition, message):
 		emit_signal("test_failed", _current_test, message)
 		print("ASSERTION FAILED: " + _current_test + " - " + message)
 
-# Scene Runner class for UI testing
+# Scene Runner class for loading test scenes
+# NOTE: Mouse simulation methods were removed because Godot's DisplayServer
+# cannot be mocked - get_viewport().get_mouse_position() always returns the
+# real mouse position, not simulated positions. UI interactions should be
+# tested manually or by calling game functions directly.
 class SceneRunner:
 	var scene_instance
 	var scene_path: String
-	
+
 	func _init(path: String = ""):
 		if path != "":
 			load_scene(path)
-	
+
 	func load_scene(path: String):
 		scene_path = path
 		var scene_resource = load(path)
 		scene_instance = scene_resource.instantiate()
 		Engine.get_main_loop().current_scene.add_child(scene_instance)
-	
+
 	func get_scene():
 		return scene_instance
-	
+
 	func clear_scene():
 		if scene_instance:
 			scene_instance.queue_free()
 			scene_instance = null
-	
-	# Mouse simulation methods
-	func set_mouse_position(pos: Vector2):
-		# Simple mouse position setting without viewport dependency
-		pass
-	
-	func simulate_mouse_button_pressed(button: MouseButton):
-		var event = InputEventMouseButton.new()
-		event.button_index = button
-		event.pressed = true
-		event.position = Vector2.ZERO
-		Input.parse_input_event(event)
-		
-		# Also send release event
-		event = InputEventMouseButton.new()
-		event.button_index = button
-		event.pressed = false
-		event.position = Vector2.ZERO
-		Input.parse_input_event(event)
-	
-	func simulate_mouse_button_press(button: MouseButton):
-		var event = InputEventMouseButton.new()
-		event.button_index = button
-		event.pressed = true
-		event.position = Vector2.ZERO
-		Input.parse_input_event(event)
-	
-	func simulate_mouse_button_release(button: MouseButton):
-		var event = InputEventMouseButton.new()
-		event.button_index = button
-		event.pressed = false
-		event.position = Vector2.ZERO
-		Input.parse_input_event(event)
-	
-	func simulate_action_input(action: String):
-		var event = InputEventAction.new()
-		event.action = action
-		event.pressed = true
-		Input.parse_input_event(event)

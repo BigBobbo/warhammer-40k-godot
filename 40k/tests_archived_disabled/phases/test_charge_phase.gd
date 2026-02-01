@@ -1,4 +1,6 @@
 extends BasePhaseTest
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ChargePhase GUT Tests - Validates the Charge Phase implementation 
 # Tests charge declarations, charge rolls, overwatch, and charge movement

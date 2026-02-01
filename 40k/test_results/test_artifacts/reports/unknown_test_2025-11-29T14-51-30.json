@@ -1,0 +1,332 @@
+{
+	"client_connected": true,
+	"configuration": {
+		"capture_screenshots_on_failure": true,
+		"capture_screenshots_on_success": false,
+		"save_state_on_completion": true,
+		"use_dynamic_ports": true,
+		"visual_debugging": true
+	},
+	"failure_message": "",
+	"final_game_state": {
+		"current_phase": "Deployment",
+		"current_turn": 0.0,
+		"player_turn": 0.0,
+		"units": {
+			"U_BOYZ_A": {
+				"id": "U_BOYZ_A",
+				"meta": {
+					"keywords": [
+						"INFANTRY",
+						"MOB",
+						"ORKS"
+					],
+					"name": "Boyz",
+					"stats": {
+						"move": 6.0,
+						"save": 6.0,
+						"toughness": 5.0
+					}
+				},
+				"models": [
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m1",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m2",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m3",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m4",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m5",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m6",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m7",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m8",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m9",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 1.0,
+						"id": "m10",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					}
+				],
+				"owner": 2.0,
+				"squad_id": "U_BOYZ_A",
+				"status": 0.0
+			},
+			"U_GRETCHIN_A": {
+				"id": "U_GRETCHIN_A",
+				"meta": {
+					"keywords": [
+						"INFANTRY",
+						"GROTS",
+						"ORKS"
+					],
+					"name": "Gretchin",
+					"stats": {
+						"move": 5.0,
+						"save": 7.0,
+						"toughness": 3.0
+					}
+				},
+				"models": [
+					{
+						"alive": true,
+						"base_mm": 25.0,
+						"current_wounds": 1.0,
+						"id": "m1",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 25.0,
+						"current_wounds": 1.0,
+						"id": "m2",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 25.0,
+						"current_wounds": 1.0,
+						"id": "m3",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 25.0,
+						"current_wounds": 1.0,
+						"id": "m4",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					},
+					{
+						"alive": true,
+						"base_mm": 25.0,
+						"current_wounds": 1.0,
+						"id": "m5",
+						"position": null,
+						"status_effects": [],
+						"wounds": 1.0
+					}
+				],
+				"owner": 2.0,
+				"squad_id": "U_GRETCHIN_A",
+				"status": 0.0
+			},
+			"U_INTERCESSORS_A": {
+				"id": "U_INTERCESSORS_A",
+				"meta": {
+					"keywords": [
+						"INFANTRY",
+						"PRIMARIS",
+						"IMPERIUM",
+						"ADEPTUS ASTARTES"
+					],
+					"name": "Intercessor Squad",
+					"stats": {
+						"move": 6.0,
+						"save": 3.0,
+						"toughness": 4.0
+					}
+				},
+				"models": [
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m1",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m2",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m3",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m4",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m5",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					}
+				],
+				"owner": 1.0,
+				"squad_id": "U_INTERCESSORS_A",
+				"status": 0.0
+			},
+			"U_TACTICAL_A": {
+				"id": "U_TACTICAL_A",
+				"meta": {
+					"keywords": [
+						"INFANTRY",
+						"IMPERIUM",
+						"ADEPTUS ASTARTES"
+					],
+					"name": "Tactical Squad",
+					"stats": {
+						"move": 6.0,
+						"save": 3.0,
+						"toughness": 4.0
+					}
+				},
+				"models": [
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m1",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m2",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m3",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m4",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					},
+					{
+						"alive": true,
+						"base_mm": 32.0,
+						"current_wounds": 2.0,
+						"id": "m5",
+						"position": null,
+						"status_effects": [],
+						"wounds": 2.0
+					}
+				],
+				"owner": 1.0,
+				"squad_id": "U_TACTICAL_A",
+				"status": 0.0
+			}
+		}
+	},
+	"host_connected": true,
+	"status": "PASSED",
+	"test_name": "",
+	"timestamp": "2025-11-29T14-51-30"
+}

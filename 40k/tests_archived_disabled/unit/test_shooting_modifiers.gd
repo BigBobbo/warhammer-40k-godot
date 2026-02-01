@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Test shooting modifiers (Phase 1 MVP)
 # Tests for RulesEngine.apply_hit_modifiers() and modifier application

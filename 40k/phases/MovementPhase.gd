@@ -1,6 +1,9 @@
 extends BasePhase
 class_name MovementPhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # MovementPhase - Full implementation of the Movement phase following 10e rules
 # Supports: Normal Move, Advance, Fall Back, Remain Stationary
 
@@ -815,9 +818,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
+		# ASSAULT RULES: Set the 'advanced' flag for Shooting phase to check
+		# Units that Advanced can shoot with Assault weapons only
 		changes.append({
 			"op": "set",
-			"path": "units.%s.flags.cannot_shoot" % unit_id,
+			"path": "units.%s.flags.advanced" % unit_id,
 			"value": true
 		})
 		changes.append({
@@ -826,6 +831,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"value": true
 		})
 	elif move_data.mode == "FALL_BACK":
+		# Set fell_back flag - units that Fell Back cannot shoot or charge
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.fell_back" % unit_id,
+			"value": true
+		})
 		changes.append({
 			"op": "set",
 			"path": "units.%s.flags.cannot_shoot" % unit_id,

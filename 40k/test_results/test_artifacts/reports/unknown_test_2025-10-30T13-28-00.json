@@ -1,0 +1,15 @@
+{
+	"client_connected": true,
+	"configuration": {
+		"capture_screenshots_on_failure": true,
+		"capture_screenshots_on_success": false,
+		"save_state_on_completion": true,
+		"use_dynamic_ports": true,
+		"visual_debugging": true
+	},
+	"failure_message": "Connection timeout - client did not connect to host within 15 seconds",
+	"host_connected": true,
+	"status": "FAILED",
+	"test_name": "",
+	"timestamp": "2025-10-30T13-28-00"
+}

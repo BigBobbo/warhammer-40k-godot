@@ -1,5 +1,8 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 class_name BasePhaseTest
+
+const BasePhase = preload("res://phases/BasePhase.gd")
+
 
 # Base class for phase testing
 # Provides common utilities for testing all phases

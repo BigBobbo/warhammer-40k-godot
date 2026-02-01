@@ -1,6 +1,9 @@
 extends BasePhase
 class_name ShootingPhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # ShootingPhase - Full implementation of the Shooting phase following 10e rules
 # Supports: Target selection, weapon assignment, attack resolution, damage allocation
 
@@ -1019,11 +1022,22 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
 		return false
 
-	# Check restriction flags
-	if flags.get("cannot_shoot", false):
+	# Check if unit has already shot
+	if flags.get("has_shot", false):
 		return false
 
-	if flags.get("has_shot", false):
+	# ASSAULT RULES: Units that Advanced can shoot with Assault weapons ONLY
+	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
+	if flags.get("advanced", false):
+		# Unit advanced - can only shoot if it has Assault weapons
+		return _unit_has_assault_weapons(unit)
+
+	# Units that Fell Back cannot shoot (unless special rules)
+	if flags.get("fell_back", false):
+		return false
+
+	# Check other restriction flags (but skip for advanced units handled above)
+	if flags.get("cannot_shoot", false):
 		return false
 
 	# Check if this is a transport with firing deck capability
@@ -1036,8 +1050,18 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 				if embarked and not embarked.get("flags", {}).get("has_shot", false):
 					return true  # Transport can use firing deck
 
-	# Check if unit is in engagement range (MVP: units in engagement cannot shoot)
+	# Check if unit is in engagement range - units in engagement can ONLY shoot with Pistols (10e rules)
+	# EXCEPTION: Big Guns Never Tire - Monsters/Vehicles can shoot with any weapon at -1 to hit
 	if flags.get("in_engagement", false):
+		# Check for Pistol weapons (any unit can shoot Pistols in engagement)
+		if _unit_has_pistol_weapons(unit):
+			return true
+
+		# Check for Big Guns Never Tire (Monsters/Vehicles can shoot any weapon)
+		if RulesEngine.is_monster_or_vehicle(unit):
+			return true
+
+		# No valid shooting options while in engagement
 		return false
 	
 	# Check if unit has any alive models
@@ -1048,6 +1072,38 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 			break
 	
 	return has_alive
+
+func _unit_has_pistol_weapons(unit: Dictionary) -> bool:
+	"""Check if unit has any Pistol weapons (used for engagement range shooting)"""
+	# Find the unit_id by searching through game state units
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		if units[unit_id] == unit:
+			return RulesEngine.unit_has_pistol_weapons(unit_id, game_state_snapshot)
+
+	# Fallback: search by matching models array reference
+	for unit_id in units:
+		var u = units[unit_id]
+		if u.get("models", []) == unit.get("models", []):
+			return RulesEngine.unit_has_pistol_weapons(unit_id, game_state_snapshot)
+
+	return false
+
+func _unit_has_assault_weapons(unit: Dictionary) -> bool:
+	"""Check if unit has any Assault weapons (used for shooting after Advancing)"""
+	# Find the unit_id by searching through game state units
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		if units[unit_id] == unit:
+			return RulesEngine.unit_has_assault_weapons(unit_id, game_state_snapshot)
+
+	# Fallback: search by matching models array reference
+	for unit_id in units:
+		var u = units[unit_id]
+		if u.get("models", []) == unit.get("models", []):
+			return RulesEngine.unit_has_assault_weapons(unit_id, game_state_snapshot)
+
+	return false
 
 func _get_last_weapon_result() -> Dictionary:
 	"""Build complete result summary for last weapon"""
@@ -1464,6 +1520,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 					"model_destroyed": alloc.get("model_destroyed", false)
 				})
 			print("║ Converted %d allocation entries to save_results" % save_results.size())
+
+		# DEVASTATING WOUNDS (PRP-012): Get devastating damage from save_result_summary
+		var devastating_damage = save_result_summary.get("devastating_damage", 0)
+		if devastating_damage > 0:
+			print("║ DEVASTATING WOUNDS: %d damage to apply (unsaveable)" % devastating_damage)
+			# Update save_data with devastating damage for apply_save_damage
+			save_data["devastating_damage"] = devastating_damage
 
 		# Apply damage using RulesEngine
 		var damage_result = RulesEngine.apply_save_damage(

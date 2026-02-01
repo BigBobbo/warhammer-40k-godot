@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Integration test for complete melee combat flow
 # Tests the fixes from GitHub Issue #32 in a full combat scenario

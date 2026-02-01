@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Integration tests for army loading functionality
 # Tests the full pipeline from JSON files to game state

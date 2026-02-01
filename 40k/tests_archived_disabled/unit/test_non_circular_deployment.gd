@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for non-circular base deployment validation
 # Tests oval and rectangular base handling

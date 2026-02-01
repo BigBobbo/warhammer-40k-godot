@@ -1,15 +1,23 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
+const FightPhase = preload("res://phases/FightPhase.gd")
 
 var fight_phase: FightPhase
 var game_manager: Node
 var test_state: Dictionary
+var _game_state
 
 func before_each():
 	fight_phase = FightPhase.new()
 	add_child_autofree(fight_phase)
 
+	_game_state = Engine.get_singleton("GameState")
+	if _game_state == null:
+		push_error("GameState singleton unavailable")
+		return
+
 	# Set up GameState mock
-	GameState.state = {
+	_game_state.state = {
 		"meta": {
 			"active_player": 1,
 			"turn": 1,
@@ -29,7 +37,7 @@ func test_defending_player_selects_first():
 	test_state = _create_scenario_both_players_have_charged_units()
 
 	# Active player is 1
-	GameState.state["meta"]["active_player"] = 1
+	_game_state.state["meta"]["active_player"] = 1
 
 	fight_phase.enter_phase(test_state)
 
@@ -41,7 +49,7 @@ func test_players_alternate_after_each_activation():
 	"""Verify players alternate after each unit completes fighting"""
 	test_state = _create_scenario_multiple_units_per_player()
 
-	GameState.state["meta"]["active_player"] = 1
+	_game_state.state["meta"]["active_player"] = 1
 	fight_phase.enter_phase(test_state)
 
 	# Player 2 selects first
@@ -76,7 +84,7 @@ func test_one_player_continues_when_opponent_has_no_units():
 	"""Verify when one player has no eligible units, other continues selecting"""
 	test_state = _create_scenario_only_player_1_has_units()
 
-	GameState.state["meta"]["active_player"] = 1
+	_game_state.state["meta"]["active_player"] = 1
 	fight_phase.enter_phase(test_state)
 
 	# Player 2 (defender) should try to select first, but has no units
@@ -109,7 +117,7 @@ func test_subphase_transition_resets_to_defending_player():
 	"""Verify Remaining Combats subphase starts with defending player again"""
 	test_state = _create_scenario_fights_first_then_normal()
 
-	GameState.state["meta"]["active_player"] = 1
+	_game_state.state["meta"]["active_player"] = 1
 	fight_phase.enter_phase(test_state)
 
 	# Complete all Fights First activations
@@ -126,7 +134,7 @@ func test_wrong_player_cannot_select():
 	"""Verify only current selecting player can select units"""
 	test_state = _create_scenario_both_players_have_charged_units()
 
-	GameState.state["meta"]["active_player"] = 1
+	_game_state.state["meta"]["active_player"] = 1
 	fight_phase.enter_phase(test_state)
 
 	# Player 2 should select first

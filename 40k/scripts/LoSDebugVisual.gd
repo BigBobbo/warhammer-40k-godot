@@ -1,6 +1,11 @@
 extends Node2D
 class_name LoSDebugVisual
 
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+
+
 # LoSDebugVisual - Visual debugging for Line of Sight mechanics
 # Shows LoS lines and highlights terrain that blocks or provides cover
 

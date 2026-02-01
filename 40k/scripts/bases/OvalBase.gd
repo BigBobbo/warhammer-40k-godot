@@ -1,6 +1,10 @@
 extends BaseShape
 class_name OvalBase
 
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+
+
 # Oval/Ellipse base implementation
 # Used for vehicles like the Caladius Grav-tank
 

@@ -1,4 +1,5 @@
 extends PanelContainer
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Header references
 @onready var toggle_button: Button = $VBox/Header/ToggleButton

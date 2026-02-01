@@ -1,4 +1,5 @@
 extends BasePhaseTest
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # MovementPhase GUT Tests - Validates the Movement Phase implementation
 # Converted from original MovementPhaseTest.gd to use GUT framework

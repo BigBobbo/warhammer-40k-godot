@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for Mathhammer core simulation engine
 # Validates Monte Carlo simulation, RulesEngine integration, and statistical accuracy

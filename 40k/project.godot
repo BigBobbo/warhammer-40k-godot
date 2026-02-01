@@ -8,11 +8,15 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="40k"
 run/main_scene="res://scenes/MainMenu.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -40,6 +44,7 @@ MissionManager="*res://autoloads/MissionManager.gd"
 MeasuringTapeManager="*res://autoloads/MeasuringTapeManager.gd"
 LineOfSightManager="*res://autoloads/LineOfSightManager.gd"
 TransportManager="*res://autoloads/TransportManager.gd"
+TransportFactory="*res://autoloads/TransportFactory.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
 
 [display]
@@ -50,6 +55,355 @@ window/size/viewport_height=1024
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
+[global_script_class_icons]
+
+global_script_class_icon_1=""
+global_script_class_icon_2=""
+global_script_class_icon_3=""
+global_script_class_icon_4=""
+global_script_class_icon_5=""
+global_script_class_icon_6=""
+global_script_class_icon_7=""
+global_script_class_icon_8=""
+global_script_class_icon_9=""
+global_script_class_icon_10=""
+global_script_class_icon_11=""
+global_script_class_icon_12=""
+global_script_class_icon_13=""
+global_script_class_icon_14=""
+global_script_class_icon_15=""
+global_script_class_icon_16=""
+global_script_class_icon_17=""
+global_script_class_icon_18=""
+global_script_class_icon_19=""
+global_script_class_icon_20=""
+global_script_class_icon_21=""
+global_script_class_icon_22=""
+global_script_class_icon_23=""
+global_script_class_icon_24=""
+global_script_class_icon_25=""
+global_script_class_icon_26=""
+global_script_class_icon_27=""
+global_script_class_icon_28=""
+global_script_class_icon_29=""
+global_script_class_icon_30=""
+global_script_class_icon_31=""
+global_script_class_icon_32=""
+global_script_class_icon_33=""
+global_script_class_icon_34=""
+global_script_class_icon_35=""
+global_script_class_icon_36=""
+global_script_class_icon_37=""
+global_script_class_icon_38=""
+global_script_class_icon_39=""
+global_script_class_icon_40=""
+global_script_class_icon_41=""
+global_script_class_icon_42=""
+global_script_class_icon_43=""
+global_script_class_icon_44=""
+global_script_class_icon_45=""
+global_script_class_icon_46=""
+global_script_class_icon_47=""
+global_script_class_icon_48=""
+global_script_class_icon_49=""
+
+[global_script_classes]
+
+global_script_class_1={
+"base": "AcceptDialog",
+"class": "AttackAssignmentDialog",
+"language": "GDScript",
+"path": "res://dialogs/AttackAssignmentDialog.gd"
+}
+global_script_class_2={
+"base": "RefCounted",
+"class": "AutoloadHelper",
+"language": "GDScript",
+"path": "res://tests/helpers/AutoloadHelper.gd"
+}
+global_script_class_3={
+"base": "Node",
+"class": "BasePhase",
+"language": "GDScript",
+"path": "res://phases/BasePhase.gd"
+}
+global_script_class_4={
+"base": "GutTest",
+"class": "BasePhaseTest",
+"language": "GDScript",
+"path": "res://tests/helpers/BasePhaseTest.gd"
+}
+global_script_class_5={
+"base": "Resource",
+"class": "BaseShape",
+"language": "GDScript",
+"path": "res://scripts/bases/BaseShape.gd"
+}
+global_script_class_6={
+"base": "GutTest",
+"class": "BaseUITest",
+"language": "GDScript",
+"path": "res://tests/helpers/BaseUITest.gd"
+}
+global_script_class_7={
+"base": "GutTest",
+"class": "BenchmarkEnhancedLoS",
+"language": "GDScript",
+"path": "res://tests_archived_disabled/performance/benchmark_enhanced_los.gd"
+}
+global_script_class_8={
+"base": "Node2D",
+"class": "ChargeController",
+"language": "GDScript",
+"path": "res://scripts/ChargeController.gd"
+}
+global_script_class_9={
+"base": "BasePhase",
+"class": "ChargePhase",
+"language": "GDScript",
+"path": "res://phases/ChargePhase.gd"
+}
+global_script_class_10={
+"base": "Node2D",
+"class": "CircleShape",
+"language": "GDScript",
+"path": "res://scripts/CircleShape.gd"
+}
+global_script_class_11={
+"base": "BaseShape",
+"class": "CircularBase",
+"language": "GDScript",
+"path": "res://scripts/bases/CircularBase.gd"
+}
+global_script_class_12={
+"base": "Node2D",
+"class": "CommandController",
+"language": "GDScript",
+"path": "res://scripts/CommandController.gd"
+}
+global_script_class_13={
+"base": "BasePhase",
+"class": "CommandPhase",
+"language": "GDScript",
+"path": "res://phases/CommandPhase.gd"
+}
+global_script_class_14={
+"base": "AcceptDialog",
+"class": "ConsolidateDialog",
+"language": "GDScript",
+"path": "res://dialogs/ConsolidateDialog.gd"
+}
+global_script_class_15={
+"base": "BasePhase",
+"class": "DeploymentPhase",
+"language": "GDScript",
+"path": "res://phases/DeploymentPhase.gd"
+}
+global_script_class_16={
+"base": "Node2D",
+"class": "FightController",
+"language": "GDScript",
+"path": "res://scripts/FightController.gd"
+}
+global_script_class_17={
+"base": "BasePhase",
+"class": "FightPhase",
+"language": "GDScript",
+"path": "res://phases/FightPhase.gd"
+}
+global_script_class_18={
+"base": "AcceptDialog",
+"class": "FightSelectionDialog",
+"language": "GDScript",
+"path": "res://dialogs/FightSelectionDialog.gd"
+}
+global_script_class_19={
+"base": "RefCounted",
+"class": "GameInstance",
+"language": "GDScript",
+"path": "res://tests/helpers/GameInstance.gd"
+}
+global_script_class_20={
+"base": "Node",
+"class": "GameStateData",
+"language": "GDScript",
+"path": "res://autoloads/GameState.gd"
+}
+global_script_class_21={
+"base": "Node",
+"class": "GutTest",
+"language": "GDScript",
+"path": "res://addons/gut/test.gd"
+}
+global_script_class_22={
+"base": "Resource",
+"class": "LineOfSightCalculator",
+"language": "GDScript",
+"path": "res://scripts/LineOfSightCalculator.gd"
+}
+global_script_class_23={
+"base": "Node2D",
+"class": "LoSDebugVisual",
+"language": "GDScript",
+"path": "res://scripts/LoSDebugVisual.gd"
+}
+global_script_class_24={
+"base": "RefCounted",
+"class": "LogMonitor",
+"language": "GDScript",
+"path": "res://tests/helpers/LogMonitor.gd"
+}
+global_script_class_25={
+"base": "RefCounted",
+"class": "Mathhammer",
+"language": "GDScript",
+"path": "res://scripts/Mathhammer.gd"
+}
+global_script_class_26={
+"base": "RefCounted",
+"class": "MathhhammerResults",
+"language": "GDScript",
+"path": "res://scripts/MathhhammerResults.gd"
+}
+global_script_class_27={
+"base": "RefCounted",
+"class": "MathhhammerRuleModifiers",
+"language": "GDScript",
+"path": "res://scripts/MathhhammerRuleModifiers.gd"
+}
+global_script_class_28={
+"base": "PanelContainer",
+"class": "MathhhammerUI",
+"language": "GDScript",
+"path": "res://scripts/MathhhammerUI.gd"
+}
+global_script_class_29={
+"base": "ENetMultiplayerPeer",
+"class": "MockNetworkPeer",
+"language": "GDScript",
+"path": "res://tests/helpers/MockNetworkPeer.gd"
+}
+global_script_class_30={
+"base": "BasePhase",
+"class": "MoralePhase",
+"language": "GDScript",
+"path": "res://phases/MoralePhase.gd"
+}
+global_script_class_31={
+"base": "Node2D",
+"class": "MovementController",
+"language": "GDScript",
+"path": "res://scripts/MovementController.gd"
+}
+global_script_class_32={
+"base": "BasePhase",
+"class": "MovementPhase",
+"language": "GDScript",
+"path": "res://phases/MovementPhase.gd"
+}
+global_script_class_33={
+"base": "GutTest",
+"class": "MultiplayerIntegrationTest",
+"language": "GDScript",
+"path": "res://tests/helpers/MultiplayerIntegrationTest.gd"
+}
+global_script_class_34={
+"base": "Node",
+"class": "NetworkIntegration",
+"language": "GDScript",
+"path": "res://utils/NetworkIntegration.gd"
+}
+global_script_class_35={
+"base": "Node2D",
+"class": "ObjectiveVisual",
+"language": "GDScript",
+"path": "res://scripts/ObjectiveVisual.gd"
+}
+global_script_class_36={
+"base": "BaseShape",
+"class": "OvalBase",
+"language": "GDScript",
+"path": "res://scripts/bases/OvalBase.gd"
+}
+global_script_class_37={
+"base": "AcceptDialog",
+"class": "PileInDialog",
+"language": "GDScript",
+"path": "res://dialogs/PileInDialog.gd"
+}
+global_script_class_38={
+"base": "BaseShape",
+"class": "RectangularBase",
+"language": "GDScript",
+"path": "res://scripts/bases/RectangularBase.gd"
+}
+global_script_class_39={
+"base": "Node2D",
+"class": "ScoringController",
+"language": "GDScript",
+"path": "res://scripts/ScoringController.gd"
+}
+global_script_class_40={
+"base": "BasePhase",
+"class": "ScoringPhase",
+"language": "GDScript",
+"path": "res://phases/ScoringPhase.gd"
+}
+global_script_class_41={
+"base": "Node2D",
+"class": "ShootingController",
+"language": "GDScript",
+"path": "res://scripts/ShootingController.gd"
+}
+global_script_class_42={
+"base": "BasePhase",
+"class": "ShootingPhase",
+"language": "GDScript",
+"path": "res://phases/ShootingPhase.gd"
+}
+global_script_class_43={
+"base": "RefCounted",
+"class": "TestDataFactory",
+"language": "GDScript",
+"path": "res://tests/helpers/TestDataFactory.gd"
+}
+global_script_class_44={
+"base": "GutTest",
+"class": "TestEnhancedLineOfSight",
+"language": "GDScript",
+"path": "res://tests_archived_disabled/unit/test_enhanced_line_of_sight.gd"
+}
+global_script_class_45={
+"base": "GutTest",
+"class": "TestEnhancedVisibilityIntegration",
+"language": "GDScript",
+"path": "res://tests_archived_disabled/integration/test_enhanced_visibility_integration.gd"
+}
+global_script_class_46={
+"base": "GutTest",
+"class": "TestNonCircularLoS",
+"language": "GDScript",
+"path": "res://tests_archived_disabled/unit/test_non_circular_los.gd"
+}
+global_script_class_47={
+"base": "Node2D",
+"class": "WallVisual",
+"language": "GDScript",
+"path": "res://scripts/WallVisual.gd"
+}
+global_script_class_48={
+"base": "Node2D",
+"class": "WoundAllocationBoardHighlights",
+"language": "GDScript",
+"path": "res://scripts/WoundAllocationBoardHighlights.gd"
+}
+global_script_class_49={
+"base": "Control",
+"class": "WoundAllocationOverlay",
+"language": "GDScript",
+"path": "res://scripts/WoundAllocationOverlay.gd"
+}
 
 [input]
 
@@ -78,6 +432,13 @@ quick_load={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194318,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
 ]
 }
+
+[logging]
+
+file_logging/enable_file_logging=false
+file_logging/log_path="res://test_results/godot_cli.log"
+file_logging/max_log_files=1
+file_logging/log_clean_on_run=true
 
 [rendering]
 

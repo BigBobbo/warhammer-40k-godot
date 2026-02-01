@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Integration tests for debug mode functionality
 # Tests end-to-end debug mode behavior including input handling and visual updates

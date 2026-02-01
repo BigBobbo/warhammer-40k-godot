@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # DebugManager - Global manager for debug mode functionality
 # Allows unrestricted model movement from any army without phase constraints

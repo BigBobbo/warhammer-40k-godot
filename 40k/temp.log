@@ -1,0 +1,82 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+TestModeHandler: Args -> []
+ERROR: Condition "ret != noErr" is true. Returning: ""
+   at: get_system_ca_certificates (platform/macos/os_macos.mm:991)
+ERROR: DebugLogger: Failed to open log file: user://logs/debug_20251029_203714.log
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _write_to_file_immediate (res://autoloads/DebugLogger.gd:195)
+       [1] _write_log_header (res://autoloads/DebugLogger.gd:84)
+       [2] _initialize_logger (res://autoloads/DebugLogger.gd:50)
+       [3] _ready (res://autoloads/DebugLogger.gd:35)
+[2025-10-29 20:37:14] [INFO.0000000] DebugLogger initialized - Session: 20251029_203714
+[2025-10-29 20:37:14] [INFO.0000000] Log file: user://logs/debug_20251029_203714.log
+[2025-10-29 20:37:14] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_203714.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-10-29 20:37:14] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251029_203714
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+MainMenu: Initializing main menu
+MainMenu: Loaded 5 armies: ["A C Test", "Adeptus Custodes", "ORK Test", "Orks", "Space Marines"]
+MainMenu: Dropdowns populated with 5 armies
+MainMenu: Multiplayer button visible: true
+MainMenu: Signals connected
+MainMenu: Save/Load dialog setup complete
+MainMenu: Default armies set - Player 1: A C Test, Player 2: ORK Test
+MainMenu: Ready with default selections
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+ERROR: DebugLogger: Failed to open log file: user://logs/debug_20251029_203714.log
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _write_to_file_immediate (res://autoloads/DebugLogger.gd:195)
+       [1] _flush_buffer (res://autoloads/DebugLogger.gd:174)
+       [2] _notification (res://autoloads/DebugLogger.gd:245)
+[2025-10-29 20:37:14] [INFO.0000000] DebugLogger shutting down - Session: 20251029_203714
+ERROR: DebugLogger: Failed to open log file: user://logs/debug_20251029_203714.log
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _write_to_file_immediate (res://autoloads/DebugLogger.gd:195)
+       [1] _notification (res://autoloads/DebugLogger.gd:249)

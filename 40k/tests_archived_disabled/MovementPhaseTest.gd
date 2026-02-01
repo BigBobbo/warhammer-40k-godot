@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # MovementPhaseTest - Validates the Movement Phase implementation
 # Tests all movement types, validation rules, and edge cases

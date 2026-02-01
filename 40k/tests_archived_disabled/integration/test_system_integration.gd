@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # System Integration Tests - Tests interaction between multiple game systems
 # Tests coordination between autoloads, UI, phases, and game logic

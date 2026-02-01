@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # RulesEngine - Central authority for game rules validation and resolution
 # Handles shooting mechanics, dice rolling, damage application following 10e rules
@@ -14,7 +15,7 @@ const WEAPON_PROFILES = {
 		"strength": 4,
 		"ap": 1,
 		"damage": 1,
-		"keywords": []
+		"keywords": ["RAPID FIRE 1"]  # Rapid Fire 1 - +1 attack at half range
 	},
 	"plasma_pistol": {
 		"name": "Plasma Pistol", 
@@ -34,7 +35,7 @@ const WEAPON_PROFILES = {
 		"strength": 4,
 		"ap": 0,
 		"damage": 1,
-		"keywords": ["PISTOL"]
+		"keywords": ["PISTOL", "ASSAULT"]  # Slugga has both keywords in 10e
 	},
 	"grot_blasta": {
 		"name": "Grot Blasta",
@@ -45,6 +46,235 @@ const WEAPON_PROFILES = {
 		"ap": 0,
 		"damage": 1,
 		"keywords": []
+	},
+	"shoota": {
+		"name": "Shoota",
+		"range": 18,
+		"attacks": 2,
+		"bs": 5,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["ASSAULT"]  # Ork shoota has Assault keyword
+	},
+	"heavy_bolter": {
+		"name": "Heavy Bolter",
+		"range": 36,
+		"attacks": 3,
+		"bs": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 2,
+		"keywords": ["HEAVY"]  # Heavy keyword - +1 to hit if stationary
+	},
+	"lascannon": {
+		"name": "Lascannon",
+		"range": 48,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 12,
+		"ap": 3,
+		"damage": 6,
+		"keywords": ["HEAVY"]  # Heavy keyword - +1 to hit if stationary
+	},
+	# TEST WEAPON: Lethal Hits keyword for PRP-010 testing
+	"lethal_bolter": {
+		"name": "Lethal Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["LETHAL HITS"]  # Unmodified 6s to hit auto-wound
+	},
+	# TEST WEAPON: Sustained Hits keyword for PRP-011 testing
+	"sustained_bolter": {
+		"name": "Sustained Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["SUSTAINED HITS 1"]  # +1 hit per critical hit
+	},
+	# TEST WEAPON: Sustained Hits 2 for testing higher values
+	"sustained_2_bolter": {
+		"name": "Sustained Hits 2 Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["SUSTAINED HITS 2"]  # +2 hits per critical hit
+	},
+	# TEST WEAPON: Sustained Hits D3 for testing variable values
+	"sustained_d3_bolter": {
+		"name": "Sustained Hits D3 Bolter (Test)",
+		"range": 24,
+		"attacks": 3,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["SUSTAINED HITS D3"]  # Roll D3 per critical hit
+	},
+	# TEST WEAPON: Both Lethal Hits AND Sustained Hits for interaction testing
+	"lethal_sustained_bolter": {
+		"name": "Lethal + Sustained Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["LETHAL HITS", "SUSTAINED HITS 1"]  # Crits auto-wound AND generate +1 hit
+	},
+	# TEST WEAPON: Devastating Wounds for PRP-012 testing
+	"devastating_bolter": {
+		"name": "Devastating Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 2,  # Higher damage to see DW effect clearly
+		"keywords": ["DEVASTATING WOUNDS"]  # Unmodified 6s to wound bypass saves
+	},
+	# TEST WEAPON: High damage Devastating Wounds (simulates melta/lascannon)
+	"devastating_melta": {
+		"name": "Devastating Melta (Test)",
+		"range": 12,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 9,
+		"ap": 4,
+		"damage": 6,  # High damage like melta
+		"keywords": ["DEVASTATING WOUNDS"]  # 6 unsaveable damage on crit wound
+	},
+	# TEST WEAPON: Lethal Hits + Devastating Wounds combo
+	"lethal_devastating_bolter": {
+		"name": "Lethal + Devastating (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 2,
+		"keywords": ["LETHAL HITS", "DEVASTATING WOUNDS"]  # Crits auto-wound, crit wounds bypass saves
+	},
+	# TEST WEAPON: Blast weapon for PRP-013 testing (frag grenade)
+	"frag_grenade": {
+		"name": "Frag Grenade",
+		"range": 6,
+		"attacks": 1,  # Low base attacks to test minimum 3 rule
+		"bs": 3,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["BLAST"]  # +1 attack per 5 models, min 3 vs 6+ models
+	},
+	# TEST WEAPON: Frag missile for Blast testing (higher damage)
+	"frag_missile": {
+		"name": "Frag Missile",
+		"range": 48,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["BLAST", "HEAVY"]  # Blast + Heavy combo
+	},
+	# TEST WEAPON: Battle cannon for Blast testing (high damage Blast)
+	"battle_cannon": {
+		"name": "Battle Cannon",
+		"range": 48,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 9,
+		"ap": 2,
+		"damage": 3,
+		"keywords": ["BLAST"]  # Large Blast weapon
+	},
+	# TEST WEAPON: Blast + Devastating Wounds combo (e.g., psychic power)
+	"blast_devastating": {
+		"name": "Blast + Devastating (Test)",
+		"range": 18,
+		"attacks": 3,
+		"bs": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 2,
+		"keywords": ["BLAST", "DEVASTATING WOUNDS"]  # Blast + DW combo
+	},
+	# TORRENT WEAPONS (PRP-014) - Automatically hit without hit roll
+	# TEST WEAPON: Basic Flamer for Torrent testing
+	"flamer": {
+		"name": "Flamer",
+		"range": 12,
+		"attacks": 6,  # D6 in real 40k but fixed for testing
+		"bs": 4,  # Irrelevant - Torrent auto-hits
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["TORRENT", "IGNORES COVER"]  # Standard flamer keywords
+	},
+	# TEST WEAPON: Heavy Flamer (Torrent + Heavy)
+	"heavy_flamer": {
+		"name": "Heavy Flamer",
+		"range": 12,
+		"attacks": 6,  # D6 in real 40k but fixed for testing
+		"bs": 4,  # Irrelevant - Torrent auto-hits (Heavy bonus also irrelevant)
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["TORRENT", "HEAVY", "IGNORES COVER"]  # Heavy is irrelevant for Torrent
+	},
+	# TEST WEAPON: Torrent + Lethal Hits (edge case - Lethal Hits should NOT trigger)
+	"torrent_lethal": {
+		"name": "Torrent + Lethal (Test)",
+		"range": 12,
+		"attacks": 6,
+		"bs": 4,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["TORRENT", "LETHAL HITS"]  # Lethal Hits won't trigger (no hit roll)
+	},
+	# TEST WEAPON: Torrent + Sustained Hits (edge case - Sustained Hits should NOT trigger)
+	"torrent_sustained": {
+		"name": "Torrent + Sustained (Test)",
+		"range": 12,
+		"attacks": 6,
+		"bs": 4,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["TORRENT", "SUSTAINED HITS 1"]  # Sustained Hits won't trigger (no hit roll)
+	},
+	# TEST WEAPON: Torrent + Devastating Wounds (DW CAN trigger on wound roll)
+	"torrent_devastating": {
+		"name": "Torrent + DW (Test)",
+		"range": 12,
+		"attacks": 6,
+		"bs": 4,
+		"strength": 4,
+		"ap": 0,
+		"damage": 2,
+		"keywords": ["TORRENT", "DEVASTATING WOUNDS"]  # DW can trigger on wound rolls
+	},
+	# TEST WEAPON: Torrent + Blast (rare combo)
+	"torrent_blast": {
+		"name": "Torrent + Blast (Test)",
+		"range": 12,
+		"attacks": 3,
+		"bs": 4,
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["TORRENT", "BLAST"]  # Blast bonus applies, then all auto-hit
 	}
 }
 
@@ -65,16 +295,16 @@ const UNIT_WEAPONS = {
 		"m5": ["bolt_rifle", "plasma_pistol"]  # Sergeant
 	},
 	"U_BOYZ_A": {
-		"m1": ["slugga"],
-		"m2": ["slugga"],
-		"m3": ["slugga"],
-		"m4": ["slugga"],
-		"m5": ["slugga"],
-		"m6": ["slugga"],
-		"m7": ["slugga"],
-		"m8": ["slugga"],
-		"m9": ["slugga"],
-		"m10": ["slugga"]
+		"m1": ["slugga", "shoota"],  # Boyz have both slugga and shoota
+		"m2": ["slugga", "shoota"],
+		"m3": ["slugga", "shoota"],
+		"m4": ["slugga", "shoota"],
+		"m5": ["slugga", "shoota"],
+		"m6": ["slugga", "shoota"],
+		"m7": ["slugga", "shoota"],
+		"m8": ["slugga", "shoota"],
+		"m9": ["slugga", "shoota"],
+		"m10": ["slugga", "shoota"]
 	},
 	"U_GRETCHIN_A": {
 		"m1": ["grot_blasta"],
@@ -232,6 +462,8 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 	return result
 
 # Resolve assignment up to wound stage (stops before saves)
+# SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
+# BLAST (PRP-013): This function is modified to handle Blast keyword
 static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"dice": [],
@@ -258,200 +490,581 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# Calculate total attacks
 	var attacks_per_model = weapon_profile.get("attacks", 1)
-	var total_attacks = model_ids.size() * attacks_per_model
+
+	# BLAST KEYWORD (PRP-013): Apply minimum attacks for Blast weapons vs 6+ model units
+	var blast_minimum_applied = false
+	var original_attacks_per_model = attacks_per_model
+	var effective_attacks_per_model = calculate_blast_minimum(weapon_id, attacks_per_model, target_unit, board)
+	if effective_attacks_per_model > attacks_per_model:
+		blast_minimum_applied = true
+		attacks_per_model = effective_attacks_per_model
+
+	var base_attacks = model_ids.size() * attacks_per_model
+
+	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
+	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	var rapid_fire_attacks = 0
+	var models_in_half_range = 0
+	if rapid_fire_value > 0:
+		models_in_half_range = count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		rapid_fire_attacks = models_in_half_range * rapid_fire_value
+
+	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
+	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	var target_model_count = count_alive_models(target_unit)
+
+	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
+		rapid_fire_attacks = 0  # Override disables the rapid fire bonus tracking
+		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
-	# Get hit modifiers
-	var hit_modifiers = HitModifier.NONE
-	if assignment.has("modifiers") and assignment.modifiers.has("hit"):
-		var hit_mods = assignment.modifiers.hit
-		if hit_mods.get("reroll_ones", false):
-			hit_modifiers |= HitModifier.REROLL_ONES
-		if hit_mods.get("plus_one", false):
-			hit_modifiers |= HitModifier.PLUS_ONE
-		if hit_mods.get("minus_one", false):
-			hit_modifiers |= HitModifier.MINUS_ONE
+	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
+	var is_torrent = is_torrent_weapon(weapon_id, board)
 
-	# Roll to hit
-	var hit_rolls = rng.roll_d6(total_attacks)
+	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var hits = 0
+	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
+	var regular_hits = 0   # Non-critical hits
+	var hit_modifiers = HitModifier.NONE
+	var heavy_bonus_applied = false
+	var bgnt_penalty_applied = false
+	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
+	var weapon_has_lethal_hits = false
+	var sustained_data = {"value": 0, "is_dice": false}
+	var sustained_result = {"bonus_hits": 0, "rolls": []}
+	var sustained_bonus_hits = 0
+	var total_hits_for_wounds = 0
 
-	for roll in hit_rolls:
-		var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
-		var final_roll = modifier_result.modified_roll
-		modified_rolls.append(final_roll)
+	if is_torrent:
+		# TORRENT: All attacks automatically hit - no roll needed
+		# Since no hit roll is made:
+		# - Lethal Hits cannot trigger (no critical hits)
+		# - Sustained Hits cannot trigger (no critical hits)
+		# - Hit modifiers are irrelevant (Heavy, cover, etc.)
+		hits = total_attacks
+		regular_hits = total_attacks  # All are "regular" hits - no crits possible
+		critical_hits = 0  # Torrent weapons never roll to hit, so no crits
+		total_hits_for_wounds = hits
 
-		if modifier_result.rerolled:
-			reroll_data.append({
-				"original": modifier_result.original_roll,
-				"rerolled_to": modifier_result.reroll_value
-			})
+		# Note: We still check if weapon HAS these keywords for UI display
+		# but they won't have any effect since there's no hit roll
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board)
 
-		if final_roll >= bs:
-			hits += 1
+		result.dice.append({
+			"context": "auto_hit",  # Special context for Torrent
+			"torrent_weapon": true,
+			"total_attacks": total_attacks,
+			"successes": hits,
+			"message": "Torrent: %d automatic hits" % hits,
+			# Still track these for completeness, but they won't trigger
+			"lethal_hits_weapon": weapon_has_lethal_hits,
+			"sustained_hits_weapon": sustained_data.value > 0,
+			"sustained_hits_note": "N/A - no hit roll for Torrent",
+			# BLAST (PRP-013)
+			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_bonus_attacks": blast_bonus_attacks,
+			"blast_minimum_applied": blast_minimum_applied,
+			"blast_original_attacks": original_attacks_per_model,
+			"target_model_count": target_model_count,
+			"base_attacks": base_attacks,
+			"rapid_fire_bonus": rapid_fire_attacks,
+			"rapid_fire_value": rapid_fire_value,
+			"models_in_half_range": models_in_half_range
+		})
+	else:
+		# Normal hit roll path (non-Torrent weapons)
+		# Get hit modifiers
+		if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+			var hit_mods = assignment.modifiers.hit
+			if hit_mods.get("reroll_ones", false):
+				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("plus_one", false):
+				hit_modifiers |= HitModifier.PLUS_ONE
+			if hit_mods.get("minus_one", false):
+				hit_modifiers |= HitModifier.MINUS_ONE
 
-	result.dice.append({
-		"context": "to_hit",
-		"threshold": str(bs) + "+",
-		"rolls_raw": hit_rolls,
-		"rolls_modified": modified_rolls,
-		"rerolls": reroll_data,
-		"modifiers_applied": hit_modifiers,
-		"successes": hits
-	})
+		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
+		if is_heavy_weapon(weapon_id, board):
+			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
+			if remained_stationary:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				heavy_bonus_applied = true
 
-	if hits == 0:
+		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons when Monster/Vehicle is in Engagement Range
+		if big_guns_never_tire_applies(actor_unit):
+			# Only apply penalty if this is NOT a Pistol weapon
+			if not is_pistol_weapon(weapon_id, board):
+				hit_modifiers |= HitModifier.MINUS_ONE
+				bgnt_penalty_applied = true
+
+		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
+		hit_rolls = rng.roll_d6(total_attacks)
+
+		for i in range(hit_rolls.size()):
+			var roll = hit_rolls[i]
+			var unmodified_roll = roll  # Store BEFORE any modifications
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var final_roll = modifier_result.modified_roll
+			modified_rolls.append(final_roll)
+
+			# Track reroll - if rerolled, the unmodified roll is the NEW roll
+			if modifier_result.rerolled:
+				reroll_data.append({
+					"original": modifier_result.original_roll,
+					"rerolled_to": modifier_result.reroll_value
+				})
+				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
+
+			if final_roll >= bs:
+				hits += 1
+				# Critical hit = unmodified 6 (BEFORE modifiers)
+				if unmodified_roll == 6:
+					critical_hits += 1
+				else:
+					regular_hits += 1
+
+		# Check for Lethal Hits keyword
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+
+		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
+		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
+		sustained_bonus_hits = sustained_result.bonus_hits
+
+		# Total hits for wound rolls = regular hits + bonus hits from Sustained
+		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
+		total_hits_for_wounds = hits + sustained_bonus_hits
+
+		result.dice.append({
+			"context": "to_hit",
+			"threshold": str(bs) + "+",
+			"rolls_raw": hit_rolls,
+			"rolls_modified": modified_rolls,
+			"rerolls": reroll_data,
+			"modifiers_applied": hit_modifiers,
+			"heavy_bonus_applied": heavy_bonus_applied,
+			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"rapid_fire_bonus": rapid_fire_attacks,
+			"rapid_fire_value": rapid_fire_value,
+			"models_in_half_range": models_in_half_range,
+			"base_attacks": base_attacks,
+			"successes": hits,
+			# CRITICAL HIT TRACKING (PRP-031)
+			"critical_hits": critical_hits,
+			"regular_hits": regular_hits,
+			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# SUSTAINED HITS (PRP-011)
+			"sustained_hits_weapon": sustained_data.value > 0,
+			"sustained_hits_value": sustained_data.value,
+			"sustained_hits_is_dice": sustained_data.is_dice,
+			"sustained_bonus_hits": sustained_bonus_hits,
+			"sustained_rolls": sustained_result.rolls,
+			"total_hits_for_wounds": total_hits_for_wounds,
+			# BLAST (PRP-013)
+			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_bonus_attacks": blast_bonus_attacks,
+			"blast_minimum_applied": blast_minimum_applied,
+			"blast_original_attacks": original_attacks_per_model,
+			"target_model_count": target_model_count
+		})
+
+	if hits == 0 and sustained_bonus_hits == 0:
 		result.log_text = "%s → %s: No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id)]
 		return result
 
-	# Roll to wound
+	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
+	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
-	var wound_rolls = rng.roll_d6(hits)
-	var wounds_caused = 0
-	for roll in wound_rolls:
-		if roll >= wound_threshold:
-			wounds_caused += 1
+	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
+	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+
+	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS interaction:
+	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
+	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
+	# - Regular (non-critical) hits always roll to wound
+	# - Critical wounds (unmodified 6s to wound) with Devastating Wounds bypass saves - CAN happen for Torrent
+	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
+	var wounds_from_rolls = 0
+	var wound_rolls = []
+	var critical_wound_count = 0  # DEVASTATING WOUNDS: Unmodified 6s to wound (CAN trigger for Torrent)
+	var regular_wound_count = 0   # DEVASTATING WOUNDS: Non-critical wounds
+
+	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
+	# All hits must roll to wound normally
+	if weapon_has_lethal_hits and not is_torrent:
+		# Critical hits automatically wound - no roll needed
+		auto_wounds = critical_hits
+		# DEVASTATING WOUNDS: Lethal Hits auto-wounds count as critical wounds IF weapon has DW
+		# Note: Lethal Hits auto-wound on hit roll 6s, not wound roll 6s
+		# Per 10e rules, these are auto-wounds but NOT critical wounds for Devastating Wounds
+		# Critical wounds for DW require unmodified 6 on the WOUND roll
+
+		# Roll wounds for: regular hits + sustained bonus hits
+		var hits_to_roll = regular_hits + sustained_bonus_hits
+		if hits_to_roll > 0:
+			wound_rolls = rng.roll_d6(hits_to_roll)
+			for roll in wound_rolls:
+				if roll >= wound_threshold:
+					wounds_from_rolls += 1
+					# DEVASTATING WOUNDS: Track unmodified 6s on wound roll
+					if weapon_has_devastating_wounds and roll == 6:
+						critical_wound_count += 1
+					else:
+						regular_wound_count += 1
+
+		# Lethal Hits auto-wounds go to regular wounds (not critical wounds for DW)
+		regular_wound_count += auto_wounds
+	else:
+		# Normal processing - all hits (including sustained bonus) roll to wound
+		wound_rolls = rng.roll_d6(total_hits_for_wounds)
+		for roll in wound_rolls:
+			if roll >= wound_threshold:
+				wounds_from_rolls += 1
+				# DEVASTATING WOUNDS: Track unmodified 6s on wound roll
+				if weapon_has_devastating_wounds and roll == 6:
+					critical_wound_count += 1
+				else:
+					regular_wound_count += 1
+
+	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	result.dice.append({
 		"context": "to_wound",
 		"threshold": str(wound_threshold) + "+",
 		"rolls_raw": wound_rolls,
-		"successes": wounds_caused
+		"successes": wounds_caused,
+		# LETHAL HITS tracking (PRP-010)
+		"lethal_hits_auto_wounds": auto_wounds,
+		"wounds_from_rolls": wounds_from_rolls,
+		"lethal_hits_weapon": weapon_has_lethal_hits,
+		# SUSTAINED HITS tracking (PRP-011)
+		"sustained_bonus_hits_rolled": sustained_bonus_hits,
+		# DEVASTATING WOUNDS tracking (PRP-012)
+		"devastating_wounds_weapon": weapon_has_devastating_wounds,
+		"critical_wounds": critical_wound_count,
+		"regular_wounds": regular_wound_count
 	})
 
 	if wounds_caused == 0:
-		result.log_text = "%s → %s: %d hits, no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits]
+		result.log_text = "%s → %s: %d hits (+%d sustained), no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits, sustained_bonus_hits]
 		return result
 
 	# STOP HERE - Prepare save data instead of auto-resolving
+	# DEVASTATING WOUNDS (PRP-012): Pass critical wound info for unsaveable damage
+	var devastating_wounds_data = {
+		"has_devastating_wounds": weapon_has_devastating_wounds,
+		"critical_wounds": critical_wound_count,
+		"regular_wounds": regular_wound_count
+	}
 	var save_data = prepare_save_resolution(
 		wounds_caused,
 		target_unit_id,
 		actor_unit_id,
 		weapon_profile,
-		board
+		board,
+		devastating_wounds_data
 	)
 
 	result["save_data"] = save_data
-	result.log_text = "%s → %s: %d hits, %d wounds - awaiting saves" % [
+	# SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012): Include in log text
+	var log_parts = []
+	log_parts.append("%s → %s: %d hits" % [
 		actor_unit.get("meta", {}).get("name", actor_unit_id),
 		target_unit.get("meta", {}).get("name", target_unit_id),
-		hits,
-		wounds_caused
-	]
+		hits
+	])
+	if sustained_bonus_hits > 0:
+		log_parts[0] += " (+%d sustained)" % sustained_bonus_hits
+	log_parts[0] += ", %d wounds" % wounds_caused
+
+	# DEVASTATING WOUNDS: Add critical wound info to log
+	if weapon_has_devastating_wounds and critical_wound_count > 0:
+		log_parts.append("%d DEVASTATING (unsaveable)" % critical_wound_count)
+
+	log_parts.append("awaiting saves")
+	result.log_text = " - ".join(log_parts)
 
 	return result
 
 # Resolve a single weapon assignment (models with weapon -> target)
+# SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
+# BLAST (PRP-013): This function is modified to handle Blast keyword
 static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"diffs": [],
 		"dice": [],
 		"log_text": ""
 	}
-	
+
 	var model_ids = assignment.get("model_ids", [])
 	var weapon_id = assignment.get("weapon_id", "")
 	var target_unit_id = assignment.get("target_unit_id", "")
-	
+
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
-	
+
 	if target_unit.is_empty():
 		result.log_text = "Target unit not found"
 		return result
-	
+
 	# Get weapon profile
 	var weapon_profile = get_weapon_profile(weapon_id, board)
 	if weapon_profile.is_empty():
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
-	
+
 	# Calculate total attacks
 	var attacks_per_model = weapon_profile.get("attacks", 1)
-	var total_attacks = model_ids.size() * attacks_per_model
+
+	# BLAST KEYWORD (PRP-013): Apply minimum attacks for Blast weapons vs 6+ model units
+	var blast_minimum_applied = false
+	var original_attacks_per_model = attacks_per_model
+	var effective_attacks_per_model = calculate_blast_minimum(weapon_id, attacks_per_model, target_unit, board)
+	if effective_attacks_per_model > attacks_per_model:
+		blast_minimum_applied = true
+		attacks_per_model = effective_attacks_per_model
+
+	var base_attacks = model_ids.size() * attacks_per_model
+
+	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
+	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
+	var rapid_fire_attacks = 0
+	var models_in_half_range = 0
+	if rapid_fire_value > 0:
+		models_in_half_range = count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		rapid_fire_attacks = models_in_half_range * rapid_fire_value
+
+	# BLAST KEYWORD (PRP-013): Add bonus attacks based on target unit size
+	var blast_bonus_attacks = calculate_blast_bonus(weapon_id, target_unit, board)
+	var target_model_count = count_alive_models(target_unit)
+
+	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
 		total_attacks = assignment.attacks_override
+		rapid_fire_attacks = 0  # Override disables the rapid fire bonus tracking
+		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
-	# Get hit modifiers from assignment (Phase 1 MVP)
-	var hit_modifiers = HitModifier.NONE
-	if assignment.has("modifiers") and assignment.modifiers.has("hit"):
-		var hit_mods = assignment.modifiers.hit
-		if hit_mods.get("reroll_ones", false):
-			hit_modifiers |= HitModifier.REROLL_ONES
-		if hit_mods.get("plus_one", false):
-			hit_modifiers |= HitModifier.PLUS_ONE
-		if hit_mods.get("minus_one", false):
-			hit_modifiers |= HitModifier.MINUS_ONE
+	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
+	var is_torrent = is_torrent_weapon(weapon_id, board)
 
-	# Roll to hit with modifiers
-	var hit_rolls = rng.roll_d6(total_attacks)
+	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var hits = 0
+	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
+	var regular_hits = 0   # Non-critical hits
+	var hit_modifiers = HitModifier.NONE
+	var heavy_bonus_applied = false
+	var bgnt_penalty_applied = false
+	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
+	var weapon_has_lethal_hits = false
+	var sustained_data = {"value": 0, "is_dice": false}
+	var sustained_result = {"bonus_hits": 0, "rolls": []}
+	var sustained_bonus_hits = 0
+	var total_hits_for_wounds = 0
 
-	for roll in hit_rolls:
-		# Apply modifiers to this roll
-		var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
-		var final_roll = modifier_result.modified_roll
-		modified_rolls.append(final_roll)
+	if is_torrent:
+		# TORRENT: All attacks automatically hit - no roll needed
+		# Since no hit roll is made:
+		# - Lethal Hits cannot trigger (no critical hits)
+		# - Sustained Hits cannot trigger (no critical hits)
+		# - Hit modifiers are irrelevant (Heavy, cover, etc.)
+		hits = total_attacks
+		regular_hits = total_attacks  # All are "regular" hits - no crits possible
+		critical_hits = 0  # Torrent weapons never roll to hit, so no crits
+		total_hits_for_wounds = hits
 
-		# Track re-rolls for dice log
-		if modifier_result.rerolled:
-			reroll_data.append({
-				"original": modifier_result.original_roll,
-				"rerolled_to": modifier_result.reroll_value
-			})
+		# Note: We still check if weapon HAS these keywords for UI display
+		# but they won't have any effect since there's no hit roll
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		sustained_data = get_sustained_hits_value(weapon_id, board)
 
-		# Check if hit
-		if final_roll >= bs:
-			hits += 1
+		result.dice.append({
+			"context": "auto_hit",  # Special context for Torrent
+			"torrent_weapon": true,
+			"total_attacks": total_attacks,
+			"successes": hits,
+			"message": "Torrent: %d automatic hits" % hits,
+			# Still track these for completeness, but they won't trigger
+			"lethal_hits_weapon": weapon_has_lethal_hits,
+			"sustained_hits_weapon": sustained_data.value > 0,
+			"sustained_hits_note": "N/A - no hit roll for Torrent",
+			# BLAST (PRP-013)
+			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_bonus_attacks": blast_bonus_attacks,
+			"blast_minimum_applied": blast_minimum_applied,
+			"blast_original_attacks": original_attacks_per_model,
+			"target_model_count": target_model_count,
+			"base_attacks": base_attacks,
+			"rapid_fire_bonus": rapid_fire_attacks,
+			"rapid_fire_value": rapid_fire_value,
+			"models_in_half_range": models_in_half_range
+		})
+	else:
+		# Normal hit roll path (non-Torrent weapons)
+		# Get hit modifiers from assignment (Phase 1 MVP)
+		if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+			var hit_mods = assignment.modifiers.hit
+			if hit_mods.get("reroll_ones", false):
+				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("plus_one", false):
+				hit_modifiers |= HitModifier.PLUS_ONE
+			if hit_mods.get("minus_one", false):
+				hit_modifiers |= HitModifier.MINUS_ONE
 
-	result.dice.append({
-		"context": "to_hit",
-		"threshold": str(bs) + "+",
-		"rolls_raw": hit_rolls,
-		"rolls_modified": modified_rolls,
-		"rerolls": reroll_data,
-		"modifiers_applied": hit_modifiers,
-		"successes": hits
-	})
-	
-	if hits == 0:
+		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
+		if is_heavy_weapon(weapon_id, board):
+			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
+			if remained_stationary:
+				hit_modifiers |= HitModifier.PLUS_ONE
+				heavy_bonus_applied = true
+
+		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons when Monster/Vehicle is in Engagement Range
+		if big_guns_never_tire_applies(actor_unit):
+			# Only apply penalty if this is NOT a Pistol weapon
+			if not is_pistol_weapon(weapon_id, board):
+				hit_modifiers |= HitModifier.MINUS_ONE
+				bgnt_penalty_applied = true
+
+		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
+		hit_rolls = rng.roll_d6(total_attacks)
+
+		for i in range(hit_rolls.size()):
+			var roll = hit_rolls[i]
+			var unmodified_roll = roll  # Store BEFORE any modifications
+			# Apply modifiers to this roll
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var final_roll = modifier_result.modified_roll
+			modified_rolls.append(final_roll)
+
+			# Track re-rolls for dice log
+			if modifier_result.rerolled:
+				reroll_data.append({
+					"original": modifier_result.original_roll,
+					"rerolled_to": modifier_result.reroll_value
+				})
+				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
+
+			# Check if hit
+			if final_roll >= bs:
+				hits += 1
+				# Critical hit = unmodified 6 (BEFORE modifiers)
+				if unmodified_roll == 6:
+					critical_hits += 1
+				else:
+					regular_hits += 1
+
+		# Check for Lethal Hits keyword
+		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+
+		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
+		sustained_data = get_sustained_hits_value(weapon_id, board)
+		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
+		sustained_bonus_hits = sustained_result.bonus_hits
+
+		# Total hits for wound rolls = regular hits + bonus hits from Sustained
+		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
+		total_hits_for_wounds = hits + sustained_bonus_hits
+
+		result.dice.append({
+			"context": "to_hit",
+			"threshold": str(bs) + "+",
+			"rolls_raw": hit_rolls,
+			"rolls_modified": modified_rolls,
+			"rerolls": reroll_data,
+			"modifiers_applied": hit_modifiers,
+			"heavy_bonus_applied": heavy_bonus_applied,
+			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"rapid_fire_bonus": rapid_fire_attacks,
+			"rapid_fire_value": rapid_fire_value,
+			"models_in_half_range": models_in_half_range,
+			"base_attacks": base_attacks,
+			"successes": hits,
+			# CRITICAL HIT TRACKING (PRP-031)
+			"critical_hits": critical_hits,
+			"regular_hits": regular_hits,
+			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# SUSTAINED HITS (PRP-011)
+			"sustained_hits_weapon": sustained_data.value > 0,
+			"sustained_hits_value": sustained_data.value,
+			"sustained_hits_is_dice": sustained_data.is_dice,
+			"sustained_bonus_hits": sustained_bonus_hits,
+			"sustained_rolls": sustained_result.rolls,
+			"total_hits_for_wounds": total_hits_for_wounds,
+			# BLAST (PRP-013)
+			"blast_weapon": is_blast_weapon(weapon_id, board),
+			"blast_bonus_attacks": blast_bonus_attacks,
+			"blast_minimum_applied": blast_minimum_applied,
+			"blast_original_attacks": original_attacks_per_model,
+			"target_model_count": target_model_count
+		})
+
+	if hits == 0 and sustained_bonus_hits == 0:
 		result.log_text = "%s → %s: No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id)]
 		return result
-	
-	# Roll to wound
+
+	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
+	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
-	
-	var wound_rolls = rng.roll_d6(hits)
-	var wounds_caused = 0
-	for roll in wound_rolls:
-		if roll >= wound_threshold:
-			wounds_caused += 1
-	
+
+	# LETHAL HITS + SUSTAINED HITS interaction:
+	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
+	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
+	# - Regular (non-critical) hits always roll to wound
+	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
+	var wounds_from_rolls = 0
+	var wound_rolls = []
+
+	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
+	# All hits must roll to wound normally
+	if weapon_has_lethal_hits and not is_torrent:
+		# Critical hits automatically wound - no roll needed
+		auto_wounds = critical_hits
+		# Roll wounds for: regular hits + sustained bonus hits
+		var hits_to_roll = regular_hits + sustained_bonus_hits
+		if hits_to_roll > 0:
+			wound_rolls = rng.roll_d6(hits_to_roll)
+			for roll in wound_rolls:
+				if roll >= wound_threshold:
+					wounds_from_rolls += 1
+	else:
+		# Normal processing - all hits (including sustained bonus) roll to wound
+		wound_rolls = rng.roll_d6(total_hits_for_wounds)
+		for roll in wound_rolls:
+			if roll >= wound_threshold:
+				wounds_from_rolls += 1
+
+	var wounds_caused = auto_wounds + wounds_from_rolls
+
 	result.dice.append({
 		"context": "to_wound",
 		"threshold": str(wound_threshold) + "+",
 		"rolls_raw": wound_rolls,
-		"successes": wounds_caused
+		"successes": wounds_caused,
+		# LETHAL HITS tracking (PRP-010)
+		"lethal_hits_auto_wounds": auto_wounds,
+		"wounds_from_rolls": wounds_from_rolls,
+		"lethal_hits_weapon": weapon_has_lethal_hits,
+		# SUSTAINED HITS tracking (PRP-011)
+		"sustained_bonus_hits_rolled": sustained_bonus_hits
 	})
-	
+
 	if wounds_caused == 0:
-		result.log_text = "%s → %s: %d hits, no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits]
+		result.log_text = "%s → %s: %d hits (+%d sustained), no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits, sustained_bonus_hits]
 		return result
-	
+
 	# Process saves and damage
 	var ap = weapon_profile.get("ap", 0)
 	var damage = weapon_profile.get("damage", 1)
@@ -562,41 +1175,63 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 # Validation functions
 static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	var errors = []
-	
+
 	var actor_unit_id = action.get("actor_unit_id", "")
 	if actor_unit_id == "":
 		errors.append("Missing actor_unit_id")
 		return {"valid": false, "errors": errors}
-	
+
 	var assignments = action.get("payload", {}).get("assignments", [])
 	if assignments.is_empty():
 		errors.append("No weapon assignments provided")
 		return {"valid": false, "errors": errors}
-	
+
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
-	
+
 	if actor_unit.is_empty():
 		errors.append("Actor unit not found")
 		return {"valid": false, "errors": errors}
-	
+
 	# Check if unit can shoot
 	var flags = actor_unit.get("flags", {})
-	if flags.get("cannot_shoot", false):
-		errors.append("Unit cannot shoot (advanced or fell back)")
-	
+
+	# ASSAULT RULES: Units that Advanced can shoot, but ONLY with Assault weapons
+	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
+	var actor_advanced = flags.get("advanced", false)
+
+	# Units that Fell Back cannot shoot (unless special rules)
+	if flags.get("fell_back", false):
+		errors.append("Unit cannot shoot (fell back)")
+		return {"valid": false, "errors": errors}
+
+	# Legacy cannot_shoot flag check - but skip if unit advanced (since advanced units CAN shoot)
+	if flags.get("cannot_shoot", false) and not actor_advanced:
+		errors.append("Unit cannot shoot")
+
+	# PISTOL RULES: Check if actor is in engagement range
+	var actor_in_engagement = flags.get("in_engagement", false)
+
 	# Validate each assignment
 	for assignment in assignments:
 		var weapon_id = assignment.get("weapon_id", "")
 		var target_unit_id = assignment.get("target_unit_id", "")
-		
+
 		if weapon_id == "":
 			errors.append("Assignment missing weapon_id")
 		else:
 			var weapon_profile = get_weapon_profile(weapon_id, board)
 			if weapon_profile.is_empty():
 				errors.append("Unknown weapon: " + weapon_id)
-		
+			else:
+				# PISTOL RULES: If in engagement, only Pistol weapons can be used
+				if actor_in_engagement and not is_pistol_weapon(weapon_id, board):
+					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
+
+				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
+				if actor_advanced and not is_assault_weapon(weapon_id, board):
+					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
+
 		if target_unit_id == "":
 			errors.append("Assignment missing target_unit_id")
 		elif not units.has(target_unit_id):
@@ -605,7 +1240,20 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 			var target_unit = units[target_unit_id]
 			if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
 				errors.append("Cannot target friendly units")
-			
+
+			# PISTOL RULES: If in engagement, targets must be within engagement range
+			if actor_in_engagement:
+				var target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
+				if not target_in_er:
+					var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+					errors.append("Pistol weapons can only target enemies in engagement range (target '%s' is not in engagement range)" % target_name)
+
+			# BLAST RULES (PRP-013): Blast weapons cannot target units in engagement with friendlies
+			if weapon_id != "":
+				var blast_validation = validate_blast_targeting(actor_unit_id, target_unit_id, weapon_id, board)
+				if not blast_validation.valid:
+					errors.append_array(blast_validation.errors)
+
 			# Check range and visibility
 			if weapon_id != "":
 				var weapon_profile = get_weapon_profile(weapon_id, board)
@@ -613,7 +1261,7 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var visibility_result = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
 					if not visibility_result.visible:
 						errors.append(visibility_result.reason)
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Helper functions
@@ -933,54 +1581,122 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 	var eligible = {}
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
-	
+
 	if actor_unit.is_empty():
 		return eligible
-	
+
 	var actor_owner = actor_unit.get("owner", 0)
-	
+
+	# PISTOL RULES: Check if actor is in engagement range
+	var actor_in_engagement = actor_unit.get("flags", {}).get("in_engagement", false)
+
+	# BIG GUNS NEVER TIRE: Check if actor is Monster/Vehicle (can shoot non-Pistol weapons in ER)
+	var actor_is_monster_vehicle = is_monster_or_vehicle(actor_unit)
+
 	# Check each potential target unit
 	for target_unit_id in units:
 		var target_unit = units[target_unit_id]
-		
+
 		# Skip friendly units
 		if target_unit.get("owner", 0) == actor_owner:
 			continue
-		
+
 		# Skip destroyed units
 		var has_alive_models = false
 		for model in target_unit.get("models", []):
 			if model.get("alive", true):
 				has_alive_models = true
 				break
-		
+
 		if not has_alive_models:
 			continue
-		
+
+		# Check if target is within engagement range (needed for Pistol targeting)
+		var target_in_er = false
+		if actor_in_engagement:
+			target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
+
 		# Check weapons that can target this unit
 		var weapons_in_range = []
 		var unit_weapons = get_unit_weapons(actor_unit_id, board)
-		
+
 		for model_id in unit_weapons:
 			var model = _get_model_by_id(actor_unit, model_id)
 			if not model or not model.get("alive", true):
 				continue
-			
+
 			for weapon_id in unit_weapons[model_id]:
 				if weapon_id in weapons_in_range:
 					continue
-				
+
+				var is_pistol = is_pistol_weapon(weapon_id, board)
+
+				# ENGAGEMENT RANGE WEAPON RULES:
+				if actor_in_engagement:
+					if is_pistol:
+						# PISTOL RULES: Pistols can only target enemies in engagement range
+						if not target_in_er:
+							continue
+					else:
+						# Non-Pistol weapons require Big Guns Never Tire (Monster/Vehicle)
+						if not actor_is_monster_vehicle:
+							continue
+						# BGNT: Non-Pistol weapons can target any visible enemy (no ER restriction)
+
 				var visibility = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
 				if visibility.visible:
 					weapons_in_range.append(weapon_id)
-		
+
 		if not weapons_in_range.is_empty():
 			eligible[target_unit_id] = {
 				"weapons_in_range": weapons_in_range,
-				"unit_name": target_unit.get("meta", {}).get("name", target_unit_id)
+				"unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+				"in_engagement_range": actor_in_engagement,  # Include flag for UI
+				"is_bgnt": actor_is_monster_vehicle and actor_in_engagement  # Flag for BGNT status
 			}
-	
+
 	return eligible
+
+# Check if target unit is within engagement range (1") of actor unit
+static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
+	const ENGAGEMENT_RANGE_INCHES = 1.0
+	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if actor_unit.is_empty() or target_unit.is_empty():
+		return false
+
+	# Check if any actor model is within engagement range of any target model
+	for actor_model in actor_unit.get("models", []):
+		if not actor_model.get("alive", true):
+			continue
+
+		var actor_pos = _get_model_position(actor_model)
+		if actor_pos == Vector2.ZERO:
+			continue
+
+		var actor_radius = Measurement.base_radius_px(actor_model.get("base_mm", 32))
+
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			var target_pos = _get_model_position(target_model)
+			if target_pos == Vector2.ZERO:
+				continue
+
+			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
+
+			# Calculate edge-to-edge distance
+			var edge_distance = actor_pos.distance_to(target_pos) - actor_radius - target_radius
+
+			if edge_distance <= er_px:
+				return true
+
+	return false
 
 static func _get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 	for model in unit.get("models", []):
@@ -1095,23 +1811,604 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 				var damage_value = int(damage_str) if (damage_str != null and damage_str.is_valid_int()) else 1
 				# TODO: Handle complex damage like "D6+2" - for now treat as 1
 				
+				# Parse keywords from special_rules string (e.g., "Pistol, Rapid Fire 1")
+				var special_rules = weapon.get("special_rules", "")
+				var keywords = weapon.get("keywords", [])
+
+				# If keywords array is empty but special_rules has content, extract keywords
+				if keywords.is_empty() and special_rules != "":
+					var rules_parts = special_rules.split(",")
+					for part in rules_parts:
+						var keyword = part.strip_edges().to_upper()
+						# Extract keyword name (ignore numbers like "Rapid Fire 1")
+						var space_pos = keyword.find(" ")
+						if space_pos > 0:
+							# Check if this is a keyword with a number (e.g., "RAPID FIRE 1")
+							var base_keyword = keyword.substr(0, space_pos)
+							if base_keyword in ["PISTOL", "ASSAULT", "HEAVY", "RAPID", "TORRENT", "BLAST"]:
+								keywords.append(base_keyword)
+							else:
+								keywords.append(keyword)
+						else:
+							keywords.append(keyword)
+
 				return {
 					"name": weapon_name,
 					"type": weapon.get("type", ""),
 					"range": range_value,  # Convert to int for calculations
 					"attacks": attacks_value,  # Convert to int for calculations
-					"bs": bs_value,  # Convert to int for to-hit rolls  
+					"bs": bs_value,  # Convert to int for to-hit rolls
 					"ballistic_skill": bs_str,  # Keep string for UI display
 					"ws": ws_value,  # Convert to int for melee rolls
 					"weapon_skill": ws_str,  # Keep string for UI display
 					"strength": strength_value,  # Convert to int for calculations
 					"ap": ap_value,  # Convert to int for calculations
 					"damage": damage_value,  # Convert to int for calculations
-					"special_rules": weapon.get("special_rules", "")
+					"special_rules": special_rules,
+					"keywords": keywords
 				}
 	
 	print("WARNING: Weapon profile not found: ", weapon_id)
 	return {}
+
+# Check if a weapon has the PISTOL keyword (case-insensitive)
+static func is_pistol_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "PISTOL":
+			return true
+	return false
+
+# Check if a unit has any Pistol weapons
+static func unit_has_pistol_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if is_pistol_weapon(weapon_id, board):
+				return true
+	return false
+
+# Get only Pistol weapons for a unit
+static func get_unit_pistol_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var result = {}
+	var unit_weapons = get_unit_weapons(unit_id, board)
+
+	for model_id in unit_weapons:
+		var pistol_weapons = []
+		for weapon_id in unit_weapons[model_id]:
+			if is_pistol_weapon(weapon_id, board):
+				pistol_weapons.append(weapon_id)
+		if not pistol_weapons.is_empty():
+			result[model_id] = pistol_weapons
+
+	return result
+
+# Check if a weapon has the ASSAULT keyword (case-insensitive)
+static func is_assault_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "ASSAULT":
+			return true
+	return false
+
+# Check if a unit has any Assault weapons
+static func unit_has_assault_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if is_assault_weapon(weapon_id, board):
+				return true
+	return false
+
+# Get only Assault weapons for a unit
+static func get_unit_assault_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var result = {}
+	var unit_weapons = get_unit_weapons(unit_id, board)
+
+	for model_id in unit_weapons:
+		var assault_weapons = []
+		for weapon_id in unit_weapons[model_id]:
+			if is_assault_weapon(weapon_id, board):
+				assault_weapons.append(weapon_id)
+		if not assault_weapons.is_empty():
+			result[model_id] = assault_weapons
+
+	return result
+
+# Check if a weapon has the HEAVY keyword (case-insensitive)
+static func is_heavy_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "HEAVY":
+			return true
+	return false
+
+# Check if a unit has any Heavy weapons
+static func unit_has_heavy_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if is_heavy_weapon(weapon_id, board):
+				return true
+	return false
+
+# Get only Heavy weapons for a unit
+static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var result = {}
+	var unit_weapons = get_unit_weapons(unit_id, board)
+
+	for model_id in unit_weapons:
+		var heavy_weapons = []
+		for weapon_id in unit_weapons[model_id]:
+			if is_heavy_weapon(weapon_id, board):
+				heavy_weapons.append(weapon_id)
+		if not heavy_weapons.is_empty():
+			result[model_id] = heavy_weapons
+
+	return result
+
+# ==========================================
+# BIG GUNS NEVER TIRE (PRP-005)
+# ==========================================
+
+# Check if a unit has the MONSTER or VEHICLE keyword (case-insensitive)
+static func is_monster_or_vehicle(unit: Dictionary) -> bool:
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	for keyword in keywords:
+		var kw_upper = keyword.to_upper()
+		if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+			return true
+	return false
+
+# Check if Big Guns Never Tire applies to a unit
+# BGNT applies when a Monster/Vehicle unit is in Engagement Range
+# Check if BGNT rule applies to a unit (is it a MONSTER or VEHICLE)
+# This checks unit type eligibility, not engagement state
+static func big_guns_never_tire_applies(unit: Dictionary) -> bool:
+	return is_monster_or_vehicle(unit)
+
+# Check if BGNT is currently active for a unit (in engagement AND is MONSTER/VEHICLE)
+static func big_guns_never_tire_active(unit: Dictionary) -> bool:
+	var in_engagement = unit.get("flags", {}).get("in_engagement", false)
+	if not in_engagement:
+		return false
+	return is_monster_or_vehicle(unit)
+
+# Check if a unit has any non-Pistol weapons (for BGNT shooting)
+static func unit_has_non_pistol_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if not is_pistol_weapon(weapon_id, board):
+				return true
+	return false
+
+# ==========================================
+# RAPID FIRE KEYWORD HELPERS
+# ==========================================
+
+# Get the Rapid Fire value (X) from a weapon's keywords or special_rules
+# Returns 0 if not a Rapid Fire weapon
+static func get_rapid_fire_value(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+
+	# Check special_rules string for "Rapid Fire X" pattern
+	var special_rules = profile.get("special_rules", "").to_lower()
+	var regex = RegEx.new()
+	regex.compile("rapid\\s*fire\\s*(\\d+)")
+	var result = regex.search(special_rules)
+	if result:
+		return result.get_string(1).to_int()
+
+	# Check keywords array for "RAPID FIRE X" pattern
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		var kw_result = regex.search(keyword.to_lower())
+		if kw_result:
+			return kw_result.get_string(1).to_int()
+
+	return 0
+
+# Check if a weapon has the RAPID FIRE keyword (case-insensitive)
+static func is_rapid_fire_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_rapid_fire_value(weapon_id, board) > 0
+
+# ==========================================
+# LETHAL HITS (PRP-010)
+# ==========================================
+
+# Check if a weapon has the LETHAL HITS keyword (case-insensitive)
+# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound without wound roll
+static func has_lethal_hits(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Lethal Hits" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "lethal hits" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_lower() == "lethal hits":
+			return true
+
+	return false
+
+# ==========================================
+# SUSTAINED HITS (PRP-011)
+# ==========================================
+
+# Get Sustained Hits value from a weapon's keywords or special_rules
+# Returns Dictionary with:
+#   - value: The number of bonus hits per critical (0 if not Sustained Hits)
+#   - is_dice: Whether the value is a dice roll (D3, D6)
+# Examples: "Sustained Hits 1" -> {value: 1, is_dice: false}
+#           "Sustained Hits D3" -> {value: 3, is_dice: true}
+static func get_sustained_hits_value(weapon_id: String, board: Dictionary = {}) -> Dictionary:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return {"value": 0, "is_dice": false}
+
+	# Check special_rules string for "Sustained Hits X" or "Sustained Hits DX"
+	var special_rules = profile.get("special_rules", "").to_lower()
+	var sustained_result = _parse_sustained_hits_from_string(special_rules)
+	if sustained_result.value > 0:
+		return sustained_result
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		sustained_result = _parse_sustained_hits_from_string(keyword.to_lower())
+		if sustained_result.value > 0:
+			return sustained_result
+
+	return {"value": 0, "is_dice": false}
+
+# Parse "sustained hits X" or "sustained hits dX" from a string
+static func _parse_sustained_hits_from_string(text: String) -> Dictionary:
+	# Look for "sustained hits" followed by a value
+	var regex = RegEx.new()
+	regex.compile("sustained hits\\s*(d?)(\\d+)")
+	var result = regex.search(text)
+
+	if result:
+		var is_dice = result.get_string(1) == "d"
+		var value = result.get_string(2).to_int()
+		return {"value": value, "is_dice": is_dice}
+
+	return {"value": 0, "is_dice": false}
+
+# Check if a weapon has Sustained Hits
+static func has_sustained_hits(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_sustained_hits_value(weapon_id, board).value > 0
+
+# Roll for sustained hits based on the weapon's sustained hits value
+# Returns the total bonus hits generated for a given number of critical hits
+static func roll_sustained_hits(critical_hits: int, sustained_data: Dictionary, rng: RNGService) -> Dictionary:
+	if critical_hits <= 0 or sustained_data.value <= 0:
+		return {"bonus_hits": 0, "rolls": []}
+
+	var total_bonus = 0
+	var rolls = []
+
+	for _i in range(critical_hits):
+		var bonus = sustained_data.value
+		if sustained_data.is_dice:
+			# Roll for variable sustained hits (D3 or D6)
+			var roll = rng.roll_d6(1)[0]
+			if sustained_data.value == 3:  # D3
+				bonus = ((roll - 1) / 2) + 1  # Convert 1-6 to 1-3: 1-2->1, 3-4->2, 5-6->3
+			else:  # D6 or other
+				bonus = roll
+			rolls.append({"dice": "D%d" % sustained_data.value, "roll": roll, "result": bonus})
+		else:
+			rolls.append({"fixed": bonus})
+		total_bonus += bonus
+
+	return {"bonus_hits": total_bonus, "rolls": rolls}
+
+# Get display string for Sustained Hits (for UI)
+static func get_sustained_hits_display(weapon_id: String, board: Dictionary = {}) -> String:
+	var sustained = get_sustained_hits_value(weapon_id, board)
+	if sustained.value <= 0:
+		return ""
+	if sustained.is_dice:
+		return "SH D%d" % sustained.value
+	return "SH %d" % sustained.value
+
+# ==========================================
+# DEVASTATING WOUNDS (PRP-012)
+# ==========================================
+
+# Check if weapon has Devastating Wounds ability
+# Critical wounds (unmodified 6s to wound) bypass saves entirely
+static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Devastating Wounds" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "devastating wounds" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if "devastating wounds" in keyword.to_lower():
+			return true
+
+	return false
+
+# ==========================================
+# BLAST KEYWORD (PRP-013)
+# ==========================================
+
+# Check if a weapon has the BLAST keyword
+# Blast weapons gain bonus attacks based on target unit size
+static func is_blast_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Blast" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "blast" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "BLAST":
+			return true
+
+	return false
+
+# Count alive models in a target unit
+static func count_alive_models(target_unit: Dictionary) -> int:
+	var model_count = 0
+	for model in target_unit.get("models", []):
+		if model.get("alive", true):
+			model_count += 1
+	return model_count
+
+# Calculate Blast bonus attacks
+# Per 10e rules: +1 attack per 5 models in target unit (rounded down)
+static func calculate_blast_bonus(weapon_id: String, target_unit: Dictionary, board: Dictionary = {}) -> int:
+	if not is_blast_weapon(weapon_id, board):
+		return 0
+
+	var model_count = count_alive_models(target_unit)
+
+	# Per 10e Blast rules:
+	# - 5 or fewer models: no bonus
+	# - 6-10 models: +1 attack
+	# - 11+ models: +2 attacks (D3 simplified to flat 2 for predictability)
+	if model_count >= 11:
+		return 2
+	elif model_count >= 6:
+		return 1
+	else:
+		return 0
+
+# Calculate minimum attacks for Blast
+# Per 10e rules: Blast weapons make minimum 3 attacks vs units with 6+ models
+static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target_unit: Dictionary, board: Dictionary = {}) -> int:
+	if not is_blast_weapon(weapon_id, board):
+		return base_attacks
+
+	var model_count = count_alive_models(target_unit)
+
+	# Minimum 3 attacks against 6+ model units
+	if model_count >= 6 and base_attacks < 3:
+		return 3
+
+	return base_attacks
+
+# Check if a unit is in engagement range with any model of another unit
+# Used for Blast targeting restriction
+static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
+	const ENGAGEMENT_RANGE_INCHES = 1.0
+	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
+
+	for model1 in unit1.get("models", []):
+		if not model1.get("alive", true):
+			continue
+
+		var pos1 = _get_model_position(model1)
+		if pos1 == Vector2.ZERO:
+			continue
+
+		var radius1 = Measurement.base_radius_px(model1.get("base_mm", 32))
+
+		for model2 in unit2.get("models", []):
+			if not model2.get("alive", true):
+				continue
+
+			var pos2 = _get_model_position(model2)
+			if pos2 == Vector2.ZERO:
+				continue
+
+			var radius2 = Measurement.base_radius_px(model2.get("base_mm", 32))
+
+			var edge_distance = pos1.distance_to(pos2) - radius1 - radius2
+			if edge_distance <= er_px:
+				return true
+
+	return false
+
+# Validate Blast targeting restriction
+# Per 10e rules: Blast weapons cannot target units in Engagement Range of friendly units
+static func validate_blast_targeting(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
+	if not is_blast_weapon(weapon_id, board):
+		return {"valid": true, "errors": []}
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+	var actor_owner = actor_unit.get("owner", 0)
+
+	if actor_unit.is_empty() or target_unit.is_empty():
+		return {"valid": true, "errors": []}  # Let other validation handle missing units
+
+	# Check if target is in engagement range of any friendly unit
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != actor_owner:
+			continue  # Skip enemy units
+
+		if unit_id == actor_unit_id:
+			continue  # Skip self
+
+		# Check if this friendly unit is in engagement with target
+		if _check_units_in_engagement_range(unit, target_unit, board):
+			return {
+				"valid": false,
+				"errors": ["Cannot fire Blast weapon at unit in Engagement Range of friendly units"]
+			}
+
+	return {"valid": true, "errors": []}
+
+# Get display string for Blast info (for UI)
+static func get_blast_display(weapon_id: String, target_unit: Dictionary, board: Dictionary = {}) -> String:
+	if not is_blast_weapon(weapon_id, board):
+		return ""
+
+	var model_count = count_alive_models(target_unit)
+	var bonus = calculate_blast_bonus(weapon_id, target_unit, board)
+
+	if bonus > 0:
+		return "+%d (Blast: %d models)" % [bonus, model_count]
+	elif model_count >= 6:
+		return "min 3 (Blast: %d models)" % model_count
+	else:
+		return "(Blast: %d models)" % model_count
+
+# ==========================================
+# TORRENT KEYWORD (PRP-014)
+# ==========================================
+
+# Check if a weapon has the TORRENT keyword
+# Torrent weapons automatically hit - no hit roll is made
+# This means Lethal Hits/Sustained Hits cannot trigger (no hit roll = no crits)
+static func is_torrent_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Torrent" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "torrent" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "TORRENT":
+			return true
+
+	return false
+
+# Check if a unit has any Torrent weapons
+static func unit_has_torrent_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if is_torrent_weapon(weapon_id, board):
+				return true
+	return false
+
+# Get only Torrent weapons for a unit
+static func get_unit_torrent_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var result = {}
+	var unit_weapons = get_unit_weapons(unit_id, board)
+
+	for model_id in unit_weapons:
+		var torrent_weapons = []
+		for weapon_id in unit_weapons[model_id]:
+			if is_torrent_weapon(weapon_id, board):
+				torrent_weapons.append(weapon_id)
+		if not torrent_weapons.is_empty():
+			result[model_id] = torrent_weapons
+
+	return result
+
+# Check if a unit has any Rapid Fire weapons
+static func unit_has_rapid_fire_weapons(unit_id: String, board: Dictionary = {}) -> bool:
+	var unit_weapons = get_unit_weapons(unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			if is_rapid_fire_weapon(weapon_id, board):
+				return true
+	return false
+
+# Get only Rapid Fire weapons for a unit
+static func get_unit_rapid_fire_weapons(unit_id: String, board: Dictionary = {}) -> Dictionary:
+	var result = {}
+	var unit_weapons = get_unit_weapons(unit_id, board)
+
+	for model_id in unit_weapons:
+		var rapid_fire_weapons = []
+		for weapon_id in unit_weapons[model_id]:
+			if is_rapid_fire_weapon(weapon_id, board):
+				rapid_fire_weapons.append(weapon_id)
+		if not rapid_fire_weapons.is_empty():
+			result[model_id] = rapid_fire_weapons
+
+	return result
+
+# Count how many models in the shooter unit are within half range of the target unit
+# Uses edge-to-edge distance per 10th Edition rules
+static func count_models_in_half_range(
+	actor_unit: Dictionary,
+	target_unit: Dictionary,
+	weapon_id: String,
+	model_ids: Array,
+	board: Dictionary
+) -> int:
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	var weapon_range = weapon_profile.get("range", 24)
+	var half_range_inches = weapon_range / 2.0
+
+	var models_in_half_range = 0
+
+	for model_id in model_ids:
+		var model = _get_model_by_id(actor_unit, model_id)
+		if not model or not model.get("alive", true):
+			continue
+
+		# Check distance to closest target model (edge-to-edge)
+		var closest_distance_inches = INF
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			# Use shape-aware distance measurement
+			var edge_distance_px = Measurement.model_to_model_distance_px(model, target_model)
+			var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+			closest_distance_inches = min(closest_distance_inches, edge_distance_inches)
+
+		if closest_distance_inches <= half_range_inches:
+			models_in_half_range += 1
+
+	return models_in_half_range
 
 # Validation function to check if unit has weapons
 static func unit_has_weapons(unit_id: String) -> bool:
@@ -1994,16 +3291,19 @@ static func _apply_damage_to_unit(unit_id: String, failed_saves: int, damage_per
 
 # Prepare save resolution data for interactive defender input
 # Called after wound rolls to transfer control to defender
+# DEVASTATING WOUNDS (PRP-012): Now includes devastating wounds data for unsaveable damage
 static func prepare_save_resolution(
 	wounds_caused: int,
 	target_unit_id: String,
 	shooter_unit_id: String,
 	weapon_profile: Dictionary,
-	board: Dictionary
+	board: Dictionary,
+	devastating_wounds_data: Dictionary = {}
 ) -> Dictionary:
 	"""
 	Prepares all data needed for interactive save resolution.
 	Returns save requirements without auto-resolving.
+	DEVASTATING WOUNDS: Includes devastating_wounds count for unsaveable damage.
 	"""
 	var units = board.get("units", {})
 	var target_unit = units.get(target_unit_id, {})
@@ -2038,9 +3338,21 @@ static func prepare_save_resolution(
 			"armour_value": save_result.armour
 		})
 
+	# DEVASTATING WOUNDS (PRP-012): Extract critical wound info
+	var has_devastating_wounds = devastating_wounds_data.get("has_devastating_wounds", false)
+	var critical_wounds = devastating_wounds_data.get("critical_wounds", 0)
+	var regular_wounds = devastating_wounds_data.get("regular_wounds", wounds_caused)
+
+	# If weapon has DW, only regular wounds need saves
+	# Critical wounds (unmodified 6s to wound) bypass saves entirely
+	var wounds_needing_saves = regular_wounds if has_devastating_wounds else wounds_caused
+	var devastating_wound_count = critical_wounds if has_devastating_wounds else 0
+	var devastating_damage = devastating_wound_count * damage  # Each DW wound deals weapon damage
+
 	return {
 		"success": true,
-		"wounds_to_save": wounds_caused,
+		"wounds_to_save": wounds_needing_saves,  # Only non-critical wounds need saves
+		"total_wounds": wounds_caused,  # Total wounds caused (for logging)
 		"target_unit_id": target_unit_id,
 		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
 		"shooter_unit_id": shooter_unit_id,
@@ -2049,7 +3361,11 @@ static func prepare_save_resolution(
 		"damage": damage,
 		"base_save": base_save,
 		"model_save_profiles": model_save_profiles,
-		"allocation_priority": allocation_info.priority_model_ids
+		"allocation_priority": allocation_info.priority_model_ids,
+		# DEVASTATING WOUNDS (PRP-012): Unsaveable damage info
+		"has_devastating_wounds": has_devastating_wounds,
+		"devastating_wounds": devastating_wound_count,
+		"devastating_damage": devastating_damage
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)
@@ -2174,19 +3490,23 @@ static func roll_saves_batch(
 	}
 
 # Apply damage from failed saves
+# DEVASTATING WOUNDS (PRP-012): Now also applies devastating damage (no saves allowed)
 static func apply_save_damage(
 	save_results: Array,
 	save_data: Dictionary,
-	board: Dictionary
+	board: Dictionary,
+	devastating_damage_override: int = -1
 ) -> Dictionary:
 	"""
 	Applies damage to models that failed their saves.
+	DEVASTATING WOUNDS: Also applies devastating damage if present in save_data or override.
 	Returns diffs and casualty count.
 	"""
 	var result = {
 		"diffs": [],
 		"casualties": 0,
-		"damage_applied": 0
+		"damage_applied": 0,
+		"devastating_damage_applied": 0
 	}
 
 	var target_unit_id = save_data.target_unit_id
@@ -2199,6 +3519,32 @@ static func apply_save_damage(
 
 	var models = target_unit.get("models", [])
 
+	# DEVASTATING WOUNDS (PRP-012): Apply devastating damage first (unsaveable)
+	var dw_damage = devastating_damage_override if devastating_damage_override >= 0 else save_data.get("devastating_damage", 0)
+	if dw_damage > 0:
+		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
+		var dw_result = _apply_damage_to_unit_pool(target_unit_id, dw_damage, models, board)
+		result.diffs.append_array(dw_result.diffs)
+		result.casualties += dw_result.casualties
+		result.damage_applied += dw_result.damage_applied
+		result.devastating_damage_applied = dw_result.damage_applied
+
+		# Update models array for subsequent damage (in case models were killed by DW)
+		for diff in dw_result.diffs:
+			if diff.op == "set" and ".current_wounds" in diff.path:
+				var path_parts = diff.path.split(".")
+				if path_parts.size() >= 4:
+					var model_idx = int(path_parts[3])
+					if model_idx >= 0 and model_idx < models.size():
+						models[model_idx]["current_wounds"] = diff.value
+			elif diff.op == "set" and ".alive" in diff.path:
+				var path_parts = diff.path.split(".")
+				if path_parts.size() >= 4:
+					var model_idx = int(path_parts[3])
+					if model_idx >= 0 and model_idx < models.size():
+						models[model_idx]["alive"] = diff.value
+
+	# Apply damage from failed saves
 	for save_result in save_results:
 		if save_result.saved:
 			continue  # No damage if save succeeded
@@ -2208,6 +3554,13 @@ static func apply_save_damage(
 			continue
 
 		var model = models[model_index]
+		if not model.get("alive", true):
+			# Model already dead from devastating wounds - find next alive model
+			model_index = _find_next_alive_model_index(models, model_index)
+			if model_index < 0:
+				continue  # No alive models left
+			model = models[model_index]
+
 		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
 		var new_wounds = max(0, current_wounds - damage_per_wound)
 
@@ -2219,6 +3572,9 @@ static func apply_save_damage(
 
 		result.damage_applied += damage_per_wound
 
+		# Update local model tracking
+		models[model_index]["current_wounds"] = new_wounds
+
 		if new_wounds == 0:
 			# Model destroyed
 			result.diffs.append({
@@ -2227,5 +3583,82 @@ static func apply_save_damage(
 				"value": false
 			})
 			result.casualties += 1
+			models[model_index]["alive"] = false
 
 	return result
+
+# DEVASTATING WOUNDS (PRP-012): Helper to apply damage to unit's wound pool
+# Distributes damage across models following 10e allocation rules
+static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
+	"""Apply damage to unit, distributing across models following 10e rules"""
+	var result = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	var remaining_damage = total_damage
+
+	# Apply damage following allocation rules: wounded models first, then any model
+	while remaining_damage > 0:
+		# Find next model to apply damage to (wounded first, then any alive)
+		var target_model_index = _find_allocation_target_model(models)
+		if target_model_index < 0:
+			break  # No alive models
+
+		var model = models[target_model_index]
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var damage_to_apply = min(remaining_damage, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+			"value": new_wounds
+		})
+
+		result.damage_applied += damage_to_apply
+		remaining_damage -= damage_to_apply
+		models[target_model_index]["current_wounds"] = new_wounds
+
+		if new_wounds == 0:
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [target_unit_id, target_model_index],
+				"value": false
+			})
+			result.casualties += 1
+			models[target_model_index]["alive"] = false
+
+	return result
+
+# DEVASTATING WOUNDS (PRP-012): Find model to allocate damage to (wounded first)
+static func _find_allocation_target_model(models: Array) -> int:
+	"""Find next model to allocate damage to: wounded models first, then any alive"""
+	# First, look for wounded alive models
+	for i in range(models.size()):
+		var model = models[i]
+		if model.get("alive", true):
+			var current = model.get("current_wounds", model.get("wounds", 1))
+			var max_wounds = model.get("wounds", 1)
+			if current < max_wounds:
+				return i  # Return first wounded model
+
+	# No wounded models, return first alive model
+	for i in range(models.size()):
+		if models[i].get("alive", true):
+			return i
+
+	return -1  # No alive models
+
+# DEVASTATING WOUNDS (PRP-012): Find next alive model starting from given index
+static func _find_next_alive_model_index(models: Array, start_index: int) -> int:
+	"""Find next alive model starting from given index"""
+	for i in range(start_index, models.size()):
+		if models[i].get("alive", true):
+			return i
+	# Wrap around
+	for i in range(0, start_index):
+		if models[i].get("alive", true):
+			return i
+	return -1

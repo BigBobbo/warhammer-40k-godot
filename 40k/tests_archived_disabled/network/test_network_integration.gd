@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for NetworkIntegration utility
 # Tests routing of actions between network and local execution paths

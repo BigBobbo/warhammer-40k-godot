@@ -5,6 +5,7 @@ extends Control
 # UI References
 @onready var host_button: Button = $LobbyContainer/ModeSelection/ButtonsContainer/HostButton
 @onready var join_button: Button = $LobbyContainer/ModeSelection/ButtonsContainer/JoinButton
+@onready var online_button: Button = $LobbyContainer/ModeSelection/ButtonsContainer/OnlineButton
 @onready var port_input: LineEdit = $LobbyContainer/ConnectionSettings/PortContainer/PortInput
 @onready var ip_input: LineEdit = $LobbyContainer/ConnectionSettings/IPContainer/IPInput
 @onready var status_label: Label = $LobbyContainer/StatusSection/StatusLabel
@@ -39,9 +40,21 @@ func _ready() -> void:
 	# Connect UI signals
 	host_button.pressed.connect(_on_host_button_pressed)
 	join_button.pressed.connect(_on_join_button_pressed)
+	online_button.pressed.connect(_on_online_button_pressed)
 	start_game_button.pressed.connect(_on_start_game_button_pressed)
 	disconnect_button.pressed.connect(_on_disconnect_button_pressed)
 	back_button.pressed.connect(_on_back_button_pressed)
+
+	# Hide online button on web platform (they go directly to WebLobby)
+	# Also hide LAN buttons on web platform (ENet not supported in browser)
+	if OS.has_feature("web"):
+		host_button.visible = false
+		join_button.visible = false
+		port_input.get_parent().visible = false
+		ip_input.get_parent().visible = false
+		# Auto-redirect to WebLobby on web platform
+		await get_tree().process_frame
+		_on_online_button_pressed()
 
 	# Connect NetworkManager signals
 	var network_manager = get_node("/root/NetworkManager")
@@ -192,6 +205,11 @@ func _on_disconnect_button_pressed() -> void:
 	status_label.text = "Status: Disconnected"
 	info_label.text = "Select Host or Join to begin"
 	player_list_label.text = "Connected Players: 0/2"
+
+func _on_online_button_pressed() -> void:
+	print("MultiplayerLobby: Online button pressed")
+	# Navigate to WebLobby for online play
+	get_tree().change_scene_to_file("res://scenes/WebLobby.tscn")
 
 func _on_back_button_pressed() -> void:
 	print("MultiplayerLobby: Back button pressed")

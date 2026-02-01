@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Test engagement range with mixed base shapes
 # This test verifies that engagement range calculations use actual base shapes

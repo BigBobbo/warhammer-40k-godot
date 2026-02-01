@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Integration tests for multiplayer army selection in lobby
 # Tests the army selection UI and synchronization between host and client

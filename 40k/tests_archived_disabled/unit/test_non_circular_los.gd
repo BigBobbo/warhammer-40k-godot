@@ -1,9 +1,9 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+class_name TestNonCircularLoS
 
 # Specific tests for non-circular base line of sight enhancements
 # Focuses on edge cases and complex scenarios for rectangular and oval bases
 
-class_name TestNonCircularLoS
 
 var test_board: Dictionary
 

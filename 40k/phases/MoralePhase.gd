@@ -1,6 +1,9 @@
 extends BasePhase
 class_name MoralePhase
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # MoralePhase - Stub implementation for the Morale phase
 # This is a placeholder that can be expanded with full morale mechanics
 

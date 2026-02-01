@@ -1,9 +1,13 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+class_name TestEnhancedLineOfSight
+
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 # Unit tests for EnhancedLineOfSight system
 # Tests progressive sampling, base-aware visibility, and performance characteristics
 
-class_name TestEnhancedLineOfSight
 
 var test_board: Dictionary
 var test_shooter_model: Dictionary

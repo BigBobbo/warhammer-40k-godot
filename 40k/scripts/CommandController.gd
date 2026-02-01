@@ -1,6 +1,9 @@
 extends Node2D
 class_name CommandController
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # CommandController - Handles UI interactions for the Command Phase
 # Currently a placeholder phase that will be expanded with command point functionality
 

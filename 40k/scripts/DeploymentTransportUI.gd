@@ -1,4 +1,5 @@
 extends VBoxContainer
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # UI for deploying units directly into transports during deployment phase
 # This is designed to be added as a child to the right panel's VBoxContainer

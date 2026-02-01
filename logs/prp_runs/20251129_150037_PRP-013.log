@@ -1,0 +1,55 @@
+## PRP-013: Blast Keyword Implementation Complete
+
+### Summary of Changes
+
+**Files Modified:**
+
+1. **`40k/autoloads/RulesEngine.gd`** (RulesEngine.gd:1889-2025)
+   - Added `is_blast_weapon()` function to detect Blast keyword
+   - Added `count_alive_models()` helper function
+   - Added `calculate_blast_bonus()` function (+1 attack per 5 models)
+   - Added `calculate_blast_minimum()` function (min 3 attacks vs 6+ models)
+   - Added `_check_units_in_engagement_range()` helper for Blast restriction
+   - Added `validate_blast_targeting()` function (prevents targeting units in engagement with friendlies)
+   - Added `get_blast_display()` function for UI preview
+   - Modified `_resolve_assignment_until_wounds()` to include Blast bonus and minimum
+   - Modified `_resolve_assignment()` to include Blast bonus and minimum
+   - Added Blast tracking to dice log data
+   - Added Blast targeting validation in `validate_shoot()`
+   - Added test weapon profiles: `frag_grenade`, `frag_missile`, `battle_cannon`, `blast_devastating`
+
+2. **`40k/scripts/ShootingController.gd`** (ShootingController.gd:518-547, 1163-1176)
+   - Added `[B]` indicator for Blast weapons in weapon tree
+   - Added Blast bonus/minimum display in dice log output
+
+**Files Created:**
+
+1. **`40k/tests/unit/test_blast_keyword.gd`**
+   - 43 comprehensive unit tests for Blast keyword functionality
+   - Tests cover detection, bonus calculation, minimum attacks, edge cases
+
+### Acceptance Criteria Verification
+
+| Criterion | Status | Implementation |
+|-----------|--------|----------------|
+| Blast weapons gain +1 attack per 5 models in target unit | ✅ | `calculate_blast_bonus()` in RulesEngine.gd:1921-1932 |
+| Blast weapons make minimum 3 attacks vs 6+ model units | ✅ | `calculate_blast_minimum()` in RulesEngine.gd:1934-1946 |
+| Blast weapons cannot target units in engagement with friendlies | ✅ | `validate_blast_targeting()` in RulesEngine.gd:1980-2010, called in `validate_shoot()` |
+| UI shows Blast bonus preview before confirming target | ✅ | `get_blast_display()` in RulesEngine.gd:2012-2025 |
+| Dice log shows "Blast: +X attacks (Y models in target)" | ✅ | ShootingController.gd:1163-1176 |
+| UI shows [B] indicator for Blast weapons | ✅ | ShootingController.gd:546-547 |
+| Multiplayer sync works correctly | ✅ | Uses existing board state passed to all functions |
+
+### Test Results
+
+```
+Total: 43, Passed: 43, Failed: 0
+```
+
+### Implementation Notes
+
+- Blast bonus is calculated from alive models only
+- Blast minimum (3 attacks) only applies when base attacks < 3 AND target has 6+ models
+- Blast bonus is applied AFTER the minimum calculation
+- Works correctly with variable attack weapons
+- Works correctly with other keywords (Heavy, Devastating Wounds)

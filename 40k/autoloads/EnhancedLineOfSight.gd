@@ -1,4 +1,8 @@
 extends Node
+const BaseShape = preload("res://scripts/bases/BaseShape.gd")
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 # EnhancedLineOfSight - Advanced base-to-base visibility checking
 # Implements progressive sampling for true line of sight following Warhammer 40k 10th Edition rules

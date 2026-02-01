@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Phase Transitions Integration Tests - Tests complete phase transition flows
 # Tests the coordination between PhaseManager, GameState, and individual phases

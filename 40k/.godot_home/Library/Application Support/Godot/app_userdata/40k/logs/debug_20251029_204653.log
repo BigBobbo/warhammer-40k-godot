@@ -1,0 +1,19 @@
+
+================================================================================
+DEBUG LOG SESSION
+================================================================================
+Session ID: 20251029_204653
+Start Time: 2025-10-29 20:46:53
+Project: Warhammer 40k Game
+Godot Version: 4.5.1-stable (official)
+Platform: macOS
+================================================================================
+
+[2025-10-29 20:46:53] [INFO.0000000] DebugLogger initialized - Session: 20251029_204653
+[2025-10-29 20:46:53] [INFO.0000000] Log file: user://logs/debug_20251029_204653.log
+[2025-10-29 20:46:53] [INFO.0000000] Real path: /Users/robertocallaghan/Documents/claude/godotv2/40k/.godot_home/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_204653.log
+[2025-10-29 20:46:53] [INFO.0000000] DebugManager initialized
+
+================================================================================
+SESSION END: 2025-10-29 20:46:53
+================================================================================

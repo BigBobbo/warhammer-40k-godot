@@ -1,6 +1,9 @@
 extends Node2D
 class_name FightController
 
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # FightController - Handles UI interactions for the Fight Phase
 # Manages fight sequencing, pile in/consolidate movement, attack assignment
 

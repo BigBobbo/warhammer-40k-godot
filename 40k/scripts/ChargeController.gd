@@ -1,6 +1,9 @@
 extends Node2D
 class_name ChargeController
 
+const GameStateData = preload("res://autoloads/GameState.gd")
+
+
 # ChargeController - Handles UI interactions for the Charge Phase
 # Manages charge declarations, target selection, dice rolling, and movement validation
 

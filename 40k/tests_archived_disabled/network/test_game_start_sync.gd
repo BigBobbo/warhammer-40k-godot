@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for multiplayer game start synchronization
 # Tests that the RPC method correctly initiates game start for both host and client

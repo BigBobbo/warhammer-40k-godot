@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # ReplayManager - Handles game replay functionality
 # Provides playback controls and analysis tools for reviewing games

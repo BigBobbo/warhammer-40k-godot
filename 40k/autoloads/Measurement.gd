@@ -1,4 +1,8 @@
 extends Node
+const BaseShape = preload("res://scripts/bases/BaseShape.gd")
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 const PX_PER_INCH: float = 40.0
 const MM_PER_INCH: float = 25.4

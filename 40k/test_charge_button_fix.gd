@@ -1,6 +1,7 @@
 #!/usr/bin/env godot
 # Test script to verify charge buttons remain visible after first unit charges
 extends SceneTree
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 func _ready():
 	print("Testing charge button visibility fix...")

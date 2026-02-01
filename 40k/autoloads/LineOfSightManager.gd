@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # LineOfSightManager - Manages Line of Sight visualization system
 # Shows all models that can see the mouse cursor position when holding 'V' key

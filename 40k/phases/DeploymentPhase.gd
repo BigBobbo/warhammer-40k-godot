@@ -1,6 +1,10 @@
 extends BasePhase
 class_name DeploymentPhase
 
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
+
+
 # DeploymentPhase - Handles the deployment phase logic using the modular system
 
 var deployment_controller: Node = null

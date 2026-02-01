@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for Measurement autoload
 # Tests unit conversion and distance calculation functionality

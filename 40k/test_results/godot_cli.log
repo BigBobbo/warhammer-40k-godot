@@ -1,0 +1,1402 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+=== GUT Test Runner ===
+Running tests in: res://tests/integration/test_multiplayer_deployment.gd
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_basic_multiplayer_connection
+
+[TEST] test_basic_multiplayer_connection
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_160403.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_160403.log
+[GameInstance] Successfully launched Host (PID: 6267)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+[GameInstance] Successfully launched Client (PID: 6275)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6267_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6267_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_basic_multiplayer_connection (res://tests/integration/test_multiplayer_deployment.gd:27)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6267_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6267_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_basic_multiplayer_connection (res://tests/integration/test_multiplayer_deployment.gd:27)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6267_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6267_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_basic_multiplayer_connection (res://tests/integration/test_multiplayer_deployment.gd:27)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_basic_multiplayer_connection - Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_basic_multiplayer_connection - Client should connect to host
+ASSERTION FAILED: test_basic_multiplayer_connection - Connection should be established
+ASSERTION FAILED: test_basic_multiplayer_connection - Connection should be established
+[TEST] PASSED: Basic connection established
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6267_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6267_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-55-51.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_160403.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_save_load
+
+[TEST] test_deployment_save_load
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+[GameInstance] Successfully launched Host (PID: 6301)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+[GameInstance] Successfully launched Client (PID: 6308)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6301_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6301_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_save_load (res://tests/integration/test_multiplayer_deployment.gd:47)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6301_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6301_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_save_load (res://tests/integration/test_multiplayer_deployment.gd:47)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6301_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6301_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_save_load (res://tests/integration/test_multiplayer_deployment.gd:47)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_save_load - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6301_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6301_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_save_load (res://tests/integration/test_multiplayer_deployment.gd:53)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Client performing action: get_game_state with params: {  }
+[Test] Writing command file: client_6308_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: client_6308_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_client_action (res://tests/helpers/MultiplayerIntegrationTest.gd:241)
+       [3] test_deployment_save_load (res://tests/integration/test_multiplayer_deployment.gd:54)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+ASSERTION FAILED: test_deployment_save_load - Host should return game state
+ASSERTION FAILED: test_deployment_save_load - Client should return game state
+ASSERTION FAILED: test_deployment_save_load - Host should be in Deployment phase
+ASSERTION FAILED: test_deployment_save_load - Client should be in Deployment phase
+[TEST] PASSED: Deployment save loaded and synced
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6301_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6301_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-56-35.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205528.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_single_unit
+
+[TEST] test_deployment_single_unit
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+[GameInstance] Successfully launched Host (PID: 6326)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205644.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205644.log
+[GameInstance] Successfully launched Client (PID: 6330)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6326_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:82)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6326_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:82)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6326_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:82)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_single_unit - Connection timeout - client did not connect to host within 15 seconds
+[TEST] Loading save file: deployment_start
+[Test] Host performing action: load_save with params: { "save_name": "deployment_start" }
+[Test] Writing command file: host_6326_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:87)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+ASSERTION FAILED: test_deployment_single_unit - Save file should load: Command timeout - no result received within 5.0 seconds
+[TEST] Save loaded: 0 units available
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6326_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:97)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+ASSERTION FAILED: test_deployment_single_unit - Should retrieve game state
+ASSERTION FAILED: test_deployment_single_unit - Should be in deployment phase
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6326_cmd_006.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_006_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:103)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+ASSERTION FAILED: test_deployment_single_unit - Should retrieve available units: Command timeout - no result received within 5.0 seconds
+[TEST] Player 1 undeployed units: []
+ASSERTION FAILED: test_deployment_single_unit - Player 1 should have at least one undeployed unit
+SCRIPT ERROR: Invalid access of index '0' on a base object of type: 'Array'.
+   at: test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:113)
+   GDScript backtrace (most recent call first):
+       [0] test_deployment_single_unit (res://tests/integration/test_multiplayer_deployment.gd:113)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6326_cmd_007.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6326_cmd_007_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-57-27.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205601.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205644.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_outside_zone
+
+[TEST] test_deployment_outside_zone
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205649.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205649.log
+[GameInstance] Successfully launched Host (PID: 6360)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+[GameInstance] Successfully launched Client (PID: 6367)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6360_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6360_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_outside_zone (res://tests/integration/test_multiplayer_deployment.gd:156)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6360_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6360_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_outside_zone (res://tests/integration/test_multiplayer_deployment.gd:156)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6360_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6360_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_outside_zone (res://tests/integration/test_multiplayer_deployment.gd:156)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_outside_zone - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6360_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6360_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_outside_zone (res://tests/integration/test_multiplayer_deployment.gd:160)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6360_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6360_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-58-08.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205649.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_alternating_turns
+
+[TEST] test_deployment_alternating_turns
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+[GameInstance] Successfully launched Host (PID: 6385)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205817.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205817.log
+[GameInstance] Successfully launched Client (PID: 6394)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6385_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6385_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_alternating_turns (res://tests/integration/test_multiplayer_deployment.gd:197)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6385_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6385_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_alternating_turns (res://tests/integration/test_multiplayer_deployment.gd:197)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6385_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6385_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_alternating_turns (res://tests/integration/test_multiplayer_deployment.gd:197)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_alternating_turns - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6385_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6385_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_alternating_turns (res://tests/integration/test_multiplayer_deployment.gd:201)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6385_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6385_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-58-48.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205736.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205817.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_wrong_turn
+
+[TEST] test_deployment_wrong_turn
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205822.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205822.log
+[GameInstance] Successfully launched Host (PID: 6412)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205858.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205858.log
+[GameInstance] Successfully launched Client (PID: 6422)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6412_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6412_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_wrong_turn (res://tests/integration/test_multiplayer_deployment.gd:248)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6412_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6412_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_wrong_turn (res://tests/integration/test_multiplayer_deployment.gd:248)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6412_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6412_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_wrong_turn (res://tests/integration/test_multiplayer_deployment.gd:248)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_wrong_turn - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6412_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6412_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_wrong_turn (res://tests/integration/test_multiplayer_deployment.gd:252)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6412_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6412_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T20-59-29.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205822.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205858.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_blocked_by_terrain
+
+[TEST] test_deployment_blocked_by_terrain
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205903.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205903.log
+[GameInstance] Successfully launched Host (PID: 6440)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+[GameInstance] Successfully launched Client (PID: 6448)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6440_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6440_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_blocked_by_terrain (res://tests/integration/test_multiplayer_deployment.gd:294)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6440_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6440_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_blocked_by_terrain (res://tests/integration/test_multiplayer_deployment.gd:294)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6440_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6440_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_blocked_by_terrain (res://tests/integration/test_multiplayer_deployment.gd:294)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_blocked_by_terrain - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6440_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6440_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_blocked_by_terrain (res://tests/integration/test_multiplayer_deployment.gd:298)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6440_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6440_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T21-00-10.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205903.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_unit_coherency
+
+[TEST] test_deployment_unit_coherency
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+[GameInstance] Successfully launched Host (PID: 6468)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+[GameInstance] Successfully launched Client (PID: 6477)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6468_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6468_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_unit_coherency (res://tests/integration/test_multiplayer_deployment.gd:335)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6468_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6468_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_unit_coherency (res://tests/integration/test_multiplayer_deployment.gd:335)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6468_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6468_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_unit_coherency (res://tests/integration/test_multiplayer_deployment.gd:335)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_unit_coherency - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6468_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6468_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_unit_coherency (res://tests/integration/test_multiplayer_deployment.gd:339)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6468_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6468_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T21-00-51.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_205938.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_completion_both_players
+
+[TEST] test_deployment_completion_both_players
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+[GameInstance] Successfully launched Host (PID: 6505)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+[GameInstance] Successfully launched Client (PID: 6511)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:381)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:381)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:381)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_completion_both_players - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: complete_deployment with params: { "player_id": 1 }
+[Test] Writing command file: host_6505_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:385)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] Player 1 complete: success=false
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:393)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] Phase after P1 complete: 
+[Test] Client performing action: complete_deployment with params: { "player_id": 2 }
+[Test] Writing command file: client_6511_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: client_6511_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_client_action (res://tests/helpers/MultiplayerIntegrationTest.gd:241)
+       [3] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:398)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] Player 2 complete: success=false
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_006.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_006_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_completion_both_players (res://tests/integration/test_multiplayer_deployment.gd:406)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] Phase after both complete: 
+[TEST] Deployment completion test finished
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6505_cmd_007.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6505_cmd_007_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T21-01-50.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210021.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+
+========================================
+Starting Multiplayer Integration Test
+========================================
+
+  Running: test_deployment_undo_action
+
+[TEST] test_deployment_undo_action
+[Test] Launching host and client instances...
+[GameInstance] Launching Host instance on port 8000
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+[GameInstance] Successfully launched Host (PID: 6537)
+[Test] Host instance launched successfully on port 8000
+[GameInstance] Launching Client instance on port 7778
+[GameInstance] Using project path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+[LogMonitor] Started monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210159.log
+[GameInstance] Monitoring log file: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210159.log
+[GameInstance] Successfully launched Client (PID: 6541)
+[Test] Client instance launched successfully
+[Test] Waiting for client to connect to host...
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6537_cmd_001.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6537_cmd_001_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_undo_action (res://tests/integration/test_multiplayer_deployment.gd:427)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6537_cmd_002.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6537_cmd_002_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_undo_action (res://tests/integration/test_multiplayer_deployment.gd:427)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6537_cmd_003.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6537_cmd_003_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] wait_for_connection (res://tests/helpers/MultiplayerIntegrationTest.gd:124)
+       [4] test_deployment_undo_action (res://tests/integration/test_multiplayer_deployment.gd:427)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test] Waiting for connection... (got error: Command timeout - no result received within 5.0 seconds)
+[Test] FAILED: Connection timeout - client did not connect to host within 15 seconds
+ASSERTION FAILED: test_deployment_undo_action - Connection timeout - client did not connect to host within 15 seconds
+[Test] Host performing action: get_available_units with params: {  }
+[Test] Writing command file: host_6537_cmd_004.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6537_cmd_004_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] test_deployment_undo_action (res://tests/integration/test_multiplayer_deployment.gd:431)
+       [4] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [5] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [6] _init (res://addons/gut/gut_cmdln.gd:14)
+[TEST] WARNING: Could not get available units, skipping test
+
+========================================
+Cleaning up Multiplayer Test
+========================================
+
+[Test] Host performing action: get_game_state with params: {  }
+[Test] Writing command file: host_6537_cmd_005.json
+[Test] Waiting for result file...
+[Test] Polling for result file: host_6537_cmd_005_result.json
+ERROR: [Test] Command timeout waiting for result
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _wait_for_result (res://tests/helpers/MultiplayerIntegrationTest.gd:398)
+       [1] _simulate_action (res://tests/helpers/MultiplayerIntegrationTest.gd:292)
+       [2] simulate_host_action (res://tests/helpers/MultiplayerIntegrationTest.gd:233)
+       [3] _generate_test_report (res://tests/helpers/MultiplayerIntegrationTest.gd:520)
+       [4] after_each (res://tests/helpers/MultiplayerIntegrationTest.gd:53)
+       [5] run_test_file (res://addons/gut/gut_cmdln.gd:123)
+       [6] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [7] _init (res://addons/gut/gut_cmdln.gd:14)
+[Test Artifacts] Report saved: /Users/robertocallaghan/Documents/claude/godotv2/40k/test_results/test_artifacts/reports/unknown_test_2025-10-29T21-02-30.json
+[GameInstance] Terminating instance: Host
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210101.log
+[GameInstance] Terminating instance: Client
+[LogMonitor] Stopped monitoring: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210159.log
+Running tests in: res://tests/disabled_tests/test_fight_phase_wound_application.gd
+SCRIPT ERROR: Compile Error: Identifier not found: GameState
+   at: GDScript::reload (res://phases/FightPhase.gd:134)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://tests/disabled_tests/test_fight_phase_wound_application.gd:0)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+ERROR: Failed to load script "res://tests/disabled_tests/test_fight_phase_wound_application.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:3041)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_wound_application.gd:10)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_wound_application.gd:10)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_wounds_applied_after_melee_combat
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_wounds_applied_after_melee_combat (res://tests/disabled_tests/test_fight_phase_wound_application.gd:39)
+   GDScript backtrace (most recent call first):
+       [0] test_wounds_applied_after_melee_combat (res://tests/disabled_tests/test_fight_phase_wound_application.gd:39)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_wound_application.gd:10)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_wound_application.gd:10)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_state_changes_included_in_result
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_state_changes_included_in_result (res://tests/disabled_tests/test_fight_phase_wound_application.gd:116)
+   GDScript backtrace (most recent call first):
+       [0] test_state_changes_included_in_result (res://tests/disabled_tests/test_fight_phase_wound_application.gd:116)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+Running tests in: res://tests/disabled_tests/test_fight_phase_alternation.gd
+SCRIPT ERROR: Compile Error: Identifier not found: GameState
+   at: GDScript::reload (res://phases/FightPhase.gd:134)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://tests/disabled_tests/test_fight_phase_alternation.gd:0)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+ERROR: Failed to load script "res://tests/disabled_tests/test_fight_phase_alternation.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:3041)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:95)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [2] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_defending_player_selects_first
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_defending_player_selects_first (res://tests/disabled_tests/test_fight_phase_alternation.gd:40)
+   GDScript backtrace (most recent call first):
+       [0] test_defending_player_selects_first (res://tests/disabled_tests/test_fight_phase_alternation.gd:40)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_players_alternate_after_each_activation
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_players_alternate_after_each_activation (res://tests/disabled_tests/test_fight_phase_alternation.gd:52)
+   GDScript backtrace (most recent call first):
+       [0] test_players_alternate_after_each_activation (res://tests/disabled_tests/test_fight_phase_alternation.gd:52)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_one_player_continues_when_opponent_has_no_units
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_one_player_continues_when_opponent_has_no_units (res://tests/disabled_tests/test_fight_phase_alternation.gd:87)
+   GDScript backtrace (most recent call first):
+       [0] test_one_player_continues_when_opponent_has_no_units (res://tests/disabled_tests/test_fight_phase_alternation.gd:87)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_subphase_transition_resets_to_defending_player
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_subphase_transition_resets_to_defending_player (res://tests/disabled_tests/test_fight_phase_alternation.gd:120)
+   GDScript backtrace (most recent call first):
+       [0] test_subphase_transition_resets_to_defending_player (res://tests/disabled_tests/test_fight_phase_alternation.gd:120)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+   GDScript backtrace (most recent call first):
+       [0] before_each (res://tests/disabled_tests/test_fight_phase_alternation.gd:11)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:118)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+  Running: test_wrong_player_cannot_select
+SCRIPT ERROR: Invalid access to property or key 'state' on a base object of type 'Nil'.
+   at: test_wrong_player_cannot_select (res://tests/disabled_tests/test_fight_phase_alternation.gd:137)
+   GDScript backtrace (most recent call first):
+       [0] test_wrong_player_cannot_select (res://tests/disabled_tests/test_fight_phase_alternation.gd:137)
+       [1] run_test_file (res://addons/gut/gut_cmdln.gd:121)
+       [2] run_tests (res://addons/gut/gut_cmdln.gd:53)
+       [3] _init (res://addons/gut/gut_cmdln.gd:14)
+
+=== Test Results ===
+Total: 24, Passed: 2, Failed: 22
+TestModeHandler: Args -> ["-s", "addons/gut/gut_cmdln.gd", "-gtest=res://tests/integration/test_multiplayer_deployment.gd", "-gexit"]
+[2025-10-29 21:02:38] [INFO.0000000] DebugLogger initialized - Session: 20251029_210238
+[2025-10-29 21:02:38] [INFO.0000000] Log file: user://logs/debug_20251029_210238.log
+[2025-10-29 21:02:38] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20251029_210238.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2025-10-29 21:02:38] [INFO.0000000] DebugManager initialized
+GameState: Loading default armies...
+GameState: ArmyListManager not available, falling back to placeholder armies
+GameState: Initializing placeholder armies for both players
+GameState: Initializing placeholder army for player 1
+GameState: Initializing placeholder army for player 2
+ActionLogger: Started session 20251029_210238
+StateSerializer: Pretty print enabled: true
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Added walls to terrain pieces
+[TerrainManager] Loaded 12 terrain pieces
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+MissionManager: Set up 5 objectives for Strike Force deployment
+  - obj_center at position (880.0, 1200.0)
+  - obj_tl at position (400.0, 560.0)
+  - obj_tr at position (1360.0, 560.0)
+  - obj_bl at position (400.0, 1840.0)
+  - obj_br at position (1360.0, 1840.0)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+NetworkManager: Initialized
+[2025-10-29 21:02:38] [INFO.0000000] DebugLogger shutting down - Session: 20251029_210238

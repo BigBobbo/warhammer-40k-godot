@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
 
 # Unit tests for DebugLogger functionality
 # Tests file creation, logging levels, and output format

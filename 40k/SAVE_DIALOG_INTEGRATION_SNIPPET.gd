@@ -83,6 +83,7 @@ func _show_save_dialog(save_data_list: Array):
 # This can even go in an autoload if you create one for UI management
 
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 func _ready():
 	# Wait for scene tree to be ready

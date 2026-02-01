@@ -1,9 +1,9 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+class_name TestEnhancedVisibilityIntegration
 
 # Integration tests for enhanced line of sight in shooting phase
 # Tests the full workflow from unit selection to target validation
 
-class_name TestEnhancedVisibilityIntegration
 
 var test_state: Dictionary
 var shooting_controller: Node

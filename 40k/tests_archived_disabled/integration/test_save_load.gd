@@ -1,4 +1,5 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Save/Load Integration Tests - Tests game state persistence and restoration
 # Tests coordination between SaveLoadManager, StateSerializer, and GameState

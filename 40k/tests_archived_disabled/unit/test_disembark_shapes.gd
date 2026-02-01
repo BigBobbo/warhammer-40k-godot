@@ -1,4 +1,7 @@
-extends GutTest
+extends "res://addons/gut/test.gd"
+const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+const OvalBase = preload("res://scripts/bases/OvalBase.gd")
 
 func before_each():
 	# Ensure autoloads available

@@ -1,4 +1,6 @@
 extends BasePhaseTest
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # DeploymentPhase GUT Tests - Validates the Deployment Phase implementation
 # Tests unit deployment, deployment zones, and deployment completion logic

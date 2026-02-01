@@ -1,4 +1,5 @@
 extends Node
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 # ActionLogger - Records all game actions for replay, debugging, and audit trails
 # Works with the modular GameState system to provide comprehensive action tracking

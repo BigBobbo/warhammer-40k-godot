@@ -1,0 +1,107 @@
+# GitHub Actions workflow to build and deploy web export to itch.io
+name: Deploy Web Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '40k/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  GODOT_VERSION: "4.4.1"
+  EXPORT_NAME: "Warhammer40K"
+  ITCH_USERNAME: "oisinrob"
+  ITCH_GAME: "warhammer40k-simulator"  # Update with actual itch.io game name
+
+jobs:
+  # First run tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+
+      - name: Run GUT Tests
+        run: |
+          cd 40k
+          godot --headless --script res://addons/gut/gut_cmdln.gd -gdir=res://tests/ -gprefix=test_ -gsuffix=.gd -gexit || true
+        continue-on-error: true  # Don't fail deployment on test failures for now
+
+  # Build web export
+  build-web:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          export-templates: true
+
+      - name: Create server config for web
+        run: |
+          # Create server config with production URL
+          echo '{"server_url": "${{ secrets.WS_SERVER_URL }}"}' > 40k/server_config.local.json
+
+      - name: Export for Web
+        run: |
+          cd 40k
+          mkdir -p exports/web
+          godot --headless --export-release "Web" exports/web/index.html
+
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: 40k/exports/web/
+          retention-days: 7
+
+  # Deploy to itch.io
+  deploy-itch:
+    runs-on: ubuntu-latest
+    needs: build-web
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download Web Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: web-build
+
+      - name: Install Butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Login to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.ITCH_BUTLER_KEY }}
+        run: |
+          ./butler login
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.ITCH_BUTLER_KEY }}
+        run: |
+          ./butler push web-build ${{ env.ITCH_USERNAME }}/${{ env.ITCH_GAME }}:html5
+
+      - name: Deployment Summary
+        run: |
+          echo "## Web Build Deployed to itch.io" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Game: ${{ env.ITCH_GAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Channel: html5" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

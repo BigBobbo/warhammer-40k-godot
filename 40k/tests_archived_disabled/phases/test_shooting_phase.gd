@@ -1,4 +1,6 @@
 extends BasePhaseTest
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ShootingPhase GUT Tests - Validates the Shooting Phase implementation
 # Tests target selection, weapon range, line of sight, cover, and damage resolution

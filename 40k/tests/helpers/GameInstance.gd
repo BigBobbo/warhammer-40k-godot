@@ -1,6 +1,8 @@
 extends RefCounted
 class_name GameInstance
 
+const LogMonitor = preload("res://tests/helpers/LogMonitor.gd")
+
 # Manages a single Godot game instance for multiplayer testing
 # Handles process launching, log monitoring, and window positioning
 
@@ -13,6 +15,7 @@ var log_monitor: LogMonitor
 var window_position: Vector2i
 var is_host: bool = false
 var save_file: String = ""  # Optional save file to auto-load
+var user_home_path: String = ""
 
 # Process management
 var _process: int = -1
@@ -45,6 +48,9 @@ func _init(name: String, host: bool = false, custom_port: int = -1, auto_load_sa
 		window_position = Vector2i(100, 100)
 	else:
 		window_position = Vector2i(800, 100)
+
+	# Record current user data directory for log monitoring
+	user_home_path = OS.get_user_data_dir()
 
 	# Initialize log monitor
 	log_monitor = LogMonitor.new()
@@ -112,7 +118,7 @@ func launch() -> bool:
 
 func _setup_log_monitoring():
 	# Determine log file path based on instance start time
-	var log_dir = OS.get_user_data_dir() + "/logs"
+	var log_dir = user_home_path + "/logs"
 
 	# Find the most recent log file created after our start time
 	var dir = DirAccess.open(log_dir)

@@ -1,4 +1,6 @@
 extends BasePhaseTest
+const GameStateData = preload("res://autoloads/GameState.gd")
+const BasePhase = preload("res://phases/BasePhase.gd")
 
 # FightPhase GUT Tests - Validates the Fight Phase implementation
 # Tests combat resolution, pile in, consolidate, and fight order

@@ -1,6 +1,6 @@
 extends Node2D
-
 class_name WallVisual
+
 
 var wall_lines: Array = []
 const WALL_COLOR = Color(0.8, 0.2, 0.2, 1.0)  # Red for visibility

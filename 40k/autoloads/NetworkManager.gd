@@ -10,15 +10,26 @@ signal peer_disconnected(peer_id: int)
 signal connection_failed(reason: String)
 signal game_started()
 signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
+signal game_code_received(code: String)  # Emitted when server assigns a game code
 
 # Network modes
-enum NetworkMode { OFFLINE, HOST, CLIENT }
+enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
+
+# Transport types
+enum TransportType { ENET, WEBSOCKET }
 
 # State
 var network_mode: NetworkMode = NetworkMode.OFFLINE
+var transport_type: TransportType = TransportType.ENET
 var peer_to_player_map: Dictionary = {}  # peer_id -> player_number
 var game_manager: GameManager = null
 var game_state: GameStateData = null
+
+# Game code for online matchmaking
+var current_game_code: String = ""
+
+# Reference to TransportFactory autoload
+var transport_factory: Node = null
 
 # Turn timer (Phase 3)
 var turn_timer: Timer = null
@@ -36,10 +47,14 @@ func _ready() -> void:
 	# Get references to other autoloads (use get_node_or_null for safety)
 	game_manager = get_node_or_null("/root/GameManager")
 	game_state = get_node_or_null("/root/GameState")
+	transport_factory = get_node_or_null("/root/TransportFactory")
+
 	if not game_manager:
 		push_warning("NetworkManager: GameManager not available at startup")
 	if not game_state:
 		push_warning("NetworkManager: GameState not available at startup")
+	if not transport_factory:
+		push_warning("NetworkManager: TransportFactory not available at startup")
 
 	# Connect to multiplayer signals
 	multiplayer.peer_connected.connect(_on_peer_connected)
@@ -55,22 +70,39 @@ func _ready() -> void:
 	# Initialize RNG session ID
 	game_session_id = str(Time.get_unix_time_from_system())
 
-	print("NetworkManager: Initialized")
+	print("NetworkManager: Initialized (platform: %s)" % ("web" if _is_web_platform() else "desktop"))
 
 # ============================================================================
 # PHASE 1: CORE SYNC - Connection and State Synchronization
 # ============================================================================
 
-func create_host(port: int = 7777) -> int:
-	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_server(port, 1)  # Max 1 client (2 player game)
+func _is_web_platform() -> bool:
+	"""Check if running in a web browser."""
+	return OS.has_feature("web")
 
-	if error != OK:
-		print("NetworkManager: Failed to create host - ", error)
-		return error
+func create_host(port: int = 7777) -> int:
+	"""Create a host for LAN play using ENet. Not available on web platform."""
+	if _is_web_platform():
+		push_error("NetworkManager: Cannot host LAN game on web platform. Use online matchmaking.")
+		return ERR_UNAVAILABLE
+
+	var peer: MultiplayerPeer
+	if transport_factory:
+		peer = transport_factory.create_server_peer(port)
+	else:
+		# Fallback if TransportFactory not available
+		peer = ENetMultiplayerPeer.new()
+		var error = peer.create_server(port, 1)
+		if error != OK:
+			print("NetworkManager: Failed to create host - ", error)
+			return error
+
+	if not peer:
+		return ERR_CANT_CREATE
 
 	multiplayer.multiplayer_peer = peer
 	network_mode = NetworkMode.HOST
+	transport_type = TransportType.ENET
 	peer_to_player_map[1] = 1  # Host is player 1
 
 	# Update window title to show player number
@@ -82,19 +114,115 @@ func create_host(port: int = 7777) -> int:
 	print("========================================")
 	return OK
 
-func join_as_client(ip: String, port: int = 7777) -> int:
-	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_client(ip, port)
+func join_as_client(url_or_ip: String, port: int = 7777) -> int:
+	"""Join a game as client. Supports both ENet (LAN) and WebSocket (online)."""
+	var peer: MultiplayerPeer
+	var use_websocket = _should_use_websocket(url_or_ip)
 
-	if error != OK:
-		print("NetworkManager: Failed to connect to ", ip, ":", port, " - ", error)
-		return error
+	if transport_factory:
+		peer = transport_factory.create_client_peer(url_or_ip, port)
+	else:
+		# Fallback if TransportFactory not available
+		if use_websocket:
+			peer = WebSocketMultiplayerPeer.new()
+			var ws_url = url_or_ip if url_or_ip.begins_with("ws") else "ws://%s:%d" % [url_or_ip, port]
+			var error = peer.create_client(ws_url)
+			if error != OK:
+				print("NetworkManager: Failed to connect via WebSocket to ", ws_url, " - ", error)
+				return error
+		else:
+			peer = ENetMultiplayerPeer.new()
+			var error = peer.create_client(url_or_ip, port)
+			if error != OK:
+				print("NetworkManager: Failed to connect to ", url_or_ip, ":", port, " - ", error)
+				return error
+
+	if not peer:
+		return ERR_CANT_CREATE
 
 	multiplayer.multiplayer_peer = peer
 	network_mode = NetworkMode.CLIENT
+	transport_type = TransportType.WEBSOCKET if use_websocket else TransportType.ENET
 
-	print("NetworkManager: Connecting to ", ip, ":", port)
+	var connection_info = url_or_ip if use_websocket else "%s:%d" % [url_or_ip, port]
+	print("NetworkManager: Connecting to ", connection_info, " via ", "WebSocket" if use_websocket else "ENet")
 	return OK
+
+func _should_use_websocket(url_or_ip: String) -> bool:
+	"""Determine if WebSocket should be used based on platform and URL."""
+	# Always use WebSocket on web platform
+	if _is_web_platform():
+		return true
+	# Use WebSocket if URL starts with ws:// or wss://
+	if url_or_ip.begins_with("ws://") or url_or_ip.begins_with("wss://"):
+		return true
+	return false
+
+func join_online_game(game_code: String) -> int:
+	"""Join an online game using a game code via WebSocket server."""
+	if not transport_factory:
+		push_error("NetworkManager: TransportFactory required for online games")
+		return ERR_UNCONFIGURED
+
+	var server_url = transport_factory.get_production_server_url()
+	if server_url.is_empty():
+		push_error("NetworkManager: No server URL configured")
+		return ERR_UNCONFIGURED
+
+	current_game_code = game_code
+	print("NetworkManager: Joining online game with code: ", game_code)
+
+	# Connect to the WebSocket server
+	var result = join_as_client(server_url)
+	if result != OK:
+		current_game_code = ""
+		return result
+
+	# Game code will be sent after connection is established
+	return OK
+
+func create_online_game() -> int:
+	"""Create a new online game and get a game code from the server."""
+	if not transport_factory:
+		push_error("NetworkManager: TransportFactory required for online games")
+		return ERR_UNCONFIGURED
+
+	var server_url = transport_factory.get_production_server_url()
+	if server_url.is_empty():
+		push_error("NetworkManager: No server URL configured")
+		return ERR_UNCONFIGURED
+
+	print("NetworkManager: Creating online game via server: ", server_url)
+
+	# Connect to the WebSocket server as host
+	var result = join_as_client(server_url)
+	if result != OK:
+		return result
+
+	# Server will assign a game code after connection
+	# We'll receive it via _receive_game_code RPC
+	return OK
+
+@rpc("authority", "call_remote", "reliable")
+func _receive_game_code(code: String) -> void:
+	"""Called by server to assign a game code to this session."""
+	current_game_code = code
+	print("NetworkManager: Received game code: ", code)
+	game_code_received.emit(code)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _request_join_game(code: String) -> void:
+	"""Called by client to request joining a specific game code."""
+	# This is handled by the dedicated server
+	pass
+
+func get_current_game_code() -> String:
+	"""Get the current game code for sharing."""
+	return current_game_code
+
+func is_online_game() -> bool:
+	"""Check if this is an online (WebSocket) game."""
+	return transport_type == TransportType.WEBSOCKET
 
 func is_host() -> bool:
 	return network_mode == NetworkMode.HOST

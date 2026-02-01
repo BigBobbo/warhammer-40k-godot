@@ -1,6 +1,7 @@
 extends BaseShape
 class_name CircularBase
 
+
 # Circular base implementation
 # Used for standard round bases
 
