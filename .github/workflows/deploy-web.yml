@@ -54,11 +54,16 @@ jobs:
           # Create server config with production URL
           echo '{"server_url": "${{ secrets.WS_SERVER_URL }}"}' > 40k/server_config.local.json
 
+      - name: Import project assets
+        run: |
+          cd 40k
+          godot --headless --import --quit || true
+
       - name: Export for Web
         run: |
           cd 40k
           mkdir -p exports/web
-          godot --headless --export-release "Web" exports/web/index.html
+          godot --headless --path . --export-release "Web" exports/web/index.html
 
       - name: Upload Web Artifact
         uses: actions/upload-artifact@v4
