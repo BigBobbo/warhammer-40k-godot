@@ -28,6 +28,7 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
 
       - name: Run GUT Tests
         run: |
@@ -47,6 +48,7 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
           export-templates: true
 
       - name: Create server config for web
