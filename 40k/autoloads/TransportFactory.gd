@@ -9,6 +9,7 @@ signal connection_status_changed(status: String)
 var server_url: String = ""  # Set at runtime for production
 const DEFAULT_ENET_PORT: int = 7777
 const DEFAULT_WS_PORT: int = 9080
+const PRODUCTION_SERVER_URL: String = "wss://warhammer-40k-godot.fly.dev"
 
 func _ready() -> void:
 	# Load server URL from config if available
@@ -17,6 +18,12 @@ func _ready() -> void:
 
 func _load_server_config() -> void:
 	"""Load server URL from local config file or environment."""
+	# On web platform, always use production server
+	if OS.has_feature("web"):
+		server_url = PRODUCTION_SERVER_URL
+		print("TransportFactory: Web platform - using production server: ", server_url)
+		return
+
 	# Check for local config file first (for development)
 	var local_config_path = "res://server_config.local.json"
 	if FileAccess.file_exists(local_config_path):
@@ -42,7 +49,6 @@ func _load_server_config() -> void:
 			return
 
 	# Default to environment variable or hardcoded fallback
-	# In web builds, this could be set by the HTML wrapper
 	if OS.has_environment("WS_SERVER_URL"):
 		server_url = OS.get_environment("WS_SERVER_URL")
 		print("TransportFactory: Using environment server URL: ", server_url)
