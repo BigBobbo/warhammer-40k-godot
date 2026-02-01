@@ -30,18 +30,10 @@ jobs:
           cd server
           flyctl deploy --remote-only
 
-      - name: Get Server URL
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          SERVER_URL=$(flyctl info -a ${{ env.FLY_APP_NAME }} --json | jq -r '.Hostname')
-          echo "Server deployed at: wss://$SERVER_URL"
-          echo "SERVER_URL=wss://$SERVER_URL" >> $GITHUB_OUTPUT
-
       - name: Deployment Summary
         run: |
           echo "## Server Deployed to Fly.io" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- App: ${{ env.FLY_APP_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Region: iad (US East)" >> $GITHUB_STEP_SUMMARY
+          echo "- URL: wss://${{ env.FLY_APP_NAME }}.fly.dev" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
