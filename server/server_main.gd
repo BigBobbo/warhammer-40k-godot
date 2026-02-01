@@ -3,7 +3,7 @@ extends Node
 # Dedicated Server for Warhammer 40K Online Multiplayer
 # Runs headless and manages WebSocket connections between players
 
-const GameCodeManager = preload("res://server/GameCodeManager.gd")
+const GameCodeManagerScript = preload("res://server/GameCodeManager.gd")
 
 # Server configuration
 const DEFAULT_PORT = 9080
@@ -33,7 +33,7 @@ func _ready() -> void:
 	print("========================================")
 
 	# Initialize game code manager
-	game_code_manager = GameCodeManager.new()
+	game_code_manager = GameCodeManagerScript.new()
 	add_child(game_code_manager)
 	game_code_manager.game_created.connect(_on_game_created)
 	game_code_manager.game_joined.connect(_on_game_joined)

@@ -1,50 +1,32 @@
 # Fly.io configuration for Warhammer 40K Dedicated Server
-# See https://fly.io/docs/reference/configuration/ for information about this file.
-
 app = "warhammer-40k-godot"
-primary_region = "iad"
+primary_region = "ams"
 
 [build]
   dockerfile = "Dockerfile"
 
 [env]
-  # Server port (Fly.io will set PORT automatically)
-  # GODOT_LOG_LEVEL = "info"
+  PORT = "9080"
 
-[http_service]
-  internal_port = 9080
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ["app"]
-
-  [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    path = "/health"
-    timeout = "5s"
-
+# WebSocket service on port 9080
 [[services]]
   protocol = "tcp"
   internal_port = 9080
 
   [[services.ports]]
     port = 443
-    handlers = ["tls", "http"]
+    handlers = ["tls"]
 
   [[services.ports]]
     port = 80
-    handlers = ["http"]
-    force_https = true
+    handlers = []
 
-# Machine configuration - minimal for cost
-[machines]
-  [machines.experimental]
-    enable = true
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 50
 
+# Machine configuration
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "256mb"
-  cpus = 1
+  memory = "512mb"

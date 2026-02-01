@@ -23,23 +23,20 @@ RUN wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSI
 # Create app directory
 WORKDIR /app
 
-# Copy server files
-COPY server/ /app/server/
+# Copy server files (these are in the same directory as Dockerfile)
+COPY GameCodeManager.gd /app/server/
+COPY server_main.gd /app/server/
+COPY server.tscn /app/server/
 
-# Copy only necessary autoloads (minimal dependencies)
-# Note: In production, you'd export the server project properly
-COPY project.godot /app/
-COPY autoloads/FeatureFlags.gd /app/autoloads/
-COPY autoloads/DebugLogger.gd /app/autoloads/
-COPY autoloads/TestModeHandler.gd /app/autoloads/
+# Create minimal project.godot for server
+RUN echo '[gd_resource type="Environment" format=3]' > /app/project.godot && \
+    echo 'config_version=5' >> /app/project.godot && \
+    echo '[application]' >> /app/project.godot && \
+    echo 'config/name="W40K Server"' >> /app/project.godot && \
+    echo 'run/main_scene="res://server/server.tscn"' >> /app/project.godot
 
 # Expose WebSocket port
 EXPOSE 9080
 
-# Health check endpoint (Fly.io uses this)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:9080/health || exit 1
-
-# Run the server
-# Note: --headless is crucial for server-only operation
-CMD ["godot", "--headless", "--main-pack", "/app", "--main-scene", "res://server/server.tscn"]
+# Run the server headless
+CMD ["godot", "--headless", "--path", "/app"]
