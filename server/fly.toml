@@ -1,4 +1,4 @@
-# Fly.io configuration for Warhammer 40K Dedicated Server
+# Fly.io configuration for Warhammer 40K Relay Server
 app = "warhammer-40k-godot"
 primary_region = "ams"
 
@@ -8,7 +8,7 @@ primary_region = "ams"
 [env]
   PORT = "9080"
 
-# Raw TCP with TLS termination for WebSocket
+# WebSocket service
 [[services]]
   protocol = "tcp"
   internal_port = 9080
@@ -21,7 +21,16 @@ primary_region = "ams"
     port = 80
     handlers = []
 
+# Health check service
+[[services]]
+  protocol = "tcp"
+  internal_port = 9081
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    path = "/health"
+
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
-  cpus = 1
+  size = "shared-cpu-1x"
+  memory = "256mb"

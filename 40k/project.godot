@@ -45,6 +45,7 @@ MeasuringTapeManager="*res://autoloads/MeasuringTapeManager.gd"
 LineOfSightManager="*res://autoloads/LineOfSightManager.gd"
 TransportManager="*res://autoloads/TransportManager.gd"
 TransportFactory="*res://autoloads/TransportFactory.gd"
+WebSocketRelay="*res://autoloads/WebSocketRelay.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
 
 [display]

@@ -1,18 +1,21 @@
 extends Control
 
 # WebLobby - Online matchmaking UI for web-based multiplayer
-# Provides game code creation and joining functionality
+# Uses WebSocketRelay for game code creation and joining
 
 signal game_joined(game_code: String)
 signal game_created(game_code: String)
 signal back_pressed()
 
 # UI State
-enum LobbyState { IDLE, CREATING, JOINING, WAITING_FOR_GUEST, CONNECTED }
+enum LobbyState { IDLE, CONNECTING, CREATING, JOINING, WAITING_FOR_GUEST, CONNECTED }
 var current_state: LobbyState = LobbyState.IDLE
 
 # Current game code
 var game_code: String = ""
+
+# References
+var relay: Node = null
 
 # UI References
 @onready var status_label: Label = $VBoxContainer/StatusLabel
@@ -26,7 +29,13 @@ var game_code: String = ""
 @onready var connecting_indicator: Control = $VBoxContainer/ConnectingIndicator
 
 func _ready() -> void:
-	# Connect signals
+	# Get relay reference
+	relay = get_node_or_null("/root/WebSocketRelay")
+	if not relay:
+		push_error("WebLobby: WebSocketRelay not found")
+		return
+
+	# Connect UI signals
 	join_button.pressed.connect(_on_join_pressed)
 	create_button.pressed.connect(_on_create_pressed)
 	copy_button.pressed.connect(_on_copy_pressed)
@@ -35,13 +44,15 @@ func _ready() -> void:
 	code_input.text_changed.connect(_on_code_input_changed)
 	code_input.text_submitted.connect(_on_code_submitted)
 
-	# Connect to NetworkManager signals
-	var network = get_node_or_null("/root/NetworkManager")
-	if network:
-		network.game_code_received.connect(_on_game_code_received)
-		network.peer_connected.connect(_on_peer_connected)
-		network.connection_failed.connect(_on_connection_failed)
-		network.game_started.connect(_on_game_started)
+	# Connect relay signals
+	relay.connected.connect(_on_relay_connected)
+	relay.disconnected.connect(_on_relay_disconnected)
+	relay.connection_error.connect(_on_connection_error)
+	relay.game_created.connect(_on_game_created)
+	relay.game_joined.connect(_on_game_joined)
+	relay.guest_joined.connect(_on_guest_joined)
+	relay.opponent_disconnected.connect(_on_opponent_disconnected)
+	relay.message_received.connect(_on_message_received)
 
 	# Initialize UI
 	_update_ui_state(LobbyState.IDLE)
@@ -59,26 +70,94 @@ func _on_join_pressed() -> void:
 		_show_error("Please enter a 6-character game code")
 		return
 
-	_update_ui_state(LobbyState.JOINING)
-	_set_status("Joining game %s..." % code)
+	game_code = code
+	_update_ui_state(LobbyState.CONNECTING)
+	_set_status("Connecting to server...")
 
-	var network = get_node_or_null("/root/NetworkManager")
-	if network:
-		var result = network.join_online_game(code)
-		if result != OK:
-			_update_ui_state(LobbyState.IDLE)
-			_show_error("Failed to connect to server")
+	relay.connect_to_server()
+	# Will call _do_join after connected
 
 func _on_create_pressed() -> void:
+	_update_ui_state(LobbyState.CONNECTING)
+	_set_status("Connecting to server...")
+
+	relay.connect_to_server()
+	# Will call _do_create after connected
+
+func _on_relay_connected() -> void:
+	print("WebLobby: Connected to relay server")
+
+	if current_state == LobbyState.CONNECTING:
+		# Check if we're creating or joining
+		if game_code.is_empty():
+			_do_create()
+		else:
+			_do_join()
+
+func _do_create() -> void:
 	_update_ui_state(LobbyState.CREATING)
 	_set_status("Creating game...")
+	relay.create_game()
 
-	var network = get_node_or_null("/root/NetworkManager")
-	if network:
-		var result = network.create_online_game()
-		if result != OK:
-			_update_ui_state(LobbyState.IDLE)
-			_show_error("Failed to connect to server")
+func _do_join() -> void:
+	_update_ui_state(LobbyState.JOINING)
+	_set_status("Joining game %s..." % game_code)
+	relay.join_game(game_code)
+
+func _on_relay_disconnected() -> void:
+	print("WebLobby: Disconnected from relay server")
+	_update_ui_state(LobbyState.IDLE)
+	_show_error("Disconnected from server")
+
+func _on_connection_error(message: String) -> void:
+	print("WebLobby: Connection error: ", message)
+	_update_ui_state(LobbyState.IDLE)
+	_show_error(message)
+
+func _on_game_created(code: String) -> void:
+	game_code = code
+	game_code_label.text = code
+	copy_button.visible = true
+	share_button.visible = OS.has_feature("web")
+
+	_update_ui_state(LobbyState.WAITING_FOR_GUEST)
+	_set_status("Waiting for opponent...\nShare your code: " + code)
+
+	game_created.emit(code)
+
+func _on_game_joined(code: String) -> void:
+	game_code = code
+	_update_ui_state(LobbyState.CONNECTED)
+	_set_status("Connected! Waiting for host to start...")
+	game_joined.emit(code)
+
+func _on_guest_joined() -> void:
+	_update_ui_state(LobbyState.CONNECTED)
+	_set_status("Opponent connected! Starting game...")
+
+	# Start the game after a short delay
+	await get_tree().create_timer(1.0).timeout
+	_start_game()
+
+func _on_opponent_disconnected() -> void:
+	_show_error("Opponent disconnected")
+	_update_ui_state(LobbyState.IDLE)
+	relay.disconnect_from_server()
+
+func _on_message_received(data: Dictionary) -> void:
+	# Handle game messages - forward to NetworkManager or game logic
+	print("WebLobby: Received game data: ", data)
+
+	# TODO: Integrate with game state sync
+	pass
+
+func _start_game() -> void:
+	# TODO: Initialize game state and transition to Main scene
+	print("WebLobby: Starting game...")
+
+	# For now, just go to the main scene
+	# The relay will continue running in the background for message passing
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _on_copy_pressed() -> void:
 	if game_code.is_empty():
@@ -99,31 +178,22 @@ func _on_share_pressed() -> void:
 		_on_copy_pressed()
 
 func _web_share_code() -> void:
-	"""Use the Web Share API to share the game code."""
-	# This requires JavaScript interop in Godot web exports
-	var share_data = {
-		"title": "Join my Warhammer 40K game!",
-		"text": "Join my game with code: " + game_code,
-		"url": ""  # Could include a direct join URL
-	}
-
-	# Call JavaScript share API
-	if JavaScriptBridge.get_interface("navigator"):
-		var navigator = JavaScriptBridge.get_interface("navigator")
-		if navigator.share:
-			navigator.share(share_data)
-		else:
-			_on_copy_pressed()  # Fallback
-	else:
-		_on_copy_pressed()  # Fallback
+	# Use JavaScript to call the Web Share API
+	var js_code = """
+		if (navigator.share) {
+			navigator.share({
+				title: 'Join my Warhammer 40K game!',
+				text: 'Join my game with code: %s'
+			});
+		}
+	""" % game_code
+	JavaScriptBridge.eval(js_code)
 
 func _on_back_pressed() -> void:
 	# Disconnect if connected
-	var network = get_node_or_null("/root/NetworkManager")
-	if network:
-		network.disconnect_network()
-
+	relay.disconnect_from_server()
 	back_pressed.emit()
+	get_tree().change_scene_to_file("res://scenes/MultiplayerLobby.tscn")
 
 func _on_code_input_changed(new_text: String) -> void:
 	# Auto-uppercase and limit to 6 characters
@@ -145,34 +215,6 @@ func _on_code_submitted(_text: String) -> void:
 	if not join_button.disabled:
 		_on_join_pressed()
 
-func _on_game_code_received(code: String) -> void:
-	game_code = code
-	game_code_label.text = code
-	copy_button.visible = true
-	share_button.visible = OS.has_feature("web")
-
-	_update_ui_state(LobbyState.WAITING_FOR_GUEST)
-	_set_status("Waiting for opponent...\nShare your code: " + code)
-
-	game_created.emit(code)
-
-func _on_peer_connected(_peer_id: int) -> void:
-	if current_state == LobbyState.WAITING_FOR_GUEST:
-		_update_ui_state(LobbyState.CONNECTED)
-		_set_status("Opponent connected! Starting game...")
-	elif current_state == LobbyState.JOINING:
-		_update_ui_state(LobbyState.CONNECTED)
-		_set_status("Connected! Waiting for game to start...")
-		game_joined.emit(game_code)
-
-func _on_connection_failed(reason: String) -> void:
-	_update_ui_state(LobbyState.IDLE)
-	_show_error("Connection failed: " + reason)
-
-func _on_game_started() -> void:
-	_set_status("Game starting...")
-	# The scene change will be handled by NetworkManager
-
 func _update_ui_state(state: LobbyState) -> void:
 	current_state = state
 
@@ -185,8 +227,9 @@ func _update_ui_state(state: LobbyState) -> void:
 			copy_button.visible = false
 			share_button.visible = false
 			connecting_indicator.visible = false
+			game_code = ""
 
-		LobbyState.CREATING, LobbyState.JOINING:
+		LobbyState.CONNECTING, LobbyState.CREATING, LobbyState.JOINING:
 			join_button.disabled = true
 			create_button.disabled = true
 			code_input.editable = false
@@ -206,14 +249,11 @@ func _update_ui_state(state: LobbyState) -> void:
 
 func _set_status(text: String) -> void:
 	status_label.text = text
+	status_label.remove_theme_color_override("font_color")
 
 func _show_error(message: String) -> void:
 	status_label.text = message
 	status_label.add_theme_color_override("font_color", Color.RED)
-
-	# Reset color after delay
-	await get_tree().create_timer(3.0).timeout
-	status_label.remove_theme_color_override("font_color")
 
 func _show_toast(message: String) -> void:
 	# Simple toast notification
