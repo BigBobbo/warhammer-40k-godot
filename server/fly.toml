@@ -8,28 +8,17 @@ primary_region = "ams"
 [env]
   PORT = "9080"
 
-# WebSocket service
 [[services]]
   protocol = "tcp"
   internal_port = 9080
 
   [[services.ports]]
     port = 443
-    handlers = ["tls"]
+    handlers = ["tls", "http"]
 
   [[services.ports]]
     port = 80
     handlers = []
-
-# Health check service
-[[services]]
-  protocol = "tcp"
-  internal_port = 9081
-
-  [[services.http_checks]]
-    interval = "30s"
-    timeout = "5s"
-    path = "/health"
 
 [[vm]]
   size = "shared-cpu-1x"
