@@ -1,27 +1,27 @@
 extends Node
 
 # Dedicated Server for Warhammer 40K Online Multiplayer
-# Runs headless and manages WebSocket connections between players
+# Uses plain WebSocket with JSON messages (not Godot RPC)
 
 const GameCodeManagerScript = preload("res://server/GameCodeManager.gd")
 
 # Server configuration
 const DEFAULT_PORT = 9080
-const MAX_CLIENTS = 100  # 50 games * 2 players
 
 # References
 var game_code_manager: Node = null
-var ws_peer: WebSocketMultiplayerPeer = null
+var tcp_server: TCPServer = null
+var websocket_peers: Dictionary = {}  # peer_id -> WebSocketPeer
 
 # Client state tracking
 var client_states: Dictionary = {}  # peer_id -> ClientState
+var next_peer_id: int = 1
 
 class ClientState:
 	var peer_id: int = -1
 	var game_code: String = ""
-	var player_number: int = -1
-	var connected_at: float = 0.0
 	var is_host: bool = false
+	var connected_at: float = 0.0
 
 	func _init(id: int) -> void:
 		peer_id = id
@@ -35,11 +35,8 @@ func _ready() -> void:
 	# Initialize game code manager
 	game_code_manager = GameCodeManagerScript.new()
 	add_child(game_code_manager)
-	game_code_manager.game_created.connect(_on_game_created)
-	game_code_manager.game_joined.connect(_on_game_joined)
-	game_code_manager.game_removed.connect(_on_game_removed)
 
-	# Start WebSocket server
+	# Start server
 	_start_server()
 
 	# Set up stats timer
@@ -52,21 +49,15 @@ func _ready() -> void:
 func _start_server() -> void:
 	var port = _get_port()
 
-	ws_peer = WebSocketMultiplayerPeer.new()
-	var error = ws_peer.create_server(port)
+	tcp_server = TCPServer.new()
+	var err = tcp_server.listen(port)
 
-	if error != OK:
-		push_error("Server: Failed to start on port %d - error %d" % [port, error])
+	if err != OK:
+		push_error("Server: Failed to start on port %d - error %d" % [port, err])
 		get_tree().quit(1)
 		return
 
-	multiplayer.multiplayer_peer = ws_peer
-
-	# Connect multiplayer signals
-	multiplayer.peer_connected.connect(_on_peer_connected)
-	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-
-	print("Server: Started on port %d" % port)
+	print("Server: Listening on port %d" % port)
 	print("Server: Waiting for connections...")
 
 func _get_port() -> int:
@@ -82,212 +73,171 @@ func _get_port() -> int:
 
 	return DEFAULT_PORT
 
-func _on_peer_connected(peer_id: int) -> void:
-	print("Server: Client connected - peer_id: %d" % peer_id)
+func _process(_delta: float) -> void:
+	# Accept new connections
+	while tcp_server and tcp_server.is_connection_available():
+		var tcp_peer = tcp_server.take_connection()
+		var ws_peer = WebSocketPeer.new()
+		ws_peer.accept_stream(tcp_peer)
 
-	# Create client state
-	var state = ClientState.new(peer_id)
-	client_states[peer_id] = state
+		var peer_id = next_peer_id
+		next_peer_id += 1
 
-	# Send welcome message
-	_send_welcome.rpc_id(peer_id)
+		websocket_peers[peer_id] = ws_peer
+		client_states[peer_id] = ClientState.new(peer_id)
 
-func _on_peer_disconnected(peer_id: int) -> void:
-	print("Server: Client disconnected - peer_id: %d" % peer_id)
+		print("Server: New connection, assigned peer_id: %d" % peer_id)
 
-	# Notify game code manager
-	game_code_manager.on_peer_disconnected(peer_id)
+	# Process existing connections
+	var peers_to_remove: Array[int] = []
 
-	# Clean up client state
-	if client_states.has(peer_id):
-		var state: ClientState = client_states[peer_id]
+	for peer_id in websocket_peers:
+		var ws: WebSocketPeer = websocket_peers[peer_id]
+		ws.poll()
 
-		# If this was a host, notify the guest
-		if state.is_host and state.game_code != "":
-			var session = game_code_manager.get_session(state.game_code)
-			if session and session.guest_peer_id != -1:
-				_notify_host_disconnected.rpc_id(session.guest_peer_id)
+		var state = ws.get_ready_state()
 
-		# If this was a guest, notify the host
-		elif not state.is_host and state.game_code != "":
-			var session = game_code_manager.get_session(state.game_code)
-			if session:
-				_notify_guest_disconnected.rpc_id(session.host_peer_id)
+		match state:
+			WebSocketPeer.STATE_OPEN:
+				# Process incoming messages
+				while ws.get_available_packet_count() > 0:
+					var packet = ws.get_packet()
+					_handle_message(peer_id, packet)
 
-		client_states.erase(peer_id)
+			WebSocketPeer.STATE_CLOSING:
+				pass
 
-func _on_game_created(game_code: String, host_peer_id: int) -> void:
-	print("Server: Game created - code: %s, host: %d" % [game_code, host_peer_id])
+			WebSocketPeer.STATE_CLOSED:
+				print("Server: Peer %d disconnected" % peer_id)
+				peers_to_remove.append(peer_id)
 
-	if client_states.has(host_peer_id):
-		var state: ClientState = client_states[host_peer_id]
-		state.game_code = game_code
-		state.player_number = 1
-		state.is_host = true
+	# Remove disconnected peers
+	for peer_id in peers_to_remove:
+		_on_peer_disconnected(peer_id)
 
-func _on_game_joined(game_code: String, guest_peer_id: int) -> void:
-	print("Server: Guest joined - code: %s, guest: %d" % [game_code, guest_peer_id])
+func _handle_message(peer_id: int, packet: PackedByteArray) -> void:
+	var text = packet.get_string_from_utf8()
 
-	if client_states.has(guest_peer_id):
-		var state: ClientState = client_states[guest_peer_id]
-		state.game_code = game_code
-		state.player_number = 2
-		state.is_host = false
+	var json = JSON.new()
+	var err = json.parse(text)
+	if err != OK:
+		print("Server: Failed to parse message from peer %d: %s" % [peer_id, text])
+		return
 
-func _on_game_removed(game_code: String) -> void:
-	print("Server: Game removed - code: %s" % game_code)
+	var msg = json.data
+	if not msg is Dictionary:
+		return
 
-func _print_stats() -> void:
-	var stats = game_code_manager.get_stats()
-	print("Server Stats: %d connected clients, %d total games (%d waiting, %d playing)" % [
-		client_states.size(),
-		stats.total_games,
-		stats.waiting,
-		stats.playing
-	])
+	var msg_type = msg.get("type", "")
+	print("Server: Received '%s' from peer %d" % [msg_type, peer_id])
 
-# ============================================================================
-# RPC Functions - Server -> Client
-# ============================================================================
+	match msg_type:
+		"create":
+			_handle_create_game(peer_id)
+		"join":
+			var code = msg.get("code", "")
+			_handle_join_game(peer_id, code)
+		"relay":
+			var data = msg.get("data", {})
+			_handle_relay(peer_id, data)
 
-@rpc("authority", "call_remote", "reliable")
-func _send_welcome() -> void:
-	# Sent to newly connected clients
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _send_game_code(code: String) -> void:
-	# Sent to client when their game is created
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _send_join_success(host_peer_id: int, game_code: String) -> void:
-	# Sent to client when they successfully join a game
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _send_join_error(error: String) -> void:
-	# Sent to client when join fails
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _notify_guest_joined(guest_peer_id: int) -> void:
-	# Sent to host when a guest joins their game
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _notify_host_disconnected() -> void:
-	# Sent to guest when host disconnects
-	pass
-
-@rpc("authority", "call_remote", "reliable")
-func _notify_guest_disconnected() -> void:
-	# Sent to host when guest disconnects
-	pass
-
-# ============================================================================
-# RPC Functions - Client -> Server
-# ============================================================================
-
-@rpc("any_peer", "call_remote", "reliable")
-func _request_create_game() -> void:
-	"""Client requests to create a new game and get a code."""
-	var peer_id = multiplayer.get_remote_sender_id()
-	print("Server: Create game request from peer %d" % peer_id)
-
+func _handle_create_game(peer_id: int) -> void:
 	var code = game_code_manager.create_game(peer_id)
 
 	if code.is_empty():
-		_send_join_error.rpc_id(peer_id, "Could not create game. Server may be full.")
+		_send_message(peer_id, {"type": "error", "message": "Could not create game"})
 		return
 
-	_send_game_code.rpc_id(peer_id, code)
+	var state = client_states.get(peer_id)
+	if state:
+		state.game_code = code
+		state.is_host = true
 
-@rpc("any_peer", "call_remote", "reliable")
-func _request_join_game(game_code: String) -> void:
-	"""Client requests to join an existing game."""
-	var peer_id = multiplayer.get_remote_sender_id()
-	print("Server: Join game request from peer %d for code %s" % [peer_id, game_code])
+	_send_message(peer_id, {"type": "created", "code": code})
+	print("Server: Created game %s for peer %d" % [code, peer_id])
 
-	var result = game_code_manager.join_game(game_code, peer_id)
+func _handle_join_game(peer_id: int, code: String) -> void:
+	var result = game_code_manager.join_game(code, peer_id)
 
 	if not result.success:
-		_send_join_error.rpc_id(peer_id, result.error)
+		_send_message(peer_id, {"type": "error", "message": result.error})
 		return
 
-	var host_peer_id = result.host_peer_id
+	var state = client_states.get(peer_id)
+	if state:
+		state.game_code = code
+		state.is_host = false
 
-	# Notify the joining client
-	_send_join_success.rpc_id(peer_id, host_peer_id, game_code)
+	# Notify the joining player
+	_send_message(peer_id, {"type": "joined", "code": code})
 
 	# Notify the host that someone joined
-	_notify_guest_joined.rpc_id(host_peer_id, peer_id)
+	var host_peer_id = result.host_peer_id
+	_send_message(host_peer_id, {"type": "guest_joined"})
 
-@rpc("any_peer", "call_remote", "reliable")
-func _relay_to_peer(target_peer_id: int, message_type: String, data: Dictionary) -> void:
-	"""Relay a message from one peer to another in the same game."""
-	var sender_id = multiplayer.get_remote_sender_id()
+	print("Server: Peer %d joined game %s (host: %d)" % [peer_id, code, host_peer_id])
 
-	# Verify both peers are in the same game
-	if not client_states.has(sender_id) or not client_states.has(target_peer_id):
-		print("Server: Relay failed - unknown peer")
+func _handle_relay(peer_id: int, data: Dictionary) -> void:
+	var state = client_states.get(peer_id)
+	if not state or state.game_code.is_empty():
 		return
 
-	var sender_state: ClientState = client_states[sender_id]
-	var target_state: ClientState = client_states[target_peer_id]
-
-	if sender_state.game_code != target_state.game_code:
-		print("Server: Relay failed - peers not in same game")
-		return
-
-	# Update game activity
-	game_code_manager.update_game_activity(sender_state.game_code)
-
-	# Relay the message
-	_receive_relayed_message.rpc_id(target_peer_id, sender_id, message_type, data)
-
-@rpc("authority", "call_remote", "reliable")
-func _receive_relayed_message(_sender_id: int, _message_type: String, _data: Dictionary) -> void:
-	# This is received by clients - handled in NetworkManager
-	pass
-
-@rpc("any_peer", "call_remote", "reliable")
-func _relay_game_action(data: Dictionary) -> void:
-	"""Relay a game action to the other player in the game."""
-	var sender_id = multiplayer.get_remote_sender_id()
-
-	if not client_states.has(sender_id):
-		print("Server: Relay action failed - unknown peer")
-		return
-
-	var sender_state: ClientState = client_states[sender_id]
-	if sender_state.game_code.is_empty():
-		print("Server: Relay action failed - peer not in a game")
-		return
-
-	var session = game_code_manager.get_session(sender_state.game_code)
+	var session = game_code_manager.get_session(state.game_code)
 	if not session:
-		print("Server: Relay action failed - game not found")
 		return
 
-	# Determine target peer
+	# Determine the target peer (the other player)
 	var target_peer_id = -1
-	if sender_id == session.host_peer_id:
+	if peer_id == session.host_peer_id:
 		target_peer_id = session.guest_peer_id
 	else:
 		target_peer_id = session.host_peer_id
 
 	if target_peer_id == -1:
-		print("Server: Relay action failed - no opponent")
 		return
 
-	# Update game activity
-	game_code_manager.update_game_activity(sender_state.game_code)
+	# Relay the message
+	_send_message(target_peer_id, {"type": "relay", "data": data})
 
-	# Relay the action
-	_receive_game_action.rpc_id(target_peer_id, sender_id, data)
+	# Update activity
+	game_code_manager.update_game_activity(state.game_code)
 
-@rpc("authority", "call_remote", "reliable")
-func _receive_game_action(_sender_id: int, _data: Dictionary) -> void:
-	# This is received by clients - handled in NetworkManager
-	pass
+func _on_peer_disconnected(peer_id: int) -> void:
+	var state = client_states.get(peer_id)
+
+	if state and not state.game_code.is_empty():
+		var session = game_code_manager.get_session(state.game_code)
+		if session:
+			# Notify the other player
+			var other_peer_id = -1
+			if peer_id == session.host_peer_id:
+				other_peer_id = session.guest_peer_id
+			else:
+				other_peer_id = session.host_peer_id
+
+			if other_peer_id != -1:
+				_send_message(other_peer_id, {"type": "opponent_disconnected"})
+
+		# Clean up from game code manager
+		game_code_manager.on_peer_disconnected(peer_id)
+
+	# Remove from tracking
+	websocket_peers.erase(peer_id)
+	client_states.erase(peer_id)
+
+func _send_message(peer_id: int, msg: Dictionary) -> void:
+	var ws = websocket_peers.get(peer_id)
+	if ws == null or ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
+		return
+
+	var json = JSON.stringify(msg)
+	ws.send_text(json)
+
+func _print_stats() -> void:
+	var stats = game_code_manager.get_stats()
+	print("Server Stats: %d connected clients, %d total games (%d waiting, %d playing)" % [
+		websocket_peers.size(),
+		stats.total_games,
+		stats.waiting,
+		stats.playing
+	])
