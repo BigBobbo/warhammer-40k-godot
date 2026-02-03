@@ -25,6 +25,9 @@ var peer_to_player_map: Dictionary = {}  # peer_id -> player_number
 var game_manager: GameManager = null
 var game_state: GameStateData = null
 
+# Online game state
+var is_online_host: bool = false  # True if this client created the online game (player 1)
+
 # Game code for online matchmaking
 var current_game_code: String = ""
 
@@ -170,6 +173,7 @@ func join_online_game(game_code: String) -> int:
 		return ERR_UNCONFIGURED
 
 	current_game_code = game_code
+	is_online_host = false  # Joining player is player 2
 	print("NetworkManager: Joining online game with code: ", game_code)
 
 	# Connect to the WebSocket server
@@ -193,10 +197,12 @@ func create_online_game() -> int:
 		return ERR_UNCONFIGURED
 
 	print("NetworkManager: Creating online game via server: ", server_url)
+	is_online_host = true  # Game creator is player 1
 
 	# Connect to the WebSocket server as host
 	var result = join_as_client(server_url)
 	if result != OK:
+		is_online_host = false
 		return result
 
 	# Server will assign a game code after connection
@@ -232,7 +238,7 @@ func is_networked() -> bool:
 
 func get_local_player() -> int:
 	"""Get the player number for this local client.
-	Returns 1 for host, 2 for client, or -1 if not in a networked game.
+	Returns 1 for host/game creator, 2 for client/joiner, or -1 if not in a networked game.
 	In single-player, returns the active player (effectively always your turn)."""
 	if not is_networked():
 		# Single player - return active player so turn checks pass
@@ -240,6 +246,12 @@ func get_local_player() -> int:
 			return game_state.get_active_player()
 		return 1
 
+	# For online (WebSocket) games, use is_online_host flag
+	# Both clients connect to relay server, so peer_to_player_map may not work correctly
+	if is_online_game():
+		return 1 if is_online_host else 2
+
+	# For LAN (ENet) games, use peer_to_player_map
 	var local_peer_id = multiplayer.get_unique_id()
 	return peer_to_player_map.get(local_peer_id, -1)
 
@@ -263,6 +275,8 @@ func disconnect_network() -> void:
 
 	network_mode = NetworkMode.OFFLINE
 	peer_to_player_map.clear()
+	is_online_host = false
+	current_game_code = ""
 	print("NetworkManager: Disconnected")
 
 # Action submission and routing
