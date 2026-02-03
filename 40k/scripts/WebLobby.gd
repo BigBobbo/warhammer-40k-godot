@@ -135,6 +135,9 @@ func _on_guest_joined() -> void:
 	_update_ui_state(LobbyState.CONNECTED)
 	_set_status("Opponent connected! Starting game...")
 
+	# Notify guest that we're starting the game
+	relay.send_game_data({"action": "start_game"})
+
 	# Start the game after a short delay
 	await get_tree().create_timer(1.0).timeout
 	_start_game()
@@ -145,18 +148,33 @@ func _on_opponent_disconnected() -> void:
 	relay.disconnect_from_server()
 
 func _on_message_received(data: Dictionary) -> void:
-	# Handle game messages - forward to NetworkManager or game logic
+	# Handle game messages from the relay
 	print("WebLobby: Received game data: ", data)
 
-	# TODO: Integrate with game state sync
-	pass
+	var action = data.get("action", "")
+	match action:
+		"start_game":
+			print("WebLobby: Host started the game")
+			_start_game()
 
 func _start_game() -> void:
-	# TODO: Initialize game state and transition to Main scene
 	print("WebLobby: Starting game...")
 
-	# For now, just go to the main scene
-	# The relay will continue running in the background for message passing
+	# Initialize GameState if needed
+	if GameState.state.is_empty():
+		GameState.initialize_default_state()
+
+	# Mark as coming from web multiplayer lobby
+	if not GameState.state.has("meta"):
+		GameState.state["meta"] = {}
+	GameState.state.meta["from_multiplayer_lobby"] = true
+	GameState.state.meta["from_web_lobby"] = true
+	GameState.state.meta["game_code"] = game_code
+	GameState.state.meta["is_host"] = relay.is_game_host()
+
+	print("WebLobby: Game state initialized, is_host=", relay.is_game_host())
+
+	# Transition to main scene - relay continues running for message passing
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _on_copy_pressed() -> void:
