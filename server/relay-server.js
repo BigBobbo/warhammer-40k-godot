@@ -1,41 +1,24 @@
-// Simple WebSocket Relay Server for Warhammer 40K
-// Handles game code matchmaking and message relay between players
-
 const WebSocket = require('ws');
 
-const PORT = process.env.PORT || 9080;
+const PORT = parseInt(process.env.PORT || '9080', 10);
 
-// Game sessions: code -> { host: ws, guest: ws, created: timestamp }
-const games = new Map();
+// Game code generation (excludes confusable chars: 0/O, 1/I/L)
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 6;
 
-// Client to game mapping: ws -> code
-const clientGames = new Map();
-
-// Generate 6-character game code
 function generateCode() {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < CODE_LENGTH; i++) {
+    code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   }
   return code;
 }
 
-// Clean up stale games (older than 10 minutes with no guest)
-function cleanupGames() {
-  const now = Date.now();
-  for (const [code, game] of games) {
-    if (!game.guest && now - game.created > 600000) {
-      console.log(`Cleaning up stale game: ${code}`);
-      if (game.host && game.host.readyState === WebSocket.OPEN) {
-        game.host.close();
-      }
-      games.delete(code);
-    }
-  }
-}
+// Game sessions: code -> { host: ws, guest: ws }
+const games = new Map();
 
-setInterval(cleanupGames, 60000);
+// Client to game mapping: ws -> code
+const clientGames = new Map();
 
 const wss = new WebSocket.Server({ port: PORT });
 
@@ -45,98 +28,90 @@ wss.on('connection', (ws) => {
   console.log('Client connected');
 
   ws.on('message', (data) => {
+    let msg;
     try {
-      const msg = JSON.parse(data);
-      handleMessage(ws, msg);
+      msg = JSON.parse(data.toString());
     } catch (e) {
-      console.error('Invalid message:', e);
+      console.log('Invalid JSON:', data.toString());
+      return;
+    }
+
+    console.log('Received:', msg.type);
+
+    switch (msg.type) {
+      case 'create':
+        handleCreate(ws);
+        break;
+      case 'join':
+        handleJoin(ws, msg.code);
+        break;
+      case 'relay':
+        handleRelay(ws, msg.data);
+        break;
+      default:
+        console.log('Unknown message type:', msg.type);
     }
   });
 
   ws.on('close', () => {
-    console.log('Client disconnected');
     handleDisconnect(ws);
   });
 
   ws.on('error', (err) => {
-    console.error('WebSocket error:', err);
+    console.log('WebSocket error:', err.message);
   });
 });
-
-function handleMessage(ws, msg) {
-  switch (msg.type) {
-    case 'create':
-      handleCreate(ws);
-      break;
-    case 'join':
-      handleJoin(ws, msg.code);
-      break;
-    case 'relay':
-      handleRelay(ws, msg.data);
-      break;
-    default:
-      console.log('Unknown message type:', msg.type);
-  }
-}
 
 function handleCreate(ws) {
   // Generate unique code
   let code;
+  let attempts = 0;
   do {
     code = generateCode();
-  } while (games.has(code));
+    attempts++;
+  } while (games.has(code) && attempts < 100);
 
-  games.set(code, {
-    host: ws,
-    guest: null,
-    created: Date.now()
-  });
+  if (attempts >= 100) {
+    send(ws, { type: 'error', message: 'Could not generate game code' });
+    return;
+  }
+
+  // Create game session
+  games.set(code, { host: ws, guest: null });
   clientGames.set(ws, code);
 
+  send(ws, { type: 'created', code });
   console.log(`Game created: ${code}`);
-
-  ws.send(JSON.stringify({
-    type: 'created',
-    code: code
-  }));
 }
 
 function handleJoin(ws, code) {
-  code = code.toUpperCase().trim();
-
-  if (!games.has(code)) {
-    ws.send(JSON.stringify({
-      type: 'error',
-      message: 'Game not found'
-    }));
+  if (!code) {
+    send(ws, { type: 'error', message: 'No code provided' });
     return;
   }
 
+  code = code.toUpperCase().trim();
   const game = games.get(code);
 
-  if (game.guest) {
-    ws.send(JSON.stringify({
-      type: 'error',
-      message: 'Game is full'
-    }));
+  if (!game) {
+    send(ws, { type: 'error', message: 'Game not found' });
     return;
   }
 
+  if (game.guest) {
+    send(ws, { type: 'error', message: 'Game is full' });
+    return;
+  }
+
+  // Join the game
   game.guest = ws;
   clientGames.set(ws, code);
 
-  console.log(`Player joined game: ${code}`);
-
   // Notify both players
-  ws.send(JSON.stringify({
-    type: 'joined',
-    code: code,
-    role: 'guest'
-  }));
+  send(ws, { type: 'joined', code });
+  send(game.host, { type: 'guest_joined' });
 
-  game.host.send(JSON.stringify({
-    type: 'guest_joined'
-  }));
+  console.log(`Player joined game: ${code}`);
 }
 
 function handleRelay(ws, data) {
@@ -146,13 +121,10 @@ function handleRelay(ws, data) {
   const game = games.get(code);
   if (!game) return;
 
-  // Forward to the other player
-  const target = (ws === game.host) ? game.guest : game.host;
+  // Send to the other player
+  const target = ws === game.host ? game.guest : game.host;
   if (target && target.readyState === WebSocket.OPEN) {
-    target.send(JSON.stringify({
-      type: 'relay',
-      data: data
-    }));
+    send(target, { type: 'relay', data });
   }
 }
 
@@ -161,41 +133,40 @@ function handleDisconnect(ws) {
   if (!code) return;
 
   const game = games.get(code);
-  if (!game) return;
-
-  // Notify other player
-  const other = (ws === game.host) ? game.guest : game.host;
-  if (other && other.readyState === WebSocket.OPEN) {
-    other.send(JSON.stringify({
-      type: 'opponent_disconnected'
-    }));
+  if (!game) {
+    clientGames.delete(ws);
+    return;
   }
 
-  // Clean up
-  clientGames.delete(ws);
-  if (game.guest) clientGames.delete(game.guest);
-  if (game.host) clientGames.delete(game.host);
-  games.delete(code);
+  // Notify the other player
+  const other = ws === game.host ? game.guest : game.host;
+  if (other && other.readyState === WebSocket.OPEN) {
+    send(other, { type: 'opponent_disconnected' });
+  }
 
-  console.log(`Game ended: ${code}`);
+  // If host disconnects, remove the game
+  if (ws === game.host) {
+    if (game.guest) {
+      clientGames.delete(game.guest);
+    }
+    games.delete(code);
+    console.log(`Game removed: ${code}`);
+  } else {
+    // Guest disconnected, keep game open
+    game.guest = null;
+  }
+
+  clientGames.delete(ws);
+  console.log('Client disconnected');
 }
 
-// Stats endpoint for health check
-const http = require('http');
-http.createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200);
-    res.end('OK');
-  } else if (req.url === '/stats') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      games: games.size,
-      clients: clientGames.size
-    }));
-  } else {
-    res.writeHead(404);
-    res.end();
+function send(ws, msg) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
   }
-}).listen(PORT + 1);
+}
 
-console.log(`Health check on port ${PORT + 1}`);
+// Stats logging
+setInterval(() => {
+  console.log(`Stats: ${wss.clients.size} clients, ${games.size} games`);
+}, 60000);

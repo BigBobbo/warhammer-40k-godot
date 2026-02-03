@@ -1,7 +1,7 @@
 {
-  "name": "warhammer40k-relay-server",
+  "name": "w40k-relay-server",
   "version": "1.0.0",
-  "description": "WebSocket relay server for Warhammer 40K multiplayer",
+  "description": "WebSocket relay server for Warhammer 40K online multiplayer",
   "main": "relay-server.js",
   "scripts": {
     "start": "node relay-server.js"
