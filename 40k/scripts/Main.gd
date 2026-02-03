@@ -1470,21 +1470,34 @@ func refresh_unit_list() -> void:
 	unit_list.clear()
 	var active_player = GameState.get_active_player()
 	
+	# Check if we're in multiplayer and if it's our turn
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var is_multiplayer = network_manager and network_manager.is_networked()
+	var is_my_turn = not is_multiplayer or network_manager.is_local_player_turn()
+	var local_player = network_manager.get_local_player() if network_manager else active_player
+
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			# Show only undeployed units during deployment in right panel
 			unit_list.visible = true
-			var units = GameState.get_undeployed_units_for_player(active_player)
-			print("Refreshing right panel unit list for deployment - found ", units.size(), " undeployed units")
-			
-			for unit_id in units:
-				var unit_data = GameState.get_unit(unit_id)
-				var unit_name = unit_data["meta"]["name"]
-				var model_count = unit_data["models"].size()
-				var display_text = "%s (%d models)" % [unit_name, model_count]
-				unit_list.add_item(display_text)
-				unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
-		
+
+			# In multiplayer, only show units when it's your turn
+			if is_multiplayer and not is_my_turn:
+				unit_list.add_item("Waiting for Player %d to deploy..." % active_player)
+				unit_list.set_item_disabled(0, true)
+				print("Refreshing right panel - waiting for opponent (Player %d)" % active_player)
+			else:
+				var units = GameState.get_undeployed_units_for_player(active_player)
+				print("Refreshing right panel unit list for deployment - found ", units.size(), " undeployed units (your turn)")
+
+				for unit_id in units:
+					var unit_data = GameState.get_unit(unit_id)
+					var unit_name = unit_data["meta"]["name"]
+					var model_count = unit_data["models"].size()
+					var display_text = "%s (%d models)" % [unit_name, model_count]
+					unit_list.add_item(display_text)
+					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+
 		GameStateData.Phase.MOVEMENT:
 			# Show deployed units during movement in right panel
 			unit_list.visible = true
@@ -1573,7 +1586,13 @@ func update_ui() -> void:
 					var total = unit_data["models"].size()
 					status_label.text = "Placing: %s — %d/%d models" % [unit_name, placed, total]
 				else:
-					status_label.text = "Select a unit to deploy"
+					# Check if it's our turn in multiplayer
+					var network_manager = get_node_or_null("/root/NetworkManager")
+					if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+						var local_player = network_manager.get_local_player()
+						status_label.text = "Waiting for Player %d to deploy... (You are Player %d)" % [active_player, local_player]
+					else:
+						status_label.text = "Select a unit to deploy"
 		
 		GameStateData.Phase.MOVEMENT:
 			if movement_controller and movement_controller.active_unit_id != "":
@@ -1592,6 +1611,13 @@ func update_ui() -> void:
 func _on_unit_selected(index: int) -> void:
 	if deployment_controller and deployment_controller.is_placing():
 		return
+
+	# In multiplayer deployment, block selection if it's not your turn
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		var network_manager = get_node_or_null("/root/NetworkManager")
+		if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+			print("Main: Blocking unit selection - not your turn")
+			return
 
 	var unit_id = unit_list.get_item_metadata(index)
 

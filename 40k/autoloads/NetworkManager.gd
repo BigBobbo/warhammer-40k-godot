@@ -230,6 +230,32 @@ func is_host() -> bool:
 func is_networked() -> bool:
 	return network_mode != NetworkMode.OFFLINE
 
+func get_local_player() -> int:
+	"""Get the player number for this local client.
+	Returns 1 for host, 2 for client, or -1 if not in a networked game.
+	In single-player, returns the active player (effectively always your turn)."""
+	if not is_networked():
+		# Single player - return active player so turn checks pass
+		if game_state:
+			return game_state.get_active_player()
+		return 1
+
+	var local_peer_id = multiplayer.get_unique_id()
+	return peer_to_player_map.get(local_peer_id, -1)
+
+func is_local_player_turn() -> bool:
+	"""Check if it's the local player's turn."""
+	if not is_networked():
+		return true  # Single player - always your turn
+
+	var local_player = get_local_player()
+	if local_player == -1:
+		return false  # Not properly connected
+
+	if game_state:
+		return local_player == game_state.get_active_player()
+	return false
+
 func disconnect_network() -> void:
 	if multiplayer.multiplayer_peer:
 		multiplayer.multiplayer_peer.close()

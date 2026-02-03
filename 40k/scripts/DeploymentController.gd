@@ -46,6 +46,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_placing():
 		return
 
+	# In multiplayer, block all input if it's not your turn
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+		return
+
 	# Check if we have ghosts to work with (unless repositioning)
 	if not repositioning_model and not ghost_sprite and formation_preview_ghosts.is_empty():
 		return
@@ -121,6 +126,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				formation_rotation -= PI/12
 
 func begin_deploy(_unit_id: String) -> void:
+	# In multiplayer, block deployment if it's not your turn
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+		print("[DeploymentController] Blocking deployment - not your turn")
+		return
+
 	unit_id = _unit_id
 	model_idx = 0
 	temp_positions.clear()
@@ -353,18 +364,26 @@ func _on_embark_units_selected(unit_ids: Array) -> void:
 	_complete_deployment()
 
 func _complete_deployment() -> void:
+	# In multiplayer, verify it's still our turn before submitting
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+		print("[DeploymentController] ERROR: Attempted deployment when not your turn")
+		push_error("Cannot deploy - not your turn")
+		return
+
 	# Create deployment action for PhaseManager
 	var model_positions = []
 	for pos in temp_positions:
 		model_positions.append(pos)
 
+	# Note: Don't set "player" here - NetworkIntegration will add the correct local player ID
+	# This ensures the action uses the actual local player, not just whoever's turn it is
 	var deployment_action = {
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
 		"model_positions": model_positions,
 		"model_rotations": temp_rotations,  # Added to fix Battlewagon save/load issue
 		"phase": GameStateData.Phase.DEPLOYMENT,
-		"player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
 
@@ -428,12 +447,12 @@ func _complete_deployment() -> void:
 
 func _send_embarkation_action(transport_id: String, unit_ids: Array) -> void:
 	"""Send embarkation action through network sync (multiplayer only)"""
+	# Note: Don't set "player" here - NetworkIntegration will add the correct local player ID
 	var embark_action = {
 		"type": "EMBARK_UNITS_DEPLOYMENT",
 		"transport_id": transport_id,
 		"unit_ids": unit_ids,
 		"phase": GameStateData.Phase.DEPLOYMENT,
-		"player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
 
