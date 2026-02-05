@@ -1,7 +1,6 @@
 extends Node
-# GameStateData preload is needed for enum access (UnitStatus, Phase)
-# BaseShape classes use class_name so are globally available
-const GameStateData = preload("res://autoloads/GameState.gd")
+# All classes (GameStateData, BaseShape, CircularBase, OvalBase) are available via class_name
+# No preloads needed - using global class names to avoid web export reload issues
 
 signal deployment_complete()
 signal unit_confirmed()
@@ -521,7 +520,7 @@ func _create_ghost() -> void:
 	if ghost_sprite != null:
 		ghost_sprite.queue_free()
 
-	ghost_sprite = preload("res://scripts/GhostVisual.gd").new()
+	ghost_sprite = load("res://scripts/GhostVisual.gd").new()
 	ghost_sprite.name = "GhostPreview"
 
 	var unit_data = GameState.get_unit(unit_id)
@@ -566,7 +565,7 @@ func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_pr
 	# Add rotation to model data
 	model_data["rotation"] = rotation
 	var base_mm = model_data["base_mm"]
-	var base_circle = preload("res://scripts/TokenVisual.gd").new()
+	var base_circle = load("res://scripts/TokenVisual.gd").new()
 	base_circle.owner_player = unit_data["owner"]
 	base_circle.is_preview = is_preview
 	base_circle.model_number = model_index + 1
@@ -998,7 +997,7 @@ func _create_formation_ghosts(count: int) -> void:
 	for i in range(models_to_place):
 		var model_index = remaining_models[i]
 		var model_data = unit_data["models"][model_index]
-		var ghost = preload("res://scripts/GhostVisual.gd").new()
+		var ghost = load("res://scripts/GhostVisual.gd").new()
 		ghost.name = "FormationGhost_%d" % i
 		ghost.owner_player = unit_data["owner"]
 		ghost.set_model_data(model_data)
@@ -1105,7 +1104,7 @@ func _start_model_repositioning(deployed_model: Dictionary) -> void:
 
 	# Create ghost visual for repositioning
 	var model_data = deployed_model.model_data
-	reposition_ghost = preload("res://scripts/GhostVisual.gd").new()
+	reposition_ghost = load("res://scripts/GhostVisual.gd").new()
 	reposition_ghost.name = "RepositionGhost"
 	reposition_ghost.owner_player = GameState.get_active_player()
 	reposition_ghost.set_model_data(model_data)

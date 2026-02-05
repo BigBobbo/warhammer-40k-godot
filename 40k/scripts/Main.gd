@@ -1,9 +1,6 @@
 extends CanvasLayer
-const GameStateData = preload("res://autoloads/GameState.gd")
-const BasePhase = preload("res://phases/BasePhase.gd")
-const ShootingPhase = preload("res://phases/ShootingPhase.gd")
-const NetworkIntegration = preload("res://utils/NetworkIntegration.gd")
-const DeploymentControllerScript = preload("res://scripts/DeploymentController.gd")
+# Use global class_name references instead of preloads to avoid web export reload issues
+# GameStateData, BasePhase, ShootingPhase, NetworkIntegration are available via class_name
 
 @onready var camera: Camera2D = $BoardRoot/Camera2D
 @onready var board_view: Node2D = $BoardRoot/BoardView
@@ -941,6 +938,7 @@ func setup_phase_controllers() -> void:
 	print("Main: setup_phase_controllers() COMPLETE (semaphore unlocked)")
 
 func setup_deployment_controller() -> void:
+	var DeploymentControllerScript = load("res://scripts/DeploymentController.gd")
 	deployment_controller = DeploymentControllerScript.new()
 	deployment_controller.name = "DeploymentController"
 	add_child(deployment_controller)

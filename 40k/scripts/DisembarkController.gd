@@ -1,8 +1,5 @@
 extends Node2D
-const BaseShape = preload("res://scripts/bases/BaseShape.gd")
-const CircularBase = preload("res://scripts/bases/CircularBase.gd")
-const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
-const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+# All base shape classes are available via class_name - no preloads needed
 
 # DisembarkController - Handles model placement when disembarking from transports
 # Similar to DeploymentController but with 3" range restriction from transport
