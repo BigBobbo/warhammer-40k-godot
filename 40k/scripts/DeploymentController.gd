@@ -1,6 +1,7 @@
 extends Node
-# Note: GameStateData, BaseShape, CircularBase, OvalBase are available globally via class_name
-# Removed preloads to fix web export loading issues
+# GameStateData preload is needed for enum access (UnitStatus, Phase)
+# BaseShape classes use class_name so are globally available
+const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal deployment_complete()
 signal unit_confirmed()
