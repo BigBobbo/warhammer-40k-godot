@@ -1,8 +1,8 @@
 extends BaseShape
 class_name OvalBase
 
-const CircularBase = preload("res://scripts/bases/CircularBase.gd")
-const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
+# Note: CircularBase and RectangularBase are available globally via class_name
+# Removed preloads to fix circular dependency causing web export failures
 
 
 # Oval/Ellipse base implementation

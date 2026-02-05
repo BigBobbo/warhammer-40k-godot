@@ -1,9 +1,7 @@
 extends Node2D
 class_name LoSDebugVisual
 
-const CircularBase = preload("res://scripts/bases/CircularBase.gd")
-const RectangularBase = preload("res://scripts/bases/RectangularBase.gd")
-const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+# Note: CircularBase, RectangularBase, OvalBase are available globally via class_name
 
 
 # LoSDebugVisual - Visual debugging for Line of Sight mechanics

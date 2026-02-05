@@ -1,6 +1,5 @@
 extends Node2D
-const BaseShape = preload("res://scripts/bases/BaseShape.gd")
-const CircularBase = preload("res://scripts/bases/CircularBase.gd")
+# Note: BaseShape and CircularBase are available globally via class_name
 
 var owner_player: int = 1
 var is_preview: bool = false

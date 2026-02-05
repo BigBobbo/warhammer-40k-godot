@@ -1,8 +1,6 @@
 extends Node
-const GameStateData = preload("res://autoloads/GameState.gd")
-const BaseShape = preload("res://scripts/bases/BaseShape.gd")
-const CircularBase = preload("res://scripts/bases/CircularBase.gd")
-const OvalBase = preload("res://scripts/bases/OvalBase.gd")
+# Note: GameStateData, BaseShape, CircularBase, OvalBase are available globally via class_name
+# Removed preloads to fix web export loading issues
 
 signal deployment_complete()
 signal unit_confirmed()
