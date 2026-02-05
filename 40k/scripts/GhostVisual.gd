@@ -40,8 +40,13 @@ func set_validity(valid: bool) -> void:
 	queue_redraw()
 
 func set_model_data(data: Dictionary) -> void:
+	print("[GhostVisual] set_model_data called")
+	print("[GhostVisual] data keys: ", data.keys())
 	model_data = data
 	base_shape = Measurement.create_base_shape(data)
+	print("[GhostVisual] base_shape created: ", base_shape != null)
+	if base_shape:
+		print("[GhostVisual] base_shape type: ", base_shape.get_type())
 	queue_redraw()
 
 func set_base_rotation(rot: float) -> void:

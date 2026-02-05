@@ -938,11 +938,18 @@ func setup_phase_controllers() -> void:
 	print("Main: setup_phase_controllers() COMPLETE (semaphore unlocked)")
 
 func setup_deployment_controller() -> void:
+	print("[Main] setup_deployment_controller() called")
+	print("[Main] token_layer is null: ", token_layer == null)
+	print("[Main] ghost_layer is null: ", ghost_layer == null)
+
 	var DeploymentControllerScript = load("res://scripts/DeploymentController.gd")
+	print("[Main] DeploymentController script loaded: ", DeploymentControllerScript != null)
+
 	deployment_controller = DeploymentControllerScript.new()
 	deployment_controller.name = "DeploymentController"
 	add_child(deployment_controller)
 	deployment_controller.set_layers(token_layer, ghost_layer)
+	print("[Main] DeploymentController set_layers called with valid layers")
 
 	# Connect controller signals
 	deployment_controller.unit_confirmed.connect(_on_unit_confirmed)

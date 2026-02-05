@@ -124,8 +124,17 @@ func _unhandled_input(event: InputEvent) -> void:
 				formation_rotation -= PI/12
 
 func begin_deploy(_unit_id: String) -> void:
+	print("[DeploymentController] begin_deploy() called for unit: ", _unit_id)
+
 	# In multiplayer, block deployment if it's not your turn
 	var network_manager = get_node_or_null("/root/NetworkManager")
+	print("[DeploymentController] NetworkManager found: ", network_manager != null)
+	if network_manager:
+		print("[DeploymentController] is_networked: ", network_manager.is_networked())
+		print("[DeploymentController] is_local_player_turn: ", network_manager.is_local_player_turn())
+		print("[DeploymentController] local_player: ", network_manager.get_local_player())
+		print("[DeploymentController] active_player: ", GameState.get_active_player())
+
 	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
 		print("[DeploymentController] Blocking deployment - not your turn")
 		return
@@ -405,8 +414,7 @@ func _complete_deployment() -> void:
 				"units_to_embark": pending_embark_units
 			})
 
-			# Check if we're in multiplayer mode
-			var network_manager = get_node_or_null("/root/NetworkManager")
+			# Check if we're in multiplayer mode (reuse network_manager from line 366)
 			var is_networked = network_manager != null and network_manager.is_networked()
 
 			print("[DeploymentController] NetworkManager found: %s, is_networked: %s" % [str(network_manager != null), str(is_networked)])
@@ -517,20 +525,39 @@ func _process_embarkation(transport_id: String, unit_ids: Array) -> void:
 		print("[DeploymentController] Embarked %s in %s" % [unit_name, transport_id])
 
 func _create_ghost() -> void:
+	print("[DeploymentController] _create_ghost() called")
+	print("[DeploymentController] ghost_layer is null: ", ghost_layer == null)
+	print("[DeploymentController] unit_id: ", unit_id)
+	print("[DeploymentController] model_idx: ", model_idx)
+
 	if ghost_sprite != null:
 		ghost_sprite.queue_free()
 
-	ghost_sprite = load("res://scripts/GhostVisual.gd").new()
+	var GhostVisualScript = load("res://scripts/GhostVisual.gd")
+	print("[DeploymentController] GhostVisual script loaded: ", GhostVisualScript != null)
+	if GhostVisualScript == null:
+		push_error("[DeploymentController] FAILED to load GhostVisual.gd!")
+		return
+
+	ghost_sprite = GhostVisualScript.new()
+	print("[DeploymentController] ghost_sprite created: ", ghost_sprite != null)
 	ghost_sprite.name = "GhostPreview"
 
 	var unit_data = GameState.get_unit(unit_id)
+	print("[DeploymentController] unit_data found: ", not unit_data.is_empty())
 	if model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
+		print("[DeploymentController] model_data: ", model_data.get("id", "unknown"))
 		ghost_sprite.owner_player = unit_data["owner"]
 		# Set the complete model data for shape handling
 		ghost_sprite.set_model_data(model_data)
 
-	ghost_layer.add_child(ghost_sprite)
+	if ghost_layer:
+		ghost_layer.add_child(ghost_sprite)
+		print("[DeploymentController] Ghost added to ghost_layer. Ghost visible: ", ghost_sprite.visible)
+		print("[DeploymentController] ghost_layer child count: ", ghost_layer.get_child_count())
+	else:
+		push_error("[DeploymentController] ghost_layer is NULL - cannot add ghost!")
 
 func _remove_ghost() -> void:
 	if ghost_sprite != null:
