@@ -92,16 +92,27 @@ func set_collapsed(collapsed: bool) -> void:
 func populate_unit_lists(phase: String) -> void:
 	current_phase = phase
 	print("UnitStatsPanel: Populating unit lists for phase: ", phase)
-	
-	var active_player = GameState.get_active_player()
-	var enemy_player = 3 - active_player
-	
+
+	# Get local player (who "I" am) - not whose turn it is
+	# This ensures each player always sees their own units as "Player Units"
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var local_player: int
+	if network_manager and network_manager.is_networked():
+		local_player = network_manager.get_local_player()
+		print("UnitStatsPanel: Using local_player=%d (networked game)" % local_player)
+	else:
+		# Single player - use active player
+		local_player = GameState.get_active_player()
+		print("UnitStatsPanel: Using active_player=%d (single player)" % local_player)
+
+	var enemy_player = 3 - local_player
+
 	# Update section labels with player info
 	_update_section_labels()
-	
-	# Populate player units
-	_populate_list(player_units_list, active_player, phase, false)
-	
+
+	# Populate player units (local player's units)
+	_populate_list(player_units_list, local_player, phase, false)
+
 	# Populate enemy units
 	_populate_list(enemy_units_list, enemy_player, phase, true)
 
@@ -451,18 +462,27 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 		composition_container.add_child(model_status)
 
 func _update_section_labels() -> void:
-	var active_player = GameState.get_active_player()
-	var enemy_player = 3 - active_player
-	
+	# Get local player (who "I" am) - not whose turn it is
+	# This ensures labels always show correct player perspective
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var local_player: int
+	if network_manager and network_manager.is_networked():
+		local_player = network_manager.get_local_player()
+	else:
+		# Single player - use active player
+		local_player = GameState.get_active_player()
+
+	var enemy_player = 3 - local_player
+
 	# Get faction names if available
-	var player_faction = GameState.get_faction_name(active_player)
+	var player_faction = GameState.get_faction_name(local_player)
 	var enemy_faction = GameState.get_faction_name(enemy_player)
-	
+
 	# Update the labels in the panels
 	var player_label = get_node_or_null("VBox/MainContent/PlayerSection/PlayerUnitsPanel/VBoxContainer/Label")
 	if player_label:
-		player_label.text = "Player %d Units (%s)" % [active_player, player_faction]
-	
+		player_label.text = "Player %d Units (%s)" % [local_player, player_faction]
+
 	var enemy_label = get_node_or_null("VBox/MainContent/EnemySection/EnemyUnitsPanel/VBoxContainer/Label")
 	if enemy_label:
 		enemy_label.text = "Player %d Units (%s)" % [enemy_player, enemy_faction]

@@ -48,10 +48,10 @@ static func route_action(action: Dictionary) -> Dictionary:
 		# In multiplayer, use the local player ID (not the active turn player)
 		# NetworkManager will validate if this player is allowed to take this action
 		if network_manager and network_manager.is_networked():
-			# Multiplayer: Use local player's ID
-			var local_peer_id = Engine.get_main_loop().root.get_tree().get_multiplayer().get_unique_id()
-			action["player"] = network_manager.peer_to_player_map.get(local_peer_id, GameState.get_active_player())
-			print("[NetworkIntegration] Using local player ID for action: peer=%d -> player=%d" % [local_peer_id, action["player"]])
+			# Multiplayer: Use get_local_player() which handles WebSocket vs ENet correctly
+			# This avoids directly accessing peer_to_player_map which may not work for WebSocket
+			action["player"] = network_manager.get_local_player()
+			print("[NetworkIntegration] Using local player ID for action: player=%d" % action["player"])
 		else:
 			# Single-player: Use active player (current turn)
 			action["player"] = GameState.get_active_player()
