@@ -173,6 +173,14 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 			"message": "Unit has no owner player"
 		}
 
+	# Validate it's the unit owner's turn to deploy
+	var active_player = GameState.get_active_player()
+	if active_player != 0 and owner_player != active_player:
+		return {
+			"success": false,
+			"message": "Cannot deploy - it is Player %d's turn, not Player %d's" % [active_player, owner_player]
+		}
+
 	# Check all model positions are within deployment zone
 	# Positions are in pixels, need to convert for validation
 	# Standard deployment zones: Player 1 at bottom, Player 2 at top

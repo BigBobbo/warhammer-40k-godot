@@ -168,14 +168,11 @@ func run_test_file(file_path: String) -> Array:
 
 		print("  Running: " + test_method)
 
-		# Call the test method and handle both sync and async tests
-		var test_result = test_instance.call(test_method)
+		# Call the test method with await - works for both sync and async tests
+		# In Godot 4, await on a non-async function just returns immediately
+		await test_instance.call(test_method)
 
-		# If the test returns a coroutine (async), wait for it to complete
-		if test_result is Signal:
-			await test_result
-
-		test_instance.after_each()
+		await test_instance.after_each()
 		if test_instance.has_method("_post_test_cleanup"):
 			test_instance._post_test_cleanup()
 
