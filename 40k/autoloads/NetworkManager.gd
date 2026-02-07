@@ -410,7 +410,9 @@ func _handle_relayed_action(action: Dictionary) -> void:
 			"result": result
 		})
 	else:
-		print("NetworkManager: GameManager returned failure: ", result.get("error", "Unknown"))
+		var fail_msg = result.get("error", result.get("message", "Unknown"))
+		print("NetworkManager: GameManager returned failure: ", fail_msg)
+		print("NetworkManager: Full result: ", result)
 
 func _handle_relayed_result(result: Dictionary) -> void:
 	"""Handle an action result received from host via relay."""
@@ -443,7 +445,30 @@ func _send_via_relay(data: Dictionary) -> void:
 		push_error("NetworkManager: Cannot send via relay - not connected")
 		return
 
-	web_relay.send_game_data(data)
+	# Sanitize data for JSON serialization (Vector2/Vector3 etc. are not JSON-safe)
+	var safe_data = _sanitize_for_json(data)
+	web_relay.send_game_data(safe_data)
+
+func _sanitize_for_json(value) -> Variant:
+	"""Recursively convert Godot types (Vector2, Vector3, etc.) to JSON-safe types."""
+	if value is Vector2:
+		return {"x": value.x, "y": value.y}
+	elif value is Vector3:
+		return {"x": value.x, "y": value.y, "z": value.z}
+	elif value is Color:
+		return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
+	elif value is Dictionary:
+		var result = {}
+		for key in value:
+			result[key] = _sanitize_for_json(value[key])
+		return result
+	elif value is Array:
+		var result = []
+		for item in value:
+			result.append(_sanitize_for_json(item))
+		return result
+	else:
+		return value
 
 func send_initial_state_via_relay() -> void:
 	"""Send the current game state to the guest via relay (host only)."""

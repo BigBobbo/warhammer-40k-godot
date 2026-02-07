@@ -149,11 +149,23 @@ func process_action(action: Dictionary) -> Dictionary:
 		_:
 			return {"success": false, "error": "Unknown action type: " + str(action.get("type", "UNKNOWN"))}
 
+func _get_pos_xy(pos) -> Dictionary:
+	"""Extract x,y from a position that may be Vector2 or Dictionary (from JSON relay)."""
+	if pos is Vector2:
+		return {"x": pos.x, "y": pos.y}
+	elif pos is Dictionary:
+		return {"x": float(pos.get("x", 0)), "y": float(pos.get("y", 0))}
+	else:
+		push_error("GameManager: Unexpected position type: %s" % typeof(pos))
+		return {"x": 0.0, "y": 0.0}
+
 func process_deploy_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action["unit_id"]
 	var model_positions = action.get("model_positions", [])
 	var model_rotations = action.get("model_rotations", [])
 	var diffs = []
+
+	print("GameManager: process_deploy_unit for %s with %d positions" % [unit_id, model_positions.size()])
 
 	# Validate deployment zone
 	var unit = GameState.get_unit(unit_id)
@@ -191,28 +203,30 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 
 	for pos in model_positions:
 		if pos != null:
+			var xy = _get_pos_xy(pos)
 			var valid_deployment = false
 			if owner_player == 1:
 				# Player 1 deploys at bottom of board (low y values)
-				valid_deployment = pos.y >= 0 and pos.y <= DEPLOYMENT_ZONE_DEPTH_PX
+				valid_deployment = xy.y >= 0 and xy.y <= DEPLOYMENT_ZONE_DEPTH_PX
 			elif owner_player == 2:
 				# Player 2 deploys at top of board (high y values)
-				valid_deployment = pos.y >= (BOARD_HEIGHT_PX - DEPLOYMENT_ZONE_DEPTH_PX) and pos.y <= BOARD_HEIGHT_PX
+				valid_deployment = xy.y >= (BOARD_HEIGHT_PX - DEPLOYMENT_ZONE_DEPTH_PX) and xy.y <= BOARD_HEIGHT_PX
 
 			if not valid_deployment:
 				return {
 					"success": false,
-					"message": "Unit cannot be deployed outside deployment zone (position y=%d px is invalid for player %d)" % [pos.y, owner_player]
+					"message": "Unit cannot be deployed outside deployment zone (position y=%d px is invalid for player %d)" % [xy.y, owner_player]
 				}
 
 	# Create diffs for each model's position and rotation
 	for i in range(model_positions.size()):
 		var pos = model_positions[i]
 		if pos != null:
+			var xy = _get_pos_xy(pos)
 			diffs.append({
 				"op": "set",
 				"path": "units.%s.models.%d.position" % [unit_id, i],
-				"value": {"x": pos.x, "y": pos.y}
+				"value": xy
 			})
 
 			# Add rotation if available
