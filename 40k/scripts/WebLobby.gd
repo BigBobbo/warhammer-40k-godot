@@ -14,8 +14,16 @@ var current_state: LobbyState = LobbyState.IDLE
 # Current game code
 var game_code: String = ""
 
+# Whether this client is the host
+var is_host: bool = false
+
 # References
 var relay: Node = null
+
+# Army selection
+var army_options: Array = []
+var selected_player1_army: String = "A_C_test"
+var selected_player2_army: String = "ORK_test"
 
 # UI References
 @onready var status_label: Label = $VBoxContainer/StatusLabel
@@ -27,6 +35,12 @@ var relay: Node = null
 @onready var share_button: Button = $VBoxContainer/CreateSection/ShareButton
 @onready var back_button: Button = $VBoxContainer/BackButton
 @onready var connecting_indicator: Control = $VBoxContainer/ConnectingIndicator
+
+# Army selection UI
+@onready var army_section: Control = $VBoxContainer/ArmySection
+@onready var player1_dropdown: OptionButton = $VBoxContainer/ArmySection/Player1Container/Player1Dropdown
+@onready var player2_dropdown: OptionButton = $VBoxContainer/ArmySection/Player2Container/Player2Dropdown
+@onready var start_game_button: Button = $VBoxContainer/StartGameButton
 
 func _ready() -> void:
 	# Get relay reference
@@ -43,6 +57,7 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	code_input.text_changed.connect(_on_code_input_changed)
 	code_input.text_submitted.connect(_on_code_submitted)
+	start_game_button.pressed.connect(_on_start_game_pressed)
 
 	# Connect relay signals
 	relay.connected.connect(_on_relay_connected)
@@ -54,6 +69,9 @@ func _ready() -> void:
 	relay.opponent_disconnected.connect(_on_opponent_disconnected)
 	relay.message_received.connect(_on_message_received)
 
+	# Initialize army selection
+	_setup_army_selection()
+
 	# Initialize UI
 	_update_ui_state(LobbyState.IDLE)
 
@@ -63,6 +81,75 @@ func _ready() -> void:
 
 	print("WebLobby: Ready")
 
+# ============================================================================
+# ARMY SELECTION
+# ============================================================================
+
+func _setup_army_selection() -> void:
+	army_options = []
+	var available_armies = ArmyListManager.get_available_armies()
+
+	for army_name in available_armies:
+		army_options.append({
+			"id": army_name,
+			"name": _format_army_name(army_name)
+		})
+
+	if army_options.is_empty():
+		army_options = [
+			{"id": "A_C_test", "name": "A C Test"},
+			{"id": "ORK_test", "name": "ORK Test"}
+		]
+
+	# Populate dropdowns
+	for option in army_options:
+		player1_dropdown.add_item(option.name)
+		player2_dropdown.add_item(option.name)
+
+	# Set defaults
+	var p1_default = 0
+	var p2_default = min(1, army_options.size() - 1)
+
+	for i in range(army_options.size()):
+		if army_options[i].id == "A_C_test":
+			p1_default = i
+		if army_options[i].id == "ORK_test":
+			p2_default = i
+
+	player1_dropdown.selected = p1_default
+	player2_dropdown.selected = p2_default
+	selected_player1_army = army_options[p1_default].id
+	selected_player2_army = army_options[p2_default].id
+
+	# Connect dropdown signals
+	player1_dropdown.item_selected.connect(_on_player1_army_changed)
+	player2_dropdown.item_selected.connect(_on_player2_army_changed)
+
+	print("WebLobby: Army selection initialized with ", army_options.size(), " armies")
+
+func _format_army_name(army_id: String) -> String:
+	var parts = army_id.split("_")
+	var formatted_parts = []
+	for part in parts:
+		formatted_parts.append(part.capitalize())
+	return " ".join(formatted_parts)
+
+func _on_player1_army_changed(index: int) -> void:
+	if index < 0 or index >= army_options.size():
+		return
+	selected_player1_army = army_options[index].id
+	print("WebLobby: Player 1 army changed to ", selected_player1_army)
+
+func _on_player2_army_changed(index: int) -> void:
+	if index < 0 or index >= army_options.size():
+		return
+	selected_player2_army = army_options[index].id
+	print("WebLobby: Player 2 army changed to ", selected_player2_army)
+
+# ============================================================================
+# CONNECTION FLOW
+# ============================================================================
+
 func _on_join_pressed() -> void:
 	var code = code_input.text.strip_edges().to_upper()
 
@@ -71,6 +158,7 @@ func _on_join_pressed() -> void:
 		return
 
 	game_code = code
+	is_host = false
 	_update_ui_state(LobbyState.CONNECTING)
 	_set_status("Connecting to server...")
 
@@ -78,6 +166,7 @@ func _on_join_pressed() -> void:
 	# Will call _do_join after connected
 
 func _on_create_pressed() -> void:
+	is_host = true
 	_update_ui_state(LobbyState.CONNECTING)
 	_set_status("Connecting to server...")
 
@@ -133,7 +222,15 @@ func _on_game_joined(code: String) -> void:
 
 func _on_guest_joined() -> void:
 	_update_ui_state(LobbyState.CONNECTED)
-	_set_status("Opponent connected! Starting game...")
+	_set_status("Opponent connected! Select armies and press Start Game.")
+
+	# Show start game button for host
+	start_game_button.visible = true
+
+func _on_start_game_pressed() -> void:
+	print("WebLobby: Start game button pressed")
+	start_game_button.disabled = true
+	_set_status("Starting game...")
 
 	# Notify guest that we're starting the game
 	relay.send_game_data({"action": "start_game"})
@@ -145,6 +242,7 @@ func _on_guest_joined() -> void:
 func _on_opponent_disconnected() -> void:
 	_show_error("Opponent disconnected")
 	_update_ui_state(LobbyState.IDLE)
+	start_game_button.visible = false
 	relay.disconnect_from_server()
 
 func _on_message_received(data: Dictionary) -> void:
@@ -160,9 +258,34 @@ func _on_message_received(data: Dictionary) -> void:
 func _start_game() -> void:
 	print("WebLobby: Starting game...")
 
-	# Initialize GameState if needed
+	# Initialize base GameState structure
 	if GameState.state.is_empty():
 		GameState.initialize_default_state()
+
+	# If we are the host, load the selected armies (overriding defaults)
+	if is_host:
+		print("WebLobby: Host loading selected armies - P1: ", selected_player1_army, ", P2: ", selected_player2_army)
+
+		# Clear existing units
+		GameState.state.units.clear()
+
+		# Load Player 1 army
+		var player1_army = ArmyListManager.load_army_list(selected_player1_army, 1)
+		if not player1_army.is_empty():
+			ArmyListManager.apply_army_to_game_state(player1_army, 1)
+			print("WebLobby: Loaded ", selected_player1_army, " for Player 1 (", player1_army.get("units", {}).size(), " units)")
+		else:
+			print("WebLobby: Failed to load ", selected_player1_army, " for Player 1, using defaults")
+
+		# Load Player 2 army
+		var player2_army = ArmyListManager.load_army_list(selected_player2_army, 2)
+		if not player2_army.is_empty():
+			ArmyListManager.apply_army_to_game_state(player2_army, 2)
+			print("WebLobby: Loaded ", selected_player2_army, " for Player 2 (", player2_army.get("units", {}).size(), " units)")
+		else:
+			print("WebLobby: Failed to load ", selected_player2_army, " for Player 2, using defaults")
+
+		print("WebLobby: Armies loaded. Total units: ", GameState.state.units.size())
 
 	# Mark as coming from web multiplayer lobby
 	if not GameState.state.has("meta"):
@@ -171,6 +294,10 @@ func _start_game() -> void:
 	GameState.state.meta["from_web_lobby"] = true
 	GameState.state.meta["game_code"] = game_code
 	GameState.state.meta["is_host"] = relay.is_game_host()
+	GameState.state.meta["game_config"] = {
+		"player1_army": selected_player1_army,
+		"player2_army": selected_player2_army
+	}
 
 	print("WebLobby: Game state initialized, is_host=", relay.is_game_host())
 
@@ -245,7 +372,12 @@ func _update_ui_state(state: LobbyState) -> void:
 			copy_button.visible = false
 			share_button.visible = false
 			connecting_indicator.visible = false
+			start_game_button.visible = false
 			game_code = ""
+			is_host = false
+			# Army dropdowns always enabled for selection
+			player1_dropdown.disabled = false
+			player2_dropdown.disabled = false
 
 		LobbyState.CONNECTING, LobbyState.CREATING, LobbyState.JOINING:
 			join_button.disabled = true
@@ -258,12 +390,23 @@ func _update_ui_state(state: LobbyState) -> void:
 			create_button.disabled = true
 			code_input.editable = false
 			connecting_indicator.visible = false
+			# Host can still change army selections while waiting
+			player1_dropdown.disabled = false
+			player2_dropdown.disabled = false
 
 		LobbyState.CONNECTED:
 			join_button.disabled = true
 			create_button.disabled = true
 			code_input.editable = false
 			connecting_indicator.visible = true
+			if is_host:
+				# Host can still change armies before pressing start
+				player1_dropdown.disabled = false
+				player2_dropdown.disabled = false
+			else:
+				# Guest: disable dropdowns (host controls army selection)
+				player1_dropdown.disabled = true
+				player2_dropdown.disabled = true
 
 func _set_status(text: String) -> void:
 	status_label.text = text

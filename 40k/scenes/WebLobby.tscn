@@ -26,9 +26,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -200.0
+offset_top = -280.0
 offset_right = 200.0
-offset_bottom = 200.0
+offset_bottom = 280.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 20
@@ -109,6 +109,48 @@ layout_mode = 2
 size_flags_horizontal = 4
 disabled = true
 text = "Join Game"
+
+[node name="HSeparator3" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ArmySection" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ArmyLabel" type="Label" parent="VBoxContainer/ArmySection"]
+layout_mode = 2
+text = "ARMY SELECTION"
+horizontal_alignment = 1
+
+[node name="Player1Container" type="HBoxContainer" parent="VBoxContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player1Label" type="Label" parent="VBoxContainer/ArmySection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "Player 1:"
+
+[node name="Player1Dropdown" type="OptionButton" parent="VBoxContainer/ArmySection/Player1Container"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Player2Container" type="HBoxContainer" parent="VBoxContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player2Label" type="Label" parent="VBoxContainer/ArmySection/Player2Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "Player 2:"
+
+[node name="Player2Dropdown" type="OptionButton" parent="VBoxContainer/ArmySection/Player2Container"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StartGameButton" type="Button" parent="VBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Start Game"
 
 [node name="ConnectingIndicator" type="HBoxContainer" parent="VBoxContainer"]
 visible = false

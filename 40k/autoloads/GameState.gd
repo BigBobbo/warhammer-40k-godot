@@ -54,22 +54,20 @@ func initialize_default_state() -> void:
 	# Load default armies
 	_load_default_armies()
 
-	# Initialize terrain features from TerrainManager
-	if Engine.has_singleton("TerrainManager"):
-		var terrain_manager = Engine.get_singleton("TerrainManager")
-		if terrain_manager and terrain_manager.terrain_features.size() > 0:
-			state.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
+	# Initialize terrain features from TerrainManager (autoload, not Engine singleton)
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.terrain_features.size() > 0:
+		state.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
 func _load_default_armies() -> void:
 	print("GameState: Loading default armies...")
-	
-	# Check if ArmyListManager is available
-	if not Engine.has_singleton("ArmyListManager"):
+
+	# Check if ArmyListManager autoload is available (it's a scene tree autoload, not an Engine singleton)
+	var army_list_manager = get_node_or_null("/root/ArmyListManager")
+	if not army_list_manager:
 		print("GameState: ArmyListManager not available, falling back to placeholder armies")
 		_initialize_placeholder_armies()
 		return
-
-	var army_list_manager = Engine.get_singleton("ArmyListManager")
 
 	# Try to load test army for Player 1 (Adeptus Custodes)
 	var player1_army = army_list_manager.load_army_list("adeptus_custodes", 1)
@@ -317,16 +315,15 @@ func create_snapshot() -> Dictionary:
 	# Create base snapshot
 	var snapshot = _deep_copy_dict(state)
 	
-	# Add terrain features from TerrainManager
-	if Engine.has_singleton("TerrainManager"):
-		var terrain_manager = Engine.get_singleton("TerrainManager")
-		if terrain_manager and terrain_manager.terrain_features.size() > 0:
-			snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
+	# Add terrain features from TerrainManager (autoload, not Engine singleton)
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.terrain_features.size() > 0:
+		snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
-	# Add measuring tape data if persistence is enabled
-	if Engine.has_singleton("MeasuringTapeManager"):
-		var measuring_tape_manager = Engine.get_singleton("MeasuringTapeManager")
-		if measuring_tape_manager and measuring_tape_manager.save_measurements:
+	# Add measuring tape data if persistence is enabled (autoload, not Engine singleton)
+	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
+	if measuring_tape_manager:
+		if measuring_tape_manager.save_measurements:
 			var tape_data = measuring_tape_manager.get_save_data()
 			if not tape_data.is_empty():
 				snapshot["measuring_tape"] = tape_data
@@ -367,18 +364,18 @@ func _deep_copy_array(array: Array) -> Array:
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
 	
-	# Load terrain features if present
+	# Load terrain features if present (autoload, not Engine singleton)
 	if state.has("board") and state.board.has("terrain_features"):
 		var terrain_features = state.board.get("terrain_features", [])
-		if terrain_features.size() > 0 and Engine.has_singleton("TerrainManager"):
-			var terrain_manager = Engine.get_singleton("TerrainManager")
+		var terrain_manager = get_node_or_null("/root/TerrainManager")
+		if terrain_features.size() > 0 and terrain_manager:
 			# Clear and reload terrain
 			terrain_manager.terrain_features = terrain_features.duplicate(true)
 			terrain_manager.emit_signal("terrain_loaded", terrain_manager.terrain_features)
 
-	# Load measuring tape data if present
-	if state.has("measuring_tape") and Engine.has_singleton("MeasuringTapeManager"):
-		var measuring_tape_manager = Engine.get_singleton("MeasuringTapeManager")
+	# Load measuring tape data if present (autoload, not Engine singleton)
+	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
+	if state.has("measuring_tape") and measuring_tape_manager:
 		print("[GameState] Found measuring tape data in save, loading %d measurements" % state["measuring_tape"].size())
 		measuring_tape_manager.load_save_data(state["measuring_tape"])
 	else:
