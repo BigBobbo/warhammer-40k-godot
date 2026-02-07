@@ -57,7 +57,7 @@ func _ready() -> void:
 		_on_online_button_pressed()
 
 	# Connect NetworkManager signals
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 	if network_manager:
 		network_manager.peer_connected.connect(_on_peer_connected)
 		network_manager.peer_disconnected.connect(_on_peer_disconnected)
@@ -77,7 +77,7 @@ func _on_host_button_pressed() -> void:
 		_show_error("Invalid port number. Use 1-65535")
 		return
 
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 	var result = network_manager.create_host(port)
 
 	if result == OK:
@@ -105,7 +105,7 @@ func _on_join_button_pressed() -> void:
 		_show_error("Invalid port number. Use 1-65535")
 		return
 
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 	var result = network_manager.join_as_client(ip, port)
 
 	if result == OK:
@@ -172,7 +172,7 @@ func _on_start_game_button_pressed() -> void:
 	print("MultiplayerLobby: Armies loaded. Total units: ", GameState.state.units.size())
 
 	# CRITICAL: Sync the loaded armies to client BEFORE starting game
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 
 	# Send updated state snapshot with armies to all clients
 	if network_manager.is_host():
@@ -198,7 +198,7 @@ func _on_start_game_button_pressed() -> void:
 func _on_disconnect_button_pressed() -> void:
 	print("MultiplayerLobby: Disconnect button pressed")
 
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 	network_manager.disconnect_network()
 
 	_reset_ui()
@@ -215,7 +215,7 @@ func _on_back_button_pressed() -> void:
 	print("MultiplayerLobby: Back button pressed")
 
 	# Disconnect if connected
-	var network_manager = get_node("/root/NetworkManager")
+	var network_manager = NetworkManager
 	if network_manager.is_networked():
 		network_manager.disconnect_network()
 
