@@ -38,6 +38,31 @@ var transport_factory: Node = null
 var web_relay: Node = null
 var web_relay_mode: bool = false
 
+# Optimistic execution — deterministic actions that can be applied client-side immediately
+const DETERMINISTIC_ACTIONS: Array[String] = [
+	# Phase transitions
+	"END_COMMAND", "END_DEPLOYMENT", "END_MOVEMENT", "END_SHOOTING",
+	"END_FIGHT", "END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
+	# Deployment
+	"DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT",
+	# Movement (BEGIN_ADVANCE excluded — it rolls a D6 for advance distance)
+	"BEGIN_NORMAL_MOVE", "BEGIN_FALL_BACK",
+	"SET_MODEL_DEST", "STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE",
+	"RESET_UNIT_MOVE", "REMAIN_STATIONARY",
+	"DISEMBARK_UNIT", "DISEMBARK_AND_MOVE",
+	# Shooting setup (no dice)
+	"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT",
+	"CLEAR_ALL_ASSIGNMENTS",
+	# NOTE: CONFIRM_TARGETS is NOT here — with a single weapon type it triggers dice rolling
+	# Fight setup (no dice)
+	"SELECT_FIGHTER", "SELECT_MELEE_WEAPON", "PILE_IN", "ASSIGN_ATTACKS",
+]
+
+# Optimistic execution state tracking
+var _optimistic_sequence: int = 0
+var _pending_optimistic_actions: Array[Dictionary] = []
+# Each entry: { "seq": int, "action_type": String, "reverse_diffs": Array }
+
 # Turn timer (Phase 3)
 var turn_timer: Timer = null
 const TURN_TIMEOUT_SECONDS: float = 90.0
@@ -298,6 +323,9 @@ func enter_web_relay_mode(is_game_host: bool, game_code: String = "") -> void:
 	current_game_code = game_code
 	transport_type = TransportType.WEB_RELAY
 
+	# Reset optimistic state for fresh game
+	reset_optimistic_state()
+
 	# In web relay mode, we don't use Godot's multiplayer peer system
 	# Instead we route actions through WebSocketRelay
 	network_mode = NetworkMode.HOST if is_game_host else NetworkMode.CLIENT
@@ -356,10 +384,16 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			var action_type = data.get("action_type", "")
 			var reason = data.get("reason", "Unknown")
 			print("NetworkManager: Action rejected via relay: ", reason)
+
+			# If we have pending optimistic actions, roll them ALL back
+			if _pending_optimistic_actions.size() > 0:
+				_rollback_all_optimistic_actions(action_type, reason)
+
 			action_rejected.emit(action_type, reason)
 
 		"initial_state":
-			# Received initial game state from host
+			# Received initial game state from host — reset any pending optimistic actions
+			reset_optimistic_state()
 			var snapshot = data.get("snapshot", {})
 			print("NetworkManager: Received initial state via relay")
 			print("NetworkManager: Snapshot has %d units" % snapshot.get("units", {}).size())
@@ -424,7 +458,17 @@ func _handle_relayed_result(result: Dictionary) -> void:
 		print("NetworkManager: Ignoring failed result")
 		return
 
-	# Apply the result to local state
+	# Check if this result confirms an optimistic action
+	if _pending_optimistic_actions.size() > 0:
+		var pending = _pending_optimistic_actions[0]
+		var result_action_type = result.get("action_type", "")
+		if result_action_type == pending.action_type:
+			# Host confirmed — action already applied locally, skip re-application
+			_pending_optimistic_actions.pop_front()
+			print("NetworkManager: Optimistic action CONFIRMED by host: %s (remaining pending: %d)" % [result_action_type, _pending_optimistic_actions.size()])
+			return
+
+	# Not optimistic (or non-deterministic action) — apply normally
 	print("NetworkManager: Client applying relayed result with %d diffs" % result.get("diffs", []).size())
 	game_manager.apply_result(result)
 
@@ -503,6 +547,7 @@ func disconnect_network() -> void:
 	peer_to_player_map.clear()
 	is_online_host = false
 	current_game_code = ""
+	reset_optimistic_state()
 	print("NetworkManager: Disconnected")
 
 # Action submission and routing
@@ -605,12 +650,67 @@ func _submit_action_via_relay(action: Dictionary) -> void:
 				"result": result
 			})
 	else:
-		# Client sends action to host via relay
-		print("NetworkManager: Client (relay) - sending action to host")
-		_send_via_relay({
-			"msg_type": "game_action",
-			"action": action
-		})
+		# Client path — check if we can apply optimistically
+		var action_type = action.get("type", "")
+		if action_type in DETERMINISTIC_ACTIONS:
+			print("NetworkManager: Client (relay) - OPTIMISTIC execution for: ", action_type)
+
+			# Step 1: Validate locally (as player 2)
+			var validation = validate_action(action, 2)
+			if not validation.valid:
+				var error_msg = validation.get("reason", "Validation failed")
+				if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
+					error_msg = validation.errors[0]
+				print("NetworkManager: Optimistic validation FAILED: ", error_msg)
+				if has_node("/root/Main"):
+					var main = get_node("/root/Main")
+					if main.has_method("show_error_toast"):
+						main.call_deferred("show_error_toast", error_msg)
+				return
+
+			# Step 2: Capture reverse diffs BEFORE applying
+			var pre_result = game_manager.process_action(action)
+			if not pre_result.get("success", false):
+				print("NetworkManager: Optimistic process_action FAILED: ", pre_result.get("error", "Unknown"))
+				return
+
+			# Normalize changes/diffs
+			if pre_result.has("changes") and not pre_result.has("diffs"):
+				pre_result["diffs"] = pre_result["changes"]
+			pre_result["action_type"] = action_type
+			pre_result["action_data"] = action
+
+			var diffs = pre_result.get("diffs", [])
+			var reverse_diffs = game_manager._create_reverse_diffs(diffs)
+
+			# Step 3: Apply locally via apply_result (diffs already computed)
+			game_manager.apply_result(pre_result)
+			_update_phase_snapshot()
+
+			# Step 4: Emit visual updates (same as what _handle_relayed_result does)
+			_emit_client_visual_updates(pre_result)
+
+			# Step 5: Store pending entry for confirmation matching
+			_optimistic_sequence += 1
+			_pending_optimistic_actions.append({
+				"seq": _optimistic_sequence,
+				"action_type": action_type,
+				"reverse_diffs": reverse_diffs
+			})
+			print("NetworkManager: Optimistic action queued (seq=%d, pending=%d)" % [_optimistic_sequence, _pending_optimistic_actions.size()])
+
+			# Step 6: Still send to host for confirmation/sync
+			_send_via_relay({
+				"msg_type": "game_action",
+				"action": action
+			})
+		else:
+			# Non-deterministic action — send to host and wait
+			print("NetworkManager: Client (relay) - sending action to host (non-deterministic: %s)" % action_type)
+			_send_via_relay({
+				"msg_type": "game_action",
+				"action": action
+			})
 
 @rpc("any_peer", "call_remote", "reliable")
 func _send_action_to_host(action: Dictionary) -> void:
@@ -929,6 +1029,52 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
 
 	print("NetworkManager: _emit_client_visual_updates END")
+
+# ============================================================================
+# OPTIMISTIC EXECUTION - Rollback and Reset
+# ============================================================================
+
+func _rollback_all_optimistic_actions(rejected_action_type: String, reason: String) -> void:
+	"""Roll back ALL pending optimistic actions (newest to oldest) when host rejects one."""
+	print("NetworkManager: ROLLING BACK %d optimistic actions (rejected: %s - %s)" % [
+		_pending_optimistic_actions.size(), rejected_action_type, reason
+	])
+
+	# Undo in reverse order (newest first) since later actions may depend on earlier ones
+	var rollback_actions = _pending_optimistic_actions.duplicate()
+	rollback_actions.reverse()
+
+	for pending in rollback_actions:
+		var reverse_diffs = pending.get("reverse_diffs", [])
+		print("NetworkManager:   Undoing optimistic action seq=%d type=%s (%d reverse diffs)" % [
+			pending.get("seq", -1), pending.get("action_type", "?"), reverse_diffs.size()
+		])
+		for diff in reverse_diffs:
+			game_manager.apply_diff(diff)
+
+	# Clear the pending queue
+	_pending_optimistic_actions.clear()
+
+	# Update phase snapshot to reflect rolled-back state
+	_update_phase_snapshot()
+
+	# Emit state_changed to refresh UI
+	if game_state and game_state.has_signal("state_changed"):
+		game_state.emit_signal("state_changed")
+
+	# Show error toast
+	if has_node("/root/Main"):
+		var main = get_node("/root/Main")
+		if main.has_method("show_error_toast"):
+			main.call_deferred("show_error_toast", "Action rejected: %s" % reason)
+
+	print("NetworkManager: Optimistic rollback complete")
+
+func reset_optimistic_state() -> void:
+	"""Reset optimistic execution state (call on game start, reconnection, or state resync)."""
+	_optimistic_sequence = 0
+	_pending_optimistic_actions.clear()
+	print("NetworkManager: Optimistic state reset")
 
 # Initial state sync when client joins
 @rpc("authority", "call_remote", "reliable")
