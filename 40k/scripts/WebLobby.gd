@@ -375,6 +375,12 @@ func _update_ui_state(state: LobbyState) -> void:
 			start_game_button.visible = false
 			game_code = ""
 			is_host = false
+			# Restore section visibility
+			$VBoxContainer/CreateSection.visible = true
+			$VBoxContainer/JoinSection.visible = true
+			$VBoxContainer/HSeparator.visible = true
+			$VBoxContainer/HSeparator2.visible = true
+			$VBoxContainer/HSeparator3.visible = true
 			# Army dropdowns always enabled for selection
 			player1_dropdown.disabled = false
 			player2_dropdown.disabled = false
@@ -390,6 +396,9 @@ func _update_ui_state(state: LobbyState) -> void:
 			create_button.disabled = true
 			code_input.editable = false
 			connecting_indicator.visible = false
+			# Hide join section since host is waiting for guest
+			$VBoxContainer/JoinSection.visible = false
+			$VBoxContainer/HSeparator2.visible = false
 			# Host can still change army selections while waiting
 			player1_dropdown.disabled = false
 			player2_dropdown.disabled = false
@@ -398,7 +407,13 @@ func _update_ui_state(state: LobbyState) -> void:
 			join_button.disabled = true
 			create_button.disabled = true
 			code_input.editable = false
-			connecting_indicator.visible = true
+			connecting_indicator.visible = false
+			# Hide create/join sections to make room for Start Game button
+			$VBoxContainer/CreateSection.visible = false
+			$VBoxContainer/JoinSection.visible = false
+			$VBoxContainer/HSeparator.visible = false
+			$VBoxContainer/HSeparator2.visible = false
+			$VBoxContainer/HSeparator3.visible = false
 			if is_host:
 				# Host can still change armies before pressing start
 				player1_dropdown.disabled = false
