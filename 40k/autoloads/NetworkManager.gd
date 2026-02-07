@@ -16,7 +16,7 @@ signal game_code_received(code: String)  # Emitted when server assigns a game co
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
 
 # Transport types
-enum TransportType { ENET, WEBSOCKET }
+enum TransportType { ENET, WEBSOCKET, WEB_RELAY }
 
 # State
 var network_mode: NetworkMode = NetworkMode.OFFLINE
@@ -33,6 +33,10 @@ var current_game_code: String = ""
 
 # Reference to TransportFactory autoload
 var transport_factory: Node = null
+
+# Web Relay mode - uses WebSocketRelay for transport instead of Godot RPCs
+var web_relay: Node = null
+var web_relay_mode: bool = false
 
 # Turn timer (Phase 3)
 var turn_timer: Timer = null
@@ -227,13 +231,19 @@ func get_current_game_code() -> String:
 	return current_game_code
 
 func is_online_game() -> bool:
-	"""Check if this is an online (WebSocket) game."""
-	return transport_type == TransportType.WEBSOCKET
+	"""Check if this is an online (WebSocket or Web Relay) game."""
+	return transport_type == TransportType.WEBSOCKET or transport_type == TransportType.WEB_RELAY
 
 func is_host() -> bool:
+	# In web relay mode, use is_online_host flag
+	if web_relay_mode:
+		return is_online_host
 	return network_mode == NetworkMode.HOST
 
 func is_networked() -> bool:
+	# Web relay mode is always networked
+	if web_relay_mode:
+		return true
 	return network_mode != NetworkMode.OFFLINE
 
 func get_local_player() -> int:
@@ -246,9 +256,8 @@ func get_local_player() -> int:
 			return game_state.get_active_player()
 		return 1
 
-	# For online (WebSocket) games, use is_online_host flag
-	# Both clients connect to relay server, so peer_to_player_map may not work correctly
-	if is_online_game():
+	# For web relay mode and online (WebSocket) games, use is_online_host flag
+	if web_relay_mode or is_online_game():
 		return 1 if is_online_host else 2
 
 	# For LAN (ENet) games, use peer_to_player_map
@@ -268,12 +277,205 @@ func is_local_player_turn() -> bool:
 		return local_player == game_state.get_active_player()
 	return false
 
+# ============================================================================
+# WEB RELAY MODE - Bridge between WebSocketRelay and NetworkManager
+# ============================================================================
+
+func enter_web_relay_mode(is_game_host: bool, game_code: String = "") -> void:
+	"""Enter web relay mode for online multiplayer via WebSocketRelay.
+	This bridges the WebSocketRelay transport with NetworkManager's action handling."""
+	print("NetworkManager: Entering web relay mode (is_host=%s, code=%s)" % [is_game_host, game_code])
+
+	# Get WebSocketRelay reference
+	web_relay = get_node_or_null("/root/WebSocketRelay")
+	if not web_relay:
+		push_error("NetworkManager: WebSocketRelay not found - cannot enter web relay mode")
+		return
+
+	# Set up state
+	web_relay_mode = true
+	is_online_host = is_game_host
+	current_game_code = game_code
+	transport_type = TransportType.WEB_RELAY
+
+	# In web relay mode, we don't use Godot's multiplayer peer system
+	# Instead we route actions through WebSocketRelay
+	network_mode = NetworkMode.HOST if is_game_host else NetworkMode.CLIENT
+
+	# Connect to relay messages
+	if not web_relay.message_received.is_connected(_on_web_relay_message):
+		web_relay.message_received.connect(_on_web_relay_message)
+
+	# Set up player mapping (host is player 1, guest is player 2)
+	peer_to_player_map.clear()
+	if is_game_host:
+		peer_to_player_map[1] = 1  # Host is player 1
+	else:
+		peer_to_player_map[2] = 2  # Client is player 2
+
+	print("NetworkManager: Web relay mode active")
+	print("NetworkManager:   is_host() = ", is_host())
+	print("NetworkManager:   is_networked() = ", is_networked())
+	print("NetworkManager:   get_local_player() = ", get_local_player())
+
+	# Update window title to show player number
+	if is_game_host:
+		DisplayServer.window_set_title("40k Game - PLAYER 1 (HOST) - Code: %s" % game_code)
+		print("========================================")
+		print("   YOU ARE: PLAYER 1 (HOST)")
+		print("   Game Code: %s" % game_code)
+		print("========================================")
+	else:
+		DisplayServer.window_set_title("40k Game - PLAYER 2 (CLIENT) - Code: %s" % game_code)
+		print("========================================")
+		print("   YOU ARE: PLAYER 2 (CLIENT)")
+		print("   Game Code: %s" % game_code)
+		print("========================================")
+
+	# Emit game_started signal
+	emit_signal("game_started")
+
+func _on_web_relay_message(data: Dictionary) -> void:
+	"""Handle incoming game messages from WebSocketRelay."""
+	var msg_type = data.get("msg_type", "")
+
+	match msg_type:
+		"game_action":
+			# Received an action from the other player
+			var action = data.get("action", {})
+			print("NetworkManager: Received game action via relay: ", action.get("type", "UNKNOWN"))
+			_handle_relayed_action(action)
+
+		"action_result":
+			# Received a result broadcast from host
+			var result = data.get("result", {})
+			print("NetworkManager: Received action result via relay")
+			_handle_relayed_result(result)
+
+		"action_rejected":
+			# Action was rejected by host
+			var action_type = data.get("action_type", "")
+			var reason = data.get("reason", "Unknown")
+			print("NetworkManager: Action rejected via relay: ", reason)
+			action_rejected.emit(action_type, reason)
+
+		"initial_state":
+			# Received initial game state from host
+			var snapshot = data.get("snapshot", {})
+			print("NetworkManager: Received initial state via relay")
+			print("NetworkManager: Snapshot has %d units" % snapshot.get("units", {}).size())
+			if game_state:
+				game_state.load_from_snapshot(snapshot)
+				print("NetworkManager: State loaded, triggering UI refresh")
+				# Trigger UI refresh via state_changed signal
+				if game_state.has_signal("state_changed"):
+					game_state.emit_signal("state_changed")
+				emit_signal("game_started")
+
+func _handle_relayed_action(action: Dictionary) -> void:
+	"""Handle an action received from the other player via relay."""
+	if not is_host():
+		# Only host processes actions
+		print("NetworkManager: Ignoring relayed action - not host")
+		return
+
+	# Validate the action (use player 2's ID since it came from the guest)
+	var peer_id = 2
+	var validation = validate_action(action, peer_id)
+
+	if not validation.valid:
+		var reason = validation.get("reason", "Validation failed")
+		if reason == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
+			reason = validation.errors[0]
+		print("NetworkManager: REJECTING relayed action: ", reason)
+
+		# Send rejection back via relay
+		_send_via_relay({
+			"msg_type": "action_rejected",
+			"action_type": action.get("type", ""),
+			"reason": reason
+		})
+		return
+
+	# Execute the action
+	print("NetworkManager: Relayed action VALIDATED, applying via GameManager")
+	var result = game_manager.apply_action(action)
+
+	if result.success:
+		_update_phase_snapshot()
+
+		# Broadcast result to guest via relay
+		print("NetworkManager: Broadcasting result via relay")
+		_send_via_relay({
+			"msg_type": "action_result",
+			"result": result
+		})
+	else:
+		print("NetworkManager: GameManager returned failure: ", result.get("error", "Unknown"))
+
+func _handle_relayed_result(result: Dictionary) -> void:
+	"""Handle an action result received from host via relay."""
+	if is_host():
+		# Host doesn't need to process results - it already applied them
+		return
+
+	if not result.get("success", false):
+		print("NetworkManager: Ignoring failed result")
+		return
+
+	# Apply the result to local state
+	print("NetworkManager: Client applying relayed result with %d diffs" % result.get("diffs", []).size())
+	game_manager.apply_result(result)
+
+	_update_phase_snapshot()
+
+	# Emit visual updates
+	_emit_client_visual_updates(result)
+
+	print("NetworkManager: Client finished applying relayed result")
+
+func _send_via_relay(data: Dictionary) -> void:
+	"""Send data to the other player via WebSocketRelay."""
+	if not web_relay:
+		push_error("NetworkManager: Cannot send via relay - no relay connection")
+		return
+
+	if not web_relay.is_connected:
+		push_error("NetworkManager: Cannot send via relay - not connected")
+		return
+
+	web_relay.send_game_data(data)
+
+func send_initial_state_via_relay() -> void:
+	"""Send the current game state to the guest via relay (host only)."""
+	if not is_host():
+		return
+
+	if not game_state:
+		push_error("NetworkManager: Cannot send initial state - no game state")
+		return
+
+	var snapshot = game_state.create_snapshot()
+	print("NetworkManager: Sending initial state via relay")
+	_send_via_relay({
+		"msg_type": "initial_state",
+		"snapshot": snapshot
+	})
+
 func disconnect_network() -> void:
 	if multiplayer.multiplayer_peer:
 		multiplayer.multiplayer_peer.close()
 		multiplayer.multiplayer_peer = null
 
+	# Clean up web relay mode
+	if web_relay_mode and web_relay:
+		if web_relay.message_received.is_connected(_on_web_relay_message):
+			web_relay.message_received.disconnect(_on_web_relay_message)
+
 	network_mode = NetworkMode.OFFLINE
+	transport_type = TransportType.ENET
+	web_relay_mode = false
+	web_relay = null
 	peer_to_player_map.clear()
 	is_online_host = false
 	current_game_code = ""
@@ -283,11 +485,17 @@ func disconnect_network() -> void:
 func submit_action(action: Dictionary) -> void:
 	print("NetworkManager: submit_action called for type: ", action.get("type"))
 	print("NetworkManager: is_networked() = ", is_networked())
+	print("NetworkManager: web_relay_mode = ", web_relay_mode)
 
 	if not is_networked():
 		# Single player mode - apply directly
 		print("NetworkManager: Single-player mode - applying directly")
 		game_manager.apply_action(action)
+		return
+
+	# Web relay mode - use WebSocketRelay for transport
+	if web_relay_mode:
+		_submit_action_via_relay(action)
 		return
 
 	if is_host():
@@ -335,6 +543,50 @@ func submit_action(action: Dictionary) -> void:
 		print("NetworkManager: Client mode - sending to host")
 		# Client sends to host
 		_send_action_to_host.rpc_id(1, action)
+
+func _submit_action_via_relay(action: Dictionary) -> void:
+	"""Submit an action via WebSocketRelay (web relay mode only)."""
+	print("NetworkManager: Submitting action via web relay: ", action.get("type"))
+
+	if is_host():
+		# Host validates and applies locally
+		print("NetworkManager: Host (relay) - validating and applying")
+		var peer_id = 1  # Host's own player ID
+		var validation = validate_action(action, peer_id)
+
+		if not validation.valid:
+			var error_msg = validation.get("reason", "Validation failed")
+			if error_msg == "Validation failed" and validation.has("errors") and validation.errors.size() > 0:
+				error_msg = validation.errors[0]
+			print("NetworkManager: Host validation failed: ", error_msg)
+			push_error("NetworkManager: Host action rejected: %s" % error_msg)
+
+			if has_node("/root/Main"):
+				var main = get_node("/root/Main")
+				if main.has_method("show_error_toast"):
+					main.call_deferred("show_error_toast", error_msg)
+			return
+
+		# Execute via GameManager
+		var result = game_manager.apply_action(action)
+		print("NetworkManager: Host applied action via relay, result.success = ", result.success)
+
+		if result.success:
+			_update_phase_snapshot()
+
+			# Broadcast result to guest via relay
+			print("NetworkManager: Broadcasting result via relay")
+			_send_via_relay({
+				"msg_type": "action_result",
+				"result": result
+			})
+	else:
+		# Client sends action to host via relay
+		print("NetworkManager: Client (relay) - sending action to host")
+		_send_via_relay({
+			"msg_type": "game_action",
+			"action": action
+		})
 
 @rpc("any_peer", "call_remote", "reliable")
 func _send_action_to_host(action: Dictionary) -> void:

@@ -73,6 +73,24 @@ func _ready() -> void:
 		elif from_multiplayer:
 			print("Main: ✓ Loading from multiplayer lobby with armies already loaded")
 			print("Main: Units count AFTER multiplayer check: ", GameState.state.units.size())
+
+			# Initialize web relay mode for multiplayer
+			var from_web_lobby = GameState.state.meta.get("from_web_lobby", false)
+			if from_web_lobby:
+				var is_host = GameState.state.meta.get("is_host", false)
+				var game_code = GameState.state.meta.get("game_code", "")
+				print("Main: Initializing web relay mode (is_host=%s, code=%s)" % [is_host, game_code])
+
+				if NetworkManager:
+					NetworkManager.enter_web_relay_mode(is_host, game_code)
+
+					# If host, send initial state to guest after a short delay
+					if is_host:
+						await get_tree().create_timer(0.5).timeout
+						print("Main: Host sending initial state to guest")
+						NetworkManager.send_initial_state_via_relay()
+				else:
+					push_error("Main: NetworkManager not available for web relay mode")
 	
 	# Initialize view to show whole board
 	view_zoom = 0.3
@@ -1267,6 +1285,12 @@ func connect_signals() -> void:
 		var game_manager = get_node("/root/GameManager")
 		game_manager.result_applied.connect(_on_network_result_applied)
 		print("Main: Connected to GameManager.result_applied signal")
+
+	# Connect NetworkManager signals for web relay mode
+	if NetworkManager:
+		if not NetworkManager.game_started.is_connected(_on_network_game_started):
+			NetworkManager.game_started.connect(_on_network_game_started)
+			print("Main: Connected to NetworkManager.game_started signal")
 	
 
 func _input(event: InputEvent) -> void:
@@ -2343,6 +2367,27 @@ func _on_save_failed(error: String) -> void:
 
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
+
+# Multiplayer sync handler - called when guest receives initial state or game starts
+func _on_network_game_started() -> void:
+	print("Main: Network game started signal received")
+
+	# Refresh all visuals and UI after receiving initial state
+	if NetworkManager and NetworkManager.is_networked():
+		print("Main: Refreshing UI after network game started")
+
+		# Recreate unit visuals
+		_recreate_unit_visuals()
+
+		# Refresh unit lists
+		refresh_unit_list()
+
+		# Update UI
+		update_ui()
+		update_ui_for_phase()
+		update_deployment_zone_visibility()
+
+		print("Main: UI refresh complete after network game started")
 
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
