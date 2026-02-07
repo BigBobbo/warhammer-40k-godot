@@ -307,11 +307,10 @@ func enter_web_relay_mode(is_game_host: bool, game_code: String = "") -> void:
 		web_relay.message_received.connect(_on_web_relay_message)
 
 	# Set up player mapping (host is player 1, guest is player 2)
+	# Both sides need the full map - host validates guest actions using peer_id=2
 	peer_to_player_map.clear()
-	if is_game_host:
-		peer_to_player_map[1] = 1  # Host is player 1
-	else:
-		peer_to_player_map[2] = 2  # Client is player 2
+	peer_to_player_map[1] = 1  # Host is player 1
+	peer_to_player_map[2] = 2  # Guest is player 2
 
 	print("NetworkManager: Web relay mode active")
 	print("NetworkManager:   is_host() = ", is_host())
