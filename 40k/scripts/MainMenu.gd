@@ -254,21 +254,40 @@ func _on_load_requested(save_file: String) -> void:
 	# Check if we're in multiplayer (shouldn't be from main menu, but safety check)
 	if NetworkManager and NetworkManager.is_networked():
 		print("MainMenu: Cannot load during active multiplayer session")
-		# Could show error dialog here
 		return
 
-	if SaveLoadManager:
+	if not SaveLoadManager:
+		print("MainMenu: SaveLoadManager not available")
+		return
+
+	if OS.has_feature("web"):
+		# Web: async load - connect to signals, then trigger load
+		if not SaveLoadManager.load_completed.is_connected(_on_cloud_load_completed):
+			SaveLoadManager.load_completed.connect(_on_cloud_load_completed)
+		if not SaveLoadManager.load_failed.is_connected(_on_cloud_load_failed):
+			SaveLoadManager.load_failed.connect(_on_cloud_load_failed)
+		SaveLoadManager.load_game(save_file)
+		print("MainMenu: Initiated async cloud load for: ", save_file)
+	else:
+		# Desktop: synchronous load
 		var success = SaveLoadManager.load_game(save_file)
 		if success:
 			print("MainMenu: Successfully loaded game: ", save_file)
-			# Mark that we're loading from a save, not from menu config
 			if GameState.state.meta:
 				GameState.state.meta["from_save"] = true
 				GameState.state.meta.erase("from_menu")
-			# Transition to main game scene
 			get_tree().change_scene_to_file("res://scenes/Main.tscn")
 		else:
 			print("MainMenu: Failed to load game: ", save_file)
-			# Could show an error dialog here
-	else:
-		print("MainMenu: SaveLoadManager not available")
+
+func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
+	print("MainMenu: Cloud load completed: ", file_path)
+	# Mark that we're loading from a save
+	if GameState.state.meta:
+		GameState.state.meta["from_save"] = true
+		GameState.state.meta.erase("from_menu")
+	# Transition to main game scene
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _on_cloud_load_failed(error: String) -> void:
+	print("MainMenu: Cloud load failed: ", error)

@@ -3,13 +3,15 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 # SaveLoadManager - High-level interface for game save and load operations
 # Provides comprehensive save file management with metadata and validation
-# Supports both file system (desktop) and localStorage/IndexedDB (web)
+# Desktop: file system saves, Web: cloud storage via CloudStorage autoload
 
 signal save_completed(file_path: String, metadata: Dictionary)
 signal load_completed(file_path: String, metadata: Dictionary)
 signal save_failed(error: String)
 signal load_failed(error: String)
 signal autosave_completed(file_path: String)
+signal save_files_received(save_files: Array)
+signal delete_completed(save_name: String)
 
 const SAVE_EXTENSION = ".w40ksave"
 const METADATA_EXTENSION = ".meta"
@@ -35,15 +37,29 @@ func _ready() -> void:
 	is_web_platform = OS.has_feature("web")
 
 	if is_web_platform:
-		print("SaveLoadManager: Running on web platform - using browser storage")
-		# On web, we use localStorage/IndexedDB instead of file system
-		save_directory = "web://"
-		autosave_directory = "web://autosaves/"
-		backup_directory = "web://backups/"
+		print("SaveLoadManager: Running on web platform - using cloud storage")
+		# On web, we use cloud storage instead of file system
+		save_directory = "cloud://"
+		autosave_directory = "cloud://autosaves/"
+		backup_directory = "cloud://backups/"
+		# Connect to CloudStorage signals
+		_connect_cloud_signals()
 	else:
 		_initialize_directories()
 
 	_setup_autosave_timer()
+
+func _connect_cloud_signals() -> void:
+	if not CloudStorage:
+		print("SaveLoadManager: WARNING - CloudStorage autoload not available")
+		return
+
+	CloudStorage.save_uploaded.connect(_on_cloud_save_uploaded)
+	CloudStorage.save_downloaded.connect(_on_cloud_save_downloaded)
+	CloudStorage.saves_list_received.connect(_on_cloud_saves_list_received)
+	CloudStorage.save_deleted.connect(_on_cloud_save_deleted)
+	CloudStorage.request_failed.connect(_on_cloud_request_failed)
+	print("SaveLoadManager: Connected to CloudStorage signals")
 
 func _initialize_directories() -> void:
 	# Create directories in the project folder (res://)
@@ -51,19 +67,19 @@ func _initialize_directories() -> void:
 	if dir:
 		print("SaveLoadManager: Current res:// directory: ", dir.get_current_dir())
 		print("SaveLoadManager: Project directory path: ", ProjectSettings.globalize_path("res://"))
-		
+
 		if not dir.dir_exists("saves"):
 			var result = dir.make_dir("saves")
 			print("SaveLoadManager: Creating saves directory, result: ", result)
-		
+
 		if not dir.dir_exists("saves/autosaves"):
 			var result = dir.make_dir_recursive("saves/autosaves")
 			print("SaveLoadManager: Creating autosaves directory, result: ", result)
-		
+
 		if not dir.dir_exists("saves/backups"):
 			var result = dir.make_dir_recursive("saves/backups")
 			print("SaveLoadManager: Creating backups directory, result: ", result)
-		
+
 		print("SaveLoadManager: Initialized save directories in project folder")
 		print("SaveLoadManager: Save files will be stored at: ", ProjectSettings.globalize_path("res://saves/"))
 	else:
@@ -81,7 +97,9 @@ func save_game(file_name: String, metadata: Dictionary = {}) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		return _save_game_to_path_web(sanitized_name, metadata)
+		_save_game_to_cloud(sanitized_name, metadata)
+		# Returns true to indicate the async operation was initiated
+		return true
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return _save_game_to_path(save_path, metadata)
@@ -90,7 +108,9 @@ func load_game(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		return _load_game_from_path_web(sanitized_name)
+		_load_game_from_cloud(sanitized_name)
+		# Returns true to indicate the async operation was initiated
+		return true
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return _load_game_from_path(save_path)
@@ -104,6 +124,10 @@ func load_game_from_slot(slot: int) -> bool:
 	return _load_game_from_path(save_path)
 
 func quick_save() -> bool:
+	if is_web_platform:
+		_save_game_to_cloud("quicksave", {"type": "quicksave"})
+		return true
+
 	var save_path = save_directory + "quicksave" + SAVE_EXTENSION
 	print("SaveLoadManager: Attempting quick save to: ", save_path)
 	print("SaveLoadManager: Full path: ", ProjectSettings.globalize_path(save_path))
@@ -111,21 +135,25 @@ func quick_save() -> bool:
 	return _save_game_to_path(save_path, metadata)
 
 func quick_load() -> bool:
+	if is_web_platform:
+		_load_game_from_cloud("quicksave")
+		return true
+
 	var save_path = save_directory + "quicksave" + SAVE_EXTENSION
 	return _load_game_from_path(save_path)
 
 # Core save/load implementation
 func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 	print("SaveLoadManager: _save_game_to_path called with: ", file_path)
-	
+
 	# Create backup if file exists
 	if FileAccess.file_exists(file_path):
 		_create_backup(file_path)
-	
+
 	# Prepare metadata
 	var save_metadata = _create_save_metadata(metadata)
 	print("SaveLoadManager: Save metadata: ", save_metadata)
-	
+
 	# Get current game state
 	var game_state = GameState.create_snapshot()
 	print("SaveLoadManager: Game state size: ", game_state.size())
@@ -133,13 +161,13 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 		print("SaveLoadManager: ERROR - Game state is empty")
 		emit_signal("save_failed", "Failed to get game state")
 		return false
-	
+
 	# Serialize using StateSerializer
 	if not StateSerializer:
 		print("SaveLoadManager: ERROR - StateSerializer not available")
 		emit_signal("save_failed", "StateSerializer not available")
 		return false
-	
+
 	print("SaveLoadManager: Calling StateSerializer.serialize_game_state")
 	var serialized_data = StateSerializer.serialize_game_state(game_state)
 	print("SaveLoadManager: Serialized data length: ", serialized_data.length())
@@ -147,7 +175,7 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 		print("SaveLoadManager: ERROR - Failed to serialize game state")
 		emit_signal("save_failed", "Failed to serialize game state")
 		return false
-	
+
 	# Write save file
 	print("SaveLoadManager: Opening file for writing: ", file_path)
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
@@ -156,14 +184,14 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 		print("SaveLoadManager: ERROR - ", error)
 		emit_signal("save_failed", error)
 		return false
-	
+
 	print("SaveLoadManager: Writing serialized data to file")
 	file.store_string(serialized_data)
 	file.close()
-	
+
 	# Write metadata file
 	_save_metadata(file_path, save_metadata)
-	
+
 	last_save_path = file_path
 	emit_signal("save_completed", file_path, save_metadata)
 	print("SaveLoadManager: Game saved successfully to %s" % file_path)
@@ -172,14 +200,14 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 func _load_game_from_path(file_path: String) -> bool:
 	print("SaveLoadManager: _load_game_from_path called with: ", file_path)
 	print("SaveLoadManager: Full path: ", ProjectSettings.globalize_path(file_path))
-	
+
 	if not FileAccess.file_exists(file_path):
 		print("SaveLoadManager: ERROR - Save file not found: ", file_path)
 		emit_signal("load_failed", "Save file not found: " + file_path)
 		return false
-	
+
 	print("SaveLoadManager: Save file exists, loading metadata...")
-	
+
 	# Load and validate metadata
 	var metadata = _load_metadata(file_path)
 	if metadata.is_empty():
@@ -188,12 +216,12 @@ func _load_game_from_path(file_path: String) -> bool:
 		metadata = {"type": "unknown"}
 	else:
 		print("SaveLoadManager: Metadata loaded: ", metadata)
-		
+
 		var validation = _validate_save_metadata(metadata)
 		if not validation.valid:
 			print("SaveLoadManager: WARNING - Metadata validation failed: ", str(validation.errors))
 			# Continue anyway for debugging
-	
+
 	# Read save file
 	print("SaveLoadManager: Opening save file for reading...")
 	var file = FileAccess.open(file_path, FileAccess.READ)
@@ -201,28 +229,28 @@ func _load_game_from_path(file_path: String) -> bool:
 		print("SaveLoadManager: ERROR - Failed to open save file: ", FileAccess.get_open_error())
 		emit_signal("load_failed", "Failed to open save file for reading: " + file_path)
 		return false
-	
+
 	var serialized_data = file.get_as_text()
 	file.close()
 	print("SaveLoadManager: Read ", serialized_data.length(), " bytes from save file")
-	
+
 	# Deserialize using StateSerializer
 	if not StateSerializer:
 		print("SaveLoadManager: ERROR - StateSerializer not available")
 		emit_signal("load_failed", "StateSerializer not available")
 		return false
-	
+
 	print("SaveLoadManager: Deserializing game state...")
 	var game_state = StateSerializer.deserialize_game_state(serialized_data)
 	if game_state.is_empty():
 		print("SaveLoadManager: ERROR - Failed to deserialize save data")
 		emit_signal("load_failed", "Failed to deserialize save data")
 		return false
-	
+
 	print("SaveLoadManager: Deserialized state keys: ", game_state.keys())
 	if game_state.has("meta"):
 		print("SaveLoadManager: Loaded game meta: ", game_state["meta"])
-	
+
 	# Load state into GameState
 	print("SaveLoadManager: Loading snapshot into GameState...")
 	print("SaveLoadManager: Snapshot has units: ", game_state.has("units"))
@@ -240,7 +268,7 @@ func _load_game_from_path(file_path: String) -> bool:
 	if current_state.has("units"):
 		print("SaveLoadManager: Units in GameState after load: %d" % current_state["units"].size())
 		print("SaveLoadManager: Unit IDs in GameState after load: %s" % str(current_state["units"].keys()))
-	
+
 	emit_signal("load_completed", file_path, metadata)
 	print("SaveLoadManager: Game loaded successfully from %s" % file_path)
 
@@ -259,6 +287,128 @@ func _load_game_from_path(file_path: String) -> bool:
 		print("SaveLoadManager: Single-player mode or not connected - skipping sync")
 
 	return true
+
+# ============================================================================
+# Cloud Storage Methods (Web Platform)
+# ============================================================================
+
+func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
+	print("SaveLoadManager: [CLOUD] Saving game: ", save_name)
+
+	# Prepare metadata
+	var save_metadata = _create_save_metadata(metadata)
+
+	# Get current game state
+	var game_state = GameState.create_snapshot()
+	if game_state.is_empty():
+		emit_signal("save_failed", "Failed to get game state")
+		return
+
+	# Serialize
+	if not StateSerializer:
+		emit_signal("save_failed", "StateSerializer not available")
+		return
+
+	var serialized_data = StateSerializer.serialize_game_state(game_state)
+	if serialized_data.is_empty():
+		emit_signal("save_failed", "Failed to serialize game state")
+		return
+
+	# Upload to cloud
+	if CloudStorage:
+		CloudStorage.put_save(save_name, save_metadata, serialized_data)
+		# Completion handled by _on_cloud_save_uploaded signal
+	else:
+		emit_signal("save_failed", "CloudStorage not available")
+
+func _load_game_from_cloud(save_name: String) -> void:
+	print("SaveLoadManager: [CLOUD] Loading game: ", save_name)
+
+	# Request save from cloud
+	if CloudStorage:
+		CloudStorage.get_save(save_name)
+		# Completion handled by _on_cloud_save_downloaded signal
+	else:
+		emit_signal("load_failed", "CloudStorage not available")
+
+func _on_cloud_save_uploaded(save_name: String) -> void:
+	print("SaveLoadManager: [CLOUD] Save uploaded successfully: ", save_name)
+	last_save_path = "cloud://" + save_name
+	var save_metadata = _create_save_metadata({})
+	emit_signal("save_completed", last_save_path, save_metadata)
+
+func _on_cloud_save_downloaded(save_name: String, metadata: Dictionary, game_data: String) -> void:
+	print("SaveLoadManager: [CLOUD] Save downloaded: ", save_name)
+	print("SaveLoadManager: [CLOUD] Game data length: ", game_data.length())
+
+	if game_data.is_empty():
+		emit_signal("load_failed", "Downloaded save data is empty")
+		return
+
+	# Deserialize
+	if not StateSerializer:
+		emit_signal("load_failed", "StateSerializer not available")
+		return
+
+	var game_state = StateSerializer.deserialize_game_state(game_data)
+	if game_state.is_empty():
+		emit_signal("load_failed", "Failed to deserialize cloud save data")
+		return
+
+	print("SaveLoadManager: [CLOUD] Deserialized state keys: ", game_state.keys())
+
+	# Load into GameState
+	GameState.load_from_snapshot(game_state)
+
+	emit_signal("load_completed", "cloud://" + save_name, metadata)
+	print("SaveLoadManager: [CLOUD] Game loaded successfully: ", save_name)
+
+	# Sync state with multiplayer clients if in networked game
+	if NetworkManager and NetworkManager.is_networked():
+		print("SaveLoadManager: [CLOUD] Multiplayer detected - syncing loaded state")
+		NetworkManager.sync_loaded_state()
+
+func _on_cloud_saves_list_received(saves: Array) -> void:
+	print("SaveLoadManager: [CLOUD] Received %d saves from cloud" % saves.size())
+
+	# Convert cloud save format to standard save_files format
+	var save_files = []
+	for save in saves:
+		var metadata = save.get("metadata", {})
+		if metadata is String:
+			var json = JSON.new()
+			if json.parse(metadata) == OK and json.data is Dictionary:
+				metadata = json.data
+			else:
+				metadata = {}
+
+		var save_info = {
+			"file_name": save.get("save_name", "") + SAVE_EXTENSION,
+			"display_name": save.get("save_name", ""),
+			"file_path": "cloud://" + save.get("save_name", ""),
+			"metadata": metadata
+		}
+		save_files.append(save_info)
+
+	# Sort by modification time (newest first)
+	save_files.sort_custom(_compare_save_info_times)
+	emit_signal("save_files_received", save_files)
+
+func _on_cloud_save_deleted(save_name: String) -> void:
+	print("SaveLoadManager: [CLOUD] Save deleted: ", save_name)
+	emit_signal("delete_completed", save_name)
+
+func _on_cloud_request_failed(operation: String, error: String) -> void:
+	print("SaveLoadManager: [CLOUD] Request failed - %s: %s" % [operation, error])
+	match operation:
+		"put_save":
+			emit_signal("save_failed", "Cloud save failed: " + error)
+		"get_save":
+			emit_signal("load_failed", "Cloud load failed: " + error)
+		"list_saves":
+			emit_signal("save_files_received", [])
+		"delete_save":
+			emit_signal("save_failed", "Cloud delete failed: " + error)
 
 # Autosave functionality
 func enable_autosave() -> void:
@@ -279,20 +429,20 @@ func set_autosave_interval(seconds: float) -> void:
 func perform_autosave() -> bool:
 	if not autosave_enabled:
 		return false
-	
+
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
 	var autosave_path = autosave_directory + "autosave_%s%s" % [timestamp, SAVE_EXTENSION]
-	
+
 	var metadata = {
 		"type": "autosave",
 		"auto_generated": true
 	}
-	
+
 	var success = _save_game_to_path(autosave_path, metadata)
 	if success:
 		emit_signal("autosave_completed", autosave_path)
 		_manage_autosave_count()
-	
+
 	return success
 
 func _manage_autosave_count() -> void:
@@ -301,7 +451,7 @@ func _manage_autosave_count() -> void:
 		# Sort by modification time and remove oldest
 		autosave_files.sort_custom(_compare_file_times)
 		var files_to_remove = autosave_files.size() - max_autosaves
-		
+
 		for i in range(files_to_remove):
 			var file_path = autosave_directory + autosave_files[i]
 			DirAccess.remove_absolute(file_path)
@@ -310,7 +460,7 @@ func _manage_autosave_count() -> void:
 func _get_autosave_files() -> Array:
 	var files = []
 	var dir = DirAccess.open(autosave_directory)
-	
+
 	if dir:
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
@@ -319,17 +469,21 @@ func _get_autosave_files() -> Array:
 				files.append(file_name)
 			file_name = dir.get_next()
 		dir.list_dir_end()
-	
+
 	return files
 
 # Save file management
 func get_save_files() -> Array:
 	if is_web_platform:
-		return get_save_files_web()
+		# On web, trigger async cloud list and return empty
+		# Callers should connect to save_files_received signal
+		if CloudStorage:
+			CloudStorage.list_saves()
+		return []
 
 	var save_files = []
 	var dir = DirAccess.open(save_directory)
-	
+
 	if dir:
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
@@ -344,7 +498,7 @@ func get_save_files() -> Array:
 				save_files.append(save_info)
 			file_name = dir.get_next()
 		dir.list_dir_end()
-	
+
 	# Sort by modification time (newest first)
 	save_files.sort_custom(_compare_save_info_times)
 	return save_files
@@ -353,7 +507,11 @@ func delete_save_file(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		return _web_delete_from_storage(sanitized_name)
+		if CloudStorage:
+			CloudStorage.delete_save(sanitized_name)
+			# Completion handled by _on_cloud_save_deleted signal
+			return true
+		return false
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
@@ -376,7 +534,9 @@ func save_exists(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		return _web_storage_exists(sanitized_name)
+		# Can't check synchronously on web - return false
+		# PUT uses upsert semantics so overwriting is handled transparently
+		return false
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return FileAccess.file_exists(save_path)
@@ -384,13 +544,13 @@ func save_exists(file_name: String) -> bool:
 func get_save_info(file_name: String) -> Dictionary:
 	var sanitized_name = _sanitize_filename(file_name)
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
-	
+
 	if not FileAccess.file_exists(save_path):
 		return {}
-	
+
 	var metadata = _load_metadata(save_path)
 	var file_size = FileAccess.get_file_as_bytes(save_path).size()
-	
+
 	return {
 		"file_name": sanitized_name + SAVE_EXTENSION,
 		"file_path": save_path,
@@ -416,18 +576,18 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			"tags": custom_metadata.get("tags", [])
 		}
 	}
-	
+
 	# Add custom metadata
 	for key in custom_metadata:
 		if not metadata.has(key):
 			metadata[key] = custom_metadata[key]
-	
+
 	return metadata
 
 func _save_metadata(save_path: String, metadata: Dictionary) -> void:
 	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
 	var file = FileAccess.open(meta_path, FileAccess.WRITE)
-	
+
 	if file:
 		var json_string = JSON.stringify(metadata, "\t")
 		file.store_string(json_string)
@@ -435,26 +595,26 @@ func _save_metadata(save_path: String, metadata: Dictionary) -> void:
 
 func _load_metadata(save_path: String) -> Dictionary:
 	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
-	
+
 	if not FileAccess.file_exists(meta_path):
 		# Try to create metadata from game state if save exists
 		if FileAccess.file_exists(save_path):
 			return _create_default_metadata(save_path)
 		return {}
-	
+
 	var file = FileAccess.open(meta_path, FileAccess.READ)
 	if not file:
 		return {}
-	
+
 	var json_string = file.get_as_text()
 	file.close()
-	
+
 	var json = JSON.new()
 	var parse_result = json.parse(json_string)
-	
+
 	if parse_result != OK:
 		return {}
-	
+
 	return json.data if json.data is Dictionary else {}
 
 func _create_default_metadata(save_path: String) -> Dictionary:
@@ -481,14 +641,14 @@ func _validate_save_metadata(metadata: Dictionary) -> Dictionary:
 		"errors": [],
 		"warnings": []
 	}
-	
+
 	# Check required fields
 	var required_fields = ["version", "created_at", "game_state"]
 	for field in required_fields:
 		if not metadata.has(field):
 			validation.errors.append("Missing required field: " + field)
 			validation.valid = false
-	
+
 	return validation
 
 # Backup management
@@ -496,21 +656,21 @@ func _create_backup(file_path: String) -> void:
 	var backup_name = file_path.get_file().replace(SAVE_EXTENSION, "")
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
 	var backup_path = backup_directory + "%s_%s%s" % [backup_name, timestamp, BACKUP_EXTENSION]
-	
+
 	var original_file = FileAccess.open(file_path, FileAccess.READ)
 	var backup_file = FileAccess.open(backup_path, FileAccess.WRITE)
-	
+
 	if original_file and backup_file:
 		backup_file.store_string(original_file.get_as_text())
 		backup_file.close()
 		original_file.close()
-		
+
 		_manage_backup_count()
 
 func _manage_backup_count() -> void:
 	var backup_files = []
 	var dir = DirAccess.open(backup_directory)
-	
+
 	if dir:
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
@@ -519,11 +679,11 @@ func _manage_backup_count() -> void:
 				backup_files.append(file_name)
 			file_name = dir.get_next()
 		dir.list_dir_end()
-	
+
 	if backup_files.size() > max_backups:
 		backup_files.sort_custom(_compare_file_times)
 		var files_to_remove = backup_files.size() - max_backups
-		
+
 		for i in range(files_to_remove):
 			DirAccess.remove_absolute(backup_directory + backup_files[i])
 
@@ -532,10 +692,10 @@ func _sanitize_filename(filename: String) -> String:
 	# Remove invalid filename characters
 	var sanitized = filename.strip_edges()
 	var invalid_chars = ["<", ">", ":", "\"", "|", "?", "*", "/", "\\"]
-	
+
 	for char in invalid_chars:
 		sanitized = sanitized.replace(char, "_")
-	
+
 	return sanitized
 
 func _compare_file_times(a: String, b: String) -> bool:
@@ -584,227 +744,3 @@ func print_save_info() -> void:
 			save_info.metadata.get("game_state", {}).get("turn", 0),
 			str(save_info.metadata.get("game_state", {}).get("phase", "Unknown"))
 		])
-
-# ============================================================================
-# WEB PLATFORM STORAGE - localStorage/IndexedDB support for browser
-# ============================================================================
-
-func _web_storage_key(save_name: String) -> String:
-	"""Generate localStorage key for a save."""
-	return WEB_STORAGE_PREFIX + save_name
-
-func _web_save_to_storage(save_name: String, data: String) -> bool:
-	"""Save data to browser localStorage."""
-	if not is_web_platform:
-		return false
-
-	var key = _web_storage_key(save_name)
-
-	# Use JavaScript localStorage API
-	var js_code = """
-		try {
-			localStorage.setItem('%s', '%s');
-			return true;
-		} catch (e) {
-			console.error('Failed to save to localStorage:', e);
-			return false;
-		}
-	""" % [key, data.c_escape()]
-
-	var result = JavaScriptBridge.eval(js_code)
-	return result == true
-
-func _web_load_from_storage(save_name: String) -> String:
-	"""Load data from browser localStorage."""
-	if not is_web_platform:
-		return ""
-
-	var key = _web_storage_key(save_name)
-
-	var js_code = """
-		try {
-			return localStorage.getItem('%s') || '';
-		} catch (e) {
-			console.error('Failed to load from localStorage:', e);
-			return '';
-		}
-	""" % key
-
-	var result = JavaScriptBridge.eval(js_code)
-	return str(result) if result else ""
-
-func _web_delete_from_storage(save_name: String) -> bool:
-	"""Delete data from browser localStorage."""
-	if not is_web_platform:
-		return false
-
-	var key = _web_storage_key(save_name)
-
-	var js_code = """
-		try {
-			localStorage.removeItem('%s');
-			return true;
-		} catch (e) {
-			console.error('Failed to delete from localStorage:', e);
-			return false;
-		}
-	""" % key
-
-	var result = JavaScriptBridge.eval(js_code)
-	return result == true
-
-func _web_get_save_list() -> Array:
-	"""Get list of all saves from browser localStorage."""
-	if not is_web_platform:
-		return []
-
-	var js_code = """
-		try {
-			var saves = [];
-			var prefix = '%s';
-			for (var i = 0; i < localStorage.length; i++) {
-				var key = localStorage.key(i);
-				if (key && key.startsWith(prefix)) {
-					saves.push(key.substring(prefix.length));
-				}
-			}
-			return JSON.stringify(saves);
-		} catch (e) {
-			console.error('Failed to list localStorage saves:', e);
-			return '[]';
-		}
-	""" % WEB_STORAGE_PREFIX
-
-	var result = JavaScriptBridge.eval(js_code)
-	if result:
-		var json = JSON.new()
-		var parse_result = json.parse(str(result))
-		if parse_result == OK and json.data is Array:
-			return json.data
-
-	return []
-
-func _web_storage_exists(save_name: String) -> bool:
-	"""Check if a save exists in browser localStorage."""
-	if not is_web_platform:
-		return false
-
-	var key = _web_storage_key(save_name)
-
-	var js_code = """
-		return localStorage.getItem('%s') !== null;
-	""" % key
-
-	var result = JavaScriptBridge.eval(js_code)
-	return result == true
-
-# Override save methods for web platform
-func _save_game_to_path_web(save_name: String, metadata: Dictionary) -> bool:
-	"""Web-specific save implementation using localStorage."""
-	print("SaveLoadManager: [WEB] Saving game: ", save_name)
-
-	# Prepare metadata
-	var save_metadata = _create_save_metadata(metadata)
-
-	# Get current game state
-	var game_state = GameState.create_snapshot()
-	if game_state.is_empty():
-		emit_signal("save_failed", "Failed to get game state")
-		return false
-
-	# Serialize
-	var serialized_data = StateSerializer.serialize_game_state(game_state)
-	if serialized_data.is_empty():
-		emit_signal("save_failed", "Failed to serialize game state")
-		return false
-
-	# Create combined data with metadata
-	var combined_data = {
-		"metadata": save_metadata,
-		"game_data": serialized_data
-	}
-	var json_data = JSON.stringify(combined_data)
-
-	# Save to localStorage
-	if not _web_save_to_storage(save_name, json_data):
-		emit_signal("save_failed", "Failed to save to browser storage")
-		return false
-
-	last_save_path = "web://" + save_name
-	emit_signal("save_completed", last_save_path, save_metadata)
-	print("SaveLoadManager: [WEB] Game saved successfully: ", save_name)
-	return true
-
-func _load_game_from_path_web(save_name: String) -> bool:
-	"""Web-specific load implementation using localStorage."""
-	print("SaveLoadManager: [WEB] Loading game: ", save_name)
-
-	# Load from localStorage
-	var json_data = _web_load_from_storage(save_name)
-	if json_data.is_empty():
-		emit_signal("load_failed", "Save not found: " + save_name)
-		return false
-
-	# Parse combined data
-	var json = JSON.new()
-	var parse_result = json.parse(json_data)
-	if parse_result != OK or not json.data is Dictionary:
-		emit_signal("load_failed", "Failed to parse save data")
-		return false
-
-	var combined_data = json.data
-	var metadata = combined_data.get("metadata", {})
-	var serialized_data = combined_data.get("game_data", "")
-
-	if serialized_data.is_empty():
-		emit_signal("load_failed", "Save data is empty")
-		return false
-
-	# Deserialize
-	var game_state = StateSerializer.deserialize_game_state(serialized_data)
-	if game_state.is_empty():
-		emit_signal("load_failed", "Failed to deserialize save data")
-		return false
-
-	# Load into GameState
-	GameState.load_from_snapshot(game_state)
-
-	emit_signal("load_completed", "web://" + save_name, metadata)
-	print("SaveLoadManager: [WEB] Game loaded successfully: ", save_name)
-
-	# Sync state with multiplayer clients if in networked game
-	if NetworkManager and NetworkManager.is_networked():
-		NetworkManager.sync_loaded_state()
-
-	return true
-
-# Override get_save_files for web platform
-func get_save_files_web() -> Array:
-	"""Get list of saves from browser localStorage."""
-	var save_files = []
-	var save_names = _web_get_save_list()
-
-	for save_name in save_names:
-		# Skip autosaves and metadata entries
-		if save_name.begins_with("autosaves/") or save_name.ends_with(METADATA_EXTENSION):
-			continue
-
-		var json_data = _web_load_from_storage(save_name)
-		var metadata = {}
-
-		if not json_data.is_empty():
-			var json = JSON.new()
-			if json.parse(json_data) == OK and json.data is Dictionary:
-				metadata = json.data.get("metadata", {})
-
-		var save_info = {
-			"file_name": save_name + SAVE_EXTENSION,
-			"display_name": save_name,
-			"file_path": "web://" + save_name,
-			"metadata": metadata
-		}
-		save_files.append(save_info)
-
-	# Sort by modification time (newest first)
-	save_files.sort_custom(_compare_save_info_times)
-	return save_files

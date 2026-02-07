@@ -5,12 +5,19 @@ primary_region = "ams"
 [build]
   dockerfile = "Dockerfile"
 
+[env]
+  DB_PATH = "/data/persistence.db"
+
 [http_service]
   internal_port = 9080
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
+
+[mounts]
+  source = "game_data"
+  destination = "/data"
 
 [[vm]]
   size = "shared-cpu-1x"

@@ -18,23 +18,33 @@ signal delete_requested(save_file: String)
 # Internal state
 var save_files_data: Array = []  # Store save metadata for reference
 var selected_save_index: int = -1
+var is_web_platform: bool = false
+var _save_files_signal_connected: bool = false
 
 func _ready() -> void:
 	# Configure dialog properties
 	dialog_close_on_escape = true
 	exclusive = false  # Allow clicking outside to close
 	process_mode = Node.PROCESS_MODE_ALWAYS  # Always process input
-	
+	is_web_platform = OS.has_feature("web")
+
 	# Wait for nodes to be ready
 	await get_tree().process_frame
-	
+
 	# Connect UI signals
 	_connect_ui_signals()
-	
+
+	# Connect to SaveLoadManager async signal for web
+	if is_web_platform and SaveLoadManager and not _save_files_signal_connected:
+		SaveLoadManager.save_files_received.connect(_on_save_files_received)
+		SaveLoadManager.delete_completed.connect(_on_delete_completed)
+		_save_files_signal_connected = true
+		print("SaveLoadDialog: Connected to async save_files_received signal for web")
+
 	# Initialize dialog
 	refresh_saves_list()
 	_update_button_states()
-	
+
 	print("SaveLoadDialog initialized successfully")
 
 func _connect_ui_signals() -> void:
@@ -118,29 +128,57 @@ func refresh_saves_list() -> void:
 	if not saves_list:
 		print("SaveLoadDialog: ERROR - saves_list is null in refresh_saves_list!")
 		return
-	
+
 	# Clear current list
 	saves_list.clear()
 	save_files_data.clear()
 	selected_save_index = -1
-	
-	# Get save files from SaveLoadManager
+
+	if is_web_platform:
+		# On web: show placeholder, trigger async fetch
+		saves_list.add_item("Loading saves...")
+		saves_list.set_item_disabled(0, true)
+		_update_button_states()
+		# Trigger async cloud fetch - results come via _on_save_files_received
+		SaveLoadManager.get_save_files()
+		print("SaveLoadDialog: Initiated async save list fetch for web")
+		return
+
+	# Desktop: synchronous populate
 	var save_files = SaveLoadManager.get_save_files()
 	print("SaveLoadDialog: Found ", save_files.size(), " save files")
-	
+	_populate_saves_list(save_files)
+
+func _populate_saves_list(save_files: Array) -> void:
+	if not saves_list:
+		return
+
+	saves_list.clear()
+	save_files_data.clear()
+	selected_save_index = -1
+
 	# Populate the list
 	for save_info in save_files:
 		var display_name = _format_save_display_name(save_info)
 		saves_list.add_item(display_name)
 		save_files_data.append(save_info)
-		
+
 		# Set tooltip with additional info
 		var item_index = saves_list.get_item_count() - 1
 		var tooltip = _create_save_tooltip(save_info)
 		saves_list.set_item_tooltip(item_index, tooltip)
-	
+
 	_update_button_states()
 	print("SaveLoadDialog: Populated list with ", save_files_data.size(), " save files")
+
+func _on_save_files_received(save_files: Array) -> void:
+	print("SaveLoadDialog: Received %d save files from cloud" % save_files.size())
+	_populate_saves_list(save_files)
+
+func _on_delete_completed(save_name: String) -> void:
+	print("SaveLoadDialog: Delete completed for: ", save_name)
+	# Refresh the list after successful cloud delete
+	refresh_saves_list()
 
 func _format_save_display_name(save_info: Dictionary) -> String:
 	# Extract information from save_info

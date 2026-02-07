@@ -1279,6 +1279,8 @@ func connect_signals() -> void:
 	SaveLoadManager.load_completed.connect(_on_load_completed)
 	SaveLoadManager.save_failed.connect(_on_save_failed)
 	SaveLoadManager.load_failed.connect(_on_load_failed)
+	if OS.has_feature("web"):
+		SaveLoadManager.delete_completed.connect(_on_delete_completed_main)
 
 	# Connect multiplayer sync signals
 	if has_node("/root/GameManager"):
@@ -2342,6 +2344,8 @@ func _show_save_notification(message: String, color: Color) -> void:
 
 func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
+	if OS.has_feature("web"):
+		_show_save_notification("Game saved!", Color.GREEN)
 
 func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Load completed: %s" % file_path)
@@ -2349,8 +2353,13 @@ func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	# Clear debug visualizations after load
 	_clear_debug_visualizations()
 
-	# Force UI refresh after loading
-	call_deferred("_refresh_after_load")
+	if OS.has_feature("web"):
+		# On web, load is async - apply state now that data arrived
+		_show_save_notification("Game loaded!", Color.BLUE)
+		call_deferred("_apply_loaded_state")
+	else:
+		# Force UI refresh after loading
+		call_deferred("_refresh_after_load")
 
 # Helper method to clear debug visualizations safely
 func _clear_debug_visualizations() -> void:
@@ -2364,9 +2373,50 @@ func _clear_debug_visualizations() -> void:
 
 func _on_save_failed(error: String) -> void:
 	print("Save failed: %s" % error)
+	if OS.has_feature("web"):
+		_show_save_notification("Save failed: " + error, Color.RED)
 
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
+	if OS.has_feature("web"):
+		_show_save_notification("Load failed: " + error, Color.RED)
+
+func _on_delete_completed_main(save_name: String) -> void:
+	print("Main: Cloud delete completed: ", save_name)
+	_show_save_notification("Save deleted!", Color.ORANGE)
+
+func _apply_loaded_state() -> void:
+	print("Main: _apply_loaded_state() called")
+
+	# ENHANCEMENT: Clear UI before phase setup
+	_clear_right_panel_phase_ui()
+
+	# Update current phase
+	current_phase = GameState.get_current_phase()
+
+	# Sync BoardState with loaded GameState
+	_sync_board_state_with_game_state()
+
+	# Recreate phase controllers for the loaded phase
+	await setup_phase_controllers()
+
+	# Give controllers time to initialize
+	await get_tree().process_frame
+
+	# Refresh all UI elements
+	refresh_unit_list()
+	update_ui()
+	update_ui_for_phase()
+	update_deployment_zone_visibility()
+
+	# Recreate visual tokens for deployed units
+	_recreate_unit_visuals()
+
+	# Notify PhaseManager of the loaded state
+	if PhaseManager.has_method("transition_to_phase"):
+		PhaseManager.transition_to_phase(current_phase)
+
+	print("Main: _apply_loaded_state() complete")
 
 # Multiplayer sync handler - called when guest receives initial state or game starts
 func _on_network_game_started() -> void:
@@ -2464,69 +2514,46 @@ func _toggle_save_load_menu() -> void:
 
 func _on_save_requested(save_name: String) -> void:
 	print("Main: Save requested with name: ", save_name)
-	
+
 	# Create metadata with user description
 	var user_description = save_name
 	var metadata = {
 		"type": "manual",
 		"description": user_description
 	}
-	
+
 	# Show saving notification
 	_show_save_notification("Saving...", Color.YELLOW)
-	
-	# Perform save
+
+	# Perform save (on web this is async - result comes via signals)
 	var success = SaveLoadManager.save_game(save_name, metadata)
 	if not success:
 		_show_save_notification("Save failed!", Color.RED)
 
 func _on_load_requested(save_file: String) -> void:
 	print("Main: Load requested for file: ", save_file)
-	
+
 	# Show loading notification
 	_show_save_notification("Loading...", Color.YELLOW)
-	
-	# Perform load
+
+	# Perform load (on web this is async - result comes via load_completed/load_failed signals)
 	var success = SaveLoadManager.load_game(save_file)
-	if success:
-		_show_save_notification("Game loaded!", Color.BLUE)
-		
-		# ENHANCEMENT: Clear UI before phase setup
-		_clear_right_panel_phase_ui()
-		
-		# Update current phase
-		current_phase = GameState.get_current_phase()
-		
-		# Sync BoardState with loaded GameState
-		_sync_board_state_with_game_state()
-		
-		# Recreate phase controllers for the loaded phase
-		await setup_phase_controllers()
-		
-		# Give controllers time to initialize
-		await get_tree().process_frame
-		
-		# Refresh all UI elements
-		refresh_unit_list()
-		update_ui()
-		update_ui_for_phase()
-		update_deployment_zone_visibility()
-		
-		# Recreate visual tokens for deployed units
-		_recreate_unit_visuals()
-		
-		# Notify PhaseManager of the loaded state
-		if PhaseManager.has_method("transition_to_phase"):
-			PhaseManager.transition_to_phase(current_phase)
-	else:
-		_show_save_notification("Load failed!", Color.RED)
+	if not OS.has_feature("web"):
+		# Desktop: synchronous result
+		if success:
+			_show_save_notification("Game loaded!", Color.BLUE)
+			_apply_loaded_state()
+		else:
+			_show_save_notification("Load failed!", Color.RED)
 
 func _on_delete_requested(save_file: String) -> void:
 	print("Main: Delete requested for file: ", save_file)
-	
-	# Perform deletion
+
+	# Perform deletion (on web this is async - result comes via delete_completed signal)
 	var success = SaveLoadManager.delete_save_file(save_file)
-	if success:
+	if OS.has_feature("web"):
+		_show_save_notification("Deleting...", Color.YELLOW)
+	elif success:
 		_show_save_notification("Save deleted!", Color.ORANGE)
 		print("Save file deleted successfully: ", save_file)
 	else:
