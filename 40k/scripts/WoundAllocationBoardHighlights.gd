@@ -57,18 +57,18 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 	# TESTING: Use simple modulate instead of shaders
 	match type:
 		HighlightType.PRIORITY:
-			# Red pulsing for wounded models that must be selected
-			highlight.modulate = Color(1.0, 0.0, 0.0, 0.7)  # Bright red
-			print("WoundAllocationBoardHighlights: Created PRIORITY highlight (red) at ", model_pos)
+			# WH Red pulsing for wounded models that must be selected
+			highlight.modulate = Color(0.6, 0.07, 0.07, 0.7)  # WH Red
+			print("WoundAllocationBoardHighlights: Created PRIORITY highlight (WH red) at ", model_pos)
 
 		HighlightType.SELECTABLE:
-			# Green steady for models that can be selected
-			highlight.modulate = Color(0.0, 1.0, 0.0, 0.6)  # Bright green
-			print("WoundAllocationBoardHighlights: Created SELECTABLE highlight (green) at ", model_pos)
+			# Gold steady for models that can be selected
+			highlight.modulate = Color(0.83, 0.59, 0.38, 0.6)  # Gold
+			print("WoundAllocationBoardHighlights: Created SELECTABLE highlight (gold) at ", model_pos)
 
 		HighlightType.SELECTED:
-			# Yellow flash for just-selected model - MAKE IT LAST LONGER FOR TESTING
-			highlight.modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright yellow
+			# Parchment flash for just-selected model
+			highlight.modulate = Color(0.92, 0.88, 0.78, 0.9)  # Parchment
 			print("╔══════════════════════════════════════════════════════════════════")
 			print("║ CREATING YELLOW FLASH at ", model_pos)
 			print("║ This should be VERY VISIBLE for 3 seconds")

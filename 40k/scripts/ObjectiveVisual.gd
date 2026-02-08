@@ -3,6 +3,7 @@ class_name ObjectiveVisual
 
 # ObjectiveVisual - Displays objective markers on the board with control indicators
 # Shows a single circle representing the full control range (3" + 20mm radius)
+# Styled with parchment/bone tones for contrast against green felt board
 
 var objective_data: Dictionary = {}
 var control_indicator: Label
@@ -13,27 +14,32 @@ var objective_polygon: Polygon2D
 # Constants
 const OBJECTIVE_RADIUS_INCHES = 3.78740157  # 3" + 20mm (0.78740157")
 
+# Parchment/bone color palette for objectives
+const OBJ_OUTLINE_COLOR = Color(0.8, 0.75, 0.6, 1.0)     # Bone outline
+const OBJ_FILL_COLOR = Color(0.5, 0.5, 0.4, 0.3)         # Muted parchment fill
+const OBJ_CENTER_COLOR = Color(0.7, 0.65, 0.5, 0.8)       # Bone center marker
+
 func setup(data: Dictionary) -> void:
 	objective_data = data
 	position = data.position
 	name = data.id
 	_create_visuals()
-	
+
 func _create_visuals() -> void:
 	# Create objective marker container
 	objective_marker = Node2D.new()
 	objective_marker.name = "ObjectiveMarker"
 	add_child(objective_marker)
-	
+
 	# Calculate the full control radius (3" + 20mm)
 	var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
-	
+
 	# Filled objective area for better visibility
 	objective_polygon = Polygon2D.new()
 	objective_polygon.name = "ObjectivePolygon"
-	objective_polygon.color = Color(0.5, 0.5, 0.5, 0.25)  # Semi-transparent gray fill
+	objective_polygon.color = OBJ_FILL_COLOR
 	objective_polygon.z_index = 0
-	
+
 	# Create circle points for filled area
 	var polygon_points = PackedVector2Array()
 	for i in range(32):
@@ -41,41 +47,41 @@ func _create_visuals() -> void:
 		polygon_points.append(Vector2(cos(angle), sin(angle)) * control_radius)
 	objective_polygon.polygon = polygon_points
 	objective_marker.add_child(objective_polygon)
-	
-	# Objective circle outline
+
+	# Objective circle outline - bone color
 	objective_circle = Line2D.new()
 	objective_circle.name = "ObjectiveCircle"
 	objective_circle.width = 3.0
-	objective_circle.default_color = Color(0.7, 0.7, 0.7, 1.0)  # Gray
+	objective_circle.default_color = OBJ_OUTLINE_COLOR
 	objective_circle.z_index = 1
-	
+
 	# Create circle points for outline
 	for i in range(33):
 		var angle = i * TAU / 32
 		objective_circle.add_point(Vector2(cos(angle), sin(angle)) * control_radius)
 	objective_circle.closed = true
 	objective_marker.add_child(objective_circle)
-	
+
 	# Center marker - small cross to indicate exact center
 	var center_marker = Line2D.new()
 	center_marker.name = "CenterMarker"
 	center_marker.width = 2.0
-	center_marker.default_color = Color(0.6, 0.6, 0.6, 0.8)
+	center_marker.default_color = OBJ_CENTER_COLOR
 	center_marker.z_index = 2
 	var marker_size = 15.0  # Small cross at center
 	center_marker.add_point(Vector2(-marker_size, 0))
 	center_marker.add_point(Vector2(marker_size, 0))
 	objective_marker.add_child(center_marker)
-	
+
 	var center_marker2 = Line2D.new()
 	center_marker2.name = "CenterMarker2"
 	center_marker2.width = 2.0
-	center_marker2.default_color = Color(0.6, 0.6, 0.6, 0.8)
+	center_marker2.default_color = OBJ_CENTER_COLOR
 	center_marker2.z_index = 2
 	center_marker2.add_point(Vector2(0, -marker_size))
 	center_marker2.add_point(Vector2(0, marker_size))
 	objective_marker.add_child(center_marker2)
-	
+
 	# Control indicator label
 	control_indicator = Label.new()
 	control_indicator.name = "ControlIndicator"
@@ -84,13 +90,13 @@ func _create_visuals() -> void:
 	control_indicator.position = Vector2(-50, -control_radius - 30)
 	control_indicator.z_index = 10
 	add_child(control_indicator)
-	
+
 	# Objective ID label
 	var id_label = Label.new()
 	id_label.name = "ObjectiveID"
 	id_label.text = objective_data.id.replace("obj_", "").to_upper()
 	id_label.add_theme_font_size_override("font_size", 12)
-	id_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
+	id_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.7, 1.0))
 	id_label.position = Vector2(-20, -8)
 	id_label.z_index = 10
 	add_child(id_label)
@@ -115,8 +121,8 @@ func update_control(player: int) -> void:
 		_:
 			control_indicator.text = "Uncontrolled"
 			control_indicator.modulate = Color.WHITE
-			objective_circle.default_color = Color(0.7, 0.7, 0.7, 1.0)  # Gray
-			objective_polygon.color = Color(0.5, 0.5, 0.5, 0.25)  # Gray fill
+			objective_circle.default_color = OBJ_OUTLINE_COLOR
+			objective_polygon.color = OBJ_FILL_COLOR
 
 func highlight(enabled: bool) -> void:
 	if enabled:

@@ -4,16 +4,16 @@ extends Node2D
 # Shows which models can see the mouse cursor position when V key is held
 
 # Visual settings
-const TARGET_COLOR = Color(1.0, 1.0, 0.0, 0.8)  # Yellow for target position
+const TARGET_COLOR = Color(1.0, 0.2, 0.1, 0.8)  # Red-orange for target (better contrast on green)
 const TARGET_RADIUS = 10.0
-const LOS_LINE_COLOR = Color(0.0, 1.0, 0.0, 0.5)  # Semi-transparent green for LoS lines
+const LOS_LINE_COLOR = Color(1.0, 0.85, 0.0, 0.5)  # Semi-transparent gold for LoS lines
 const LOS_LINE_WIDTH = 2.0
-const MODEL_HIGHLIGHT_COLOR = Color(0.0, 1.0, 0.0, 0.8)  # Bright green for models with LoS
+const MODEL_HIGHLIGHT_COLOR = Color(1.0, 0.85, 0.0, 0.8)  # Gold for models with LoS
 const MODEL_HIGHLIGHT_WIDTH = 3.0
 const FADE_DURATION = 0.2  # Seconds for fade in/out
 
 # Optional grid visualization
-const GRID_VISIBLE_COLOR = Color(0.0, 1.0, 0.0, 0.2)  # Very transparent green for visible areas
+const GRID_VISIBLE_COLOR = Color(1.0, 0.85, 0.0, 0.2)  # Very transparent gold for visible areas
 const SHOW_VISIBILITY_GRID = false  # Set to true to show grid of all positions that can see target
 
 # State
@@ -93,7 +93,7 @@ func _draw_los_lines() -> void:
 			# Different colors for different LoS methods
 			var line_color = LOS_LINE_COLOR
 			if los_method == "edge_to_edge":
-				line_color = Color(0.0, 0.8, 1.0, 0.5)  # Cyan for edge-to-edge
+				line_color = Color(1.0, 0.7, 0.3, 0.5)  # Warm amber for edge-to-edge
 
 			draw_line(from_point, to_point, line_color, LOS_LINE_WIDTH)
 

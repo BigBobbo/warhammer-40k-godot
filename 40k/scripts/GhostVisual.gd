@@ -26,13 +26,15 @@ func _draw() -> void:
 		border_color = Color(1.0, 0.0, 0.0, 0.8)
 	else:
 		if owner_player == 1:
-			fill_color = Color(0.2, 0.2, 0.8, 0.5)
-			border_color = Color(0.3, 0.3, 1.0, 0.8)
+			# P1: Blue-gray fill (reduced alpha), gold border
+			fill_color = Color(0.2, 0.25, 0.45, 0.4)
+			border_color = Color(0.83, 0.59, 0.38, 0.6)
 		else:
-			fill_color = Color(0.8, 0.2, 0.2, 0.5)
-			border_color = Color(1.0, 0.3, 0.3, 0.8)
+			# P2: Crimson fill (reduced alpha), bone border
+			fill_color = Color(0.5, 0.12, 0.1, 0.4)
+			border_color = Color(0.85, 0.8, 0.65, 0.6)
 
-	# Use base shape's draw method
+	# Use base shape's draw method - no silhouette overlays on ghosts for clarity
 	base_shape.draw(self, Vector2.ZERO, base_rotation, fill_color, border_color, 2.0)
 
 func set_validity(valid: bool) -> void:

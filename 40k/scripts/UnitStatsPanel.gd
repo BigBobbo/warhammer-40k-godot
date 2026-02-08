@@ -1,5 +1,6 @@
 extends PanelContainer
 const GameStateData = preload("res://autoloads/GameState.gd")
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 # Header references
 @onready var toggle_button: Button = $VBox/Header/ToggleButton
@@ -37,28 +38,65 @@ signal unit_selected(unit_id: String, is_enemy: bool)
 
 func _ready() -> void:
 	print("UnitStatsPanel: _ready() called with 4-section layout")
-	
+
+	# Apply gothic panel styling
+	_apply_gothic_theme()
+
 	# Connect the toggle button
 	if toggle_button:
 		toggle_button.pressed.connect(_on_toggle_pressed)
 		toggle_button.add_theme_font_size_override("font_size", 14)
+		_WhiteDwarfTheme.apply_to_button(toggle_button)
 		print("UnitStatsPanel: Toggle button connected")
-	
+
 	# Connect unit list selections
 	if player_units_list:
 		player_units_list.item_selected.connect(_on_player_unit_selected)
+		_WhiteDwarfTheme.apply_to_item_list(player_units_list)
 		print("UnitStatsPanel: Player units list connected")
-	
+
 	if enemy_units_list:
 		enemy_units_list.item_selected.connect(_on_enemy_unit_selected)
+		_WhiteDwarfTheme.apply_to_item_list(enemy_units_list)
 		print("UnitStatsPanel: Enemy units list connected")
-	
+
 	# Start collapsed by default
 	is_collapsed = true
 	set_collapsed(true)
-	
+
 	# Update panel labels for player/enemy distinction
 	_update_section_labels()
+
+func _apply_gothic_theme() -> void:
+	# Apply White Dwarf gothic panel styling
+	_WhiteDwarfTheme.apply_to_panel(self)
+
+	# Theme sub-panels
+	var player_units_panel = get_node_or_null("VBox/MainContent/PlayerSection/PlayerUnitsPanel")
+	if player_units_panel and player_units_panel is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(player_units_panel)
+
+	var player_stats_panel = get_node_or_null("VBox/MainContent/PlayerSection/PlayerStatsPanel")
+	if player_stats_panel and player_stats_panel is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(player_stats_panel)
+
+	var enemy_units_panel = get_node_or_null("VBox/MainContent/EnemySection/EnemyUnitsPanel")
+	if enemy_units_panel and enemy_units_panel is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(enemy_units_panel)
+
+	var enemy_stats_panel = get_node_or_null("VBox/MainContent/EnemySection/EnemyStatsPanel")
+	if enemy_stats_panel and enemy_stats_panel is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(enemy_stats_panel)
+
+	# Theme section labels
+	if player_keywords_label:
+		_WhiteDwarfTheme.apply_to_label(player_keywords_label)
+	if player_stats_label:
+		_WhiteDwarfTheme.apply_to_label(player_stats_label)
+	if enemy_keywords_label:
+		_WhiteDwarfTheme.apply_to_label(enemy_keywords_label)
+	if enemy_stats_label:
+		_WhiteDwarfTheme.apply_to_label(enemy_stats_label)
 
 func _on_toggle_pressed() -> void:
 	set_collapsed(!is_collapsed)
@@ -303,6 +341,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 		var ranged_label = Label.new()
 		ranged_label.text = "RANGED WEAPONS"
 		ranged_label.add_theme_font_size_override("font_size", 14)
+		ranged_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 		weapons_container.add_child(ranged_label)
 		
 		var ranged_grid = GridContainer.new()
@@ -315,7 +354,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 			var label = Label.new()
 			label.text = header
 			label.add_theme_font_size_override("font_size", 12)
-			label.modulate = Color(0.8, 0.8, 1.0)  # Light blue tint
+			label.modulate = _WhiteDwarfTheme.WH_GOLD  # Gold tint for ranged headers
 			ranged_grid.add_child(label)
 		
 		# Data rows
@@ -334,6 +373,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 		var melee_label = Label.new()
 		melee_label.text = "MELEE WEAPONS"
 		melee_label.add_theme_font_size_override("font_size", 14)
+		melee_label.add_theme_color_override("font_color", Color(0.9, 0.4, 0.35))  # Lightened WH red
 		weapons_container.add_child(melee_label)
 		
 		var melee_grid = GridContainer.new()
@@ -346,7 +386,7 @@ func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContai
 			var label = Label.new()
 			label.text = header
 			label.add_theme_font_size_override("font_size", 12)
-			label.modulate = Color(1.0, 0.8, 0.8)  # Light red/pink tint
+			label.modulate = Color(0.9, 0.4, 0.35)  # Lightened WH red for melee headers
 			melee_grid.add_child(label)
 		
 		# Data rows
@@ -400,6 +440,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 	var abilities_label = Label.new()
 	abilities_label.text = "ABILITIES"
 	abilities_label.add_theme_font_size_override("font_size", 14)
+	abilities_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	abilities_container.add_child(abilities_label)
 	
 	for ability in abilities:
@@ -410,7 +451,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 		if ability.has("type"):
 			name_label.text += " (" + ability.get("type", "") + ")"
 		name_label.add_theme_font_size_override("font_size", 12)
-		name_label.modulate = Color(1.0, 1.0, 0.8)  # Slight yellow tint
+		name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT  # Parchment tint
 		ability_container.add_child(name_label)
 		
 		if ability.has("description"):
@@ -437,6 +478,7 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 	var comp_label = Label.new()
 	comp_label.text = "UNIT COMPOSITION"
 	comp_label.add_theme_font_size_override("font_size", 14)
+	comp_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	composition_container.add_child(comp_label)
 	
 	for comp_item in composition:

@@ -5,6 +5,9 @@ var board_width_inches: float = 44.0
 var board_height_inches: float = 60.0
 var deployment_zone_depth_inches: float = 12.0
 
+# Unit visual style: "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
+var unit_visual_style: String = "style_b"
+
 # Save/Load Settings
 var save_files_pretty_print: bool = true  # Human-readable by default
 var save_files_compression: bool = false  # Keep disabled for readability

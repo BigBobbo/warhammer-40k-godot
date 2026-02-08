@@ -19,11 +19,11 @@ script = ExtResource("2_board")
 [node name="DeploymentZones" type="Node2D" parent="BoardRoot"]
 
 [node name="P1Zone" type="Polygon2D" parent="BoardRoot/DeploymentZones"]
-modulate = Color(0, 0, 1, 0.2)
+modulate = Color(0.3, 0.4, 0.8, 0.15)
 script = ExtResource("3_zone")
 
 [node name="P2Zone" type="Polygon2D" parent="BoardRoot/DeploymentZones"]
-modulate = Color(1, 0, 0, 0.2)
+modulate = Color(0.8, 0.25, 0.2, 0.15)
 script = ExtResource("3_zone")
 
 [node name="TokenLayer" type="Node2D" parent="BoardRoot"]

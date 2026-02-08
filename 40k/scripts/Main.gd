@@ -1,6 +1,7 @@
 extends CanvasLayer
 # Use global class_name references instead of preloads to avoid web export reload issues
 # GameStateData, BasePhase, ShootingPhase, NetworkIntegration are available via class_name
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 @onready var camera: Camera2D = $BoardRoot/Camera2D
 @onready var board_view: Node2D = $BoardRoot/BoardView
@@ -160,6 +161,9 @@ func _ready() -> void:
 	update_ui_for_phase()
 	print("Main: ⚠️ Initial phase UI setup complete")
 
+	# Apply White Dwarf gothic UI theme
+	_apply_white_dwarf_theme()
+
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
@@ -211,6 +215,59 @@ func _fix_hud_layout() -> void:
 		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		unit_list.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
 		print("Adjusted unit list: fixed height to 150px")
+
+func _apply_white_dwarf_theme() -> void:
+	# Apply gothic red/black/gold UI chrome to HUD panels
+	print("Main: Applying White Dwarf gothic theme")
+
+	# Theme the HUD panels
+	var hud_bottom = get_node_or_null("HUD_Bottom")
+	if hud_bottom and hud_bottom is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(hud_bottom)
+
+	var hud_left = get_node_or_null("HUD_Left")
+	if hud_left and hud_left is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(hud_left)
+
+	var hud_right = get_node_or_null("HUD_Right")
+	if hud_right and hud_right is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(hud_right)
+
+	# Theme labels in HUD_Bottom
+	if phase_label:
+		_WhiteDwarfTheme.apply_to_label(phase_label, true)
+	if active_player_badge:
+		_WhiteDwarfTheme.apply_to_label(active_player_badge)
+	if status_label:
+		_WhiteDwarfTheme.apply_to_label(status_label)
+
+	# Theme the phase action button
+	if phase_action_button:
+		_WhiteDwarfTheme.apply_to_button(phase_action_button)
+
+	# Theme unit list and card labels
+	if unit_list:
+		_WhiteDwarfTheme.apply_to_item_list(unit_list)
+	if unit_name_label:
+		_WhiteDwarfTheme.apply_to_label(unit_name_label, true)
+	if keywords_label:
+		_WhiteDwarfTheme.apply_to_label(keywords_label)
+	if models_label:
+		_WhiteDwarfTheme.apply_to_label(models_label)
+
+	# Theme buttons in unit card
+	if undo_button:
+		_WhiteDwarfTheme.apply_to_button(undo_button)
+	if reset_button:
+		_WhiteDwarfTheme.apply_to_button(reset_button)
+	if confirm_button:
+		_WhiteDwarfTheme.apply_to_button(confirm_button)
+
+	# Theme the UnitStatsPanel if it exists
+	if unit_stats_panel and unit_stats_panel is PanelContainer:
+		_WhiteDwarfTheme.apply_to_panel(unit_stats_panel)
+
+	print("Main: White Dwarf theme applied")
 
 func _setup_unit_stats_panel() -> void:
 	# UnitStatsPanel is now directly in the Main.tscn scene file
@@ -2183,6 +2240,9 @@ func _create_token_visual(unit_id: String, model: Dictionary) -> Node2D:
 	# Set metadata for charge movement and other controllers
 	token.set_meta("unit_id", unit_id)
 	token.set_meta("model_id", model_id)
+
+	# Redraw now that unit_id meta is set (needed for overlay glyphs)
+	token.queue_redraw()
 
 	return token
 
