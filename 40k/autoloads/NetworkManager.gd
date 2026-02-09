@@ -400,6 +400,8 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			if game_state:
 				game_state.load_from_snapshot(snapshot)
 				print("NetworkManager: State loaded, triggering UI refresh")
+				# Update phase snapshot so deployment validation uses correct units
+				_update_phase_snapshot()
 				# Trigger UI refresh via state_changed signal
 				if game_state.has_signal("state_changed"):
 					game_state.emit_signal("state_changed")

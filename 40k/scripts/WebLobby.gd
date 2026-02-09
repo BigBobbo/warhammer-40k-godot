@@ -232,8 +232,12 @@ func _on_start_game_pressed() -> void:
 	start_game_button.disabled = true
 	_set_status("Starting game...")
 
-	# Notify guest that we're starting the game
-	relay.send_game_data({"action": "start_game"})
+	# Notify guest that we're starting the game (include army selections)
+	relay.send_game_data({
+		"action": "start_game",
+		"player1_army": selected_player1_army,
+		"player2_army": selected_player2_army
+	})
 
 	# Start the game after a short delay
 	await get_tree().create_timer(1.0).timeout
@@ -252,7 +256,12 @@ func _on_message_received(data: Dictionary) -> void:
 	var action = data.get("action", "")
 	match action:
 		"start_game":
-			print("WebLobby: Host started the game")
+			# Receive army selections from host
+			if data.has("player1_army"):
+				selected_player1_army = data["player1_army"]
+			if data.has("player2_army"):
+				selected_player2_army = data["player2_army"]
+			print("WebLobby: Host started the game with armies P1: ", selected_player1_army, ", P2: ", selected_player2_army)
 			_start_game()
 
 func _start_game() -> void:
@@ -262,30 +271,30 @@ func _start_game() -> void:
 	if GameState.state.is_empty():
 		GameState.initialize_default_state()
 
-	# If we are the host, load the selected armies (overriding defaults)
-	if is_host:
-		print("WebLobby: Host loading selected armies - P1: ", selected_player1_army, ", P2: ", selected_player2_army)
+	# Load selected armies for both host and client
+	# (Client receives army selections from host via start_game message)
+	print("WebLobby: Loading selected armies - P1: ", selected_player1_army, ", P2: ", selected_player2_army)
 
-		# Clear existing units
-		GameState.state.units.clear()
+	# Clear existing units (removes defaults loaded by GameState._ready())
+	GameState.state.units.clear()
 
-		# Load Player 1 army
-		var player1_army = ArmyListManager.load_army_list(selected_player1_army, 1)
-		if not player1_army.is_empty():
-			ArmyListManager.apply_army_to_game_state(player1_army, 1)
-			print("WebLobby: Loaded ", selected_player1_army, " for Player 1 (", player1_army.get("units", {}).size(), " units)")
-		else:
-			print("WebLobby: Failed to load ", selected_player1_army, " for Player 1, using defaults")
+	# Load Player 1 army
+	var player1_army = ArmyListManager.load_army_list(selected_player1_army, 1)
+	if not player1_army.is_empty():
+		ArmyListManager.apply_army_to_game_state(player1_army, 1)
+		print("WebLobby: Loaded ", selected_player1_army, " for Player 1 (", player1_army.get("units", {}).size(), " units)")
+	else:
+		print("WebLobby: Failed to load ", selected_player1_army, " for Player 1, using defaults")
 
-		# Load Player 2 army
-		var player2_army = ArmyListManager.load_army_list(selected_player2_army, 2)
-		if not player2_army.is_empty():
-			ArmyListManager.apply_army_to_game_state(player2_army, 2)
-			print("WebLobby: Loaded ", selected_player2_army, " for Player 2 (", player2_army.get("units", {}).size(), " units)")
-		else:
-			print("WebLobby: Failed to load ", selected_player2_army, " for Player 2, using defaults")
+	# Load Player 2 army
+	var player2_army = ArmyListManager.load_army_list(selected_player2_army, 2)
+	if not player2_army.is_empty():
+		ArmyListManager.apply_army_to_game_state(player2_army, 2)
+		print("WebLobby: Loaded ", selected_player2_army, " for Player 2 (", player2_army.get("units", {}).size(), " units)")
+	else:
+		print("WebLobby: Failed to load ", selected_player2_army, " for Player 2, using defaults")
 
-		print("WebLobby: Armies loaded. Total units: ", GameState.state.units.size())
+	print("WebLobby: Armies loaded. Total units: ", GameState.state.units.size())
 
 	# Mark as coming from web multiplayer lobby
 	if not GameState.state.has("meta"):
