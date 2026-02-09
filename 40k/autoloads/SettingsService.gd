@@ -5,8 +5,11 @@ var board_width_inches: float = 44.0
 var board_height_inches: float = 60.0
 var deployment_zone_depth_inches: float = 12.0
 
-# Unit visual style: "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
-var unit_visual_style: String = "style_b"
+# Unit visual style: "enhanced" (gradient+sprites), "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
+var unit_visual_style: String = "enhanced"
+
+# Sprite directory for user-provided token art (Phase 2)
+var sprite_directory: String = "user://sprites/"
 
 # Save/Load Settings
 var save_files_pretty_print: bool = true  # Human-readable by default

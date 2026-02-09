@@ -48,6 +48,7 @@ TransportFactory="*res://autoloads/TransportFactory.gd"
 CloudStorage="*res://autoloads/CloudStorage.gd"
 WebSocketRelay="*res://autoloads/WebSocketRelay.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
+SpriteResolver="*res://autoloads/SpriteResolver.gd"
 
 [display]
 
@@ -109,6 +110,7 @@ global_script_class_icon_46=""
 global_script_class_icon_47=""
 global_script_class_icon_48=""
 global_script_class_icon_49=""
+global_script_class_icon_50=""
 
 [global_script_classes]
 
@@ -405,6 +407,12 @@ global_script_class_49={
 "class": "WoundAllocationOverlay",
 "language": "GDScript",
 "path": "res://scripts/WoundAllocationOverlay.gd"
+}
+global_script_class_50={
+"base": "RefCounted",
+"class": "TokenDrawUtils",
+"language": "GDScript",
+"path": "res://scripts/TokenDrawUtils.gd"
 }
 
 [input]

@@ -599,6 +599,12 @@ func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_pr
 	# Set the complete model data for shape handling
 	base_circle.set_model_data(model_data)
 
+	# Set metadata for enhanced visual overlays (sprites, wound pips, etc.)
+	var model_id = model_data.get("id", "m%d" % (model_index + 1))
+	base_circle.set_meta("unit_id", unit_id)
+	base_circle.set_meta("model_id", model_id)
+	base_circle.queue_redraw()
+
 	token.add_child(base_circle)
 
 	return token

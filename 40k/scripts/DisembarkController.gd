@@ -452,6 +452,12 @@ func _spawn_preview_token(model_idx: int, pos: Vector2) -> void:
 	token.z_index = 1
 	token.set_model_data(model)  # Use the setter method instead of direct assignment
 
+	# Set metadata for enhanced visual overlays (sprites, wound pips, etc.)
+	var model_id_str = model.get("id", "m%d" % (model_idx + 1))
+	token.set_meta("unit_id", unit_id)
+	token.set_meta("model_id", model_id_str)
+	token.queue_redraw()
+
 	token_layer.add_child(token)
 	placed_tokens.append(token)
 
