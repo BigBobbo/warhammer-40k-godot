@@ -772,44 +772,39 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 		return false
 	
 	var rolled_px = Measurement.inches_to_px(rolled_distance)
-	var engagement_px = Measurement.inches_to_px(1.0)  # 1" engagement range
-	
 	# Check each model in the charging unit
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position(model)
 		if model_pos == null:
 			continue
-		
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		
+
 		# Check against each target unit
 		for target_id in target_ids:
 			var target = GameState.get_unit(target_id)
 			if target.is_empty():
 				continue
-			
-			# Find closest enemy model
+
+			# Find closest enemy model using shape-aware edge-to-edge distance
 			for target_model in target.get("models", []):
 				if not target_model.get("alive", true):
 					continue
-				
+
 				var target_pos = _get_model_position(target_model)
 				if target_pos == null:
 					continue
-				
-				var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-				
-				# Calculate edge-to-edge distance
-				var edge_distance = model_pos.distance_to(target_pos) - model_radius - target_radius
-				
+
+				# Use shape-aware edge-to-edge distance
+				var edge_distance_px = Measurement.model_to_model_distance_px(model, target_model)
+				var engagement_px = Measurement.inches_to_px(1.0)
+
 				# Check if this model could reach engagement range with the rolled distance
-				if edge_distance - engagement_px <= rolled_px:
+				if edge_distance_px - engagement_px <= rolled_px:
 					print("Charge successful: Model can reach engagement range with roll of ", rolled_distance)
 					return true
-	
+
 	print("Charge failed: No models can reach engagement range with roll of ", rolled_distance)
 	return false
 

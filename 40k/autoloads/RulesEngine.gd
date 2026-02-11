@@ -620,7 +620,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				})
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
-			if final_roll >= bs:
+			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			if unmodified_roll == 1:
+				pass  # Auto-miss regardless of modifiers
+			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
 				if unmodified_roll == 6:
@@ -955,8 +958,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				})
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
-			# Check if hit
-			if final_roll >= bs:
+			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			if unmodified_roll == 1:
+				pass  # Auto-miss regardless of modifiers
+			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
 				if unmodified_roll == 6:
@@ -1342,8 +1347,8 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 			if not target_pos:
 				continue
 			
-			# Check range
-			var distance = actor_pos.distance_to(target_pos)
+			# Check range using shape-aware edge-to-edge distance
+			var distance = Measurement.model_to_model_distance_px(actor_model, target_model)
 			if distance <= range_px:
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
@@ -1659,9 +1664,6 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 # Check if target unit is within engagement range (1") of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
-	const ENGAGEMENT_RANGE_INCHES = 1.0
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
-
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
@@ -1678,8 +1680,6 @@ static func _is_target_within_engagement_range(actor_unit_id: String, target_uni
 		if actor_pos == Vector2.ZERO:
 			continue
 
-		var actor_radius = Measurement.base_radius_px(actor_model.get("base_mm", 32))
-
 		for target_model in target_unit.get("models", []):
 			if not target_model.get("alive", true):
 				continue
@@ -1688,12 +1688,8 @@ static func _is_target_within_engagement_range(actor_unit_id: String, target_uni
 			if target_pos == Vector2.ZERO:
 				continue
 
-			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-
-			# Calculate edge-to-edge distance
-			var edge_distance = actor_pos.distance_to(target_pos) - actor_radius - target_radius
-
-			if edge_distance <= er_px:
+			# Use shape-aware edge-to-edge engagement range check
+			if Measurement.is_in_engagement_range_shape_aware(actor_model, target_model, 1.0):
 				return true
 
 	return false
@@ -2225,9 +2221,6 @@ static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target
 # Check if a unit is in engagement range with any model of another unit
 # Used for Blast targeting restriction
 static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
-	const ENGAGEMENT_RANGE_INCHES = 1.0
-	var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
-
 	for model1 in unit1.get("models", []):
 		if not model1.get("alive", true):
 			continue
@@ -2235,8 +2228,6 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 		var pos1 = _get_model_position(model1)
 		if pos1 == Vector2.ZERO:
 			continue
-
-		var radius1 = Measurement.base_radius_px(model1.get("base_mm", 32))
 
 		for model2 in unit2.get("models", []):
 			if not model2.get("alive", true):
@@ -2246,10 +2237,8 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 			if pos2 == Vector2.ZERO:
 				continue
 
-			var radius2 = Measurement.base_radius_px(model2.get("base_mm", 32))
-
-			var edge_distance = pos1.distance_to(pos2) - radius1 - radius2
-			if edge_distance <= er_px:
+			# Use shape-aware edge-to-edge engagement range check
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
 				return true
 
 	return false
@@ -2567,43 +2556,35 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 
 # Helper function to check if unit is in engagement range
 static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Dictionary) -> bool:
-	const ENGAGEMENT_RANGE_INCHES = 1.0
-	var unit_id = unit.get("id", "")
 	var models = unit.get("models", [])
 	var unit_owner = unit.get("owner", 0)
 	var all_units = board.get("units", {})
-	
+
 	for model in models:
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position_rules(model)
 		if model_pos == null:
 			continue
-		
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		var er_px = Measurement.inches_to_px(ENGAGEMENT_RANGE_INCHES)
-		
-		# Check against all enemy models
+
+		# Check against all enemy models using shape-aware distance
 		for enemy_unit_id in all_units:
 			var enemy_unit = all_units[enemy_unit_id]
 			if enemy_unit.get("owner", 0) == unit_owner:
 				continue  # Skip friendly units
-			
+
 			for enemy_model in enemy_unit.get("models", []):
 				if not enemy_model.get("alive", true):
 					continue
-				
+
 				var enemy_pos = _get_model_position_rules(enemy_model)
 				if enemy_pos == null:
 					continue
-				
-				var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-				var edge_distance = model_pos.distance_to(enemy_pos) - model_radius - enemy_radius
-				
-				if edge_distance <= er_px:
+
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
 					return true
-	
+
 	return false
 
 # Check if target is within 12" charge range
@@ -2702,102 +2683,98 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
 				var model = _get_model_in_unit_rules(unit, model_id)
-				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				
-				# Check if this model is in ER of any target model
+				var model_at_final = model.duplicate()
+				model_at_final["position"] = final_pos
+
+				# Check if this model is in ER of any target model using shape-aware distance
 				for target_model in target_unit.get("models", []):
 					if not target_model.get("alive", true):
 						continue
-					
+
 					var target_pos = _get_model_position_rules(target_model)
 					if target_pos == null:
 						continue
-					
-					var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-					var edge_distance = final_pos.distance_to(target_pos) - model_radius - target_radius
-					
-					if edge_distance <= er_px:
+
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, 1.0):
 						unit_in_er_of_target = true
 						break
-				
+
 				if unit_in_er_of_target:
 					break
-		
+
 		if not unit_in_er_of_target:
 			var target_name = target_unit.get("meta", {}).get("name", target_id)
 			errors.append("Must end within engagement range of all targets: " + target_name)
-	
+
 	# Check that unit does NOT end in ER of non-target enemies
 	for enemy_unit_id in units:
 		var enemy_unit = units[enemy_unit_id]
 		if enemy_unit.get("owner", 0) == unit_owner:
 			continue  # Skip friendly
-		
+
 		if enemy_unit_id in target_ids:
 			continue  # Skip declared targets
-		
+
 		# Check if any charging model ends in ER of this non-target
 		for model_id in per_model_paths:
 			var path = per_model_paths[model_id]
 			if path is Array and path.size() > 0:
 				var final_pos = Vector2(path[-1][0], path[-1][1])
 				var model = _get_model_in_unit_rules(unit, model_id)
-				var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				
+				var model_at_final = model.duplicate()
+				model_at_final["position"] = final_pos
+
 				for enemy_model in enemy_unit.get("models", []):
 					if not enemy_model.get("alive", true):
 						continue
-					
+
 					var enemy_pos = _get_model_position_rules(enemy_model)
 					if enemy_pos == null:
 						continue
-					
-					var enemy_radius = Measurement.base_radius_px(enemy_model.get("base_mm", 32))
-					var edge_distance = final_pos.distance_to(enemy_pos) - model_radius - enemy_radius
-					
-					if edge_distance <= er_px:
+
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, enemy_model, 1.0):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Validate unit coherency for charge
 static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model_paths: Dictionary, board: Dictionary) -> Dictionary:
 	var errors = []
-	var coherency_distance = 2.0  # 2" coherency in 10e
-	var coherency_px = Measurement.inches_to_px(coherency_distance)
-	
-	var final_positions = []
-	
-	# Get final positions for all models
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+
+	# Build model dicts with final positions for shape-aware distance
+	var final_models = []
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
-			final_positions.append(Vector2(path[-1][0], path[-1][1]))
-	
-	if final_positions.size() < 2:
+			var model = _get_model_in_unit_rules(unit, model_id)
+			var model_at_final = model.duplicate()
+			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
+			final_models.append(model_at_final)
+
+	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
-	
-	# Check that each model is within 2" of at least one other model
-	for i in range(final_positions.size()):
-		var pos = final_positions[i]
+
+	# Check that each model is within 2" of at least one other model (edge-to-edge)
+	for i in range(final_models.size()):
 		var has_nearby_model = false
-		
-		for j in range(final_positions.size()):
+
+		for j in range(final_models.size()):
 			if i == j:
 				continue
-			
-			var other_pos = final_positions[j]
-			var distance = pos.distance_to(other_pos)
-			
-			if distance <= coherency_px:
+
+			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
+
+			if distance <= 2.0:
 				has_nearby_model = true
 				break
-		
+
 		if not has_nearby_model:
 			errors.append("Unit coherency broken: model %d too far from other models" % i)
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Validate base-to-base if possible for charge (simplified for MVP)
@@ -3154,40 +3131,30 @@ static func get_fight_priority(unit: Dictionary) -> int:
 	
 	return 1  # NORMAL
 
-# Check if two models are in engagement range
+# Check if two model dicts are in engagement range (shape-aware)
 static func is_in_engagement_range(model1_pos: Vector2, model2_pos: Vector2, base1_mm: float = 25.0, base2_mm: float = 25.0) -> bool:
-	# Calculate edge-to-edge distance
-	var center_distance_mm = model1_pos.distance_to(model2_pos)
-	var base_separation = (base1_mm + base2_mm) / 2.0
-	var edge_distance_mm = center_distance_mm - base_separation
-	
-	# 1" engagement range (25.4mm)
-	return edge_distance_mm <= 25.4
+	# Legacy position-based check - create temporary model dicts for shape-aware calculation
+	var model1 = {"position": model1_pos, "base_mm": base1_mm}
+	var model2 = {"position": model2_pos, "base_mm": base2_mm}
+	return Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0)
 
 # Check if any models from two units are in engagement range
 static func units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	var models1 = unit1.get("models", [])
 	var models2 = unit2.get("models", [])
-	
+
 	for model1 in models1:
 		if not model1.get("alive", true):
 			continue
-		
-		var pos1_data = model1.get("position", {})
-		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0))
-		var base1_mm = model1.get("base_mm", 25.0)
-		
+
 		for model2 in models2:
 			if not model2.get("alive", true):
 				continue
-			
-			var pos2_data = model2.get("position", {})
-			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0))
-			var base2_mm = model2.get("base_mm", 25.0)
-			
-			if is_in_engagement_range(pos1, pos2, base1_mm, base2_mm):
+
+			# Use shape-aware engagement range check
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
 				return true
-	
+
 	return false
 
 # Get melee weapons for a unit

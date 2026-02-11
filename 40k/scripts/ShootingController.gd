@@ -719,23 +719,24 @@ func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
 		if not from_model.get("alive", true):
 			continue
 		var f_pos = _get_model_position(from_model)
-		
+
 		for to_model in to_unit.get("models", []):
 			if not to_model.get("alive", true):
 				continue
 			var t_pos = _get_model_position(to_model)
-			
-			var dist = f_pos.distance_to(t_pos)
+
+			# Use shape-aware edge-to-edge distance
+			var dist = Measurement.model_to_model_distance_px(from_model, to_model)
 			if dist < min_distance:
 				min_distance = dist
 				from_pos = f_pos
 				to_pos = t_pos
-	
+
 	if from_pos != Vector2.ZERO and to_pos != Vector2.ZERO:
 		los_visual.add_point(from_pos)
 		los_visual.add_point(to_pos)
-		
-		# Add range indicator
+
+		# Add range indicator using edge-to-edge distance
 		var range_inches = Measurement.px_to_inches(min_distance)
 		var mid_point = (from_pos + to_pos) / 2
 		_show_range_label(mid_point, "%.1f\"" % range_inches)
@@ -862,8 +863,9 @@ func _highlight_enemies_by_range(shooter_unit: Dictionary, weapon_ranges: Dictio
 				if not enemy_model.get("alive", true):
 					continue
 				var enemy_pos = _get_model_position(enemy_model)
-				
-				var distance = shooter_pos.distance_to(enemy_pos)
+
+				# Use shape-aware edge-to-edge distance
+				var distance = Measurement.model_to_model_distance_px(shooter_model, enemy_model)
 				min_distance = min(min_distance, distance)
 				
 				# Check if within any weapon range
@@ -1019,19 +1021,20 @@ func _get_closest_model_position(from_unit: Dictionary, to_unit: Dictionary) -> 
 		var f_pos = _get_model_position(from_model)
 		if f_pos == Vector2.ZERO:
 			continue
-		
+
 		for to_model in to_unit.get("models", []):
 			if not to_model.get("alive", true):
 				continue
 			var t_pos = _get_model_position(to_model)
 			if t_pos == Vector2.ZERO:
 				continue
-			
-			var dist = f_pos.distance_to(t_pos)
+
+			# Use shape-aware edge-to-edge distance
+			var dist = Measurement.model_to_model_distance_px(from_model, to_model)
 			if dist < min_distance:
 				min_distance = dist
 				best_pos = f_pos
-	
+
 	return best_pos
 
 func _cleanup_existing_ui() -> void:

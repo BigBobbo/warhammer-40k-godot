@@ -551,20 +551,16 @@ func _highlight_enemies_by_engagement(fighter_unit: Dictionary) -> void:
 		for fighter_model in fighter_unit.get("models", []):
 			if not fighter_model.get("alive", true):
 				continue
-			var fighter_pos = _get_model_position(fighter_model)
-			
+
 			for enemy_model in enemy_unit.get("models", []):
 				if not enemy_model.get("alive", true):
 					continue
-				var enemy_pos = _get_model_position(enemy_model)
-				
-				var distance = fighter_pos.distance_to(enemy_pos)
-				
-				# Check if within engagement range (1 inch)
-				if distance <= ENGAGEMENT_RANGE_MM:
+
+				# Use shape-aware edge-to-edge engagement range check
+				if Measurement.is_in_engagement_range_shape_aware(fighter_model, enemy_model, 1.0):
 					is_in_engagement = true
 					break
-			
+
 			if is_in_engagement:
 				break
 		

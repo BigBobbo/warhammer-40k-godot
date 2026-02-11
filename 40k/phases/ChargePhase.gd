@@ -553,26 +553,27 @@ func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
 	var unit = get_unit(unit_id)
 	var target = get_unit(target_id)
 	var min_distance = INF
-	
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position(model)
 		if model_pos == null:
 			continue
-		
+
 		for target_model in target.get("models", []):
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position(target_model)
 			if target_pos == null:
 				continue
-			
-			var distance = Measurement.distance_inches(model_pos, target_pos)
+
+			# Use shape-aware edge-to-edge distance, consistent with _is_target_within_charge_range
+			var distance = Measurement.model_to_model_distance_inches(model, target_model)
 			min_distance = min(min_distance, distance)
-	
+
 	return min_distance
 
 func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dictionary, charge_data: Dictionary) -> Dictionary:
@@ -690,39 +691,37 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 
 func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dictionary) -> Dictionary:
 	var errors = []
-	var coherency_distance = 2.0  # 2" coherency in 10e
-	var coherency_px = Measurement.inches_to_px(coherency_distance)
-	
-	var final_positions = []
-	
-	# Get final positions for all models
+
+	# Build model dicts with final positions for shape-aware distance checks
+	var final_models = []
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() > 0:
-			final_positions.append(Vector2(path[-1][0], path[-1][1]))
-	
-	if final_positions.size() < 2:
+			var model = _get_model_in_unit(unit_id, model_id)
+			var model_at_final = model.duplicate()
+			model_at_final["position"] = Vector2(path[-1][0], path[-1][1])
+			final_models.append(model_at_final)
+
+	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
-	
-	# Check that each model is within 2" of at least one other model
-	for i in range(final_positions.size()):
-		var pos = final_positions[i]
+
+	# Check that each model is within 2" of at least one other model (edge-to-edge)
+	for i in range(final_models.size()):
 		var has_nearby_model = false
-		
-		for j in range(final_positions.size()):
+
+		for j in range(final_models.size()):
 			if i == j:
 				continue
-			
-			var other_pos = final_positions[j]
-			var distance = pos.distance_to(other_pos)
-			
-			if distance <= coherency_px:
+
+			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
+
+			if distance <= 2.0:
 				has_nearby_model = true
 				break
-		
+
 		if not has_nearby_model:
 			errors.append("Unit coherency broken: model %d too far from other models" % i)
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:

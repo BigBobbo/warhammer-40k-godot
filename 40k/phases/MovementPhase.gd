@@ -1513,38 +1513,38 @@ func _check_group_unit_coherency(group_moves: Array, unit_id: String) -> bool:
 	if models.size() <= 1:
 		return true  # Single model units are always coherent
 
-	# Create a dictionary of final positions for all models
-	var final_positions = {}
+	# Build model dicts with final positions for shape-aware distance checks
+	var final_models = {}
 
-	# Add positions for models not being moved
+	# Add model dicts for models not being moved
 	for model in models:
 		if not model.get("alive", true):
 			continue
 		var model_id = model.get("id", "")
-		final_positions[model_id] = _get_model_position(model)
+		final_models[model_id] = model
 
 	# Update positions for models being moved
 	for move in group_moves:
 		var model_id = move.get("model_id", "")
 		var dest = move.get("dest", [0, 0])
-		final_positions[model_id] = Vector2(dest[0], dest[1])
+		if final_models.has(model_id):
+			var moved_model = final_models[model_id].duplicate()
+			moved_model["position"] = Vector2(dest[0], dest[1])
+			final_models[model_id] = moved_model
 
-	# Check coherency rules
-	var model_count = final_positions.size()
-	var coherency_distance = 2.0 * 25.4  # 2 inches in mm
+	# Check coherency rules using shape-aware edge-to-edge distance
+	var model_count = final_models.size()
 
-	for model_id1 in final_positions:
-		var pos1 = final_positions[model_id1]
+	for model_id1 in final_models:
 		var connections = 0
 
-		for model_id2 in final_positions:
+		for model_id2 in final_models:
 			if model_id1 == model_id2:
 				continue
 
-			var pos2 = final_positions[model_id2]
-			var distance_mm = pos1.distance_to(pos2)
+			var distance = Measurement.model_to_model_distance_inches(final_models[model_id1], final_models[model_id2])
 
-			if distance_mm <= coherency_distance:
+			if distance <= 2.0:
 				connections += 1
 
 		# Coherency rules based on unit size
@@ -1621,22 +1621,16 @@ func _check_embark_opportunity(unit_id: String) -> void:
 		if transport_pos == Vector2.ZERO:
 			continue
 
-		# Check if all models are within 3" of transport
+		# Check if all models are within 3" of transport (edge-to-edge)
 		var all_within_range = true
+		var transport_model = transport.models[0] if transport.models.size() > 0 else {}
 		for model in unit.models:
 			if not model.alive or model.position == null:
 				continue
 
-			var model_pos = Vector2(model.position.x, model.position.y)
-			var dist_inches = Measurement.distance_inches(model_pos, transport_pos)
+			var dist_inches = Measurement.model_to_model_distance_inches(model, transport_model) if not transport_model.is_empty() else INF
 
-			# Account for transport base size
-			var transport_base_radius_inches = 0.0
-			if transport.models.size() > 0 and transport.models[0].alive:
-				var radius_px = Measurement.base_radius_px(transport.models[0].base_mm)
-				transport_base_radius_inches = Measurement.px_to_inches(radius_px)
-
-			if dist_inches - transport_base_radius_inches > 3.0:
+			if dist_inches > 3.0:
 				all_within_range = false
 				break
 
@@ -1759,6 +1753,8 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	var transport_pos = _get_unit_center_position(transport_id)
 	print("DEBUG MovementPhase: Transport position: ", transport_pos)
 
+	var transport_model = transport.models[0] if transport.models.size() > 0 else {}
+
 	for i in range(positions.size()):
 		if i >= unit.models.size():
 			break
@@ -1769,26 +1765,41 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		var pos = positions[i]
 		print("DEBUG MovementPhase: Model position: ", pos)
 
-		var dist_center_to_center = Measurement.distance_inches(pos, transport_pos)
-		print("DEBUG MovementPhase: Center-to-center distance (inches): ", dist_center_to_center)
-
-		# Calculate edge-to-edge distance (center-to-center minus both radii)
-		var transport_base_radius_inches = 0.0
-		if transport.models.size() > 0:
-			var radius_px = Measurement.base_radius_px(transport.models[0].base_mm)
-			transport_base_radius_inches = Measurement.px_to_inches(radius_px)
-
-		var dist_edge_to_edge = dist_center_to_center - transport_base_radius_inches
+		# Use shape-aware edge-to-edge distance for transport range check
+		var model_at_pos = unit.models[i].duplicate()
+		model_at_pos["position"] = pos
+		var dist_edge_to_edge = Measurement.model_to_model_distance_inches(model_at_pos, transport_model) if not transport_model.is_empty() else INF
 		print("DEBUG MovementPhase: Edge-to-edge distance (inches): ", dist_edge_to_edge)
 
 		if dist_edge_to_edge > 3.0:
 			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % dist_edge_to_edge]}
 
-		# Check engagement range
-		if _position_in_engagement_range(pos, unit.owner):
+		# Check engagement range using shape-aware distance
+		if _model_in_engagement_range(model_at_pos, unit.owner):
 			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
 
 	return {"valid": true, "errors": []}
+
+func _model_in_engagement_range(model_data: Dictionary, owner: int) -> bool:
+	"""Check if a model is within engagement range of any enemy model (shape-aware)"""
+	var enemy_player = 3 - owner
+	for enemy_id in game_state_snapshot.units:
+		var enemy = game_state_snapshot.units[enemy_id]
+		if enemy.owner != enemy_player:
+			continue
+
+		# Skip embarked enemies
+		if enemy.get("embarked_in", null) != null:
+			continue
+
+		for model in enemy.models:
+			if not model.alive or model.position == null:
+				continue
+
+			if Measurement.is_in_engagement_range_shape_aware(model_data, model, 1.0):
+				return true
+
+	return false
 
 func _position_in_engagement_range(pos: Vector2, owner: int) -> bool:
 	"""Check if a position is within engagement range of any enemy model"""
