@@ -13,6 +13,7 @@ signal army_downloaded(army_name: String, army_data: Dictionary)
 signal army_deleted(army_name: String)
 signal request_failed(operation: String, error: String)
 signal player_registered()
+signal game_participation_registered(game_id: String)
 
 const PRODUCTION_URL = "https://warhammer-40k-godot.fly.dev"
 const LOCAL_URL = "http://localhost:9080"
@@ -125,6 +126,13 @@ func put_save(save_name: String, metadata: Dictionary, game_data: String) -> voi
 
 func delete_save(save_name: String) -> void:
 	_enqueue_request("DELETE", "/api/saves/" + save_name.uri_encode(), null, "delete_save", {"save_name": save_name})
+
+func get_shared_save(save_name: String, owner_id: String) -> void:
+	var path = "/api/saves/" + save_name.uri_encode() + "?owner_id=" + owner_id.uri_encode()
+	_enqueue_request("GET", path, null, "get_save", {"save_name": save_name})
+
+func register_game_participation(game_id: String) -> void:
+	_enqueue_request("POST", "/api/games/" + game_id.uri_encode() + "/join", null, "register_game", {"game_id": game_id})
 
 # ============================================================================
 # Public API - Armies
@@ -271,5 +279,9 @@ func _on_request_completed(result: int, response_code: int, headers: PackedStrin
 			var army_name = context.get("army_name", "")
 			print("CloudStorage: Deleted army: ", army_name)
 			emit_signal("army_deleted", army_name)
+		"register_game":
+			var game_id = context.get("game_id", "")
+			print("CloudStorage: Game participation registered: ", game_id)
+			emit_signal("game_participation_registered", game_id)
 
 	_process_next_request()

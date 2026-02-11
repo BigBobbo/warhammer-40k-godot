@@ -310,6 +310,12 @@ func _start_game() -> void:
 
 	print("WebLobby: Game state initialized, is_host=", relay.is_game_host())
 
+	# Register both players as participants in this game for shared saves
+	var game_id = GameState.state.meta.get("game_id", "")
+	if not game_id.is_empty() and CloudStorage:
+		CloudStorage.register_game_participation(game_id)
+		print("WebLobby: Registered game participation for game_id: ", game_id)
+
 	# Transition to main scene - relay continues running for message passing
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 

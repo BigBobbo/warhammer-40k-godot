@@ -2590,14 +2590,14 @@ func _on_save_requested(save_name: String) -> void:
 	if not success:
 		_show_save_notification("Save failed!", Color.RED)
 
-func _on_load_requested(save_file: String) -> void:
-	print("Main: Load requested for file: ", save_file)
+func _on_load_requested(save_file: String, owner_id: String = "") -> void:
+	print("Main: Load requested for file: ", save_file, " (owner_id: ", owner_id, ")")
 
 	# Show loading notification
 	_show_save_notification("Loading...", Color.YELLOW)
 
 	# Perform load (on web this is async - result comes via load_completed/load_failed signals)
-	var success = SaveLoadManager.load_game(save_file)
+	var success = SaveLoadManager.load_game(save_file, owner_id)
 	if not OS.has_feature("web"):
 		# Desktop: synchronous result
 		if success:

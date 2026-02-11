@@ -44,7 +44,24 @@ db.exec(`
     updated_at INTEGER NOT NULL,
     UNIQUE(player_id, army_name)
   );
+
+  CREATE TABLE IF NOT EXISTS game_participants (
+    game_id TEXT NOT NULL,
+    player_id TEXT NOT NULL,
+    joined_at INTEGER NOT NULL,
+    PRIMARY KEY(game_id, player_id)
+  );
 `);
+
+// Migrate: add game_id column to game_saves if it doesn't exist
+try {
+  db.prepare("SELECT game_id FROM game_saves LIMIT 1").get();
+} catch (e) {
+  console.log('Migrating game_saves: adding game_id column...');
+  db.exec(`ALTER TABLE game_saves ADD COLUMN game_id TEXT`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_game_saves_game_id ON game_saves(game_id)`);
+  console.log('Migration complete: game_id column added to game_saves');
+}
 
 console.log(`Database initialized at ${DB_PATH}`);
 
@@ -56,23 +73,46 @@ const stmts = {
   `),
   getPlayer: db.prepare('SELECT * FROM players WHERE id = ?'),
 
-  listSaves: db.prepare(`
-    SELECT save_name, metadata, created_at, updated_at
+  listOwnSaves: db.prepare(`
+    SELECT save_name, metadata, created_at, updated_at, player_id AS owner_id, 'own' AS ownership
     FROM game_saves WHERE player_id = ? ORDER BY updated_at DESC
+  `),
+  listSharedSaves: db.prepare(`
+    SELECT gs.save_name, gs.metadata, gs.created_at, gs.updated_at, gs.player_id AS owner_id, 'shared' AS ownership
+    FROM game_saves gs
+    INNER JOIN game_participants gp1 ON gs.game_id = gp1.game_id AND gs.player_id = gp1.player_id
+    INNER JOIN game_participants gp2 ON gs.game_id = gp2.game_id AND gp2.player_id = ?
+    WHERE gs.player_id != ?
+    AND gs.game_id IS NOT NULL
+    ORDER BY gs.updated_at DESC
   `),
   getSave: db.prepare(`
     SELECT save_name, metadata, game_data, created_at, updated_at
     FROM game_saves WHERE player_id = ? AND save_name = ?
   `),
+  getSharedSave: db.prepare(`
+    SELECT gs.save_name, gs.metadata, gs.game_data, gs.created_at, gs.updated_at
+    FROM game_saves gs
+    INNER JOIN game_participants gp1 ON gs.game_id = gp1.game_id AND gs.player_id = gp1.player_id
+    INNER JOIN game_participants gp2 ON gs.game_id = gp2.game_id AND gp2.player_id = ?
+    WHERE gs.player_id = ? AND gs.save_name = ?
+    AND gs.game_id IS NOT NULL
+  `),
   upsertSave: db.prepare(`
-    INSERT INTO game_saves (player_id, save_name, metadata, game_data, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO game_saves (player_id, save_name, metadata, game_data, game_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(player_id, save_name) DO UPDATE SET
       metadata = excluded.metadata,
       game_data = excluded.game_data,
+      game_id = excluded.game_id,
       updated_at = excluded.updated_at
   `),
   deleteSave: db.prepare('DELETE FROM game_saves WHERE player_id = ? AND save_name = ?'),
+
+  upsertGameParticipant: db.prepare(`
+    INSERT OR IGNORE INTO game_participants (game_id, player_id, joined_at)
+    VALUES (?, ?, ?)
+  `),
 
   listArmies: db.prepare(`
     SELECT army_name, created_at, updated_at
@@ -210,6 +250,8 @@ async function handleHTTPRequest(req, res) {
         return handleSaves(req, res, param);
       case 'armies':
         return handleArmies(req, res, param);
+      case 'games':
+        return handleGames(req, res, param, parts[3]);
       default:
         sendError(res, 404, 'Not found');
     }
@@ -250,18 +292,22 @@ async function handleSaves(req, res, saveName) {
   if (!playerId) return;
 
   if (!saveName) {
-    // GET /api/saves - list all saves
+    // GET /api/saves - list all saves (own + shared)
     if (req.method !== 'GET') {
       sendError(res, 405, 'Method not allowed');
       return;
     }
-    const saves = stmts.listSaves.all(playerId);
+    const ownSaves = stmts.listOwnSaves.all(playerId);
+    const sharedSaves = stmts.listSharedSaves.all(playerId, playerId);
+    const allSaves = [...ownSaves, ...sharedSaves];
     // Parse metadata JSON for each save
-    const result = saves.map((s) => ({
+    const result = allSaves.map((s) => ({
       save_name: s.save_name,
       metadata: JSON.parse(s.metadata),
       created_at: s.created_at,
       updated_at: s.updated_at,
+      ownership: s.ownership,
+      owner_id: s.owner_id,
     }));
     sendJSON(res, 200, { saves: result });
     return;
@@ -269,7 +315,16 @@ async function handleSaves(req, res, saveName) {
 
   switch (req.method) {
     case 'GET': {
-      const save = stmts.getSave.get(playerId, saveName);
+      // Check for owner_id query param (shared save access)
+      const urlObj = new URL(req.url, `http://${req.headers.host}`);
+      const ownerId = urlObj.searchParams.get('owner_id');
+      let save;
+      if (ownerId && ownerId !== playerId) {
+        // Loading a shared save — verify participation
+        save = stmts.getSharedSave.get(playerId, ownerId, saveName);
+      } else {
+        save = stmts.getSave.get(playerId, saveName);
+      }
       if (!save) {
         sendError(res, 404, 'Save not found');
         return;
@@ -291,9 +346,18 @@ async function handleSaves(req, res, saveName) {
       }
       const now = Date.now();
       const metadataStr = typeof body.metadata === 'string' ? body.metadata : JSON.stringify(body.metadata);
-      stmts.upsertSave.run(playerId, saveName, metadataStr, body.game_data, now, now);
+      // Extract game_id from metadata for the indexed column
+      let gameId = null;
+      try {
+        const metaObj = typeof body.metadata === 'string' ? JSON.parse(body.metadata) : body.metadata;
+        gameId = metaObj?.game_state?.game_id || null;
+        if (gameId === '') gameId = null;
+      } catch (e) {
+        // Ignore parse errors, gameId stays null
+      }
+      stmts.upsertSave.run(playerId, saveName, metadataStr, body.game_data, gameId, now, now);
       sendJSON(res, 200, { save_name: saveName, updated_at: now });
-      console.log(`Save upserted: ${saveName} for player ${playerId.substring(0, 8)}...`);
+      console.log(`Save upserted: ${saveName} for player ${playerId.substring(0, 8)}... (game_id: ${gameId || 'none'})`);
       break;
     }
     case 'DELETE': {
@@ -367,6 +431,31 @@ async function handleArmies(req, res, armyName) {
     default:
       sendError(res, 405, 'Method not allowed');
   }
+}
+
+// ============================================================================
+// Game Participants
+// ============================================================================
+
+async function handleGames(req, res, gameId, subResource) {
+  const playerId = authenticatePlayer(req, res);
+  if (!playerId) return;
+
+  if (!gameId) {
+    sendError(res, 400, 'Missing game_id');
+    return;
+  }
+
+  // POST /api/games/:game_id/join
+  if (subResource === 'join' && req.method === 'POST') {
+    const now = Date.now();
+    stmts.upsertGameParticipant.run(gameId, playerId, now);
+    sendJSON(res, 200, { game_id: gameId, joined: true });
+    console.log(`Player ${playerId.substring(0, 8)}... joined game ${gameId.substring(0, 8)}...`);
+    return;
+  }
+
+  sendError(res, 404, 'Not found');
 }
 
 // ============================================================================

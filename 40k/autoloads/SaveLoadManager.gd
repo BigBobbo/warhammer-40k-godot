@@ -104,11 +104,11 @@ func save_game(file_name: String, metadata: Dictionary = {}) -> bool:
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return _save_game_to_path(save_path, metadata)
 
-func load_game(file_name: String) -> bool:
+func load_game(file_name: String, owner_id: String = "") -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		_load_game_from_cloud(sanitized_name)
+		_load_game_from_cloud(sanitized_name, owner_id)
 		# Returns true to indicate the async operation was initiated
 		return true
 
@@ -321,12 +321,16 @@ func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
 	else:
 		emit_signal("save_failed", "CloudStorage not available")
 
-func _load_game_from_cloud(save_name: String) -> void:
-	print("SaveLoadManager: [CLOUD] Loading game: ", save_name)
+func _load_game_from_cloud(save_name: String, owner_id: String = "") -> void:
+	print("SaveLoadManager: [CLOUD] Loading game: ", save_name, " (owner_id: ", owner_id, ")")
 
 	# Request save from cloud
 	if CloudStorage:
-		CloudStorage.get_save(save_name)
+		if not owner_id.is_empty() and owner_id != CloudStorage.player_id:
+			# Loading a shared save from another player
+			CloudStorage.get_shared_save(save_name, owner_id)
+		else:
+			CloudStorage.get_save(save_name)
 		# Completion handled by _on_cloud_save_downloaded signal
 	else:
 		emit_signal("load_failed", "CloudStorage not available")
@@ -386,7 +390,9 @@ func _on_cloud_saves_list_received(saves: Array) -> void:
 			"file_name": save.get("save_name", "") + SAVE_EXTENSION,
 			"display_name": save.get("save_name", ""),
 			"file_path": "cloud://" + save.get("save_name", ""),
-			"metadata": metadata
+			"metadata": metadata,
+			"ownership": save.get("ownership", "own"),
+			"owner_id": save.get("owner_id", "")
 		}
 		save_files.append(save_info)
 

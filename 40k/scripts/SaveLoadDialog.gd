@@ -12,7 +12,7 @@ extends AcceptDialog
 
 # Signals for communication with Main scene
 signal save_requested(save_name: String)
-signal load_requested(save_file: String)  
+signal load_requested(save_file: String, owner_id: String)
 signal delete_requested(save_file: String)
 
 # Internal state
@@ -203,8 +203,13 @@ func _format_save_display_name(save_info: Dictionary) -> String:
 			datetime.hour, datetime.minute
 		]
 	
-	# Format: "Description - YYYY-MM-DD HH:MM"
-	return "%s - %s" % [description, timestamp_text]
+	# Prefix shared saves
+	var prefix = ""
+	if save_info.get("ownership", "own") == "shared":
+		prefix = "[Shared] "
+
+	# Format: "[Shared] Description - YYYY-MM-DD HH:MM"
+	return "%s%s - %s" % [prefix, description, timestamp_text]
 
 func _create_save_tooltip(save_info: Dictionary) -> String:
 	var metadata = save_info.get("metadata", {})
@@ -233,7 +238,11 @@ func _update_button_states() -> void:
 	# Update load and delete button states based on selection
 	var has_selection = selected_save_index >= 0 and selected_save_index < save_files_data.size()
 	load_button.disabled = not has_selection
-	delete_button.disabled = not has_selection
+	# Disable delete for shared saves (can only delete your own)
+	var is_shared = false
+	if has_selection:
+		is_shared = save_files_data[selected_save_index].get("ownership", "own") == "shared"
+	delete_button.disabled = not has_selection or is_shared
 
 func _sanitize_save_name(input_name: String) -> String:
 	# Remove invalid filename characters and trim
@@ -294,19 +303,27 @@ func _on_save_double_clicked(index: int) -> void:
 	# Double-click to load save
 	print("SaveLoadDialog: Save double-clicked at index ", index)
 	selected_save_index = index
-	_on_load_button_pressed()
+
+	if selected_save_index >= 0 and selected_save_index < save_files_data.size():
+		var save_info = save_files_data[selected_save_index]
+		var save_name = save_info.get("display_name", "")
+		var owner_id = save_info.get("owner_id", "")
+		print("SaveLoadDialog: Double-click load of: ", save_name, " (owner_id: ", owner_id, ")")
+		emit_signal("load_requested", save_name.replace(".w40ksave", ""), owner_id)
+		hide()
 
 func _on_load_button_pressed() -> void:
 	print("SaveLoadDialog: Load button pressed!")
 	if selected_save_index < 0 or selected_save_index >= save_files_data.size():
 		print("SaveLoadDialog: No valid save selected for loading")
 		return
-	
+
 	var save_info = save_files_data[selected_save_index]
 	var save_name = save_info.get("display_name", "")
-	
-	print("SaveLoadDialog: Requesting load of: ", save_name)
-	emit_signal("load_requested", save_name.replace(".w40ksave", ""))
+	var owner_id = save_info.get("owner_id", "")
+
+	print("SaveLoadDialog: Requesting load of: ", save_name, " (owner_id: ", owner_id, ")")
+	emit_signal("load_requested", save_name.replace(".w40ksave", ""), owner_id)
 	hide()
 
 func _on_delete_button_pressed() -> void:

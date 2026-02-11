@@ -248,8 +248,8 @@ func _on_load_button_pressed() -> void:
 	else:
 		print("MainMenu: Error - Save/Load dialog not available")
 
-func _on_load_requested(save_file: String) -> void:
-	print("MainMenu: Load requested for file: ", save_file)
+func _on_load_requested(save_file: String, owner_id: String = "") -> void:
+	print("MainMenu: Load requested for file: ", save_file, " (owner_id: ", owner_id, ")")
 
 	# Check if we're in multiplayer (shouldn't be from main menu, but safety check)
 	if NetworkManager and NetworkManager.is_networked():
@@ -266,11 +266,11 @@ func _on_load_requested(save_file: String) -> void:
 			SaveLoadManager.load_completed.connect(_on_cloud_load_completed)
 		if not SaveLoadManager.load_failed.is_connected(_on_cloud_load_failed):
 			SaveLoadManager.load_failed.connect(_on_cloud_load_failed)
-		SaveLoadManager.load_game(save_file)
+		SaveLoadManager.load_game(save_file, owner_id)
 		print("MainMenu: Initiated async cloud load for: ", save_file)
 	else:
 		# Desktop: synchronous load
-		var success = SaveLoadManager.load_game(save_file)
+		var success = SaveLoadManager.load_game(save_file, owner_id)
 		if success:
 			print("MainMenu: Successfully loaded game: ", save_file)
 			if GameState.state.meta:
