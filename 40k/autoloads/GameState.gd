@@ -273,6 +273,23 @@ func all_units_deployed() -> bool:
 
 	return all_deployed
 
+func get_deployment_progress(player: int) -> Dictionary:
+	var deployed = 0
+	var total = 0
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		# Skip units that are embarked or attached (they deploy with their transport/bodyguard)
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		total += 1
+		if unit["status"] != UnitStatus.UNDEPLOYED:
+			deployed += 1
+	return {"deployed": deployed, "total": total}
+
 func get_deployment_zone_for_player(player: int) -> Dictionary:
 	for zone in state["board"]["deployment_zones"]:
 		if zone["player"] == player:
