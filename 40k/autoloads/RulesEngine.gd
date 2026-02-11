@@ -2612,37 +2612,32 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
 	var target = units.get(target_id, {})
-	
+
 	if unit.is_empty() or target.is_empty():
 		return false
-	
-	# Find closest edge-to-edge distance between any models
+
+	# Find closest edge-to-edge distance between any models using shape-aware calculations
 	var min_distance = INF
-	
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position_rules(model)
 		if model_pos == null:
 			continue
-		
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		
+
 		for target_model in target.get("models", []):
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position_rules(target_model)
 			if target_pos == null:
 				continue
-			
-			var target_radius = Measurement.base_radius_px(target_model.get("base_mm", 32))
-			var edge_distance = Measurement.edge_to_edge_distance_px(model_pos, model_radius, target_pos, target_radius)
-			var distance_inches = Measurement.px_to_inches(edge_distance)
-			
+
+			var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
 			min_distance = min(min_distance, distance_inches)
-	
+
 	return min_distance <= CHARGE_RANGE_INCHES
 
 # Get minimum distance to target
@@ -2651,26 +2646,27 @@ static func _get_min_distance_to_target_rules(unit_id: String, target_id: String
 	var unit = units.get(unit_id, {})
 	var target = units.get(target_id, {})
 	var min_distance = INF
-	
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
-		
+
 		var model_pos = _get_model_position_rules(model)
 		if model_pos == null:
 			continue
-		
+
 		for target_model in target.get("models", []):
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position_rules(target_model)
 			if target_pos == null:
 				continue
-			
-			var distance = Measurement.distance_inches(model_pos, target_pos)
+
+			# Use shape-aware edge-to-edge distance for non-circular bases
+			var distance = Measurement.model_to_model_distance_inches(model, target_model)
 			min_distance = min(min_distance, distance)
-	
+
 	return min_distance
 
 # Helper to get model position for charge calculations
@@ -3400,95 +3396,6 @@ static func _get_save_allocation_requirements(target_unit: Dictionary, shooter_u
 	}
 
 # Auto-allocate wounds following 10e rules (wounded models first)
-static func auto_allocate_wounds(wounds_count: int, save_data: Dictionary) -> Array:
-	"""
-	Returns an array of wound allocations: [{model_id, model_index}, ...]
-	Following 10e rules: allocate to previously wounded models first
-	"""
-	var allocations = []
-	var remaining_wounds = wounds_count
-	var model_profiles = save_data.model_save_profiles
-
-	# First pass: Allocate to wounded models
-	for profile in model_profiles:
-		if remaining_wounds <= 0:
-			break
-
-		# Check if this model is in the priority list (wounded)
-		if profile.model_id in save_data.allocation_priority:
-			allocations.append({
-				"model_id": profile.model_id,
-				"model_index": profile.model_index
-			})
-			remaining_wounds -= 1
-
-	# Second pass: Allocate remaining wounds to unwounded models
-	if remaining_wounds > 0:
-		for profile in model_profiles:
-			if remaining_wounds <= 0:
-				break
-
-			# Skip models we already allocated to
-			var already_allocated = false
-			for allocation in allocations:
-				if allocation.model_id == profile.model_id:
-					already_allocated = true
-					break
-
-			if not already_allocated:
-				allocations.append({
-					"model_id": profile.model_id,
-					"model_index": profile.model_index
-				})
-				remaining_wounds -= 1
-
-	return allocations
-
-# Roll saves for allocated wounds
-static func roll_saves_batch(
-	allocations: Array,
-	save_data: Dictionary,
-	rng_service: RNGService
-) -> Dictionary:
-	"""
-	Rolls saves for all allocated wounds.
-	Returns save results with rolls and outcomes.
-	"""
-	var results = []
-
-	for allocation in allocations:
-		var model_id = allocation.model_id
-
-		# Find save profile for this model
-		var save_profile = null
-		for profile in save_data.model_save_profiles:
-			if profile.model_id == model_id:
-				save_profile = profile
-				break
-
-		if not save_profile:
-			continue
-
-		# Roll save
-		var save_roll = rng_service.roll_d6(1)[0]
-		var save_needed = save_profile.save_needed
-		var saved = save_roll >= save_needed
-
-		results.append({
-			"model_id": model_id,
-			"model_index": allocation.model_index,
-			"roll": save_roll,
-			"needed": save_needed,
-			"saved": saved,
-			"using_invuln": save_profile.using_invuln,
-			"has_cover": save_profile.has_cover
-		})
-
-	return {
-		"success": true,
-		"save_results": results
-	}
-
 # Apply damage from failed saves
 # DEVASTATING WOUNDS (PRP-012): Now also applies devastating damage (no saves allowed)
 static func apply_save_damage(
