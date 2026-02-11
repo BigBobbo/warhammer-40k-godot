@@ -22,11 +22,32 @@ const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
 
 # Charge state tracking
 var active_charges: Dictionary = {}     # unit_id -> charge_data
-var pending_charges: Dictionary = {}    # units awaiting resolution  
+var pending_charges: Dictionary = {}    # units awaiting resolution
 var dice_log: Array = []
 var units_that_charged: Array = []     # Track which units have completed charges
 var current_charging_unit = null       # Track which unit is actively charging
 var completed_charges: Array = []      # Units that finished charging this phase
+var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
+
+# Failure category constants for structured error reporting
+const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
+const FAIL_DISTANCE = "DISTANCE"
+const FAIL_ENGAGEMENT = "ENGAGEMENT"
+const FAIL_NON_TARGET_ER = "NON_TARGET_ER"
+const FAIL_COHERENCY = "COHERENCY"
+const FAIL_OVERLAP = "OVERLAP"
+const FAIL_BASE_CONTACT = "BASE_CONTACT"
+
+# Human-readable explanations for each failure category (teaches players the rules)
+const FAIL_CATEGORY_TOOLTIPS = {
+	FAIL_INSUFFICIENT_ROLL: "The 2D6 charge roll was too low for any model to reach engagement range (1\") of the declared targets. Try charging closer targets or units with fewer declared targets.",
+	FAIL_DISTANCE: "A model's movement path exceeded the rolled charge distance. Each model can move at most the rolled distance in inches during a charge move.",
+	FAIL_ENGAGEMENT: "The charging unit must end its move with at least one model within engagement range (1\") of EVERY declared target. If you declared multiple targets, you must reach all of them.",
+	FAIL_NON_TARGET_ER: "No charging model may end within engagement range (1\") of an enemy unit that was NOT declared as a charge target. Plan your movement to avoid non-target enemies.",
+	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" of at least one other model) after the charge move completes.",
+	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
+	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
+}
 
 func _init():
 	phase_type = GameStateData.Phase.CHARGE
@@ -34,11 +55,12 @@ func _init():
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Charge Phase")
 	active_charges.clear()
-	pending_charges.clear() 
+	pending_charges.clear()
 	dice_log.clear()
 	units_that_charged.clear()
 	current_charging_unit = null
 	completed_charges.clear()
+	failed_charge_attempts.clear()
 	
 	_initialize_charge()
 
@@ -339,12 +361,32 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 		# Charge fails - no movement applied
 		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		log_phase_message("Charge failed for %s: %s" % [unit_name, validation.errors[0]])
-		
+
+		# Build structured failure record
+		var categorized = validation.get("categorized_errors", [])
+		var primary_category = categorized[0].category if categorized.size() > 0 else "UNKNOWN"
+		var failure_record = {
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"target_ids": charge_data.targets,
+			"roll": charge_data.distance,
+			"dice": charge_data.get("dice_rolls", []),
+			"timestamp": Time.get_unix_time_from_system(),
+			"primary_category": primary_category,
+			"categorized_errors": categorized,
+			"errors": validation.errors,
+		}
+		failed_charge_attempts.append(failure_record)
+		print("ChargePhase: Recorded structured failure - [%s] %s" % [primary_category, validation.errors[0]])
+
 		# Mark as charged (attempted) but unsuccessful
 		units_that_charged.append(unit_id)
 		pending_charges.erase(unit_id)
-		
-		emit_signal("charge_resolved", unit_id, false, {"reason": validation.errors[0]})
+
+		emit_signal("charge_resolved", unit_id, false, {
+			"reason": validation.errors[0],
+			"failure_record": failure_record,
+		})
 		return create_result(true, [])
 	
 	# Apply successful charge movement
@@ -578,6 +620,7 @@ func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
 
 func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dictionary, charge_data: Dictionary) -> Dictionary:
 	var errors = []
+	var categorized_errors = []  # Array of {category, detail} for structured reporting
 	var rolled_distance = charge_data.distance
 	var target_ids = charge_data.targets
 
@@ -587,29 +630,43 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
 			if path_distance > rolled_distance:
-				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance])
+				var err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
+				errors.append(err)
+				categorized_errors.append({"category": FAIL_DISTANCE, "detail": err})
 
 	# 2. Validate no model overlaps
 	var overlap_validation = _validate_no_model_overlaps(unit_id, per_model_paths)
 	if not overlap_validation.valid:
 		errors.append_array(overlap_validation.errors)
+		for err in overlap_validation.errors:
+			categorized_errors.append({"category": FAIL_OVERLAP, "detail": err})
 
 	# 3. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
+		for err in engagement_validation.errors:
+			# Distinguish between "must reach target" vs "too close to non-target"
+			if "non-target" in err.to_lower():
+				categorized_errors.append({"category": FAIL_NON_TARGET_ER, "detail": err})
+			else:
+				categorized_errors.append({"category": FAIL_ENGAGEMENT, "detail": err})
 
 	# 4. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge(unit_id, per_model_paths)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
+		for err in coherency_validation.errors:
+			categorized_errors.append({"category": FAIL_COHERENCY, "detail": err})
 
 	# 5. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
+		for err in base_to_base_validation.errors:
+			categorized_errors.append({"category": FAIL_BASE_CONTACT, "detail": err})
 
-	return {"valid": errors.is_empty(), "errors": errors}
+	return {"valid": errors.is_empty(), "errors": errors, "categorized_errors": categorized_errors}
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
 	var errors = []
@@ -906,6 +963,29 @@ func get_eligible_charge_units() -> Array:
 
 func get_completed_charges() -> Array:
 	return completed_charges
+
+func get_failed_charge_attempts() -> Array:
+	return failed_charge_attempts
+
+func get_failure_category_tooltip(category: String) -> String:
+	return FAIL_CATEGORY_TOOLTIPS.get(category, "Charge failed due to an unknown constraint.")
+
+func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dice: Array, target_ids: Array, min_distance: float) -> void:
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var detail = "Rolled %d\" but nearest target is %.1f\" away (need to close to within 1\" engagement range)" % [rolled_distance, min_distance]
+	var failure_record = {
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"target_ids": target_ids,
+		"roll": rolled_distance,
+		"dice": dice,
+		"timestamp": Time.get_unix_time_from_system(),
+		"primary_category": FAIL_INSUFFICIENT_ROLL,
+		"categorized_errors": [{"category": FAIL_INSUFFICIENT_ROLL, "detail": detail}],
+		"errors": [detail],
+	}
+	failed_charge_attempts.append(failure_record)
+	print("ChargePhase: Recorded insufficient roll failure - [INSUFFICIENT_ROLL] %s" % detail)
 
 func has_pending_charge(unit_id: String) -> bool:
 	return pending_charges.has(unit_id)

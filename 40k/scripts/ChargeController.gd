@@ -50,6 +50,7 @@ var skip_button: Button
 var next_unit_button: Button
 var charge_status_label: Label
 var dice_log_display: RichTextLabel
+var failed_charges_container: VBoxContainer  # Container for failed charge tooltip entries
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -404,6 +405,27 @@ func _setup_right_panel() -> void:
 	charge_status_label.text = ""
 	charge_status_label.add_theme_font_size_override("font_size", 12)
 	charge_panel.add_child(charge_status_label)
+
+	# Failed Charges section - displays structured failure tooltips
+	var failed_separator = HSeparator.new()
+	charge_panel.add_child(failed_separator)
+
+	var failed_header = Label.new()
+	failed_header.text = "Failed Charges:"
+	failed_header.add_theme_font_size_override("font_size", 13)
+	charge_panel.add_child(failed_header)
+
+	failed_charges_container = VBoxContainer.new()
+	failed_charges_container.name = "FailedChargesContainer"
+	charge_panel.add_child(failed_charges_container)
+
+	# Start with a placeholder message
+	var no_failures_label = Label.new()
+	no_failures_label.name = "NoFailuresLabel"
+	no_failures_label.text = "No failed charges yet"
+	no_failures_label.add_theme_font_size_override("font_size", 11)
+	no_failures_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	failed_charges_container.add_child(no_failures_label)
 
 func set_phase(phase_instance) -> void:
 	current_phase = phase_instance
@@ -807,6 +829,27 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 
 	print("Charge failed: No models can reach engagement range with roll of ", rolled_distance)
 	return false
+
+func _calculate_min_distance_to_targets(unit_id: String, target_ids: Array) -> float:
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return INF
+
+	var min_distance = INF
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		for target_id in target_ids:
+			var target = GameState.get_unit(target_id)
+			if target.is_empty():
+				continue
+			for target_model in target.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(model, target_model)
+				min_distance = min(min_distance, dist)
+
+	return min_distance
 
 func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	print("Enabling charge movement for ", unit_id, " with max distance ", max_distance)
@@ -1530,12 +1573,121 @@ func _ensure_charge_panel_visible() -> void:
 func _update_charge_status() -> void:
 	if not current_phase or not is_instance_valid(current_phase):
 		return
-	
+
 	var completed = current_phase.get_completed_charges().size()
 	var eligible = current_phase.get_eligible_charge_units().size()
-	
+
 	if is_instance_valid(charge_status_label):
 		charge_status_label.text = "Charges: %d completed, %d eligible" % [completed, eligible]
+
+	# Also refresh failed charges display
+	_refresh_failed_charges_display()
+
+func _refresh_failed_charges_display() -> void:
+	if not is_instance_valid(failed_charges_container):
+		return
+	if not current_phase or not current_phase.has_method("get_failed_charge_attempts"):
+		return
+
+	var failures = current_phase.get_failed_charge_attempts()
+
+	# Clear existing children
+	for child in failed_charges_container.get_children():
+		child.queue_free()
+
+	if failures.is_empty():
+		var no_failures_label = Label.new()
+		no_failures_label.name = "NoFailuresLabel"
+		no_failures_label.text = "No failed charges yet"
+		no_failures_label.add_theme_font_size_override("font_size", 11)
+		no_failures_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		failed_charges_container.add_child(no_failures_label)
+		return
+
+	for failure in failures:
+		var entry = _create_failure_tooltip_entry(failure)
+		failed_charges_container.add_child(entry)
+
+func _create_failure_tooltip_entry(failure: Dictionary) -> PanelContainer:
+	var panel = PanelContainer.new()
+
+	# Style the panel with a subtle dark background
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.1, 0.1, 0.9)
+	style.border_color = Color(0.6, 0.2, 0.2, 0.8)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(6)
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox = VBoxContainer.new()
+	panel.add_child(vbox)
+
+	# Header line: [CATEGORY] Unit Name (rolled X")
+	var header = RichTextLabel.new()
+	header.bbcode_enabled = true
+	header.fit_content = true
+	header.scroll_active = false
+	header.custom_minimum_size = Vector2(220, 0)
+
+	var unit_name = failure.get("unit_name", failure.get("unit_id", "Unknown"))
+	var roll = failure.get("roll", 0)
+	var primary_cat = failure.get("primary_category", "UNKNOWN")
+	var cat_color = _get_category_color(primary_cat)
+	var cat_tag = "[color=%s][%s][/color]" % [cat_color, primary_cat]
+
+	header.text = "%s %s (rolled %d\")" % [cat_tag, unit_name, roll]
+	vbox.add_child(header)
+
+	# Detail lines for each categorized error
+	var categorized = failure.get("categorized_errors", [])
+	for cat_error in categorized:
+		var detail_label = RichTextLabel.new()
+		detail_label.bbcode_enabled = true
+		detail_label.fit_content = true
+		detail_label.scroll_active = false
+		detail_label.custom_minimum_size = Vector2(220, 0)
+
+		var cat = cat_error.get("category", "UNKNOWN")
+		var detail = cat_error.get("detail", "")
+		var detail_color = _get_category_color(cat)
+		detail_label.text = " [color=%s]•[/color] %s" % [detail_color, detail]
+		vbox.add_child(detail_label)
+
+	# Tooltip text: shows the full rule explanation on hover
+	var tooltip_lines = []
+	var seen_categories = {}
+	for cat_error in categorized:
+		var cat = cat_error.get("category", "")
+		if cat != "" and not seen_categories.has(cat):
+			seen_categories[cat] = true
+			if current_phase and current_phase.has_method("get_failure_category_tooltip"):
+				tooltip_lines.append("[%s] %s" % [cat, current_phase.get_failure_category_tooltip(cat)])
+	if tooltip_lines.size() > 0:
+		panel.tooltip_text = "\n\n".join(tooltip_lines)
+	else:
+		panel.tooltip_text = "Charge failed. Hover for details."
+
+	return panel
+
+func _get_category_color(category: String) -> String:
+	match category:
+		"INSUFFICIENT_ROLL":
+			return "#FF6666"  # Light red
+		"DISTANCE":
+			return "#FF9944"  # Orange
+		"ENGAGEMENT":
+			return "#FFCC00"  # Yellow
+		"NON_TARGET_ER":
+			return "#FF44FF"  # Magenta
+		"COHERENCY":
+			return "#44AAFF"  # Light blue
+		"OVERLAP":
+			return "#FF4444"  # Red
+		"BASE_CONTACT":
+			return "#44FF44"  # Green
+		_:
+			return "#AAAAAA"  # Grey
 
 func _reset_unit_selection() -> void:
 	active_unit_id = ""
@@ -1592,22 +1744,32 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 			charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [distance, distance]
 		if is_instance_valid(dice_log_display):
 			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
-		
+
 		# Enable charge movement for this unit
 		_enable_charge_movement(unit_id, distance)
-		
+
 		# Show charge distance tracking
 		_show_charge_distance_display(distance)
 	else:
 		awaiting_movement = false
+		# Calculate min distance for structured failure recording
+		var min_dist = _calculate_min_distance_to_targets(unit_id, targets)
+		var needed = max(0.0, min_dist - 1.0)  # subtract 1" engagement range
+
 		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Failed! Rolled %d\" - not enough to reach target" % distance
+			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [distance, needed]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=red]Charge failed! Rolled distance insufficient to reach engagement range.[/color]\n")
-		
+			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [distance, min_dist, needed])
+
+		# Record structured failure in phase state
+		if current_phase and current_phase.has_method("record_insufficient_roll_failure"):
+			current_phase.record_insufficient_roll_failure(unit_id, distance, dice, targets, min_dist)
+
 		# Reset for next unit
 		_reset_unit_selection()
-	
+		# Refresh failed charges display after recording
+		_refresh_failed_charges_display()
+
 	_update_button_states()
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
@@ -1667,38 +1829,66 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 			_show_charge_distance_display(total)
 		else:
 			awaiting_movement = false
+			# Calculate min distance for structured failure recording
+			var min_dist = _calculate_min_distance_to_targets(unit_id, targets)
+			var needed = max(0.0, min_dist - 1.0)  # subtract 1" engagement range
+
 			if is_instance_valid(charge_info_label):
-				charge_info_label.text = "Failed! Rolled %d\" - not enough to reach target" % total
+				charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
 			if is_instance_valid(dice_log_display):
-				dice_log_display.append_text("[color=red]Charge failed! Rolled distance insufficient to reach engagement range.[/color]\n")
+				dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [total, min_dist, needed])
+
+			# Record structured failure in phase state
+			if current_phase and current_phase.has_method("record_insufficient_roll_failure"):
+				current_phase.record_insufficient_roll_failure(unit_id, total, rolls, targets, min_dist)
 
 			# Reset for next unit
 			_reset_unit_selection()
+			# Refresh failed charges display after recording
+			_refresh_failed_charges_display()
 
 		_update_button_states()
 
 func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> void:
 	print("Charge resolved: ", unit_id, " success: ", success)
-	
+
 	# DEBUG: Log positions after charge resolution
 	print("=== CHARGE DEBUG: After Charge Resolved ===")
 	_log_unit_positions(unit_id, "CHARGING UNIT")
 	for target_id in selected_targets:
 		_log_unit_positions(target_id, "TARGET UNIT")
 	print("=== End Position Logging ===")
-	
+
 	var result_text = ""
 	if success:
 		result_text = "[color=green]Successful charge![/color] %s moved into engagement range\n" % unit_id
 	else:
-		var reason = result.get("reason", "Failed")
-		result_text = "[color=red]Charge failed:[/color] %s - %s\n" % [unit_id, reason]
-	
+		# Use structured failure data if available
+		var failure_record = result.get("failure_record", {})
+		var categorized = failure_record.get("categorized_errors", [])
+
+		if categorized.size() > 0:
+			# Build rich failure text with category tags
+			var primary_cat = failure_record.get("primary_category", "UNKNOWN")
+			var cat_color = _get_category_color(primary_cat)
+			result_text = "[color=%s][%s][/color] [color=red]Charge failed:[/color] %s\n" % [cat_color, primary_cat, unit_id]
+
+			for cat_error in categorized:
+				var cat = cat_error.get("category", "")
+				var detail = cat_error.get("detail", "")
+				var c = _get_category_color(cat)
+				result_text += "  [color=%s]•[/color] %s\n" % [c, detail]
+		else:
+			# Fallback to plain reason string
+			var reason = result.get("reason", "Failed")
+			result_text = "[color=red]Charge failed:[/color] %s - %s\n" % [unit_id, reason]
+
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text(result_text)
-	
+
 	# Reset UI state
 	_reset_unit_selection()
+	# Refresh UI (which also refreshes failed charges display)
 	_refresh_ui()
 
 func process_action(action: Dictionary) -> void:
