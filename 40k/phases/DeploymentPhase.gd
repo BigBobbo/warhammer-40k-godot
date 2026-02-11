@@ -66,6 +66,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_end_deployment_action(action)
 		"EMBARK_UNITS_DEPLOYMENT":
 			return _validate_embark_units_deployment(action)
+		"ATTACH_CHARACTER_DEPLOYMENT":
+			return _validate_attach_character_deployment(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -256,6 +258,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_deployment(action)
 		"EMBARK_UNITS_DEPLOYMENT":
 			return _process_embark_units_deployment(action)
+		"ATTACH_CHARACTER_DEPLOYMENT":
+			return _process_attach_character_deployment(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -384,6 +388,146 @@ func _process_embark_units_deployment(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes)
 
+func _validate_attach_character_deployment(action: Dictionary) -> Dictionary:
+	"""Validate that characters can attach to a bodyguard during deployment"""
+	var errors = []
+
+	if not action.has("bodyguard_id"):
+		errors.append("Missing bodyguard_id")
+	if not action.has("character_ids"):
+		errors.append("Missing character_ids")
+
+	if errors.size() > 0:
+		return {"valid": false, "errors": errors}
+
+	var bodyguard_id = action.bodyguard_id
+	var character_ids = action.character_ids
+
+	# Check if bodyguard exists
+	var bodyguard = get_unit(bodyguard_id)
+	if bodyguard.is_empty():
+		errors.append("Bodyguard unit not found: " + bodyguard_id)
+		return {"valid": false, "errors": errors}
+
+	var bodyguard_owner = bodyguard.get("owner", 0)
+	var bg_keywords = bodyguard.get("meta", {}).get("keywords", [])
+
+	# Bodyguard should not be a CHARACTER
+	if "CHARACTER" in bg_keywords:
+		errors.append("Cannot attach to a CHARACTER unit")
+		return {"valid": false, "errors": errors}
+
+	for char_id in character_ids:
+		var char_unit = get_unit(char_id)
+
+		if char_unit.is_empty():
+			errors.append("Character unit not found: " + char_id)
+			continue
+
+		# Must be undeployed
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+			errors.append("Character must be undeployed to attach during deployment: " + char_id)
+			continue
+
+		# Must belong to same player as bodyguard
+		if char_unit.get("owner", 0) != bodyguard_owner:
+			errors.append("Character does not belong to bodyguard owner: " + char_id)
+			continue
+
+		# Must be a CHARACTER
+		var char_keywords = char_unit.get("meta", {}).get("keywords", [])
+		if "CHARACTER" not in char_keywords:
+			errors.append("Unit is not a CHARACTER: " + char_id)
+			continue
+
+		# Must have leader_data with compatible keywords
+		var leader_data = char_unit.get("meta", {}).get("leader_data", {})
+		var can_lead = leader_data.get("can_lead", [])
+		if can_lead.is_empty():
+			errors.append("Character has no Leader ability: " + char_id)
+			continue
+
+		var has_match = false
+		for lead_keyword in can_lead:
+			if lead_keyword in bg_keywords:
+				has_match = true
+				break
+		if not has_match:
+			errors.append("Character cannot lead this unit type: " + char_id)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _process_attach_character_deployment(action: Dictionary) -> Dictionary:
+	"""Process character attachment to bodyguard during deployment"""
+	var bodyguard_id = action.bodyguard_id
+	var character_ids = action.character_ids
+	var changes = []
+
+	var bodyguard = get_unit(bodyguard_id)
+
+	# Find a reference position from bodyguard models
+	var ref_pos = null
+	for model in bodyguard.get("models", []):
+		var pos = model.get("position", null)
+		if pos != null:
+			ref_pos = pos
+			break
+
+	for char_id in character_ids:
+		# Set attached_to field on character
+		changes.append({
+			"op": "set",
+			"path": "units.%s.attached_to" % char_id,
+			"value": bodyguard_id
+		})
+
+		# Set status to DEPLOYED
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+
+		# Place character model adjacent to bodyguard
+		if ref_pos != null:
+			var char_unit = get_unit(char_id)
+			var char_models = char_unit.get("models", [])
+			for i in range(char_models.size()):
+				var char_base_mm = char_models[i].get("base_mm", 40)
+				var bg_base_mm = bodyguard.get("models", [{}])[0].get("base_mm", 32)
+				var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+				var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
+				var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, i],
+					"value": {"x": ref_x + offset_px, "y": ref_y}
+				})
+
+		var char_unit = get_unit(char_id)
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("Character %s attached to bodyguard %s" % [char_name, bodyguard_id])
+
+	# Update bodyguard's attachment_data.attached_characters
+	var current_attached = bodyguard.get("attachment_data", {}).get("attached_characters", []).duplicate()
+	current_attached.append_array(character_ids)
+
+	changes.append({
+		"op": "set",
+		"path": "units.%s.attachment_data.attached_characters" % bodyguard_id,
+		"value": current_attached
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	_apply_changes_to_local_state(changes)
+
+	log_phase_message("Attached %d character(s) to bodyguard %s" % [character_ids.size(), bodyguard_id])
+
+	return create_result(true, changes)
+
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
@@ -424,6 +568,9 @@ func _has_undeployed_units(player: int) -> bool:
 		# Skip units that are embarked (they're considered deployed when inside a transport)
 		if unit.get("embarked_in", null) != null:
 			continue
+		# Skip units that are attached to a bodyguard (they're deployed with their bodyguard)
+		if unit.get("attached_to", null) != null:
+			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			return true
 	return false
@@ -446,6 +593,9 @@ func _all_units_deployed() -> bool:
 		var unit = units[unit_id]
 		# Skip embarked units (they're deployed when inside a transport)
 		if unit.get("embarked_in", null) != null:
+			continue
+		# Skip attached characters (they're deployed with their bodyguard)
+		if unit.get("attached_to", null) != null:
 			continue
 
 		var status = unit.get("status", 0)

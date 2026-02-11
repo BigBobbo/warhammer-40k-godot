@@ -504,6 +504,11 @@ func _highlight_valid_models() -> void:
 	var wounded_models = _get_wounded_models()
 	var all_models = target_unit.get("models", [])
 
+	# Check for attached character protection
+	var target_unit_id = save_data.get("target_unit_id", "")
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	var has_alive_bodyguard = _has_alive_bodyguard_models()
+
 	for i in range(all_models.size()):
 		var model = all_models[i]
 		var model_id = model.get("id", "m%d" % i)
@@ -513,7 +518,7 @@ func _highlight_valid_models() -> void:
 
 		var base_mm = model.get("base_mm", 32)
 
-		# NEW: Mark dead models with gray X overlay
+		# Mark dead models with gray X overlay
 		if not model.get("alive", true):
 			board_highlighter.create_highlight(
 				model_pos, base_mm,
@@ -537,6 +542,52 @@ func _highlight_valid_models() -> void:
 				WoundAllocationBoardHighlights.HighlightType.SELECTABLE,
 				model_id
 			)
+
+	# Also highlight attached character models
+	for char_id in attached_chars:
+		var char_unit = GameState.get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			var composite_id = "%s:%s" % [char_id, char_model.get("id", "m%d" % j)]
+			var char_pos = _get_model_position(char_model)
+			if char_pos == Vector2.ZERO:
+				continue
+
+			var char_base_mm = char_model.get("base_mm", 40)
+
+			if not char_model.get("alive", true):
+				board_highlighter.create_highlight(
+					char_pos, char_base_mm,
+					WoundAllocationBoardHighlights.HighlightType.DEAD,
+					composite_id
+				)
+				continue
+
+			if has_alive_bodyguard:
+				# Character is PROTECTED - show blue/purple non-selectable highlight
+				board_highlighter.create_highlight(
+					char_pos, char_base_mm,
+					WoundAllocationBoardHighlights.HighlightType.CHARACTER_PROTECTED,
+					composite_id
+				)
+			else:
+				# Bodyguard dead - character is now selectable
+				if composite_id in wounded_models:
+					board_highlighter.create_highlight(
+						char_pos, char_base_mm,
+						WoundAllocationBoardHighlights.HighlightType.PRIORITY,
+						composite_id
+					)
+				elif wounded_models.is_empty():
+					board_highlighter.create_highlight(
+						char_pos, char_base_mm,
+						WoundAllocationBoardHighlights.HighlightType.SELECTABLE,
+						composite_id
+					)
 
 func _input(event: InputEvent) -> void:
 	if not awaiting_selection:
@@ -609,7 +660,8 @@ func _roll_save_for_model(model_id: String) -> void:
 	# Roll save
 	var roll = rng_service.roll_d6(1)[0]
 	var needed = save_profile.get("save_needed", 7)
-	var saved = roll >= needed
+	# 10e rules: Unmodified save roll of 1 always fails
+	var saved = roll > 1 and roll >= needed
 
 	print("WoundAllocationOverlay: Save roll: %d vs %d+ = %s" % [roll, needed, "SAVED" if saved else "FAILED"])
 
@@ -761,37 +813,65 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 	print("║ destroyed: ", destroyed)
 	print("╚═══════════════════════════════════════════════════════════")
 
-	var target_unit_id = save_data.get("target_unit_id", "")
-	print("WoundAllocationOverlay: target_unit_id = ", target_unit_id)
+	# Parse composite model ID for character models (format: "unit_id:model_id")
+	var actual_unit_id = save_data.get("target_unit_id", "")
+	var actual_model_index = model_index
+
+	if ":" in model_id:
+		# This is a character model — parse composite ID
+		var parts = model_id.split(":")
+		actual_unit_id = parts[0]
+		var char_model_id = parts[1]
+
+		# Find the model index in the character unit
+		var char_unit = GameState.get_unit(actual_unit_id)
+		if not char_unit.is_empty():
+			var char_models = char_unit.get("models", [])
+			for ci in range(char_models.size()):
+				if char_models[ci].get("id", "m%d" % ci) == char_model_id:
+					actual_model_index = ci
+					break
+		print("WoundAllocationOverlay: Parsed composite ID - unit: %s, model_index: %d" % [actual_unit_id, actual_model_index])
+	else:
+		actual_unit_id = save_data.get("target_unit_id", "")
+
+	print("WoundAllocationOverlay: actual_unit_id = ", actual_unit_id)
 
 	# Update GameState directly (in single-player)
-	var models = target_unit.get("models", [])
+	var unit_data = GameState.get_unit(actual_unit_id)
+	var models = unit_data.get("models", [])
 	print("WoundAllocationOverlay: Unit has %d models" % models.size())
 
-	if model_index >= 0 and model_index < models.size():
-		var model = models[model_index]
+	if actual_model_index >= 0 and actual_model_index < models.size():
+		var model = models[actual_model_index]
 		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
 		var new_wounds = max(0, current_wounds - damage)
 
 		print("WoundAllocationOverlay: Model current_wounds: %d → %d" % [current_wounds, new_wounds])
 
 		# Update model in GameState
-		GameState.state.units[target_unit_id].models[model_index].current_wounds = new_wounds
+		GameState.state.units[actual_unit_id].models[actual_model_index].current_wounds = new_wounds
 		print("WoundAllocationOverlay: Updated GameState current_wounds")
 
 		if destroyed:
-			GameState.state.units[target_unit_id].models[model_index].alive = false
+			GameState.state.units[actual_unit_id].models[actual_model_index].alive = false
 			print("╔═══════════════════════════════════════════════════════════")
 			print("║ 💀 MODEL DESTROYED - alive set to false in GameState")
 			print("║ model_id: ", model_id)
 			print("║ model.alive before: ", model.get("alive", true))
-			print("║ model.alive after: ", GameState.state.units[target_unit_id].models[model_index].alive)
+			print("║ model.alive after: ", GameState.state.units[actual_unit_id].models[actual_model_index].alive)
 			print("╚═══════════════════════════════════════════════════════════")
 
 			# VISUAL FEEDBACK: Show death animation
 			print("WoundAllocationOverlay: Calling _show_model_death_effect()...")
 			_show_model_death_effect(model_id, model)
 			print("WoundAllocationOverlay: _show_model_death_effect() returned")
+
+			# Check if bodyguard destroyed — detach characters if so
+			if ":" not in model_id:
+				# A bodyguard model was destroyed — check if all bodyguard models are dead
+				var bodyguard_unit_id = save_data.get("target_unit_id", "")
+				CharacterAttachmentManager.check_bodyguard_destroyed(bodyguard_unit_id)
 		else:
 			print("WoundAllocationOverlay: Model damaged but not destroyed")
 			# VISUAL FEEDBACK: Show damage effect
@@ -802,7 +882,7 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 		_refresh_board_visuals()
 		print("WoundAllocationOverlay: _refresh_board_visuals() returned")
 	else:
-		print("WoundAllocationOverlay: ERROR - model_index %d out of range (0-%d)" % [model_index, models.size() - 1])
+		print("WoundAllocationOverlay: ERROR - model_index %d out of range (0-%d)" % [actual_model_index, models.size() - 1])
 
 func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	"""Show visual effect when a model dies"""
@@ -1038,6 +1118,10 @@ func _close() -> void:
 
 func _is_valid_selection(model_id: String) -> bool:
 	"""Check if model can be selected per 10e rules"""
+	# CHARACTER PROTECTION: If this is a character model and bodyguard is alive, cannot select
+	if _is_character_model(model_id) and _has_alive_bodyguard_models():
+		return false
+
 	var wounded_models = _get_wounded_models()
 
 	# If there are wounded models, MUST select one of them
@@ -1064,7 +1148,36 @@ func _get_wounded_models() -> Array:
 		if current_wounds < max_wounds:
 			wounded.append(model.get("id", "m%d" % i))
 
+	# Also check attached character models (only if bodyguard is dead)
+	if not _has_alive_bodyguard_models():
+		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+		for char_id in attached_chars:
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.is_empty():
+				continue
+			var char_models = char_unit.get("models", [])
+			for j in range(char_models.size()):
+				var char_model = char_models[j]
+				if not char_model.get("alive", true):
+					continue
+				var current_wounds = char_model.get("current_wounds", char_model.get("wounds", 1))
+				var max_wounds = char_model.get("wounds", 1)
+				if current_wounds < max_wounds:
+					wounded.append("%s:%s" % [char_id, char_model.get("id", "m%d" % j)])
+
 	return wounded
+
+func _is_character_model(model_id: String) -> bool:
+	"""Check if a model_id represents an attached character model (composite ID)"""
+	return ":" in model_id
+
+func _has_alive_bodyguard_models() -> bool:
+	"""Check if the target unit still has alive non-character bodyguard models"""
+	var models = target_unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			return true
+	return false
 
 func _find_model_at_position(click_pos: Vector2) -> String:
 	"""Find which model was clicked based on position"""
@@ -1093,10 +1206,49 @@ func _find_model_at_position(click_pos: Vector2) -> String:
 			closest_distance = distance
 			closest_model_id = model.get("id", "m%d" % i)
 
+	# Also search attached character models
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		var char_unit = GameState.get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			if not char_model.get("alive", true):
+				continue
+
+			var char_pos = _get_model_position(char_model)
+			if char_pos == Vector2.ZERO:
+				continue
+
+			var char_base_mm = char_model.get("base_mm", 40)
+			var char_radius_px = Measurement.base_radius_px(char_base_mm)
+			var char_click_radius = char_radius_px + 50
+
+			var char_distance = char_pos.distance_to(click_pos)
+
+			if char_distance <= char_click_radius and char_distance < closest_distance:
+				closest_distance = char_distance
+				closest_model_id = "%s:%s" % [char_id, char_model.get("id", "m%d" % j)]
+
 	return closest_model_id
 
 func _get_model_by_id(model_id: String) -> Dictionary:
-	"""Get model data by ID"""
+	"""Get model data by ID (supports composite IDs for character models)"""
+	# Check for composite character model ID (format: "unit_id:model_id")
+	if ":" in model_id:
+		var parts = model_id.split(":")
+		var char_unit_id = parts[0]
+		var char_model_id = parts[1]
+		var char_unit = GameState.get_unit(char_unit_id)
+		if not char_unit.is_empty():
+			for model in char_unit.get("models", []):
+				if model.get("id", "") == char_model_id:
+					return model
+		return {}
+
 	var models = target_unit.get("models", [])
 	for model in models:
 		if model.get("id", "") == model_id:

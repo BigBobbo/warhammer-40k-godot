@@ -119,7 +119,10 @@
               "description": "1 Warboss",
               "line": 1
             }
-          ]
+          ],
+          "leader_data": {
+            "can_lead": ["BOYZ"]
+          }
         },
         "models": [
           {
@@ -215,7 +218,10 @@
               "description": "1 Warboss in Mega Armour",
               "line": 1
             }
-          ]
+          ],
+          "leader_data": {
+            "can_lead": ["BOYZ"]
+          }
         },
         "models": [
           {

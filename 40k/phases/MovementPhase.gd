@@ -176,6 +176,10 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 		# This will be handled by showing disembark dialog
 		return {"valid": false, "errors": ["Unit is embarked - must disembark first"], "show_disembark": true}
 
+	# Check if unit is attached to a bodyguard - cannot move independently
+	if unit.get("attached_to", null) != null:
+		return {"valid": false, "errors": ["Attached character moves with its bodyguard unit"]}
+
 	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 		return {"valid": false, "errors": ["Unit is not deployed"]}
 
@@ -796,7 +800,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# Clear staged moves after converting them
 	move_data.staged_moves.clear()
 	move_data.accumulated_distance = 0.0
-	
+
+	# Move attached character models with the bodyguard unit
+	var _unit = get_unit(unit_id)
+	var attached_chars = _unit.get("attachment_data", {}).get("attached_characters", [])
+	if attached_chars.size() > 0:
+		changes.append_array(_move_attached_characters(unit_id, attached_chars))
+
 	# Handle Desperate Escape for Fall Back
 	if move_data.mode == "FALL_BACK":
 		var desperate_escape_result = _process_desperate_escape(unit_id, move_data)
@@ -1988,3 +1998,69 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	log_phase_message("Unit %s disembarked via action" % unit.meta.get("name", unit_id))
 
 	return create_result(true, [])
+
+func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array) -> Array:
+	"""Move attached character models to maintain formation with bodyguard.
+	Calculates delta from the bodyguard's first model move and applies to character models."""
+	var changes = []
+	var bodyguard = get_unit(bodyguard_id)
+	if bodyguard.is_empty():
+		return changes
+
+	# Calculate movement delta from first bodyguard model
+	var bg_models = bodyguard.get("models", [])
+	var move_delta = Vector2.ZERO
+	var found_delta = false
+
+	# Find the movement delta from the active_moves data
+	if active_moves.has(bodyguard_id):
+		var move_data = active_moves[bodyguard_id]
+		for model_move in move_data.model_moves:
+			var from_pos = model_move.get("from", null)
+			var to_pos = model_move.get("dest", null)
+			if from_pos != null and to_pos != null:
+				var from_vec = Vector2(from_pos.x if from_pos is Vector2 else from_pos.get("x", 0), from_pos.y if from_pos is Vector2 else from_pos.get("y", 0))
+				var to_vec = Vector2(to_pos.x if to_pos is Vector2 else to_pos.get("x", 0), to_pos.y if to_pos is Vector2 else to_pos.get("y", 0))
+				move_delta = to_vec - from_vec
+				found_delta = true
+				break
+
+	if not found_delta:
+		print("[MovementPhase] WARNING: Could not determine move delta for attached characters of %s" % bodyguard_id)
+		return changes
+
+	print("[MovementPhase] Moving attached characters with delta: %s" % str(move_delta))
+
+	for char_id in attached_char_ids:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+
+		var char_models = char_unit.get("models", [])
+		for i in range(char_models.size()):
+			var model = char_models[i]
+			var model_pos = model.get("position", null)
+			if model_pos == null:
+				continue
+
+			var pos_x = model_pos.get("x", 0) if model_pos is Dictionary else model_pos.x
+			var pos_y = model_pos.get("y", 0) if model_pos is Dictionary else model_pos.y
+			var new_pos = Vector2(pos_x + move_delta.x, pos_y + move_delta.y)
+
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [char_id, i],
+				"value": {"x": new_pos.x, "y": new_pos.y}
+			})
+
+		# Also set character unit flags to match bodyguard
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % char_id,
+			"value": true
+		})
+
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		print("[MovementPhase] Moved attached character %s with bodyguard %s" % [char_name, bodyguard_id])
+
+	return changes

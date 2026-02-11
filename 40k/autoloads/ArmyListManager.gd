@@ -136,6 +136,10 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			unit["embarked_in"] = null  # Transport unit ID if embarked
 			unit["disembarked_this_phase"] = false  # Track disembark status
 
+			# Add character attachment fields
+			unit["attached_to"] = null  # Bodyguard unit ID if attached
+			unit["attachment_data"] = {"attached_characters": []}  # Character IDs attached to this unit
+
 			# Check if unit has TRANSPORT keyword and add transport_data
 			if unit.has("meta") and unit.meta.has("keywords"):
 				if "TRANSPORT" in unit.meta.keywords:

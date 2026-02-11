@@ -32,6 +32,10 @@ var reposition_ghost: Node2D = null
 var pending_embark_units: Array = []  # Units to embark after deployment
 var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dialog
 
+# Character attachment state
+var pending_attach_characters: Array = []  # Characters to attach after deployment
+var is_awaiting_attach_dialog: bool = false  # Waiting for character attach dialog
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -328,6 +332,15 @@ func undo() -> void:
 	_remove_ghost()
 
 func confirm() -> void:
+	# Check if this unit can have characters attached - show attach dialog FIRST
+	if _has_attachable_characters(unit_id) and not is_awaiting_attach_dialog and not is_awaiting_embark_dialog:
+		DebugLogger.info("Unit being deployed has attachable characters - showing attach dialog", {
+			"unit_id": unit_id
+		})
+		is_awaiting_attach_dialog = true
+		_show_character_attach_dialog()
+		return  # Don't proceed with deployment yet - wait for dialog
+
 	# Check if this is a transport - if so, show embark dialog FIRST
 	if _is_transport(unit_id) and not is_awaiting_embark_dialog:
 		DebugLogger.info("Transport being deployed - showing embark dialog before confirmation", {
@@ -343,6 +356,44 @@ func confirm() -> void:
 func _is_transport(unit_id: String) -> bool:
 	var unit = GameState.get_unit(unit_id)
 	return unit.has("transport_data") and unit.transport_data.get("capacity", 0) > 0
+
+func _has_attachable_characters(p_unit_id: String) -> bool:
+	var unit = GameState.get_unit(p_unit_id)
+	if unit.is_empty():
+		return false
+	# Don't show attach dialog for CHARACTER units themselves
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "CHARACTER" in keywords:
+		return false
+	var player = unit.get("owner", 0)
+	var attachable = CharacterAttachmentManager.get_attachable_characters(p_unit_id, player)
+	return attachable.size() > 0
+
+func _show_character_attach_dialog() -> void:
+	DebugLogger.info("Creating character attach dialog", {"unit_id": unit_id})
+
+	var dialog_script = load("res://scripts/CharacterAttachDialog.gd")
+	var dialog = dialog_script.new()
+	dialog.setup(unit_id)
+	dialog.characters_selected.connect(_on_attach_characters_selected)
+
+	# Add to scene tree and show
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_attach_characters_selected(character_ids: Array) -> void:
+	DebugLogger.info("Character attach dialog closed", {
+		"bodyguard_id": unit_id,
+		"selected_characters": character_ids,
+		"count": character_ids.size()
+	})
+
+	# Store characters to attach AFTER deployment completes
+	pending_attach_characters = character_ids
+	is_awaiting_attach_dialog = false
+
+	# Now proceed — check if transport dialog is also needed
+	confirm()
 
 func _show_transport_embark_dialog() -> void:
 	DebugLogger.info("Creating transport embark dialog", {"unit_id": unit_id})
@@ -432,6 +483,30 @@ func _complete_deployment() -> void:
 			print("[DeploymentController] ===== EMBARKATION COMPLETE =====")
 		else:
 			print("[DeploymentController] No pending embark units (size: %d)" % pending_embark_units.size())
+
+		# Handle character attachment if characters were selected
+		if pending_attach_characters.size() > 0:
+			print("[DeploymentController] ===== CHARACTER ATTACHMENT TRIGGERED =====")
+			print("[DeploymentController] Bodyguard: %s, Characters: %s" % [unit_id, str(pending_attach_characters)])
+
+			DebugLogger.info("Processing character attachment for selected characters", {
+				"bodyguard_id": unit_id,
+				"characters_to_attach": pending_attach_characters
+			})
+
+			var is_networked = network_manager != null and network_manager.is_networked()
+
+			if is_networked:
+				print("[DeploymentController] MULTIPLAYER MODE - sending attachment action")
+				_send_character_attachment_action(unit_id, pending_attach_characters)
+			else:
+				print("[DeploymentController] SINGLE-PLAYER MODE - processing attachment directly")
+				_process_character_attachment(unit_id, pending_attach_characters)
+
+			pending_attach_characters = []
+			print("[DeploymentController] ===== CHARACTER ATTACHMENT COMPLETE =====")
+		else:
+			print("[DeploymentController] No pending attach characters (size: %d)" % pending_attach_characters.size())
 	else:
 		print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
 		print("[DeploymentController] Errors: ", result.get("errors", []))
@@ -523,6 +598,117 @@ func _process_embarkation(transport_id: String, unit_ids: Array) -> void:
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		print("[DeploymentController] Embarked %s in %s" % [unit_name, transport_id])
+
+func _send_character_attachment_action(bodyguard_id: String, character_ids: Array) -> void:
+	"""Send character attachment action through network sync (multiplayer only)"""
+	var attach_action = {
+		"type": "ATTACH_CHARACTER_DEPLOYMENT",
+		"bodyguard_id": bodyguard_id,
+		"character_ids": character_ids,
+		"phase": GameStateData.Phase.DEPLOYMENT,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(attach_action)
+
+	if result.success:
+		DebugLogger.info("Character attachment action sent successfully", {
+			"bodyguard_id": bodyguard_id,
+			"character_count": character_ids.size()
+		})
+	else:
+		push_error("Character attachment action failed: " + str(result.get("error", "Unknown")))
+		DebugLogger.error("Failed to send character attachment action", {
+			"bodyguard_id": bodyguard_id,
+			"character_ids": character_ids,
+			"error": result.get("error", "Unknown")
+		})
+
+func _process_character_attachment(bodyguard_id: String, character_ids: Array) -> void:
+	"""Process character attachment directly (single-player mode)"""
+	print("[DeploymentController] _process_character_attachment called with bodyguard: %s, characters: %s" % [bodyguard_id, str(character_ids)])
+
+	var bodyguard = GameState.get_unit(bodyguard_id)
+	if bodyguard.is_empty():
+		push_error("[DeploymentController] Bodyguard not found: %s" % bodyguard_id)
+		return
+
+	for char_id in character_ids:
+		print("[DeploymentController] Processing attachment for character: %s" % char_id)
+
+		var char_unit = GameState.get_unit(char_id)
+		if char_unit.is_empty():
+			push_error("[DeploymentController] Character unit not found: %s" % char_id)
+			continue
+
+		# Use CharacterAttachmentManager to handle the attachment
+		var can_attach_result = CharacterAttachmentManager.can_attach(char_id, bodyguard_id)
+		print("[DeploymentController] Can attach? %s" % str(can_attach_result))
+
+		if can_attach_result.valid:
+			CharacterAttachmentManager.attach_character(char_id, bodyguard_id)
+			print("[DeploymentController] attach_character() called successfully")
+		else:
+			push_error("[DeploymentController] Cannot attach %s: %s" % [char_id, can_attach_result.reason])
+			continue
+
+		# Place character model adjacent to bodyguard formation
+		_place_character_model_adjacent(char_id, bodyguard_id)
+
+		# Mark character unit as deployed via PhaseManager
+		if has_node("/root/PhaseManager"):
+			var phase_manager = get_node("/root/PhaseManager")
+			if phase_manager.current_phase_instance:
+				phase_manager.apply_state_changes([{
+					"op": "set",
+					"path": "units.%s.status" % char_id,
+					"value": GameStateData.UnitStatus.DEPLOYED
+				}])
+				print("[DeploymentController] Set status to DEPLOYED for character %s" % char_id)
+
+		# Verify attachment
+		char_unit = GameState.get_unit(char_id)
+		var attached_to = char_unit.get("attached_to", null)
+		var final_status = char_unit.get("status", -1)
+		print("[DeploymentController] After attach - attached_to: %s, status: %d" % [str(attached_to), final_status])
+
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		print("[DeploymentController] Attached %s to %s" % [char_name, bodyguard_id])
+
+func _place_character_model_adjacent(char_id: String, bodyguard_id: String) -> void:
+	"""Place character model(s) adjacent to the bodyguard formation"""
+	var bodyguard = GameState.get_unit(bodyguard_id)
+	var char_unit = GameState.get_unit(char_id)
+
+	if bodyguard.is_empty() or char_unit.is_empty():
+		return
+
+	# Find the first bodyguard model position as reference
+	var ref_pos = Vector2.ZERO
+	for model in bodyguard.get("models", []):
+		var pos = model.get("position", null)
+		if pos != null:
+			ref_pos = Vector2(pos.get("x", pos.x if pos is Vector2 else 0), pos.get("y", pos.y if pos is Vector2 else 0))
+			break
+
+	if ref_pos == Vector2.ZERO:
+		print("[DeploymentController] WARNING: No bodyguard model positions found for adjacent placement")
+		return
+
+	# Place character models adjacent to the formation
+	var char_models = char_unit.get("models", [])
+	for i in range(char_models.size()):
+		var model = char_models[i]
+		var char_base_mm = model.get("base_mm", 40)
+		var bg_base_mm = bodyguard.get("models", [{}])[0].get("base_mm", 32)
+
+		# Offset: place just outside the first bodyguard model's base
+		var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+		var char_pos = ref_pos + Vector2(offset_px, 0)
+
+		# Update character model position in GameState
+		GameState.state.units[char_id].models[i].position = {"x": char_pos.x, "y": char_pos.y}
+		print("[DeploymentController] Placed character model %d at %s" % [i, str(char_pos)])
 
 func _create_ghost() -> void:
 	print("[DeploymentController] _create_ghost() called")

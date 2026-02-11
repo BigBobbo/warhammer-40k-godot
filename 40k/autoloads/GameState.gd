@@ -261,6 +261,9 @@ func all_units_deployed() -> bool:
 		# Skip units that are embarked (they're deployed when inside a transport)
 		if unit.get("embarked_in", null) != null:
 			continue
+		# Skip units that are attached to a bodyguard (they're deployed with their bodyguard)
+		if unit.get("attached_to", null) != null:
+			continue
 		if unit["status"] == UnitStatus.UNDEPLOYED:
 			undeployed_list.append(unit_id + " (player " + str(unit.get("owner", 0)) + ")")
 
@@ -275,6 +278,42 @@ func get_deployment_zone_for_player(player: int) -> Dictionary:
 		if zone["player"] == player:
 			return zone
 	return {}
+
+# Character Attachment Helpers
+func is_character(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "CHARACTER" in keywords
+
+func get_attached_characters(unit_id: String) -> Array:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+	return unit.get("attachment_data", {}).get("attached_characters", [])
+
+func is_attached(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	return unit.get("attached_to", null) != null
+
+func get_combined_models(unit_id: String) -> Array:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+	var models = unit.get("models", []).duplicate()
+	var attached_chars = get_attached_characters(unit_id)
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if not char_unit.is_empty():
+			for model in char_unit.get("models", []):
+				var combined_model = model.duplicate()
+				combined_model["source_unit_id"] = char_id
+				combined_model["is_character"] = true
+				models.append(combined_model)
+	return models
 
 # State Modification Methods
 func set_phase(new_phase: Phase) -> void:

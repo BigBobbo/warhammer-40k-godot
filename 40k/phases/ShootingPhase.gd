@@ -1516,6 +1516,12 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		all_diffs.append_array(damage_result.diffs)
 		total_casualties += damage_result.casualties
 
+		# Check if bodyguard unit was destroyed — detach characters if needed
+		if damage_result.casualties > 0:
+			var target_unit_id_for_check = save_data.get("target_unit_id", "")
+			if target_unit_id_for_check != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id_for_check)
+
 		# Log results
 		var target_name = save_data.get("target_unit_name", "Unknown")
 		var saved_count = save_result_summary.get("saves_passed", 0)

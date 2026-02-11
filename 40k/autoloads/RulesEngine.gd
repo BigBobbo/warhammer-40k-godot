@@ -1128,11 +1128,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
-		
-		if save_result.use_invuln:
-			saved = save_roll >= save_result.inv
-		else:
-			saved = save_roll >= save_result.armour
+
+		# 10e rules: Unmodified save roll of 1 always fails
+		if save_roll > 1:
+			if save_result.use_invuln:
+				saved = save_roll >= save_result.inv
+			else:
+				saved = save_roll >= save_result.armour
 		
 		result.dice.append({
 			"context": "save",
@@ -1606,6 +1608,10 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 		if target_unit.get("owner", 0) == actor_owner:
 			continue
 
+		# Skip units that are attached to a bodyguard (they are targeted through their bodyguard)
+		if target_unit.get("attached_to", null) != null:
+			continue
+
 		# Skip destroyed units
 		var has_alive_models = false
 		for model in target_unit.get("models", []):
@@ -1737,6 +1743,30 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 		var model_id = model.get("id", "")
 		if model_id != "" and model.get("alive", true):
 			result[model_id] = unique_weapon_ids.duplicate()
+
+	# Include attached character weapons (combined unit shoots together)
+	var attached_chars = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+
+		var char_weapons = char_unit.get("meta", {}).get("weapons", [])
+		var char_unique_weapon_ids = []
+		for weapon in char_weapons:
+			if weapon.get("type", "") == "Ranged":
+				var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+				if weapon_id not in char_unique_weapon_ids:
+					char_unique_weapon_ids.append(weapon_id)
+
+		# Assign character weapons to character's alive models
+		var char_models = char_unit.get("models", [])
+		for char_model in char_models:
+			var char_model_id = char_model.get("id", "")
+			if char_model_id != "" and char_model.get("alive", true):
+				# Use composite ID so damage routing works correctly
+				var composite_id = "%s:%s" % [char_id, char_model_id]
+				result[composite_id] = char_unique_weapon_ids.duplicate()
 
 	return result
 
@@ -3084,7 +3114,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var save_rolls = rng.roll_d6(wounds)
 	var successful_saves = 0
 	for roll in save_rolls:
-		if roll >= modified_save:
+		# 10e rules: Unmodified save roll of 1 always fails
+		if roll > 1 and roll >= modified_save:
 			successful_saves += 1
 
 	var failed_saves = wounds - successful_saves
@@ -3364,6 +3395,8 @@ static func _get_save_allocation_requirements(target_unit: Dictionary, shooter_u
 	var models = target_unit.get("models", [])
 	var model_list = []
 	var priority_model_ids = []  # Models that must be allocated to first (wounded models)
+	var character_model_ids = []  # Composite IDs for attached character models
+	var bodyguard_alive = false  # Whether any non-character bodyguard models are alive
 
 	for i in range(models.size()):
 		var model = models[i]
@@ -3379,15 +3412,55 @@ static func _get_save_allocation_requirements(target_unit: Dictionary, shooter_u
 			"model_id": model_id,
 			"model_index": i,
 			"model": model,
-			"is_wounded": is_wounded
+			"is_wounded": is_wounded,
+			"is_character": false
 		})
+
+		bodyguard_alive = true
 
 		if is_wounded:
 			priority_model_ids.append(model_id)
 
+	# Include attached character models
+	var target_unit_id = target_unit.get("id", "")
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	var units = board.get("units", {})
+
+	for char_id in attached_chars:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			if not char_model.get("alive", true):
+				continue
+
+			var composite_id = "%s:%s" % [char_id, char_model.get("id", "m%d" % j)]
+			var current_wounds = char_model.get("current_wounds", char_model.get("wounds", 1))
+			var max_wounds = char_model.get("wounds", 1)
+			var is_wounded = current_wounds < max_wounds
+
+			model_list.append({
+				"model_id": composite_id,
+				"model_index": j,
+				"model": char_model,
+				"is_wounded": is_wounded,
+				"is_character": true,
+				"source_unit_id": char_id
+			})
+
+			character_model_ids.append(composite_id)
+
+			if is_wounded:
+				priority_model_ids.append(composite_id)
+
 	return {
 		"models": model_list,
-		"priority_model_ids": priority_model_ids
+		"priority_model_ids": priority_model_ids,
+		"character_model_ids": character_model_ids,
+		"bodyguard_alive": bodyguard_alive
 	}
 
 # Auto-allocate wounds following 10e rules (wounded models first)

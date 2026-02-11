@@ -6,10 +6,11 @@ class_name WoundAllocationBoardHighlights
 
 # Highlight types
 enum HighlightType {
-	PRIORITY,    # Red pulsing - must select (wounded models)
-	SELECTABLE,  # Green steady - can select
-	SELECTED,    # Yellow flash - just selected
-	DEAD         # Gray X marker - model destroyed (NEW)
+	PRIORITY,           # Red pulsing - must select (wounded models)
+	SELECTABLE,         # Green steady - can select
+	SELECTED,           # Yellow flash - just selected
+	DEAD,               # Gray X marker - model destroyed
+	CHARACTER_PROTECTED # Blue/purple - character protected by bodyguard (non-selectable)
 }
 
 # Preload shader at class level (REQUIRED for instantiation to work)
@@ -77,6 +78,19 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 			var tween = create_tween()
 			tween.tween_property(highlight, "modulate:a", 0.0, 3.0)  # 3 seconds fade
 			tween.tween_callback(highlight.queue_free)
+
+		HighlightType.CHARACTER_PROTECTED:
+			# Blue/purple shield - character protected by bodyguard
+			highlight.modulate = Color(0.3, 0.3, 0.8, 0.6)  # Blue/purple
+			# Add shield icon label
+			var shield_label = Label.new()
+			shield_label.text = "🛡"
+			shield_label.add_theme_font_size_override("font_size", int(base_px * 1.0))
+			shield_label.add_theme_color_override("font_color", Color(0.5, 0.5, 1.0))
+			shield_label.position = Vector2(-base_px * 0.4, -base_px * 0.5)
+			shield_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			highlight.add_child(shield_label)
+			print("WoundAllocationBoardHighlights: Created CHARACTER_PROTECTED highlight (blue) at ", model_pos)
 
 		HighlightType.DEAD:
 			# Gray semitransparent circle with skull marker
