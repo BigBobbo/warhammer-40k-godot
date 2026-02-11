@@ -41,18 +41,19 @@ On entering Command Phase:
 
 ## 2. Rules Comparison — Missing Mechanics
 
-### 2.1 Command Points Generation (CRITICAL)
+### 2.1 Command Points Generation ~~(CRITICAL)~~ DONE
 
 **Rule:** At the start of each Command Phase, the active player gains 1 CP. The opponent also gains 1 CP. A player can gain a maximum of 1 additional CP per battle round from other sources (abilities, Warlord traits, etc.).
 
-**Current state:** Players start with 3 CP (`GameState.gd:46`) but **CP is never generated or incremented** during gameplay. No CP is spent either, making the economy completely non-functional.
+**Implemented (2026-02-11):**
+- `CommandPhase._generate_command_points()` awards +1 CP to both the active player and opponent via `PhaseManager.apply_state_changes()`
+- CP changes propagate over the network (both host and client independently compute from synchronized state)
+- `CommandController` right panel displays actual CP totals for both players, color-coded by team
+- Snapshot is refreshed after CP changes so subsequent phase logic reads correct values
 
-**What's needed:**
-- Award 1 CP to the active player at the start of their Command Phase
-- Award 1 CP to the opponent at the start of the active player's Command Phase
+**Still needed (deferred to Stratagems milestone):**
 - Cap additional CP gains at 1 per battle round per player (from non-phase sources)
 - Track CP spending and validate sufficient CP before stratagem use
-- Sync CP changes over the network via state changes
 
 ### 2.2 Battle-shock Tests (CRITICAL)
 
@@ -180,21 +181,15 @@ The remaining 10 core stratagems are used in other phases but require the CP eco
 
 ## 3. Quality of Life / Visual Improvements
 
-### 3.1 Remove Placeholder Text (EASY)
+### 3.1 Remove Placeholder Text ~~(EASY)~~ DONE
 
-`CommandController.gd:92` displays:
-```
-"This is a placeholder command phase.\n\nFuture features:\n• Command Points management\n• Strategic abilities\n• Battle tactics"
-```
-This should be replaced with actual game information or removed.
+~~`CommandController.gd:92` displays placeholder text about future features.~~
+Replaced with actual battle round, active player, and faction name display (2026-02-11).
 
-### 3.2 CP Display (EASY)
+### 3.2 CP Display ~~(EASY)~~ DONE
 
-`CommandController.gd:99-101` shows:
-```
-"Command Points: Not Implemented"
-```
-in gray text. Even before the full CP system is built, the existing `GameState.state.players["1"].cp` value (which defaults to 3) should be displayed properly for both players.
+~~`CommandController.gd:99-101` shows "Command Points: Not Implemented" in gray text.~~
+Now displays actual CP totals for both players with faction names and team colors. `_refresh_ui()` dynamically updates CP labels (2026-02-11).
 
 ### 3.3 Battle-shock Visual Indicators (MEDIUM)
 
@@ -258,12 +253,12 @@ In multiplayer, if a player is AFK during the Command Phase, the non-active play
 
 | Priority | Item | Effort | Impact |
 |----------|------|--------|--------|
-| P0 | CP Generation (1 CP per command phase) | Low | Enables entire CP economy |
-| P0 | CP Display in UI | Low | Players need to see their CP |
-| P0 | Battle-shock: Below-half-strength check | Medium | Core game mechanic |
+| ~~P0~~ | ~~CP Generation (1 CP per command phase)~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
+| ~~P0~~ | ~~CP Display in UI~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
+| **P0** | **Battle-shock: Below-half-strength check** | **Medium** | **Core game mechanic — NEXT** |
 | P0 | Battle-shock: 2D6 vs Leadership test | Medium | Core game mechanic |
 | P0 | Battle-shock: Apply/clear flag | Low | Connects to existing OC=0 logic |
-| P1 | Remove placeholder text | Low | Polish |
+| ~~P1~~ | ~~Remove placeholder text~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
 | P1 | Command Phase sub-step ordering | Medium | Rules accuracy |
 | P1 | Insane Bravery stratagem | Medium | Core stratagem for Command Phase |
 | P1 | Battle-shock visual indicators | Medium | Player clarity |
@@ -295,8 +290,8 @@ In multiplayer, if a player is AFK during the Command Phase, the non-active play
 
 ## 7. Suggested Implementation Order
 
-1. **CP Generation + Display** — Modify `CommandPhase._on_phase_enter()` to award CP via state changes. Update `CommandController` to show actual CP values.
-2. **Below-half-strength utility** — Add `is_below_half_strength()` to `BasePhase` or a utility class.
+1. ~~**CP Generation + Display**~~ — DONE (2026-02-11). `CommandPhase._generate_command_points()` awards +1 CP to both players. `CommandController` shows live CP totals.
+2. **Below-half-strength utility** ← **UP NEXT** — Add `is_below_half_strength()` to `BasePhase` or a utility class.
 3. **Battle-shock tests** — Add a `BATTLE_SHOCK_TEST` action type. On phase enter, identify eligible units and present them to the player. Host rolls 2D6, applies result.
 4. **Battle-shock clear** — At the start of Command Phase, clear all `battle_shocked` flags for the active player's units.
 5. **Insane Bravery** — After a failed test, offer the player the option to spend 1 CP to pass instead.
