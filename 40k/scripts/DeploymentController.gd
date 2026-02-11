@@ -5,6 +5,7 @@ extends Node
 signal deployment_complete()
 signal unit_confirmed()
 signal models_placed_changed()
+signal coherency_warning_changed(is_incoherent: bool, message: String)
 
 var unit_id: String = ""
 var model_idx: int = -1
@@ -330,6 +331,7 @@ func undo() -> void:
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()
+	emit_signal("coherency_warning_changed", false, "")
 
 func confirm() -> void:
 	# Enforce unit coherency before allowing deployment
@@ -526,6 +528,7 @@ func _complete_deployment() -> void:
 	temp_positions.clear()
 	temp_rotations.clear()  # Added to properly clear rotations
 
+	emit_signal("coherency_warning_changed", false, "")
 	emit_signal("unit_confirmed")
 
 	if GameState.all_units_deployed():
@@ -841,42 +844,58 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 	return point.distance_to(projection)
 
 func _check_coherency_warning() -> void:
-	var placed_positions = []
-	for pos in temp_positions:
-		if pos != null:
-			placed_positions.append(pos)
-	
-	if placed_positions.size() < 2:
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		emit_signal("coherency_warning_changed", false, "")
 		return
-	
-	var incoherent = false
-	
-	if placed_positions.size() <= 6:
-		for pos in placed_positions:
-			var has_neighbor = false
-			for other_pos in placed_positions:
-				if pos != other_pos:
-					var dist_inches = Measurement.distance_inches(pos, other_pos)
-					if dist_inches <= 2.0:
-						has_neighbor = true
-						break
-			if not has_neighbor:
-				incoherent = true
-				break
+
+	# Build list of placed model indices and their data
+	var placed_indices = []
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:
+			placed_indices.append(i)
+
+	if placed_indices.size() < 2:
+		emit_signal("coherency_warning_changed", false, "")
+		return
+
+	# Per 10th edition: units with 2-6 models need each model within 2" of at least 1 other.
+	# Units with 7+ models need each model within 2" of at least 2 others.
+	var total_models = unit_data["models"].size()
+	var required_neighbors = 1 if total_models <= 6 else 2
+	var incoherent_indices = []
+
+	for i in placed_indices:
+		var model_i = unit_data["models"][i].duplicate()
+		model_i["position"] = temp_positions[i]
+		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
+
+		var neighbor_count = 0
+		for j in placed_indices:
+			if i == j:
+				continue
+			var model_j = unit_data["models"][j].duplicate()
+			model_j["position"] = temp_positions[j]
+			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
+
+			# Use edge-to-edge distance (shape-aware) instead of center-to-center
+			var dist_inches = Measurement.model_to_model_distance_inches(model_i, model_j)
+			if dist_inches <= 2.0:
+				neighbor_count += 1
+				if neighbor_count >= required_neighbors:
+					break
+
+		if neighbor_count < required_neighbors:
+			incoherent_indices.append(i)
+
+	if incoherent_indices.size() > 0:
+		var rule_text = "within 2\" of %d+ model(s)" % required_neighbors
+		var msg = "Coherency warning: %d model(s) not %s" % [incoherent_indices.size(), rule_text]
+		print("[WARNING] %s" % msg)
+		_show_toast(msg, Color.YELLOW)
+		emit_signal("coherency_warning_changed", true, msg)
 	else:
-		for pos in placed_positions:
-			var neighbor_count = 0
-			for other_pos in placed_positions:
-				if pos != other_pos:
-					var dist_inches = Measurement.distance_inches(pos, other_pos)
-					if dist_inches <= 2.0:
-						neighbor_count += 1
-			if neighbor_count < 2:
-				incoherent = true
-				break
-	
-	if incoherent:
-		_show_toast("Warning: Some models >2″ from unit mates", Color.YELLOW)
+		emit_signal("coherency_warning_changed", false, "")
 
 func _is_unit_coherent() -> bool:
 	"""Check if the currently placed models satisfy unit coherency rules.
