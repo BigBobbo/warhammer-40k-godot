@@ -128,24 +128,18 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 ---
 
-## Coherency Enforcement Gap
+## Coherency Enforcement Gap — RESOLVED
 
 **Rule**: Units MUST be set up in unit coherency. For 2-6 model units, every model must be within 2" of at least one other model. For 7+ model units, every model must be within 2" of at least two other models.
 
-**Current Implementation**: Coherency is checked and a yellow warning toast is shown (`DeploymentController._check_coherency_warning()` at `40k/scripts/DeploymentController.gd:838`), but placement is **not blocked**. A player can confirm a deployment that violates coherency.
-
-**Impact**: Medium — Allowing incoherent deployments is technically a rules violation. In competitive play this should be enforced.
-
-**Recommendation**: Make coherency a hard requirement for confirming deployment. Move the check into the `confirm()` method and block confirmation if coherency is violated. Keep the real-time warning for feedback during placement.
+**Status**: **Fixed.** `_is_unit_coherent()` (`DeploymentController.gd:876`) now performs a hard check at the top of `confirm()`. Deployment is blocked with a red error toast if coherency is violated. The real-time yellow warning during placement is preserved for feedback.
 
 ---
 
 ## Quality of Life Improvements
 
-### 1. On-Screen Toast Notifications (Currently Console-Only)
-**Issue**: `_show_toast()` in `DeploymentController.gd:1029` only prints to the console. Players get no visual feedback when placement fails.
-
-**Recommendation**: Implement an on-screen toast notification system. Display error messages (red) and warnings (yellow) as temporary floating labels near the cursor or at the top of the screen. This is critical for multiplayer where players can't see the console.
+### 1. On-Screen Toast Notifications — RESOLVED
+**Status**: **Fixed.** `ToastManager` autoload (`40k/autoloads/ToastManager.gd`) provides a global on-screen toast system with error (red), warning (yellow), success (green), and info (white) variants. `DeploymentController._show_toast()` and `Main.gd` both route through `ToastManager`. Styled as dark panels with colored borders, fade-in/fade-out animations, max 5 stacked toasts.
 
 ### 2. Deployment Progress Indicator
 **Issue**: There's no clear indicator showing how many units each player has left to deploy.
@@ -248,10 +242,8 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 ## Multiplayer-Specific Issues
 
-### 1. `ATTACH_CHARACTER_DEPLOYMENT` Not in DETERMINISTIC_ACTIONS
-**Issue**: In `NetworkManager.gd:42-58`, `ATTACH_CHARACTER_DEPLOYMENT` is NOT listed in the `DETERMINISTIC_ACTIONS` array, while `EMBARK_UNITS_DEPLOYMENT` IS listed. This means character attachment doesn't benefit from optimistic execution in multiplayer — there will be a round-trip delay before the attachment is visually confirmed on the client.
-
-**Recommendation**: Add `"ATTACH_CHARACTER_DEPLOYMENT"` to the `DETERMINISTIC_ACTIONS` array. Character attachment is deterministic (no dice rolls).
+### 1. `ATTACH_CHARACTER_DEPLOYMENT` Not in DETERMINISTIC_ACTIONS — RESOLVED
+**Status**: **Fixed.** `"ATTACH_CHARACTER_DEPLOYMENT"` added to `DETERMINISTIC_ACTIONS` in `NetworkManager.gd:47`. Character attachment now benefits from optimistic execution like `EMBARK_UNITS_DEPLOYMENT`.
 
 ### 2. Disconnect Handling During Deployment
 **Issue**: `NetworkManager._on_peer_disconnected()` (line 1412-1422) calls `get_tree().quit()` on any disconnect. This is overly aggressive for the deployment phase.
@@ -267,27 +259,43 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 ## Summary Priority Matrix
 
-| Issue | Priority | Effort | Category |
-|-------|----------|--------|----------|
-| On-screen toast notifications | **High** | Low | QoL |
-| Coherency enforcement (not just warning) | **High** | Low | Rules |
-| Pre-battle formation declarations | **High** | Medium | Rules |
-| Strategic Reserves | **High** | High | Rules |
-| Deep Strike | **High** | High | Rules |
-| `ATTACH_CHARACTER_DEPLOYMENT` optimistic exec | **High** | Low | Multiplayer |
-| Deployment progress indicator | **Medium** | Low | QoL |
-| Determine First Turn roll-off | **Medium** | Medium | Rules |
-| Infiltrators | **Medium** | Medium | Rules |
-| Auto-zoom to deployment zone | **Medium** | Low | QoL |
-| Per-model undo | **Medium** | Low | QoL |
-| Deployment summary before ending | **Medium** | Low | QoL |
-| Player turn screen-edge indicator | **Medium** | Low | Visual |
-| Scout Moves | **Medium** | Medium | Rules |
-| Opponent deployment notifications | **Medium** | Medium | QoL/MP |
-| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer |
-| Deployment map variety | **Low** | Medium | Rules |
-| Phase transition animation | **Low** | Low | Visual |
-| Unit placement animation | **Low** | Low | Visual |
-| Coherency visualization circles | **Low** | Low | Visual |
-| Zone edge highlighting | **Low** | Low | Visual |
-| Mission selection | **Low** | High | Rules |
+| Issue | Priority | Effort | Category | Status |
+|-------|----------|--------|----------|--------|
+| On-screen toast notifications | **High** | Low | QoL | **DONE** |
+| Coherency enforcement (not just warning) | **High** | Low | Rules | **DONE** |
+| `ATTACH_CHARACTER_DEPLOYMENT` optimistic exec | **High** | Low | Multiplayer | **DONE** |
+| Pre-battle formation declarations | **High** | Medium | Rules | Open |
+| Strategic Reserves | **High** | High | Rules | Open |
+| Deep Strike | **High** | High | Rules | Open |
+| Deployment progress indicator | **Medium** | Low | QoL | Open |
+| Determine First Turn roll-off | **Medium** | Medium | Rules | Open |
+| Infiltrators | **Medium** | Medium | Rules | Open |
+| Auto-zoom to deployment zone | **Medium** | Low | QoL | Open |
+| Per-model undo | **Medium** | Low | QoL | Open |
+| Deployment summary before ending | **Medium** | Low | QoL | Open |
+| Player turn screen-edge indicator | **Medium** | Low | Visual | Open |
+| Scout Moves | **Medium** | Medium | Rules | Open |
+| Opponent deployment notifications | **Medium** | Medium | QoL/MP | Open |
+| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | Open |
+| Deployment map variety | **Low** | Medium | Rules | Open |
+| Phase transition animation | **Low** | Low | Visual | Open |
+| Unit placement animation | **Low** | Low | Visual | Open |
+| Coherency visualization circles | **Low** | Low | Visual | Open |
+| Zone edge highlighting | **Low** | Low | Visual | Open |
+| Mission selection | **Low** | High | Rules | Open |
+
+---
+
+## Recommended Next Item
+
+**Deployment Progress Indicator** (Medium priority, Low effort, QoL)
+
+This is the best next item to tackle because:
+- It's the highest remaining item that can be completed quickly (low effort)
+- It directly improves the multiplayer experience — both players need to know how many units are left to deploy
+- It builds on the toast/UI infrastructure just added (ToastManager + HUD knowledge)
+- It's self-contained with no dependencies on the larger rules features (Reserves, Deep Strike)
+
+The implementation would add a counter like "Player 1: 3/7 deployed | Player 2: 2/5 deployed" to the HUD bottom bar, updated each time a unit is confirmed. This gives both players clear deployment tempo awareness.
+
+After that, the next high-impact items would be **SWITCH_PLAYER validation gap** (Low effort, Multiplayer fix) and then the larger **Pre-Battle Formation Declarations** feature.
