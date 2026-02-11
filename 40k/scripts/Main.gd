@@ -41,6 +41,13 @@ var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 
+# Deployment progress indicator UI elements
+var deployment_progress_container: PanelContainer
+var p1_progress_bar: ProgressBar
+var p2_progress_bar: ProgressBar
+var p1_progress_label: Label
+var p2_progress_label: Label
+
 func _ready() -> void:
 	# DEBUG: Check current state before any initialization
 	print("Main: _ready() called")
@@ -161,12 +168,129 @@ func _ready() -> void:
 	update_ui_for_phase()
 	print("Main: ⚠️ Initial phase UI setup complete")
 
+	# Setup deployment progress indicator
+	_setup_deployment_progress_indicator()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
+
+func _setup_deployment_progress_indicator() -> void:
+	# Create a panel that sits just below HUD_Bottom (which has been moved to the top)
+	deployment_progress_container = PanelContainer.new()
+	deployment_progress_container.name = "DeploymentProgressContainer"
+	# Position below HUD_Bottom (top bar is 0-100px, so we start at 100)
+	# Inset from sides to avoid overlapping left/right HUD panels (400px each)
+	deployment_progress_container.anchor_left = 0.0
+	deployment_progress_container.anchor_right = 1.0
+	deployment_progress_container.anchor_top = 0.0
+	deployment_progress_container.anchor_bottom = 0.0
+	deployment_progress_container.offset_left = 400.0
+	deployment_progress_container.offset_right = -400.0
+	deployment_progress_container.offset_top = 100.0
+	deployment_progress_container.offset_bottom = 160.0
+	deployment_progress_container.visible = false
+	add_child(deployment_progress_container)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	deployment_progress_container.add_child(margin)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 24)
+	margin.add_child(hbox)
+
+	# Player 1 progress section
+	var p1_vbox = VBoxContainer.new()
+	p1_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p1_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(p1_vbox)
+
+	p1_progress_label = Label.new()
+	p1_progress_label.text = "Player 1 (Defender): 0/0 units deployed"
+	p1_vbox.add_child(p1_progress_label)
+
+	p1_progress_bar = ProgressBar.new()
+	p1_progress_bar.min_value = 0
+	p1_progress_bar.max_value = 1
+	p1_progress_bar.value = 0
+	p1_progress_bar.custom_minimum_size = Vector2(0, 16)
+	p1_progress_bar.show_percentage = false
+	p1_vbox.add_child(p1_progress_bar)
+
+	# Player 2 progress section
+	var p2_vbox = VBoxContainer.new()
+	p2_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p2_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(p2_vbox)
+
+	p2_progress_label = Label.new()
+	p2_progress_label.text = "Player 2 (Attacker): 0/0 units deployed"
+	p2_vbox.add_child(p2_progress_label)
+
+	p2_progress_bar = ProgressBar.new()
+	p2_progress_bar.min_value = 0
+	p2_progress_bar.max_value = 1
+	p2_progress_bar.value = 0
+	p2_progress_bar.custom_minimum_size = Vector2(0, 16)
+	p2_progress_bar.show_percentage = false
+	p2_vbox.add_child(p2_progress_bar)
+
+	# Apply themed styling to the progress bars
+	_style_deployment_progress_bar(p1_progress_bar, WhiteDwarfTheme.P1_FILL, WhiteDwarfTheme.P1_BORDER)
+	_style_deployment_progress_bar(p2_progress_bar, WhiteDwarfTheme.P2_FILL, WhiteDwarfTheme.P2_BORDER)
+
+	print("Main: Deployment progress indicator created")
+
+func _style_deployment_progress_bar(bar: ProgressBar, fill_color: Color, border_color: Color) -> void:
+	# Background style
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.07, 0.05, 0.9)
+	bg_style.border_color = border_color.darkened(0.3)
+	bg_style.set_border_width_all(1)
+	bg_style.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("background", bg_style)
+
+	# Fill style
+	var fill_style = StyleBoxFlat.new()
+	fill_style.bg_color = fill_color.lightened(0.2)
+	fill_style.border_color = border_color
+	fill_style.set_border_width_all(1)
+	fill_style.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("fill", fill_style)
+
+func _update_deployment_progress() -> void:
+	if not deployment_progress_container:
+		return
+
+	var p1_progress = GameState.get_deployment_progress(1)
+	var p2_progress = GameState.get_deployment_progress(2)
+
+	# Update Player 1
+	p1_progress_label.text = "Player 1 (Defender): %d/%d units deployed" % [p1_progress.deployed, p1_progress.total]
+	if p1_progress.total > 0:
+		p1_progress_bar.max_value = p1_progress.total
+		p1_progress_bar.value = p1_progress.deployed
+	else:
+		p1_progress_bar.max_value = 1
+		p1_progress_bar.value = 0
+
+	# Update Player 2
+	p2_progress_label.text = "Player 2 (Attacker): %d/%d units deployed" % [p2_progress.deployed, p2_progress.total]
+	if p2_progress.total > 0:
+		p2_progress_bar.max_value = p2_progress.total
+		p2_progress_bar.value = p2_progress.deployed
+	else:
+		p2_progress_bar.max_value = 1
+		p2_progress_bar.value = 0
+
+	print("Main: Deployment progress updated - P1: %d/%d, P2: %d/%d" % [p1_progress.deployed, p1_progress.total, p2_progress.deployed, p2_progress.total])
 
 func _restructure_ui_layout() -> void:
 	# Move HUD_Bottom to top of screen
@@ -266,6 +390,14 @@ func _apply_white_dwarf_theme() -> void:
 	# Theme the UnitStatsPanel if it exists
 	if unit_stats_panel and unit_stats_panel is PanelContainer:
 		_WhiteDwarfTheme.apply_to_panel(unit_stats_panel)
+
+	# Theme the deployment progress indicator
+	if deployment_progress_container:
+		_WhiteDwarfTheme.apply_to_panel(deployment_progress_container)
+	if p1_progress_label:
+		_WhiteDwarfTheme.apply_to_label(p1_progress_label)
+	if p2_progress_label:
+		_WhiteDwarfTheme.apply_to_label(p2_progress_label)
 
 	print("Main: White Dwarf theme applied")
 
@@ -1658,6 +1790,9 @@ func update_ui() -> void:
 				"button_text": phase_action_button.text
 			})
 
+			# Update deployment progress indicator
+			_update_deployment_progress()
+
 			if all_deployed:
 				phase_action_button.disabled = false
 				status_label.text = "All units deployed! Click 'End Deployment' to continue."
@@ -2877,6 +3012,12 @@ func update_ui_for_phase() -> void:
 		"is_now_connected": is_now_connected,
 		"connection_verified": is_now_connected
 	})
+
+	# Show/hide deployment progress indicator based on phase
+	if deployment_progress_container:
+		deployment_progress_container.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
+		if current_phase == GameStateData.Phase.DEPLOYMENT:
+			_update_deployment_progress()
 
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
