@@ -2997,6 +2997,9 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					if movement_controller:
 						movement_controller.active_unit_id = ""
 						movement_controller.active_mode = ""
+				"CONFIRM_DISEMBARK":
+					print("Disembark confirmed via action system")
+					_recreate_unit_visuals()
 
 			# Update UI after successful action
 			update_movement_card_buttons()

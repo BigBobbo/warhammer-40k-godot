@@ -1687,13 +1687,23 @@ func _on_disembark_confirmed(unit_id: String) -> void:
 	controller.start_disembark(unit_id)
 
 func _on_disembark_completed(unit_id: String, positions: Array) -> void:
-	"""Handle successful disembark - update game state"""
+	"""Handle successful disembark — route through CONFIRM_DISEMBARK action"""
 	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
 
-	# Use TransportManager to handle the disembark
-	TransportManager.disembark_unit(unit_id, positions)
+	# Route through the action system instead of calling TransportManager directly
+	var action = {
+		"type": "CONFIRM_DISEMBARK",
+		"actor_unit_id": unit_id,
+		"payload": {"positions": positions}
+	}
+	emit_signal("move_action_requested", action)
 
-	# CRITICAL: Refresh board visuals to show the disembarked models
+	# UI updates happen in _post_disembark_ui_update after Main routes the action
+	call_deferred("_post_disembark_ui_update", unit_id)
+
+func _post_disembark_ui_update(unit_id: String) -> void:
+	"""Update controller UI after a CONFIRM_DISEMBARK action has been processed"""
+	# Refresh board visuals to show the disembarked models
 	var main = get_node_or_null("/root/Main")
 	if main and main.has_method("_recreate_unit_visuals"):
 		print("MovementController: Refreshing board visuals after disembark")
@@ -1706,17 +1716,13 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 	var unit = GameState.get_unit(unit_id)
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
 		print("MovementController: Disembarked unit can move")
-		# The MovementPhase will handle initializing movement for the unit
-		# We just need to update our UI to show the unit as selected
 		active_unit_id = unit_id
 		active_mode = "NORMAL"
 
-		# Get unit movement cap
 		if unit:
 			move_cap_inches = get_unit_movement(unit)
 			print("MovementController: Unit %s has movement cap of %d inches" % [unit_id, move_cap_inches])
 
-		# Update UI to show this unit is selected
 		_update_selected_unit_display()
 		_update_fall_back_visibility()
 		emit_signal("ui_update_requested")
@@ -1728,7 +1734,6 @@ func _on_disembark_completed(unit_id: String, positions: Array) -> void:
 				break
 	else:
 		print("MovementController: Disembarked unit cannot move (transport already moved)")
-		# Clear selection since unit can't do anything else
 		active_unit_id = ""
 		_update_selected_unit_display()
 

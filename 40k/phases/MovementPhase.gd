@@ -1873,31 +1873,17 @@ func _on_disembark_cancelled(unit_id: String) -> void:
 	log_phase_message("Disembark cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
 
 func _on_disembark_placement_completed(unit_id: String, positions: Array) -> void:
-	"""Handle completed disembark placement"""
-	# Use TransportManager to handle the disembark
-	TransportManager.disembark_unit(unit_id, positions)
+	"""Handle completed disembark placement - routes through CONFIRM_DISEMBARK action"""
+	var action = {
+		"type": "CONFIRM_DISEMBARK",
+		"actor_unit_id": unit_id,
+		"payload": {"positions": positions}
+	}
+	var result = process_action(action)
 
-	var unit = get_unit(unit_id)
-	log_phase_message("Unit %s disembarked" % unit.meta.get("name", unit_id))
-
-	# Check if unit can move after disembark (if transport hasn't moved)
-	var unit_refreshed = get_unit(unit_id)  # Get updated unit state
-	if not unit_refreshed.get("flags", {}).get("cannot_move", false):
-		# Unit can move - initialize movement for them
-		call_deferred("_offer_movement_after_disembark", unit_id)
-
-func _offer_movement_after_disembark(unit_id: String) -> void:
-	"""Offer the option to move after disembark if transport hasn't moved"""
-	var unit = get_unit(unit_id)
-
-	# Check if unit can still move
-	if unit.get("flags", {}).get("cannot_move", false):
-		return  # Unit cannot move due to transport restrictions
-
-	# Automatically initialize movement for the unit (no dialog needed)
-	# The unit can move, so set up the movement state immediately
-	log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
-	_initialize_movement_for_disembarked_unit(unit_id)
+	if not result.get("success", false):
+		log_phase_message("Disembark failed: %s" % result.get("error", "Unknown error"))
+		return
 
 func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 	"""Initialize movement state for a unit that just disembarked"""
@@ -1963,26 +1949,13 @@ func _on_disembark_placement_cancelled(unit_id: String) -> void:
 	"""Handle cancelled disembark placement"""
 	log_phase_message("Disembark placement cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
 
-func _on_transport_manager_disembark_completed(unit_id: String) -> void:
-	"""Handle disembark completion from TransportManager (via MovementController)"""
-	log_phase_message("TransportManager reports disembark completed for %s" % unit_id)
-
-	# IMPORTANT: Update our local snapshot to get the new positions after disembark
-	# The TransportManager just updated GameState, so we need fresh data
-	game_state_snapshot = GameState.state.duplicate(true)
-	log_phase_message("Refreshed game state snapshot after disembark")
-
-	# Check if the unit can move after disembark
-	var unit = get_unit(unit_id)
-	if unit and not unit.get("flags", {}).get("cannot_move", false):
-		# Unit can move - initialize movement for them
-		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
-		_initialize_movement_for_disembarked_unit(unit_id)
-	else:
-		log_phase_message("Unit %s cannot move after disembark (transport moved)" % unit.meta.get("name", unit_id))
+func _on_transport_manager_disembark_completed(_unit_id: String) -> void:
+	"""Legacy signal handler — disembark is now handled entirely by CONFIRM_DISEMBARK action.
+	Kept as a no-op safety net; all logic lives in _process_confirm_disembark()."""
+	pass
 
 func _process_confirm_disembark(action: Dictionary) -> Dictionary:
-	"""Process confirmation of disembark positions"""
+	"""Process confirmation of disembark positions — single authoritative disembark path"""
 	var unit_id = action.get("actor_unit_id", "")
 	var positions = action.get("payload", {}).get("positions", [])
 
@@ -1991,11 +1964,22 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	if not validation.valid:
 		return create_result(false, [], validation.errors[0])
 
-	# Execute disembark
+	# Execute disembark through TransportManager (single call site)
 	TransportManager.disembark_unit(unit_id, positions)
 
+	# Refresh local snapshot so subsequent logic sees the updated state
+	game_state_snapshot = GameState.state.duplicate(true)
+	log_phase_message("Refreshed game state snapshot after disembark")
+
 	var unit = get_unit(unit_id)
-	log_phase_message("Unit %s disembarked via action" % unit.meta.get("name", unit_id))
+	log_phase_message("Unit %s disembarked via CONFIRM_DISEMBARK action" % unit.meta.get("name", unit_id))
+
+	# Post-disembark: offer movement if the transport hadn't already moved
+	if unit and not unit.get("flags", {}).get("cannot_move", false):
+		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
+		call_deferred("_initialize_movement_for_disembarked_unit", unit_id)
+	else:
+		log_phase_message("Unit %s cannot move after disembark (transport moved)" % unit.meta.get("name", unit_id))
 
 	return create_result(true, [])
 
