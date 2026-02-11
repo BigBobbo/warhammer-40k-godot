@@ -709,9 +709,8 @@ func _on_advance_pressed() -> void:
 	print("Emitting advance action: ", action)
 	emit_signal("move_action_requested", action)
 
-	# Automatically roll the advance dice
-	# This used to require clicking "Confirm Movement Mode"
-	call_deferred("_roll_advance_dice")
+	# The advance dice roll is handled by MovementPhase._process_begin_advance()
+	# The result is read back in _on_unit_move_begun() to update the UI
 
 func _on_fall_back_pressed() -> void:
 	# Ignore if we're setting the radio programmatically
@@ -811,7 +810,9 @@ func _on_confirm_mode_pressed() -> void:
 	# Handle mode-specific actions
 	match selected_mode:
 		"ADVANCE":
-			_roll_advance_dice()
+			# Advance dice roll is handled by MovementPhase._process_begin_advance()
+			# UI is updated in _on_unit_move_begun() from the phase's active_moves data
+			pass
 		"REMAIN_STATIONARY":
 			_complete_stationary_move()
 	
@@ -829,30 +830,6 @@ func _get_selected_movement_mode() -> String:
 		return "REMAIN_STATIONARY"
 	return ""
 
-func _roll_advance_dice() -> void:
-	# Dice roll with deterministic seed for multiplayer
-	var rng_seed = -1
-	if has_node("/root/NetworkManager"):
-		var net_mgr = get_node("/root/NetworkManager")
-		if net_mgr.is_networked() and net_mgr.is_host():
-			rng_seed = net_mgr.get_next_rng_seed()
-
-	var rng_service = RulesEngine.RNGService.new(rng_seed)
-	var rolls = rng_service.roll_d6(1)
-	var dice_result = rolls[0]
-	
-	advance_roll_label.text = "Advance Roll: %d\"" % dice_result
-	advance_roll_label.visible = true
-	
-	# Update movement cap with advance bonus
-	emit_signal("move_action_requested", {
-		"type": "SET_ADVANCE_BONUS",
-		"actor_unit_id": active_unit_id,
-		"payload": {"bonus": dice_result}
-	})
-	
-	# Update the movement display to show the new total
-	_update_movement_display_with_advance(dice_result)
 
 func _complete_stationary_move() -> void:
 	# Immediately complete the unit's movement for stationary
@@ -989,12 +966,20 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	else:
 		print("ERROR: No current phase set!")
 	
-	# Update dice log if it was an advance
+	# Update dice log and advance roll display if it was an advance
 	if mode == "ADVANCE" and current_phase:
 		if current_phase.has_method("get_dice_log"):
 			var dice_log = current_phase.get_dice_log()
 			_update_dice_log_display(dice_log)
-	
+		# Read the advance roll from the phase's active_moves data and update UI
+		if current_phase.has_method("get_active_move_data"):
+			var move_data = current_phase.get_active_move_data(unit_id)
+			var advance_roll = move_data.get("advance_roll", 0)
+			if advance_roll > 0 and advance_roll_label:
+				advance_roll_label.text = "Advance Roll: %d\"" % advance_roll
+				advance_roll_label.visible = true
+				_update_movement_display_with_advance(advance_roll)
+
 	# Notify Main to update UI
 	emit_signal("ui_update_requested")
 
