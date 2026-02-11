@@ -146,23 +146,13 @@ The `active_moves` dictionary is a local phase variable that tracks all in-progr
 1. Mirror critical `active_moves` state into GameState for validation (higher safety), or
 2. Add periodic state checksums between host/client to detect and reconcile desync (lower overhead).
 
-### 3.2 HIGH — Double Advance Dice Roll
+### 3.2 ~~HIGH — Double Advance Dice Roll~~ FIXED
 
-**Location:** `MovementController.gd:712-714` and `MovementPhase.gd:495-511`
+**Location:** `MovementController.gd` and `MovementPhase.gd:495-511`
 
-When a player selects Advance, two things happen:
-1. `MovementController._on_advance_pressed()` emits `BEGIN_ADVANCE` action
-2. `MovementPhase._process_begin_advance()` rolls D6 using `RNGService`
-3. `MovementController._on_advance_pressed()` then calls `_roll_advance_dice()` via `call_deferred`
-4. `_roll_advance_dice()` rolls **another** D6 and sends `SET_ADVANCE_BONUS`
+**Resolution:** Removed the duplicate dice roll from `MovementController`. The D6 is now rolled only in `MovementPhase._process_begin_advance()` (single source of truth). The controller reads the advance roll result from the phase's `active_moves` data in the `_on_unit_move_begun()` callback and updates the UI from there. The `_roll_advance_dice()` function and its callers (`_on_advance_pressed` deferred call, `_on_confirm_mode_pressed` ADVANCE branch) were removed.
 
-This means there are **two separate D6 rolls** — one in the phase processing and one in the controller. The `SET_ADVANCE_BONUS` action then overwrites the phase's initial roll with the controller's roll.
-
-**Impact:** In multiplayer, the host processes `BEGIN_ADVANCE` and generates roll X. The client's controller generates a different roll Y via `_roll_advance_dice()` and sends `SET_ADVANCE_BONUS(Y)`. This creates inconsistency — the phase stored roll X but now the cap is set to M+Y.
-
-**Recommendation:** Remove the duplicate dice roll. Either:
-- Roll only in `MovementPhase._process_begin_advance()` and propagate the result to the controller via the action result, OR
-- Roll only in the controller and pass the value via `SET_ADVANCE_BONUS`, removing the roll from `_process_begin_advance()`.
+**Commit:** `41a3891` — "Fix double advance dice roll causing multiplayer desync"
 
 ### 3.3 MEDIUM — `game_state_snapshot` Manually Refreshed After Disembark
 
@@ -360,7 +350,7 @@ The codebase has extensive `print()` and `log_phase_message()` calls throughout 
 
 ### Must Fix (Before Competitive Play)
 1. **Unit coherency enforcement** — Add to `_validate_confirm_unit_move()`
-2. **Double advance dice roll** — Remove duplicate roll in controller
+2. ~~**Double advance dice roll** — Remove duplicate roll in controller~~ **FIXED** (commit `41a3891`)
 3. **Embark action not networked** — Convert to proper action
 
 ### Should Fix (Gameplay Completeness)
