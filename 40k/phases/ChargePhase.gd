@@ -22,11 +22,12 @@ const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
 
 # Charge state tracking
 var active_charges: Dictionary = {}     # unit_id -> charge_data
-var pending_charges: Dictionary = {}    # units awaiting resolution  
+var pending_charges: Dictionary = {}    # units awaiting resolution
 var dice_log: Array = []
 var units_that_charged: Array = []     # Track which units have completed charges
 var current_charging_unit = null       # Track which unit is actively charging
 var completed_charges: Array = []      # Units that finished charging this phase
+var failed_charge_attempts: Array = [] # Structured record of all failed charge attempts
 
 func _init():
 	phase_type = GameStateData.Phase.CHARGE
@@ -34,11 +35,12 @@ func _init():
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Charge Phase")
 	active_charges.clear()
-	pending_charges.clear() 
+	pending_charges.clear()
 	dice_log.clear()
 	units_that_charged.clear()
 	current_charging_unit = null
 	completed_charges.clear()
+	failed_charge_attempts.clear()
 	
 	_initialize_charge()
 
@@ -287,16 +289,16 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 func _process_charge_roll(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var charge_data = pending_charges[unit_id]
-	
+
 	# Roll 2D6 for charge distance
 	var rng = RulesEngine.RNGService.new()
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
-	
+
 	# Store rolled distance
 	charge_data.distance = total_distance
 	charge_data.dice_rolls = rolls
-	
+
 	# Add to dice log
 	var dice_result = {
 		"context": "charge_roll",
@@ -307,13 +309,31 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		"targets": charge_data.targets  # Include targets so clients can determine success
 	}
 	dice_log.append(dice_result)
-	
+
+	# Check if any model can reach engagement range with the rolled distance
+	var feasible = _is_charge_roll_sufficient(unit_id, total_distance, charge_data.targets)
+	if not feasible:
+		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		_record_failed_charge(unit_id, charge_data.targets, total_distance, rolls, "insufficient_distance",
+			"Rolled %d\" but no model can reach engagement range of any declared target" % total_distance)
+		log_phase_message("Charge roll insufficient for %s: rolled %d\" (%d + %d)" % [unit_name, total_distance, rolls[0], rolls[1]])
+
+		# Mark unit as having attempted charge
+		units_that_charged.append(unit_id)
+		pending_charges.erase(unit_id)
+
+		emit_signal("charge_roll_made", unit_id, total_distance, rolls)
+		emit_signal("dice_rolled", dice_result)
+		emit_signal("charge_resolved", unit_id, false, {"reason": "Rolled distance insufficient to reach engagement range"})
+
+		return create_result(true, [], "", {"dice": [dice_result], "charge_failed": true, "fail_reason": "insufficient_distance"})
+
 	emit_signal("charge_roll_made", unit_id, total_distance, rolls)
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 	emit_signal("dice_rolled", dice_result)
-	
+
 	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
-	
+
 	return create_result(true, [], "", {"dice": [dice_result]})
 
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
@@ -338,12 +358,17 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	if not validation.valid:
 		# Charge fails - no movement applied
 		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		var fail_reason = _categorize_movement_failure(validation.errors)
 		log_phase_message("Charge failed for %s: %s" % [unit_name, validation.errors[0]])
-		
+
+		# Record the failed attempt with structured data
+		_record_failed_charge(unit_id, charge_data.targets, charge_data.distance,
+			charge_data.get("dice_rolls", []), fail_reason, validation.errors[0])
+
 		# Mark as charged (attempted) but unsuccessful
 		units_that_charged.append(unit_id)
 		pending_charges.erase(unit_id)
-		
+
 		emit_signal("charge_resolved", unit_id, false, {"reason": validation.errors[0]})
 		return create_result(true, [])
 	
@@ -424,6 +449,14 @@ func _process_skip_charge(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_charge(action: Dictionary) -> Dictionary:
+	# Log a summary of failed charges for telemetry before ending
+	if not failed_charge_attempts.is_empty():
+		var by_reason = get_failed_charges_by_reason()
+		var summary_parts = []
+		for reason in by_reason:
+			summary_parts.append("%s: %d" % [reason, by_reason[reason]])
+		log_phase_message("Charge phase summary - %d failed attempt(s): %s" % [failed_charge_attempts.size(), ", ".join(summary_parts)])
+
 	log_phase_message("Ending Charge Phase")
 	emit_signal("phase_completed")
 	return create_result(true, [])
@@ -756,6 +789,76 @@ func _get_model_index(unit_id: String, model_id: String) -> int:
 			return i
 	return -1
 
+func _record_failed_charge(unit_id: String, target_ids: Array, rolled_distance: int, dice_rolls: Array, fail_category: String, fail_detail: String) -> void:
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	var target_names = []
+	for target_id in target_ids:
+		var target = get_unit(target_id)
+		target_names.append(target.get("meta", {}).get("name", target_id))
+
+	var attempt = {
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"target_ids": target_ids,
+		"target_names": target_names,
+		"rolled_distance": rolled_distance,
+		"dice_rolls": dice_rolls,
+		"fail_category": fail_category,
+		"fail_detail": fail_detail,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	failed_charge_attempts.append(attempt)
+	log_phase_message("Recorded failed charge: %s -> %s (%s: %s)" % [unit_name, ", ".join(target_names), fail_category, fail_detail])
+
+func _categorize_movement_failure(errors: Array) -> String:
+	if errors.is_empty():
+		return "unknown"
+	var first_error = errors[0].to_lower()
+	if "exceeds charge distance" in first_error or "path exceeds" in first_error:
+		return "path_distance_exceeded"
+	if "overlap" in first_error:
+		return "model_overlap"
+	if "engagement range" in first_error and "non-target" in first_error:
+		return "non_target_engagement"
+	if "engagement range" in first_error:
+		return "target_engagement_not_reached"
+	if "coherency" in first_error:
+		return "coherency_broken"
+	if "base-to-base" in first_error or "base to base" in first_error:
+		return "base_to_base_unmet"
+	return "movement_validation_failed"
+
+func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.ZERO and not model.has("position"):
+			continue
+
+		for target_id in target_ids:
+			var target = get_unit(target_id)
+			if target.is_empty():
+				continue
+
+			for target_model in target.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				# Model can reach if edge-to-edge distance minus ER is within rolled distance
+				if distance_inches - ENGAGEMENT_RANGE_INCHES <= rolled_distance:
+					return true
+
+	return false
+
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})
 	for unit_id in units:
@@ -891,6 +994,21 @@ func get_pending_charges() -> Dictionary:
 
 func get_units_that_charged() -> Array:
 	return units_that_charged
+
+func get_failed_charge_attempts() -> Array:
+	return failed_charge_attempts
+
+func get_failed_charge_count() -> int:
+	return failed_charge_attempts.size()
+
+func get_failed_charges_by_reason() -> Dictionary:
+	var by_reason: Dictionary = {}
+	for attempt in failed_charge_attempts:
+		var reason = attempt.get("fail_category", "unknown")
+		if not by_reason.has(reason):
+			by_reason[reason] = 0
+		by_reason[reason] += 1
+	return by_reason
 
 func get_eligible_charge_units() -> Array:
 	var eligible = []
