@@ -4,17 +4,54 @@ class_name CommandPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 
 
-# CommandPhase - Placeholder phase for command functionality
-# Currently just provides "End Command Phase" functionality to proceed to Movement
+# CommandPhase - Handles the Command Phase of each player's turn
+# Steps: 1) Generate CP  2) Resolve abilities  3) Battle-shock tests (future)
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
-	print("CommandPhase: Entering command phase for player ", get_current_player())
-	print("CommandPhase: Battle round ", GameState.get_battle_round())
-	
+	var current_player = get_current_player()
+	var battle_round = GameState.get_battle_round()
+	print("CommandPhase: Entering command phase for player ", current_player)
+	print("CommandPhase: Battle round ", battle_round)
+
+	# Step 1: Generate Command Points
+	# Per 10th edition rules, both players gain 1 CP at the start of each Command Phase
+	_generate_command_points(current_player)
+
 	# Check objectives at start of command phase
 	if MissionManager:
 		MissionManager.check_all_objectives()
+
+func _generate_command_points(active_player: int) -> void:
+	var opponent = 1 if active_player == 2 else 2
+	var changes = []
+
+	# Active player gains 1 CP
+	var active_cp = GameState.state.get("players", {}).get(str(active_player), {}).get("cp", 0)
+	changes.append({
+		"op": "set",
+		"path": "players.%s.cp" % str(active_player),
+		"value": active_cp + 1
+	})
+
+	# Opponent also gains 1 CP
+	var opponent_cp = GameState.state.get("players", {}).get(str(opponent), {}).get("cp", 0)
+	changes.append({
+		"op": "set",
+		"path": "players.%s.cp" % str(opponent),
+		"value": opponent_cp + 1
+	})
+
+	# Apply via PhaseManager so changes propagate to network peers
+	PhaseManager.apply_state_changes(changes)
+
+	# Refresh our local snapshot to reflect the CP changes
+	game_state_snapshot = GameState.create_snapshot()
+
+	print("CommandPhase: Generated CP — Player %d: %d → %d, Player %d: %d → %d" % [
+		active_player, active_cp, active_cp + 1,
+		opponent, opponent_cp, opponent_cp + 1
+	])
 
 func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")

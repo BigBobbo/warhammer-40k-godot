@@ -5,7 +5,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 
 # CommandController - Handles UI interactions for the Command Phase
-# Currently a placeholder phase that will be expanded with command point functionality
+# Displays CP totals, objective control status, and victory points
 
 signal command_action_requested(action: Dictionary)
 signal ui_update_requested()
@@ -89,17 +89,43 @@ func _setup_right_panel() -> void:
 	var info_label = Label.new()
 	var current_player = GameState.get_active_player()
 	var battle_round = GameState.get_battle_round()
-	info_label.text = "Battle Round: %d\nActive Player: %d\n\nThis is a placeholder command phase.\n\nFuture features:\n• Command Points management\n• Strategic abilities\n• Battle tactics\n\nClick 'End Command Phase' to proceed to Movement." % [battle_round, current_player]
+	var faction_name = GameState.get_faction_name(current_player)
+	info_label.text = "Battle Round: %d\nActive Player: %d (%s)" % [battle_round, current_player, faction_name]
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	command_panel.add_child(info_label)
-	
+
 	command_panel.add_child(HSeparator.new())
-	
-	# Placeholder for future command point display
-	var cp_label = Label.new()
-	cp_label.text = "Command Points: Not Implemented"
-	cp_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	command_panel.add_child(cp_label)
+
+	# Command Points display
+	var cp_section = VBoxContainer.new()
+	cp_section.name = "CPSection"
+	command_panel.add_child(cp_section)
+
+	var cp_title = Label.new()
+	cp_title.text = "Command Points"
+	cp_title.add_theme_font_size_override("font_size", 14)
+	cp_section.add_child(cp_title)
+
+	var p1_cp = GameState.state.get("players", {}).get("1", {}).get("cp", 0)
+	var p2_cp = GameState.state.get("players", {}).get("2", {}).get("cp", 0)
+
+	var p1_cp_label = Label.new()
+	p1_cp_label.name = "P1CPLabel"
+	p1_cp_label.text = "Player 1 (%s): %d CP" % [GameState.get_faction_name(1), p1_cp]
+	p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	cp_section.add_child(p1_cp_label)
+
+	var p2_cp_label = Label.new()
+	p2_cp_label.name = "P2CPLabel"
+	p2_cp_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
+	p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	cp_section.add_child(p2_cp_label)
+
+	var cp_note = Label.new()
+	cp_note.text = "+1 CP generated this phase"
+	cp_note.add_theme_font_size_override("font_size", 11)
+	cp_note.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+	cp_section.add_child(cp_note)
 	
 	# Add objective status section
 	command_panel.add_child(HSeparator.new())
@@ -183,6 +209,20 @@ func _refresh_ui() -> void:
 		var current_player = GameState.get_active_player()
 		var battle_round = GameState.get_battle_round()
 		phase_info_label.text = "Player %d - Round %d" % [current_player, battle_round]
+
+	# Update CP labels if they exist
+	var command_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel")
+	if command_panel:
+		var cp_section = command_panel.get_node_or_null("CPSection")
+		if cp_section:
+			var p1_label = cp_section.get_node_or_null("P1CPLabel")
+			var p2_label = cp_section.get_node_or_null("P2CPLabel")
+			var p1_cp = GameState.state.get("players", {}).get("1", {}).get("cp", 0)
+			var p2_cp = GameState.state.get("players", {}).get("2", {}).get("cp", 0)
+			if p1_label:
+				p1_label.text = "Player 1 (%s): %d CP" % [GameState.get_faction_name(1), p1_cp]
+			if p2_label:
+				p2_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
 
 func _on_end_command_pressed() -> void:
 	print("CommandController: End Command Phase button pressed")
