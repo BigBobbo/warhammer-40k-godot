@@ -154,7 +154,8 @@
             "save": 2,
             "wounds": 7,
             "leadership": 6,
-            "objective_control": 1
+            "objective_control": 1,
+            "fnp": 5
           },
           "points": 115,
           "is_warlord": false,

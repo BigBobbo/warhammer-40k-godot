@@ -3103,13 +3103,41 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if failed_saves == 0:
 		result.log_text = "Melee: %d attacks, %d hits, %d wounds, 0 failed saves" % [total_attacks, hits, wounds]
 		return result
-	
-	# Apply damage to target unit
-	var damage_result = _apply_damage_to_unit(target_id, failed_saves, damage, board, rng)
+
+	# FEEL NO PAIN: Roll FNP for total potential wounds before applying damage
+	var total_potential_wounds = failed_saves * damage
+	var fnp_value = get_unit_fnp(target_unit)
+	var actual_wounds = total_potential_wounds
+
+	if fnp_value > 0:
+		var fnp_result = roll_feel_no_pain(total_potential_wounds, fnp_value, rng)
+		actual_wounds = fnp_result.wounds_remaining
+		result.dice.append({
+			"context": "feel_no_pain",
+			"threshold": str(fnp_value) + "+",
+			"rolls_raw": fnp_result.rolls,
+			"fnp_value": fnp_value,
+			"wounds_prevented": fnp_result.wounds_prevented,
+			"wounds_remaining": fnp_result.wounds_remaining,
+			"total_wounds": total_potential_wounds
+		})
+		print("RulesEngine: Melee FNP %d+ — %d/%d wounds prevented" % [fnp_value, fnp_result.wounds_prevented, total_potential_wounds])
+
+	if actual_wounds == 0:
+		result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [total_attacks, hits, wounds, failed_saves]
+		return result
+
+	# Apply damage to target unit using pool (FNP may have reduced total)
+	var target_models = target_unit.get("models", [])
+	var damage_result = _apply_damage_to_unit_pool(target_id, actual_wounds, target_models, board)
 	result.diffs.append_array(damage_result.diffs)
-	
-	result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d casualties" % [total_attacks, hits, wounds, damage_result.casualties]
-	
+
+	var fnp_text = ""
+	if fnp_value > 0:
+		var prevented = total_potential_wounds - actual_wounds
+		fnp_text = ", FNP prevented %d wounds" % prevented
+	result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d casualties%s" % [total_attacks, hits, wounds, damage_result.casualties, fnp_text]
+
 	return result
 
 # Get fight priority for unit
@@ -3369,18 +3397,22 @@ static func apply_save_damage(
 	save_results: Array,
 	save_data: Dictionary,
 	board: Dictionary,
-	devastating_damage_override: int = -1
+	devastating_damage_override: int = -1,
+	rng: RNGService = null
 ) -> Dictionary:
 	"""
 	Applies damage to models that failed their saves.
 	DEVASTATING WOUNDS: Also applies devastating damage if present in save_data or override.
+	FEEL NO PAIN: Rolls FNP for each wound about to be lost, reducing actual damage.
 	Returns diffs and casualty count.
 	"""
 	var result = {
 		"diffs": [],
 		"casualties": 0,
 		"damage_applied": 0,
-		"devastating_damage_applied": 0
+		"devastating_damage_applied": 0,
+		"fnp_rolls": [],
+		"fnp_wounds_prevented": 0
 	}
 
 	var target_unit_id = save_data.target_unit_id
@@ -3393,30 +3425,52 @@ static func apply_save_damage(
 
 	var models = target_unit.get("models", [])
 
+	# FEEL NO PAIN: Check if target unit has FNP
+	var fnp_value = get_unit_fnp(target_unit)
+
 	# DEVASTATING WOUNDS (PRP-012): Apply devastating damage first (unsaveable)
 	var dw_damage = devastating_damage_override if devastating_damage_override >= 0 else save_data.get("devastating_damage", 0)
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
-		var dw_result = _apply_damage_to_unit_pool(target_unit_id, dw_damage, models, board)
-		result.diffs.append_array(dw_result.diffs)
-		result.casualties += dw_result.casualties
-		result.damage_applied += dw_result.damage_applied
-		result.devastating_damage_applied = dw_result.damage_applied
 
-		# Update models array for subsequent damage (in case models were killed by DW)
-		for diff in dw_result.diffs:
-			if diff.op == "set" and ".current_wounds" in diff.path:
-				var path_parts = diff.path.split(".")
-				if path_parts.size() >= 4:
-					var model_idx = int(path_parts[3])
-					if model_idx >= 0 and model_idx < models.size():
-						models[model_idx]["current_wounds"] = diff.value
-			elif diff.op == "set" and ".alive" in diff.path:
-				var path_parts = diff.path.split(".")
-				if path_parts.size() >= 4:
-					var model_idx = int(path_parts[3])
-					if model_idx >= 0 and model_idx < models.size():
-						models[model_idx]["alive"] = diff.value
+		# FEEL NO PAIN: FNP applies even to devastating wounds
+		var actual_dw_damage = dw_damage
+		if fnp_value > 0 and rng != null:
+			var fnp_result = roll_feel_no_pain(dw_damage, fnp_value, rng)
+			actual_dw_damage = fnp_result.wounds_remaining
+			result.fnp_rolls.append({
+				"context": "feel_no_pain",
+				"source": "devastating_wounds",
+				"rolls": fnp_result.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_result.wounds_prevented,
+				"wounds_remaining": fnp_result.wounds_remaining,
+				"total_wounds": dw_damage
+			})
+			result.fnp_wounds_prevented += fnp_result.wounds_prevented
+			print("RulesEngine: FNP reduced devastating damage from %d to %d" % [dw_damage, actual_dw_damage])
+
+		if actual_dw_damage > 0:
+			var dw_result = _apply_damage_to_unit_pool(target_unit_id, actual_dw_damage, models, board)
+			result.diffs.append_array(dw_result.diffs)
+			result.casualties += dw_result.casualties
+			result.damage_applied += dw_result.damage_applied
+			result.devastating_damage_applied = dw_result.damage_applied
+
+			# Update models array for subsequent damage (in case models were killed by DW)
+			for diff in dw_result.diffs:
+				if diff.op == "set" and ".current_wounds" in diff.path:
+					var path_parts = diff.path.split(".")
+					if path_parts.size() >= 4:
+						var model_idx = int(path_parts[3])
+						if model_idx >= 0 and model_idx < models.size():
+							models[model_idx]["current_wounds"] = diff.value
+				elif diff.op == "set" and ".alive" in diff.path:
+					var path_parts = diff.path.split(".")
+					if path_parts.size() >= 4:
+						var model_idx = int(path_parts[3])
+						if model_idx >= 0 and model_idx < models.size():
+							models[model_idx]["alive"] = diff.value
 
 	# Apply damage from failed saves
 	for save_result in save_results:
@@ -3435,8 +3489,28 @@ static func apply_save_damage(
 				continue  # No alive models left
 			model = models[model_index]
 
+		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
+		var actual_damage = damage_per_wound
+		if fnp_value > 0 and rng != null:
+			var fnp_result = roll_feel_no_pain(damage_per_wound, fnp_value, rng)
+			actual_damage = fnp_result.wounds_remaining
+			result.fnp_rolls.append({
+				"context": "feel_no_pain",
+				"source": "failed_save",
+				"rolls": fnp_result.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_result.wounds_prevented,
+				"wounds_remaining": fnp_result.wounds_remaining,
+				"total_wounds": damage_per_wound
+			})
+			result.fnp_wounds_prevented += fnp_result.wounds_prevented
+
+			if actual_damage == 0:
+				print("RulesEngine: FNP prevented all %d damage from failed save!" % damage_per_wound)
+				continue  # FNP saved all wounds from this failed save
+
 		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
-		var new_wounds = max(0, current_wounds - damage_per_wound)
+		var new_wounds = max(0, current_wounds - actual_damage)
 
 		result.diffs.append({
 			"op": "set",
@@ -3444,7 +3518,7 @@ static func apply_save_damage(
 			"value": new_wounds
 		})
 
-		result.damage_applied += damage_per_wound
+		result.damage_applied += actual_damage
 
 		# Update local model tracking
 		models[model_index]["current_wounds"] = new_wounds
@@ -3524,6 +3598,31 @@ static func _find_allocation_target_model(models: Array) -> int:
 			return i
 
 	return -1  # No alive models
+
+# FEEL NO PAIN: Get FNP value for a unit (0 = no FNP)
+static func get_unit_fnp(unit: Dictionary) -> int:
+	"""Returns FNP value (e.g. 5 for 5+), or 0 if unit has no FNP"""
+	var fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
+	if fnp > 0:
+		return fnp
+	return 0
+
+# FEEL NO PAIN: Roll FNP dice for wounds about to be lost
+static func roll_feel_no_pain(wounds_to_lose: int, fnp_value: int, rng: RNGService) -> Dictionary:
+	"""Roll FNP dice. Each wound that would be lost gets a D6 roll; >= fnp_value prevents it."""
+	var rolls = rng.roll_d6(wounds_to_lose)
+	var wounds_prevented = 0
+	for roll in rolls:
+		if roll >= fnp_value:
+			wounds_prevented += 1
+	var wounds_remaining = wounds_to_lose - wounds_prevented
+	print("RulesEngine: Feel No Pain %d+ — rolled %s, prevented %d/%d wounds" % [fnp_value, str(rolls), wounds_prevented, wounds_to_lose])
+	return {
+		"rolls": rolls,
+		"fnp_value": fnp_value,
+		"wounds_prevented": wounds_prevented,
+		"wounds_remaining": wounds_remaining
+	}
 
 # DEVASTATING WOUNDS (PRP-012): Find next alive model starting from given index
 static func _find_next_alive_model_index(models: Array, start_index: int) -> int:

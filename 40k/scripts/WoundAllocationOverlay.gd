@@ -597,7 +597,7 @@ func _on_model_clicked(model_id: String) -> void:
 	_roll_save_for_model(model_id)
 
 func _roll_save_for_model(model_id: String) -> void:
-	"""Roll save and apply damage"""
+	"""Roll save and apply damage, with Feel No Pain if applicable"""
 	print("WoundAllocationOverlay: Rolling save for model: %s" % model_id)
 
 	# Find model profile
@@ -613,12 +613,29 @@ func _roll_save_for_model(model_id: String) -> void:
 
 	print("WoundAllocationOverlay: Save roll: %d vs %d+ = %s" % [roll, needed, "SAVED" if saved else "FAILED"])
 
-	# Check if model is destroyed
+	# FNP and damage tracking
+	var weapon_damage = save_data.get("damage", 1)
+	var actual_damage = 0
+	var fnp_rolls_data = []
+	var fnp_prevented = 0
+	var fnp_val = 0
 	var model_destroyed = false
+
 	if not saved:
+		actual_damage = weapon_damage
+
+		# FEEL NO PAIN: Roll FNP for each point of damage
+		fnp_val = RulesEngine.get_unit_fnp(target_unit)
+		if fnp_val > 0 and rng_service != null:
+			var fnp_result = RulesEngine.roll_feel_no_pain(weapon_damage, fnp_val, rng_service)
+			fnp_rolls_data = fnp_result.rolls
+			fnp_prevented = fnp_result.wounds_prevented
+			actual_damage = fnp_result.wounds_remaining
+			print("WoundAllocationOverlay: FNP %d+ — rolled %s, prevented %d/%d wounds" % [fnp_val, str(fnp_rolls_data), fnp_prevented, weapon_damage])
+
+		# Check if model is destroyed using actual damage after FNP
 		var current_wounds = save_profile.get("current_wounds", 1)
-		var damage = save_data.get("damage", 1)
-		if damage >= current_wounds:
+		if actual_damage >= current_wounds:
 			model_destroyed = true
 
 	# Build result
@@ -629,8 +646,13 @@ func _roll_save_for_model(model_id: String) -> void:
 		"roll": roll,
 		"needed": needed,
 		"saved": saved,
-		"damage": save_data.get("damage", 1) if not saved else 0,
-		"model_destroyed": model_destroyed
+		"damage": actual_damage,
+		"model_destroyed": model_destroyed,
+		"fnp_rolls": fnp_rolls_data,
+		"fnp_value": fnp_val,
+		"fnp_prevented": fnp_prevented,
+		"actual_damage": actual_damage,
+		"weapon_damage": weapon_damage
 	}
 
 	allocation_history.append(result)
@@ -641,9 +663,9 @@ func _roll_save_for_model(model_id: String) -> void:
 	# Display result in UI
 	_display_save_result(result)
 
-	# Apply damage immediately
-	if not saved:
-		_apply_damage_to_model(model_id, save_profile.get("model_index", 0), result.get("damage", 1), model_destroyed)
+	# Apply damage immediately (using actual damage after FNP)
+	if not saved and actual_damage > 0:
+		_apply_damage_to_model(model_id, save_profile.get("model_index", 0), actual_damage, model_destroyed)
 
 	# Enable continue button
 	print("WoundAllocationOverlay: Attempting to enable continue button")
@@ -694,7 +716,34 @@ func _display_save_result(result: Dictionary) -> void:
 		outcome_text = "[center][color=green][b]✓ SAVED[/b][/color][/center]"
 	else:
 		outcome_text = "[center][color=red][b]✗ FAILED[/b][/color]\n"
-		outcome_text += "%s takes %d damage" % [result.get("model_id", "Unknown"), result.get("damage", 1)]
+
+		# FEEL NO PAIN: Show FNP rolls if applicable
+		var fnp_rolls = result.get("fnp_rolls", [])
+		var fnp_val = result.get("fnp_value", 0)
+		var fnp_prevented = result.get("fnp_prevented", 0)
+		var actual_dmg = result.get("actual_damage", result.get("damage", 1))
+		var weapon_dmg = result.get("weapon_damage", result.get("damage", 1))
+
+		if fnp_val > 0 and not fnp_rolls.is_empty():
+			# Show FNP dice rolls
+			var fnp_dice_str = ""
+			for fnp_roll in fnp_rolls:
+				if fnp_roll >= fnp_val:
+					fnp_dice_str += "[color=green]%d[/color] " % fnp_roll
+				else:
+					fnp_dice_str += "[color=red]%d[/color] " % fnp_roll
+			outcome_text += "[color=cyan]Feel No Pain %d+:[/color] %s\n" % [fnp_val, fnp_dice_str.strip_edges()]
+
+			if fnp_prevented > 0:
+				outcome_text += "[color=green]%d wound(s) prevented![/color]\n" % fnp_prevented
+
+			if actual_dmg == 0:
+				outcome_text += "[color=green][b]All damage prevented by FNP![/b][/color]"
+			else:
+				outcome_text += "%s takes %d damage (reduced from %d)" % [result.get("model_id", "Unknown"), actual_dmg, weapon_dmg]
+		else:
+			outcome_text += "%s takes %d damage" % [result.get("model_id", "Unknown"), actual_dmg]
+
 		if result.get("model_destroyed", false):
 			outcome_text += "\n[color=red][b]💀 DESTROYED[/b][/color]"
 		outcome_text += "[/center]"

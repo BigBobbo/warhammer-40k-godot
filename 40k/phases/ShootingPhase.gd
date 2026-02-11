@@ -1502,11 +1502,14 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			# Update save_data with devastating damage for apply_save_damage
 			save_data["devastating_damage"] = devastating_damage
 
-		# Apply damage using RulesEngine
+		# Apply damage using RulesEngine (with RNG for Feel No Pain rolls)
+		var fnp_rng = RulesEngine.RNGService.new()
 		var damage_result = RulesEngine.apply_save_damage(
 			save_results,
 			save_data,
-			game_state_snapshot
+			game_state_snapshot,
+			-1,
+			fnp_rng
 		)
 
 		# Collect diffs
@@ -1566,6 +1569,51 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			dice_log.append(save_dice_block)
 			emit_signal("dice_rolled", save_dice_block)
 			print("ShootingPhase: Emitted save_roll dice block - %d rolls, %d passed, %d failed" % [save_rolls_raw.size(), saved_count, failed_count])
+
+		# FEEL NO PAIN: Emit FNP dice blocks from RulesEngine batch path
+		var fnp_rolls_from_engine = damage_result.get("fnp_rolls", [])
+		for fnp_block in fnp_rolls_from_engine:
+			var fnp_dice_block = {
+				"context": "feel_no_pain",
+				"threshold": str(fnp_block.get("fnp_value", 0)) + "+",
+				"rolls_raw": fnp_block.get("rolls", []),
+				"fnp_value": fnp_block.get("fnp_value", 0),
+				"wounds_prevented": fnp_block.get("wounds_prevented", 0),
+				"wounds_remaining": fnp_block.get("wounds_remaining", 0),
+				"total_wounds": fnp_block.get("total_wounds", 0),
+				"source": fnp_block.get("source", ""),
+				"target_unit_name": target_name
+			}
+			dice_log.append(fnp_dice_block)
+			emit_signal("dice_rolled", fnp_dice_block)
+			print("ShootingPhase: Emitted feel_no_pain dice block - %d prevented / %d total" % [fnp_block.get("wounds_prevented", 0), fnp_block.get("total_wounds", 0)])
+
+		# FEEL NO PAIN: Also collect FNP data from WoundAllocationOverlay allocation_history
+		var fnp_rolls_from_overlay = []
+		if save_result_summary.has("allocation_history"):
+			for alloc in save_result_summary.allocation_history:
+				var alloc_fnp_rolls = alloc.get("fnp_rolls", [])
+				if not alloc_fnp_rolls.is_empty():
+					fnp_rolls_from_overlay.append_array(alloc_fnp_rolls)
+			if not fnp_rolls_from_overlay.is_empty():
+				var fnp_val = save_result_summary.allocation_history[0].get("fnp_value", 0)
+				var total_prevented = 0
+				for alloc in save_result_summary.allocation_history:
+					total_prevented += alloc.get("fnp_prevented", 0)
+				var fnp_overlay_block = {
+					"context": "feel_no_pain",
+					"threshold": str(fnp_val) + "+",
+					"rolls_raw": fnp_rolls_from_overlay,
+					"fnp_value": fnp_val,
+					"wounds_prevented": total_prevented,
+					"wounds_remaining": fnp_rolls_from_overlay.size() - total_prevented,
+					"total_wounds": fnp_rolls_from_overlay.size(),
+					"source": "interactive_saves",
+					"target_unit_name": target_name
+				}
+				dice_log.append(fnp_overlay_block)
+				emit_signal("dice_rolled", fnp_overlay_block)
+				print("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()])
 
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")

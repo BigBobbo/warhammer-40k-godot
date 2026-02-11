@@ -1143,6 +1143,41 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
 		return
 
+	# FEEL NO PAIN: Handle feel_no_pain dice block
+	if context == "feel_no_pain":
+		var fnp_val = dice_data.get("fnp_value", 0)
+		var prevented = dice_data.get("wounds_prevented", 0)
+		var remaining = dice_data.get("wounds_remaining", 0)
+		var total = dice_data.get("total_wounds", 0)
+		var fnp_rolls = dice_data.get("rolls_raw", [])
+		var target_name = dice_data.get("target_unit_name", "")
+
+		var log_text = "[b][color=cyan]Feel No Pain %d+[/color][/b]" % fnp_val
+		if not target_name.is_empty():
+			log_text += " (%s)" % target_name
+		log_text += "\n"
+
+		# Show individual dice
+		var dice_str = "  Rolls: "
+		for fnp_roll in fnp_rolls:
+			if fnp_roll >= fnp_val:
+				dice_str += "[color=green]%d[/color] " % fnp_roll
+			else:
+				dice_str += "[color=red]%d[/color] " % fnp_roll
+		log_text += dice_str + "\n"
+
+		# Show summary
+		if prevented > 0:
+			log_text += "  [color=green]%d/%d wounds prevented[/color]" % [prevented, total]
+		else:
+			log_text += "  [color=red]No wounds prevented[/color]"
+		if remaining > 0:
+			log_text += ", [color=red]%d wounds get through[/color]" % remaining
+		log_text += "\n"
+
+		dice_log_display.append_text(log_text)
+		return
+
 	# TORRENT (PRP-014): Handle auto_hit context for Torrent weapons
 	if context == "auto_hit":
 		var total_attacks = dice_data.get("total_attacks", 0)
