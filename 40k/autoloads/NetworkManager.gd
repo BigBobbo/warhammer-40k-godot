@@ -407,6 +407,20 @@ func _on_web_relay_message(data: Dictionary) -> void:
 					game_state.emit_signal("state_changed")
 				emit_signal("game_started")
 
+		"loaded_state":
+			# Host loaded a saved game mid-session — sync state and refresh UI
+			reset_optimistic_state()
+			var snapshot = data.get("snapshot", {})
+			var save_name = data.get("save_name", "Unknown")
+			print("NetworkManager: Received loaded state via relay")
+			print("NetworkManager: Save name: ", save_name)
+			print("NetworkManager: Snapshot has %d units" % snapshot.get("units", {}).size())
+			if game_state:
+				game_state.load_from_snapshot(snapshot)
+				print("NetworkManager: Loaded state applied, triggering UI refresh")
+				_update_phase_snapshot()
+				_refresh_client_ui_after_load(snapshot)
+
 func _handle_relayed_action(action: Dictionary) -> void:
 	"""Handle an action received from the other player via relay."""
 	if not is_host():
@@ -1172,10 +1186,18 @@ func sync_loaded_state() -> void:
 	print("NetworkManager: Broadcasting to ", peer_count, " connected peers")
 	print("NetworkManager: Connected peer IDs: ", multiplayer.get_peers())
 
-	# Broadcast to all clients
-	_send_loaded_state.rpc(snapshot, save_name)
+	# Broadcast to all clients - use relay if in web relay mode
+	if web_relay_mode:
+		print("NetworkManager: Using web relay to send loaded state")
+		_send_via_relay({
+			"msg_type": "loaded_state",
+			"snapshot": snapshot,
+			"save_name": save_name
+		})
+	else:
+		_send_loaded_state.rpc(snapshot, save_name)
 
-	print("NetworkManager: Loaded state sync RPC sent")
+	print("NetworkManager: Loaded state sync sent")
 	print("NetworkManager: ========================================")
 
 # Initiates game start for both host and all clients
