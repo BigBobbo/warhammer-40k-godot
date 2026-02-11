@@ -1687,50 +1687,24 @@ func _on_disembark_confirmed(unit_id: String) -> void:
 	controller.start_disembark(unit_id)
 
 func _on_disembark_completed(unit_id: String, positions: Array) -> void:
-	"""Handle successful disembark - update game state"""
+	"""Handle successful disembark - route through action system for multiplayer sync"""
 	print("MovementController: Disembark completed for unit %s with %d positions" % [unit_id, positions.size()])
 
-	# Use TransportManager to handle the disembark
-	TransportManager.disembark_unit(unit_id, positions)
+	# Serialize positions for action payload (Vector2 -> dict for network transport)
+	var serialized_positions = []
+	for pos in positions:
+		serialized_positions.append({"x": pos.x, "y": pos.y})
 
-	# CRITICAL: Refresh board visuals to show the disembarked models
-	var main = get_node_or_null("/root/Main")
-	if main and main.has_method("_recreate_unit_visuals"):
-		print("MovementController: Refreshing board visuals after disembark")
-		main._recreate_unit_visuals()
-
-	# Refresh UI to show disembarked unit
-	_refresh_unit_list()
-
-	# Check if the disembarked unit can move
-	var unit = GameState.get_unit(unit_id)
-	if unit and not unit.get("flags", {}).get("cannot_move", false):
-		print("MovementController: Disembarked unit can move")
-		# The MovementPhase will handle initializing movement for the unit
-		# We just need to update our UI to show the unit as selected
-		active_unit_id = unit_id
-		active_mode = "NORMAL"
-
-		# Get unit movement cap
-		if unit:
-			move_cap_inches = get_unit_movement(unit)
-			print("MovementController: Unit %s has movement cap of %d inches" % [unit_id, move_cap_inches])
-
-		# Update UI to show this unit is selected
-		_update_selected_unit_display()
-		_update_fall_back_visibility()
-		emit_signal("ui_update_requested")
-
-		# Find and select the unit in the list
-		for i in range(unit_list.get_item_count()):
-			if unit_list.get_item_metadata(i) == unit_id:
-				unit_list.select(i)
-				break
-	else:
-		print("MovementController: Disembarked unit cannot move (transport already moved)")
-		# Clear selection since unit can't do anything else
-		active_unit_id = ""
-		_update_selected_unit_display()
+	# Route through action system instead of calling TransportManager directly
+	var action = {
+		"type": "CONFIRM_DISEMBARK",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"positions": serialized_positions
+		}
+	}
+	print("MovementController: Routing CONFIRM_DISEMBARK through action system")
+	emit_signal("move_action_requested", action)
 
 func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle canceled disembark"""
