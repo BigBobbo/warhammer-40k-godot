@@ -1863,6 +1863,7 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					"type": weapon.get("type", ""),
 					"range": range_value,  # Convert to int for calculations
 					"attacks": attacks_value,  # Convert to int for calculations
+					"attacks_raw": attacks_str,  # Keep raw string for variable rolling (D3, D6, etc.)
 					"bs": bs_value,  # Convert to int for to-hit rolls
 					"ballistic_skill": bs_str,  # Keep string for UI display
 					"ws": ws_value,  # Convert to int for melee rolls
@@ -1870,6 +1871,7 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					"strength": strength_value,  # Convert to int for calculations
 					"ap": ap_value,  # Convert to int for calculations
 					"damage": damage_value,  # Convert to int for calculations
+					"damage_raw": damage_str,  # Keep raw string for variable rolling (D3, D6, etc.)
 					"special_rules": special_rules,
 					"keywords": keywords
 				}
@@ -2910,6 +2912,57 @@ static func _parse_damage(damage_str: String) -> Dictionary:
 			print("Unknown damage notation: ", damage_str, ", defaulting to 1")
 			return {"min": 1, "max": 1, "dice": ""}
 
+# Roll a variable characteristic string (e.g. "D3", "D6", "D6+1", "D3+3", "2D6", "3")
+# Returns the rolled integer value.
+static func roll_variable_characteristic(value_str: String, rng: RNGService) -> Dictionary:
+	if value_str == null or value_str.is_empty():
+		return {"value": 1, "rolled": false, "notation": "", "roll": 0}
+
+	# If it's a plain integer, return it directly
+	if value_str.is_valid_int():
+		return {"value": int(value_str), "rolled": false, "notation": "", "roll": 0}
+
+	var upper = value_str.to_upper().strip_edges()
+
+	# D3
+	if upper == "D3":
+		var roll = rng.roll_d6(1)[0]
+		var result_val = ((roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
+		return {"value": result_val, "rolled": true, "notation": "D3", "roll": roll}
+
+	# D6
+	if upper == "D6":
+		var roll = rng.roll_d6(1)[0]
+		return {"value": roll, "rolled": true, "notation": "D6", "roll": roll}
+
+	# 2D6
+	if upper == "2D6":
+		var rolls = rng.roll_d6(2)
+		var total = rolls[0] + rolls[1]
+		return {"value": total, "rolled": true, "notation": "2D6", "roll": total}
+
+	# D6+N or D3+N
+	if "+" in upper:
+		var parts = upper.split("+")
+		var dice_part = parts[0].strip_edges()
+		var bonus = int(parts[1].strip_edges()) if parts.size() > 1 and parts[1].strip_edges().is_valid_int() else 0
+
+		if dice_part == "D6":
+			var roll = rng.roll_d6(1)[0]
+			return {"value": roll + bonus, "rolled": true, "notation": upper, "roll": roll}
+		elif dice_part == "D3":
+			var roll = rng.roll_d6(1)[0]
+			var result_val = ((roll - 1) / 2) + 1 + bonus
+			return {"value": result_val, "rolled": true, "notation": upper, "roll": roll}
+
+	# Fallback: try to parse as int, default to 1
+	var fallback = value_str.to_int()
+	if fallback > 0:
+		return {"value": fallback, "rolled": false, "notation": "", "roll": 0}
+
+	print("RulesEngine: Unknown variable characteristic: '%s', defaulting to 1" % value_str)
+	return {"value": 1, "rolled": false, "notation": value_str, "roll": 0}
+
 # Get parsed weapon stats for a unit
 static func get_unit_parsed_weapons(unit_id: String) -> Array:
 	if not GameState:
@@ -3004,145 +3057,332 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 	return result
 
 # Resolve a single melee assignment (models with weapon -> target)
+# Full pipeline mirroring shooting: hit rolls (with critical tracking, Sustained Hits),
+# wound rolls (with Lethal Hits, Devastating Wounds), save rolls (with invulnerable saves),
+# FNP, and damage application.
 static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var result = {
 		"diffs": [],
 		"dice": [],
 		"log_text": ""
 	}
-	
+
 	var attacker_id = assignment.get("attacker", "")
 	var target_id = assignment.get("target", "")
 	var weapon_id = assignment.get("weapon", "")
 	var attacking_models = assignment.get("models", [])
-	
+
 	if weapon_id.is_empty():
 		result.log_text = "No weapon specified for melee attack"
 		return result
-	
+
 	# Get weapon profile (melee weapons use same format as ranged)
-	var weapon = get_weapon_profile(weapon_id)
-	if weapon.is_empty():
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
 		result.log_text = "Weapon profile not found: " + weapon_id
 		return result
-	
+
 	var units = board.get("units", {})
 	var attacker_unit = units.get(attacker_id, {})
 	var target_unit = units.get(target_id, {})
-	
+
 	if attacker_unit.is_empty() or target_unit.is_empty():
 		result.log_text = "Attacker or target unit not found"
 		return result
-	
-	# Calculate total attacks
+
+	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_id)
+	var weapon_name = weapon_profile.get("name", weapon_id)
+
+	# ===== PHASE 1: CALCULATE TOTAL ATTACKS =====
+	# Roll variable attacks per model (D3, D6, etc.) using raw string value
+	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 	var total_attacks = 0
 	var attacker_models = attacker_unit.get("models", [])
-	
+	var model_count = 0
+	var attacks_roll_log = []
+
 	for model_index in range(attacker_models.size()):
 		var model = attacker_models[model_index]
 		if not model.get("alive", true):
 			continue
-			
+
 		# If specific models assigned, check if this model is included
 		if not attacking_models.is_empty() and not str(model_index) in attacking_models:
 			continue
-		
-		# Add attacks from this model
-		var weapon_attacks = weapon.get("attacks", 1)
-		total_attacks += weapon_attacks
-	
+
+		model_count += 1
+		# Roll variable attacks for each model separately (per 10e rules)
+		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
+		total_attacks += attacks_result.value
+		if attacks_result.rolled:
+			attacks_roll_log.append(attacks_result)
+
 	if total_attacks == 0:
 		result.log_text = "No valid attacking models"
 		return result
-	
-	# Get combat stats
-	var attacker_stats = attacker_unit.get("meta", {}).get("stats", {})
-	var target_stats = target_unit.get("meta", {}).get("stats", {})
-	
-	var weapon_skill = attacker_stats.get("weapon_skill", 4)
-	var strength = weapon.get("strength", attacker_stats.get("strength", 3))
-	var toughness = target_stats.get("toughness", 4)
-	var ap = weapon.get("ap", 0)
-	var damage = weapon.get("damage", 1)
-	var armor_save = target_stats.get("save", 6)
-	
-	# Roll to hit (using Weapon Skill instead of Ballistic Skill)
-	var hit_rolls = rng.roll_d6(total_attacks)
+
+	# ===== PHASE 2: GET COMBAT STATS =====
+	# Use WS from weapon profile (10e: WS is on the weapon, not the unit)
+	var ws = weapon_profile.get("ws", 4)
+	var strength = weapon_profile.get("strength", 4)
+	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var ap = weapon_profile.get("ap", 0)
+	var damage = weapon_profile.get("damage", 1)
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+
+	# ===== PHASE 3: DETECT WEAPON ABILITIES =====
+	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+	var sustained_data = get_sustained_hits_value(weapon_id, board)
+	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board)
+
+	print("RulesEngine: Melee %s (%s) → %s: %d attacks, WS %d+, S%d, AP%d, D%d" % [
+		attacker_name, weapon_name, target_name, total_attacks, ws, strength, ap, damage
+	])
+	if weapon_has_lethal_hits:
+		print("RulesEngine:   Weapon has LETHAL HITS")
+	if sustained_data.value > 0:
+		print("RulesEngine:   Weapon has SUSTAINED HITS %s" % (("D%d" % sustained_data.value) if sustained_data.is_dice else str(sustained_data.value)))
+	if weapon_has_devastating_wounds:
+		print("RulesEngine:   Weapon has DEVASTATING WOUNDS")
+
+	# ===== PHASE 4: HIT ROLLS =====
 	var hits = 0
-	for roll in hit_rolls:
-		if roll >= weapon_skill:
-			hits += 1
+	var critical_hits = 0
+	var regular_hits = 0
+	var sustained_bonus_hits = 0
+	var sustained_result = {"bonus_hits": 0, "rolls": []}
+	var total_hits_for_wounds = 0
+	var hit_rolls = []
 
-	# Aggregate dice block (like shooting phase)
-	result.dice.append({
-		"context": "hit_roll_melee",
-		"threshold": str(weapon_skill) + "+",
-		"rolls_raw": hit_rolls,
-		"successes": hits,
-		"weapon": weapon_id,
-		"total_attacks": total_attacks
-	})
-	
-	if hits == 0:
-		result.log_text = "Melee: %d attacks, 0 hits" % total_attacks
+	if is_torrent:
+		# TORRENT: All attacks automatically hit - no roll needed
+		hits = total_attacks
+		regular_hits = total_attacks
+		critical_hits = 0  # No crits possible without rolling
+		total_hits_for_wounds = hits
+
+		result.dice.append({
+			"context": "auto_hit_melee",
+			"torrent_weapon": true,
+			"total_attacks": total_attacks,
+			"successes": hits,
+			"message": "Torrent: %d automatic hits" % hits,
+			"weapon": weapon_id
+		})
+	else:
+		# Normal hit roll using Weapon Skill
+		hit_rolls = rng.roll_d6(total_attacks)
+
+		for i in range(hit_rolls.size()):
+			var roll = hit_rolls[i]
+			var unmodified_roll = roll
+
+			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			if unmodified_roll == 1:
+				pass  # Auto-miss
+			elif unmodified_roll == 6 or roll >= ws:
+				hits += 1
+				# Critical hit = unmodified 6 (BEFORE modifiers)
+				if unmodified_roll == 6:
+					critical_hits += 1
+				else:
+					regular_hits += 1
+
+		# SUSTAINED HITS: Generate bonus hits on critical hits
+		if sustained_data.value > 0 and critical_hits > 0:
+			sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
+			sustained_bonus_hits = sustained_result.bonus_hits
+
+		# Total hits for wound rolls = regular hits + critical hits + bonus from Sustained
+		# (If Lethal Hits: critical hits auto-wound, but sustained bonus hits still roll)
+		total_hits_for_wounds = hits + sustained_bonus_hits
+
+		result.dice.append({
+			"context": "hit_roll_melee",
+			"threshold": str(ws) + "+",
+			"rolls_raw": hit_rolls,
+			"successes": hits,
+			"weapon": weapon_id,
+			"total_attacks": total_attacks,
+			# Critical hit tracking
+			"critical_hits": critical_hits,
+			"regular_hits": regular_hits,
+			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# Sustained Hits tracking
+			"sustained_hits_weapon": sustained_data.value > 0,
+			"sustained_hits_value": sustained_data.value,
+			"sustained_hits_is_dice": sustained_data.is_dice,
+			"sustained_bonus_hits": sustained_bonus_hits,
+			"sustained_rolls": sustained_result.rolls,
+			"total_hits_for_wounds": total_hits_for_wounds
+		})
+
+	if hits == 0 and sustained_bonus_hits == 0:
+		result.log_text = "Melee: %s (%s) → %s: %d attacks, 0 hits" % [attacker_name, weapon_name, target_name, total_attacks]
 		return result
-	
-	# Roll to wound (same logic as shooting)
-	var wound_target = _calculate_wound_threshold(strength, toughness)
-	var wound_rolls = rng.roll_d6(hits)
-	var wounds = 0
-	for roll in wound_rolls:
-		if roll >= wound_target:
-			wounds += 1
 
-	# Aggregate dice block
+	# ===== PHASE 5: WOUND ROLLS =====
+	# With Lethal Hits, Sustained Hits, and Devastating Wounds interactions
+	var wound_threshold = _calculate_wound_threshold(strength, toughness)
+
+	var auto_wounds = 0  # From Lethal Hits
+	var wounds_from_rolls = 0
+	var wound_rolls = []
+	var critical_wound_count = 0  # Unmodified 6s to wound (for Devastating Wounds)
+	var regular_wound_count = 0
+
+	if weapon_has_lethal_hits and not is_torrent:
+		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
+		auto_wounds = critical_hits
+		# Per 10e: Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
+		# Critical wounds for DW require unmodified 6 on the WOUND roll
+
+		# Roll wounds for: regular hits + sustained bonus hits (sustained bonus hits always roll)
+		var hits_to_roll = regular_hits + sustained_bonus_hits
+		if hits_to_roll > 0:
+			wound_rolls = rng.roll_d6(hits_to_roll)
+			for roll in wound_rolls:
+				if roll >= wound_threshold:
+					wounds_from_rolls += 1
+					if weapon_has_devastating_wounds and roll == 6:
+						critical_wound_count += 1
+					else:
+						regular_wound_count += 1
+
+		# Lethal Hits auto-wounds go to regular wounds (not critical for DW)
+		regular_wound_count += auto_wounds
+	else:
+		# Normal processing - all hits (including sustained bonus) roll to wound
+		if total_hits_for_wounds > 0:
+			wound_rolls = rng.roll_d6(total_hits_for_wounds)
+			for roll in wound_rolls:
+				if roll >= wound_threshold:
+					wounds_from_rolls += 1
+					if weapon_has_devastating_wounds and roll == 6:
+						critical_wound_count += 1
+					else:
+						regular_wound_count += 1
+
+	var wounds_caused = auto_wounds + wounds_from_rolls
+
 	result.dice.append({
-		"context": "wound_roll",
-		"threshold": str(wound_target) + "+",
+		"context": "wound_roll_melee",
+		"threshold": str(wound_threshold) + "+",
 		"rolls_raw": wound_rolls,
-		"successes": wounds,
+		"successes": wounds_caused,
 		"strength": strength,
-		"toughness": toughness
+		"toughness": toughness,
+		# Lethal Hits tracking
+		"lethal_hits_auto_wounds": auto_wounds,
+		"wounds_from_rolls": wounds_from_rolls,
+		"lethal_hits_weapon": weapon_has_lethal_hits,
+		# Sustained Hits tracking
+		"sustained_bonus_hits_rolled": sustained_bonus_hits,
+		# Devastating Wounds tracking
+		"devastating_wounds_weapon": weapon_has_devastating_wounds,
+		"critical_wounds": critical_wound_count,
+		"regular_wounds": regular_wound_count
 	})
-	
-	if wounds == 0:
-		result.log_text = "Melee: %d attacks, %d hits, 0 wounds" % [total_attacks, hits]
+
+	if wounds_caused == 0:
+		var hit_text = "%d hits" % hits
+		if sustained_bonus_hits > 0:
+			hit_text += " (+%d sustained)" % sustained_bonus_hits
+		result.log_text = "Melee: %s (%s) → %s: %d attacks, %s, 0 wounds" % [attacker_name, weapon_name, target_name, total_attacks, hit_text]
 		return result
-	
-	# Apply armor saves (same logic as shooting)
-	var modified_save = armor_save - ap
-	var save_rolls = rng.roll_d6(wounds)
+
+	# ===== PHASE 6: SAVE ROLLS =====
+	# With invulnerable saves and Devastating Wounds (bypass saves)
+
+	# Devastating Wounds: Critical wounds (unmodified 6s to wound) bypass saves entirely
+	var wounds_needing_saves = regular_wound_count if weapon_has_devastating_wounds else wounds_caused
+	var devastating_wound_count = critical_wound_count if weapon_has_devastating_wounds else 0
+	var devastating_damage = devastating_wound_count * damage
+
+	var failed_saves = 0
 	var successful_saves = 0
-	for roll in save_rolls:
-		# 10e rules: Unmodified save roll of 1 always fails
-		if roll > 1 and roll >= modified_save:
-			successful_saves += 1
+	var save_rolls = []
+	var save_threshold = 7  # Default: impossible to save
 
-	var failed_saves = wounds - successful_saves
+	if wounds_needing_saves > 0:
+		# Calculate save needed using proper invulnerable save logic
+		# In melee, no cover applies (cover is for ranged attacks)
+		# Get invulnerable save from first alive target model
+		var target_models = target_unit.get("models", [])
+		var invuln = 0
+		for model in target_models:
+			if model.get("alive", true):
+				invuln = model.get("invuln", 0)
+				break
+		# Also check unit-level invuln in meta stats
+		if invuln == 0:
+			invuln = target_unit.get("meta", {}).get("stats", {}).get("invuln", 0)
 
-	# Aggregate dice block
+		var save_info = _calculate_save_needed(base_save, ap, false, invuln)  # No cover in melee
+		save_threshold = save_info.inv if save_info.use_invuln else save_info.armour
+
+		save_rolls = rng.roll_d6(wounds_needing_saves)
+		for roll in save_rolls:
+			# 10e rules: Unmodified save roll of 1 always fails
+			if roll > 1 and roll >= save_threshold:
+				successful_saves += 1
+
+		failed_saves = wounds_needing_saves - successful_saves
+
+	# Total unsaved wounds = failed regular saves + devastating wounds (bypass saves)
+	var total_unsaved = failed_saves + devastating_wound_count
+
 	result.dice.append({
-		"context": "save_roll",
-		"threshold": str(modified_save) + "+",
+		"context": "save_roll_melee",
+		"threshold": str(save_threshold) + "+",
 		"rolls_raw": save_rolls,
 		"successes": successful_saves,
 		"failed": failed_saves,
 		"ap": ap,
-		"original_save": armor_save
+		"original_save": base_save,
+		"using_invuln": save_threshold != (base_save + ap) and save_threshold < 7,
+		# Devastating Wounds tracking
+		"devastating_wounds_bypassed": devastating_wound_count,
+		"devastating_damage": devastating_damage
 	})
-	
-	if failed_saves == 0:
-		result.log_text = "Melee: %d attacks, %d hits, %d wounds, 0 failed saves" % [total_attacks, hits, wounds]
+
+	if total_unsaved == 0:
+		var hit_text = "%d hits" % hits
+		if sustained_bonus_hits > 0:
+			hit_text += " (+%d sustained)" % sustained_bonus_hits
+		result.log_text = "Melee: %s (%s) → %s: %d attacks, %s, %d wounds, all saved!" % [attacker_name, weapon_name, target_name, total_attacks, hit_text, wounds_caused]
 		return result
 
-	# FEEL NO PAIN: Roll FNP for total potential wounds before applying damage
-	var total_potential_wounds = failed_saves * damage
+	# ===== PHASE 7: DAMAGE APPLICATION =====
+	# Roll variable damage per unsaved wound (D3, D6, etc.)
+	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	var regular_damage = 0
+	var damage_roll_log = []
+	for _i in range(failed_saves):
+		var dmg_result = roll_variable_characteristic(damage_raw, rng)
+		regular_damage += dmg_result.value
+		if dmg_result.rolled:
+			damage_roll_log.append(dmg_result)
+
+	# Devastating wounds also use per-wound variable damage
+	devastating_damage = 0
+	for _i in range(devastating_wound_count):
+		var dmg_result = roll_variable_characteristic(damage_raw, rng)
+		devastating_damage += dmg_result.value
+		if dmg_result.rolled:
+			damage_roll_log.append(dmg_result)
+
+	var total_damage = regular_damage + devastating_damage
+
+	# FEEL NO PAIN: Roll FNP for total damage before applying
 	var fnp_value = get_unit_fnp(target_unit)
-	var actual_wounds = total_potential_wounds
+	var actual_damage = total_damage
 
 	if fnp_value > 0:
-		var fnp_result = roll_feel_no_pain(total_potential_wounds, fnp_value, rng)
-		actual_wounds = fnp_result.wounds_remaining
+		var fnp_result = roll_feel_no_pain(total_damage, fnp_value, rng)
+		actual_damage = fnp_result.wounds_remaining
 		result.dice.append({
 			"context": "feel_no_pain",
 			"threshold": str(fnp_value) + "+",
@@ -3150,24 +3390,38 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			"fnp_value": fnp_value,
 			"wounds_prevented": fnp_result.wounds_prevented,
 			"wounds_remaining": fnp_result.wounds_remaining,
-			"total_wounds": total_potential_wounds
+			"total_wounds": total_damage
 		})
-		print("RulesEngine: Melee FNP %d+ — %d/%d wounds prevented" % [fnp_value, fnp_result.wounds_prevented, total_potential_wounds])
+		print("RulesEngine: Melee FNP %d+ — %d/%d damage prevented" % [fnp_value, fnp_result.wounds_prevented, total_damage])
 
-	if actual_wounds == 0:
-		result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [total_attacks, hits, wounds, failed_saves]
+	if actual_damage == 0:
+		result.log_text = "Melee: %s (%s) → %s: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [attacker_name, weapon_name, target_name, total_attacks, hits, wounds_caused, total_unsaved]
 		return result
 
-	# Apply damage to target unit using pool (FNP may have reduced total)
+	# Apply damage to target unit
 	var target_models = target_unit.get("models", [])
-	var damage_result = _apply_damage_to_unit_pool(target_id, actual_wounds, target_models, board)
+	var damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
 	result.diffs.append_array(damage_result.diffs)
 
-	var fnp_text = ""
+	# ===== BUILD LOG TEXT =====
+	var log_parts = []
+	var hit_text = "%d hits" % hits
+	if sustained_bonus_hits > 0:
+		hit_text += " (+%d sustained)" % sustained_bonus_hits
+	log_parts.append("Melee: %s (%s) → %s: %d attacks, %s, %d wounds" % [attacker_name, weapon_name, target_name, total_attacks, hit_text, wounds_caused])
+
+	if weapon_has_lethal_hits and auto_wounds > 0:
+		log_parts.append("%d lethal" % auto_wounds)
+	if weapon_has_devastating_wounds and devastating_wound_count > 0:
+		log_parts.append("%d DEVASTATING (unsaveable)" % devastating_wound_count)
+
+	log_parts.append("%d casualties" % damage_result.casualties)
+
 	if fnp_value > 0:
-		var prevented = total_potential_wounds - actual_wounds
-		fnp_text = ", FNP prevented %d wounds" % prevented
-	result.log_text = "Melee: %d attacks, %d hits, %d wounds, %d casualties%s" % [total_attacks, hits, wounds, damage_result.casualties, fnp_text]
+		var prevented = total_damage - actual_damage
+		log_parts.append("FNP prevented %d" % prevented)
+
+	result.log_text = ", ".join(log_parts)
 
 	return result
 
