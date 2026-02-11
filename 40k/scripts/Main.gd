@@ -31,6 +31,7 @@ var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
 var deployment_controller: Node
+var coherency_banner: PanelContainer = null
 var command_controller: Node
 var movement_controller: Node
 var shooting_controller: Node
@@ -932,6 +933,9 @@ func setup_phase_controllers() -> void:
 	if deployment_controller:
 		deployment_controller.queue_free()
 		deployment_controller = null
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.queue_free()
+		coherency_banner = null
 	if command_controller:
 		command_controller.queue_free()
 		command_controller = null
@@ -1029,9 +1033,89 @@ func setup_deployment_controller() -> void:
 	# Connect controller signals
 	deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
 	deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
+	deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
+
+	# Setup coherency warning banner
+	_setup_coherency_banner()
 
 	# Add formation UI controls to unit card
 	_setup_formation_ui()
+
+func _setup_coherency_banner() -> void:
+	# Remove any existing banner
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.queue_free()
+
+	# Create a non-blocking yellow warning banner
+	coherency_banner = PanelContainer.new()
+	coherency_banner.name = "CoherencyBanner"
+
+	# Style the panel with yellow/amber warning colors
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = Color(0.85, 0.65, 0.0, 0.9)  # Amber/yellow
+	style_box.border_color = Color(0.7, 0.5, 0.0, 1.0)
+	style_box.set_border_width_all(2)
+	style_box.set_corner_radius_all(4)
+	style_box.content_margin_left = 12
+	style_box.content_margin_right = 12
+	style_box.content_margin_top = 6
+	style_box.content_margin_bottom = 6
+	coherency_banner.add_theme_stylebox_override("panel", style_box)
+
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var icon_label = Label.new()
+	icon_label.text = "WARNING"
+	icon_label.add_theme_font_size_override("font_size", 14)
+	icon_label.add_theme_color_override("font_color", Color(0.3, 0.2, 0.0))
+	var bold_font = SystemFont.new()
+	bold_font.font_weight = 700
+	icon_label.add_theme_font_override("font", bold_font)
+	hbox.add_child(icon_label)
+
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(8, 0)
+	hbox.add_child(spacer)
+
+	var msg_label = Label.new()
+	msg_label.name = "MessageLabel"
+	msg_label.text = ""
+	msg_label.add_theme_font_size_override("font_size", 14)
+	msg_label.add_theme_color_override("font_color", Color(0.2, 0.1, 0.0))
+	hbox.add_child(msg_label)
+
+	coherency_banner.add_child(hbox)
+
+	# Position at top-center, below the HUD top bar
+	coherency_banner.anchor_left = 0.5
+	coherency_banner.anchor_right = 0.5
+	coherency_banner.anchor_top = 0.0
+	coherency_banner.anchor_bottom = 0.0
+	coherency_banner.offset_left = -200
+	coherency_banner.offset_right = 200
+	coherency_banner.offset_top = 110
+	coherency_banner.offset_bottom = 140
+
+	# Start hidden
+	coherency_banner.visible = false
+	coherency_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	add_child(coherency_banner)
+
+func _on_coherency_warning_changed(is_incoherent: bool, message: String) -> void:
+	if not coherency_banner or not is_instance_valid(coherency_banner):
+		return
+
+	if is_incoherent:
+		var msg_label = coherency_banner.get_node("HBoxContainer/MessageLabel")
+		if msg_label:
+			msg_label.text = message
+		coherency_banner.visible = true
+		print("[Main] Coherency banner shown: %s" % message)
+	else:
+		coherency_banner.visible = false
+		print("[Main] Coherency banner hidden")
 
 func _setup_formation_ui() -> void:
 	# Check if formation controls already exist
@@ -1330,6 +1414,8 @@ func connect_signals() -> void:
 	if deployment_controller:
 		deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
 		deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
+		if deployment_controller.has_signal("coherency_warning_changed") and not deployment_controller.coherency_warning_changed.is_connected(_on_coherency_warning_changed):
+			deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
 	
 	# Connect save/load signals
 	SaveLoadManager.save_completed.connect(_on_save_completed)
@@ -1943,6 +2029,9 @@ func _on_confirm_pressed() -> void:
 				_on_movement_action_requested(action)
 
 func _on_unit_confirmed() -> void:
+	# Hide coherency warning when unit is confirmed
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.visible = false
 	unit_card.visible = false
 	unit_list.visible = true
 	refresh_unit_list()
