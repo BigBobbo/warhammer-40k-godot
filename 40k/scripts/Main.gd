@@ -2988,6 +2988,35 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					if movement_controller:
 						movement_controller.active_unit_id = ""
 						movement_controller.active_mode = ""
+				"CONFIRM_DISEMBARK":
+					print("Main: Disembark confirmed for unit: ", action.actor_unit_id)
+					# Refresh board visuals to show the disembarked models
+					_recreate_unit_visuals()
+					# Refresh unit list
+					refresh_unit_list()
+					# Check if the disembarked unit can move
+					var disembarked_unit = GameState.get_unit(action.actor_unit_id)
+					if disembarked_unit and not disembarked_unit.get("flags", {}).get("cannot_move", false):
+						print("Main: Disembarked unit can move, selecting for movement")
+						if movement_controller:
+							movement_controller.active_unit_id = action.actor_unit_id
+							movement_controller.active_mode = "NORMAL"
+							var move_cap = movement_controller.get_unit_movement(disembarked_unit)
+							movement_controller.move_cap_inches = move_cap
+							print("Main: Unit %s has movement cap of %d inches" % [action.actor_unit_id, move_cap])
+							movement_controller._update_selected_unit_display()
+							movement_controller._update_fall_back_visibility()
+							movement_controller.emit_signal("ui_update_requested")
+							# Select the unit in the list
+							for i in range(movement_controller.unit_list.get_item_count()):
+								if movement_controller.unit_list.get_item_metadata(i) == action.actor_unit_id:
+									movement_controller.unit_list.select(i)
+									break
+					else:
+						print("Main: Disembarked unit cannot move (transport already moved)")
+						if movement_controller:
+							movement_controller.active_unit_id = ""
+							movement_controller._update_selected_unit_display()
 
 			# Update UI after successful action
 			update_movement_card_buttons()
