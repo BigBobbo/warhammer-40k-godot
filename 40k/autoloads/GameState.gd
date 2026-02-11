@@ -336,6 +336,37 @@ func advance_battle_round() -> void:
 func is_game_complete() -> bool:
 	return get_battle_round() > 5
 
+# Battle-shock: Below Half-Strength Check
+# Per 10th edition rules:
+# - Multi-model unit: fewer than half its starting models alive
+# - Single-model unit: fewer than half its starting wounds remaining
+func is_below_half_strength(unit: Dictionary) -> bool:
+	var models = unit.get("models", [])
+	if models.size() == 0:
+		return false
+
+	var total_models = models.size()
+	var alive_models = 0
+	for model in models:
+		if model.get("alive", true):
+			alive_models += 1
+
+	# If all models are dead, the unit is destroyed (not below half strength - it's gone)
+	if alive_models == 0:
+		return false
+
+	if total_models == 1:
+		# Single-model unit: check wounds
+		var model = models[0]
+		var max_wounds = model.get("wounds", 1)
+		var current_wounds = model.get("current_wounds", max_wounds)
+		# Below half: current_wounds * 2 < max_wounds
+		return current_wounds * 2 < max_wounds
+	else:
+		# Multi-model unit: check alive count
+		# Below half: alive_models * 2 < total_models
+		return alive_models * 2 < total_models
+
 func add_action_to_phase_log(action: Dictionary) -> void:
 	state["phase_log"].append(action)
 
