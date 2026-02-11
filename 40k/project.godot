@@ -50,6 +50,7 @@ CloudStorage="*res://autoloads/CloudStorage.gd"
 WebSocketRelay="*res://autoloads/WebSocketRelay.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
 SpriteResolver="*res://autoloads/SpriteResolver.gd"
+ToastManager="*res://autoloads/ToastManager.gd"
 
 [display]
 

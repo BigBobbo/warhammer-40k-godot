@@ -857,29 +857,20 @@ func _toggle_los_debug() -> void:
 		print("LoS debug visual not found")
 
 func _show_toast(message: String, duration: float = 2.0) -> void:
-	# Show a temporary message on screen
-	var toast = Label.new()
-	toast.text = message
-	toast.add_theme_font_size_override("font_size", 20)
-	toast.add_theme_color_override("font_color", Color.YELLOW)
-	toast.add_theme_color_override("font_shadow_color", Color.BLACK)
-	toast.add_theme_constant_override("shadow_offset_x", 2)
-	toast.add_theme_constant_override("shadow_offset_y", 2)
-
-	# Position at top center
-	var viewport_size = get_viewport().get_visible_rect().size
-	toast.position = Vector2(viewport_size.x / 2 - 100, 150)
-
-	add_child(toast)
-
-	# Auto-remove after duration
-	await get_tree().create_timer(duration).timeout
-	if is_instance_valid(toast):
-		toast.queue_free()
+	# Route through global ToastManager for consistent on-screen display
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast(message, Color.YELLOW, duration)
+	else:
+		print("[Toast fallback] %s" % message)
 
 func show_error_toast(message: String) -> void:
 	# Public wrapper for showing error toasts (called by NetworkManager)
-	_show_toast("ERROR: " + message, 5.0)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_error(message)
+	else:
+		print("[Toast ERROR fallback] %s" % message)
 
 func _setup_save_load_dialog() -> void:
 	# Load and instantiate the SaveLoadDialog scene
