@@ -89,17 +89,34 @@ func _setup_right_panel() -> void:
 	var info_label = Label.new()
 	var current_player = GameState.get_active_player()
 	var battle_round = GameState.get_battle_round()
-	info_label.text = "Battle Round: %d\nActive Player: %d\n\nThis is a placeholder command phase.\n\nFuture features:\n• Command Points management\n• Strategic abilities\n• Battle tactics\n\nClick 'End Command Phase' to proceed to Movement." % [battle_round, current_player]
+	info_label.text = "Battle Round: %d\nActive Player: %d\n\n+1 CP gained at start of Command Phase.\n\nFuture features:\n• Stratagems\n• Strategic abilities\n• Battle tactics\n\nClick 'End Command Phase' to proceed to Movement." % [battle_round, current_player]
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	command_panel.add_child(info_label)
 	
 	command_panel.add_child(HSeparator.new())
 	
-	# Placeholder for future command point display
-	var cp_label = Label.new()
-	cp_label.text = "Command Points: Not Implemented"
-	cp_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	command_panel.add_child(cp_label)
+	# Command Points display
+	var cp_section = VBoxContainer.new()
+	cp_section.name = "CPSection"
+	command_panel.add_child(cp_section)
+
+	var cp_title = Label.new()
+	cp_title.text = "Command Points"
+	cp_title.add_theme_font_size_override("font_size", 14)
+	cp_section.add_child(cp_title)
+
+	var p1_cp = GameState.state.get("players", {}).get("1", {}).get("cp", 0)
+	var p2_cp = GameState.state.get("players", {}).get("2", {}).get("cp", 0)
+
+	var p1_cp_label = Label.new()
+	p1_cp_label.text = "Player 1: %d CP" % p1_cp
+	p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	cp_section.add_child(p1_cp_label)
+
+	var p2_cp_label = Label.new()
+	p2_cp_label.text = "Player 2: %d CP" % p2_cp
+	p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	cp_section.add_child(p2_cp_label)
 	
 	# Add objective status section
 	command_panel.add_child(HSeparator.new())

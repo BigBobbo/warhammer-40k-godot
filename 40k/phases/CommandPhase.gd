@@ -9,12 +9,36 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
-	print("CommandPhase: Entering command phase for player ", get_current_player())
+	var current_player = get_current_player()
+	print("CommandPhase: Entering command phase for player ", current_player)
 	print("CommandPhase: Battle round ", GameState.get_battle_round())
-	
+
+	# Per 10th edition core rules: "At the start of each player's Command phase,
+	# that player gains 1CP."
+	_generate_command_points(current_player)
+
 	# Check objectives at start of command phase
 	if MissionManager:
 		MissionManager.check_all_objectives()
+
+func _generate_command_points(player: int) -> void:
+	var player_key = str(player)
+	var current_cp = game_state_snapshot.get("players", {}).get(player_key, {}).get("cp", 0)
+	var new_cp = current_cp + 1
+
+	print("CommandPhase: Generating 1 CP for player %d (%d -> %d)" % [player, current_cp, new_cp])
+
+	var changes = [
+		{
+			"op": "set",
+			"path": "players.%s.cp" % player_key,
+			"value": new_cp
+		}
+	]
+	PhaseManager.apply_state_changes(changes)
+
+	# Refresh local snapshot after state change
+	game_state_snapshot = GameState.create_snapshot()
 
 func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")
