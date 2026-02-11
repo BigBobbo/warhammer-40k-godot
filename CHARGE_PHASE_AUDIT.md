@@ -110,28 +110,17 @@ The phase only checks failure during APPLY_CHARGE_MOVE, not during CHARGE_ROLL i
 
 ## 3. Multiplayer Issues
 
-### 3.1 CRITICAL: No Charge Phase Signals in `_emit_client_visual_updates()`
+### 3.1 ~~CRITICAL: No Charge Phase Signals in `_emit_client_visual_updates()`~~ — FIXED
 
-**File:** `NetworkManager.gd:808-1046`
+> **Resolved in commit `63748bc`** — Added charge phase signal re-emission block in `NetworkManager.gd:1046-1117`.
 
-The `_emit_client_visual_updates()` function re-emits phase-specific signals to clients after the host processes actions. It handles:
-- Movement phase: `model_drop_committed`
-- Shooting phase: `unit_selected_for_shooting`, `targets_available`, `weapon_order_required`, `next_weapon_confirmation_required`, `saves_required`
-- Fight phase: `saves_required`, `fight_selection_required`, `pile_in_required`, `attack_assignment_required`, `consolidate_required`
+**What was added:**
+- `SELECT_CHARGE_UNIT` → re-emits `unit_selected_for_charge`
+- `DECLARE_CHARGE` → re-emits `targets_declared`, `charge_targets_available`
+- `CHARGE_ROLL` → re-emits `charge_roll_made`, `charge_path_tools_enabled` (plus existing generic `dice_rolled`)
+- `APPLY_CHARGE_MOVE` → re-emits `charge_resolved` with success/failure inferred from position diffs
 
-**Missing entirely:** No charge phase signals are re-emitted. This means:
-- `charge_roll_made` — Client doesn't receive the charge roll result through the standard signal path
-- `charge_resolved` — Client doesn't know a charge succeeded or failed
-- `charge_targets_available` — Client doesn't see target highlights
-- `charge_path_tools_enabled` — Client doesn't enable movement tools
-
-**Partial workaround:** The `dice_rolled` signal carries charge roll data including targets, and `ChargeController._on_dice_rolled()` (line 1613) handles this for some sync. But this is fragile and doesn't cover all charge actions.
-
-**Impact:** The defending player (client) likely sees incomplete or no UI updates during the opponent's charge phase. They may not see:
-- Which units are being charged
-- The charge roll result
-- Whether the charge succeeded or failed
-- The final positions of charged models (model position changes ARE synced via state diffs, but the visual feedback is missing)
+Clients now receive all charge phase visual updates through the standard signal re-emission path, matching the pattern used by movement, shooting, and fight phases.
 
 ### 3.2 HIGH: Charge Actions Not in DETERMINISTIC_ACTIONS
 
@@ -255,8 +244,8 @@ This duplication creates a risk of divergence. The controller's check uses `Meas
 ## 6. Priority Summary
 
 ### Must Fix (Rules/Multiplayer Correctness)
-1. **Add charge phase signal re-emission in NetworkManager** — Defending player sees nothing during opponent's charges
-2. **Record failed charge attempts in phase state** — Broadcast failure to both players
+1. ~~**Add charge phase signal re-emission in NetworkManager**~~ — **DONE** (commit `63748bc`)
+2. **Record failed charge attempts in phase state** — Broadcast failure to both players ← **RECOMMENDED NEXT**
 3. **Implement base-to-base enforcement** — Currently stubbed, rules require it
 
 ### Should Fix (Rules Compliance)
