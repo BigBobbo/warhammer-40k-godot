@@ -892,7 +892,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("║ last_weapon_result.size(): ", last_weapon_result.size())
 			print("║ last_weapon_result.weapon_name: ", last_weapon_result.get("weapon_name", "MISSING"))
 			print("║ Local peer: ", multiplayer.get_unique_id())
-			print("║ Local player: ", peer_to_player_map.get(multiplayer.get_unique_id(), -1))
+			print("║ Local player: ", get_local_player())
 			print("║ Active player: ", game_state.get_active_player() if game_state else -1)
 
 			# Validate remaining weapons
@@ -945,8 +945,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var target_unit = GameState.get_unit(target_unit_id)
 				var defender_player = target_unit.get("owner", -1)
 
-				var local_peer_id = multiplayer.get_unique_id()
-				var local_player = peer_to_player_map.get(local_peer_id, -1)
+				var local_player = get_local_player()
 
 				print("NetworkManager:   Defender check: local=%d, defender=%d" % [local_player, defender_player])
 

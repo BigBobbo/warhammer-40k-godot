@@ -467,8 +467,7 @@ func _refresh_unit_list() -> void:
 
 		if NetworkManager.is_networked():
 			# In multiplayer: Only auto-select if it's our turn
-			var local_peer_id = multiplayer.get_unique_id()
-			var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+			var local_player = NetworkManager.get_local_player()
 			var active_player = current_phase.get_current_player() if current_phase else -1
 			should_auto_select = (local_player == active_player)
 		else:
@@ -1357,12 +1356,10 @@ func _on_saves_required(save_data_list: Array) -> void:
 	print("║ PLAYER ROLE CHECK")
 
 	if NetworkManager.is_networked():
-		var local_peer_id = multiplayer.get_unique_id()
-		local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		local_player = NetworkManager.get_local_player()
 		should_show_dialog = (local_player == defender_player)
 		print("║ Mode: MULTIPLAYER")
-		print("║ Local peer ID: ", local_peer_id)
-		print("║ Local player: ", local_player)
+		print("║ Local player (via get_local_player): ", local_player)
 		print("║ Defender player: ", defender_player)
 		print("║ Should show dialog: ", should_show_dialog)
 	else:
@@ -1465,8 +1462,7 @@ func _on_weapon_order_required(assignments: Array) -> void:
 
 	if NetworkManager.is_networked():
 		# Multiplayer: Only show dialog if this peer is the attacker
-		var local_peer_id = multiplayer.get_unique_id()
-		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		var local_player = NetworkManager.get_local_player()
 		var active_player = current_phase.get_current_player() if current_phase else -1
 		print("ShootingController: local_player = %d, active_player = %d" % [local_player, active_player])
 		should_show_dialog = (local_player == active_player)
@@ -1581,8 +1577,7 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	var should_show_dialog = false
 
 	if NetworkManager.is_networked():
-		var local_peer_id = multiplayer.get_unique_id()
-		var local_player = NetworkManager.peer_to_player_map.get(local_peer_id, -1)
+		var local_player = NetworkManager.get_local_player()
 		var active_player = current_phase.get_current_player() if current_phase else -1
 		should_show_dialog = (local_player == active_player)
 		print("ShootingController: local_player=%d, active_player=%d, should_show=%s" % [local_player, active_player, should_show_dialog])
