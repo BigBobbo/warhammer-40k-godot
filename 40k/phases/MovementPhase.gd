@@ -116,6 +116,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_disembark_unit(action)
 		"CONFIRM_DISEMBARK":
 			return _validate_confirm_disembark(action)
+		"EMBARK_UNIT":
+			return _validate_embark_unit(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -154,6 +156,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_disembark_unit(action)
 		"CONFIRM_DISEMBARK":
 			return _process_confirm_disembark(action)
+		"EMBARK_UNIT":
+			return _process_embark_unit(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1652,7 +1656,9 @@ func _check_embark_opportunity(unit_id: String) -> void:
 				return  # Only show one prompt at a time
 
 func _show_embark_prompt(unit_id: String, transport_id: String) -> void:
-	"""Show dialog asking if player wants to embark unit"""
+	"""Show dialog asking if player wants to embark unit.
+	On confirm, routes through the action system via NetworkIntegration
+	so the embark is validated and synchronized across all clients."""
 	var dialog = ConfirmationDialog.new()
 	var unit = get_unit(unit_id)
 	var transport = get_unit(transport_id)
@@ -1667,11 +1673,17 @@ func _show_embark_prompt(unit_id: String, transport_id: String) -> void:
 	dialog.get_cancel_button().text = "Stay Deployed"
 
 	dialog.confirmed.connect(func():
-		TransportManager.embark_unit(unit_id, transport_id)
-		log_phase_message("Unit %s embarked in transport %s" % [
-			unit.meta.get("name", unit_id),
-			transport.meta.get("name", transport_id)
-		])
+		# Route through action system for network synchronization
+		var action = {
+			"type": "EMBARK_UNIT",
+			"actor_unit_id": unit_id,
+			"payload": {
+				"transport_id": transport_id
+			}
+		}
+		var result = NetworkIntegration.route_action(action)
+		if not result.get("success", false) and not result.get("pending", false):
+			log_phase_message("Embark action failed: %s" % str(result.get("errors", result.get("error", "unknown"))))
 		dialog.queue_free()
 	)
 
@@ -1998,6 +2010,75 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	log_phase_message("Unit %s disembarked via action" % unit.meta.get("name", unit_id))
 
 	return create_result(true, [])
+
+# Embark action handlers
+
+func _validate_embark_unit(action: Dictionary) -> Dictionary:
+	"""Validate that a unit can embark into a transport during the movement phase"""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var transport_id = action.get("payload", {}).get("transport_id", "")
+	if transport_id == "":
+		return {"valid": false, "errors": ["Missing transport_id in payload"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+
+	# Unit must belong to the current player
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Unit must have moved this phase (embark happens after movement)
+	if not unit.get("flags", {}).get("moved", false):
+		return {"valid": false, "errors": ["Unit must complete movement before embarking"]}
+
+	# Units that disembarked this phase cannot re-embark
+	if unit.get("disembarked_this_phase", false):
+		return {"valid": false, "errors": ["Unit disembarked this phase and cannot re-embark"]}
+
+	# Delegate capacity/keyword checks to TransportManager
+	var can_embark = TransportManager.can_embark(unit_id, transport_id)
+	if not can_embark.valid:
+		return {"valid": false, "errors": [can_embark.reason]}
+
+	return {"valid": true, "errors": []}
+
+func _process_embark_unit(action: Dictionary) -> Dictionary:
+	"""Process embarking a unit into a transport via the action system"""
+	var unit_id = action.get("actor_unit_id", "")
+	var transport_id = action.get("payload", {}).get("transport_id", "")
+
+	var unit = get_unit(unit_id)
+	var transport = get_unit(transport_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var transport_name = transport.get("meta", {}).get("name", transport_id)
+
+	# Build state changes following the same pattern as DeploymentPhase embark
+	var changes = []
+
+	# Set the unit's embarked_in field
+	changes.append({
+		"op": "set",
+		"path": "units.%s.embarked_in" % unit_id,
+		"value": transport_id
+	})
+
+	# Update transport's embarked_units list
+	var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+	if unit_id not in current_embarked:
+		current_embarked.append(unit_id)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.transport_data.embarked_units" % transport_id,
+		"value": current_embarked
+	})
+
+	log_phase_message("Unit %s embarked in transport %s" % [unit_name, transport_name])
+
+	return create_result(true, changes)
 
 func _move_attached_characters(bodyguard_id: String, attached_char_ids: Array) -> Array:
 	"""Move attached character models to maintain formation with bodyguard.
