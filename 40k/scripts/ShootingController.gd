@@ -1252,6 +1252,17 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var wounds_from_rolls = dice_data.get("wounds_from_rolls", 0)
 		log_text += "\n  [color=magenta][LETHAL HITS] %d auto-wounds + %d from rolls[/color]" % [lethal_auto_wounds, wounds_from_rolls]
 
+	# Save roll: show failed saves (which cause wounds)
+	if context == "save_roll":
+		var failed = dice_data.get("failed", 0)
+		if failed > 0:
+			log_text += ", [color=red]%d failed (wounds)[/color]" % failed
+		else:
+			log_text += " [color=green](all saved!)[/color]"
+		var using_invuln_save = dice_data.get("using_invuln", false)
+		if using_invuln_save:
+			log_text += "\n  [color=cyan](Using Invulnerable Save)[/color]"
+
 	log_text += "\n"
 
 	dice_log_display.append_text(log_text)

@@ -1016,7 +1016,17 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		log_text += "  Rolls: %s" % str(rolls_raw)
 
 	# Add success count
-	log_text += " → [b][color=green]%d successes[/color][/b]\n" % successes
+	log_text += " → [b][color=green]%d successes[/color][/b]" % successes
+
+	# Save roll: show failed saves (which cause wounds)
+	if context == "save_roll":
+		var failed = dice_data.get("failed", 0)
+		if failed > 0:
+			log_text += ", [color=red]%d failed (wounds)[/color]" % failed
+		else:
+			log_text += " [color=green](all saved!)[/color]"
+
+	log_text += "\n"
 
 	dice_log_display.append_text(log_text)
 

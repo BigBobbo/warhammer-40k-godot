@@ -42,10 +42,6 @@ func _on_phase_enter() -> void:
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Shooting Phase")
 
-	# CRITICAL: Close any open SaveDialog before exiting
-	# This prevents stale dialogs from remaining open after phase change
-	_close_save_dialogs()
-
 	# CRITICAL: Clear all shooting visuals BEFORE controller is freed
 	# This ensures range circles and other visuals are removed immediately
 	_clear_shooting_visuals()
@@ -963,7 +959,7 @@ func _resolve_next_weapon() -> Dictionary:
 	pending_save_data = save_data_list
 	resolution_state.awaiting_saves = true
 
-	# Add sequence context to save data for SaveDialog
+	# Add sequence context to save data for WoundAllocationOverlay
 	for save_data in save_data_list:
 		save_data["sequence_context"] = {
 			"current_weapon": current_index + 1,
@@ -1130,29 +1126,6 @@ func _get_last_weapon_result() -> Dictionary:
 		"skipped": last_weapon.get("skipped", false),
 		"skip_reason": last_weapon.get("skip_reason", "")
 	}
-
-func _close_save_dialogs() -> void:
-	"""Close any open SaveDialog when phase changes"""
-	print("ShootingPhase: Closing any open SaveDialogs...")
-	var root = get_tree().root
-	if not root:
-		return
-
-	var dialogs_found = 0
-	for child in root.get_children():
-		# Check if this is a SaveDialog by checking its script path
-		if child is AcceptDialog:
-			var script = child.get_script()
-			if script and script.resource_path == "res://scripts/SaveDialog.gd":
-				print("ShootingPhase: Found open SaveDialog, closing it")
-				child.hide()
-				child.queue_free()
-				dialogs_found += 1
-
-	if dialogs_found > 0:
-		print("ShootingPhase: Closed %d SaveDialog(s)" % dialogs_found)
-	else:
-		print("ShootingPhase: No SaveDialogs found")
 
 func _clear_phase_flags() -> void:
 	var units = game_state_snapshot.get("units", {})
@@ -1487,6 +1460,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 	var all_diffs = []
 	var total_casualties = 0
+	var save_dice_blocks = []  # Collect save dice for dice log + multiplayer sync
 
 	# Process each save result (one per target unit)
 	for i in range(save_results_list.size()):
@@ -1558,6 +1532,40 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			failed_count,
 			damage_result.casualties
 		])
+
+		# Build save dice block for dice log (so both players can see save rolls)
+		var save_rolls_raw = []
+		for sr in save_results:
+			if sr.has("roll"):
+				save_rolls_raw.append(sr.get("roll", 0))
+
+		if not save_rolls_raw.is_empty():
+			var ap = save_data.get("ap", 0)
+			var base_save = save_data.get("base_save", 7)
+			# Get the effective save threshold from the first model's profile
+			var save_threshold = 7
+			var using_invuln = false
+			var profiles = save_data.get("model_save_profiles", [])
+			if not profiles.is_empty():
+				save_threshold = profiles[0].get("save_needed", 7)
+				using_invuln = profiles[0].get("using_invuln", false)
+
+			var save_dice_block = {
+				"context": "save_roll",
+				"threshold": str(save_threshold) + "+",
+				"rolls_raw": save_rolls_raw,
+				"successes": saved_count,
+				"failed": failed_count,
+				"ap": ap,
+				"original_save": base_save,
+				"using_invuln": using_invuln,
+				"weapon_name": save_data.get("weapon_name", ""),
+				"target_unit_name": target_name
+			}
+			save_dice_blocks.append(save_dice_block)
+			dice_log.append(save_dice_block)
+			emit_signal("dice_rolled", save_dice_block)
+			print("ShootingPhase: Emitted save_roll dice block - %d rolls, %d passed, %d failed" % [save_rolls_raw.size(), saved_count, failed_count])
 
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")
@@ -1682,6 +1690,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				"sequential_pause": true,
 				"current_weapon_index": resolution_state.current_index,
 				"total_weapons": weapon_order.size(),
+				"dice": save_dice_blocks,
 				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
 				"remaining_weapons": remaining_weapons,
 				"last_weapon_result": last_weapon_result
@@ -1770,7 +1779,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		"remaining_weapons": [],
 		"last_weapon_result": last_weapon_result,
 		"current_weapon_index": 0,
-		"total_weapons": 1
+		"total_weapons": 1,
+		"dice": save_dice_blocks
 	})
 
 	print("╔═══════════════════════════════════════════════════════════════")
