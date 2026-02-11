@@ -31,6 +31,7 @@ var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
 var deployment_controller: Node
+var coherency_banner: PanelContainer = null
 var command_controller: Node
 var movement_controller: Node
 var shooting_controller: Node
@@ -40,6 +41,13 @@ var scoring_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
+
+# Deployment progress indicator UI elements
+var deployment_progress_container: PanelContainer
+var p1_progress_bar: ProgressBar
+var p2_progress_bar: ProgressBar
+var p1_progress_label: Label
+var p2_progress_label: Label
 
 func _ready() -> void:
 	# DEBUG: Check current state before any initialization
@@ -161,12 +169,129 @@ func _ready() -> void:
 	update_ui_for_phase()
 	print("Main: ⚠️ Initial phase UI setup complete")
 
+	# Setup deployment progress indicator
+	_setup_deployment_progress_indicator()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
+
+func _setup_deployment_progress_indicator() -> void:
+	# Create a panel that sits just below HUD_Bottom (which has been moved to the top)
+	deployment_progress_container = PanelContainer.new()
+	deployment_progress_container.name = "DeploymentProgressContainer"
+	# Position below HUD_Bottom (top bar is 0-100px, so we start at 100)
+	# Inset from sides to avoid overlapping left/right HUD panels (400px each)
+	deployment_progress_container.anchor_left = 0.0
+	deployment_progress_container.anchor_right = 1.0
+	deployment_progress_container.anchor_top = 0.0
+	deployment_progress_container.anchor_bottom = 0.0
+	deployment_progress_container.offset_left = 400.0
+	deployment_progress_container.offset_right = -400.0
+	deployment_progress_container.offset_top = 100.0
+	deployment_progress_container.offset_bottom = 160.0
+	deployment_progress_container.visible = false
+	add_child(deployment_progress_container)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	deployment_progress_container.add_child(margin)
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 24)
+	margin.add_child(hbox)
+
+	# Player 1 progress section
+	var p1_vbox = VBoxContainer.new()
+	p1_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p1_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(p1_vbox)
+
+	p1_progress_label = Label.new()
+	p1_progress_label.text = "Player 1 (Defender): 0/0 units deployed"
+	p1_vbox.add_child(p1_progress_label)
+
+	p1_progress_bar = ProgressBar.new()
+	p1_progress_bar.min_value = 0
+	p1_progress_bar.max_value = 1
+	p1_progress_bar.value = 0
+	p1_progress_bar.custom_minimum_size = Vector2(0, 16)
+	p1_progress_bar.show_percentage = false
+	p1_vbox.add_child(p1_progress_bar)
+
+	# Player 2 progress section
+	var p2_vbox = VBoxContainer.new()
+	p2_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p2_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(p2_vbox)
+
+	p2_progress_label = Label.new()
+	p2_progress_label.text = "Player 2 (Attacker): 0/0 units deployed"
+	p2_vbox.add_child(p2_progress_label)
+
+	p2_progress_bar = ProgressBar.new()
+	p2_progress_bar.min_value = 0
+	p2_progress_bar.max_value = 1
+	p2_progress_bar.value = 0
+	p2_progress_bar.custom_minimum_size = Vector2(0, 16)
+	p2_progress_bar.show_percentage = false
+	p2_vbox.add_child(p2_progress_bar)
+
+	# Apply themed styling to the progress bars
+	_style_deployment_progress_bar(p1_progress_bar, WhiteDwarfTheme.P1_FILL, WhiteDwarfTheme.P1_BORDER)
+	_style_deployment_progress_bar(p2_progress_bar, WhiteDwarfTheme.P2_FILL, WhiteDwarfTheme.P2_BORDER)
+
+	print("Main: Deployment progress indicator created")
+
+func _style_deployment_progress_bar(bar: ProgressBar, fill_color: Color, border_color: Color) -> void:
+	# Background style
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.07, 0.05, 0.9)
+	bg_style.border_color = border_color.darkened(0.3)
+	bg_style.set_border_width_all(1)
+	bg_style.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("background", bg_style)
+
+	# Fill style
+	var fill_style = StyleBoxFlat.new()
+	fill_style.bg_color = fill_color.lightened(0.2)
+	fill_style.border_color = border_color
+	fill_style.set_border_width_all(1)
+	fill_style.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("fill", fill_style)
+
+func _update_deployment_progress() -> void:
+	if not deployment_progress_container:
+		return
+
+	var p1_progress = GameState.get_deployment_progress(1)
+	var p2_progress = GameState.get_deployment_progress(2)
+
+	# Update Player 1
+	p1_progress_label.text = "Player 1 (Defender): %d/%d units deployed" % [p1_progress.deployed, p1_progress.total]
+	if p1_progress.total > 0:
+		p1_progress_bar.max_value = p1_progress.total
+		p1_progress_bar.value = p1_progress.deployed
+	else:
+		p1_progress_bar.max_value = 1
+		p1_progress_bar.value = 0
+
+	# Update Player 2
+	p2_progress_label.text = "Player 2 (Attacker): %d/%d units deployed" % [p2_progress.deployed, p2_progress.total]
+	if p2_progress.total > 0:
+		p2_progress_bar.max_value = p2_progress.total
+		p2_progress_bar.value = p2_progress.deployed
+	else:
+		p2_progress_bar.max_value = 1
+		p2_progress_bar.value = 0
+
+	print("Main: Deployment progress updated - P1: %d/%d, P2: %d/%d" % [p1_progress.deployed, p1_progress.total, p2_progress.deployed, p2_progress.total])
 
 func _restructure_ui_layout() -> void:
 	# Move HUD_Bottom to top of screen
@@ -266,6 +391,14 @@ func _apply_white_dwarf_theme() -> void:
 	# Theme the UnitStatsPanel if it exists
 	if unit_stats_panel and unit_stats_panel is PanelContainer:
 		_WhiteDwarfTheme.apply_to_panel(unit_stats_panel)
+
+	# Theme the deployment progress indicator
+	if deployment_progress_container:
+		_WhiteDwarfTheme.apply_to_panel(deployment_progress_container)
+	if p1_progress_label:
+		_WhiteDwarfTheme.apply_to_label(p1_progress_label)
+	if p2_progress_label:
+		_WhiteDwarfTheme.apply_to_label(p2_progress_label)
 
 	print("Main: White Dwarf theme applied")
 
@@ -857,29 +990,20 @@ func _toggle_los_debug() -> void:
 		print("LoS debug visual not found")
 
 func _show_toast(message: String, duration: float = 2.0) -> void:
-	# Show a temporary message on screen
-	var toast = Label.new()
-	toast.text = message
-	toast.add_theme_font_size_override("font_size", 20)
-	toast.add_theme_color_override("font_color", Color.YELLOW)
-	toast.add_theme_color_override("font_shadow_color", Color.BLACK)
-	toast.add_theme_constant_override("shadow_offset_x", 2)
-	toast.add_theme_constant_override("shadow_offset_y", 2)
-
-	# Position at top center
-	var viewport_size = get_viewport().get_visible_rect().size
-	toast.position = Vector2(viewport_size.x / 2 - 100, 150)
-
-	add_child(toast)
-
-	# Auto-remove after duration
-	await get_tree().create_timer(duration).timeout
-	if is_instance_valid(toast):
-		toast.queue_free()
+	# Route through global ToastManager for consistent on-screen display
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast(message, Color.YELLOW, duration)
+	else:
+		print("[Toast fallback] %s" % message)
 
 func show_error_toast(message: String) -> void:
 	# Public wrapper for showing error toasts (called by NetworkManager)
-	_show_toast("ERROR: " + message, 5.0)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_error(message)
+	else:
+		print("[Toast ERROR fallback] %s" % message)
 
 func _setup_save_load_dialog() -> void:
 	# Load and instantiate the SaveLoadDialog scene
@@ -932,6 +1056,9 @@ func setup_phase_controllers() -> void:
 	if deployment_controller:
 		deployment_controller.queue_free()
 		deployment_controller = null
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.queue_free()
+		coherency_banner = null
 	if command_controller:
 		command_controller.queue_free()
 		command_controller = null
@@ -1029,9 +1156,89 @@ func setup_deployment_controller() -> void:
 	# Connect controller signals
 	deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
 	deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
+	deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
+
+	# Setup coherency warning banner
+	_setup_coherency_banner()
 
 	# Add formation UI controls to unit card
 	_setup_formation_ui()
+
+func _setup_coherency_banner() -> void:
+	# Remove any existing banner
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.queue_free()
+
+	# Create a non-blocking yellow warning banner
+	coherency_banner = PanelContainer.new()
+	coherency_banner.name = "CoherencyBanner"
+
+	# Style the panel with yellow/amber warning colors
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = Color(0.85, 0.65, 0.0, 0.9)  # Amber/yellow
+	style_box.border_color = Color(0.7, 0.5, 0.0, 1.0)
+	style_box.set_border_width_all(2)
+	style_box.set_corner_radius_all(4)
+	style_box.content_margin_left = 12
+	style_box.content_margin_right = 12
+	style_box.content_margin_top = 6
+	style_box.content_margin_bottom = 6
+	coherency_banner.add_theme_stylebox_override("panel", style_box)
+
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var icon_label = Label.new()
+	icon_label.text = "WARNING"
+	icon_label.add_theme_font_size_override("font_size", 14)
+	icon_label.add_theme_color_override("font_color", Color(0.3, 0.2, 0.0))
+	var bold_font = SystemFont.new()
+	bold_font.font_weight = 700
+	icon_label.add_theme_font_override("font", bold_font)
+	hbox.add_child(icon_label)
+
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(8, 0)
+	hbox.add_child(spacer)
+
+	var msg_label = Label.new()
+	msg_label.name = "MessageLabel"
+	msg_label.text = ""
+	msg_label.add_theme_font_size_override("font_size", 14)
+	msg_label.add_theme_color_override("font_color", Color(0.2, 0.1, 0.0))
+	hbox.add_child(msg_label)
+
+	coherency_banner.add_child(hbox)
+
+	# Position at top-center, below the HUD top bar
+	coherency_banner.anchor_left = 0.5
+	coherency_banner.anchor_right = 0.5
+	coherency_banner.anchor_top = 0.0
+	coherency_banner.anchor_bottom = 0.0
+	coherency_banner.offset_left = -200
+	coherency_banner.offset_right = 200
+	coherency_banner.offset_top = 110
+	coherency_banner.offset_bottom = 140
+
+	# Start hidden
+	coherency_banner.visible = false
+	coherency_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	add_child(coherency_banner)
+
+func _on_coherency_warning_changed(is_incoherent: bool, message: String) -> void:
+	if not coherency_banner or not is_instance_valid(coherency_banner):
+		return
+
+	if is_incoherent:
+		var msg_label = coherency_banner.get_node("HBoxContainer/MessageLabel")
+		if msg_label:
+			msg_label.text = message
+		coherency_banner.visible = true
+		print("[Main] Coherency banner shown: %s" % message)
+	else:
+		coherency_banner.visible = false
+		print("[Main] Coherency banner hidden")
 
 func _setup_formation_ui() -> void:
 	# Check if formation controls already exist
@@ -1330,6 +1537,8 @@ func connect_signals() -> void:
 	if deployment_controller:
 		deployment_controller.unit_confirmed.connect(_on_unit_confirmed)
 		deployment_controller.models_placed_changed.connect(_on_models_placed_changed)
+		if deployment_controller.has_signal("coherency_warning_changed") and not deployment_controller.coherency_warning_changed.is_connected(_on_coherency_warning_changed):
+			deployment_controller.coherency_warning_changed.connect(_on_coherency_warning_changed)
 	
 	# Connect save/load signals
 	SaveLoadManager.save_completed.connect(_on_save_completed)
@@ -1658,6 +1867,9 @@ func update_ui() -> void:
 				"button_text": phase_action_button.text
 			})
 
+			# Update deployment progress indicator
+			_update_deployment_progress()
+
 			if all_deployed:
 				phase_action_button.disabled = false
 				status_label.text = "All units deployed! Click 'End Deployment' to continue."
@@ -1943,6 +2155,9 @@ func _on_confirm_pressed() -> void:
 				_on_movement_action_requested(action)
 
 func _on_unit_confirmed() -> void:
+	# Hide coherency warning when unit is confirmed
+	if coherency_banner and is_instance_valid(coherency_banner):
+		coherency_banner.visible = false
 	unit_card.visible = false
 	unit_list.visible = true
 	refresh_unit_list()
@@ -2878,6 +3093,12 @@ func update_ui_for_phase() -> void:
 		"connection_verified": is_now_connected
 	})
 
+	# Show/hide deployment progress indicator based on phase
+	if deployment_progress_container:
+		deployment_progress_container.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
+		if current_phase == GameStateData.Phase.DEPLOYMENT:
+			_update_deployment_progress()
+
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
@@ -2997,6 +3218,35 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					if movement_controller:
 						movement_controller.active_unit_id = ""
 						movement_controller.active_mode = ""
+				"CONFIRM_DISEMBARK":
+					print("Main: Disembark confirmed for unit: ", action.actor_unit_id)
+					# Refresh board visuals to show the disembarked models
+					_recreate_unit_visuals()
+					# Refresh unit list
+					refresh_unit_list()
+					# Check if the disembarked unit can move
+					var disembarked_unit = GameState.get_unit(action.actor_unit_id)
+					if disembarked_unit and not disembarked_unit.get("flags", {}).get("cannot_move", false):
+						print("Main: Disembarked unit can move, selecting for movement")
+						if movement_controller:
+							movement_controller.active_unit_id = action.actor_unit_id
+							movement_controller.active_mode = "NORMAL"
+							var move_cap = movement_controller.get_unit_movement(disembarked_unit)
+							movement_controller.move_cap_inches = move_cap
+							print("Main: Unit %s has movement cap of %d inches" % [action.actor_unit_id, move_cap])
+							movement_controller._update_selected_unit_display()
+							movement_controller._update_fall_back_visibility()
+							movement_controller.emit_signal("ui_update_requested")
+							# Select the unit in the list
+							for i in range(movement_controller.unit_list.get_item_count()):
+								if movement_controller.unit_list.get_item_metadata(i) == action.actor_unit_id:
+									movement_controller.unit_list.select(i)
+									break
+					else:
+						print("Main: Disembarked unit cannot move (transport already moved)")
+						if movement_controller:
+							movement_controller.active_unit_id = ""
+							movement_controller._update_selected_unit_display()
 
 			# Update UI after successful action
 			update_movement_card_buttons()

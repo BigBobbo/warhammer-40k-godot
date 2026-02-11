@@ -44,7 +44,7 @@ const DETERMINISTIC_ACTIONS: Array[String] = [
 	"END_COMMAND", "END_DEPLOYMENT", "END_MOVEMENT", "END_SHOOTING",
 	"END_FIGHT", "END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
 	# Deployment
-	"DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT",
+	"DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT",
 	# Movement (BEGIN_ADVANCE excluded — it rolls a D6 for advance distance)
 	"BEGIN_NORMAL_MOVE", "BEGIN_FALL_BACK",
 	"SET_MODEL_DEST", "STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE",
@@ -1042,6 +1042,79 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			phase.emit_signal("consolidate_required", unit_id, distance)
 		else:
 			print("NetworkManager: ⚠️ Phase doesn't support consolidate_required or missing unit_id")
+
+	# ====================================================================
+	# CHARGE PHASE - Signal re-emission for multiplayer sync
+	# ====================================================================
+
+	# Handle SELECT_CHARGE_UNIT — re-emit unit_selected_for_charge
+	if action_type == "SELECT_CHARGE_UNIT":
+		if phase.has_signal("unit_selected_for_charge"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			if unit_id != "":
+				print("NetworkManager: Client re-emitting unit_selected_for_charge for %s" % unit_id)
+				phase.emit_signal("unit_selected_for_charge", unit_id)
+
+	# Handle DECLARE_CHARGE — re-emit targets_declared and charge_targets_available
+	if action_type == "DECLARE_CHARGE":
+		var unit_id = action_data.get("actor_unit_id", "")
+		var target_ids = action_data.get("payload", {}).get("target_unit_ids", [])
+		if unit_id != "" and not target_ids.is_empty():
+			if phase.has_signal("targets_declared"):
+				print("NetworkManager: Client re-emitting targets_declared for %s with %d targets" % [unit_id, target_ids.size()])
+				phase.emit_signal("targets_declared", unit_id, target_ids)
+			if phase.has_signal("charge_targets_available"):
+				# Compute eligible targets on the client from current state
+				var eligible_targets = {}
+				if phase.has_method("_get_eligible_targets_for_unit"):
+					eligible_targets = phase._get_eligible_targets_for_unit(unit_id)
+				print("NetworkManager: Client re-emitting charge_targets_available for %s" % unit_id)
+				phase.emit_signal("charge_targets_available", unit_id, eligible_targets)
+
+	# Handle CHARGE_ROLL — re-emit charge_roll_made and charge_path_tools_enabled
+	# Note: dice_rolled is already re-emitted generically above (line ~917).
+	# charge_roll_made carries the structured (unit_id, distance, dice) args
+	# that the ChargeController uses for primary UI updates on the host.
+	# On the client, dice_rolled (with context="charge_roll") is the primary
+	# driver because charge_roll_made dedup prevents double-processing.
+	if action_type == "CHARGE_ROLL":
+		var unit_id = action_data.get("actor_unit_id", "")
+		if unit_id != "":
+			# Extract dice info from the result
+			var dice_array = result.get("dice", [])
+			if not dice_array.is_empty():
+				var dice_block = dice_array[0]
+				var total = dice_block.get("total", 0)
+				var rolls = dice_block.get("rolls", [])
+				if rolls.size() == 2:
+					if phase.has_signal("charge_roll_made"):
+						print("NetworkManager: Client re-emitting charge_roll_made for %s (distance=%d, dice=%s)" % [unit_id, total, str(rolls)])
+						phase.emit_signal("charge_roll_made", unit_id, total, rolls)
+					if phase.has_signal("charge_path_tools_enabled"):
+						print("NetworkManager: Client re-emitting charge_path_tools_enabled for %s (distance=%d)" % [unit_id, total])
+						phase.emit_signal("charge_path_tools_enabled", unit_id, total)
+
+	# Handle APPLY_CHARGE_MOVE — re-emit charge_resolved
+	if action_type == "APPLY_CHARGE_MOVE":
+		if phase.has_signal("charge_resolved"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			if unit_id != "":
+				# Determine success: if changes/diffs contain position updates, charge succeeded
+				var diffs = result.get("diffs", result.get("changes", []))
+				var has_position_changes = false
+				for diff in diffs:
+					var path = diff.get("path", "")
+					if ".position" in path:
+						has_position_changes = true
+						break
+				var charge_result = {}
+				if has_position_changes:
+					print("NetworkManager: Client re-emitting charge_resolved (SUCCESS) for %s" % unit_id)
+					phase.emit_signal("charge_resolved", unit_id, true, charge_result)
+				else:
+					charge_result["reason"] = "Charge movement validation failed"
+					print("NetworkManager: Client re-emitting charge_resolved (FAILED) for %s" % unit_id)
+					phase.emit_signal("charge_resolved", unit_id, false, charge_result)
 
 	print("NetworkManager: _emit_client_visual_updates END")
 
