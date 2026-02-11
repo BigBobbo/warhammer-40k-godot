@@ -104,9 +104,25 @@ func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float
 	var shape1 = create_base_shape(model1)
 	var shape2 = create_base_shape(model2)
 
-	# Get the closest edge points between the two shapes
+	# Use iterative closest-point refinement to find the minimum distance
+	# between two convex shapes. Start by finding each shape's closest edge
+	# point to the other shape's center, then iteratively refine by finding
+	# each shape's closest point to the other's previous closest point.
+	# This converges to the true minimum distance for convex shapes.
 	var edge1 = shape1.get_closest_edge_point(pos2, pos1, rotation1)
-	var edge2 = shape2.get_closest_edge_point(pos1, pos2, rotation2)
+	var edge2 = shape2.get_closest_edge_point(edge1, pos2, rotation2)
+
+	# Iterate to refine - converges quickly for convex shapes
+	for i in range(4):
+		var new_edge1 = shape1.get_closest_edge_point(edge2, pos1, rotation1)
+		var new_edge2 = shape2.get_closest_edge_point(new_edge1, pos2, rotation2)
+		# Check for convergence
+		if new_edge1.distance_to(edge1) < 0.1 and new_edge2.distance_to(edge2) < 0.1:
+			edge1 = new_edge1
+			edge2 = new_edge2
+			break
+		edge1 = new_edge1
+		edge2 = new_edge2
 
 	return edge1.distance_to(edge2)
 

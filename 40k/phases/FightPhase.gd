@@ -1472,20 +1472,20 @@ func _is_unit_in_combat(unit: Dictionary) -> bool:
 
 func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	# Check if any model from unit1 is within 1" of any model from unit2
+	# Uses shape-aware distance to correctly handle non-circular bases (oval, rectangular)
 	var models1 = unit1.get("models", [])
 	var models2 = unit2.get("models", [])
 	var unit1_name = unit1.get("meta", {}).get("name", "unit1")
 	var unit2_name = unit2.get("meta", {}).get("name", "unit2")
-	
+
 	for model1 in models1:
 		if not model1.get("alive", true):
 			continue
-		
+
 		var pos1_data = model1.get("position", {})
 		if pos1_data == null:
 			continue
-		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0))
-		var base1_mm = model1.get("base_mm", 25.0)
+		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0)) if pos1_data is Dictionary else pos1_data
 
 		if pos1 == Vector2.ZERO:
 			continue
@@ -1497,26 +1497,16 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			var pos2_data = model2.get("position", {})
 			if pos2_data == null:
 				continue
-			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0))
-			var base2_mm = model2.get("base_mm", 25.0)
-			
+			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0)) if pos2_data is Dictionary else pos2_data
+
 			if pos2 == Vector2.ZERO:
 				continue
-			
-			# Check engagement range (1" = 25.4mm)
-			# Use Measurement class for proper conversions
-			var distance_px = pos1.distance_to(pos2)
-			
-			# Convert base sizes from mm to pixel radius
-			var base1_radius_px = Measurement.base_radius_px(base1_mm)
-			var base2_radius_px = Measurement.base_radius_px(base2_mm)
-			
-			# Calculate edge-to-edge distance
-			var edge_distance_px = Measurement.edge_to_edge_distance_px(pos1, base1_radius_px, pos2, base2_radius_px)
-			var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
-			
-			if edge_distance_inches <= 1.0:  # 1" engagement range
-				log_phase_message("Units %s and %s are within engagement range! (%.2f\")" % [unit1_name, unit2_name, edge_distance_inches])
+
+			# Use shape-aware engagement range check for correct handling of
+			# non-circular bases (oval, rectangular) - consistent with ChargePhase
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+				var distance_inches = Measurement.model_to_model_distance_inches(model1, model2)
+				log_phase_message("Units %s and %s are within engagement range! (%.2f\")" % [unit1_name, unit2_name, distance_inches])
 				return true
 	return false
 
