@@ -960,7 +960,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					print("║ Timestamp: ", timestamp)
 					print("║ Source: NetworkManager._emit_client_visual_updates")
 					print("║ Action Type: ", action_type)
-					print("║ Local peer ID: ", local_peer_id)
+					print("║ Local player (via get_local_player): ", local_player)
 					print("║ Local player: ", local_player)
 					print("║ Defender player: ", defender_player)
 					print("║ Target: ", target_unit_id)
