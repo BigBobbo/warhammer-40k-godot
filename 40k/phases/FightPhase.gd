@@ -163,31 +163,11 @@ func _check_for_combats() -> void:
 			log_phase_message("First to fight: %s" % fight_sequence[0])
 
 func execute_action(action: Dictionary) -> Dictionary:
-	"""Override to emit dialog signals after action processing"""
+	"""Override to log fight-phase actions. Signal emission is handled by:
+	- _process_* methods (for the host)
+	- trigger_* metadata + NetworkManager._emit_client_visual_updates (for the client)
+	Do NOT re-emit signals here - that causes duplicate dialog windows."""
 	var result = super.execute_action(action)
-
-	# After successful action execution, emit appropriate dialog signals
-	# This ensures signals are emitted on BOTH host and client in multiplayer
-	if result.success:
-		var action_type = action.get("type", "")
-		match action_type:
-			"SELECT_FIGHTER":
-				# Emit pile_in_required signal
-				if active_fighter_id != "":
-					log_phase_message("[execute_action] Emitting pile_in_required for %s" % active_fighter_id)
-					emit_signal("pile_in_required", active_fighter_id, 3.0)
-			"PILE_IN":
-				# Emit attack_assignment_required signal
-				if active_fighter_id != "":
-					var targets = _get_eligible_melee_targets(active_fighter_id)
-					log_phase_message("[execute_action] Emitting attack_assignment_required for %s" % active_fighter_id)
-					emit_signal("attack_assignment_required", active_fighter_id, targets)
-			"ROLL_DICE":
-				# Emit consolidate_required signal
-				if active_fighter_id != "":
-					log_phase_message("[execute_action] Emitting consolidate_required for %s" % active_fighter_id)
-					emit_signal("consolidate_required", active_fighter_id, 3.0)
-
 	return result
 
 func validate_action(action: Dictionary) -> Dictionary:
@@ -505,11 +485,8 @@ func _can_unit_reach_engagement_range(unit: Dictionary) -> bool:
 				if not enemy_model.get("alive", true):
 					continue
 
-				var enemy_pos_data = enemy_model.get("position", {})
-				var enemy_pos = Vector2(enemy_pos_data.get("x", 0), enemy_pos_data.get("y", 0))
-
-				# Check if within 4" (3" move + 1" engagement)
-				var distance = Measurement.distance_inches(our_pos, enemy_pos)
+				# Check if within 4" (3" move + 1" engagement) using shape-aware edge-to-edge
+				var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
 				if distance <= 4.0:
 					return true
 
@@ -522,8 +499,8 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
 
-	# Build positions after movement
-	var final_positions = []
+	# Build model dicts with updated positions after movement
+	var final_models = []
 	for i in models.size():
 		var model = models[i]
 		if not model.get("alive", true):
@@ -531,13 +508,14 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 
 		var model_id = str(i)
 		if model_id in movements:
-			final_positions.append(movements[model_id])
+			var moved_model = model.duplicate()
+			moved_model["position"] = movements[model_id]
+			final_models.append(moved_model)
 		else:
-			var pos_data = model.get("position", {})
-			final_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
+			final_models.append(model)
 
 	# Check if any of our models will be in engagement range
-	for our_pos in final_positions:
+	for our_model in final_models:
 		for other_unit_id in all_units:
 			var other_unit = all_units[other_unit_id]
 			if other_unit.get("owner", 0) == unit_owner:
@@ -548,12 +526,8 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 				if not enemy_model.get("alive", true):
 					continue
 
-				var enemy_pos_data = enemy_model.get("position", {})
-				var enemy_pos = Vector2(enemy_pos_data.get("x", 0), enemy_pos_data.get("y", 0))
-
-				# Check engagement range (1")
-				var distance = Measurement.distance_inches(our_pos, enemy_pos)
-				if distance <= 1.0:
+				# Check engagement range (1") using shape-aware edge-to-edge
+				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, 1.0):
 					return true
 
 	return false
@@ -1257,43 +1231,92 @@ func _get_model_position(unit_id: String, model_id: String) -> Vector2:
 	return Vector2.ZERO
 
 func _is_moving_toward_closest_enemy(unit_id: String, model_id: String, old_pos: Vector2, new_pos: Vector2) -> bool:
-	# Find closest enemy model
-	var closest_enemy_pos = _find_closest_enemy_position(unit_id, old_pos)
-	if closest_enemy_pos == Vector2.ZERO:
+	# Get the model data for shape-aware distance
+	var unit = get_unit(unit_id)
+	var model_data = {}
+	var models = unit.get("models", [])
+	for i in models.size():
+		var m = models[i]
+		if str(i) == model_id or m.get("id", "") == model_id:
+			model_data = m
+			break
+
+	# Find closest enemy model using edge-to-edge distance
+	var closest_enemy = _find_closest_enemy_model(unit_id, model_data, old_pos)
+	if closest_enemy.is_empty():
 		return true  # No enemies found, allow movement
-	
-	# Check if new position is closer to enemy than old position
-	var old_distance = old_pos.distance_to(closest_enemy_pos)
-	var new_distance = new_pos.distance_to(closest_enemy_pos)
+
+	# Check if new position is closer to enemy than old position (edge-to-edge)
+	var model_at_old = model_data.duplicate()
+	model_at_old["position"] = old_pos
+	var model_at_new = model_data.duplicate()
+	model_at_new["position"] = new_pos
+	var old_distance = Measurement.model_to_model_distance_px(model_at_old, closest_enemy)
+	var new_distance = Measurement.model_to_model_distance_px(model_at_new, closest_enemy)
 	return new_distance <= old_distance
 
+func _find_closest_enemy_model(unit_id: String, model_data: Dictionary, from_pos: Vector2) -> Dictionary:
+	"""Find the closest enemy model using shape-aware edge-to-edge distance"""
+	var unit = get_unit(unit_id)
+	var unit_owner = unit.get("owner", 0)
+	var all_units = game_state_snapshot.get("units", {})
+	var closest_enemy = {}
+	var closest_distance = INF
+
+	# Create a temporary model dict at from_pos for distance calculation
+	var model_at_pos = model_data.duplicate()
+	model_at_pos["position"] = from_pos
+
+	for other_unit_id in all_units:
+		var other_unit = all_units[other_unit_id]
+		if other_unit.get("owner", 0) == unit_owner:
+			continue  # Skip same army
+
+		var enemy_models = other_unit.get("models", [])
+		for enemy_model in enemy_models:
+			if not enemy_model.get("alive", true):
+				continue
+
+			var enemy_pos_data = enemy_model.get("position", {})
+			if enemy_pos_data == null:
+				continue
+
+			var distance = Measurement.model_to_model_distance_px(model_at_pos, enemy_model)
+
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_enemy = enemy_model
+
+	return closest_enemy
+
+# Keep the position-based version for backward compatibility with callers that only have positions
 func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2:
 	var unit = get_unit(unit_id)
 	var unit_owner = unit.get("owner", 0)
 	var all_units = game_state_snapshot.get("units", {})
 	var closest_pos = Vector2.ZERO
 	var closest_distance = INF
-	
+
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		if other_unit.get("owner", 0) == unit_owner:
 			continue  # Skip same army
-		
-		var models = other_unit.get("models", [])
-		for model in models:
+
+		var models_list = other_unit.get("models", [])
+		for model in models_list:
 			if not model.get("alive", true):
 				continue
-			
+
 			var model_pos_data = model.get("position", {})
 			if model_pos_data == null:
 				continue
 			var model_pos = Vector2(model_pos_data.get("x", 0), model_pos_data.get("y", 0))
 			var distance = from_pos.distance_to(model_pos)
-			
+
 			if distance < closest_distance:
 				closest_distance = distance
 				closest_pos = model_pos
-	
+
 	return closest_pos
 
 func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dictionary:
@@ -1301,33 +1324,35 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 	var unit = get_unit(unit_id)
 	var models = unit.get("models", [])
 	var errors = []
-	
-	# Build combined positions (existing + new)
-	var all_positions = []
+
+	# Build model dicts with updated positions
+	var all_models = []
 	for i in models.size():
 		var model = models[i]
 		var model_id = str(i)
-		
+
 		if model_id in new_positions:
-			all_positions.append(new_positions[model_id])
+			var moved_model = model.duplicate()
+			moved_model["position"] = new_positions[model_id]
+			all_models.append(moved_model)
 		else:
 			var pos_data = model.get("position", {})
 			if pos_data == null:
 				continue
-			all_positions.append(Vector2(pos_data.get("x", 0), pos_data.get("y", 0)))
-	
-	# Check 2" coherency rule (simplified)
-	for i in range(all_positions.size()):
+			all_models.append(model)
+
+	# Check 2" coherency rule using shape-aware edge-to-edge distance
+	for i in range(all_models.size()):
 		var has_nearby_model = false
-		for j in range(all_positions.size()):
+		for j in range(all_models.size()):
 			if i == j:
 				continue
-			var distance = Measurement.distance_inches(all_positions[i], all_positions[j])
+			var distance = Measurement.model_to_model_distance_inches(all_models[i], all_models[j])
 			if distance <= 2.0:
 				has_nearby_model = true
 				break
-		
-		if not has_nearby_model and all_positions.size() > 1:
+
+		if not has_nearby_model and all_models.size() > 1:
 			errors.append("Model %d breaks unit coherency (>2\" from all other models)" % i)
 	
 	return {"valid": errors.is_empty(), "errors": errors}
