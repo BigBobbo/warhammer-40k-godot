@@ -2017,9 +2017,13 @@ func refresh_unit_list() -> void:
 					var unit_data = GameState.get_unit(unit_id)
 					var unit_name = unit_data["meta"]["name"]
 					var model_count = unit_data["models"].size()
-					# Add Deep Strike indicator for units with the ability
-					var ds_tag = " [DS]" if GameState.unit_has_deep_strike(unit_id) else ""
-					var display_text = "%s (%d models)%s" % [unit_name, model_count, ds_tag]
+					# Add ability indicators for units with special deployment abilities
+					var ability_tag = ""
+					if GameState.unit_has_deep_strike(unit_id):
+						ability_tag = " [DS]"
+					elif GameState.unit_has_infiltrators(unit_id):
+						ability_tag = " [INF]"
+					var display_text = "%s (%d models)%s" % [unit_name, model_count, ability_tag]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
@@ -2152,7 +2156,10 @@ func update_ui() -> void:
 					var unit_name = unit_data["meta"]["name"]
 					var placed = deployment_controller.get_placed_count()
 					var total = unit_data["models"].size()
-					status_label.text = "Placing: %s — %d/%d models" % [unit_name, placed, total]
+					var mode_info = ""
+					if deployment_controller.is_infiltrators_mode:
+						mode_info = " [INFILTRATORS — >9\" from enemies & enemy zone]"
+					status_label.text = "Placing: %s — %d/%d models%s" % [unit_name, placed, total, mode_info]
 				else:
 					# Check if it's our turn in multiplayer
 					var network_manager = get_node_or_null("/root/NetworkManager")
