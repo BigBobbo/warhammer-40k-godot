@@ -41,6 +41,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_deploy_unit(action)
 		"EMBARK_UNITS_DEPLOYMENT":
 			return _delegate_to_current_phase(action)
+		"PLACE_IN_RESERVES":
+			return _delegate_to_current_phase(action)
 		"END_DEPLOYMENT":
 			return process_end_deployment(action)
 
@@ -69,6 +71,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_disembark(action)
 		"CONFIRM_DISEMBARK":
 			return process_confirm_disembark(action)
+		"PLACE_REINFORCEMENT":
+			return _delegate_to_current_phase(action)
 
 		# Shooting actions (new phase-based system)
 		"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS":

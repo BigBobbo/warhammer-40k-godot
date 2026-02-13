@@ -1,0 +1,253 @@
+{
+	"id": "layout_6",
+	"name": "Chapter Approved Layout 6",
+	"description": "Balanced grid layout - Even terrain distribution with symmetrical cover across all quadrants.",
+	"recommended_deployments": ["hammer_anvil", "dawn_of_war", "search_and_destroy", "crucible_of_battle"],
+	"pieces": [
+		{
+			"id": "ruins_1",
+			"type": "ruins",
+			"position": [8.0, 8.0],
+			"size": [12.0, 6.0],
+			"height": "tall",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_south",
+					"local_start": [-6.0, 3.0],
+					"local_end": [6.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_east",
+					"local_start": [6.0, -1.0],
+					"local_end": [6.0, 3.0],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_2",
+			"type": "ruins",
+			"position": [36.0, 52.0],
+			"size": [12.0, 6.0],
+			"height": "tall",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-6.0, -3.0],
+					"local_end": [6.0, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_west",
+					"local_start": [-6.0, -3.0],
+					"local_end": [-6.0, 1.0],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_3",
+			"type": "ruins",
+			"position": [36.0, 8.0],
+			"size": [12.0, 6.0],
+			"height": "tall",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_south",
+					"local_start": [-6.0, 3.0],
+					"local_end": [6.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_west",
+					"local_start": [-6.0, -1.0],
+					"local_end": [-6.0, 3.0],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_4",
+			"type": "ruins",
+			"position": [8.0, 52.0],
+			"size": [12.0, 6.0],
+			"height": "tall",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-6.0, -3.0],
+					"local_end": [6.0, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_east",
+					"local_start": [6.0, -3.0],
+					"local_end": [6.0, 1.0],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_5",
+			"type": "ruins",
+			"position": [16.0, 24.0],
+			"size": [10.0, 5.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"walls": [
+				{
+					"id": "wall_east",
+					"local_start": [5.0, -2.5],
+					"local_end": [5.0, 2.5],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_south",
+					"local_start": [-5.0, 2.5],
+					"local_end": [5.0, 2.5],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_6",
+			"type": "ruins",
+			"position": [28.0, 36.0],
+			"size": [10.0, 5.0],
+			"height": "tall",
+			"rotation": 90.0,
+			"walls": [
+				{
+					"id": "wall_west",
+					"local_start": [-5.0, -2.5],
+					"local_end": [-5.0, 2.5],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_north",
+					"local_start": [-5.0, -2.5],
+					"local_end": [5.0, -2.5],
+					"type": "window",
+					"blocks_los": false
+				}
+			]
+		},
+		{
+			"id": "ruins_7",
+			"type": "ruins",
+			"position": [22.0, 18.0],
+			"size": [12.0, 6.0],
+			"height": "medium",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_south",
+					"local_start": [-6.0, 3.0],
+					"local_end": [6.0, 3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_8",
+			"type": "ruins",
+			"position": [22.0, 42.0],
+			"size": [12.0, 6.0],
+			"height": "medium",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-6.0, -3.0],
+					"local_end": [6.0, -3.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_9",
+			"type": "ruins",
+			"position": [34.0, 22.0],
+			"size": [6.0, 4.0],
+			"height": "medium",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_west",
+					"local_start": [-3.0, -2.0],
+					"local_end": [-3.0, 2.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_10",
+			"type": "ruins",
+			"position": [10.0, 38.0],
+			"size": [6.0, 4.0],
+			"height": "medium",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_east",
+					"local_start": [3.0, -2.0],
+					"local_end": [3.0, 2.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_11",
+			"type": "ruins",
+			"position": [22.0, 30.0],
+			"size": [6.0, 4.0],
+			"height": "tall",
+			"rotation": 0.0,
+			"walls": [
+				{
+					"id": "wall_north",
+					"local_start": [-3.0, -2.0],
+					"local_end": [3.0, -2.0],
+					"type": "solid",
+					"blocks_los": true
+				},
+				{
+					"id": "wall_south",
+					"local_start": [-3.0, 2.0],
+					"local_end": [3.0, 2.0],
+					"type": "solid",
+					"blocks_los": true
+				}
+			]
+		},
+		{
+			"id": "ruins_12",
+			"type": "ruins",
+			"position": [4.0, 30.0],
+			"size": [6.0, 4.0],
+			"height": "low",
+			"rotation": 90.0,
+			"walls": []
+		}
+	]
+}

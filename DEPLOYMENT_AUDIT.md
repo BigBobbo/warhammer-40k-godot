@@ -54,36 +54,24 @@ Then both players simultaneously reveal their choices.
 
 **Recommendation**: Add a "Declare Battle Formations" step before the deployment loop begins. Each player selects leader attachments, transport embarkations, and reserves declarations on a configuration screen, then both are locked in before any models hit the table.
 
-### 2. Strategic Reserves
+### 2. Strategic Reserves — IMPLEMENTED
 **Rule**: Up to 25% of total army points can be placed in Strategic Reserves (off-table). These units arrive from Turn 2 onwards:
 - Turn 2: Within 6" of any battlefield edge, not in opponent's deployment zone
 - Turn 3+: Within 6" of any battlefield edge (including opponent's deployment zone)
 - Must be >9" from enemy models
 - Units not arriving by end of game count as destroyed
 
-**Current Implementation**: Not implemented. All units must be deployed on the table during deployment. The `UnitStatus` enum in `GameState.gd:8` has no `IN_RESERVES` status. The Movement Phase Audit (`40k/MOVEMENT_PHASE_AUDIT.md:48-56`) also flags the missing Reinforcements step as CRITICAL.
+**Status**: **Implemented.** `UnitStatus.IN_RESERVES` added to `GameState.gd:8`. During deployment, any unit can be placed into Strategic Reserves via the "Strategic Reserves" button in the right panel (`Main.gd`). Validation enforces the 25% army point cap (`DeploymentPhase._validate_place_in_reserves()`). The `PLACE_IN_RESERVES` action is routed through `NetworkIntegration` for multiplayer sync. During the Movement phase (Turn 2+), reserve units appear in the unit list with `[SR]` tags and can be placed on the battlefield via `PLACE_REINFORCEMENT` action. Placement validation enforces: >9" from enemies, within 6" of board edge, and no opponent deployment zone on Turn 2 (`MovementPhase._validate_place_reinforcement()`). Deployment progress indicator shows reserve counts. All units deployed or in reserves triggers deployment completion.
 
-**Impact**: High — Strategic Reserves are a core mechanic that many army lists rely on. Without them, certain units (especially glass cannons, flanking units) lose their intended playstyle.
-
-**Recommendation**: Add a reserves declaration step in the pre-battle sequence. Track reserved units in `GameState` with a new status (e.g., `UnitStatus.IN_RESERVES`). During the Movement phase's Reinforcements step, allow placing reserve units within the rules above. Note: army list JSON files already store Deep Strike as an ability (e.g., `40k/armies/adeptus_custodes.json:75`), so the data model has partial support.
-
-### 3. Deep Strike
+### 3. Deep Strike — IMPLEMENTED
 **Rule**: Units with the Deep Strike ability can be placed in Reserves during the Declare Battle Formations step. During the Reinforcements step of a Movement phase, they can be set up anywhere on the battlefield >9" from all enemy models.
 
-**Current Implementation**: Not implemented. The ability is listed in army data files (`"name": "Deep Strike"` in `adeptus_custodes.json`) but no game logic reads or acts on it. The `DeploymentPhase.validate_action()` has no handling for a `PLACE_IN_RESERVES` action type. An archived test (`tests_archived_disabled/phases/test_deployment_phase.gd:163`) references `PLACE_IN_RESERVES` as a future action, confirming this was planned but never built.
+**Status**: **Implemented.** Units with the Deep Strike ability (detected via `GameState.unit_has_deep_strike()`) show `[DS]` tags in the deployment unit list and have a "Deep Strike (Reserves)" button. The `PLACE_IN_RESERVES` action tracks `reserve_type: "deep_strike"` vs `"strategic_reserves"`. During Movement phase reinforcements, Deep Strike units can be placed anywhere on the board >9" from enemies (no board-edge restriction). The deployment controller enters `is_reinforcement_mode` with ghost validation showing valid/invalid placement based on enemy proximity. Army data already defines Deep Strike as an ability (e.g., `adeptus_custodes.json`) and is read by `GameState.unit_has_deep_strike()`.
 
-**Impact**: High — Deep Strike is one of the most common and impactful deployment abilities in 40k. Many datasheets rely on it.
-
-**Recommendation**: Implement alongside Strategic Reserves. Units with `DEEP_STRIKE` keyword should have an option during battle formation declarations to go into reserves. Their placement during reinforcements follows different zone rules than Strategic Reserves (anywhere on the board vs. edge-only).
-
-### 4. Infiltrators
+### 4. Infiltrators — IMPLEMENTED
 **Rule**: If every model in a unit has the Infiltrators ability, the unit can be set up anywhere on the battlefield that is >9" from the enemy deployment zone and >9" from all enemy models.
 
-**Current Implementation**: Not implemented. No code searches or acts on an `INFILTRATORS` keyword or ability.
-
-**Impact**: Medium-High — Infiltrators change the deployment dynamic significantly. Units like Nurglings, Lictors, and many forward-deploy units depend on this.
-
-**Recommendation**: During deployment, if a unit has the `INFILTRATORS` keyword, allow placement anywhere outside the 9" exclusion zones rather than restricting to the player's deployment zone. This should be relatively straightforward — modify `_validate_model_position()` in `DeploymentPhase.gd` to use a different zone polygon for infiltrating units.
+**Status**: **Implemented.** Units with the "Infiltrators" ability (detected via `GameState.unit_has_infiltrators()`) are automatically placed in Infiltrators deployment mode when selected. During deployment, the `DeploymentController` enters `is_infiltrators_mode` which bypasses the normal deployment zone restriction and instead validates: (1) model is on the battlefield, (2) model base is >9" edge-to-edge from enemy deployment zone boundary, (3) model base is >9" edge-to-edge from all enemy models. Ghost validation shows green/red in real-time. The unit list shows `[INF]` tags for Infiltrators units. The status bar displays `[INFILTRATORS — >9" from enemies & enemy zone]` during placement. Server-side validation in `DeploymentPhase._validate_infiltrators_position()` enforces the same rules for multiplayer integrity. Army data updated: Space Marines Infiltrator Squad and Ork Kommandos now have the Infiltrators ability.
 
 ### 5. Scout Moves
 **Rule**: After deployment is complete but before the first battle round, units with `Scout X"` can make a Normal Move of up to X inches, ending >9" from enemy models. The player who takes the first turn moves their Scout units first. Dedicated Transports inherit Scout if all embarked models have it.
@@ -332,12 +320,12 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | `ATTACH_CHARACTER_DEPLOYMENT` optimistic exec | **High** | Low | Multiplayer | **DONE** |
 | Deployment progress indicator | **Medium** | Low | QoL | **DONE** |
 | Pre-battle formation declarations | **High** | Medium | Rules | Open |
-| Strategic Reserves | **High** | High | Rules | Open |
-| Deep Strike | **High** | High | Rules | Open |
+| Strategic Reserves | **High** | High | Rules | **DONE** |
+| Deep Strike | **High** | High | Rules | **DONE** |
 | SWITCH_PLAYER validation gap | **High** | Low | Multiplayer | **DONE** |
 | Turn timer UI for multiplayer | **High** | Low | Multiplayer | Open |
 | Determine First Turn roll-off | **Medium** | Medium | Rules | Open |
-| Infiltrators | **Medium** | Medium | Rules | Open |
+| Infiltrators | **Medium** | Medium | Rules | **DONE** |
 | Auto-zoom to deployment zone | **Medium** | Low | QoL | Open |
 | Per-model undo | **Medium** | Low | QoL | Open |
 | Deployment summary before ending | **Medium** | Low | QoL | Open |
@@ -380,7 +368,9 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 ### Medium-Term (High Effort, High Value)
 
-5. **Strategic Reserves + Deep Strike** — These are tightly coupled. Implement reserves as a new `UnitStatus`, add a declaration step in pre-battle, and add a Reinforcements sub-phase in Movement. The army data already contains Deep Strike ability definitions.
+5. **Strategic Reserves + Deep Strike** — **DONE.** Implemented `UnitStatus.IN_RESERVES`, `PLACE_IN_RESERVES` action during deployment, `PLACE_REINFORCEMENT` action during movement. Full multiplayer sync support. See items 2 and 3 above for details.
+
+6. **Infiltrators** — **DONE.** Units with the Infiltrators ability can now deploy anywhere on the battlefield >9" from enemy deployment zone and >9" from enemy models. `DeploymentPhase._validate_infiltrators_position()` and `DeploymentController._validate_infiltrators_position()` enforce the exclusion zones. `[INF]` tags shown in unit list. Army data includes Space Marine Infiltrator Squad and Ork Kommandos.
 
 ---
 
@@ -391,3 +381,5 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | Initial | First audit: core rules comparison, QoL recommendations, visual improvements, multiplayer issues |
 | Update 1 | Coherency enforcement, toast notifications, `ATTACH_CHARACTER_DEPLOYMENT` optimistic exec marked DONE |
 | Update 2 | Deployment progress indicator marked DONE. Added: SWITCH_PLAYER validation detail, race condition analysis, turn timer UI gap, web relay sync issue, game-over timeout concern, duplicate geometry observation, snapshot staleness observation, Fortification deployment gap, coherency distance display, keyboard shortcut reference, token unit name labels, opponent zone dimming. Updated code references to current line numbers. Revised priority matrix and recommended next items. |
+| Update 3 | **Strategic Reserves + Deep Strike marked DONE.** Added `UnitStatus.IN_RESERVES` to GameState enum. Implemented `PLACE_IN_RESERVES` action in DeploymentPhase with 25% point cap validation. Implemented `PLACE_REINFORCEMENT` action in MovementPhase with >9" enemy distance, board-edge (SR) and anywhere (DS) placement validation. Added reserves UI: "Place in Reserves" / "Deep Strike (Reserves)" button during deployment, `[DS]`/`[SR]` tags in unit lists, reinforcements section in movement phase unit list. Updated deployment progress to show reserve counts. Added `is_reinforcement_mode` to DeploymentController for ghost validation. Added to NetworkManager DETERMINISTIC_ACTIONS and exempt_actions. Updated GameManager routing. Full multiplayer sync support. |
+| Update 4 | **Infiltrators marked DONE.** Added `GameState.unit_has_infiltrators()` and `GameState.get_enemy_deployment_zone()` helpers. Implemented `DeploymentPhase._validate_infiltrators_position()` for server-side validation: on-board check, >9" from enemy deployment zone edge (edge-to-edge), >9" from enemy models (edge-to-edge), overlap and wall checks. Added `_min_distance_to_polygon_edge()` geometry helper. Added `DeploymentController.is_infiltrators_mode` flag with `_validate_infiltrators_position()` for client-side ghost validation. Updated `try_place_at()`, `_process()` ghost validation, `_validate_formation_position()`, and `_validate_reposition()` to handle Infiltrators mode. Added `[INF]` tags in deployment unit list. Status bar shows INFILTRATORS mode info during placement. Added Infiltrator Squad to Space Marines army and Kommandos to Orks army with Infiltrators ability. |

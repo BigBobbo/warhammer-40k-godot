@@ -9,6 +9,7 @@ RUN npm ci --production
 RUN apk del python3 make g++
 
 COPY relay-server.js ./
+COPY public/ ./public/
 
 RUN mkdir -p /data
 

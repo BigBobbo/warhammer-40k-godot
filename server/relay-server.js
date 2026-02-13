@@ -1,10 +1,12 @@
 const http = require('http');
+const fs = require('fs');
 const WebSocket = require('ws');
 const path = require('path');
 
 const PORT = parseInt(process.env.PORT || '9080', 10);
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'persistence.db');
 const MAX_BODY_SIZE = 2 * 1024 * 1024; // 2MB
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // ============================================================================
 // SQLite Setup
@@ -217,6 +219,75 @@ function parseRoute(url) {
 }
 
 // ============================================================================
+// Static File Serving
+// ============================================================================
+
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+function serveStaticFile(req, res) {
+  // Only serve GET requests
+  if (req.method !== 'GET') {
+    sendError(res, 405, 'Method not allowed');
+    return;
+  }
+
+  let urlPath = req.url.split('?')[0];
+  if (urlPath === '/') urlPath = '/index.html';
+
+  // Prevent directory traversal
+  const filePath = path.normalize(path.join(PUBLIC_DIR, urlPath));
+  if (!filePath.startsWith(PUBLIC_DIR)) {
+    sendError(res, 403, 'Forbidden');
+    return;
+  }
+
+  // Check if file exists
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      // Fall back to index.html for SPA-style routing
+      const indexPath = path.join(PUBLIC_DIR, 'index.html');
+      fs.stat(indexPath, (err2, stats2) => {
+        if (err2 || !stats2.isFile()) {
+          sendJSON(res, 200, { service: 'w40k-relay-server', status: 'running' });
+          return;
+        }
+        streamFile(res, indexPath, '.html');
+      });
+      return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    streamFile(res, filePath, ext);
+  });
+}
+
+function streamFile(res, filePath, ext) {
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  const stream = fs.createReadStream(filePath);
+
+  stream.on('error', () => {
+    sendError(res, 500, 'Failed to read file');
+  });
+
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=86400',
+  });
+  stream.pipe(res);
+}
+
+// ============================================================================
 // HTTP Request Handler
 // ============================================================================
 
@@ -231,9 +302,9 @@ async function handleHTTPRequest(req, res) {
 
   const parts = parseRoute(req.url);
 
-  // Non-API requests get a simple response
+  // Non-API requests: serve static files
   if (parts[0] !== 'api') {
-    sendJSON(res, 200, { service: 'w40k-relay-server', status: 'running' });
+    serveStaticFile(req, res);
     return;
   }
 

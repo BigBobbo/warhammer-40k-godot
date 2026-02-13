@@ -60,6 +60,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _validate_deploy_unit_action(action)
+		"PLACE_IN_RESERVES":
+			return _validate_place_in_reserves(action)
 		"SWITCH_PLAYER":
 			return _validate_switch_player_action(action)
 		"END_DEPLOYMENT":
@@ -105,15 +107,20 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	# Validate model positions
 	if model_positions is Array:
 		var unit_owner = unit.get("owner", 0)
+		var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
 		var deployment_zone = get_deployment_zone_for_player(unit_owner)
 		for i in range(model_positions.size()):
 			var pos = model_positions[i]
 			if pos != null:
 				var rotation = model_rotations[i] if i < model_rotations.size() else 0.0
-				var validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
+				var validation
+				if is_infiltrators:
+					validation = _validate_infiltrators_position(pos, unit, i, unit_owner, rotation)
+				else:
+					validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
 				if not validation.valid:
 					errors.append_array(validation.errors)
-	
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary, rotation: float = 0.0) -> Dictionary:
@@ -147,6 +154,127 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 		errors.append("Model cannot overlap with walls")
 
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
+	"""Validate Infiltrators deployment: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models"""
+	var errors = []
+
+	# Get model info
+	var models = unit.get("models", [])
+	if model_index >= models.size():
+		errors.append("Model index out of range")
+		return {"valid": false, "errors": errors}
+
+	var model = models[model_index]
+	var px_per_inch = 40.0
+
+	# Check model is on the board
+	var board_width_px = GameState.state.board.size.width * px_per_inch
+	var board_height_px = GameState.state.board.size.height * px_per_inch
+	if position.x < 0 or position.x > board_width_px or position.y < 0 or position.y > board_height_px:
+		errors.append("Model must be on the battlefield")
+
+	# Check >9" from enemy deployment zone (edge-to-edge distance from model base to zone boundary)
+	var enemy_zone = GameState.get_enemy_deployment_zone(unit_owner)
+	var enemy_zone_poly_inches = enemy_zone.get("poly", [])
+	var enemy_zone_poly_pixels = _convert_zone_inches_to_pixels(enemy_zone_poly_inches)
+	if enemy_zone_poly_pixels.size() > 0:
+		var model_base_mm = model.get("base_mm", 32)
+		var model_radius_inches = (model_base_mm / 2.0) / 25.4
+		var model_radius_px = model_radius_inches * px_per_inch
+		# Find minimum distance from model center to any edge of the enemy deployment zone
+		var min_dist_px = _min_distance_to_polygon_edge(position, enemy_zone_poly_pixels)
+		var min_dist_inches = min_dist_px / px_per_inch
+		# Edge-to-edge: subtract model radius
+		var edge_dist_inches = min_dist_inches - model_radius_inches
+		# Also check if model center is inside the enemy zone (distance would be 0)
+		if Geometry2D.is_point_in_polygon(position, enemy_zone_poly_pixels):
+			errors.append("Infiltrators must be >9\" from enemy deployment zone (model is inside enemy zone)")
+		elif edge_dist_inches < 9.0:
+			errors.append("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+
+	# Check >9" from all enemy models (edge-to-edge)
+	var model_base_mm = model.get("base_mm", 32)
+	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+	var enemy_positions = GameState.get_enemy_model_positions(unit_owner)
+	for enemy in enemy_positions:
+		var enemy_pos_px = Vector2(enemy.x, enemy.y)
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = position.distance_to(enemy_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			errors.append("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
+			break
+
+	# Check overlap with other models using shape-aware collision
+	if _position_overlaps_existing_models_shape(position, model, rotation, unit.get("id", "")):
+		errors.append("Model cannot overlap with existing models")
+
+	# Check overlap with walls
+	var test_model = model.duplicate()
+	test_model["position"] = position
+	test_model["rotation"] = rotation
+	if Measurement.model_overlaps_any_wall(test_model):
+		errors.append("Model cannot overlap with walls")
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _min_distance_to_polygon_edge(point: Vector2, polygon: PackedVector2Array) -> float:
+	"""Calculate minimum distance from a point to the nearest edge of a polygon"""
+	var min_dist = INF
+	for i in range(polygon.size()):
+		var p1 = polygon[i]
+		var p2 = polygon[(i + 1) % polygon.size()]
+		var dist = _point_to_line_distance(point, p1, p2)
+		if dist < min_dist:
+			min_dist = dist
+	return min_dist
+
+func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
+	"""Validate placing a unit into Strategic Reserves or Deep Strike reserves"""
+	var errors = []
+
+	if not action.has("unit_id"):
+		errors.append("Missing required field: unit_id")
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.unit_id
+	var reserve_type = action.get("reserve_type", "strategic_reserves")  # "strategic_reserves" or "deep_strike"
+
+	# Check if unit exists and is undeployed
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+		errors.append("Unit is not available for reserves: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	# Check if unit belongs to active player
+	var active_player = get_current_player()
+	if unit.get("owner", 0) != active_player:
+		errors.append("Unit does not belong to active player")
+		return {"valid": false, "errors": errors}
+
+	# Deep Strike validation: unit must have the Deep Strike ability
+	if reserve_type == "deep_strike":
+		if not GameState.unit_has_deep_strike(unit_id):
+			errors.append("Unit does not have Deep Strike ability: " + unit_id)
+			return {"valid": false, "errors": errors}
+
+	# Strategic Reserves point limit: max 25% of total army points
+	var unit_points = unit.get("meta", {}).get("points", 0)
+	var total_points = GameState.get_total_army_points(active_player)
+	var current_reserves_points = GameState.get_reserves_points(active_player)
+	var max_reserves_points = int(total_points * 0.25)
+
+	if current_reserves_points + unit_points > max_reserves_points:
+		errors.append("Exceeds 25%% reserves limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
 
 func _validate_switch_player_action(action: Dictionary) -> Dictionary:
 	# Can only switch if current player has no more units to deploy
@@ -258,6 +386,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _process_deploy_unit(action)
+		"PLACE_IN_RESERVES":
+			return _process_place_in_reserves(action)
 		"SWITCH_PLAYER":
 			return _process_switch_player(action)
 		"END_DEPLOYMENT":
@@ -314,6 +444,40 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	log_phase_message("Deployed %s" % unit_name)
 
 	# Transport embark dialog is now handled by DeploymentController BEFORE deployment
+
+	return create_result(true, changes)
+
+func _process_place_in_reserves(action: Dictionary) -> Dictionary:
+	"""Process placing a unit into reserves (Strategic Reserves or Deep Strike)"""
+	var unit_id = action.unit_id
+	var reserve_type = action.get("reserve_type", "strategic_reserves")
+	var changes = []
+
+	# Set unit status to IN_RESERVES
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.IN_RESERVES
+	})
+
+	# Store the reserve type on the unit for later use during reinforcements
+	changes.append({
+		"op": "set",
+		"path": "units.%s.reserve_type" % unit_id,
+		"value": reserve_type
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update local snapshot
+	_apply_changes_to_local_state(changes)
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+	log_phase_message("Placed %s in %s" % [unit_name, type_label])
 
 	return create_result(true, changes)
 
@@ -537,7 +701,7 @@ func _process_attach_character_deployment(action: Dictionary) -> Dictionary:
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
-	
+
 	# Get undeployed units for current player
 	var undeployed_units = _get_undeployed_units_for_player(current_player)
 	for unit_id in undeployed_units:
@@ -546,7 +710,25 @@ func get_available_actions() -> Array:
 			"unit_id": unit_id,
 			"description": "Deploy " + get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		})
-	
+
+		# Units can be placed in reserves (strategic reserves or deep strike)
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		if GameState.unit_has_deep_strike(unit_id):
+			actions.append({
+				"type": "PLACE_IN_RESERVES",
+				"unit_id": unit_id,
+				"reserve_type": "deep_strike",
+				"description": "Deep Strike %s" % unit_name
+			})
+		else:
+			actions.append({
+				"type": "PLACE_IN_RESERVES",
+				"unit_id": unit_id,
+				"reserve_type": "strategic_reserves",
+				"description": "Strategic Reserves %s" % unit_name
+			})
+
 	# Check if player can be switched
 	if not _has_undeployed_units(current_player):
 		var other_player = 3 - current_player  # Switch between 1 and 2
@@ -556,7 +738,7 @@ func get_available_actions() -> Array:
 				"new_player": other_player,
 				"description": "Switch to Player %d" % other_player
 			})
-	
+
 	return actions
 
 func _should_complete_phase() -> bool:
@@ -576,6 +758,9 @@ func _has_undeployed_units(player: int) -> bool:
 			continue
 		# Skip units that are attached to a bodyguard (they're deployed with their bodyguard)
 		if unit.get("attached_to", null) != null:
+			continue
+		# Skip units in reserves (they're off-table)
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			return true
@@ -602,6 +787,9 @@ func _all_units_deployed() -> bool:
 			continue
 		# Skip attached characters (they're deployed with their bodyguard)
 		if unit.get("attached_to", null) != null:
+			continue
+		# Skip units in reserves (they're off-table, handled during reinforcements)
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 
 		var status = unit.get("status", 0)

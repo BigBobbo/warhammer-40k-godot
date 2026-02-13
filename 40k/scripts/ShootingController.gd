@@ -1178,12 +1178,37 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		dice_log_display.append_text(log_text)
 		return
 
+	# Variable damage display
+	if context == "variable_damage":
+		var notation = dice_data.get("notation", "")
+		var total_dmg = dice_data.get("total_damage", 0)
+		var dmg_rolls = dice_data.get("rolls", [])
+		var log_text = "[b][color=yellow]Variable Damage (%s)[/color][/b]\n" % notation
+		var roll_values = []
+		for r in dmg_rolls:
+			roll_values.append(str(r.get("value", 0)))
+		log_text += "  Rolled: [%s] = %d total damage\n" % [", ".join(roll_values), total_dmg]
+		dice_log_display.append_text(log_text)
+		return
+
 	# TORRENT (PRP-014): Handle auto_hit context for Torrent weapons
 	if context == "auto_hit":
 		var total_attacks = dice_data.get("total_attacks", 0)
 		var hits = dice_data.get("successes", 0)
 		var message = dice_data.get("message", "Torrent: automatic hits")
 		var log_text = "[b][color=lime]TORRENT - Automatic Hits[/color][/b]\n"
+
+		# Show variable attacks if rolled
+		var torrent_var_attacks = dice_data.get("variable_attacks", false)
+		if torrent_var_attacks:
+			var attacks_notation = dice_data.get("attacks_notation", "")
+			var attacks_rolls = dice_data.get("attacks_rolls", [])
+			var base_atk = dice_data.get("base_attacks", 0)
+			var roll_values = []
+			for r in attacks_rolls:
+				roll_values.append(str(r.get("value", 0)))
+			log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [%s] = %d attacks[/color]\n" % [attacks_notation, ", ".join(roll_values), base_atk]
+
 		log_text += "  [color=lime]%s[/color]\n" % message
 
 		# Show Blast bonus if this is a Torrent + Blast weapon
@@ -1191,9 +1216,6 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if blast_weapon:
 			var target_model_count = dice_data.get("target_model_count", 0)
 			var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
-			var blast_minimum_applied = dice_data.get("blast_minimum_applied", false)
-			if blast_minimum_applied:
-				log_text += "  [color=lime][BLAST] Minimum 3 attacks (target has %d models)[/color]\n" % target_model_count
 			if blast_bonus_attacks > 0:
 				log_text += "  [color=lime][BLAST] +%d bonus attacks (%d models)[/color]\n" % [blast_bonus_attacks, target_model_count]
 
@@ -1222,27 +1244,34 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if heavy_bonus_applied:
 		log_text += "  [color=cyan][HEAVY] +1 to hit (unit stationary)[/color]\n"
 
+	# Show variable attacks if rolled
+	var variable_attacks = dice_data.get("variable_attacks", false)
+	if variable_attacks:
+		var attacks_notation = dice_data.get("attacks_notation", "")
+		var attacks_rolls = dice_data.get("attacks_rolls", [])
+		var base_attacks = dice_data.get("base_attacks", 0)
+		var roll_values = []
+		for r in attacks_rolls:
+			roll_values.append(str(r.get("value", 0)))
+		log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [%s] = %d attacks[/color]\n" % [attacks_notation, ", ".join(roll_values), base_attacks]
+
 	# Show Rapid Fire bonus if applied
 	var rapid_fire_bonus = dice_data.get("rapid_fire_bonus", 0)
 	if rapid_fire_bonus > 0:
 		var rf_value = dice_data.get("rapid_fire_value", 1)
 		var models_in_half = dice_data.get("models_in_half_range", 0)
-		var base_attacks = dice_data.get("base_attacks", 0)
-		log_text += "  [color=orange][RAPID FIRE %d] +%d attacks (%d models in half range, %d base attacks)[/color]\n" % [rf_value, rapid_fire_bonus, models_in_half, base_attacks]
+		var base_atk = dice_data.get("base_attacks", 0)
+		log_text += "  [color=orange][RAPID FIRE %d] +%d attacks (%d models in half range, %d base attacks)[/color]\n" % [rf_value, rapid_fire_bonus, models_in_half, base_atk]
 
-	# BLAST (PRP-013): Show Blast bonus and minimum if applied
+	# BLAST (PRP-013): Show Blast bonus if applied
 	var blast_weapon = dice_data.get("blast_weapon", false)
 	if blast_weapon and context == "to_hit":
 		var target_model_count = dice_data.get("target_model_count", 0)
 		var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
-		var blast_minimum_applied = dice_data.get("blast_minimum_applied", false)
-		var blast_original_attacks = dice_data.get("blast_original_attacks", 0)
 
-		if blast_minimum_applied:
-			log_text += "  [color=lime][BLAST] Minimum 3 attacks (target has %d models)[/color]\n" % target_model_count
 		if blast_bonus_attacks > 0:
-			log_text += "  [color=lime][BLAST] +%d attacks (%d models in target = +%d per 5)[/color]\n" % [blast_bonus_attacks, target_model_count, target_model_count / 5]
-		elif blast_bonus_attacks == 0 and not blast_minimum_applied:
+			log_text += "  [color=lime][BLAST] +%d attacks (%d models in target)[/color]\n" % [blast_bonus_attacks, target_model_count]
+		elif blast_bonus_attacks == 0:
 			log_text += "  [color=gray][BLAST] No bonus (%d models in target < 5)[/color]\n" % target_model_count
 
 	# LETHAL HITS (PRP-010): Show Lethal Hits indicator and auto-wounds

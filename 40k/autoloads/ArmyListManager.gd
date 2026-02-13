@@ -123,6 +123,8 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 						unit["status"] = GameStateData.UnitStatus.CHARGED
 					"FOUGHT":
 						unit["status"] = GameStateData.UnitStatus.FOUGHT
+					"IN_RESERVES":
+						unit["status"] = GameStateData.UnitStatus.IN_RESERVES
 					_:
 						unit["status"] = GameStateData.UnitStatus.UNDEPLOYED
 			else:
