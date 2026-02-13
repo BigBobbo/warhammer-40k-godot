@@ -23,3 +23,11 @@ exports/
 # Autosaves and temporary saves
 40k/saves/autosaves/
 40k/saves/backups/
+
+# Node.js
+node_modules/
+
+# SQLite runtime files
+*.db-shm
+*.db-wal
+*.db-journal
