@@ -90,7 +90,7 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 | Missing Keyword | Rule Effect | Priority |
 |----------------|-------------|----------|
-| **ANTI-[KEYWORD] X+** | Critical wounds on wound roll of X+ against units with matching keyword (e.g., Anti-Vehicle 4+ scores critical wounds on 4+ vs Vehicles) | HIGH — affects many units |
+| ~~**ANTI-[KEYWORD] X+**~~ | ~~Critical wounds on wound roll of X+ against units with matching keyword (e.g., Anti-Vehicle 4+ scores critical wounds on 4+ vs Vehicles)~~ | **FIXED** — `get_anti_keyword_data()`, `get_critical_wound_threshold()`, `unit_has_keyword()` in `RulesEngine.gd`; applied in all 3 wound resolution paths |
 | **MELTA X** | +X damage at half range | HIGH — core weapon type |
 | **TWIN-LINKED** | Re-roll wound rolls | HIGH — common keyword |
 | **HAZARDOUS** | After attacking, roll D6 per Hazardous weapon; on 1, bearer suffers 3 MW (or removed if non-Character/Vehicle/Monster) | MEDIUM — affects plasma weapons |
@@ -102,6 +102,8 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 | **EXTRA ATTACKS** | Bonus attacks that don't replace normal attacks | LOW — niche |
 
 **Note:** "IGNORES COVER" runtime logic has been implemented. The `has_ignores_cover()` function checks weapon keywords/special_rules, and both `prepare_save_resolution()` (interactive path) and `_resolve_assignment()` (auto-resolve path) skip cover when the weapon has this keyword.
+
+**Note:** "ANTI-[KEYWORD] X+" has been implemented. The `get_anti_keyword_data()` function parses anti-keyword rules (e.g., "anti-infantry 4+") from weapon special_rules and keywords. The `get_critical_wound_threshold()` function checks if the target unit has the matching keyword and returns the lowered critical wound threshold. Critical wounds from Anti always succeed the wound roll and interact correctly with Devastating Wounds (bypassing saves). Applied in all three wound resolution paths: `_resolve_assignment_until_wounds()` (interactive ranged), `_resolve_assignment()` (auto-resolve ranged), and `_resolve_melee_assignment()` (melee).
 
 ### 2.4 HIGH: Variable Attacks and Damage Not Rolled — Always Fixed
 
@@ -353,7 +355,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 | Category | Count |
 |----------|-------|
 | Rules correctly implemented | 35+ |
-| Critical missing rules | 2 (Overwatch, 9 weapon keywords) — targeting in engagement FIXED |
+| Critical missing rules | 2 (Overwatch, 9 weapon keywords) — targeting in engagement FIXED, ANTI-[KEYWORD] X+ FIXED |
 | High priority missing rules | 4 (variable dice, wound modifiers, Stealth, Lone Operative) — Battle-shock FIXED, IGNORES COVER FIXED |
 | Medium priority missing rules | 4 (cover terrain types, DW mortal wound model, Pistol exclusivity, Ignores Cover runtime) |
 | Multiplayer issues | 4 (defender agency, visual sync, save timing, dice sync) |
@@ -368,7 +370,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 ### Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 1. ~~**Targeting units in engagement with friendlies**~~ — FIXED
 2. **Variable attacks and damage rolling** — many weapons are broken without this
-3. **ANTI-[KEYWORD] X+** — affects many common units
+3. ~~**ANTI-[KEYWORD] X+**~~ — FIXED
 4. **MELTA X** — core weapon type for anti-vehicle
 5. **TWIN-LINKED** — common keyword, re-roll wounds
 6. ~~**Battle-shocked units cannot shoot**~~ — FIXED
