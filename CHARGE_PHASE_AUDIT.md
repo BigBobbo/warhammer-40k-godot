@@ -58,19 +58,18 @@ The charge phase implementation covers the **core mechanical loop** well: unit s
 
 **Impact:** Another major tactical element missing for the defending player in multiplayer. Heroic Intervention is a key counter to aggressive charges.
 
-### 2.3 HIGH: Failed Charge — Unit Doesn't Move But No Explicit "Do Not Move" Enforcement
+### ~~2.3 HIGH: Failed Charge — Unit Doesn't Move But No Explicit "Do Not Move" Enforcement~~ — FIXED
 
-**Rule:** If a charge fails (rolled distance insufficient), the unit does **not move at all**. It stays exactly where it was.
+> **Resolved in commit `6caf26e`** — Server-side charge roll failure detection and broadcast.
 
-**Current state:** When a charge roll fails (in `ChargeController.gd:1601-1609`), the UI resets and the unit selection is cleared. However, there's no explicit state change applied to lock the unit from further charges, and the check is done locally in the controller's `_is_charge_successful()` rather than in the phase itself.
-
-**Issue:** The success/failure determination happens in two places:
-1. `ChargeController.gd:768-809` — `_is_charge_successful()` (client-side)
-2. `ChargePhase.gd:337-348` — validation in `_process_apply_charge_move()` (server-side)
-
-The phase only checks failure during APPLY_CHARGE_MOVE, not during CHARGE_ROLL itself. If the roll fails, the client-side controller handles it, but the phase doesn't record a failed charge attempt. This means:
-- No state change is broadcast to the other player when a charge fails
-- The defending player in multiplayer may not see that a charge was attempted and failed
+**What was changed:**
+- `ChargePhase._process_charge_roll()` now performs a server-side feasibility check via `_is_charge_roll_sufficient()` immediately after rolling 2D6
+- When the roll is insufficient, the phase records the structured failure, cleans up state (`pending_charges`, `completed_charges`, `units_that_charged`), and emits `charge_resolved(unit_id, false, failure_data)`
+- The result includes `charge_failed: true` and `failure_record` so `NetworkManager._emit_client_visual_updates()` can broadcast the failure to the defending player
+- NetworkManager re-emits `charge_resolved` on the client and syncs the client's local phase state
+- `ChargeController._on_charge_roll_made()` (host) defers to phase state instead of recomputing success locally
+- `ChargeController._on_dice_rolled()` (client) reads the server-side `charge_failed` flag from dice data rather than recomputing, with backwards-compatible fallback
+- Both players now see the same failure message and the unit is properly locked from retrying
 
 ### 2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed
 
@@ -245,8 +244,8 @@ This duplication creates a risk of divergence. The controller's check uses `Meas
 
 ### Must Fix (Rules/Multiplayer Correctness)
 1. ~~**Add charge phase signal re-emission in NetworkManager**~~ — **DONE** (commit `63748bc`)
-2. **Record failed charge attempts in phase state** — Broadcast failure to both players ← **RECOMMENDED NEXT**
-3. **Implement base-to-base enforcement** — Currently stubbed, rules require it
+2. ~~**Record failed charge attempts in phase state** — Broadcast failure to both players~~ — **DONE** (commit `6caf26e`)
+3. **Implement base-to-base enforcement** — Currently stubbed, rules require it ← **RECOMMENDED NEXT**
 
 ### Should Fix (Rules Compliance)
 4. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)
