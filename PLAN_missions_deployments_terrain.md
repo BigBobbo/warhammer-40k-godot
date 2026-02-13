@@ -1,13 +1,13 @@
 # Plan: Adding Missions, Deployment Zones, and Terrain Layouts
 
-## Current State
+## Current State (Updated 2026-02-13)
 
-The game currently supports **one** of each:
-- **Mission**: Take and Hold
-- **Deployment Zone**: Hammer and Anvil (functions misleadingly named `_get_dawn_of_war_zone_*_coords()`)
-- **Terrain Layout**: Chapter Approved Layout 2
+The game now supports:
+- **Missions**: Take and Hold (1 of 5 planned)
+- **Deployment Zones**: All 5 types (Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, Crucible of Battle)
+- **Terrain Layouts**: All 8 Chapter Approved layouts (data-driven via JSON)
 
-The architecture already has dropdowns in the Main Menu and a config dictionary passed to `_initialize_game_with_config()`, so the plumbing for selection exists. The work is in defining the data and wiring it through.
+The deployment zone infrastructure and terrain layout systems are complete. The main remaining work is implementing additional primary missions (Phase 2) and polish items (Phase 4).
 
 ---
 
@@ -376,14 +376,14 @@ These are lower priority but the architecture should support them. A `MissionRul
 
 ## Implementation Order (Recommended)
 
-### Phase 1: Deployment Zone Infrastructure
-1. Create `DeploymentZoneData.gd` with all 5 deployment zone definitions
-2. Refactor `GameState.gd` to use the new data source
-3. Update `MainMenu.gd` dropdown with all options
-4. Wire deployment selection through to game initialization
-5. Test each deployment zone renders correctly
+### Phase 1: Deployment Zone Infrastructure — COMPLETE
+1. ~~Create `DeploymentZoneData.gd` with all 5 deployment zone definitions~~
+2. ~~Refactor `GameState.gd` to use the new data source~~
+3. ~~Update `MainMenu.gd` dropdown with all options~~
+4. ~~Wire deployment selection through to game initialization~~
+5. ~~Test each deployment zone renders correctly~~
 
-### Phase 2: Mission Infrastructure
+### Phase 2: Mission Infrastructure — NOT STARTED
 1. Create mission data registry
 2. Refactor `MissionManager.gd` to support multiple missions
 3. Implement `Scorched Earth` (moderate complexity - adds burn mechanic)
@@ -392,15 +392,15 @@ These are lower priority but the architecture should support them. A `MissionRul
 6. Update `MainMenu.gd` with mission options
 7. Wire mission selection through to MissionManager
 
-### Phase 3: Terrain Layouts
-1. Design data-driven terrain loading (JSON or extended GDScript)
-2. Implement layouts 1, 3-8 (Layout 2 exists)
-3. Add wall configurations for each
-4. Update `MainMenu.gd` terrain dropdown
+### Phase 3: Terrain Layouts — COMPLETE
+1. ~~Design data-driven terrain loading (JSON or extended GDScript)~~
+2. ~~Implement layouts 1, 3-8 (Layout 2 exists)~~
+3. ~~Add wall configurations for each~~
+4. ~~Update `MainMenu.gd` terrain dropdown~~
 5. Optional: Add terrain-deployment pairing recommendations to UI
 
-### Phase 4: Polish & Rules
-1. Objective position verification for all deployment maps
+### Phase 4: Polish & Rules — PARTIAL
+1. ~~Objective position verification for all deployment maps~~
 2. Player-2 end-of-game scoring adjustment
 3. Mission Rules system (stretch)
 4. Challenger system (stretch)
@@ -436,6 +436,74 @@ These are lower priority but the architecture should support them. A `MissionRul
 4. **Save/Load**: New mission types and deployment zones need to save/load correctly. The `SaveLoadManager` serializes GameState, so new fields must be serializable.
 
 5. **Scorched Earth complexity**: The burn mechanic is the most complex new feature - it requires an action system (start burn, track progress, complete burn, remove objective) that spans multiple player turns.
+
+---
+
+## Completion Status (Assessed 2026-02-13)
+
+### Phase 1: Deployment Zone Infrastructure — COMPLETE
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create `DeploymentZoneData.gd` | DONE | `40k/scripts/data/DeploymentZoneData.gd` — all 5 deployment types with polygon coords, objective positions, zone classifications, inch/pixel conversion |
+| Refactor `GameState.gd` | DONE | `initialize_default_state(deployment_type)` uses `DeploymentZoneData.get_zones()`. Old `_get_dawn_of_war_zone_*` methods removed |
+| Update `MainMenu.gd` dropdown | DONE | All 5 deployment options in `deployment_options` array |
+| Wire deployment selection to init | DONE | Config flows through `_initialize_game_with_config()` to `GameState` and `BoardState` |
+| Verify polygon zone support | DONE | `DeploymentController` uses `Geometry2D.is_point_in_polygon()` for all shapes including L-shaped and stepped zones. `DeploymentZoneVisual` renders via `Polygon2D` |
+
+### Phase 2: Mission Infrastructure — NOT STARTED (except Take and Hold)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create `MissionData.gd` | NOT DONE | No centralized mission data file exists |
+| Refactor `MissionManager.gd` for multi-mission | PARTIAL | Has `current_mission` dict and `initialize_default_mission()`, but only supports Take and Hold. Scoring placeholder comment: "Score objectives (not implemented)" |
+| Implement Scorched Earth | NOT DONE | No burn mechanic, no objective removal |
+| Implement Purge the Foe | NOT DONE | No kill tracking or comparative scoring |
+| Implement Supply Drop | NOT DONE | No objective removal at turn boundaries |
+| Implement Sites of Power | NOT DONE | No character-on-objective tracking |
+| Update `MainMenu.gd` with missions | PARTIAL | Only "Take and Hold" in dropdown with `# Future: Add more missions` comment |
+| Wire mission selection through config | PARTIAL | Selected in config but not passed to game init (comment: "Future: Add mission configuration when more missions are available") |
+| Mission-specific UI elements | NOT DONE | No burn buttons, kill counters, or other mission-specific actions |
+
+### Phase 3: Terrain Layouts — COMPLETE
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Design data-driven terrain loading | DONE | JSON-based approach chosen and implemented |
+| Implement layouts 1-8 | DONE | All 8 JSON files in `40k/terrain_layouts/` (layout_1.json through layout_8.json) |
+| `TerrainManager.gd` loads from JSON | DONE | Loads all 8 layouts, converts inches to pixels, handles rotation and wall definitions |
+| Update `MainMenu.gd` terrain dropdown | DONE | All 8 layout options wired to `TerrainManager` |
+| Wall configurations | DONE | Each layout JSON includes wall definitions with type (solid/window/door) and LoS properties |
+| Height categories | DONE | LOW (cover only), MEDIUM (partial LoS block), TALL (full LoS block) supported |
+| Terrain-deployment pairing recommendations | PARTIAL | `recommended_deployments` field exists in JSON metadata but not surfaced in UI |
+
+### Phase 4: Polish & Rules — PARTIAL
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Objective position verification | DONE | All 5 objectives defined per deployment type in `DeploymentZoneData.gd` with zone classification (player1/player2/no_mans_land) |
+| Player-2 end-of-game scoring adjustment | NOT DONE | Both players scored identically; no asymmetric VP for Player 2 at end of Turn 5 |
+| Mission Rules system | NOT DONE | No rules engine for conditional modifiers (Chilling Rain, Sweep and Clear, etc.) |
+| Challenger system | NOT DONE | Not started |
+
+### Summary
+
+| Phase | Status | Completion |
+|-------|--------|------------|
+| Phase 1: Deployment Zones | **COMPLETE** | 5/5 tasks |
+| Phase 2: Mission Infrastructure | **NOT STARTED** | 1/9 tasks (Take and Hold only) |
+| Phase 3: Terrain Layouts | **COMPLETE** | 6/7 tasks (pairing UI not surfaced) |
+| Phase 4: Polish & Rules | **PARTIAL** | 1/4 tasks |
+
+### Recommended Next Task
+
+**Phase 2: Mission Infrastructure** is the highest-priority remaining work. The recommended implementation order is:
+
+1. **Create `MissionData.gd`** — Define all mission types (Take and Hold, Scorched Earth, Purge the Foe, Supply Drop) as a centralized data registry with scoring rules, VP caps, and special rule flags.
+2. **Refactor `MissionManager.gd`** — Accept mission ID from config, dispatch to mission-specific scoring logic, wire through MainMenu selection.
+3. **Implement Purge the Foe** — Good second mission because it adds kill-tracking (a new system) without requiring objective modification mechanics. Moderate complexity.
+4. **Implement Scorched Earth** — Most complex mission due to burn action system spanning multiple turns. Should be tackled after the multi-mission framework is proven with Purge the Foe.
+5. **Implement Supply Drop** — Requires objective removal mechanics, builds on patterns established by Scorched Earth.
 
 ---
 
