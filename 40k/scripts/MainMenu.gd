@@ -23,8 +23,11 @@ var mission_options = [
 ]
 
 var deployment_options = [
-	{"id": "hammer_anvil", "name": "Hammer and Anvil"}
-	# Future: Add Dawn of War, Search and Destroy, etc.
+	{"id": "hammer_anvil", "name": "Hammer and Anvil"},
+	{"id": "dawn_of_war", "name": "Dawn of War"},
+	{"id": "search_and_destroy", "name": "Search and Destroy"},
+	{"id": "sweeping_engagement", "name": "Sweeping Engagement"},
+	{"id": "crucible_of_battle", "name": "Crucible of Battle"}
 ]
 
 # Army options - dynamically populated from ArmyListManager
@@ -192,9 +195,9 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	
 	# Clear any existing state first
 	GameState.state.clear()
-	
-	# Initialize base game state
-	GameState.initialize_default_state()
+
+	# Initialize base game state with selected deployment type
+	GameState.initialize_default_state(config.deployment)
 	
 	# Apply terrain configuration
 	if TerrainManager:
@@ -202,6 +205,10 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 		TerrainManager.load_terrain_layout(config.terrain)
 		print("MainMenu: Terrain layout set to: ", config.terrain)
 	
+	# Initialize BoardState deployment zones to match selected deployment
+	if BoardState:
+		BoardState.initialize_deployment_zones(config.deployment)
+
 	# Apply mission configuration (MissionManager will use default "Take and Hold" for now)
 	# Future: Add mission configuration when more missions are available
 	

@@ -13,7 +13,10 @@ var state: Dictionary = {}
 func _ready() -> void:
 	initialize_default_state()
 
-func initialize_default_state() -> void:
+func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
+	# Get deployment zones from centralized data source
+	var deployment_zones = DeploymentZoneData.get_zones(deployment_type)
+
 	# Initialize base state structure
 	state = {
 		"meta": {
@@ -22,21 +25,13 @@ func initialize_default_state() -> void:
 			"battle_round": 1,  # Track battle rounds (1-5 in standard 40K)
 			"active_player": 1,  # Player 1 should start
 			"phase": Phase.DEPLOYMENT,
+			"deployment_type": deployment_type,  # Track which deployment is in use
 			"created_at": Time.get_unix_time_from_system(),
 			"version": "1.0.0"
 		},
 		"board": {
 			"size": {"width": 44, "height": 60},  # inches
-			"deployment_zones": [
-				{
-					"player": 1,
-					"poly": _get_dawn_of_war_zone_1_coords()
-				},
-				{
-					"player": 2,
-					"poly": _get_dawn_of_war_zone_2_coords()
-				}
-			],
+			"deployment_zones": deployment_zones,
 			"objectives": [],
 			"terrain": [],
 			"terrain_features": []  # Added for terrain system
@@ -201,21 +196,8 @@ func generate_game_id() -> String:
 	]
 	return uuid
 
-func _get_dawn_of_war_zone_1_coords() -> Array:
-	return [
-		{"x": 0, "y": 0},
-		{"x": 44, "y": 0},
-		{"x": 44, "y": 12},
-		{"x": 0, "y": 12}
-	]
-
-func _get_dawn_of_war_zone_2_coords() -> Array:
-	return [
-		{"x": 0, "y": 48},
-		{"x": 44, "y": 48},
-		{"x": 44, "y": 60},
-		{"x": 0, "y": 60}
-	]
+func get_deployment_type() -> String:
+	return state.get("meta", {}).get("deployment_type", "hammer_anvil")
 
 # State Access Methods
 func get_current_phase() -> Phase:
