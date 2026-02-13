@@ -447,10 +447,13 @@ func _update_ui_for_current_wound() -> void:
 	var weapon_name = save_data.get("weapon_name", "Unknown Weapon")
 	var ap = save_data.get("ap", 0)
 	var damage = save_data.get("damage", 1)
+	var damage_raw = save_data.get("damage_raw", str(damage))
 	var shooter_name = save_data.get("shooter_unit_id", "Unknown")
 
+	# Show variable damage notation (e.g. "D6") if damage is not fixed
+	var damage_display = damage_raw if not damage_raw.is_valid_int() else str(damage)
 	if attack_info_label:
-		attack_info_label.text = "⚔ %s (AP%d, D%d)" % [weapon_name, ap, damage]
+		attack_info_label.text = "⚔ %s (AP%d, D%s)" % [weapon_name, ap, damage_display]
 		print("  - Set attack_info_label.text: ", attack_info_label.text)
 	else:
 		push_error("WoundAllocationOverlay: attack_info_label is NULL in _update_ui_for_current_wound!")
@@ -665,15 +668,24 @@ func _roll_save_for_model(model_id: String) -> void:
 
 	print("WoundAllocationOverlay: Save roll: %d vs %d+ = %s" % [roll, needed, "SAVED" if saved else "FAILED"])
 
-	# FNP and damage tracking
+	# FNP and damage tracking — roll variable damage per failed save (D3, D6, etc.)
+	var damage_raw_str = save_data.get("damage_raw", str(save_data.get("damage", 1)))
 	var weapon_damage = save_data.get("damage", 1)
 	var actual_damage = 0
 	var fnp_rolls_data = []
 	var fnp_prevented = 0
 	var fnp_val = 0
 	var model_destroyed = false
+	var damage_rolled = false
 
 	if not saved:
+		# Roll variable damage for this failed save
+		if rng_service != null:
+			var dmg_result = RulesEngine.roll_variable_characteristic(damage_raw_str, rng_service)
+			weapon_damage = dmg_result.value
+			damage_rolled = dmg_result.rolled
+			if damage_rolled:
+				print("WoundAllocationOverlay: Variable damage rolled (%s) = %d" % [damage_raw_str, weapon_damage])
 		actual_damage = weapon_damage
 
 		# FEEL NO PAIN: Roll FNP for each point of damage
@@ -704,7 +716,9 @@ func _roll_save_for_model(model_id: String) -> void:
 		"fnp_value": fnp_val,
 		"fnp_prevented": fnp_prevented,
 		"actual_damage": actual_damage,
-		"weapon_damage": weapon_damage
+		"weapon_damage": weapon_damage,
+		"damage_rolled": damage_rolled,
+		"damage_notation": damage_raw_str if damage_rolled else ""
 	}
 
 	allocation_history.append(result)
