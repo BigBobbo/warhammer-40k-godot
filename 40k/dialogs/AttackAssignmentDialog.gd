@@ -30,12 +30,22 @@ func _build_ui() -> void:
 	var container = VBoxContainer.new()
 	container.custom_minimum_size = Vector2(500, 300)
 
-	var instruction = Label.new()
-	instruction.text = "Select weapon and target for melee attacks"
-	container.add_child(instruction)
-
 	# Get unit's melee weapons from meta
 	var unit = phase_reference.get_unit(unit_id)
+
+	# Show eligible model count (per 10e: only models in engagement range can fight)
+	var eligible_indices = RulesEngine.get_eligible_melee_model_indices(unit, phase_reference.game_state_snapshot)
+	var alive_count = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive_count += 1
+
+	var instruction = Label.new()
+	if eligible_indices.size() < alive_count:
+		instruction.text = "Models in engagement range: %d/%d" % [eligible_indices.size(), alive_count]
+	else:
+		instruction.text = "All %d models in engagement range" % alive_count
+	container.add_child(instruction)
 	var weapons_data = unit.get("meta", {}).get("weapons", [])
 	print("[AttackAssignmentDialog] Found %d total weapons" % weapons_data.size())
 

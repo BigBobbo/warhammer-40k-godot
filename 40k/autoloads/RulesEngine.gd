@@ -3017,6 +3017,65 @@ static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
 
 # ===== MELEE COMBAT FUNCTIONS =====
 
+# Per 10e rules: A model can make melee attacks if, after pile-in, it is:
+# 1. Within Engagement Range (1") of any enemy model, OR
+# 2. In base-to-base contact with a friendly model that is itself within
+#    Engagement Range of any enemy model.
+# Returns an array of model indices (int) that are eligible to fight.
+const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Generous tolerance for digital positioning
+
+static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: Dictionary) -> Array:
+	var eligible_indices = []
+	var attacker_models = attacker_unit.get("models", [])
+	var unit_owner = attacker_unit.get("owner", 0)
+	var all_units = board.get("units", {})
+
+	# First pass: find which models are within engagement range (1") of any enemy
+	var models_in_er = []  # Array of model indices directly in engagement range
+
+	for i in range(attacker_models.size()):
+		var model = attacker_models[i]
+		if not model.get("alive", true):
+			continue
+
+		var in_er = false
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if str(other_unit.get("owner", 0)) == str(unit_owner):
+				continue  # Skip friendly units
+
+			for enemy_model in other_unit.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+					in_er = true
+					break
+			if in_er:
+				break
+
+		if in_er:
+			models_in_er.append(i)
+			eligible_indices.append(i)
+
+	# Second pass: check models NOT in ER for base-to-base contact with a friendly
+	# model that IS in ER (one level of chain per 10e rules)
+	for i in range(attacker_models.size()):
+		var model = attacker_models[i]
+		if not model.get("alive", true):
+			continue
+		if i in eligible_indices:
+			continue  # Already eligible from direct ER check
+
+		for er_index in models_in_er:
+			var er_model = attacker_models[er_index]
+			var distance = Measurement.model_to_model_distance_inches(model, er_model)
+			if distance <= BASE_CONTACT_TOLERANCE_INCHES:
+				eligible_indices.append(i)
+				print("RulesEngine: Model %d eligible via base-contact chain (%.2f\" from model %d in ER)" % [i, distance, er_index])
+				break
+
+	return eligible_indices
+
 # Main melee combat resolution entry point
 static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
@@ -3095,20 +3154,31 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var weapon_name = weapon_profile.get("name", weapon_id)
 
 	# ===== PHASE 1: CALCULATE TOTAL ATTACKS =====
-	# Roll variable attacks per model (D3, D6, etc.) using raw string value
+	# Per 10e rules: Only models within Engagement Range (1") of an enemy, or in
+	# base-to-base contact with a friendly model that is in ER, can make attacks.
 	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
 	var total_attacks = 0
 	var attacker_models = attacker_unit.get("models", [])
 	var model_count = 0
 	var attacks_roll_log = []
 
+	# Compute per-model fight eligibility based on engagement range
+	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
+	var total_alive_models = 0
+
 	for model_index in range(attacker_models.size()):
 		var model = attacker_models[model_index]
 		if not model.get("alive", true):
 			continue
 
+		total_alive_models += 1
+
 		# If specific models assigned, check if this model is included
 		if not attacking_models.is_empty() and not str(model_index) in attacking_models:
+			continue
+
+		# Per-model fight eligibility: must be in ER or base-contact chain
+		if not model_index in eligible_model_indices:
 			continue
 
 		model_count += 1
@@ -3118,8 +3188,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
+	if model_count < total_alive_models:
+		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])
+
 	if total_attacks == 0:
-		result.log_text = "No valid attacking models"
+		result.log_text = "No valid attacking models (0/%d in engagement range)" % total_alive_models
 		return result
 
 	# ===== PHASE 2: GET COMBAT STATS =====
@@ -3137,8 +3210,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
 	var is_torrent = is_torrent_weapon(weapon_id, board)
 
-	print("RulesEngine: Melee %s (%s) → %s: %d attacks, WS %d+, S%d, AP%d, D%d" % [
-		attacker_name, weapon_name, target_name, total_attacks, ws, strength, ap, damage
+	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
+		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
 	])
 	if weapon_has_lethal_hits:
 		print("RulesEngine:   Weapon has LETHAL HITS")
@@ -3408,7 +3481,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var hit_text = "%d hits" % hits
 	if sustained_bonus_hits > 0:
 		hit_text += " (+%d sustained)" % sustained_bonus_hits
-	log_parts.append("Melee: %s (%s) → %s: %d attacks, %s, %d wounds" % [attacker_name, weapon_name, target_name, total_attacks, hit_text, wounds_caused])
+	var eligibility_text = ""
+	if model_count < total_alive_models:
+		eligibility_text = " (%d/%d models)" % [model_count, total_alive_models]
+	log_parts.append("Melee: %s (%s) → %s: %d attacks%s, %s, %d wounds" % [attacker_name, weapon_name, target_name, total_attacks, eligibility_text, hit_text, wounds_caused])
 
 	if weapon_has_lethal_hits and auto_wounds > 0:
 		log_parts.append("%d lethal" % auto_wounds)
