@@ -488,18 +488,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
 
-	# Calculate total attacks
-	var attacks_per_model = weapon_profile.get("attacks", 1)
+	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
+	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+	var base_attacks = 0
+	var attacks_roll_log = []
 
-	# BLAST KEYWORD (PRP-013): Apply minimum attacks for Blast weapons vs 6+ model units
-	var blast_minimum_applied = false
-	var original_attacks_per_model = attacks_per_model
-	var effective_attacks_per_model = calculate_blast_minimum(weapon_id, attacks_per_model, target_unit, board)
-	if effective_attacks_per_model > attacks_per_model:
-		blast_minimum_applied = true
-		attacks_per_model = effective_attacks_per_model
+	for model_id in model_ids:
+		# Roll variable attacks for each model separately (per 10e rules)
+		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
+		var model_attacks = attacks_result.value
 
-	var base_attacks = model_ids.size() * attacks_per_model
+		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
+		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
+		if effective_model_attacks > model_attacks:
+			model_attacks = effective_model_attacks
+
+		base_attacks += model_attacks
+		if attacks_result.rolled:
+			attacks_roll_log.append(attacks_result)
+
+	if attacks_roll_log.size() > 0:
+		print("RulesEngine: Variable attacks rolled (%s) for %d models → %d total base attacks" % [attacks_raw, model_ids.size(), base_attacks])
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
@@ -561,6 +570,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"total_attacks": total_attacks,
 			"successes": hits,
 			"message": "Torrent: %d automatic hits" % hits,
+			# Variable attacks tracking
+			"variable_attacks": attacks_roll_log.size() > 0,
+			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
+			"attacks_rolls": attacks_roll_log,
 			# Still track these for completeness, but they won't trigger
 			"lethal_hits_weapon": weapon_has_lethal_hits,
 			"sustained_hits_weapon": sustained_data.value > 0,
@@ -568,8 +581,6 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			# BLAST (PRP-013)
 			"blast_weapon": is_blast_weapon(weapon_id, board),
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"blast_minimum_applied": blast_minimum_applied,
-			"blast_original_attacks": original_attacks_per_model,
 			"target_model_count": target_model_count,
 			"base_attacks": base_attacks,
 			"rapid_fire_bonus": rapid_fire_attacks,
@@ -668,11 +679,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"sustained_bonus_hits": sustained_bonus_hits,
 			"sustained_rolls": sustained_result.rolls,
 			"total_hits_for_wounds": total_hits_for_wounds,
+			# Variable attacks tracking
+			"variable_attacks": attacks_roll_log.size() > 0,
+			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
+			"attacks_rolls": attacks_roll_log,
 			# BLAST (PRP-013)
 			"blast_weapon": is_blast_weapon(weapon_id, board),
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"blast_minimum_applied": blast_minimum_applied,
-			"blast_original_attacks": original_attacks_per_model,
 			"target_model_count": target_model_count
 		})
 
@@ -825,18 +838,27 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		result.log_text = "Unknown weapon: " + weapon_id
 		return result
 
-	# Calculate total attacks
-	var attacks_per_model = weapon_profile.get("attacks", 1)
+	# Calculate total attacks — roll variable attacks per model (D3, D6, etc.)
+	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+	var base_attacks = 0
+	var attacks_roll_log = []
 
-	# BLAST KEYWORD (PRP-013): Apply minimum attacks for Blast weapons vs 6+ model units
-	var blast_minimum_applied = false
-	var original_attacks_per_model = attacks_per_model
-	var effective_attacks_per_model = calculate_blast_minimum(weapon_id, attacks_per_model, target_unit, board)
-	if effective_attacks_per_model > attacks_per_model:
-		blast_minimum_applied = true
-		attacks_per_model = effective_attacks_per_model
+	for model_id in model_ids:
+		# Roll variable attacks for each model separately (per 10e rules)
+		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
+		var model_attacks = attacks_result.value
 
-	var base_attacks = model_ids.size() * attacks_per_model
+		# BLAST KEYWORD (PRP-013): Apply minimum attacks per model for Blast weapons vs 6+ model units
+		var effective_model_attacks = calculate_blast_minimum(weapon_id, model_attacks, target_unit, board)
+		if effective_model_attacks > model_attacks:
+			model_attacks = effective_model_attacks
+
+		base_attacks += model_attacks
+		if attacks_result.rolled:
+			attacks_roll_log.append(attacks_result)
+
+	if attacks_roll_log.size() > 0:
+		print("RulesEngine: [auto-resolve] Variable attacks rolled (%s) for %d models → %d total base attacks" % [attacks_raw, model_ids.size(), base_attacks])
 
 	# RAPID FIRE KEYWORD: Check if weapon is Rapid Fire and models are in half range
 	var rapid_fire_value = get_rapid_fire_value(weapon_id, board)
@@ -898,6 +920,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"total_attacks": total_attacks,
 			"successes": hits,
 			"message": "Torrent: %d automatic hits" % hits,
+			# Variable attacks tracking
+			"variable_attacks": attacks_roll_log.size() > 0,
+			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
+			"attacks_rolls": attacks_roll_log,
 			# Still track these for completeness, but they won't trigger
 			"lethal_hits_weapon": weapon_has_lethal_hits,
 			"sustained_hits_weapon": sustained_data.value > 0,
@@ -905,8 +931,6 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# BLAST (PRP-013)
 			"blast_weapon": is_blast_weapon(weapon_id, board),
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"blast_minimum_applied": blast_minimum_applied,
-			"blast_original_attacks": original_attacks_per_model,
 			"target_model_count": target_model_count,
 			"base_attacks": base_attacks,
 			"rapid_fire_bonus": rapid_fire_attacks,
@@ -1006,11 +1030,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"sustained_bonus_hits": sustained_bonus_hits,
 			"sustained_rolls": sustained_result.rolls,
 			"total_hits_for_wounds": total_hits_for_wounds,
+			# Variable attacks tracking
+			"variable_attacks": attacks_roll_log.size() > 0,
+			"attacks_notation": attacks_raw if attacks_roll_log.size() > 0 else "",
+			"attacks_rolls": attacks_roll_log,
 			# BLAST (PRP-013)
 			"blast_weapon": is_blast_weapon(weapon_id, board),
 			"blast_bonus_attacks": blast_bonus_attacks,
-			"blast_minimum_applied": blast_minimum_applied,
-			"blast_original_attacks": original_attacks_per_model,
 			"target_model_count": target_model_count
 		})
 
@@ -1072,9 +1098,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Process saves and damage
 	var ap = weapon_profile.get("ap", 0)
-	var damage = weapon_profile.get("damage", 1)
+	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var casualties = 0
 	var damage_applied = 0
+	var damage_roll_log = []
 
 	# IGNORES COVER: Check if weapon ignores cover for auto-resolve path
 	var auto_weapon_ignores_cover = false
@@ -1158,16 +1185,22 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		})
 		
 		if not saved:
+			# Roll variable damage per failed save (D3, D6, etc.)
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var damage = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
 			var new_wounds = max(0, current_wounds - damage)
-			
+
 			result.diffs.append({
 				"op": "set",
 				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
 				"value": new_wounds
 			})
-			
+
 			damage_applied += damage
 			
 			if new_wounds == 0:
@@ -1180,15 +1213,26 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				casualties += 1
 				allocation_focus_model_id = null  # Need new allocation target
 	
+	# Add variable damage dice log if any rolls were made
+	if damage_roll_log.size() > 0:
+		result.dice.append({
+			"context": "variable_damage",
+			"notation": damage_raw,
+			"rolls": damage_roll_log,
+			"total_damage": damage_applied,
+			"message": "Variable damage (%s): rolled %s = %d total" % [damage_raw, str(damage_roll_log.map(func(r): return r.value)), damage_applied]
+		})
+		print("RulesEngine: [auto-resolve] Variable damage rolled (%s): %s → %d total damage applied" % [damage_raw, str(damage_roll_log.map(func(r): return r.value)), damage_applied])
+
 	# Build log text
 	var actor_name = actor_unit.get("meta", {}).get("name", actor_unit_id)
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-	
+
 	if casualties > 0:
 		result.log_text = "%s → %s: %d hits, %d wounds, %d failed saves → %d slain" % [actor_name, target_name, hits, wounds_caused, wounds_caused - (wounds_caused - casualties), casualties]
 	else:
 		result.log_text = "%s → %s: %d hits, %d wounds, all saved" % [actor_name, target_name, hits, wounds_caused]
-	
+
 	return result
 
 # Validation functions
@@ -1817,7 +1861,13 @@ static func _generate_weapon_id(weapon_name: String) -> String:
 static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dictionary:
 	# First try legacy weapon profiles
 	if WEAPON_PROFILES.has(weapon_id):
-		return WEAPON_PROFILES.get(weapon_id, {})
+		var profile = WEAPON_PROFILES.get(weapon_id, {}).duplicate()
+		# Ensure legacy profiles have raw strings for variable rolling
+		if not profile.has("attacks_raw"):
+			profile["attacks_raw"] = str(profile.get("attacks", 1))
+		if not profile.has("damage_raw"):
+			profile["damage_raw"] = str(profile.get("damage", 1))
+		return profile
 	
 	# Search through all units for matching weapon
 	var units = {}
@@ -1846,8 +1896,14 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					range_value = int(weapon_range) if (weapon_range != null and weapon_range.is_valid_int()) else 0
 				
 				# Helper function to safely convert weapon stat strings to integers
+				# For variable stats (D3, D6, D6+1), use the average as the integer fallback
 				var attacks_str = weapon.get("attacks", "1")
-				var attacks_value = int(attacks_str) if (attacks_str != null and attacks_str.is_valid_int()) else 1
+				var attacks_value = 1
+				if attacks_str != null and attacks_str.is_valid_int():
+					attacks_value = int(attacks_str)
+				elif attacks_str != null:
+					var parsed = _parse_damage(attacks_str)
+					attacks_value = int(ceil(float(parsed.min + parsed.max) / 2.0))  # Use average (rounded up)
 				
 				var bs_str = weapon.get("ballistic_skill", "4") 
 				var bs_value = int(bs_str) if (bs_str != null and bs_str.is_valid_int()) else 4
@@ -1867,8 +1923,12 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 					ap_value = int(ap_str) if (ap_str != null and ap_str.is_valid_int()) else 0
 				
 				var damage_str = weapon.get("damage", "1")
-				var damage_value = int(damage_str) if (damage_str != null and damage_str.is_valid_int()) else 1
-				# TODO: Handle complex damage like "D6+2" - for now treat as 1
+				var damage_value = 1
+				if damage_str != null and damage_str.is_valid_int():
+					damage_value = int(damage_str)
+				elif damage_str != null:
+					var parsed = _parse_damage(damage_str)
+					damage_value = int(ceil(float(parsed.min + parsed.max) / 2.0))  # Use average (rounded up)
 				
 				# Parse keywords from special_rules string (e.g., "Pistol, Rapid Fire 1")
 				var special_rules = weapon.get("special_rules", "")
@@ -3753,6 +3813,8 @@ static func prepare_save_resolution(
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
+	var damage_raw = weapon_profile.get("damage_raw", str(damage))
+
 	# IGNORES COVER: Check if weapon ignores cover
 	var weapon_ignores_cover = has_ignores_cover(weapon_profile.get("name", ""), board)
 	# Also check by weapon_id in case name lookup fails — rebuild weapon_id from name
@@ -3811,13 +3873,14 @@ static func prepare_save_resolution(
 		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
 		"ap": ap,
 		"damage": damage,
+		"damage_raw": damage_raw,  # Raw string for variable damage rolling (D3, D6, etc.)
 		"base_save": base_save,
 		"model_save_profiles": model_save_profiles,
 		"allocation_priority": allocation_info.priority_model_ids,
 		# DEVASTATING WOUNDS (PRP-012): Unsaveable damage info
 		"has_devastating_wounds": has_devastating_wounds,
 		"devastating_wounds": devastating_wound_count,
-		"devastating_damage": devastating_damage,
+		"devastating_damage": devastating_damage,  # Fixed estimate; actual DW damage rolled at application time
 		# IGNORES COVER: Flag for UI display
 		"ignores_cover": weapon_ignores_cover
 	}
@@ -3922,6 +3985,7 @@ static func apply_save_damage(
 
 	var target_unit_id = save_data.target_unit_id
 	var damage_per_wound = save_data.damage
+	var damage_raw = save_data.get("damage_raw", str(damage_per_wound))
 	var units = board.get("units", {})
 	var target_unit = units.get(target_unit_id, {})
 
@@ -3929,12 +3993,25 @@ static func apply_save_damage(
 		return result
 
 	var models = target_unit.get("models", [])
+	var damage_roll_log = []
 
 	# FEEL NO PAIN: Check if target unit has FNP
 	var fnp_value = get_unit_fnp(target_unit)
 
 	# DEVASTATING WOUNDS (PRP-012): Apply devastating damage first (unsaveable)
-	var dw_damage = devastating_damage_override if devastating_damage_override >= 0 else save_data.get("devastating_damage", 0)
+	# Roll variable damage per devastating wound (D3, D6, etc.)
+	var devastating_wound_count = save_data.get("devastating_wounds", 0)
+	var dw_damage = 0
+	if devastating_damage_override >= 0:
+		dw_damage = devastating_damage_override
+	elif devastating_wound_count > 0 and rng != null:
+		for _i in range(devastating_wound_count):
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			dw_damage += dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append({"source": "devastating", "result": dmg_result})
+	else:
+		dw_damage = save_data.get("devastating_damage", 0)
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
@@ -3994,10 +4071,18 @@ static func apply_save_damage(
 				continue  # No alive models left
 			model = models[model_index]
 
+		# Roll variable damage per failed save (D3, D6, etc.)
+		var wound_damage = damage_per_wound
+		if rng != null:
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			wound_damage = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append({"source": "failed_save", "result": dmg_result})
+
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
-		var actual_damage = damage_per_wound
+		var actual_damage = wound_damage
 		if fnp_value > 0 and rng != null:
-			var fnp_result = roll_feel_no_pain(damage_per_wound, fnp_value, rng)
+			var fnp_result = roll_feel_no_pain(wound_damage, fnp_value, rng)
 			actual_damage = fnp_result.wounds_remaining
 			result.fnp_rolls.append({
 				"context": "feel_no_pain",
@@ -4006,12 +4091,12 @@ static func apply_save_damage(
 				"fnp_value": fnp_value,
 				"wounds_prevented": fnp_result.wounds_prevented,
 				"wounds_remaining": fnp_result.wounds_remaining,
-				"total_wounds": damage_per_wound
+				"total_wounds": wound_damage
 			})
 			result.fnp_wounds_prevented += fnp_result.wounds_prevented
 
 			if actual_damage == 0:
-				print("RulesEngine: FNP prevented all %d damage from failed save!" % damage_per_wound)
+				print("RulesEngine: FNP prevented all %d damage from failed save!" % wound_damage)
 				continue  # FNP saved all wounds from this failed save
 
 		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
@@ -4037,6 +4122,11 @@ static func apply_save_damage(
 			})
 			result.casualties += 1
 			models[model_index]["alive"] = false
+
+	# Log variable damage rolls if any occurred
+	if damage_roll_log.size() > 0:
+		result["damage_roll_log"] = damage_roll_log
+		print("RulesEngine: Variable damage rolled (%s): %s" % [damage_raw, str(damage_roll_log.map(func(entry): return entry.result.value))])
 
 	return result
 
