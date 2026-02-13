@@ -32,7 +32,7 @@ This audit compares the current movement phase implementation (primarily `phases
 | Transport moved → disembarked unit cannot move | **Implemented** | `cannot_move` flag enforced |
 | Embark after movement (within 3") | **Implemented** | `_check_embark_opportunity()` with prompt dialog |
 | Attached characters move with bodyguard | **Implemented** | `_move_attached_characters()` applies delta |
-| Terrain collision (impassable) | **Implemented** | `_position_intersects_terrain()` |
+| Terrain collision (impassable) | **Implemented** | `_position_intersects_terrain()` via `_check_terrain_collision()` — consistent across all validation paths |
 | Model overlap prevention | **Implemented** | `_position_overlaps_other_models()` with staged position awareness |
 | INFANTRY move through ruins | **Implemented** | `TerrainManager.can_unit_move_through_terrain()` |
 | Cannot embark and disembark same phase | **Implemented** | `disembarked_this_phase` flag checked in `_validate_embark_unit()` |
@@ -441,20 +441,17 @@ The terrain collision uses bounding-box expansion (`_point_in_expanded_polygon`)
 
 **Recommendation:** Use `Geometry2D.is_point_in_polygon()` (already used in `TerrainManager.gd:122`) for accurate collision, or at minimum use the rotated polygon vertices.
 
-### 6.3 `_check_terrain_collision()` Is a No-Op
+### 6.3 ~~`_check_terrain_collision()` Is a No-Op~~ FIXED
 
-**Location:** `MovementPhase.gd:1572-1576`
+**Location:** `MovementPhase.gd:1675-1677`
 
-```gdscript
-func _check_terrain_collision(position: Vector2) -> bool:
-    # Implementation depends on terrain system
-    # For now, return false (no collision)
-    return false
-```
+**Resolution:** `_check_terrain_collision()` now delegates to `_position_intersects_terrain()`, which uses shape-aware bounds to check against impassable terrain polygons. The function signature was updated to accept a `model: Dictionary` parameter (required by `_position_intersects_terrain` for base shape calculation). Both callers were updated:
+- `_process_group_movement()` looks up the full model via `_get_model_in_unit()` before calling
+- `_validate_individual_move_internal()` passes the already-resolved model dict
 
-This stub is used by `_process_group_movement()` and `_validate_individual_move_internal()`, meaning group movement validation does **NOT** check terrain collisions. Individual model staging (`_validate_stage_model_move()`) does check via `_position_intersects_terrain()`, so this is inconsistent.
+Terrain collision checking is now consistent across all three movement validation paths: `_validate_stage_model_move()`, `_process_group_movement()`, and `_validate_individual_move_internal()`.
 
-**Recommendation:** Either call `_position_intersects_terrain()` from `_check_terrain_collision()` or replace all calls to the stub with the actual implementation.
+**Commit:** `37a64a7` — "Fix _check_terrain_collision() stub to use actual terrain checking"
 
 ### 6.4 Movement Distance Is Euclidean (Origin-to-Destination)
 
@@ -504,7 +501,7 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 5. ~~**TITANIC skip Desperate Escape** — Simple keyword check in `_process_desperate_escape()`~~ FIXED
 6. **Path-through-enemy validation** — Normal/Advance shouldn't cross enemy bases
 7. **Reinforcements step** — Add reserves / Deep Strike system
-8. **`_check_terrain_collision()` stub** — Connect to actual terrain checking
+8. ~~**`_check_terrain_collision()` stub** — Connect to actual terrain checking~~ FIXED
 9. **Disembarked units and Remain Stationary** — Prevent Heavy weapon bonus for disembarked units
 10. **BEGIN_ADVANCE latency** — Consider making it deterministic via shared RNG seed
 
@@ -622,4 +619,8 @@ The following movement actions are properly routed through the action system:
 
 4. ~~**Board edge enforcement** — Add a simple boundary check using `game_state_snapshot.board.size` in `_validate_stage_model_move()`.~~ DONE
 
-5. **`_check_terrain_collision()` stub** — Replace the no-op with a call to `_position_intersects_terrain()` to fix group movement terrain validation.
+5. ~~**`_check_terrain_collision()` stub** — Replace the no-op with a call to `_position_intersects_terrain()` to fix group movement terrain validation.~~ DONE (commit `37a64a7`)
+
+6. **Disembarked units and Remain Stationary** — Track `disembarked_this_phase` flag and check it in `_process_remain_stationary()` to prevent Heavy weapon bonus for units that disembarked (audit item 2.12).
+
+7. **Path-through-enemy validation** — Add path validation for Normal/Advance moves to prevent models crossing enemy bases, with FLY exemption (audit item 2.5).
