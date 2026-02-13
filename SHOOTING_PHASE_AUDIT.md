@@ -90,7 +90,7 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 | Missing Keyword | Rule Effect | Priority |
 |----------------|-------------|----------|
-| **ANTI-[KEYWORD] X+** | Critical wounds on wound roll of X+ against units with matching keyword (e.g., Anti-Vehicle 4+ scores critical wounds on 4+ vs Vehicles) | HIGH — affects many units |
+| ~~**ANTI-[KEYWORD] X+**~~ | ~~Critical wounds on wound roll of X+ against units with matching keyword (e.g., Anti-Vehicle 4+ scores critical wounds on 4+ vs Vehicles)~~ | **FIXED** — `get_anti_keyword_data()`, `get_critical_wound_threshold()`, `unit_has_keyword()` in `RulesEngine.gd`; applied in all 3 wound resolution paths |
 | **MELTA X** | +X damage at half range | HIGH — core weapon type |
 | **TWIN-LINKED** | Re-roll wound rolls | HIGH — common keyword |
 | **HAZARDOUS** | After attacking, roll D6 per Hazardous weapon; on 1, bearer suffers 3 MW (or removed if non-Character/Vehicle/Monster) | MEDIUM — affects plasma weapons |

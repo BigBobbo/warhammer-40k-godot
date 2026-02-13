@@ -702,36 +702,41 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
 
-	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS interaction:
+	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
+	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	var anti_keyword_active = critical_wound_threshold < 6
+
+	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS + ANTI-KEYWORD interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
-	# - Critical wounds (unmodified 6s to wound) with Devastating Wounds bypass saves - CAN happen for Torrent
+	# - Critical wounds (unmodified X+ to wound per Anti threshold, or 6s normally) with Devastating Wounds bypass saves
+	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
-	var critical_wound_count = 0  # DEVASTATING WOUNDS: Unmodified 6s to wound (CAN trigger for Torrent)
-	var regular_wound_count = 0   # DEVASTATING WOUNDS: Non-critical wounds
+	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
+	var regular_wound_count = 0   # Non-critical wounds
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
 	if weapon_has_lethal_hits and not is_torrent:
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
-		# DEVASTATING WOUNDS: Lethal Hits auto-wounds count as critical wounds IF weapon has DW
-		# Note: Lethal Hits auto-wound on hit roll 6s, not wound roll 6s
-		# Per 10e rules, these are auto-wounds but NOT critical wounds for Devastating Wounds
-		# Critical wounds for DW require unmodified 6 on the WOUND roll
+		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
+		# Critical wounds for DW require unmodified 6 (or Anti threshold) on the WOUND roll
 
 		# Roll wounds for: regular hits + sustained bonus hits
 		var hits_to_roll = regular_hits + sustained_bonus_hits
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				if roll >= wound_threshold:
+				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+				var is_critical_wound = (roll >= critical_wound_threshold)
+				if is_critical_wound or roll >= wound_threshold:
 					wounds_from_rolls += 1
-					# DEVASTATING WOUNDS: Track unmodified 6s on wound roll
-					if weapon_has_devastating_wounds and roll == 6:
+					# Track critical wounds for Devastating Wounds interaction
+					if weapon_has_devastating_wounds and is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -742,15 +747,20 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			if roll >= wound_threshold:
+			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+			var is_critical_wound = (roll >= critical_wound_threshold)
+			if is_critical_wound or roll >= wound_threshold:
 				wounds_from_rolls += 1
-				# DEVASTATING WOUNDS: Track unmodified 6s on wound roll
-				if weapon_has_devastating_wounds and roll == 6:
+				# Track critical wounds for Devastating Wounds interaction
+				if weapon_has_devastating_wounds and is_critical_wound:
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
+
+	if anti_keyword_active:
+		print("RulesEngine: ANTI-KEYWORD active — critical wound threshold %d+ (normal wound threshold %d+)" % [critical_wound_threshold, wound_threshold])
 
 	result.dice.append({
 		"context": "to_wound",
@@ -766,7 +776,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# DEVASTATING WOUNDS tracking (PRP-012)
 		"devastating_wounds_weapon": weapon_has_devastating_wounds,
 		"critical_wounds": critical_wound_count,
-		"regular_wounds": regular_wound_count
+		"regular_wounds": regular_wound_count,
+		# ANTI-[KEYWORD] X+ tracking
+		"anti_keyword_active": anti_keyword_active,
+		"critical_wound_threshold": critical_wound_threshold
 	})
 
 	if wounds_caused == 0:
@@ -1050,10 +1063,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
-	# LETHAL HITS + SUSTAINED HITS interaction:
+	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
+	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
+
+	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
+	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
@@ -1068,16 +1086,23 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				if roll >= wound_threshold:
+				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+				var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
+				if ar_is_critical_wound or roll >= wound_threshold:
 					wounds_from_rolls += 1
 	else:
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			if roll >= wound_threshold:
+			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+			var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
+			if ar_is_critical_wound or roll >= wound_threshold:
 				wounds_from_rolls += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
+
+	if ar_anti_keyword_active:
+		print("RulesEngine: ANTI-KEYWORD active (auto-resolve) — critical wound threshold %d+ (normal wound threshold %d+)" % [ar_critical_wound_threshold, wound_threshold])
 
 	result.dice.append({
 		"context": "to_wound",
@@ -1089,7 +1114,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"wounds_from_rolls": wounds_from_rolls,
 		"lethal_hits_weapon": weapon_has_lethal_hits,
 		# SUSTAINED HITS tracking (PRP-011)
-		"sustained_bonus_hits_rolled": sustained_bonus_hits
+		"sustained_bonus_hits_rolled": sustained_bonus_hits,
+		# ANTI-[KEYWORD] X+ tracking
+		"anti_keyword_active": ar_anti_keyword_active,
+		"critical_wound_threshold": ar_critical_wound_threshold
 	})
 
 	if wounds_caused == 0:
@@ -2279,6 +2307,75 @@ static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}) ->
 	return false
 
 # ==========================================
+# ANTI-[KEYWORD] X+
+# ==========================================
+
+# Parse ANTI-[KEYWORD] X+ from a weapon's special_rules or keywords
+# Returns Array of Dictionaries: [{"keyword": "INFANTRY", "threshold": 4}, ...]
+# Example: "anti-infantry 4+" -> [{"keyword": "INFANTRY", "threshold": 4}]
+#          "anti-vehicle 4+, anti-infantry 2+" -> [{"keyword": "VEHICLE", "threshold": 4}, {"keyword": "INFANTRY", "threshold": 2}]
+static func get_anti_keyword_data(weapon_id: String, board: Dictionary = {}) -> Array:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return []
+
+	var results = []
+
+	# Check special_rules string
+	var special_rules = profile.get("special_rules", "").to_lower()
+	results.append_array(_parse_anti_keywords_from_string(special_rules))
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		results.append_array(_parse_anti_keywords_from_string(keyword.to_lower()))
+
+	return results
+
+# Parse "anti-X Y+" patterns from a string
+# Matches patterns like "anti-infantry 4+", "anti-vehicle 2+"
+static func _parse_anti_keywords_from_string(text: String) -> Array:
+	var results = []
+	var regex = RegEx.new()
+	regex.compile("anti-(\\w+)\\s+(\\d+)\\+?")
+	var matches = regex.search_all(text)
+
+	for m in matches:
+		var keyword = m.get_string(1).to_upper()
+		var threshold = m.get_string(2).to_int()
+		results.append({"keyword": keyword, "threshold": threshold})
+
+	return results
+
+# Check if weapon has any Anti-keyword ability
+static func has_anti_keyword(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_anti_keyword_data(weapon_id, board).size() > 0
+
+# Check if a unit has a specific keyword (case-insensitive)
+static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var kw_upper = keyword.to_upper()
+	for kw in keywords:
+		if kw.to_upper() == kw_upper:
+			return true
+	return false
+
+# Get the effective critical wound threshold for a weapon against a target
+# Returns 6 normally (only unmodified 6s are critical wounds)
+# Returns lower value if weapon has Anti-[Keyword] matching the target
+static func get_critical_wound_threshold(weapon_id: String, target_unit: Dictionary, board: Dictionary = {}) -> int:
+	var anti_data = get_anti_keyword_data(weapon_id, board)
+	if anti_data.is_empty():
+		return 6  # Default: only 6s are critical wounds
+
+	var lowest_threshold = 6
+	for anti in anti_data:
+		if unit_has_keyword(target_unit, anti.keyword):
+			lowest_threshold = min(lowest_threshold, anti.threshold)
+
+	return lowest_threshold
+
+# ==========================================
 # BLAST KEYWORD (PRP-013)
 # ==========================================
 
@@ -3365,6 +3462,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		print("RulesEngine:   Weapon has SUSTAINED HITS %s" % (("D%d" % sustained_data.value) if sustained_data.is_dice else str(sustained_data.value)))
 	if weapon_has_devastating_wounds:
 		print("RulesEngine:   Weapon has DEVASTATING WOUNDS")
+	var melee_anti_data = get_anti_keyword_data(weapon_id, board)
+	if melee_anti_data.size() > 0:
+		for anti in melee_anti_data:
+			print("RulesEngine:   Weapon has ANTI-%s %d+" % [anti.keyword, anti.threshold])
 
 	# ===== PHASE 4: HIT ROLLS =====
 	var hits = 0
@@ -3443,29 +3544,35 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		return result
 
 	# ===== PHASE 5: WOUND ROLLS =====
-	# With Lethal Hits, Sustained Hits, and Devastating Wounds interactions
+	# With Lethal Hits, Sustained Hits, Devastating Wounds, and Anti-Keyword interactions
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
+
+	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
+	var melee_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+	var melee_anti_keyword_active = melee_critical_wound_threshold < 6
 
 	var auto_wounds = 0  # From Lethal Hits
 	var wounds_from_rolls = 0
 	var wound_rolls = []
-	var critical_wound_count = 0  # Unmodified 6s to wound (for Devastating Wounds)
+	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0
 
 	if weapon_has_lethal_hits and not is_torrent:
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
 		auto_wounds = critical_hits
 		# Per 10e: Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
-		# Critical wounds for DW require unmodified 6 on the WOUND roll
+		# Critical wounds for DW require unmodified 6 (or Anti threshold) on the WOUND roll
 
 		# Roll wounds for: regular hits + sustained bonus hits (sustained bonus hits always roll)
 		var hits_to_roll = regular_hits + sustained_bonus_hits
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				if roll >= wound_threshold:
+				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or roll >= wound_threshold:
 					wounds_from_rolls += 1
-					if weapon_has_devastating_wounds and roll == 6:
+					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
@@ -3477,14 +3584,19 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if total_hits_for_wounds > 0:
 			wound_rolls = rng.roll_d6(total_hits_for_wounds)
 			for roll in wound_rolls:
-				if roll >= wound_threshold:
+				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
+				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or roll >= wound_threshold:
 					wounds_from_rolls += 1
-					if weapon_has_devastating_wounds and roll == 6:
+					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
+
+	if melee_anti_keyword_active:
+		print("RulesEngine: ANTI-KEYWORD active (melee) — critical wound threshold %d+ (normal wound threshold %d+)" % [melee_critical_wound_threshold, wound_threshold])
 
 	result.dice.append({
 		"context": "wound_roll_melee",
@@ -3502,7 +3614,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Devastating Wounds tracking
 		"devastating_wounds_weapon": weapon_has_devastating_wounds,
 		"critical_wounds": critical_wound_count,
-		"regular_wounds": regular_wound_count
+		"regular_wounds": regular_wound_count,
+		# ANTI-[KEYWORD] X+ tracking
+		"anti_keyword_active": melee_anti_keyword_active,
+		"critical_wound_threshold": melee_critical_wound_threshold
 	})
 
 	if wounds_caused == 0:
