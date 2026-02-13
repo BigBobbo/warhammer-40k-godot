@@ -63,15 +63,11 @@ However, **several weapon keywords are missing entirely**, there are **rules-com
 
 ## 2. Rules Compliance — What's Missing or Incomplete
 
-### 2.1 CRITICAL: Targeting Units in Engagement Range of Friendly Units — Not Implemented
+### 2.1 ~~CRITICAL: Targeting Units in Engagement Range of Friendly Units — Not Implemented~~ FIXED
 
 **Rule:** Units cannot shoot at enemy units that are within engagement range of friendly units, UNLESS the target is a MONSTER or VEHICLE (Big Guns Never Tire). This is a general restriction that applies to ALL weapons (not just Blast).
 
-**Current state:** Only the Blast-specific restriction is implemented (`validate_blast_targeting()` at `RulesEngine.gd:2279-2308`). Non-Blast weapons can freely target enemy units that are locked in combat with friendly units. The `get_eligible_targets()` function (`RulesEngine.gd:1587-1669`) has no check for whether the target is engaged with a friendly non-actor unit.
-
-**Impact:** Players can freely shoot into combats involving their own units with no penalty or restriction, which is a major rules violation. In the tabletop game, this is one of the most important targeting restrictions and a core reason why the charge/fight phase is tactically meaningful.
-
-**Fix:** In `get_eligible_targets()` and `validate_shoot()`, add a check: if the target is in engagement range of any friendly unit (not the actor), the target cannot be selected UNLESS the target has the MONSTER or VEHICLE keyword.
+**Status:** FIXED. Added `_is_target_in_friendly_engagement()` helper in `RulesEngine.gd` and checks in both `get_eligible_targets()` and `validate_shoot()`. MONSTER/VEHICLE targets are exempt per Big Guns Never Tire.
 
 ### 2.2 CRITICAL: Overwatch (Fire Overwatch Stratagem) — Not Implemented
 
@@ -99,13 +95,13 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 | **TWIN-LINKED** | Re-roll wound rolls | HIGH — common keyword |
 | **HAZARDOUS** | After attacking, roll D6 per Hazardous weapon; on 1, bearer suffers 3 MW (or removed if non-Character/Vehicle/Monster) | MEDIUM — affects plasma weapons |
 | **INDIRECT FIRE** | Can target without LoS; -1 to hit, unmodified 1-3 always fails, target gains Benefit of Cover | MEDIUM — key for artillery |
-| **IGNORES COVER** | Target cannot have Benefit of Cover | MEDIUM — exists in test weapons but no runtime logic |
+| ~~**IGNORES COVER**~~ | ~~Target cannot have Benefit of Cover~~ | **FIXED** — runtime logic added in `has_ignores_cover()`, `prepare_save_resolution()`, and auto-resolve path |
 | **PRECISION** | Can allocate wounds to attached Character models instead of bodyguard | MEDIUM — important for character sniping |
 | **LANCE** | +1 to wound if bearer charged this turn | LOW (shooting only) — primarily melee, but applies to ranged too |
 | **ONE SHOT** | Weapon can only be fired once per battle | LOW — niche |
 | **EXTRA ATTACKS** | Bonus attacks that don't replace normal attacks | LOW — niche |
 
-**Note:** "IGNORES COVER" appears as a keyword on test weapons (`RulesEngine.gd:222, 233`) but there is **no runtime logic** that checks for it. The `_check_model_has_cover()` function (`RulesEngine.gd:1531-1561`) never checks whether the attacking weapon has IGNORES COVER. Similarly, the `_calculate_save_needed()` function always applies cover if the model has it, regardless of the weapon.
+**Note:** "IGNORES COVER" runtime logic has been implemented. The `has_ignores_cover()` function checks weapon keywords/special_rules, and both `prepare_save_resolution()` (interactive path) and `_resolve_assignment()` (auto-resolve path) skip cover when the weapon has this keyword.
 
 ### 2.4 HIGH: Variable Attacks and Damage Not Rolled — Always Fixed
 
@@ -145,15 +141,11 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 **Fix:** In `get_eligible_targets()`, before adding a target to the eligible list, check if the target has the Lone Operative keyword and is not attached to a bodyguard unit. If so, verify that at least one alive model in the actor unit is within 12" of the target.
 
-### 2.8 HIGH: Battle-shocked Units Cannot Use Pistol in Engagement — Not Enforced
+### 2.8 ~~HIGH: Battle-shocked Units Cannot Use Pistol in Engagement — Not Enforced~~ FIXED
 
 **Rule:** Battle-shocked units cannot shoot at all (including Pistol weapons while in engagement range). Battle-shock status is checked during the Command Phase.
 
-**Current state:** The Command Phase correctly applies `battle_shocked` flags. However, `ShootingPhase.gd:_can_unit_shoot()` and `RulesEngine.gd:validate_shoot()` do not check for `battle_shocked` status. A battle-shocked unit can still be selected and fire normally.
-
-**Impact:** Battle-shock has no impact on the shooting phase, undermining the morale system's tactical consequences.
-
-**Fix:** Add `if flags.get("battle_shocked", false): return false` to `_can_unit_shoot()` in `ShootingPhase.gd`, and add a corresponding check in `RulesEngine.validate_shoot()`.
+**Status:** FIXED. Added `battle_shocked` flag check in both `ShootingPhase.gd:_can_unit_shoot()` and `RulesEngine.gd:validate_shoot()`. Battle-shocked units are now completely prevented from shooting.
 
 ### 2.9 MEDIUM: Cover Determination Is Simplified — Only Ruins Terrain
 
@@ -361,8 +353,8 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 | Category | Count |
 |----------|-------|
 | Rules correctly implemented | 35+ |
-| Critical missing rules | 3 (targeting in engagement, Overwatch, 10 weapon keywords) |
-| High priority missing rules | 5 (variable dice, wound modifiers, Stealth, Lone Operative, Battle-shock shooting restriction) |
+| Critical missing rules | 2 (Overwatch, 9 weapon keywords) — targeting in engagement FIXED |
+| High priority missing rules | 4 (variable dice, wound modifiers, Stealth, Lone Operative) — Battle-shock FIXED, IGNORES COVER FIXED |
 | Medium priority missing rules | 4 (cover terrain types, DW mortal wound model, Pistol exclusivity, Ignores Cover runtime) |
 | Multiplayer issues | 4 (defender agency, visual sync, save timing, dice sync) |
 | Code quality issues | 4 (debug logging, duplicate paths, missing data in results, ID collision) |
@@ -374,13 +366,13 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 ## 8. Recommended Priority Order for Fixes
 
 ### Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
-1. **Targeting units in engagement with friendlies** — prevents shooting into your own combats
+1. ~~**Targeting units in engagement with friendlies**~~ — FIXED
 2. **Variable attacks and damage rolling** — many weapons are broken without this
 3. **ANTI-[KEYWORD] X+** — affects many common units
 4. **MELTA X** — core weapon type for anti-vehicle
 5. **TWIN-LINKED** — common keyword, re-roll wounds
-6. **Battle-shocked units cannot shoot** — morale must have consequences
-7. **IGNORES COVER** — runtime logic (keyword already exists on weapons)
+6. ~~**Battle-shocked units cannot shoot**~~ — FIXED
+7. ~~**IGNORES COVER**~~ — FIXED
 
 ### Tier 2 — Important Defensive Rules
 8. **Stealth** — -1 to hit for many units

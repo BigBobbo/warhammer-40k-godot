@@ -1022,6 +1022,10 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	if flags.get("has_shot", false):
 		return false
 
+	# BATTLE-SHOCKED: Battle-shocked units cannot shoot (10e rules)
+	if flags.get("battle_shocked", false):
+		return false
+
 	# ASSAULT RULES: Units that Advanced can shoot with Assault weapons ONLY
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
 	if flags.get("advanced", false):
