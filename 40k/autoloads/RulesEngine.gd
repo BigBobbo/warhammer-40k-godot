@@ -1075,10 +1075,22 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var damage = weapon_profile.get("damage", 1)
 	var casualties = 0
 	var damage_applied = 0
-	
+
+	# IGNORES COVER: Check if weapon ignores cover for auto-resolve path
+	var auto_weapon_ignores_cover = false
+	var auto_keywords = weapon_profile.get("keywords", [])
+	for auto_kw in auto_keywords:
+		if "ignores cover" in auto_kw.to_lower():
+			auto_weapon_ignores_cover = true
+			break
+	if not auto_weapon_ignores_cover:
+		var auto_special = weapon_profile.get("special_rules", "").to_lower()
+		if "ignores cover" in auto_special:
+			auto_weapon_ignores_cover = true
+
 	# Get target unit's save value
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
-	
+
 	# Find allocation focus model (if any model was previously wounded)
 	var allocation_focus_model_id = null
 	var models = target_unit.get("models", [])
@@ -1119,9 +1131,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if not target_model:
 			break  # No more models to allocate to
 		
-		# Check for cover
-		var has_cover = _check_model_has_cover(target_model, actor_unit_id, board)
-		
+		# Check for cover (IGNORES COVER skips this)
+		var has_cover = false if auto_weapon_ignores_cover else _check_model_has_cover(target_model, actor_unit_id, board)
+
 		# Calculate save needed
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, target_model.get("invuln", 0))
 		
@@ -1203,6 +1215,11 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 	# Check if unit can shoot
 	var flags = actor_unit.get("flags", {})
 
+	# BATTLE-SHOCKED: Battle-shocked units cannot shoot (10e rules)
+	if flags.get("battle_shocked", false):
+		errors.append("Unit cannot shoot (battle-shocked)")
+		return {"valid": false, "errors": errors}
+
 	# ASSAULT RULES: Units that Advanced can shoot, but ONLY with Assault weapons
 	# Check this BEFORE the cannot_shoot flag, since Advanced units CAN shoot (with restrictions)
 	var actor_advanced = flags.get("advanced", false)
@@ -1247,6 +1264,13 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 			var target_unit = units[target_unit_id]
 			if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
 				errors.append("Cannot target friendly units")
+
+			# 10e TARGETING RESTRICTION: Cannot target enemies in engagement with friendly units
+			# Exception: MONSTER and VEHICLE targets can always be targeted (Big Guns Never Tire)
+			if not is_monster_or_vehicle(target_unit):
+				if _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_unit.get("owner", 0), units, board):
+					var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+					errors.append("Cannot target '%s' — it is within engagement range of a friendly unit" % target_name)
 
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			if actor_in_engagement:
@@ -1621,6 +1645,15 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 		if not has_alive_models:
 			continue
+
+		# 10e TARGETING RESTRICTION: Cannot target enemy units within engagement range of
+		# friendly units, UNLESS the target is a MONSTER or VEHICLE (Big Guns Never Tire).
+		# Note: This is a general restriction separate from the Blast-specific one.
+		var target_is_monster_vehicle = is_monster_or_vehicle(target_unit)
+		if not target_is_monster_vehicle:
+			var target_engaged_with_friendly = _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board)
+			if target_engaged_with_friendly:
+				continue
 
 		# Check if target is within engagement range (needed for Pistol targeting)
 		var target_in_er = false
@@ -2275,6 +2308,35 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 
 	return false
 
+# Check if target enemy unit is within engagement range of any friendly unit (other than the actor).
+# Per 10e rules: Units cannot shoot at enemies engaged with friendly units (except MONSTER/VEHICLE targets).
+static func _is_target_in_friendly_engagement(target_unit_id: String, actor_unit_id: String, actor_owner: int, units: Dictionary, board: Dictionary) -> bool:
+	var target_unit = units.get(target_unit_id, {})
+	if target_unit.is_empty():
+		return false
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Must be a friendly unit (same owner as actor)
+		if unit.get("owner", 0) != actor_owner:
+			continue
+		# Skip the actor unit itself
+		if unit_id == actor_unit_id:
+			continue
+		# Skip destroyed units
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		# Check if this friendly unit is in engagement range with the target
+		if _check_units_in_engagement_range(unit, target_unit, board):
+			return true
+
+	return false
+
 # Validate Blast targeting restriction
 # Per 10e rules: Blast weapons cannot target units in Engagement Range of friendly units
 static func validate_blast_targeting(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
@@ -2321,6 +2383,30 @@ static func get_blast_display(weapon_id: String, target_unit: Dictionary, board:
 		return "min 3 (Blast: %d models)" % model_count
 	else:
 		return "(Blast: %d models)" % model_count
+
+# ==========================================
+# IGNORES COVER KEYWORD
+# ==========================================
+
+# Check if a weapon has the IGNORES COVER keyword
+# Weapons with this keyword prevent the target from gaining the Benefit of Cover
+static func has_ignores_cover(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "ignores cover" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if "ignores cover" in keyword.to_lower():
+			return true
+
+	return false
 
 # ==========================================
 # TORRENT KEYWORD (PRP-014)
@@ -3591,6 +3677,20 @@ static func prepare_save_resolution(
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
+	# IGNORES COVER: Check if weapon ignores cover
+	var weapon_ignores_cover = has_ignores_cover(weapon_profile.get("name", ""), board)
+	# Also check by weapon_id in case name lookup fails — rebuild weapon_id from name
+	if not weapon_ignores_cover:
+		var keywords = weapon_profile.get("keywords", [])
+		for keyword in keywords:
+			if "ignores cover" in keyword.to_lower():
+				weapon_ignores_cover = true
+				break
+		if not weapon_ignores_cover:
+			var special_rules = weapon_profile.get("special_rules", "").to_lower()
+			if "ignores cover" in special_rules:
+				weapon_ignores_cover = true
+
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
 
@@ -3598,7 +3698,7 @@ static func prepare_save_resolution(
 	var model_save_profiles = []
 	for model_info in allocation_info.models:
 		var model = model_info.model
-		var has_cover = _check_model_has_cover(model, shooter_unit_id, board)
+		var has_cover = false if weapon_ignores_cover else _check_model_has_cover(model, shooter_unit_id, board)
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model.get("invuln", 0))
 
 		model_save_profiles.append({
@@ -3641,7 +3741,9 @@ static func prepare_save_resolution(
 		# DEVASTATING WOUNDS (PRP-012): Unsaveable damage info
 		"has_devastating_wounds": has_devastating_wounds,
 		"devastating_wounds": devastating_wound_count,
-		"devastating_damage": devastating_damage
+		"devastating_damage": devastating_damage,
+		# IGNORES COVER: Flag for UI display
+		"ignores_cover": weapon_ignores_cover
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)
