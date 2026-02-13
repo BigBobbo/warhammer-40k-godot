@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { DEPLOYMENT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+enum Phase { DEPLOYMENT, SCOUT_MOVES, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
@@ -332,6 +332,59 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 
 func unit_has_infiltrators(unit_id: String) -> bool:
 	return unit_has_ability(unit_id, "Infiltrators")
+
+func unit_has_scout(unit_id: String) -> bool:
+	"""Check if a unit has the Scout X\" ability"""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = ability.get("name", "")
+		if name.begins_with("Scout"):
+			return true
+	return false
+
+func get_scout_range(unit_id: String) -> float:
+	"""Get the Scout move range in inches for a unit. Returns 0 if unit doesn't have Scout."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return 0.0
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = ability.get("name", "")
+		if name.begins_with("Scout"):
+			# Parse range from ability name (e.g. "Scout 6\"" -> 6.0)
+			# Or from a "range" field on the ability
+			if ability.has("range"):
+				return float(ability.get("range", 0))
+			# Try to parse from name: "Scout 6\"", "Scout 9\""
+			var parts = name.split(" ")
+			if parts.size() >= 2:
+				var range_str = parts[1].replace("\"", "").replace("'", "")
+				if range_str.is_valid_float():
+					return float(range_str)
+			# Default Scout range is the unit's Move characteristic
+			return float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	return 0.0
+
+func get_scout_units_for_player(player: int) -> Array:
+	"""Get all deployed units with Scout ability for a given player"""
+	var scout_units = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		# Must be deployed (not in reserves, not embarked)
+		if unit.get("status", 0) != UnitStatus.DEPLOYED:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit_has_scout(unit_id):
+			scout_units.append(unit_id)
+	return scout_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:
 	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""

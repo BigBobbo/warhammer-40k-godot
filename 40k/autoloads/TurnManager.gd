@@ -22,6 +22,10 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 	match completed_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			emit_signal("deployment_phase_complete")
+		GameStateData.Phase.SCOUT_MOVES:
+			# Scout Moves complete - ensure Player 1 starts the first Command phase
+			print("TurnManager: Scout Moves phase complete")
+			GameState.set_active_player(1)
 		GameStateData.Phase.SCORING:
 			# Scoring phase handles player switching and battle round advancement
 			# Check if battle round was advanced during scoring phase

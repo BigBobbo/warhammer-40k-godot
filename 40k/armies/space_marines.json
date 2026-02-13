@@ -220,6 +220,12 @@
             "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
           },
           {
+            "name": "Scout 6\"",
+            "type": "Core",
+            "range": 6,
+            "description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models."
+          },
+          {
             "name": "Oath of Moment",
             "type": "Faction",
             "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."

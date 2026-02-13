@@ -46,6 +46,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_DEPLOYMENT":
 			return process_end_deployment(action)
 
+		# Scout Moves actions
+		"BEGIN_SCOUT_MOVE", "SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_UNIT":
+			return _delegate_to_current_phase(action)
+		"END_SCOUT_MOVES":
+			return process_end_scout_moves(action)
+
 		# Movement actions
 		"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
 			return process_begin_move(action)
@@ -295,6 +301,12 @@ func process_end_deployment(action: Dictionary) -> Dictionary:
 	var next_phase = _get_next_phase(GameStateData.Phase.DEPLOYMENT)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+
+func process_end_scout_moves(action: Dictionary) -> Dictionary:
+	print("GameManager: Processing END_SCOUT_MOVES action")
+	# Delegate to phase first to handle player progression logic
+	var phase_result = _delegate_to_current_phase(action)
+	return phase_result
 
 func apply_result(result: Dictionary) -> void:
 	if not result["success"]:
@@ -698,6 +710,8 @@ func _get_next_phase(current: int) -> int:
 	"""
 	match current:
 		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.SCOUT_MOVES
+		GameStateData.Phase.SCOUT_MOVES:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.COMMAND:
 			return GameStateData.Phase.MOVEMENT

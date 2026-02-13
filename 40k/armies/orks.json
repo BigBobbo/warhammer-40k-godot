@@ -985,6 +985,12 @@
             "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
           },
           {
+            "name": "Scout 6\"",
+            "type": "Core",
+            "range": 6,
+            "description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models."
+          },
+          {
             "name": "Core",
             "type": "Faction",
             "description": ""
