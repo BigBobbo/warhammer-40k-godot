@@ -118,6 +118,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_confirm_disembark(action)
 		"EMBARK_UNIT":
 			return _validate_embark_unit(action)
+		"PLACE_REINFORCEMENT":
+			return _validate_place_reinforcement(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -158,6 +160,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_confirm_disembark(action)
 		"EMBARK_UNIT":
 			return _process_embark_unit(action)
+		"PLACE_REINFORCEMENT":
+			return _process_place_reinforcement(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1048,6 +1052,161 @@ func _process_set_advance_bonus(action: Dictionary) -> Dictionary:
 	
 	return create_result(true, [])
 
+func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
+	"""Validate placing a reserve unit onto the battlefield during the Reinforcements step"""
+	var errors = []
+
+	var required_fields = ["unit_id", "model_positions"]
+	for field in required_fields:
+		if not action.has(field):
+			errors.append("Missing required field: " + field)
+
+	if errors.size() > 0:
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.unit_id
+	var model_positions = action.model_positions
+
+	# Check if unit exists and is in reserves
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+		errors.append("Unit is not in reserves: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	# Check unit belongs to active player
+	var active_player = get_current_player()
+	if unit.get("owner", 0) != active_player:
+		errors.append("Unit does not belong to active player")
+		return {"valid": false, "errors": errors}
+
+	# Check battle round - reserves can only arrive from Turn 2 onwards
+	var battle_round = GameState.get_battle_round()
+	if battle_round < 2:
+		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
+		return {"valid": false, "errors": errors}
+
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+
+	# Validate model positions
+	if model_positions is Array:
+		var board_width = GameState.state.board.size.width  # 44 inches
+		var board_height = GameState.state.board.size.height  # 60 inches
+		var px_per_inch = 40.0
+
+		for i in range(model_positions.size()):
+			var pos = model_positions[i]
+			if pos == null:
+				continue
+
+			var pos_inches_x = pos.x / px_per_inch
+			var pos_inches_y = pos.y / px_per_inch
+
+			# All reinforcements must be on the board
+			if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
+				errors.append("Model %d: position is off the board" % i)
+				continue
+
+			# Must be >9" from all enemy models (edge-to-edge)
+			var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
+			var model_base_mm = model_data.get("base_mm", 32)
+			var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
+
+			var enemy_positions = GameState.get_enemy_model_positions(active_player)
+			for enemy in enemy_positions:
+				var enemy_pos_px = Vector2(enemy.x, enemy.y)
+				var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(enemy_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				# Edge-to-edge distance: center distance minus both radii
+				var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+				if edge_dist < 9.0:
+					errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
+					break
+
+			# Strategic Reserves: must be within 6" of a battlefield edge
+			if reserve_type == "strategic_reserves":
+				var dist_to_left = pos_inches_x
+				var dist_to_right = board_width - pos_inches_x
+				var dist_to_top = pos_inches_y
+				var dist_to_bottom = board_height - pos_inches_y
+				var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
+
+				if min_edge_dist > 6.0:
+					errors.append("Model %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [i, min_edge_dist])
+
+				# Turn 2: cannot be in opponent's deployment zone
+				if battle_round == 2:
+					var opponent = 3 - active_player
+					var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
+					var zone_poly = opponent_zone.get("poly", [])
+					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
+						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+
+			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
+			# No additional restrictions for deep strike placement
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _point_in_deployment_zone(x_inches: float, y_inches: float, zone_poly: Array) -> bool:
+	"""Check if a point (in inches) is within a deployment zone polygon"""
+	if zone_poly.is_empty():
+		return false
+	var packed = PackedVector2Array()
+	for coord in zone_poly:
+		if coord is Dictionary and coord.has("x") and coord.has("y"):
+			packed.append(Vector2(coord.x, coord.y))
+	return Geometry2D.is_point_in_polygon(Vector2(x_inches, y_inches), packed)
+
+func _process_place_reinforcement(action: Dictionary) -> Dictionary:
+	"""Process placing a reserve unit onto the battlefield"""
+	var unit_id = action.unit_id
+	var model_positions = action.model_positions
+	var model_rotations = action.get("model_rotations", [])
+	var changes = []
+
+	# Update model positions
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos != null:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [unit_id, i],
+				"value": {"x": pos.x, "y": pos.y}
+			})
+			if i < model_rotations.size() and model_rotations[i] != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.rotation" % [unit_id, i],
+					"value": model_rotations[i]
+				})
+
+	# Update unit status from IN_RESERVES to DEPLOYED
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.DEPLOYED
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update local snapshot
+	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+	log_phase_message("Reinforcement arrived: %s via %s" % [unit_name, type_label])
+
+	return create_result(true, changes)
+
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("=== PROCESSING END_MOVEMENT ===")
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
@@ -1412,7 +1571,22 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
+	# Add reinforcement actions for units in reserves (from Turn 2 onwards)
+	var battle_round = GameState.get_battle_round()
+	if battle_round >= 2:
+		var reserves = GameState.get_reserves_for_player(current_player)
+		for reserve_unit_id in reserves:
+			var reserve_unit = get_unit(reserve_unit_id)
+			var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_unit_id)
+			var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
+			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Reserves"
+			actions.append({
+				"type": "PLACE_REINFORCEMENT",
+				"unit_id": reserve_unit_id,
+				"description": "Arrive from %s: %s" % [type_label, reserve_name]
+			})
+
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:

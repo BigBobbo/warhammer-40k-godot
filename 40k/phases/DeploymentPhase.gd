@@ -60,6 +60,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _validate_deploy_unit_action(action)
+		"PLACE_IN_RESERVES":
+			return _validate_place_in_reserves(action)
 		"SWITCH_PLAYER":
 			return _validate_switch_player_action(action)
 		"END_DEPLOYMENT":
@@ -147,6 +149,51 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 		errors.append("Model cannot overlap with walls")
 
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
+	"""Validate placing a unit into Strategic Reserves or Deep Strike reserves"""
+	var errors = []
+
+	if not action.has("unit_id"):
+		errors.append("Missing required field: unit_id")
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.unit_id
+	var reserve_type = action.get("reserve_type", "strategic_reserves")  # "strategic_reserves" or "deep_strike"
+
+	# Check if unit exists and is undeployed
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+		errors.append("Unit is not available for reserves: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	# Check if unit belongs to active player
+	var active_player = get_current_player()
+	if unit.get("owner", 0) != active_player:
+		errors.append("Unit does not belong to active player")
+		return {"valid": false, "errors": errors}
+
+	# Deep Strike validation: unit must have the Deep Strike ability
+	if reserve_type == "deep_strike":
+		if not GameState.unit_has_deep_strike(unit_id):
+			errors.append("Unit does not have Deep Strike ability: " + unit_id)
+			return {"valid": false, "errors": errors}
+
+	# Strategic Reserves point limit: max 25% of total army points
+	var unit_points = unit.get("meta", {}).get("points", 0)
+	var total_points = GameState.get_total_army_points(active_player)
+	var current_reserves_points = GameState.get_reserves_points(active_player)
+	var max_reserves_points = int(total_points * 0.25)
+
+	if current_reserves_points + unit_points > max_reserves_points:
+		errors.append("Exceeds 25%% reserves limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
 
 func _validate_switch_player_action(action: Dictionary) -> Dictionary:
 	# Can only switch if current player has no more units to deploy
@@ -258,6 +305,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _process_deploy_unit(action)
+		"PLACE_IN_RESERVES":
+			return _process_place_in_reserves(action)
 		"SWITCH_PLAYER":
 			return _process_switch_player(action)
 		"END_DEPLOYMENT":
@@ -314,6 +363,40 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	log_phase_message("Deployed %s" % unit_name)
 
 	# Transport embark dialog is now handled by DeploymentController BEFORE deployment
+
+	return create_result(true, changes)
+
+func _process_place_in_reserves(action: Dictionary) -> Dictionary:
+	"""Process placing a unit into reserves (Strategic Reserves or Deep Strike)"""
+	var unit_id = action.unit_id
+	var reserve_type = action.get("reserve_type", "strategic_reserves")
+	var changes = []
+
+	# Set unit status to IN_RESERVES
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.IN_RESERVES
+	})
+
+	# Store the reserve type on the unit for later use during reinforcements
+	changes.append({
+		"op": "set",
+		"path": "units.%s.reserve_type" % unit_id,
+		"value": reserve_type
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update local snapshot
+	_apply_changes_to_local_state(changes)
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+	log_phase_message("Placed %s in %s" % [unit_name, type_label])
 
 	return create_result(true, changes)
 
@@ -537,7 +620,7 @@ func _process_attach_character_deployment(action: Dictionary) -> Dictionary:
 func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
-	
+
 	# Get undeployed units for current player
 	var undeployed_units = _get_undeployed_units_for_player(current_player)
 	for unit_id in undeployed_units:
@@ -546,7 +629,25 @@ func get_available_actions() -> Array:
 			"unit_id": unit_id,
 			"description": "Deploy " + get_unit(unit_id).get("meta", {}).get("name", unit_id)
 		})
-	
+
+		# Units can be placed in reserves (strategic reserves or deep strike)
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		if GameState.unit_has_deep_strike(unit_id):
+			actions.append({
+				"type": "PLACE_IN_RESERVES",
+				"unit_id": unit_id,
+				"reserve_type": "deep_strike",
+				"description": "Deep Strike %s" % unit_name
+			})
+		else:
+			actions.append({
+				"type": "PLACE_IN_RESERVES",
+				"unit_id": unit_id,
+				"reserve_type": "strategic_reserves",
+				"description": "Strategic Reserves %s" % unit_name
+			})
+
 	# Check if player can be switched
 	if not _has_undeployed_units(current_player):
 		var other_player = 3 - current_player  # Switch between 1 and 2
@@ -556,7 +657,7 @@ func get_available_actions() -> Array:
 				"new_player": other_player,
 				"description": "Switch to Player %d" % other_player
 			})
-	
+
 	return actions
 
 func _should_complete_phase() -> bool:
@@ -576,6 +677,9 @@ func _has_undeployed_units(player: int) -> bool:
 			continue
 		# Skip units that are attached to a bodyguard (they're deployed with their bodyguard)
 		if unit.get("attached_to", null) != null:
+			continue
+		# Skip units in reserves (they're off-table)
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			return true
@@ -602,6 +706,9 @@ func _all_units_deployed() -> bool:
 			continue
 		# Skip attached characters (they're deployed with their bodyguard)
 		if unit.get("attached_to", null) != null:
+			continue
+		# Skip units in reserves (they're off-table, handled during reinforcements)
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 
 		var status = unit.get("status", 0)

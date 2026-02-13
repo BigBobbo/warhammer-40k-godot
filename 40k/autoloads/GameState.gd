@@ -5,7 +5,7 @@ class_name GameStateData
 # This class represents the complete game state that can be serialized and passed between phases
 
 enum Phase { DEPLOYMENT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
-enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT }
+enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
 var state: Dictionary = {}
@@ -246,6 +246,9 @@ func all_units_deployed() -> bool:
 		# Skip units that are attached to a bodyguard (they're deployed with their bodyguard)
 		if unit.get("attached_to", null) != null:
 			continue
+		# Skip units in reserves (they're off-table, handled during reinforcements)
+		if unit["status"] == UnitStatus.IN_RESERVES:
+			continue
 		if unit["status"] == UnitStatus.UNDEPLOYED:
 			undeployed_list.append(unit_id + " (player " + str(unit.get("owner", 0)) + ")")
 
@@ -257,6 +260,7 @@ func all_units_deployed() -> bool:
 
 func get_deployment_progress(player: int) -> Dictionary:
 	var deployed = 0
+	var in_reserves = 0
 	var total = 0
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
@@ -268,9 +272,12 @@ func get_deployment_progress(player: int) -> Dictionary:
 		if unit.get("attached_to", null) != null:
 			continue
 		total += 1
-		if unit["status"] != UnitStatus.UNDEPLOYED:
+		if unit["status"] == UnitStatus.IN_RESERVES:
+			in_reserves += 1
+			deployed += 1  # Reserves count as "handled" for deployment completion
+		elif unit["status"] != UnitStatus.UNDEPLOYED:
 			deployed += 1
-	return {"deployed": deployed, "total": total}
+	return {"deployed": deployed, "total": total, "in_reserves": in_reserves}
 
 func get_deployment_zone_for_player(player: int) -> Dictionary:
 	for zone in state["board"]["deployment_zones"]:
@@ -297,6 +304,62 @@ func is_attached(unit_id: String) -> bool:
 	if unit.is_empty():
 		return false
 	return unit.get("attached_to", null) != null
+
+# Strategic Reserves / Deep Strike Helpers
+func get_reserves_for_player(player: int) -> Array:
+	var reserves = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES:
+			reserves.append(unit_id)
+	return reserves
+
+func has_reserves(player: int) -> bool:
+	return get_reserves_for_player(player).size() > 0
+
+func unit_has_ability(unit_id: String, ability_name: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		if ability.get("name", "") == ability_name:
+			return true
+	return false
+
+func unit_has_deep_strike(unit_id: String) -> bool:
+	return unit_has_ability(unit_id, "Deep Strike")
+
+func get_total_army_points(player: int) -> int:
+	var total = 0
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player:
+			total += unit.get("meta", {}).get("points", 0)
+	return total
+
+func get_reserves_points(player: int) -> int:
+	var total = 0
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES:
+			total += unit.get("meta", {}).get("points", 0)
+	return total
+
+func get_enemy_model_positions(player: int) -> Array:
+	"""Get all enemy model positions (for >9 inch distance checks)"""
+	var positions = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player:
+			continue
+		if unit["status"] != UnitStatus.DEPLOYED and unit["status"] != UnitStatus.MOVED:
+			continue
+		for model in unit.get("models", []):
+			var pos = model.get("position", null)
+			if pos != null and model.get("alive", true):
+				positions.append({"x": pos.get("x", pos.x if pos is Vector2 else 0), "y": pos.get("y", pos.y if pos is Vector2 else 0), "base_mm": model.get("base_mm", 32)})
+	return positions
 
 func get_combined_models(unit_id: String) -> Array:
 	var unit = get_unit(unit_id)
