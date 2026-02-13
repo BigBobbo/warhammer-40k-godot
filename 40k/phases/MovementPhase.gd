@@ -405,6 +405,35 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 	return {"valid": true, "errors": []}
 
+func _check_models_coherency(final_models: Array) -> Dictionary:
+	"""Check unit coherency for an array of model dicts with positions.
+	Each model must be within 2" of at least one other model (2 others for 7+ model units).
+	Returns {valid: bool, errors: Array}."""
+	if final_models.size() <= 1:
+		return {"valid": true, "errors": []}
+
+	var model_count = final_models.size()
+	var required_connections = 1 if model_count <= 6 else 2
+
+	for i in range(final_models.size()):
+		var connections = 0
+		for j in range(final_models.size()):
+			if i == j:
+				continue
+			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
+			if distance <= 2.0:
+				connections += 1
+				if connections >= required_connections:
+					break  # No need to check further
+
+		if connections < required_connections:
+			var model_id = final_models[i].get("id", "model %d" % i)
+			var needed_str = "%d model(s)" % required_connections
+			log_phase_message("Coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
+			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
+
+	return {"valid": true, "errors": []}
+
 func _validate_unit_coherency_after_move(unit_id: String, move_data: Dictionary) -> Dictionary:
 	"""Validate that the unit maintains coherency after all staged moves are applied.
 	Returns {valid: bool, errors: Array} — rejects the move if coherency is broken."""
@@ -436,28 +465,7 @@ func _validate_unit_coherency_after_move(unit_id: String, move_data: Dictionary)
 			final_model["position"] = staged_positions[model_id]
 		final_models.append(final_model)
 
-	# Check coherency: each model must have enough nearby models within 2"
-	var model_count = final_models.size()
-	var required_connections = 1 if model_count <= 6 else 2
-
-	for i in range(final_models.size()):
-		var connections = 0
-		for j in range(final_models.size()):
-			if i == j:
-				continue
-			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
-			if distance <= 2.0:
-				connections += 1
-				if connections >= required_connections:
-					break  # No need to check further
-
-		if connections < required_connections:
-			var model_id = final_models[i].get("id", "model %d" % i)
-			var needed_str = "%d model(s)" % required_connections
-			log_phase_message("Coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
-			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
-
-	return {"valid": true, "errors": []}
+	return _check_models_coherency(final_models)
 
 func _validate_remain_stationary(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -1148,6 +1156,25 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 
 			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
 			# No additional restrictions for deep strike placement
+
+	# Check unit coherency: reinforcement models must maintain 2" coherency
+	if errors.is_empty():
+		var final_models = []
+		var unit_models = unit.get("models", [])
+		for i in range(model_positions.size()):
+			if model_positions[i] == null:
+				continue
+			if i >= unit_models.size():
+				break
+			if not unit_models[i].get("alive", true):
+				continue
+			var model_at_pos = unit_models[i].duplicate()
+			model_at_pos["position"] = model_positions[i]
+			final_models.append(model_at_pos)
+
+		var coherency_result = _check_models_coherency(final_models)
+		if not coherency_result.valid:
+			errors.append_array(coherency_result.errors)
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
@@ -2078,6 +2105,21 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		# Check board edge - no part of model base can extend beyond the battlefield
 		if _position_outside_board_bounds(pos if pos is Vector2 else Vector2(pos.x, pos.y), model_at_pos):
 			return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
+
+	# Check unit coherency: disembarked models must maintain 2" coherency
+	var final_models = []
+	for i in range(positions.size()):
+		if i >= unit.models.size():
+			break
+		if not unit.models[i].get("alive", true):
+			continue
+		var model_at_pos = unit.models[i].duplicate()
+		model_at_pos["position"] = positions[i]
+		final_models.append(model_at_pos)
+
+	var coherency_result = _check_models_coherency(final_models)
+	if not coherency_result.valid:
+		return {"valid": false, "errors": coherency_result.errors}
 
 	return {"valid": true, "errors": []}
 

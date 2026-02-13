@@ -42,15 +42,22 @@ This audit compares the current movement phase implementation (primarily `phases
 
 ## 2. Missing Rules (Gaps)
 
-### 2.1 CRITICAL — Unit Coherency Enforcement
+### 2.1 ~~CRITICAL — Unit Coherency Enforcement~~ FIXED
 
 **Rule:** After a unit moves, each model must be within 2" of at least one other model in the same unit. For units with 7+ models, each model must be within 2" of at least **two** other models. A unit must finish any type of move in unit coherency. If this is impossible, then that move cannot be made.
 
-**Current state:** Coherency checking exists only as a warning in group movement validation (`_check_group_unit_coherency()` in `MovementPhase.gd:1520`), but it is **never enforced** during `_validate_confirm_unit_move()`. A player can confirm a move that breaks coherency with no penalty. The FightPhase (`FightPhase.gd:1322`) has a proper `_validate_unit_coherency()` function that blocks moves breaking coherency — the movement phase should do the same.
+**Current state:** Coherency is now enforced as a hard block across all movement-related actions:
 
-**Impact:** High. This is a fundamental rule that affects game balance. Without enforcement, units can spread models across the entire board.
+1. **Normal/Advance/Fall Back moves:** `_validate_confirm_unit_move()` calls `_validate_unit_coherency_after_move()` which uses the shared `_check_models_coherency()` helper. If coherency is broken, the move is rejected.
+2. **Disembark:** `_validate_confirm_disembark()` checks coherency for all disembarked model positions.
+3. **Reinforcements/Deep Strike:** `_validate_place_reinforcement()` checks coherency for all placed model positions.
+4. **Group movement warning:** `_check_group_unit_coherency()` still provides a warning during group drag preview.
 
-**Recommendation:** Port the coherency validation from `FightPhase._validate_unit_coherency()` into `MovementPhase._validate_confirm_unit_move()`. If coherency is broken, reject the move.
+The shared `_check_models_coherency()` helper (`MovementPhase.gd:408`) implements shape-aware edge-to-edge distance via `Measurement.model_to_model_distance_inches()` and correctly applies the 7+ model two-connection rule.
+
+**Resolution:** Initial enforcement added in commit `720eab0`. Disembark and reinforcement coherency checks added alongside extraction of the shared `_check_models_coherency()` helper.
+
+**Commits:** `720eab0` — "Enforce unit coherency on movement confirmation"
 
 ### 2.2 CRITICAL — Reinforcements Step
 
@@ -469,11 +476,11 @@ For a 2D digital implementation this is a reasonable simplification, but it coul
 
 The codebase has extensive `print()` and `log_phase_message()` calls throughout movement logic. While the `CLAUDE.md` says not to remove debug logs unless asked, the volume of logging (especially in input handling and validation) will impact performance in production. Consider gating debug prints behind a debug flag.
 
-### 6.6 Coherency Check Exists But Only as Warning
+### ~~6.6 Coherency Check Exists But Only as Warning~~ FIXED
 
-**Location:** `MovementPhase.gd:1520`
+**Location:** `MovementPhase.gd:1520` (group warning), `MovementPhase.gd:408` (shared enforcement helper)
 
-The `_check_group_unit_coherency()` function correctly implements the 2" / two-connection rules using shape-aware distance and correctly distinguishes between 6-or-fewer and 7+ model units. However, the calling function `_validate_group_movement()` at line 1479 only adds a **warning** — it does not fail validation. This means the coherency logic exists and is correct but is simply not enforced.
+The `_check_group_unit_coherency()` function still provides a warning during group drag preview, which is useful as a real-time hint. Hard enforcement is now handled by the shared `_check_models_coherency()` helper, which is called from `_validate_confirm_unit_move()`, `_validate_confirm_disembark()`, and `_validate_place_reinforcement()`. Moves that break coherency are rejected.
 
 ### 6.7 Attached Character Movement Uses Only First Model Delta
 
@@ -492,7 +499,7 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 ## 7. Priority Recommendations
 
 ### Must Fix (Before Competitive Play)
-1. **Unit coherency enforcement** — Port from FightPhase into `_validate_confirm_unit_move()`
+1. ~~**Unit coherency enforcement** — Port from FightPhase into `_validate_confirm_unit_move()`~~ FIXED — Enforced in movement confirmation, disembark, and reinforcement placement
 2. ~~**Board edge enforcement** — Add boundary validation to prevent off-board placement~~ FIXED
 3. **Embark action notification** — Ensure opponent sees embark actions in multiplayer
 
@@ -613,7 +620,7 @@ The following movement actions are properly routed through the action system:
 
 1. **Item #2: Consolidate MovementPhase disembark paths** — `MovementPhase._on_disembark_placement_completed()` still calls `TransportManager.disembark_unit()` directly (line ~1890). This should be refactored to route through the CONFIRM_DISEMBARK action, eliminating the duplicate code path.
 
-2. **Unit coherency enforcement** — The coherency check logic already exists at `MovementPhase.gd:1520` and works correctly. It just needs to be called from `_validate_confirm_unit_move()` and set to reject (not warn) when coherency is broken.
+2. ~~**Unit coherency enforcement** — The coherency check logic already exists at `MovementPhase.gd:1520` and works correctly. It just needs to be called from `_validate_confirm_unit_move()` and set to reject (not warn) when coherency is broken.~~ DONE (commit `720eab0`, plus disembark/reinforcement enforcement)
 
 3. ~~**FLY/TITANIC keyword in Desperate Escape** — A small change to `_process_desperate_escape()` to check unit keywords before rolling.~~ DONE (commit `e4364af`)
 
