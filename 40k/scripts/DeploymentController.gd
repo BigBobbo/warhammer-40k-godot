@@ -40,6 +40,9 @@ var is_awaiting_attach_dialog: bool = false  # Waiting for character attach dial
 # Reinforcement mode (Deep Strike / Strategic Reserves arrival)
 var is_reinforcement_mode: bool = false
 
+# Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
+var is_infiltrators_mode: bool = false
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -157,6 +160,11 @@ func begin_deploy(_unit_id: String) -> void:
 	temp_rotations.fill(0.0)
 	formation_rotation = 0.0  # Reset formation rotation for new unit
 
+	# Check if this unit has Infiltrators ability
+	is_infiltrators_mode = GameState.unit_has_infiltrators(unit_id)
+	if is_infiltrators_mode:
+		print("[DeploymentController] Unit %s has Infiltrators - deploying in Infiltrators mode" % _unit_id)
+
 	# Update through PhaseManager instead of BoardState
 	if has_node("/root/PhaseManager"):
 		var phase_manager = get_node("/root/PhaseManager")
@@ -210,6 +218,10 @@ func try_place_at(world_pos: Vector2) -> void:
 	if is_reinforcement_mode:
 		# Reinforcement mode: validate >9" from enemies, on the board
 		if not _validate_reinforcement_position(world_pos, model_data, rotation):
+			return
+	elif is_infiltrators_mode:
+		# Infiltrators mode: validate >9" from enemy zone and enemy models, on the board
+		if not _validate_infiltrators_position(world_pos, model_data, rotation):
 			return
 	else:
 		# Normal deployment: check if wholly within deployment zone based on shape
@@ -340,6 +352,7 @@ func undo() -> void:
 			}])
 
 	is_reinforcement_mode = false
+	is_infiltrators_mode = false
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()
@@ -544,6 +557,7 @@ func _complete_deployment() -> void:
 	model_idx = -1
 	temp_positions.clear()
 	temp_rotations.clear()  # Added to properly clear rotations
+	is_infiltrators_mode = false
 
 	emit_signal("coherency_warning_changed", false, "")
 	emit_signal("unit_confirmed")
@@ -1161,6 +1175,12 @@ func _process(delta: float) -> void:
 			# Also check model overlap
 			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
 				is_valid = false
+		elif is_infiltrators_mode:
+			# Infiltrators mode: validate >9" from enemy zone and enemy models
+			is_valid = _validate_infiltrators_position(mouse_pos, model_data, rotation)
+			# Also check model overlap
+			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
+				is_valid = false
 		else:
 			# Normal deployment: check deployment zone and model overlap
 			var zone = BoardState.get_deployment_zone_for_player(active_player)
@@ -1357,20 +1377,27 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 
 func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array) -> bool:
 	"""Validate a single position in a formation"""
-	var base_type = model_data.get("base_type", "circular")
-
-	if base_type == "circular":
-		var radius_px = Measurement.base_radius_px(model_data["base_mm"])
-		if not _circle_wholly_in_polygon(pos, radius_px, zone):
-			return false
-		if _overlaps_with_existing_models(pos, radius_px):
-			return false
-	else:
-		# For non-circular bases, use shape-aware validation
-		if not _shape_wholly_in_polygon(pos, model_data, 0.0, zone):
+	if is_infiltrators_mode:
+		# In Infiltrators mode, use Infiltrators validation instead of zone check
+		if not _validate_infiltrators_position(pos, model_data, 0.0):
 			return false
 		if _overlaps_with_existing_models_shape(pos, model_data, 0.0):
 			return false
+	else:
+		var base_type = model_data.get("base_type", "circular")
+
+		if base_type == "circular":
+			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+			if not _circle_wholly_in_polygon(pos, radius_px, zone):
+				return false
+			if _overlaps_with_existing_models(pos, radius_px):
+				return false
+		else:
+			# For non-circular bases, use shape-aware validation
+			if not _shape_wholly_in_polygon(pos, model_data, 0.0, zone):
+				return false
+			if _overlaps_with_existing_models_shape(pos, model_data, 0.0):
+				return false
 
 	# Check wall collision
 	var test_model = model_data.duplicate()
@@ -1445,20 +1472,26 @@ func _update_model_repositioning(mouse_pos: Vector2) -> void:
 func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_index: int) -> bool:
 	"""Validate if repositioning is allowed at the given position"""
 	var active_player = GameState.get_active_player()
-	var zone = BoardState.get_deployment_zone_for_player(active_player)
-	var base_type = model_data.get("base_type", "circular")
+	var rotation = temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
 
-	# Check deployment zone
-	var in_zone = false
-	if base_type == "circular":
-		var radius_px = Measurement.base_radius_px(model_data["base_mm"])
-		in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+	if is_infiltrators_mode:
+		# In Infiltrators mode, use Infiltrators validation instead of zone check
+		if not _validate_infiltrators_position(world_pos, model_data, rotation):
+			return false
 	else:
-		var rotation = temp_rotations[model_index] if model_index < temp_rotations.size() else 0.0
-		in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+		var zone = BoardState.get_deployment_zone_for_player(active_player)
+		var base_type = model_data.get("base_type", "circular")
 
-	if not in_zone:
-		return false
+		# Check deployment zone
+		var in_zone = false
+		if base_type == "circular":
+			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+			in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+		else:
+			in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+
+		if not in_zone:
+			return false
 
 	# Check overlap (excluding the model being repositioned)
 	return not _would_overlap_excluding_self(world_pos, model_data, model_index)
@@ -1583,6 +1616,62 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var dist_to_edge = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
 		if dist_to_edge > 6.0:
 			_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
+			return false
+
+	return true
+
+func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
+	"""Validate an Infiltrators deployment position: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models"""
+	var px_per_inch = 40.0
+	var board_width_px = GameState.state.board.size.width * px_per_inch
+	var board_height_px = GameState.state.board.size.height * px_per_inch
+
+	# Must be on the board
+	if world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px:
+		_show_toast("Must be on the battlefield")
+		return false
+
+	var active_player = GameState.get_active_player()
+	var model_base_mm = model_data.get("base_mm", 32)
+	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+
+	# Must be >9" from enemy deployment zone
+	var enemy_zone = GameState.get_enemy_deployment_zone(active_player)
+	var enemy_zone_poly_inches = enemy_zone.get("poly", [])
+	if enemy_zone_poly_inches.size() > 0:
+		var enemy_zone_poly_pixels = PackedVector2Array()
+		for coord in enemy_zone_poly_inches:
+			if coord is Dictionary and coord.has("x") and coord.has("y"):
+				enemy_zone_poly_pixels.append(Vector2(coord.x * px_per_inch, coord.y * px_per_inch))
+
+		# Check if model center is inside enemy zone
+		if Geometry2D.is_point_in_polygon(world_pos, enemy_zone_poly_pixels):
+			_show_toast("Infiltrators must be >9\" from enemy deployment zone")
+			return false
+
+		# Find minimum distance from model center to any edge of the enemy zone
+		var min_dist_px = INF
+		for i in range(enemy_zone_poly_pixels.size()):
+			var p1 = enemy_zone_poly_pixels[i]
+			var p2 = enemy_zone_poly_pixels[(i + 1) % enemy_zone_poly_pixels.size()]
+			var dist = _point_to_line_distance(world_pos, p1, p2)
+			if dist < min_dist_px:
+				min_dist_px = dist
+		var edge_dist_inches = (min_dist_px / px_per_inch) - model_radius_inches
+		if edge_dist_inches < 9.0:
+			_show_toast("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+			return false
+
+	# Must be >9" from all enemy models (edge-to-edge)
+	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	for enemy in enemy_positions:
+		var enemy_pos_px = Vector2(enemy.x, enemy.y)
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = world_pos.distance_to(enemy_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			_show_toast("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
 
 	return true

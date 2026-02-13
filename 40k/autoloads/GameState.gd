@@ -330,6 +330,14 @@ func unit_has_ability(unit_id: String, ability_name: String) -> bool:
 func unit_has_deep_strike(unit_id: String) -> bool:
 	return unit_has_ability(unit_id, "Deep Strike")
 
+func unit_has_infiltrators(unit_id: String) -> bool:
+	return unit_has_ability(unit_id, "Infiltrators")
+
+func get_enemy_deployment_zone(player: int) -> Dictionary:
+	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""
+	var enemy_player = 3 - player
+	return get_deployment_zone_for_player(enemy_player)
+
 func get_total_army_points(player: int) -> int:
 	var total = 0
 	for unit_id in state["units"]:

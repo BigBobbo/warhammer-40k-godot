@@ -107,15 +107,20 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 	# Validate model positions
 	if model_positions is Array:
 		var unit_owner = unit.get("owner", 0)
+		var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
 		var deployment_zone = get_deployment_zone_for_player(unit_owner)
 		for i in range(model_positions.size()):
 			var pos = model_positions[i]
 			if pos != null:
 				var rotation = model_rotations[i] if i < model_rotations.size() else 0.0
-				var validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
+				var validation
+				if is_infiltrators:
+					validation = _validate_infiltrators_position(pos, unit, i, unit_owner, rotation)
+				else:
+					validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
 				if not validation.valid:
 					errors.append_array(validation.errors)
-	
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary, rotation: float = 0.0) -> Dictionary:
@@ -149,6 +154,82 @@ func _validate_model_position(position: Vector2, unit: Dictionary, model_index: 
 		errors.append("Model cannot overlap with walls")
 
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_infiltrators_position(position: Vector2, unit: Dictionary, model_index: int, unit_owner: int, rotation: float = 0.0) -> Dictionary:
+	"""Validate Infiltrators deployment: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models"""
+	var errors = []
+
+	# Get model info
+	var models = unit.get("models", [])
+	if model_index >= models.size():
+		errors.append("Model index out of range")
+		return {"valid": false, "errors": errors}
+
+	var model = models[model_index]
+	var px_per_inch = 40.0
+
+	# Check model is on the board
+	var board_width_px = GameState.state.board.size.width * px_per_inch
+	var board_height_px = GameState.state.board.size.height * px_per_inch
+	if position.x < 0 or position.x > board_width_px or position.y < 0 or position.y > board_height_px:
+		errors.append("Model must be on the battlefield")
+
+	# Check >9" from enemy deployment zone (edge-to-edge distance from model base to zone boundary)
+	var enemy_zone = GameState.get_enemy_deployment_zone(unit_owner)
+	var enemy_zone_poly_inches = enemy_zone.get("poly", [])
+	var enemy_zone_poly_pixels = _convert_zone_inches_to_pixels(enemy_zone_poly_inches)
+	if enemy_zone_poly_pixels.size() > 0:
+		var model_base_mm = model.get("base_mm", 32)
+		var model_radius_inches = (model_base_mm / 2.0) / 25.4
+		var model_radius_px = model_radius_inches * px_per_inch
+		# Find minimum distance from model center to any edge of the enemy deployment zone
+		var min_dist_px = _min_distance_to_polygon_edge(position, enemy_zone_poly_pixels)
+		var min_dist_inches = min_dist_px / px_per_inch
+		# Edge-to-edge: subtract model radius
+		var edge_dist_inches = min_dist_inches - model_radius_inches
+		# Also check if model center is inside the enemy zone (distance would be 0)
+		if Geometry2D.is_point_in_polygon(position, enemy_zone_poly_pixels):
+			errors.append("Infiltrators must be >9\" from enemy deployment zone (model is inside enemy zone)")
+		elif edge_dist_inches < 9.0:
+			errors.append("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+
+	# Check >9" from all enemy models (edge-to-edge)
+	var model_base_mm = model.get("base_mm", 32)
+	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+	var enemy_positions = GameState.get_enemy_model_positions(unit_owner)
+	for enemy in enemy_positions:
+		var enemy_pos_px = Vector2(enemy.x, enemy.y)
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = position.distance_to(enemy_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			errors.append("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
+			break
+
+	# Check overlap with other models using shape-aware collision
+	if _position_overlaps_existing_models_shape(position, model, rotation, unit.get("id", "")):
+		errors.append("Model cannot overlap with existing models")
+
+	# Check overlap with walls
+	var test_model = model.duplicate()
+	test_model["position"] = position
+	test_model["rotation"] = rotation
+	if Measurement.model_overlaps_any_wall(test_model):
+		errors.append("Model cannot overlap with walls")
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _min_distance_to_polygon_edge(point: Vector2, polygon: PackedVector2Array) -> float:
+	"""Calculate minimum distance from a point to the nearest edge of a polygon"""
+	var min_dist = INF
+	for i in range(polygon.size()):
+		var p1 = polygon[i]
+		var p2 = polygon[(i + 1) % polygon.size()]
+		var dist = _point_to_line_distance(point, p1, p2)
+		if dist < min_dist:
+			min_dist = dist
+	return min_dist
 
 func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 	"""Validate placing a unit into Strategic Reserves or Deep Strike reserves"""

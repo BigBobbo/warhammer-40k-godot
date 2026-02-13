@@ -926,6 +926,98 @@
           "status_effects": []
         }
       ]
+    },
+    "U_KOMMANDOS_H": {
+      "id": "U_KOMMANDOS_H",
+      "squad_id": "U_KOMMANDOS_H",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Kommandos",
+        "keywords": [
+          "GRENADES",
+          "INFANTRY",
+          "KOMMANDOS",
+          "ORKS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 1,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 135,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "10x Choppa",
+          "10x Slugga"
+        ],
+        "weapons": [
+          {
+            "name": "Slugga",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Infiltrators",
+            "type": "Core",
+            "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
+          },
+          {
+            "name": "Core",
+            "type": "Faction",
+            "description": ""
+          },
+          {
+            "name": "Throat Slittas",
+            "type": "Datasheet",
+            "description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Boss Nob",
+            "line": 1
+          },
+          {
+            "description": "9 Kommandos",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
     }
   }
 }
