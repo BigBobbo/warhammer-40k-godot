@@ -277,6 +277,10 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
 
+	# Check board edge - no part of model base can extend beyond the battlefield
+	if _position_outside_board_bounds(dest_vec, model):
+		return {"valid": false, "errors": ["Model cannot be placed beyond the board edge"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_stage_model_move(action: Dictionary) -> Dictionary:
@@ -340,6 +344,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# Check model overlap
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
+
+	# Check board edge - no part of model base can extend beyond the battlefield
+	if _position_outside_board_bounds(dest_vec, model):
+		log_phase_message("  FAILED: Model would extend beyond board edge")
+		return {"valid": false, "errors": ["Model cannot be placed beyond the board edge"]}
 
 	return {"valid": true, "errors": []}
 
@@ -1326,6 +1335,29 @@ func _position_intersects_terrain(pos: Vector2, model: Dictionary) -> bool:
 
 	return false
 
+func _position_outside_board_bounds(pos: Vector2, model: Dictionary) -> bool:
+	# Check if any part of the model's base would extend beyond the board edges
+	# Rule: No part of a model (including its base) can cross the edge of the battlefield
+	var board_size = game_state_snapshot.get("board", {}).get("size", {})
+	var board_width_inches = board_size.get("width", 44.0)
+	var board_height_inches = board_size.get("height", 60.0)
+	var board_width_px = Measurement.inches_to_px(board_width_inches)
+	var board_height_px = Measurement.inches_to_px(board_height_inches)
+
+	# Get the model's base radius in pixels
+	var base_shape = Measurement.create_base_shape(model)
+	var bounds = base_shape.get_bounds()
+	var half_width = bounds.size.x / 2.0
+	var half_height = bounds.size.y / 2.0
+
+	# Check if any edge of the base extends beyond the board
+	if pos.x - half_width < 0 or pos.x + half_width > board_width_px:
+		return true
+	if pos.y - half_height < 0 or pos.y + half_height > board_height_px:
+		return true
+
+	return false
+
 func _point_in_expanded_polygon(point: Vector2, poly: Array, expansion: float) -> bool:
 	# Simple point-in-polygon test with expansion
 	# For MVP, treat as rectangle bounds check
@@ -1869,6 +1901,10 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		# Check engagement range using shape-aware distance
 		if _model_in_engagement_range(model_at_pos, unit.owner):
 			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
+
+		# Check board edge - no part of model base can extend beyond the battlefield
+		if _position_outside_board_bounds(pos if pos is Vector2 else Vector2(pos.x, pos.y), model_at_pos):
+			return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
 
 	return {"valid": true, "errors": []}
 

@@ -117,18 +117,24 @@ if "FLY" in keywords or "TITANIC" in keywords:
 3. Add FLY exception for path-through-enemy checks
 4. Separate "crosses enemy" from "crosses engagement range" — moving close to enemies is fine, moving through their bases is not
 
-### 2.6 HIGH — Board Edge Enforcement
+### 2.6 ~~HIGH — Board Edge Enforcement~~ FIXED
 
 **Rule:** No part of a model (including its base) can cross the edge of the battlefield during any move.
 
-**Current state:** There is **no board edge validation** in MovementPhase.gd. Neither `_validate_stage_model_move()` nor `_validate_confirm_unit_move()` check if a model's position (plus base radius) exceeds the board boundaries. The board size is available in `game_state_snapshot.board.size` (44" x 60"), but it's never used for movement validation. No visual warnings exist either (per the MovementController analysis).
+**Current state:** Board edge enforcement is now fully implemented across all movement validation paths.
 
-**Impact:** Medium-High. Players can accidentally or deliberately place models off the board.
+**Resolution:** Added `_position_outside_board_bounds()` helper in `MovementPhase.gd` that checks the model's base shape bounds against the board dimensions from `game_state_snapshot.board.size`. Board edge checks are enforced in:
+- `_validate_stage_model_move()` — blocks individual model staging beyond board edges
+- `_validate_set_model_dest()` — blocks model destination placement beyond board edges
+- `_validate_confirm_disembark()` — blocks disembark positions beyond board edges
 
-**Recommendation:**
-1. Add board boundary check in `_validate_stage_model_move()` using the model's base size and the board dimensions
-2. Add a visual warning in MovementController when dragging near the board edge (within 2")
-3. Show a red border/indicator when the model would leave the board
+Visual feedback added in `MovementController.gd`:
+- `_is_position_outside_board()` helper uses `SettingsService` board dimensions for real-time drag validation
+- Individual model drag (`_update_model_drag()`) shows "Cannot move beyond the board edge" error and turns ghost red
+- Group drag (`_update_group_drag()`) checks all models in the group and shows the same error
+- Error label is cleared when the position becomes valid again
+
+**Commit:** Board edge enforcement for movement phase
 
 ### 2.7 MEDIUM — Difficult Terrain / Movement Penalties
 
@@ -404,11 +410,11 @@ This prevents accidental phase ending and provides a review step.
 - Show the model's actual base shape (not just a circle)
 - Display the remaining movement distance as a label attached to the ghost
 
-### 5.4 Board Edge Warning
+### 5.4 ~~Board Edge Warning~~ PARTIALLY IMPLEMENTED
 
-**Current:** No indication when a model is near the board edge. No board edge enforcement at all (see 2.6).
+**Current:** Board edge enforcement is implemented (see 2.6). When dragging a model beyond the board edge, the ghost turns red and an error message "Cannot move beyond the board edge" is shown. The move is rejected by the phase validation.
 
-**Suggestion:** When dragging a model near the board edge (within 2"), show a yellow warning border. If the model would leave the board, show a red border. Models cannot be placed off the board.
+**Remaining:** A proximity warning (yellow border when within 2" of the edge) is not yet implemented. Only the hard block (red ghost + rejection) is in place.
 
 ### 5.5 Opponent's Movement Replay (Multiplayer)
 
@@ -490,7 +496,7 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 
 ### Must Fix (Before Competitive Play)
 1. **Unit coherency enforcement** — Port from FightPhase into `_validate_confirm_unit_move()`
-2. **Board edge enforcement** — Add boundary validation to prevent off-board placement
+2. ~~**Board edge enforcement** — Add boundary validation to prevent off-board placement~~ FIXED
 3. **Embark action notification** — Ensure opponent sees embark actions in multiplayer
 
 ### Should Fix (Gameplay Completeness)
@@ -509,7 +515,7 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 14. Movement summary before end phase
 15. Opponent movement animation in multiplayer
 16. Coherency visualization
-17. Board edge warning
+17. ~~Board edge warning~~ PARTIALLY DONE (hard block implemented; proximity warning remaining)
 18. Better advance roll display
 19. Keyboard shortcut expansion
 
@@ -614,6 +620,6 @@ The following movement actions are properly routed through the action system:
 
 3. ~~**FLY/TITANIC keyword in Desperate Escape** — A small change to `_process_desperate_escape()` to check unit keywords before rolling.~~ DONE (commit `e4364af`)
 
-4. **Board edge enforcement** — Add a simple boundary check using `game_state_snapshot.board.size` in `_validate_stage_model_move()`.
+4. ~~**Board edge enforcement** — Add a simple boundary check using `game_state_snapshot.board.size` in `_validate_stage_model_move()`.~~ DONE
 
 5. **`_check_terrain_collision()` stub** — Replace the no-op with a call to `_position_intersects_terrain()` to fix group movement terrain validation.
