@@ -36,7 +36,6 @@ var board_view: Node2D
 var movement_visual: Line2D
 var range_visual: Node2D
 var target_highlights: Node2D
-var hud_bottom: Control
 var hud_right: Control
 
 # Pile-in visual indicators
@@ -84,27 +83,7 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 	
-	# Clean up UI elements from bottom HUD
-	var hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
-	if hud_bottom:
-		var main_container = hud_bottom.get_node_or_null("HBoxContainer")
-		if main_container:
-			# Remove the spacer
-			var spacer = main_container.get_node_or_null("FightPhaseSpacer")
-			if spacer and is_instance_valid(spacer):
-				main_container.remove_child(spacer)
-				spacer.queue_free()
-			
-			# Main.gd now handles phase action button cleanup
-			
-			# Remove any legacy FightControls container
-			var fight_controls = main_container.get_node_or_null("FightControls")
-			if fight_controls and is_instance_valid(fight_controls):
-				main_container.remove_child(fight_controls)
-				fight_controls.queue_free()
-				print("FightController: Removed legacy FightControls container")
-	
-	# ENHANCEMENT: Comprehensive right panel cleanup
+	# Right panel cleanup
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
 		var fight_elements = ["FightPanel", "FightScrollContainer", "FightSequence", "FightActions"]
@@ -118,12 +97,9 @@ func _exit_tree() -> void:
 func _setup_ui_references() -> void:
 	# Get references to UI nodes
 	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
-	hud_bottom = get_node_or_null("/root/Main/HUD_Bottom")
 	hud_right = get_node_or_null("/root/Main/HUD_Right")
-	
-	# Setup fight-specific UI elements
-	if hud_bottom:
-		_setup_bottom_hud()
+
+	# Setup fight-specific UI in right panel
 	if hud_right:
 		_setup_right_panel()
 
@@ -151,11 +127,6 @@ func _create_fight_visuals() -> void:
 	target_highlights = Node2D.new()
 	target_highlights.name = "FightTargetHighlights"
 	board_root.add_child(target_highlights)
-
-func _setup_bottom_hud() -> void:
-	# NOTE: Main.gd now handles the phase action button
-	# FightController only manages fight-specific UI in the right panel
-	pass
 
 func _setup_right_panel() -> void:
 	# Main.gd already handles cleanup before controller creation
@@ -663,77 +634,21 @@ func _update_ui_state() -> void:
 		consolidate_button.disabled = current_fighter_id == "" or not _can_consolidate()
 
 func _refresh_available_actions() -> void:
-	"""Refresh available actions and populate fight controls dynamically"""
+	"""Refresh available actions and update right panel controls"""
 	if not current_phase or not current_phase.has_method("get_available_actions"):
 		return
-		
+
 	print("DEBUG: FightController calling get_available_actions()")
 	var available_actions = current_phase.get_available_actions()
 	print("DEBUG: FightController received %d available actions" % available_actions.size())
-	
-	# Clear any existing action buttons (except fixed UI elements)
-	_clear_dynamic_action_buttons()
-	
-	# Create buttons for each available action (only for simple actions like PILE_IN)
-	for action in available_actions:
-		var action_type = action.get("type", "")
-		if action_type in ["PILE_IN", "CONFIRM_AND_RESOLVE_ATTACKS", "CONSOLIDATE", "END_PHASE"]:
-			_create_action_button(action)
-	
+
+	# Update right panel button states based on available actions
+	_update_ui_state()
+
 	# Update the right panel with fighters and weapons
 	print("DEBUG: _refresh_available_actions calling _refresh_fighter_list and _refresh_weapon_tree")
 	_refresh_fighter_list()
 	_refresh_weapon_tree()
-
-func _clear_dynamic_action_buttons() -> void:
-	"""Remove dynamically created action buttons"""
-	var fight_controls = hud_bottom.get_node_or_null("HBoxContainer/FightControls")
-	if not fight_controls:
-		return
-	
-	# Remove all action buttons (they start with "ActionButton_")
-	for child in fight_controls.get_children():
-		if child.name.begins_with("ActionButton_"):
-			print("DEBUG: Removing old action button: %s" % child.name)
-			child.queue_free()
-
-func _create_action_button(action: Dictionary) -> void:
-	"""Create a button for an available action"""
-	var action_type = action.get("type", "")
-	var description = action.get("description", action_type)
-	var unit_id = action.get("unit_id", "")
-	
-	print("DEBUG: Creating action button for: %s (%s)" % [action_type, description])
-	
-	# Find the fight controls container
-	var fight_controls = hud_bottom.get_node_or_null("HBoxContainer/FightControls")
-	if not fight_controls:
-		print("ERROR: Could not find FightControls container")
-		return
-	
-	# Create the action button
-	var button = Button.new()
-	button.text = description
-	button.name = "ActionButton_" + action_type
-	
-	# Connect the button to execute the action
-	if action_type == "SELECT_FIGHTER":
-		button.pressed.connect(_on_select_fighter_pressed.bind(unit_id))
-	elif action_type == "SELECT_MELEE_WEAPON":
-		var weapon_id = action.get("weapon_id", "")
-		button.pressed.connect(_on_select_melee_weapon_pressed.bind(unit_id, weapon_id))
-	elif action_type == "PILE_IN":
-		button.pressed.connect(_on_pile_in_pressed)  # Uses existing signature
-	elif action_type == "ASSIGN_ATTACKS_UI":
-		button.pressed.connect(_on_assign_attacks_ui_pressed.bind(unit_id))
-	elif action_type == "CONFIRM_AND_RESOLVE_ATTACKS":
-		button.pressed.connect(_on_confirm_pressed)  # Uses existing signature
-	elif action_type == "CONSOLIDATE":
-		button.pressed.connect(_on_consolidate_pressed)  # Uses existing signature
-	
-	# Add the button to the fight controls
-	fight_controls.add_child(button)
-	print("DEBUG: Added action button '%s' to FightControls" % button.text)
 
 func _on_select_fighter_pressed(unit_id: String) -> void:
 	"""Handle SELECT_FIGHTER button press"""
@@ -1058,11 +973,6 @@ func _on_confirm_pressed() -> void:
 	
 	emit_signal("fight_action_requested", {
 		"type": "CONFIRM_ATTACKS"
-	})
-
-func _on_end_phase_pressed() -> void:
-	emit_signal("fight_action_requested", {
-		"type": "END_FIGHT"
 	})
 
 func _input(event: InputEvent) -> void:
