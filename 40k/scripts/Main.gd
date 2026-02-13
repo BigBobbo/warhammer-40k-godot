@@ -952,12 +952,30 @@ func _setup_objectives() -> void:
 						obj_visual.update_control(controller)
 			)
 		
+		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)
+		if not MissionManager.objective_removed.is_connected(_on_objective_removed):
+			MissionManager.objective_removed.connect(_on_objective_removed)
+		if not MissionManager.objective_burn_started.is_connected(_on_objective_burn_started):
+			MissionManager.objective_burn_started.connect(_on_objective_burn_started)
+
 		# Do initial control check
 		MissionManager.check_all_objectives()
-		
+
 		print("Main: Objectives setup complete")
 	else:
 		print("Main: MissionManager not available, skipping objectives")
+
+func _on_objective_removed(objective_id: String) -> void:
+	var visual = MissionManager.objectives_visual_refs.get(objective_id)
+	if visual:
+		visual.set_removed()
+		print("Main: Objective %s removed from board" % objective_id)
+
+func _on_objective_burn_started(objective_id: String, _player: int) -> void:
+	var visual = MissionManager.objectives_visual_refs.get(objective_id)
+	if visual:
+		visual.set_burning(true)
+		print("Main: Objective %s is now burning" % objective_id)
 
 func _toggle_los_debug() -> void:
 	# Try to get LoS debug visual from ShootingController first (if in shooting phase)

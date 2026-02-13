@@ -143,3 +143,16 @@ func get_position_inches() -> Vector2:
 
 func get_control_radius_inches() -> float:
 	return OBJECTIVE_RADIUS_INCHES
+
+func set_burning(is_burning: bool) -> void:
+	"""Visual indicator that a burn action is in progress on this objective."""
+	if is_burning:
+		control_indicator.text = "BURNING"
+		control_indicator.modulate = Color(1.0, 0.5, 0.0, 1.0)  # Orange
+		objective_circle.default_color = Color(1.0, 0.4, 0.0, 1.0)  # Orange outline
+		objective_polygon.color = Color(1.0, 0.3, 0.0, 0.35)  # Orange fill
+
+func set_removed() -> void:
+	"""Hide the objective when it has been burned or removed from play."""
+	visible = false
+	print("ObjectiveVisual: %s removed from board" % objective_data.get("id", "unknown"))

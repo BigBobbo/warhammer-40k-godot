@@ -42,6 +42,8 @@ func _on_phase_enter() -> void:
 	# Step 4: Check objectives at start of command phase
 	if MissionManager:
 		MissionManager.check_all_objectives()
+		# Snapshot alive units for kill detection (used by Purge the Foe)
+		MissionManager.snapshot_alive_units()
 
 	if _units_needing_test.size() == 0:
 		print("CommandPhase: No units need battle-shock tests")
@@ -320,6 +322,8 @@ func _handle_end_command() -> Dictionary:
 
 	# Score primary objectives before ending phase
 	if MissionManager:
+		# Auto-detect destroyed units for Purge the Foe
+		MissionManager.count_destroyed_units_this_round()
 		MissionManager.score_primary_objectives()
 
 	# Emit phase completion signal to proceed to next phase
