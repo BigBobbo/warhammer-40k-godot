@@ -37,6 +37,7 @@ const FAIL_NON_TARGET_ER = "NON_TARGET_ER"
 const FAIL_COHERENCY = "COHERENCY"
 const FAIL_OVERLAP = "OVERLAP"
 const FAIL_BASE_CONTACT = "BASE_CONTACT"
+const FAIL_MUST_END_CLOSER = "MUST_END_CLOSER"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 const FAIL_CATEGORY_TOOLTIPS = {
@@ -47,6 +48,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" of at least one other model) after the charge move completes.",
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
+	FAIL_MUST_END_CLOSER: "Each model making a charge move must end closer to at least one declared charge target than it started. Models cannot move laterally or away from all targets during a charge.",
 }
 
 func _init():
@@ -666,6 +668,13 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 		for err in base_to_base_validation.errors:
 			categorized_errors.append({"category": FAIL_BASE_CONTACT, "detail": err})
 
+	# 6. Validate each model ends closer to at least one target
+	var closer_validation = _validate_must_end_closer(unit_id, per_model_paths, target_ids)
+	if not closer_validation.valid:
+		errors.append_array(closer_validation.errors)
+		for err in closer_validation.errors:
+			categorized_errors.append({"category": FAIL_MUST_END_CLOSER, "detail": err})
+
 	return {"valid": errors.is_empty(), "errors": errors, "categorized_errors": categorized_errors}
 
 func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
@@ -782,10 +791,175 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
-	# For MVP, we'll implement a simplified check
-	# In full implementation, this would check if base-to-base contact is achievable
-	# and required when all other constraints are satisfied
-	return {"valid": true, "errors": []}
+	# 10e Rule: If a charging model CAN end its move in base-to-base contact with an
+	# enemy model (while satisfying all other constraints), it MUST do so.
+	#
+	# For each model that ends within engagement range of a target but NOT in B2B,
+	# we check whether a B2B position was reachable within the charge distance and
+	# would not cause overlaps. If so, the current placement is invalid.
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+	var charge_data = pending_charges.get(unit_id, {})
+	var rolled_distance = charge_data.get("distance", 0)
+
+	const B2B_THRESHOLD_INCHES: float = 0.1  # Within 0.1" counts as base-to-base
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() >= 2):
+			continue
+
+		var start_pos = Vector2(path[0][0], path[0][1])
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		# Build model dict at final position
+		var model_at_final = model.duplicate()
+		model_at_final["position"] = final_pos
+
+		# Check this model against all target enemy models
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position(target_model)
+				if target_pos == Vector2.ZERO:
+					continue
+
+				# Check if model is within engagement range of this target model
+				if not Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, ENGAGEMENT_RANGE_INCHES):
+					continue  # Not near this target model, skip
+
+				# Model IS within ER - check if it's already in B2B
+				var current_distance = Measurement.model_to_model_distance_inches(model_at_final, target_model)
+				if current_distance <= B2B_THRESHOLD_INCHES:
+					continue  # Already in B2B, good
+
+				# Model is in ER but not B2B. Check if B2B is achievable.
+				# Calculate candidate B2B position by moving model toward target
+				var direction = (target_pos - final_pos).normalized()
+				var gap_px = Measurement.model_to_model_distance_px(model_at_final, target_model)
+				# Move model closer by the gap distance (minus a tiny margin to ensure contact)
+				var b2b_candidate_pos = final_pos + direction * max(0, gap_px - 0.5)
+
+				# Check 1: Is B2B position within charge distance from start?
+				var distance_to_b2b = Measurement.px_to_inches(start_pos.distance_to(b2b_candidate_pos))
+				if distance_to_b2b > rolled_distance:
+					continue  # Can't reach B2B, so current placement is fine
+
+				# Check 2: Would B2B position overlap with another model?
+				var b2b_model = model.duplicate()
+				b2b_model["position"] = b2b_candidate_pos
+				var would_overlap = false
+
+				for check_unit_id in all_units:
+					var check_unit = all_units[check_unit_id]
+					for check_model in check_unit.get("models", []):
+						if not check_model.get("alive", true):
+							continue
+						var check_model_id = check_model.get("id", "")
+						# Skip self
+						if check_unit_id == unit_id and check_model_id == model_id:
+							continue
+
+						# Use final position for other charging models in the same unit
+						var other_pos = _get_model_position(check_model)
+						if check_unit_id == unit_id and per_model_paths.has(check_model_id):
+							var other_path = per_model_paths[check_model_id]
+							if other_path is Array and other_path.size() > 0:
+								other_pos = Vector2(other_path[-1][0], other_path[-1][1])
+
+						var other_check = check_model.duplicate()
+						other_check["position"] = other_pos
+
+						if Measurement.models_overlap(b2b_model, other_check):
+							would_overlap = true
+							break
+					if would_overlap:
+						break
+
+				if would_overlap:
+					continue  # B2B position blocked by another model, current placement is fine
+
+				# B2B was achievable but model isn't in B2B - violation
+				var target_model_id = target_model.get("id", "unknown")
+				var target_name = target_unit.get("meta", {}).get("name", target_id)
+				errors.append("Model %s must make base-to-base contact with %s/%s (gap: %.2f\")" % [model_id, target_name, target_model_id, current_distance])
+				print("ChargePhase: B2B violation - model %s is %.2f\" from %s but B2B is achievable" % [model_id, current_distance, target_model_id])
+				break  # One violation per model is enough
+			if errors.size() > 0 and errors[-1].begins_with("Model " + model_id):
+				break  # Already found a violation for this model
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+func _validate_must_end_closer(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	# 10e Rule: Each model making a charge move must end that move closer to at
+	# least one of the declared charge targets than it started.
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() >= 2):
+			continue
+
+		var start_pos = Vector2(path[0][0], path[0][1])
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# If the model didn't move, skip this check (no movement = no violation)
+		if start_pos.distance_to(final_pos) < 0.5:
+			continue
+
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		# Build model dicts at start and final positions
+		var model_at_start = model.duplicate()
+		model_at_start["position"] = start_pos
+		var model_at_final = model.duplicate()
+		model_at_final["position"] = final_pos
+
+		# Check if model ends closer to ANY declared target
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			# Find closest distance to this target unit from start and end
+			var min_start_distance = INF
+			var min_end_distance = INF
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var start_dist = Measurement.model_to_model_distance_inches(model_at_start, target_model)
+				var end_dist = Measurement.model_to_model_distance_inches(model_at_final, target_model)
+
+				min_start_distance = min(min_start_distance, start_dist)
+				min_end_distance = min(min_end_distance, end_dist)
+
+			if min_end_distance < min_start_distance:
+				ends_closer_to_any_target = true
+				break
+
+		if not ends_closer_to_any_target:
+			var unit = get_unit(unit_id)
+			var model_name = model_id
+			errors.append("Model %s did not end closer to any declared charge target" % model_name)
+			print("ChargePhase: Must-end-closer violation - model %s is not closer to any target after move" % model_id)
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")

@@ -72,13 +72,11 @@ The phase only checks failure during APPLY_CHARGE_MOVE, not during CHARGE_ROLL i
 - No state change is broadcast to the other player when a charge fails
 - The defending player in multiplayer may not see that a charge was attempted and failed
 
-### 2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed
+### ~~2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed~~ — FIXED
 
-**Rule:** If it is possible for a charging model to end its move in base-to-base contact with an enemy model (while satisfying all other constraints), it **must** do so.
-
-**Current state:** `ChargePhase.gd:727-731` — `_validate_base_to_base_possible()` returns `{"valid": true}` always. Comment says "For MVP, we'll implement a simplified check."
-
-**Impact:** Players can legally place models within engagement range but not in base-to-base contact even when B2B is achievable. This is technically a rules violation.
+> **Resolved** — `_validate_base_to_base_possible()` now enforces the 10e rule: if a model ends within engagement range of a target but not in B2B contact, the validator checks whether a B2B position was reachable (within charge distance) and unblocked (no overlaps). If B2B was achievable, the placement is rejected with a `BASE_CONTACT` categorized error.
+>
+> **Implementation:** `ChargePhase.gd:784+` — For each model within ER but not in B2B, calculates a candidate B2B position along the direction toward the target model. Checks reachability (within rolled distance from start) and overlap-freedom. Uses shape-aware `Measurement` functions for accuracy with non-circular bases.
 
 ### 2.5 MEDIUM: Terrain Interaction During Charges — Not Implemented
 
@@ -94,11 +92,11 @@ The phase only checks failure during APPLY_CHARGE_MOVE, not during CHARGE_ROLL i
 
 **Current state:** No keyword checks for AIRCRAFT or FLY in `_can_unit_charge()` or `_validate_declare_charge()`. The PRD mentions this at `charge_phase.md:204-206`.
 
-### 2.7 LOW: Charge Move Direction Constraint — Not Enforced
+### ~~2.7 LOW: Charge Move Direction Constraint — Not Enforced~~ — FIXED
 
-**Rule:** Each model making a charge move must end that move **closer** to at least one of the charge targets than it started.
-
-**Current state:** `_validate_charge_position()` in ChargeController.gd:1222-1243 has a comment about being "lenient" for individual model validation. There's no explicit check that each model ends closer to a target.
+> **Resolved** — Two-layer enforcement added:
+> 1. **Server-side (authoritative):** `ChargePhase.gd:_validate_must_end_closer()` — Validates that each model's final position is closer (edge-to-edge, shape-aware) to at least one declared charge target than its start position. Runs as step 6 in `_validate_charge_movement_constraints()`. Failures produce `MUST_END_CLOSER` categorized errors with descriptive tooltips.
+> 2. **Client-side (feedback):** `ChargeController.gd:_validate_charge_position()` — Soft check during drag that rejects placements where the model doesn't end closer to any target, giving immediate red ghost visual feedback.
 
 ### 2.8 LOW: Models Must Move Into B2B Before Others Move
 
@@ -246,14 +244,14 @@ This duplication creates a risk of divergence. The controller's check uses `Meas
 ### Must Fix (Rules/Multiplayer Correctness)
 1. ~~**Add charge phase signal re-emission in NetworkManager**~~ — **DONE** (commit `63748bc`)
 2. **Record failed charge attempts in phase state** — Broadcast failure to both players ← **RECOMMENDED NEXT**
-3. **Implement base-to-base enforcement** — Currently stubbed, rules require it
+3. ~~**Implement base-to-base enforcement**~~ — **DONE** — Full B2B validation with reachability and overlap checks
 
 ### Should Fix (Rules Compliance)
 4. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)
 5. **Add Heroic Intervention** — Major defensive element missing (requires Stratagem system)
 6. **Add terrain interaction for charges** — Distance should account for terrain height
 7. **Add AIRCRAFT charge restrictions** — Missing keyword checks
-8. **Enforce "must end closer to target" per model** — Currently not validated
+8. ~~**Enforce "must end closer to target" per model**~~ — **DONE** — Server + client enforcement with shape-aware distance
 
 ### Should Improve (QoL/Visual)
 9. **Add engagement range visualization** during charge movement
