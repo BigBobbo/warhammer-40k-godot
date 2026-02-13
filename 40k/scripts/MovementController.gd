@@ -1188,8 +1188,9 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Check validity based on total distance
 	path_valid = total_distance <= move_cap_inches
 
-	# Also check for model overlaps and wall collisions
+	# Also check for model overlaps, wall collisions, and board edge
 	var overlap_detected = false
+	var out_of_bounds = false
 	var overlap_reason = ""
 	if path_valid and current_phase:
 		# Check model overlap
@@ -1206,11 +1207,25 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 			if illegal_reason_label:
 				illegal_reason_label.text = overlap_reason
 
+	# Check board edge - no part of model base can extend beyond the battlefield
+	if not overlap_detected and selected_model:
+		out_of_bounds = _is_position_outside_board(world_pos, selected_model)
+		if out_of_bounds:
+			path_valid = false
+			if illegal_reason_label:
+				illegal_reason_label.text = "Cannot move beyond the board edge"
+				illegal_reason_label.modulate = Color.RED
+
+	# Clear error label when position is valid
+	if not overlap_detected and not out_of_bounds and total_distance <= move_cap_inches:
+		if illegal_reason_label:
+			illegal_reason_label.text = ""
+
 	# Update visuals
 	_update_path_visual()
 	_update_ruler_visual()
 	_update_ghost_position(world_pos)
-	_update_ghost_validity(!overlap_detected and total_distance <= move_cap_inches)
+	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= move_cap_inches)
 	# Show total distance used (already accumulated + current drag)
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 
@@ -2131,6 +2146,25 @@ func _check_position_would_overlap(position: Vector2) -> bool:
 
 	return false
 
+func _is_position_outside_board(pos: Vector2, model: Dictionary) -> bool:
+	# Check if any part of the model's base would extend beyond the board edges
+	var board_width_px = SettingsService.get_board_width_px()
+	var board_height_px = SettingsService.get_board_height_px()
+
+	# Get the model's base bounds
+	var base_shape = Measurement.create_base_shape(model)
+	var bounds = base_shape.get_bounds()
+	var half_width = bounds.size.x / 2.0
+	var half_height = bounds.size.y / 2.0
+
+	# Check if any edge of the base extends beyond the board
+	if pos.x - half_width < 0 or pos.x + half_width > board_width_px:
+		return true
+	if pos.y - half_height < 0 or pos.y + half_height > board_height_px:
+		return true
+
+	return false
+
 func _update_ghost_validity(is_valid: bool) -> void:
 	# Update the ghost visual to show if position is valid
 	if ghost_visual and ghost_visual.get_child_count() > 0:
@@ -2615,8 +2649,9 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 
 		# Validate the move and update ghost colors based on validity
 		var any_wall_collision = false
+		var any_out_of_bounds = false
 
-		# Check wall collisions for each model
+		# Check wall collisions and board edge for each model
 		for model_data in selected_models:
 			var model_id = model_data.model_id
 			var start_pos = group_drag_start_positions.get(model_id, model_data.position)
@@ -2639,7 +2674,20 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 					illegal_reason_label.modulate = Color.RED
 				break
 
-		if max_used > move_cap_inches or any_wall_collision:
+			# Check if this position would be outside the board
+			if _is_position_outside_board(new_pos, full_model):
+				any_out_of_bounds = true
+				if illegal_reason_label:
+					illegal_reason_label.text = "Cannot move beyond the board edge"
+					illegal_reason_label.modulate = Color.RED
+				break
+
+		# Clear error label when all positions are valid
+		if not any_wall_collision and not any_out_of_bounds and max_used <= move_cap_inches:
+			if illegal_reason_label:
+				illegal_reason_label.text = ""
+
+		if max_used > move_cap_inches or any_wall_collision or any_out_of_bounds:
 			# Some models exceed their movement or collide with walls - show invalid state
 			for child in ghost_visual.get_children():
 				if child.has_method("set_validity"):
