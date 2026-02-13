@@ -309,34 +309,77 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 func _process_charge_roll(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var charge_data = pending_charges[unit_id]
-	
+
 	# Roll 2D6 for charge distance
 	var rng = RulesEngine.RNGService.new()
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
-	
+
 	# Store rolled distance
 	charge_data.distance = total_distance
 	charge_data.dice_rolls = rolls
-	
-	# Add to dice log
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_ids = charge_data.targets
+
+	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
+
+	# Server-side feasibility check: can any model reach engagement range?
+	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
+	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+
+	# Build dice result with success/failure flag so clients don't need to recompute
 	var dice_result = {
 		"context": "charge_roll",
 		"unit_id": unit_id,
-		"unit_name": get_unit(unit_id).get("meta", {}).get("name", unit_id),
+		"unit_name": unit_name,
 		"rolls": rolls,
 		"total": total_distance,
-		"targets": charge_data.targets  # Include targets so clients can determine success
+		"targets": target_ids,
+		"charge_failed": not roll_sufficient,
+		"min_distance": min_distance,
 	}
 	dice_log.append(dice_result)
-	
+
+	if not roll_sufficient:
+		# Charge roll failed — record structured failure, clean up state, broadcast
+		print("ChargePhase: Charge roll INSUFFICIENT for %s (rolled %d, min dist %.1f\")" % [unit_name, total_distance, min_distance])
+		record_insufficient_roll_failure(unit_id, total_distance, rolls, target_ids, min_distance)
+
+		# Clean up phase state so unit can't retry
+		units_that_charged.append(unit_id)
+		completed_charges.append(unit_id)
+		pending_charges.erase(unit_id)
+		current_charging_unit = null
+
+		# Build failure data for the result (broadcast to clients via NetworkManager)
+		var failure_record = failed_charge_attempts[-1]  # The one we just recorded
+
+		# Emit signals — charge_roll_made first (for dice log on host), then charge_resolved
+		emit_signal("charge_roll_made", unit_id, total_distance, rolls)
+		emit_signal("dice_rolled", dice_result)
+		emit_signal("charge_resolved", unit_id, false, {
+			"reason": failure_record.errors[0] if failure_record.errors.size() > 0 else "Insufficient roll",
+			"failure_record": failure_record,
+		})
+
+		return create_result(true, [], "", {
+			"dice": [dice_result],
+			"charge_failed": true,
+			"failure_record": failure_record,
+			"min_distance": min_distance,
+		})
+
+	# Roll sufficient — emit normal signals and allow movement
+	print("ChargePhase: Charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
 	emit_signal("charge_roll_made", unit_id, total_distance, rolls)
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 	emit_signal("dice_rolled", dice_result)
-	
-	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
-	
-	return create_result(true, [], "", {"dice": [dice_result]})
+
+	return create_result(true, [], "", {
+		"dice": [dice_result],
+		"charge_failed": false,
+	})
 
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -989,6 +1032,64 @@ func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dic
 
 func has_pending_charge(unit_id: String) -> bool:
 	return pending_charges.has(unit_id)
+
+func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
+	"""Check if the rolled distance is sufficient for at least one model to reach
+	engagement range (1") of at least one target model in any declared target unit.
+	This is the server-side feasibility check performed immediately after the roll."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	if not pending_charges.has(unit_id):
+		return false
+
+	var target_ids = pending_charges[unit_id].get("targets", [])
+	if target_ids.is_empty():
+		return false
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		for target_id in target_ids:
+			var target_unit = get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				# Edge-to-edge distance in inches, minus engagement range
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
+				if distance_to_close <= rolled_distance:
+					return true
+
+	return false
+
+func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
+	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return INF
+
+	var min_dist = INF
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		for target_id in target_ids:
+			var target_unit = get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(model, target_model)
+				min_dist = min(min_dist, dist)
+
+	return min_dist
 
 func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
