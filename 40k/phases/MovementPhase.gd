@@ -1546,7 +1546,8 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 			group_validation.errors.append("Model %s exceeds movement cap (%.1f\" > %.1f\")" % [model_id, total_distance, move_cap_inches])
 
 		# Check for terrain collisions
-		if _check_terrain_collision(new_pos):
+		var full_model = _get_model_in_unit(unit_id, model_id)
+		if not full_model.is_empty() and _check_terrain_collision(new_pos, full_model):
 			group_validation.valid = false
 			group_validation.errors.append("Model %s would collide with terrain" % model_id)
 
@@ -1610,7 +1611,7 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 		return false
 
 	# Check terrain collision
-	if _check_terrain_collision(dest_pos):
+	if _check_terrain_collision(dest_pos, model):
 		return false
 
 	# Check model overlap
@@ -1671,11 +1672,9 @@ func _check_group_unit_coherency(group_moves: Array, unit_id: String) -> bool:
 
 	return true
 
-func _check_terrain_collision(position: Vector2) -> bool:
-	"""Check if a position collides with terrain"""
-	# Implementation depends on terrain system
-	# For now, return false (no collision)
-	return false
+func _check_terrain_collision(position: Vector2, model: Dictionary) -> bool:
+	"""Check if a position collides with impassable terrain using shape-aware bounds"""
+	return _position_intersects_terrain(position, model)
 
 func _would_overlap_other_models(unit_id: String, model_id: String, position: Vector2, model_data: Dictionary) -> bool:
 	"""Check if placing a model at the given position would overlap with other models"""
