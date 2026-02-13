@@ -1074,13 +1074,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				phase.emit_signal("charge_targets_available", unit_id, eligible_targets)
 
 	# Handle CHARGE_ROLL — re-emit charge_roll_made and charge_path_tools_enabled
-	# Note: dice_rolled is already re-emitted generically above (line ~917).
-	# charge_roll_made carries the structured (unit_id, distance, dice) args
-	# that the ChargeController uses for primary UI updates on the host.
-	# On the client, dice_rolled (with context="charge_roll") is the primary
-	# driver because charge_roll_made dedup prevents double-processing.
+	# Also handles server-side charge failure broadcasting (charge_failed flag).
+	# When the phase determines the roll is insufficient, it sets charge_failed=true
+	# in the result and includes a failure_record. We re-emit charge_resolved(false)
+	# so the client's ChargeController shows the failure to both players.
 	if action_type == "CHARGE_ROLL":
 		var unit_id = action_data.get("actor_unit_id", "")
+		var charge_failed = result.get("charge_failed", false)
 		if unit_id != "":
 			# Extract dice info from the result
 			var dice_array = result.get("dice", [])
@@ -1089,12 +1089,38 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var total = dice_block.get("total", 0)
 				var rolls = dice_block.get("rolls", [])
 				if rolls.size() == 2:
+					# Always re-emit charge_roll_made so dice log updates
 					if phase.has_signal("charge_roll_made"):
 						print("NetworkManager: Client re-emitting charge_roll_made for %s (distance=%d, dice=%s)" % [unit_id, total, str(rolls)])
 						phase.emit_signal("charge_roll_made", unit_id, total, rolls)
-					if phase.has_signal("charge_path_tools_enabled"):
-						print("NetworkManager: Client re-emitting charge_path_tools_enabled for %s (distance=%d)" % [unit_id, total])
-						phase.emit_signal("charge_path_tools_enabled", unit_id, total)
+
+					if charge_failed:
+						# Charge roll was insufficient — broadcast failure
+						var failure_record = result.get("failure_record", {})
+						var min_distance = result.get("min_distance", 0.0)
+						print("NetworkManager: Client re-emitting charge_resolved (ROLL FAILED) for %s (rolled %d, min dist %.1f\")" % [unit_id, total, min_distance])
+						if phase.has_signal("charge_resolved"):
+							phase.emit_signal("charge_resolved", unit_id, false, {
+								"reason": failure_record.get("errors", ["Insufficient roll"])[0] if not failure_record.is_empty() else "Insufficient roll",
+								"failure_record": failure_record,
+							})
+
+						# Update client phase local state so it stays consistent
+						if "pending_charges" in phase:
+							phase.pending_charges.erase(unit_id)
+						if "completed_charges" in phase:
+							if unit_id not in phase.completed_charges:
+								phase.completed_charges.append(unit_id)
+						if "units_that_charged" in phase:
+							if unit_id not in phase.units_that_charged:
+								phase.units_that_charged.append(unit_id)
+						if "current_charging_unit" in phase:
+							phase.current_charging_unit = null
+					else:
+						# Charge roll sufficient — enable movement tools
+						if phase.has_signal("charge_path_tools_enabled"):
+							print("NetworkManager: Client re-emitting charge_path_tools_enabled for %s (distance=%d)" % [unit_id, total])
+							phase.emit_signal("charge_path_tools_enabled", unit_id, total)
 
 	# Handle APPLY_CHARGE_MOVE — re-emit charge_resolved
 	if action_type == "APPLY_CHARGE_MOVE":

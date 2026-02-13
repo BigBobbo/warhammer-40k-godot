@@ -1732,48 +1732,36 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	]
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text(dice_text)
-	
-	# Check if charge is successful (can at least one model reach engagement range?)
-	# Get targets from phase's synced game state (not local UI state)
-	var targets = _get_charge_targets_from_phase(unit_id)
-	var success = _is_charge_successful(unit_id, distance, targets)
-	
-	if success:
-		awaiting_movement = true
-		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [distance, distance]
-		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 
-		# Enable charge movement for this unit
-		_enable_charge_movement(unit_id, distance)
+	# Server-side failure detection: if the phase already determined the roll was
+	# insufficient, it will have cleaned up pending_charges and emitted charge_resolved.
+	# In that case, skip the local success check — _on_charge_resolved handles the rest.
+	if current_phase and current_phase.has_method("has_pending_charge"):
+		if not current_phase.has_pending_charge(unit_id):
+			print("ChargeController: Phase already determined charge failure for %s — deferring to charge_resolved" % unit_id)
+			_update_button_states()
+			return
 
-		# Show charge distance tracking
-		_show_charge_distance_display(distance)
-	else:
-		awaiting_movement = false
-		# Calculate min distance for structured failure recording
-		var min_dist = _calculate_min_distance_to_targets(unit_id, targets)
-		var needed = max(0.0, min_dist - 1.0)  # subtract 1" engagement range
+	# Phase says charge is still pending → roll was sufficient, enable movement
+	awaiting_movement = true
+	if is_instance_valid(charge_info_label):
+		charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [distance, distance]
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 
-		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [distance, needed]
-		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [distance, min_dist, needed])
+	# Enable charge movement for this unit
+	_enable_charge_movement(unit_id, distance)
 
-		# Record structured failure in phase state
-		if current_phase and current_phase.has_method("record_insufficient_roll_failure"):
-			current_phase.record_insufficient_roll_failure(unit_id, distance, dice, targets, min_dist)
-
-		# Reset for next unit
-		_reset_unit_selection()
-		# Refresh failed charges display after recording
-		_refresh_failed_charges_display()
+	# Show charge distance tracking
+	_show_charge_distance_display(distance)
 
 	_update_button_states()
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
-	"""Handle dice_rolled signal from ChargePhase - critical for multiplayer sync"""
+	"""Handle dice_rolled signal from ChargePhase - critical for multiplayer sync.
+	On clients, this is the primary handler (fires before charge_roll_made).
+	The server-side charge_failed flag from the phase determines success/failure
+	rather than recomputing locally, ensuring both players agree."""
 	if not is_instance_valid(dice_log_display):
 		return
 
@@ -1785,7 +1773,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var unit_name = dice_data.get("unit_name", unit_id)
 	var rolls = dice_data.get("rolls", [])
 	var total = dice_data.get("total", 0)
-	var targets = dice_data.get("targets", [])  # Get targets from synced dice data
+	var targets = dice_data.get("targets", [])
+	var charge_failed = dice_data.get("charge_failed", false)
+	var min_distance = dice_data.get("min_distance", 0.0)
 
 	# Only process charge rolls
 	if context != "charge_roll" or rolls.size() != 2:
@@ -1797,57 +1787,52 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		print("ChargeController: Skipping duplicate charge roll processing (already handled by charge_roll_made)")
 		return
 
-	# Format and display charge roll
-	if true:
-		var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-			unit_name, total, rolls[0], rolls[1]
-		]
-		dice_log_display.append_text(dice_text)
-		print("ChargeController: Added dice roll to display: ", dice_text.strip_edges())
+	# Update dice log display
+	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
+		unit_name, total, rolls[0], rolls[1]
+	]
+	dice_log_display.append_text(dice_text)
+	print("ChargeController: Added dice roll to display: ", dice_text.strip_edges())
 
-		# Apply the same success/failure logic as _on_charge_roll_made
-		# This ensures clients see the same feedback as the host
-		charge_distance = total
-		awaiting_roll = false
+	charge_distance = total
+	awaiting_roll = false
 
-		# Check if charge is successful (can at least one model reach engagement range?)
-		# Use targets from dice_data (synced across network) instead of local UI state
-		print("DEBUG: Using targets from dice_data: ", targets)
-		var success = _is_charge_successful(unit_id, total, targets)
+	# Use the server-side charge_failed flag from the phase result.
+	# This avoids local recomputation and ensures host and client agree.
+	if charge_failed:
+		# Server determined charge roll insufficient — show failure, let charge_resolved
+		# (re-emitted by NetworkManager) handle the full UI update.
+		awaiting_movement = false
+		var needed = max(0.0, min_distance - 1.0)
 
-		if success:
-			awaiting_movement = true
-			if is_instance_valid(charge_info_label):
-				charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [total, total]
-			if is_instance_valid(dice_log_display):
-				dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+		if is_instance_valid(charge_info_label):
+			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
+		if is_instance_valid(dice_log_display):
+			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [total, min_distance, needed])
 
-			# Enable charge movement for this unit
-			_enable_charge_movement(unit_id, total)
-
-			# Show charge distance tracking
-			_show_charge_distance_display(total)
-		else:
-			awaiting_movement = false
-			# Calculate min distance for structured failure recording
-			var min_dist = _calculate_min_distance_to_targets(unit_id, targets)
-			var needed = max(0.0, min_dist - 1.0)  # subtract 1" engagement range
-
-			if is_instance_valid(charge_info_label):
-				charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
-			if is_instance_valid(dice_log_display):
-				dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [total, min_dist, needed])
-
-			# Record structured failure in phase state
-			if current_phase and current_phase.has_method("record_insufficient_roll_failure"):
-				current_phase.record_insufficient_roll_failure(unit_id, total, rolls, targets, min_dist)
-
-			# Reset for next unit
-			_reset_unit_selection()
-			# Refresh failed charges display after recording
-			_refresh_failed_charges_display()
-
+		print("ChargeController: Server determined charge failed for %s (rolled %d, min dist %.1f\")" % [unit_id, total, min_distance])
+		# charge_resolved signal will fire next and handle _reset_unit_selection + display refresh
 		_update_button_states()
+		return
+
+	# Charge roll sufficient — enable movement
+	# Fall back to local check if charge_failed flag was absent (backwards compat)
+	var success = true
+	if not dice_data.has("charge_failed"):
+		print("ChargeController: No charge_failed flag in dice_data, using local success check")
+		success = _is_charge_successful(unit_id, total, targets)
+
+	if success:
+		awaiting_movement = true
+		if is_instance_valid(charge_info_label):
+			charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [total, total]
+		if is_instance_valid(dice_log_display):
+			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+
+		_enable_charge_movement(unit_id, total)
+		_show_charge_distance_display(total)
+
+	_update_button_states()
 
 func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> void:
 	print("Charge resolved: ", unit_id, " success: ", success)
