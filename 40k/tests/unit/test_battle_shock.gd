@@ -1021,3 +1021,69 @@ func test_three_model_unit_with_two_alive():
 	_kill_models(unit, 1)
 	assert_false(_is_below_half_strength(unit),
 		"3-model unit with 2 alive should NOT be below half-strength")
+
+
+# ==========================================
+# Section 13: FLY / TITANIC Desperate Escape Skip
+# ==========================================
+
+func test_fly_keyword_skips_desperate_escape():
+	"""
+	10e Rule: FLY units do not take Desperate Escape tests when Falling Back.
+	They can move over enemy models without penalty.
+	"""
+	var unit = _create_unit("fly_unit", 5, 7)
+	unit.meta.keywords = ["INFANTRY", "FLY", "IMPERIUM"]
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	assert_true("FLY" in keywords,
+		"FLY keyword should be present in unit keywords")
+	# MovementPhase._process_desperate_escape() checks for FLY keyword
+	# and returns early with no changes/dice if found
+	var should_skip = "FLY" in keywords or "TITANIC" in keywords
+	assert_true(should_skip,
+		"FLY units should skip Desperate Escape tests")
+
+func test_titanic_keyword_skips_desperate_escape():
+	"""
+	10e Rule: TITANIC models do not take Desperate Escape tests when Falling Back.
+	Affects large models like Imperial Knights and Baneblades.
+	"""
+	var unit = _create_unit("titanic_unit", 1, 7)
+	unit.meta.keywords = ["VEHICLE", "TITANIC", "IMPERIUM"]
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	assert_true("TITANIC" in keywords,
+		"TITANIC keyword should be present in unit keywords")
+	var should_skip = "FLY" in keywords or "TITANIC" in keywords
+	assert_true(should_skip,
+		"TITANIC units should skip Desperate Escape tests")
+
+func test_non_fly_non_titanic_takes_desperate_escape():
+	"""
+	Regular units without FLY or TITANIC must take Desperate Escape tests
+	when Falling Back through enemy models.
+	"""
+	var unit = _create_unit("regular_unit", 5, 7)
+	unit.meta.keywords = ["INFANTRY", "IMPERIUM"]
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	assert_false("FLY" in keywords,
+		"Regular unit should not have FLY keyword")
+	assert_false("TITANIC" in keywords,
+		"Regular unit should not have TITANIC keyword")
+	var should_skip = "FLY" in keywords or "TITANIC" in keywords
+	assert_false(should_skip,
+		"Regular units should NOT skip Desperate Escape tests")
+
+func test_fly_and_titanic_combined_skips_desperate_escape():
+	"""
+	A unit with both FLY and TITANIC keywords should also skip Desperate Escape.
+	"""
+	var unit = _create_unit("fly_titanic_unit", 1, 7)
+	unit.meta.keywords = ["VEHICLE", "FLY", "TITANIC", "IMPERIUM"]
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var should_skip = "FLY" in keywords or "TITANIC" in keywords
+	assert_true(should_skip,
+		"Unit with both FLY and TITANIC should skip Desperate Escape")

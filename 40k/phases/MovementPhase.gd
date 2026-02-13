@@ -1051,7 +1051,17 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 	var models = unit.get("models", [])
 	var changes = []
 	var dice_rolls = []
-	
+
+	# FLY and TITANIC units skip Desperate Escape tests when Falling Back
+	# 10e Rule: FLY units can move over enemy models without taking Desperate Escape tests
+	# 10e Rule: TITANIC models do not take Desperate Escape tests when Falling Back
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "FLY" in keywords or "TITANIC" in keywords:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var skip_reason = "FLY" if "FLY" in keywords else "TITANIC"
+		log_phase_message("Desperate Escape skipped for %s (%s keyword)" % [unit_name, skip_reason])
+		return {"changes": [], "dice": []}
+
 	# Determine which models need Desperate Escape tests
 	var models_to_test = []
 	
