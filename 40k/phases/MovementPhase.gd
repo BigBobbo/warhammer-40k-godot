@@ -371,19 +371,79 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	if unit_id == "":
 		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	
+
 	if not active_moves.has(unit_id):
 		return {"valid": false, "errors": ["No active move for unit"]}
-	
+
 	var move_data = active_moves[unit_id]
-	
+
 	# For Fall Back, ensure all models end outside engagement range
 	if move_data.mode == "FALL_BACK":
 		for model_move in move_data.model_moves:
 			var dest = model_move.dest
 			if _is_position_in_engagement_range(unit_id, model_move.model_id, dest):
 				return {"valid": false, "errors": ["Model %s would still be in engagement range" % model_move.model_id]}
-	
+
+	# Check unit coherency after all staged moves are applied
+	# Rule: Each model must be within 2" of at least one other model (2 others for 7+ model units)
+	var coherency_result = _validate_unit_coherency_after_move(unit_id, move_data)
+	if not coherency_result.valid:
+		return {"valid": false, "errors": coherency_result.errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_unit_coherency_after_move(unit_id: String, move_data: Dictionary) -> Dictionary:
+	"""Validate that the unit maintains coherency after all staged moves are applied.
+	Returns {valid: bool, errors: Array} — rejects the move if coherency is broken."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	var models = unit.get("models", [])
+	var alive_models = []
+	for model in models:
+		if model.get("alive", true):
+			alive_models.append(model)
+
+	# Single model units are always coherent
+	if alive_models.size() <= 1:
+		return {"valid": true, "errors": []}
+
+	# Build a map of model_id -> staged destination
+	var staged_positions = {}
+	for staged_move in move_data.get("staged_moves", []):
+		staged_positions[staged_move.model_id] = staged_move.dest
+
+	# Build final model dicts with their post-move positions
+	var final_models = []
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		var final_model = model.duplicate()
+		if staged_positions.has(model_id):
+			final_model["position"] = staged_positions[model_id]
+		final_models.append(final_model)
+
+	# Check coherency: each model must have enough nearby models within 2"
+	var model_count = final_models.size()
+	var required_connections = 1 if model_count <= 6 else 2
+
+	for i in range(final_models.size()):
+		var connections = 0
+		for j in range(final_models.size()):
+			if i == j:
+				continue
+			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
+			if distance <= 2.0:
+				connections += 1
+				if connections >= required_connections:
+					break  # No need to check further
+
+		if connections < required_connections:
+			var model_id = final_models[i].get("id", "model %d" % i)
+			var needed_str = "%d model(s)" % required_connections
+			log_phase_message("Coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
+			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_remain_stationary(action: Dictionary) -> Dictionary:
