@@ -4,7 +4,7 @@
 This audit compares the current movement phase implementation (primarily `phases/MovementPhase.gd` and `scripts/MovementController.gd`) against the Warhammer 40,000 10th Edition core rules, with a focus on online multiplayer correctness.
 
 **Last updated:** 2026-02-13
-**Audit revision:** 2
+**Audit revision:** 3
 
 ---
 
@@ -21,6 +21,8 @@ This audit compares the current movement phase implementation (primarily `phases
 | Fall Back must end outside ER | **Implemented** | Checked per-model in `_validate_confirm_unit_move()` |
 | Engaged units can only Fall Back or Remain Stationary | **Implemented** | Enforced in `_validate_begin_normal_move()` and `get_available_actions()` |
 | Desperate Escape (D6, 1-2 = model lost) | **Implemented** | `_process_desperate_escape()` handles both normal and Battle-shocked cases |
+| FLY units skip Desperate Escape | **Implemented** | FLY keyword check in `_process_desperate_escape()` returns early |
+| TITANIC units skip Desperate Escape | **Implemented** | TITANIC keyword check in `_process_desperate_escape()` returns early |
 | Advanced units cannot shoot (except Assault) | **Implemented** | `ShootingPhase.gd:1026-1031` checks `advanced` flag |
 | Fell Back units cannot shoot or charge | **Implemented** | Sets `cannot_shoot` and `cannot_charge` flags |
 | Advanced units cannot charge | **Implemented** | Sets `cannot_charge` flag |
@@ -67,39 +69,36 @@ This audit compares the current movement phase implementation (primarily `phases
 3. Strategic Reserves placement rules tied to battle round
 4. "Destroyed if not deployed" enforcement at game end
 
-### 2.3 HIGH — FLY Keyword
+### 2.3 ~~HIGH — FLY Keyword (Desperate Escape)~~ PARTIALLY FIXED
 
 **Rule:** Units with the FLY keyword:
 - Can move over enemy models during a Normal Move or Advance (but must still end outside ER)
 - When Falling Back, FLY units can move over enemy models **without taking Desperate Escape tests**
 - Ignore vertical distance and terrain height
 
-**Current state:** The `TerrainManager.gd:181-182` checks for FLY keyword for wall traversal (`if "FLY" in unit_keywords`), but `MovementPhase.gd` does **not** check FLY during:
-- Normal Move path validation (models can currently walk through enemies anyway — see 2.5)
-- `_process_desperate_escape()` — FLY units incorrectly take Desperate Escape tests
-- Engagement range path checks
+**Current state:** `_process_desperate_escape()` now checks `unit.meta.keywords` for "FLY" and returns early with no changes/dice if found. The `TerrainManager.gd:181-182` checks for FLY keyword for wall traversal (`if "FLY" in unit_keywords`).
 
-**Impact:** High. Several unit types (Jump Pack Intercessors, Custodes Vertus Praetors, vehicles with FLY) cannot be played correctly.
+**Remaining work (not yet implemented):**
+- Normal Move path validation: FLY units should be exempt from path-through-enemy checks when added (see 2.5)
+- FLY units should ignore terrain elevation during movement
+- Engagement range path checks for FLY units
 
-**Recommendation:**
-- In `_process_desperate_escape()`: Skip Desperate Escape tests for FLY units (check `unit.meta.keywords` for "FLY")
-- When path-through-enemy validation is added (see 2.5): Exempt FLY units during Normal/Advance moves
-- Allow FLY units to ignore terrain elevation
+**Resolution:** Added FLY keyword check at the top of `_process_desperate_escape()` in `MovementPhase.gd:1055-1063`. If the unit has "FLY" in its keywords, the function logs the skip and returns immediately with no casualties.
 
-### 2.4 HIGH — TITANIC Keyword
+**Commit:** `e4364af` — "Skip Desperate Escape tests for FLY and TITANIC units"
+
+### 2.4 ~~HIGH — TITANIC Keyword~~ FIXED
 
 **Rule:** TITANIC models do not take Desperate Escape tests when Falling Back (same as FLY).
 
-**Current state:** No TITANIC keyword handling in movement. `_process_desperate_escape()` at `MovementPhase.gd:989-1069` does not check for TITANIC.
-
-**Impact:** Medium-High. Affects large models like Imperial Knights and Baneblades.
-
-**Recommendation:** Add TITANIC check alongside FLY in `_process_desperate_escape()`. Both keywords can be checked with:
+**Resolution:** Added TITANIC check alongside FLY in `_process_desperate_escape()` at `MovementPhase.gd:1055-1063`. Both keywords are checked with:
 ```gdscript
 var keywords = unit.get("meta", {}).get("keywords", [])
 if "FLY" in keywords or "TITANIC" in keywords:
     return {"changes": [], "dice": []}
 ```
+
+**Commit:** `e4364af` — "Skip Desperate Escape tests for FLY and TITANIC units"
 
 ### 2.5 HIGH — Moving Through Friendly Models / Path Through Enemy Models
 
@@ -495,8 +494,8 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 3. **Embark action notification** — Ensure opponent sees embark actions in multiplayer
 
 ### Should Fix (Gameplay Completeness)
-4. **FLY keyword support** — Skip Desperate Escape, allow movement through enemies
-5. **TITANIC skip Desperate Escape** — Simple keyword check in `_process_desperate_escape()`
+4. ~~**FLY keyword support** — Skip Desperate Escape, allow movement through enemies~~ PARTIALLY FIXED (Desperate Escape skip done; path-through-enemy exemption still needed)
+5. ~~**TITANIC skip Desperate Escape** — Simple keyword check in `_process_desperate_escape()`~~ FIXED
 6. **Path-through-enemy validation** — Normal/Advance shouldn't cross enemy bases
 7. **Reinforcements step** — Add reserves / Deep Strike system
 8. **`_check_terrain_collision()` stub** — Connect to actual terrain checking
@@ -613,7 +612,7 @@ The following movement actions are properly routed through the action system:
 
 2. **Unit coherency enforcement** — The coherency check logic already exists at `MovementPhase.gd:1520` and works correctly. It just needs to be called from `_validate_confirm_unit_move()` and set to reject (not warn) when coherency is broken.
 
-3. **FLY/TITANIC keyword in Desperate Escape** — A small change to `_process_desperate_escape()` to check unit keywords before rolling.
+3. ~~**FLY/TITANIC keyword in Desperate Escape** — A small change to `_process_desperate_escape()` to check unit keywords before rolling.~~ DONE (commit `e4364af`)
 
 4. **Board edge enforcement** — Add a simple boundary check using `game_state_snapshot.board.size` in `_validate_stage_model_move()`.
 
