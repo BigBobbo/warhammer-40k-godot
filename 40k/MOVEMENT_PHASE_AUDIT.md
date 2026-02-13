@@ -3,6 +3,9 @@
 ## Scope
 This audit compares the current movement phase implementation (primarily `phases/MovementPhase.gd` and `scripts/MovementController.gd`) against the Warhammer 40,000 10th Edition core rules, with a focus on online multiplayer correctness.
 
+**Last updated:** 2026-02-13
+**Audit revision:** 2
+
 ---
 
 ## 1. Rules Compliance Summary
@@ -30,6 +33,8 @@ This audit compares the current movement phase implementation (primarily `phases
 | Terrain collision (impassable) | **Implemented** | `_position_intersects_terrain()` |
 | Model overlap prevention | **Implemented** | `_position_overlaps_other_models()` with staged position awareness |
 | INFANTRY move through ruins | **Implemented** | `TerrainManager.can_unit_move_through_terrain()` |
+| Cannot embark and disembark same phase | **Implemented** | `disembarked_this_phase` flag checked in `_validate_embark_unit()` |
+| Unit cannot be selected to move more than once | **Implemented** | `flags.moved` checked in all `_validate_begin_*` methods |
 
 ---
 
@@ -37,94 +42,155 @@ This audit compares the current movement phase implementation (primarily `phases
 
 ### 2.1 CRITICAL — Unit Coherency Enforcement
 
-**Rule:** After a unit moves, each model must be within 2" of at least one other model in the same unit. For units with 7+ models, each model must be within 2" of at least **two** other models.
+**Rule:** After a unit moves, each model must be within 2" of at least one other model in the same unit. For units with 7+ models, each model must be within 2" of at least **two** other models. A unit must finish any type of move in unit coherency. If this is impossible, then that move cannot be made.
 
-**Current state:** Coherency checking exists only as a warning in group movement validation (`_check_group_unit_coherency()` in `MovementPhase.gd:1516`), but it is **never enforced** during `_validate_confirm_unit_move()`. A player can confirm a move that breaks coherency with no penalty.
+**Current state:** Coherency checking exists only as a warning in group movement validation (`_check_group_unit_coherency()` in `MovementPhase.gd:1520`), but it is **never enforced** during `_validate_confirm_unit_move()`. A player can confirm a move that breaks coherency with no penalty. The FightPhase (`FightPhase.gd:1322`) has a proper `_validate_unit_coherency()` function that blocks moves breaking coherency — the movement phase should do the same.
 
 **Impact:** High. This is a fundamental rule that affects game balance. Without enforcement, units can spread models across the entire board.
 
-**Recommendation:** Add coherency validation to `_validate_confirm_unit_move()`. If coherency is broken, the move should be rejected (or at minimum show a prominent warning and require re-confirmation).
+**Recommendation:** Port the coherency validation from `FightPhase._validate_unit_coherency()` into `MovementPhase._validate_confirm_unit_move()`. If coherency is broken, reject the move.
 
 ### 2.2 CRITICAL — Reinforcements Step
 
-**Rule:** The Movement Phase has two steps: (1) Move Units, and (2) Reinforcements. After all units have moved, reserves/reinforcements can be placed on the battlefield (e.g., Deep Strike must end 9"+ from enemies). Any reserves not placed by end of game count as destroyed.
+**Rule:** The Movement Phase has two steps: (1) Move Units, and (2) Reinforcements. After all units have moved, reserves/reinforcements can be placed on the battlefield:
+- **Deep Strike:** Units with the Deep Strike ability can be set up in reserves during deployment and deployed during the Reinforcements step more than 9" horizontally from all enemy models.
+- **Strategic Reserves:** Up to 25% of the army can be placed in strategic reserves. They can arrive from the second battle round onwards — from the second round they must be placed within 6" of a board edge and outside the enemy deployment zone; from the third round onwards they can be placed in the enemy deployment zone. Always more than 9" from enemy models.
+- **Any reserves not placed by end of game count as destroyed.**
 
-**Current state:** There is **no Reinforcements step** implemented. No reserves system, no Deep Strike, no ability to bring units onto the battlefield mid-game.
+**Current state:** There is **no Reinforcements step** implemented. No reserves system, no Deep Strike, no Strategic Reserves. The archived test file `test_deployment_phase.gd:162-166` has a stub `test_strategic_reserves()` that creates a `PLACE_IN_RESERVES` action, but the action type is not implemented.
 
-**Impact:** High. Many armies rely on reserves and Deep Strike as core mechanics.
+**Impact:** High. Many armies rely on reserves and Deep Strike as core mechanics (e.g., Terminators, Drop Pods, jump pack units).
 
-**Recommendation:** Add a Reinforcements sub-phase that activates after all movement is complete but before the phase ends. Track reserve units in GameState, validate placement distances, and enforce the "destroyed if not deployed" rule.
+**Recommendation:** Add a Reinforcements sub-phase that activates after all movement is complete but before the phase ends. Requires:
+1. A reserves tracking system in GameState (units with status `IN_RESERVES`)
+2. A `PLACE_REINFORCEMENT` action type with 9" distance validation
+3. Strategic Reserves placement rules tied to battle round
+4. "Destroyed if not deployed" enforcement at game end
 
 ### 2.3 HIGH — FLY Keyword
 
-**Rule:** Units with the FLY keyword can move over enemy models during a Normal Move or Advance (but must still end outside ER). When Falling Back, FLY units can move over enemy models without taking Desperate Escape tests. FLY units also ignore vertical distances and can move over terrain freely.
+**Rule:** Units with the FLY keyword:
+- Can move over enemy models during a Normal Move or Advance (but must still end outside ER)
+- When Falling Back, FLY units can move over enemy models **without taking Desperate Escape tests**
+- Ignore vertical distance and terrain height
 
-**Current state:** The `MOVEMENT_PHASE_IMPLEMENTATION.md` explicitly lists "FLY keyword not implemented" as a known limitation. The `TerrainManager.can_unit_cross_wall()` does check for FLY keyword for wall traversal, but `MovementPhase.gd` does not check FLY during Normal Move or Fall Back path validation.
+**Current state:** The `TerrainManager.gd:181-182` checks for FLY keyword for wall traversal (`if "FLY" in unit_keywords`), but `MovementPhase.gd` does **not** check FLY during:
+- Normal Move path validation (models can currently walk through enemies anyway — see 2.5)
+- `_process_desperate_escape()` — FLY units incorrectly take Desperate Escape tests
+- Engagement range path checks
 
-**Impact:** High. Several unit types (e.g., Jump Pack Intercessors, Custodes Vertus Praetors, vehicles with FLY) cannot be played correctly.
+**Impact:** High. Several unit types (Jump Pack Intercessors, Custodes Vertus Praetors, vehicles with FLY) cannot be played correctly.
 
 **Recommendation:**
-- In `_check_engagement_range_at_position()`: Allow FLY units to move through (but not end in) enemy ER during Normal/Advance moves.
-- In `_process_desperate_escape()`: Skip Desperate Escape tests for FLY units.
-- In terrain checks: Allow FLY units to ignore terrain elevation.
+- In `_process_desperate_escape()`: Skip Desperate Escape tests for FLY units (check `unit.meta.keywords` for "FLY")
+- When path-through-enemy validation is added (see 2.5): Exempt FLY units during Normal/Advance moves
+- Allow FLY units to ignore terrain elevation
 
 ### 2.4 HIGH — TITANIC Keyword
 
-**Rule:** TITANIC models do not take Desperate Escape tests when Falling Back, similar to FLY.
+**Rule:** TITANIC models do not take Desperate Escape tests when Falling Back (same as FLY).
 
-**Current state:** No TITANIC keyword handling in movement. `_process_desperate_escape()` does not check for TITANIC.
+**Current state:** No TITANIC keyword handling in movement. `_process_desperate_escape()` at `MovementPhase.gd:989-1069` does not check for TITANIC.
 
-**Impact:** Medium-High. Affects large models like Knights and Baneblades.
+**Impact:** Medium-High. Affects large models like Imperial Knights and Baneblades.
 
-**Recommendation:** Add TITANIC check alongside FLY in `_process_desperate_escape()`.
+**Recommendation:** Add TITANIC check alongside FLY in `_process_desperate_escape()`. Both keywords can be checked with:
+```gdscript
+var keywords = unit.get("meta", {}).get("keywords", [])
+if "FLY" in keywords or "TITANIC" in keywords:
+    return {"changes": [], "dice": []}
+```
 
-### 2.5 HIGH — Moving Through Friendly Models
+### 2.5 HIGH — Moving Through Friendly Models / Path Through Enemy Models
 
-**Rule:** A model can move through friendly models during its move but cannot end its move on top of another model. Models can also move over other friendly models if they have the FLY keyword.
+**Rule:** A model can move **through** friendly models during its move but cannot end on top of another model. A model **cannot** move through enemy models during a Normal Move or Advance (only FLY or Fall Back allows this). No part of the model's base can be moved across the bases of other models.
 
-**Current state:** The current implementation checks for model overlap at the final position (`_position_overlaps_other_models()`), which is correct. However, the **path** is not validated — a model cannot physically walk through enemy models (only FLY or Fall Back allow this). The `_path_crosses_enemy()` function exists for Fall Back, but there's no general check preventing Normal/Advance moves from pathing through enemy models.
+**Current state:** The implementation checks for model overlap at the **final position** (`_position_overlaps_other_models()` at `MovementPhase.gd:1185`), which is correct for end-position validation. However:
+- **Path validation through enemies is missing for Normal/Advance:** A model can currently be dragged through an enemy model's base and placed on the other side without penalty, as long as it ends outside ER.
+- **Path validation through friendlies is incorrectly strict:** The `_path_crosses_enemy()` function at `MovementPhase.gd:1125` checks both enemy and friendly models along the path but is only called during Fall Back. Normal moves have no path checking at all.
+- The `_path_crosses_enemy()` function uses engagement range checks along the path (line 1171), which would incorrectly block movement through friendly models too.
 
-**Impact:** Medium. Currently a model could be dragged through an enemy model's base and placed on the other side without penalty, as long as it ends outside ER.
+**Impact:** Medium. Allows illegal shortcuts through enemy formations.
 
-**Recommendation:** Add path validation for Normal and Advance moves to ensure models don't cross enemy bases. Allow crossing friendly bases freely. Add FLY exception.
+**Recommendation:**
+1. Add path validation for Normal and Advance moves to prevent crossing enemy bases
+2. Ensure path validation explicitly **allows** crossing friendly bases
+3. Add FLY exception for path-through-enemy checks
+4. Separate "crosses enemy" from "crosses engagement range" — moving close to enemies is fine, moving through their bases is not
 
-### 2.6 MEDIUM — Difficult Terrain / Movement Penalties
+### 2.6 HIGH — Board Edge Enforcement
+
+**Rule:** No part of a model (including its base) can cross the edge of the battlefield during any move.
+
+**Current state:** There is **no board edge validation** in MovementPhase.gd. Neither `_validate_stage_model_move()` nor `_validate_confirm_unit_move()` check if a model's position (plus base radius) exceeds the board boundaries. The board size is available in `game_state_snapshot.board.size` (44" x 60"), but it's never used for movement validation. No visual warnings exist either (per the MovementController analysis).
+
+**Impact:** Medium-High. Players can accidentally or deliberately place models off the board.
+
+**Recommendation:**
+1. Add board boundary check in `_validate_stage_model_move()` using the model's base size and the board dimensions
+2. Add a visual warning in MovementController when dragging near the board edge (within 2")
+3. Show a red border/indicator when the model would leave the board
+
+### 2.7 MEDIUM — Difficult Terrain / Movement Penalties
 
 **Rule:** Certain terrain features (like dense cover, craters, etc.) may apply movement penalties. While the basic 10e rules don't have universal "difficult terrain," terrain traits can affect movement.
 
-**Current state:** The `MOVEMENT_PHASE_IMPLEMENTATION.md` lists "Difficult terrain not implemented" as a known limitation. Terrain is either passable or impassable — no partial movement costs.
+**Current state:** Terrain is either passable or impassable — no partial movement costs.
 
 **Impact:** Medium. Affects tactical positioning around terrain.
 
 **Recommendation:** Consider adding terrain traits that reduce movement or require extra distance when crossing.
 
-### 2.7 MEDIUM — Scout Moves
+### 2.8 MEDIUM — Scout Moves
 
-**Rule:** Some units have the Scouts X" ability, allowing them to make a pre-game move of X" after deployment but before the first turn. Dedicated Transport units with Scout units embarked also inherit this ability.
+**Rule:** Some units have the Scouts X" ability, allowing them to make a pre-game move of X" after deployment but before the first turn. Dedicated Transport units with Scout units embarked also inherit this ability. If both players have scout units, the player going first moves their units first.
 
-**Current state:** No Scout move implementation found.
+**Current state:** No Scout move implementation found anywhere in the codebase.
 
-**Impact:** Medium. Affects specific army builds that rely on early positioning.
+**Impact:** Medium. Affects specific army builds that rely on early positioning (e.g., Space Marine Scout squads, Phobos units).
 
-**Recommendation:** Add a pre-game Scout phase between Deployment and the first Command phase.
+**Recommendation:** Add a pre-game Scout phase between Deployment and the first Command phase. Requires:
+1. Checking unit datasheets for the "Scouts X" ability
+2. A dedicated Scout movement step with appropriate distance caps
+3. Player ordering (first player moves first)
 
-### 2.8 LOW — Overwatch During Movement
+### 2.9 MEDIUM — Infiltrators Deployment Ability
+
+**Rule:** If every model in a unit has the Infiltrators ability, when you set it up during deployment, it can be set up anywhere on the battlefield that is more than 9" horizontally away from the enemy deployment zone and all enemy models.
+
+**Current state:** Not implemented.
+
+**Impact:** Medium. Affects army building options for certain factions.
+
+**Recommendation:** Add Infiltrators support to the DeploymentPhase, allowing placement outside the normal deployment zone with appropriate distance validation.
+
+### 2.10 LOW — Overwatch During Movement
 
 **Rule:** The Overwatch stratagem can be used during the opponent's Movement phase when an enemy unit starts or ends a Normal, Advance, or Fall Back move within 24" of an eligible unit.
 
-**Current state:** No Overwatch trigger during movement.
+**Current state:** No Overwatch trigger during movement. Archived test stubs exist (`test_shooting_phase.gd:312-324`, `test_charge_phase.gd:141-151`) but the functionality is not implemented.
 
 **Impact:** Low for initial release, but this is a commonly used stratagem.
 
 **Recommendation:** Add event hooks in movement confirmation for opponent reactions.
 
-### 2.9 LOW — Rapid Ingress Stratagem
+### 2.11 LOW — Rapid Ingress Stratagem
 
 **Rule:** Used at the end of your opponent's Movement phase to bring in a Reserves unit.
 
 **Current state:** Not implemented (no reserves system).
 
 **Impact:** Low until reserves are implemented.
+
+### 2.12 LOW — Disembarked Units Do Not Count As Remaining Stationary
+
+**Rule:** Units that disembark from a transport do not count as having Remained Stationary, even if they don't move after disembarking.
+
+**Current state:** The `_initialize_movement_for_disembarked_unit()` function at `MovementPhase.gd:1914` sets the mode to "NORMAL" and does not set the `remained_stationary` flag, which is correct. However, if a player selects "Remain Stationary" for a disembarked unit instead of moving it, the `_process_remain_stationary()` function at line 880 **will** set `remained_stationary = true`, which could grant Heavy weapon bonuses the unit shouldn't receive.
+
+**Impact:** Low. Edge case that could affect Heavy weapon accuracy.
+
+**Recommendation:** Track the `disembarked_this_phase` flag on the unit and check it in `_process_remain_stationary()` to prevent setting `remained_stationary` for units that disembarked.
 
 ---
 
@@ -154,9 +220,24 @@ The `active_moves` dictionary is a local phase variable that tracks all in-progr
 
 **Commit:** `41a3891` — "Fix double advance dice roll causing multiplayer desync"
 
-### 3.3 MEDIUM — `game_state_snapshot` Manually Refreshed After Disembark
+### 3.3 HIGH — BEGIN_ADVANCE Excluded from Deterministic Actions
 
-**Location:** `MovementPhase.gd:1972`
+**Location:** `NetworkManager.gd:42-59`
+
+The `DETERMINISTIC_ACTIONS` list includes `BEGIN_NORMAL_MOVE`, `BEGIN_FALL_BACK`, `STAGE_MODEL_MOVE`, `CONFIRM_UNIT_MOVE`, `RESET_UNIT_MOVE`, and `REMAIN_STATIONARY` for optimistic execution, but **`BEGIN_ADVANCE` is excluded** because it involves a D6 roll.
+
+**Problem:** While excluding the advance roll from optimistic execution is correct (it's non-deterministic), this means Advance moves have higher latency than Normal moves in multiplayer. The host must roll the dice, send the result, and the client must wait for it before the player can start moving models. This creates a noticeable delay in online play.
+
+**Risk:** If the host-rolled advance result differs from what the client displayed (due to any UI prediction), the move cap shown to the player may be incorrect.
+
+**Recommendation:**
+1. Use the `rng_seed` approach already implemented: the host sends the seed with the action, and both sides roll deterministically from that seed
+2. This would allow `BEGIN_ADVANCE` to be treated as deterministic, reducing latency
+3. The `MovementPhase._process_begin_advance()` already supports seeded RNG (lines 505-513)
+
+### 3.4 MEDIUM — `game_state_snapshot` Manually Refreshed After Disembark
+
+**Location:** `MovementPhase.gd:1984`
 
 ```gdscript
 game_state_snapshot = GameState.state.duplicate(true)
@@ -166,13 +247,38 @@ This bypasses the normal snapshot management (handled by `PhaseManager`/`BasePha
 
 **Recommendation:** Use the proper snapshot refresh mechanism through `PhaseManager` or add synchronization barriers.
 
-### 3.4 MEDIUM — Embark Prompt is UI-Only
+### 3.5 MEDIUM — Opponent Has No Movement Visualization
 
-**Location:** `MovementPhase.gd:1654-1683`
+**Location:** `MovementController.gd` (entire file)
 
-The `_show_embark_prompt()` creates a `ConfirmationDialog` and directly calls `TransportManager.embark_unit()` — this is not going through the action system. In multiplayer, only the active player sees this dialog and the embark happens locally without network validation.
+**Problem:** The MovementController only builds UI for the active player. The non-active player (opponent) receives `model_drop_committed` signals through `NetworkManager._emit_client_visual_updates()` (line 829-838), which updates model positions, but:
+- No path visualization is shown to the opponent
+- No distance/movement cap information is displayed
+- No ghost previews are shown
+- Models appear to "teleport" to their final positions with no animation
 
-**Recommendation:** Convert embark into a proper action (`EMBARK_UNIT`) that goes through `validate_action()`/`process_action()` and the network layer.
+**Impact:** The opponent cannot follow what's happening during their opponent's movement phase. This makes the game feel disconnected and reduces strategic understanding.
+
+**Recommendation:** See Section 5 — Visual Improvements (5.5 Opponent's Movement Replay).
+
+### 3.6 MEDIUM — Group Drag Timing Issues
+
+**Location:** `MovementController.gd:2747-2768`
+
+Group movement sends individual `STAGE_MODEL_MOVE` actions with a 0.01s delay between them, then waits 0.1s before verification. In high-latency multiplayer conditions:
+- Some moves may not be processed before verification starts
+- False negatives in verification can lead to unnecessary retries
+- Retry logic (`_verify_staged_moves()`) may cause duplicate moves
+
+**Recommendation:** Add a proper async completion mechanism instead of relying on fixed delays. Use a counter or signal to know when all staged moves have been processed before running verification.
+
+### 3.7 MEDIUM — Embark Prompt is UI-Only (Partially Fixed)
+
+**Location:** `MovementPhase.gd:1658-1695`
+
+The embark flow has been partially fixed — `_show_embark_prompt()` now routes through the action system via `NetworkIntegration.route_action()` (line 1684). However, the `ConfirmationDialog` is still only shown to the active player. In multiplayer, the opponent has no indication that an embark occurred until the board state updates.
+
+**Recommendation:** Emit a notification signal so the opponent's UI can display an embark indicator or log entry.
 
 ---
 
@@ -180,7 +286,7 @@ The `_show_embark_prompt()` creates a `ConfirmationDialog` and directly calls `T
 
 ### 4.1 Movement Range Indicator
 
-**Current:** Players must manually judge how far each model can move by watching the distance counter.
+**Current:** Players must manually judge how far each model can move by watching the distance counter in the right HUD panel.
 
 **Suggestion:** When a unit is selected for movement, draw a translucent circle (or shape for non-circular bases) showing the maximum movement range around each model. Use green for Normal Move range and blue for Advance range. This is standard in most digital tabletop implementations.
 
@@ -192,7 +298,7 @@ The `_show_embark_prompt()` creates a `ConfirmationDialog` and directly calls `T
 
 ### 4.3 Unit Coherency Visualization
 
-**Current:** No visual feedback for coherency.
+**Current:** No visual feedback for coherency. The FightPhase dialogs mention "Green dots = unit coherency maintained" (`ConsolidateDialog.gd:67`, `PileInDialog.gd:65`), but no equivalent exists for the movement phase.
 
 **Suggestion:** After each model is placed, draw thin lines between coherent models (green) and highlight models at risk of breaking coherency (yellow/red). This helps players maintain legal formations. For 7+ model units, show the requirement for 2 connections.
 
@@ -240,7 +346,7 @@ This prevents accidental phase ending and provides a review step.
 
 ### 4.10 Keyboard Shortcuts for Common Actions
 
-**Current:** Q/E for rotation, Ctrl+A for select all, Ctrl+click for multi-select.
+**Current:** Q/E for rotation, Ctrl+A for select all, Ctrl+click for multi-select, Escape to clear.
 
 **Suggestion:** Add more shortcuts:
 - `Space` — Confirm current unit's move
@@ -252,13 +358,25 @@ This prevents accidental phase ending and provides a review step.
 - `F` — Fall Back
 - `S` — Remain Stationary
 
+### 4.11 Ctrl+Click and Grid Snap Conflict
+
+**Current:** Ctrl is used for both multi-selection (`MovementController.gd:1055`) and grid snapping (`MovementController.gd:1704`). These cannot be used simultaneously.
+
+**Suggestion:** Use a different modifier for grid snapping (e.g., `Alt` or `G` toggle) to avoid conflicting with multi-selection.
+
+### 4.12 Stale Error Message Display
+
+**Current:** The illegal-reason label in the movement controller shows errors in red but is never cleared when a subsequent valid action occurs (`MovementController.gd:2083-2085`).
+
+**Suggestion:** Clear the error label when the player starts a new drag, selects a different model, or performs a valid action.
+
 ---
 
 ## 5. Visual Improvements
 
 ### 5.1 Path Visualization Enhancement
 
-**Current:** A simple Line2D with green/red coloring.
+**Current:** A simple Line2D with green/red coloring. Staged path visual is yellow for valid, red for invalid (`MovementController.gd:1724`).
 
 **Suggestion:**
 - Use dashed lines for the movement path (more visually distinct from other lines)
@@ -279,7 +397,7 @@ This prevents accidental phase ending and provides a review step.
 
 ### 5.3 Ghost Preview Improvement
 
-**Current:** A basic Node2D ghost at the cursor position.
+**Current:** A basic Node2D ghost at the cursor position using `GhostVisual.gd`.
 
 **Suggestion:**
 - Make the ghost semi-transparent (50% opacity)
@@ -289,15 +407,18 @@ This prevents accidental phase ending and provides a review step.
 
 ### 5.4 Board Edge Warning
 
-**Current:** No indication when a model is near the board edge.
+**Current:** No indication when a model is near the board edge. No board edge enforcement at all (see 2.6).
 
 **Suggestion:** When dragging a model near the board edge (within 2"), show a yellow warning border. If the model would leave the board, show a red border. Models cannot be placed off the board.
 
 ### 5.5 Opponent's Movement Replay (Multiplayer)
 
-**Current:** In multiplayer, the non-active player sees units teleport to their final positions.
+**Current:** In multiplayer, the non-active player sees units teleport to their final positions with no animation or context. The `NetworkManager._emit_client_visual_updates()` sends `model_drop_committed` signals, but these result in instant position updates.
 
-**Suggestion:** When the opponent confirms a unit move, animate the models smoothly from origin to destination over ~0.5 seconds. This helps the non-active player understand what happened.
+**Suggestion:** When the opponent confirms a unit move, animate the models smoothly from origin to destination over ~0.5 seconds. This helps the non-active player understand what happened. Also show:
+- The movement type (Normal/Advance/Fall Back) as a brief label
+- The path taken as a fading trail
+- A dice result overlay for Advance moves
 
 ---
 
@@ -309,7 +430,7 @@ Both `MovementPhase.gd:24` and `MovementController.gd:80` contain identical `get
 
 ### 6.2 `_position_intersects_terrain()` Uses Simplified Bounds
 
-**Location:** `MovementPhase.gd:1235-1273`
+**Location:** `MovementPhase.gd:1239-1277`
 
 The terrain collision uses bounding-box expansion (`_point_in_expanded_polygon`), which is an approximation. The actual terrain polygons support rotation (via `TerrainManager`), but the collision check doesn't use proper polygon intersection.
 
@@ -317,7 +438,7 @@ The terrain collision uses bounding-box expansion (`_point_in_expanded_polygon`)
 
 ### 6.3 `_check_terrain_collision()` Is a No-Op
 
-**Location:** `MovementPhase.gd:1568-1572`
+**Location:** `MovementPhase.gd:1572-1576`
 
 ```gdscript
 func _check_terrain_collision(position: Vector2) -> bool:
@@ -326,11 +447,13 @@ func _check_terrain_collision(position: Vector2) -> bool:
     return false
 ```
 
-This stub is used by `_process_group_movement()` and `_validate_individual_move_internal()`, meaning group movement validation does NOT check terrain collisions. Individual model staging (`_validate_stage_model_move()`) does check via `_position_intersects_terrain()`, so this is inconsistent.
+This stub is used by `_process_group_movement()` and `_validate_individual_move_internal()`, meaning group movement validation does **NOT** check terrain collisions. Individual model staging (`_validate_stage_model_move()`) does check via `_position_intersects_terrain()`, so this is inconsistent.
+
+**Recommendation:** Either call `_position_intersects_terrain()` from `_check_terrain_collision()` or replace all calls to the stub with the actual implementation.
 
 ### 6.4 Movement Distance Is Euclidean (Origin-to-Destination)
 
-**Location:** `MovementPhase.gd:319`
+**Location:** `MovementPhase.gd:323`
 
 ```gdscript
 var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
@@ -344,28 +467,52 @@ For a 2D digital implementation this is a reasonable simplification, but it coul
 
 The codebase has extensive `print()` and `log_phase_message()` calls throughout movement logic. While the `CLAUDE.md` says not to remove debug logs unless asked, the volume of logging (especially in input handling and validation) will impact performance in production. Consider gating debug prints behind a debug flag.
 
+### 6.6 Coherency Check Exists But Only as Warning
+
+**Location:** `MovementPhase.gd:1520`
+
+The `_check_group_unit_coherency()` function correctly implements the 2" / two-connection rules using shape-aware distance and correctly distinguishes between 6-or-fewer and 7+ model units. However, the calling function `_validate_group_movement()` at line 1479 only adds a **warning** — it does not fail validation. This means the coherency logic exists and is correct but is simply not enforced.
+
+### 6.7 Attached Character Movement Uses Only First Model Delta
+
+**Location:** `MovementPhase.gd:2096-2107`
+
+The `_move_attached_characters()` function calculates the movement delta from the first bodyguard model's move and applies it to all character models. If different bodyguard models moved different distances/directions, the character will only follow the first model. This is a reasonable simplification for typical cases but could produce incorrect positioning when a bodyguard unit moves in formation and the character is attached to a different part of the unit.
+
+### 6.8 Pivot Cost Tracking Issue
+
+**Location:** `MovementController.gd:2055-2088`
+
+The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying the pivot cost once, subsequent rotations of the same model in the same drag don't re-apply the cost. While this might be intentional (first pivot costs movement, subsequent pivots are free), the Warhammer rules don't have a pivot cost — pivoting is free. If pivot cost is an intentional design choice for the digital version, it should be documented.
+
 ---
 
 ## 7. Priority Recommendations
 
 ### Must Fix (Before Competitive Play)
-1. **Unit coherency enforcement** — Add to `_validate_confirm_unit_move()`
-2. ~~**Double advance dice roll** — Remove duplicate roll in controller~~ **FIXED** (commit `41a3891`)
-3. **Embark action not networked** — Convert to proper action
+1. **Unit coherency enforcement** — Port from FightPhase into `_validate_confirm_unit_move()`
+2. **Board edge enforcement** — Add boundary validation to prevent off-board placement
+3. **Embark action notification** — Ensure opponent sees embark actions in multiplayer
 
 ### Should Fix (Gameplay Completeness)
-4. **FLY keyword support** — Movement through enemies, skip Desperate Escape
-5. **TITANIC skip Desperate Escape** — Simple keyword check
+4. **FLY keyword support** — Skip Desperate Escape, allow movement through enemies
+5. **TITANIC skip Desperate Escape** — Simple keyword check in `_process_desperate_escape()`
 6. **Path-through-enemy validation** — Normal/Advance shouldn't cross enemy bases
 7. **Reinforcements step** — Add reserves / Deep Strike system
+8. **`_check_terrain_collision()` stub** — Connect to actual terrain checking
+9. **Disembarked units and Remain Stationary** — Prevent Heavy weapon bonus for disembarked units
+10. **BEGIN_ADVANCE latency** — Consider making it deterministic via shared RNG seed
 
 ### Nice to Have (QoL / Visual)
-8. Movement range indicators
-9. Engagement range visualization
-10. Auto-select next unit
-11. Movement summary before end phase
-12. Opponent movement animation in multiplayer
-13. Coherency visualization
+11. Movement range indicators
+12. Engagement range visualization
+13. Auto-select next unit
+14. Movement summary before end phase
+15. Opponent movement animation in multiplayer
+16. Coherency visualization
+17. Board edge warning
+18. Better advance roll display
+19. Keyboard shortcut expansion
 
 ---
 
@@ -396,7 +543,7 @@ The Movement Phase should route all game state changes through the action system
 
 ### 2. MovementPhase._on_disembark_placement_completed() Direct TransportManager Call
 **Status:** TODO
-**File:** `phases/MovementPhase.gd` (line ~1878)
+**File:** `phases/MovementPhase.gd` (line ~1890)
 **Severity:** Critical
 
 **Problem:** `MovementPhase._on_disembark_placement_completed()` calls `TransportManager.disembark_unit()` directly. This is a second code path for disembark that bypasses the CONFIRM_DISEMBARK action validation/processing. There are now two disembark paths:
@@ -407,7 +554,7 @@ The Movement Phase should route all game state changes through the action system
 
 ### 3. MovementPhase._initialize_movement_for_disembarked_unit() Bypasses BEGIN_NORMAL_MOVE
 **Status:** TODO
-**File:** `phases/MovementPhase.gd` (lines ~1902-1960)
+**File:** `phases/MovementPhase.gd` (lines ~1914-1972)
 **Severity:** Moderate
 
 **Problem:** After disembark, `_initialize_movement_for_disembarked_unit()` sets up movement state directly (modifying `active_moves`, applying state changes, emitting `unit_move_begun`) instead of routing through a `BEGIN_NORMAL_MOVE` action. This means the movement initialization for disembarked units takes a different code path than normal movement initialization.
@@ -419,7 +566,7 @@ The Movement Phase should route all game state changes through the action system
 **File:** `autoloads/TransportManager.gd`
 **Severity:** Moderate (by design, but worth noting)
 
-**Problem:** `TransportManager.disembark_unit()` and `embark_unit()` directly modify `GameState.state.units` (positions, flags, status, embarked_in, transport_data). While this is called from within `MovementPhase._process_confirm_disembark()` (which is in the action system), the TransportManager itself doesn't go through any validation layer.
+**Problem:** `TransportManager.disembark_unit()` and `embark_unit()` directly modify `GameState.state.units` (positions, flags, status, embarked_in, transport_data). While this is called from within `MovementPhase._process_confirm_disembark()` (which is in the action system), the TransportManager itself doesn't go through any validation layer. No diffs are generated for proper replay support.
 
 **Recommendation:** Consider whether TransportManager methods should return state change dicts instead of applying them directly, letting the phase apply them. Lower priority since the action system validates before calling TransportManager.
 
@@ -440,23 +587,34 @@ The following movement actions are properly routed through the action system:
 
 | Action | Controller | Phase Validate | Phase Process |
 |--------|-----------|---------------|---------------|
-| BEGIN_NORMAL_MOVE | MovementController (line 587) | _validate_begin_normal_move | _process_begin_normal_move |
-| BEGIN_ADVANCE | MovementController (line 710) | _validate_begin_advance | _process_begin_advance |
-| BEGIN_FALL_BACK | MovementController (line 729) | _validate_begin_fall_back | _process_begin_fall_back |
+| BEGIN_NORMAL_MOVE | MovementController (line 686) | _validate_begin_normal_move | _process_begin_normal_move |
+| BEGIN_ADVANCE | MovementController (line 705) | _validate_begin_advance | _process_begin_advance |
+| BEGIN_FALL_BACK | MovementController (line 724) | _validate_begin_fall_back | _process_begin_fall_back |
 | SET_MODEL_DEST | MovementController (line 805) | _validate_set_model_dest | _process_set_model_dest |
-| STAGE_MODEL_MOVE | MovementController (line 848) | _validate_stage_model_move | _process_stage_model_move |
-| UNDO_LAST_MODEL_MOVE | MovementController (line 859) | _validate_undo_last_model_move | _process_undo_last_model_move |
-| RESET_UNIT_MOVE | MovementController (line 1287) | _validate_reset_unit_move | _process_reset_unit_move |
+| STAGE_MODEL_MOVE | MovementController (line 1262) | _validate_stage_model_move | _process_stage_model_move |
+| UNDO_LAST_MODEL_MOVE | MovementController (line 759) | _validate_undo_last_model_move | _process_undo_last_model_move |
+| RESET_UNIT_MOVE | MovementController (line 770) | _validate_reset_unit_move | _process_reset_unit_move |
 | CONFIRM_UNIT_MOVE | Main.gd (line 1939) | _validate_confirm_unit_move | _process_confirm_unit_move |
-| REMAIN_STATIONARY | MovementController (line 744) | _validate_remain_stationary | _process_remain_stationary |
-| LOCK_MOVEMENT_MODE | MovementController (line 764) | _validate_lock_movement_mode | _process_lock_movement_mode |
+| REMAIN_STATIONARY | MovementController (line 739) | _validate_remain_stationary | _process_remain_stationary |
+| LOCK_MOVEMENT_MODE | MovementController (line 805) | _validate_lock_movement_mode | _process_lock_movement_mode |
 | SET_ADVANCE_BONUS | MovementController | _validate_set_advance_bonus | _process_set_advance_bonus |
 | END_MOVEMENT | Main.gd (line 2798) | _validate_end_movement | _process_end_movement |
 | DISEMBARK_UNIT | MovementPhase (internal) | _validate_disembark_unit | _process_disembark_unit |
-| CONFIRM_DISEMBARK | MovementController (line 1700) | _validate_confirm_disembark | _process_confirm_disembark |
+| CONFIRM_DISEMBARK | MovementController (line 1692) | _validate_confirm_disembark | _process_confirm_disembark |
+| EMBARK_UNIT | MovementPhase (line 1684) | _validate_embark_unit | _process_embark_unit |
 
 ---
 
-## Suggested Next Task
+## Suggested Next Tasks
 
-**Item #2: Consolidate MovementPhase disembark paths** — `MovementPhase._on_disembark_placement_completed()` still calls `TransportManager.disembark_unit()` directly (line ~1878). This should be refactored to route through the CONFIRM_DISEMBARK action, eliminating the duplicate code path. This is the natural follow-up since it addresses the same disembark bypass pattern from the phase side.
+**Priority order for implementation:**
+
+1. **Item #2: Consolidate MovementPhase disembark paths** — `MovementPhase._on_disembark_placement_completed()` still calls `TransportManager.disembark_unit()` directly (line ~1890). This should be refactored to route through the CONFIRM_DISEMBARK action, eliminating the duplicate code path.
+
+2. **Unit coherency enforcement** — The coherency check logic already exists at `MovementPhase.gd:1520` and works correctly. It just needs to be called from `_validate_confirm_unit_move()` and set to reject (not warn) when coherency is broken.
+
+3. **FLY/TITANIC keyword in Desperate Escape** — A small change to `_process_desperate_escape()` to check unit keywords before rolling.
+
+4. **Board edge enforcement** — Add a simple boundary check using `game_state_snapshot.board.size` in `_validate_stage_model_move()`.
+
+5. **`_check_terrain_collision()` stub** — Replace the no-op with a call to `_position_intersects_terrain()` to fix group movement terrain validation.
