@@ -3165,8 +3165,8 @@ static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
 
 # Per 10e rules: A model can make melee attacks if, after pile-in, it is:
 # 1. Within Engagement Range (1") of any enemy model, OR
-# 2. In base-to-base contact with a friendly model that is itself within
-#    Engagement Range of any enemy model.
+# 2. In base-to-base contact with a friendly model that is itself in
+#    base-to-base contact with an enemy model.
 # Returns an array of model indices (int) that are eligible to fight.
 const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Generous tolerance for digital positioning
 
@@ -3176,8 +3176,10 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 	var unit_owner = attacker_unit.get("owner", 0)
 	var all_units = board.get("units", {})
 
-	# First pass: find which models are within engagement range (1") of any enemy
-	var models_in_er = []  # Array of model indices directly in engagement range
+	# First pass: find which models are within engagement range (1") of any enemy,
+	# and separately track which are in base-to-base contact with an enemy.
+	var models_in_er = []  # Model indices within 1" of an enemy (eligible via criterion 1)
+	var models_in_base_contact_with_enemy = []  # Model indices in base contact with an enemy (for chain eligibility)
 
 	for i in range(attacker_models.size()):
 		var model = attacker_models[i]
@@ -3185,6 +3187,7 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 			continue
 
 		var in_er = false
+		var in_base_contact = false
 		for other_unit_id in all_units:
 			var other_unit = all_units[other_unit_id]
 			if str(other_unit.get("owner", 0)) == str(unit_owner):
@@ -3193,18 +3196,27 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 			for enemy_model in other_unit.get("models", []):
 				if not enemy_model.get("alive", true):
 					continue
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
-					in_er = true
+				var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
+				if distance <= BASE_CONTACT_TOLERANCE_INCHES:
+					in_base_contact = true
+					in_er = true  # Base contact implies ER
 					break
-			if in_er:
-				break
+				elif Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+					in_er = true
+			if in_base_contact:
+				break  # Found base contact (best result), stop checking other units
+			# Don't break for in_er alone — keep checking other units for base contact
 
 		if in_er:
 			models_in_er.append(i)
 			eligible_indices.append(i)
+		if in_base_contact:
+			models_in_base_contact_with_enemy.append(i)
 
 	# Second pass: check models NOT in ER for base-to-base contact with a friendly
-	# model that IS in ER (one level of chain per 10e rules)
+	# model that IS in base-to-base contact with an enemy (one level of chain per 10e rules).
+	# Note: the chain requires base contact at BOTH links — the friendly model must be in
+	# base contact with the enemy, not merely within engagement range.
 	for i in range(attacker_models.size()):
 		var model = attacker_models[i]
 		if not model.get("alive", true):
@@ -3212,13 +3224,16 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 		if i in eligible_indices:
 			continue  # Already eligible from direct ER check
 
-		for er_index in models_in_er:
-			var er_model = attacker_models[er_index]
-			var distance = Measurement.model_to_model_distance_inches(model, er_model)
+		for btb_index in models_in_base_contact_with_enemy:
+			var btb_model = attacker_models[btb_index]
+			var distance = Measurement.model_to_model_distance_inches(model, btb_model)
 			if distance <= BASE_CONTACT_TOLERANCE_INCHES:
 				eligible_indices.append(i)
-				print("RulesEngine: Model %d eligible via base-contact chain (%.2f\" from model %d in ER)" % [i, distance, er_index])
+				print("RulesEngine: Model %d eligible via base-contact chain (%.2f\" from model %d in base contact with enemy)" % [i, distance, btb_index])
 				break
+
+	print("RulesEngine: Per-model eligibility: %d/%d models eligible (ER: %d, base-contact with enemy: %d)" % [
+		eligible_indices.size(), attacker_models.size(), models_in_er.size(), models_in_base_contact_with_enemy.size()])
 
 	return eligible_indices
 

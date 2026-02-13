@@ -20,6 +20,7 @@ The fight phase implementation covers the **core combat loop** well: alternating
 | Rule | Status | Location |
 |------|--------|----------|
 | Unit eligibility: must be in engagement range (1") of enemy | ✅ | `FightPhase.gd:1479-1496` — `_is_unit_in_combat()` uses shape-aware edge-to-edge distance |
+| Per-model fight eligibility: ER or base-contact chain | ✅ | `RulesEngine.gd:3173-3238` — `get_eligible_melee_model_indices()` two-pass algorithm |
 | Fight order: charged units get Fights First priority | ✅ | `FightPhase.gd:1026-1029` — checks `flags.charged_this_turn` |
 | Fight order: abilities grant Fights First | ✅ | `FightPhase.gd:1032-1035` — checks unit abilities for "fights_first" |
 | Alternating activation: defending player selects first | ✅ | `FightPhase.gd:131` — `current_selecting_player = _get_defending_player()` |
@@ -57,17 +58,21 @@ The fight phase implementation covers the **core combat loop** well: alternating
 
 ## 2. Rules Compliance — What's Missing or Incomplete
 
-### 2.1 HIGH: Per-Model Fight Eligibility Not Enforced
+### 2.1 ~~HIGH~~ RESOLVED: Per-Model Fight Eligibility Enforced
 
 **Rule (10e):** A model can make melee attacks if, after the Pile In move, it is either:
 1. In Engagement Range (within 1") of an enemy model, OR
 2. In base-to-base contact with a friendly model that is itself in base-to-base contact with an enemy model
 
-**Current State:** The code checks whether the *unit* is in engagement range (`_is_unit_in_combat`, `_units_in_engagement_range`) but does not filter individual models that are eligible to attack. In `_resolve_melee_assignment()` (RulesEngine.gd:3077-3090), ALL alive models in the unit contribute their weapon attacks, regardless of whether they are individually within engagement range or connected through the base-contact chain.
+**Current State:** `RulesEngine.get_eligible_melee_model_indices()` (RulesEngine.gd:3173-3238) implements a two-pass algorithm:
+- **Pass 1:** Identifies models within Engagement Range (1") of any enemy model (criterion 1), and separately tracks which models are in base-to-base contact with an enemy (for chain eligibility).
+- **Pass 2:** For models NOT in ER, checks if they are in base-to-base contact (≤0.25" tolerance) with a friendly model that is itself in base-to-base contact with an enemy (criterion 2).
 
-**Impact:** A unit of 10 models where only 3 are in engagement range would incorrectly make attacks with all 10 models. This inflates damage output significantly. This is one of the most impactful rules discrepancies.
+The eligibility filter is enforced in `_resolve_melee_assignment()` (RulesEngine.gd:3327-3343): only models in `eligible_model_indices` contribute their attacks. The `AttackAssignmentDialog` (line 37) also displays eligible model count to the player.
 
-**Recommendation:** After pile-in, compute per-model eligibility. For each model, verify it is either within 1" of an enemy OR in base contact with a friendly model that is in base contact with an enemy. Only eligible models should contribute their attacks to the `attacking_models` array passed to RulesEngine.
+**Fix applied:** Corrected the chain check to require the friendly model be in **base-to-base contact** with the enemy (not merely within engagement range). Also fixed a loop issue where finding ER with one enemy unit would stop checking other units for base contact.
+
+**Tests:** `tests/unit/test_per_model_fight_eligibility.gd` covers: all-in-ER, partial-ER, chain eligibility, chain-requires-base-contact-not-just-ER, dead model exclusion, multiple enemy units, friendly unit exclusion, and integration tests verifying attack count filtering.
 
 ---
 
@@ -433,7 +438,7 @@ The earlier audit at `40k/PRPs/fight_phase_audit_report.md` reported several iss
 | Prior Issue | Prior Severity | Current Status | Notes |
 |-------------|---------------|----------------|-------|
 | 1.1 Melee weapon abilities not implemented | CRITICAL | **RESOLVED** | `_resolve_melee_assignment()` now implements Lethal Hits, Sustained Hits, Devastating Wounds, Torrent |
-| 1.2 Per-model fight eligibility | HIGH | **STILL OPEN** | See §2.1 above |
+| 1.2 Per-model fight eligibility | HIGH | **RESOLVED** | See §2.1 — implemented with base-contact chain fix |
 | 1.3 Pile-in must end in engagement range | HIGH | **STILL OPEN** | See §2.2 above |
 | 1.4 Pile-in cannot create new engagements | HIGH | **INCORRECT** | In 10e, pile-in CAN create new engagements. No restriction exists. |
 | 1.5 Consolidate cannot create new engagements | HIGH | **INCORRECT** | In 10e, consolidate CAN create new engagements. But newly engaged enemies should get to fight back (see §2.4). |
@@ -457,7 +462,7 @@ The earlier audit at `40k/PRPs/fight_phase_audit_report.md` reported several iss
 
 | # | Issue | Severity | Category | Status |
 |---|-------|----------|----------|--------|
-| 2.1 | Per-model fight eligibility not checked | HIGH | Rules | Open |
+| 2.1 | Per-model fight eligibility enforced | HIGH | Rules | **RESOLVED** |
 | 2.2 | Pile-in must end with unit in engagement range | HIGH | Rules | Open |
 | 2.3 | Base-to-base contact not enforced in pile-in/consolidate | HIGH | Rules | Open |
 | 2.4 | Consolidation into new enemies doesn't trigger new fights | HIGH | Rules | Open |
@@ -492,7 +497,7 @@ The earlier audit at `40k/PRPs/fight_phase_audit_report.md` reported several iss
 ## 9. Recommended Priority Order
 
 ### Phase 1: Core Rules Correctness
-1. **2.1** — Per-model fight eligibility (HIGH, high gameplay impact)
+1. ~~**2.1** — Per-model fight eligibility (HIGH, high gameplay impact)~~ ✅ RESOLVED
 2. **2.3** — Base-to-base contact enforcement (HIGH, rules compliance)
 3. **2.2** — Pile-in unit engagement range validation (HIGH)
 4. **2.4** — Consolidation triggering new fights (HIGH, tactical impact)
