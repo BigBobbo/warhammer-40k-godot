@@ -346,10 +346,10 @@ Both contain the same success/failure logic, UI updates, and failure recording. 
 
 ### Must Fix (Rules/Multiplayer Correctness)
 1. ~~**Add charge phase signal re-emission in NetworkManager**~~ — **DONE** (commit `63748bc`)
-2. **[NEW] Add `COMPLETE_UNIT_CHARGE` / `SKIP_CHARGE` signal re-emission** — Client state diverges without this
-3. **[NEW] Track "has been charged" flag on target units** — Required by rules for ability interactions
+2. ~~**[NEW] Add `COMPLETE_UNIT_CHARGE` / `SKIP_CHARGE` signal re-emission**~~ — **DONE** (added `charge_unit_completed`/`charge_unit_skipped` signals + NetworkManager re-emission)
+3. ~~**[NEW] Track "has been charged" flag on target units**~~ — **DONE** (sets `has_been_charged` flag on targets via diff; ScoringPhase cleans up at end of turn)
 4. **Implement base-to-base enforcement** — Currently stubbed, rules require it
-5. **[NEW] Fix confirm button firing two actions without waiting** — Can corrupt charge sequence state
+5. ~~**[NEW] Fix confirm button firing two actions without waiting**~~ — **DONE** (`COMPLETE_UNIT_CHARGE` now sent from `_on_charge_resolved` after server confirms)
 
 ### Should Fix (Rules Compliance)
 6. **Add Overwatch reaction window** — Major tactical element missing (requires Stratagem system)

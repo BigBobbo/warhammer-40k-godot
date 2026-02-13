@@ -1112,9 +1112,29 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					print("NetworkManager: Client re-emitting charge_resolved (SUCCESS) for %s" % unit_id)
 					phase.emit_signal("charge_resolved", unit_id, true, charge_result)
 				else:
-					charge_result["reason"] = "Charge movement validation failed"
+					# Forward failure_record from result if available for structured error display
+					var failure_record = result.get("failure_record", {})
+					if not failure_record.is_empty():
+						charge_result["failure_record"] = failure_record
+						charge_result["reason"] = result.get("reason", "Charge movement validation failed")
+					else:
+						charge_result["reason"] = "Charge movement validation failed"
 					print("NetworkManager: Client re-emitting charge_resolved (FAILED) for %s" % unit_id)
 					phase.emit_signal("charge_resolved", unit_id, false, charge_result)
+
+	# Handle COMPLETE_UNIT_CHARGE — re-emit charge_unit_completed
+	if action_type == "COMPLETE_UNIT_CHARGE":
+		var unit_id = action_data.get("actor_unit_id", "")
+		if unit_id != "" and phase.has_signal("charge_unit_completed"):
+			print("NetworkManager: Client re-emitting charge_unit_completed for %s" % unit_id)
+			phase.emit_signal("charge_unit_completed", unit_id)
+
+	# Handle SKIP_CHARGE — re-emit charge_unit_skipped
+	if action_type == "SKIP_CHARGE":
+		var unit_id = action_data.get("actor_unit_id", "")
+		if unit_id != "" and phase.has_signal("charge_unit_skipped"):
+			print("NetworkManager: Client re-emitting charge_unit_skipped for %s" % unit_id)
+			phase.emit_signal("charge_unit_skipped", unit_id)
 
 	print("NetworkManager: _emit_client_visual_updates END")
 

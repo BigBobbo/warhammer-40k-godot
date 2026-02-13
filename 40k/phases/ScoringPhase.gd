@@ -94,7 +94,7 @@ func _create_flag_reset_changes(player: int) -> Array:
 		"moved", "advanced", "fell_back", "remained_stationary",
 		"cannot_shoot", "cannot_charge", "cannot_move",
 		"has_shot", "charged_this_turn", "fights_first",
-		"move_cap_inches"
+		"has_been_charged", "move_cap_inches"
 	]
 
 	for unit_id in units:

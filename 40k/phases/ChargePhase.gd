@@ -15,6 +15,8 @@ signal charge_path_preview(unit_id: String, per_model_paths: Dictionary)
 signal charge_path_tools_enabled(unit_id: String, rolled_distance: int)
 signal charge_validation_feedback(unit_id: String, validation_result: Dictionary)
 signal charge_resolved(unit_id: String, success: bool, result: Dictionary)
+signal charge_unit_completed(unit_id: String)
+signal charge_unit_skipped(unit_id: String)
 signal dice_rolled(dice_data: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
@@ -267,14 +269,16 @@ func _process_select_charge_unit(action: Dictionary) -> Dictionary:
 
 func _process_complete_unit_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
-	
+
 	completed_charges.append(unit_id)
 	current_charging_unit = null
-	
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Completed charge sequence for %s" % unit_name)
-	
+
+	emit_signal("charge_unit_completed", unit_id)
+
 	# Don't end phase - allow selection of next unit
 	return create_result(true, [])
 
@@ -435,7 +439,16 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.fights_first" % unit_id,
 		"value": true
 	})
-	
+
+	# Mark target units as "has been charged" (10e rule: target units gain this
+	# status until end of turn, relevant for ability interactions)
+	for target_id in charge_data.targets:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.has_been_charged" % target_id,
+			"value": true
+		})
+
 	# Clean up charge state
 	units_that_charged.append(unit_id)
 	pending_charges.erase(unit_id)
@@ -450,19 +463,21 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 func _process_skip_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
-	
+
 	units_that_charged.append(unit_id)
 	completed_charges.append(unit_id)
 	current_charging_unit = null
-	
+
 	# Clear any pending charge for this unit
 	if pending_charges.has(unit_id):
 		pending_charges.erase(unit_id)
-	
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Skipped charge for %s" % unit_name)
-	
+
+	emit_signal("charge_unit_skipped", unit_id)
+
 	return create_result(true, [])
 
 func _process_end_charge(action: Dictionary) -> Dictionary:
