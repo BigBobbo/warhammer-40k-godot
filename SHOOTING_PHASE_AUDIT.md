@@ -392,3 +392,22 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 22. **Phase summary panel** — QoL
 23. **Shooting line animations** — visual polish
 24. **Keyboard shortcuts** — accessibility
+
+---
+
+## 9. Bug Fixes
+
+### ~~9.1 LoS Debug Visualization Desync (Issue #103)~~ FIXED
+
+**Problem:** The LoS debug button in the HUD was initialized with `button_pressed = true` while the actual `LoSDebugVisual.debug_enabled` defaulted to `false`. This caused:
+1. The button to show "ON" when debug was actually OFF, making users think the debugger was active by default
+2. Pressing L to "turn off" the debugger actually toggled it ON (opposite of expected)
+3. The L key shortcut never synced the button's visual state, causing further desync
+
+**Fix Applied:**
+- Changed `Main.gd:739` from `button_pressed = true` to `button_pressed = false` to match the default disabled state
+- Added `set_pressed_no_signal()` call in `_toggle_los_debug()` to sync the button state after any toggle (L key or button click)
+- `LoSDebugVisual.gd` already had `debug_enabled = false` and comprehensive child node cleanup from a prior fix
+
+**Commit:** `91da311` — "Fix LoS debug button/state desync causing visuals to appear active by default"
+**Branch:** `claude/fix-los-debug-tZgYq`

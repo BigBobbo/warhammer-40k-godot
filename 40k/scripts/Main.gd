@@ -956,7 +956,7 @@ func _setup_terrain() -> void:
 		los_button.name = "LoSDebugButton"
 		los_button.text = "LoS Debug (L)"
 		los_button.toggle_mode = true
-		los_button.button_pressed = true  # Start with debug on
+		los_button.button_pressed = false  # Start with debug off (matches LoSDebugVisual default)
 		los_button.toggled.connect(func(pressed): _toggle_los_debug())
 		hud_container.add_child(los_button)
 		
@@ -1199,6 +1199,11 @@ func _toggle_los_debug() -> void:
 		var is_now_enabled = los_debug.debug_enabled
 		print("LoS debug visualization: ", is_now_enabled)
 		_show_toast("LoS Debug: " + ("ON" if is_now_enabled else "OFF"))
+
+		# Sync the HUD button state without re-triggering this function
+		var los_button = get_node_or_null("HUD_Bottom/HBoxContainer/LoSDebugButton")
+		if los_button:
+			los_button.set_pressed_no_signal(is_now_enabled)
 
 		# If we just turned debug ON, refresh visuals if shooting phase is active
 		if not was_enabled and is_now_enabled and shooting_controller:
