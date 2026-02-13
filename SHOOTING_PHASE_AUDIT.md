@@ -103,15 +103,11 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 **Note:** "IGNORES COVER" runtime logic has been implemented. The `has_ignores_cover()` function checks weapon keywords/special_rules, and both `prepare_save_resolution()` (interactive path) and `_resolve_assignment()` (auto-resolve path) skip cover when the weapon has this keyword.
 
-### 2.4 HIGH: Variable Attacks and Damage Not Rolled — Always Fixed
+### 2.4 ~~HIGH: Variable Attacks and Damage Not Rolled — Always Fixed~~ FIXED
 
 **Rule:** Many weapons have variable attacks (e.g., D6, D3+3) and variable damage (e.g., D6, D3+1). These should be rolled each time the weapon fires.
 
-**Current state:** The code stores `attacks_raw` and `damage_raw` strings (`RulesEngine.gd:1866, 1874`) and there's a `_parse_damage()` function (`RulesEngine.gd:2895-2912`) that recognizes D3/D6 notation. However, the main resolution path uses `weapon_profile.get("attacks", 1)` and `weapon_profile.get("damage", 1)` which are pre-converted integers. The TODO at `RulesEngine.gd:1838` explicitly says: _"TODO: Handle complex damage like "D6+2" - for now treat as 1"_.
-
-**Impact:** Weapons with variable profiles (e.g., Frag Grenades D6 attacks, Multi-melta D6 damage, Plasma Cannon D3 attacks) are always using a fixed value (usually 1 if the raw string isn't a pure integer). This significantly misrepresents weapon output.
-
-**Fix:** Before resolving each weapon, roll for variable attacks using the `attacks_raw` string. Before applying damage per failed save, roll for variable damage using the `damage_raw` string. The existing `_parse_damage()` function already handles the parsing.
+**Status:** FIXED. All three shooting resolution paths now roll variable attacks per model and variable damage per failed save using `roll_variable_characteristic()`. Both `_resolve_assignment_until_wounds()` (interactive path) and `_resolve_assignment()` (auto-resolve path) roll variable attacks per model. `apply_save_damage()` and `WoundAllocationOverlay._roll_save_for_model()` roll variable damage per failed save. Legacy weapon profiles now include `attacks_raw`/`damage_raw` fields, and the weapon profile builder uses average (rounded up) for non-integer stat fallbacks instead of defaulting to 1. The dice log UI displays variable attack/damage roll results in the ShootingController.
 
 ### 2.5 HIGH: Wound Roll Modifiers — Not Implemented
 
@@ -354,7 +350,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 |----------|-------|
 | Rules correctly implemented | 35+ |
 | Critical missing rules | 2 (Overwatch, 9 weapon keywords) — targeting in engagement FIXED |
-| High priority missing rules | 4 (variable dice, wound modifiers, Stealth, Lone Operative) — Battle-shock FIXED, IGNORES COVER FIXED |
+| High priority missing rules | 3 (wound modifiers, Stealth, Lone Operative) — Variable dice FIXED, Battle-shock FIXED, IGNORES COVER FIXED |
 | Medium priority missing rules | 4 (cover terrain types, DW mortal wound model, Pistol exclusivity, Ignores Cover runtime) |
 | Multiplayer issues | 4 (defender agency, visual sync, save timing, dice sync) |
 | Code quality issues | 4 (debug logging, duplicate paths, missing data in results, ID collision) |
@@ -367,7 +363,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 
 ### Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 1. ~~**Targeting units in engagement with friendlies**~~ — FIXED
-2. **Variable attacks and damage rolling** — many weapons are broken without this
+2. ~~**Variable attacks and damage rolling**~~ — FIXED
 3. **ANTI-[KEYWORD] X+** — affects many common units
 4. **MELTA X** — core weapon type for anti-vehicle
 5. **TWIN-LINKED** — common keyword, re-roll wounds
@@ -387,7 +383,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 15. **PRECISION** — character sniping
 16. **Remote player visual feedback** — shooting line, target highlights
 17. **Expected damage preview** — QoL
-18. **Variable damage rolling** — (if not done with variable attacks)
+18. ~~**Variable damage rolling**~~ — FIXED (done with variable attacks)
 19. **Dice roll visualization** — engagement improvement
 
 ### Tier 4 — Nice to Have
