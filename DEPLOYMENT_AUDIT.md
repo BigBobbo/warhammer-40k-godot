@@ -277,10 +277,8 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 **Recommendation**: Show a reconnection dialog instead. Allow a grace period for the opponent to reconnect. If they don't reconnect, offer the option to save the game state or continue in single-player mode. The `SaveLoadManager` autoload already supports saving game state, so this is feasible.
 
-### 3. SWITCH_PLAYER Action Validation Gap
-**Issue**: `_validate_switch_player_action()` in `DeploymentPhase.gd:151` only checks if the current player has undeployed units. It does NOT verify that the `new_player` field in the action is valid (e.g., that it's the correct next player). A malicious or buggy client could send a `SWITCH_PLAYER` action with an arbitrary `new_player` value.
-
-**Recommendation**: Validate that `action.new_player` is `3 - current_player` (i.e., the expected next player). This is a one-line fix.
+### 3. SWITCH_PLAYER Action Validation Gap — RESOLVED
+**Status**: **Fixed.** `_validate_switch_player_action()` in `DeploymentPhase.gd:151` now validates that `action.new_player` matches the expected next player (`3 - current_player`). Invalid values are rejected with a descriptive error message.
 
 ### 4. Race Condition: Embark/Attach Actions After Player Switch
 **Issue**: In `DeploymentController._complete_deployment()` (`DeploymentController.gd:431`), the deployment action is sent first, which triggers `TurnManager.check_deployment_alternation()` to switch the active player. Then embark/attach actions are sent. In multiplayer with network latency, the embark action may arrive *after* the turn has switched, potentially causing validation to fail because `_validate_embark_units_deployment()` checks against `transport_owner` rather than `active_player`.
@@ -336,7 +334,7 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | Pre-battle formation declarations | **High** | Medium | Rules | Open |
 | Strategic Reserves | **High** | High | Rules | Open |
 | Deep Strike | **High** | High | Rules | Open |
-| SWITCH_PLAYER validation gap | **High** | Low | Multiplayer | Open |
+| SWITCH_PLAYER validation gap | **High** | Low | Multiplayer | **DONE** |
 | Turn timer UI for multiplayer | **High** | Low | Multiplayer | Open |
 | Determine First Turn roll-off | **Medium** | Medium | Rules | Open |
 | Infiltrators | **Medium** | Medium | Rules | Open |

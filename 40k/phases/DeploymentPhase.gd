@@ -154,6 +154,12 @@ func _validate_switch_player_action(action: Dictionary) -> Dictionary:
 	if _has_undeployed_units(current_player):
 		return {"valid": false, "errors": ["Current player still has units to deploy"]}
 
+	# Validate that new_player is the expected next player (prevents arbitrary player switching)
+	var expected_next = 3 - current_player
+	var new_player = action.get("new_player", 0)
+	if new_player != 0 and new_player != expected_next:
+		return {"valid": false, "errors": ["Invalid new_player: expected %d but got %d" % [expected_next, new_player]]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_end_deployment_action(action: Dictionary) -> Dictionary:
