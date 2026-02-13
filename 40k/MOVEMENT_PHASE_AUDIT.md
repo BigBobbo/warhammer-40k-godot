@@ -4,7 +4,7 @@
 This audit compares the current movement phase implementation (primarily `phases/MovementPhase.gd` and `scripts/MovementController.gd`) against the Warhammer 40,000 10th Edition core rules, with a focus on online multiplayer correctness.
 
 **Last updated:** 2026-02-13
-**Audit revision:** 3
+**Audit revision:** 4
 
 ---
 
@@ -69,7 +69,7 @@ This audit compares the current movement phase implementation (primarily `phases
 3. Strategic Reserves placement rules tied to battle round
 4. "Destroyed if not deployed" enforcement at game end
 
-### 2.3 ~~HIGH — FLY Keyword (Desperate Escape)~~ PARTIALLY FIXED
+### 2.3 ~~HIGH — FLY Keyword (Desperate Escape)~~ FIXED
 
 **Rule:** Units with the FLY keyword:
 - Can move over enemy models during a Normal Move or Advance (but must still end outside ER)
@@ -78,12 +78,14 @@ This audit compares the current movement phase implementation (primarily `phases
 
 **Current state:** `_process_desperate_escape()` now checks `unit.meta.keywords` for "FLY" and returns early with no changes/dice if found. The `TerrainManager.gd:181-182` checks for FLY keyword for wall traversal (`if "FLY" in unit_keywords`).
 
-**Remaining work (not yet implemented):**
-- Normal Move path validation: FLY units should be exempt from path-through-enemy checks when added (see 2.5)
-- FLY units should ignore terrain elevation during movement
-- Engagement range path checks for FLY units
+**Resolved:**
+- Desperate Escape skip for FLY units — `_process_desperate_escape()` returns early
+- Normal Move/Advance path validation: FLY units are exempt from path-through-enemy checks via `_unit_has_fly_keyword()` (see 2.5)
 
-**Resolution:** Added FLY keyword check at the top of `_process_desperate_escape()` in `MovementPhase.gd:1055-1063`. If the unit has "FLY" in its keywords, the function logs the skip and returns immediately with no casualties.
+**Remaining work (not yet implemented):**
+- FLY units should ignore terrain elevation during movement
+
+**Resolution:** Added FLY keyword check at the top of `_process_desperate_escape()` in `MovementPhase.gd:1055-1063`. If the unit has "FLY" in its keywords, the function logs the skip and returns immediately with no casualties. Path-through-enemy exemption added in 2.5 fix.
 
 **Commit:** `e4364af` — "Skip Desperate Escape tests for FLY and TITANIC units"
 
@@ -100,22 +102,32 @@ if "FLY" in keywords or "TITANIC" in keywords:
 
 **Commit:** `e4364af` — "Skip Desperate Escape tests for FLY and TITANIC units"
 
-### 2.5 HIGH — Moving Through Friendly Models / Path Through Enemy Models
+### 2.5 ~~HIGH — Moving Through Friendly Models / Path Through Enemy Models~~ FIXED
 
 **Rule:** A model can move **through** friendly models during its move but cannot end on top of another model. A model **cannot** move through enemy models during a Normal Move or Advance (only FLY or Fall Back allows this). No part of the model's base can be moved across the bases of other models.
 
-**Current state:** The implementation checks for model overlap at the **final position** (`_position_overlaps_other_models()` at `MovementPhase.gd:1185`), which is correct for end-position validation. However:
-- **Path validation through enemies is missing for Normal/Advance:** A model can currently be dragged through an enemy model's base and placed on the other side without penalty, as long as it ends outside ER.
-- **Path validation through friendlies is incorrectly strict:** The `_path_crosses_enemy()` function at `MovementPhase.gd:1125` checks both enemy and friendly models along the path but is only called during Fall Back. Normal moves have no path checking at all.
-- The `_path_crosses_enemy()` function uses engagement range checks along the path (line 1171), which would incorrectly block movement through friendly models too.
+**Resolution:** Path-through-enemy validation is now fully implemented across all movement validation paths:
 
-**Impact:** Medium. Allows illegal shortcuts through enemy formations.
+1. **New `_path_crosses_enemy_bases()` function** (`MovementPhase.gd:1386`): Samples points along the movement path and checks for base-to-base overlap with enemy models only. Uses `Measurement.models_overlap()` for shape-aware collision. Explicitly does **not** check engagement range along the path — moving close to enemies is allowed, only moving through their bases is blocked.
 
-**Recommendation:**
-1. Add path validation for Normal and Advance moves to prevent crossing enemy bases
-2. Ensure path validation explicitly **allows** crossing friendly bases
-3. Add FLY exception for path-through-enemy checks
-4. Separate "crosses enemy" from "crosses engagement range" — moving close to enemies is fine, moving through their bases is not
+2. **New `_unit_has_fly_keyword()` helper** (`MovementPhase.gd:1379`): Reusable check for the FLY keyword in unit metadata.
+
+3. **Validation enforced in all movement paths:**
+   - `_validate_set_model_dest()` — blocks individual model destination if path crosses enemy bases during Normal/Advance
+   - `_validate_stage_model_move()` — blocks staged model moves if path crosses enemy bases during Normal/Advance
+   - `_process_group_movement()` — blocks group drag if any model's path crosses enemy bases during Normal/Advance
+   - `_validate_individual_move_internal()` — blocks internal validation for group movement coherency checks
+
+4. **FLY keyword exemption:** All path-through-enemy checks skip validation when the unit has the "FLY" keyword.
+
+5. **Friendly models explicitly allowed:** `_path_crosses_enemy_bases()` only checks against enemy models (units where `owner != current_player`). Friendly models can be freely crossed during movement.
+
+6. **Legacy `_path_crosses_enemy()` preserved** as a wrapper for Fall Back tracking (feeds into Desperate Escape), but the engagement range check along the path was removed — only base overlap is checked now.
+
+**Previous issues fixed:**
+- ~~Path validation through enemies missing for Normal/Advance~~ — Now enforced
+- ~~Path validation through friendlies incorrectly strict~~ — Only enemy models are checked
+- ~~Engagement range checks along path~~ — Removed; only base overlap is checked
 
 ### 2.6 ~~HIGH — Board Edge Enforcement~~ FIXED
 
@@ -497,9 +509,9 @@ The `pivot_cost_paid` global flag doesn't reset per drag operation. After paying
 3. **Embark action notification** — Ensure opponent sees embark actions in multiplayer
 
 ### Should Fix (Gameplay Completeness)
-4. ~~**FLY keyword support** — Skip Desperate Escape, allow movement through enemies~~ PARTIALLY FIXED (Desperate Escape skip done; path-through-enemy exemption still needed)
+4. ~~**FLY keyword support** — Skip Desperate Escape, allow movement through enemies~~ FIXED (Desperate Escape skip + path-through-enemy exemption for FLY)
 5. ~~**TITANIC skip Desperate Escape** — Simple keyword check in `_process_desperate_escape()`~~ FIXED
-6. **Path-through-enemy validation** — Normal/Advance shouldn't cross enemy bases
+6. ~~**Path-through-enemy validation** — Normal/Advance shouldn't cross enemy bases~~ FIXED
 7. **Reinforcements step** — Add reserves / Deep Strike system
 8. ~~**`_check_terrain_collision()` stub** — Connect to actual terrain checking~~ FIXED
 9. **Disembarked units and Remain Stationary** — Prevent Heavy weapon bonus for disembarked units
@@ -623,4 +635,4 @@ The following movement actions are properly routed through the action system:
 
 6. **Disembarked units and Remain Stationary** — Track `disembarked_this_phase` flag and check it in `_process_remain_stationary()` to prevent Heavy weapon bonus for units that disembarked (audit item 2.12).
 
-7. **Path-through-enemy validation** — Add path validation for Normal/Advance moves to prevent models crossing enemy bases, with FLY exemption (audit item 2.5).
+7. ~~**Path-through-enemy validation** — Add path validation for Normal/Advance moves to prevent models crossing enemy bases, with FLY exemption (audit item 2.5).~~ DONE

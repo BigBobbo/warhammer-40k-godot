@@ -272,7 +272,15 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
 	if not er_check.valid:
 		return {"valid": false, "errors": er_check.errors}
-	
+
+	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
+	# FLY units are exempt — they can move over enemy models
+	# Fall Back is also exempt (handled separately via Desperate Escape)
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
+			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
+
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
@@ -340,7 +348,15 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
 	if not er_check.valid:
 		return {"valid": false, "errors": er_check.errors}
-	
+
+	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
+	# FLY units are exempt — they can move over enemy models
+	# Fall Back is also exempt (handled separately via Desperate Escape)
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
+			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
+
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
@@ -1360,23 +1376,24 @@ func _check_engagement_range_at_position(unit_id: String, model_id: String, dest
 	
 	return {"valid": true, "errors": []}
 
-func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: int) -> bool:
-	# Check if path segment crosses any enemy model bases using shape-aware overlap
-	# Sample points along the path and check for overlap at each point
+func _unit_has_fly_keyword(unit_id: String) -> bool:
+	# Check if the unit has the FLY keyword in its metadata
+	var units = game_state_snapshot.get("units", {})
+	var unit = units.get(unit_id, {})
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "FLY" in keywords
+
+func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
+	# Check if a movement path crosses any enemy model bases using shape-aware overlap.
+	# 10e Rule: A model cannot move through enemy models during Normal Move or Advance.
+	# Only Fall Back and FLY units may move through enemy models.
+	# This checks base-to-base overlap only — moving *near* enemies is fine,
+	# moving *through* their bases is not.
 	var current_player = get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
-	# Get a reference model to build temporary model dicts for path checking
-	# We'll use the first alive model from the unit
-	var reference_model = null
-	var unit = units.get(unit_id, {})
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			reference_model = model.duplicate()
-			break
-
-	if reference_model == null:
-		return false  # No alive models to check
+	# Build a reference model for path sampling
+	var reference_model = model.duplicate()
 
 	# Sample points along the path (approximately every 10 pixels for good coverage)
 	var path_length = from.distance_to(to)
@@ -1390,7 +1407,7 @@ func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: i
 		var model_at_pos = reference_model.duplicate()
 		model_at_pos["position"] = sample_pos
 
-		# Check against all enemy models
+		# Check against all enemy models only (friendly models can be crossed freely)
 		for enemy_unit_id in units:
 			var enemy_unit = units[enemy_unit_id]
 			if enemy_unit.get("owner", 0) == current_player:
@@ -1402,14 +1419,26 @@ func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: i
 					continue
 				var enemy_pos = _get_model_position(enemy_model)
 				if enemy_pos:
-					# Use shape-aware overlap check or engagement range check
+					# Only check base overlap — moving close to enemies is allowed,
+					# only moving through their bases is illegal
 					if Measurement.models_overlap(model_at_pos, enemy_model):
-						return true
-					# Also check if within engagement range (path can't cross ER)
-					if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
 						return true
 
 	return false
+
+func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: int) -> bool:
+	# Legacy wrapper for Fall Back path checking (keeps crosses_enemy tracking for Desperate Escape)
+	# Fall Back moves are allowed to cross enemies, so this is used for tracking, not blocking
+	var units = game_state_snapshot.get("units", {})
+	var unit = units.get(unit_id, {})
+	var reference_model = null
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			reference_model = m.duplicate()
+			break
+	if reference_model == null:
+		return false
+	return _path_crosses_enemy_bases(from, to, unit_id, reference_model)
 
 func _segment_intersects_circle(seg_start: Vector2, seg_end: Vector2, circle_center: Vector2, radius: float) -> bool:
 	# Calculate closest point on segment to circle center
@@ -1730,6 +1759,13 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 			group_validation.valid = false
 			group_validation.errors.append("Model %s would overlap with another model" % model_id)
 
+		# 10e Rule: Normal Move and Advance cannot cross enemy model bases
+		# FLY units are exempt — they can move over enemy models
+		if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+			if not full_model.is_empty() and _path_crosses_enemy_bases(model_data.position, new_pos, unit_id, full_model):
+				group_validation.valid = false
+				group_validation.errors.append("Model %s path crosses enemy model base" % model_id)
+
 	return group_validation
 
 func _validate_group_movement(group_moves: Array, unit_id: String) -> Dictionary:
@@ -1791,6 +1827,12 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	# Check model overlap
 	if _would_overlap_other_models(unit_id, model_id, dest_pos, model):
 		return false
+
+	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+		var current_pos = _get_model_position(model)
+		if current_pos and _path_crosses_enemy_bases(current_pos, dest_pos, unit_id, model):
+			return false
 
 	return true
 
