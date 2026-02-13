@@ -3265,7 +3265,7 @@ func _clear_phase_ui_artifacts() -> void:
 
 	for child in hbox.get_children():
 		if child.name in ["ScoringControls", "MovementButtons", "EndChargePhaseButton",
-						  "FightPhaseButton", "CommandControls", "ChargeControls"]:
+						  "CommandControls", "ChargeControls"]:
 			print("Main: Removing phase UI artifact: ", child.name)
 			hbox.remove_child(child)
 			child.queue_free()
@@ -3454,7 +3454,9 @@ func update_ui_for_phase() -> void:
 			p2_zone.visible = false
 			# Hide movement action buttons
 			_show_movement_action_buttons(false)
-			# Unit list visibility handled by FightController
+			# Hide unit list and unit card - FightController provides its own right panel
+			unit_list.visible = false
+			unit_card.visible = false
 
 		GameStateData.Phase.SCORING:
 			# Hide deployment zones
