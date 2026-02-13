@@ -1027,12 +1027,17 @@ func _setup_save_load_dialog() -> void:
 	print("Save/Load Dialog setup completed")
 
 func setup_deployment_zones() -> void:
+	# Ensure BoardState zones match the deployment type stored in GameState
+	var deployment_type = GameState.get_deployment_type()
+	BoardState.initialize_deployment_zones(deployment_type)
+	print("Main: Setting up deployment zones for: ", deployment_type)
+
 	var zone1 = BoardState.get_deployment_zone_for_player(1)
 	var zone2 = BoardState.get_deployment_zone_for_player(2)
-	
+
 	p1_zone.polygon = zone1
 	p2_zone.polygon = zone2
-	
+
 	update_deployment_zone_visibility()
 
 var _setting_up_controllers: bool = false  # Semaphore to prevent concurrent setup

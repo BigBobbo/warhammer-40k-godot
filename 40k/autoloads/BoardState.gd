@@ -18,17 +18,9 @@ var active_player: int:
 func _ready() -> void:
 	initialize_deployment_zones()
 
-func initialize_deployment_zones() -> void:
-	deployment_zones = [
-		{
-			"player": 1,
-			"poly": _get_dawn_of_war_zone_1()
-		},
-		{
-			"player": 2,
-			"poly": _get_dawn_of_war_zone_2()
-		}
-	]
+func initialize_deployment_zones(deployment_type: String = "hammer_anvil") -> void:
+	deployment_zones = DeploymentZoneData.get_zones_px(deployment_type)
+	print("[BoardState] Initialized deployment zones for: ", deployment_type)
 
 # Legacy data - these are now maintained for visual components that haven't been updated yet
 var units: Dictionary = {
@@ -99,29 +91,6 @@ var units: Dictionary = {
 		}
 	}
 
-func _get_dawn_of_war_zone_1() -> PackedVector2Array:
-	var board_width = 1760  # 44 inches * 40 px/inch
-	var board_height = 2400 # 60 inches * 40 px/inch
-	var zone_depth = 480    # 12 inches * 40 px/inch
-	
-	return PackedVector2Array([
-		Vector2(0, 0),
-		Vector2(board_width, 0),
-		Vector2(board_width, zone_depth),
-		Vector2(0, zone_depth)
-	])
-
-func _get_dawn_of_war_zone_2() -> PackedVector2Array:
-	var board_width = 1760
-	var board_height = 2400
-	var zone_depth = 480
-	
-	return PackedVector2Array([
-		Vector2(0, board_height - zone_depth),
-		Vector2(board_width, board_height - zone_depth),
-		Vector2(board_width, board_height),
-		Vector2(0, board_height)
-	])
 
 func get_model_count(unit_id: String) -> int:
 	if not units.has(unit_id):

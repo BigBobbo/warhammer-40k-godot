@@ -28,53 +28,28 @@ func initialize_default_mission() -> void:
 			"max_vp_per_turn": 15
 		}
 	}
-	
-	# Initialize objectives for Strike Force
-	_setup_strike_force_objectives()
-	
+
+	# Initialize objectives based on deployment type
+	var deployment_type = GameState.get_deployment_type()
+	_setup_objectives_for_deployment(deployment_type)
+
 	print("MissionManager: Initialized %s mission" % current_mission.name)
 
-func _setup_strike_force_objectives() -> void:
-	# Calculate objective positions in pixels
-	# Board is 44" x 60" (1760 x 2400 pixels at 40px per inch)
-	var objectives = [
-		{
-			"id": "obj_center", 
-			"position": Vector2(Measurement.inches_to_px(22), Measurement.inches_to_px(30)), 
-			"radius_mm": 40
-		},
-		{
-			"id": "obj_tl", 
-			"position": Vector2(Measurement.inches_to_px(10), Measurement.inches_to_px(14)), 
-			"radius_mm": 40
-		},
-		{
-			"id": "obj_tr", 
-			"position": Vector2(Measurement.inches_to_px(34), Measurement.inches_to_px(14)), 
-			"radius_mm": 40
-		},
-		{
-			"id": "obj_bl", 
-			"position": Vector2(Measurement.inches_to_px(10), Measurement.inches_to_px(46)), 
-			"radius_mm": 40
-		},
-		{
-			"id": "obj_br", 
-			"position": Vector2(Measurement.inches_to_px(34), Measurement.inches_to_px(46)), 
-			"radius_mm": 40
-		}
-	]
-	
+func _setup_objectives_for_deployment(deployment_type: String) -> void:
+	# Get objective positions from centralized data source (already in pixels)
+	var objectives = DeploymentZoneData.get_objectives_px(deployment_type)
+
 	# Store objectives in GameState
 	GameState.state.board["objectives"] = objectives
-	
+
 	# Initialize control state
+	objective_control_state.clear()
 	for obj in objectives:
 		objective_control_state[obj.id] = 0  # 0 = contested/uncontrolled
-	
-	print("MissionManager: Set up %d objectives for Strike Force deployment" % objectives.size())
+
+	print("MissionManager: Set up %d objectives for %s deployment" % [objectives.size(), deployment_type])
 	for obj in objectives:
-		print("  - %s at position %s" % [obj.id, obj.position])
+		print("  - %s at position %s (zone: %s)" % [obj.id, obj.position, obj.get("zone", "unknown")])
 
 func check_all_objectives() -> void:
 	var objectives = GameState.state.board.get("objectives", [])
@@ -82,7 +57,8 @@ func check_all_objectives() -> void:
 	# If objectives are missing, reinitialize them
 	if objectives.size() == 0:
 		print("MissionManager: No objectives found, reinitializing...")
-		_setup_strike_force_objectives()
+		var deployment_type = GameState.get_deployment_type()
+		_setup_objectives_for_deployment(deployment_type)
 		objectives = GameState.state.board.get("objectives", [])
 	
 	var units = GameState.state.get("units", {})
