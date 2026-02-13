@@ -13,8 +13,14 @@ extends Control
 
 # Configuration options
 var terrain_options = [
-	{"id": "layout_2", "name": "Chapter Approved Layout 2"}
-	# Future: Add more layouts
+	{"id": "layout_1", "name": "Chapter Approved Layout 1"},
+	{"id": "layout_2", "name": "Chapter Approved Layout 2"},
+	{"id": "layout_3", "name": "Chapter Approved Layout 3"},
+	{"id": "layout_4", "name": "Chapter Approved Layout 4"},
+	{"id": "layout_5", "name": "Chapter Approved Layout 5"},
+	{"id": "layout_6", "name": "Chapter Approved Layout 6"},
+	{"id": "layout_7", "name": "Chapter Approved Layout 7"},
+	{"id": "layout_8", "name": "Chapter Approved Layout 8"}
 ]
 
 var mission_options = [
