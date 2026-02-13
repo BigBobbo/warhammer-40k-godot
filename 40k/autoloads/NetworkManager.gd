@@ -45,6 +45,8 @@ const DETERMINISTIC_ACTIONS: Array[String] = [
 	"END_FIGHT", "END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
 	# Deployment
 	"DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT",
+	# Strategic Reserves / Deep Strike
+	"PLACE_IN_RESERVES", "PLACE_REINFORCEMENT",
 	# Movement (BEGIN_ADVANCE excluded — it rolls a D6 for advance distance)
 	"BEGIN_NORMAL_MOVE", "BEGIN_FALL_BACK",
 	"SET_MODEL_DEST", "STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE",
@@ -1311,6 +1313,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"END_DEPLOYMENT",
 		"END_PHASE",
 		"EMBARK_UNITS_DEPLOYMENT",
+		"PLACE_IN_RESERVES",  # Part of deployment alternation flow
 		"APPLY_SAVES",  # Reactive action - defender responds during attacker's turn
 		# Fight Phase actions - players alternate during active player's turn
 		"SELECT_FIGHTER",

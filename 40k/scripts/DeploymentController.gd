@@ -37,6 +37,9 @@ var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dial
 var pending_attach_characters: Array = []  # Characters to attach after deployment
 var is_awaiting_attach_dialog: bool = false  # Waiting for character attach dialog
 
+# Reinforcement mode (Deep Strike / Strategic Reserves arrival)
+var is_reinforcement_mode: bool = false
+
 func _ready() -> void:
 	set_process(true)
 	set_process_unhandled_input(true)
@@ -203,20 +206,26 @@ func try_place_at(world_pos: Vector2) -> void:
 	if ghost_sprite and ghost_sprite.has_method("get_base_rotation"):
 		rotation = ghost_sprite.get_base_rotation()
 
-	# Check if wholly within deployment zone based on shape
-	var base_type = model_data.get("base_type", "circular")
-	var is_in_zone = false
-
-	if base_type == "circular":
-		var radius_px = Measurement.base_radius_px(model_data["base_mm"])
-		is_in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+	# Check placement validity
+	if is_reinforcement_mode:
+		# Reinforcement mode: validate >9" from enemies, on the board
+		if not _validate_reinforcement_position(world_pos, model_data, rotation):
+			return
 	else:
-		# For non-circular bases, use shape-aware validation
-		is_in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+		# Normal deployment: check if wholly within deployment zone based on shape
+		var base_type = model_data.get("base_type", "circular")
+		var is_in_zone = false
 
-	if not is_in_zone:
-		_show_toast("Must be wholly within your deployment zone")
-		return
+		if base_type == "circular":
+			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+			is_in_zone = _circle_wholly_in_polygon(world_pos, radius_px, zone)
+		else:
+			# For non-circular bases, use shape-aware validation
+			is_in_zone = _shape_wholly_in_polygon(world_pos, model_data, rotation, zone)
+
+		if not is_in_zone:
+			_show_toast("Must be wholly within your deployment zone")
+			return
 
 	# Check for overlap with existing models
 	if _overlaps_with_existing_models_shape(world_pos, model_data, rotation):
@@ -322,12 +331,15 @@ func undo() -> void:
 	if has_node("/root/PhaseManager"):
 		var phase_manager = get_node("/root/PhaseManager")
 		if phase_manager.current_phase_instance:
+			# If undoing reinforcement, restore to IN_RESERVES instead of UNDEPLOYED
+			var restore_status = GameStateData.UnitStatus.IN_RESERVES if is_reinforcement_mode else GameStateData.UnitStatus.UNDEPLOYED
 			phase_manager.apply_state_changes([{
 				"op": "set",
 				"path": "units.%s.status" % unit_id,
-				"value": GameStateData.UnitStatus.UNDEPLOYED
+				"value": restore_status
 			}])
 
+	is_reinforcement_mode = false
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()
@@ -337,6 +349,11 @@ func confirm() -> void:
 	# Enforce unit coherency before allowing deployment
 	if not _is_unit_coherent():
 		_show_toast("Cannot deploy: unit is not in coherency (all models must be within 2\" of mates)", Color.RED)
+		return
+
+	# In reinforcement mode, skip embark/attach dialogs and go straight to placement
+	if is_reinforcement_mode:
+		_complete_deployment()
 		return
 
 	# Check if this unit can have characters attached - show attach dialog FIRST
@@ -1130,22 +1147,30 @@ func _process(delta: float) -> void:
 		var unit_data = GameState.get_unit(unit_id)
 		var model_data = unit_data["models"][model_idx]
 		var active_player = GameState.get_active_player()
-		var zone = BoardState.get_deployment_zone_for_player(active_player)
 
 		# Get current rotation from ghost
 		var rotation = 0.0
 		if ghost_sprite.has_method("get_base_rotation"):
 			rotation = ghost_sprite.get_base_rotation()
 
-		# Check both deployment zone and model overlap based on shape
 		var is_valid = false
-		var base_type = model_data.get("base_type", "circular")
 
-		if base_type == "circular":
-			var radius_px = Measurement.base_radius_px(model_data["base_mm"])
-			is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models(mouse_pos, radius_px)
+		if is_reinforcement_mode:
+			# Reinforcement mode: validate >9" from enemies instead of deployment zone
+			is_valid = _validate_reinforcement_position(mouse_pos, model_data, rotation)
+			# Also check model overlap
+			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
+				is_valid = false
 		else:
-			is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
+			# Normal deployment: check deployment zone and model overlap
+			var zone = BoardState.get_deployment_zone_for_player(active_player)
+			var base_type = model_data.get("base_type", "circular")
+
+			if base_type == "circular":
+				var radius_px = Measurement.base_radius_px(model_data["base_mm"])
+				is_valid = _circle_wholly_in_polygon(mouse_pos, radius_px, zone) and not _overlaps_with_existing_models(mouse_pos, radius_px)
+			else:
+				is_valid = _shape_wholly_in_polygon(mouse_pos, model_data, rotation, zone) and not _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation)
 
 		# Also check wall collision
 		if is_valid:
@@ -1519,6 +1544,48 @@ func _cancel_model_repositioning() -> void:
 			break
 
 	_cleanup_repositioning()
+
+func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
+	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves)"""
+	var px_per_inch = 40.0
+	var board_width_px = GameState.state.board.size.width * px_per_inch
+	var board_height_px = GameState.state.board.size.height * px_per_inch
+
+	# Must be on the board
+	if world_pos.x < 0 or world_pos.x > board_width_px or world_pos.y < 0 or world_pos.y > board_height_px:
+		_show_toast("Must be on the battlefield")
+		return false
+
+	# Must be >9" from all enemy models (edge-to-edge)
+	var active_player = GameState.get_active_player()
+	var model_base_mm = model_data.get("base_mm", 32)
+	var model_radius_inches = (model_base_mm / 2.0) / 25.4
+
+	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	for enemy in enemy_positions:
+		var enemy_pos_px = Vector2(enemy.x, enemy.y)
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = world_pos.distance_to(enemy_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
+			return false
+
+	# Strategic Reserves: must be within 6" of a battlefield edge
+	var unit = GameState.get_unit(unit_id)
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	if reserve_type == "strategic_reserves":
+		var pos_inches_x = world_pos.x / px_per_inch
+		var pos_inches_y = world_pos.y / px_per_inch
+		var board_w = GameState.state.board.size.width
+		var board_h = GameState.state.board.size.height
+		var dist_to_edge = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
+		if dist_to_edge > 6.0:
+			_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
+			return false
+
+	return true
 
 func _cleanup_repositioning() -> void:
 	"""Clean up repositioning state"""

@@ -49,6 +49,11 @@ var p2_progress_bar: ProgressBar
 var p1_progress_label: Label
 var p2_progress_label: Label
 
+# Strategic Reserves / Deep Strike UI elements
+var reserves_button: Button = null
+var reinforcements_button: Button = null
+var _selected_unit_for_reserves: String = ""
+
 func _ready() -> void:
 	# DEBUG: Check current state before any initialization
 	print("Main: _ready() called")
@@ -172,6 +177,9 @@ func _ready() -> void:
 	# Setup deployment progress indicator
 	_setup_deployment_progress_indicator()
 
+	# Setup Strategic Reserves button
+	_setup_reserves_button()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -274,7 +282,8 @@ func _update_deployment_progress() -> void:
 	var p2_progress = GameState.get_deployment_progress(2)
 
 	# Update Player 1
-	p1_progress_label.text = "Player 1 (Defender): %d/%d units deployed" % [p1_progress.deployed, p1_progress.total]
+	var p1_reserves_text = " (%d in reserves)" % p1_progress.in_reserves if p1_progress.in_reserves > 0 else ""
+	p1_progress_label.text = "Player 1 (Defender): %d/%d units deployed%s" % [p1_progress.deployed, p1_progress.total, p1_reserves_text]
 	if p1_progress.total > 0:
 		p1_progress_bar.max_value = p1_progress.total
 		p1_progress_bar.value = p1_progress.deployed
@@ -283,7 +292,8 @@ func _update_deployment_progress() -> void:
 		p1_progress_bar.value = 0
 
 	# Update Player 2
-	p2_progress_label.text = "Player 2 (Attacker): %d/%d units deployed" % [p2_progress.deployed, p2_progress.total]
+	var p2_reserves_text = " (%d in reserves)" % p2_progress.in_reserves if p2_progress.in_reserves > 0 else ""
+	p2_progress_label.text = "Player 2 (Attacker): %d/%d units deployed%s" % [p2_progress.deployed, p2_progress.total, p2_reserves_text]
 	if p2_progress.total > 0:
 		p2_progress_bar.max_value = p2_progress.total
 		p2_progress_bar.value = p2_progress.deployed
@@ -292,6 +302,216 @@ func _update_deployment_progress() -> void:
 		p2_progress_bar.value = 0
 
 	print("Main: Deployment progress updated - P1: %d/%d, P2: %d/%d" % [p1_progress.deployed, p1_progress.total, p2_progress.deployed, p2_progress.total])
+
+func _setup_reserves_button() -> void:
+	# Create "Place in Reserves" button in the HUD_Right panel, below the unit list
+	var hud_right = get_node_or_null("HUD_Right/VBoxContainer")
+	if not hud_right:
+		print("Main: HUD_Right/VBoxContainer not found for reserves button")
+		return
+
+	reserves_button = Button.new()
+	reserves_button.name = "ReservesButton"
+	reserves_button.text = "Place in Reserves"
+	reserves_button.visible = false
+	reserves_button.disabled = true
+	reserves_button.custom_minimum_size = Vector2(0, 36)
+
+	# Style the button
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.15, 0.3, 0.9)  # Dark purple for reserves
+	style.border_color = Color(0.6, 0.4, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(8)
+	reserves_button.add_theme_stylebox_override("normal", style)
+
+	var hover_style = style.duplicate()
+	hover_style.bg_color = Color(0.3, 0.2, 0.4, 0.95)
+	reserves_button.add_theme_stylebox_override("hover", hover_style)
+
+	reserves_button.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
+	reserves_button.add_theme_font_size_override("font_size", 13)
+
+	reserves_button.pressed.connect(_on_reserves_button_pressed)
+
+	# Insert after the unit list but before the unit card
+	var unit_list_idx = unit_list.get_index()
+	hud_right.add_child(reserves_button)
+	hud_right.move_child(reserves_button, unit_list_idx + 1)
+
+	print("Main: Reserves button created and added to HUD_Right")
+
+func _on_reserves_button_pressed() -> void:
+	if _selected_unit_for_reserves == "":
+		return
+
+	var unit_id = _selected_unit_for_reserves
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	# Determine reserve type
+	var reserve_type = "deep_strike" if GameState.unit_has_deep_strike(unit_id) else "strategic_reserves"
+
+	print("Main: Placing unit %s in reserves (type: %s)" % [unit_id, reserve_type])
+
+	var action = {
+		"type": "PLACE_IN_RESERVES",
+		"unit_id": unit_id,
+		"reserve_type": reserve_type,
+		"phase": GameStateData.Phase.DEPLOYMENT,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+
+	if result.success:
+		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_success("%s placed in %s" % [unit_name, type_label])
+		print("Main: Successfully placed %s in %s" % [unit_name, type_label])
+
+		# Trigger deployment alternation (reserves count as a deployment action)
+		if has_node("/root/TurnManager"):
+			get_node("/root/TurnManager").check_deployment_alternation()
+	else:
+		var errors = result.get("errors", [])
+		var error_msg = errors[0] if errors.size() > 0 else "Failed to place in reserves"
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_error(error_msg)
+		print("Main: Failed to place in reserves: %s" % str(errors))
+
+	_selected_unit_for_reserves = ""
+	refresh_unit_list()
+	update_ui()
+
+func _begin_reinforcement_placement(unit_id: String) -> void:
+	"""Start placing a reserve unit on the battlefield as reinforcement"""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+
+	print("Main: Beginning reinforcement placement for %s (%s)" % [unit_name, type_label])
+
+	# Use the deployment controller to handle model placement
+	if deployment_controller:
+		# Set reinforcement mode flag on deployment controller
+		deployment_controller.is_reinforcement_mode = true
+
+		# Temporarily set unit status to DEPLOYING so the controller can work with it
+		if has_node("/root/PhaseManager"):
+			var phase_manager = get_node("/root/PhaseManager")
+			if phase_manager.current_phase_instance:
+				phase_manager.apply_state_changes([{
+					"op": "set",
+					"path": "units.%s.status" % unit_id,
+					"value": GameStateData.UnitStatus.DEPLOYING
+				}])
+
+		deployment_controller.unit_id = unit_id
+		deployment_controller.model_idx = 0
+		deployment_controller.temp_positions.clear()
+		deployment_controller.temp_rotations.clear()
+		var unit_data = GameState.get_unit(unit_id)
+		deployment_controller.temp_positions.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.formation_rotation = 0.0
+
+		# Create ghost for placement
+		deployment_controller._create_ghost()
+
+		# Store that we're in reinforcement mode
+		_selected_unit_for_reserves = unit_id
+
+		# Connect to confirm signal for reinforcement completion
+		if not deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
+			deployment_controller.unit_confirmed.connect(_on_reinforcement_confirmed)
+
+		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
+		if reserve_type == "strategic_reserves":
+			status_label.text += " — within 6\" of board edge"
+
+		unit_list.visible = false
+		show_unit_card(unit_id)
+
+func _on_reinforcement_confirmed() -> void:
+	"""Handle reinforcement placement completion"""
+	if _selected_unit_for_reserves == "":
+		return
+
+	var unit_id = _selected_unit_for_reserves
+	var unit_data = GameState.get_unit(unit_id)
+
+	if unit_data.is_empty() or not deployment_controller:
+		return
+
+	# Collect model positions from the deployment controller
+	var model_positions = []
+	for pos in deployment_controller.temp_positions:
+		model_positions.append(pos)
+
+	var model_rotations = deployment_controller.temp_rotations.duplicate()
+
+	print("Main: Reinforcement placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+
+	# Reset the unit status back to IN_RESERVES before sending the action
+	# (the action processor will set it to DEPLOYED)
+	if has_node("/root/PhaseManager"):
+		var phase_manager = get_node("/root/PhaseManager")
+		if phase_manager.current_phase_instance:
+			phase_manager.apply_state_changes([{
+				"op": "set",
+				"path": "units.%s.status" % unit_id,
+				"value": GameStateData.UnitStatus.IN_RESERVES
+			}])
+
+	# Create the reinforcement action
+	var action = {
+		"type": "PLACE_REINFORCEMENT",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations,
+		"phase": GameStateData.Phase.MOVEMENT,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+
+	if result.success:
+		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_success("Reinforcement arrived: %s" % unit_name)
+		print("Main: Reinforcement placed successfully for %s" % unit_name)
+	else:
+		var errors = result.get("errors", [])
+		var error_msg = errors[0] if errors.size() > 0 else "Failed to place reinforcement"
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_error(error_msg)
+		print("Main: Reinforcement placement failed: %s" % str(errors))
+
+	_selected_unit_for_reserves = ""
+
+	# Reset reinforcement mode
+	if deployment_controller:
+		deployment_controller.is_reinforcement_mode = false
+
+	# Disconnect reinforcement signal
+	if deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
+		deployment_controller.unit_confirmed.disconnect(_on_reinforcement_confirmed)
+
+	refresh_unit_list()
+	update_ui()
 
 func _restructure_ui_layout() -> void:
 	# Move HUD_Bottom to top of screen
@@ -1792,20 +2012,52 @@ func refresh_unit_list() -> void:
 					var unit_data = GameState.get_unit(unit_id)
 					var unit_name = unit_data["meta"]["name"]
 					var model_count = unit_data["models"].size()
-					var display_text = "%s (%d models)" % [unit_name, model_count]
+					# Add Deep Strike indicator for units with the ability
+					var ds_tag = " [DS]" if GameState.unit_has_deep_strike(unit_id) else ""
+					var display_text = "%s (%d models)%s" % [unit_name, model_count, ds_tag]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
+
+				# Show reserves button during deployment (visible when units available)
+				if reserves_button:
+					reserves_button.visible = units.size() > 0
+					reserves_button.disabled = true  # Disabled until a unit is selected
+					_selected_unit_for_reserves = ""
 
 		GameStateData.Phase.MOVEMENT:
 			# Show deployed units during movement in right panel
 			unit_list.visible = true
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
-			
+			var battle_round = GameState.get_battle_round()
+
+			# Show reinforcements header if there are reserve units and it's Turn 2+
+			var reserves = GameState.get_reserves_for_player(active_player)
+			if reserves.size() > 0 and battle_round >= 2:
+				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
+				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+				for reserve_id in reserves:
+					var reserve_unit = GameState.get_unit(reserve_id)
+					var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_id)
+					var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
+					var type_tag = "[DS]" if reserve_type == "deep_strike" else "[SR]"
+					var model_count = reserve_unit.get("models", []).size()
+					var display_text = "%s %s (%d models) - DEPLOY" % [type_tag, reserve_name, model_count]
+					unit_list.add_item(display_text)
+					unit_list.set_item_metadata(unit_list.get_item_count() - 1, reserve_id)
+				unit_list.add_item("--- DEPLOYED UNITS ---")
+				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+			elif reserves.size() > 0 and battle_round < 2:
+				unit_list.add_item("(%d units in reserves - arrive Turn 2+)" % reserves.size())
+				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
+
 			for unit_id in all_units:
 				var unit = all_units[unit_id]
 				var unit_status = unit.get("status", 0)
-				if unit_status >= GameStateData.UnitStatus.DEPLOYED:
+				# Skip reserve units (shown above) and undeployed
+				if unit_status == GameStateData.UnitStatus.IN_RESERVES:
+					continue
+				if unit_status >= GameStateData.UnitStatus.DEPLOYED and unit_status != GameStateData.UnitStatus.IN_RESERVES:
 					var unit_name = unit.get("meta", {}).get("name", unit_id)
 					var model_count = unit.get("models", []).size()
 					var moved = unit.get("flags", {}).get("moved", false)
@@ -1814,8 +2066,8 @@ func refresh_unit_list() -> void:
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 					deployed_count += 1
-			
-			print("Refreshing right panel unit list for movement - found ", deployed_count, " deployed units")
+
+			print("Refreshing right panel unit list for movement - found ", deployed_count, " deployed units, ", reserves.size(), " in reserves")
 		
 		GameStateData.Phase.SHOOTING:
 			# Hide unit list during shooting phase - shooting controller handles its own UI
@@ -1870,9 +2122,19 @@ func update_ui() -> void:
 			# Update deployment progress indicator
 			_update_deployment_progress()
 
+			# Show reserves button during deployment phase
+			if reserves_button:
+				reserves_button.visible = current_phase == GameStateData.Phase.DEPLOYMENT and not all_deployed
+
 			if all_deployed:
 				phase_action_button.disabled = false
-				status_label.text = "All units deployed! Click 'End Deployment' to continue."
+				# Check if any units are in reserves
+				var p1_reserves = GameState.get_reserves_for_player(1).size()
+				var p2_reserves = GameState.get_reserves_for_player(2).size()
+				var reserves_text = ""
+				if p1_reserves + p2_reserves > 0:
+					reserves_text = " (%d units in reserves)" % (p1_reserves + p2_reserves)
+				status_label.text = "All units deployed%s! Click 'End Deployment' to continue." % reserves_text
 				print("Main: ⚠️ update_ui() - Setting button ENABLED (all deployed)")
 				print("Main: ⚠️ Button state AFTER enable - disabled: ", phase_action_button.disabled)
 			else:
@@ -1893,7 +2155,7 @@ func update_ui() -> void:
 						var local_player = network_manager.get_local_player()
 						status_label.text = "Waiting for Player %d to deploy... (You are Player %d)" % [active_player, local_player]
 					else:
-						status_label.text = "Select a unit to deploy"
+						status_label.text = "Select a unit to deploy (or place in reserves)"
 		
 		GameStateData.Phase.MOVEMENT:
 			if movement_controller and movement_controller.active_unit_id != "":
@@ -1945,6 +2207,16 @@ func _on_unit_selected(index: int) -> void:
 	
 	# Handle unit selection based on current phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
+		# Update reserves button state for the selected unit
+		if reserves_button:
+			_selected_unit_for_reserves = unit_id
+			reserves_button.disabled = false
+			# Update button text based on unit abilities
+			if GameState.unit_has_deep_strike(unit_id):
+				reserves_button.text = "Deep Strike (Reserves)"
+			else:
+				reserves_button.text = "Strategic Reserves"
+
 		# Check if this is a transport unit
 		var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
 		if "TRANSPORT" in unit_keywords:
@@ -1956,12 +2228,17 @@ func _on_unit_selected(index: int) -> void:
 			show_unit_card(unit_id)
 			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+		# Check if this is a reserve unit arriving as reinforcement
+		var selected_unit = GameState.get_unit(unit_id)
+		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			print("Main: Reserve unit selected for reinforcement: ", unit_id)
+			_begin_reinforcement_placement(unit_id)
+			return
+
 		# Pass unit selection to MovementController
 		movement_controller.active_unit_id = unit_id
 		print("Selected unit for movement: ", unit_id)
-		# REMOVED: show_unit_card(unit_id) - MovementController handles its own UI
-		# REMOVED: update_movement_card_buttons() - MovementController handles its own UI
-		
+
 		# AUTO-START NORMAL MOVE FOR EASIER TESTING
 		# In production, user would click a movement type button
 		print("Auto-starting Normal Move for easier testing...")
