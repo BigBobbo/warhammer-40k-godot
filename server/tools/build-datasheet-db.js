@@ -2,58 +2,88 @@
 /**
  * build-datasheet-db.js
  *
- * Downloads Wahapedia CSV exports and converts them into a single
- * datasheets.json file for use by the army list upload tool.
+ * Converts Wahapedia CSV exports into a single datasheets.json file
+ * for use by the army list upload tool.
  *
  * Usage:
- *   node build-datasheet-db.js                    # Download CSVs and build
- *   node build-datasheet-db.js --local ./csv_dir  # Build from local CSV files
+ *   node build-datasheet-db.js                              # Build from ./wahapedia_csv
+ *   node build-datasheet-db.js --local ./other_csv_dir      # Build from custom dir
  *   node build-datasheet-db.js --factions "Space Marines,Orks"  # Filter factions
  *
  * Wahapedia CSV format: pipe-delimited (|), with HTML in some fields.
  * Data export spec: https://wahapedia.ru/wh40k10ed/the-rules/data-export/
+ *
+ * CSV tables used:
+ *   Factions.csv                    - faction_id -> name mapping
+ *   Datasheets.csv                  - core datasheet info (name, role, transport, loadout)
+ *   Datasheets_models.csv           - per-model stats (M, T, Sv, W, Ld, OC, inv_sv, base_size)
+ *   Datasheets_wargear.csv          - weapon profiles (name, type, range, A, BS_WS, S, AP, D)
+ *   Datasheets_abilities.csv        - abilities per datasheet (with ability_id refs)
+ *   Abilities.csv                   - shared ability definitions (faction abilities, core abilities)
+ *   Datasheets_keywords.csv         - keywords per datasheet
+ *   Datasheets_leader.csv           - leader_id -> attached_id mapping
+ *   Datasheets_unit_composition.csv - unit composition descriptions
+ *   Datasheets_models_cost.csv      - points costs per model count
+ *   Datasheets_options.csv          - wargear option descriptions
+ *   Enhancements.csv                - enhancement definitions
+ *   Datasheets_enhancements.csv     - datasheet -> enhancement mapping
+ *   Detachments.csv                 - detachment definitions
+ *   Stratagems.csv                  - stratagem definitions
  */
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
-const http = require('http');
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const BASE_URL = 'https://wahapedia.ru/wh40k10ed';
 const CSV_FILES = [
   'Factions.csv',
   'Datasheets.csv',
-  'Datasheets_abilities.csv',
-  'Datasheets_keywords.csv',
   'Datasheets_models.csv',
   'Datasheets_wargear.csv',
+  'Datasheets_abilities.csv',
+  'Abilities.csv',
+  'Datasheets_keywords.csv',
   'Datasheets_leader.csv',
-  'Wargear_list.csv',
+  'Datasheets_unit_composition.csv',
+  'Datasheets_models_cost.csv',
+  'Datasheets_options.csv',
+  'Enhancements.csv',
+  'Datasheets_enhancements.csv',
+  'Detachments.csv',
+  'Stratagems.csv',
 ];
+
+const DEFAULT_CSV_DIR = path.join(__dirname, 'wahapedia_csv');
 const OUTPUT_PATH = path.join(__dirname, '..', 'public', 'data', 'datasheets.json');
 
 // ============================================================================
-// CSV Parser (pipe-delimited, with quoted fields)
+// CSV Parser (pipe-delimited)
 // ============================================================================
 
 function parseCSV(text) {
   const lines = text.split('\n').filter(line => line.trim());
   if (lines.length === 0) return [];
 
-  const headers = parseLine(lines[0]);
+  // Strip BOM if present
+  let headerLine = lines[0];
+  if (headerLine.charCodeAt(0) === 0xFEFF) {
+    headerLine = headerLine.slice(1);
+  }
+
+  const headers = headerLine.split('|').map(h => h.trim()).filter(h => h);
   const rows = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseLine(lines[i]);
-    if (values.length !== headers.length) continue;
+    const values = lines[i].split('|');
+    // Allow trailing pipe (values.length may be headers.length + 1)
+    if (values.length < headers.length) continue;
 
     const row = {};
     for (let j = 0; j < headers.length; j++) {
-      row[headers[j].trim()] = values[j].trim();
+      row[headers[j]] = (values[j] || '').trim();
     }
     rows.push(row);
   }
@@ -61,27 +91,16 @@ function parseCSV(text) {
   return rows;
 }
 
-function parseLine(line) {
-  // Wahapedia uses pipe (|) as delimiter
-  // Fields may contain HTML but generally don't contain unescaped pipes
-  return line.split('|').map(field => {
-    // Strip surrounding quotes if present
-    let f = field.trim();
-    if (f.startsWith('"') && f.endsWith('"')) {
-      f = f.slice(1, -1).replace(/""/g, '"');
-    }
-    return f;
-  });
-}
-
 // ============================================================================
-// HTML Stripping (for ability descriptions)
+// HTML Stripping
 // ============================================================================
 
 function stripHTML(html) {
   if (!html) return '';
   return html
-    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li>/gi, '- ')
+    .replace(/<\/li>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -89,77 +108,174 @@ function stripHTML(html) {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\n\s*\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
     .trim();
 }
 
 // ============================================================================
-// File Download
+// Stat Parsing
 // ============================================================================
 
-function downloadFile(url) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, { headers: { 'User-Agent': 'w40k-army-builder/1.0' } }, (res) => {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        return downloadFile(res.headers.location).then(resolve).catch(reject);
-      }
-      if (res.statusCode !== 200) {
-        reject(new Error(`HTTP ${res.statusCode} for ${url}`));
-        return;
-      }
-      const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-      res.on('error', reject);
-    }).on('error', reject);
-  });
+function parseStatValue(val) {
+  if (!val || val === '-' || val === 'N/A' || val === '') return null;
+  // Strip trailing +, ", spaces (e.g. "6\"", "3+", "6+")
+  const cleaned = val.replace(/["+\s]/g, '');
+  const num = parseInt(cleaned, 10);
+  return isNaN(num) ? val : num;
+}
+
+function parseBaseSize(sizeStr) {
+  if (!sizeStr) return { base_mm: 32 };
+  // Patterns: "40mm", "32mm", "100 x 40mm", "170 x 105mm", "25mm"
+  const ovalMatch = sizeStr.match(/(\d+)\s*x\s*(\d+)mm/i);
+  if (ovalMatch) {
+    const length = parseInt(ovalMatch[1], 10);
+    const width = parseInt(ovalMatch[2], 10);
+    return {
+      base_mm: Math.max(length, width),
+      base_type: 'oval',
+      base_dimensions: { length: Math.max(length, width), width: Math.min(length, width) },
+    };
+  }
+  const roundMatch = sizeStr.match(/(\d+)mm/i);
+  if (roundMatch) {
+    return { base_mm: parseInt(roundMatch[1], 10) };
+  }
+  return { base_mm: 32 };
+}
+
+function parseTransportCapacity(transportStr) {
+  if (!transportStr) return null;
+  // e.g. "This model has a transport capacity of 6 Adeptus Custodes Infantry models."
+  const stripped = stripHTML(transportStr);
+  const match = stripped.match(/transport capacity of (\d+)/i);
+  return match ? parseInt(match[1], 10) : stripped;
 }
 
 // ============================================================================
 // Main Build Logic
 // ============================================================================
 
-async function loadCSVData(localDir) {
+function loadCSVData(csvDir) {
   const data = {};
 
   for (const filename of CSV_FILES) {
     const name = filename.replace('.csv', '');
-    let text;
+    const filePath = path.join(csvDir, filename);
 
-    if (localDir) {
-      const filePath = path.join(localDir, filename);
-      if (!fs.existsSync(filePath)) {
-        console.warn(`  Warning: ${filename} not found in ${localDir}, skipping`);
-        data[name] = [];
-        continue;
-      }
-      console.log(`  Reading ${filename}...`);
-      text = fs.readFileSync(filePath, 'utf-8');
-    } else {
-      const url = `${BASE_URL}/${filename}`;
-      console.log(`  Downloading ${url}...`);
-      try {
-        text = await downloadFile(url);
-      } catch (err) {
-        console.warn(`  Warning: Failed to download ${filename}: ${err.message}`);
-        data[name] = [];
-        continue;
-      }
+    if (!fs.existsSync(filePath)) {
+      console.warn(`  Warning: ${filename} not found, skipping`);
+      data[name] = [];
+      continue;
     }
 
+    console.log(`  Reading ${filename}...`);
+    const text = fs.readFileSync(filePath, 'utf-8');
     data[name] = parseCSV(text);
-    console.log(`  Parsed ${data[name].length} rows from ${filename}`);
+    console.log(`    Parsed ${data[name].length} rows`);
   }
 
   return data;
 }
 
 function buildDatasheetDB(csv, factionFilter) {
-  // Build lookup maps
+  // === Build lookup maps ===
+
+  // Factions: id -> name
   const factionMap = {};
   for (const f of csv.Factions) {
-    factionMap[f.faction_id] = f.name;
+    factionMap[f.id] = f.name;
+  }
+
+  // Shared abilities: ability_id -> { name, description, type, parameter }
+  const sharedAbilities = {};
+  for (const a of csv.Abilities) {
+    sharedAbilities[a.id] = a;
+  }
+
+  // Models by datasheet_id (stats per model type)
+  const modelsByDS = {};
+  for (const m of csv.Datasheets_models) {
+    const key = m.datasheet_id;
+    if (!modelsByDS[key]) modelsByDS[key] = [];
+    modelsByDS[key].push(m);
+  }
+
+  // Wargear (weapons) by datasheet_id
+  const wargearByDS = {};
+  for (const w of csv.Datasheets_wargear) {
+    const key = w.datasheet_id;
+    if (!wargearByDS[key]) wargearByDS[key] = [];
+    wargearByDS[key].push(w);
+  }
+
+  // Abilities by datasheet_id
+  const abilitiesByDS = {};
+  for (const a of csv.Datasheets_abilities) {
+    const key = a.datasheet_id;
+    if (!abilitiesByDS[key]) abilitiesByDS[key] = [];
+    abilitiesByDS[key].push(a);
+  }
+
+  // Keywords by datasheet_id
+  const keywordsByDS = {};
+  for (const k of csv.Datasheets_keywords) {
+    const key = k.datasheet_id;
+    if (!keywordsByDS[key]) keywordsByDS[key] = [];
+    keywordsByDS[key].push(k);
+  }
+
+  // Leader: leader_id -> [attached_id, ...]
+  const leaderAttachments = {};
+  for (const l of csv.Datasheets_leader) {
+    const key = l.leader_id;
+    if (!leaderAttachments[key]) leaderAttachments[key] = [];
+    leaderAttachments[key].push(l.attached_id);
+  }
+
+  // Unit composition by datasheet_id
+  const unitCompByDS = {};
+  for (const uc of csv.Datasheets_unit_composition) {
+    const key = uc.datasheet_id;
+    if (!unitCompByDS[key]) unitCompByDS[key] = [];
+    unitCompByDS[key].push(uc);
+  }
+
+  // Points cost by datasheet_id
+  const costByDS = {};
+  for (const c of csv.Datasheets_models_cost) {
+    const key = c.datasheet_id;
+    if (!costByDS[key]) costByDS[key] = [];
+    costByDS[key].push(c);
+  }
+
+  // Wargear options by datasheet_id
+  const optionsByDS = {};
+  for (const o of csv.Datasheets_options) {
+    const key = o.datasheet_id;
+    if (!optionsByDS[key]) optionsByDS[key] = [];
+    optionsByDS[key].push(o);
+  }
+
+  // Enhancements by enhancement_id
+  const enhancementDefs = {};
+  for (const e of csv.Enhancements) {
+    enhancementDefs[e.id] = e;
+  }
+
+  // Datasheet -> enhancement mapping
+  const enhancementsByDS = {};
+  for (const de of csv.Datasheets_enhancements) {
+    const key = de.datasheet_id;
+    if (!enhancementsByDS[key]) enhancementsByDS[key] = [];
+    enhancementsByDS[key].push(de.enhancement_id);
+  }
+
+  // Datasheet id -> name lookup (for leader attachments)
+  const dsNameById = {};
+  for (const ds of csv.Datasheets) {
+    dsNameById[ds.id] = ds.name;
   }
 
   // Filter datasheets by faction if specified
@@ -172,55 +288,10 @@ function buildDatasheetDB(csv, factionFilter) {
     });
   }
 
-  // Index abilities by datasheet_id
-  const abilitiesByDS = {};
-  for (const a of csv.Datasheets_abilities) {
-    const key = a.datasheet_id;
-    if (!abilitiesByDS[key]) abilitiesByDS[key] = [];
-    abilitiesByDS[key].push(a);
-  }
+  // Skip virtual datasheets (summoned units like Chaos Spawn)
+  datasheets = datasheets.filter(ds => ds.virtual !== 'true');
 
-  // Index keywords by datasheet_id
-  const keywordsByDS = {};
-  for (const k of csv.Datasheets_keywords) {
-    const key = k.datasheet_id;
-    if (!keywordsByDS[key]) keywordsByDS[key] = [];
-    keywordsByDS[key].push(k.keyword);
-  }
-
-  // Index models by datasheet_id
-  const modelsByDS = {};
-  for (const m of csv.Datasheets_models) {
-    const key = m.datasheet_id;
-    if (!modelsByDS[key]) modelsByDS[key] = [];
-    modelsByDS[key].push(m);
-  }
-
-  // Index wargear by datasheet_id
-  const wargearByDS = {};
-  for (const w of csv.Datasheets_wargear) {
-    const key = w.datasheet_id;
-    if (!wargearByDS[key]) wargearByDS[key] = [];
-    wargearByDS[key].push(w);
-  }
-
-  // Index leader data by datasheet_id
-  const leaderByDS = {};
-  for (const l of csv.Datasheets_leader) {
-    const key = l.datasheet_id;
-    if (!leaderByDS[key]) leaderByDS[key] = [];
-    leaderByDS[key].push(l);
-  }
-
-  // Index weapons (wargear_list) by wargear_id or name
-  const weaponsByName = {};
-  for (const w of csv.Wargear_list) {
-    const key = (w.name || '').toLowerCase();
-    if (!weaponsByName[key]) weaponsByName[key] = [];
-    weaponsByName[key].push(w);
-  }
-
-  // Build the output structure
+  // === Build the output structure ===
   const result = {
     meta: {
       version: '1.0.0',
@@ -241,149 +312,219 @@ function buildDatasheetDB(csv, factionFilter) {
       };
     }
 
-    // Parse stats from datasheet row
+    // --- Stats from Datasheets_models (use first model line as primary) ---
+    const models = modelsByDS[ds.id] || [];
+    const primaryModel = models[0];
     const stats = {};
-    if (ds.M) stats.move = parseStatValue(ds.M);
-    if (ds.T) stats.toughness = parseStatValue(ds.T);
-    if (ds.Sv) stats.save = parseStatValue(ds.Sv);
-    if (ds.W) stats.wounds = parseStatValue(ds.W);
-    if (ds.Ld) stats.leadership = parseStatValue(ds.Ld);
-    if (ds.OC) stats.objective_control = parseStatValue(ds.OC);
-    if (ds.inv_sv) stats.invulnerable_save = parseStatValue(ds.inv_sv);
-    if (ds.fnp) stats.fnp = parseStatValue(ds.fnp);
+    if (primaryModel) {
+      stats.move = parseStatValue(primaryModel.M);
+      stats.toughness = parseStatValue(primaryModel.T);
+      stats.save = parseStatValue(primaryModel.Sv);
+      stats.wounds = parseStatValue(primaryModel.W);
+      stats.leadership = parseStatValue(primaryModel.Ld);
+      stats.objective_control = parseStatValue(primaryModel.OC);
+      if (primaryModel.inv_sv && primaryModel.inv_sv !== '-') {
+        stats.invulnerable_save = parseStatValue(primaryModel.inv_sv);
+      }
+    }
 
-    // Build abilities list
-    const abilities = (abilitiesByDS[ds.datasheet_id] || []).map(a => ({
-      name: a.name || '',
-      type: a.type || 'Datasheet',
-      description: stripHTML(a.description || ''),
-      ...(a.parameter ? { parameter: a.parameter } : {}),
-    }));
+    // If there are multiple model profiles (e.g. different stat lines), include them
+    let modelProfiles = null;
+    if (models.length > 1) {
+      modelProfiles = models.map(m => ({
+        name: m.name,
+        stats: {
+          move: parseStatValue(m.M),
+          toughness: parseStatValue(m.T),
+          save: parseStatValue(m.Sv),
+          wounds: parseStatValue(m.W),
+          leadership: parseStatValue(m.Ld),
+          objective_control: parseStatValue(m.OC),
+          ...(m.inv_sv && m.inv_sv !== '-' ? { invulnerable_save: parseStatValue(m.inv_sv) } : {}),
+        },
+        base: parseBaseSize(m.base_size),
+      }));
+    }
 
-    // Build keywords list
-    const keywords = (keywordsByDS[ds.datasheet_id] || []).map(k => k.toUpperCase());
+    // --- Base size ---
+    const baseInfo = primaryModel ? parseBaseSize(primaryModel.base_size) : { base_mm: 32 };
 
-    // Build weapons list from wargear
+    // --- Weapons from Datasheets_wargear (profiles are inline) ---
     const weapons = [];
-    const wargearEntries = wargearByDS[ds.datasheet_id] || [];
+    const wargearEntries = wargearByDS[ds.id] || [];
     for (const wg of wargearEntries) {
-      const wName = (wg.name || '').toLowerCase();
-      const weaponProfiles = weaponsByName[wName] || [];
-      for (const wp of weaponProfiles) {
-        if (wp.faction_id && wp.faction_id !== ds.faction_id) continue;
-        const weapon = {
-          name: wp.name || wg.name,
-          type: (wp.type || '').includes('Melee') ? 'Melee' : 'Ranged',
-          range: wp.type === 'Melee' ? 'Melee' : (wp.Range || ''),
-          attacks: wp.A || '',
-          strength: wp.S || '',
-          ap: wp.AP || '0',
-          damage: wp.D || '1',
-        };
-        if (weapon.type === 'Melee') {
-          weapon.weapon_skill = wp.BS_WS || '';
+      if (!wg.name) continue;
+      const weapon = {
+        name: wg.name,
+        type: wg.type === 'Melee' ? 'Melee' : 'Ranged',
+        range: wg.type === 'Melee' ? 'Melee' : (wg.range || ''),
+        attacks: wg.A || '',
+        strength: wg.S || '',
+        ap: wg.AP || '0',
+        damage: wg.D || '1',
+      };
+
+      // BS_WS goes to ballistic_skill (ranged) or weapon_skill (melee)
+      if (wg.type === 'Melee') {
+        weapon.weapon_skill = wg.BS_WS || '';
+      } else {
+        // For torrent weapons, BS_WS may be "N/A" or "-"
+        const bsVal = wg.BS_WS;
+        if (bsVal && bsVal !== 'N/A' && bsVal !== '-') {
+          weapon.ballistic_skill = bsVal;
         } else {
-          weapon.ballistic_skill = wp.BS_WS || '';
+          weapon.ballistic_skill = null;
         }
-        if (wp.abilities) {
-          weapon.special_rules = wp.abilities.toLowerCase();
-        }
-        weapons.push(weapon);
       }
+
+      // description field contains special rules (e.g. "assault, heavy", "torrent, ignores cover")
+      if (wg.description) {
+        weapon.special_rules = wg.description.toLowerCase();
+      }
+
+      weapons.push(weapon);
     }
 
-    // Build unit composition from models
-    const models = modelsByDS[ds.datasheet_id] || [];
-    const unitComp = models.map((m, idx) => ({
-      description: m.description || `${m.min || 1} ${ds.name}`,
-      line: idx + 1,
+    // --- Abilities ---
+    const abilities = [];
+    const abilityEntries = abilitiesByDS[ds.id] || [];
+    for (const a of abilityEntries) {
+      let name = a.name || '';
+      let description = a.description || '';
+      let type = a.type || 'Datasheet';
+      let parameter = a.parameter || '';
+
+      // If ability_id is set, resolve from shared Abilities.csv
+      if (a.ability_id && sharedAbilities[a.ability_id]) {
+        const shared = sharedAbilities[a.ability_id];
+        name = name || shared.name || '';
+        description = description || shared.description || '';
+      }
+
+      abilities.push({
+        name,
+        type,
+        description: stripHTML(description),
+        ...(parameter ? { parameter } : {}),
+      });
+    }
+
+    // --- Keywords ---
+    const keywordEntries = keywordsByDS[ds.id] || [];
+    const keywords = keywordEntries
+      .filter(k => !k.is_faction_keyword || k.is_faction_keyword !== 'true')
+      .map(k => k.keyword.toUpperCase());
+    const factionKeywords = keywordEntries
+      .filter(k => k.is_faction_keyword === 'true')
+      .map(k => k.keyword.toUpperCase());
+
+    // --- Unit composition ---
+    const unitCompEntries = unitCompByDS[ds.id] || [];
+    const unitComposition = unitCompEntries.map(uc => ({
+      description: stripHTML(uc.description || ''),
+      line: parseInt(uc.line, 10) || 1,
     }));
 
-    // Determine base size from models
-    let baseMM = 32; // default
-    if (models.length > 0 && models[0].base_size) {
-      baseMM = parseBaseSizeMM(models[0].base_size);
-    }
-
-    // Parse points (models may have cost info, or it comes from datasheet)
+    // --- Points costs ---
+    const costEntries = costByDS[ds.id] || [];
     const points = {};
-    if (ds.cost) {
-      // Some datasheets have cost as "90" or "5:90|10:180"
-      const costStr = ds.cost.toString();
-      if (costStr.includes('|')) {
-        for (const tier of costStr.split('|')) {
-          const [count, pts] = tier.split(':');
-          points[count.trim()] = parseInt(pts.trim(), 10);
-        }
-      } else {
-        const minModels = models.length > 0 ? (models[0].min || '1') : '1';
-        points[minModels] = parseInt(costStr, 10);
+    for (const c of costEntries) {
+      // description is like "1 model", "5 models", "10 models"
+      const modelCountMatch = (c.description || '').match(/(\d+)\s*model/i);
+      const key = modelCountMatch ? modelCountMatch[1] : c.line || '1';
+      const cost = parseInt(c.cost, 10);
+      if (!isNaN(cost)) {
+        points[key] = cost;
       }
     }
 
-    // Leader data
+    // --- Leader data ---
     let leaderData = null;
-    const leaderEntries = leaderByDS[ds.datasheet_id] || [];
-    if (leaderEntries.length > 0) {
+    const attachedIds = leaderAttachments[ds.id] || [];
+    if (attachedIds.length > 0) {
       leaderData = {
-        can_lead: leaderEntries.map(l => l.attached_to || '').filter(Boolean),
+        can_lead: attachedIds.map(id => dsNameById[id] || id).filter(Boolean),
       };
     }
 
-    // Transport capacity (from abilities)
-    let transportCapacity = null;
-    const transportAbility = abilities.find(a =>
-      a.type === 'Special' && a.description && a.description.toLowerCase().includes('transport capacity')
-    );
-    if (transportAbility) {
-      const match = transportAbility.description.match(/transport capacity of (\d+)/i);
-      if (match) transportCapacity = parseInt(match[1], 10);
+    // --- Transport ---
+    const transportCapacity = parseTransportCapacity(ds.transport);
+
+    // --- Wargear options ---
+    const optEntries = optionsByDS[ds.id] || [];
+    const wargearOptions = optEntries.length > 0
+      ? optEntries.map(o => stripHTML(o.description || ''))
+      : [];
+
+    // --- Damaged profile ---
+    let damagedProfile = null;
+    if (ds.damaged_w && ds.damaged_description) {
+      damagedProfile = {
+        wounds_remaining: ds.damaged_w,
+        description: stripHTML(ds.damaged_description),
+      };
     }
 
-    result.factions[factionName].units[ds.name] = {
+    // --- Role ---
+    const role = ds.role || '';
+
+    // --- Build the unit entry ---
+    const unit = {
       name: ds.name,
-      keywords,
+      faction_id: ds.faction_id,
+      role,
+      keywords: [...factionKeywords, ...keywords],
+      faction_keywords: factionKeywords,
       stats,
       weapons,
       abilities,
-      unit_composition: unitComp,
-      base_mm: baseMM,
+      unit_composition: unitComposition,
+      base_mm: baseInfo.base_mm,
       points,
-      leader_data: leaderData,
-      transport_capacity: transportCapacity,
     };
+
+    // Only include optional fields when they have data
+    if (baseInfo.base_type) {
+      unit.base_type = baseInfo.base_type;
+      unit.base_dimensions = baseInfo.base_dimensions;
+    }
+    if (modelProfiles) {
+      unit.model_profiles = modelProfiles;
+    }
+    if (leaderData) {
+      unit.leader_data = leaderData;
+    }
+    if (transportCapacity) {
+      unit.transport_capacity = transportCapacity;
+    }
+    if (wargearOptions.length > 0) {
+      unit.wargear_options = wargearOptions;
+    }
+    if (damagedProfile) {
+      unit.damaged_profile = damagedProfile;
+    }
+    if (ds.loadout) {
+      unit.default_loadout = stripHTML(ds.loadout);
+    }
+
+    result.factions[factionName].units[ds.name] = unit;
   }
 
   return result;
-}
-
-function parseStatValue(val) {
-  if (!val || val === '-' || val === 'N/A') return null;
-  // Strip trailing "+" from save/leadership values like "3+" or "6+"
-  const cleaned = val.replace(/["+\s]/g, '');
-  const num = parseInt(cleaned, 10);
-  return isNaN(num) ? val : num;
-}
-
-function parseBaseSizeMM(sizeStr) {
-  if (!sizeStr) return 32;
-  // Common patterns: "32mm", "40mm", "25mm Round", "170mm x 105mm Oval"
-  const match = sizeStr.match(/(\d+)mm/);
-  return match ? parseInt(match[1], 10) : 32;
 }
 
 // ============================================================================
 // CLI
 // ============================================================================
 
-async function main() {
+function main() {
   const args = process.argv.slice(2);
-  let localDir = null;
+  let csvDir = DEFAULT_CSV_DIR;
   let factionFilter = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--local' && args[i + 1]) {
-      localDir = args[++i];
+      csvDir = path.resolve(args[++i]);
     } else if (args[i] === '--factions' && args[i + 1]) {
       factionFilter = args[++i].split(',').map(f => f.trim());
     } else if (args[i] === '--help') {
@@ -391,35 +532,38 @@ async function main() {
 Usage: node build-datasheet-db.js [options]
 
 Options:
-  --local <dir>         Use local CSV files instead of downloading
+  --local <dir>         Use CSV files from specified directory (default: ./wahapedia_csv)
   --factions "A,B,C"    Only include specified factions
   --help                Show this help
 
 Examples:
   node build-datasheet-db.js
   node build-datasheet-db.js --local ./wahapedia_csv
-  node build-datasheet-db.js --factions "Space Marines,Orks"
+  node build-datasheet-db.js --factions "Space Marines,Orks,Adeptus Custodes"
 `);
       process.exit(0);
     }
   }
 
   console.log('Building datasheet database...');
-  console.log(localDir ? `Source: local files in ${localDir}` : 'Source: Wahapedia download');
+  console.log(`Source: ${csvDir}`);
   if (factionFilter) console.log(`Filtering factions: ${factionFilter.join(', ')}`);
 
   console.log('\nStep 1: Loading CSV data...');
-  const csv = await loadCSVData(localDir);
+  const csv = loadCSVData(csvDir);
 
   console.log('\nStep 2: Building datasheet database...');
   const db = buildDatasheetDB(csv, factionFilter);
 
+  // Print summary
   const factionCount = Object.keys(db.factions).length;
   let unitCount = 0;
-  for (const faction of Object.values(db.factions)) {
-    unitCount += Object.keys(faction.units).length;
+  for (const [fName, faction] of Object.entries(db.factions)) {
+    const count = Object.keys(faction.units).length;
+    unitCount += count;
+    console.log(`  ${fName}: ${count} units`);
   }
-  console.log(`  Built ${unitCount} units across ${factionCount} factions`);
+  console.log(`  Total: ${unitCount} units across ${factionCount} factions`);
 
   console.log(`\nStep 3: Writing to ${OUTPUT_PATH}...`);
   const outputDir = path.dirname(OUTPUT_PATH);
@@ -433,7 +577,4 @@ Examples:
   console.log('\nDone!');
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+main();
