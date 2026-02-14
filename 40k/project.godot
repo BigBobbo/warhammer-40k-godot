@@ -51,6 +51,7 @@ WebSocketRelay="*res://autoloads/WebSocketRelay.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
 SpriteResolver="*res://autoloads/SpriteResolver.gd"
 ToastManager="*res://autoloads/ToastManager.gd"
+AIPlayer="*res://autoloads/AIPlayer.gd"
 
 [display]
 
@@ -113,6 +114,7 @@ global_script_class_icon_47=""
 global_script_class_icon_48=""
 global_script_class_icon_49=""
 global_script_class_icon_50=""
+global_script_class_icon_51=""
 
 [global_script_classes]
 
@@ -415,6 +417,12 @@ global_script_class_50={
 "class": "TokenDrawUtils",
 "language": "GDScript",
 "path": "res://scripts/TokenDrawUtils.gd"
+}
+global_script_class_51={
+"base": "RefCounted",
+"class": "AIDecisionMaker",
+"language": "GDScript",
+"path": "res://scripts/AIDecisionMaker.gd"
 }
 
 [input]
