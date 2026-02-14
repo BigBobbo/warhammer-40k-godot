@@ -20,6 +20,7 @@ var charge_distance: int = 0
 var awaiting_roll: bool = false
 var awaiting_movement: bool = false
 var last_processed_charge_roll: Dictionary = {}  # Tracks last processed roll to prevent duplicates
+var _pending_complete_unit_id: String = ""  # Unit awaiting COMPLETE_UNIT_CHARGE after charge_resolved
 
 # Charge movement tracking
 var models_to_move: Array = []  # Models that still need to move
@@ -450,7 +451,15 @@ func set_phase(phase_instance) -> void:
 	if current_phase.has_signal("charge_resolved"):
 		if not current_phase.charge_resolved.is_connected(_on_charge_resolved):
 			current_phase.charge_resolved.connect(_on_charge_resolved)
-	
+
+	if current_phase.has_signal("charge_unit_completed"):
+		if not current_phase.charge_unit_completed.is_connected(_on_charge_unit_completed):
+			current_phase.charge_unit_completed.connect(_on_charge_unit_completed)
+
+	if current_phase.has_signal("charge_unit_skipped"):
+		if not current_phase.charge_unit_skipped.is_connected(_on_charge_unit_skipped):
+			current_phase.charge_unit_skipped.connect(_on_charge_unit_skipped)
+
 	# Refresh UI with current phase data
 	_refresh_ui()
 
@@ -1288,7 +1297,7 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 func _on_confirm_charge_moves() -> void:
 	print("DEBUG: _on_confirm_charge_moves called!")
 	print("Confirming charge moves for ", active_unit_id)
-	
+
 	# Build the per-model paths and rotations for the charge action
 	var per_model_paths = {}
 	var per_model_rotations = {}
@@ -1313,7 +1322,13 @@ func _on_confirm_charge_moves() -> void:
 		else:
 			print("DEBUG: Failed to create path for ", model_id, " - old_pos: ", old_pos, " new_pos: ", new_pos)
 
+	# Store the unit_id so the charge_resolved handler can send COMPLETE_UNIT_CHARGE
+	_pending_complete_unit_id = active_unit_id
+
 	# Send APPLY_CHARGE_MOVE action with the paths and rotations we built
+	# NOTE: COMPLETE_UNIT_CHARGE is now sent from _on_charge_resolved() after
+	# the server confirms the charge succeeded, preventing state corruption if
+	# APPLY_CHARGE_MOVE fails validation.
 	var action = {
 		"type": "APPLY_CHARGE_MOVE",
 		"actor_unit_id": active_unit_id,
@@ -1322,28 +1337,20 @@ func _on_confirm_charge_moves() -> void:
 			"per_model_rotations": per_model_rotations
 		}
 	}
-	
+
 	print("Requesting apply charge move: ", action)
 	charge_action_requested.emit(action)
-	
-	# Send COMPLETE_UNIT_CHARGE action
-	var complete_action = {
-		"type": "COMPLETE_UNIT_CHARGE",
-		"actor_unit_id": active_unit_id
-	}
-	print("Requesting complete unit charge: ", complete_action)
-	charge_action_requested.emit(complete_action)
-	
+
 	# Clear the movement state
 	moved_models.clear()
 	models_to_move.clear()
-	
+
 	# Reset movement state
 	awaiting_movement = false
 	_clear_movement_visuals()
 	if is_instance_valid(confirm_button):
 		confirm_button.visible = false
-	
+
 	# Update UI for next charge selection
 	_update_ui_for_next_charge()
 
@@ -1709,6 +1716,16 @@ func _reset_unit_selection() -> void:
 	_update_button_states()
 
 # Signal handlers from ChargePhase
+func _on_charge_unit_completed(unit_id: String) -> void:
+	print("ChargeController: Charge unit completed signal received for ", unit_id)
+	# Refresh the unit list so the completed unit is removed from eligible list
+	_update_ui_for_next_charge()
+
+func _on_charge_unit_skipped(unit_id: String) -> void:
+	print("ChargeController: Charge unit skipped signal received for ", unit_id)
+	# Refresh the unit list so the skipped unit is removed from eligible list
+	_update_ui_for_next_charge()
+
 func _on_unit_selected_for_charge(unit_id: String) -> void:
 	print("Phase selected unit for charge: ", unit_id)
 	# UI already handled the selection
@@ -1870,6 +1887,18 @@ func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> 
 
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text(result_text)
+
+	# Send COMPLETE_UNIT_CHARGE only after charge_resolved confirms the result.
+	# This prevents state corruption that occurred when both APPLY_CHARGE_MOVE and
+	# COMPLETE_UNIT_CHARGE were fired simultaneously without waiting for confirmation.
+	if _pending_complete_unit_id != "" and _pending_complete_unit_id == unit_id:
+		var complete_action = {
+			"type": "COMPLETE_UNIT_CHARGE",
+			"actor_unit_id": _pending_complete_unit_id
+		}
+		print("Requesting complete unit charge (after charge_resolved): ", complete_action)
+		charge_action_requested.emit(complete_action)
+		_pending_complete_unit_id = ""
 
 	# Reset UI state
 	_reset_unit_selection()
