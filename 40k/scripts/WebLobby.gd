@@ -353,7 +353,12 @@ func _on_back_pressed() -> void:
 	# Disconnect if connected
 	relay.disconnect_from_server()
 	back_pressed.emit()
-	get_tree().change_scene_to_file("res://scenes/MultiplayerLobby.tscn")
+	# On web platform, go directly to MainMenu since MultiplayerLobby
+	# would just auto-redirect back to WebLobby (no LAN options on web)
+	if OS.has_feature("web"):
+		get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+	else:
+		get_tree().change_scene_to_file("res://scenes/MultiplayerLobby.tscn")
 
 func _on_code_input_changed(new_text: String) -> void:
 	# Auto-uppercase and limit to 6 characters
