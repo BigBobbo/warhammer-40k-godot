@@ -5,9 +5,17 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal army_loaded(army_data: Dictionary)
 signal army_load_failed(error: String)
+signal cloud_armies_loaded(armies: Array)
+signal cloud_army_fetched(army_name: String, army_data: Dictionary)
+signal cloud_army_fetch_failed(army_name: String, error: String)
 
 var current_army_data: Dictionary = {}
 var available_armies: Array = []
+var cloud_army_names: Array = []  # Names of armies available in cloud storage
+var cloud_army_cache: Dictionary = {}  # Cache of downloaded cloud army data: army_name -> army_data
+var _cloud_armies_connected: bool = false  # Whether CloudStorage signals are connected
+var _pending_cloud_fetch: String = ""  # Army name currently being fetched
+var _pending_cloud_player: int = 1  # Player for pending cloud fetch
 
 func _ready() -> void:
 	scan_available_armies()
@@ -250,6 +258,211 @@ func get_available_armies() -> Array:
 
 func get_current_army_data() -> Dictionary:
 	return current_army_data
+
+# ============================================================================
+# Cloud Army Support
+# ============================================================================
+
+func is_cloud_army(army_name: String) -> bool:
+	return army_name in cloud_army_names and army_name not in available_armies
+
+func get_all_armies_with_source() -> Array:
+	## Returns array of { "id": name, "source": "local" or "cloud" } for all available armies
+	var result: Array = []
+	for name in available_armies:
+		result.append({"id": name, "source": "local"})
+	for name in cloud_army_names:
+		if name not in available_armies:
+			result.append({"id": name, "source": "cloud"})
+	return result
+
+func load_cloud_armies() -> void:
+	## Fetch available cloud armies from the server via CloudStorage.
+	## Results arrive asynchronously via the cloud_armies_loaded signal.
+	if not CloudStorage:
+		print("ArmyListManager: CloudStorage not available, skipping cloud army fetch")
+		return
+
+	if not _cloud_armies_connected:
+		CloudStorage.armies_list_received.connect(_on_cloud_armies_list_received)
+		CloudStorage.army_downloaded.connect(_on_cloud_army_downloaded)
+		CloudStorage.request_failed.connect(_on_cloud_request_failed)
+		_cloud_armies_connected = true
+
+	print("ArmyListManager: Requesting cloud army list from server")
+	CloudStorage.list_armies()
+
+func fetch_cloud_army(army_name: String, player: int = 1) -> void:
+	## Download a specific cloud army. Result arrives via cloud_army_fetched signal.
+	## If the army is already cached, emits immediately.
+	if army_name in cloud_army_cache:
+		print("ArmyListManager: Cloud army '%s' found in cache" % army_name)
+		var army_data = _process_army_data(cloud_army_cache[army_name].duplicate(true), player)
+		cloud_army_fetched.emit(army_name, army_data)
+		return
+
+	if not CloudStorage:
+		print("ArmyListManager: CloudStorage not available, cannot fetch cloud army")
+		cloud_army_fetch_failed.emit(army_name, "CloudStorage not available")
+		return
+
+	if not _cloud_armies_connected:
+		CloudStorage.armies_list_received.connect(_on_cloud_armies_list_received)
+		CloudStorage.army_downloaded.connect(_on_cloud_army_downloaded)
+		CloudStorage.request_failed.connect(_on_cloud_request_failed)
+		_cloud_armies_connected = true
+
+	_pending_cloud_fetch = army_name
+	_pending_cloud_player = player
+	print("ArmyListManager: Fetching cloud army '%s' for player %d" % [army_name, player])
+	CloudStorage.get_army(army_name)
+
+func load_army_for_game(army_name: String, player: int) -> Dictionary:
+	## Load army from local file or cloud cache. Returns empty dict if not found locally
+	## and not cached. For cloud armies not yet cached, use fetch_cloud_army() instead.
+	# Try local first
+	var local_result = load_army_list(army_name, player)
+	if not local_result.is_empty():
+		return local_result
+
+	# Try cloud cache
+	if army_name in cloud_army_cache:
+		print("ArmyListManager: Loading cloud army '%s' from cache for player %d" % [army_name, player])
+		var army_data = cloud_army_cache[army_name].duplicate(true)
+		return _process_army_data(army_data, player)
+
+	print("ArmyListManager: Army '%s' not found locally or in cloud cache" % army_name)
+	return {}
+
+func _on_cloud_armies_list_received(armies: Array) -> void:
+	cloud_army_names.clear()
+	for army_entry in armies:
+		var name = ""
+		if army_entry is Dictionary:
+			name = army_entry.get("army_name", "")
+		elif army_entry is String:
+			name = army_entry
+		if not name.is_empty():
+			cloud_army_names.append(name)
+
+	print("ArmyListManager: Received %d cloud armies: %s" % [cloud_army_names.size(), cloud_army_names])
+	cloud_armies_loaded.emit(cloud_army_names)
+
+func _on_cloud_army_downloaded(army_name: String, army_data: Dictionary) -> void:
+	print("ArmyListManager: Cloud army downloaded: %s" % army_name)
+	# Cache the raw army data
+	cloud_army_cache[army_name] = army_data
+
+	# If this was a pending fetch, process and emit
+	if army_name == _pending_cloud_fetch:
+		var processed = _process_army_data(army_data.duplicate(true), _pending_cloud_player)
+		_pending_cloud_fetch = ""
+		cloud_army_fetched.emit(army_name, processed)
+
+func _on_cloud_request_failed(operation: String, error: String) -> void:
+	if operation == "list_armies":
+		print("ArmyListManager: Failed to list cloud armies: %s" % error)
+		cloud_armies_loaded.emit([])
+	elif operation == "get_army" and not _pending_cloud_fetch.is_empty():
+		var army_name = _pending_cloud_fetch
+		_pending_cloud_fetch = ""
+		print("ArmyListManager: Failed to fetch cloud army '%s': %s" % [army_name, error])
+		cloud_army_fetch_failed.emit(army_name, error)
+
+func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
+	## Process raw army JSON data the same way load_army_list does (set owner, status, flags, etc.)
+	if not army_data.has("units"):
+		return army_data
+
+	for unit_id in army_data.units:
+		var unit = army_data.units[unit_id]
+		unit["owner"] = player
+
+		# Ensure status is properly formatted
+		if unit.has("status") and unit.status is String:
+			match unit.status:
+				"UNDEPLOYED":
+					unit["status"] = GameStateData.UnitStatus.UNDEPLOYED
+				"DEPLOYED":
+					unit["status"] = GameStateData.UnitStatus.DEPLOYED
+				"MOVED":
+					unit["status"] = GameStateData.UnitStatus.MOVED
+				"SHOT":
+					unit["status"] = GameStateData.UnitStatus.SHOT
+				"CHARGED":
+					unit["status"] = GameStateData.UnitStatus.CHARGED
+				"FOUGHT":
+					unit["status"] = GameStateData.UnitStatus.FOUGHT
+				"IN_RESERVES":
+					unit["status"] = GameStateData.UnitStatus.IN_RESERVES
+				_:
+					unit["status"] = GameStateData.UnitStatus.UNDEPLOYED
+		else:
+			unit["status"] = GameStateData.UnitStatus.UNDEPLOYED
+
+		# Ensure flags exist
+		if not unit.has("flags"):
+			unit["flags"] = {}
+
+		# Add transport-related fields
+		unit["embarked_in"] = null
+		unit["disembarked_this_phase"] = false
+
+		# Add character attachment fields
+		unit["attached_to"] = null
+		unit["attachment_data"] = {"attached_characters": []}
+
+		# Check if unit has TRANSPORT keyword and add transport_data
+		if unit.has("meta") and unit.meta.has("keywords"):
+			if "TRANSPORT" in unit.meta.keywords:
+				var capacity = 0
+				var capacity_keywords = []
+				var firing_deck = 0
+
+				if unit.meta.has("abilities"):
+					for ability in unit.meta.abilities:
+						if ability.has("name") and ability.name == "TRANSPORT":
+							var desc = ability.get("description", "")
+							var regex = RegEx.new()
+							regex.compile("transport capacity of (\\d+)")
+							var match = regex.search(desc)
+							if match:
+								capacity = int(match.get_string(1))
+
+							var keyword_regex = RegEx.new()
+							keyword_regex.compile("capacity of \\d+ ([A-Z ]+) models")
+							var keyword_match = keyword_regex.search(desc)
+							if keyword_match:
+								var keywords_str = keyword_match.get_string(1).strip_edges()
+								var raw_keywords = keywords_str.split(" ")
+								for keyword in raw_keywords:
+									keyword = keyword.strip_edges()
+									if keyword.length() > 0:
+										capacity_keywords.append(keyword)
+
+								DebugLogger.debug("Parsed transport capacity keywords", {
+									"unit_id": unit_id,
+									"description": desc,
+									"keywords": capacity_keywords
+								})
+						elif ability.has("name") and ability.name == "FIRING DECK":
+							var desc = ability.get("description", "")
+							var regex = RegEx.new()
+							regex.compile("Firing Deck (\\d+)")
+							var match = regex.search(desc)
+							if match:
+								firing_deck = int(match.get_string(1))
+
+				unit["transport_data"] = {
+					"capacity": capacity,
+					"capacity_keywords": capacity_keywords,
+					"embarked_units": [],
+					"firing_deck": firing_deck
+				}
+
+		print("Processed unit: ", unit_id, " for player ", player)
+
+	return army_data
 
 # Validate army structure
 func validate_army_structure(army_data: Dictionary) -> Dictionary:

@@ -28,6 +28,10 @@ var army_options: Array = []
 var selected_player1_army: String = "A_C_test"
 var selected_player2_army: String = "ORK_test"
 
+# Cloud army loading state
+var _cloud_fetch_count: int = 0
+var _cloud_start_pending: bool = false
+
 func _ready() -> void:
 	# Check if multiplayer is enabled
 	if not FeatureFlags.is_multiplayer_available():
@@ -66,6 +70,9 @@ func _ready() -> void:
 
 	# Load available armies from ArmyListManager
 	_setup_army_selection()
+
+	# Fetch cloud armies asynchronously
+	_load_cloud_armies()
 
 	print("MultiplayerLobby: Ready")
 
@@ -128,6 +135,27 @@ func _on_start_game_button_pressed() -> void:
 		_show_error("Waiting for player 2 to connect")
 		return
 
+	# Check if cloud armies need fetching before starting
+	var p1_is_cloud = _is_cloud_selection(selected_player1_army)
+	var p2_is_cloud = _is_cloud_selection(selected_player2_army)
+
+	if p1_is_cloud or p2_is_cloud:
+		start_game_button.disabled = true
+		status_label.text = "Status: Downloading cloud armies..."
+		_cloud_fetch_count = 0
+		_cloud_start_pending = true
+
+		if p1_is_cloud:
+			_cloud_fetch_count += 1
+			ArmyListManager.fetch_cloud_army(selected_player1_army, 1)
+		if p2_is_cloud:
+			_cloud_fetch_count += 1
+			ArmyListManager.fetch_cloud_army(selected_player2_army, 2)
+		return
+
+	_do_start_game()
+
+func _do_start_game() -> void:
 	# Load armies before starting game
 	print("MultiplayerLobby: Loading armies...")
 
@@ -138,9 +166,9 @@ func _on_start_game_button_pressed() -> void:
 	# Clear existing units
 	GameState.state.units.clear()
 
-	# Load Player 1 army (host)
+	# Load Player 1 army (host) - supports both local and cached cloud armies
 	print("MultiplayerLobby: Loading ", selected_player1_army, " for Player 1")
-	var player1_army = ArmyListManager.load_army_list(selected_player1_army, 1)
+	var player1_army = ArmyListManager.load_army_for_game(selected_player1_army, 1)
 	print("MultiplayerLobby: Player 1 army loaded, has ", player1_army.get("units", {}).size(), " units")
 	if player1_army.is_empty():
 		_show_error("Failed to load Player 1 army: " + selected_player1_army)
@@ -150,7 +178,7 @@ func _on_start_game_button_pressed() -> void:
 
 	# Load Player 2 army (client)
 	print("MultiplayerLobby: Loading ", selected_player2_army, " for Player 2")
-	var player2_army = ArmyListManager.load_army_list(selected_player2_army, 2)
+	var player2_army = ArmyListManager.load_army_for_game(selected_player2_army, 2)
 	print("MultiplayerLobby: Player 2 army loaded, has ", player2_army.get("units", {}).size(), " units")
 	if player2_army.is_empty():
 		_show_error("Failed to load Player 2 army: " + selected_player2_army)
@@ -406,6 +434,70 @@ func _request_army_change(player: int, army_id: String) -> void:
 	# Broadcast to all peers (including requester for confirmation)
 	_sync_army_selection.rpc(player, army_id)
 	print("MultiplayerLobby: Army change applied and synced")
+
+# ============================================================================
+# Cloud Army Integration
+# ============================================================================
+
+func _load_cloud_armies() -> void:
+	if not ArmyListManager:
+		return
+	ArmyListManager.cloud_armies_loaded.connect(_on_cloud_armies_loaded)
+	ArmyListManager.cloud_army_fetched.connect(_on_cloud_army_fetched)
+	ArmyListManager.cloud_army_fetch_failed.connect(_on_cloud_army_fetch_failed)
+	ArmyListManager.load_cloud_armies()
+
+func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
+	if cloud_armies.is_empty():
+		print("MultiplayerLobby: No cloud armies available")
+		return
+
+	# Save current selections
+	var p1_selected_id = selected_player1_army
+	var p2_selected_id = selected_player2_army
+
+	# Add cloud armies that aren't already available locally
+	var local_ids = []
+	for option in army_options:
+		if option.get("source", "local") == "local":
+			local_ids.append(option.id)
+
+	var added_count = 0
+	for cloud_name in cloud_armies:
+		if cloud_name not in local_ids:
+			var display_name = _format_army_name(cloud_name) + " (Cloud)"
+			army_options.append({"id": cloud_name, "name": display_name, "source": "cloud"})
+			player1_dropdown.add_item(display_name)
+			player2_dropdown.add_item(display_name)
+			added_count += 1
+
+	if added_count > 0:
+		print("MultiplayerLobby: Added %d cloud armies to dropdowns" % added_count)
+
+		# Restore selections
+		for i in range(army_options.size()):
+			if army_options[i].id == p1_selected_id:
+				player1_dropdown.selected = i
+			if army_options[i].id == p2_selected_id:
+				player2_dropdown.selected = i
+
+func _is_cloud_selection(army_id: String) -> bool:
+	return ArmyListManager and ArmyListManager.is_cloud_army(army_id)
+
+func _on_cloud_army_fetched(_army_name: String, _army_data: Dictionary) -> void:
+	_cloud_fetch_count -= 1
+	print("MultiplayerLobby: Cloud army fetched, remaining: ", _cloud_fetch_count)
+
+	if _cloud_fetch_count <= 0 and _cloud_start_pending:
+		_cloud_start_pending = false
+		_do_start_game()
+
+func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
+	print("MultiplayerLobby: Failed to download cloud army '%s': %s" % [army_name, error])
+	_cloud_fetch_count = 0
+	_cloud_start_pending = false
+	start_game_button.disabled = false
+	_show_error("Failed to download cloud army: " + army_name)
 
 # ============================================================================
 # ARMY SELECTION

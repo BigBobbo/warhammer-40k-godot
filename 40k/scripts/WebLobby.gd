@@ -25,6 +25,10 @@ var army_options: Array = []
 var selected_player1_army: String = "A_C_test"
 var selected_player2_army: String = "ORK_test"
 
+# Cloud army loading state
+var _cloud_fetch_count: int = 0
+var _cloud_start_pending: bool = false
+
 # UI References
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 @onready var code_input: LineEdit = $VBoxContainer/JoinSection/CodeInput
@@ -71,6 +75,9 @@ func _ready() -> void:
 
 	# Initialize army selection
 	_setup_army_selection()
+
+	# Fetch cloud armies asynchronously
+	_load_cloud_armies()
 
 	# Initialize UI
 	_update_ui_state(LobbyState.IDLE)
@@ -145,6 +152,70 @@ func _on_player2_army_changed(index: int) -> void:
 		return
 	selected_player2_army = army_options[index].id
 	print("WebLobby: Player 2 army changed to ", selected_player2_army)
+
+# ============================================================================
+# Cloud Army Integration
+# ============================================================================
+
+func _load_cloud_armies() -> void:
+	if not ArmyListManager:
+		return
+	ArmyListManager.cloud_armies_loaded.connect(_on_cloud_armies_loaded)
+	ArmyListManager.cloud_army_fetched.connect(_on_cloud_army_fetched)
+	ArmyListManager.cloud_army_fetch_failed.connect(_on_cloud_army_fetch_failed)
+	ArmyListManager.load_cloud_armies()
+
+func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
+	if cloud_armies.is_empty():
+		print("WebLobby: No cloud armies available")
+		return
+
+	# Save current selections
+	var p1_selected_id = selected_player1_army
+	var p2_selected_id = selected_player2_army
+
+	# Add cloud armies that aren't already available locally
+	var local_ids = []
+	for option in army_options:
+		if option.get("source", "local") == "local":
+			local_ids.append(option.id)
+
+	var added_count = 0
+	for cloud_name in cloud_armies:
+		if cloud_name not in local_ids:
+			var display_name = _format_army_name(cloud_name) + " (Cloud)"
+			army_options.append({"id": cloud_name, "name": display_name, "source": "cloud"})
+			player1_dropdown.add_item(display_name)
+			player2_dropdown.add_item(display_name)
+			added_count += 1
+
+	if added_count > 0:
+		print("WebLobby: Added %d cloud armies to dropdowns" % added_count)
+
+		# Restore selections
+		for i in range(army_options.size()):
+			if army_options[i].id == p1_selected_id:
+				player1_dropdown.selected = i
+			if army_options[i].id == p2_selected_id:
+				player2_dropdown.selected = i
+
+func _is_cloud_selection(army_id: String) -> bool:
+	return ArmyListManager and ArmyListManager.is_cloud_army(army_id)
+
+func _on_cloud_army_fetched(_army_name: String, _army_data: Dictionary) -> void:
+	_cloud_fetch_count -= 1
+	print("WebLobby: Cloud army fetched, remaining: ", _cloud_fetch_count)
+
+	if _cloud_fetch_count <= 0 and _cloud_start_pending:
+		_cloud_start_pending = false
+		_do_start_game()
+
+func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
+	print("WebLobby: Failed to download cloud army '%s': %s" % [army_name, error])
+	_cloud_fetch_count = 0
+	_cloud_start_pending = false
+	start_game_button.disabled = false
+	_set_status("Failed to download army: " + army_name)
 
 # ============================================================================
 # CONNECTION FLOW
@@ -239,7 +310,24 @@ func _on_start_game_pressed() -> void:
 		"player2_army": selected_player2_army
 	})
 
-	# Start the game after a short delay
+	# Check if cloud armies need fetching before starting
+	var p1_is_cloud = _is_cloud_selection(selected_player1_army)
+	var p2_is_cloud = _is_cloud_selection(selected_player2_army)
+
+	if p1_is_cloud or p2_is_cloud:
+		_set_status("Downloading cloud armies...")
+		_cloud_fetch_count = 0
+		_cloud_start_pending = true
+
+		if p1_is_cloud:
+			_cloud_fetch_count += 1
+			ArmyListManager.fetch_cloud_army(selected_player1_army, 1)
+		if p2_is_cloud:
+			_cloud_fetch_count += 1
+			ArmyListManager.fetch_cloud_army(selected_player2_army, 2)
+		return
+
+	# No cloud armies - start after short delay
 	await get_tree().create_timer(1.0).timeout
 	_start_game()
 
@@ -262,7 +350,28 @@ func _on_message_received(data: Dictionary) -> void:
 			if data.has("player2_army"):
 				selected_player2_army = data["player2_army"]
 			print("WebLobby: Host started the game with armies P1: ", selected_player1_army, ", P2: ", selected_player2_army)
-			_start_game()
+
+			# Check if guest needs to fetch cloud armies
+			var p1_is_cloud = _is_cloud_selection(selected_player1_army)
+			var p2_is_cloud = _is_cloud_selection(selected_player2_army)
+
+			if p1_is_cloud or p2_is_cloud:
+				_set_status("Downloading cloud armies...")
+				_cloud_fetch_count = 0
+				_cloud_start_pending = true
+				if p1_is_cloud:
+					_cloud_fetch_count += 1
+					ArmyListManager.fetch_cloud_army(selected_player1_army, 1)
+				if p2_is_cloud:
+					_cloud_fetch_count += 1
+					ArmyListManager.fetch_cloud_army(selected_player2_army, 2)
+			else:
+				_start_game()
+
+func _do_start_game() -> void:
+	## Called after cloud armies are fetched (or immediately if no cloud armies)
+	await get_tree().create_timer(1.0).timeout
+	_start_game()
 
 func _start_game() -> void:
 	print("WebLobby: Starting game...")
@@ -278,8 +387,8 @@ func _start_game() -> void:
 	# Clear existing units (removes defaults loaded by GameState._ready())
 	GameState.state.units.clear()
 
-	# Load Player 1 army
-	var player1_army = ArmyListManager.load_army_list(selected_player1_army, 1)
+	# Load Player 1 army (supports both local and cached cloud armies)
+	var player1_army = ArmyListManager.load_army_for_game(selected_player1_army, 1)
 	if not player1_army.is_empty():
 		ArmyListManager.apply_army_to_game_state(player1_army, 1)
 		print("WebLobby: Loaded ", selected_player1_army, " for Player 1 (", player1_army.get("units", {}).size(), " units)")
@@ -287,7 +396,7 @@ func _start_game() -> void:
 		print("WebLobby: Failed to load ", selected_player1_army, " for Player 1, using defaults")
 
 	# Load Player 2 army
-	var player2_army = ArmyListManager.load_army_list(selected_player2_army, 2)
+	var player2_army = ArmyListManager.load_army_for_game(selected_player2_army, 2)
 	if not player2_army.is_empty():
 		ArmyListManager.apply_army_to_game_state(player2_army, 2)
 		print("WebLobby: Loaded ", selected_player2_army, " for Player 2 (", player2_army.get("units", {}).size(), " units)")
