@@ -43,12 +43,18 @@ var army_options = []
 
 var save_load_dialog: AcceptDialog
 
+# Cloud army loading state
+var _waiting_for_cloud_armies: bool = false
+var _cloud_army_fetch_pending: bool = false
+var _pending_game_config: Dictionary = {}
+var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
+
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
 	_setup_dropdowns()
 	_connect_signals()
 	_setup_save_load_dialog()
-	
+
 	# Set defaults
 	terrain_dropdown.selected = 0
 	mission_dropdown.selected = 0
@@ -56,6 +62,9 @@ func _ready() -> void:
 
 	# Set default army selections based on available armies
 	_set_default_army_selections()
+
+	# Fetch cloud armies asynchronously
+	_load_cloud_armies()
 
 	print("MainMenu: Ready with default selections")
 
@@ -158,6 +167,65 @@ func _set_default_army_selections() -> void:
 
 	print("MainMenu: Default armies set - Player 1: ", army_options[player1_index].name, ", Player 2: ", army_options[player2_index].name)
 
+# ============================================================================
+# Cloud Army Integration
+# ============================================================================
+
+func _load_cloud_armies() -> void:
+	if not ArmyListManager:
+		return
+	ArmyListManager.cloud_armies_loaded.connect(_on_cloud_armies_loaded)
+	ArmyListManager.cloud_army_fetched.connect(_on_cloud_army_fetched)
+	ArmyListManager.cloud_army_fetch_failed.connect(_on_cloud_army_fetch_failed)
+	ArmyListManager.load_cloud_armies()
+
+func _on_cloud_armies_loaded(cloud_armies: Array) -> void:
+	if cloud_armies.is_empty():
+		print("MainMenu: No cloud armies available")
+		return
+
+	# Save current selections before modifying dropdowns
+	var p1_selected_id = ""
+	var p2_selected_id = ""
+	if player1_dropdown.selected >= 0 and player1_dropdown.selected < army_options.size():
+		p1_selected_id = army_options[player1_dropdown.selected].id
+	if player2_dropdown.selected >= 0 and player2_dropdown.selected < army_options.size():
+		p2_selected_id = army_options[player2_dropdown.selected].id
+
+	# Add cloud armies that aren't already available locally
+	var local_ids = available_armies_ids()
+	var added_count = 0
+	for cloud_name in cloud_armies:
+		if cloud_name not in local_ids:
+			var display_name = _format_army_name(cloud_name) + " (Cloud)"
+			army_options.append({"id": cloud_name, "name": display_name, "source": "cloud"})
+			player1_dropdown.add_item(display_name)
+			player2_dropdown.add_item(display_name)
+			added_count += 1
+
+	if added_count > 0:
+		print("MainMenu: Added %d cloud armies to dropdowns" % added_count)
+
+		# Restore selections
+		_restore_dropdown_selection(player1_dropdown, p1_selected_id)
+		_restore_dropdown_selection(player2_dropdown, p2_selected_id)
+
+func available_armies_ids() -> Array:
+	var ids = []
+	for option in army_options:
+		if option.get("source", "local") == "local":
+			ids.append(option.id)
+	return ids
+
+func _restore_dropdown_selection(dropdown: OptionButton, army_id: String) -> void:
+	for i in range(army_options.size()):
+		if army_options[i].id == army_id:
+			dropdown.selected = i
+			return
+
+func _is_cloud_selection(army_id: String) -> bool:
+	return ArmyListManager and ArmyListManager.is_cloud_army(army_id)
+
 func _connect_signals() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
@@ -182,12 +250,12 @@ func _setup_save_load_dialog() -> void:
 
 func _on_start_button_pressed() -> void:
 	print("MainMenu: Start button pressed")
-	
+
 	# Validate selections (ensure different armies if desired)
 	if player1_dropdown.selected == player2_dropdown.selected:
 		print("MainMenu: Warning - Both players have the same army selected")
 		# For now, allow it but warn
-	
+
 	# Store configuration in GameState
 	var p1_type = "AI" if player1_type_dropdown.selected == 1 else "HUMAN"
 	var p2_type = "AI" if player2_type_dropdown.selected == 1 else "HUMAN"
@@ -200,15 +268,60 @@ func _on_start_button_pressed() -> void:
 		"player1_type": p1_type,
 		"player2_type": p2_type
 	}
-	
+
 	print("MainMenu: Starting game with config: ", config)
-	
-	# Initialize game with configuration
+
+	# Check if any selected armies are cloud armies that need fetching
+	var p1_is_cloud = _is_cloud_selection(config.player1_army)
+	var p2_is_cloud = _is_cloud_selection(config.player2_army)
+
+	if p1_is_cloud or p2_is_cloud:
+		# Need to download cloud armies before starting
+		start_button.disabled = true
+		start_button.text = "Downloading armies..."
+		_pending_game_config = config
+		_cloud_fetch_count = 0
+
+		if p1_is_cloud:
+			_cloud_fetch_count += 1
+			print("MainMenu: Fetching cloud army for Player 1: ", config.player1_army)
+			ArmyListManager.fetch_cloud_army(config.player1_army, 1)
+
+		if p2_is_cloud:
+			_cloud_fetch_count += 1
+			print("MainMenu: Fetching cloud army for Player 2: ", config.player2_army)
+			ArmyListManager.fetch_cloud_army(config.player2_army, 2)
+		return
+
+	# No cloud armies - proceed immediately
 	_initialize_game_with_config(config)
-	
+
 	# Transition to main game scene
 	print("MainMenu: Transitioning to Main scene")
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _on_cloud_army_fetched(_army_name: String, _army_data: Dictionary) -> void:
+	_cloud_fetch_count -= 1
+	print("MainMenu: Cloud army fetched, remaining: ", _cloud_fetch_count)
+
+	if _cloud_fetch_count <= 0 and not _pending_game_config.is_empty():
+		# All cloud armies downloaded, proceed with game start
+		start_button.text = "Start Game"
+		start_button.disabled = false
+
+		var config = _pending_game_config
+		_pending_game_config = {}
+		_initialize_game_with_config(config)
+
+		print("MainMenu: Transitioning to Main scene")
+		get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
+	print("MainMenu: Failed to download cloud army '%s': %s" % [army_name, error])
+	_cloud_fetch_count = 0
+	_pending_game_config = {}
+	start_button.text = "Start Game"
+	start_button.disabled = false
 
 func _initialize_game_with_config(config: Dictionary) -> void:
 	print("MainMenu: Initializing game state with configuration")
@@ -234,19 +347,19 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	
 	# Clear existing units before loading new armies
 	GameState.state.units.clear()
-	
-	# Load Player 1 army
+
+	# Load Player 1 army (supports both local and cached cloud armies)
 	if ArmyListManager:
-		var player1_army = ArmyListManager.load_army_list(config.player1_army, 1)
+		var player1_army = ArmyListManager.load_army_for_game(config.player1_army, 1)
 		if not player1_army.is_empty():
 			ArmyListManager.apply_army_to_game_state(player1_army, 1)
 			print("MainMenu: Loaded ", config.player1_army, " for Player 1")
 		else:
 			print("MainMenu: Failed to load army for Player 1, using placeholder")
 			GameState._initialize_placeholder_armies_player(1)
-	
+
 		# Load Player 2 army
-		var player2_army = ArmyListManager.load_army_list(config.player2_army, 2)
+		var player2_army = ArmyListManager.load_army_for_game(config.player2_army, 2)
 		if not player2_army.is_empty():
 			ArmyListManager.apply_army_to_game_state(player2_army, 2)
 			print("MainMenu: Loaded ", config.player2_army, " for Player 2")
