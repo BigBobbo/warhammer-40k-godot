@@ -523,7 +523,9 @@ func process_end_fight(action: Dictionary) -> Dictionary:
 # ============================================================================
 
 func process_use_stratagem(action: Dictionary) -> Dictionary:
-	return {"success": true, "diffs": []}
+	# Route stratagem actions to the current phase for phase-specific handling
+	print("GameManager: Processing USE_STRATAGEM action - stratagem: %s" % action.get("stratagem_id", "unknown"))
+	return _delegate_to_current_phase(action)
 
 func process_end_command(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_COMMAND action")

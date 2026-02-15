@@ -161,21 +161,24 @@ func _setup_right_panel() -> void:
 			obj_label.add_theme_color_override("font_color", text_color)
 			objectives_section.add_child(obj_label)
 	
+	# Battle-shock tests and Stratagems section
+	_setup_battle_shock_section(command_panel)
+
 	# Show VP status
 	command_panel.add_child(HSeparator.new())
-	
+
 	var vp_section = VBoxContainer.new()
 	vp_section.name = "VPSection"
 	command_panel.add_child(vp_section)
-	
+
 	var vp_title = Label.new()
 	vp_title.text = "Victory Points"
 	vp_title.add_theme_font_size_override("font_size", 14)
 	vp_section.add_child(vp_title)
-	
+
 	if MissionManager:
 		var vp_summary = MissionManager.get_vp_summary()
-		
+
 		var p1_vp_label = Label.new()
 		p1_vp_label.text = "Player 1: %d VP (Primary: %d)" % [
 			vp_summary.player1.total,
@@ -183,7 +186,7 @@ func _setup_right_panel() -> void:
 		]
 		p1_vp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
 		vp_section.add_child(p1_vp_label)
-		
+
 		var p2_vp_label = Label.new()
 		p2_vp_label.text = "Player 2: %d VP (Primary: %d)" % [
 			vp_summary.player2.total,
@@ -191,6 +194,96 @@ func _setup_right_panel() -> void:
 		]
 		p2_vp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		vp_section.add_child(p2_vp_label)
+
+func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
+	# Show battle-shock tests and stratagem options
+	if not current_phase:
+		return
+
+	# Get available actions from the phase to see if there are battle-shock tests
+	var available_actions = []
+	if current_phase.has_method("get_available_actions"):
+		available_actions = current_phase.get_available_actions()
+
+	# Filter to battle-shock and stratagem actions
+	var shock_tests = []
+	var stratagem_actions = []
+	for action in available_actions:
+		if action.get("type", "") == "BATTLE_SHOCK_TEST":
+			shock_tests.append(action)
+		elif action.get("type", "") == "USE_STRATAGEM":
+			stratagem_actions.append(action)
+
+	if shock_tests.size() == 0:
+		return
+
+	command_panel.add_child(HSeparator.new())
+
+	var shock_section = VBoxContainer.new()
+	shock_section.name = "BattleShockSection"
+	command_panel.add_child(shock_section)
+
+	var shock_title = Label.new()
+	shock_title.text = "Battle-shock Tests"
+	shock_title.add_theme_font_size_override("font_size", 14)
+	shock_title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	shock_section.add_child(shock_title)
+
+	var shock_note = Label.new()
+	shock_note.text = "%d unit(s) below half-strength" % shock_tests.size()
+	shock_note.add_theme_font_size_override("font_size", 11)
+	shock_note.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
+	shock_section.add_child(shock_note)
+
+	for test_action in shock_tests:
+		var unit_id = test_action.get("unit_id", "")
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var ld = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+
+		# Unit container
+		var unit_box = VBoxContainer.new()
+		unit_box.add_theme_constant_override("separation", 2)
+		shock_section.add_child(unit_box)
+
+		# Roll test button
+		var test_btn = Button.new()
+		test_btn.text = "Roll Battle-shock: %s (Ld %d)" % [unit_name, ld]
+		test_btn.custom_minimum_size = Vector2(230, 28)
+		test_btn.pressed.connect(_on_battle_shock_test_pressed.bind(unit_id))
+		unit_box.add_child(test_btn)
+
+		# Check for Insane Bravery stratagem availability
+		var has_insane_bravery = false
+		for strat_action in stratagem_actions:
+			if strat_action.get("stratagem_id", "") == "insane_bravery" and strat_action.get("target_unit_id", "") == unit_id:
+				has_insane_bravery = true
+				break
+
+		if has_insane_bravery:
+			var strat_btn = Button.new()
+			strat_btn.text = "INSANE BRAVERY (1 CP) - Auto-pass"
+			strat_btn.custom_minimum_size = Vector2(230, 28)
+			strat_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+			strat_btn.pressed.connect(_on_insane_bravery_pressed.bind(unit_id))
+			unit_box.add_child(strat_btn)
+
+		unit_box.add_child(HSeparator.new())
+
+func _on_battle_shock_test_pressed(unit_id: String) -> void:
+	print("CommandController: Battle-shock test requested for %s" % unit_id)
+	emit_signal("command_action_requested", {
+		"type": "BATTLE_SHOCK_TEST",
+		"unit_id": unit_id
+	})
+
+func _on_insane_bravery_pressed(unit_id: String) -> void:
+	print("CommandController: Insane Bravery stratagem requested for %s" % unit_id)
+	emit_signal("command_action_requested", {
+		"type": "USE_STRATAGEM",
+		"stratagem_id": "insane_bravery",
+		"target_unit_id": unit_id
+	})
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase

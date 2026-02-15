@@ -10,12 +10,14 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # 2. Clear all battle_shocked flags at the start of the Command Phase
 # 3. Identify units Below Half-strength
 # 4. Each Below Half-strength unit takes a Battle-shock test (2D6 vs Leadership)
+#    - INSANE BRAVERY stratagem can auto-pass a test (once per battle, 1 CP)
 # 5. If the roll is below the unit's Leadership, the unit becomes Battle-shocked
 # 6. Score primary objectives and end the phase
 
 # Track which units still need battle-shock tests this phase
 var _units_needing_test: Array = []
 var _units_tested: Array = []
+var _units_auto_passed: Array = []  # Units that auto-passed via Insane Bravery
 var _rng: RandomNumberGenerator
 
 func _init():
@@ -83,6 +85,7 @@ func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")
 	_units_needing_test.clear()
 	_units_tested.clear()
+	_units_auto_passed.clear()
 
 func _clear_battle_shocked_flags() -> void:
 	# Per 10th edition: Clear battle-shocked status at the start of each Command Phase
@@ -138,6 +141,7 @@ func _identify_units_needing_tests() -> void:
 
 func get_available_actions() -> Array:
 	var actions = []
+	var current_player = get_current_player()
 
 	# Offer battle-shock tests for units that haven't tested yet
 	for unit_id in _units_needing_test:
@@ -152,14 +156,27 @@ func get_available_actions() -> Array:
 			"type": "BATTLE_SHOCK_TEST",
 			"unit_id": unit_id,
 			"description": "Battle-shock test for %s (Ld %d)" % [unit_name, ld],
-			"player": get_current_player()
+			"player": current_player
 		})
+
+		# Check if Insane Bravery is available for this unit
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var can_use = strat_manager.can_use_stratagem(current_player, "insane_bravery", unit_id)
+			if can_use.can_use:
+				actions.append({
+					"type": "USE_STRATAGEM",
+					"stratagem_id": "insane_bravery",
+					"target_unit_id": unit_id,
+					"description": "INSANE BRAVERY on %s (1 CP - auto-pass battle-shock)" % unit_name,
+					"player": current_player
+				})
 
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
 		"description": "End Command Phase",
-		"player": get_current_player()
+		"player": current_player
 	})
 
 	return actions
@@ -180,6 +197,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			pass
 		"BATTLE_SHOCK_TEST":
 			errors = _validate_battle_shock_test(action)
+		"USE_STRATAGEM":
+			errors = _validate_use_stratagem(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true, "errors": []}
@@ -225,6 +244,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_end_command()
 		"BATTLE_SHOCK_TEST":
 			return _handle_battle_shock_test(action)
+		"USE_STRATAGEM":
+			return _handle_use_stratagem(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -302,6 +323,104 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	GameState.add_action_to_phase_log(log_entry)
 
 	return result
+
+# ============================================================================
+# STRATAGEM HANDLING
+# ============================================================================
+
+func _validate_use_stratagem(action: Dictionary) -> Array:
+	var errors = []
+	var stratagem_id = action.get("stratagem_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+
+	if stratagem_id == "":
+		errors.append("Missing stratagem_id")
+		return errors
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		errors.append("StratagemManager not available")
+		return errors
+
+	var current_player = get_current_player()
+	var validation = strat_manager.can_use_stratagem(current_player, stratagem_id, target_unit_id)
+	if not validation.can_use:
+		errors.append(validation.reason)
+
+	# For Insane Bravery: target must need a battle-shock test and not have been tested yet
+	if stratagem_id == "insane_bravery":
+		if target_unit_id == "":
+			errors.append("Insane Bravery requires a target unit")
+		elif target_unit_id not in _units_needing_test:
+			errors.append("Unit %s does not need a battle-shock test" % target_unit_id)
+		elif target_unit_id in _units_tested:
+			errors.append("Unit %s has already taken a battle-shock test this phase" % target_unit_id)
+
+	return errors
+
+func _handle_use_stratagem(action: Dictionary) -> Dictionary:
+	var stratagem_id = action.get("stratagem_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return {"success": false, "error": "StratagemManager not available"}
+
+	# Use the stratagem (validates, deducts CP, records usage)
+	var result = strat_manager.use_stratagem(current_player, stratagem_id, target_unit_id)
+	if not result.success:
+		return result
+
+	# Apply stratagem-specific effects
+	match stratagem_id:
+		"insane_bravery":
+			return _apply_insane_bravery(target_unit_id, result)
+		_:
+			print("CommandPhase: Stratagem %s used but no phase-specific handler" % stratagem_id)
+			return result
+
+func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Dictionary:
+	"""Apply Insane Bravery: auto-pass the battle-shock test for the target unit."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Mark unit as tested (auto-passed)
+	_units_tested.append(unit_id)
+	_units_auto_passed.append(unit_id)
+
+	# Unit passes automatically - no dice rolled, no battle-shocked flag set
+	print("CommandPhase: %s AUTO-PASSED battle-shock test via INSANE BRAVERY!" % unit_name)
+
+	# Log to phase log
+	var log_entry = {
+		"type": "BATTLE_SHOCK_TEST",
+		"unit_id": unit_id,
+		"die1": 0,
+		"die2": 0,
+		"roll_total": 0,
+		"leadership": unit.get("meta", {}).get("stats", {}).get("leadership", 7),
+		"passed": true,
+		"auto_passed": true,
+		"stratagem": "insane_bravery",
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {
+		"success": true,
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"die1": 0,
+		"die2": 0,
+		"roll_total": 0,
+		"leadership": unit.get("meta", {}).get("stats", {}).get("leadership", 7),
+		"test_passed": true,
+		"battle_shocked": false,
+		"auto_passed": true,
+		"stratagem_used": "insane_bravery",
+		"message": "%s AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)" % unit_name
+	}
 
 func _handle_end_command() -> Dictionary:
 	var current_player = get_current_player()
