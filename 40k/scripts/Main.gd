@@ -204,6 +204,45 @@ func _initialize_ai_player() -> void:
 	print("Main: Configuring AI Player - P1=%s, P2=%s" % [p1_type, p2_type])
 	ai_player.configure({1: p1_type, 2: p2_type})
 
+	# Connect to AI deployment signal so we can create visual tokens
+	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):
+		ai_player.ai_unit_deployed.connect(_on_ai_unit_deployed)
+		print("Main: Connected to AIPlayer.ai_unit_deployed signal")
+
+func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
+	# Create visual tokens for an AI-deployed unit
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		push_error("Main: _on_ai_unit_deployed - unit not found: %s" % unit_id)
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var models = unit.get("models", [])
+	var tokens_created = 0
+
+	print("Main: Creating visuals for AI-deployed unit %s (%s) with %d models" % [unit_name, unit_id, models.size()])
+
+	for i in range(models.size()):
+		var model = models[i]
+		var pos = model.get("position")
+		if pos != null and model.get("alive", true):
+			var token = _create_token_visual(unit_id, model)
+			if token:
+				token_layer.add_child(token)
+				var final_pos: Vector2
+				if pos is Dictionary:
+					final_pos = Vector2(pos.x, pos.y)
+				else:
+					final_pos = pos
+				token.position = final_pos
+				tokens_created += 1
+
+	print("Main: Created %d token visuals for AI unit %s" % [tokens_created, unit_name])
+
+	# Refresh the unit list and deployment progress so UI stays up to date
+	refresh_unit_list()
+	_update_deployment_progress()
+
 func _setup_deployment_progress_indicator() -> void:
 	# Create a panel that sits just below HUD_Bottom (which has been moved to the top)
 	deployment_progress_container = PanelContainer.new()
@@ -2026,6 +2065,16 @@ func refresh_unit_list() -> void:
 			# Show only undeployed units during deployment in right panel
 			unit_list.visible = true
 
+			# Check if active player is AI — block human interaction
+			var ai_player_node = get_node_or_null("/root/AIPlayer")
+			if ai_player_node and ai_player_node.is_ai_player(active_player):
+				unit_list.add_item("AI Player %d deploying..." % active_player)
+				unit_list.set_item_disabled(0, true)
+				if reserves_button:
+					reserves_button.visible = false
+				print("Refreshing right panel - AI player %d is deploying" % active_player)
+				return
+
 			# In multiplayer, only show units when it's your turn
 			if is_multiplayer and not is_my_turn:
 				unit_list.add_item("Waiting for Player %d to deploy..." % active_player)
@@ -2207,6 +2256,12 @@ func update_ui() -> void:
 
 func _on_unit_selected(index: int) -> void:
 	if deployment_controller and deployment_controller.is_placing():
+		return
+
+	# Block selection during AI player's turn
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(GameState.get_active_player()):
+		print("Main: Blocking unit selection - AI player's turn")
 		return
 
 	# In multiplayer deployment, block selection if it's not your turn

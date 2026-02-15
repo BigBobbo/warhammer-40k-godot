@@ -1685,8 +1685,10 @@ func get_available_actions() -> Array:
 				"description": unit_name + " remains stationary"
 			})
 	
-	# Add active move actions
+	# Add active move actions (skip completed moves)
 	for unit_id in active_moves:
+		if active_moves[unit_id].get("completed", false):
+			continue
 		actions.append({
 			"type": "CONFIRM_UNIT_MOVE",
 			"actor_unit_id": unit_id,
@@ -1944,6 +1946,11 @@ func create_result(success: bool, changes: Array = [], error: String = "", addit
 
 func _check_embark_opportunity(unit_id: String) -> void:
 	"""Check if a unit that just moved can embark in a nearby transport"""
+	# Skip embark prompts for AI players — AI doesn't use UI dialogs
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.is_ai_player(get_current_player()):
+		return
+
 	var unit = get_unit(unit_id)
 	if not unit:
 		return

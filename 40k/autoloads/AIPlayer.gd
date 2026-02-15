@@ -17,6 +17,7 @@ const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
 signal ai_action_taken(player: int, action: Dictionary, description: String)
+signal ai_unit_deployed(player: int, unit_id: String)
 
 func _ready() -> void:
 	# Connect to signals - use call_deferred to avoid acting during signal emission
@@ -172,3 +173,132 @@ func _execute_next_action(player: int) -> void:
 		var error_msg = result.get("error", result.get("errors", "Unknown error"))
 		push_error("AIPlayer: Action failed: %s - Error: %s" % [decision.get("type", "?"), error_msg])
 		print("AIPlayer: Failed action details: %s" % str(decision))
+
+		# Handle failed deployment specifically
+		if decision.get("type") == "DEPLOY_UNIT":
+			_handle_failed_deployment(player, decision)
+
+		# Handle failed shooting — skip the unit so we don't retry the same one
+		elif decision.get("type") == "SHOOT":
+			var failed_unit_id = decision.get("actor_unit_id", "")
+			if failed_unit_id != "":
+				print("AIPlayer: Shooting failed for %s, sending SKIP_UNIT" % failed_unit_id)
+				_current_phase_actions += 1
+				NetworkIntegration.route_action({
+					"type": "SKIP_UNIT",
+					"actor_unit_id": failed_unit_id,
+					"player": player
+				})
+	else:
+		# Emit signal for successful deployments so Main.gd can create visuals
+		if decision.get("type") == "DEPLOY_UNIT":
+			var deployed_unit_id = decision.get("unit_id", "")
+			if deployed_unit_id != "":
+				print("AIPlayer: Emitting ai_unit_deployed for %s (player %d)" % [deployed_unit_id, player])
+				emit_signal("ai_unit_deployed", player, deployed_unit_id)
+
+# --- Deployment retry logic ---
+
+func _handle_failed_deployment(player: int, original_decision: Dictionary) -> void:
+	var unit_id = original_decision.get("unit_id", "")
+	if unit_id == "":
+		return
+
+	var snapshot = GameState.create_snapshot()
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("AIPlayer: Deployment retry for %s (player %d)" % [unit_name, player])
+
+	var zone_bounds = AIDecisionMaker._get_deployment_zone_bounds(snapshot, player)
+	var models = unit.get("models", [])
+	var first_model = models[0] if models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+	var deployed_models = AIDecisionMaker._get_all_deployed_model_positions(snapshot)
+
+	var zone_width = zone_bounds.max_x - zone_bounds.min_x
+	var zone_height = zone_bounds.max_y - zone_bounds.min_y
+
+	# Try up to 3 retries with positions spread across different zone quadrants
+	for attempt in range(3):
+		# Pick a different quadrant each retry
+		var quadrant_x = (attempt % 2) * 0.5
+		var quadrant_y = (attempt / 2) * 0.5
+		# Add jitter so we don't land on exact same spots
+		var jitter_x = (randf() - 0.5) * zone_width * 0.2
+		var jitter_y = (randf() - 0.5) * zone_height * 0.2
+
+		var retry_center = Vector2(
+			zone_bounds.min_x + zone_width * (0.25 + quadrant_x) + jitter_x,
+			zone_bounds.min_y + zone_height * (0.25 + quadrant_y) + jitter_y
+		)
+		retry_center.x = clamp(retry_center.x, zone_bounds.min_x + 80, zone_bounds.max_x - 80)
+		retry_center.y = clamp(retry_center.y, zone_bounds.min_y + 80, zone_bounds.max_y - 80)
+
+		var positions = AIDecisionMaker._generate_formation_positions(retry_center, models.size(), base_mm, zone_bounds)
+		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+
+		var rotations = []
+		for i in range(models.size()):
+			rotations.append(0.0)
+
+		var retry_action = {
+			"type": "DEPLOY_UNIT",
+			"unit_id": unit_id,
+			"model_positions": positions,
+			"model_rotations": rotations,
+			"player": player,
+			"_ai_description": "Deployed %s (retry %d)" % [unit_name, attempt + 1]
+		}
+
+		print("AIPlayer: Deployment retry %d for %s at center (%.0f, %.0f)" % [attempt + 1, unit_name, retry_center.x, retry_center.y])
+
+		_current_phase_actions += 1
+		var result = NetworkIntegration.route_action(retry_action)
+		if result != null and result.get("success", false):
+			print("AIPlayer: Deployment retry %d succeeded for %s" % [attempt + 1, unit_name])
+			_action_log.append({
+				"phase": GameState.get_current_phase(),
+				"action_type": "DEPLOY_UNIT",
+				"description": "Deployed %s (retry %d)" % [unit_name, attempt + 1],
+				"player": player
+			})
+			print("AIPlayer: Emitting ai_unit_deployed for %s (player %d) after retry" % [unit_id, player])
+			emit_signal("ai_unit_deployed", player, unit_id)
+			return
+
+		var error_msg = "" if result == null else result.get("error", result.get("errors", ""))
+		print("AIPlayer: Deployment retry %d failed for %s: %s" % [attempt + 1, unit_name, error_msg])
+
+	# All retries failed — fallback to reserves
+	_fallback_to_reserves(player, unit_id, unit_name)
+
+func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> void:
+	print("AIPlayer: All deployment retries failed for %s, placing in reserves" % unit_name)
+
+	var reserves_action = {
+		"type": "PLACE_IN_RESERVES",
+		"unit_id": unit_id,
+		"reserve_type": "strategic_reserves",
+		"player": player,
+		"_ai_description": "%s placed in reserves (fallback)" % unit_name
+	}
+
+	_current_phase_actions += 1
+	var result = NetworkIntegration.route_action(reserves_action)
+
+	if result != null and result.get("success", false):
+		print("AIPlayer: Successfully placed %s in strategic reserves" % unit_name)
+		_action_log.append({
+			"phase": GameState.get_current_phase(),
+			"action_type": "PLACE_IN_RESERVES",
+			"description": "%s placed in reserves (fallback)" % unit_name,
+			"player": player
+		})
+	else:
+		var error_msg = "" if result == null else result.get("error", result.get("errors", ""))
+		push_error("AIPlayer: Failed to place %s in reserves: %s" % [unit_name, error_msg])
