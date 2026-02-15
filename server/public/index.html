@@ -7,19 +7,131 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="loading-overlay hidden">Loading unit database...</div>
+
   <div class="container">
     <header>
       <h1>Warhammer 40K Army List Uploader</h1>
       <p class="subtitle">Convert and upload army lists for the online simulator</p>
+      <div id="db-status" class="db-status"></div>
     </header>
 
     <main>
-      <p class="placeholder-msg">Army list upload tool coming soon. This page will let you paste army lists from tools like ListEngine, New Recruit, or the GW App and convert them for use in the game.</p>
+
+      <!-- Step 1: Paste army list -->
+      <section class="section" id="input-section">
+        <h2 class="section-title">1. Paste your army list</h2>
+        <p class="section-desc">
+          Paste text from GW App, New Recruit, ListEngine, or BattleScribe.
+        </p>
+
+        <div class="faction-override-row">
+          <label for="faction-override">Faction:</label>
+          <select id="faction-override">
+            <option value="">Auto-detect from text</option>
+          </select>
+        </div>
+
+        <textarea
+          id="army-text"
+          class="army-textarea"
+          placeholder="Space Marines (2000 pts)
+Gladius Task Force
+
+Intercessor Squad (90 pts)
+&bull; Bolt rifle
+&bull; Bolt pistol
+
+Bladeguard Veterans (100 pts)
+&bull; Master-crafted power sword
+&bull; Storm shield
+..."
+          rows="14"
+        ></textarea>
+
+        <div class="btn-row">
+          <button id="parse-btn" class="btn btn-primary">Parse Army List</button>
+          <button id="sample-btn" class="btn btn-secondary">Load Sample</button>
+          <button id="clear-btn" class="btn btn-secondary">Clear</button>
+        </div>
+      </section>
+
+      <!-- Parse errors -->
+      <div id="parse-errors" class="parse-errors hidden"></div>
+
+      <!-- Step 2: Parsed results -->
+      <section class="section hidden" id="results-section">
+        <h2 class="section-title">2. Review parsed results</h2>
+
+        <div class="army-summary">
+          <div class="summary-item">
+            <span class="summary-label">Faction</span>
+            <span id="faction-name" class="summary-value">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Detachment</span>
+            <span id="detachment-name" class="summary-value">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Points</span>
+            <span id="total-points" class="summary-value">-</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Units</span>
+            <span id="unit-count" class="summary-value">-</span>
+          </div>
+        </div>
+
+        <ul id="unit-list" class="unit-list"></ul>
+      </section>
+
+      <!-- Step 3: JSON preview -->
+      <section class="section hidden" id="json-section">
+        <h2 class="section-title">
+          3. Generated JSON
+          <button id="json-toggle-btn" class="btn btn-small">Collapse JSON</button>
+        </h2>
+        <pre id="json-preview" class="json-preview"></pre>
+      </section>
+
+      <!-- Step 4: Download / Upload -->
+      <section class="section hidden" id="actions-section">
+        <h2 class="section-title">4. Save or upload</h2>
+
+        <div class="action-form">
+          <div class="form-row">
+            <label for="army-name-input">Army name:</label>
+            <input type="text" id="army-name-input" placeholder="My_Space_Marines_2000" class="text-input">
+          </div>
+
+          <div class="form-row">
+            <label for="player-id-input">Player ID:</label>
+            <input type="text" id="player-id-input" placeholder="Your in-game Player ID (Settings screen)" class="text-input">
+            <span class="form-hint">Find your Player ID in the game's Settings screen. Stored locally for convenience.</span>
+          </div>
+
+          <div class="btn-row">
+            <button id="download-btn" class="btn btn-primary">Download JSON</button>
+            <button id="upload-btn" class="btn btn-accent">Upload to Game Server</button>
+          </div>
+
+          <div id="upload-status" class="upload-status"></div>
+        </div>
+      </section>
+
     </main>
 
     <footer>
-      <p>Powered by <a href="https://warhammer-40k-godot.fly.dev/api/health">w40k-relay-server</a></p>
+      <p>Unit data sourced from <a href="https://wahapedia.ru/wh40k10ed/the-rules/core-rules/" target="_blank" rel="noopener">Wahapedia</a>. Powered by <a href="/api/health">w40k-relay-server</a>.</p>
     </footer>
   </div>
+
+  <!-- Scripts: order matters (datasheets, parser, generator must load before app) -->
+  <script src="/js/datasheets.js"></script>
+  <script src="/js/parser.js"></script>
+  <script src="/js/generator.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

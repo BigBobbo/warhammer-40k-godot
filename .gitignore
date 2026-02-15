@@ -31,3 +31,4 @@ node_modules/
 *.db-shm
 *.db-wal
 *.db-journal
+server/persistence.db
