@@ -472,6 +472,23 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		"turn": GameState.get_battle_round()
 	})
 
+	# Apply stratagem-specific effects to game state (unit flags for RulesEngine)
+	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat)
+	if not effect_diffs.is_empty():
+		PhaseManager.apply_state_changes(effect_diffs)
+		diffs.append_array(effect_diffs)
+
+	# Track active effect for duration management
+	add_active_effect({
+		"stratagem_id": stratagem_id,
+		"player": player,
+		"target_unit_id": target_unit_id,
+		"effects": strat.effects,
+		"expires": "end_of_phase",
+		"applied_turn": GameState.get_battle_round(),
+		"applied_phase": GameState.get_current_phase()
+	})
+
 	# Emit signal
 	emit_signal("stratagem_used", player, stratagem_id, target_unit_id)
 
@@ -589,12 +606,138 @@ func has_active_effect(unit_id: String, effect_type: String) -> bool:
 	return false
 
 func _clear_expired_effects(expiry_type: String) -> void:
-	"""Remove effects that have expired."""
+	"""Remove effects that have expired. Also clears unit flags set by expired stratagems."""
 	var remaining = []
 	for effect in active_effects:
 		if effect.get("expires", "") != expiry_type:
 			remaining.append(effect)
+		else:
+			# Clear unit flags for this expired effect
+			var unit_id = effect.get("target_unit_id", "")
+			var strat_id = effect.get("stratagem_id", "")
+			if unit_id != "":
+				_clear_stratagem_flags(unit_id, strat_id)
 	active_effects = remaining
+
+# ============================================================================
+# STRATAGEM EFFECT APPLICATION
+# ============================================================================
+
+func _apply_stratagem_effects(stratagem_id: String, target_unit_id: String, strat: Dictionary) -> Array:
+	"""
+	Apply stratagem effects to unit flags in game state.
+	Returns an array of diffs that set the appropriate flags.
+	These flags are read by RulesEngine during combat resolution.
+	"""
+	var diffs = []
+
+	match stratagem_id:
+		"go_to_ground":
+			# GO TO GROUND: Grant 6+ invulnerable save and Benefit of Cover
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.stratagem_invuln" % target_unit_id,
+				"value": 6
+			})
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.stratagem_cover" % target_unit_id,
+				"value": true
+			})
+			print("StratagemManager: Applied GO TO GROUND effects to %s (6+ invuln + cover)" % target_unit_id)
+
+		"smokescreen":
+			# SMOKESCREEN: Grant Benefit of Cover and Stealth (-1 to hit)
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.stratagem_cover" % target_unit_id,
+				"value": true
+			})
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.stratagem_stealth" % target_unit_id,
+				"value": true
+			})
+			print("StratagemManager: Applied SMOKESCREEN effects to %s (cover + stealth)" % target_unit_id)
+
+	return diffs
+
+func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
+	"""Clear stratagem-specific flags from a unit when the effect expires."""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var flags = unit.get("flags", {})
+
+	match stratagem_id:
+		"go_to_ground":
+			flags.erase("stratagem_invuln")
+			flags.erase("stratagem_cover")
+			print("StratagemManager: Cleared GO TO GROUND flags from %s" % unit_id)
+		"smokescreen":
+			flags.erase("stratagem_cover")
+			flags.erase("stratagem_stealth")
+			print("StratagemManager: Cleared SMOKESCREEN flags from %s" % unit_id)
+
+func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
+	"""
+	Get reactive stratagems available to the defending player during opponent's shooting.
+	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
+	"""
+	var results = []
+
+	# Check Go to Ground (INFANTRY targets)
+	var gtg_eligible_units = []
+	for unit_id in target_unit_ids:
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		if unit.get("owner", 0) != defending_player:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_infantry = false
+		for kw in keywords:
+			if kw.to_upper() == "INFANTRY":
+				has_infantry = true
+				break
+		if has_infantry:
+			gtg_eligible_units.append(unit_id)
+
+	if not gtg_eligible_units.is_empty():
+		var validation = can_use_stratagem(defending_player, "go_to_ground")
+		if validation.can_use:
+			results.append({
+				"stratagem": stratagems["go_to_ground"],
+				"eligible_units": gtg_eligible_units
+			})
+
+	# Check Smokescreen (SMOKE keyword targets)
+	var smoke_eligible_units = []
+	for unit_id in target_unit_ids:
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		if unit.get("owner", 0) != defending_player:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_smoke = false
+		for kw in keywords:
+			if kw.to_upper() == "SMOKE":
+				has_smoke = true
+				break
+		if has_smoke:
+			smoke_eligible_units.append(unit_id)
+
+	if not smoke_eligible_units.is_empty():
+		var validation = can_use_stratagem(defending_player, "smokescreen")
+		if validation.can_use:
+			results.append({
+				"stratagem": stratagems["smokescreen"],
+				"eligible_units": smoke_eligible_units
+			})
+
+	return results
 
 # ============================================================================
 # HELPERS

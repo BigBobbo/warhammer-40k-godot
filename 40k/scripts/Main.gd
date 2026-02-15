@@ -1339,6 +1339,9 @@ func setup_phase_controllers() -> void:
 			if phase_instance.next_weapon_confirmation_required.is_connected(shooting_controller._on_next_weapon_confirmation_required):
 				phase_instance.next_weapon_confirmation_required.disconnect(shooting_controller._on_next_weapon_confirmation_required)
 				print("Main: Disconnected next_weapon_confirmation_required")
+			if phase_instance.reactive_stratagem_opportunity.is_connected(shooting_controller._on_reactive_stratagem_opportunity):
+				phase_instance.reactive_stratagem_opportunity.disconnect(shooting_controller._on_reactive_stratagem_opportunity)
+				print("Main: Disconnected reactive_stratagem_opportunity")
 
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):

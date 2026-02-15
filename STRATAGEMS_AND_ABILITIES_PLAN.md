@@ -501,7 +501,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | # | Task | What It Proves | Status |
 |---|------|---------------|--------|
 | 1 | StratagemManager + Insane Bravery | Pipeline end-to-end (data, CP, usage tracking, phase integration, UI) | **COMPLETED** |
-| 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | Pending |
+| 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | **COMPLETED** |
 | 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | Pending |
 | 4 | Epic Challenge | Weapon keyword granting (PRECISION) | Pending |
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | Pending |
@@ -510,3 +510,33 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
 | 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
+
+---
+
+## Implementation Notes
+
+### Task 2: Go to Ground + Smokescreen (COMPLETED)
+
+**Implementation approach**: Hybrid of StratagemManager effect tracking + unit flags in game state.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` -- Added `_apply_stratagem_effects()`, `_clear_stratagem_flags()`, `get_reactive_stratagems_for_shooting()` methods. Stratagems set flags directly on target units via state diffs, and track active effects for duration management.
+- `40k/autoloads/RulesEngine.gd` -- Modified `_resolve_assignment_until_wounds()` (both copies) to check `target_unit.flags.stratagem_stealth` for -1 to hit. Modified `prepare_save_resolution()` and auto-resolve save path to check `flags.stratagem_invuln` and `flags.stratagem_cover` for invulnerable saves and cover.
+- `40k/phases/ShootingPhase.gd` -- Added `reactive_stratagem_opportunity` signal, `awaiting_reactive_stratagem` state, `_check_reactive_stratagems()` method. After `CONFIRM_TARGETS`, checks if defending player has reactive stratagems available. Added `USE_REACTIVE_STRATAGEM` and `DECLINE_REACTIVE_STRATAGEM` action types. Clears stratagem flags on phase exit.
+- `40k/scripts/ShootingController.gd` -- Connected `reactive_stratagem_opportunity` signal. Shows `StratagemDialog` to defending player, routes USE/DECLINE actions back through `shoot_action_requested`.
+- `40k/scripts/Main.gd` -- Added disconnect for `reactive_stratagem_opportunity` signal in cleanup.
+
+**Files created:**
+- `40k/dialogs/StratagemDialog.gd` -- AcceptDialog-based UI for reactive stratagem selection. Shows available stratagems with CP cost, description, and per-eligible-unit "Use" buttons plus a "Decline All" button.
+- `40k/tests/unit/test_go_to_ground_smokescreen.gd` -- Comprehensive test suite (30+ tests) covering stratagem definitions, validation, effect application, RulesEngine integration, reactive detection, effect expiry, and edge cases.
+
+**Architecture decisions:**
+- **Unit flags over central effect store**: Stratagem effects are stored as flags on target units (`unit.flags.stratagem_invuln`, `unit.flags.stratagem_cover`, `unit.flags.stratagem_stealth`) rather than only in StratagemManager. This allows static `RulesEngine` methods to read effects directly from the `board` dictionary without needing access to the StratagemManager autoload.
+- **Reactive flow via signal**: ShootingPhase emits `reactive_stratagem_opportunity` signal after targets are confirmed. The ShootingController shows a dialog to the defender. The defender's choice (USE/DECLINE) routes back through the normal action pipeline for multiplayer compatibility.
+- **Effect flags are cleared both ways**: On phase exit, `ShootingPhase._clear_stratagem_phase_flags()` clears unit flags from game state, and `StratagemManager.on_phase_end()` clears its internal active effects list (which also calls `_clear_stratagem_flags()` for each expired effect).
+
+**What this proved:**
+1. Reactive/opponent-turn stratagem flow works (pause after target selection, show dialog, resume resolution)
+2. Defensive modifiers integrate cleanly with existing RulesEngine save calculations
+3. Stealth (-1 to hit) integrates with existing HitModifier system
+4. Unit flag approach works well for static RulesEngine methods and multiplayer state sync

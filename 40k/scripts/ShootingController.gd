@@ -372,6 +372,11 @@ func set_phase(phase: BasePhase) -> void:
 			print("║ Disconnected existing next_weapon_confirmation_required connection")
 		phase.next_weapon_confirmation_required.connect(_on_next_weapon_confirmation_required)
 
+		if phase.reactive_stratagem_opportunity.is_connected(_on_reactive_stratagem_opportunity):
+			phase.reactive_stratagem_opportunity.disconnect(_on_reactive_stratagem_opportunity)
+			print("║ Disconnected existing reactive_stratagem_opportunity connection")
+		phase.reactive_stratagem_opportunity.connect(_on_reactive_stratagem_opportunity)
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -1706,6 +1711,61 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 
 	print("ShootingController: NextWeaponDialog shown with last weapon results")
 	print("========================================")
+
+func _on_reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array) -> void:
+	"""Handle reactive stratagem opportunity - show dialog to defending player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ShootingController: REACTIVE STRATAGEM OPPORTUNITY")
+	print("║ Defending player: %d" % defending_player)
+	print("║ Available stratagems: %d" % available_stratagems.size())
+	print("║ Target units: %s" % str(target_unit_ids))
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Check if this is for the local player (multiplayer support)
+	var should_show_dialog = false
+	if NetworkManager.is_networked():
+		var local_player = NetworkManager.get_local_player()
+		should_show_dialog = (local_player == defending_player)
+	else:
+		# Single player / hot-seat: always show
+		should_show_dialog = true
+
+	if not should_show_dialog:
+		# Not the local defending player - auto-decline
+		print("ShootingController: Not the defending player locally, auto-declining")
+		emit_signal("shoot_action_requested", {
+			"type": "DECLINE_REACTIVE_STRATAGEM"
+		})
+		return
+
+	# Show StratagemDialog
+	var dialog_script = preload("res://dialogs/StratagemDialog.gd")
+	var dialog = dialog_script.new()
+
+	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
+	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)
+
+	get_tree().root.add_child(dialog)
+	dialog.setup(defending_player, available_stratagems, target_unit_ids)
+	dialog.popup_centered()
+
+	print("ShootingController: StratagemDialog shown for player %d" % defending_player)
+
+func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: String) -> void:
+	"""Handle defender selecting a reactive stratagem."""
+	print("ShootingController: Reactive stratagem selected: %s on %s" % [stratagem_id, target_unit_id])
+	emit_signal("shoot_action_requested", {
+		"type": "USE_REACTIVE_STRATAGEM",
+		"stratagem_id": stratagem_id,
+		"target_unit_id": target_unit_id
+	})
+
+func _on_reactive_stratagem_declined() -> void:
+	"""Handle defender declining all reactive stratagems."""
+	print("ShootingController: Reactive stratagems declined")
+	emit_signal("shoot_action_requested", {
+		"type": "DECLINE_REACTIVE_STRATAGEM"
+	})
 
 func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fast_roll: bool) -> void:
 	"""Show WeaponOrderDialog after NextWeaponDialog's Continue button is pressed"""
