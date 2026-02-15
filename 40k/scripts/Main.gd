@@ -127,6 +127,9 @@ func _ready() -> void:
 		else:
 			print("Main: ERROR - No phase instance after transition!")
 
+	# Initialize AI Player if configured from main menu
+	_initialize_ai_player()
+
 	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
 
 	board_view.queue_redraw()
@@ -186,6 +189,20 @@ func _ready() -> void:
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
+
+func _initialize_ai_player() -> void:
+	# Configure AIPlayer autoload based on game_config from MainMenu
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		print("Main: AIPlayer autoload not found, skipping AI initialization")
+		return
+
+	var game_config = GameState.state.get("meta", {}).get("game_config", {})
+	var p1_type = game_config.get("player1_type", "HUMAN")
+	var p2_type = game_config.get("player2_type", "HUMAN")
+
+	print("Main: Configuring AI Player - P1=%s, P2=%s" % [p1_type, p2_type])
+	ai_player.configure({1: p1_type, 2: p2_type})
 
 func _setup_deployment_progress_indicator() -> void:
 	# Create a panel that sits just below HUD_Bottom (which has been moved to the top)

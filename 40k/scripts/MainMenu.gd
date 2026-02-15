@@ -5,7 +5,9 @@ extends Control
 @onready var terrain_dropdown: OptionButton = $MenuContainer/MissionSection/TerrainContainer/TerrainDropdown
 @onready var mission_dropdown: OptionButton = $MenuContainer/MissionSection/MissionContainer/MissionDropdown
 @onready var deployment_dropdown: OptionButton = $MenuContainer/MissionSection/DeploymentContainer/DeploymentDropdown
+@onready var player1_type_dropdown: OptionButton = $MenuContainer/ArmySection/Player1TypeContainer/Player1TypeDropdown
 @onready var player1_dropdown: OptionButton = $MenuContainer/ArmySection/Player1Container/Player1Dropdown
+@onready var player2_type_dropdown: OptionButton = $MenuContainer/ArmySection/Player2TypeContainer/Player2TypeDropdown
 @onready var player2_dropdown: OptionButton = $MenuContainer/ArmySection/Player2Container/Player2Dropdown
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
@@ -69,6 +71,14 @@ func _setup_dropdowns() -> void:
 	# Populate deployment dropdown
 	for option in deployment_options:
 		deployment_dropdown.add_item(option.name)
+
+	# Populate player type dropdowns (Human / AI)
+	player1_type_dropdown.add_item("Human")
+	player1_type_dropdown.add_item("AI")
+	player1_type_dropdown.selected = 0  # Default: Human
+	player2_type_dropdown.add_item("Human")
+	player2_type_dropdown.add_item("AI")
+	player2_type_dropdown.selected = 1  # Default: AI (most common single-player setup)
 
 	# Dynamically populate army dropdowns from ArmyListManager
 	_load_available_armies()
@@ -179,12 +189,16 @@ func _on_start_button_pressed() -> void:
 		# For now, allow it but warn
 	
 	# Store configuration in GameState
+	var p1_type = "AI" if player1_type_dropdown.selected == 1 else "HUMAN"
+	var p2_type = "AI" if player2_type_dropdown.selected == 1 else "HUMAN"
 	var config = {
 		"terrain": terrain_options[terrain_dropdown.selected].id,
 		"mission": mission_options[mission_dropdown.selected].id,
 		"deployment": deployment_options[deployment_dropdown.selected].id,
 		"player1_army": army_options[player1_dropdown.selected].id,
-		"player2_army": army_options[player2_dropdown.selected].id
+		"player2_army": army_options[player2_dropdown.selected].id,
+		"player1_type": p1_type,
+		"player2_type": p2_type
 	}
 	
 	print("MainMenu: Starting game with config: ", config)

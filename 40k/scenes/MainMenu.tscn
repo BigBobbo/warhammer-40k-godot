@@ -18,9 +18,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -300.0
-offset_top = -250.0
+offset_top = -300.0
 offset_right = 300.0
-offset_bottom = 250.0
+offset_bottom = 300.0
 theme_override_constants/separation = 20
 
 [node name="TitleLabel" type="Label" parent="MenuContainer"]
@@ -89,6 +89,18 @@ layout_mode = 2
 text = "Army Selection"
 theme_override_font_sizes/font_size = 20
 
+[node name="Player1TypeContainer" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player1TypeLabel" type="Label" parent="MenuContainer/ArmySection/Player1TypeContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 1 Type:"
+
+[node name="Player1TypeDropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player1TypeContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
 [node name="Player1Container" type="HBoxContainer" parent="MenuContainer/ArmySection"]
 layout_mode = 2
 
@@ -98,6 +110,18 @@ custom_minimum_size = Vector2(150, 0)
 text = "Player 1 Army:"
 
 [node name="Player1Dropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player1Container"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+
+[node name="Player2TypeContainer" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+layout_mode = 2
+
+[node name="Player2TypeLabel" type="Label" parent="MenuContainer/ArmySection/Player2TypeContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Player 2 Type:"
+
+[node name="Player2TypeDropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player2TypeContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
