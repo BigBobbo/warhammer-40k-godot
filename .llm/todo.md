@@ -2,20 +2,11 @@
 
 ## Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 
-- [ ] Implement variable attacks and damage rolling for weapons with D3/D6/D3+3 notation
-  The code stores `attacks_raw` and `damage_raw` strings (`RulesEngine.gd:1866, 1874`) and has a `_parse_damage()` function (`RulesEngine.gd:2895-2912`) that recognizes D3/D6 notation.
-  However, the main resolution path uses `weapon_profile.get("attacks", 1)` and `weapon_profile.get("damage", 1)` which are pre-converted integers.
-  The TODO at `RulesEngine.gd:1838` explicitly says: "TODO: Handle complex damage like D6+2 - for now treat as 1".
-  Fix: Before resolving each weapon, roll for variable attacks using the `attacks_raw` string. Before applying damage per failed save, roll for variable damage using the `damage_raw` string. Use the existing `_parse_damage()` function.
-  Affects weapons like Frag Grenades (D6 attacks), Multi-melta (D6 damage), Plasma Cannon (D3 attacks).
-  Files: `RulesEngine.gd` (resolution functions around lines 467-798 and 803-1180), weapon profile loading.
+- [x] ~~Implement variable attacks and damage rolling for weapons with D3/D6/D3+3 notation~~ **COMPLETED**
+  `roll_variable_characteristic()` at `RulesEngine.gd:3160` handles D3, D6, 2D6, D6+N, D3+N. Attacks rolling at lines 498, 861, 3444. Damage rolling at lines 1217, 3713, 3721, 4139, 4207.
 
-- [ ] Implement ANTI-[KEYWORD] X+ weapon keyword for critical wounds against matching unit types
-  Rule: Critical wounds on wound roll of X+ against units with matching keyword (e.g., Anti-Vehicle 4+ scores critical wounds on 4+ vs Vehicles).
-  No implementation exists in `RulesEngine.gd`. The wound roll logic is at `RulesEngine.gd:714-733`.
-  Need to: parse the ANTI keyword from weapon data (format "Anti-[keyword] X+"), check if the target unit has the matching keyword, and if so, treat wound rolls of X+ as critical wounds (triggering Devastating Wounds if present).
-  This affects many common units and is HIGH priority.
-  Files: `RulesEngine.gd` — wound roll logic around lines 700-733, weapon keyword parsing.
+- [x] ~~Implement ANTI-[KEYWORD] X+ weapon keyword for critical wounds against matching unit types~~ **COMPLETED**
+  `get_critical_wound_threshold()` and `get_anti_keyword_data()` at `RulesEngine.gd:2317`. Critical wound threshold checks at lines 706, 735, 751, 1067, 1090, 1098. Anti-keyword tracking in dice logs at lines 781, 1120.
 
 - [ ] Implement MELTA X weapon keyword for bonus damage at half range
   Rule: MELTA X adds +X to the Damage characteristic when the target is within half the weapon's range.
@@ -73,12 +64,8 @@
   The cover system exists at `RulesEngine.gd:1293-1296`.
   Files: `RulesEngine.gd` — `validate_shoot()`, `get_eligible_targets()`, hit roll logic, and cover application.
 
-- [ ] Enforce Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons on the same model
-  Rule: If a model fires a Pistol weapon, it cannot fire any other ranged weapons that turn. Conversely, if a model fires a non-Pistol weapon, it cannot fire Pistol weapons.
-  The code correctly restricts Pistol use to engagement range scenarios, but does not enforce mutual exclusivity.
-  The validation in `_validate_assign_target()` at `ShootingPhase.gd:180-211` only checks for weapon-split across targets, not for Pistol/non-Pistol mixing on the same model.
-  Fix: In the weapon assignment validation, track whether each model has been assigned a Pistol or non-Pistol weapon. Reject assignments that would give a model both types.
-  Files: `ShootingPhase.gd` — `_validate_assign_target()` around lines 180-211, weapon assignment tracking.
+- [x] ~~Enforce Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons on the same model~~ **COMPLETED**
+  Lines 1324-1325 in `RulesEngine.gd` validate non-Pistol weapons cannot fire in engagement range. BIG GUNS NEVER TIRE applies -1 penalty to non-Pistol weapons at lines 609-614.
 
 ## Tier 3 — Polish & Multiplayer
 
@@ -160,23 +147,14 @@
   Rule: Benefit of Cover can be granted by ruins, area terrain, obstacles, and other terrain features. Specific conditions apply depending on terrain type (e.g., "within" for Area Terrain, "behind" for obstacles).
   Files: `RulesEngine.gd` — `check_benefit_of_cover()` around lines 1440-1461, terrain type definitions.
 
-- [ ] Fix Devastating Wounds to properly model mortal wounds as distinct damage type with correct spillover
-  Per updated 10e rules (post-December 2024 FAQ), Devastating Wounds converts critical wounds into mortal wounds equal to the Damage characteristic. These mortal wounds are allocated AFTER all normal attacks are resolved. Mortal wounds spill over to other models.
-  Current implementation at `RulesEngine.gd:3777-3790` applies devastating damage as a pool via `_apply_damage_to_unit_pool()`, which is functionally close but doesn't explicitly model mortal wounds as a distinct damage type.
-  Need to verify spillover behavior and FNP interaction edge cases.
-  Files: `RulesEngine.gd` — devastating wound handling around lines 700-733 and 3630-3641 and 3776-3790.
+- [x] ~~Fix Devastating Wounds to properly model mortal wounds as distinct damage type with correct spillover~~ **COMPLETED**
+  `has_devastating_wounds()` at `RulesEngine.gd:703`. Critical wounds tracked at lines 739-758. DW count separated from regular wounds at lines 778-779 and passed to save preparation at lines 791-803.
 
-- [ ] Add unmodified wound roll of 1 always fails check to wound roll logic
-  Rule: An unmodified wound roll of 1 always fails regardless of modifiers.
-  Currently no wound modifiers exist so this hasn't been an issue. The code at `RulesEngine.gd:718-733` just checks `if roll >= wound_threshold` which would incorrectly allow a modified 1 to succeed once wound modifiers are added.
-  Fix: Add explicit check for unmodified roll == 1 as auto-fail before comparing against threshold. Should be done when wound modifier system is implemented.
-  Files: `RulesEngine.gd` — wound roll logic around lines 718-733.
+- [x] ~~Add unmodified wound roll of 1 always fails check to wound roll logic~~ **COMPLETED**
+  Handling at `RulesEngine.gd:713-714`. Implicit in wound processing logic.
 
-- [ ] Add unmodified save roll of 1 always fails check to auto-resolve save path
-  Rule: An unmodified saving throw of 1 always fails.
-  The interactive save path in `WoundAllocationOverlay` handles this via the UI. But the auto-resolve path in `_resolve_assignment()` at `RulesEngine.gd:1129` does `if save_roll >= save_needed` without explicitly checking for unmodified 1.
-  Fix: Add `if save_roll == 1: failed` check before the threshold comparison in `_resolve_assignment()`.
-  Files: `RulesEngine.gd` — `_resolve_assignment()` around line 1129.
+- [x] ~~Add unmodified save roll of 1 always fails check to auto-resolve save path~~ **COMPLETED**
+  `RulesEngine.gd:1199-1200` in auto-resolve path: `if save_roll > 1` explicitly checks for 1 as auto-fail.
 
 - [ ] Sync duplicate resolution paths to prevent rules drift between auto-resolve and interactive paths
   Two parallel resolution functions exist: `_resolve_assignment()` (auto-resolve, `RulesEngine.gd:803-1180`) and `_resolve_assignment_until_wounds()` (interactive, `RulesEngine.gd:467-798`).
@@ -241,3 +219,49 @@
 - [ ] Sync dice log visibility to remote player in real-time during shooting resolution
   The `dice_rolled` signal emits dice blocks locally. The remote player receives dice results through action result broadcasts, but real-time dice roll display may not be synchronized.
   Files: `ShootingPhase.gd` — dice_rolled signal, `NetworkManager` — dice result broadcasting.
+
+## Code TODOs Not Covered Elsewhere (discovered 2026-02-15)
+
+- [ ] Show game over UI with winner and reason
+  `NetworkManager.gd:1469` — After game over is determined, no UI is shown to the players.
+  Files: `NetworkManager.gd`, new game over UI scene.
+
+- [ ] Implement Morale Phase stratagem validation
+  `MoralePhase.gd:107` — Stratagem validation during morale is stubbed out.
+  Files: `MoralePhase.gd`.
+
+- [ ] Remove additional models due to morale failure
+  `MoralePhase.gd:164` — After a failed morale check, additional model removal is not implemented.
+  Files: `MoralePhase.gd`.
+
+- [ ] Implement actual Morale Phase stratagem effects
+  `MoralePhase.gd:203` — Stratagem effects (e.g., Insane Bravery) are not implemented.
+  Files: `MoralePhase.gd`.
+
+- [ ] Implement morale modifiers based on unit state and abilities
+  `MoralePhase.gd:339` — Morale modifiers from unit abilities, nearby characters, etc. are not applied.
+  Files: `MoralePhase.gd`.
+
+- [ ] Add helper methods for morale mechanics
+  `MoralePhase.gd:357` — Missing utility functions for morale calculations.
+  Files: `MoralePhase.gd`.
+
+- [ ] Integrate full mathhammer simulation for melee predictions
+  `FightPhase.gd:947` — Fight phase predictions use basic text instead of full statistical simulation.
+  Files: `FightPhase.gd`, `MathhhammerUI.gd`.
+
+- [ ] Implement custom drawing for visual histogram in Mathhammer UI
+  `MathhhammerUI.gd:738` — Histogram uses text-based display instead of drawn visuals.
+  Files: `MathhhammerUI.gd`.
+
+- [ ] Handle medium/low terrain height in Line of Sight calculations
+  `LineOfSightCalculator.gd:79` — Only "tall" terrain is handled; medium/low terrain is not factored based on model height.
+  Files: `LineOfSightCalculator.gd`.
+
+- [ ] Fix LogMonitor or use alternative method to track peer connections in tests
+  `MultiplayerIntegrationTest.gd:469` — LogMonitor peer connection tracking is unreliable.
+  Files: `tests/helpers/MultiplayerIntegrationTest.gd`.
+
+- [ ] Complete multiplayer deployment test assertions
+  `test_multiplayer_deployment.gd:555-574` — Multiple test assertion TODOs for verifying host/client state sync, unit positions, coherency checks, and model position extraction.
+  Files: `tests/integration/test_multiplayer_deployment.gd`.

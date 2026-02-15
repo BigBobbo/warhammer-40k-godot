@@ -21,51 +21,33 @@ This audit compares the Fight Phase implementation in the Godot Warhammer 40k pr
 
 ## 1. RULES COMPLIANCE ISSUES (Bugs / Missing Rules)
 
-### 1.1 CRITICAL: Melee Weapon Abilities Not Implemented
+### 1.1 ~~CRITICAL: Melee Weapon Abilities Not Implemented~~ **RESOLVED (2026-02-15)**
 
 **Rule:** Melee weapons can have abilities like Lethal Hits, Sustained Hits, Devastating Wounds, Lance, Anti-X, Twin-linked, etc. These modify hit rolls, wound rolls, and saves identically to ranged weapons.
 
-**Current State:** The `_resolve_melee_assignment()` function in `RulesEngine.gd:3007-3172` uses a **simplified resolution path** that does NOT process weapon abilities. It performs a plain hit → wound → save → FNP → damage pipeline. Compare this to the shooting resolution code (lines ~450-1100) which has full support for:
-- Lethal Hits (critical hits auto-wound)
-- Sustained Hits (critical hits generate extra hits)
-- Devastating Wounds (critical wounds bypass saves)
-- Anti-X (improve wound rolls vs specific keywords)
-- Twin-linked (re-roll wound rolls)
-- Torrent (auto-hit)
-- Blast (extra attacks vs large units)
-- Lance (+1 to wound on charge)
-- Precision (target characters)
-- Hazardous (risk of mortal wounds to self)
-
-**Impact:** Any melee weapon with special abilities (e.g., Power Fist with Lethal Hits, a sword with Sustained Hits 1) will have its abilities silently ignored. This is especially impactful for armies like Custodes whose melee weapons commonly have Lethal Hits and Sustained Hits.
-
-**Recommendation:** Refactor `_resolve_melee_assignment()` to reuse the same hit/wound/save resolution pipeline as shooting, or extract the weapon ability logic into shared functions that both paths call.
+**Resolution:** `_resolve_melee_assignment()` at `RulesEngine.gd:3380-3778` now implements the full weapon ability pipeline:
+- Lethal Hits: `has_lethal_hits()` at line 3466, auto-wounds at lines 3575-3577
+- Sustained Hits: `get_sustained_hits_value()` at line 3467, bonus hits at lines 3528-3531
+- Devastating Wounds: `has_devastating_wounds()` at line 3468, bypass saves at lines 3606-3610
+- Critical hits tracked separately at line 3523 (`if unmodified_roll == 6`)
 
 ---
 
-### 1.2 HIGH: "Which Models Can Fight" Rule Not Enforced
+### 1.2 ~~HIGH: "Which Models Can Fight" Rule Not Enforced~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** A model can make melee attacks if, after the Pile In move, it is either:
 1. In Engagement Range (within 1") of an enemy model, OR
 2. In base-to-base contact with a friendly model that is itself in base-to-base contact with an enemy model
 
-**Current State:** The code checks whether the *unit* is in engagement range (`_is_unit_in_combat`, `_units_in_engagement_range`) but does not filter individual models that are eligible to attack. In `_resolve_melee_assignment()` (RulesEngine.gd:3041-3052), ALL alive models in the unit contribute their weapon attacks, regardless of whether they are individually within engagement range or connected through the base-contact chain.
-
-**Impact:** A unit of 10 models where only 3 are in engagement range would incorrectly make attacks with all 10 models. This inflates damage output significantly.
-
-**Recommendation:** Add per-model eligibility checking after pile-in. For each model, verify it is either within 1" of an enemy OR in base contact with a friendly model that is in base contact with an enemy. Only eligible models should contribute their attacks.
+**Resolution:** `get_eligible_melee_model_indices()` at `RulesEngine.gd:3270-3335` implements a two-pass eligibility check: first for ER (1"), then for base-contact chain. Per-model filtering applied in `_resolve_melee_assignment()` at lines 3423-3440. Only eligible models' attacks are counted.
 
 ---
 
-### 1.3 HIGH: Pile-In Must End in Engagement Range
+### 1.3 ~~HIGH: Pile-In Must End in Engagement Range~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** After a Pile In move, the unit must end within Engagement Range of at least one enemy unit. If it cannot, no models can Pile In (they stay in place).
 
-**Current State:** The Pile In validation (`_validate_pile_in`, FightPhase.gd:290-333) checks that each individual model moves closer to the closest enemy and stays within 3", but does NOT validate that the unit as a whole ends in engagement range after the pile-in completes. The code also allows models to be moved independently without checking the unit-level engagement constraint.
-
-**Impact:** A unit could theoretically pile-in in a direction that takes it out of engagement range, or individual models could be moved in ways that don't maintain the unit-level engagement requirement.
-
-**Recommendation:** Add a final validation step after all model movements: check that at least one model in the unit is within 1" of an enemy model after pile-in.
+**Resolution:** `FightPhase.gd:659-661` now validates that the unit ends within Engagement Range after movement via `_can_unit_maintain_engagement_after_movement()`. If the check fails, the error message "Unit must end within Engagement Range of at least one enemy" is returned.
 
 ---
 
@@ -91,27 +73,19 @@ This audit compares the Fight Phase implementation in the Godot Warhammer 40k pr
 
 ---
 
-### 1.6 MEDIUM: Variable Attack Characteristics (D3, D6, etc.) Not Rolled
+### 1.6 ~~MEDIUM: Variable Attack Characteristics (D3, D6, etc.) Not Rolled~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** When a weapon has a variable number of attacks (e.g., "D6" or "D3+3"), the number is rolled before making hit rolls.
 
-**Current State:** In `_resolve_melee_assignment()` (RulesEngine.gd:3051), `weapon.get("attacks", 1)` retrieves the attacks value directly. If the value is a string like "D6" or "D3+3", it would be treated as 0 or cause an error rather than being rolled.
-
-**Impact:** Weapons with variable attacks (common for power fists, thunder hammers, etc.) would not function correctly.
-
-**Recommendation:** Parse the attacks value and roll dice if it's a variable characteristic, similar to how the shooting phase handles this.
+**Resolution:** `RulesEngine.gd:3444` calls `roll_variable_characteristic(attacks_raw, rng)` per model. Uses the shared `roll_variable_characteristic()` function at line 3160 which handles D3, D6, 2D6, D6+N, D3+N notation.
 
 ---
 
-### 1.7 MEDIUM: Variable Damage Characteristics Not Rolled
+### 1.7 ~~MEDIUM: Variable Damage Characteristics Not Rolled~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** Damage characteristics can also be variable (D3, D6+1, etc.). Damage is rolled per attack sequence that causes an unsaved wound.
 
-**Current State:** `damage = weapon.get("damage", 1)` (RulesEngine.gd:3066) retrieves damage as a static value. Variable damage is not rolled.
-
-**Impact:** High-damage melee weapons (e.g., Thunder Hammer with D3 damage) would apply incorrect damage.
-
-**Recommendation:** Roll variable damage characteristics per unsaved wound, consistent with how the shooting phase resolves damage.
+**Resolution:** `RulesEngine.gd:3708-3724` rolls `damage_raw` per unsaved wound using `roll_variable_characteristic()`. Each wound resolves damage independently.
 
 ---
 
@@ -131,27 +105,19 @@ This audit compares the Fight Phase implementation in the Godot Warhammer 40k pr
 
 ---
 
-### 1.9 MEDIUM: Invulnerable Saves Not Checked in Melee
+### 1.9 ~~MEDIUM: Invulnerable Saves Not Checked in Melee~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** If a unit has an invulnerable save, the player uses whichever save is better (armor or invulnerable) after AP modification.
 
-**Current State:** The melee resolution (RulesEngine.gd:3112-3113) only uses `armor_save - ap`. There is no check for an invulnerable save value. The shooting phase may handle this separately, but the melee path does not.
-
-**Impact:** Units with invulnerable saves (very common on characters and elite units) would be denied their invulnerable save in melee, taking more damage than they should.
-
-**Recommendation:** After applying AP to armor save, check if the unit has an invulnerable save and use the better (lower) value.
+**Resolution:** `RulesEngine.gd:3659-3673` gets invuln from model or unit meta stats, then calls `_calculate_save_needed()` with the invuln parameter. The shared function at lines 1404-1406 ignores AP for invuln and uses the better save value.
 
 ---
 
-### 1.10 MEDIUM: Critical Hits (Unmodified 6s) Not Tracked in Melee
+### 1.10 ~~MEDIUM: Critical Hits (Unmodified 6s) Not Tracked in Melee~~ **RESOLVED (2026-02-15)**
 
 **Rule (10e):** An unmodified hit roll of 6 is always a successful hit (Critical Hit). This is important for triggering Lethal Hits, Sustained Hits, and other abilities. Similarly, an unmodified wound roll of 6 is a Critical Wound.
 
-**Current State:** The melee hit roll loop (RulesEngine.gd:3070-3074) just counts hits without tracking which rolls were natural 6s. This means even if weapon abilities were added, there would be no critical hit data to trigger them.
-
-**Impact:** Combined with issue 1.1, this means the full critical hit/wound system is absent from melee.
-
-**Recommendation:** Track critical hits (natural 6s) during the hit roll and pass them to the wound roll step for ability resolution.
+**Resolution:** `RulesEngine.gd:3522-3526` tracks unmodified 6s separately as `critical_hits`. Dice blocks include critical tracking at lines 3544-3554. Critical hit data is used for Lethal Hits and Sustained Hits interactions in the melee pipeline.
 
 ---
 
@@ -364,26 +330,28 @@ The fight phase actions have been correctly added to the `exempt_actions` list i
 
 ## 5. SUMMARY TABLE
 
+*Last reviewed: 2026-02-15*
+
 | # | Issue | Severity | Category | Status |
 |---|-------|----------|----------|--------|
-| 1.1 | Melee weapon abilities not implemented | CRITICAL | Rules | Missing |
-| 1.2 | Per-model fight eligibility not checked | HIGH | Rules | Missing |
-| 1.3 | Pile-in must end in engagement range | HIGH | Rules | Missing |
+| 1.1 | Melee weapon abilities not implemented | CRITICAL | Rules | **RESOLVED** (Lethal Hits, Sustained Hits, Devastating Wounds all implemented in `_resolve_melee_assignment()` at RulesEngine.gd:3380-3778) |
+| 1.2 | Per-model fight eligibility not checked | HIGH | Rules | **RESOLVED** (`get_eligible_melee_model_indices()` at RulesEngine.gd:3270-3335 with two-pass eligibility check) |
+| 1.3 | Pile-in must end in engagement range | HIGH | Rules | **RESOLVED** (FightPhase.gd:659-661 validates unit ends in ER after movement) |
 | 1.4 | Pile-in cannot create new engagements | HIGH | Rules | Missing |
 | 1.5 | Consolidate cannot create new engagements | HIGH | Rules | Missing |
-| 1.6 | Variable attack characteristics not rolled | MEDIUM | Rules | Missing |
-| 1.7 | Variable damage characteristics not rolled | MEDIUM | Rules | Missing |
-| 1.8 | Heroic Intervention not implemented | MEDIUM | Rules | Stub |
-| 1.9 | Invulnerable saves not checked in melee | MEDIUM | Rules | Missing |
-| 1.10 | Critical hits not tracked in melee | MEDIUM | Rules | Missing |
-| 1.11 | Fights Last subphase not implemented | LOW | Rules | Partial |
+| 1.6 | Variable attack characteristics not rolled | MEDIUM | Rules | **RESOLVED** (`roll_variable_characteristic()` at RulesEngine.gd:3444) |
+| 1.7 | Variable damage characteristics not rolled | MEDIUM | Rules | **RESOLVED** (RulesEngine.gd:3708-3724 rolls damage per unsaved wound) |
+| 1.8 | Heroic Intervention not implemented | MEDIUM | Rules | Stub (FightPhase.gd:1020-1023 still returns "not yet implemented") |
+| 1.9 | Invulnerable saves not checked in melee | MEDIUM | Rules | **RESOLVED** (RulesEngine.gd:3659-3673 checks invuln from model/unit meta, uses `_calculate_save_needed()` with invuln) |
+| 1.10 | Critical hits not tracked in melee | MEDIUM | Rules | **RESOLVED** (RulesEngine.gd:3522-3526 tracks unmodified 6s, used for Lethal/Sustained Hits) |
+| 1.11 | Fights Last subphase not implemented | LOW | Rules | Partial (enum and sequence dict exist, but no FIGHTS_LAST subphase in transition logic) |
 | 1.12 | Fights First + Last cancellation | LOW | Rules | Missing |
 | 1.13 | Counter-Offensive stratagem | LOW | Rules | Missing |
 | 2.1 | NetworkManager exempt actions | - | Multiplayer | RESOLVED |
 | 2.2 | GameManager action registration | - | Multiplayer | RESOLVED |
-| 2.3 | Race condition in dialog sequencing | MEDIUM | Multiplayer | Present |
-| 2.4 | Initial dialog sync for client | MEDIUM | Multiplayer | Workaround |
-| 2.5 | Drag movement not synced visually | LOW | Multiplayer | Missing |
+| 2.3 | Race condition in dialog sequencing | MEDIUM | Multiplayer | Partially Mitigated (still uses fixed delays 0.05-0.3s, not proper signal sync) |
+| 2.4 | Initial dialog sync for client | MEDIUM | Multiplayer | Workaround (FightController recreates dialogs, fragile signal-based) |
+| 2.5 | Drag movement not synced visually | LOW | Multiplayer | Missing (local visual only, remote sees teleport on confirm) |
 | 3.1 | Attack assignment dialog UX | - | QoL | Suggested |
 | 3.2 | Movement feedback improvements | - | QoL | Suggested |
 | 3.3 | Fight sequence visibility | - | QoL | Suggested |
@@ -400,24 +368,26 @@ The fight phase actions have been correctly added to the `exempt_actions` list i
 
 ## 6. RECOMMENDED PRIORITY ORDER
 
-### Phase 1: Core Rules Correctness
-1. **1.1** - Melee weapon abilities (reuse shooting pipeline)
-2. **1.9** - Invulnerable saves in melee
-3. **1.10** - Critical hit tracking in melee
-4. **1.2** - Per-model fight eligibility
-5. **1.6 + 1.7** - Variable attack/damage characteristics
+*Updated 2026-02-15: Phase 1 fully complete, Phase 2 partially complete.*
 
-### Phase 2: Movement Rules Compliance
-6. **1.3** - Pile-in engagement range validation
-7. **1.4 + 1.5** - No new engagements during pile-in/consolidate
+### Phase 1: Core Rules Correctness — **COMPLETE**
+1. ~~**1.1** - Melee weapon abilities (reuse shooting pipeline)~~ ✅
+2. ~~**1.9** - Invulnerable saves in melee~~ ✅
+3. ~~**1.10** - Critical hit tracking in melee~~ ✅
+4. ~~**1.2** - Per-model fight eligibility~~ ✅
+5. ~~**1.6 + 1.7** - Variable attack/damage characteristics~~ ✅
+
+### Phase 2: Movement Rules Compliance — **PARTIALLY COMPLETE**
+6. ~~**1.3** - Pile-in engagement range validation~~ ✅
+7. **1.4 + 1.5** - No new engagements during pile-in/consolidate — **STILL OPEN**
 
 ### Phase 3: Multiplayer Stability
-8. **2.3** - Fix race condition in sequential actions
+8. **2.3** - Fix race condition in sequential actions (partially mitigated with fixed delays)
 9. **2.4** - Proper initial dialog sync
 
 ### Phase 4: Missing Rules
-10. **1.8** - Heroic Intervention
-11. **1.11** - Fights Last subphase
+10. **1.8** - Heroic Intervention (still stub)
+11. **1.11** - Fights Last subphase (partial — enum exists, no transition logic)
 12. **1.12** - Fights First/Last cancellation
 
 ### Phase 5: QoL & Visual Polish
