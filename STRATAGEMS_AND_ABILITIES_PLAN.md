@@ -491,3 +491,22 @@ Both abilities and stratagems produce the same kinds of effects (modifiers, keyw
 5. Usage tracking works (once per battle)
 
 Then expand to GO TO GROUND + SMOKESCREEN (defensive modifiers during opponent's turn -- proves reactive stratagem flow), then GRENADE (proves mortal wound path), then COMMAND RE-ROLL (proves universal re-roll), then the reactive stratagems.
+
+---
+
+## Build Order
+
+Recommended implementation sequence. Each step proves a new capability in the pipeline:
+
+| # | Task | What It Proves | Status |
+|---|------|---------------|--------|
+| 1 | StratagemManager + Insane Bravery | Pipeline end-to-end (data, CP, usage tracking, phase integration, UI) | **COMPLETED** |
+| 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | Pending |
+| 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | Pending |
+| 4 | Epic Challenge | Weapon keyword granting (PRECISION) | Pending |
+| 5 | Command Re-roll | Universal re-roll (any dice, any phase) | Pending |
+| 6 | Counter-Offensive | Fight order manipulation | Pending |
+| 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | Pending |
+| 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
+| 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
+| 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
