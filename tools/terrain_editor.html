@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warhammer 40K - Terrain & Deployment Editor</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* Top toolbar */
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
+.toolbar-group { display: flex; align-items: center; gap: 4px; padding: 0 8px; border-right: 1px solid #0f3460; }
+.toolbar-group:last-child { border-right: none; }
+.toolbar label { font-size: 12px; color: #a0a0c0; }
+.toolbar select, .toolbar button { font-size: 12px; padding: 4px 8px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 3px; cursor: pointer; }
+.toolbar select:hover, .toolbar button:hover { background: #0f3460; }
+.toolbar button.active { background: #e94560; border-color: #e94560; }
+.toolbar button.primary { background: #0f3460; border-color: #533483; }
+.toolbar button.primary:hover { background: #533483; }
+
+/* Main layout */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* Left sidebar */
+.sidebar-left { width: 200px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; }
+.panel { padding: 8px; border-bottom: 1px solid #0f3460; }
+.panel-title { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #e94560; margin-bottom: 6px; letter-spacing: 1px; }
+.panel-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12px; }
+.panel-row label { flex: 1; }
+.panel-row input[type="checkbox"] { width: 14px; height: 14px; }
+
+.terrain-btn { display: block; width: 100%; padding: 6px 8px; margin-bottom: 4px; font-size: 11px; text-align: left; background: #1a1a2e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 3px; cursor: pointer; }
+.terrain-btn:hover { background: #0f3460; }
+
+/* Canvas area */
+.canvas-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #0d0d1a; overflow: auto; position: relative; }
+canvas { cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+/* Right sidebar */
+.sidebar-right { width: 260px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; }
+.prop-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 12px; }
+.prop-row label { width: 55px; flex-shrink: 0; color: #a0a0c0; font-size: 11px; }
+.prop-row input, .prop-row select { flex: 1; padding: 3px 6px; font-size: 12px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 3px; }
+.prop-row input[type="number"] { width: 60px; }
+.prop-row input:focus, .prop-row select:focus { outline: none; border-color: #e94560; }
+
+.wall-item { background: #1a1a2e; border: 1px solid #0f3460; border-radius: 3px; padding: 6px; margin-bottom: 4px; font-size: 11px; }
+.wall-item .wall-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.wall-item .wall-header span { font-weight: bold; color: #a0a0c0; }
+.wall-item .wall-row { display: flex; gap: 4px; align-items: center; margin-bottom: 2px; }
+.wall-item .wall-row label { width: 40px; color: #808090; font-size: 10px; }
+.wall-item .wall-row input { width: 50px; padding: 2px 4px; font-size: 11px; background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 2px; }
+
+.btn-small { padding: 3px 8px; font-size: 11px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 3px; cursor: pointer; }
+.btn-small:hover { background: #0f3460; }
+.btn-small.danger { border-color: #e94560; color: #e94560; }
+.btn-small.danger:hover { background: #e94560; color: #fff; }
+
+/* Terrain list in left sidebar */
+.terrain-list-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; margin-bottom: 2px; font-size: 11px; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 3px; cursor: pointer; }
+.terrain-list-item:hover { background: #0f3460; }
+.terrain-list-item.selected { border-color: #e94560; background: #2a1a2e; }
+
+/* Objective list items */
+.obj-item { display: flex; align-items: center; gap: 4px; padding: 4px 6px; margin-bottom: 2px; font-size: 11px; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 3px; cursor: pointer; }
+.obj-item:hover { background: #0f3460; }
+.obj-item.selected { border-color: #e94560; }
+.obj-item .obj-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Deployment zone vertex list */
+.vertex-item { display: flex; gap: 4px; align-items: center; padding: 2px 4px; margin-bottom: 2px; font-size: 11px; }
+.vertex-item input { width: 50px; padding: 2px 4px; font-size: 11px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 2px; }
+
+/* Status bar */
+.status-bar { display: flex; align-items: center; gap: 16px; padding: 4px 12px; background: #16213e; border-top: 1px solid #0f3460; font-size: 11px; color: #808090; }
+
+/* Tabs */
+.tab-bar { display: flex; border-bottom: 1px solid #0f3460; }
+.tab { padding: 6px 12px; font-size: 11px; cursor: pointer; border-bottom: 2px solid transparent; color: #808090; }
+.tab:hover { color: #e0e0e0; }
+.tab.active { color: #e94560; border-bottom-color: #e94560; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1a1a2e; }
+::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Top Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-group">
+    <label>Deployment:</label>
+    <select id="deploymentType">
+      <option value="hammer_anvil">Hammer and Anvil</option>
+      <option value="dawn_of_war">Dawn of War</option>
+      <option value="search_and_destroy">Search and Destroy</option>
+      <option value="sweeping_engagement">Sweeping Engagement</option>
+      <option value="crucible_of_battle">Crucible of Battle</option>
+    </select>
+  </div>
+  <div class="toolbar-group">
+    <label>Terrain:</label>
+    <button id="btnLoadTerrain" class="primary">Load JSON</button>
+    <button id="btnSaveTerrain" class="primary">Save Terrain JSON</button>
+    <button id="btnNewTerrain">New Layout</button>
+  </div>
+  <div class="toolbar-group">
+    <label>Deploy Zones:</label>
+    <button id="btnLoadDeploy" class="primary">Load JSON</button>
+    <button id="btnSaveDeploy" class="primary">Save Deploy JSON</button>
+  </div>
+  <div class="toolbar-group">
+    <label>Zoom:</label>
+    <button id="btnZoomOut">-</button>
+    <span id="zoomLevel">100%</span>
+    <button id="btnZoomIn">+</button>
+    <button id="btnZoomFit">Fit</button>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="main">
+  <!-- Left Sidebar -->
+  <div class="sidebar-left">
+    <!-- Layers -->
+    <div class="panel">
+      <div class="panel-title">Layers</div>
+      <div class="panel-row"><input type="checkbox" id="layerGrid" checked><label for="layerGrid">Grid (1")</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerMajorGrid" checked><label for="layerMajorGrid">Major Grid (6")</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerDeploy" checked><label for="layerDeploy">Deployment Zones</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerTerrain" checked><label for="layerTerrain">Terrain Pieces</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerWalls" checked><label for="layerWalls">Walls</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerObjectives" checked><label for="layerObjectives">Objectives</label></div>
+      <div class="panel-row"><input type="checkbox" id="layerLabels" checked><label for="layerLabels">Labels</label></div>
+    </div>
+
+    <!-- Add Terrain -->
+    <div class="panel">
+      <div class="panel-title">Add Terrain</div>
+      <button class="terrain-btn" onclick="addTerrainPiece(6, 4, 'tall')">Small Ruins (6"x4")</button>
+      <button class="terrain-btn" onclick="addTerrainPiece(10, 5, 'tall')">Medium Ruins (10"x5")</button>
+      <button class="terrain-btn" onclick="addTerrainPiece(12, 6, 'tall')">Large Ruins (12"x6")</button>
+      <button class="terrain-btn" onclick="addTerrainPiece(8, 4, 'medium')">Medium Cover (8"x4")</button>
+      <button class="terrain-btn" onclick="addTerrainPiece(4, 4, 'low')">Small Cover (4"x4")</button>
+    </div>
+
+    <!-- Terrain Pieces List -->
+    <div class="panel" style="flex:1;">
+      <div class="panel-title">Terrain Pieces</div>
+      <div id="terrainList"></div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="boardCanvas"></canvas>
+  </div>
+
+  <!-- Right Sidebar -->
+  <div class="sidebar-right">
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <div class="tab active" data-tab="terrain-props">Terrain</div>
+      <div class="tab" data-tab="deploy-props">Deployment</div>
+      <div class="tab" data-tab="objectives-props">Objectives</div>
+    </div>
+
+    <!-- Terrain Properties Tab -->
+    <div id="terrain-props" class="tab-content active">
+      <div class="panel">
+        <div class="panel-title">Selected Terrain</div>
+        <div id="terrainPropsEmpty" style="font-size:12px; color:#808090; padding: 8px 0;">No terrain piece selected. Click a piece on the board or in the list.</div>
+        <div id="terrainPropsForm" style="display:none;">
+          <div class="prop-row"><label>ID:</label><input type="text" id="propId"></div>
+          <div class="prop-row"><label>Type:</label><select id="propType"><option value="ruins">Ruins</option><option value="woods">Woods</option><option value="crater">Crater</option><option value="barricade">Barricade</option></select></div>
+          <div class="prop-row"><label>X ("):</label><input type="number" id="propX" step="0.5"><label>Y ("):</label><input type="number" id="propY" step="0.5"></div>
+          <div class="prop-row"><label>W ("):</label><input type="number" id="propW" step="0.5" min="1"><label>H ("):</label><input type="number" id="propH" step="0.5" min="1"></div>
+          <div class="prop-row"><label>Height:</label><select id="propHeight"><option value="low">Low (&lt;2")</option><option value="medium">Medium (2-5")</option><option value="tall">Tall (&gt;5")</option></select></div>
+          <div class="prop-row"><label>Rotation:</label><input type="number" id="propRotation" step="15" min="-180" max="360"><span style="font-size:11px">deg</span></div>
+          <div class="prop-row">
+            <button class="btn-small" onclick="duplicateSelected()">Duplicate</button>
+            <button class="btn-small danger" onclick="deleteSelected()">Delete</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="wallsPanel" style="display:none;">
+        <div class="panel-title">Walls <button class="btn-small" onclick="addWall()" style="float:right">+ Add Wall</button></div>
+        <div id="wallsList"></div>
+      </div>
+    </div>
+
+    <!-- Deployment Properties Tab -->
+    <div id="deploy-props" class="tab-content">
+      <div class="panel">
+        <div class="panel-title">Deployment Zone Vertices</div>
+        <div style="font-size:12px; color:#808090; margin-bottom:8px;">
+          Drag vertices on the board to reshape zones. Add/remove vertices below.
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px; color:#a0a0c0;">Player 1 Zone (Blue)</label>
+          <div id="p1Vertices"></div>
+          <button class="btn-small" onclick="addVertex(1)" style="margin-top:4px;">+ Add Vertex</button>
+        </div>
+        <div>
+          <label style="font-size:12px; color:#a0a0c0;">Player 2 Zone (Red)</label>
+          <div id="p2Vertices"></div>
+          <button class="btn-small" onclick="addVertex(2)" style="margin-top:4px;">+ Add Vertex</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Objectives Properties Tab -->
+    <div id="objectives-props" class="tab-content">
+      <div class="panel">
+        <div class="panel-title">Objectives <button class="btn-small" onclick="addObjective()" style="float:right">+ Add</button></div>
+        <div style="font-size:12px; color:#808090; margin-bottom:8px;">
+          Drag objectives on the board to reposition. Edit properties below.
+        </div>
+        <div id="objectivesList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span>Board: 44" x 60"</span>
+  <span id="mousePos">Mouse: -</span>
+  <span id="selectionInfo">Selection: None</span>
+  <span id="pieceCount">Pieces: 0</span>
+</div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="fileInputTerrain" accept=".json" style="display:none">
+<input type="file" id="fileInputDeploy" accept=".json" style="display:none">
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const BOARD_W = 44; // inches
+const BOARD_H = 60; // inches
+const BASE_SCALE = 14; // pixels per inch at 100% zoom
+let scale = BASE_SCALE;
+let zoomPercent = 100;
+
+// Colors
+const COLORS = {
+  boardBg: '#d4c9a8',
+  gridMinor: '#c0b89e',
+  gridMajor: '#a09878',
+  p1Zone: 'rgba(41, 98, 255, 0.25)',
+  p1Border: 'rgba(41, 98, 255, 0.7)',
+  p2Zone: 'rgba(229, 57, 53, 0.25)',
+  p2Border: 'rgba(229, 57, 53, 0.7)',
+  terrainTall: 'rgba(120, 100, 80, 0.7)',
+  terrainMedium: 'rgba(140, 120, 90, 0.6)',
+  terrainLow: 'rgba(160, 140, 100, 0.5)',
+  terrainBorder: '#605040',
+  terrainSelected: '#e94560',
+  wallSolid: '#1a1a2e',
+  wallWindow: '#00bcd4',
+  wallDoor: '#4caf50',
+  objective: '#ff9800',
+  objectiveHome1: '#2196f3',
+  objectiveHome2: '#f44336',
+  objectiveNml: '#ff9800',
+  objectiveCenter: '#ffeb3b',
+  vertexHandle: '#e94560',
+  vertexHandleHover: '#ff6b8a',
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let terrainPieces = [];
+let deploymentZones = { zones: [], objectives: [] };
+let selectedTerrainIdx = -1;
+let selectedObjIdx = -1;
+let dragState = null; // { type: 'terrain'|'vertex'|'objective', idx, startX, startY, origData }
+let hoveredVertex = null;
+let nextTerrainId = 1;
+
+// Built-in deployment zone data
+const DEPLOYMENT_DATA = {
+  hammer_anvil: {
+    id: "hammer_anvil", name: "Hammer and Anvil",
+    description: "Short edges (top/bottom), 12\" deep zones",
+    zones: [
+      { player: 1, poly: [{x:0,y:0},{x:44,y:0},{x:44,y:12},{x:0,y:12}] },
+      { player: 2, poly: [{x:0,y:48},{x:44,y:48},{x:44,y:60},{x:0,y:60}] }
+    ],
+    objectives: [
+      {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_1", position:[10,18], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_2", position:[34,42], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_home_1", position:[22,6], radius_mm:40, zone:"player1"},
+      {id:"obj_home_2", position:[22,54], radius_mm:40, zone:"player2"}
+    ]
+  },
+  dawn_of_war: {
+    id: "dawn_of_war", name: "Dawn of War",
+    description: "Long edges (left/right), 12\" deep zones",
+    zones: [
+      { player: 1, poly: [{x:0,y:0},{x:12,y:0},{x:12,y:60},{x:0,y:60}] },
+      { player: 2, poly: [{x:32,y:0},{x:44,y:0},{x:44,y:60},{x:32,y:60}] }
+    ],
+    objectives: [
+      {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_1", position:[18,15], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_2", position:[26,45], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_home_1", position:[6,30], radius_mm:40, zone:"player1"},
+      {id:"obj_home_2", position:[38,30], radius_mm:40, zone:"player2"}
+    ]
+  },
+  search_and_destroy: {
+    id: "search_and_destroy", name: "Search and Destroy",
+    description: "Opposite corner L-shaped zones",
+    zones: [
+      { player: 1, poly: [{x:0,y:0},{x:24,y:0},{x:24,y:6},{x:6,y:6},{x:6,y:24},{x:0,y:24}] },
+      { player: 2, poly: [{x:20,y:36},{x:38,y:36},{x:38,y:54},{x:44,y:54},{x:44,y:60},{x:20,y:60}] }
+    ],
+    objectives: [
+      {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_1", position:[11,24], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_2", position:[33,36], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_home_1", position:[6,6], radius_mm:40, zone:"player1"},
+      {id:"obj_home_2", position:[38,54], radius_mm:40, zone:"player2"}
+    ]
+  },
+  sweeping_engagement: {
+    id: "sweeping_engagement", name: "Sweeping Engagement",
+    description: "Stepped zones along long edges (Pariah Nexus)",
+    zones: [
+      { player: 1, poly: [{x:0,y:0},{x:8,y:0},{x:8,y:12},{x:14,y:12},{x:14,y:48},{x:8,y:48},{x:8,y:60},{x:0,y:60}] },
+      { player: 2, poly: [{x:36,y:0},{x:44,y:0},{x:44,y:60},{x:36,y:60},{x:36,y:48},{x:30,y:48},{x:30,y:12},{x:36,y:12}] }
+    ],
+    objectives: [
+      {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_1", position:[18,15], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_2", position:[26,45], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_home_1", position:[7,30], radius_mm:40, zone:"player1"},
+      {id:"obj_home_2", position:[37,30], radius_mm:40, zone:"player2"}
+    ]
+  },
+  crucible_of_battle: {
+    id: "crucible_of_battle", name: "Crucible of Battle",
+    description: "Stepped zones along short edges",
+    zones: [
+      { player: 1, poly: [{x:0,y:0},{x:44,y:0},{x:44,y:8},{x:34,y:8},{x:34,y:14},{x:10,y:14},{x:10,y:8},{x:0,y:8}] },
+      { player: 2, poly: [{x:0,y:52},{x:10,y:52},{x:10,y:46},{x:34,y:46},{x:34,y:52},{x:44,y:52},{x:44,y:60},{x:0,y:60}] }
+    ],
+    objectives: [
+      {id:"obj_center", position:[22,30], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_1", position:[10,22], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_nml_2", position:[34,38], radius_mm:40, zone:"no_mans_land"},
+      {id:"obj_home_1", position:[22,4], radius_mm:40, zone:"player1"},
+      {id:"obj_home_2", position:[22,56], radius_mm:40, zone:"player2"}
+    ]
+  }
+};
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+const canvas = document.getElementById('boardCanvas');
+const ctx = canvas.getContext('2d');
+
+function init() {
+  loadDeploymentType(document.getElementById('deploymentType').value);
+  resizeCanvas();
+  setupEventListeners();
+  render();
+}
+
+function resizeCanvas() {
+  canvas.width = BOARD_W * scale;
+  canvas.height = BOARD_H * scale;
+  document.getElementById('zoomLevel').textContent = zoomPercent + '%';
+}
+
+// ============================================================
+// DEPLOYMENT ZONE MANAGEMENT
+// ============================================================
+function loadDeploymentType(type) {
+  const data = DEPLOYMENT_DATA[type];
+  if (data) {
+    deploymentZones = JSON.parse(JSON.stringify(data));
+  }
+  updateDeployVerticesUI();
+  updateObjectivesUI();
+  render();
+}
+
+function loadDeploymentFromJSON(json) {
+  if (json.zones) {
+    deploymentZones = JSON.parse(JSON.stringify(json));
+    document.getElementById('deploymentType').value = json.id || '';
+  }
+  updateDeployVerticesUI();
+  updateObjectivesUI();
+  render();
+}
+
+// ============================================================
+// TERRAIN MANAGEMENT
+// ============================================================
+function addTerrainPiece(w, h, height) {
+  const id = 'ruins_' + nextTerrainId++;
+  const piece = {
+    id: id,
+    type: 'ruins',
+    position: [BOARD_W / 2, BOARD_H / 2],
+    size: [w, h],
+    height: height || 'tall',
+    rotation: 0,
+    walls: []
+  };
+  terrainPieces.push(piece);
+  selectedTerrainIdx = terrainPieces.length - 1;
+  updateTerrainList();
+  updateTerrainProps();
+  render();
+}
+
+function deleteSelected() {
+  if (selectedTerrainIdx >= 0) {
+    terrainPieces.splice(selectedTerrainIdx, 1);
+    selectedTerrainIdx = -1;
+    updateTerrainList();
+    updateTerrainProps();
+    render();
+  }
+}
+
+function duplicateSelected() {
+  if (selectedTerrainIdx >= 0) {
+    const orig = terrainPieces[selectedTerrainIdx];
+    const dup = JSON.parse(JSON.stringify(orig));
+    dup.id = 'ruins_' + nextTerrainId++;
+    dup.position = [orig.position[0] + 2, orig.position[1] + 2];
+    terrainPieces.push(dup);
+    selectedTerrainIdx = terrainPieces.length - 1;
+    updateTerrainList();
+    updateTerrainProps();
+    render();
+  }
+}
+
+function loadTerrainFromJSON(json) {
+  if (json.pieces) {
+    terrainPieces = JSON.parse(JSON.stringify(json.pieces));
+    // Determine next ID
+    let maxId = 0;
+    for (const p of terrainPieces) {
+      const match = p.id.match(/_(\d+)$/);
+      if (match) maxId = Math.max(maxId, parseInt(match[1]));
+    }
+    nextTerrainId = maxId + 1;
+  }
+  selectedTerrainIdx = -1;
+  updateTerrainList();
+  updateTerrainProps();
+  render();
+}
+
+function terrainToJSON() {
+  return {
+    id: 'custom_layout',
+    name: 'Custom Layout',
+    description: 'Layout created with the terrain editor',
+    recommended_deployments: [],
+    pieces: JSON.parse(JSON.stringify(terrainPieces))
+  };
+}
+
+function deployToJSON() {
+  return JSON.parse(JSON.stringify(deploymentZones));
+}
+
+// ============================================================
+// WALL MANAGEMENT
+// ============================================================
+function addWall() {
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  if (!piece.walls) piece.walls = [];
+  const halfW = piece.size[0] / 2;
+  const halfH = piece.size[1] / 2;
+  piece.walls.push({
+    id: 'wall_' + (piece.walls.length + 1),
+    local_start: [-halfW, -halfH],
+    local_end: [halfW, -halfH],
+    type: 'solid',
+    blocks_los: true
+  });
+  updateWallsUI();
+  render();
+}
+
+function deleteWall(wallIdx) {
+  if (selectedTerrainIdx < 0) return;
+  terrainPieces[selectedTerrainIdx].walls.splice(wallIdx, 1);
+  updateWallsUI();
+  render();
+}
+
+// ============================================================
+// OBJECTIVE MANAGEMENT
+// ============================================================
+function addObjective() {
+  const id = 'obj_custom_' + (deploymentZones.objectives.length + 1);
+  deploymentZones.objectives.push({
+    id: id,
+    position: [BOARD_W / 2, BOARD_H / 2],
+    radius_mm: 40,
+    zone: 'no_mans_land'
+  });
+  updateObjectivesUI();
+  render();
+}
+
+function deleteObjective(idx) {
+  deploymentZones.objectives.splice(idx, 1);
+  if (selectedObjIdx === idx) selectedObjIdx = -1;
+  else if (selectedObjIdx > idx) selectedObjIdx--;
+  updateObjectivesUI();
+  render();
+}
+
+// ============================================================
+// DEPLOYMENT ZONE VERTEX MANAGEMENT
+// ============================================================
+function addVertex(player) {
+  const zoneIdx = deploymentZones.zones.findIndex(z => z.player === player);
+  if (zoneIdx < 0) return;
+  const poly = deploymentZones.zones[zoneIdx].poly;
+  // Add vertex at midpoint of last edge
+  if (poly.length >= 2) {
+    const last = poly[poly.length - 1];
+    const first = poly[0];
+    poly.push({ x: (last.x + first.x) / 2, y: (last.y + first.y) / 2 });
+  } else {
+    poly.push({ x: BOARD_W / 2, y: BOARD_H / 2 });
+  }
+  updateDeployVerticesUI();
+  render();
+}
+
+function deleteVertex(player, vIdx) {
+  const zoneIdx = deploymentZones.zones.findIndex(z => z.player === player);
+  if (zoneIdx < 0) return;
+  const poly = deploymentZones.zones[zoneIdx].poly;
+  if (poly.length <= 3) return; // Need at least 3 vertices
+  poly.splice(vIdx, 1);
+  updateDeployVerticesUI();
+  render();
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Board background
+  ctx.fillStyle = COLORS.boardBg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  if (document.getElementById('layerGrid').checked) drawGrid(false);
+  if (document.getElementById('layerMajorGrid').checked) drawGrid(true);
+
+  // Deployment zones
+  if (document.getElementById('layerDeploy').checked) drawDeploymentZones();
+
+  // Terrain pieces
+  if (document.getElementById('layerTerrain').checked) drawTerrainPieces();
+
+  // Walls
+  if (document.getElementById('layerWalls').checked) drawWalls();
+
+  // Objectives
+  if (document.getElementById('layerObjectives').checked) drawObjectives();
+
+  // Update status
+  document.getElementById('pieceCount').textContent = 'Pieces: ' + terrainPieces.length;
+}
+
+function drawGrid(major) {
+  const step = major ? 6 : 1;
+  ctx.strokeStyle = major ? COLORS.gridMajor : COLORS.gridMinor;
+  ctx.lineWidth = major ? 1 : 0.5;
+  ctx.globalAlpha = major ? 0.6 : 0.3;
+  ctx.beginPath();
+  for (let x = 0; x <= BOARD_W; x += step) {
+    ctx.moveTo(x * scale, 0);
+    ctx.lineTo(x * scale, BOARD_H * scale);
+  }
+  for (let y = 0; y <= BOARD_H; y += step) {
+    ctx.moveTo(0, y * scale);
+    ctx.lineTo(BOARD_W * scale, y * scale);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Axis labels for major grid
+  if (major && document.getElementById('layerLabels').checked) {
+    ctx.fillStyle = '#605040';
+    ctx.font = Math.max(8, scale * 0.6) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    for (let x = 0; x <= BOARD_W; x += 6) {
+      ctx.fillText(x + '"', x * scale, BOARD_H * scale + Math.max(10, scale * 0.8));
+    }
+    ctx.textAlign = 'right';
+    for (let y = 0; y <= BOARD_H; y += 6) {
+      ctx.fillText(y + '"', -4, y * scale + 4);
+    }
+  }
+}
+
+function drawDeploymentZones() {
+  for (const zone of deploymentZones.zones) {
+    const isP1 = zone.player === 1;
+    ctx.fillStyle = isP1 ? COLORS.p1Zone : COLORS.p2Zone;
+    ctx.strokeStyle = isP1 ? COLORS.p1Border : COLORS.p2Border;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    for (let i = 0; i < zone.poly.length; i++) {
+      const p = zone.poly[i];
+      if (i === 0) ctx.moveTo(p.x * scale, p.y * scale);
+      else ctx.lineTo(p.x * scale, p.y * scale);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw vertex handles
+    for (let i = 0; i < zone.poly.length; i++) {
+      const p = zone.poly[i];
+      const isHovered = hoveredVertex && hoveredVertex.player === zone.player && hoveredVertex.idx === i;
+      ctx.fillStyle = isHovered ? COLORS.vertexHandleHover : COLORS.vertexHandle;
+      ctx.beginPath();
+      ctx.arc(p.x * scale, p.y * scale, isHovered ? 5 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Label
+    if (document.getElementById('layerLabels').checked) {
+      const cx = zone.poly.reduce((s, p) => s + p.x, 0) / zone.poly.length;
+      const cy = zone.poly.reduce((s, p) => s + p.y, 0) / zone.poly.length;
+      ctx.fillStyle = isP1 ? COLORS.p1Border : COLORS.p2Border;
+      ctx.font = 'bold ' + Math.max(10, scale * 0.8) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('P' + zone.player, cx * scale, cy * scale + 4);
+    }
+  }
+}
+
+function drawTerrainPieces() {
+  for (let i = 0; i < terrainPieces.length; i++) {
+    const piece = terrainPieces[i];
+    const isSelected = i === selectedTerrainIdx;
+    const corners = getTerrainCorners(piece);
+
+    // Fill
+    let fillColor;
+    switch (piece.height) {
+      case 'low': fillColor = COLORS.terrainLow; break;
+      case 'medium': fillColor = COLORS.terrainMedium; break;
+      default: fillColor = COLORS.terrainTall;
+    }
+    ctx.fillStyle = fillColor;
+    ctx.beginPath();
+    for (let j = 0; j < corners.length; j++) {
+      if (j === 0) ctx.moveTo(corners[j].x * scale, corners[j].y * scale);
+      else ctx.lineTo(corners[j].x * scale, corners[j].y * scale);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = isSelected ? COLORS.terrainSelected : COLORS.terrainBorder;
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Label
+    if (document.getElementById('layerLabels').checked) {
+      ctx.fillStyle = isSelected ? '#fff' : '#e0e0e0';
+      ctx.font = Math.max(8, scale * 0.55) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      const labelY = piece.position[1] * scale;
+      ctx.fillText(piece.id, piece.position[0] * scale, labelY - scale * 0.15);
+      ctx.fillStyle = '#a0a0a0';
+      ctx.font = Math.max(7, scale * 0.4) + 'px sans-serif';
+      ctx.fillText(piece.size[0] + '"x' + piece.size[1] + '" ' + piece.height, piece.position[0] * scale, labelY + scale * 0.5);
+    }
+
+    // Resize handles when selected
+    if (isSelected) {
+      for (const c of corners) {
+        ctx.fillStyle = COLORS.terrainSelected;
+        ctx.fillRect(c.x * scale - 3, c.y * scale - 3, 6, 6);
+      }
+    }
+  }
+}
+
+function drawWalls() {
+  for (let i = 0; i < terrainPieces.length; i++) {
+    const piece = terrainPieces[i];
+    if (!piece.walls) continue;
+    const rot = (piece.rotation || 0) * Math.PI / 180;
+
+    for (const wall of piece.walls) {
+      // Convert local wall coords to world coords
+      let sx = wall.local_start[0], sy = wall.local_start[1];
+      let ex = wall.local_end[0], ey = wall.local_end[1];
+
+      if (rot !== 0) {
+        const cos = Math.cos(rot), sin = Math.sin(rot);
+        const rsx = sx * cos - sy * sin, rsy = sx * sin + sy * cos;
+        const rex = ex * cos - ey * sin, rey = ex * sin + ey * cos;
+        sx = rsx; sy = rsy; ex = rex; ey = rey;
+      }
+
+      const wx1 = (piece.position[0] + sx) * scale;
+      const wy1 = (piece.position[1] + sy) * scale;
+      const wx2 = (piece.position[0] + ex) * scale;
+      const wy2 = (piece.position[1] + ey) * scale;
+
+      switch (wall.type) {
+        case 'window':
+          ctx.strokeStyle = COLORS.wallWindow;
+          ctx.setLineDash([4, 4]);
+          break;
+        case 'door':
+          ctx.strokeStyle = COLORS.wallDoor;
+          ctx.setLineDash([8, 4]);
+          break;
+        default:
+          ctx.strokeStyle = COLORS.wallSolid;
+          ctx.setLineDash([]);
+      }
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(wx1, wy1);
+      ctx.lineTo(wx2, wy2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Wall endpoints
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.beginPath(); ctx.arc(wx1, wy1, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(wx2, wy2, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawObjectives() {
+  for (let i = 0; i < deploymentZones.objectives.length; i++) {
+    const obj = deploymentZones.objectives[i];
+    const px = obj.position[0] * scale;
+    const py = obj.position[1] * scale;
+    const r = (obj.radius_mm / 25.4) * scale; // Convert mm to inches then to pixels
+    const isSelected = i === selectedObjIdx;
+
+    // Color by zone type
+    let color;
+    switch (obj.zone) {
+      case 'player1': color = COLORS.objectiveHome1; break;
+      case 'player2': color = COLORS.objectiveHome2; break;
+      default: color = obj.id === 'obj_center' ? COLORS.objectiveCenter : COLORS.objectiveNml;
+    }
+
+    // Circle
+    ctx.fillStyle = color + '80';
+    ctx.strokeStyle = isSelected ? COLORS.terrainSelected : color;
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Center dot
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label
+    if (document.getElementById('layerLabels').checked) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold ' + Math.max(7, scale * 0.4) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(obj.id.replace('obj_', ''), px, py + r + Math.max(10, scale * 0.6));
+    }
+  }
+}
+
+// ============================================================
+// GEOMETRY HELPERS
+// ============================================================
+function getTerrainCorners(piece) {
+  const hw = piece.size[0] / 2;
+  const hh = piece.size[1] / 2;
+  const corners = [
+    { x: -hw, y: -hh },
+    { x: hw, y: -hh },
+    { x: hw, y: hh },
+    { x: -hw, y: hh }
+  ];
+
+  const rot = (piece.rotation || 0) * Math.PI / 180;
+  return corners.map(c => {
+    let rx = c.x, ry = c.y;
+    if (rot !== 0) {
+      const cos = Math.cos(rot), sin = Math.sin(rot);
+      rx = c.x * cos - c.y * sin;
+      ry = c.x * sin + c.y * cos;
+    }
+    return { x: piece.position[0] + rx, y: piece.position[1] + ry };
+  });
+}
+
+function pointInPolygon(px, py, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function mouseToInches(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / scale,
+    y: (e.clientY - rect.top) / scale
+  };
+}
+
+// ============================================================
+// HIT TESTING
+// ============================================================
+function hitTestTerrain(mx, my) {
+  // Test in reverse order (top-most first)
+  for (let i = terrainPieces.length - 1; i >= 0; i--) {
+    const corners = getTerrainCorners(terrainPieces[i]);
+    if (pointInPolygon(mx, my, corners)) return i;
+  }
+  return -1;
+}
+
+function hitTestVertex(mx, my) {
+  const threshold = 6 / scale; // 6 pixels
+  for (const zone of deploymentZones.zones) {
+    for (let i = 0; i < zone.poly.length; i++) {
+      const p = zone.poly[i];
+      const dx = mx - p.x, dy = my - p.y;
+      if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+        return { player: zone.player, idx: i };
+      }
+    }
+  }
+  return null;
+}
+
+function hitTestObjective(mx, my) {
+  const threshold = 8 / scale;
+  for (let i = 0; i < deploymentZones.objectives.length; i++) {
+    const obj = deploymentZones.objectives[i];
+    const dx = mx - obj.position[0], dy = my - obj.position[1];
+    if (Math.sqrt(dx * dx + dy * dy) < threshold) return i;
+  }
+  return -1;
+}
+
+// ============================================================
+// MOUSE INTERACTIONS
+// ============================================================
+function setupEventListeners() {
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', onMouseUp);
+
+  // Layer toggles
+  ['layerGrid', 'layerMajorGrid', 'layerDeploy', 'layerTerrain', 'layerWalls', 'layerObjectives', 'layerLabels'].forEach(id => {
+    document.getElementById(id).addEventListener('change', render);
+  });
+
+  // Deployment type selector
+  document.getElementById('deploymentType').addEventListener('change', (e) => {
+    loadDeploymentType(e.target.value);
+  });
+
+  // Zoom
+  document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(zoomPercent + 25));
+  document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(zoomPercent - 25));
+  document.getElementById('btnZoomFit').addEventListener('click', fitZoom);
+
+  // File I/O
+  document.getElementById('btnLoadTerrain').addEventListener('click', () => document.getElementById('fileInputTerrain').click());
+  document.getElementById('fileInputTerrain').addEventListener('change', handleTerrainFileLoad);
+  document.getElementById('btnSaveTerrain').addEventListener('click', saveTerrainFile);
+  document.getElementById('btnNewTerrain').addEventListener('click', () => {
+    terrainPieces = [];
+    selectedTerrainIdx = -1;
+    nextTerrainId = 1;
+    updateTerrainList();
+    updateTerrainProps();
+    render();
+  });
+
+  document.getElementById('btnLoadDeploy').addEventListener('click', () => document.getElementById('fileInputDeploy').click());
+  document.getElementById('fileInputDeploy').addEventListener('change', handleDeployFileLoad);
+  document.getElementById('btnSaveDeploy').addEventListener('click', saveDeployFile);
+
+  // Property inputs
+  ['propId', 'propType', 'propX', 'propY', 'propW', 'propH', 'propHeight', 'propRotation'].forEach(id => {
+    document.getElementById(id).addEventListener('change', onTerrainPropChange);
+    document.getElementById(id).addEventListener('input', onTerrainPropChange);
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', onKeyDown);
+
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) setZoom(zoomPercent + 10);
+    else setZoom(zoomPercent - 10);
+  });
+}
+
+function onMouseDown(e) {
+  const pos = mouseToInches(e);
+  const mx = pos.x, my = pos.y;
+
+  // Check vertex handles first (deployment zones)
+  const vertex = hitTestVertex(mx, my);
+  if (vertex) {
+    const zone = deploymentZones.zones.find(z => z.player === vertex.player);
+    const origPoly = JSON.parse(JSON.stringify(zone.poly));
+    dragState = { type: 'vertex', player: vertex.player, idx: vertex.idx, origPoly: origPoly };
+    return;
+  }
+
+  // Check objectives
+  const objIdx = hitTestObjective(mx, my);
+  if (objIdx >= 0) {
+    selectedObjIdx = objIdx;
+    selectedTerrainIdx = -1;
+    const obj = deploymentZones.objectives[objIdx];
+    dragState = { type: 'objective', idx: objIdx, offsetX: mx - obj.position[0], offsetY: my - obj.position[1] };
+    updateTerrainProps();
+    updateObjectivesUI();
+    render();
+    return;
+  }
+
+  // Check terrain pieces
+  const terrainIdx = hitTestTerrain(mx, my);
+  if (terrainIdx >= 0) {
+    selectedTerrainIdx = terrainIdx;
+    selectedObjIdx = -1;
+    const piece = terrainPieces[terrainIdx];
+    dragState = { type: 'terrain', idx: terrainIdx, offsetX: mx - piece.position[0], offsetY: my - piece.position[1] };
+    updateTerrainList();
+    updateTerrainProps();
+    render();
+    return;
+  }
+
+  // Clicked on empty space
+  selectedTerrainIdx = -1;
+  selectedObjIdx = -1;
+  updateTerrainList();
+  updateTerrainProps();
+  updateObjectivesUI();
+  render();
+}
+
+function onMouseMove(e) {
+  const pos = mouseToInches(e);
+  const mx = pos.x, my = pos.y;
+
+  // Update status bar
+  document.getElementById('mousePos').textContent = 'Mouse: ' + mx.toFixed(1) + '", ' + my.toFixed(1) + '"';
+
+  // Update hover state for vertices
+  const oldHovered = hoveredVertex;
+  hoveredVertex = hitTestVertex(mx, my);
+  if (JSON.stringify(oldHovered) !== JSON.stringify(hoveredVertex)) render();
+
+  if (!dragState) return;
+
+  if (dragState.type === 'terrain') {
+    const piece = terrainPieces[dragState.idx];
+    let newX = mx - dragState.offsetX;
+    let newY = my - dragState.offsetY;
+    // Snap to 0.5" grid
+    newX = Math.round(newX * 2) / 2;
+    newY = Math.round(newY * 2) / 2;
+    // Clamp to board
+    newX = Math.max(0, Math.min(BOARD_W, newX));
+    newY = Math.max(0, Math.min(BOARD_H, newY));
+    piece.position = [newX, newY];
+    updateTerrainPropsFromData();
+    render();
+  } else if (dragState.type === 'vertex') {
+    const zone = deploymentZones.zones.find(z => z.player === dragState.player);
+    let newX = Math.round(mx * 2) / 2;
+    let newY = Math.round(my * 2) / 2;
+    newX = Math.max(0, Math.min(BOARD_W, newX));
+    newY = Math.max(0, Math.min(BOARD_H, newY));
+    zone.poly[dragState.idx] = { x: newX, y: newY };
+    updateDeployVerticesUI();
+    render();
+  } else if (dragState.type === 'objective') {
+    const obj = deploymentZones.objectives[dragState.idx];
+    let newX = mx - dragState.offsetX;
+    let newY = my - dragState.offsetY;
+    newX = Math.round(newX * 2) / 2;
+    newY = Math.round(newY * 2) / 2;
+    newX = Math.max(0, Math.min(BOARD_W, newX));
+    newY = Math.max(0, Math.min(BOARD_H, newY));
+    obj.position = [newX, newY];
+    updateObjectivesUI();
+    render();
+  }
+}
+
+function onMouseUp(e) {
+  dragState = null;
+}
+
+function onKeyDown(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelected();
+  } else if (e.key === 'd' && e.ctrlKey) {
+    e.preventDefault();
+    duplicateSelected();
+  } else if (e.key === 'r' && selectedTerrainIdx >= 0) {
+    const piece = terrainPieces[selectedTerrainIdx];
+    piece.rotation = ((piece.rotation || 0) + 15) % 360;
+    updateTerrainPropsFromData();
+    render();
+  } else if (e.key === 'R' && selectedTerrainIdx >= 0) {
+    const piece = terrainPieces[selectedTerrainIdx];
+    piece.rotation = ((piece.rotation || 0) - 15 + 360) % 360;
+    updateTerrainPropsFromData();
+    render();
+  }
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updateTerrainList() {
+  const list = document.getElementById('terrainList');
+  list.innerHTML = '';
+  for (let i = 0; i < terrainPieces.length; i++) {
+    const piece = terrainPieces[i];
+    const item = document.createElement('div');
+    item.className = 'terrain-list-item' + (i === selectedTerrainIdx ? ' selected' : '');
+    item.innerHTML = `<span>${piece.id}</span><span style="color:#808090">${piece.size[0]}"x${piece.size[1]}"</span>`;
+    item.addEventListener('click', () => {
+      selectedTerrainIdx = i;
+      updateTerrainList();
+      updateTerrainProps();
+      render();
+    });
+    list.appendChild(item);
+  }
+}
+
+function updateTerrainProps() {
+  const empty = document.getElementById('terrainPropsEmpty');
+  const form = document.getElementById('terrainPropsForm');
+  const wallsPanel = document.getElementById('wallsPanel');
+
+  if (selectedTerrainIdx < 0) {
+    empty.style.display = 'block';
+    form.style.display = 'none';
+    wallsPanel.style.display = 'none';
+    document.getElementById('selectionInfo').textContent = 'Selection: None';
+    return;
+  }
+
+  empty.style.display = 'none';
+  form.style.display = 'block';
+  wallsPanel.style.display = 'block';
+  updateTerrainPropsFromData();
+  updateWallsUI();
+}
+
+function updateTerrainPropsFromData() {
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  document.getElementById('propId').value = piece.id;
+  document.getElementById('propType').value = piece.type || 'ruins';
+  document.getElementById('propX').value = piece.position[0];
+  document.getElementById('propY').value = piece.position[1];
+  document.getElementById('propW').value = piece.size[0];
+  document.getElementById('propH').value = piece.size[1];
+  document.getElementById('propHeight').value = piece.height || 'tall';
+  document.getElementById('propRotation').value = piece.rotation || 0;
+  document.getElementById('selectionInfo').textContent = 'Selection: ' + piece.id;
+}
+
+function onTerrainPropChange() {
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  piece.id = document.getElementById('propId').value;
+  piece.type = document.getElementById('propType').value;
+  piece.position = [parseFloat(document.getElementById('propX').value) || 0, parseFloat(document.getElementById('propY').value) || 0];
+  piece.size = [parseFloat(document.getElementById('propW').value) || 1, parseFloat(document.getElementById('propH').value) || 1];
+  piece.height = document.getElementById('propHeight').value;
+  piece.rotation = parseFloat(document.getElementById('propRotation').value) || 0;
+  updateTerrainList();
+  render();
+}
+
+function updateWallsUI() {
+  const list = document.getElementById('wallsList');
+  list.innerHTML = '';
+  if (selectedTerrainIdx < 0) return;
+  const piece = terrainPieces[selectedTerrainIdx];
+  if (!piece.walls) piece.walls = [];
+
+  for (let i = 0; i < piece.walls.length; i++) {
+    const wall = piece.walls[i];
+    const item = document.createElement('div');
+    item.className = 'wall-item';
+    item.innerHTML = `
+      <div class="wall-header">
+        <span>${wall.id || 'wall_' + i}</span>
+        <button class="btn-small danger" onclick="deleteWall(${i})">x</button>
+      </div>
+      <div class="wall-row">
+        <label>Type:</label>
+        <select onchange="updateWall(${i}, 'type', this.value)">
+          <option value="solid" ${wall.type === 'solid' ? 'selected' : ''}>Solid</option>
+          <option value="window" ${wall.type === 'window' ? 'selected' : ''}>Window</option>
+          <option value="door" ${wall.type === 'door' ? 'selected' : ''}>Door</option>
+        </select>
+        <label>LoS:</label>
+        <input type="checkbox" ${wall.blocks_los ? 'checked' : ''} onchange="updateWall(${i}, 'blocks_los', this.checked)">
+      </div>
+      <div class="wall-row">
+        <label>Start:</label>
+        <input type="number" step="0.5" value="${wall.local_start[0]}" onchange="updateWallPos(${i}, 'start', 0, this.value)">
+        <input type="number" step="0.5" value="${wall.local_start[1]}" onchange="updateWallPos(${i}, 'start', 1, this.value)">
+      </div>
+      <div class="wall-row">
+        <label>End:</label>
+        <input type="number" step="0.5" value="${wall.local_end[0]}" onchange="updateWallPos(${i}, 'end', 0, this.value)">
+        <input type="number" step="0.5" value="${wall.local_end[1]}" onchange="updateWallPos(${i}, 'end', 1, this.value)">
+      </div>
+    `;
+    list.appendChild(item);
+  }
+}
+
+function updateWall(wallIdx, prop, value) {
+  if (selectedTerrainIdx < 0) return;
+  terrainPieces[selectedTerrainIdx].walls[wallIdx][prop] = value;
+  render();
+}
+
+function updateWallPos(wallIdx, startOrEnd, coordIdx, value) {
+  if (selectedTerrainIdx < 0) return;
+  const key = startOrEnd === 'start' ? 'local_start' : 'local_end';
+  terrainPieces[selectedTerrainIdx].walls[wallIdx][key][coordIdx] = parseFloat(value) || 0;
+  render();
+}
+
+function updateDeployVerticesUI() {
+  for (const player of [1, 2]) {
+    const container = document.getElementById('p' + player + 'Vertices');
+    container.innerHTML = '';
+    const zone = deploymentZones.zones.find(z => z.player === player);
+    if (!zone) continue;
+
+    for (let i = 0; i < zone.poly.length; i++) {
+      const v = zone.poly[i];
+      const item = document.createElement('div');
+      item.className = 'vertex-item';
+      item.innerHTML = `
+        <span style="width:20px; color:#808090;">${i}</span>
+        <input type="number" step="0.5" value="${v.x}" onchange="updateVertex(${player}, ${i}, 'x', this.value)">
+        <input type="number" step="0.5" value="${v.y}" onchange="updateVertex(${player}, ${i}, 'y', this.value)">
+        <button class="btn-small danger" onclick="deleteVertex(${player}, ${i})" style="padding:1px 4px;">x</button>
+      `;
+      container.appendChild(item);
+    }
+  }
+}
+
+function updateVertex(player, idx, coord, value) {
+  const zone = deploymentZones.zones.find(z => z.player === player);
+  if (zone) {
+    zone.poly[idx][coord] = parseFloat(value) || 0;
+    render();
+  }
+}
+
+function updateObjectivesUI() {
+  const list = document.getElementById('objectivesList');
+  list.innerHTML = '';
+
+  for (let i = 0; i < deploymentZones.objectives.length; i++) {
+    const obj = deploymentZones.objectives[i];
+    let dotColor;
+    switch (obj.zone) {
+      case 'player1': dotColor = COLORS.objectiveHome1; break;
+      case 'player2': dotColor = COLORS.objectiveHome2; break;
+      default: dotColor = obj.id === 'obj_center' ? COLORS.objectiveCenter : COLORS.objectiveNml;
+    }
+
+    const item = document.createElement('div');
+    item.className = 'obj-item' + (i === selectedObjIdx ? ' selected' : '');
+    item.innerHTML = `
+      <div class="obj-dot" style="background:${dotColor}"></div>
+      <div style="flex:1">
+        <div style="font-size:11px; margin-bottom:2px;">
+          <input type="text" value="${obj.id}" style="width:100px; padding:1px 4px; font-size:11px; background:#16213e; color:#e0e0e0; border:1px solid #0f3460; border-radius:2px;" onchange="deploymentZones.objectives[${i}].id = this.value; render();">
+        </div>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <span style="font-size:10px; color:#808090;">X:</span>
+          <input type="number" step="0.5" value="${obj.position[0]}" style="width:45px; padding:1px 4px; font-size:11px; background:#16213e; color:#e0e0e0; border:1px solid #0f3460; border-radius:2px;" onchange="deploymentZones.objectives[${i}].position[0] = parseFloat(this.value); render();">
+          <span style="font-size:10px; color:#808090;">Y:</span>
+          <input type="number" step="0.5" value="${obj.position[1]}" style="width:45px; padding:1px 4px; font-size:11px; background:#16213e; color:#e0e0e0; border:1px solid #0f3460; border-radius:2px;" onchange="deploymentZones.objectives[${i}].position[1] = parseFloat(this.value); render();">
+          <select style="width:70px; padding:1px 4px; font-size:10px; background:#16213e; color:#e0e0e0; border:1px solid #0f3460; border-radius:2px;" onchange="deploymentZones.objectives[${i}].zone = this.value; render();">
+            <option value="no_mans_land" ${obj.zone === 'no_mans_land' ? 'selected' : ''}>NML</option>
+            <option value="player1" ${obj.zone === 'player1' ? 'selected' : ''}>P1</option>
+            <option value="player2" ${obj.zone === 'player2' ? 'selected' : ''}>P2</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-small danger" onclick="deleteObjective(${i})" style="padding:1px 4px;">x</button>
+    `;
+    item.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+        selectedObjIdx = i;
+        updateObjectivesUI();
+        render();
+      }
+    });
+    list.appendChild(item);
+  }
+}
+
+// ============================================================
+// ZOOM
+// ============================================================
+function setZoom(percent) {
+  zoomPercent = Math.max(25, Math.min(300, percent));
+  scale = BASE_SCALE * (zoomPercent / 100);
+  resizeCanvas();
+  render();
+}
+
+function fitZoom() {
+  const container = document.getElementById('canvasContainer');
+  const availW = container.clientWidth - 40;
+  const availH = container.clientHeight - 40;
+  const scaleW = availW / BOARD_W;
+  const scaleH = availH / BOARD_H;
+  const newScale = Math.min(scaleW, scaleH);
+  zoomPercent = Math.round((newScale / BASE_SCALE) * 100);
+  scale = newScale;
+  resizeCanvas();
+  render();
+}
+
+// ============================================================
+// FILE I/O
+// ============================================================
+function handleTerrainFileLoad(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const json = JSON.parse(ev.target.result);
+      loadTerrainFromJSON(json);
+    } catch (err) {
+      alert('Failed to parse terrain JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // Reset for re-loading same file
+}
+
+function handleDeployFileLoad(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const json = JSON.parse(ev.target.result);
+      loadDeploymentFromJSON(json);
+    } catch (err) {
+      alert('Failed to parse deployment JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function saveTerrainFile() {
+  const json = terrainToJSON();
+  const name = prompt('Layout name:', json.name) || json.name;
+  const id = prompt('Layout ID (used as filename):', json.id) || json.id;
+  json.name = name;
+  json.id = id;
+
+  const blob = new Blob([JSON.stringify(json, null, '\t')], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = id + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function saveDeployFile() {
+  const json = deployToJSON();
+  const blob = new Blob([JSON.stringify(json, null, '\t')], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (json.id || 'deployment') + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// STARTUP
+// ============================================================
+window.addEventListener('load', init);
+window.addEventListener('resize', () => { fitZoom(); });
+</script>
+</body>
+</html>

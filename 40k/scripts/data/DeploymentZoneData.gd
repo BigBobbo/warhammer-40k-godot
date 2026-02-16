@@ -4,6 +4,9 @@ class_name DeploymentZoneData
 # DeploymentZoneData - Static data for all deployment zone types and their objective positions
 # All coordinates are in INCHES on a 44" x 60" board. Origin is top-left (0,0).
 # Consumers convert to pixels via Measurement.inches_to_px().
+#
+# Data is loaded from JSON files in res://deployment_zones/ when available,
+# falling back to hardcoded definitions otherwise.
 
 # Board dimensions in inches
 const BOARD_WIDTH: float = 44.0
@@ -21,6 +24,13 @@ const DEPLOYMENT_TYPES = [
 # Returns deployment zone polygons for both players (in inches)
 # Each zone is an Array of {"x": float, "y": float} dictionaries
 static func get_zones(deployment_type: String) -> Array:
+	# Try loading from JSON first
+	var json_data = _try_load_json(deployment_type)
+	if json_data.size() > 0 and json_data.has("zones"):
+		print("[DeploymentZoneData] Loaded zones for '%s' from JSON" % deployment_type)
+		return json_data["zones"]
+
+	# Fall back to hardcoded definitions
 	match deployment_type:
 		"hammer_anvil":
 			return _hammer_anvil_zones()
@@ -56,6 +66,23 @@ static func get_zones_px(deployment_type: String) -> Array:
 
 # Returns objective positions for a given deployment type (in inches)
 static func get_objectives(deployment_type: String) -> Array:
+	# Try loading from JSON first
+	var json_data = _try_load_json(deployment_type)
+	if json_data.size() > 0 and json_data.has("objectives"):
+		# Convert JSON format [x, y] to Vector2
+		var objectives = []
+		for obj in json_data["objectives"]:
+			var pos = obj.get("position", [0, 0])
+			objectives.append({
+				"id": obj["id"],
+				"position_inches": Vector2(pos[0], pos[1]),
+				"radius_mm": obj.get("radius_mm", 40),
+				"zone": obj.get("zone", "no_mans_land")
+			})
+		print("[DeploymentZoneData] Loaded objectives for '%s' from JSON" % deployment_type)
+		return objectives
+
+	# Fall back to hardcoded definitions
 	match deployment_type:
 		"hammer_anvil":
 			return _hammer_anvil_objectives()
@@ -90,6 +117,11 @@ static func get_objectives_px(deployment_type: String) -> Array:
 
 # Returns display name for a deployment type
 static func get_display_name(deployment_type: String) -> String:
+	# Try JSON first for custom names
+	var json_data = _try_load_json(deployment_type)
+	if json_data.size() > 0 and json_data.has("name"):
+		return json_data["name"]
+
 	match deployment_type:
 		"hammer_anvil":
 			return "Hammer and Anvil"
@@ -105,7 +137,47 @@ static func get_display_name(deployment_type: String) -> String:
 			return deployment_type
 
 # ============================================================
-# DEPLOYMENT ZONE DEFINITIONS
+# JSON LOADING
+# ============================================================
+
+# Cache for loaded JSON data to avoid repeated file reads
+static var _json_cache: Dictionary = {}
+
+static func _try_load_json(deployment_type: String) -> Dictionary:
+	# Check cache first
+	if _json_cache.has(deployment_type):
+		return _json_cache[deployment_type]
+
+	var json_path = "res://deployment_zones/%s.json" % deployment_type
+	if not FileAccess.file_exists(json_path):
+		_json_cache[deployment_type] = {}
+		return {}
+
+	var file = FileAccess.open(json_path, FileAccess.READ)
+	if not file:
+		print("[DeploymentZoneData] Failed to open JSON file: ", json_path)
+		_json_cache[deployment_type] = {}
+		return {}
+
+	var json = JSON.new()
+	var parse_result = json.parse(file.get_as_text())
+	file.close()
+
+	if parse_result != OK:
+		print("[DeploymentZoneData] Failed to parse JSON '%s': %s at line %d" % [json_path, json.get_error_message(), json.get_error_line()])
+		_json_cache[deployment_type] = {}
+		return {}
+
+	var data = json.data
+	_json_cache[deployment_type] = data
+	return data
+
+# Clear the JSON cache (useful if files are modified at runtime)
+static func clear_cache() -> void:
+	_json_cache.clear()
+
+# ============================================================
+# DEPLOYMENT ZONE DEFINITIONS (HARDCODED FALLBACKS)
 # ============================================================
 
 # Hammer and Anvil: Short edges (top/bottom), 12" deep zones
@@ -158,7 +230,7 @@ static func _dawn_of_war_zones() -> Array:
 
 # Search and Destroy: Opposite corner L-shaped zones
 # P1 in top-left corner, P2 in bottom-right corner
-# Each zone: 24" along each edge, 9" deep, forming an L-shape
+# Each zone: 24" along each edge, 6" deep, forming an L-shape
 static func _search_and_destroy_zones() -> Array:
 	return [
 		{
@@ -253,7 +325,7 @@ static func _crucible_of_battle_zones() -> Array:
 	]
 
 # ============================================================
-# OBJECTIVE POSITION DEFINITIONS
+# OBJECTIVE POSITION DEFINITIONS (HARDCODED FALLBACKS)
 # ============================================================
 # Each deployment map has 5 objectives:
 #   - obj_home_1: In or near Player 1's deployment zone

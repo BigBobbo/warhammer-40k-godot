@@ -1,0 +1,61 @@
+{
+	"id": "search_and_destroy",
+	"name": "Search and Destroy",
+	"description": "Opposite corner L-shaped zones. P1 in top-left corner, P2 in bottom-right corner. Each zone extends 24\" along each edge with 6\" depth.",
+	"zones": [
+		{
+			"player": 1,
+			"poly": [
+				{"x": 0.0, "y": 0.0},
+				{"x": 24.0, "y": 0.0},
+				{"x": 24.0, "y": 6.0},
+				{"x": 6.0, "y": 6.0},
+				{"x": 6.0, "y": 24.0},
+				{"x": 0.0, "y": 24.0}
+			]
+		},
+		{
+			"player": 2,
+			"poly": [
+				{"x": 20.0, "y": 36.0},
+				{"x": 38.0, "y": 36.0},
+				{"x": 38.0, "y": 54.0},
+				{"x": 44.0, "y": 54.0},
+				{"x": 44.0, "y": 60.0},
+				{"x": 20.0, "y": 60.0}
+			]
+		}
+	],
+	"objectives": [
+		{
+			"id": "obj_center",
+			"position": [22.0, 30.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_1",
+			"position": [11.0, 24.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_2",
+			"position": [33.0, 36.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_home_1",
+			"position": [6.0, 6.0],
+			"radius_mm": 40,
+			"zone": "player1"
+		},
+		{
+			"id": "obj_home_2",
+			"position": [38.0, 54.0],
+			"radius_mm": 40,
+			"zone": "player2"
+		}
+	]
+}

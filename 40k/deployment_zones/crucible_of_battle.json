@@ -1,0 +1,65 @@
+{
+	"id": "crucible_of_battle",
+	"name": "Crucible of Battle",
+	"description": "Stepped zones along short edges. P1 at top: 8\" deep at sides, stepping to 14\" in the center. P2 at bottom: mirror of P1.",
+	"zones": [
+		{
+			"player": 1,
+			"poly": [
+				{"x": 0.0, "y": 0.0},
+				{"x": 44.0, "y": 0.0},
+				{"x": 44.0, "y": 8.0},
+				{"x": 34.0, "y": 8.0},
+				{"x": 34.0, "y": 14.0},
+				{"x": 10.0, "y": 14.0},
+				{"x": 10.0, "y": 8.0},
+				{"x": 0.0, "y": 8.0}
+			]
+		},
+		{
+			"player": 2,
+			"poly": [
+				{"x": 0.0, "y": 52.0},
+				{"x": 10.0, "y": 52.0},
+				{"x": 10.0, "y": 46.0},
+				{"x": 34.0, "y": 46.0},
+				{"x": 34.0, "y": 52.0},
+				{"x": 44.0, "y": 52.0},
+				{"x": 44.0, "y": 60.0},
+				{"x": 0.0, "y": 60.0}
+			]
+		}
+	],
+	"objectives": [
+		{
+			"id": "obj_center",
+			"position": [22.0, 30.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_1",
+			"position": [10.0, 22.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_2",
+			"position": [34.0, 38.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_home_1",
+			"position": [22.0, 4.0],
+			"radius_mm": 40,
+			"zone": "player1"
+		},
+		{
+			"id": "obj_home_2",
+			"position": [22.0, 56.0],
+			"radius_mm": 40,
+			"zone": "player2"
+		}
+	]
+}
