@@ -13,7 +13,18 @@ const COHERENCY_RANGE_PX: float = 80.0   # 2 inches
 const BOARD_WIDTH_PX: float = 1760.0     # 44 inches
 const BOARD_HEIGHT_PX: float = 2400.0    # 60 inches
 const OBJECTIVE_RANGE_PX: float = 120.0  # 3 inches - objective control range in 10e
+const OBJECTIVE_CONTROL_RANGE_PX: float = 151.5  # 3.79" (3" + 20mm marker radius) in pixels
 const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
+
+# Movement AI tuning weights
+const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
+const WEIGHT_CONTESTED_OBJ: float = 8.0
+const WEIGHT_ENEMY_WEAK_OBJ: float = 7.0
+const WEIGHT_HOME_UNDEFENDED: float = 9.0
+const WEIGHT_ENEMY_STRONG_OBJ: float = -5.0
+const WEIGHT_ALREADY_HELD_OBJ: float = -8.0
+const WEIGHT_SCORING_URGENCY: float = 3.0
+const WEIGHT_OC_EFFICIENCY: float = 2.0
 
 # =============================================================================
 # MAIN ENTRY POINT
@@ -221,77 +232,130 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	var objectives = _get_objectives(snapshot)
 	var enemies = _get_enemy_units(snapshot, player)
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var battle_round = snapshot.get("battle_round", 1)
 
-	# Evaluate each unit: score by distance to nearest objective (process near units first
-	# so they remain stationary quickly, then process far units that need to move)
-	var scored_units = []
+	# =========================================================================
+	# PHASE 1: GLOBAL OBJECTIVE EVALUATION
+	# =========================================================================
+	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+
+	# =========================================================================
+	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT
+	# =========================================================================
+	var assignments = _assign_units_to_objectives(
+		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round
+	)
+
+	# =========================================================================
+	# PHASE 3: EXECUTE BEST ASSIGNMENT
+	# =========================================================================
+	# Process units: engaged units first (must decide immediately), then by assignment priority
+	var engaged_units = []
+	var assigned_units = []
+
 	for unit_id in movable_units:
-		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var centroid = _get_unit_centroid(unit)
-		if centroid == Vector2.INF:
-			continue
-		var nearest_dist = _nearest_objective_distance(centroid, objectives)
-		scored_units.append({
-			"unit_id": unit_id,
-			"obj_dist": nearest_dist,
-			"move_types": movable_units[unit_id]
-		})
+		var move_types = movable_units[unit_id]
+		var is_engaged = "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types
+		if is_engaged:
+			engaged_units.append(unit_id)
+		else:
+			assigned_units.append(unit_id)
 
-	# Sort: units nearest to objectives first (remain stationary), then farthest (need to move)
-	scored_units.sort_custom(func(a, b): return a.obj_dist < b.obj_dist)
-
-	for scored in scored_units:
-		var unit_id = scored.unit_id
-		var move_types = scored.move_types
+	# --- Handle engaged units first ---
+	for unit_id in engaged_units:
 		var unit = snapshot.get("units", {}).get(unit_id, {})
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var move_types = movable_units[unit_id]
+		var decision = _decide_engaged_unit(unit, unit_id, unit_name, move_types, objectives, enemies, snapshot, player)
+		if not decision.is_empty():
+			return decision
 
-		# --- Engaged units: fall back ---
-		if "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types:
-			print("AIDecisionMaker: %s is engaged, falling back" % unit_name)
-			return {
-				"type": "BEGIN_FALL_BACK",
-				"actor_unit_id": unit_id,
-				"_ai_description": "%s falls back (engaged with enemy)" % unit_name
-			}
+	# --- Sort assigned units by priority (highest assignment score first) ---
+	assigned_units.sort_custom(func(a, b):
+		var score_a = assignments.get(a, {}).get("score", 0.0)
+		var score_b = assignments.get(b, {}).get("score", 0.0)
+		return score_a > score_b
+	)
 
-		# --- Already near an objective: remain stationary ---
-		if scored.obj_dist <= OBJECTIVE_RANGE_PX:
+	for unit_id in assigned_units:
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var move_types = movable_units[unit_id]
+		var assignment = assignments.get(unit_id, {})
+		var assigned_obj_pos = assignment.get("objective_pos", Vector2.INF)
+		var assigned_obj_id = assignment.get("objective_id", "")
+		var assignment_action = assignment.get("action", "move")  # "hold", "move", "advance", "screen"
+
+		# --- OC-AWARE HOLD DECISION ---
+		if assignment_action == "hold":
 			if "REMAIN_STATIONARY" in move_types:
-				var dist_inches = scored.obj_dist / PIXELS_PER_INCH
-				print("AIDecisionMaker: %s is within 3\" of objective (%.1f px), holding position" % [unit_name, scored.obj_dist])
+				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
+				var reason = assignment.get("reason", "holding objective")
+				print("AIDecisionMaker: %s holds %s (%s, %.1f\" away)" % [unit_name, assigned_obj_id, reason, dist_inches])
 				return {
 					"type": "REMAIN_STATIONARY",
 					"actor_unit_id": unit_id,
-					"_ai_description": "%s holds objective (%.1f\" away)" % [unit_name, dist_inches]
+					"_ai_description": "%s holds %s (%s)" % [unit_name, assigned_obj_id, reason]
 				}
 
-		# --- Move toward the nearest objective ---
+		# --- ADVANCE DECISION ---
+		if assignment_action == "advance" and "BEGIN_ADVANCE" in move_types:
+			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+			var advance_move = move_inches + 2.0  # Average advance roll
+			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
+			var model_destinations = _compute_movement_toward_target(
+				unit, unit_id, target_pos, advance_move, snapshot, enemies
+			)
+			if not model_destinations.is_empty():
+				var reason = assignment.get("reason", "needs extra distance")
+				print("AIDecisionMaker: %s advances toward %s (%s)" % [unit_name, assigned_obj_id, reason])
+				return {
+					"type": "BEGIN_ADVANCE",
+					"actor_unit_id": unit_id,
+					"_ai_model_destinations": model_destinations,
+					"_ai_description": "%s advances toward %s (%s)" % [unit_name, assigned_obj_id, reason]
+				}
+
+		# --- NORMAL MOVE toward assigned objective ---
 		if "BEGIN_NORMAL_MOVE" in move_types:
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
-			var obj_dist_inches = scored.obj_dist / PIXELS_PER_INCH
-			var model_destinations = _compute_movement_toward_objective(
-				unit, unit_id, objectives, move_inches, snapshot, enemies
+			var centroid = _get_unit_centroid(unit)
+			if centroid == Vector2.INF:
+				continue
+			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(centroid, objectives)
+
+			# If we're already within control range and assigned to hold, remain stationary
+			if target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				if "REMAIN_STATIONARY" in move_types:
+					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
+					print("AIDecisionMaker: %s within control range of %s (%.1f\"), holding" % [unit_name, assigned_obj_id, dist_inches])
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s holds %s (%.1f\" away)" % [unit_name, assigned_obj_id, dist_inches]
+					}
+
+			var model_destinations = _compute_movement_toward_target(
+				unit, unit_id, target_pos, move_inches, snapshot, enemies
 			)
 
 			if not model_destinations.is_empty():
-				print("AIDecisionMaker: %s moving toward objective (M: %.0f\")" % [unit_name, move_inches])
+				var obj_dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
+				var reason = assignment.get("reason", "moving to objective")
+				print("AIDecisionMaker: %s moving toward %s (%s, M: %.0f\")" % [unit_name, assigned_obj_id, reason, move_inches])
 				return {
 					"type": "BEGIN_NORMAL_MOVE",
 					"actor_unit_id": unit_id,
 					"_ai_model_destinations": model_destinations,
-					"_ai_description": "%s moves toward objective (M: %d\", obj: %.1f\" away)" % [unit_name, int(move_inches), obj_dist_inches]
+					"_ai_description": "%s moves toward %s (%s, obj: %.1f\" away)" % [unit_name, assigned_obj_id, reason, obj_dist_inches]
 				}
 			else:
-				print("AIDecisionMaker: %s cannot find valid move, remaining stationary" % unit_name)
+				print("AIDecisionMaker: %s cannot find valid move toward %s" % [unit_name, assigned_obj_id])
 
 		# --- Fallback: remain stationary ---
 		if "REMAIN_STATIONARY" in move_types:
-			var reason = "no valid move found"
-			if objectives.is_empty():
-				reason = "no objectives on board"
-			elif enemies.size() > 0:
-				reason = "all paths blocked or near enemies"
+			var reason = assignment.get("reason", "no valid move found")
 			return {
 				"type": "REMAIN_STATIONARY",
 				"actor_unit_id": unit_id,
@@ -300,55 +364,624 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
 
-# --- Movement helpers ---
+# =============================================================================
+# OBJECTIVE EVALUATION (Task 1 + Task 5)
+# =============================================================================
 
-static func _nearest_objective_distance(pos: Vector2, objectives: Array) -> float:
-	var best = INF
+static func _evaluate_all_objectives(
+	snapshot: Dictionary, objectives: Array, player: int,
+	enemies: Dictionary, friendly_units: Dictionary, battle_round: int
+) -> Array:
+	# Returns array of objective evaluations with priority scores
+	var evaluations = []
+	var obj_data = snapshot.get("board", {}).get("objectives", [])
+
+	for i in range(objectives.size()):
+		var obj_pos = objectives[i]
+		var obj_id = ""
+		var obj_zone = "no_mans_land"
+		if i < obj_data.size():
+			obj_id = obj_data[i].get("id", "obj_%d" % i)
+			obj_zone = obj_data[i].get("zone", "no_mans_land")
+
+		# Calculate OC totals within control range
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+
+		# Count friendly/enemy units nearby (within 12")
+		var friendly_nearby = _count_units_near_position(obj_pos, friendly_units, CHARGE_RANGE_PX)
+		var enemy_nearby = _count_units_near_position(obj_pos, enemies, CHARGE_RANGE_PX)
+
+		# Classify the objective state
+		var state = "uncontrolled"
+		if friendly_oc > 0 and friendly_oc > enemy_oc:
+			if enemy_nearby > 0:
+				state = "held_threatened"
+			else:
+				state = "held_safe"
+		elif enemy_oc > 0 and enemy_oc > friendly_oc:
+			if enemy_oc <= 4:  # Reasonable to contest
+				state = "enemy_weak"
+			else:
+				state = "enemy_strong"
+		elif friendly_oc > 0 and enemy_oc > 0:
+			state = "contested"
+		else:
+			state = "uncontrolled"
+
+		# Is this our home objective?
+		var is_home = (player == 1 and obj_zone == "player1") or (player == 2 and obj_zone == "player2")
+		var is_enemy_home = (player == 1 and obj_zone == "player2") or (player == 2 and obj_zone == "player1")
+
+		# Calculate priority score
+		var priority = 0.0
+		match state:
+			"uncontrolled":
+				priority += WEIGHT_UNCONTROLLED_OBJ
+			"contested":
+				priority += WEIGHT_CONTESTED_OBJ
+			"enemy_weak":
+				priority += WEIGHT_ENEMY_WEAK_OBJ
+			"enemy_strong":
+				priority += WEIGHT_ENEMY_STRONG_OBJ
+			"held_safe":
+				priority += WEIGHT_ALREADY_HELD_OBJ
+			"held_threatened":
+				priority += WEIGHT_CONTESTED_OBJ * 0.8  # Still important to reinforce
+
+		# Home objective bonus - defend it if undefended
+		if is_home and friendly_oc == 0:
+			priority += WEIGHT_HOME_UNDEFENDED
+
+		# Scoring urgency: higher priority in Round 1 (need to be on objectives by Round 2)
+		if battle_round == 1:
+			priority += WEIGHT_SCORING_URGENCY
+		elif battle_round >= 4:
+			# Late game: every VP matters, prioritize flipping contested objectives
+			if state in ["contested", "enemy_weak"]:
+				priority += WEIGHT_SCORING_URGENCY * 0.5
+
+		# Don't over-prioritize enemy home objectives (far away, hard to hold)
+		if is_enemy_home and state == "enemy_strong":
+			priority -= 3.0
+
+		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f" % [obj_id, state, friendly_oc, enemy_oc, priority])
+
+		evaluations.append({
+			"index": i,
+			"id": obj_id,
+			"position": obj_pos,
+			"zone": obj_zone,
+			"state": state,
+			"friendly_oc": friendly_oc,
+			"enemy_oc": enemy_oc,
+			"friendly_nearby": friendly_nearby,
+			"enemy_nearby": enemy_nearby,
+			"is_home": is_home,
+			"is_enemy_home": is_enemy_home,
+			"priority": priority,
+			"oc_needed": max(0, enemy_oc - friendly_oc + 1)  # OC we need to add to flip control
+		})
+
+	return evaluations
+
+# =============================================================================
+# UNIT-TO-OBJECTIVE ASSIGNMENT (Task 1 + Task 2 + Task 3 + Task 6)
+# =============================================================================
+
+static func _assign_units_to_objectives(
+	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
+	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
+	player: int, battle_round: int
+) -> Dictionary:
+	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
+	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
+
+	var assignments = {}  # unit_id -> assignment dict
+	var obj_oc_remaining = {}  # objective_id -> how much more OC is still needed there
+
+	# Initialize OC needs per objective
+	for eval in obj_evaluations:
+		var obj_id = eval.id
+		if eval.state in ["held_safe"]:
+			obj_oc_remaining[obj_id] = 0  # Already fully held
+		elif eval.state == "held_threatened":
+			obj_oc_remaining[obj_id] = max(1, eval.enemy_oc)  # Might need reinforcement
+		else:
+			# Need enough OC to control: enemy_oc + 1 (minus what we already have)
+			obj_oc_remaining[obj_id] = max(1, eval.oc_needed)
+
+	# Build all (unit, objective) candidate pairs with scores
+	var candidates = []
+	for unit_id in movable_units:
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var move_types = movable_units[unit_id]
+		var is_engaged = "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types
+		if is_engaged:
+			continue  # Engaged units handled separately
+
+		var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+		var unit_keywords = unit.get("meta", {}).get("keywords", [])
+		var has_ranged = _unit_has_ranged_weapons(unit)
+		var max_weapon_range = _get_max_weapon_range(unit)
+
+		for eval in obj_evaluations:
+			var obj_pos = eval.position
+			var obj_id = eval.id
+			var dist_px = centroid.distance_to(obj_pos)
+			var dist_inches = dist_px / PIXELS_PER_INCH
+			var turns_to_reach = max(1.0, ceil(dist_inches / move_inches)) if move_inches > 0 else 99.0
+			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX
+
+			# Base score from objective priority
+			var score = eval.priority
+
+			# OC efficiency: high-OC units are more valuable at contested objectives
+			if eval.oc_needed > 0:
+				score += min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * WEIGHT_OC_EFFICIENCY
+
+			# Distance penalty: further away = less useful
+			if turns_to_reach > 1:
+				score -= (turns_to_reach - 1) * 2.0
+
+			# Already on the objective: big bonus for holding
+			if already_on_obj:
+				score += 5.0
+
+			# Can reach this turn: bonus
+			if dist_inches <= move_inches:
+				score += 3.0
+			elif dist_inches <= move_inches + 2.0:  # Reachable with advance
+				score += 1.5
+
+			# Scoring round awareness: if this is round 1 and we can't reach by round 2, lower priority
+			if battle_round == 1 and turns_to_reach > 1:
+				score -= 2.0
+
+			# Unit suitability: units with shooting should consider range to enemies
+			if has_ranged and eval.enemy_nearby > 0:
+				score += 1.0  # Shooting units valuable where enemies are
+
+			# Determine recommended action
+			var action = "move"
+			var reason = "moving to objective"
+
+			if already_on_obj:
+				action = "hold"
+				reason = "on objective, OC needed"
+			elif dist_inches > move_inches and dist_inches <= move_inches + 2.0:
+				# Advance consideration (Task 3)
+				var should_advance = _should_unit_advance(
+					unit, dist_inches, move_inches, has_ranged, max_weapon_range,
+					enemies, centroid, battle_round, eval
+				)
+				if should_advance:
+					action = "advance"
+					reason = "advancing for extra range"
+
+			candidates.append({
+				"unit_id": unit_id,
+				"objective_id": obj_id,
+				"objective_pos": obj_pos,
+				"score": score,
+				"action": action,
+				"reason": reason,
+				"distance": dist_px,
+				"unit_oc": unit_oc,
+				"already_on_obj": already_on_obj,
+				"turns_to_reach": turns_to_reach
+			})
+
+	# Sort by score (highest first)
+	candidates.sort_custom(func(a, b): return a.score > b.score)
+
+	# Greedy assignment: assign the best (unit, objective) pair, then reduce OC need
+	var assigned_unit_ids = {}  # Track which units are already assigned
+
+	# PASS 1: Assign units already on objectives first (hold decisions)
+	# Count how many movable units are on each objective
+	var units_on_obj = {}  # obj_id -> count of movable units on it
+	for cand in candidates:
+		if cand.already_on_obj:
+			units_on_obj[cand.objective_id] = units_on_obj.get(cand.objective_id, 0) + 1
+
+	for cand in candidates:
+		var uid = cand.unit_id
+		var oid = cand.objective_id
+		if assigned_unit_ids.has(uid):
+			continue
+		if not cand.already_on_obj:
+			continue
+
+		var remaining = obj_oc_remaining.get(oid, 0)
+		var eval_for_obj = _get_obj_eval_by_id(obj_evaluations, oid)
+		var obj_state = eval_for_obj.get("state", "")
+
+		# Determine if this unit should hold here
+		var should_hold = false
+		if remaining > 0:
+			should_hold = true  # OC still needed at this objective
+		elif obj_state == "held_threatened":
+			should_hold = true  # Threatened, keep defender
+		elif units_on_obj.get(oid, 0) <= 1:
+			# Only one unit on this objective — always hold to maintain control
+			# Don't abandon a controlled objective
+			should_hold = true
+		# If multiple units on same held_safe objective, let extras move elsewhere
+
+		if should_hold:
+			assignments[uid] = cand
+			assignments[uid]["action"] = "hold"
+			assignments[uid]["reason"] = "holding objective (OC: %d)" % cand.unit_oc
+			assigned_unit_ids[uid] = true
+			obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
+			# Decrease count so second unit on same obj can be freed
+			units_on_obj[oid] = units_on_obj.get(oid, 1) - 1
+			print("AIDecisionMaker: Assigned %s to HOLD %s (OC: %d, remaining need: %d)" % [uid, oid, cand.unit_oc, obj_oc_remaining[oid]])
+		else:
+			# Objective already fully held by another unit — this unit should move elsewhere
+			# Will be assigned in pass 2
+			pass
+
+	# PASS 2: Assign remaining units to objectives that still need OC
+	for cand in candidates:
+		var uid = cand.unit_id
+		var oid = cand.objective_id
+		if assigned_unit_ids.has(uid):
+			continue
+
+		var remaining = obj_oc_remaining.get(oid, 0)
+		if remaining <= 0:
+			# Check if any other objective still needs units
+			var any_need = false
+			for other_oid in obj_oc_remaining:
+				if obj_oc_remaining[other_oid] > 0:
+					any_need = true
+					break
+			if not any_need:
+				# All objectives satisfied — assign to screen or best available
+				pass  # Fall through to pass 3
+
+			continue  # Skip objectives that don't need more OC
+
+		assignments[uid] = cand
+		assigned_unit_ids[uid] = true
+		obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
+		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [uid, cand.action.to_upper(), oid, cand.score, cand.reason])
+
+	# PASS 3: Assign any remaining unassigned units
+	for unit_id in movable_units:
+		if assigned_unit_ids.has(unit_id):
+			continue
+		var move_types = movable_units[unit_id]
+		var is_engaged = "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types
+		if is_engaged:
+			continue
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+
+		# Find best objective for screening/support or just nearest useful one
+		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player)
+		if not best_obj.is_empty():
+			assignments[unit_id] = best_obj
+			assigned_unit_ids[unit_id] = true
+			print("AIDecisionMaker: Assigned %s to %s %s (support/screen)" % [unit_id, best_obj.action.to_upper(), best_obj.objective_id])
+		else:
+			# Truly nothing useful — remain stationary
+			assignments[unit_id] = {
+				"objective_id": "none",
+				"objective_pos": Vector2.INF,
+				"action": "hold",
+				"score": -100.0,
+				"reason": "no useful objective",
+				"distance": 0.0
+			}
+
+	return assignments
+
+# =============================================================================
+# ENGAGED UNIT DECISION (Task 4: Smart Fall Back)
+# =============================================================================
+
+static func _decide_engaged_unit(
+	unit: Dictionary, unit_id: String, unit_name: String,
+	move_types: Array, objectives: Array, enemies: Dictionary,
+	snapshot: Dictionary, player: int
+) -> Dictionary:
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		if "REMAIN_STATIONARY" in move_types:
+			return {"type": "REMAIN_STATIONARY", "actor_unit_id": unit_id, "_ai_description": "%s remains stationary (no position)" % unit_name}
+		return {}
+
+	# Check if this unit is on an objective
+	var on_objective = false
+	var obj_id_held = ""
+	for obj_pos in objectives:
+		if centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			on_objective = true
+			# Find the objective ID
+			var obj_data = snapshot.get("board", {}).get("objectives", [])
+			for od in obj_data:
+				var op = od.get("position", null)
+				if op != null:
+					var opv = op if op is Vector2 else Vector2(float(op.get("x", 0)), float(op.get("y", 0)))
+					if opv.distance_to(obj_pos) < 10.0:
+						obj_id_held = od.get("id", "")
+			break
+
+	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+	var friendly_units = _get_units_for_player(snapshot, player)
+
+	if on_objective:
+		# Check if our OC at this objective would be reduced by falling back
+		var friendly_oc_here = _get_oc_at_position(
+			centroid, friendly_units, player, true
+		)
+		var enemy_oc_here = _get_oc_at_position(
+			centroid, enemies, player, false
+		)
+
+		# If we're winning the OC war or tied, stay and hold
+		if friendly_oc_here >= enemy_oc_here and "REMAIN_STATIONARY" in move_types:
+			print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+			return {
+				"type": "REMAIN_STATIONARY",
+				"actor_unit_id": unit_id,
+				"_ai_description": "%s holds %s while engaged (OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
+			}
+
+		# If we're losing OC but falling back would lose the objective entirely
+		var oc_without_us = friendly_oc_here - unit_oc
+		if oc_without_us <= 0 and "REMAIN_STATIONARY" in move_types:
+			# We're the only one holding it — stay even if losing OC war
+			print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
+			return {
+				"type": "REMAIN_STATIONARY",
+				"actor_unit_id": unit_id,
+				"_ai_description": "%s stays on %s (only holder, OC: %d)" % [unit_name, obj_id_held, unit_oc]
+			}
+
+	# Not on objective or better to fall back — fall back
+	if "BEGIN_FALL_BACK" in move_types:
+		var reason = "not on objective" if not on_objective else "losing OC war"
+		print("AIDecisionMaker: %s falling back (%s)" % [unit_name, reason])
+		return {
+			"type": "BEGIN_FALL_BACK",
+			"actor_unit_id": unit_id,
+			"_ai_description": "%s falls back (%s)" % [unit_name, reason]
+		}
+
+	if "REMAIN_STATIONARY" in move_types:
+		return {
+			"type": "REMAIN_STATIONARY",
+			"actor_unit_id": unit_id,
+			"_ai_description": "%s remains stationary (engaged, no fall back option)" % unit_name
+		}
+
+	return {}
+
+# =============================================================================
+# ADVANCE DECISION LOGIC (Task 3 + Task 6)
+# =============================================================================
+
+static func _should_unit_advance(
+	unit: Dictionary, dist_inches: float, move_inches: float,
+	has_ranged: bool, max_weapon_range: float, enemies: Dictionary,
+	centroid: Vector2, battle_round: int, obj_eval: Dictionary
+) -> bool:
+	# Can't reach with normal move but can with advance?
+	var can_reach_normal = dist_inches <= move_inches
+	var can_reach_advance = dist_inches <= move_inches + 2.0  # Average advance
+
+	if can_reach_normal:
+		return false  # Normal move is enough
+
+	if not can_reach_advance:
+		return false  # Can't reach even with advance
+
+	# Units without ranged weapons should always advance
+	if not has_ranged:
+		return true
+
+	# Battle-shocked units can't shoot anyway — advance
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return true
+
+	# Round 1: aggressive positioning is critical for Round 2 scoring
+	if battle_round == 1:
+		# Advance to reach no-man's-land objectives
+		if obj_eval.get("zone", "") == "no_mans_land":
+			return true
+
+	# High-priority uncontrolled objective: advancing to grab it is worth losing shooting
+	if obj_eval.get("state", "") == "uncontrolled" and obj_eval.get("priority", 0) >= 8.0:
+		return true
+
+	# Cross-phase consideration (Task 6): check if we have viable shooting targets nearby
+	var has_targets_in_range = false
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var enemy_centroid = _get_unit_centroid(enemy)
+		if enemy_centroid == Vector2.INF:
+			continue
+		if centroid.distance_to(enemy_centroid) <= max_weapon_range * PIXELS_PER_INCH:
+			has_targets_in_range = true
+			break
+
+	# If no targets in range anyway, advancing costs nothing
+	if not has_targets_in_range:
+		return true
+
+	# Otherwise, prefer shooting over advancing
+	return false
+
+# =============================================================================
+# MOVEMENT HELPERS (Enhanced)
+# =============================================================================
+
+static func _get_oc_at_position(pos: Vector2, units: Dictionary, player: int, is_friendly: bool) -> int:
+	# Sum up OC values of all units within control range of a position
+	var total_oc = 0
+	for uid in units:
+		var unit = units[uid]
+		# Skip battle-shocked units (they have 0 effective OC)
+		if unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		var status = unit.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var oc_val = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+		if oc_val <= 0:
+			continue
+		# Check if any alive model is within control range
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var mpos = _get_model_position(model)
+			if mpos == Vector2.INF:
+				continue
+			if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				total_oc += oc_val
+				break  # Count unit once
+	return total_oc
+
+static func _count_units_near_position(pos: Vector2, units: Dictionary, range_px: float) -> int:
+	var count = 0
+	for uid in units:
+		var unit = units[uid]
+		var status = unit.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		if centroid.distance_to(pos) <= range_px:
+			count += 1
+	return count
+
+static func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for w in weapons:
+		if w.get("type", "").to_lower() == "ranged":
+			return true
+	return false
+
+static func _get_max_weapon_range(unit: Dictionary) -> float:
+	var max_range = 0.0
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for w in weapons:
+		if w.get("type", "").to_lower() == "ranged":
+			var range_str = w.get("range", "0")
+			if range_str.is_valid_float():
+				max_range = max(max_range, float(range_str))
+			elif range_str.is_valid_int():
+				max_range = max(max_range, float(int(range_str)))
+	return max_range
+
+static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
+	var best = Vector2.INF
+	var best_dist = INF
 	for obj_pos in objectives:
 		var d = pos.distance_to(obj_pos)
-		if d < best:
-			best = d
+		if d < best_dist:
+			best_dist = d
+			best = obj_pos
 	return best
 
-static func _compute_movement_toward_objective(
-	unit: Dictionary, unit_id: String, objectives: Array, move_inches: float,
-	snapshot: Dictionary, enemies: Dictionary
+static func _get_obj_eval_by_id(evaluations: Array, obj_id: String) -> Dictionary:
+	for eval in evaluations:
+		if eval.id == obj_id:
+			return eval
+	return {}
+
+static func _find_best_remaining_objective(
+	centroid: Vector2, obj_evaluations: Array, enemies: Dictionary,
+	unit: Dictionary, snapshot: Dictionary, player: int
 ) -> Dictionary:
-	# Returns: {model_id: [x, y], ...} or empty dict if no valid move
+	# For unassigned units: find the best objective to support or screen near
+	var best_score = -INF
+	var best = {}
+	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+	var has_ranged = _unit_has_ranged_weapons(unit)
+
+	for eval in obj_evaluations:
+		var dist = centroid.distance_to(eval.position)
+		var dist_inches = dist / PIXELS_PER_INCH
+
+		# Score based on: priority + proximity + can we help?
+		var score = eval.priority
+		score -= dist_inches * 0.5  # Closer is better
+
+		# Contested/threatened objectives benefit most from reinforcement
+		if eval.state in ["contested", "held_threatened", "enemy_weak"]:
+			score += 3.0
+
+		# Screening position: place between enemy and valuable friendly-held objectives
+		if eval.state == "held_safe" and eval.enemy_nearby > 0:
+			score += 2.0  # Screen for held objectives
+
+		# Shooting support: ranged units should move toward enemy-adjacent objectives
+		if has_ranged and eval.enemy_nearby > 0:
+			score += 1.5
+
+		if score > best_score:
+			best_score = score
+			var action = "move"
+			var reason = "supporting nearby objective"
+			if dist <= OBJECTIVE_CONTROL_RANGE_PX:
+				action = "hold"
+				reason = "already at objective"
+			best = {
+				"objective_id": eval.id,
+				"objective_pos": eval.position,
+				"action": action,
+				"score": score,
+				"reason": reason,
+				"distance": dist,
+				"unit_oc": unit_oc
+			}
+
+	return best
+
+static func _compute_movement_toward_target(
+	unit: Dictionary, unit_id: String, target_pos: Vector2,
+	move_inches: float, snapshot: Dictionary, enemies: Dictionary
+) -> Dictionary:
+	# Generalized version of _compute_movement_toward_objective that takes a specific target position
+	if target_pos == Vector2.INF:
+		return {}
 
 	var alive_models = _get_alive_models_with_positions(unit)
 	if alive_models.is_empty():
-		return {}
-	if objectives.is_empty():
 		return {}
 
 	var centroid = _get_unit_centroid(unit)
 	if centroid == Vector2.INF:
 		return {}
 
-	# Find the nearest objective
-	var best_objective = objectives[0]
-	var best_dist = centroid.distance_to(objectives[0])
-	for i in range(1, objectives.size()):
-		var d = centroid.distance_to(objectives[i])
-		if d < best_dist:
-			best_dist = d
-			best_objective = objectives[i]
-
-	# Calculate movement vector toward objective
-	var direction = (best_objective - centroid).normalized()
+	# Calculate movement vector toward target
+	var direction = (target_pos - centroid).normalized()
 	var move_px = move_inches * PIXELS_PER_INCH
-	# Don't overshoot the objective — stop at the objective center
-	var actual_move_px = min(move_px, best_dist)
+	var dist_to_target = centroid.distance_to(target_pos)
+	var actual_move_px = min(move_px, dist_to_target)
 	var move_vector = direction * actual_move_px
 
 	# Get terrain features for blocking checks
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-	# Check if the direct path is blocked by terrain
-	var final_move_vector = _find_unblocked_move(
-		centroid, move_vector, actual_move_px, unit_keywords, terrain_features
+	# Check if the direct path is blocked by terrain (Task 8: terrain-aware pathing)
+	var final_move_vector = _find_unblocked_move_enhanced(
+		centroid, move_vector, actual_move_px, unit_keywords, terrain_features, enemies, unit
 	)
 
 	if final_move_vector == Vector2.ZERO:
@@ -385,17 +1018,23 @@ static func _compute_movement_toward_objective(
 	# All fractions failed
 	return {}
 
-static func _find_unblocked_move(
+static func _find_unblocked_move_enhanced(
 	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
-	unit_keywords: Array, terrain_features: Array
+	unit_keywords: Array, terrain_features: Array,
+	enemies: Dictionary, unit: Dictionary
 ) -> Vector2:
+	# Enhanced version with terrain-aware pathing (Task 8)
 	# Try the direct path first
 	if not _path_blocked_by_terrain(centroid, centroid + move_vector, unit_keywords, terrain_features):
+		# Task 8: Check if a path through cover would be better
+		var cover_path = _find_cover_path(centroid, move_vector, move_distance_px, unit_keywords, terrain_features, enemies)
+		if cover_path != Vector2.ZERO:
+			return cover_path
 		return move_vector
 
 	print("AIDecisionMaker: Direct path blocked, trying alternate directions")
 
-	# Try angled alternatives: ±30°, ±60°, ±90°
+	# Try angled alternatives: +/-30, +/-60, +/-90
 	var base_direction = move_vector.normalized()
 	var angles_to_try = [
 		deg_to_rad(30), deg_to_rad(-30),
@@ -418,6 +1057,135 @@ static func _find_unblocked_move(
 
 	# All paths blocked
 	return Vector2.ZERO
+
+# =============================================================================
+# TERRAIN-AWARE PATHING (Task 8)
+# =============================================================================
+
+static func _find_cover_path(
+	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
+	unit_keywords: Array, terrain_features: Array, enemies: Dictionary
+) -> Vector2:
+	# Check if there's a safer path that ends in/near cover from enemy LoS
+	# Only redirect if enemies are nearby and cover is available along the route
+	var dest = centroid + move_vector
+
+	# Find nearby enemy positions
+	var enemy_positions = []
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ecentroid = _get_unit_centroid(enemy)
+		if ecentroid != Vector2.INF:
+			enemy_positions.append(ecentroid)
+
+	if enemy_positions.is_empty():
+		return Vector2.ZERO  # No enemies to hide from, use direct path
+
+	# Check if the direct destination has terrain cover from enemies
+	var direct_has_cover = _position_has_cover(dest, enemy_positions, terrain_features)
+	if direct_has_cover:
+		return Vector2.ZERO  # Direct path already ends in cover
+
+	# Try slight adjustments (+/-15, +/-30 degrees) to find a covered endpoint
+	var base_dir = move_vector.normalized()
+	var small_angles = [deg_to_rad(15), deg_to_rad(-15), deg_to_rad(30), deg_to_rad(-30)]
+
+	for angle in small_angles:
+		var alt_dir = base_dir.rotated(angle)
+		var alt_vector = alt_dir * move_distance_px
+		var alt_dest = centroid + alt_vector
+		if not _path_blocked_by_terrain(centroid, alt_dest, unit_keywords, terrain_features):
+			if _position_has_cover(alt_dest, enemy_positions, terrain_features):
+				print("AIDecisionMaker: Found cover path at %.0f degrees offset" % rad_to_deg(angle))
+				return alt_vector
+
+	return Vector2.ZERO  # No better cover path found
+
+static func _position_has_cover(pos: Vector2, enemy_positions: Array, terrain_features: Array) -> bool:
+	# Check if a position has terrain between it and enemy positions (providing cover/LoS blocking)
+	for enemy_pos in enemy_positions:
+		for terrain in terrain_features:
+			var polygon = terrain.get("polygon", [])
+			var packed = PackedVector2Array()
+			if polygon is PackedVector2Array:
+				packed = polygon
+			elif polygon is Array and polygon.size() >= 3:
+				for p in polygon:
+					if p is Vector2:
+						packed.append(p)
+					elif p is Dictionary:
+						packed.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+
+			if packed.size() >= 3:
+				# Check if terrain blocks LoS from enemy to this position
+				if _line_intersects_polygon(enemy_pos, pos, packed):
+					return true  # At least one enemy has LoS blocked by terrain
+	return false
+
+# =============================================================================
+# SCREENING/DEFENSIVE POSITIONING (Task 7)
+# =============================================================================
+
+static func _compute_screen_position(
+	unit: Dictionary, unit_id: String, friendly_units: Dictionary,
+	enemies: Dictionary, snapshot: Dictionary
+) -> Vector2:
+	# Find a good screening position between enemies and valuable friendly units
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return Vector2.INF
+
+	# Find the nearest enemy threat
+	var nearest_enemy_pos = Vector2.INF
+	var nearest_enemy_dist = INF
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ecentroid = _get_unit_centroid(enemy)
+		if ecentroid == Vector2.INF:
+			continue
+		var d = centroid.distance_to(ecentroid)
+		if d < nearest_enemy_dist:
+			nearest_enemy_dist = d
+			nearest_enemy_pos = ecentroid
+
+	if nearest_enemy_pos == Vector2.INF:
+		return Vector2.INF
+
+	# Find the nearest valuable friendly unit to protect
+	var protect_pos = Vector2.INF
+	var protect_dist = INF
+	for fid in friendly_units:
+		if fid == unit_id:
+			continue
+		var funit = friendly_units[fid]
+		var fcentroid = _get_unit_centroid(funit)
+		if fcentroid == Vector2.INF:
+			continue
+		# Prioritize protecting units near objectives or with high value
+		var d = centroid.distance_to(fcentroid)
+		if d < protect_dist:
+			protect_dist = d
+			protect_pos = fcentroid
+
+	if protect_pos == Vector2.INF:
+		return Vector2.INF
+
+	# Screen position: halfway between the friendly unit and the enemy, leaning toward enemy
+	var screen_pos = protect_pos + (nearest_enemy_pos - protect_pos) * 0.6
+	return screen_pos
+
+# --- Movement helpers ---
+
+static func _nearest_objective_distance(pos: Vector2, objectives: Array) -> float:
+	var best = INF
+	for obj_pos in objectives:
+		var d = pos.distance_to(obj_pos)
+		if d < best:
+			best = d
+	return best
+
+# _compute_movement_toward_objective: REMOVED - replaced by _compute_movement_toward_target
+# _find_unblocked_move: REMOVED - replaced by _find_unblocked_move_enhanced
 
 static func _path_blocked_by_terrain(
 	from: Vector2, to: Vector2, unit_keywords: Array, terrain_features: Array
@@ -495,38 +1263,7 @@ static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit:
 				return true
 	return false
 
-static func _try_shorter_move(
-	alive_models: Array, move_vector: Vector2,
-	enemies: Dictionary, unit: Dictionary
-) -> Dictionary:
-	# Try progressively shorter moves: 75%, 50%, 25% of the original
-	for fraction in [0.75, 0.5, 0.25]:
-		var shorter = move_vector * fraction
-		var destinations = {}
-		var valid = true
-
-		for model in alive_models:
-			var model_id = model.get("id", "")
-			if model_id == "":
-				continue
-			var model_pos = _get_model_position(model)
-			if model_pos == Vector2.INF:
-				continue
-			var dest = model_pos + shorter
-			dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-			dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-
-			if _is_position_near_enemy(dest, enemies, unit):
-				valid = false
-				break
-			destinations[model_id] = [dest.x, dest.y]
-
-		if valid and not destinations.is_empty():
-			print("AIDecisionMaker: Using shorter move at %.0f%% to avoid enemies" % (fraction * 100))
-			return destinations
-
-	# Can't find safe move at any distance
-	return {}
+# _try_shorter_move: REMOVED - functionality integrated into _try_move_with_collision_check
 
 static func _try_move_with_collision_check(
 	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
