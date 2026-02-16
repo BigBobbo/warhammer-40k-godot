@@ -2238,7 +2238,7 @@ func _show_disembark_dialog(unit_id: String) -> void:
 	var dialog = preload("res://scripts/DisembarkDialog.gd").new()
 	dialog.setup(unit_id)
 	dialog.disembark_confirmed.connect(_on_disembark_confirmed.bind(unit_id))
-	dialog.disembark_cancelled.connect(_on_disembark_cancelled.bind(unit_id))
+	dialog.disembark_canceled.connect(_on_disembark_canceled.bind(unit_id))
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
 
@@ -2246,11 +2246,11 @@ func _on_disembark_confirmed(unit_id: String) -> void:
 	"""Handle disembark confirmation - start placement"""
 	var controller = preload("res://scripts/DisembarkController.gd").new()
 	controller.disembark_completed.connect(_on_disembark_placement_completed)
-	controller.disembark_cancelled.connect(_on_disembark_placement_cancelled)
+	controller.disembark_canceled.connect(_on_disembark_placement_canceled)
 	get_tree().root.add_child(controller)
 	controller.start_disembark(unit_id)
 
-func _on_disembark_cancelled(unit_id: String) -> void:
+func _on_disembark_canceled(unit_id: String) -> void:
 	"""Handle disembark cancellation"""
 	log_phase_message("Disembark cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
 
@@ -2341,7 +2341,7 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 	log_phase_message("Movement initialized for disembarked unit %s (M: %d\")" % [unit.meta.get("name", unit_id), move_inches])
 
-func _on_disembark_placement_cancelled(unit_id: String) -> void:
+func _on_disembark_placement_canceled(unit_id: String) -> void:
 	"""Handle cancelled disembark placement"""
 	log_phase_message("Disembark placement cancelled for %s" % get_unit(unit_id).meta.get("name", unit_id))
 
