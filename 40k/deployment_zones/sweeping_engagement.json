@@ -1,0 +1,65 @@
+{
+	"id": "sweeping_engagement",
+	"name": "Sweeping Engagement",
+	"description": "Stepped zones along long edges (Pariah Nexus version). P1 on left: 8\" deep at edges, stepping to 14\" in the middle section. P2 on right: mirror of P1.",
+	"zones": [
+		{
+			"player": 1,
+			"poly": [
+				{"x": 0.0, "y": 0.0},
+				{"x": 8.0, "y": 0.0},
+				{"x": 8.0, "y": 12.0},
+				{"x": 14.0, "y": 12.0},
+				{"x": 14.0, "y": 48.0},
+				{"x": 8.0, "y": 48.0},
+				{"x": 8.0, "y": 60.0},
+				{"x": 0.0, "y": 60.0}
+			]
+		},
+		{
+			"player": 2,
+			"poly": [
+				{"x": 36.0, "y": 0.0},
+				{"x": 44.0, "y": 0.0},
+				{"x": 44.0, "y": 60.0},
+				{"x": 36.0, "y": 60.0},
+				{"x": 36.0, "y": 48.0},
+				{"x": 30.0, "y": 48.0},
+				{"x": 30.0, "y": 12.0},
+				{"x": 36.0, "y": 12.0}
+			]
+		}
+	],
+	"objectives": [
+		{
+			"id": "obj_center",
+			"position": [22.0, 30.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_1",
+			"position": [18.0, 15.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_2",
+			"position": [26.0, 45.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_home_1",
+			"position": [7.0, 30.0],
+			"radius_mm": 40,
+			"zone": "player1"
+		},
+		{
+			"id": "obj_home_2",
+			"position": [37.0, 30.0],
+			"radius_mm": 40,
+			"zone": "player2"
+		}
+	]
+}

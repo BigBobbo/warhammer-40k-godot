@@ -1,0 +1,57 @@
+{
+	"id": "dawn_of_war",
+	"name": "Dawn of War",
+	"description": "Long edges (left/right), 12\" deep zones. P1 on left, P2 on right, 20\" no-man's-land gap.",
+	"zones": [
+		{
+			"player": 1,
+			"poly": [
+				{"x": 0.0, "y": 0.0},
+				{"x": 12.0, "y": 0.0},
+				{"x": 12.0, "y": 60.0},
+				{"x": 0.0, "y": 60.0}
+			]
+		},
+		{
+			"player": 2,
+			"poly": [
+				{"x": 32.0, "y": 0.0},
+				{"x": 44.0, "y": 0.0},
+				{"x": 44.0, "y": 60.0},
+				{"x": 32.0, "y": 60.0}
+			]
+		}
+	],
+	"objectives": [
+		{
+			"id": "obj_center",
+			"position": [22.0, 30.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_1",
+			"position": [18.0, 15.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_nml_2",
+			"position": [26.0, 45.0],
+			"radius_mm": 40,
+			"zone": "no_mans_land"
+		},
+		{
+			"id": "obj_home_1",
+			"position": [6.0, 30.0],
+			"radius_mm": 40,
+			"zone": "player1"
+		},
+		{
+			"id": "obj_home_2",
+			"position": [38.0, 30.0],
+			"radius_mm": 40,
+			"zone": "player2"
+		}
+	]
+}
