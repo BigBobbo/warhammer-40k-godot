@@ -129,6 +129,11 @@ func _clear_terrain_visuals() -> void:
 		if is_instance_valid(container):
 			container.queue_free()
 
+	# Also clean up wall Line2D nodes added directly to self (not in containers)
+	for child in get_children():
+		if child is Line2D and is_instance_valid(child):
+			child.queue_free()
+
 	terrain_pieces.clear()
 	terrain_containers.clear()
 

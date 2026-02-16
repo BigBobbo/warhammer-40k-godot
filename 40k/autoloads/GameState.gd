@@ -455,10 +455,13 @@ func create_snapshot() -> Dictionary:
 	# Create base snapshot
 	var snapshot = _deep_copy_dict(state)
 	
-	# Add terrain features from TerrainManager (autoload, not Engine singleton)
+	# Add terrain features and layout name from TerrainManager (autoload, not Engine singleton)
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
-	if terrain_manager and terrain_manager.terrain_features.size() > 0:
-		snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
+	if terrain_manager:
+		if terrain_manager.current_layout != "":
+			snapshot.board["terrain_layout"] = terrain_manager.current_layout
+		if terrain_manager.terrain_features.size() > 0:
+			snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
 	# Add measuring tape data if persistence is enabled (autoload, not Engine singleton)
 	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
@@ -500,17 +503,70 @@ func _deep_copy_array(array: Array) -> Array:
 			copy.append(item)
 	return copy
 
+func _restore_terrain_types(terrain_features: Array) -> Array:
+	"""Restore Godot types (Vector2, PackedVector2Array) from dict format
+	that may have been serialized over network JSON."""
+	var restored = []
+	for feature in terrain_features:
+		var f = feature.duplicate(true) if feature is Dictionary else feature
+		if not f is Dictionary:
+			restored.append(f)
+			continue
+
+		# Restore polygon: array of {"x":..,"y":..} -> PackedVector2Array
+		var polygon_data = f.get("polygon", null)
+		if polygon_data is Array and polygon_data.size() > 0:
+			if polygon_data[0] is Dictionary and polygon_data[0].has("x"):
+				var packed = PackedVector2Array()
+				for pt in polygon_data:
+					packed.append(Vector2(pt.get("x", 0), pt.get("y", 0)))
+				f["polygon"] = packed
+
+		# Restore position: {"x":..,"y":..} -> Vector2
+		var pos = f.get("position", null)
+		if pos is Dictionary and pos.has("x"):
+			f["position"] = Vector2(pos.get("x", 0), pos.get("y", 0))
+
+		# Restore size: {"x":..,"y":..} -> Vector2
+		var sz = f.get("size", null)
+		if sz is Dictionary and sz.has("x"):
+			f["size"] = Vector2(sz.get("x", 0), sz.get("y", 0))
+
+		# Restore wall start/end: {"x":..,"y":..} -> Vector2
+		var walls = f.get("walls", [])
+		for i in range(walls.size()):
+			var wall = walls[i]
+			if wall is Dictionary:
+				var ws = wall.get("start", null)
+				if ws is Dictionary and ws.has("x"):
+					wall["start"] = Vector2(ws.get("x", 0), ws.get("y", 0))
+				var we = wall.get("end", null)
+				if we is Dictionary and we.has("x"):
+					wall["end"] = Vector2(we.get("x", 0), we.get("y", 0))
+
+		restored.append(f)
+	return restored
+
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
 	
 	# Load terrain features if present (autoload, not Engine singleton)
-	if state.has("board") and state.board.has("terrain_features"):
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if state.has("board") and terrain_manager:
+		var terrain_layout = state.board.get("terrain_layout", "")
 		var terrain_features = state.board.get("terrain_features", [])
-		var terrain_manager = get_node_or_null("/root/TerrainManager")
-		if terrain_features.size() > 0 and terrain_manager:
-			# Clear and reload terrain
-			terrain_manager.terrain_features = terrain_features.duplicate(true)
+
+		if terrain_layout != "":
+			# Preferred path: reload terrain from JSON layout file
+			# This avoids issues with PackedVector2Array/Vector2 serialization over network
+			print("[GameState] Reloading terrain from layout: ", terrain_layout)
+			terrain_manager.load_terrain_layout(terrain_layout)
+		elif terrain_features.size() > 0:
+			# Fallback: restore terrain features from snapshot data
+			# Convert any dict-format Vector2/polygon data back to Godot types
+			var restored_features = _restore_terrain_types(terrain_features)
+			terrain_manager.terrain_features = restored_features
 			terrain_manager.emit_signal("terrain_loaded", terrain_manager.terrain_features)
 
 	# Load measuring tape data if present (autoload, not Engine singleton)
