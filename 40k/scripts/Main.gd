@@ -62,6 +62,11 @@ var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
 
 func _ready() -> void:
+	# Clear stale game event log entries from previous sessions
+	# GameEventLog is an autoload that persists across scene reloads
+	if GameEventLog:
+		GameEventLog.clear()
+
 	# DEBUG: Check current state before any initialization
 	print("Main: _ready() called")
 	print("Main: DebugLogger log file path: ", DebugLogger.get_real_log_file_path())
@@ -221,6 +226,11 @@ func _initialize_ai_player() -> void:
 		ai_player.ai_unit_deployed.connect(_on_ai_unit_deployed)
 		print("Main: Connected to AIPlayer.ai_unit_deployed signal")
 
+	# Connect to AI action signal so we can sync token positions after AI moves
+	if not ai_player.ai_action_taken.is_connected(_on_ai_action_taken):
+		ai_player.ai_action_taken.connect(_on_ai_action_taken)
+		print("Main: Connected to AIPlayer.ai_action_taken signal")
+
 func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Create visual tokens for an AI-deployed unit
 	var unit = GameState.get_unit(unit_id)
@@ -254,6 +264,45 @@ func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Refresh the unit list and deployment progress so UI stays up to date
 	refresh_unit_list()
 	_update_deployment_progress()
+
+func _on_ai_action_taken(_player: int, action: Dictionary, _description: String) -> void:
+	# After AI actions that change unit positions, sync token visuals from GameState
+	var action_type = action.get("type", "")
+	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
+
+	# Movement-related actions that change model positions
+	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE", "PILE_IN", "CONSOLIDATE"]:
+		if unit_id != "":
+			update_unit_visuals(unit_id)
+
+	# Phase-ending actions: sync ALL token positions to catch any missed updates
+	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT"]:
+		_sync_all_token_positions()
+
+	# Refresh UI after any AI action to keep unit list and phase UI current
+	refresh_unit_list()
+	update_ui()
+
+func _sync_all_token_positions() -> void:
+	# Sync all token visual positions from GameState (for after AI plays)
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and child.has_meta("model_id"):
+			var unit_id = child.get_meta("unit_id")
+			var model_id = child.get_meta("model_id")
+			var unit = GameState.get_unit(unit_id)
+			if unit.is_empty():
+				continue
+			for model in unit.get("models", []):
+				if model.get("id", "") == model_id:
+					var pos = model.get("position")
+					if pos != null:
+						if pos is Dictionary:
+							child.position = Vector2(pos.x, pos.y)
+						else:
+							child.position = pos
+					if not model.get("alive", true):
+						child.visible = false
+					break
 
 func _setup_deployment_progress_indicator() -> void:
 	# Create a panel that sits just below HUD_Bottom (which has been moved to the top)

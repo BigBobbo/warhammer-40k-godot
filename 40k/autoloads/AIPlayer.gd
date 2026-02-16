@@ -91,22 +91,28 @@ func _on_phase_action_taken(_action: Dictionary) -> void:
 		return
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
+	DebugLogger.info("AIPlayer._on_phase_action_taken - deferring _evaluate_and_act", {"action_type": _action.get("type", "?"), "enabled": enabled})
 	call_deferred("_evaluate_and_act")
 
 # --- Core AI loop ---
 
 func _evaluate_and_act() -> void:
+	DebugLogger.info("AIPlayer._evaluate_and_act called", {"processing_turn": _processing_turn, "enabled": enabled})
 	if _processing_turn:
+		DebugLogger.info("AIPlayer._evaluate_and_act - skipped (already processing)", {})
 		return  # Already processing, avoid re-entrancy
 
 	var active_player = GameState.get_active_player()
 	if not is_ai_player(active_player):
+		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
 		return  # Not AI's turn
 
 	var phase_manager = get_node_or_null("/root/PhaseManager")
 	if not phase_manager:
+		DebugLogger.info("AIPlayer._evaluate_and_act - no PhaseManager", {})
 		return
 	if not phase_manager.current_phase_instance:
+		DebugLogger.info("AIPlayer._evaluate_and_act - no phase instance", {})
 		return  # No active phase
 
 	# Check game completion
@@ -121,9 +127,11 @@ func _evaluate_and_act() -> void:
 		push_error("AIPlayer: Hit max actions (%d) for current phase! Stopping to prevent infinite loop." % MAX_ACTIONS_PER_PHASE)
 		return
 
+	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": active_player, "phase": GameState.get_current_phase()})
 	_processing_turn = true
 	_execute_next_action(active_player)
 	_processing_turn = false
+	DebugLogger.info("AIPlayer._evaluate_and_act - complete", {})
 
 func _execute_next_action(player: int) -> void:
 	var phase = GameState.get_current_phase()
