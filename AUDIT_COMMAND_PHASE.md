@@ -55,34 +55,20 @@ On entering Command Phase:
 - Cap additional CP gains at 1 per battle round per player (from non-phase sources)
 - Track CP spending and validate sufficient CP before stratagem use
 
-### 2.2 Battle-shock Tests (CRITICAL)
+### 2.2 ~~Battle-shock Tests (CRITICAL)~~ DONE
 
-**Rule:** After gaining CP and resolving abilities, the active player must take Battle-shock tests for each of their units that is Below Half-strength:
-- **Multi-model units:** Below half-strength if they have fewer than half their starting models alive
-- **Single-model units:** Below half-strength if they have fewer than half their starting wounds remaining
-- **Test:** Roll 2D6. If the result is **below** the unit's Leadership (Ld) characteristic, the unit is **Battle-shocked** until the start of its controlling player's next Command Phase
-- **Effects of Battle-shocked:**
-  - OC becomes 0 (partially implemented in `MissionManager.gd:123`)
-  - Cannot be targeted by friendly Stratagems
-  - If the unit Falls Back, each model must take a Desperate Escape test (roll D6; destroyed on 1-2)
+**Rule:** After gaining CP and resolving abilities, the active player must take Battle-shock tests for each of their units that is Below Half-strength.
 
-**Current state:**
-- The `battle_shocked` flag exists in the unit flags system and MissionManager respects it for objective control
-- **No code** to determine "below half-strength" for any unit
-- **No code** to roll 2D6 against Leadership for the test
-- **No code** to apply or clear the `battle_shocked` flag during the Command Phase
-- **No code** for the Desperate Escape test when battle-shocked units Fall Back
-- The `MoralePhase.gd` implements a **9th-edition style** morale test (D6 + casualties vs Ld) which is incorrect for 10th edition. This phase is registered but never reached in the normal phase flow.
+**Implemented:**
+- `GameState.is_below_half_strength()` utility function (GameState.gd:413-438)
+- `CommandPhase._clear_battle_shocked_flags()` clears flags at start of Command Phase (CommandPhase.gd:90-108)
+- `CommandPhase._identify_units_needing_tests()` identifies below-half-strength units (CommandPhase.gd:110-140)
+- `CommandPhase._validate_battle_shock_test()` validates test actions (CommandPhase.gd:213-239)
+- `CommandPhase._handle_battle_shock_test()` executes 2D6 vs Ld test (CommandPhase.gd:252)
+- Insane Bravery stratagem integration for auto-passing tests
+- 66 battle-shock tests in `tests/unit/test_battle_shock.gd`
 
-**What's needed:**
-- `is_below_half_strength(unit: Dictionary) -> bool` utility function
-- Battle-shock test step in Command Phase: iterate eligible units, roll 2D6 vs Ld
-- Apply `battle_shocked` flag as a state change
-- Clear `battle_shocked` flags at the start of each player's Command Phase (before new tests)
-- Enforce stratagem restriction on battle-shocked units
-- Implement Desperate Escape test in Movement Phase for battle-shocked Fall Back
-- UI to show which units need tests, the roll result, and the outcome
-- All rolls and results must be synchronized over the network (host rolls, broadcasts to guest)
+**Remaining issue:** Dual storage of `battle_shocked` in `flags` and `status_effects` should be unified (see P3 in `40k/AUDIT_COMMAND_PHASE.md`)
 
 ### 2.3 Stratagems System (CRITICAL)
 
@@ -108,20 +94,19 @@ The remaining 10 core stratagems are used in other phases but require the CP eco
 | Smokescreen | 1 | Opponent's Shooting phase |
 | Go to Ground | 1 | Opponent's Shooting phase |
 
-**Current state:**
-- `GameManager.gd:521` has a `process_use_stratagem()` stub that returns empty success
-- `MoralePhase.gd` has skeleton validation for `USE_STRATAGEM` with TODO comments
-- No stratagem definitions, no CP cost validation, no effects, no UI
+**Current state (updated 2026-02-16):**
+- `StratagemManager.gd` autoload now exists with full stratagem definitions including Fire Overwatch, Insane Bravery, Smokescreen, and others
+- CP cost validation and tracking implemented
+- Fire Overwatch integrated into shooting flow
+- Insane Bravery integrated into battle-shock test flow
+- Smokescreen provides stealth (-1 to hit) effect
 
-**What's needed:**
-- Stratagem definition data (name, CP cost, phase, timing, targets, effects)
-- Stratagem manager autoload to track availability, usage restrictions, and cooldowns
-- Per-phase stratagem integration (which stratagems can be played at which moments)
-- "Once per phase" restriction enforcement (each stratagem can only be used once per phase)
+**Still needed:**
+- Not all 12 core stratagems are fully integrated into their respective phases
+- "Once per phase" restriction enforcement needs verification
 - "Once per battle" restriction for certain stratagems (e.g., New Orders)
-- Opponent stratagem interrupts (e.g., Fire Overwatch during opponent's charge)
-- UI: stratagem selection panel, CP cost display, eligibility indicators
-- Network: stratagem actions must route through host for validation
+- UI: full stratagem selection panel with eligibility indicators
+- Counter-Offensive, Epic Challenge, Tank Shock, Rapid Ingress, Go to Ground, Heroic Intervention — phase integration pending
 
 ### 2.4 Faction Abilities in Command Phase (HIGH)
 
@@ -255,15 +240,15 @@ In multiplayer, if a player is AFK during the Command Phase, the non-active play
 |----------|------|--------|--------|
 | ~~P0~~ | ~~CP Generation (1 CP per command phase)~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
 | ~~P0~~ | ~~CP Display in UI~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
-| **P0** | **Battle-shock: Below-half-strength check** | **Medium** | **Core game mechanic — NEXT** |
-| P0 | Battle-shock: 2D6 vs Leadership test | Medium | Core game mechanic |
-| P0 | Battle-shock: Apply/clear flag | Low | Connects to existing OC=0 logic |
+| ~~P0~~ | ~~Battle-shock: Below-half-strength check~~ | ~~Medium~~ | ~~DONE — `GameState.is_below_half_strength()`~~ |
+| ~~P0~~ | ~~Battle-shock: 2D6 vs Leadership test~~ | ~~Medium~~ | ~~DONE — `CommandPhase._handle_battle_shock_test()`~~ |
+| ~~P0~~ | ~~Battle-shock: Apply/clear flag~~ | ~~Low~~ | ~~DONE — flags cleared/applied in CommandPhase~~ |
 | ~~P1~~ | ~~Remove placeholder text~~ | ~~Low~~ | ~~DONE (2026-02-11)~~ |
 | P1 | Command Phase sub-step ordering | Medium | Rules accuracy |
-| P1 | Insane Bravery stratagem | Medium | Core stratagem for Command Phase |
+| ~~P1~~ | ~~Insane Bravery stratagem~~ | ~~Medium~~ | ~~DONE — integrated via StratagemManager~~ |
 | P1 | Battle-shock visual indicators | Medium | Player clarity |
 | P1 | Multiplayer: Battle-shock roll broadcast | Medium | Multiplayer correctness |
-| P2 | Full core stratagems system | High | Gameplay depth |
+| ~~P2~~ | ~~Core stratagems system~~ | ~~High~~ | ~~PARTIALLY DONE — StratagemManager.gd exists with core stratagems~~ |
 | P2 | Faction abilities (Oath of Moment, etc.) | High | Faction identity |
 | P2 | CP spending validation | Medium | Rules enforcement |
 | P2 | Phase progress indicator | Low | UX improvement |

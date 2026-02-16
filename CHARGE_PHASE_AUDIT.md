@@ -49,19 +49,13 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 ## 2. Rules Compliance — What's Missing or Incomplete
 
-### 2.1 CRITICAL: Overwatch (Fire Overwatch Stratagem) — Not Implemented
+### ~~2.1 CRITICAL: Overwatch (Fire Overwatch Stratagem) — Not Implemented~~ PARTIALLY DONE
 
 **Rule:** After a charge is declared, the defending player may use the Fire Overwatch stratagem (1CP) to shoot at the charging unit with a friendly unit within 24". Hits only on unmodified 6s. Can only be used once per turn. Cannot target TITANIC units with this stratagem.
 
-**Current state:** Not implemented at all. No stratagem system exists. No CP tracking in actions. No opportunity for the defending player to react during the charge phase.
+**Status (updated 2026-02-16):** `StratagemManager.gd` now defines `fire_overwatch` stratagem with `overwatch_shoot` action type and hit_on value. The stratagem system exists with CP cost tracking.
 
-**Impact:** This is the most significant tactical element missing. In multiplayer, the defending player has no opportunity to respond to charges, removing an entire layer of counter-play.
-
-**Files affected:** Would need:
-- A Stratagem system (new)
-- CP tracking in GameState (partially exists in `players.{1,2}.cp` but unused for stratagems)
-- An interrupt/reaction window in the charge sequence between declaration and roll
-- NetworkManager support for cross-player actions during charge phase
+**Remaining:** Full integration into the charge phase interrupt window (reaction timing between declaration and roll) needs verification. NetworkManager cross-player action support during charge phase needs testing.
 
 ### 2.2 CRITICAL: Heroic Intervention — Placeholder Only
 
@@ -71,13 +65,11 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Impact:** Another major tactical element missing for the defending player in multiplayer. Heroic Intervention is a key counter to aggressive charges.
 
-### 2.3 HIGH: "Has Been Charged" Status — Not Tracked **[NEW]**
+### ~~2.3 HIGH: "Has Been Charged" Status — Not Tracked~~ DONE
 
 **Rule:** If a unit was the target of a successful charge during a turn, until the end of that turn, that unit and every model in it is said to "have been charged." This status matters for certain abilities and rules interactions.
 
-**Current state:** No `has_been_charged` flag is set on the target unit(s) when a charge succeeds. Only the charging unit gets `charged_this_turn`. A search for `has_been_charged`, `been_charged`, or `was_charged` returns zero results across the codebase.
-
-**Impact:** Any rules or abilities that trigger on "has been charged" status will not function. This is a data model gap.
+**Status (updated 2026-02-16):** IMPLEMENTED. `ChargePhase.gd:488-493` now sets `flags.has_been_charged` on charge targets. The flag is integrated into the charge resolution system.
 
 ### 2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed
 

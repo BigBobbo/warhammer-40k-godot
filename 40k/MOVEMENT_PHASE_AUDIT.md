@@ -59,22 +59,23 @@ The shared `_check_models_coherency()` helper (`MovementPhase.gd:408`) implement
 
 **Commits:** `720eab0` — "Enforce unit coherency on movement confirmation"
 
-### 2.2 CRITICAL — Reinforcements Step
+### 2.2 ~~CRITICAL — Reinforcements Step~~ DONE
 
 **Rule:** The Movement Phase has two steps: (1) Move Units, and (2) Reinforcements. After all units have moved, reserves/reinforcements can be placed on the battlefield:
 - **Deep Strike:** Units with the Deep Strike ability can be set up in reserves during deployment and deployed during the Reinforcements step more than 9" horizontally from all enemy models.
-- **Strategic Reserves:** Up to 25% of the army can be placed in strategic reserves. They can arrive from the second battle round onwards — from the second round they must be placed within 6" of a board edge and outside the enemy deployment zone; from the third round onwards they can be placed in the enemy deployment zone. Always more than 9" from enemy models.
+- **Strategic Reserves:** Up to 25% of the army can be placed in strategic reserves. They can arrive from the second battle round onwards.
 - **Any reserves not placed by end of game count as destroyed.**
 
-**Current state:** There is **no Reinforcements step** implemented. No reserves system, no Deep Strike, no Strategic Reserves. The archived test file `test_deployment_phase.gd:162-166` has a stub `test_strategic_reserves()` that creates a `PLACE_IN_RESERVES` action, but the action type is not implemented.
+**Status (updated 2026-02-16):** IMPLEMENTED.
+- `UnitStatus.IN_RESERVES` in GameState.gd tracks reserve units
+- `PLACE_REINFORCEMENT` action type in MovementPhase.gd with 9" distance validation
+- `GameState.unit_has_deep_strike()` detects Deep Strike ability from army data
+- Deep Strike units can be placed anywhere >9" from enemies (no board-edge restriction)
+- Strategic Reserves placement enforces: >9" from enemies, within 6" of board edge, no enemy deployment zone on Turn 2
+- Deployment phase `PLACE_IN_RESERVES` action tracks `reserve_type: "deep_strike"` vs `"strategic_reserves"` with 25% points cap
+- Reserve units show `[SR]`/`[DS]` tags in unit list during Movement phase
 
-**Impact:** High. Many armies rely on reserves and Deep Strike as core mechanics (e.g., Terminators, Drop Pods, jump pack units).
-
-**Recommendation:** Add a Reinforcements sub-phase that activates after all movement is complete but before the phase ends. Requires:
-1. A reserves tracking system in GameState (units with status `IN_RESERVES`)
-2. A `PLACE_REINFORCEMENT` action type with 9" distance validation
-3. Strategic Reserves placement rules tied to battle round
-4. "Destroyed if not deployed" enforcement at game end
+**Remaining:** "Destroyed if not deployed by end of game" enforcement not verified
 
 ### 2.3 ~~HIGH — FLY Keyword (Desperate Escape)~~ FIXED
 
@@ -178,33 +179,27 @@ Visual feedback added in `MovementController.gd`:
 2. A dedicated Scout movement step with appropriate distance caps
 3. Player ordering (first player moves first)
 
-### 2.9 MEDIUM — Infiltrators Deployment Ability
+### 2.9 ~~MEDIUM — Infiltrators Deployment Ability~~ DONE
 
 **Rule:** If every model in a unit has the Infiltrators ability, when you set it up during deployment, it can be set up anywhere on the battlefield that is more than 9" horizontally away from the enemy deployment zone and all enemy models.
 
-**Current state:** Not implemented.
-
-**Impact:** Medium. Affects army building options for certain factions.
-
-**Recommendation:** Add Infiltrators support to the DeploymentPhase, allowing placement outside the normal deployment zone with appropriate distance validation.
+**Status (updated 2026-02-16):** IMPLEMENTED. `GameState.unit_has_infiltrators()` detects the ability. `DeploymentPhase._validate_infiltrators_position()` enforces >9" from enemy zone and models. `DeploymentController` enters `is_infiltrators_mode` with real-time ghost validation. Unit list shows `[INF]` tags.
 
 ### 2.10 LOW — Overwatch During Movement
 
 **Rule:** The Overwatch stratagem can be used during the opponent's Movement phase when an enemy unit starts or ends a Normal, Advance, or Fall Back move within 24" of an eligible unit.
 
-**Current state:** No Overwatch trigger during movement. Archived test stubs exist (`test_shooting_phase.gd:312-324`, `test_charge_phase.gd:141-151`) but the functionality is not implemented.
+**Status (updated 2026-02-16):** PARTIALLY DONE. `StratagemManager.gd` defines `fire_overwatch` stratagem with `overwatch_shoot` action type. The stratagem system and CP tracking exist. However, the interrupt/reaction window during the Movement phase that allows the opponent to trigger Overwatch is not yet integrated.
 
-**Impact:** Low for initial release, but this is a commonly used stratagem.
-
-**Recommendation:** Add event hooks in movement confirmation for opponent reactions.
+**Remaining:** Add event hooks in movement confirmation for opponent reactions.
 
 ### 2.11 LOW — Rapid Ingress Stratagem
 
 **Rule:** Used at the end of your opponent's Movement phase to bring in a Reserves unit.
 
-**Current state:** Not implemented (no reserves system).
+**Status (updated 2026-02-16):** Reserves system is now implemented (see 2.2). Rapid Ingress stratagem itself is not yet integrated — the interrupt/reaction window for the opponent's movement phase end does not exist.
 
-**Impact:** Low until reserves are implemented.
+**Impact:** Low — niche stratagem usage.
 
 ### 2.12 LOW — Disembarked Units Do Not Count As Remaining Stationary
 
