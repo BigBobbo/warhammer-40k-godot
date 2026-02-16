@@ -1096,7 +1096,24 @@ func _on_embark_button_pressed() -> void:
 
 func _on_disembark_button_pressed() -> void:
 	print("Disembark button pressed")
-	# Movement controller handles disembark logic
+
+	# Get the currently selected unit from the main unit list
+	var selected_indices = unit_list.get_selected_items()
+	if selected_indices.size() == 0:
+		print("WARNING: No unit selected for disembark")
+		return
+
+	var selected_unit_id = unit_list.get_item_metadata(selected_indices[0])
+	var selected_unit = GameState.get_unit(selected_unit_id)
+	if not selected_unit or selected_unit.get("embarked_in", null) == null:
+		print("WARNING: Selected unit is not embarked: ", selected_unit_id)
+		return
+
+	# Route to disembark flow via MovementController
+	if movement_controller and current_phase == GameStateData.Phase.MOVEMENT:
+		print("Main: Disembark button routing to MovementController for unit: ", selected_unit_id)
+		movement_controller.active_unit_id = selected_unit_id
+		movement_controller._handle_embarked_unit_selected(selected_unit_id)
 
 func update_transport_panel(unit_id: String = "") -> void:
 	"""Update transport panel based on selected unit"""
@@ -2325,6 +2342,14 @@ func _on_unit_selected(index: int) -> void:
 			_begin_reinforcement_placement(unit_id)
 			return
 
+		# Check if unit is embarked - route to disembark flow instead of normal move
+		if selected_unit.get("embarked_in", null) != null:
+			print("Main: Embarked unit selected, routing to disembark flow: ", unit_id)
+			movement_controller.active_unit_id = unit_id
+			movement_controller._handle_embarked_unit_selected(unit_id)
+			update_ui()
+			return
+
 		# Pass unit selection to MovementController
 		movement_controller.active_unit_id = unit_id
 		print("Selected unit for movement: ", unit_id)
@@ -2339,7 +2364,7 @@ func _on_unit_selected(index: int) -> void:
 		}
 		_on_movement_action_requested(action)
 		status_label.text = "Drag models to move them (Normal Move mode)"
-	
+
 	update_ui()
 
 func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void:
@@ -2368,11 +2393,18 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 				deployment_controller.begin_deploy(unit_id)
 				unit_list.visible = false
 		elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
+			# Check if unit is embarked - route to disembark flow instead of normal move
+			if unit_data.get("embarked_in", null) != null:
+				print("Main: Embarked unit selected from stats panel, routing to disembark flow: ", unit_id)
+				movement_controller.active_unit_id = unit_id
+				movement_controller._handle_embarked_unit_selected(unit_id)
+				return
+
 			# Pass unit selection to MovementController
 			movement_controller.active_unit_id = unit_id
 			print("Selected unit for movement: ", unit_id)
 			# REMOVED: update_movement_card_buttons() - MovementController handles its own UI
-			
+
 			# AUTO-START NORMAL MOVE FOR EASIER TESTING
 			print("Auto-starting Normal Move for easier testing...")
 			var action = {
