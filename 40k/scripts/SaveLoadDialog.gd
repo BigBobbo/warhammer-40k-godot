@@ -9,11 +9,13 @@ extends AcceptDialog
 @onready var load_button: Button = $VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
 @onready var delete_button: Button = $VBoxContainer/LoadSection/LoadButtonContainer/DeleteButton
 @onready var cancel_button: Button = $VBoxContainer/LoadSection/LoadButtonContainer/CancelButton
+@onready var main_menu_button: Button = $VBoxContainer/LoadSection/LoadButtonContainer/MainMenuButton
 
 # Signals for communication with Main scene
 signal save_requested(save_name: String)
 signal load_requested(save_file: String, owner_id: String)
 signal delete_requested(save_file: String)
+signal main_menu_requested()
 
 # Internal state
 var save_files_data: Array = []  # Store save metadata for reference
@@ -79,7 +81,11 @@ func _connect_ui_signals() -> void:
 	if not cancel_button:
 		cancel_button = get_node_or_null("VBoxContainer/LoadSection/LoadButtonContainer/CancelButton")
 		print("SaveLoadDialog: Manual lookup for cancel_button: ", cancel_button != null)
-	
+
+	if not main_menu_button:
+		main_menu_button = get_node_or_null("VBoxContainer/LoadSection/LoadButtonContainer/MainMenuButton")
+		print("SaveLoadDialog: Manual lookup for main_menu_button: ", main_menu_button != null)
+
 	# Now connect signals
 	if save_button:
 		save_button.pressed.connect(_on_save_button_pressed)
@@ -120,7 +126,13 @@ func _connect_ui_signals() -> void:
 		print("SaveLoadDialog: Connected cancel button")
 	else:
 		print("SaveLoadDialog: ERROR - cancel_button not found!")
-	
+
+	if main_menu_button:
+		main_menu_button.pressed.connect(_on_main_menu_button_pressed)
+		print("SaveLoadDialog: Connected main menu button")
+	else:
+		print("SaveLoadDialog: ERROR - main_menu_button not found!")
+
 	print("SaveLoadDialog UI signals connected")
 
 func refresh_saves_list() -> void:
@@ -338,6 +350,32 @@ func _on_delete_button_pressed() -> void:
 
 func _on_cancel_button_pressed() -> void:
 	hide()
+
+func _on_main_menu_button_pressed() -> void:
+	print("SaveLoadDialog: Main Menu button pressed!")
+	_show_main_menu_confirmation()
+
+func _show_main_menu_confirmation() -> void:
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Return to the Main Menu?\nAny unsaved progress will be lost."
+	confirmation.title = "Return to Main Menu?"
+
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+
+	confirmation.confirmed.connect(func():
+		confirmation.queue_free()
+		hide()
+		emit_signal("main_menu_requested")
+	)
+	confirmation.canceled.connect(func():
+		confirmation.queue_free()
+	)
+	confirmation.close_requested.connect(func():
+		confirmation.queue_free()
+	)
+
+	confirmation.popup_centered()
 
 # Confirmation Dialogs
 

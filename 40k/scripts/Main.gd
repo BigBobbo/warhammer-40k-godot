@@ -1301,6 +1301,7 @@ func _setup_save_load_dialog() -> void:
 	save_load_dialog.save_requested.connect(_on_save_requested)
 	save_load_dialog.load_requested.connect(_on_load_requested)
 	save_load_dialog.delete_requested.connect(_on_delete_requested)
+	save_load_dialog.main_menu_requested.connect(_on_main_menu_requested)
 	
 	# Hide initially
 	save_load_dialog.hide()
@@ -3152,6 +3153,10 @@ func _toggle_save_load_menu() -> void:
 		# Show the dialog and ensure it gets focus
 		save_load_dialog.show_dialog()
 		print("Save/Load dialog shown")
+
+func _on_main_menu_requested() -> void:
+	print("Main: Returning to Main Menu")
+	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_save_requested(save_name: String) -> void:
 	print("Main: Save requested with name: ", save_name)
