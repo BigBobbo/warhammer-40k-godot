@@ -186,18 +186,34 @@ func _execute_next_action(player: int) -> void:
 
 		# Handle failed deployment specifically
 		if decision.get("type") == "DEPLOY_UNIT":
+			var deploy_unit_name = _get_unit_name(decision.get("unit_id", ""))
+			_log_ai_event(player, "%s deployment failed (%s) — retrying" % [deploy_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_deployment(player, decision)
 
 		# Handle failed shooting — skip the unit so we don't retry the same one
 		elif decision.get("type") == "SHOOT":
 			var failed_unit_id = decision.get("actor_unit_id", "")
 			if failed_unit_id != "":
+				var shoot_unit_name = _get_unit_name(failed_unit_id)
 				print("AIPlayer: Shooting failed for %s, sending SKIP_UNIT" % failed_unit_id)
+				# Format the error concisely for the game log
+				var shoot_errors = result.get("errors", [])
+				var shoot_reason = ""
+				if shoot_errors is Array and shoot_errors.size() > 0:
+					# Deduplicate repeated error messages
+					var unique_errors = []
+					for e in shoot_errors:
+						if e not in unique_errors:
+							unique_errors.append(e)
+					shoot_reason = "; ".join(unique_errors)
+				else:
+					shoot_reason = str(error_msg)
 				_current_phase_actions += 1
 				NetworkIntegration.route_action({
 					"type": "SKIP_UNIT",
 					"actor_unit_id": failed_unit_id,
-					"player": player
+					"player": player,
+					"_ai_description": "Skipped %s — %s" % [shoot_unit_name, shoot_reason]
 				})
 	else:
 		# Emit signal for successful deployments so Main.gd can create visuals
@@ -217,6 +233,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 	var unit_id = decision.get("actor_unit_id", "")
 	var destinations = decision.get("_ai_model_destinations", {})
 	var description = decision.get("_ai_description", "AI movement")
+	var unit_name = _get_unit_name(unit_id)
 
 	if unit_id == "" or destinations.is_empty():
 		print("AIPlayer: AI movement called with no unit or destinations")
@@ -226,6 +243,7 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 
 	var staged_count = 0
 	var failed_count = 0
+	var failure_reasons = []
 
 	# Stage each model's destination
 	for model_id in destinations:
@@ -249,7 +267,9 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			print("AIPlayer: Staged model %s to (%.0f, %.0f)" % [model_id, dest[0], dest[1]])
 		else:
 			failed_count += 1
-			var error_msg = "" if stage_result == null else stage_result.get("error", stage_result.get("errors", ""))
+			var errors = stage_result.get("errors", []) if stage_result != null else []
+			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
+			failure_reasons.append(error_msg)
 			print("AIPlayer: Failed to stage model %s: %s" % [model_id, error_msg])
 
 	# Confirm the unit move (even if some models failed — partial moves are valid)
@@ -282,15 +302,17 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 				"actor_unit_id": unit_id,
 				"player": player
 			})
-			# Fall back to remain stationary
+			# Fall back to remain stationary — _ai_description will be logged by GameEventLog
 			_current_phase_actions += 1
 			NetworkIntegration.route_action({
 				"type": "REMAIN_STATIONARY",
 				"actor_unit_id": unit_id,
-				"player": player
+				"player": player,
+				"_ai_description": "%s remains stationary (confirm failed: %s)" % [unit_name, error_msg]
 			})
 	else:
 		# No models could be staged — reset and remain stationary
+		var reason = failure_reasons[0] if failure_reasons.size() > 0 else "unknown"
 		print("AIPlayer: No models staged for %s, resetting move" % unit_id)
 		_current_phase_actions += 1
 		NetworkIntegration.route_action({
@@ -298,12 +320,39 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			"actor_unit_id": unit_id,
 			"player": player
 		})
+		# Fall back to remain stationary — _ai_description will be logged by GameEventLog
 		_current_phase_actions += 1
 		NetworkIntegration.route_action({
 			"type": "REMAIN_STATIONARY",
 			"actor_unit_id": unit_id,
-			"player": player
+			"player": player,
+			"_ai_description": "%s remains stationary (move failed: %s)" % [unit_name, reason]
 		})
+
+# --- Helpers ---
+
+func _get_unit_name(unit_id: String) -> String:
+	if unit_id == "":
+		return "Unknown"
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	return unit.get("meta", {}).get("name", unit_id)
+
+func _log_ai_event(player: int, text: String) -> void:
+	"""Log an AI event to the GameEventLog panel."""
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log and game_event_log.has_method("add_ai_entry"):
+		game_event_log.add_ai_entry(player, text)
+
+func _format_error_concise(error) -> String:
+	"""Format error messages concisely, deduplicating arrays."""
+	if error is Array:
+		var unique = []
+		for e in error:
+			var s = str(e)
+			if s not in unique:
+				unique.append(s)
+		return "; ".join(unique)
+	return str(error)
 
 # --- Deployment retry logic ---
 
@@ -387,6 +436,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 
 func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> void:
 	print("AIPlayer: All deployment retries failed for %s, placing in reserves" % unit_name)
+	_log_ai_event(player, "%s deployment failed after retries — placed in Strategic Reserves" % unit_name)
 
 	var reserves_action = {
 		"type": "PLACE_IN_RESERVES",

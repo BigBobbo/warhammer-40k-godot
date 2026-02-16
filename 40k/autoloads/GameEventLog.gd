@@ -64,18 +64,31 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 	var unit_name = _get_unit_name(unit_id)
 	var prefix = "P%d: " % player
 
+	# Prefer AI description when present — it includes decision reasons
+	var ai_desc = action.get("_ai_description", "")
+
 	match action_type:
 		"DEPLOY_UNIT":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "Deployed %s" % unit_name
 		"BEGIN_NORMAL_MOVE", "CONFIRM_UNIT_MOVE":
 			if action_type == "CONFIRM_UNIT_MOVE":
+				if ai_desc != "":
+					return prefix + ai_desc
 				return prefix + "%s moved" % unit_name
 			return ""
 		"REMAIN_STATIONARY":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "%s remained stationary" % unit_name
 		"ADVANCE":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "%s advanced" % unit_name
 		"SHOOT":
+			if ai_desc != "":
+				return prefix + ai_desc
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
@@ -109,7 +122,9 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			return prefix + "Ended Fight Phase"
 		"END_TURN":
 			return prefix + "Ended Turn"
-		"SKIP_UNIT":
+		"SKIP_UNIT", "SKIP_CHARGE":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "Skipped %s" % unit_name
 		"BATTLE_SHOCK_TEST":
 			var log_text = action.get("_log_text", "")
@@ -124,7 +139,9 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"DECLARE_STRATEGIC_RESERVES":
 			return prefix + "%s placed in Strategic Reserves" % unit_name
 		_:
-			# For any other action with log_text, show it
+			# For any other action with log_text or ai_desc, show it
+			if ai_desc != "":
+				return prefix + ai_desc
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
@@ -148,6 +165,12 @@ func _add_entry(text: String, entry_type: String) -> void:
 	print("[GameEventLog] %s" % text)
 	DebugLogger.info("GameEventLog: %s" % text, {})
 	emit_signal("entry_added", text, entry_type)
+
+func add_ai_entry(player: int, text: String) -> void:
+	"""Called directly by AIPlayer to log AI-specific events (failures, fallbacks, reasons)."""
+	var prefix = "P%d: " % player
+	var entry_type = "p1_action" if player == 1 else "p2_action"
+	_add_entry(prefix + text, entry_type)
 
 func get_all_entries() -> Array:
 	return entries.duplicate()
