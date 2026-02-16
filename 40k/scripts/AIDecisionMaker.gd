@@ -271,7 +271,7 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 			var obj_dist_inches = scored.obj_dist / PIXELS_PER_INCH
 			var model_destinations = _compute_movement_toward_objective(
-				unit, objectives, move_inches, snapshot, enemies
+				unit, unit_id, objectives, move_inches, snapshot, enemies
 			)
 
 			if not model_destinations.is_empty():
@@ -311,7 +311,7 @@ static func _nearest_objective_distance(pos: Vector2, objectives: Array) -> floa
 	return best
 
 static func _compute_movement_toward_objective(
-	unit: Dictionary, objectives: Array, move_inches: float,
+	unit: Dictionary, unit_id: String, objectives: Array, move_inches: float,
 	snapshot: Dictionary, enemies: Dictionary
 ) -> Dictionary:
 	# Returns: {model_id: [x, y], ...} or empty dict if no valid move
@@ -355,35 +355,35 @@ static func _compute_movement_toward_objective(
 		print("AIDecisionMaker: All movement paths blocked by terrain")
 		return {}
 
-	# Compute destination for each model by applying the same translation
-	var destinations = {}
-	var all_valid = true
+	# Get all deployed model positions (excluding this unit's own models) for overlap checking
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var first_model = alive_models[0] if alive_models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
 
+	# Build original positions map for movement cap checking during collision resolution
+	var original_positions = {}
 	for model in alive_models:
-		var model_id = model.get("id", "")
-		if model_id == "":
-			continue
-		var model_pos = _get_model_position(model)
-		if model_pos == Vector2.INF:
-			continue
-		var dest = model_pos + final_move_vector
+		var mid = model.get("id", "")
+		if mid != "":
+			original_positions[mid] = _get_model_position(model)
 
-		# Clamp to board bounds with margin
-		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
-		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+	# Try the full move first, then progressively shorter moves
+	var fractions_to_try = [1.0, 0.75, 0.5, 0.25]
+	for fraction in fractions_to_try:
+		var try_vector = final_move_vector * fraction
+		var destinations = _try_move_with_collision_check(
+			alive_models, try_vector, enemies, unit, deployed_models,
+			base_mm, base_type, base_dimensions, original_positions, move_px
+		)
+		if not destinations.is_empty():
+			if fraction < 1.0:
+				print("AIDecisionMaker: Using %.0f%% move to avoid model overlap" % (fraction * 100))
+			return destinations
 
-		# Check if destination is within engagement range of any enemy
-		if _is_position_near_enemy(dest, enemies, unit):
-			all_valid = false
-			break
-
-		destinations[model_id] = [dest.x, dest.y]
-
-	# If any model would end in engagement range, try a shorter move
-	if not all_valid:
-		destinations = _try_shorter_move(alive_models, final_move_vector, enemies, unit)
-
-	return destinations
+	# All fractions failed
+	return {}
 
 static func _find_unblocked_move(
 	centroid: Vector2, move_vector: Vector2, move_distance_px: float,
@@ -527,6 +527,119 @@ static func _try_shorter_move(
 
 	# Can't find safe move at any distance
 	return {}
+
+static func _try_move_with_collision_check(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary = {}, move_cap_px: float = 0.0
+) -> Dictionary:
+	# Try moving all models by move_vector, checking both enemy ER and model overlap
+	var destinations = {}
+	# Track models we've placed in this move for intra-unit collision
+	var placed_models: Array = []
+
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.INF:
+			continue
+		var dest = model_pos + move_vector
+
+		# Clamp to board bounds with margin
+		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check enemy engagement range
+		if _is_position_near_enemy(dest, enemies, unit):
+			return {}
+
+		# Check overlap with deployed models and already-placed models in this move
+		var all_obstacles = deployed_models + placed_models
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			# Try small perpendicular offsets to avoid the collision
+			var orig_pos = original_positions.get(model_id, model_pos)
+			var resolved_dest = _resolve_movement_collision(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				all_obstacles, enemies, unit, orig_pos, move_cap_px
+			)
+			if resolved_dest == Vector2.INF:
+				return {}  # Could not resolve collision
+			dest = resolved_dest
+
+		destinations[model_id] = [dest.x, dest.y]
+		placed_models.append({
+			"position": dest,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	return destinations
+
+static func _resolve_movement_collision(
+	dest: Vector2, move_vector: Vector2, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	obstacles: Array, enemies: Dictionary, unit: Dictionary,
+	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0
+) -> Vector2:
+	# Try perpendicular offsets to avoid collision while staying close to intended destination
+	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
+	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+
+	for multiplier in offsets:
+		var offset = perp * base_radius * multiplier
+		var candidate = dest + offset
+
+		# Check board bounds
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			continue
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			continue
+
+		# Check movement cap: offset must not push model beyond its movement distance
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			var offset_dist = original_pos.distance_to(candidate)
+			if offset_dist > move_cap_px:
+				continue
+
+		if not _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+			if not _is_position_near_enemy(candidate, enemies, unit):
+				return candidate
+
+	return Vector2.INF  # No valid offset found
+
+static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_unit_id: String) -> Array:
+	# Returns deployed model positions for all units except the specified one
+	var deployed = []
+	for uid in snapshot.get("units", {}):
+		if uid == exclude_unit_id:
+			continue
+		var u = snapshot.units[uid]
+		if u.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for model in u.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos_data = model.get("position", null)
+			if pos_data == null:
+				continue
+			var pos: Vector2
+			if pos_data is Vector2:
+				pos = pos_data
+			else:
+				pos = Vector2(float(pos_data.get("x", 0)), float(pos_data.get("y", 0)))
+			deployed.append({
+				"position": pos,
+				"base_mm": model.get("base_mm", 32),
+				"base_type": model.get("base_type", "circular"),
+				"base_dimensions": model.get("base_dimensions", {}),
+				"rotation": model.get("rotation", 0.0)
+			})
+	return deployed
 
 # =============================================================================
 # SHOOTING PHASE

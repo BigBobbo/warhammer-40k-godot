@@ -15,6 +15,7 @@ signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
+const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
 
 # Movement state tracking
 var active_moves: Dictionary = {}  # unit_id -> move_data
@@ -339,8 +340,8 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
 	log_phase_message("  Distance calculation: %.2f inches" % total_distance_for_model)
 
-	# Check if this specific model's distance exceeds cap
-	if total_distance_for_model > move_data.move_cap_inches:
+	# Check if this specific model's distance exceeds cap (with floating-point tolerance)
+	if total_distance_for_model > move_data.move_cap_inches + MOVEMENT_CAP_EPSILON:
 		log_phase_message("  FAILED: Distance %.1f\" exceeds cap %.1f\"" % [total_distance_for_model, move_data.move_cap_inches])
 		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, move_data.move_cap_inches]]}
 	
@@ -1772,8 +1773,8 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 		var total_distance = Measurement.distance_inches(original_pos, new_pos)
 		group_validation.individual_distances[model_id] = total_distance
 
-		# Validate against movement cap
-		if total_distance > move_cap_inches:
+		# Validate against movement cap (with floating-point tolerance)
+		if total_distance > move_cap_inches + MOVEMENT_CAP_EPSILON:
 			group_validation.valid = false
 			group_validation.errors.append("Model %s exceeds movement cap (%.1f\" > %.1f\")" % [model_id, total_distance, move_cap_inches])
 
