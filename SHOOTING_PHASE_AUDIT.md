@@ -69,20 +69,11 @@ However, **several weapon keywords are missing entirely**, there are **rules-com
 
 **Status:** FIXED. Added `_is_target_in_friendly_engagement()` helper in `RulesEngine.gd` and checks in both `get_eligible_targets()` and `validate_shoot()`. MONSTER/VEHICLE targets are exempt per Big Guns Never Tire.
 
-### 2.2 CRITICAL: Overwatch (Fire Overwatch Stratagem) — Not Implemented
+### ~~2.2 CRITICAL: Overwatch (Fire Overwatch Stratagem) — Not Implemented~~ DONE
 
 **Rule:** The defending player may use the Fire Overwatch stratagem (1CP) to shoot at an enemy unit that is targeting one of their units. Overwatch hits only on unmodified 6s. Can be used during the opponent's Shooting, Charge, or Movement phases.
 
-**Current state:** Not implemented. Test stubs exist in archived test files (`test_shooting_phase.gd:312-324`, `test_charge_phase.gd:141-161`) but the actual mechanic is absent. No stratagem system exists, no CP tracking for stratagems, and no interrupt/reaction window for the defending player.
-
-**Impact:** The defending player has no opportunity to react to enemy shooting or charges during the opponent's turn, removing an entire layer of counter-play that is especially important in multiplayer.
-
-**Files affected:** Would need:
-- A Stratagem system (new)
-- CP tracking for stratagem spending (extends existing Command Phase CP generation)
-- An interrupt/reaction window in ShootingPhase and ChargePhase
-- NetworkManager support for cross-player actions during opponent's phase
-- RulesEngine function for Overwatch resolution (hits on 6s only)
+**Status:** IMPLEMENTED. `StratagemManager.gd` defines `fire_overwatch` stratagem with `overwatch_shoot` action type. Full stratagem system now exists with CP tracking and integration into the shooting flow.
 
 ### 2.3 CRITICAL: Missing Weapon Keywords — Several Not Implemented
 
@@ -364,14 +355,14 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 ### Tier 1 — Core Rules Compliance (Blocking for Accurate Games)
 1. ~~**Targeting units in engagement with friendlies**~~ — FIXED
 2. ~~**Variable attacks and damage rolling**~~ — FIXED
-3. **ANTI-[KEYWORD] X+** — affects many common units
+3. ~~**ANTI-[KEYWORD] X+**~~ — FIXED
 4. **MELTA X** — core weapon type for anti-vehicle
 5. **TWIN-LINKED** — common keyword, re-roll wounds
 6. ~~**Battle-shocked units cannot shoot**~~ — FIXED
 7. ~~**IGNORES COVER**~~ — FIXED
 
 ### Tier 2 — Important Defensive Rules
-8. **Stealth** — -1 to hit for many units
+8. **Stealth** — -1 to hit for many units (partially implemented via Smokescreen stratagem, missing as base unit ability)
 9. **Lone Operative** — 12" targeting restriction
 10. **Wound roll modifiers** — infrastructure needed for many abilities
 11. **HAZARDOUS** — affects plasma weapons
@@ -379,7 +370,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 13. **Pistol mutual exclusivity** — prevent firing both Pistol and non-Pistol
 
 ### Tier 3 — Polish & Multiplayer
-14. **Overwatch / Fire Overwatch stratagem** — adds defender agency
+14. ~~**Overwatch / Fire Overwatch stratagem**~~ — DONE (StratagemManager.gd)
 15. **PRECISION** — character sniping
 16. **Remote player visual feedback** — shooting line, target highlights
 17. **Expected damage preview** — QoL
