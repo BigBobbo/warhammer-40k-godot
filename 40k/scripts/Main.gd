@@ -54,6 +54,13 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 
+# Game Event Log UI elements
+var game_log_panel: PanelContainer
+var game_log_label: RichTextLabel
+var game_log_scroll: ScrollContainer
+var is_game_log_visible: bool = true
+var game_log_toggle_button: Button
+
 func _ready() -> void:
 	# DEBUG: Check current state before any initialization
 	print("Main: _ready() called")
@@ -127,29 +134,26 @@ func _ready() -> void:
 		else:
 			print("Main: ERROR - No phase instance after transition!")
 
-	# Initialize AI Player if configured from main menu
-	_initialize_ai_player()
-
 	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
 
 	board_view.queue_redraw()
 	setup_deployment_zones()
-	
+
 	# Setup objectives on the board
 	_setup_objectives()
-	
+
 	# Move HUD_Bottom to top and create stats panel at bottom
 	_restructure_ui_layout()
-	
+
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
-	
+
 	# Setup Mathhammer UI
 	_setup_mathhammer_ui()
-	
+
 	# Setup Save/Load Dialog
 	_setup_save_load_dialog()
-	
+
 	# Setup Terrain
 	_setup_terrain()
 
@@ -167,9 +171,14 @@ func _ready() -> void:
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
 
+	# Connect signals BEFORE initializing AI so that phase_changed events
+	# update the UI as the AI plays through phases
 	connect_signals()
 	refresh_unit_list()
 	update_ui()
+
+	# Initialize AI Player AFTER signals are connected so UI updates during AI play
+	_initialize_ai_player()
 
 	# CRITICAL FIX: Must call update_ui_for_phase() to properly configure the phase action button
 	# This sets the correct button text and connects the signal handler
@@ -182,6 +191,9 @@ func _ready() -> void:
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
+
+	# Setup Game Event Log panel
+	_setup_game_log_panel()
 
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
@@ -675,6 +687,10 @@ func _apply_white_dwarf_theme() -> void:
 		_WhiteDwarfTheme.apply_to_label(p1_progress_label)
 	if p2_progress_label:
 		_WhiteDwarfTheme.apply_to_label(p2_progress_label)
+
+	# Theme the game log toggle button
+	if game_log_toggle_button:
+		_WhiteDwarfTheme.apply_to_button(game_log_toggle_button)
 
 	print("Main: White Dwarf theme applied")
 
@@ -4048,3 +4064,139 @@ func _on_left_panel_toggle_pressed() -> void:
 			left_panel_toggle_button.text = "Show Mathhammer"
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
+
+func _setup_game_log_panel() -> void:
+	print("Main: Setting up Game Event Log panel")
+
+	# Create the main panel container anchored to the left side
+	game_log_panel = PanelContainer.new()
+	game_log_panel.name = "GameLogPanel"
+	add_child(game_log_panel)
+
+	# Anchor to left side, below top HUD, above bottom stats panel
+	game_log_panel.anchor_left = 0.0
+	game_log_panel.anchor_right = 0.0
+	game_log_panel.anchor_top = 0.0
+	game_log_panel.anchor_bottom = 1.0
+	game_log_panel.offset_left = 0.0
+	game_log_panel.offset_right = 280.0
+	game_log_panel.offset_top = 105.0
+	game_log_panel.offset_bottom = -305.0
+
+	# Dark semi-transparent background
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
+	style.border_width_left = 0
+	style.border_width_right = 2
+	style.border_width_top = 0
+	style.border_width_bottom = 0
+	style.border_color = Color(0.833, 0.588, 0.376, 0.6)  # Gold accent
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_right = 4
+	game_log_panel.add_theme_stylebox_override("panel", style)
+
+	# Main VBox
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBox"
+	game_log_panel.add_child(vbox)
+
+	# Header with title and toggle
+	var header = HBoxContainer.new()
+	header.custom_minimum_size = Vector2(0, 30)
+	vbox.add_child(header)
+
+	var title = Label.new()
+	title.text = "Game Log"
+	title.add_theme_font_size_override("font_size", 14)
+	title.add_theme_color_override("font_color", Color(0.833, 0.588, 0.376))  # Gold
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+
+	var collapse_btn = Button.new()
+	collapse_btn.text = "X"
+	collapse_btn.custom_minimum_size = Vector2(30, 25)
+	collapse_btn.add_theme_font_size_override("font_size", 12)
+	collapse_btn.pressed.connect(_on_game_log_collapse_pressed)
+	header.add_child(collapse_btn)
+
+	# Separator
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# Scroll container for the log entries
+	game_log_scroll = ScrollContainer.new()
+	game_log_scroll.name = "LogScroll"
+	game_log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	game_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(game_log_scroll)
+
+	# RichTextLabel for color-coded entries
+	game_log_label = RichTextLabel.new()
+	game_log_label.name = "LogLabel"
+	game_log_label.bbcode_enabled = true
+	game_log_label.fit_content = true
+	game_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	game_log_label.scroll_active = false  # We use our own scroll container
+	game_log_label.add_theme_font_size_override("normal_font_size", 11)
+	game_log_label.add_theme_font_size_override("bold_font_size", 12)
+	game_log_scroll.add_child(game_log_label)
+
+	# Connect to GameEventLog signal
+	if GameEventLog:
+		GameEventLog.entry_added.connect(_on_game_log_entry_added)
+		print("Main: Connected to GameEventLog.entry_added")
+
+		# Populate any entries that were added before we connected
+		for entry in GameEventLog.get_all_entries():
+			_append_log_entry(entry.text, entry.type)
+
+	# Add toggle button to top HUD
+	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if hud_bottom:
+		game_log_toggle_button = Button.new()
+		game_log_toggle_button.name = "GameLogToggle"
+		game_log_toggle_button.text = "Hide Log"
+		game_log_toggle_button.pressed.connect(_on_game_log_toggle_pressed)
+		hud_bottom.add_child(game_log_toggle_button)
+		hud_bottom.move_child(game_log_toggle_button, 1)  # After left panel toggle
+
+	print("Main: Game Event Log panel created")
+
+func _on_game_log_entry_added(text: String, entry_type: String) -> void:
+	_append_log_entry(text, entry_type)
+
+	# Auto-scroll to bottom
+	if game_log_scroll:
+		await get_tree().process_frame
+		game_log_scroll.scroll_vertical = int(game_log_scroll.get_v_scroll_bar().max_value)
+
+func _append_log_entry(text: String, entry_type: String) -> void:
+	if not game_log_label:
+		return
+
+	var colored_text = ""
+	match entry_type:
+		"phase_header":
+			colored_text = "[b][color=#D49761]%s[/color][/b]" % text
+		"p1_action":
+			colored_text = "[color=#6699CC]%s[/color]" % text
+		"p2_action":
+			colored_text = "[color=#CC6666]%s[/color]" % text
+		_:
+			colored_text = "[color=#AAAAAA]%s[/color]" % text
+
+	game_log_label.append_text(colored_text + "\n")
+
+func _on_game_log_collapse_pressed() -> void:
+	is_game_log_visible = false
+	if game_log_panel:
+		game_log_panel.visible = false
+	if game_log_toggle_button:
+		game_log_toggle_button.text = "Show Log"
+
+func _on_game_log_toggle_pressed() -> void:
+	is_game_log_visible = !is_game_log_visible
+	if game_log_panel:
+		game_log_panel.visible = is_game_log_visible
+	if game_log_toggle_button:
+		game_log_toggle_button.text = "Hide Log" if is_game_log_visible else "Show Log"

@@ -91,20 +91,52 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			best_dist = dist
 			best_pos = clamped
 
-	# Add offset based on unit index to spread out deployments
+	# Spread units across the zone using column-based distribution
 	var my_units = _get_units_for_player(snapshot, player)
 	var deployed_count = 0
 	for uid in my_units:
 		var u = my_units[uid]
 		if u.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
 			deployed_count += 1
-	var offset_x = (deployed_count % 3 - 1) * 200.0
-	best_pos.x = clamp(best_pos.x + offset_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+
+	var zone_width = zone_bounds.max_x - zone_bounds.min_x
+	var zone_height = zone_bounds.max_y - zone_bounds.min_y
+	var num_columns = maxi(3, mini(5, my_units.size()))
+	var col_width = zone_width / num_columns
+	var col_index = deployed_count % num_columns
+	var depth_row = deployed_count / num_columns  # Which row front-to-back
+
+	# Column center X position
+	var col_center_x = zone_bounds.min_x + col_width * (col_index + 0.5)
+	# Depth Y: stagger front to back within zone
+	var depth_step = mini(200, int(zone_height / 3.0))
+	var depth_offset = depth_row * depth_step
+
+	# Player 1 deploys top (low Y), Player 2 deploys bottom (high Y)
+	var deploy_y: float
+	if zone_bounds.min_y < BOARD_HEIGHT_PX / 2.0:
+		# Top zone - front edge is max_y (closer to center)
+		deploy_y = zone_bounds.max_y - 80.0 - depth_offset
+	else:
+		# Bottom zone - front edge is min_y (closer to center)
+		deploy_y = zone_bounds.min_y + 80.0 + depth_offset
+
+	# Blend column position with objective-proximity position
+	best_pos.x = col_center_x * 0.7 + best_pos.x * 0.3
+	best_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
 
 	# Generate formation positions
 	var models = unit.get("models", [])
-	var base_mm = models[0].get("base_mm", 32) if models.size() > 0 else 32
+	var first_model = models[0] if models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
 	var positions = _generate_formation_positions(best_pos, models.size(), base_mm, zone_bounds)
+
+	# Resolve collisions with already-deployed models
+	var deployed_models = _get_all_deployed_model_positions(snapshot)
+	positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+
 	var rotations = []
 	for i in range(models.size()):
 		rotations.append(0.0)
@@ -884,6 +916,132 @@ static func _generate_formation_positions(centroid: Vector2, num_models: int,
 		positions.append(pos)
 
 	return positions
+
+# --- Collision detection utilities for deployment ---
+
+static func _get_all_deployed_model_positions(snapshot: Dictionary) -> Array:
+	"""Returns array of {position: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary}
+	for every deployed model on the board."""
+	var deployed = []
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos_data = model.get("position", null)
+			if pos_data == null:
+				continue
+			var pos: Vector2
+			if pos_data is Vector2:
+				pos = pos_data
+			else:
+				pos = Vector2(float(pos_data.get("x", 0)), float(pos_data.get("y", 0)))
+			deployed.append({
+				"position": pos,
+				"base_mm": model.get("base_mm", 32),
+				"base_type": model.get("base_type", "circular"),
+				"base_dimensions": model.get("base_dimensions", {}),
+				"rotation": model.get("rotation", 0.0)
+			})
+	return deployed
+
+static func _model_bounding_radius_px(base_mm: int, base_type: String = "circular", base_dimensions: Dictionary = {}) -> float:
+	"""Returns conservative bounding circle radius in pixels for any base type."""
+	var mm_to_px = PIXELS_PER_INCH / 25.4
+	match base_type:
+		"circular":
+			return (base_mm / 2.0) * mm_to_px
+		"rectangular", "oval":
+			var length_mm = base_dimensions.get("length", base_mm)
+			var width_mm = base_dimensions.get("width", base_mm * 0.6)
+			# Bounding circle = half the diagonal
+			var diag_mm = sqrt(length_mm * length_mm + width_mm * width_mm)
+			return (diag_mm / 2.0) * mm_to_px
+		_:
+			return (base_mm / 2.0) * mm_to_px
+
+static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deployed_models: Array, min_gap_px: float = 4.0, base_type: String = "circular", base_dimensions: Dictionary = {}) -> bool:
+	"""Check if a position would collide with any deployed model using bounding-circle approximation."""
+	var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	for dm in deployed_models:
+		var other_radius = _model_bounding_radius_px(
+			dm.get("base_mm", 32),
+			dm.get("base_type", "circular"),
+			dm.get("base_dimensions", {})
+		)
+		var min_dist = my_radius + other_radius + min_gap_px
+		if pos.distance_to(dm.position) < min_dist:
+			return true
+	return false
+
+static func _resolve_formation_collisions(positions: Array, base_mm: int, deployed_models: Array, zone_bounds: Dictionary, base_type: String = "circular", base_dimensions: Dictionary = {}) -> Array:
+	"""For each position that collides, spiral-search for the nearest free spot.
+	Also prevents intra-formation overlap."""
+	var resolved = []
+	# Track positions we've already placed in this formation
+	var formation_placed: Array = []  # Array of {position, base_mm, base_type, base_dimensions}
+	var mm_to_px = PIXELS_PER_INCH / 25.4
+	var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var margin = my_radius + 5.0
+	var step = my_radius * 2.0 + 8.0  # Spiral step size
+
+	for pos in positions:
+		# Combine deployed models + already-placed formation models for collision
+		var all_obstacles = deployed_models + formation_placed
+
+		if not _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			# No collision, use as-is
+			resolved.append(pos)
+			formation_placed.append({
+				"position": pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions
+			})
+			continue
+
+		# Spiral search for a free spot
+		var found = false
+		for ring in range(1, 8):  # Up to 7 rings outward
+			var ring_radius = step * ring
+			var points_in_ring = maxi(8, ring * 8)
+			for p_idx in range(points_in_ring):
+				var angle = (2.0 * PI * p_idx) / points_in_ring
+				var candidate = Vector2(
+					pos.x + cos(angle) * ring_radius,
+					pos.y + sin(angle) * ring_radius
+				)
+				# Clamp to zone bounds
+				candidate.x = clamp(candidate.x, zone_bounds.get("min_x", margin) + margin, zone_bounds.get("max_x", BOARD_WIDTH_PX - margin) - margin)
+				candidate.y = clamp(candidate.y, zone_bounds.get("min_y", margin) + margin, zone_bounds.get("max_y", BOARD_HEIGHT_PX - margin) - margin)
+
+				if not _position_collides_with_deployed(candidate, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+					resolved.append(candidate)
+					formation_placed.append({
+						"position": candidate,
+						"base_mm": base_mm,
+						"base_type": base_type,
+						"base_dimensions": base_dimensions
+					})
+					found = true
+					break
+			if found:
+				break
+
+		if not found:
+			# Last resort: use original position (will likely fail validation, but retry logic will handle it)
+			print("AIDecisionMaker: WARNING - Could not find collision-free position for model, using original")
+			resolved.append(pos)
+			formation_placed.append({
+				"position": pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions
+			})
+
+	return resolved
 
 static func _generate_weapon_id(weapon_name: String) -> String:
 	var weapon_id = weapon_name.to_lower()

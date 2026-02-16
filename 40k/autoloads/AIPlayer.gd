@@ -111,7 +111,9 @@ func _evaluate_and_act() -> void:
 
 	# Check game completion
 	if GameState.is_game_complete():
-		print("AIPlayer: Game is complete, not acting")
+		if enabled:
+			print("AIPlayer: Game is complete, disabling AI")
+			enabled = false
 		return
 
 	# Safety check - prevent infinite action loops

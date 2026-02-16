@@ -739,6 +739,13 @@ func get_available_actions() -> Array:
 				"description": "Switch to Player %d" % other_player
 			})
 
+	# If all units are deployed, offer END_DEPLOYMENT
+	if _all_units_deployed():
+		actions.append({
+			"type": "END_DEPLOYMENT",
+			"description": "End Deployment Phase"
+		})
+
 	return actions
 
 func _should_complete_phase() -> bool:

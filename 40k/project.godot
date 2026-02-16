@@ -53,6 +53,7 @@ NetworkManager="*res://autoloads/NetworkManager.gd"
 SpriteResolver="*res://autoloads/SpriteResolver.gd"
 ToastManager="*res://autoloads/ToastManager.gd"
 AIPlayer="*res://autoloads/AIPlayer.gd"
+GameEventLog="*res://autoloads/GameEventLog.gd"
 
 [display]
 

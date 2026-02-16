@@ -99,6 +99,10 @@ func execute_action(action: Dictionary) -> Dictionary:
 			game_state_snapshot = GameState.create_snapshot()
 			print("[BasePhase] Refreshed game_state_snapshot after applying changes")
 
+		# Attach human-readable log_text from result to the action dict
+		if result.has("log_text") and result.log_text != "":
+			action["_log_text"] = result.log_text
+
 		# Record the action
 		print("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)

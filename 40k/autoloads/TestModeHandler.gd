@@ -12,7 +12,8 @@ enum TestMode {
 	NONE,
 	AUTO_HOST,
 	AUTO_JOIN,
-	AUTO_LOAD
+	AUTO_LOAD,
+	AI_VS_AI
 }
 
 var current_test_mode: TestMode = TestMode.NONE
@@ -52,15 +53,19 @@ func _ready() -> void:
 
 func _parse_command_line_arguments():
 	var args = OS.get_cmdline_args()
+	var user_args = OS.get_cmdline_user_args()
+	# Merge both engine args and user args (after --)
+	var all_args = args + user_args
 	var dir = DirAccess.open("res://")
 	if dir:
 		dir.make_dir_recursive("test_results/test_commands")
 	var args_file = FileAccess.open("res://test_results/test_commands/args_log.txt", FileAccess.WRITE_READ)
 	if args_file:
 		args_file.seek_end()
-		args_file.store_line("ARGS: " + str(args))
+		args_file.store_line("ARGS: " + str(all_args))
 		args_file.close()
-	print("TestModeHandler: Args -> ", args)
+	print("TestModeHandler: Args -> ", all_args)
+	args = all_args
 
 	for i in range(args.size()):
 		var arg = args[i]
@@ -127,6 +132,14 @@ func _parse_command_line_arguments():
 				test_config["window_size"] = Vector2i(width, height)
 			continue
 
+		# AI vs AI mode - auto-start with both players as AI
+		if arg == "--ai-vs-ai":
+			current_test_mode = TestMode.AI_VS_AI
+			is_test_mode = true
+			test_config["ai_vs_ai"] = true
+			print("TestModeHandler: AI vs AI mode enabled")
+			continue
+
 func _setup_test_mode():
 	set_process(true)
 	# Apply window configuration if specified
@@ -151,6 +164,8 @@ func _setup_test_mode():
 			_schedule_auto_host()
 		TestMode.AUTO_JOIN:
 			_schedule_auto_join()
+		TestMode.AI_VS_AI:
+			_schedule_ai_vs_ai()
 
 func _schedule_auto_host():
 	print("TestModeHandler: Scheduling auto-host...")
@@ -287,6 +302,33 @@ func _schedule_auto_join():
 				lobby._on_join_button_pressed()
 			else:
 				print("TestModeHandler: ERROR - Lobby scene doesn't have _on_join_button_pressed method")
+
+func _schedule_ai_vs_ai():
+	print("TestModeHandler: Scheduling AI vs AI auto-start...")
+
+	# Wait for main menu to load and be ready
+	await get_tree().create_timer(1.0).timeout
+
+	var main_menu = get_tree().current_scene
+	print("TestModeHandler: Current scene: ", main_menu.name if main_menu else "null")
+
+	if main_menu and main_menu.has_method("_on_start_button_pressed"):
+		# Set both player types to AI
+		if main_menu.get("player1_type_dropdown"):
+			main_menu.player1_type_dropdown.selected = 1  # AI
+			print("TestModeHandler: Set Player 1 to AI")
+		if main_menu.get("player2_type_dropdown"):
+			main_menu.player2_type_dropdown.selected = 1  # AI
+			print("TestModeHandler: Set Player 2 to AI")
+
+		# Trigger start
+		print("TestModeHandler: Starting AI vs AI game...")
+		main_menu._on_start_button_pressed()
+	else:
+		print("TestModeHandler: ERROR - Main menu not ready or missing _on_start_button_pressed")
+
+func is_ai_vs_ai() -> bool:
+	return current_test_mode == TestMode.AI_VS_AI
 
 func _auto_load_save(save_path: String):
 	print("TestModeHandler: Auto-loading save: ", save_path)
