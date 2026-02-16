@@ -1284,15 +1284,22 @@ func update_transport_panel(unit_id: String = "") -> void:
 
 func _setup_objectives() -> void:
 	print("Setting up objectives on board...")
-	
+
 	# Create objectives container
 	var objectives_container = Node2D.new()
 	objectives_container.name = "Objectives"
 	objectives_container.z_index = -8  # Between board and deployment zones
 	$BoardRoot.add_child(objectives_container)
-	
+
 	if MissionManager:
 		var objectives = GameState.state.board.get("objectives", [])
+
+		# If objectives are empty, reinitialize from MissionManager before creating visuals
+		if objectives.size() == 0:
+			print("Main: No objectives in GameState, reinitializing from MissionManager...")
+			MissionManager._setup_objectives_for_deployment(GameState.get_deployment_type())
+			objectives = GameState.state.board.get("objectives", [])
+
 		print("Main: Creating visuals for %d objectives" % objectives.size())
 		
 		for obj in objectives:
