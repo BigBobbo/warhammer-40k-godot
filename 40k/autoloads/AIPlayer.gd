@@ -197,6 +197,104 @@ func _execute_next_action(player: int) -> void:
 				print("AIPlayer: Emitting ai_unit_deployed for %s (player %d)" % [deployed_unit_id, player])
 				emit_signal("ai_unit_deployed", player, deployed_unit_id)
 
+		# Handle multi-step movement: BEGIN_NORMAL_MOVE with pre-computed destinations
+		elif decision.get("type") == "BEGIN_NORMAL_MOVE" and decision.has("_ai_model_destinations"):
+			_execute_ai_movement(player, decision)
+
+# --- AI Movement execution ---
+
+func _execute_ai_movement(player: int, decision: Dictionary) -> void:
+	var unit_id = decision.get("actor_unit_id", "")
+	var destinations = decision.get("_ai_model_destinations", {})
+	var description = decision.get("_ai_description", "AI movement")
+
+	if unit_id == "" or destinations.is_empty():
+		print("AIPlayer: AI movement called with no unit or destinations")
+		return
+
+	print("AIPlayer: Executing AI movement for %s — staging %d models" % [unit_id, destinations.size()])
+
+	var staged_count = 0
+	var failed_count = 0
+
+	# Stage each model's destination
+	for model_id in destinations:
+		var dest = destinations[model_id]
+		var stage_action = {
+			"type": "STAGE_MODEL_MOVE",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"payload": {
+				"model_id": model_id,
+				"dest": dest,  # [x, y] array
+				"rotation": 0.0
+			}
+		}
+
+		_current_phase_actions += 1
+		var stage_result = NetworkIntegration.route_action(stage_action)
+
+		if stage_result != null and stage_result.get("success", false):
+			staged_count += 1
+			print("AIPlayer: Staged model %s to (%.0f, %.0f)" % [model_id, dest[0], dest[1]])
+		else:
+			failed_count += 1
+			var error_msg = "" if stage_result == null else stage_result.get("error", stage_result.get("errors", ""))
+			print("AIPlayer: Failed to stage model %s: %s" % [model_id, error_msg])
+
+	# Confirm the unit move (even if some models failed — partial moves are valid)
+	if staged_count > 0:
+		var confirm_action = {
+			"type": "CONFIRM_UNIT_MOVE",
+			"actor_unit_id": unit_id,
+			"player": player
+		}
+
+		_current_phase_actions += 1
+		var confirm_result = NetworkIntegration.route_action(confirm_action)
+
+		if confirm_result != null and confirm_result.get("success", false):
+			print("AIPlayer: Confirmed movement for %s (%d/%d models staged)" % [
+				unit_id, staged_count, staged_count + failed_count])
+			_action_log.append({
+				"phase": GameState.get_current_phase(),
+				"action_type": "CONFIRM_UNIT_MOVE",
+				"description": "%s (moved %d models)" % [description, staged_count],
+				"player": player
+			})
+		else:
+			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
+			push_error("AIPlayer: Failed to confirm movement for %s: %s" % [unit_id, error_msg])
+			# Try to reset the move to recover
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "RESET_UNIT_MOVE",
+				"actor_unit_id": unit_id,
+				"player": player
+			})
+			# Fall back to remain stationary
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "REMAIN_STATIONARY",
+				"actor_unit_id": unit_id,
+				"player": player
+			})
+	else:
+		# No models could be staged — reset and remain stationary
+		print("AIPlayer: No models staged for %s, resetting move" % unit_id)
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "RESET_UNIT_MOVE",
+			"actor_unit_id": unit_id,
+			"player": player
+		})
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "REMAIN_STATIONARY",
+			"actor_unit_id": unit_id,
+			"player": player
+		})
+
 # --- Deployment retry logic ---
 
 func _handle_failed_deployment(player: int, original_decision: Dictionary) -> void:
