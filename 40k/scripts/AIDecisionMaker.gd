@@ -252,22 +252,24 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			return {
 				"type": "BEGIN_FALL_BACK",
 				"actor_unit_id": unit_id,
-				"_ai_description": "%s falls back" % unit_name
+				"_ai_description": "%s falls back (engaged with enemy)" % unit_name
 			}
 
 		# --- Already near an objective: remain stationary ---
 		if scored.obj_dist <= OBJECTIVE_RANGE_PX:
 			if "REMAIN_STATIONARY" in move_types:
+				var dist_inches = scored.obj_dist / PIXELS_PER_INCH
 				print("AIDecisionMaker: %s is within 3\" of objective (%.1f px), holding position" % [unit_name, scored.obj_dist])
 				return {
 					"type": "REMAIN_STATIONARY",
 					"actor_unit_id": unit_id,
-					"_ai_description": "%s holds objective" % unit_name
+					"_ai_description": "%s holds objective (%.1f\" away)" % [unit_name, dist_inches]
 				}
 
 		# --- Move toward the nearest objective ---
 		if "BEGIN_NORMAL_MOVE" in move_types:
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+			var obj_dist_inches = scored.obj_dist / PIXELS_PER_INCH
 			var model_destinations = _compute_movement_toward_objective(
 				unit, objectives, move_inches, snapshot, enemies
 			)
@@ -278,17 +280,22 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					"type": "BEGIN_NORMAL_MOVE",
 					"actor_unit_id": unit_id,
 					"_ai_model_destinations": model_destinations,
-					"_ai_description": "%s moves toward objective" % unit_name
+					"_ai_description": "%s moves toward objective (M: %d\", obj: %.1f\" away)" % [unit_name, int(move_inches), obj_dist_inches]
 				}
 			else:
 				print("AIDecisionMaker: %s cannot find valid move, remaining stationary" % unit_name)
 
 		# --- Fallback: remain stationary ---
 		if "REMAIN_STATIONARY" in move_types:
+			var reason = "no valid move found"
+			if objectives.is_empty():
+				reason = "no objectives on board"
+			elif enemies.size() > 0:
+				reason = "all paths blocked or near enemies"
 			return {
 				"type": "REMAIN_STATIONARY",
 				"actor_unit_id": unit_id,
-				"_ai_description": "%s remains stationary" % unit_name
+				"_ai_description": "%s remains stationary (%s)" % [unit_name, reason]
 			}
 
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
@@ -573,7 +580,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			return {
 				"type": "SKIP_UNIT",
 				"actor_unit_id": unit_id,
-				"_ai_description": "Skip %s (no ranged weapons)" % unit_name
+				"_ai_description": "Skipped %s — no ranged weapons" % unit_name
 			}
 
 		# Find the best target for each weapon
@@ -608,17 +615,26 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			return {
 				"type": "SKIP_UNIT",
 				"actor_unit_id": unit_id,
-				"_ai_description": "Skip %s (no valid targets)" % unit_name
+				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
 			}
 
 		# Use the SHOOT action for a complete shooting sequence
+		# Build target summary
+		var target_names = []
+		for assignment in assignments:
+			var tid = assignment.get("target_unit_id", "")
+			var target = snapshot.get("units", {}).get(tid, {})
+			var tname = target.get("meta", {}).get("name", tid)
+			if tname not in target_names:
+				target_names.append(tname)
+		var target_summary = ", ".join(target_names)
 		return {
 			"type": "SHOOT",
 			"actor_unit_id": unit_id,
 			"payload": {
 				"assignments": assignments
 			},
-			"_ai_description": "%s shoots" % unit_name
+			"_ai_description": "%s shoots at %s (%d weapon(s))" % [unit_name, target_summary, assignments.size()]
 		}
 
 	# No shooters left, end phase
@@ -659,7 +675,7 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			return {
 				"type": "SKIP_CHARGE",
 				"actor_unit_id": uid,
-				"_ai_description": "Skip charge for %s" % unit_name
+				"_ai_description": "Skipped charge for %s (not implemented)" % unit_name
 			}
 
 	# Step 3: End charge phase
