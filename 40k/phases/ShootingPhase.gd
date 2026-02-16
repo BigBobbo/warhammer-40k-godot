@@ -15,6 +15,7 @@ signal dice_rolled(dice_data: Dictionary)
 signal saves_required(save_data_list: Array)  # For interactive save resolution
 signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ weapon types
 signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
+signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -24,6 +25,7 @@ var resolution_state: Dictionary = {}  # State for step-by-step resolution
 var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
 var pending_save_data: Array = []  # Save data awaiting resolution
+var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -36,7 +38,8 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_shot.clear()
-	
+	awaiting_reactive_stratagem = false
+
 	_initialize_shooting()
 
 func _on_phase_exit() -> void:
@@ -51,6 +54,9 @@ func _on_phase_exit() -> void:
 
 	# Clear shooting flags
 	_clear_phase_flags()
+
+	# Clear stratagem flags (Go to Ground, Smokescreen effects expire at end of phase)
+	_clear_stratagem_phase_flags()
 
 	# Clear pending save data
 	pending_save_data.clear()
@@ -100,6 +106,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_continue_sequence(action)
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			return _validate_complete_shooting_for_unit(action)
+		"USE_REACTIVE_STRATAGEM":  # Defender uses a reactive stratagem
+			return _validate_use_reactive_stratagem(action)
+		"DECLINE_REACTIVE_STRATAGEM":  # Defender declines to use a reactive stratagem
+			return _validate_decline_reactive_stratagem(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -151,6 +161,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"COMPLETE_SHOOTING_FOR_UNIT":  # Complete shooting after final weapon
 			print("ShootingPhase: Matched COMPLETE_SHOOTING_FOR_UNIT")
 			return _process_complete_shooting_for_unit(action)
+		"USE_REACTIVE_STRATAGEM":  # Defender uses a reactive stratagem
+			print("ShootingPhase: Matched USE_REACTIVE_STRATAGEM")
+			return _process_use_reactive_stratagem(action)
+		"DECLINE_REACTIVE_STRATAGEM":  # Defender declines reactive stratagem
+			print("ShootingPhase: Matched DECLINE_REACTIVE_STRATAGEM")
+			return _process_decline_reactive_stratagem(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -377,6 +393,32 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	emit_signal("shooting_begun", active_shooter_id)
 	log_phase_message("Confirmed targets, ready to resolve shooting")
 
+	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
+	var reactive_check = _check_reactive_stratagems()
+	if reactive_check.has_opportunities:
+		# Pause for defender to decide on reactive stratagems
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("Opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			reactive_check.defending_player,
+			reactive_check.available_stratagems,
+			reactive_check.target_unit_ids)
+		return create_result(true, [], "Awaiting defender stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": reactive_check.defending_player,
+			"available_stratagems": reactive_check.available_stratagems,
+			"target_unit_ids": reactive_check.target_unit_ids
+		})
+
+	# No reactive stratagems available - proceed to resolution
+	return _continue_after_reactive_stratagems()
+
+func _continue_after_reactive_stratagems() -> Dictionary:
+	"""Continue shooting resolution after reactive stratagem decision (or if none available)."""
 	# Check if we have multiple weapon types - if so, show weapon order dialog
 	var unique_weapons = {}
 	for assignment in confirmed_assignments:
@@ -1105,6 +1147,127 @@ func _unit_has_assault_weapons(unit: Dictionary) -> bool:
 
 	return false
 
+# ============================================================================
+# REACTIVE STRATAGEM SUPPORT (Go to Ground, Smokescreen)
+# ============================================================================
+
+func _check_reactive_stratagems() -> Dictionary:
+	"""
+	Check if the defending player has reactive stratagems available for the current targets.
+	Returns { has_opportunities: bool, defending_player: int, available_stratagems: Array, target_unit_ids: Array }
+	"""
+	var active_player = get_current_player()
+	var defending_player = 2 if active_player == 1 else 1
+
+	# Collect unique target unit IDs from confirmed assignments
+	var target_unit_ids = []
+	for assignment in confirmed_assignments:
+		var target_id = assignment.get("target_unit_id", "")
+		if target_id != "" and target_id not in target_unit_ids:
+			target_unit_ids.append(target_id)
+
+	if target_unit_ids.is_empty():
+		return {"has_opportunities": false}
+
+	# Ask StratagemManager for available reactive stratagems
+	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids)
+
+	if available.is_empty():
+		print("ShootingPhase: No reactive stratagems available for defender (player %d)" % defending_player)
+		return {"has_opportunities": false}
+
+	print("ShootingPhase: %d reactive stratagem(s) available for defender (player %d)" % [available.size(), defending_player])
+	for entry in available:
+		print("  - %s: eligible units = %s" % [entry.stratagem.name, str(entry.eligible_units)])
+
+	return {
+		"has_opportunities": true,
+		"defending_player": defending_player,
+		"available_stratagems": available,
+		"target_unit_ids": target_unit_ids
+	}
+
+func _validate_use_reactive_stratagem(action: Dictionary) -> Dictionary:
+	"""Validate using a reactive stratagem during opponent's shooting."""
+	if not awaiting_reactive_stratagem:
+		return {"valid": false, "errors": ["Not waiting for reactive stratagem decision"]}
+
+	var stratagem_id = action.get("stratagem_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+
+	if stratagem_id == "":
+		return {"valid": false, "errors": ["Missing stratagem_id"]}
+	if target_unit_id == "":
+		return {"valid": false, "errors": ["Missing target_unit_id"]}
+
+	# Validate through StratagemManager
+	var active_player = get_current_player()
+	var defending_player = 2 if active_player == 1 else 1
+	var validation = StratagemManager.can_use_stratagem(defending_player, stratagem_id, target_unit_id)
+
+	if not validation.can_use:
+		return {"valid": false, "errors": [validation.reason]}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
+	"""Validate declining to use a reactive stratagem."""
+	if not awaiting_reactive_stratagem:
+		return {"valid": false, "errors": ["Not waiting for reactive stratagem decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
+	"""Process the defender using a reactive stratagem (Go to Ground / Smokescreen)."""
+	var stratagem_id = action.get("stratagem_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+	var active_player = get_current_player()
+	var defending_player = 2 if active_player == 1 else 1
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage, applies effects)
+	var result = StratagemManager.use_stratagem(defending_player, stratagem_id, target_unit_id)
+
+	if not result.success:
+		return create_result(false, [], result.get("error", "Stratagem use failed"))
+
+	# Refresh game state snapshot so RulesEngine sees the new flags
+	game_state_snapshot = GameState.create_snapshot()
+
+	# Clear awaiting state and continue to resolution
+	awaiting_reactive_stratagem = false
+	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
+
+	# Continue shooting resolution
+	var continue_result = _continue_after_reactive_stratagems()
+
+	# Merge diffs
+	var all_diffs = result.get("diffs", [])
+	if continue_result.success:
+		all_diffs.append_array(continue_result.get("changes", []))
+
+	# Build combined result
+	var combined = create_result(true, all_diffs)
+	# Copy over all extra fields from the continue result
+	for key in continue_result:
+		if key != "success" and key != "changes" and key != "phase" and key != "timestamp":
+			combined[key] = continue_result[key]
+
+	combined["stratagem_used"] = {
+		"stratagem_id": stratagem_id,
+		"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+		"target_unit_id": target_unit_id,
+		"player": defending_player
+	}
+
+	return combined
+
+func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
+	"""Process the defender declining to use any reactive stratagem."""
+	awaiting_reactive_stratagem = false
+	log_phase_message("Defender declined reactive stratagems")
+
+	# Continue shooting resolution
+	return _continue_after_reactive_stratagems()
+
 func _get_last_weapon_result() -> Dictionary:
 	"""Build complete result summary for last weapon"""
 	var completed = resolution_state.get("completed_weapons", [])
@@ -1137,6 +1300,25 @@ func _clear_phase_flags() -> void:
 		var unit = units[unit_id]
 		if unit.has("flags"):
 			unit.flags.erase("has_shot")
+
+func _clear_stratagem_phase_flags() -> void:
+	"""Clear stratagem-granted flags from all units at end of shooting phase."""
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.has("flags"):
+			var flags = unit.flags
+			if flags.has("stratagem_invuln"):
+				flags.erase("stratagem_invuln")
+				print("ShootingPhase: Cleared stratagem_invuln from %s" % unit_id)
+			if flags.has("stratagem_cover"):
+				flags.erase("stratagem_cover")
+				print("ShootingPhase: Cleared stratagem_cover from %s" % unit_id)
+			if flags.has("stratagem_stealth"):
+				flags.erase("stratagem_stealth")
+				print("ShootingPhase: Cleared stratagem_stealth from %s" % unit_id)
+	# Also tell StratagemManager to clear its phase-scoped effects
+	StratagemManager.on_phase_end(GameStateData.Phase.SHOOTING)
 
 func _clear_shooting_visuals() -> void:
 	"""Clear all shooting-related visuals from the board when phase ends"""

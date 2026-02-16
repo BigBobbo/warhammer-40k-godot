@@ -613,6 +613,13 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
+		# STEALTH: Check if target unit has Stealth (from Smokescreen stratagem or ability)
+		# Stealth imposes -1 to hit rolls against this unit
+		var target_flags = target_unit.get("flags", {})
+		if target_flags.get("stratagem_stealth", false):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -976,6 +983,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
+		# STEALTH: Check if target unit has Stealth (from Smokescreen stratagem or ability)
+		# Stealth imposes -1 to hit rolls against this unit
+		var target_flags_2 = target_unit.get("flags", {})
+		if target_flags_2.get("stratagem_stealth", false):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1187,10 +1201,22 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			break  # No more models to allocate to
 		
 		# Check for cover (IGNORES COVER skips this)
-		var has_cover = false if auto_weapon_ignores_cover else _check_model_has_cover(target_model, actor_unit_id, board)
+		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
+		var auto_target_flags = target_unit.get("flags", {})
+		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
+		var has_cover = false
+		if not auto_weapon_ignores_cover:
+			has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
+
+		# Check stratagem-granted invulnerable save (Go to Ground)
+		var auto_model_invuln = target_model.get("invuln", 0)
+		var auto_stratagem_invuln = auto_target_flags.get("stratagem_invuln", 0)
+		if auto_stratagem_invuln > 0:
+			if auto_model_invuln == 0 or auto_stratagem_invuln < auto_model_invuln:
+				auto_model_invuln = auto_stratagem_invuln
 
 		# Calculate save needed
-		var save_result = _calculate_save_needed(base_save, ap, has_cover, target_model.get("invuln", 0))
+		var save_result = _calculate_save_needed(base_save, ap, has_cover, auto_model_invuln)
 		
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
@@ -3962,12 +3988,32 @@ static func prepare_save_resolution(
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
 
+	# STRATAGEM EFFECTS: Check for Go to Ground / Smokescreen cover and invuln
+	var target_flags = target_unit.get("flags", {})
+	var stratagem_cover = target_flags.get("stratagem_cover", false)
+	var stratagem_invuln = target_flags.get("stratagem_invuln", 0)
+
+	if stratagem_cover:
+		print("RulesEngine: Target has stratagem-granted Benefit of Cover")
+	if stratagem_invuln > 0:
+		print("RulesEngine: Target has stratagem-granted %d+ invulnerable save" % stratagem_invuln)
+
 	# Calculate save profile for each model
 	var model_save_profiles = []
 	for model_info in allocation_info.models:
 		var model = model_info.model
-		var has_cover = false if weapon_ignores_cover else _check_model_has_cover(model, shooter_unit_id, board)
-		var save_result = _calculate_save_needed(base_save, ap, has_cover, model.get("invuln", 0))
+		# Cover: from terrain OR from stratagem (unless weapon ignores cover)
+		var has_cover = false
+		if not weapon_ignores_cover:
+			has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
+
+		# Invulnerable save: use best of model's native invuln and stratagem-granted invuln
+		var model_invuln = model.get("invuln", 0)
+		if stratagem_invuln > 0:
+			if model_invuln == 0 or stratagem_invuln < model_invuln:
+				model_invuln = stratagem_invuln
+
+		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
 		model_save_profiles.append({
 			"model_id": model_info.model_id,
