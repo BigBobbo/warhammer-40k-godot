@@ -519,6 +519,11 @@ func _sanitize_for_json(value) -> Variant:
 		return {"x": value.x, "y": value.y, "z": value.z}
 	elif value is Color:
 		return {"r": value.r, "g": value.g, "b": value.b, "a": value.a}
+	elif value is PackedVector2Array:
+		var result = []
+		for vec in value:
+			result.append({"x": vec.x, "y": vec.y})
+		return result
 	elif value is Dictionary:
 		var result = {}
 		for key in value:
