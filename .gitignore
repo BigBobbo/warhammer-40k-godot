@@ -32,3 +32,7 @@ node_modules/
 *.db-wal
 *.db-journal
 server/persistence.db
+
+# Audit task runner
+.audit_runner_state
+.audit_logs/
