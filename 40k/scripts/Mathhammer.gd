@@ -133,11 +133,12 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 			var combat_result = RulesEngine.resolve_shoot(shoot_action, trial_board, rng)
 			
 			if combat_result.success:
-				# Extract combat statistics
-				var damage_dealt = _extract_damage_from_result(combat_result)
+				# Extract combat statistics (pass trial_board for wound delta calculation)
+				var damage_dealt = _extract_damage_from_result(combat_result, trial_board)
 				trial_result.damage += damage_dealt
 				trial_result.models_killed += _count_models_killed_from_diffs(combat_result.diffs)
-				
+				trial_result.weapon_breakdown[weapon_id].damage += damage_dealt
+
 				# Extract dice statistics for detailed breakdown
 				for dice_roll in combat_result.dice:
 					match dice_roll.context:
@@ -152,7 +153,6 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 						"save":
 							trial_result.saves_failed += dice_roll.get("fails", 0)
 							trial_result.weapon_breakdown[weapon_id].saves_failed += dice_roll.get("fails", 0)
-							trial_result.weapon_breakdown[weapon_id].damage += damage_dealt
 				
 				# Apply damage to trial board state for sequential attackers
 				_apply_diffs_to_board(combat_result.diffs, trial_board)
@@ -228,16 +228,34 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary) ->
 	
 	return trial_board
 
-# Extract total damage dealt from combat result
-static func _extract_damage_from_result(combat_result: Dictionary) -> int:
+# Extract total damage dealt from combat result by computing wound deltas
+# Requires trial_board (pre-diff state) so we can compare old wounds vs new wounds
+static func _extract_damage_from_result(combat_result: Dictionary, trial_board: Dictionary) -> int:
 	var damage = 0
 	for diff in combat_result.get("diffs", []):
 		if diff.get("op", "") == "set" and diff.get("path", "").ends_with(".current_wounds"):
-			# Calculate damage as difference from max wounds (simplified approach)
 			var new_wounds = diff.get("value", 0)
-			if new_wounds == 0:
-				damage += 1  # Model killed, count as 1+ damage
+			var old_wounds = _get_wounds_from_board_by_path(trial_board, diff.get("path", ""))
+			damage += max(0, old_wounds - new_wounds)
 	return damage
+
+# Look up a model's current_wounds from the trial board using a diff path
+# Path format: "units.<unit_id>.models.<index>.current_wounds"
+static func _get_wounds_from_board_by_path(board: Dictionary, path: String) -> int:
+	var parts = path.split(".")
+	# Expected: ["units", "<unit_id>", "models", "<index>", "current_wounds"]
+	if parts.size() < 5:
+		return 0
+	var unit_id = parts[1]
+	var model_index_str = parts[3]
+	if not model_index_str.is_valid_int():
+		return 0
+	var model_index = int(model_index_str)
+	var unit = board.get("units", {}).get(unit_id, {})
+	var models = unit.get("models", [])
+	if model_index < models.size():
+		return models[model_index].get("current_wounds", 0)
+	return 0
 
 # Count models killed from diff operations
 static func _count_models_killed_from_diffs(diffs: Array) -> int:
