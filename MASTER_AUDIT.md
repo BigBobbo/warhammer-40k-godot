@@ -54,6 +54,7 @@ These items were previously open in the audit files and have now been verified a
 | Double advance dice roll fix | Movement | MOVEMENT_PHASE_AUDIT.md |
 | [MH-BUG-2] Twin-linked re-rolls wounds not hits | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T1-3: Wound roll modifier system (+1/-1 cap) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
 
 ---
 
@@ -139,12 +140,13 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 
 These items cause incorrect game outcomes. They should be fixed before any competitive or serious playtesting.
 
-### T1-1. Melta X weapon keyword — bonus damage at half range
+### T1-1. Melta X weapon keyword — bonus damage at half range — **DONE**
 - **Phase:** Shooting
 - **Rule:** MELTA X adds +X to Damage when target is within half range
 - **Impact:** Core anti-vehicle weapon type (Multi-melta, Meltagun) doesn't function correctly
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.3
 - **Files:** `RulesEngine.gd` — damage application, range checking (can reference `count_models_in_half_range()`)
+- **Resolution:** Added `get_melta_value()` and `is_melta_weapon()` helpers. Modified both interactive (`prepare_save_resolution` → `apply_save_damage`) and auto-resolve (`_resolve_assignment`) paths to add +X damage when attacking models are within half weapon range. Proportional melta allocation when only some models are in half range. Added meltagun/multi-melta weapon profiles and 17 unit tests.
 
 ### T1-2. Twin-linked weapon keyword — re-roll wound rolls
 - **Phase:** Shooting/Fight
@@ -745,14 +747,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 2 | 8 | 10 |
+| Tier 1 — Critical Rules | 3 | 7 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **2** | **126** | **128** |
-| **Recently Completed** | **32** | — | **32** |
+| **Total Open** | **3** | **125** | **128** |
+| **Recently Completed** | **33** | — | **33** |
 | *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---
