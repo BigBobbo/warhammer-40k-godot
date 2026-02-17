@@ -700,26 +700,249 @@ func _process_end_shooting(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_shoot(action: Dictionary) -> Dictionary:
-	# Full shoot action - select shooter, assign targets, and resolve
+	# Full atomic shoot action - used exclusively by AI
+	# Handles the complete flow: select shooter, assign targets, resolve hits/wounds,
+	# auto-roll saves, apply damage, mark unit done, and clear state.
+	# Does NOT emit UI signals (weapon_order_required, next_weapon_confirmation_required,
+	# saves_required) to avoid creating orphaned dialogs during AI play.
 	var unit_id = action.get("actor_unit_id", "")
 
-	# Select shooter
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ AI SHOOT (atomic): Starting for unit %s" % unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Step 1: Select shooter
 	var select_result = _process_select_shooter({"actor_unit_id": unit_id})
 	if not select_result.success:
 		return select_result
 
-	# Process assignments
+	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
+	var merged_assignments = {}
 	for assignment in assignments:
-		pending_assignments.append(assignment)
+		var weapon_id = assignment.get("weapon_id", "")
+		var target_unit_id = assignment.get("target_unit_id", "")
+		var key = weapon_id + "_" + target_unit_id
+		if merged_assignments.has(key):
+			var existing = merged_assignments[key]
+			var existing_model_ids = existing.get("model_ids", [])
+			var new_model_ids = assignment.get("model_ids", [])
+			for model_id in new_model_ids:
+				if model_id not in existing_model_ids:
+					existing_model_ids.append(model_id)
+			existing["model_ids"] = existing_model_ids
+		else:
+			merged_assignments[key] = assignment.duplicate(true)
 
-	# Confirm targets
-	var confirm_result = _process_confirm_targets({})
-	if not confirm_result.success:
-		return confirm_result
+	confirmed_assignments = []
+	for key in merged_assignments:
+		confirmed_assignments.append(merged_assignments[key])
+	pending_assignments.clear()
 
-	# Resolve shooting
-	return _process_resolve_shooting({})
+	log_phase_message("AI: Confirmed %d weapon assignments for %s" % [confirmed_assignments.size(), unit_id])
+
+	# Step 3: Resolve shooting (hits + wounds) via RulesEngine
+	var shoot_action = {
+		"type": "SHOOT",
+		"actor_unit_id": active_shooter_id,
+		"payload": {
+			"assignments": confirmed_assignments
+		}
+	}
+
+	var rng_service = RulesEngine.RNGService.new()
+	var result = RulesEngine.resolve_shoot_until_wounds(shoot_action, game_state_snapshot, rng_service)
+
+	if not result.success:
+		# Resolution failed - clean up and return
+		active_shooter_id = ""
+		confirmed_assignments.clear()
+		return create_result(false, [], result.get("log_text", "Shooting failed"))
+
+	# Record dice rolls
+	var all_dice = []
+	var dice_data = result.get("dice", [])
+	for dice_block in dice_data:
+		dice_log.append(dice_block)
+		all_dice.append(dice_block)
+
+	log_phase_message(result.get("log_text", "Attack rolls complete"))
+
+	# Step 4: Auto-roll saves if wounds were caused
+	var save_data_list = result.get("save_data_list", [])
+	var all_changes = []
+	var total_casualties = 0
+
+	if not save_data_list.is_empty():
+		var save_result = _auto_roll_saves(save_data_list)
+		all_changes.append_array(save_result.get("changes", []))
+		total_casualties = save_result.get("casualties", 0)
+		all_dice.append_array(save_result.get("dice_blocks", []))
+
+		print("║ AI SHOOT: Saves resolved - %d casualties" % total_casualties)
+	else:
+		print("║ AI SHOOT: No wounds caused (all missed)")
+
+	# Step 5: Mark unit as done
+	all_changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	})
+	units_that_shot.append(unit_id)
+
+	# Step 6: Clear state
+	var shooter_id = active_shooter_id
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+
+	# Step 7: Emit shooting_resolved for visual cleanup (non-blocking)
+	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ AI SHOOT (atomic): Complete for %s - %d casualties" % [unit_id, total_casualties])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return create_result(true, all_changes, "AI shooting complete - %d casualties" % total_casualties, {
+		"dice": all_dice,
+		"casualties": total_casualties
+	})
+
+func _auto_roll_saves(save_data_list: Array) -> Dictionary:
+	# Auto-roll saves for AI - no UI interaction needed
+	# Returns: {changes: [], casualties: int, dice_blocks: []}
+	var all_changes = []
+	var total_casualties = 0
+	var all_dice_blocks = []
+
+	for save_data in save_data_list:
+		var wounds_to_save = save_data.get("wounds_to_save", 0)
+		var model_save_profiles = save_data.get("model_save_profiles", [])
+
+		if wounds_to_save <= 0 and save_data.get("devastating_wounds", 0) <= 0:
+			continue
+
+		# Roll saves: allocate wounds to models in priority order (wounded first)
+		var rng = RulesEngine.RNGService.new()
+		var save_results = []
+		var saves_passed = 0
+		var saves_failed = 0
+		var save_rolls_raw = []
+
+		# Build allocation order: wounded models first, then by model_index
+		var allocation_order = []
+		for profile in model_save_profiles:
+			allocation_order.append(profile)
+
+		# Sort: wounded models first (is_wounded = true first)
+		allocation_order.sort_custom(func(a, b):
+			if a.get("is_wounded", false) and not b.get("is_wounded", false):
+				return true
+			if not a.get("is_wounded", false) and b.get("is_wounded", false):
+				return false
+			return a.get("model_index", 0) < b.get("model_index", 0)
+		)
+
+		# Roll all saves at once, then allocate to models in priority order
+		var all_rolls = rng.roll_d6(wounds_to_save)
+		var alloc_idx = 0
+		for w in range(wounds_to_save):
+			if alloc_idx >= allocation_order.size():
+				alloc_idx = 0  # Wrap around if more wounds than models
+			if allocation_order.is_empty():
+				break
+
+			var profile = allocation_order[alloc_idx]
+			var save_needed = profile.get("save_needed", 7)
+			var roll = all_rolls[w]
+			save_rolls_raw.append(roll)
+			var saved = roll >= save_needed
+
+			save_results.append({
+				"saved": saved,
+				"model_id": profile.get("model_id", ""),
+				"model_index": profile.get("model_index", 0),
+				"roll": roll,
+				"damage": save_data.get("damage", 1),
+				"model_destroyed": false  # Will be determined by apply_save_damage
+			})
+
+			if saved:
+				saves_passed += 1
+			else:
+				saves_failed += 1
+
+			alloc_idx += 1
+
+		# Build dice block for save rolls
+		if not save_rolls_raw.is_empty():
+			var save_threshold = 7
+			var using_invuln = false
+			if not allocation_order.is_empty():
+				save_threshold = allocation_order[0].get("save_needed", 7)
+				using_invuln = allocation_order[0].get("using_invuln", false)
+
+			var save_dice_block = {
+				"context": "save_roll",
+				"threshold": str(save_threshold) + "+",
+				"rolls_raw": save_rolls_raw,
+				"successes": saves_passed,
+				"failed": saves_failed,
+				"ap": save_data.get("ap", 0),
+				"original_save": save_data.get("base_save", 7),
+				"using_invuln": using_invuln,
+				"weapon_name": save_data.get("weapon_name", ""),
+				"target_unit_name": save_data.get("target_unit_name", "")
+			}
+			all_dice_blocks.append(save_dice_block)
+			dice_log.append(save_dice_block)
+			emit_signal("dice_rolled", save_dice_block)
+
+		# Apply damage using RulesEngine
+		var fnp_rng = RulesEngine.RNGService.new()
+		var damage_result = RulesEngine.apply_save_damage(
+			save_results,
+			save_data,
+			game_state_snapshot,
+			-1,
+			fnp_rng
+		)
+
+		all_changes.append_array(damage_result.diffs)
+		total_casualties += damage_result.casualties
+
+		# Check if bodyguard unit was destroyed
+		if damage_result.casualties > 0:
+			var target_unit_id = save_data.get("target_unit_id", "")
+			if target_unit_id != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+
+		# Log FNP dice blocks
+		var fnp_rolls = damage_result.get("fnp_rolls", [])
+		for fnp_block in fnp_rolls:
+			var fnp_dice_block = {
+				"context": "feel_no_pain",
+				"threshold": str(fnp_block.get("fnp_value", 0)) + "+",
+				"rolls_raw": fnp_block.get("rolls", []),
+				"fnp_value": fnp_block.get("fnp_value", 0),
+				"wounds_prevented": fnp_block.get("wounds_prevented", 0),
+				"wounds_remaining": fnp_block.get("wounds_remaining", 0),
+				"total_wounds": fnp_block.get("total_wounds", 0),
+				"source": fnp_block.get("source", ""),
+				"target_unit_name": save_data.get("target_unit_name", "")
+			}
+			dice_log.append(fnp_dice_block)
+			emit_signal("dice_rolled", fnp_dice_block)
+			all_dice_blocks.append(fnp_dice_block)
+
+		var target_name = save_data.get("target_unit_name", "Unknown")
+		log_phase_message("AI saves: %s - %d passed, %d failed → %d casualties" % [
+			target_name, saves_passed, saves_failed, damage_result.casualties
+		])
+
+	return {"changes": all_changes, "casualties": total_casualties, "dice_blocks": all_dice_blocks}
 
 func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 	"""Process weapon sequence resolution - either fast roll or sequential"""
@@ -1406,7 +1629,38 @@ func get_available_actions() -> Array:
 			"type": "RESOLVE_SHOOTING",
 			"description": "Resolve shooting"
 		})
-	
+
+	# Pending saves need resolution (safety net for AI)
+	if not pending_save_data.is_empty():
+		actions.append({
+			"type": "APPLY_SAVES",
+			"description": "Apply pending saves"
+		})
+
+	# Sequential mode: continue or complete (safety net for AI)
+	if resolution_state.get("mode", "") == "sequential":
+		var idx = resolution_state.get("current_index", 0)
+		var order = resolution_state.get("weapon_order", [])
+		if idx < order.size():
+			actions.append({
+				"type": "CONTINUE_SEQUENCE",
+				"description": "Continue to next weapon"
+			})
+		elif active_shooter_id != "":
+			actions.append({
+				"type": "COMPLETE_SHOOTING_FOR_UNIT",
+				"actor_unit_id": active_shooter_id,
+				"description": "Complete shooting for unit"
+			})
+
+	# Single weapon completed but awaiting confirmation (safety net for AI)
+	if resolution_state.get("phase", "") == "awaiting_confirmation" and active_shooter_id != "":
+		actions.append({
+			"type": "COMPLETE_SHOOTING_FOR_UNIT",
+			"actor_unit_id": active_shooter_id,
+			"description": "Complete shooting for unit"
+		})
+
 	# Units that can shoot
 	for unit_id in units:
 		var unit = units[unit_id]
@@ -1416,19 +1670,19 @@ func get_available_actions() -> Array:
 				"actor_unit_id": unit_id,
 				"description": "Select %s for shooting" % unit.get("meta", {}).get("name", unit_id)
 			})
-			
+
 			actions.append({
 				"type": "SKIP_UNIT",
 				"actor_unit_id": unit_id,
 				"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
 			})
-	
+
 	# Always can end phase
 	actions.append({
 		"type": "END_SHOOTING",
 		"description": "End Shooting Phase"
 	})
-	
+
 	return actions
 
 func _should_complete_phase() -> bool:

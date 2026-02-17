@@ -11,6 +11,7 @@ signal phase_action_taken(action: Dictionary)
 
 var current_phase_instance: BasePhase = null
 var phase_classes: Dictionary = {}
+var game_ended: bool = false
 
 func _ready() -> void:
 	# Register all available phase classes
@@ -149,38 +150,43 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 			return GameStateData.Phase.DEPLOYMENT
 
 func _on_phase_completed() -> void:
+	if game_ended:
+		return
+
 	var completed_phase = get_current_phase()
-	
+
 	# Check for game end before advancing
 	if completed_phase == GameStateData.Phase.SCORING and GameState.is_game_complete():
 		_handle_game_end()
 		return
-	
+
 	# Commit current phase log to history before transitioning
 	GameState.commit_phase_log_to_history()
-	
+
 	emit_signal("phase_completed", completed_phase)
-	
+
 	# Advance to next phase
 	advance_to_next_phase()
 
 func _handle_game_end() -> void:
 	print("PhaseManager: Game completed after 5 battle rounds!")
 	print("PhaseManager: Final battle round: ", GameState.get_battle_round())
-	
+
+	game_ended = true
+
 	# Commit final phase log
 	GameState.commit_phase_log_to_history()
-	
-	# Emit completion signal
+
+	# Emit completion signal for any listeners that need to know the game ended
 	emit_signal("phase_completed", GameStateData.Phase.SCORING)
-	
-	# Could emit a game_completed signal here in the future
-	# For now, just stay in scoring phase
 
 func _on_phase_action_taken(action: Dictionary) -> void:
+	if game_ended:
+		return
+
 	# Record action in phase log
 	GameState.add_action_to_phase_log(action)
-	
+
 	emit_signal("phase_action_taken", action)
 
 # Utility methods for phases to interact with game state

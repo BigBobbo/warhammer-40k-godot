@@ -3389,6 +3389,10 @@ func update_deployment_zone_visibility() -> void:
 
 # Phase management handlers
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
+	# Stop processing phase changes if the game has ended
+	if PhaseManager.game_ended:
+		return
+
 	current_phase = new_phase
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
@@ -3397,6 +3401,11 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	update_transport_panel("")
 
 	await setup_phase_controllers()
+
+	# Re-check after await — game may have ended while we were waiting
+	if PhaseManager.game_ended:
+		return
+
 	update_ui_for_phase()
 	
 	# Debug: Check what units are available

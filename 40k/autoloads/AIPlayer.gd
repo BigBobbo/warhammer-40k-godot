@@ -75,19 +75,19 @@ func clear_action_log() -> void:
 # --- Signal handlers ---
 
 func _on_phase_changed(_new_phase) -> void:
-	if not enabled:
+	if not enabled or PhaseManager.game_ended:
 		return
 	_current_phase_actions = 0  # Reset safety counter on phase change
 	call_deferred("_evaluate_and_act")
 
 func _on_result_applied(_result: Dictionary) -> void:
-	if not enabled:
+	if not enabled or PhaseManager.game_ended:
 		return
 	# After any action result, check if AI should act next
 	call_deferred("_evaluate_and_act")
 
 func _on_phase_action_taken(_action: Dictionary) -> void:
-	if not enabled:
+	if not enabled or PhaseManager.game_ended:
 		return
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
@@ -97,6 +97,9 @@ func _on_phase_action_taken(_action: Dictionary) -> void:
 # --- Core AI loop ---
 
 func _evaluate_and_act() -> void:
+	if not enabled or PhaseManager.game_ended:
+		return
+
 	DebugLogger.info("AIPlayer._evaluate_and_act called", {"processing_turn": _processing_turn, "enabled": enabled})
 	if _processing_turn:
 		DebugLogger.info("AIPlayer._evaluate_and_act - skipped (already processing)", {})
