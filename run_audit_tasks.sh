@@ -130,60 +130,57 @@ was_task_completed() {
 
 # Extracts all open task IDs and titles from MASTER_AUDIT.md
 # Output format: TASK_ID<TAB>TASK_TITLE
+# Note: reads file directly with grep/sed (not via echo) for macOS compatibility
 parse_all_tasks() {
-    local audit_content
-    audit_content=$(<"$AUDIT_FILE")
-
     # ── Tier 1-4 and Tier 6 tasks: ### T{n}-{m}. Title ──
     # Skip lines containing **DONE** or ~~strikethrough~~
-    echo "$audit_content" | grep -E '^### T[0-9]+-[0-9]+\.' | while IFS= read -r line; do
+    grep -E '^### T[0-9]+-[0-9]+\.' "$AUDIT_FILE" | while IFS= read -r line; do
         # Skip DONE tasks
-        if echo "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
+        if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
             continue
         fi
         # Extract ID and title
         local task_id task_title
-        task_id=$(echo "$line" | grep -oE 'T[0-9]+-[0-9]+')
-        task_title=$(echo "$line" | sed 's/^### //' | sed 's/^ *//')
-        echo -e "${task_id}\t${task_title}"
+        task_id=$(printf '%s' "$line" | grep -oE 'T[0-9]+-[0-9]+')
+        task_title=$(printf '%s' "$line" | sed 's/^### //' | sed 's/^ *//')
+        printf '%s\t%s\n' "$task_id" "$task_title"
     done
 
     # ── Tier 5 tasks: - T5-{type}{n}. Description ──
-    echo "$audit_content" | grep -E '^- T5-[A-Za-z]+[0-9]+\.' | while IFS= read -r line; do
-        if echo "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
+    grep -E '^- T5-[A-Za-z]+[0-9]+\.' "$AUDIT_FILE" | while IFS= read -r line; do
+        if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
             continue
         fi
         local task_id task_title
         # Use head -1 to only grab the first T5-ID on the line (avoid cross-refs like "see also T5-V15")
-        task_id=$(echo "$line" | grep -oE 'T5-[A-Za-z]+[0-9]+' | head -1)
-        task_title=$(echo "$line" | sed 's/^- //')
-        echo -e "${task_id}\t${task_title}"
+        task_id=$(printf '%s' "$line" | grep -oE 'T5-[A-Za-z]+[0-9]+' | head -1)
+        task_title=$(printf '%s' "$line" | sed 's/^- //')
+        printf '%s\t%s\n' "$task_id" "$task_title"
     done
 }
 
 # Extracts the full section content for a given task ID from MASTER_AUDIT.md
 # For ### headers: everything from the header to the next ### or ---
 # For - bullets: the single line plus the subsection header it's under
+# Note: reads file directly with grep/awk (not via echo) for macOS compatibility
 get_task_context() {
     local task_id="$1"
-    local audit_content
-    audit_content=$(<"$AUDIT_FILE")
 
     # Determine if this is a ### header task or a - bullet task
-    if echo "$audit_content" | grep -qE "^### ${task_id}\."; then
+    if grep -qE "^### ${task_id}\." "$AUDIT_FILE"; then
         # Header task: extract from ### to next ### or ---
-        echo "$audit_content" | awk "
+        awk "
             /^### ${task_id}\./ { found=1 }
             found && /^###/ && !/^### ${task_id}\./ { found=0 }
             found && /^---/ { found=0 }
             found { print }
-        "
-    elif echo "$audit_content" | grep -qE "^- ${task_id}\."; then
+        " "$AUDIT_FILE"
+    elif grep -qE "^- ${task_id}\." "$AUDIT_FILE"; then
         # Bullet task: get the subsection header and the bullet line
-        echo "$audit_content" | awk "
+        awk "
             /^### / { section=\$0 }
             /^- ${task_id}\./ { print section; print \$0 }
-        "
+        " "$AUDIT_FILE"
     else
         echo "Task ${task_id} not found in audit file."
     fi
@@ -528,12 +525,12 @@ main() {
             fi
         fi
 
-        tasks_filtered+="${task_id}\t${task_title}\n"
+        tasks_filtered+="${task_id}"$'\t'"${task_title}"$'\n'
     done <<< "$tasks_raw"
 
     # Count tasks
     local task_count
-    task_count=$(echo -e "$tasks_filtered" | grep -c '\S' || true)
+    task_count=$(printf '%s' "$tasks_filtered" | grep -c '\S' || true)
 
     if [[ "$task_count" -eq 0 ]]; then
         log_ok "No tasks match the current filters"
@@ -571,7 +568,7 @@ main() {
                 6) color="$GREEN" ;;
             esac
             printf "  ${color}%3d. [T%s] %s${NC}\n" "$idx" "${task_id#T}" "$task_title"
-        done <<< "$(echo -e "$tasks_filtered")"
+        done <<< "$tasks_filtered"
         echo ""
         exit 0
     fi
@@ -598,7 +595,7 @@ main() {
 
         processed=$((processed + 1))
 
-    done <<< "$(echo -e "$tasks_filtered")"
+    done <<< "$tasks_filtered"
 
     # ── Summary ──
     echo ""
