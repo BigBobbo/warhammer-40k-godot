@@ -42,6 +42,7 @@ var _recording_events: Array = []
 var _recording_snapshots: Array = []  # Array of {event_index, state}
 var _recording_meta: Dictionary = {}
 var _recording_event_index: int = 0
+var _stable_replay_path: String = ""  # Stable file path for per-turn incremental saves
 
 # ============================================================================
 # Playback State
@@ -164,6 +165,9 @@ func start_recording() -> void:
 		"state": _recording_initial_state.duplicate(true)
 	})
 
+	# Build a stable file path based on game_id so per-turn saves overwrite the same file
+	_stable_replay_path = _build_stable_replay_path()
+
 	print("ReplayManager: Recording started (game_id=%s)" % _recording_meta.get("game_id", ""))
 	DebugLogger.info("ReplayManager: Recording started", _recording_meta)
 	emit_signal("recording_started")
@@ -185,8 +189,9 @@ func stop_recording() -> void:
 		"p2_vp": GameState.state.get("players", {}).get("2", {}).get("vp", 0),
 	}
 	_recording_meta["final_round"] = GameState.get_battle_round()
+	_recording_meta["status"] = "complete"
 
-	# Save to file
+	# Save to file (reuses stable path so final save overwrites incremental)
 	var file_path = _save_replay_to_file()
 
 	current_mode = Mode.IDLE
@@ -325,13 +330,74 @@ func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 	_recording_event_index += 1
 
 func _on_phase_completed_for_recording(phase: GameStateData.Phase) -> void:
-	"""Auto-stop recording when the game ends."""
+	"""Auto-stop recording when the game ends, and save incrementally after each turn."""
 	if not is_recording:
 		return
 	var phase_manager = get_node_or_null("/root/PhaseManager")
 	if phase_manager and phase_manager.game_ended:
 		print("ReplayManager: Game ended detected, auto-stopping recording")
 		stop_recording()
+		return
+
+	# Save incrementally after each Scoring phase (i.e. end of each player's turn)
+	# so that even incomplete games have replay data available
+	if phase == GameStateData.Phase.SCORING:
+		save_replay_incremental()
+
+func save_replay_incremental() -> void:
+	"""Save the current recording to disk without stopping. Used for per-turn saves
+	so that incomplete games still have replay data available."""
+	if not is_recording:
+		return
+
+	# Update metadata with current state (but keep status as in_progress)
+	_recording_meta["total_events"] = _recording_events.size()
+	_recording_meta["total_snapshots"] = _recording_snapshots.size()
+	_recording_meta["last_saved_at"] = Time.get_unix_time_from_system()
+	_recording_meta["status"] = "in_progress"
+	_recording_meta["final_score"] = {
+		"p1_vp": GameState.state.get("players", {}).get("1", {}).get("vp", 0),
+		"p2_vp": GameState.state.get("players", {}).get("2", {}).get("vp", 0),
+	}
+	_recording_meta["final_round"] = GameState.get_battle_round()
+
+	var replay_data = {
+		"version": REPLAY_VERSION,
+		"meta": _recording_meta,
+		"initial_state": _recording_initial_state,
+		"events": _recording_events,
+		"snapshots": _recording_snapshots,
+	}
+
+	if _stable_replay_path == "":
+		_stable_replay_path = _build_stable_replay_path()
+
+	var file = FileAccess.open(_stable_replay_path, FileAccess.WRITE)
+	if file:
+		var json_string = JSON.stringify(replay_data)
+		file.store_string(json_string)
+		file.close()
+		print("ReplayManager: Incremental save to %s (%d events, round %s)" % [
+			_stable_replay_path, _recording_events.size(), str(_recording_meta.get("final_round", "?"))])
+		DebugLogger.info("ReplayManager: Incremental replay save", {
+			"path": _stable_replay_path,
+			"events": _recording_events.size(),
+			"round": _recording_meta.get("final_round", "?")
+		})
+	else:
+		push_error("ReplayManager: Failed incremental save to: " + _stable_replay_path)
+		DebugLogger.error("ReplayManager: Failed incremental save", {"path": _stable_replay_path})
+
+func _build_stable_replay_path() -> String:
+	"""Build a stable replay file path based on game_id so incremental saves overwrite the same file."""
+	var game_id = _recording_meta.get("game_id", "")
+	if game_id == "":
+		game_id = _generate_replay_id()
+	# Sanitize game_id for use in filename
+	game_id = game_id.replace("/", "_").replace("\\", "_").replace(" ", "_")
+	var p1_faction = _recording_meta.get("player1_faction", "P1").replace(" ", "_")
+	var p2_faction = _recording_meta.get("player2_faction", "P2").replace(" ", "_")
+	return REPLAY_DIR + "replay_%s_%s_vs_%s.json" % [game_id, p1_faction, p2_faction]
 
 func _build_event_description(action_type: String, action_data: Dictionary, result: Dictionary) -> String:
 	"""Build a human-readable description of the event."""
@@ -407,11 +473,10 @@ func _save_replay_to_file() -> String:
 		"snapshots": _recording_snapshots,
 	}
 
-	var timestamp = Time.get_datetime_string_from_system().replace(":", "").replace("-", "").replace("T", "_")
-	var p1_faction = _recording_meta.get("player1_faction", "P1").replace(" ", "_")
-	var p2_faction = _recording_meta.get("player2_faction", "P2").replace(" ", "_")
-	var file_name = "replay_%s_%s_vs_%s.json" % [timestamp, p1_faction, p2_faction]
-	var file_path = REPLAY_DIR + file_name
+	# Reuse the stable path if we already have one (overwrites incremental saves)
+	var file_path = _stable_replay_path
+	if file_path == "":
+		file_path = _build_stable_replay_path()
 
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
 	if file:
@@ -817,3 +882,4 @@ func cleanup() -> void:
 	_recording_initial_state = {}
 	_recording_meta = {}
 	_recording_event_index = 0
+	_stable_replay_path = ""

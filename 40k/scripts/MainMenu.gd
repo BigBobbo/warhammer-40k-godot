@@ -475,7 +475,7 @@ func _show_replay_browser() -> void:
 
 	if replays.is_empty():
 		var no_replays_label = Label.new()
-		no_replays_label.text = "No replays found.\n\nReplays are automatically saved when AI vs AI games finish.\nYou can also start recording from the game manually."
+		no_replays_label.text = "No replays found.\n\nReplays are automatically saved during AI vs AI games.\nYou can also start recording from the game manually."
 		no_replays_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(no_replays_label)
 	else:
@@ -524,11 +524,15 @@ func _show_replay_browser() -> void:
 			var p1_type = meta.get("player1_type", "?")
 			var p2_type = meta.get("player2_type", "?")
 
+			var replay_status = meta.get("status", "complete")
+			var status_label = "[Complete]" if replay_status == "complete" else "[In Progress]"
+
 			var subtitle = Label.new()
-			subtitle.text = "%s | %s vs %s | Round %s | Score: %d-%d | %d events" % [
-				date_str, p1_type, p2_type, str(final_round), p1_vp, p2_vp, total_events]
+			subtitle.text = "%s %s | %s vs %s | Round %s | Score: %d-%d | %d events" % [
+				status_label, date_str, p1_type, p2_type, str(final_round), p1_vp, p2_vp, total_events]
 			subtitle.add_theme_font_size_override("font_size", 12)
-			subtitle.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			var subtitle_color = Color(0.6, 0.6, 0.6) if replay_status == "complete" else Color(0.8, 0.7, 0.3)
+			subtitle.add_theme_color_override("font_color", subtitle_color)
 			info_vbox.add_child(subtitle)
 
 			# Watch button
