@@ -387,7 +387,7 @@ func _populate_rule_toggles() -> void:
 	var common_rules = [
 		{"id": "lethal_hits", "name": "Lethal Hits", "description": "6s to hit automatically wound"},
 		{"id": "sustained_hits", "name": "Sustained Hits", "description": "6s to hit generate extra hits"},
-		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll failed hits"},
+		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll failed wound rolls"},
 		{"id": "devastating_wounds", "name": "Devastating Wounds", "description": "6s to wound become mortal wounds"},
 		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus"},
 		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls"},

@@ -52,6 +52,7 @@ These items were previously open in the audit files and have now been verified a
 | Deployment progress indicator | Deployment | DEPLOYMENT_AUDIT.md |
 | Multi-model movement (Ctrl+click, drag-box, group move) | Movement | IMPLEMENTATION_VALIDATION.md |
 | Double advance dice roll fix | Movement | MOVEMENT_PHASE_AUDIT.md |
+| [MH-BUG-2] Twin-linked re-rolls wounds not hits | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -77,7 +78,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | ID | Severity | Issue | File:Line |
 |----|----------|-------|-----------|
 | MH-BUG-1 | **CRITICAL** | `_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed. | `Mathhammer.gd:232-240` |
-| MH-BUG-2 | **HIGH** | Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag. | `MathhhammerRuleModifiers.gd:58-59,281-284` |
+| MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
 | MH-BUG-3 | **HIGH** | Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold. | `MathhhammerRuleModifiers.gd:77-83,296-299` |
 | MH-BUG-4 | **MEDIUM** | Rapid Fire toggle doubles all attacks (`attacks * 2`) but 10e Rapid Fire X adds only +X attacks, not double. Rapid Fire 1 on a 2-attack weapon = 3 attacks, not 4. | `Mathhammer.gd:188-189` |
 | MH-BUG-5 | **MEDIUM** | `create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background. | `MathhhammerUI.gd:953-958` |
@@ -200,12 +201,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd:232-240` — needs to compute actual wound delta from diffs (old wounds - new wounds) instead of checking `new_wounds == 0`
 
-### T1-10. [MH-BUG-2] Twin-linked modifier re-rolls hits instead of wounds
+### T1-10. ~~[MH-BUG-2] Twin-linked modifier re-rolls hits instead of wounds~~ **DONE**
 - **Phase:** Mathhammer
 - **Rule:** 10e Twin-linked re-rolls all failed **wound** rolls, not hit rolls
-- **Impact:** Simulation applies wrong re-roll, inflating hit rates while ignoring wound re-rolls
+- **Impact:** ~~Simulation applies wrong re-roll, inflating hit rates while ignoring wound re-rolls~~ Fixed
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd:58-59,281-284` — `_apply_twin_linked()` sets `reroll_hits` flag; should set `reroll_wounds`
+- **Files:** `MathhhammerRuleModifiers.gd`, `MathhhammerUI.gd`, `RulesEngine.gd`, `Mathhammer.gd`
+- **Resolution:** Fixed `_apply_twin_linked()` to set `reroll_wounds` instead of `reroll_hits`. Moved twin-linked from HIT_MODIFIER to WOUND_MODIFIER category. Added `has_twin_linked()` keyword detection and wound re-roll logic to all three RulesEngine wound roll paths (interactive, auto-resolve, melee). Wired twin-linked toggle through Mathhammer simulation pipeline to RulesEngine assignments.
 
 ---
 
@@ -730,7 +732,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `test_multiplayer_deployment.gd` | 574 | Extract unit model positions from game state | T6-4 |
 | `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
 | `Mathhammer.gd` | 232-240 | `_extract_damage_from_result()` broken — counts kills as 1 damage | T1-9 |
-| `MathhhammerRuleModifiers.gd` | 58-59 | Twin-linked re-rolls hits instead of wounds | T1-10 |
+| `MathhhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
 | `MathhhammerRuleModifiers.gd` | 77-83 | Anti-keyword uses re-roll instead of crit threshold | T2-13 |
 | `MathhhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
 | `Mathhammer.gd` | 188-189 | Rapid Fire doubles attacks instead of adding X | T3-20 |
@@ -741,15 +743,15 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 0 | 10 | 10 |
+| Tier 1 — Critical Rules | 1 | 9 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **0** | **128** | **128** |
-| **Recently Completed** | **30** | — | **30** |
-| *Mathhammer items (subset)* | *0* | *31* | *31* |
+| **Total Open** | **1** | **127** | **128** |
+| **Recently Completed** | **31** | — | **31** |
+| *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---
 
