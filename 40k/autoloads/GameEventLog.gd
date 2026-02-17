@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	var phase_name = PHASE_NAMES.get(new_phase, "Unknown")
-	var turn = GameState.get_turn_number()
+	var turn = GameState.get_battle_round()
 	var player = GameState.get_active_player()
 	var header = "--- %s Phase (Round %d, P%d) ---" % [phase_name, turn, player]
 	_add_entry(header, "phase_header")

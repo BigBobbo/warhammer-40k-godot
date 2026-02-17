@@ -443,7 +443,7 @@ func add_action_to_phase_log(action: Dictionary) -> void:
 func commit_phase_log_to_history() -> void:
 	if state["phase_log"].size() > 0:
 		var phase_entry = {
-			"turn": state["meta"]["turn_number"],
+			"turn": state["meta"].get("battle_round", 1),
 			"phase": state["meta"]["phase"],
 			"actions": state["phase_log"].duplicate()
 		}
