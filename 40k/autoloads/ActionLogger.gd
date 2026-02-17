@@ -99,7 +99,7 @@ func _enrich_action(action: Dictionary) -> Dictionary:
 
 func _capture_game_context() -> Dictionary:
 	return {
-		"turn": GameState.get_turn_number(),
+		"turn": GameState.get_battle_round(),
 		"phase": GameState.get_current_phase(),
 		"active_player": GameState.get_active_player(),
 		"game_id": GameState.state.get("meta", {}).get("game_id", "unknown")
