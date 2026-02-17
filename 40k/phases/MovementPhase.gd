@@ -14,6 +14,8 @@ signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array)
+signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -24,6 +26,8 @@ var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_data: Dictionary = {}  # Stores original roll info
+var _awaiting_overwatch_decision: bool = false
+var _overwatch_moved_unit_id: String = ""  # The unit that just moved (potential target)
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
@@ -53,6 +57,8 @@ func _on_phase_enter() -> void:
 	_awaiting_reroll_decision = false
 	_reroll_pending_unit_id = ""
 	_reroll_pending_data = {}
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -136,6 +142,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _awaiting_reroll_decision:
 				return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
 			return {"valid": true}
+		"USE_FIRE_OVERWATCH":
+			if not _awaiting_overwatch_decision:
+				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
+			return {"valid": true, "errors": []}
+		"DECLINE_FIRE_OVERWATCH":
+			if not _awaiting_overwatch_decision:
+				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
+			return {"valid": true, "errors": []}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -182,6 +196,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _process_decline_command_reroll(action)
+		"USE_FIRE_OVERWATCH":
+			return _process_use_fire_overwatch(action)
+		"DECLINE_FIRE_OVERWATCH":
+			return _process_decline_fire_overwatch(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -765,6 +783,48 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	print("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
 	return _resolve_advance_roll(unit_id, old_data.get("advance_roll", 0))
 
+func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	"""Process USE_FIRE_OVERWATCH: defending player fires at the unit that just moved."""
+	var shooter_unit_id = action.get("payload", {}).get("shooter_unit_id", "")
+	var target_unit_id = _overwatch_moved_unit_id
+
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
+
+	if shooter_unit_id == "" or target_unit_id == "":
+		return create_result(false, [], "Missing shooter or target unit for overwatch")
+
+	var current_player = get_current_player()
+	var defending_player = 2 if current_player == 1 else 1
+
+	# Execute the overwatch via StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return create_result(false, [], "StratagemManager not found")
+
+	var snapshot = GameState.create_snapshot()
+	var ow_result = strat_manager.execute_fire_overwatch(defending_player, shooter_unit_id, target_unit_id, snapshot)
+
+	if not ow_result.success:
+		print("MovementPhase: Fire Overwatch failed: %s" % ow_result.get("error", ""))
+		return create_result(true, [])  # Continue movement even if overwatch fails
+
+	log_phase_message(ow_result.get("message", "Fire Overwatch executed"))
+	emit_signal("overwatch_result", shooter_unit_id, target_unit_id, ow_result.get("shooting_result", {}))
+
+	# Overwatch diffs are applied internally by StratagemManager, return empty changes
+	return create_result(true, [], "", {
+		"overwatch_result": ow_result.get("shooting_result", {}),
+		"overwatch_message": ow_result.get("message", "")
+	})
+
+func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_FIRE_OVERWATCH: defending player declines overwatch."""
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
+	print("MovementPhase: Fire Overwatch DECLINED")
+	return create_result(true, [])
+
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
@@ -1085,6 +1145,24 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# Check for embark opportunity after movement
 	if not unit.get("disembarked_this_phase", false):
 		call_deferred("_check_embark_opportunity", unit_id)
+
+	# Check for Fire Overwatch opportunity for the defending player
+	var current_player = get_current_player()
+	var defending_player = 2 if current_player == 1 else 1
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+		if ow_check.available:
+			var snapshot = GameState.create_snapshot()
+			var ow_eligible = strat_manager.get_overwatch_eligible_units(defending_player, unit_id, snapshot)
+			if not ow_eligible.is_empty():
+				_awaiting_overwatch_decision = true
+				_overwatch_moved_unit_id = unit_id
+				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units)" % [defending_player, ow_eligible.size()])
+				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+				var ow_result = create_result(true, changes, "", {"dice": additional_dice})
+				ow_result["awaiting_overwatch"] = true
+				return ow_result
 
 	return create_result(true, changes, "", {"dice": additional_dice})
 

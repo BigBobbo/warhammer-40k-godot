@@ -19,6 +19,9 @@ signal charge_unit_completed(unit_id: String)
 signal charge_unit_skipped(unit_id: String)
 signal dice_rolled(dice_data: Dictionary)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal overwatch_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array)
+signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
+signal heroic_intervention_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -33,6 +36,11 @@ var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
 var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
 var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
+var awaiting_overwatch_decision: bool = false  # True when waiting for Fire Overwatch response
+var overwatch_charging_unit_id: String = ""   # The unit that declared the charge (overwatch target)
+var awaiting_heroic_intervention: bool = false  # True when waiting for Heroic Intervention response
+var heroic_intervention_charging_unit_id: String = ""  # The unit that just completed a charge move
+var heroic_intervention_player: int = 0  # The defending player who can use Heroic Intervention
 
 # Failure category constants for structured error reporting
 const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
@@ -68,6 +76,11 @@ func _on_phase_enter() -> void:
 	failed_charge_attempts.clear()
 	awaiting_reroll_decision = false
 	reroll_pending_unit_id = ""
+	awaiting_overwatch_decision = false
+	overwatch_charging_unit_id = ""
+	awaiting_heroic_intervention = false
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
 
 	_initialize_charge()
 
@@ -113,6 +126,22 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _validate_command_reroll(action)
+		"USE_FIRE_OVERWATCH":
+			if not awaiting_overwatch_decision:
+				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
+			return {"valid": true, "errors": []}
+		"DECLINE_FIRE_OVERWATCH":
+			if not awaiting_overwatch_decision:
+				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
+			return {"valid": true, "errors": []}
+		"USE_HEROIC_INTERVENTION":
+			if not awaiting_heroic_intervention:
+				return {"valid": false, "errors": ["Not awaiting a Heroic Intervention decision"]}
+			return {"valid": true, "errors": []}
+		"DECLINE_HEROIC_INTERVENTION":
+			if not awaiting_heroic_intervention:
+				return {"valid": false, "errors": ["Not awaiting a Heroic Intervention decision"]}
+			return {"valid": true, "errors": []}
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -138,6 +167,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _process_decline_command_reroll(action)
+		"USE_FIRE_OVERWATCH":
+			return _process_use_fire_overwatch(action)
+		"DECLINE_FIRE_OVERWATCH":
+			return _process_decline_fire_overwatch(action)
+		"USE_HEROIC_INTERVENTION":
+			return _process_use_heroic_intervention(action)
+		"DECLINE_HEROIC_INTERVENTION":
+			return _process_decline_heroic_intervention(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -311,16 +348,34 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	emit_signal("unit_selected_for_charge", unit_id)
 	emit_signal("targets_declared", unit_id, target_ids)
 	emit_signal("charge_targets_available", unit_id, eligible_targets)
-	
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var target_names = []
 	for target_id in target_ids:
 		var target = get_unit(target_id)
 		target_names.append(target.get("meta", {}).get("name", target_id))
-	
+
 	log_phase_message("%s declared charge against %s" % [unit_name, ", ".join(target_names)])
-	
+
+	# Check for Fire Overwatch opportunity for the defending player
+	var current_player = get_current_player()
+	var defending_player = 2 if current_player == 1 else 1
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+		if ow_check.available:
+			var snapshot = GameState.create_snapshot()
+			var ow_eligible = strat_manager.get_overwatch_eligible_units(defending_player, unit_id, snapshot)
+			if not ow_eligible.is_empty():
+				awaiting_overwatch_decision = true
+				overwatch_charging_unit_id = unit_id
+				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units)" % [defending_player, ow_eligible.size()])
+				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+				var ow_result = create_result(true, [])
+				ow_result["awaiting_overwatch"] = true
+				return ow_result
+
 	return create_result(true, [])
 
 func _process_charge_roll(action: Dictionary) -> Dictionary:
@@ -514,6 +569,114 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	# Resolve with the original roll
 	return _resolve_charge_roll(unit_id)
 
+func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	"""Process USE_FIRE_OVERWATCH: defending player fires at the charging unit."""
+	var shooter_unit_id = action.get("payload", {}).get("shooter_unit_id", "")
+	var target_unit_id = overwatch_charging_unit_id
+
+	awaiting_overwatch_decision = false
+	overwatch_charging_unit_id = ""
+
+	if shooter_unit_id == "" or target_unit_id == "":
+		return create_result(false, [], "Missing shooter or target unit for overwatch")
+
+	var current_player = get_current_player()
+	var defending_player = 2 if current_player == 1 else 1
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return create_result(false, [], "StratagemManager not found")
+
+	var snapshot = GameState.create_snapshot()
+	var ow_result = strat_manager.execute_fire_overwatch(defending_player, shooter_unit_id, target_unit_id, snapshot)
+
+	if not ow_result.success:
+		print("ChargePhase: Fire Overwatch failed: %s" % ow_result.get("error", ""))
+		return create_result(true, [])
+
+	log_phase_message(ow_result.get("message", "Fire Overwatch executed"))
+	emit_signal("overwatch_result", shooter_unit_id, target_unit_id, ow_result.get("shooting_result", {}))
+
+	return create_result(true, [], "", {
+		"overwatch_result": ow_result.get("shooting_result", {}),
+		"overwatch_message": ow_result.get("message", "")
+	})
+
+func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_FIRE_OVERWATCH: defending player declines overwatch."""
+	awaiting_overwatch_decision = false
+	overwatch_charging_unit_id = ""
+	print("ChargePhase: Fire Overwatch DECLINED")
+	return create_result(true, [])
+
+func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
+	"""Process USE_HEROIC_INTERVENTION: defending player counter-charges with a unit."""
+	var counter_charger_unit_id = action.get("payload", {}).get("unit_id", "")
+	var charging_unit_id = heroic_intervention_charging_unit_id
+	var defending_player = heroic_intervention_player
+
+	awaiting_heroic_intervention = false
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
+
+	if counter_charger_unit_id == "":
+		return create_result(false, [], "Missing unit for Heroic Intervention")
+
+	# Use the stratagem (1 CP)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return create_result(false, [], "StratagemManager not found")
+
+	var strat_result = strat_manager.use_stratagem(defending_player, "heroic_intervention", counter_charger_unit_id)
+	if not strat_result.success:
+		print("ChargePhase: Heroic Intervention failed: %s" % strat_result.get("error", ""))
+		return create_result(true, [])
+
+	var changes = []
+
+	# Set the heroic_intervention_charge flag on the counter-charging unit
+	# This flag is used by FightPhase to deny the +1 to hit charge bonus
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.heroic_intervention_charge" % counter_charger_unit_id,
+		"value": true
+	})
+
+	# Set up the counter-charger as a pending charge targeting only the charging unit
+	pending_charges[counter_charger_unit_id] = {
+		"targets": [charging_unit_id],
+		"declared_at": Time.get_unix_time_from_system(),
+		"heroic_intervention": true  # Flag to track this is an HI charge
+	}
+
+	var counter_unit = get_unit(counter_charger_unit_id)
+	var counter_name = counter_unit.get("meta", {}).get("name", counter_charger_unit_id)
+	var charging_unit = get_unit(charging_unit_id)
+	var charging_name = charging_unit.get("meta", {}).get("name", charging_unit_id)
+
+	log_phase_message("HEROIC INTERVENTION: %s (Player %d) counter-charges %s" % [counter_name, defending_player, charging_name])
+
+	# The counter-charge now follows normal charge flow:
+	# Next action should be CHARGE_ROLL for the counter-charger
+	# Set it as the current charging unit
+	current_charging_unit = counter_charger_unit_id
+
+	return create_result(true, changes, "", {
+		"heroic_intervention": true,
+		"counter_charger_unit_id": counter_charger_unit_id,
+		"counter_charger_name": counter_name,
+		"target_unit_id": charging_unit_id,
+		"target_name": charging_name
+	})
+
+func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_HEROIC_INTERVENTION: defending player declines."""
+	awaiting_heroic_intervention = false
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
+	print("ChargePhase: Heroic Intervention DECLINED")
+	return create_result(true, [])
+
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
@@ -630,6 +793,25 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
 
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
+
+	# Check for Heroic Intervention opportunity for the defending player
+	var current_player = get_current_player()
+	var hi_defending_player = 2 if current_player == 1 else 1
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var hi_check = strat_manager.is_heroic_intervention_available(hi_defending_player)
+		if hi_check.available:
+			var snapshot = GameState.create_snapshot()
+			var hi_eligible = strat_manager.get_heroic_intervention_eligible_units(hi_defending_player, unit_id, snapshot)
+			if not hi_eligible.is_empty():
+				awaiting_heroic_intervention = true
+				heroic_intervention_charging_unit_id = unit_id
+				heroic_intervention_player = hi_defending_player
+				log_phase_message("HEROIC INTERVENTION available for Player %d (%d eligible units)" % [hi_defending_player, hi_eligible.size()])
+				emit_signal("heroic_intervention_opportunity", unit_id, hi_defending_player, hi_eligible)
+				var hi_result = create_result(true, changes)
+				hi_result["awaiting_heroic_intervention"] = true
+				return hi_result
 
 	return create_result(true, changes)
 
