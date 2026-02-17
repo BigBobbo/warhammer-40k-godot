@@ -514,7 +514,10 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("movement_mode_locked"):
 				if not phase.movement_mode_locked.is_connected(_on_movement_mode_locked):
 					phase.movement_mode_locked.connect(_on_movement_mode_locked)
-			
+			if phase.has_signal("command_reroll_opportunity"):
+				if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
+					phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
 				var snapshot = phase.game_state_snapshot
@@ -2951,3 +2954,53 @@ func _create_group_ghost_visuals() -> void:
 		ghost_visual.add_child(ghost_token)
 
 	print("Created ", ghost_visual.get_child_count(), " ghost visuals for group movement")
+
+# ============================================================================
+# COMMAND RE-ROLL HANDLERS
+# ============================================================================
+
+func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""Handle Command Re-roll opportunity for an advance roll."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ MovementController: COMMAND RE-ROLL OPPORTUNITY (Advance)")
+	print("║ Unit: %s (player %d)" % [roll_context.get("unit_name", unit_id), player])
+	print("║ Original roll: %s" % str(roll_context.get("original_rolls", [])))
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CommandRerollDialog.gd")
+		_on_command_reroll_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(
+		unit_id,
+		player,
+		roll_context.get("roll_type", "advance_roll"),
+		roll_context.get("original_rolls", []),
+		roll_context.get("context_text", "")
+	)
+	dialog.command_reroll_used.connect(_on_command_reroll_used)
+	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("MovementController: Command Re-roll dialog shown for player %d" % player)
+
+func _on_command_reroll_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Command Re-roll for advance."""
+	print("MovementController: Command Re-roll USED for %s advance" % unit_id)
+	emit_signal("move_action_requested", {
+		"type": "USE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})
+
+func _on_command_reroll_declined(unit_id: String, player: int) -> void:
+	"""Handle player declining Command Re-roll for advance."""
+	print("MovementController: Command Re-roll DECLINED for %s advance" % unit_id)
+	emit_signal("move_action_requested", {
+		"type": "DECLINE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})

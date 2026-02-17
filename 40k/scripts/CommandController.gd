@@ -288,8 +288,13 @@ func _on_insane_bravery_pressed(unit_id: String) -> void:
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
 	print("DEBUG: CommandController.set_phase called with phase type: ", phase.get_class() if phase else "null")
-	
+
 	if phase:
+		# Connect command_reroll_opportunity signal if available
+		if phase.has_signal("command_reroll_opportunity"):
+			if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
+				phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -320,3 +325,57 @@ func _refresh_ui() -> void:
 func _on_end_command_pressed() -> void:
 	print("CommandController: End Command Phase button pressed")
 	emit_signal("command_action_requested", {"type": "END_COMMAND"})
+
+# ============================================================================
+# COMMAND RE-ROLL HANDLERS
+# ============================================================================
+
+func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""Handle Command Re-roll opportunity for a battle-shock test."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ CommandController: COMMAND RE-ROLL OPPORTUNITY (Battle-shock)")
+	print("║ Unit: %s (player %d)" % [roll_context.get("unit_name", unit_id), player])
+	print("║ Original rolls: %s = %d vs Ld %d" % [
+		str(roll_context.get("original_rolls", [])),
+		roll_context.get("total", 0),
+		roll_context.get("leadership", 0)
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CommandRerollDialog.gd")
+		_on_command_reroll_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(
+		unit_id,
+		player,
+		roll_context.get("roll_type", "battle_shock_test"),
+		roll_context.get("original_rolls", []),
+		roll_context.get("context_text", "")
+	)
+	dialog.command_reroll_used.connect(_on_command_reroll_used)
+	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: Command Re-roll dialog shown for player %d" % player)
+
+func _on_command_reroll_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Command Re-roll for battle-shock."""
+	print("CommandController: Command Re-roll USED for %s battle-shock" % unit_id)
+	emit_signal("command_action_requested", {
+		"type": "USE_COMMAND_REROLL",
+		"unit_id": unit_id,
+	})
+
+func _on_command_reroll_declined(unit_id: String, player: int) -> void:
+	"""Handle player declining Command Re-roll for battle-shock."""
+	print("CommandController: Command Re-roll DECLINED for %s battle-shock" % unit_id)
+	emit_signal("command_action_requested", {
+		"type": "DECLINE_COMMAND_REROLL",
+		"unit_id": unit_id,
+	})
