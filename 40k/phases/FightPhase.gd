@@ -380,7 +380,16 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 	var coherency_check = _validate_unit_coherency(unit_id, movements)
 	if not coherency_check.get("valid", false):
 		errors.append_array(coherency_check.get("errors", []))
-	
+
+	# T1-5: After pile-in, at least one model must be within Engagement Range (1") of an enemy.
+	# Rule: "A Pile-in Move is a 3" move that, if made, must result in the unit being in
+	# Unit Coherency and within Engagement Range of one or more enemy units."
+	var unit = get_unit(unit_id)
+	if not unit.is_empty() and not movements.is_empty():
+		if not _can_unit_maintain_engagement_after_movement(unit, movements):
+			errors.append("Unit must end within Engagement Range of at least one enemy after pile-in")
+			log_phase_message("[Pile-In] REJECTED: Unit %s would not be in Engagement Range after pile-in" % unit_id)
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_assign_attacks(action: Dictionary) -> Dictionary:
