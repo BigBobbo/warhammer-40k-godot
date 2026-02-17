@@ -2415,6 +2415,71 @@ static func has_twin_linked(weapon_id: String, board: Dictionary = {}) -> bool:
 	return false
 
 # ==========================================
+# PRECISION
+# ==========================================
+
+# Check if a weapon has the PRECISION keyword (case-insensitive)
+# Precision: Attacks that score a Critical Hit can be allocated to CHARACTER models
+# Can come from weapon special_rules OR from a stratagem flag on the attacker unit
+static func has_precision(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Precision" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "precision" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_lower() == "precision":
+			return true
+
+	return false
+
+# Check if an attacker unit has PRECISION from a stratagem (e.g., Epic Challenge)
+static func has_stratagem_precision_melee(attacker_unit: Dictionary) -> bool:
+	return attacker_unit.get("flags", {}).get("stratagem_precision_melee", false)
+
+# Find CHARACTER model indices in a target unit (for PRECISION allocation)
+static func _find_character_model_indices(target_unit: Dictionary) -> Array:
+	"""Find indices of CHARACTER models in a unit.
+	In 10e, CHARACTER models attached as leaders are tracked as models within the unit."""
+	var indices = []
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+
+	# Check if the unit itself has CHARACTER keyword
+	var unit_is_character = false
+	for kw in keywords:
+		if kw.to_upper() == "CHARACTER":
+			unit_is_character = true
+			break
+
+	if unit_is_character:
+		# All alive models in this unit are CHARACTER models
+		var models = target_unit.get("models", [])
+		for i in range(models.size()):
+			if models[i].get("alive", true):
+				indices.append(i)
+		return indices
+
+	# Check individual models for CHARACTER keyword (for attached leaders)
+	var models = target_unit.get("models", [])
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+		var model_keywords = model.get("keywords", [])
+		for kw in model_keywords:
+			if kw.to_upper() == "CHARACTER":
+				indices.append(i)
+				break
+
+	return indices
+
+# ==========================================
 # ANTI-[KEYWORD] X+
 # ==========================================
 
@@ -3575,6 +3640,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var sustained_data = get_sustained_hits_value(weapon_id, board)
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
 	var is_torrent = is_torrent_weapon(weapon_id, board)
+	# PRECISION: Check both weapon keyword and stratagem flag on attacker
+	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -3585,6 +3652,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		print("RulesEngine:   Weapon has SUSTAINED HITS %s" % (("D%d" % sustained_data.value) if sustained_data.is_dice else str(sustained_data.value)))
 	if weapon_has_devastating_wounds:
 		print("RulesEngine:   Weapon has DEVASTATING WOUNDS")
+	if weapon_has_precision:
+		var precision_source = "weapon" if has_precision(weapon_id, board) else "EPIC CHALLENGE stratagem"
+		print("RulesEngine:   Weapon has PRECISION (source: %s)" % precision_source)
 	var melee_anti_data = get_anti_keyword_data(weapon_id, board)
 	if melee_anti_data.size() > 0:
 		for anti in melee_anti_data:
@@ -3659,7 +3729,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			"sustained_hits_is_dice": sustained_data.is_dice,
 			"sustained_bonus_hits": sustained_bonus_hits,
 			"sustained_rolls": sustained_result.rolls,
-			"total_hits_for_wounds": total_hits_for_wounds
+			"total_hits_for_wounds": total_hits_for_wounds,
+			# PRECISION tracking
+			"precision_weapon": weapon_has_precision
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
@@ -3889,8 +3961,51 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	# Apply damage to target unit
 	var target_models = target_unit.get("models", [])
-	var damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
-	result.diffs.append_array(damage_result.diffs)
+	var damage_result: Dictionary
+	var precision_wounds_allocated = 0
+
+	# PRECISION: Wounds from critical hits can be allocated to CHARACTER models first
+	if weapon_has_precision and critical_hits > 0:
+		var character_indices = _find_character_model_indices(target_unit)
+		if not character_indices.is_empty():
+			# Calculate precision damage share: proportion of actual_damage from critical hit attacks
+			# precision_unsaved = min(critical_hits, total_unsaved) — capped by both
+			var precision_unsaved = mini(critical_hits, total_unsaved)
+			# Proportional split of total damage (damage is already rolled and FNP'd)
+			# Ensure at least 1 precision damage when critical hits exist and damage > 0
+			var precision_damage = 0
+			if total_unsaved > 0 and actual_damage > 0:
+				precision_damage = maxi(1, int(round(float(actual_damage) * float(precision_unsaved) / float(total_unsaved))))
+			precision_damage = mini(precision_damage, actual_damage)
+			var regular_pool_damage = actual_damage - precision_damage
+
+			# Apply precision damage to CHARACTER models first
+			if precision_damage > 0:
+				var precision_result = _apply_damage_to_character_models(target_id, precision_damage, target_models, character_indices, board)
+				result.diffs.append_array(precision_result.diffs)
+				precision_wounds_allocated = precision_result.get("damage_applied", 0)
+				print("RulesEngine: PRECISION — allocated %d damage to CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
+				damage_result = precision_result
+
+			# Apply remaining damage normally
+			if regular_pool_damage > 0:
+				var regular_result = _apply_damage_to_unit_pool(target_id, regular_pool_damage, target_models, board)
+				result.diffs.append_array(regular_result.diffs)
+				# Merge casualty counts
+				if damage_result.is_empty():
+					damage_result = regular_result
+				else:
+					damage_result["casualties"] = damage_result.get("casualties", 0) + regular_result.get("casualties", 0)
+
+			if damage_result.is_empty():
+				damage_result = {"diffs": [], "casualties": 0, "damage_applied": 0}
+		else:
+			# No CHARACTER models in target, apply damage normally
+			damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
+			result.diffs.append_array(damage_result.diffs)
+	else:
+		damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
+		result.diffs.append_array(damage_result.diffs)
 
 	# ===== BUILD LOG TEXT =====
 	var log_parts = []
@@ -3906,6 +4021,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		log_parts.append("%d lethal" % auto_wounds)
 	if weapon_has_devastating_wounds and devastating_wound_count > 0:
 		log_parts.append("%d DEVASTATING (unsaveable)" % devastating_wound_count)
+	if weapon_has_precision and precision_wounds_allocated > 0:
+		log_parts.append("PRECISION: %d damage → CHARACTER" % precision_wounds_allocated)
 
 	log_parts.append("%d casualties" % damage_result.casualties)
 
@@ -4462,6 +4579,66 @@ static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int
 			})
 			result.casualties += 1
 			models[target_model_index]["alive"] = false
+
+	return result
+
+# PRECISION: Apply damage specifically to CHARACTER models in the target unit
+static func _apply_damage_to_character_models(target_unit_id: String, total_damage: int, models: Array, character_indices: Array, board: Dictionary) -> Dictionary:
+	"""Apply damage to CHARACTER models first (for PRECISION ability).
+	Only targets models at character_indices. If all CHARACTER models die,
+	remaining damage is lost (it was specifically allocated to characters)."""
+	var result = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	var remaining_damage = total_damage
+
+	while remaining_damage > 0:
+		# Find next alive CHARACTER model
+		var target_index = -1
+		# Wounded CHARACTER first
+		for idx in character_indices:
+			if idx < models.size() and models[idx].get("alive", true):
+				var current = models[idx].get("current_wounds", models[idx].get("wounds", 1))
+				var max_w = models[idx].get("wounds", 1)
+				if current < max_w:
+					target_index = idx
+					break
+		# Then any alive CHARACTER
+		if target_index < 0:
+			for idx in character_indices:
+				if idx < models.size() and models[idx].get("alive", true):
+					target_index = idx
+					break
+
+		if target_index < 0:
+			break  # No alive CHARACTER models left
+
+		var model = models[target_index]
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var damage_to_apply = min(remaining_damage, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_index],
+			"value": new_wounds
+		})
+
+		result.damage_applied += damage_to_apply
+		remaining_damage -= damage_to_apply
+		models[target_index]["current_wounds"] = new_wounds
+
+		if new_wounds == 0:
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [target_unit_id, target_index],
+				"value": false
+			})
+			result.casualties += 1
+			models[target_index]["alive"] = false
 
 	return result
 

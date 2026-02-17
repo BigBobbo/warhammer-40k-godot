@@ -26,6 +26,7 @@ signal attack_assignment_required(unit_id: String, eligible_targets: Dictionary)
 signal attack_assigned(attacker_id: String, target_id: String, weapon_id: String)  # Notify when an attack is assigned
 signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
+signal epic_challenge_opportunity(unit_id: String, player: int)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -192,6 +193,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_skip_unit(action)
 		"HEROIC_INTERVENTION":
 			return _validate_heroic_intervention_action(action)
+		"USE_EPIC_CHALLENGE":
+			return _validate_use_epic_challenge(action)
+		"DECLINE_EPIC_CHALLENGE":
+			return {"valid": true}
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		_:
@@ -199,7 +204,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	
+
 	match action_type:
 		"SELECT_FIGHTER":
 			return _process_select_fighter(action)
@@ -219,6 +224,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_skip_unit(action)
 		"HEROIC_INTERVENTION":
 			return _process_heroic_intervention(action)
+		"USE_EPIC_CHALLENGE":
+			return _process_use_epic_challenge(action)
+		"DECLINE_EPIC_CHALLENGE":
+			return _process_decline_epic_challenge(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		_:
@@ -767,6 +776,20 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
 	emit_signal("fighter_selected", active_fighter_id)  # Compatibility signal
 
+	# Check for Epic Challenge opportunity before pile-in
+	var epic_check = StratagemManager.is_epic_challenge_available(current_selecting_player, active_fighter_id)
+	if epic_check.available:
+		log_phase_message("EPIC CHALLENGE available for %s (CHARACTER unit)" % active_fighter_id)
+		emit_signal("epic_challenge_opportunity", active_fighter_id, current_selecting_player)
+
+		# Add metadata so NetworkManager can re-emit on client
+		var result = create_result(true, [])
+		result["trigger_epic_challenge"] = true
+		result["epic_challenge_unit_id"] = active_fighter_id
+		result["epic_challenge_player"] = current_selecting_player
+		return result
+
+	# No Epic Challenge available - proceed directly to pile-in
 	# Start unit activation sequence: Pile In → Attack → Consolidate
 	log_phase_message("Emitting pile_in_required for %s" % active_fighter_id)
 	emit_signal("pile_in_required", active_fighter_id, 3.0)
@@ -1638,6 +1661,66 @@ func _validate_heroic_intervention_action(action: Dictionary) -> Dictionary:
 	# - Check timing (at start of fight phase)
 	
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_use_epic_challenge(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", current_selecting_player)
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Epic Challenge")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var check = StratagemManager.is_epic_challenge_available(player, unit_id)
+	if not check.available:
+		errors.append(check.reason)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", current_selecting_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager
+	var strat_result = StratagemManager.use_stratagem(player, "epic_challenge", unit_id)
+	if not strat_result.success:
+		return create_result(false, [], "Failed to use Epic Challenge: %s" % strat_result.get("reason", "unknown"))
+
+	log_phase_message("Player %d uses EPIC CHALLENGE on %s — melee attacks gain [PRECISION]" % [player, unit_name])
+
+	# Apply the flag to the game state snapshot so RulesEngine can see it
+	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+		if not game_state_snapshot.units[unit_id].has("flags"):
+			game_state_snapshot.units[unit_id]["flags"] = {}
+		game_state_snapshot.units[unit_id].flags["stratagem_precision_melee"] = true
+
+	# Proceed to pile-in now that the stratagem has been handled
+	log_phase_message("Emitting pile_in_required for %s" % unit_id)
+	emit_signal("pile_in_required", unit_id, 3.0)
+
+	var result = create_result(true, strat_result.get("diffs", []))
+	result["trigger_pile_in"] = true
+	result["pile_in_unit_id"] = unit_id
+	result["pile_in_distance"] = 3.0
+	return result
+
+func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", active_fighter_id)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
+
+	# Proceed to pile-in
+	log_phase_message("Emitting pile_in_required for %s" % unit_id)
+	emit_signal("pile_in_required", unit_id, 3.0)
+
+	var result = create_result(true, [])
+	result["trigger_pile_in"] = true
+	result["pile_in_unit_id"] = unit_id
+	result["pile_in_distance"] = 3.0
+	return result
 
 func _validate_end_fight(action: Dictionary) -> Dictionary:
 	# END_FIGHT is always valid - it's the manual way to end the fight phase

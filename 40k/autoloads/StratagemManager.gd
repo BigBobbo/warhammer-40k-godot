@@ -660,6 +660,17 @@ func _apply_stratagem_effects(stratagem_id: String, target_unit_id: String, stra
 			})
 			print("StratagemManager: Applied SMOKESCREEN effects to %s (cover + stealth)" % target_unit_id)
 
+		"epic_challenge":
+			# EPIC CHALLENGE: Grant PRECISION to all melee attacks made by the unit
+			# The stratagem targets a CHARACTER model, but the flag is set on the unit
+			# so RulesEngine can check it during melee resolution.
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.stratagem_precision_melee" % target_unit_id,
+				"value": true
+			})
+			print("StratagemManager: Applied EPIC CHALLENGE effects to %s (PRECISION on melee)" % target_unit_id)
+
 	return diffs
 
 func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
@@ -679,6 +690,9 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 			flags.erase("stratagem_cover")
 			flags.erase("stratagem_stealth")
 			print("StratagemManager: Cleared SMOKESCREEN flags from %s" % unit_id)
+		"epic_challenge":
+			flags.erase("stratagem_precision_melee")
+			print("StratagemManager: Cleared EPIC CHALLENGE flags from %s" % unit_id)
 
 func get_grenade_eligible_units(player: int) -> Array:
 	"""
@@ -877,6 +891,39 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 			"y" if casualties == 1 else "ies"
 		]
 	}
+
+func is_epic_challenge_available(player: int, unit_id: String) -> Dictionary:
+	"""
+	Check if Epic Challenge stratagem is available for a fighter unit.
+	The unit must contain a CHARACTER keyword to be eligible.
+	Returns { available: bool, reason: String }
+	"""
+	# Check if the stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "epic_challenge", unit_id)
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+
+	# Check CHARACTER keyword on the unit
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return {"available": false, "reason": "Unit not found"}
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var has_character = false
+	for kw in keywords:
+		if kw.to_upper() == "CHARACTER":
+			has_character = true
+			break
+
+	if not has_character:
+		return {"available": false, "reason": "Unit does not have CHARACTER keyword"}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		return {"available": false, "reason": "Battle-shocked units cannot use Stratagems"}
+
+	return {"available": true, "reason": ""}
 
 func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
 	"""
