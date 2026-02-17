@@ -202,12 +202,23 @@ func should_auto_record() -> bool:
 	var p2_type = game_config.get("player2_type", "HUMAN")
 	return p1_type == "AI" and p2_type == "AI"
 
+func _is_multiplayer_client() -> bool:
+	"""Returns true if we're a client in a multiplayer game (not host)."""
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_host():
+		return true
+	return false
+
 # ============================================================================
 # Recording - Event Capture
 # ============================================================================
 
 func _on_result_applied_for_recording(result: Dictionary) -> void:
 	if not is_recording:
+		return
+
+	# In multiplayer, only record on the host to avoid duplicate events
+	if _is_multiplayer_client():
 		return
 
 	var action_type = result.get("action_type", "")
@@ -242,6 +253,10 @@ func _on_result_applied_for_recording(result: Dictionary) -> void:
 
 func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 	if not is_recording:
+		return
+
+	# In multiplayer, only record on the host to avoid duplicate events
+	if _is_multiplayer_client():
 		return
 
 	# Record phase change event
