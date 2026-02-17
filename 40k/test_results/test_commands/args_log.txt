@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_twin_linked_keyword.gd", "-gexit"]
+ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_battle_shock.gd", "-gexit"]

@@ -336,7 +336,10 @@ func test_battle_shocked_flag_set_and_clear():
 
 
 # ==========================================
-# Section 4: MoralePhase Integration
+# Section 4: MoralePhase Integration (10th Edition)
+# In 10e, the Morale Phase is a bookkeeping phase with no active mechanics.
+# Battle-shock tests happen in the Command Phase (tested in Section 6).
+# The Morale Phase just logs battle-shock status and auto-completes.
 # ==========================================
 
 var morale_phase: MoralePhase
@@ -351,64 +354,12 @@ func _create_command_phase():
 	add_child(phase)
 	return phase
 
-func _create_test_game_state_with_casualties() -> Dictionary:
+func _create_test_game_state_for_morale() -> Dictionary:
 	"""
-	Creates a test state where the active player's unit (enemy_unit_1, owner=1)
-	has casualties. GameState.get_active_player() returns 1 by default, so
-	enemy_unit_1 is the unit that will be checked for morale tests.
-	We also add a 'active_unit' alias for convenience.
+	Creates a test state for the Morale Phase.
+	In 10e, the Morale Phase has no active mechanics — it just logs
+	battle-shock status and completes.
 	"""
-	var state = TestDataFactory.create_test_game_state()
-	state.current_phase = GameStateData.Phase.MORALE
-
-	# Ensure owner fields are set (MoralePhase checks "owner", not "player_id")
-	for unit_id in state.units:
-		var u = state.units[unit_id]
-		if not u.has("owner"):
-			u["owner"] = u.get("player_id", 0)
-
-	# Add casualties to enemy_unit_1 (owner=1, the active player) to trigger morale test
-	# NOTE: MoralePhase checks model.get("alive", true), not model.is_alive
-	var unit = state.units["enemy_unit_1"]
-	unit["casualties_this_turn"] = 2
-	unit.models[0].is_alive = false
-	unit.models[0]["alive"] = false
-	unit.models[0].wounds_remaining = 0
-	unit.models[1].is_alive = false
-	unit.models[1]["alive"] = false
-	unit.models[1].wounds_remaining = 0
-
-	return state
-
-func test_morale_phase_detects_unit_with_casualties():
-	"""MoralePhase._unit_needs_morale_test should detect units with casualties."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	var unit_with_casualties = state.units["enemy_unit_1"]
-	var needs_test = phase._unit_needs_morale_test(unit_with_casualties)
-	assert_true(needs_test, "Unit with casualties should need morale test")
-
-	phase.queue_free()
-
-func test_morale_phase_skips_unit_without_casualties():
-	"""Units without casualties should not need morale tests."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	# test_unit_2 has no casualties_this_turn (defaults to 0)
-	var unit_no_casualties = state.units["test_unit_2"]
-	unit_no_casualties["casualties_this_turn"] = 0
-	var needs_test = phase._unit_needs_morale_test(unit_no_casualties)
-	assert_false(needs_test, "Unit without casualties should not need morale test")
-
-	phase.queue_free()
-
-func test_morale_phase_skips_wiped_unit():
-	"""A completely wiped-out unit should not need morale tests."""
-	var phase = _create_morale_phase()
 	var state = TestDataFactory.create_test_game_state()
 	state.current_phase = GameStateData.Phase.MORALE
 
@@ -418,169 +369,50 @@ func test_morale_phase_skips_wiped_unit():
 		if not u.has("owner"):
 			u["owner"] = u.get("player_id", 0)
 
-	# Kill ALL models
-	# NOTE: MoralePhase checks model.get("alive", true) not model.is_alive
-	var unit = state.units["test_unit_1"]
-	unit["casualties_this_turn"] = 5
-	for model in unit.models:
-		model.is_alive = false
-		model["alive"] = false
-		model.wounds_remaining = 0
+	return state
 
-	phase.enter_phase(state)
-	var needs_test = phase._unit_needs_morale_test(unit)
-	assert_false(needs_test, "Completely destroyed unit should not need morale test")
+func _create_test_game_state_with_battle_shocked_unit() -> Dictionary:
+	"""
+	Creates a test state where a unit is battle-shocked (set during Command Phase).
+	"""
+	var state = _create_test_game_state_for_morale()
 
+	# Set battle_shocked flag on enemy_unit_1 (owner=1, the active player)
+	var unit = state.units["enemy_unit_1"]
+	if not unit.has("flags"):
+		unit["flags"] = {}
+	unit["flags"]["battle_shocked"] = true
+
+	return state
+
+func test_morale_phase_type():
+	"""MoralePhase should have MORALE phase type."""
+	var phase = _create_morale_phase()
+	assert_eq(phase.phase_type, GameStateData.Phase.MORALE,
+		"Phase type should be MORALE")
 	phase.queue_free()
 
-func test_morale_test_pass():
-	"""MoralePhase should process a morale test action successfully."""
+func test_morale_phase_enters_successfully():
+	"""MoralePhase should enter without errors."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
-
-	# enemy_unit_1: meta.stats.leadership defaults to 7, casualties=2, roll=1
-	# MoralePhase calculates: casualties(2) + roll(1) = 3 vs Ld 7 → passes
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1",
-		"morale_roll": 1
-	}
-
-	var validation = phase.validate_action(action)
-	assert_true(validation.valid, "Valid morale test action should validate")
-
-	var result = phase.process_action(action)
-	assert_true(result.get("success", false), "Process action should succeed")
-
+	assert_not_null(phase.game_state_snapshot, "Should have game state snapshot after enter")
 	phase.queue_free()
 
-func test_morale_test_fail():
-	"""MoralePhase should handle a failing morale test."""
+func test_morale_phase_exits_successfully():
+	"""MoralePhase should exit without errors."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
-
-	# enemy_unit_1: meta.stats.leadership defaults to 7, casualties=2, roll=6
-	# MoralePhase calculates: casualties(2) + roll(6) = 8 vs Ld 7 → fails
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1",
-		"morale_roll": 6
-	}
-
-	var result = phase.process_action(action)
-	assert_true(result.get("success", false), "Process action should succeed even on failed test")
-
-	phase.queue_free()
-
-func test_morale_test_low_roll_passes():
-	"""A low morale roll should pass the morale test (casualties + roll <= Ld)."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	# enemy_unit_1: meta.stats.leadership defaults to 7, casualties=2, roll=1 → passes
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1",
-		"morale_roll": 1
-	}
-
-	var result = phase.process_action(action)
-	assert_true(result.get("success", false), "Process action should succeed")
-
-	phase.queue_free()
-
-func test_morale_validate_rejects_invalid_roll():
-	"""MoralePhase should reject morale rolls outside 1-6 range."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1",
-		"morale_roll": 7  # Invalid D6 roll
-	}
-	var validation = phase.validate_action(action)
-	assert_false(validation.valid, "Roll of 7 should be invalid for D6")
-
-	var action_zero = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1",
-		"morale_roll": 0  # Invalid D6 roll
-	}
-	var validation_zero = phase.validate_action(action_zero)
-	assert_false(validation_zero.valid, "Roll of 0 should be invalid for D6")
-
-	phase.queue_free()
-
-func test_morale_validate_rejects_wrong_player_unit():
-	"""MoralePhase should reject morale tests on units not belonging to active player."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	# GameState.get_active_player() returns 1 by default
-	# test_unit_1 has owner=0, so it should be rejected as "not active player's unit"
-	# (test_unit_1 already has casualties from _create_test_game_state_with_casualties)
-	phase.enter_phase(state)
-
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "test_unit_1",
-		"morale_roll": 3
-	}
-	var validation = phase.validate_action(action)
-	assert_false(validation.valid,
-		"Should reject morale test on unit not belonging to active player")
-
-	phase.queue_free()
-
-func test_morale_validate_rejects_missing_fields():
-	"""MoralePhase should reject actions missing required fields."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	# Missing morale_roll
-	var action_no_roll = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_1"
-	}
-	var v1 = phase.validate_action(action_no_roll)
-	assert_false(v1.valid, "Should reject action missing morale_roll")
-
-	# Missing unit_id
-	var action_no_unit = {
-		"type": "MORALE_TEST",
-		"morale_roll": 3
-	}
-	var v2 = phase.validate_action(action_no_unit)
-	assert_false(v2.valid, "Should reject action missing unit_id")
-
-	phase.queue_free()
-
-func test_morale_validate_rejects_nonexistent_unit():
-	"""MoralePhase should reject morale tests for non-existent units."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	phase.enter_phase(state)
-
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "nonexistent_unit",
-		"morale_roll": 3
-	}
-	var validation = phase.validate_action(action)
-	assert_false(validation.valid, "Should reject morale test for non-existent unit")
-
+	phase.exit_phase()
+	assert_true(true, "Phase exit should complete without error")
 	phase.queue_free()
 
 func test_morale_end_phase_always_valid():
 	"""END_MORALE action should always be valid."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
 
 	var action = {"type": "END_MORALE"}
@@ -589,104 +421,94 @@ func test_morale_end_phase_always_valid():
 
 	phase.queue_free()
 
+func test_morale_phase_process_end_morale():
+	"""END_MORALE action should process successfully."""
+	var phase = _create_morale_phase()
+	var state = _create_test_game_state_for_morale()
+	phase.enter_phase(state)
+
+	var action = {"type": "END_MORALE"}
+	var result = phase.process_action(action)
+	assert_true(result.get("success", false), "END_MORALE should succeed")
+
+	phase.queue_free()
+
+func test_morale_phase_rejects_old_9e_morale_test():
+	"""10e MoralePhase should reject old 9th-edition MORALE_TEST action type."""
+	var phase = _create_morale_phase()
+	var state = _create_test_game_state_for_morale()
+	phase.enter_phase(state)
+
+	var action = {
+		"type": "MORALE_TEST",
+		"unit_id": "enemy_unit_1",
+		"morale_roll": 3
+	}
+	var validation = phase.validate_action(action)
+	assert_false(validation.valid,
+		"10e Morale Phase should reject old MORALE_TEST action type")
+
+	phase.queue_free()
+
+func test_morale_phase_rejects_old_9e_skip_morale():
+	"""10e MoralePhase should reject old 9th-edition SKIP_MORALE action type."""
+	var phase = _create_morale_phase()
+	var state = _create_test_game_state_for_morale()
+	phase.enter_phase(state)
+
+	var action = {"type": "SKIP_MORALE", "unit_id": "enemy_unit_1"}
+	var validation = phase.validate_action(action)
+	assert_false(validation.valid,
+		"10e Morale Phase should reject old SKIP_MORALE action type")
+
+	phase.queue_free()
+
+func test_morale_available_actions_only_end():
+	"""In 10e, the only available action in Morale Phase is END_MORALE."""
+	var phase = _create_morale_phase()
+	var state = _create_test_game_state_for_morale()
+	phase.enter_phase(state)
+
+	var actions = phase.get_available_actions()
+	assert_eq(actions.size(), 1, "Should have exactly 1 available action")
+	assert_eq(actions[0].get("type", ""), "END_MORALE",
+		"Only available action should be END_MORALE")
+
+	phase.queue_free()
+
 
 # ==========================================
-# Section 5: Special Rules
+# Section 5: Battle-shock Status in Morale Phase (10e)
+# In 10e, the Morale Phase logs battle-shocked status but takes no action.
+# Battle-shock is set in Command Phase and clears at next Command Phase.
 # ==========================================
 
-func test_fearless_can_skip_morale():
-	"""Units with FEARLESS keyword can skip morale tests."""
+func test_battle_shocked_unit_detected_in_morale_phase():
+	"""MoralePhase should detect and log battle-shocked units."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	# Add FEARLESS keyword to enemy_unit_1 (active player's unit)
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["FEARLESS"], "name": "Enemy Ork Boyz"}
-
+	var state = _create_test_game_state_with_battle_shocked_unit()
+	# Phase enters and logs — no errors expected
 	phase.enter_phase(state)
-
-	var skip_action = {
-		"type": "SKIP_MORALE",
-		"unit_id": "enemy_unit_1"
-	}
-	var validation = phase.validate_action(skip_action)
-	assert_true(validation.valid, "FEARLESS unit should be allowed to skip morale")
-
+	# Verify the unit is still battle-shocked (Morale Phase doesn't change it)
+	var unit = state.units["enemy_unit_1"]
+	assert_true(unit.get("flags", {}).get("battle_shocked", false),
+		"Battle-shocked status should persist through Morale Phase")
 	phase.queue_free()
 
-func test_atsknf_can_skip_morale():
-	"""Units with ATSKNF keyword can skip morale tests."""
+func test_morale_phase_does_not_clear_battle_shock():
+	"""Morale Phase should NOT clear battle-shocked status (that happens in Command Phase)."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["ATSKNF"], "name": "Enemy Ork Boyz"}
+	var state = _create_test_game_state_with_battle_shocked_unit()
 	phase.enter_phase(state)
 
-	var skip_action = {
-		"type": "SKIP_MORALE",
-		"unit_id": "enemy_unit_1"
-	}
-	var validation = phase.validate_action(skip_action)
-	assert_true(validation.valid, "ATSKNF unit should be allowed to skip morale")
+	# Process END_MORALE
+	var action = {"type": "END_MORALE"}
+	phase.process_action(action)
 
-	phase.queue_free()
-
-func test_normal_unit_cannot_skip_morale():
-	"""Units without special rules cannot skip morale tests."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	state.units["enemy_unit_1"]["meta"] = {"keywords": [], "name": "Enemy Ork Boyz"}
-	phase.enter_phase(state)
-
-	var skip_action = {
-		"type": "SKIP_MORALE",
-		"unit_id": "enemy_unit_1"
-	}
-	var validation = phase.validate_action(skip_action)
-	assert_false(validation.valid, "Normal unit should not be allowed to skip morale")
-
-	phase.queue_free()
-
-func test_morale_modifiers_fearless_auto_pass():
-	"""_calculate_morale_modifiers should set auto_pass for FEARLESS units."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["FEARLESS"], "name": "Enemy"}
-	phase.enter_phase(state)
-
-	var modifiers = phase._calculate_morale_modifiers(state.units["enemy_unit_1"])
-	assert_true(modifiers.auto_pass, "FEARLESS should set auto_pass modifier")
-
-	phase.queue_free()
-
-func test_morale_modifiers_atsknf_reroll():
-	"""_calculate_morale_modifiers should allow reroll for ATSKNF units."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["ATSKNF"], "name": "Enemy"}
-	phase.enter_phase(state)
-
-	var modifiers = phase._calculate_morale_modifiers(state.units["enemy_unit_1"])
-	assert_true(modifiers.reroll_allowed, "ATSKNF should set reroll_allowed modifier")
-
-	phase.queue_free()
-
-func test_morale_modifiers_normal_unit():
-	"""Normal units should have no special morale modifiers."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	state.units["enemy_unit_1"]["meta"] = {"keywords": [], "name": "Enemy"}
-	phase.enter_phase(state)
-
-	var modifiers = phase._calculate_morale_modifiers(state.units["enemy_unit_1"])
-	assert_false(modifiers.auto_pass, "Normal unit should not auto-pass")
-	assert_false(modifiers.reroll_allowed, "Normal unit should not have reroll")
-	assert_eq(modifiers.leadership_bonus, 0, "Normal unit should have 0 leadership bonus")
-
-	phase.queue_free()
+	# Battle-shock should still be active
+	var unit = state.units["enemy_unit_1"]
+	assert_true(unit.get("flags", {}).get("battle_shocked", false),
+		"Battle-shock should NOT be cleared by Morale Phase (cleared in next Command Phase)")
 
 
 # ==========================================
@@ -764,102 +586,37 @@ func test_command_phase_does_not_auto_complete():
 
 
 # ==========================================
-# Section 7: Available Actions with Morale Context
+# Section 7: 10e Morale Phase — No Active Mechanics
+# In 10e, the Morale Phase has no morale tests or skip actions.
+# It is a pass-through bookkeeping phase.
 # ==========================================
 
-func test_available_actions_include_morale_test():
-	"""When units need morale tests, MORALE_TEST should be in available actions."""
+func test_morale_phase_no_old_morale_test_actions():
+	"""10e Morale Phase should NOT offer MORALE_TEST or SKIP_MORALE actions."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	# enemy_unit_1 already has owner=1 and casualties from the helper
-
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
 
 	var actions = phase.get_available_actions()
-	var has_morale_test = false
 	for action in actions:
-		if action.get("type", "") == "MORALE_TEST":
-			has_morale_test = true
-			break
-
-	assert_true(has_morale_test,
-		"Available actions should include MORALE_TEST when units have casualties")
+		var action_type = action.get("type", "")
+		assert_ne(action_type, "MORALE_TEST",
+			"10e Morale Phase should not offer MORALE_TEST actions")
+		assert_ne(action_type, "SKIP_MORALE",
+			"10e Morale Phase should not offer SKIP_MORALE actions")
 
 	phase.queue_free()
 
-func test_available_actions_fearless_gets_skip():
-	"""FEARLESS units should get SKIP_MORALE instead of MORALE_TEST."""
+func test_morale_phase_available_actions_with_battle_shocked():
+	"""Even with battle-shocked units, only END_MORALE should be available."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	# enemy_unit_1 already has owner=1 and casualties from the helper
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["FEARLESS"], "name": "Enemy Ork Boyz"}
-
+	var state = _create_test_game_state_with_battle_shocked_unit()
 	phase.enter_phase(state)
 
 	var actions = phase.get_available_actions()
-	var has_skip = false
-	for action in actions:
-		if action.get("type", "") == "SKIP_MORALE" and action.get("unit_id", "") == "enemy_unit_1":
-			has_skip = true
-			break
-
-	assert_true(has_skip,
-		"FEARLESS unit should have SKIP_MORALE available")
-
-	phase.queue_free()
-
-func test_phase_completion_no_pending_tests():
-	"""Phase should be able to complete when no units need morale tests."""
-	var phase = _create_morale_phase()
-	var state = TestDataFactory.create_test_game_state()
-	state.current_phase = GameStateData.Phase.MORALE
-
-	# Ensure owner fields are set
-	for unit_id in state.units:
-		var u = state.units[unit_id]
-		if not u.has("owner"):
-			u["owner"] = u.get("player_id", 0)
-
-	# No casualties = no morale tests needed
-	phase.enter_phase(state)
-
-	assert_true(phase._should_complete_phase(),
-		"Phase should be ready to complete when no units need morale tests")
-
-	phase.queue_free()
-
-func test_phase_incomplete_with_pending_tests():
-	"""Phase should NOT complete while units still need morale tests."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	# enemy_unit_1 already has owner=1 and casualties from the helper
-
-	phase.enter_phase(state)
-
-	assert_false(phase._should_complete_phase(),
-		"Phase should not complete while morale tests are pending")
-
-	phase.queue_free()
-
-
-# ==========================================
-# Section 8: Skip Morale Processing
-# ==========================================
-
-func test_skip_morale_marks_unit_tested():
-	"""SKIP_MORALE should mark the unit as having resolved morale."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-	state.units["enemy_unit_1"]["meta"] = {"keywords": ["FEARLESS"], "name": "Enemy Ork Boyz"}
-	phase.enter_phase(state)
-
-	var action = {
-		"type": "SKIP_MORALE",
-		"unit_id": "enemy_unit_1"
-	}
-
-	var result = phase.process_action(action)
-	assert_true(result.get("success", false), "Skip morale should succeed for FEARLESS unit")
+	assert_eq(actions.size(), 1, "Should have exactly 1 available action")
+	assert_eq(actions[0].get("type", ""), "END_MORALE",
+		"Only action should be END_MORALE even with battle-shocked units")
 
 	phase.queue_free()
 
@@ -931,33 +688,10 @@ func test_battle_shock_flag_can_be_cleared():
 # Section 11: Edge Cases
 # ==========================================
 
-func test_morale_validate_rejects_unit_not_needing_test():
-	"""MoralePhase should reject morale tests on units that don't need them."""
-	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
-
-	# Add a second player-1 unit with no casualties
-	state.units["enemy_unit_2"] = _create_unit("enemy_unit_2", 4, 6, 1)
-	state.units["enemy_unit_2"]["casualties_this_turn"] = 0
-
-	phase.enter_phase(state)
-
-	# enemy_unit_2 has no casualties — should be rejected
-	var action = {
-		"type": "MORALE_TEST",
-		"unit_id": "enemy_unit_2",
-		"morale_roll": 3
-	}
-	var validation = phase.validate_action(action)
-	assert_false(validation.valid,
-		"Should reject morale test for unit without casualties")
-
-	phase.queue_free()
-
 func test_unknown_action_type_rejected_by_morale():
 	"""MoralePhase should reject completely unknown action types."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
 
 	var action = {"type": "CAST_SPELL"}
@@ -966,25 +700,20 @@ func test_unknown_action_type_rejected_by_morale():
 
 	phase.queue_free()
 
-func test_use_stratagem_validation():
-	"""USE_STRATAGEM action should validate required fields."""
+func test_use_stratagem_rejected_in_10e_morale():
+	"""In 10e, USE_STRATAGEM is not a valid action in the Morale Phase."""
 	var phase = _create_morale_phase()
-	var state = _create_test_game_state_with_casualties()
+	var state = _create_test_game_state_for_morale()
 	phase.enter_phase(state)
 
-	# Missing required fields
-	var bad_action = {"type": "USE_STRATAGEM"}
-	var v1 = phase.validate_action(bad_action)
-	assert_false(v1.valid, "Stratagem action missing fields should fail validation")
-
-	# Valid fields - using enemy_unit_1 (active player's unit)
-	var good_action = {
+	var action = {
 		"type": "USE_STRATAGEM",
 		"stratagem_id": "insane_bravery",
 		"target_unit_id": "enemy_unit_1"
 	}
-	var v2 = phase.validate_action(good_action)
-	assert_true(v2.valid, "Valid stratagem action should pass validation")
+	var validation = phase.validate_action(action)
+	assert_false(validation.valid,
+		"10e Morale Phase should not accept USE_STRATAGEM actions")
 
 	phase.queue_free()
 

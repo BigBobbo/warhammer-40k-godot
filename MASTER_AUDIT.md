@@ -56,6 +56,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-3: Wound roll modifier system (+1/-1 cap) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-2: Twin-linked weapon keyword — re-roll wound rolls | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.3 |
+| T1-4: Morale Phase 10e overhaul — replaced 9e stub with proper bookkeeping phase | Morale | MASTER_AUDIT.md §Tier 1 |
 
 ---
 
@@ -165,12 +166,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Files:** `RulesEngine.gd` — create WoundModifier system near existing HitModifier (~lines 349-378)
 - **Resolution:** Added `WoundModifier` enum and `apply_wound_modifiers()` function mirroring the existing `HitModifier` system. Integrated into all three wound roll paths (interactive shooting, auto-resolve shooting, melee). Modifiers capped at net +1/-1, unmodified 1 always fails, re-rolls before modifiers per 10e rules. Twin-linked re-rolls migrated to modifier system. Added `is_lance_weapon()` helper and Lance keyword integration (+1 to wound on charge).
 
-### T1-4. Morale Phase — stub implementation, model removal missing
+### T1-4. Morale Phase — stub implementation, model removal missing — **DONE**
 - **Phase:** Morale
 - **Rule:** Battle-shocked units in 10e don't take a separate Morale test, but the Morale phase is where you check if Battle-shock is still active. The current implementation is a 9th-edition style stub that doesn't match 10e rules.
 - **Impact:** Morale casualties are recorded but models are not actually removed
 - **Source:** Code TODO in `MoralePhase.gd:164-165`, `MoralePhase.gd:7-8`
 - **Files:** `MoralePhase.gd` — `_process_morale_failure()`, entire phase needs 10e overhaul
+- **Resolution:** Overhauled MoralePhase.gd to match 10th edition rules. Removed all 9th-edition mechanics (casualties+D6 morale tests, model removal, FEARLESS/ATSKNF skip logic, morale modifiers). In 10e, Battle-shock tests happen in the Command Phase (already implemented in CommandPhase.gd), and the Morale Phase is a bookkeeping pass-through that logs battle-shocked unit status and auto-completes. Updated test_battle_shock.gd tests to verify 10e behavior. All 79 tests pass.
 
 ### T1-5. Pile-in must end with unit in engagement range
 - **Phase:** Fight
@@ -718,12 +720,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | File | Line | TODO | Assigned To |
 |------|------|------|-------------|
-| `MoralePhase.gd` | 7-8 | Stub implementation for Morale phase | T1-4 |
-| `MoralePhase.gd` | 107-109 | Add stratagem validation for morale | T1-4 |
-| `MoralePhase.gd` | 164-165 | Remove models due to morale failure | T1-4 |
-| `MoralePhase.gd` | 203-204 | Implement actual stratagem effects | T1-4 |
-| `MoralePhase.gd` | 339-343 | Implement morale modifiers (keywords, characters, conditions) | T1-4 |
-| `MoralePhase.gd` | 357-359 | Add helper methods for morale mechanics | T1-4 |
+| ~~`MoralePhase.gd`~~ | ~~7-8~~ | ~~Stub implementation for Morale phase~~ | ~~T1-4~~ **DONE** |
+| ~~`MoralePhase.gd`~~ | ~~107-109~~ | ~~Add stratagem validation for morale~~ | ~~T1-4~~ **DONE** |
+| ~~`MoralePhase.gd`~~ | ~~164-165~~ | ~~Remove models due to morale failure~~ | ~~T1-4~~ **DONE** |
+| ~~`MoralePhase.gd`~~ | ~~203-204~~ | ~~Implement actual stratagem effects~~ | ~~T1-4~~ **DONE** |
+| ~~`MoralePhase.gd`~~ | ~~339-343~~ | ~~Implement morale modifiers (keywords, characters, conditions)~~ | ~~T1-4~~ **DONE** |
+| ~~`MoralePhase.gd`~~ | ~~357-359~~ | ~~Add helper methods for morale mechanics~~ | ~~T1-4~~ **DONE** |
 | `FightPhase.gd` | 947 | Integrate full mathhammer simulation for melee | T5-UX14 |
 | `FightPhase.gd` | 1022-1023 | Heroic intervention not yet implemented | T2-7 |
 | `FightPhase.gd` | 1635-1637 | Add heroic intervention specific validation | T2-7 |
@@ -749,14 +751,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 4 | 6 | 10 |
+| Tier 1 — Critical Rules | 5 | 5 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **4** | **124** | **128** |
-| **Recently Completed** | **34** | — | **34** |
+| **Total Open** | **5** | **123** | **128** |
+| **Recently Completed** | **35** | — | **35** |
 | *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---
