@@ -42,6 +42,10 @@ var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
 
+# Replay mode
+var is_replay_mode: bool = false
+var replay_ui: Node = null
+
 # Deployment progress indicator UI elements
 var deployment_progress_container: PanelContainer
 var p1_progress_bar: ProgressBar
@@ -79,12 +83,20 @@ func _ready() -> void:
 		if GameState.state.meta.has("game_config"):
 			print("Main: Game config: ", GameState.state.meta.game_config)
 
-	# Check if we're coming from main menu, multiplayer lobby, or loading a save
+	# Check if we're coming from main menu, multiplayer lobby, loading a save, or replay
 	var from_menu = GameState.state.meta.has("from_menu") if GameState.state.has("meta") else false
 	var from_save = GameState.state.meta.has("from_save") if GameState.state.has("meta") else false
 	var from_multiplayer = GameState.state.meta.has("from_multiplayer_lobby") if GameState.state.has("meta") else false
+	var from_replay = GameState.state.meta.has("from_replay") if GameState.state.has("meta") else false
 
-	print("Main: from_menu=", from_menu, " from_save=", from_save, " from_multiplayer=", from_multiplayer)
+	print("Main: from_menu=", from_menu, " from_save=", from_save, " from_multiplayer=", from_multiplayer, " from_replay=", from_replay)
+
+	# If entering replay mode, use a streamlined initialization path
+	if from_replay:
+		is_replay_mode = true
+		print("Main: ✓ Entering REPLAY MODE")
+		await _initialize_replay_mode()
+		return
 
 	if not from_menu and not from_save and not from_multiplayer:
 		# Legacy path: direct load for testing
@@ -206,6 +218,9 @@ func _ready() -> void:
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
 	print("Quick Save/Load enabled: [ key to save, ] key (or F9) to load")
+
+	# Start replay recording if configured (auto for AI vs AI)
+	_start_replay_recording_if_needed()
 
 func _initialize_ai_player() -> void:
 	# Configure AIPlayer autoload based on game_config from MainMenu
@@ -3429,6 +3444,11 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 func _on_phase_completed(phase: GameStateData.Phase) -> void:
 	print("Phase completed: ", GameStateData.Phase.keys()[phase])
 
+	# Stop replay recording when game ends
+	if PhaseManager.game_ended and ReplayManager and ReplayManager.is_recording:
+		print("Main: Game ended, stopping replay recording")
+		ReplayManager.stop_recording()
+
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
@@ -4268,3 +4288,151 @@ func _on_game_log_toggle_pressed() -> void:
 		game_log_panel.visible = is_game_log_visible
 	if game_log_toggle_button:
 		game_log_toggle_button.text = "Hide Log" if is_game_log_visible else "Show Log"
+
+# ============================================================================
+# Replay Mode
+# ============================================================================
+
+func _start_replay_recording_if_needed() -> void:
+	"""Start replay recording for AI vs AI games automatically."""
+	if not ReplayManager:
+		return
+
+	if ReplayManager.should_auto_record():
+		print("Main: Auto-starting replay recording (AI vs AI game)")
+		# Small delay to ensure all initialization is complete
+		await get_tree().create_timer(0.2).timeout
+		ReplayManager.start_recording()
+	else:
+		print("Main: Replay recording not auto-started (not AI vs AI)")
+
+func _initialize_replay_mode() -> void:
+	"""Initialize the Main scene in replay mode - streamlined, no game logic."""
+	print("Main: Initializing replay mode...")
+
+	# Initialize view
+	view_zoom = 0.3
+	view_offset = Vector2.ZERO
+	update_view_transform()
+
+	# Setup board visuals (terrain, deployment zones, objectives)
+	board_view.queue_redraw()
+	setup_deployment_zones()
+	_setup_objectives()
+	_restructure_ui_layout()
+	_fix_hud_layout()
+	_setup_terrain()
+
+	# Hide normal game UI elements that aren't needed in replay
+	if phase_action_button:
+		phase_action_button.visible = false
+	if undo_button:
+		undo_button.visible = false
+	if reset_button:
+		reset_button.visible = false
+	if confirm_button:
+		confirm_button.visible = false
+
+	# Create unit visuals from initial state
+	_recreate_unit_visuals()
+
+	# Wait for visuals to render
+	await get_tree().process_frame
+
+	# Create and setup the ReplayUI controller
+	var ReplayUIScript = preload("res://scripts/ReplayUI.gd")
+	replay_ui = Node.new()
+	replay_ui.set_script(ReplayUIScript)
+	replay_ui.name = "ReplayUI"
+	add_child(replay_ui)
+	replay_ui.setup(self)
+
+	# Connect to ReplayManager signals for visual refresh during auto-play
+	if ReplayManager:
+		ReplayManager.replay_event_applied.connect(_on_replay_event_applied)
+
+	# Update the top HUD to show replay info
+	var meta = ReplayManager.get_replay_metadata() if ReplayManager else {}
+	var p1_faction = meta.get("player1_faction", "Player 1")
+	var p2_faction = meta.get("player2_faction", "Player 2")
+	if phase_label:
+		phase_label.text = "REPLAY: %s vs %s" % [p1_faction, p2_faction]
+	if status_label:
+		status_label.text = "Use Space to play/pause, Arrow keys to step"
+
+	# Setup Game Event Log panel (useful for replay too)
+	_setup_game_log_panel()
+	_apply_white_dwarf_theme()
+
+	print("Main: Replay mode initialization complete")
+
+func _on_replay_event_applied(event: Dictionary) -> void:
+	"""Called when a replay event is applied - refresh visuals to match state."""
+	_replay_refresh_visuals()
+
+	# Also add the event description to the game log
+	var description = event.get("description", "")
+	var event_type = event.get("type", "")
+	if description != "":
+		var entry_type = "info"
+		if event_type == "phase_change":
+			entry_type = "phase_header"
+		elif event.get("active_player", 0) == 1:
+			entry_type = "p1_action"
+		elif event.get("active_player", 0) == 2:
+			entry_type = "p2_action"
+		_append_log_entry(description, entry_type)
+
+var _replay_refresh_pending: bool = false
+
+func _replay_refresh_visuals() -> void:
+	"""Recreate all unit token visuals from current GameState.
+	Called by ReplayUI after each step/jump.
+	Uses a guard to prevent re-entrant refreshes during rapid auto-play."""
+	if _replay_refresh_pending:
+		return
+	_replay_refresh_pending = true
+
+	# Clear existing tokens
+	for child in token_layer.get_children():
+		child.queue_free()
+
+	# Wait a frame for queue_free to process
+	await get_tree().process_frame
+
+	# Recreate tokens for all deployed/active units
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+
+		# Skip embarked units
+		if unit.get("embarked_in", null) != null:
+			continue
+
+		var status = unit.get("status", 0)
+		if status >= GameStateData.UnitStatus.DEPLOYED:
+			var models = unit.get("models", [])
+			for i in range(models.size()):
+				var model = models[i]
+				var pos = model.get("position")
+				if pos != null and model.get("alive", true):
+					var token = _create_token_visual(unit_id, model)
+					if token:
+						token_layer.add_child(token)
+						var final_pos: Vector2
+						if pos is Dictionary:
+							final_pos = Vector2(pos.x, pos.y)
+						else:
+							final_pos = pos
+						token.position = final_pos
+
+	# Update HUD elements
+	refresh_unit_list()
+	update_ui()
+
+	# Update phase label from GameState
+	var phase = GameState.get_current_phase()
+	if active_player_badge:
+		active_player_badge.text = "P%d" % GameState.get_active_player()
+
+	_replay_refresh_pending = false
