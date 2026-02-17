@@ -197,6 +197,32 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
+	# Secondary mission actions
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		var active_missions = secondary_mgr.get_active_missions(current_player)
+		for i in range(active_missions.size()):
+			var mission = active_missions[i]
+			actions.append({
+				"type": "VOLUNTARY_DISCARD",
+				"mission_index": i,
+				"description": "Voluntarily discard %s (+1 CP)" % mission.get("name", "?"),
+				"player": current_player
+			})
+
+		# New Orders stratagem
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager and active_missions.size() > 0:
+			var can_use = strat_manager.can_use_stratagem(current_player, "new_orders")
+			if can_use.get("can_use", false) and secondary_mgr.get_deck_size(current_player) > 0:
+				for i in range(active_missions.size()):
+					actions.append({
+						"type": "USE_NEW_ORDERS",
+						"mission_index": i,
+						"description": "New Orders: discard %s and draw new (1 CP)" % active_missions[i].get("name", "?"),
+						"player": current_player
+					})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -230,6 +256,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_COMMAND_REROLL":
 			if not _awaiting_reroll_decision:
 				errors.append("Not awaiting a Command Re-roll decision")
+		"VOLUNTARY_DISCARD":
+			errors = _validate_voluntary_discard(action)
+		"USE_NEW_ORDERS":
+			errors = _validate_use_new_orders(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -285,6 +315,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _handle_decline_command_reroll(action)
+		"VOLUNTARY_DISCARD":
+			return _handle_voluntary_discard(action)
+		"USE_NEW_ORDERS":
+			return _handle_use_new_orders(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -571,6 +605,121 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 		"stratagem_used": "insane_bravery",
 		"message": "%s AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)" % unit_name
 	}
+
+# ============================================================================
+# VOLUNTARY DISCARD & NEW ORDERS
+# ============================================================================
+
+func _validate_voluntary_discard(action: Dictionary) -> Array:
+	var errors = []
+	var mission_index = action.get("mission_index", -1)
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	var current_player = get_current_player()
+	if not secondary_mgr.is_initialized(current_player):
+		errors.append("Secondary missions not initialized for player %d" % current_player)
+		return errors
+
+	var active = secondary_mgr.get_active_missions(current_player)
+	if mission_index < 0 or mission_index >= active.size():
+		errors.append("Invalid mission index: %d (have %d active missions)" % [mission_index, active.size()])
+
+	return errors
+
+func _validate_use_new_orders(action: Dictionary) -> Array:
+	var errors = []
+	var mission_index = action.get("mission_index", -1)
+	var current_player = get_current_player()
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	if not secondary_mgr.is_initialized(current_player):
+		errors.append("Secondary missions not initialized for player %d" % current_player)
+		return errors
+
+	var active = secondary_mgr.get_active_missions(current_player)
+	if mission_index < 0 or mission_index >= active.size():
+		errors.append("Invalid mission index: %d (have %d active missions)" % [mission_index, active.size()])
+
+	if secondary_mgr.get_deck_size(current_player) == 0:
+		errors.append("Deck is empty — cannot draw a replacement")
+
+	# Validate stratagem availability (CP, once-per-battle, etc.)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var can_use = strat_manager.can_use_stratagem(current_player, "new_orders")
+		if not can_use.get("can_use", false):
+			errors.append(can_use.get("reason", "Cannot use New Orders"))
+	else:
+		errors.append("StratagemManager not available")
+
+	return errors
+
+func _handle_voluntary_discard(action: Dictionary) -> Dictionary:
+	var mission_index = action.get("mission_index", -1)
+	var current_player = get_current_player()
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	var result = secondary_mgr.voluntary_discard(current_player, mission_index)
+
+	if result.get("success", false):
+		log_phase_message("Player %d voluntarily discarded %s (gained %d CP)" % [
+			current_player, result.get("discarded", "?"), result.get("cp_gained", 0)])
+
+		# Log to phase log
+		var log_entry = {
+			"type": "VOLUNTARY_DISCARD",
+			"player": current_player,
+			"discarded": result.get("discarded", ""),
+			"cp_gained": result.get("cp_gained", 0),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+func _handle_use_new_orders(action: Dictionary) -> Dictionary:
+	var mission_index = action.get("mission_index", -1)
+	var current_player = get_current_player()
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	# Record stratagem usage via StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(current_player, "new_orders")
+		if not strat_result.get("success", false):
+			return {"success": false, "error": strat_result.get("error", "Failed to use New Orders stratagem")}
+
+	var result = secondary_mgr.use_new_orders(current_player, mission_index)
+
+	if result.get("success", false):
+		log_phase_message("Player %d used NEW ORDERS (1 CP): discarded %s, drew %s" % [
+			current_player, result.get("discarded", "?"), result.get("drawn", "?")])
+
+		# Log to phase log
+		var log_entry = {
+			"type": "USE_NEW_ORDERS",
+			"player": current_player,
+			"discarded": result.get("discarded", ""),
+			"drawn": result.get("drawn", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
 
 # ============================================================================
 # SECONDARY MISSION INTERACTION RESOLUTION

@@ -246,7 +246,8 @@ func _create_active_mission(mission_data: Dictionary) -> Dictionary:
 
 func use_new_orders(player: int, mission_index: int) -> Dictionary:
 	"""
-	Discard one active mission and draw a new one (New Orders stratagem, 1 CP).
+	Discard one active mission and draw a new one (New Orders stratagem).
+	CP deduction is handled by StratagemManager (called by CommandPhase before this).
 	mission_index: 0 or 1 (which active mission to discard)
 	Returns result dict.
 	"""
@@ -259,28 +260,12 @@ func use_new_orders(player: int, mission_index: int) -> Dictionary:
 	if state["deck"].size() == 0:
 		return {"success": false, "error": "Deck is empty, cannot draw replacement"}
 
-	# Check CP via StratagemManager
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
-		var player_cp = strat_manager.get_player_cp(player)
-		if player_cp < 1:
-			return {"success": false, "error": "Not enough CP (need 1)"}
-
 	# Discard the selected mission
 	var discarded = state["active"][mission_index]
 	state["active"].remove_at(mission_index)
 	state["discard"].append(discarded["id"])
 	emit_signal("mission_discarded", player, discarded["id"], "new_orders")
 	print("SecondaryMissionManager: Player %d used New Orders to discard %s" % [player, discarded["name"]])
-
-	# Deduct 1 CP
-	var current_cp = GameState.state.get("players", {}).get(str(player), {}).get("cp", 0)
-	var changes = [{
-		"op": "set",
-		"path": "players.%s.cp" % str(player),
-		"value": current_cp - 1,
-	}]
-	PhaseManager.apply_state_changes(changes)
 
 	# Draw a replacement
 	var drawn = draw_missions_to_hand(player)

@@ -201,6 +201,221 @@ func _setup_right_panel() -> void:
 		p2_vp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		vp_section.add_child(p2_vp_label)
 
+	# Secondary Missions section
+	_setup_secondary_missions_section(command_panel)
+
+func _setup_secondary_missions_section(command_panel: VBoxContainer) -> void:
+	"""Build the secondary missions display with discard and New Orders controls."""
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return
+
+	var current_player = GameState.get_active_player()
+	if not secondary_mgr.is_initialized(current_player):
+		return
+
+	command_panel.add_child(HSeparator.new())
+
+	var section = VBoxContainer.new()
+	section.name = "SecondaryMissionsSection"
+	section.add_theme_constant_override("separation", 4)
+	command_panel.add_child(section)
+
+	# Section header
+	var section_title = Label.new()
+	section_title.text = "Secondary Missions"
+	section_title.add_theme_font_size_override("font_size", 14)
+	section_title.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+	section.add_child(section_title)
+
+	# Deck info
+	var deck_size = secondary_mgr.get_deck_size(current_player)
+	var discard_size = secondary_mgr.get_discard_size(current_player)
+	var secondary_vp = secondary_mgr.get_secondary_vp(current_player)
+
+	var deck_info = Label.new()
+	deck_info.text = "Deck: %d | Discard: %d | Secondary VP: %d" % [deck_size, discard_size, secondary_vp]
+	deck_info.add_theme_font_size_override("font_size", 11)
+	deck_info.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	section.add_child(deck_info)
+
+	# Active missions
+	var active_missions = secondary_mgr.get_active_missions(current_player)
+
+	if active_missions.size() == 0:
+		var no_missions_label = Label.new()
+		no_missions_label.text = "No active secondary missions"
+		no_missions_label.add_theme_font_size_override("font_size", 11)
+		no_missions_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		section.add_child(no_missions_label)
+	else:
+		for i in range(active_missions.size()):
+			var mission = active_missions[i]
+			_add_mission_card_ui(section, mission, i, current_player)
+
+	# New Orders stratagem button
+	_add_new_orders_button(section, current_player, active_missions)
+
+func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int, player: int) -> void:
+	"""Add a single mission card display with voluntary discard button."""
+	var card_container = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.2, 0.9)
+	style.border_color = Color(0.4, 0.35, 0.15)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(6)
+	card_container.add_theme_stylebox_override("panel", style)
+	parent.add_child(card_container)
+
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 2)
+	card_container.add_child(card_vbox)
+
+	# Mission name
+	var name_label = Label.new()
+	name_label.text = mission.get("name", "Unknown Mission")
+	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+	card_vbox.add_child(name_label)
+
+	# Category
+	var cat_label = Label.new()
+	cat_label.text = mission.get("category", "")
+	cat_label.add_theme_font_size_override("font_size", 10)
+	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	card_vbox.add_child(cat_label)
+
+	# Scoring info
+	var scoring = mission.get("scoring", {})
+	var conditions = scoring.get("conditions", [])
+	var max_vp = 0
+	for c in conditions:
+		max_vp = max(max_vp, c.get("vp", 0))
+	var when_text = _get_timing_display(scoring.get("when", ""))
+	var scoring_label = Label.new()
+	scoring_label.text = "Up to %d VP | %s" % [max_vp, when_text]
+	scoring_label.add_theme_font_size_override("font_size", 10)
+	scoring_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+	card_vbox.add_child(scoring_label)
+
+	# Pending interaction indicator
+	if mission.get("pending_interaction", false):
+		var pending_label = Label.new()
+		pending_label.text = "AWAITING INTERACTION"
+		pending_label.add_theme_font_size_override("font_size", 10)
+		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+		card_vbox.add_child(pending_label)
+
+	# VP scored so far from this card
+	var vp_scored = mission.get("vp_scored", 0)
+	if vp_scored > 0:
+		var vp_label = Label.new()
+		vp_label.text = "VP scored: %d" % vp_scored
+		vp_label.add_theme_font_size_override("font_size", 10)
+		vp_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
+		card_vbox.add_child(vp_label)
+
+	# Voluntary Discard button
+	var discard_btn = Button.new()
+	discard_btn.text = "Discard (+1 CP)"
+	discard_btn.custom_minimum_size = Vector2(0, 24)
+	discard_btn.add_theme_font_size_override("font_size", 11)
+	discard_btn.tooltip_text = "Voluntarily discard this mission. Gain 1 CP if it's your turn."
+	discard_btn.pressed.connect(_on_voluntary_discard_pressed.bind(index))
+	card_vbox.add_child(discard_btn)
+
+func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions: Array) -> void:
+	"""Add the New Orders stratagem button if available."""
+	if active_missions.size() == 0:
+		return
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return
+
+	# Check if New Orders can be used
+	var can_use = strat_manager.can_use_stratagem(player, "new_orders")
+	var player_cp = strat_manager.get_player_cp(player)
+	var deck_empty = secondary_mgr.get_deck_size(player) == 0
+
+	parent.add_child(HSeparator.new())
+
+	var orders_container = VBoxContainer.new()
+	orders_container.add_theme_constant_override("separation", 2)
+	parent.add_child(orders_container)
+
+	var orders_title = Label.new()
+	orders_title.text = "NEW ORDERS (Stratagem - 1 CP)"
+	orders_title.add_theme_font_size_override("font_size", 12)
+	orders_title.add_theme_color_override("font_color", Color(0.8, 0.6, 1.0))
+	orders_container.add_child(orders_title)
+
+	var orders_desc = Label.new()
+	orders_desc.text = "Discard a mission and draw a new one.\nOnce per battle."
+	orders_desc.add_theme_font_size_override("font_size", 10)
+	orders_desc.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	orders_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	orders_container.add_child(orders_desc)
+
+	# One button per active mission for New Orders
+	for i in range(active_missions.size()):
+		var mission = active_missions[i]
+		var btn = Button.new()
+		btn.text = "New Orders: Discard \"%s\"" % mission.get("name", "?")
+		btn.custom_minimum_size = Vector2(0, 26)
+		btn.add_theme_font_size_override("font_size", 11)
+
+		# Disable if can't use
+		if not can_use.get("can_use", false):
+			btn.disabled = true
+			btn.tooltip_text = can_use.get("reason", "Cannot use New Orders")
+		elif deck_empty:
+			btn.disabled = true
+			btn.tooltip_text = "Deck is empty — no cards to draw"
+		elif player_cp < 1:
+			btn.disabled = true
+			btn.tooltip_text = "Not enough CP (need 1)"
+		else:
+			btn.tooltip_text = "Spend 1 CP to discard this mission and draw a new one"
+			btn.pressed.connect(_on_new_orders_pressed.bind(i))
+
+		orders_container.add_child(btn)
+
+func _get_timing_display(timing: String) -> String:
+	"""Convert timing constant to human-readable text."""
+	match timing:
+		"end_of_your_turn":
+			return "End of your turn"
+		"end_of_either_turn":
+			return "End of either turn"
+		"end_of_opponent_turn":
+			return "End of opponent's turn"
+		"while_active":
+			return "While active"
+		_:
+			return timing
+
+func _on_voluntary_discard_pressed(mission_index: int) -> void:
+	"""Handle voluntary discard button press."""
+	print("CommandController: Voluntary discard requested for mission index %d" % mission_index)
+	emit_signal("command_action_requested", {
+		"type": "VOLUNTARY_DISCARD",
+		"mission_index": mission_index,
+	})
+
+func _on_new_orders_pressed(mission_index: int) -> void:
+	"""Handle New Orders stratagem button press."""
+	print("CommandController: New Orders requested for mission index %d" % mission_index)
+	emit_signal("command_action_requested", {
+		"type": "USE_NEW_ORDERS",
+		"mission_index": mission_index,
+	})
+
 func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 	# Show battle-shock tests and stratagem options
 	if not current_phase:
@@ -334,6 +549,20 @@ func _refresh_ui() -> void:
 				p1_label.text = "Player 1 (%s): %d CP" % [GameState.get_faction_name(1), p1_cp]
 			if p2_label:
 				p2_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
+
+		# Rebuild the secondary missions section to reflect changes
+		var old_section = command_panel.get_node_or_null("SecondaryMissionsSection")
+		if old_section:
+			# Find the separator before it and remove both
+			var idx = old_section.get_index()
+			if idx > 0:
+				var prev = command_panel.get_child(idx - 1)
+				if prev is HSeparator:
+					command_panel.remove_child(prev)
+					prev.queue_free()
+			command_panel.remove_child(old_section)
+			old_section.queue_free()
+		_setup_secondary_missions_section(command_panel)
 
 func _on_end_command_pressed() -> void:
 	print("CommandController: End Command Phase button pressed")
