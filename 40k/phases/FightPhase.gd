@@ -17,6 +17,7 @@ signal pile_in_preview(unit_id: String, movements: Dictionary)
 signal attacks_resolved(unit_id: String, target_id: String, result: Dictionary)
 signal consolidate_preview(unit_id: String, movements: Dictionary)
 signal dice_rolled(dice_data: Dictionary)
+signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal fight_order_determined(fight_sequence: Array)
 
 # New signals for subphase dialog system

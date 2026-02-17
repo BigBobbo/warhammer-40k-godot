@@ -17,6 +17,7 @@ signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ 
 signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
 signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
 signal grenade_result(result: Dictionary)  # For grenade stratagem result display
+signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 
 # Shooting state tracking
 var active_shooter_id: String = ""

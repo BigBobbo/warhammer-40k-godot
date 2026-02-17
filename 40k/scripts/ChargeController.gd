@@ -460,6 +460,10 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.charge_unit_skipped.is_connected(_on_charge_unit_skipped):
 			current_phase.charge_unit_skipped.connect(_on_charge_unit_skipped)
 
+	if current_phase.has_signal("command_reroll_opportunity"):
+		if not current_phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
+			current_phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+
 	# Refresh UI with current phase data
 	_refresh_ui()
 
@@ -2126,3 +2130,68 @@ func _update_token_rotation(unit_id: String, model_id: String, new_rotation: flo
 					return
 
 	print("WARNING: Could not find token visual for rotation update: unit=", unit_id, " model=", model_id)
+
+# ============================================================================
+# COMMAND RE-ROLL HANDLERS
+# ============================================================================
+
+func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""Handle Command Re-roll opportunity — show dialog to the charging player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ChargeController: COMMAND RE-ROLL OPPORTUNITY")
+	print("║ Unit: %s (player %d)" % [roll_context.get("unit_name", unit_id), player])
+	print("║ Roll type: %s" % roll_context.get("roll_type", "unknown"))
+	print("║ Original rolls: %s = %d" % [str(roll_context.get("original_rolls", [])), roll_context.get("total", 0)])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Show the dice in the log first
+	var rolls = roll_context.get("original_rolls", [])
+	var total = roll_context.get("total", 0)
+	var unit_name = roll_context.get("unit_name", unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
+			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
+		])
+		dice_log_display.append_text("[color=gold]Command Re-roll available! (1 CP)[/color]\n")
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CommandRerollDialog.gd")
+		_on_command_reroll_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(
+		unit_id,
+		player,
+		roll_context.get("roll_type", "charge_roll"),
+		roll_context.get("original_rolls", []),
+		roll_context.get("context_text", "")
+	)
+	dialog.command_reroll_used.connect(_on_command_reroll_used)
+	dialog.command_reroll_declined.connect(_on_command_reroll_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("ChargeController: Command Re-roll dialog shown for player %d" % player)
+
+func _on_command_reroll_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Command Re-roll."""
+	print("ChargeController: Command Re-roll USED for %s" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]COMMAND RE-ROLL used! Re-rolling charge...[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "USE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})
+
+func _on_command_reroll_declined(unit_id: String, player: int) -> void:
+	"""Handle player declining Command Re-roll."""
+	print("ChargeController: Command Re-roll DECLINED for %s" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Kept original roll.[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "DECLINE_COMMAND_REROLL",
+		"actor_unit_id": unit_id,
+	})

@@ -18,6 +18,7 @@ signal charge_resolved(unit_id: String, success: bool, result: Dictionary)
 signal charge_unit_completed(unit_id: String)
 signal charge_unit_skipped(unit_id: String)
 signal dice_rolled(dice_data: Dictionary)
+signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -30,6 +31,8 @@ var units_that_charged: Array = []     # Track which units have completed charge
 var current_charging_unit = null       # Track which unit is actively charging
 var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
+var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
+var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
 
 # Failure category constants for structured error reporting
 const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
@@ -63,7 +66,9 @@ func _on_phase_enter() -> void:
 	current_charging_unit = null
 	completed_charges.clear()
 	failed_charge_attempts.clear()
-	
+	awaiting_reroll_decision = false
+	reroll_pending_unit_id = ""
+
 	_initialize_charge()
 
 func _on_phase_exit() -> void:
@@ -104,6 +109,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_skip_charge(action)
 		"END_CHARGE":
 			return _validate_end_charge(action)
+		"USE_COMMAND_REROLL":
+			return _validate_command_reroll(action)
+		"DECLINE_COMMAND_REROLL":
+			return _validate_command_reroll(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -125,6 +134,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_skip_charge(action)
 		"END_CHARGE":
 			return _process_end_charge(action)
+		"USE_COMMAND_REROLL":
+			return _process_use_command_reroll(action)
+		"DECLINE_COMMAND_REROLL":
+			return _process_decline_command_reroll(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -328,6 +341,54 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
 
+	# Check if Command Re-roll is available for the charging player
+	var current_player = get_current_player()
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	var reroll_available = false
+	if strat_manager:
+		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		reroll_available = reroll_check.available
+
+	if reroll_available:
+		# Pause resolution — offer Command Re-roll to player
+		awaiting_reroll_decision = true
+		reroll_pending_unit_id = unit_id
+
+		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+		var needed = max(0.0, min_distance - ENGAGEMENT_RANGE_INCHES)
+		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
+
+		var roll_context = {
+			"roll_type": "charge_roll",
+			"original_rolls": rolls,
+			"total": total_distance,
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"context_text": context_text,
+			"min_distance": min_distance,
+		}
+
+		print("ChargePhase: Command Re-roll available for %s — pausing for player decision" % unit_name)
+		emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
+
+		# Return the initial roll result with reroll_available flag
+		# The actual resolution will happen after USE/DECLINE action
+		return create_result(true, [], "", {
+			"dice": [{"context": "charge_roll", "unit_id": unit_id, "unit_name": unit_name, "rolls": rolls, "total": total_distance, "targets": target_ids}],
+			"awaiting_reroll": true,
+		})
+
+	# No Command Re-roll available — resolve immediately
+	return _resolve_charge_roll(unit_id)
+
+func _resolve_charge_roll(unit_id: String) -> Dictionary:
+	"""Resolve the charge roll after any reroll decision. Uses the current dice stored in pending_charges."""
+	var charge_data = pending_charges[unit_id]
+	var rolls = charge_data.dice_rolls
+	var total_distance = charge_data.distance
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_ids = charge_data.targets
+
 	# Server-side feasibility check: can any model reach engagement range?
 	var roll_sufficient = _is_charge_roll_sufficient(unit_id, total_distance)
 	var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
@@ -384,6 +445,74 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		"dice": [dice_result],
 		"charge_failed": false,
 	})
+
+func _validate_command_reroll(action: Dictionary) -> Dictionary:
+	"""Validate USE_COMMAND_REROLL or DECLINE_COMMAND_REROLL action."""
+	if not awaiting_reroll_decision:
+		return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_command_reroll(action: Dictionary) -> Dictionary:
+	"""Process USE_COMMAND_REROLL: re-roll the charge dice and resolve."""
+	var unit_id = reroll_pending_unit_id
+	awaiting_reroll_decision = false
+	reroll_pending_unit_id = ""
+
+	if not pending_charges.has(unit_id):
+		return create_result(false, [], "No pending charge for reroll")
+
+	var charge_data = pending_charges[unit_id]
+	var old_rolls = charge_data.dice_rolls.duplicate()
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var current_player = get_current_player()
+
+	# Execute the stratagem (deduct CP, record usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var roll_context = {
+			"roll_type": "charge_roll",
+			"original_rolls": old_rolls,
+			"unit_name": unit_name,
+		}
+		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
+		if not strat_result.success:
+			print("ChargePhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			# Fall through to resolve with original roll
+			return _resolve_charge_roll(unit_id)
+
+	# Re-roll the 2D6
+	var rng = RulesEngine.RNGService.new()
+	var new_rolls = rng.roll_d6(2)
+	var new_total = new_rolls[0] + new_rolls[1]
+
+	# Update the charge data with new rolls
+	charge_data.distance = new_total
+	charge_data.dice_rolls = new_rolls
+
+	log_phase_message("COMMAND RE-ROLL: Charge re-rolled from %d (%s) → %d (%d + %d)" % [
+		old_rolls[0] + old_rolls[1], str(old_rolls), new_total, new_rolls[0], new_rolls[1]
+	])
+
+	print("ChargePhase: COMMAND RE-ROLL — %s charge re-rolled: %s → %s (total %d → %d)" % [
+		unit_name, str(old_rolls), str(new_rolls), old_rolls[0] + old_rolls[1], new_total
+	])
+
+	# Now resolve the charge with the new roll
+	return _resolve_charge_roll(unit_id)
+
+func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_COMMAND_REROLL: resolve charge with original dice."""
+	var unit_id = reroll_pending_unit_id
+	awaiting_reroll_decision = false
+	reroll_pending_unit_id = ""
+
+	if not pending_charges.has(unit_id):
+		return create_result(false, [], "No pending charge for reroll decline")
+
+	print("ChargePhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+
+	# Resolve with the original roll
+	return _resolve_charge_roll(unit_id)
 
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")

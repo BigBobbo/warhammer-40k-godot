@@ -504,7 +504,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | **COMPLETED** |
 | 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | **COMPLETED** |
 | 4 | Epic Challenge | Weapon keyword granting (PRECISION) | **COMPLETED** |
-| 5 | Command Re-roll | Universal re-roll (any dice, any phase) | Pending |
+| 5 | Command Re-roll | Universal re-roll (any dice, any phase) | **COMPLETED** |
 | 6 | Counter-Offensive | Fight order manipulation | Pending |
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | Pending |
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
@@ -596,3 +596,46 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 2. Weapon keyword granting via stratagem flags integrates with RulesEngine melee resolution
 3. PRECISION damage allocation to CHARACTER models works via separate allocation function
 4. Pattern generalizes to other keyword-granting stratagems (e.g., LANCE, SUSTAINED HITS)
+
+---
+
+### Step 5: Command Re-roll — Implementation Notes
+
+**What was implemented:**
+- COMMAND RE-ROLL (Core – Battle Tactic Stratagem, 1 CP): Re-roll any single dice roll, usable in any phase on either turn, once per phase.
+
+**Roll types currently supported:**
+1. **Charge rolls (2D6)** — ChargePhase pauses after rolling, shows dialog, re-rolls both dice if accepted
+2. **Battle-shock tests (2D6)** — CommandPhase pauses after a failed test, shows dialog, re-rolls if accepted
+3. **Advance rolls (D6)** — MovementPhase pauses after rolling, shows dialog, re-rolls if accepted
+
+**Roll types with infrastructure (future expansion):**
+4. **Saving throws** — ShootingPhase and FightPhase have `command_reroll_opportunity` signal declared but not yet wired. Requires refactoring the bulk save-roll loop to intercept individual failed saves.
+5. **Hit/wound rolls** — Dice are rolled in batch inside RulesEngine's `resolve_shooting_action_v2()` and `_resolve_melee_assignment()`. Individual die interception would require a yield/coroutine refactor of the resolution pipeline.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Added `is_command_reroll_available(player)` for quick availability checks and `execute_command_reroll(player, unit_id, roll_context)` for CP deduction + usage tracking + phase logging.
+- `40k/phases/ChargePhase.gd` — Added `command_reroll_opportunity` signal, `awaiting_reroll_decision`/`reroll_pending_unit_id` state tracking. Refactored `_process_charge_roll()` to check reroll availability before resolving. Extracted `_resolve_charge_roll()` to handle post-decision resolution. Added `_validate_command_reroll()`, `_process_use_command_reroll()`, `_process_decline_command_reroll()` action handlers.
+- `40k/phases/CommandPhase.gd` — Added `command_reroll_opportunity` signal, `_awaiting_reroll_decision`/`_reroll_pending_unit_id`/`_reroll_pending_roll` state. Refactored `_handle_battle_shock_test()` to check reroll availability after a failed roll (skipped when `dice_roll` parameter is provided for test determinism). Extracted `_resolve_battle_shock_test()`. Added `_handle_use_command_reroll()`, `_handle_decline_command_reroll()`.
+- `40k/phases/MovementPhase.gd` — Added `command_reroll_opportunity` signal, reroll state tracking. Refactored `_process_begin_advance()` to check reroll availability. Extracted `_resolve_advance_roll()`. Added `_process_use_command_reroll()`, `_process_decline_command_reroll()`.
+- `40k/phases/ShootingPhase.gd` — Added `command_reroll_opportunity` signal declaration (infrastructure for future save re-rolls).
+- `40k/phases/FightPhase.gd` — Added `command_reroll_opportunity` signal declaration (infrastructure for future save re-rolls).
+- `40k/scripts/ChargeController.gd` — Connected `command_reroll_opportunity` signal. Added `_on_command_reroll_opportunity()` to show dialog, `_on_command_reroll_used()`/`_on_command_reroll_declined()` to route actions.
+- `40k/scripts/CommandController.gd` — Connected `command_reroll_opportunity` signal. Added dialog show/response handlers.
+- `40k/scripts/MovementController.gd` — Connected `command_reroll_opportunity` signal. Added dialog show/response handlers.
+
+**Files created:**
+- `40k/dialogs/CommandRerollDialog.gd` — AcceptDialog-based UI showing the roll type, original dice values, context info (e.g., "Need 7+ to pass"), CP cost, and Use/Decline buttons.
+- `40k/tests/unit/test_command_reroll_stratagem.gd` — Test suite covering: stratagem definition/timing/restriction, validation (CP checks, availability checks), CP deduction via both `use_stratagem` and `execute_command_reroll`, once-per-phase enforcement, ChargePhase/CommandPhase/MovementPhase reroll state management, and edge cases.
+
+**Architecture decisions:**
+- **Phase-pause pattern**: Each phase checks `is_command_reroll_available()` after rolling dice but before resolving the result. If available, the phase emits `command_reroll_opportunity`, stores the pending roll state, and returns a result with `awaiting_reroll: true`. The controller shows a dialog, and the player's decision comes back as a `USE_COMMAND_REROLL` or `DECLINE_COMMAND_REROLL` action. This reuses the same action-validation-processing pipeline as all other game actions.
+- **Extracted resolution methods**: Each phase has a `_resolve_*` method (e.g., `_resolve_charge_roll`) that runs after the reroll decision. This keeps the resolution logic DRY — the same code runs whether or not a reroll happened.
+- **Deterministic test override**: CommandPhase's `dice_roll` parameter (used in tests) bypasses the reroll offer, ensuring test determinism.
+- **Shooting/Fight deferred**: Batch dice rolling in RulesEngine makes per-die interception architecturally expensive. The signal infrastructure is in place for future expansion when the resolution pipeline supports yield/coroutine patterns.
+
+**What this proved:**
+1. The phase-pause-resume pattern generalizes across all phases (Charge, Command, Movement)
+2. The Controller→Dialog→Action pipeline reuses the same patterns as reactive stratagems
+3. StratagemManager's `can_use_stratagem` / `use_stratagem` correctly enforce once-per-phase for Command Re-roll
+4. The architecture cleanly separates the reroll decision (UI) from the reroll execution (phase logic)

@@ -13,6 +13,7 @@ signal model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2)
 signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
+signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -20,6 +21,9 @@ const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movemen
 # Movement state tracking
 var active_moves: Dictionary = {}  # unit_id -> move_data
 var dice_log: Array = []
+var _awaiting_reroll_decision: bool = false
+var _reroll_pending_unit_id: String = ""
+var _reroll_pending_data: Dictionary = {}  # Stores original roll info
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
@@ -46,6 +50,9 @@ func _on_phase_enter() -> void:
 	log_phase_message("Entering Movement Phase")
 	active_moves.clear()
 	dice_log.clear()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_data = {}
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -121,6 +128,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_embark_unit(action)
 		"PLACE_REINFORCEMENT":
 			return _validate_place_reinforcement(action)
+		"USE_COMMAND_REROLL":
+			if not _awaiting_reroll_decision:
+				return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
+			return {"valid": true}
+		"DECLINE_COMMAND_REROLL":
+			if not _awaiting_reroll_decision:
+				return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -129,7 +144,7 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
-	
+
 	match action_type:
 		"BEGIN_NORMAL_MOVE":
 			return _process_begin_normal_move(action)
@@ -163,6 +178,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_embark_unit(action)
 		"PLACE_REINFORCEMENT":
 			return _process_place_reinforcement(action)
+		"USE_COMMAND_REROLL":
+			return _process_use_command_reroll(action)
+		"DECLINE_COMMAND_REROLL":
+			return _process_decline_command_reroll(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -598,7 +617,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
-	
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	var rng_seed = -1
 	if has_node("/root/NetworkManager"):
@@ -609,36 +628,84 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var rng_service = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng_service.roll_d6(1)
 	var advance_roll = rolls[0]
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	log_phase_message("Advance: %s → D6 = %d" % [unit_name, advance_roll])
+
+	# Check if Command Re-roll is available
+	var current_player = get_current_player()
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	var reroll_available = false
+	if strat_manager:
+		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		reroll_available = reroll_check.available
+
+	if reroll_available:
+		# Pause — store roll and offer Command Re-roll
+		_awaiting_reroll_decision = true
+		_reroll_pending_unit_id = unit_id
+		_reroll_pending_data = {
+			"advance_roll": advance_roll,
+			"move_inches": move_inches,
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+		}
+
+		var context_text = "Advance roll: %d (M %d\" + %d\" = %d\" total)" % [advance_roll, int(move_inches), advance_roll, int(move_inches + advance_roll)]
+		var roll_context = {
+			"roll_type": "advance_roll",
+			"original_rolls": [advance_roll],
+			"total": advance_roll,
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"context_text": context_text,
+		}
+
+		print("MovementPhase: Command Re-roll available for %s advance — pausing for decision" % unit_name)
+		emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
+
+		return create_result(true, [], "", {
+			"dice": [{"context": "advance", "n": 1, "rolls": [advance_roll]}],
+			"awaiting_reroll": true,
+		})
+
+	# No reroll available — resolve immediately
+	return _resolve_advance_roll(unit_id, advance_roll)
+
+func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
+	"""Resolve an advance roll with the given die value."""
+	var unit = get_unit(unit_id)
+	var move_inches = get_unit_movement(unit)
 	var total_move = move_inches + advance_roll
-	
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
-		"mode_locked": false,  # Track if mode is confirmed
-		"completed": false,  # Track if unit has completed movement
+		"mode_locked": false,
+		"completed": false,
 		"move_cap_inches": total_move,
-		"advance_roll": advance_roll,  # Store advance dice result
+		"advance_roll": advance_roll,
 		"model_moves": [],
-		"staged_moves": [],  # NEW: Temporary moves before confirmation
-		"original_positions": {},  # NEW: Track starting positions for reset
-		"model_distances": {},  # NEW: Track per-model distances
+		"staged_moves": [],
+		"original_positions": {},
+		"model_distances": {},
 		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}],
-		# Multi-selection group movement support
-		"group_moves": [],  # Track group movement operations
-		"group_selection": [],  # Current multi-selected models
-		"group_formation": {}  # Relative positions within group
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {}
 	}
-	
+
 	dice_log.append({
 		"unit_id": unit_id,
-		"unit_name": unit.get("meta", {}).get("name", unit_id),
+		"unit_name": unit_name,
 		"type": "Advance",
 		"roll": advance_roll,
-		"result": "Move cap = %d\" (M %d\" + %d\")" % [total_move, move_inches, advance_roll]
+		"result": "Move cap = %d\" (M %d\" + %d\")" % [total_move, int(move_inches), advance_roll]
 	})
-	
+
 	emit_signal("unit_move_begun", unit_id, "ADVANCE")
-	log_phase_message("Advance: %s → D6 = %d → Move cap = %d\"" % [unit.get("meta", {}).get("name", unit_id), advance_roll, total_move])
-	
+	log_phase_message("Advance: %s → D6 = %d → Move cap = %d\"" % [unit_name, advance_roll, total_move])
+
 	return create_result(true, [
 		{
 			"op": "set",
@@ -651,6 +718,52 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			"value": total_move
 		}
 	], "", {"dice": [{"context": "advance", "n": 1, "rolls": [advance_roll]}]})
+
+func _process_use_command_reroll(action: Dictionary) -> Dictionary:
+	"""Process USE_COMMAND_REROLL for advance roll."""
+	var unit_id = _reroll_pending_unit_id
+	var old_data = _reroll_pending_data.duplicate()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_data = {}
+
+	var unit_name = old_data.get("unit_name", unit_id)
+	var old_roll = old_data.get("advance_roll", 0)
+	var current_player = get_current_player()
+
+	# Execute the stratagem (deduct CP, record usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var roll_context = {
+			"roll_type": "advance_roll",
+			"original_rolls": [old_roll],
+			"unit_name": unit_name,
+		}
+		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
+		if not strat_result.success:
+			print("MovementPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			return _resolve_advance_roll(unit_id, old_roll)
+
+	# Re-roll D6
+	var rng_service = RulesEngine.RNGService.new()
+	var new_rolls = rng_service.roll_d6(1)
+	var new_advance = new_rolls[0]
+
+	log_phase_message("COMMAND RE-ROLL: Advance re-rolled from %d → %d" % [old_roll, new_advance])
+	print("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance])
+
+	return _resolve_advance_roll(unit_id, new_advance)
+
+func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_COMMAND_REROLL for advance roll."""
+	var unit_id = _reroll_pending_unit_id
+	var old_data = _reroll_pending_data.duplicate()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_data = {}
+
+	print("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+	return _resolve_advance_roll(unit_id, old_data.get("advance_roll", 0))
 
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")

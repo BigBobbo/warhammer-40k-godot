@@ -925,6 +925,57 @@ func is_epic_challenge_available(player: int, unit_id: String) -> Dictionary:
 
 	return {"available": true, "reason": ""}
 
+func is_command_reroll_available(player: int) -> Dictionary:
+	"""
+	Check if Command Re-roll is available for a player in the current phase.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "command_re_roll")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func execute_command_reroll(player: int, unit_id: String, roll_context: Dictionary) -> Dictionary:
+	"""
+	Execute the Command Re-roll stratagem: deduct CP, record usage, signal.
+	The actual re-rolling of dice is handled by the calling phase.
+	roll_context should contain: { roll_type, original_rolls, unit_name }
+	Returns { success: bool, diffs: Array, message: String }
+	"""
+	var validation = can_use_stratagem(player, "command_re_roll", unit_id)
+	if not validation.can_use:
+		return {"success": false, "error": validation.reason, "diffs": []}
+
+	# Use the standard use_stratagem flow for CP deduction and usage tracking
+	var result = use_stratagem(player, "command_re_roll", unit_id)
+	if not result.success:
+		return result
+
+	var roll_type = roll_context.get("roll_type", "unknown")
+	var original_rolls = roll_context.get("original_rolls", [])
+	var unit_name = roll_context.get("unit_name", unit_id)
+
+	print("StratagemManager: COMMAND RE-ROLL executed by player %d on %s (%s roll: %s)" % [
+		player, unit_name, roll_type, str(original_rolls)
+	])
+
+	# Log the reroll to phase log
+	GameState.add_action_to_phase_log({
+		"type": "COMMAND_REROLL",
+		"player": player,
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"roll_type": roll_type,
+		"original_rolls": original_rolls,
+		"turn": GameState.get_battle_round()
+	})
+
+	return {
+		"success": true,
+		"diffs": result.get("diffs", []),
+		"message": "COMMAND RE-ROLL used on %s (%s)" % [unit_name, roll_type]
+	}
+
 func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
 	"""
 	Get reactive stratagems available to the defending player during opponent's shooting.

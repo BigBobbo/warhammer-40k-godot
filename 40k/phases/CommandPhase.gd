@@ -14,11 +14,16 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # 5. If the roll is below the unit's Leadership, the unit becomes Battle-shocked
 # 6. Score primary objectives and end the phase
 
+signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+
 # Track which units still need battle-shock tests this phase
 var _units_needing_test: Array = []
 var _units_tested: Array = []
 var _units_auto_passed: Array = []  # Units that auto-passed via Insane Bravery
 var _rng: RandomNumberGenerator
+var _awaiting_reroll_decision: bool = false
+var _reroll_pending_unit_id: String = ""
+var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leadership}
 
 func _init():
 	_rng = RandomNumberGenerator.new()
@@ -86,6 +91,9 @@ func _on_phase_exit() -> void:
 	_units_needing_test.clear()
 	_units_tested.clear()
 	_units_auto_passed.clear()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_roll = {}
 
 func _clear_battle_shocked_flags() -> void:
 	# Per 10th edition: Clear battle-shocked status at the start of each Command Phase
@@ -199,6 +207,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_battle_shock_test(action)
 		"USE_STRATAGEM":
 			errors = _validate_use_stratagem(action)
+		"USE_COMMAND_REROLL":
+			if not _awaiting_reroll_decision:
+				errors.append("Not awaiting a Command Re-roll decision")
+		"DECLINE_COMMAND_REROLL":
+			if not _awaiting_reroll_decision:
+				errors.append("Not awaiting a Command Re-roll decision")
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true, "errors": []}
@@ -246,6 +260,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_battle_shock_test(action)
 		"USE_STRATAGEM":
 			return _handle_use_stratagem(action)
+		"USE_COMMAND_REROLL":
+			return _handle_use_command_reroll(action)
+		"DECLINE_COMMAND_REROLL":
+			return _handle_decline_command_reroll(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -268,17 +286,73 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 		die2 = _rng.randi_range(1, 6)
 
 	var roll_total = die1 + die2
+	var test_passed = roll_total >= leadership
 
-	# Per 10th edition: if roll is below Leadership, the test FAILS
-	# Roll >= Ld = pass, Roll < Ld = fail
+	log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
+
+	# Check if Command Re-roll is available (only offer on failed tests)
+	if not test_passed and not action.has("dice_roll"):
+		var current_player = get_current_player()
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var reroll_check = strat_manager.is_command_reroll_available(current_player)
+			if reroll_check.available:
+				# Pause — offer Command Re-roll
+				_awaiting_reroll_decision = true
+				_reroll_pending_unit_id = unit_id
+				_reroll_pending_roll = {
+					"die1": die1,
+					"die2": die2,
+					"roll_total": roll_total,
+					"leadership": leadership,
+					"unit_id": unit_id,
+					"unit_name": unit_name,
+				}
+
+				var context_text = "Need %d+ to pass (rolled %d)" % [leadership, roll_total]
+				var roll_context = {
+					"roll_type": "battle_shock_test",
+					"original_rolls": [die1, die2],
+					"total": roll_total,
+					"unit_id": unit_id,
+					"unit_name": unit_name,
+					"context_text": context_text,
+					"leadership": leadership,
+				}
+
+				print("CommandPhase: Command Re-roll available for %s battle-shock test — pausing for decision" % unit_name)
+				emit_signal("command_reroll_opportunity", unit_id, current_player, roll_context)
+
+				return {
+					"success": true,
+					"unit_id": unit_id,
+					"unit_name": unit_name,
+					"die1": die1,
+					"die2": die2,
+					"roll_total": roll_total,
+					"leadership": leadership,
+					"test_passed": false,
+					"awaiting_reroll": true,
+					"message": "%s FAILED battle-shock test (rolled %d vs Ld %d) — Command Re-roll available!" % [unit_name, roll_total, leadership]
+				}
+
+	# Resolve immediately (no reroll available or test passed)
+	return _resolve_battle_shock_test(unit_id, die1, die2)
+
+func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictionary:
+	"""Resolve a battle-shock test with the given dice. Called after initial roll or after reroll decision."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var leadership = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+	var roll_total = die1 + die2
 	var test_passed = roll_total >= leadership
 
 	# Mark unit as tested
-	_units_tested.append(unit_id)
+	if unit_id not in _units_tested:
+		_units_tested.append(unit_id)
 
 	# Apply battle-shocked flag if test failed
 	if not test_passed:
-		# Ensure flags dict exists
 		if not unit.has("flags"):
 			unit["flags"] = {}
 		unit["flags"]["battle_shocked"] = true
@@ -323,6 +397,57 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	GameState.add_action_to_phase_log(log_entry)
 
 	return result
+
+func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
+	"""Handle USE_COMMAND_REROLL for battle-shock test."""
+	var unit_id = _reroll_pending_unit_id
+	var old_roll = _reroll_pending_roll.duplicate()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_roll = {}
+
+	var unit_name = old_roll.get("unit_name", unit_id)
+	var current_player = get_current_player()
+
+	# Execute the stratagem (deduct CP, record usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var roll_context = {
+			"roll_type": "battle_shock_test",
+			"original_rolls": [old_roll.die1, old_roll.die2],
+			"unit_name": unit_name,
+		}
+		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
+		if not strat_result.success:
+			print("CommandPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			return _resolve_battle_shock_test(unit_id, old_roll.die1, old_roll.die2)
+
+	# Re-roll 2D6
+	var new_die1 = _rng.randi_range(1, 6)
+	var new_die2 = _rng.randi_range(1, 6)
+	var new_total = new_die1 + new_die2
+
+	log_phase_message("COMMAND RE-ROLL: Battle-shock re-rolled from %d (%d+%d) → %d (%d+%d)" % [
+		old_roll.roll_total, old_roll.die1, old_roll.die2, new_total, new_die1, new_die2
+	])
+
+	print("CommandPhase: COMMAND RE-ROLL — %s battle-shock re-rolled: %d → %d" % [
+		unit_name, old_roll.roll_total, new_total
+	])
+
+	return _resolve_battle_shock_test(unit_id, new_die1, new_die2)
+
+func _handle_decline_command_reroll(action: Dictionary) -> Dictionary:
+	"""Handle DECLINE_COMMAND_REROLL for battle-shock test."""
+	var unit_id = _reroll_pending_unit_id
+	var old_roll = _reroll_pending_roll.duplicate()
+	_awaiting_reroll_decision = false
+	_reroll_pending_unit_id = ""
+	_reroll_pending_roll = {}
+
+	print("CommandPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
+
+	return _resolve_battle_shock_test(unit_id, old_roll.die1, old_roll.die2)
 
 # ============================================================================
 # STRATAGEM HANDLING
