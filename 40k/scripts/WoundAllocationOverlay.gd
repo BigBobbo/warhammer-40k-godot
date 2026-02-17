@@ -886,6 +886,9 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 				# A bodyguard model was destroyed — check if all bodyguard models are dead
 				var bodyguard_unit_id = save_data.get("target_unit_id", "")
 				CharacterAttachmentManager.check_bodyguard_destroyed(bodyguard_unit_id)
+
+			# Kill hook: check if entire unit is now destroyed for secondary missions
+			SecondaryMissionManager.check_and_report_unit_destroyed(actual_unit_id)
 		else:
 			print("WoundAllocationOverlay: Model damaged but not destroyed")
 			# VISUAL FEEDBACK: Show damage effect

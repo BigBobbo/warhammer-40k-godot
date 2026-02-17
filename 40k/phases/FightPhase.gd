@@ -170,7 +170,31 @@ func execute_action(action: Dictionary) -> Dictionary:
 	- trigger_* metadata + NetworkManager._emit_client_visual_updates (for the client)
 	Do NOT re-emit signals here - that causes duplicate dialog windows."""
 	var result = super.execute_action(action)
+
+	# Kill hook: after diffs are applied, scan for alive=false changes
+	if result.get("success", false) and result.has("changes"):
+		_check_kill_diffs(result.changes)
+
 	return result
+
+func _check_kill_diffs(changes: Array) -> void:
+	"""Scan state-change diffs for models set to alive=false, then report unit destruction."""
+	var unit_ids_to_check: Dictionary = {}  # Use dict as set for dedup
+
+	for diff in changes:
+		if diff.get("op", "") != "set":
+			continue
+		var path = diff.get("path", "")
+		if not path.ends_with(".alive") or diff.get("value", true) != false:
+			continue
+
+		# Path format: "units.<UNIT_ID>.models.<IDX>.alive"
+		var parts = path.split(".")
+		if parts.size() >= 2 and parts[0] == "units":
+			unit_ids_to_check[parts[1]] = true
+
+	for unit_id in unit_ids_to_check:
+		SecondaryMissionManager.check_and_report_unit_destroyed(unit_id)
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
