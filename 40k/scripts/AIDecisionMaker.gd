@@ -1390,6 +1390,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			action_types[t] = []
 		action_types[t].append(a)
 
+	# Step 0: Complete shooting for unit if needed (safety net)
+	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
+		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
+		return {
+			"type": "COMPLETE_SHOOTING_FOR_UNIT",
+			"actor_unit_id": a.get("actor_unit_id", ""),
+			"_ai_description": "Complete shooting for unit"
+		}
+
 	# Step 1: Handle saves if needed
 	if action_types.has("APPLY_SAVES"):
 		return {"type": "APPLY_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying saves"}
