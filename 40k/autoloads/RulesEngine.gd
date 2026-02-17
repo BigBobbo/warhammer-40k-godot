@@ -311,6 +311,40 @@ const WEAPON_PROFILES = {
 		"ap": 4,
 		"damage": 3,
 		"keywords": ["MELTA 2"]  # +2 damage at half range (12")
+	},
+	# TWIN-LINKED WEAPONS (T1-2) — Re-roll all failed wound rolls
+	# TEST WEAPON: Twin-linked bolter for testing re-roll wound rolls
+	"twin_linked_bolter": {
+		"name": "Twin-linked Bolter (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["TWIN-LINKED"]  # Re-roll all failed wound rolls
+	},
+	# TEST WEAPON: Twin-linked + Lethal Hits combo
+	"twin_linked_lethal": {
+		"name": "Twin-linked Lethal (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["TWIN-LINKED", "LETHAL HITS"]  # Re-roll wounds + auto-wound on crit hits
+	},
+	# TEST WEAPON: Twin-linked + Devastating Wounds combo
+	"twin_linked_devastating": {
+		"name": "Twin-linked Devastating (Test)",
+		"range": 24,
+		"attacks": 4,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 2,
+		"keywords": ["TWIN-LINKED", "DEVASTATING WOUNDS"]  # Re-roll wounds + crit wounds bypass saves
 	}
 }
 
