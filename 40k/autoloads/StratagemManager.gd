@@ -326,6 +326,34 @@ func _load_core_stratagems() -> void:
 		"restriction_text": ""
 	}
 
+	stratagems["new_orders"] = {
+		"id": "new_orders",
+		"name": "NEW ORDERS",
+		"type": "Core – Strategic Ploy Stratagem",
+		"cp_cost": 1,
+		"timing": {
+			"turn": "your",
+			"phase": "command",
+			"trigger": "end_of_command_phase"
+		},
+		"target": {
+			"type": "secondary_mission",
+			"owner": "friendly",
+			"conditions": []
+		},
+		"effects": [
+			{"type": "discard_and_draw_secondary"}
+		],
+		"restrictions": {
+			"once_per": "battle",
+		},
+		"description": "Discard one of your active Secondary Mission cards and draw a new one.",
+		"when_text": "End of your Command phase.",
+		"target_text": "One of your active Secondary Mission cards.",
+		"effect_text": "Discard that Secondary Mission card. Then draw one card from your Secondary Mission deck.",
+		"restriction_text": "You can only use this Stratagem once per battle."
+	}
+
 	stratagems["rapid_ingress"] = {
 		"id": "rapid_ingress",
 		"name": "RAPID INGRESS",
