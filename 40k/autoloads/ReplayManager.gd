@@ -104,17 +104,23 @@ func _ensure_replay_dir() -> void:
 		print("ReplayManager: Created replays directory")
 
 func _connect_recording_signals() -> void:
-	# Connect to GameManager for action results with diffs
+	# Connect to GameManager for action results with diffs (multiplayer path)
 	if has_node("/root/GameManager"):
 		var game_manager = get_node("/root/GameManager")
 		game_manager.result_applied.connect(_on_result_applied_for_recording)
 		print("ReplayManager: Connected to GameManager.result_applied")
 
-	# Connect to PhaseManager for phase transitions
+	# Connect to PhaseManager for phase transitions AND single-player actions
+	# In single-player, actions go through BasePhase.execute_action() → PhaseManager,
+	# bypassing GameManager entirely. So we also listen to phase_action_taken which
+	# carries diffs attached by BasePhase as _replay_diffs.
 	if has_node("/root/PhaseManager"):
 		var phase_manager = get_node("/root/PhaseManager")
 		phase_manager.phase_changed.connect(_on_phase_changed_for_recording)
-		print("ReplayManager: Connected to PhaseManager.phase_changed")
+		phase_manager.phase_action_taken.connect(_on_phase_action_taken_for_recording)
+		# Listen for phase_completed to detect game end and auto-stop recording
+		phase_manager.phase_completed.connect(_on_phase_completed_for_recording)
+		print("ReplayManager: Connected to PhaseManager.phase_changed, phase_action_taken, phase_completed")
 
 # ============================================================================
 # Recording - Start/Stop
@@ -202,22 +208,62 @@ func should_auto_record() -> bool:
 	var p2_type = game_config.get("player2_type", "HUMAN")
 	return p1_type == "AI" and p2_type == "AI"
 
+func _is_multiplayer_client() -> bool:
+	"""Returns true if we're a client in a multiplayer game (not host)."""
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_host():
+		return true
+	return false
+
 # ============================================================================
 # Recording - Event Capture
 # ============================================================================
 
 func _on_result_applied_for_recording(result: Dictionary) -> void:
+	"""Captures actions that go through GameManager (multiplayer path).
+	In single-player, GameManager is bypassed so this won't fire."""
 	if not is_recording:
 		return
 
-	var action_type = result.get("action_type", "")
+	# In multiplayer, only record on the host to avoid duplicate events
+	if _is_multiplayer_client():
+		return
+
+	# In single-player, actions go through the phase system, not GameManager.
+	# We record those via _on_phase_action_taken_for_recording instead.
+	# If NetworkManager is not networked, skip this path to avoid potential double-recording.
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if not network_manager or not network_manager.is_networked():
+		return
+
+	_record_action_event(result.get("action_type", ""), result.get("action_data", {}),
+		result.get("diffs", result.get("changes", [])), result)
+
+func _on_phase_action_taken_for_recording(action: Dictionary) -> void:
+	"""Captures actions that go through the phase system (single-player path).
+	In multiplayer, we use _on_result_applied_for_recording instead."""
+	if not is_recording:
+		return
+
+	# In multiplayer, skip this path — we record via GameManager.result_applied instead
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked():
+		return
+
+	var action_type = action.get("type", "")
 
 	# Skip noisy internal actions that don't meaningfully change state
 	if action_type in FILTERED_ACTIONS:
 		return
 
-	var diffs = result.get("diffs", result.get("changes", []))
-	var action_data = result.get("action_data", {})
+	# Get diffs attached by BasePhase.execute_action()
+	var diffs = action.get("_replay_diffs", [])
+	_record_action_event(action_type, action, diffs, action)
+
+func _record_action_event(action_type: String, action_data: Dictionary, diffs: Array, source: Dictionary) -> void:
+	"""Common recording logic used by both the GameManager and phase action paths."""
+	if action_type in FILTERED_ACTIONS:
+		return
 
 	# Build the replay event
 	var event = {
@@ -230,18 +276,24 @@ func _on_result_applied_for_recording(result: Dictionary) -> void:
 		"phase": GameState.get_current_phase(),
 		"battle_round": GameState.get_battle_round(),
 		"active_player": GameState.get_active_player(),
-		"description": _build_event_description(action_type, action_data, result),
+		"description": _build_event_description(action_type, action_data, source),
 	}
 
 	# Include log text if available
-	if result.has("log_text"):
-		event["log_text"] = result["log_text"]
+	if source.has("log_text"):
+		event["log_text"] = source["log_text"]
+	elif action_data.has("_log_text"):
+		event["log_text"] = action_data["_log_text"]
 
 	_recording_events.append(event)
 	_recording_event_index += 1
 
 func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 	if not is_recording:
+		return
+
+	# In multiplayer, only record on the host to avoid duplicate events
+	if _is_multiplayer_client():
 		return
 
 	# Record phase change event
@@ -271,6 +323,15 @@ func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 	})
 
 	_recording_event_index += 1
+
+func _on_phase_completed_for_recording(phase: GameStateData.Phase) -> void:
+	"""Auto-stop recording when the game ends."""
+	if not is_recording:
+		return
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if phase_manager and phase_manager.game_ended:
+		print("ReplayManager: Game ended detected, auto-stopping recording")
+		stop_recording()
 
 func _build_event_description(action_type: String, action_data: Dictionary, result: Dictionary) -> String:
 	"""Build a human-readable description of the event."""
