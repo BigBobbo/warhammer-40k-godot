@@ -4,25 +4,66 @@ class_name ScoringPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 
 
-# ScoringPhase - Placeholder phase for scoring functionality
-# Currently just provides "End Turn" functionality to switch between players
+# ScoringPhase - Handles end-of-turn scoring including secondary missions
+# and provides "End Turn" functionality to switch between players
+
+# Store secondary mission scoring results for UI display
+var _secondary_results: Array = []
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.SCORING
-	print("ScoringPhase: Entering scoring phase for player ", get_current_player())
+	var current_player = get_current_player()
+	print("ScoringPhase: Entering scoring phase for player ", current_player)
 	print("ScoringPhase: Current battle round ", GameState.get_battle_round())
+
+	# Score secondary missions for the active player
+	_secondary_results.clear()
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		# Score end-of-your-turn missions for active player
+		_secondary_results = secondary_mgr.score_secondary_missions_for_player(current_player)
+		if _secondary_results.size() > 0:
+			print("ScoringPhase: Player %d scored secondary missions:" % current_player)
+			for result in _secondary_results:
+				print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
+
+		# Also score end-of-opponent-turn missions for the opponent
+		var opponent = 2 if current_player == 1 else 1
+		if secondary_mgr.is_initialized(opponent):
+			var opponent_results = secondary_mgr.score_secondary_missions_for_player(opponent)
+			if opponent_results.size() > 0:
+				print("ScoringPhase: Player %d scored secondary missions (end of opponent turn):" % opponent)
+				for result in opponent_results:
+					print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
 
 func _on_phase_exit() -> void:
 	print("ScoringPhase: Exiting scoring phase")
+	_secondary_results.clear()
 
 func get_available_actions() -> Array:
-	return [
-		{
-			"type": "END_SCORING",
-			"description": "End Turn",
-			"player": get_current_player()
-		}
-	]
+	var actions = []
+	var current_player = get_current_player()
+
+	# Offer voluntary discard of active secondary missions
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		var active_missions = secondary_mgr.get_active_missions(current_player)
+		for i in range(active_missions.size()):
+			var mission = active_missions[i]
+			actions.append({
+				"type": "DISCARD_SECONDARY",
+				"mission_index": i,
+				"description": "Discard %s (gain 1 CP)" % mission["name"],
+				"player": current_player,
+			})
+
+	actions.append({
+		"type": "END_SCORING",
+		"description": "End Turn",
+		"player": current_player,
+	})
+
+	return actions
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -30,8 +71,11 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 	match action_type:
 		"END_SCORING", "END_TURN":  # Support both for backward compatibility
-			# END_SCORING/END_TURN is always valid in scoring phase
 			pass
+		"DISCARD_SECONDARY":
+			var mission_index = action.get("mission_index", -1)
+			if mission_index < 0:
+				errors.append("Invalid mission index")
 		_:
 			errors.append("Unknown action type: %s" % action_type)
 
@@ -42,10 +86,26 @@ func validate_action(action: Dictionary) -> Dictionary:
 
 func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
-		"END_SCORING", "END_TURN":  # Support both for backward compatibility
+		"END_SCORING", "END_TURN":
 			return _handle_end_turn()
+		"DISCARD_SECONDARY":
+			return _handle_discard_secondary(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
+
+func _handle_discard_secondary(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var mission_index = action.get("mission_index", -1)
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	var result = secondary_mgr.voluntary_discard(current_player, mission_index)
+	if result["success"]:
+		print("ScoringPhase: Player %d discarded %s (gained %d CP)" % [
+			current_player, result["discarded"], result["cp_gained"]])
+	return result
 
 func _handle_end_turn() -> Dictionary:
 	var current_player = get_current_player()
