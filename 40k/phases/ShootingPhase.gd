@@ -16,6 +16,7 @@ signal saves_required(save_data_list: Array)  # For interactive save resolution
 signal weapon_order_required(assignments: Array)  # For weapon ordering when 2+ weapon types
 signal next_weapon_confirmation_required(remaining_weapons: Array, current_index: int, last_weapon_result: Dictionary)  # For sequential resolution pause
 signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
+signal grenade_result(result: Dictionary)  # For grenade stratagem result display
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -110,6 +111,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_reactive_stratagem(action)
 		"DECLINE_REACTIVE_STRATAGEM":  # Defender declines to use a reactive stratagem
 			return _validate_decline_reactive_stratagem(action)
+		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
+			return _validate_use_grenade_stratagem(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -167,6 +170,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_REACTIVE_STRATAGEM":  # Defender declines reactive stratagem
 			print("ShootingPhase: Matched DECLINE_REACTIVE_STRATAGEM")
 			return _process_decline_reactive_stratagem(action)
+		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
+			print("ShootingPhase: Matched USE_GRENADE_STRATAGEM")
+			return _process_use_grenade_stratagem(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -1267,6 +1273,105 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 
 	# Continue shooting resolution
 	return _continue_after_reactive_stratagems()
+
+# ============================================================================
+# GRENADE STRATAGEM SUPPORT
+# ============================================================================
+
+func _validate_use_grenade_stratagem(action: Dictionary) -> Dictionary:
+	"""Validate using the GRENADE stratagem during the active player's shooting phase."""
+	var grenade_unit_id = action.get("grenade_unit_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+
+	if grenade_unit_id == "":
+		return {"valid": false, "errors": ["Missing grenade_unit_id"]}
+	if target_unit_id == "":
+		return {"valid": false, "errors": ["Missing target_unit_id"]}
+
+	var current_player = get_current_player()
+
+	# Check that the grenade unit belongs to the active player
+	var grenade_unit = get_unit(grenade_unit_id)
+	if grenade_unit.is_empty():
+		return {"valid": false, "errors": ["Grenade unit not found"]}
+	if grenade_unit.get("owner", 0) != current_player:
+		return {"valid": false, "errors": ["Grenade unit does not belong to active player"]}
+
+	# Check that the grenade unit hasn't already shot
+	if grenade_unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot this phase"]}
+
+	# Check that the target is an enemy unit
+	var target_unit = get_unit(target_unit_id)
+	if target_unit.is_empty():
+		return {"valid": false, "errors": ["Target unit not found"]}
+	if target_unit.get("owner", 0) == current_player:
+		return {"valid": false, "errors": ["Cannot target friendly units with GRENADE"]}
+
+	# Validate through StratagemManager
+	var validation = StratagemManager.can_use_stratagem(current_player, "grenade", grenade_unit_id)
+	if not validation.can_use:
+		return {"valid": false, "errors": [validation.reason]}
+
+	return {"valid": true, "errors": []}
+
+func _process_use_grenade_stratagem(action: Dictionary) -> Dictionary:
+	"""Process the GRENADE stratagem: roll 6D6, 4+ = mortal wound."""
+	var grenade_unit_id = action.get("grenade_unit_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	# Execute via StratagemManager (handles CP deduction, dice rolling, mortal wound application)
+	# NOTE: execute_grenade applies all diffs internally via PhaseManager.apply_state_changes()
+	var result = StratagemManager.execute_grenade(current_player, grenade_unit_id, target_unit_id)
+
+	if not result.success:
+		return create_result(false, [], result.get("error", "Grenade stratagem failed"))
+
+	# Mark unit as having shot in our local tracking
+	units_that_shot.append(grenade_unit_id)
+
+	# Clear active shooter if this was the active unit
+	if active_shooter_id == grenade_unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+
+	# Refresh game state snapshot
+	game_state_snapshot = GameState.create_snapshot()
+
+	log_phase_message(result.get("message", "GRENADE used"))
+
+	# Emit grenade result signal for UI
+	emit_signal("grenade_result", result)
+
+	# Emit dice rolled for dice log display
+	emit_signal("dice_rolled", {
+		"context": "grenade",
+		"rolls_raw": result.get("dice_rolls", []),
+		"successes": result.get("mortal_wounds", 0),
+		"threshold": "4+",
+		"message": result.get("message", "")
+	})
+
+	# Emit shooting resolved to refresh visuals
+	emit_signal("shooting_resolved", grenade_unit_id, target_unit_id, {
+		"casualties": result.get("casualties", 0),
+		"grenade": true
+	})
+
+	# Return empty changes since execute_grenade already applied all diffs internally
+	# (BasePhase.execute_action would double-apply if we returned diffs here)
+	return create_result(true, [], result.get("message", ""), {
+		"grenade_result": {
+			"dice_rolls": result.get("dice_rolls", []),
+			"mortal_wounds": result.get("mortal_wounds", 0),
+			"casualties": result.get("casualties", 0),
+			"grenade_unit_id": grenade_unit_id,
+			"target_unit_id": target_unit_id,
+			"message": result.get("message", "")
+		}
+	})
 
 func _get_last_weapon_result() -> Dictionary:
 	"""Build complete result summary for last weapon"""

@@ -502,7 +502,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 |---|------|---------------|--------|
 | 1 | StratagemManager + Insane Bravery | Pipeline end-to-end (data, CP, usage tracking, phase integration, UI) | **COMPLETED** |
 | 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | **COMPLETED** |
-| 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | Pending |
+| 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | **COMPLETED** |
 | 4 | Epic Challenge | Weapon keyword granting (PRECISION) | Pending |
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | Pending |
 | 6 | Counter-Offensive | Fight order manipulation | Pending |
@@ -540,3 +540,33 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 2. Defensive modifiers integrate cleanly with existing RulesEngine save calculations
 3. Stealth (-1 to hit) integrates with existing HitModifier system
 4. Unit flag approach works well for static RulesEngine methods and multiplayer state sync
+
+### Task 3: Grenade (COMPLETED)
+
+**Implementation approach**: Active-player stratagem during own Shooting phase. Two-step selection (grenade unit → enemy target), 6D6 roll with 4+ mortal wounds, instant damage application bypassing the normal attack sequence.
+
+**Files modified:**
+- `40k/autoloads/RulesEngine.gd` -- Added `apply_mortal_wounds()` static method for applying mortal wounds (bypasses saves, supports FNP). Added `get_grenade_eligible_targets()` to find enemy units within 8" range.
+- `40k/autoloads/StratagemManager.gd` -- Added `get_grenade_eligible_units()` to find player's units with GRENADES keyword meeting all conditions (not advanced, not fell back, not shot, not in engagement, not battle-shocked). Added `execute_grenade()` method handling the full flow: CP deduction, usage tracking, 6D6 roll, mortal wound application, and marking unit as has_shot.
+- `40k/phases/ShootingPhase.gd` -- Added `grenade_result` signal, `USE_GRENADE_STRATAGEM` action type with validation and processing methods. Processing delegates to `StratagemManager.execute_grenade()` and emits result signals.
+- `40k/scripts/ShootingController.gd` -- Added "Use GRENADE" button to shooting panel. Button visibility updates based on eligible units and CP. Connected `grenade_result` signal for result display. Handles full dialog flow: GrenadeTargetDialog → action → GrenadeResultDialog.
+- `40k/scripts/Main.gd` -- Added `grenade_result` signal disconnect in shooting controller cleanup.
+
+**Files created:**
+- `40k/dialogs/GrenadeTargetDialog.gd` -- Two-step AcceptDialog: Step 1 selects which GRENADES unit throws, Step 2 selects enemy target within 8". Queries `RulesEngine.get_grenade_eligible_targets()` for range checking.
+- `40k/dialogs/GrenadeResultDialog.gd` -- AcceptDialog showing 6D6 roll results with color-coded dice (green for 4+ successes, red for misses), mortal wound count, and casualty count.
+- `40k/tests/unit/test_grenade_stratagem.gd` -- Comprehensive test suite covering stratagem definition, validation, unit eligibility (GRENADES keyword, exclusion conditions), target eligibility (range, friendly/enemy, destroyed), execution (CP deduction, dice rolling, mortal wound counting, has_shot marking, once-per-phase), mortal wound application (single/multi-wound models, excess damage, destroyed units), and integration tests.
+
+**Architecture decisions:**
+- **Active stratagem pattern**: Unlike Go to Ground/Smokescreen (reactive, opponent's turn), GRENADE is an active-turn stratagem. Uses a dedicated button in the shooting panel rather than the reactive signal/dialog flow.
+- **Instant effect (no persistent flags)**: GRENADE has no persistent effect on game state — mortal wounds are applied immediately. No unit flags needed (unlike Go to Ground's invuln/cover flags). Effect tracking is still recorded for usage restriction enforcement.
+- **execute_grenade applies diffs internally**: Since `execute_grenade()` calls `PhaseManager.apply_state_changes()` for each set of diffs, `_process_use_grenade_stratagem` returns empty changes to avoid double-application by `BasePhase.execute_action()`.
+- **Unit marked as has_shot**: Using GRENADE consumes the unit's shooting action for the phase, matching the 10e rules ("instead of selecting targets" wording).
+- **Reusable mortal wound system**: `RulesEngine.apply_mortal_wounds()` is designed as a general-purpose method that can be reused by Tank Shock and any future mortal-wound-dealing effects. Supports Feel No Pain interaction.
+
+**What this proved:**
+1. Active-player stratagem flow works (button → dialog → action → result)
+2. Mortal wounds can bypass the normal attack sequence (no hit/wound/save rolls)
+3. `RulesEngine.apply_mortal_wounds()` provides a reusable mortal wound pipeline
+4. Two-step dialog selection (source unit → target unit) works for active stratagems
+5. Grenade range checking (8") works via model position distance calculation
