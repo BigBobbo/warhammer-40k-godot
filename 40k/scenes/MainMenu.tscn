@@ -162,3 +162,9 @@ layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Load Game"
+
+[node name="ReplayButton" type="Button" parent="MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Watch Replays"

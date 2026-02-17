@@ -12,6 +12,7 @@ extends Control
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
+@onready var replay_button: Button = $MenuContainer/ButtonSection/ReplayButton
 
 # Configuration options
 var terrain_options = [
@@ -230,6 +231,7 @@ func _connect_signals() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
+	replay_button.pressed.connect(_on_replay_button_pressed)
 
 	# Show/hide multiplayer button based on feature flag
 	multiplayer_button.visible = FeatureFlags.is_multiplayer_available()
@@ -431,3 +433,161 @@ func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 
 func _on_cloud_load_failed(error: String) -> void:
 	print("MainMenu: Cloud load failed: ", error)
+
+# ============================================================================
+# Replay Browser
+# ============================================================================
+
+var replay_dialog: AcceptDialog = null
+
+func _on_replay_button_pressed() -> void:
+	print("MainMenu: Replay button pressed")
+	_show_replay_browser()
+
+func _show_replay_browser() -> void:
+	"""Show a dialog listing available replays."""
+	if not ReplayManager:
+		print("MainMenu: ReplayManager not available")
+		return
+
+	var replays = ReplayManager.get_available_replays()
+	print("MainMenu: Found %d replays" % replays.size())
+
+	# Create or reuse dialog
+	if replay_dialog and is_instance_valid(replay_dialog):
+		replay_dialog.queue_free()
+
+	replay_dialog = AcceptDialog.new()
+	replay_dialog.title = "Watch Replays"
+	replay_dialog.ok_button_text = "Close"
+	replay_dialog.min_size = Vector2(650, 450)
+	add_child(replay_dialog)
+
+	# Build content
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(620, 380)
+	replay_dialog.add_child(scroll)
+
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 8)
+	scroll.add_child(vbox)
+
+	if replays.is_empty():
+		var no_replays_label = Label.new()
+		no_replays_label.text = "No replays found.\n\nReplays are automatically saved when AI vs AI games finish.\nYou can also start recording from the game manually."
+		no_replays_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(no_replays_label)
+	else:
+		for replay_entry in replays:
+			var meta = replay_entry.get("meta", {})
+			var file_path = replay_entry.get("file_path", "")
+
+			# Create a row for each replay
+			var row = PanelContainer.new()
+			var row_style = StyleBoxFlat.new()
+			row_style.bg_color = Color(0.15, 0.15, 0.2, 0.8)
+			row_style.border_color = Color(0.3, 0.3, 0.4, 0.5)
+			row_style.border_width_bottom = 1
+			row_style.content_margin_left = 10
+			row_style.content_margin_right = 10
+			row_style.content_margin_top = 8
+			row_style.content_margin_bottom = 8
+			row.add_theme_stylebox_override("panel", row_style)
+			vbox.add_child(row)
+
+			var hbox = HBoxContainer.new()
+			hbox.add_theme_constant_override("separation", 12)
+			row.add_child(hbox)
+
+			# Info column
+			var info_vbox = VBoxContainer.new()
+			info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hbox.add_child(info_vbox)
+
+			# Title: factions
+			var p1_faction = meta.get("player1_faction", "Player 1")
+			var p2_faction = meta.get("player2_faction", "Player 2")
+			var title_label = Label.new()
+			title_label.text = "%s vs %s" % [p1_faction, p2_faction]
+			title_label.add_theme_font_size_override("font_size", 16)
+			info_vbox.add_child(title_label)
+
+			# Subtitle: date, rounds, score
+			var created_at = meta.get("created_at", 0)
+			var date_str = _format_timestamp(created_at)
+			var final_round = meta.get("final_round", "?")
+			var final_score = meta.get("final_score", {})
+			var p1_vp = final_score.get("p1_vp", 0)
+			var p2_vp = final_score.get("p2_vp", 0)
+			var total_events = meta.get("total_events", 0)
+			var p1_type = meta.get("player1_type", "?")
+			var p2_type = meta.get("player2_type", "?")
+
+			var subtitle = Label.new()
+			subtitle.text = "%s | %s vs %s | Round %s | Score: %d-%d | %d events" % [
+				date_str, p1_type, p2_type, str(final_round), p1_vp, p2_vp, total_events]
+			subtitle.add_theme_font_size_override("font_size", 12)
+			subtitle.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			info_vbox.add_child(subtitle)
+
+			# Watch button
+			var watch_btn = Button.new()
+			watch_btn.text = "Watch"
+			watch_btn.custom_minimum_size = Vector2(80, 35)
+			watch_btn.pressed.connect(_on_replay_selected.bind(file_path))
+			hbox.add_child(watch_btn)
+
+			# Delete button
+			var delete_btn = Button.new()
+			delete_btn.text = "X"
+			delete_btn.custom_minimum_size = Vector2(35, 35)
+			delete_btn.tooltip_text = "Delete replay"
+			delete_btn.pressed.connect(_on_replay_delete.bind(file_path))
+			hbox.add_child(delete_btn)
+
+	replay_dialog.popup_centered()
+
+func _on_replay_selected(file_path: String) -> void:
+	"""Load a replay and start playback."""
+	print("MainMenu: Loading replay: %s" % file_path)
+
+	if not ReplayManager:
+		print("MainMenu: ReplayManager not available")
+		return
+
+	# Load the replay file
+	var success = ReplayManager.load_replay_from_file(file_path)
+	if not success:
+		print("MainMenu: Failed to load replay: %s" % file_path)
+		return
+
+	# Apply the initial state to GameState
+	ReplayManager.apply_initial_state()
+
+	# Mark that we're entering replay mode
+	GameState.state.meta["from_replay"] = true
+	GameState.state.meta.erase("from_menu")
+	GameState.state.meta.erase("from_save")
+
+	# Close dialog and transition to Main scene in replay mode
+	if replay_dialog:
+		replay_dialog.hide()
+
+	print("MainMenu: Transitioning to replay mode")
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _on_replay_delete(file_path: String) -> void:
+	"""Delete a replay file and refresh the browser."""
+	print("MainMenu: Deleting replay: %s" % file_path)
+	if ReplayManager:
+		ReplayManager.delete_replay(file_path)
+	# Refresh the dialog
+	_show_replay_browser()
+
+func _format_timestamp(unix_time: float) -> String:
+	"""Format a Unix timestamp to a readable date string."""
+	if unix_time <= 0:
+		return "Unknown date"
+	var dt = Time.get_datetime_dict_from_unix_time(int(unix_time))
+	return "%04d-%02d-%02d %02d:%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
