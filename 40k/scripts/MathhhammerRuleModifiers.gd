@@ -54,10 +54,6 @@ static func _register_hit_modifiers() -> void:
 	rule.apply_function = _apply_sustained_hits
 	RULE_REGISTRY[rule.id] = rule
 	
-	rule = RuleDefinition.new("twin_linked", "Twin-linked", "Re-roll failed hit rolls", RuleCategory.HIT_MODIFIER)
-	rule.apply_function = _apply_twin_linked
-	RULE_REGISTRY[rule.id] = rule
-	
 	rule = RuleDefinition.new("hit_plus_1", "+1 to Hit", "Add 1 to hit rolls", RuleCategory.HIT_MODIFIER)
 	rule.conflicts_with = ["hit_minus_1"]
 	rule.apply_function = _apply_hit_modifier.bind(1)
@@ -82,6 +78,10 @@ static func _register_wound_modifiers() -> void:
 	rule.apply_function = _apply_anti_keyword.bind(["VEHICLE"])
 	RULE_REGISTRY[rule.id] = rule
 	
+	rule = RuleDefinition.new("twin_linked", "Twin-linked", "Re-roll failed wound rolls", RuleCategory.WOUND_MODIFIER)
+	rule.apply_function = _apply_twin_linked
+	RULE_REGISTRY[rule.id] = rule
+
 	rule = RuleDefinition.new("wound_plus_1", "+1 to Wound", "Add 1 to wound rolls", RuleCategory.WOUND_MODIFIER)
 	rule.conflicts_with = ["wound_minus_1"]
 	rule.apply_function = _apply_wound_modifier.bind(1)
@@ -279,9 +279,9 @@ static func _apply_sustained_hits(config: Dictionary) -> void:
 	config.modifiers["sustained_hits"] = true
 
 static func _apply_twin_linked(config: Dictionary) -> void:
-	# Twin-linked: Re-roll failed hits
+	# Twin-linked: Re-roll all failed wound rolls (10e rules)
 	config["modifiers"] = config.get("modifiers", {})
-	config.modifiers["reroll_hits"] = true
+	config.modifiers["reroll_wounds"] = true
 
 static func _apply_hit_modifier(modifier: int, config: Dictionary) -> void:
 	# Generic hit roll modifier

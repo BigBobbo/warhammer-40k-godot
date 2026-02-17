@@ -189,7 +189,11 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 				assignment["attacks_override"] = base_attacks * 2
 			else:
 				assignment["attacks_override"] = base_attacks
-			
+
+			# Apply rule toggles that affect wound rolls
+			if rule_toggles.get("twin_linked", false):
+				assignment["twin_linked"] = true
+
 			assignments.append(assignment)
 	
 	return {

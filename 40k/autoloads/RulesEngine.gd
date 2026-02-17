@@ -713,17 +713,22 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 	var anti_keyword_active = critical_wound_threshold < 6
 
-	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS + ANTI-KEYWORD interaction:
+	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
+	var weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+
+	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS + ANTI-KEYWORD + TWIN-LINKED interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - Critical wounds (unmodified X+ to wound per Anti threshold, or 6s normally) with Devastating Wounds bypass saves
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
+	# - Twin-linked: Re-roll all failed wound rolls
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0   # Non-critical wounds
+	var wound_reroll_data = []  # Track twin-linked re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -747,6 +752,17 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
+				elif weapon_has_twin_linked:
+					# Twin-linked: Re-roll failed wound roll
+					var reroll = rng.roll_d6(1)[0]
+					wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+					var reroll_is_critical = (reroll >= critical_wound_threshold)
+					if reroll_is_critical or reroll >= wound_threshold:
+						wounds_from_rolls += 1
+						if weapon_has_devastating_wounds and reroll_is_critical:
+							critical_wound_count += 1
+						else:
+							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical wounds for DW)
 		regular_wound_count += auto_wounds
@@ -763,11 +779,25 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
+			elif weapon_has_twin_linked:
+				# Twin-linked: Re-roll failed wound roll
+				var reroll = rng.roll_d6(1)[0]
+				wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+				var reroll_is_critical = (reroll >= critical_wound_threshold)
+				if reroll_is_critical or reroll >= wound_threshold:
+					wounds_from_rolls += 1
+					if weapon_has_devastating_wounds and reroll_is_critical:
+						critical_wound_count += 1
+					else:
+						regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if anti_keyword_active:
 		print("RulesEngine: ANTI-KEYWORD active — critical wound threshold %d+ (normal wound threshold %d+)" % [critical_wound_threshold, wound_threshold])
+
+	if weapon_has_twin_linked and not wound_reroll_data.is_empty():
+		print("RulesEngine: TWIN-LINKED — re-rolled %d failed wound rolls" % wound_reroll_data.size())
 
 	result.dice.append({
 		"context": "to_wound",
@@ -786,7 +816,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		"regular_wounds": regular_wound_count,
 		# ANTI-[KEYWORD] X+ tracking
 		"anti_keyword_active": anti_keyword_active,
-		"critical_wound_threshold": critical_wound_threshold
+		"critical_wound_threshold": critical_wound_threshold,
+		# TWIN-LINKED tracking
+		"twin_linked_weapon": weapon_has_twin_linked,
+		"wound_rerolls": wound_reroll_data
 	})
 
 	if wounds_caused == 0:
@@ -1081,14 +1114,19 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
 
-	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD interaction:
+	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
+	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+
+	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD + TWIN-LINKED interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
+	# - Twin-linked: Re-roll all failed wound rolls
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
+	var ar_wound_reroll_data = []  # Track twin-linked re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -1104,6 +1142,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
 				if ar_is_critical_wound or roll >= wound_threshold:
 					wounds_from_rolls += 1
+				elif ar_weapon_has_twin_linked:
+					# Twin-linked: Re-roll failed wound roll
+					var reroll = rng.roll_d6(1)[0]
+					ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+					var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
+					if reroll_is_critical or reroll >= wound_threshold:
+						wounds_from_rolls += 1
 	else:
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
@@ -1112,11 +1157,21 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
 			if ar_is_critical_wound or roll >= wound_threshold:
 				wounds_from_rolls += 1
+			elif ar_weapon_has_twin_linked:
+				# Twin-linked: Re-roll failed wound roll
+				var reroll = rng.roll_d6(1)[0]
+				ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+				var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
+				if reroll_is_critical or reroll >= wound_threshold:
+					wounds_from_rolls += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if ar_anti_keyword_active:
 		print("RulesEngine: ANTI-KEYWORD active (auto-resolve) — critical wound threshold %d+ (normal wound threshold %d+)" % [ar_critical_wound_threshold, wound_threshold])
+
+	if ar_weapon_has_twin_linked and not ar_wound_reroll_data.is_empty():
+		print("RulesEngine: TWIN-LINKED (auto-resolve) — re-rolled %d failed wound rolls" % ar_wound_reroll_data.size())
 
 	result.dice.append({
 		"context": "to_wound",
@@ -1131,7 +1186,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"sustained_bonus_hits_rolled": sustained_bonus_hits,
 		# ANTI-[KEYWORD] X+ tracking
 		"anti_keyword_active": ar_anti_keyword_active,
-		"critical_wound_threshold": ar_critical_wound_threshold
+		"critical_wound_threshold": ar_critical_wound_threshold,
+		# TWIN-LINKED tracking
+		"twin_linked_weapon": ar_weapon_has_twin_linked,
+		"wound_rerolls": ar_wound_reroll_data
 	})
 
 	if wounds_caused == 0:
@@ -2328,6 +2386,30 @@ static func has_devastating_wounds(weapon_id: String, board: Dictionary = {}) ->
 	var keywords = profile.get("keywords", [])
 	for keyword in keywords:
 		if "devastating wounds" in keyword.to_lower():
+			return true
+
+	return false
+
+# ==========================================
+# TWIN-LINKED
+# ==========================================
+
+# Check if a weapon has the TWIN-LINKED keyword (case-insensitive)
+# Twin-linked: Re-roll all failed wound rolls
+static func has_twin_linked(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Twin-linked" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "twin-linked" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if "twin-linked" in keyword.to_lower():
 			return true
 
 	return false
@@ -3592,11 +3674,15 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var melee_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 	var melee_anti_keyword_active = melee_critical_wound_threshold < 6
 
+	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
+	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
+
 	var auto_wounds = 0  # From Lethal Hits
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0
+	var melee_wound_reroll_data = []  # Track twin-linked re-rolls
 
 	if weapon_has_lethal_hits and not is_torrent:
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
@@ -3617,6 +3703,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
+				elif melee_weapon_has_twin_linked:
+					# Twin-linked: Re-roll failed wound roll
+					var reroll = rng.roll_d6(1)[0]
+					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
+					if reroll_is_critical or reroll >= wound_threshold:
+						wounds_from_rolls += 1
+						if weapon_has_devastating_wounds and reroll_is_critical:
+							critical_wound_count += 1
+						else:
+							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical for DW)
 		regular_wound_count += auto_wounds
@@ -3633,11 +3730,25 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
+				elif melee_weapon_has_twin_linked:
+					# Twin-linked: Re-roll failed wound roll
+					var reroll = rng.roll_d6(1)[0]
+					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
+					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
+					if reroll_is_critical or reroll >= wound_threshold:
+						wounds_from_rolls += 1
+						if weapon_has_devastating_wounds and reroll_is_critical:
+							critical_wound_count += 1
+						else:
+							regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if melee_anti_keyword_active:
 		print("RulesEngine: ANTI-KEYWORD active (melee) — critical wound threshold %d+ (normal wound threshold %d+)" % [melee_critical_wound_threshold, wound_threshold])
+
+	if melee_weapon_has_twin_linked and not melee_wound_reroll_data.is_empty():
+		print("RulesEngine: TWIN-LINKED (melee) — re-rolled %d failed wound rolls" % melee_wound_reroll_data.size())
 
 	result.dice.append({
 		"context": "wound_roll_melee",
@@ -3658,7 +3769,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"regular_wounds": regular_wound_count,
 		# ANTI-[KEYWORD] X+ tracking
 		"anti_keyword_active": melee_anti_keyword_active,
-		"critical_wound_threshold": melee_critical_wound_threshold
+		"critical_wound_threshold": melee_critical_wound_threshold,
+		# TWIN-LINKED tracking
+		"twin_linked_weapon": melee_weapon_has_twin_linked,
+		"wound_rerolls": melee_wound_reroll_data
 	})
 
 	if wounds_caused == 0:
