@@ -550,7 +550,7 @@ main() {
         echo -e "${BOLD}Open Tasks:${NC}"
         echo ""
         local idx=0
-        while IFS=$'\t' read -r task_id task_title; do
+        while IFS=$'\t' read -r -u 3 task_id task_title; do
             [[ -z "$task_id" ]] && continue
             idx=$((idx + 1))
             if [[ "$MAX_TASKS" -gt 0 && "$idx" -gt "$MAX_TASKS" ]]; then
@@ -568,7 +568,7 @@ main() {
                 6) color="$GREEN" ;;
             esac
             printf "  ${color}%3d. [T%s] %s${NC}\n" "$idx" "${task_id#T}" "$task_title"
-        done <<< "$tasks_filtered"
+        done 3<<< "$tasks_filtered"
         echo ""
         exit 0
     fi
@@ -580,8 +580,10 @@ main() {
     fi
 
     # ── Main processing loop ──
+    # NOTE: We use fd 3 so that commands inside the loop (especially claude)
+    # cannot consume the task list via stdin.
     local processed=0
-    while IFS=$'\t' read -r task_id task_title; do
+    while IFS=$'\t' read -r -u 3 task_id task_title; do
         [[ -z "$task_id" ]] && continue
 
         if [[ "$MAX_TASKS" -gt 0 && "$processed" -ge "$MAX_TASKS" ]]; then
@@ -595,7 +597,7 @@ main() {
 
         processed=$((processed + 1))
 
-    done <<< "$tasks_filtered"
+    done 3<<< "$tasks_filtered"
 
     # ── Summary ──
     echo ""
