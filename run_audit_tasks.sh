@@ -22,6 +22,7 @@
 #   --list               List all open tasks and exit
 #   --no-merge           Skip merging to main (leave on feature branch)
 #   --model MODEL        Claude model to use (default: sonnet)
+#   --timeout SECS       Max seconds per task before killing (default: 600)
 #   --help               Show this help
 #
 ###############################################################################
@@ -35,6 +36,7 @@ STATE_FILE="$PROJECT_DIR/.audit_runner_state"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
 MAIN_BRANCH="main"
 CLAUDE_MODEL="sonnet"
+TASK_TIMEOUT=600  # seconds (10 minutes)
 
 # CLI flags
 DRY_RUN=false
@@ -70,6 +72,19 @@ log_task() { echo -e "${BOLD}${BLUE}[$(date '+%H:%M:%S')] ▶${NC} $*"; }
 
 die() { log_err "$@"; exit 1; }
 
+# Recursively kill a process and all its descendants
+kill_process_tree() {
+    local pid="$1"
+    local sig="${2:-TERM}"
+    # Find children before killing the parent
+    local children
+    children=$(pgrep -P "$pid" 2>/dev/null || true)
+    for child in $children; do
+        kill_process_tree "$child" "$sig"
+    done
+    kill -"$sig" "$pid" 2>/dev/null || true
+}
+
 usage() {
     sed -n '/^# Usage:/,/^#$/p' "$0" | sed 's/^# \?//'
     sed -n '/^# Options:/,/^#\{2,\}/p' "$0" | sed 's/^# \?//' | head -n -1
@@ -89,6 +104,7 @@ parse_args() {
             --list)         LIST_ONLY=true ;;
             --no-merge)     NO_MERGE=true ;;
             --model)        CLAUDE_MODEL="$2"; shift ;;
+            --timeout)      TASK_TIMEOUT="$2"; shift ;;
             --help|-h)      usage ;;
             *)              die "Unknown option: $1 (use --help)" ;;
         esac
@@ -311,7 +327,7 @@ run_claude() {
     local log_file="$2"
     local exit_code=0
 
-    log "Launching Claude Code session..."
+    log "Launching Claude Code session (timeout: ${TASK_TIMEOUT}s)..."
 
     # Use --print mode with --dangerously-skip-permissions for full automation.
     # This gives Claude access to all tools without interactive permission prompts.
@@ -327,12 +343,36 @@ run_claude() {
     prompt_file=$(mktemp)
     echo "$prompt" > "$prompt_file"
 
-    claude --print \
-        --dangerously-skip-permissions \
-        --model "$CLAUDE_MODEL" \
-        --verbose \
-        -p "$(cat "$prompt_file")" \
-        2>&1 | tee "$log_file" || exit_code=$?
+    # Run claude in a background subshell so we can enforce a timeout
+    (
+        claude --print \
+            --dangerously-skip-permissions \
+            --model "$CLAUDE_MODEL" \
+            --verbose \
+            -p "$(cat "$prompt_file")" \
+            2>&1 | tee "$log_file"
+    ) &
+    local claude_pid=$!
+
+    # Poll until completion or timeout
+    local elapsed=0
+    local poll_interval=5
+    while kill -0 "$claude_pid" 2>/dev/null; do
+        if [[ "$elapsed" -ge "$TASK_TIMEOUT" ]]; then
+            log_err "TIMEOUT: Claude session exceeded ${TASK_TIMEOUT}s — killing process tree"
+            kill_process_tree "$claude_pid"
+            # Give processes a moment to die, then SIGKILL stragglers
+            sleep 2
+            kill_process_tree "$claude_pid" "KILL"
+            wait "$claude_pid" 2>/dev/null || true
+            rm -f "$prompt_file"
+            return 1
+        fi
+        sleep "$poll_interval"
+        elapsed=$((elapsed + poll_interval))
+    done
+
+    wait "$claude_pid" 2>/dev/null || exit_code=$?
 
     rm -f "$prompt_file"
 
