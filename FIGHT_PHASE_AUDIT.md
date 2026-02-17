@@ -76,15 +76,13 @@ The eligibility filter is enforced in `_resolve_melee_assignment()` (RulesEngine
 
 ---
 
-### 2.2 HIGH: Pile-In Must End with Unit in Engagement Range
+### 2.2 ~~HIGH~~ RESOLVED: Pile-In Must End with Unit in Engagement Range
 
 **Rule (10e):** "A Pile-in Move is a 3" move that, if made, must result in the unit being in Unit Coherency and within Engagement Range of one or more enemy units." If it cannot, no models can pile in.
 
-**Current State:** The pile-in validation (`_validate_pile_in`, FightPhase.gd:290-333) checks that each individual model moves closer to the closest enemy and stays within 3", maintains coherency, and doesn't overlap. But it does NOT validate that the **unit as a whole** ends in engagement range after the pile-in completes. A unit could theoretically pile-in in ways that take all models outside 1" of any enemy.
+**Current State:** `_validate_pile_in()` (FightPhase.gd) now includes a final unit-level engagement range check after all per-model validations. It calls `_can_unit_maintain_engagement_after_movement()` to verify that at least one model ends within 1" of an enemy model using shape-aware edge-to-edge distance. If no model would be in engagement range after the proposed movements, the pile-in is rejected with a clear error message.
 
-**Impact:** Invalid pile-in positions would be accepted, potentially allowing a unit to "pile in" away from engagement.
-
-**Recommendation:** Add a final validation step after all model movements: verify that at least one model in the unit is within 1" of an enemy model after pile-in.
+**Fix applied:** Added engagement range post-check to `_validate_pile_in()`, reusing the existing `_can_unit_maintain_engagement_after_movement()` helper (already used by consolidation validation).
 
 ---
 

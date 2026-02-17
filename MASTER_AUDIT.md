@@ -57,6 +57,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-2: Twin-linked weapon keyword — re-roll wound rolls | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-4: Morale Phase 10e overhaul — replaced 9e stub with proper bookkeeping phase | Morale | MASTER_AUDIT.md §Tier 1 |
+| T1-5: Pile-in must end with unit in engagement range | Fight | FIGHT_PHASE_AUDIT.md §2.2 |
 
 ---
 
@@ -174,12 +175,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Files:** `MoralePhase.gd` — `_process_morale_failure()`, entire phase needs 10e overhaul
 - **Resolution:** Overhauled MoralePhase.gd to match 10th edition rules. Removed all 9th-edition mechanics (casualties+D6 morale tests, model removal, FEARLESS/ATSKNF skip logic, morale modifiers). In 10e, Battle-shock tests happen in the Command Phase (already implemented in CommandPhase.gd), and the Morale Phase is a bookkeeping pass-through that logs battle-shocked unit status and auto-completes. Updated test_battle_shock.gd tests to verify 10e behavior. All 79 tests pass.
 
-### T1-5. Pile-in must end with unit in engagement range
+### T1-5. Pile-in must end with unit in engagement range — **DONE**
 - **Phase:** Fight
 - **Rule:** After pile-in, at least one model must be within 1" of an enemy. If impossible, no pile-in.
 - **Impact:** Invalid pile-in positions accepted; unit could "pile in" away from engagement
 - **Source:** FIGHT_PHASE_AUDIT.md §2.2
 - **Files:** `FightPhase.gd` — `_validate_pile_in()` needs final unit-level ER check
+- **Resolution:** Added unit-level engagement range check to `_validate_pile_in()` in FightPhase.gd. After all per-model movement validations (3" limit, toward closest enemy, coherency, no overlaps), the validator now calls `_can_unit_maintain_engagement_after_movement()` to verify at least one model ends within 1" of an enemy. Reuses the existing shape-aware engagement range check already used by consolidation validation.
 
 ### T1-6. Base-to-base contact enforcement in pile-in/consolidation
 - **Phase:** Fight
@@ -751,14 +753,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 5 | 5 | 10 |
+| Tier 1 — Critical Rules | 6 | 4 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **5** | **123** | **128** |
-| **Recently Completed** | **35** | — | **35** |
+| **Total Open** | **6** | **122** | **128** |
+| **Recently Completed** | **36** | — | **36** |
 | *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---
