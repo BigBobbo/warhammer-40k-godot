@@ -2343,16 +2343,22 @@ func update_ui() -> void:
 						mode_info = " [INFILTRATORS — >9\" from enemies & enemy zone]"
 					status_label.text = "Placing: %s — %d/%d models%s" % [unit_name, placed, total, mode_info]
 				else:
+					# Check if AI player is deploying
+					var ai_player_node = get_node_or_null("/root/AIPlayer")
+					if ai_player_node and ai_player_node.is_ai_player(active_player):
+						status_label.text = "AI Player %d (%s) is deploying..." % [active_player, "Defender" if active_player == 1 else "Attacker"]
 					# Check if it's our turn in multiplayer
-					var network_manager = get_node_or_null("/root/NetworkManager")
-					if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
-						var local_player = network_manager.get_local_player()
+					elif get_node_or_null("/root/NetworkManager") and get_node("/root/NetworkManager").is_networked() and not get_node("/root/NetworkManager").is_local_player_turn():
+						var local_player = get_node("/root/NetworkManager").get_local_player()
 						status_label.text = "Waiting for Player %d to deploy... (You are Player %d)" % [active_player, local_player]
 					else:
 						status_label.text = "Select a unit to deploy (or place in reserves)"
-		
+
 		GameStateData.Phase.MOVEMENT:
-			if movement_controller and movement_controller.active_unit_id != "":
+			var ai_move = get_node_or_null("/root/AIPlayer")
+			if ai_move and ai_move.is_ai_player(active_player):
+				status_label.text = "AI Player %d is moving..." % active_player
+			elif movement_controller and movement_controller.active_unit_id != "":
 				if movement_controller.active_mode != "":
 					status_label.text = "Drag models to move them"
 				else:
@@ -2362,7 +2368,11 @@ func update_ui() -> void:
 			phase_action_button.disabled = false
 
 		_:
-			status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
+			var ai_general = get_node_or_null("/root/AIPlayer")
+			if ai_general and ai_general.is_ai_player(active_player):
+				status_label.text = "AI Player %d — %s" % [active_player, GameStateData.Phase.keys()[current_phase]]
+			else:
+				status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
 			phase_action_button.disabled = false
 
 func _on_unit_selected(index: int) -> void:

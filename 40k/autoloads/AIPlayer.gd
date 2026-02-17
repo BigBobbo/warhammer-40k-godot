@@ -13,6 +13,11 @@ var _action_log: Array = []  # Log of AI actions for summary display
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 
+# Frame-paced evaluation: ensures the renderer gets to draw between AI actions
+var _needs_evaluation: bool = false
+var _eval_timer: float = 0.0
+const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
+
 # Signals for UI
 signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
@@ -39,7 +44,21 @@ func _ready() -> void:
 	else:
 		push_warning("AIPlayer: PhaseManager not found at startup")
 
+	set_process(true)
 	print("AIPlayer: Ready (disabled until configured)")
+
+func _process(delta: float) -> void:
+	if not _needs_evaluation or not enabled or PhaseManager.game_ended or _processing_turn:
+		return
+	_eval_timer -= delta
+	if _eval_timer <= 0.0:
+		_needs_evaluation = false
+		_evaluate_and_act()
+
+func _request_evaluation() -> void:
+	"""Schedule an AI evaluation for the next frame(s), giving the renderer time to draw."""
+	_needs_evaluation = true
+	_eval_timer = AI_ACTION_DELAY
 
 func configure(player_types: Dictionary) -> void:
 	"""
@@ -61,7 +80,7 @@ func configure(player_types: Dictionary) -> void:
 
 	# If AI should act right away (e.g., Player 1 is AI in deployment), kick off
 	if enabled:
-		call_deferred("_evaluate_and_act")
+		_request_evaluation()
 
 func is_ai_player(player: int) -> bool:
 	return enabled and ai_players.get(player, false)
@@ -78,21 +97,21 @@ func _on_phase_changed(_new_phase) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
 	_current_phase_actions = 0  # Reset safety counter on phase change
-	call_deferred("_evaluate_and_act")
+	_request_evaluation()
 
 func _on_result_applied(_result: Dictionary) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
 	# After any action result, check if AI should act next
-	call_deferred("_evaluate_and_act")
+	_request_evaluation()
 
 func _on_phase_action_taken(_action: Dictionary) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
-	DebugLogger.info("AIPlayer._on_phase_action_taken - deferring _evaluate_and_act", {"action_type": _action.get("type", "?"), "enabled": enabled})
-	call_deferred("_evaluate_and_act")
+	DebugLogger.info("AIPlayer._on_phase_action_taken - scheduling evaluation", {"action_type": _action.get("type", "?"), "enabled": enabled})
+	_request_evaluation()
 
 # --- Core AI loop ---
 
