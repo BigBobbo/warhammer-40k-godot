@@ -505,7 +505,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | **COMPLETED** |
 | 4 | Epic Challenge | Weapon keyword granting (PRECISION) | **COMPLETED** |
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | **COMPLETED** |
-| 6 | Counter-Offensive | Fight order manipulation | Pending |
+| 6 | Counter-Offensive | Fight order manipulation | **COMPLETED** |
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | Pending |
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
@@ -639,3 +639,32 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 2. The Controller→Dialog→Action pipeline reuses the same patterns as reactive stratagems
 3. StratagemManager's `can_use_stratagem` / `use_stratagem` correctly enforce once-per-phase for Command Re-roll
 4. The architecture cleanly separates the reroll decision (UI) from the reroll execution (phase logic)
+
+### Step 6: Counter-Offensive — Implementation Notes
+
+**What was implemented:**
+- COUNTER-OFFENSIVE (Core – Strategic Ploy Stratagem, 2 CP): After an enemy unit fights, your unit fights next, overriding normal alternation. Once per phase.
+
+**Implementation approach**: Reactive stratagem triggered after consolidation. When a unit finishes its fight activation (consolidate), the opponent is offered Counter-Offensive if they have eligible units. If accepted, the selected unit becomes the next fighter, bypassing normal player alternation.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Added `is_counter_offensive_available(player)` for quick availability check. Added `get_counter_offensive_eligible_units(player, units_that_fought, game_state_snapshot)` to find units owned by the player that are in engagement range, haven't fought, aren't battle-shocked, and have alive models. Added `_units_in_engagement_range()` helper using `Measurement.is_in_engagement_range_shape_aware()` for correct edge-to-edge distance calculation.
+- `40k/phases/FightPhase.gd` — Added `counter_offensive_opportunity` signal, `awaiting_counter_offensive`/`counter_offensive_player`/`counter_offensive_unit_id` state variables. Modified `_process_consolidate()` to check Counter-Offensive availability for the opponent of the unit that just fought, before switching to the next player. If available, emits `counter_offensive_opportunity` signal and pauses. Added `USE_COUNTER_OFFENSIVE` and `DECLINE_COUNTER_OFFENSIVE` action types with validation and processing. `_process_use_counter_offensive()` uses the stratagem, sets `current_selecting_player` and `active_fighter_id` to the Counter-Offensive unit, then proceeds to pile-in (also checks for Epic Challenge). `_process_decline_counter_offensive()` resumes normal alternation.
+- `40k/scripts/FightController.gd` — Connected `counter_offensive_opportunity` signal. Added `_on_counter_offensive_opportunity()` to show CounterOffensiveDialog, `_on_counter_offensive_used()` to route USE action, `_on_counter_offensive_declined()` to route DECLINE action.
+
+**Files created:**
+- `40k/dialogs/CounterOffensiveDialog.gd` — AcceptDialog-based UI showing the stratagem info (2 CP cost, effect description), a scrollable list of eligible units with per-unit "Fight Next (2 CP)" buttons, and a "Decline" button.
+- `40k/tests/unit/test_counter_offensive.gd` — Comprehensive test suite covering: stratagem definition (name, cost, timing, effects, restriction), validation (CP checks, once-per-phase), eligible unit detection (in engagement range, not fought, not battle-shocked, not dead, only own units, insufficient CP), CP deduction (2 CP), usage tracking (both players can use separately), FightPhase state management, integration flow, and edge cases (exactly 2 CP, no persistent unit flags, active effect tracking).
+
+**Architecture decisions:**
+- **Post-consolidate trigger**: Counter-Offensive checks happen at the end of `_process_consolidate()`, after the unit is marked as fought but before `_switch_selecting_player()`. This is the natural insertion point because the rules say "just after an enemy unit has fought."
+- **Fight order manipulation via player override**: Instead of modifying the fight sequence arrays, Counter-Offensive sets `current_selecting_player` to the CO user and directly sets `active_fighter_id`. After the CO unit finishes, normal `_process_consolidate` → `_switch_selecting_player()` resumes alternation. This avoids complex queue reordering.
+- **No persistent unit flags**: Unlike Go to Ground or Epic Challenge, Counter-Offensive has no persistent effect on game state — it's a one-time fight order override. The stratagem's effect is entirely realized by changing who fights next. Active effect tracking is still recorded for usage restriction enforcement.
+- **Compatible with Epic Challenge**: When the Counter-Offensive unit is selected, the code checks for Epic Challenge eligibility just like normal fighter selection. This allows both stratagems to compose naturally.
+
+**What this proved:**
+1. Fight order manipulation works via `current_selecting_player` and `active_fighter_id` override without modifying fight sequence arrays
+2. The post-consolidate trigger point correctly identifies when Counter-Offensive should be offered
+3. Reactive opponent-turn stratagems in the Fight phase follow the same signal→dialog→action pattern as shooting phase stratagems
+4. Counter-Offensive composes with Epic Challenge (the CO unit can also use Epic Challenge before pile-in)
+5. Both players can use Counter-Offensive independently in the same phase (once per player)

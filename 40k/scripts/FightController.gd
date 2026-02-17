@@ -307,6 +307,8 @@ func set_phase(phase: BasePhase) -> void:
 			phase.subphase_transition.connect(_on_subphase_transition)
 		if phase.has_signal("epic_challenge_opportunity") and not phase.epic_challenge_opportunity.is_connected(_on_epic_challenge_opportunity):
 			phase.epic_challenge_opportunity.connect(_on_epic_challenge_opportunity)
+		if phase.has_signal("counter_offensive_opportunity") and not phase.counter_offensive_opportunity.is_connected(_on_counter_offensive_opportunity):
+			phase.counter_offensive_opportunity.connect(_on_counter_offensive_opportunity)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -1232,6 +1234,54 @@ func _on_epic_challenge_declined(unit_id: String, player: int) -> void:
 	var action = {
 		"type": "DECLINE_EPIC_CHALLENGE",
 		"unit_id": unit_id,
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
+
+func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> void:
+	"""Show Counter-Offensive dialog when an enemy unit has fought"""
+	print("[FightController] Counter-Offensive opportunity for player %d (%d eligible units)" % [player, eligible_units.size()])
+
+	var dialog_script = load("res://dialogs/CounterOffensiveDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CounterOffensiveDialog.gd")
+		# Decline automatically if dialog can't be loaded
+		_on_counter_offensive_declined(player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(player, eligible_units)
+	dialog.counter_offensive_used.connect(_on_counter_offensive_used)
+	dialog.counter_offensive_declined.connect(_on_counter_offensive_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("[FightController] Counter-Offensive dialog shown")
+
+func _on_counter_offensive_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Counter-Offensive"""
+	print("[FightController] Counter-Offensive USED: player %d selects %s" % [player, unit_id])
+
+	# Store for subsequent actions in this activation
+	current_fighter_id = unit_id
+	current_fighter_owner = player
+
+	var action = {
+		"type": "USE_COUNTER_OFFENSIVE",
+		"unit_id": unit_id,
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
+
+	if dice_log_display:
+		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
+		dice_log_display.append_text("[color=orange]COUNTER-OFFENSIVE used — %s fights next![/color]\n" % unit_name)
+
+func _on_counter_offensive_declined(player: int) -> void:
+	"""Handle player declining Counter-Offensive"""
+	print("[FightController] Counter-Offensive DECLINED by player %d" % player)
+	var action = {
+		"type": "DECLINE_COUNTER_OFFENSIVE",
 		"player": player
 	}
 	emit_signal("fight_action_requested", action)
