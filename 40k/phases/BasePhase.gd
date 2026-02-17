@@ -103,6 +103,12 @@ func execute_action(action: Dictionary) -> Dictionary:
 		if result.has("log_text") and result.log_text != "":
 			action["_log_text"] = result.log_text
 
+		# Attach diffs/changes to the action for replay recording
+		# (In single-player, actions bypass GameManager so result_applied never fires.
+		# The replay system reads these diffs from the phase_action_taken signal instead.)
+		if result.has("changes") and result.changes is Array:
+			action["_replay_diffs"] = result.changes
+
 		# Record the action
 		print("[BasePhase] Emitting action_taken signal")
 		emit_signal("action_taken", action)
