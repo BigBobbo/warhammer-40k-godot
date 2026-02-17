@@ -53,6 +53,8 @@ These items were previously open in the audit files and have now been verified a
 | Multi-model movement (Ctrl+click, drag-box, group move) | Movement | IMPLEMENTATION_VALIDATION.md |
 | Double advance dice roll fix | Movement | MOVEMENT_PHASE_AUDIT.md |
 | [MH-BUG-2] Twin-linked re-rolls wounds not hits | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T1-3: Wound roll modifier system (+1/-1 cap) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
 
 ---
 
@@ -138,12 +140,13 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 
 These items cause incorrect game outcomes. They should be fixed before any competitive or serious playtesting.
 
-### T1-1. Melta X weapon keyword — bonus damage at half range
+### T1-1. Melta X weapon keyword — bonus damage at half range — **DONE**
 - **Phase:** Shooting
 - **Rule:** MELTA X adds +X to Damage when target is within half range
 - **Impact:** Core anti-vehicle weapon type (Multi-melta, Meltagun) doesn't function correctly
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.3
 - **Files:** `RulesEngine.gd` — damage application, range checking (can reference `count_models_in_half_range()`)
+- **Resolution:** Added `get_melta_value()` and `is_melta_weapon()` helpers. Modified both interactive (`prepare_save_resolution` → `apply_save_damage`) and auto-resolve (`_resolve_assignment`) paths to add +X damage when attacking models are within half weapon range. Proportional melta allocation when only some models are in half range. Added meltagun/multi-melta weapon profiles and 17 unit tests.
 
 ### T1-2. Twin-linked weapon keyword — re-roll wound rolls
 - **Phase:** Shooting/Fight
@@ -152,12 +155,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.3
 - **Files:** `RulesEngine.gd` — wound roll logic (~lines 700-733)
 
-### T1-3. Wound roll modifier system (+1/-1 cap)
+### T1-3. Wound roll modifier system (+1/-1 cap) — **DONE**
 - **Phase:** Shooting/Fight
 - **Rule:** Wound rolls can have modifiers capped at net +1/-1. Unmodified 1 always fails.
 - **Impact:** Infrastructure needed for Twin-linked, Lance, and many unit abilities
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd` — create WoundModifier system near existing HitModifier (~lines 349-378)
+- **Resolution:** Added `WoundModifier` enum and `apply_wound_modifiers()` function mirroring the existing `HitModifier` system. Integrated into all three wound roll paths (interactive shooting, auto-resolve shooting, melee). Modifiers capped at net +1/-1, unmodified 1 always fails, re-rolls before modifiers per 10e rules. Twin-linked re-rolls migrated to modifier system. Added `is_lance_weapon()` helper and Lance keyword integration (+1 to wound on charge).
 
 ### T1-4. Morale Phase — stub implementation, model removal missing
 - **Phase:** Morale
@@ -743,14 +747,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 1 | 9 | 10 |
+| Tier 1 — Critical Rules | 3 | 7 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **1** | **127** | **128** |
-| **Recently Completed** | **31** | — | **31** |
+| **Total Open** | **3** | **125** | **128** |
+| **Recently Completed** | **33** | — | **33** |
 | *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---

@@ -103,49 +103,94 @@ func _setup_right_panel() -> void:
 		container = VBoxContainer.new()
 		container.name = "VBoxContainer"
 		hud_right.add_child(container)
-	
+
 	# Create scroll container for scoring panel
 	var scroll_container = ScrollContainer.new()
 	scroll_container.name = "ScoringScrollContainer"
 	scroll_container.custom_minimum_size = Vector2(250, 400)
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	container.add_child(scroll_container)
-	
+
 	var scoring_panel = VBoxContainer.new()
 	scoring_panel.name = "ScoringPanel"
 	scoring_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll_container.add_child(scoring_panel)
-	
+
 	# Title
 	var title = Label.new()
 	title.text = "Scoring Phase"
 	title.add_theme_font_size_override("font_size", 16)
 	scoring_panel.add_child(title)
-	
+
 	scoring_panel.add_child(HSeparator.new())
-	
-	# Game status info
-	var game_status_label = Label.new()
+
 	var battle_round = GameState.get_battle_round()
 	var current_player = GameState.get_active_player()
 	var total_rounds = 5
-	game_status_label.text = "Battle Round: %d/%d\nActive Player: %d\n\nThis is a placeholder scoring phase.\nClick 'End Turn' to switch to the next player." % [battle_round, total_rounds, current_player]
-	game_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	scoring_panel.add_child(game_status_label)
-	
+
+	# VP Summary
+	var vp_summary = MissionManager.get_vp_summary()
+	var vp_label = Label.new()
+	vp_label.text = "Battle Round: %d/%d\n\nVP Summary:\n  Player 1: %d VP (Primary: %d, Secondary: %d)\n  Player 2: %d VP (Primary: %d, Secondary: %d)" % [
+		battle_round, total_rounds,
+		vp_summary["player1"]["total"], vp_summary["player1"]["primary"], vp_summary["player1"]["secondary"],
+		vp_summary["player2"]["total"], vp_summary["player2"]["primary"], vp_summary["player2"]["secondary"],
+	]
+	vp_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	scoring_panel.add_child(vp_label)
+
 	scoring_panel.add_child(HSeparator.new())
-	
+
+	# Secondary Missions display
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		var missions_title = Label.new()
+		missions_title.text = "Player %d - Active Secondary Missions" % current_player
+		missions_title.add_theme_font_size_override("font_size", 14)
+		scoring_panel.add_child(missions_title)
+
+		var active_missions = secondary_mgr.get_active_missions(current_player)
+		if active_missions.size() == 0:
+			var no_missions = Label.new()
+			no_missions.text = "  No active secondary missions"
+			scoring_panel.add_child(no_missions)
+		else:
+			for i in range(active_missions.size()):
+				var mission = active_missions[i]
+				var mission_label = Label.new()
+				var timing = mission.get("scoring", {}).get("when", "")
+				var timing_text = ""
+				match timing:
+					"end_of_your_turn": timing_text = "End of your turn"
+					"end_of_either_turn": timing_text = "End of either turn"
+					"end_of_opponent_turn": timing_text = "End of opponent's turn"
+					"while_active": timing_text = "While active"
+
+				mission_label.text = "  [%d] %s\n      Category: %s | Scores: %s" % [
+					i + 1, mission["name"], mission["category"].capitalize(), timing_text]
+				if mission.get("pending_interaction", false):
+					mission_label.text += "\n      (Awaiting opponent interaction)"
+				mission_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				scoring_panel.add_child(mission_label)
+
+		# Deck info
+		var deck_label = Label.new()
+		deck_label.text = "\n  Deck: %d cards remaining | Discarded: %d" % [
+			secondary_mgr.get_deck_size(current_player),
+			secondary_mgr.get_discard_size(current_player)]
+		scoring_panel.add_child(deck_label)
+
+		scoring_panel.add_child(HSeparator.new())
+
 	# Game end check
 	if GameState.get_battle_round() > 5:
 		var game_end_label = Label.new()
-		game_end_label.text = "[color=red][b]GAME COMPLETE![/b][/color]\n5 Battle Rounds finished!"
-		game_end_label.bbcode_enabled = true
+		game_end_label.text = "GAME COMPLETE!\n5 Battle Rounds finished!"
 		game_end_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(game_end_label)
 	else:
-		# Turn instructions
 		var instruction_label = Label.new()
-		instruction_label.text = "Player %d, you may now:\n• Score objectives (not implemented)\n• Check victory conditions\n• End your turn" % current_player
+		instruction_label.text = "Player %d, you may:\n- Discard a secondary mission (gain 1 CP)\n- End your turn" % current_player
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
 

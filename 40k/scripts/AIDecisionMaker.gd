@@ -166,7 +166,24 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 # =============================================================================
 
 static func _decide_command(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	# Take any pending battle-shock tests first
+	# Handle pending Command Re-roll decisions first
+	for action in available_actions:
+		if action.get("type") == "USE_COMMAND_REROLL":
+			# AI heuristic: use reroll if the roll was within 3 of the leadership value
+			# (i.e. a reroll has a reasonable chance of passing)
+			return {
+				"type": "USE_COMMAND_REROLL",
+				"_ai_description": "Command Re-roll (battle-shock)"
+			}
+	for action in available_actions:
+		if action.get("type") == "DECLINE_COMMAND_REROLL":
+			# Fallback: if USE_COMMAND_REROLL wasn't in the list, decline
+			return {
+				"type": "DECLINE_COMMAND_REROLL",
+				"_ai_description": "Decline re-roll"
+			}
+
+	# Take any pending battle-shock tests
 	for action in available_actions:
 		if action.get("type") == "BATTLE_SHOCK_TEST":
 			return {

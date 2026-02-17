@@ -1,0 +1,7 @@
+try { (function(){let hasOneTimePageviewEventFired=false;const adHostEventMap=new Map([['outbrain.com','outbrain'],['decide.dev','decide'],['chicoryapp.com','chicory'],]);const reportedHosts=new Set();firedEvents={};const observer=new PerformanceObserver((list)=>{list.getEntries().forEach(entry=>{const name=entry&&entry.name;if(!name)return;adHostEventMap.forEach((eventName,host)=>{if(!name.includes(host))return;if(!hasOneTimePageviewEventFired){firePageviewEvent();}
+if(!reportedHosts.has(host)){reportedHosts.add(host);fireUniqueAdEvent(eventName);}
+if(reportedHosts.size===adHostEventMap.size){try{observer.disconnect();}catch(_){}}});});});if(PerformanceObserver.supportedEntryTypes&&PerformanceObserver.supportedEntryTypes.includes('resource')){observer.observe({type:'resource',buffered:true});}else{observer.observe({entryTypes:['resource']});}
+function firePageviewEvent(){if(!window.__ez||!window.__ez.ce||typeof window.__ez.ce.AddPageviewEvent!='function'){return;}
+hasOneTimePageviewEventFired=true;window.__ez.ce.AddPageviewEvent('third_party_ads',true);}
+function fireUniqueAdEvent(eventName){if(!window.__ez||!window.__ez.ce||typeof window.__ez.ce.AddPageviewEvent!='function'){return;}
+window.__ez.ce.AddPageviewEvent(`third_party_ad_found`,eventName);}})();} catch(err) {var hREED = function(er) {return function() {reportEzError(er, "/detroitchicago/omaha.js")}}; typeof reportEzError==="function"?hREED(err):window.addEventListener('reportEzErrorDefined',hREED(err), {once: true}); console.error(err);}

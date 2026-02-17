@@ -168,6 +168,25 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 
+	# If awaiting a reroll decision, only offer reroll actions
+	if _awaiting_reroll_decision:
+		var pending_name = _reroll_pending_roll.get("unit_name", _reroll_pending_unit_id)
+		var pending_total = _reroll_pending_roll.get("roll_total", 0)
+		var pending_ld = _reroll_pending_roll.get("leadership", 0)
+		actions.append({
+			"type": "USE_COMMAND_REROLL",
+			"unit_id": _reroll_pending_unit_id,
+			"description": "Command Re-roll battle-shock for %s (rolled %d vs Ld %d)" % [pending_name, pending_total, pending_ld],
+			"player": current_player
+		})
+		actions.append({
+			"type": "DECLINE_COMMAND_REROLL",
+			"unit_id": _reroll_pending_unit_id,
+			"description": "Decline re-roll for %s" % pending_name,
+			"player": current_player
+		})
+		return actions
+
 	# Offer battle-shock tests for units that haven't tested yet
 	for unit_id in _units_needing_test:
 		if unit_id in _units_tested:

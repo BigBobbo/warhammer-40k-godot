@@ -38,8 +38,8 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 		},
 		"units": {},  # Start empty, will be populated by army loading
 		"players": {
-			"1": {"cp": 3, "vp": 0},
-			"2": {"cp": 3, "vp": 0}
+			"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0},
+			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0}
 		},
 		"factions": {},  # New field for faction data
 		"phase_log": [],

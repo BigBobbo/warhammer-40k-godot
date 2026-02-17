@@ -275,6 +275,42 @@ const WEAPON_PROFILES = {
 		"ap": 1,
 		"damage": 1,
 		"keywords": ["TORRENT", "BLAST"]  # Blast bonus applies, then all auto-hit
+	},
+	# MELTA WEAPONS (T1-1) - Bonus damage at half range
+	# TEST WEAPON: Meltagun (Melta 2, D6 damage)
+	"meltagun": {
+		"name": "Meltagun",
+		"range": 12,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 9,
+		"ap": 4,
+		"damage": 1,
+		"damage_raw": "D6",
+		"keywords": ["MELTA 2"]  # +2 damage at half range (6")
+	},
+	# TEST WEAPON: Multi-melta (Melta 2, D6 damage, longer range)
+	"multi_melta": {
+		"name": "Multi-melta",
+		"range": 18,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 9,
+		"ap": 4,
+		"damage": 1,
+		"damage_raw": "D6",
+		"keywords": ["HEAVY", "MELTA 2"]  # +2 damage at half range (9")
+	},
+	# TEST WEAPON: Melta with fixed damage for predictable testing
+	"test_melta_fixed": {
+		"name": "Test Melta Fixed (Test)",
+		"range": 24,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 9,
+		"ap": 4,
+		"damage": 3,
+		"keywords": ["MELTA 2"]  # +2 damage at half range (12")
 	}
 }
 
@@ -370,6 +406,57 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> D
 		net_modifier -= 1
 
 	# Cap modifiers at +1/-1 maximum
+	net_modifier = clamp(net_modifier, -1, 1)
+
+	result.modifier_applied = net_modifier
+	result.modified_roll += net_modifier
+
+	return result
+
+# Wound modifier flags (can be combined with bitwise OR)
+# Per 10e rules: wound roll modifiers are capped at net +1/-1
+enum WoundModifier {
+	NONE = 0,
+	REROLL_ONES = 1,    # Re-roll 1s to wound
+	REROLL_FAILED = 2,  # Re-roll all failed wound rolls (Twin-linked)
+	PLUS_ONE = 4,       # +1 to wound (e.g., Lance on charge)
+	MINUS_ONE = 8,      # -1 to wound
+}
+
+# Apply wound modifiers to a single roll
+# Returns the modified roll value and any re-roll that occurred
+# Per 10e rules: Unmodified 1 always fails, modifiers capped at +1/-1
+static func apply_wound_modifiers(roll: int, modifiers: int, wound_threshold: int, rng: RNGService) -> Dictionary:
+	var result = {
+		"original_roll": roll,
+		"modified_roll": roll,
+		"rerolled": false,
+		"reroll_value": 0,
+		"modifier_applied": 0
+	}
+
+	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
+	# Re-roll ones takes priority check first
+	if (modifiers & WoundModifier.REROLL_ONES) and roll == 1:
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+	elif (modifiers & WoundModifier.REROLL_FAILED) and roll < wound_threshold:
+		# Twin-linked: Re-roll all failed wound rolls
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+
+	# Step 2: Then apply numeric modifiers (capped at net +1/-1)
+	var net_modifier = 0
+	if modifiers & WoundModifier.PLUS_ONE:
+		net_modifier += 1
+	if modifiers & WoundModifier.MINUS_ONE:
+		net_modifier -= 1
+
+	# Cap modifiers at +1/-1 maximum per 10e rules
 	net_modifier = clamp(net_modifier, -1, 1)
 
 	result.modifier_applied = net_modifier
@@ -716,19 +803,51 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags from assignment and game state
+	var wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if weapon_has_twin_linked:
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE — +1 to wound (unit charged this turn)")
+
+	var wound_modifier_net = 0
+	if wound_modifiers & WoundModifier.PLUS_ONE:
+		wound_modifier_net += 1
+	if wound_modifiers & WoundModifier.MINUS_ONE:
+		wound_modifier_net -= 1
+	wound_modifier_net = clamp(wound_modifier_net, -1, 1)
+
+	if wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net = %+d (capped at +1/-1)" % wound_modifier_net)
+
 	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS + ANTI-KEYWORD + TWIN-LINKED interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - Critical wounds (unmodified X+ to wound per Anti threshold, or 6s normally) with Devastating Wounds bypass saves
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
-	# - Twin-linked: Re-roll all failed wound rolls
+	# - Twin-linked: Re-roll all failed wound rolls (via WoundModifier system)
+	# - Wound modifiers: +1/-1 cap applied to each roll; unmodified 1 always fails
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0   # Non-critical wounds
-	var wound_reroll_data = []  # Track twin-linked re-rolls
+	var wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -743,26 +862,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var is_critical_wound = (roll >= critical_wound_threshold)
-				if is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if wmod_result.rerolled:
+					wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
+					unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
+				var final_wound_roll = wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
+				if is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					# Track critical wounds for Devastating Wounds interaction
 					if weapon_has_devastating_wounds and is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical wounds for DW)
 		regular_wound_count += auto_wounds
@@ -770,26 +890,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-			var is_critical_wound = (roll >= critical_wound_threshold)
-			if is_critical_wound or roll >= wound_threshold:
+			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+			var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
+			var unmodified_roll = roll
+			if wmod_result.rerolled:
+				wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
+				unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
+			var final_wound_roll = wmod_result.modified_roll
+
+			# 10e rules: Unmodified 1 always fails to wound
+			if unmodified_roll == 1:
+				continue
+
+			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+			var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
+			if is_critical_wound or final_wound_roll >= wound_threshold:
 				wounds_from_rolls += 1
 				# Track critical wounds for Devastating Wounds interaction
 				if weapon_has_devastating_wounds and is_critical_wound:
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
-			elif weapon_has_twin_linked:
-				# Twin-linked: Re-roll failed wound roll
-				var reroll = rng.roll_d6(1)[0]
-				wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-				var reroll_is_critical = (reroll >= critical_wound_threshold)
-				if reroll_is_critical or reroll >= wound_threshold:
-					wounds_from_rolls += 1
-					if weapon_has_devastating_wounds and reroll_is_critical:
-						critical_wound_count += 1
-					else:
-						regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -819,7 +940,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		"critical_wound_threshold": critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": weapon_has_twin_linked,
-		"wound_rerolls": wound_reroll_data
+		"wound_rerolls": wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": wound_modifier_net,
+		"wound_modifiers_applied": wound_modifiers
 	})
 
 	if wounds_caused == 0:
@@ -833,13 +957,28 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		"critical_wounds": critical_wound_count,
 		"regular_wounds": regular_wound_count
 	}
+
+	# MELTA X (T1-1): Check if weapon is Melta and compute half-range info
+	var melta_value = get_melta_value(weapon_id, board)
+	var melta_data = {}
+	if melta_value > 0:
+		# Reuse models_in_half_range if already computed for Rapid Fire, otherwise compute
+		var melta_models_in_half_range = models_in_half_range if rapid_fire_value > 0 else count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		melta_data = {
+			"melta_value": melta_value,
+			"models_in_half_range": melta_models_in_half_range,
+			"total_models": model_ids.size()
+		}
+		print("RulesEngine: MELTA %d — %d/%d models in half range" % [melta_value, melta_models_in_half_range, model_ids.size()])
+
 	var save_data = prepare_save_resolution(
 		wounds_caused,
 		target_unit_id,
 		actor_unit_id,
 		weapon_profile,
 		board,
-		devastating_wounds_data
+		devastating_wounds_data,
+		melta_data
 	)
 
 	result["save_data"] = save_data
@@ -857,6 +996,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# DEVASTATING WOUNDS: Add critical wound info to log
 	if weapon_has_devastating_wounds and critical_wound_count > 0:
 		log_parts.append("%d DEVASTATING (unsaveable)" % critical_wound_count)
+
+	# MELTA X (T1-1): Add melta info to log
+	if melta_value > 0 and not melta_data.is_empty() and melta_data.models_in_half_range > 0:
+		log_parts.append("MELTA +%d damage (half range)" % melta_value)
 
 	log_parts.append("awaiting saves")
 	result.log_text = " - ".join(log_parts)
@@ -1117,16 +1260,48 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
-	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD + TWIN-LINKED interaction:
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags for auto-resolve path
+	var ar_wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			ar_wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if ar_weapon_has_twin_linked:
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE (auto-resolve) — +1 to wound (unit charged this turn)")
+
+	var ar_wound_modifier_net = 0
+	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
+		ar_wound_modifier_net += 1
+	if ar_wound_modifiers & WoundModifier.MINUS_ONE:
+		ar_wound_modifier_net -= 1
+	ar_wound_modifier_net = clamp(ar_wound_modifier_net, -1, 1)
+
+	if ar_wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net (auto-resolve) = %+d (capped at +1/-1)" % ar_wound_modifier_net)
+
+	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD + TWIN-LINKED + WOUND MODIFIERS interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
-	# - Twin-linked: Re-roll all failed wound rolls
+	# - Twin-linked: Re-roll all failed wound rolls (via WoundModifier system)
+	# - Wound modifiers: +1/-1 cap applied to each roll; unmodified 1 always fails
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
-	var ar_wound_reroll_data = []  # Track twin-linked re-rolls
+	var ar_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -1138,32 +1313,42 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
-				if ar_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if ar_wmod_result.rerolled:
+					ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
+					unmodified_roll = ar_wmod_result.reroll_value
+				var final_wound_roll = ar_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
+				if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
-				elif ar_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
 	else:
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-			var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
-			if ar_is_critical_wound or roll >= wound_threshold:
+			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+			var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
+			var unmodified_roll = roll
+			if ar_wmod_result.rerolled:
+				ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
+				unmodified_roll = ar_wmod_result.reroll_value
+			var final_wound_roll = ar_wmod_result.modified_roll
+
+			# 10e rules: Unmodified 1 always fails to wound
+			if unmodified_roll == 1:
+				continue
+
+			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+			var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
+			if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 				wounds_from_rolls += 1
-			elif ar_weapon_has_twin_linked:
-				# Twin-linked: Re-roll failed wound roll
-				var reroll = rng.roll_d6(1)[0]
-				ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-				var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
-				if reroll_is_critical or reroll >= wound_threshold:
-					wounds_from_rolls += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -1189,7 +1374,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"critical_wound_threshold": ar_critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": ar_weapon_has_twin_linked,
-		"wound_rerolls": ar_wound_reroll_data
+		"wound_rerolls": ar_wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": ar_wound_modifier_net,
+		"wound_modifiers_applied": ar_wound_modifiers
 	})
 
 	if wounds_caused == 0:
@@ -1202,6 +1390,19 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var casualties = 0
 	var damage_applied = 0
 	var damage_roll_log = []
+
+	# MELTA X (T1-1): Calculate melta bonus for auto-resolve path
+	var ar_melta_value = get_melta_value(weapon_id, board)
+	var ar_melta_wounds_remaining = 0
+	if ar_melta_value > 0:
+		# Reuse models_in_half_range if already computed for Rapid Fire, otherwise compute
+		var ar_melta_models_in_half_range = models_in_half_range if rapid_fire_value > 0 else count_models_in_half_range(actor_unit, target_unit, weapon_id, model_ids, board)
+		if ar_melta_models_in_half_range > 0:
+			if ar_melta_models_in_half_range >= model_ids.size():
+				ar_melta_wounds_remaining = wounds_caused
+			else:
+				ar_melta_wounds_remaining = ceili(float(wounds_caused) * float(ar_melta_models_in_half_range) / float(model_ids.size()))
+			print("RulesEngine: MELTA %d (auto-resolve) — %d/%d models in half range, %d/%d wounds get melta bonus" % [ar_melta_value, ar_melta_models_in_half_range, model_ids.size(), ar_melta_wounds_remaining, wounds_caused])
 
 	# IGNORES COVER: Check if weapon ignores cover for auto-resolve path
 	var auto_weapon_ignores_cover = false
@@ -1302,6 +1503,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var damage = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
+
+			# MELTA X (T1-1): Add melta bonus to damage if applicable
+			if ar_melta_value > 0 and ar_melta_wounds_remaining > 0:
+				damage += ar_melta_value
+				ar_melta_wounds_remaining -= 1
+				print("RulesEngine: MELTA +%d (auto-resolve) applied to damage (total: %d)" % [ar_melta_value, damage])
 
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
@@ -2191,6 +2398,57 @@ static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> D
 			result[model_id] = heavy_weapons
 
 	return result
+
+# ==========================================
+# LANCE WEAPON KEYWORD (T1-3)
+# ==========================================
+# Lance: +1 to wound rolls if the bearer's unit made a charge move this turn
+# This modifier is subject to the +1/-1 wound modifier cap
+
+# Check if a weapon has the Lance keyword
+static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "LANCE":
+			return true
+	return false
+
+# ==========================================
+# MELTA X (T1-1)
+# ==========================================
+
+# Get the Melta value (X) from a weapon's keywords or special_rules
+# Returns 0 if not a Melta weapon
+# MELTA X: Each attack targeting a unit within half range gets +X Damage
+static func get_melta_value(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+
+	# Check special_rules string for "Melta X" pattern
+	var special_rules = profile.get("special_rules", "").to_lower()
+	var regex = RegEx.new()
+	regex.compile("melta\\s*(\\d+)")
+	var result = regex.search(special_rules)
+	if result:
+		return result.get_string(1).to_int()
+
+	# Check keywords array for "MELTA X" pattern
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		var kw_result = regex.search(keyword.to_lower())
+		if kw_result:
+			return kw_result.get_string(1).to_int()
+
+	return 0
+
+# Check if a weapon has the MELTA keyword (case-insensitive)
+static func is_melta_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_melta_value(weapon_id, board) > 0
 
 # ==========================================
 # BIG GUNS NEVER TIRE (PRP-005)
@@ -3749,12 +4007,43 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags for melee path
+	var melee_wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			melee_wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if melee_weapon_has_twin_linked:
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
+
+	var melee_wound_modifier_net = 0
+	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
+		melee_wound_modifier_net += 1
+	if melee_wound_modifiers & WoundModifier.MINUS_ONE:
+		melee_wound_modifier_net -= 1
+	melee_wound_modifier_net = clamp(melee_wound_modifier_net, -1, 1)
+
+	if melee_wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net (melee) = %+d (capped at +1/-1)" % melee_wound_modifier_net)
+
 	var auto_wounds = 0  # From Lethal Hits
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0
-	var melee_wound_reroll_data = []  # Track twin-linked re-rolls
+	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	if weapon_has_lethal_hits and not is_torrent:
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
@@ -3767,25 +4056,26 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if melee_wmod_result.rerolled:
+					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
+					unmodified_roll = melee_wmod_result.reroll_value
+				var final_wound_roll = melee_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif melee_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical for DW)
 		regular_wound_count += auto_wounds
@@ -3794,25 +4084,26 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if total_hits_for_wounds > 0:
 			wound_rolls = rng.roll_d6(total_hits_for_wounds)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if melee_wmod_result.rerolled:
+					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
+					unmodified_roll = melee_wmod_result.reroll_value
+				var final_wound_roll = melee_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif melee_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -3844,7 +4135,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"critical_wound_threshold": melee_critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": melee_weapon_has_twin_linked,
-		"wound_rerolls": melee_wound_reroll_data
+		"wound_rerolls": melee_wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": melee_wound_modifier_net,
+		"wound_modifiers_applied": melee_wound_modifiers
 	})
 
 	if wounds_caused == 0:
@@ -4183,12 +4477,14 @@ static func prepare_save_resolution(
 	shooter_unit_id: String,
 	weapon_profile: Dictionary,
 	board: Dictionary,
-	devastating_wounds_data: Dictionary = {}
+	devastating_wounds_data: Dictionary = {},
+	melta_data: Dictionary = {}
 ) -> Dictionary:
 	"""
 	Prepares all data needed for interactive save resolution.
 	Returns save requirements without auto-resolving.
 	DEVASTATING WOUNDS: Includes devastating_wounds count for unsaveable damage.
+	MELTA X (T1-1): Includes melta bonus data for damage increase at half range.
 	"""
 	var units = board.get("units", {})
 	var target_unit = units.get(target_unit_id, {})
@@ -4270,6 +4566,11 @@ static func prepare_save_resolution(
 	var devastating_wound_count = critical_wounds if has_devastating_wounds else 0
 	var devastating_damage = devastating_wound_count * damage  # Each DW wound deals weapon damage
 
+	# MELTA X (T1-1): Extract melta bonus data
+	var melta_bonus = melta_data.get("melta_value", 0)
+	var melta_models_in_half_range = melta_data.get("models_in_half_range", 0)
+	var melta_total_models = melta_data.get("total_models", 0)
+
 	return {
 		"success": true,
 		"wounds_to_save": wounds_needing_saves,  # Only non-critical wounds need saves
@@ -4289,7 +4590,11 @@ static func prepare_save_resolution(
 		"devastating_wounds": devastating_wound_count,
 		"devastating_damage": devastating_damage,  # Fixed estimate; actual DW damage rolled at application time
 		# IGNORES COVER: Flag for UI display
-		"ignores_cover": weapon_ignores_cover
+		"ignores_cover": weapon_ignores_cover,
+		# MELTA X (T1-1): Bonus damage at half range
+		"melta_bonus": melta_bonus,
+		"melta_models_in_half_range": melta_models_in_half_range,
+		"melta_total_models": melta_total_models
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)
@@ -4402,6 +4707,22 @@ static func apply_save_damage(
 	var models = target_unit.get("models", [])
 	var damage_roll_log = []
 
+	# MELTA X (T1-1): Get melta bonus data from save_data
+	var melta_bonus = save_data.get("melta_bonus", 0)
+	var melta_models_in_half_range = save_data.get("melta_models_in_half_range", 0)
+	var melta_total_models = save_data.get("melta_total_models", 0)
+	# Calculate how many wounds get melta bonus (proportional to models in half range)
+	var total_wounds_for_melta = save_data.get("total_wounds", 0)
+	var melta_wounds_remaining = 0  # Counter for wounds that still get melta bonus
+	if melta_bonus > 0 and melta_models_in_half_range > 0 and melta_total_models > 0:
+		if melta_models_in_half_range >= melta_total_models:
+			# All models in half range — all wounds get melta bonus
+			melta_wounds_remaining = total_wounds_for_melta
+		else:
+			# Proportional: ceil(wounds * models_in_half_range / total_models)
+			melta_wounds_remaining = ceili(float(total_wounds_for_melta) * float(melta_models_in_half_range) / float(melta_total_models))
+		print("RulesEngine: MELTA +%d — %d/%d wounds get melta bonus" % [melta_bonus, melta_wounds_remaining, total_wounds_for_melta])
+
 	# FEEL NO PAIN: Check if target unit has FNP
 	var fnp_value = get_unit_fnp(target_unit)
 
@@ -4414,11 +4735,22 @@ static func apply_save_damage(
 	elif devastating_wound_count > 0 and rng != null:
 		for _i in range(devastating_wound_count):
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
-			dw_damage += dmg_result.value
+			var dw_wound_damage = dmg_result.value
+			# MELTA X (T1-1): Add melta bonus to devastating wound damage if applicable
+			if melta_bonus > 0 and melta_wounds_remaining > 0:
+				dw_wound_damage += melta_bonus
+				melta_wounds_remaining -= 1
+				print("RulesEngine: MELTA +%d applied to devastating wound (damage: %d → %d)" % [melta_bonus, dmg_result.value, dw_wound_damage])
+			dw_damage += dw_wound_damage
 			if dmg_result.rolled:
 				damage_roll_log.append({"source": "devastating", "result": dmg_result})
 	else:
 		dw_damage = save_data.get("devastating_damage", 0)
+		# MELTA X (T1-1): Add melta bonus to fixed devastating damage estimate
+		if melta_bonus > 0 and devastating_wound_count > 0 and melta_wounds_remaining > 0:
+			var melta_dw_wounds = min(devastating_wound_count, melta_wounds_remaining)
+			dw_damage += melta_dw_wounds * melta_bonus
+			melta_wounds_remaining -= melta_dw_wounds
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
@@ -4485,6 +4817,12 @@ static func apply_save_damage(
 			wound_damage = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append({"source": "failed_save", "result": dmg_result})
+
+		# MELTA X (T1-1): Add melta bonus to damage if applicable
+		if melta_bonus > 0 and melta_wounds_remaining > 0:
+			wound_damage += melta_bonus
+			melta_wounds_remaining -= 1
+			print("RulesEngine: MELTA +%d applied to failed save damage (total: %d)" % [melta_bonus, wound_damage])
 
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
 		var actual_damage = wound_damage

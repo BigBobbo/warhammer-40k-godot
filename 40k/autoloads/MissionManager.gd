@@ -244,16 +244,20 @@ func get_objective_control_summary() -> Dictionary:
 func get_vp_summary() -> Dictionary:
 	var p1_vp = GameState.state.players.get("1", {}).get("vp", 0)
 	var p1_primary = GameState.state.players.get("1", {}).get("primary_vp", 0)
+	var p1_secondary = GameState.state.players.get("1", {}).get("secondary_vp", 0)
 	var p2_vp = GameState.state.players.get("2", {}).get("vp", 0)
 	var p2_primary = GameState.state.players.get("2", {}).get("primary_vp", 0)
-	
+	var p2_secondary = GameState.state.players.get("2", {}).get("secondary_vp", 0)
+
 	return {
 		"player1": {
 			"total": p1_vp,
-			"primary": p1_primary
+			"primary": p1_primary,
+			"secondary": p1_secondary,
 		},
 		"player2": {
 			"total": p2_vp,
-			"primary": p2_primary
+			"primary": p2_primary,
+			"secondary": p2_secondary,
 		}
 	}
