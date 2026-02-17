@@ -28,6 +28,7 @@ signal attack_assigned(attacker_id: String, target_id: String, weapon_id: String
 signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
+signal counter_offensive_opportunity(player: int, eligible_units: Array)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -60,6 +61,11 @@ enum Subphase {
 	COMPLETE
 }
 
+# Counter-Offensive state tracking
+var awaiting_counter_offensive: bool = false
+var counter_offensive_player: int = 0  # Player being offered Counter-Offensive
+var counter_offensive_unit_id: String = ""  # Unit selected for Counter-Offensive (set on USE)
+
 var current_subphase: Subphase = Subphase.FIGHTS_FIRST
 
 func _init():
@@ -76,7 +82,10 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_fought.clear()
-	
+	awaiting_counter_offensive = false
+	counter_offensive_player = 0
+	counter_offensive_unit_id = ""
+
 	_initialize_fight_sequence()
 	_check_for_combats()
 
@@ -222,6 +231,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_epic_challenge(action)
 		"DECLINE_EPIC_CHALLENGE":
 			return {"valid": true}
+		"USE_COUNTER_OFFENSIVE":
+			return _validate_use_counter_offensive(action)
+		"DECLINE_COUNTER_OFFENSIVE":
+			return {"valid": true}
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		_:
@@ -253,6 +266,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_epic_challenge(action)
 		"DECLINE_EPIC_CHALLENGE":
 			return _process_decline_epic_challenge(action)
+		"USE_COUNTER_OFFENSIVE":
+			return _process_use_counter_offensive(action)
+		"DECLINE_COUNTER_OFFENSIVE":
+			return _process_decline_counter_offensive(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		_:
@@ -1031,6 +1048,34 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# Legacy support - update old index
 	current_fight_index += 1
 
+	# Determine which player just fought and which is the opponent
+	var fought_unit = get_unit(unit_id)
+	var fought_unit_owner = int(fought_unit.get("owner", 0))
+	var opponent_player = 2 if fought_unit_owner == 1 else 1
+
+	# Check if Counter-Offensive is available for the opponent
+	var co_check = StratagemManager.is_counter_offensive_available(opponent_player)
+	var co_eligible = []
+	if co_check.available:
+		co_eligible = StratagemManager.get_counter_offensive_eligible_units(
+			opponent_player, units_that_fought, game_state_snapshot
+		)
+
+	if not co_eligible.is_empty():
+		# Counter-Offensive is available! Pause and offer it to the opponent
+		awaiting_counter_offensive = true
+		counter_offensive_player = opponent_player
+		log_phase_message("COUNTER-OFFENSIVE available for Player %d (%d eligible units)" % [opponent_player, co_eligible.size()])
+
+		emit_signal("counter_offensive_opportunity", opponent_player, co_eligible)
+
+		var result = create_result(true, changes)
+		result["trigger_counter_offensive"] = true
+		result["counter_offensive_player"] = opponent_player
+		result["counter_offensive_eligible_units"] = co_eligible
+		return result
+
+	# No Counter-Offensive available — proceed with normal fight selection
 	# Switch to next player
 	_switch_selecting_player()
 
@@ -1745,6 +1790,113 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	result["trigger_pile_in"] = true
 	result["pile_in_unit_id"] = unit_id
 	result["pile_in_distance"] = 3.0
+	return result
+
+func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", counter_offensive_player)
+
+	if not awaiting_counter_offensive:
+		errors.append("Not awaiting Counter-Offensive decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Counter-Offensive")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var check = StratagemManager.is_counter_offensive_available(player)
+	if not check.available:
+		errors.append(check.reason)
+		return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: %s" % unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	if unit_id in units_that_fought:
+		errors.append("Unit has already fought this phase")
+		return {"valid": false, "errors": errors}
+
+	if not _is_unit_in_combat(unit):
+		errors.append("Unit is not in engagement range")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", counter_offensive_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager
+	var strat_result = StratagemManager.use_stratagem(player, "counter_offensive", unit_id)
+	if not strat_result.success:
+		return create_result(false, [], "Failed to use Counter-Offensive: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses COUNTER-OFFENSIVE — %s fights next!" % [player, unit_name])
+
+	# Clear the awaiting state
+	awaiting_counter_offensive = false
+	counter_offensive_unit_id = unit_id
+
+	# Set the selecting player to the Counter-Offensive user so their unit fights next
+	current_selecting_player = player
+	active_fighter_id = unit_id
+
+	log_phase_message("Player %d selects %s to fight (via COUNTER-OFFENSIVE)" % [player, unit_name])
+
+	emit_signal("unit_selected_for_fighting", active_fighter_id)
+	emit_signal("fighter_selected", active_fighter_id)
+
+	# Check for Epic Challenge opportunity before pile-in (same as normal selection)
+	var epic_check = StratagemManager.is_epic_challenge_available(player, unit_id)
+	if epic_check.available:
+		log_phase_message("EPIC CHALLENGE available for %s (CHARACTER unit)" % unit_id)
+		emit_signal("epic_challenge_opportunity", unit_id, player)
+
+		var result = create_result(true, strat_result.get("diffs", []))
+		result["trigger_epic_challenge"] = true
+		result["epic_challenge_unit_id"] = unit_id
+		result["epic_challenge_player"] = player
+		return result
+
+	# No Epic Challenge — proceed directly to pile-in
+	log_phase_message("Emitting pile_in_required for %s" % unit_id)
+	emit_signal("pile_in_required", unit_id, 3.0)
+
+	var result = create_result(true, strat_result.get("diffs", []))
+	result["trigger_pile_in"] = true
+	result["pile_in_unit_id"] = unit_id
+	result["pile_in_distance"] = 3.0
+	return result
+
+func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
+	var player = action.get("player", counter_offensive_player)
+
+	log_phase_message("Player %d declined COUNTER-OFFENSIVE" % player)
+
+	# Clear the awaiting state
+	awaiting_counter_offensive = false
+	counter_offensive_player = 0
+
+	# Resume normal fight selection flow: switch to next player and show dialog
+	_switch_selecting_player()
+
+	var dialog_data = _build_fight_selection_dialog_data()
+
+	emit_signal("fight_selection_required", dialog_data)
+
+	var result = create_result(true, [])
+	result["trigger_fight_selection"] = true
+	result["fight_selection_data"] = dialog_data
 	return result
 
 func _validate_end_fight(action: Dictionary) -> Dictionary:
