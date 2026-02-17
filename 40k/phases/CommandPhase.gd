@@ -36,6 +36,14 @@ func _on_phase_enter() -> void:
 	print("CommandPhase: Entering command phase for player ", current_player)
 	print("CommandPhase: Battle round ", battle_round)
 
+	# Step 0: Initialize secondary mission decks on first command phase
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and battle_round == 1 and current_player == 1:
+		if not secondary_mgr.is_initialized(1):
+			secondary_mgr.setup_tactical_deck(1)
+			secondary_mgr.setup_tactical_deck(2)
+			print("CommandPhase: Secondary mission decks initialized for both players")
+
 	# Step 1: Generate Command Points
 	# Per 10th edition rules, both players gain 1 CP at the start of each Command Phase
 	_generate_command_points(current_player)
@@ -49,6 +57,15 @@ func _on_phase_enter() -> void:
 	# Step 4: Check objectives at start of command phase
 	if MissionManager:
 		MissionManager.check_all_objectives()
+
+	# Step 5: Draw secondary mission cards (tactical mode)
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		secondary_mgr.on_turn_start(current_player)
+		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
+		if drawn.size() > 0:
+			print("CommandPhase: Player %d drew %d secondary mission card(s)" % [current_player, drawn.size()])
+			for card in drawn:
+				print("  - %s" % card["name"])
 
 	if _units_needing_test.size() == 0:
 		print("CommandPhase: No units need battle-shock tests")
@@ -213,6 +230,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_COMMAND_REROLL":
 			if not _awaiting_reroll_decision:
 				errors.append("Not awaiting a Command Re-roll decision")
+		"RESOLVE_MARKED_FOR_DEATH":
+			errors = _validate_resolve_marked_for_death(action)
+		"RESOLVE_TEMPTING_TARGET":
+			errors = _validate_resolve_tempting_target(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true, "errors": []}
@@ -264,6 +285,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _handle_decline_command_reroll(action)
+		"RESOLVE_MARKED_FOR_DEATH":
+			return _handle_resolve_marked_for_death(action)
+		"RESOLVE_TEMPTING_TARGET":
+			return _handle_resolve_tempting_target(action)
 		_:
 			return {"success": false, "error": "Unknown action type"}
 
@@ -547,6 +572,151 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 		"message": "%s AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)" % unit_name
 	}
 
+# ============================================================================
+# SECONDARY MISSION INTERACTION RESOLUTION
+# ============================================================================
+
+func _validate_resolve_marked_for_death(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", 0)
+	var alpha_targets = action.get("alpha_targets", [])
+	var gamma_target = action.get("gamma_target", "")
+
+	if player == 0:
+		errors.append("Missing player for RESOLVE_MARKED_FOR_DEATH")
+		return errors
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	# Check that the mission is actually pending interaction
+	var player_key = str(player)
+	var found_pending = false
+	var state = secondary_mgr._player_state.get(player_key, {})
+	for mission in state.get("active", []):
+		if mission["id"] == "marked_for_death" and mission.get("pending_interaction", false):
+			found_pending = true
+			break
+	if not found_pending:
+		errors.append("No pending Marked for Death interaction for player %d" % player)
+		return errors
+
+	# Validate alpha targets are alive opponent units
+	var opponent = 2 if player == 1 else 1
+	var valid_unit_ids = secondary_mgr._get_opponent_units_on_battlefield(player)
+
+	for target_id in alpha_targets:
+		if target_id not in valid_unit_ids:
+			errors.append("Alpha target %s is not a valid opponent unit" % target_id)
+
+	# Validate gamma target (can be empty if no units remain)
+	if gamma_target != "" and gamma_target not in valid_unit_ids:
+		errors.append("Gamma target %s is not a valid opponent unit" % gamma_target)
+
+	if gamma_target != "" and gamma_target in alpha_targets:
+		errors.append("Gamma target cannot also be an alpha target")
+
+	return errors
+
+func _validate_resolve_tempting_target(action: Dictionary) -> Array:
+	var errors = []
+	var player = action.get("player", 0)
+	var objective_id = action.get("objective_id", "")
+
+	if player == 0:
+		errors.append("Missing player for RESOLVE_TEMPTING_TARGET")
+		return errors
+
+	if objective_id == "":
+		errors.append("Missing objective_id for RESOLVE_TEMPTING_TARGET")
+		return errors
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	# Check that the mission is actually pending interaction
+	var player_key = str(player)
+	var found_pending = false
+	var state = secondary_mgr._player_state.get(player_key, {})
+	for mission in state.get("active", []):
+		if mission["id"] == "a_tempting_target" and mission.get("pending_interaction", false):
+			found_pending = true
+			break
+	if not found_pending:
+		errors.append("No pending A Tempting Target interaction for player %d" % player)
+		return errors
+
+	# Validate objective is in No Man's Land
+	var all_objectives = GameState.state.get("board", {}).get("objectives", [])
+	var found_in_nml = false
+	for obj in all_objectives:
+		if obj.get("id", "") == objective_id and obj.get("zone", "") == "no_mans_land":
+			found_in_nml = true
+			break
+	if not found_in_nml:
+		errors.append("Objective %s is not in No Man's Land" % objective_id)
+
+	return errors
+
+func _handle_resolve_marked_for_death(action: Dictionary) -> Dictionary:
+	var player = action.get("player", 0)
+	var alpha_targets = action.get("alpha_targets", [])
+	var gamma_target = action.get("gamma_target", "")
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
+
+	print("CommandPhase: Resolved Marked for Death for player %d — Alpha: %s, Gamma: %s" % [
+		player, str(alpha_targets), gamma_target])
+
+	# Log to phase log
+	var log_entry = {
+		"type": "RESOLVE_MARKED_FOR_DEATH",
+		"player": player,
+		"alpha_targets": alpha_targets,
+		"gamma_target": gamma_target,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {
+		"success": true,
+		"message": "Marked for Death resolved — Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target]
+	}
+
+func _handle_resolve_tempting_target(action: Dictionary) -> Dictionary:
+	var player = action.get("player", 0)
+	var objective_id = action.get("objective_id", "")
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	secondary_mgr.resolve_tempting_target(player, objective_id)
+
+	print("CommandPhase: Resolved A Tempting Target for player %d — Objective: %s" % [player, objective_id])
+
+	# Log to phase log
+	var log_entry = {
+		"type": "RESOLVE_TEMPTING_TARGET",
+		"player": player,
+		"objective_id": objective_id,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {
+		"success": true,
+		"message": "A Tempting Target resolved — Objective: %s" % objective_id
+	}
+
 func _handle_end_command() -> Dictionary:
 	var current_player = get_current_player()
 
@@ -559,6 +729,17 @@ func _handle_end_command() -> Dictionary:
 
 	if auto_resolved.size() > 0:
 		print("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size())
+
+	# Warn about pending secondary mission interactions
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		for p in [1, 2]:
+			var player_key = str(p)
+			var state = secondary_mgr._player_state.get(player_key, {})
+			for mission in state.get("active", []):
+				if mission.get("pending_interaction", false):
+					print("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]])
+					_auto_resolve_pending_interaction(p, mission, secondary_mgr)
 
 	print("CommandPhase: Player %d ending command phase" % current_player)
 
@@ -574,6 +755,33 @@ func _handle_end_command() -> Dictionary:
 		"message": "Command phase ended, objectives scored",
 		"auto_resolved_tests": auto_resolved
 	}
+
+func _auto_resolve_pending_interaction(player: int, mission: Dictionary, secondary_mgr) -> void:
+	"""Auto-resolve a pending secondary mission interaction when ending the phase."""
+	var mission_id = mission.get("id", "")
+
+	match mission_id:
+		"marked_for_death":
+			# Auto-select first available units as targets
+			var opponent_units = secondary_mgr._get_opponent_units_on_battlefield(player)
+			var alpha_count = min(3, max(0, opponent_units.size() - 1))
+			var alpha_targets = opponent_units.slice(0, alpha_count)
+			var gamma_target = opponent_units[alpha_count] if opponent_units.size() > alpha_count else ""
+			secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
+			print("CommandPhase: Auto-resolved Marked for Death — Alpha: %s, Gamma: %s" % [str(alpha_targets), gamma_target])
+
+		"a_tempting_target":
+			# Auto-select first NML objective
+			var all_objectives = GameState.state.get("board", {}).get("objectives", [])
+			for obj in all_objectives:
+				if obj.get("zone", "") == "no_mans_land":
+					secondary_mgr.resolve_tempting_target(player, obj.get("id", ""))
+					print("CommandPhase: Auto-resolved A Tempting Target — Objective: %s" % obj.get("id", ""))
+					return
+			print("CommandPhase: WARNING — Could not auto-resolve A Tempting Target, no NML objectives found")
+
+		_:
+			print("CommandPhase: WARNING — Unknown pending interaction type for mission %s" % mission_id)
 
 func _should_complete_phase() -> bool:
 	# Don't auto-complete - phase completion will be triggered by END_COMMAND action

@@ -25,11 +25,17 @@ func _ready() -> void:
 	print("CommandController ready")
 
 func _exit_tree() -> void:
+	# Disconnect SecondaryMissionManager signal
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr and secondary_mgr.has_signal("when_drawn_requires_interaction"):
+		if secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
+			secondary_mgr.when_drawn_requires_interaction.disconnect(_on_when_drawn_requires_interaction)
+
 	# Clean up UI containers
 	var command_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/CommandControls")
 	if command_controls and is_instance_valid(command_controls):
 		command_controls.queue_free()
-	
+
 	# Clean up right panel elements
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
@@ -295,6 +301,13 @@ func set_phase(phase: BasePhase) -> void:
 			if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 				phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
 
+		# Connect SecondaryMissionManager interaction signal
+		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+		if secondary_mgr and secondary_mgr.has_signal("when_drawn_requires_interaction"):
+			if not secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
+				secondary_mgr.when_drawn_requires_interaction.connect(_on_when_drawn_requires_interaction)
+				print("CommandController: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
+
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
@@ -378,4 +391,92 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 	emit_signal("command_action_requested", {
 		"type": "DECLINE_COMMAND_REROLL",
 		"unit_id": unit_id,
+	})
+
+# ============================================================================
+# SECONDARY MISSION INTERACTION HANDLERS
+# ============================================================================
+
+func _on_when_drawn_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary) -> void:
+	"""Handle SecondaryMissionManager requesting opponent interaction for a drawn mission."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ CommandController: SECONDARY MISSION REQUIRES INTERACTION")
+	print("║ Player: %d, Mission: %s, Type: %s" % [player, mission_id, interaction_type])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var opponent = 2 if player == 1 else 1
+
+	match interaction_type:
+		"opponent_selects_units":
+			_show_marked_for_death_dialog(player, opponent, details)
+		"opponent_selects_objective":
+			_show_tempting_target_dialog(player, opponent, details)
+		_:
+			push_error("CommandController: Unknown interaction type: %s" % interaction_type)
+
+func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
+	"""Show Marked for Death dialog for the opponent to select targets."""
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		push_error("CommandController: SecondaryMissionManager not found")
+		return
+
+	# Get opponent's alive, deployed units
+	var opponent_unit_ids = secondary_mgr._get_opponent_units_on_battlefield(drawing_player)
+	var opponent_units = []
+	for unit_id in opponent_unit_ids:
+		var unit = GameState.get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		opponent_units.append({"unit_id": unit_id, "unit_name": unit_name})
+
+	if opponent_units.is_empty():
+		print("CommandController: No opponent units for Marked for Death — skipping dialog")
+		return
+
+	var dialog = MarkedForDeathDialog.new()
+	dialog.setup(opponent, opponent_units, details)
+	dialog.marked_for_death_resolved.connect(_on_marked_for_death_resolved.bind(drawing_player))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: Marked for Death dialog shown for player %d to select targets" % opponent)
+
+func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, drawing_player: int) -> void:
+	"""Handle Marked for Death target selection from dialog."""
+	print("CommandController: Marked for Death resolved — Alpha: %s, Gamma: %s (drawing player: %d)" % [
+		str(alpha_targets), gamma_target, drawing_player])
+	emit_signal("command_action_requested", {
+		"type": "RESOLVE_MARKED_FOR_DEATH",
+		"player": drawing_player,
+		"alpha_targets": alpha_targets,
+		"gamma_target": gamma_target,
+	})
+
+func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
+	"""Show A Tempting Target dialog for the opponent to select an objective."""
+	# Get objectives in No Man's Land
+	var all_objectives = GameState.state.get("board", {}).get("objectives", [])
+	var nml_objectives = []
+	for obj in all_objectives:
+		if obj.get("zone", "") == "no_mans_land":
+			nml_objectives.append(obj)
+
+	if nml_objectives.is_empty():
+		print("CommandController: No NML objectives for A Tempting Target — skipping dialog")
+		return
+
+	var dialog = TemptingTargetDialog.new()
+	dialog.setup(opponent, nml_objectives)
+	dialog.tempting_target_resolved.connect(_on_tempting_target_resolved.bind(drawing_player))
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("CommandController: A Tempting Target dialog shown for player %d to select objective" % opponent)
+
+func _on_tempting_target_resolved(objective_id: String, drawing_player: int) -> void:
+	"""Handle Tempting Target objective selection from dialog."""
+	print("CommandController: A Tempting Target resolved — Objective: %s (drawing player: %d)" % [
+		objective_id, drawing_player])
+	emit_signal("command_action_requested", {
+		"type": "RESOLVE_TEMPTING_TARGET",
+		"player": drawing_player,
+		"objective_id": objective_id,
 	})
