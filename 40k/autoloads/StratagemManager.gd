@@ -680,6 +680,204 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 			flags.erase("stratagem_stealth")
 			print("StratagemManager: Cleared SMOKESCREEN flags from %s" % unit_id)
 
+func get_grenade_eligible_units(player: int) -> Array:
+	"""
+	Get units that can use the GRENADE stratagem for the given player.
+	Requirements: GRENADES keyword, not advanced, not fell back, not shot, not in engagement.
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Check if grenade stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "grenade")
+	if not validation.can_use:
+		return eligible
+
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+
+		var flags = unit.get("flags", {})
+		var keywords = unit.get("meta", {}).get("keywords", [])
+
+		# Check GRENADES keyword
+		var has_grenades = false
+		for kw in keywords:
+			if kw.to_upper() == "GRENADES":
+				has_grenades = true
+				break
+		if not has_grenades:
+			continue
+
+		# Check exclusions
+		if flags.get("advanced", false):
+			continue
+		if flags.get("fell_back", false):
+			continue
+		if flags.get("has_shot", false):
+			continue
+		if flags.get("in_engagement", false):
+			continue
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must be deployed/moved
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			continue
+
+		# Check if unit has alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: String) -> Dictionary:
+	"""
+	Execute the GRENADE stratagem: roll 6D6, each 4+ deals 1 mortal wound to target.
+	Handles CP deduction, usage tracking, dice rolling, and mortal wound application.
+	Returns { success: bool, diffs: Array, dice_rolls: Array, mortal_wounds: int,
+	          casualties: int, message: String }
+	"""
+	# Validate
+	var validation = can_use_stratagem(player, "grenade", grenade_unit_id)
+	if not validation.can_use:
+		return {"success": false, "error": validation.reason, "diffs": [], "dice_rolls": [], "mortal_wounds": 0, "casualties": 0}
+
+	var strat = stratagems["grenade"]
+	var diffs = []
+
+	# Deduct CP
+	var current_cp = _get_player_cp(player)
+	var new_cp = current_cp - strat.cp_cost
+	diffs.append({
+		"op": "set",
+		"path": "players.%s.cp" % str(player),
+		"value": new_cp
+	})
+
+	# Record usage
+	var usage_record = {
+		"stratagem_id": "grenade",
+		"player": player,
+		"target_unit_id": grenade_unit_id,
+		"turn": GameState.get_battle_round(),
+		"phase": GameState.get_current_phase(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	_usage_history[str(player)].append(usage_record)
+
+	# Apply CP diff
+	PhaseManager.apply_state_changes(diffs)
+
+	print("StratagemManager: Player %d used GRENADE with %s targeting %s (cost %d CP, %d -> %d)" % [
+		player, grenade_unit_id, target_unit_id, strat.cp_cost, current_cp, new_cp
+	])
+
+	# Log to phase log
+	GameState.add_action_to_phase_log({
+		"type": "STRATAGEM_USED",
+		"stratagem_id": "grenade",
+		"stratagem_name": strat.name,
+		"player": player,
+		"target_unit_id": grenade_unit_id,
+		"enemy_target_unit_id": target_unit_id,
+		"cp_cost": strat.cp_cost,
+		"turn": GameState.get_battle_round()
+	})
+
+	# Roll 6D6
+	var rng = RulesEngine.RNGService.new()
+	var rolls = rng.roll_d6(6)
+
+	# Count successes (4+)
+	var mortal_wounds = 0
+	for roll in rolls:
+		if roll >= 4:
+			mortal_wounds += 1
+
+	print("StratagemManager: GRENADE rolled %s — %d mortal wound(s)" % [str(rolls), mortal_wounds])
+
+	# Apply mortal wounds to the enemy target
+	var mw_diffs = []
+	var casualties = 0
+	if mortal_wounds > 0:
+		var board = GameState.create_snapshot()
+		var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+		mw_diffs = mw_result.get("diffs", [])
+		casualties = mw_result.get("casualties", 0)
+
+		if not mw_diffs.is_empty():
+			PhaseManager.apply_state_changes(mw_diffs)
+			diffs.append_array(mw_diffs)
+
+		print("StratagemManager: GRENADE applied %d mortal wounds to %s (%d casualties)" % [mortal_wounds, target_unit_id, casualties])
+
+	# Mark the grenade unit as having shot (it uses its shooting for this phase)
+	var shot_diff = {
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % grenade_unit_id,
+		"value": true
+	}
+	PhaseManager.apply_state_changes([shot_diff])
+	diffs.append(shot_diff)
+
+	# Track active effect (no persistent flags needed for grenade - it's instant)
+	add_active_effect({
+		"stratagem_id": "grenade",
+		"player": player,
+		"target_unit_id": grenade_unit_id,
+		"effects": strat.effects,
+		"expires": "end_of_phase",
+		"applied_turn": GameState.get_battle_round(),
+		"applied_phase": GameState.get_current_phase()
+	})
+
+	# Emit signal
+	emit_signal("stratagem_used", player, "grenade", grenade_unit_id)
+
+	# Log mortal wound results to phase log
+	var target_unit = GameState.get_unit(target_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var grenade_unit = GameState.get_unit(grenade_unit_id)
+	var grenade_name = grenade_unit.get("meta", {}).get("name", grenade_unit_id)
+
+	GameState.add_action_to_phase_log({
+		"type": "GRENADE_RESULT",
+		"player": player,
+		"grenade_unit_id": grenade_unit_id,
+		"grenade_unit_name": grenade_name,
+		"target_unit_id": target_unit_id,
+		"target_unit_name": target_name,
+		"rolls": rolls,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties
+	})
+
+	return {
+		"success": true,
+		"diffs": diffs,
+		"dice_rolls": rolls,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties,
+		"message": "%s threw GRENADE at %s: rolled %s — %d mortal wound(s), %d casualt%s" % [
+			grenade_name, target_name, str(rolls), mortal_wounds, casualties,
+			"y" if casualties == 1 else "ies"
+		]
+	}
+
 func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
 	"""
 	Get reactive stratagems available to the defending player during opponent's shooting.

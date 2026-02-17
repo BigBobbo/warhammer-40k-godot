@@ -42,6 +42,7 @@ var clear_button: Button
 var dice_log_display: RichTextLabel
 var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
+var grenade_button: Button  # GRENADE stratagem button
 
 # Modifier UI elements (Phase 1 MVP)
 var modifier_panel: VBoxContainer
@@ -277,6 +278,18 @@ func _setup_right_panel() -> void:
 
 	shooting_panel.add_child(HSeparator.new())
 
+	# GRENADE stratagem button
+	grenade_button = Button.new()
+	grenade_button.name = "GrenadeButton"
+	grenade_button.text = "Use GRENADE (1 CP)"
+	grenade_button.custom_minimum_size = Vector2(230, 35)
+	grenade_button.pressed.connect(_on_grenade_button_pressed)
+	grenade_button.tooltip_text = "GRENADES unit: Roll 6D6, each 4+ = 1 mortal wound to enemy within 8\""
+	shooting_panel.add_child(grenade_button)
+	_update_grenade_button_visibility()
+
+	shooting_panel.add_child(HSeparator.new())
+
 	# Target basket
 	var basket_label = Label.new()
 	basket_label.text = "Current Targets:"
@@ -376,6 +389,11 @@ func set_phase(phase: BasePhase) -> void:
 			phase.reactive_stratagem_opportunity.disconnect(_on_reactive_stratagem_opportunity)
 			print("║ Disconnected existing reactive_stratagem_opportunity connection")
 		phase.reactive_stratagem_opportunity.connect(_on_reactive_stratagem_opportunity)
+
+		if phase.grenade_result.is_connected(_on_grenade_result):
+			phase.grenade_result.disconnect(_on_grenade_result)
+			print("║ Disconnected existing grenade_result connection")
+		phase.grenade_result.connect(_on_grenade_result)
 
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
@@ -1134,6 +1152,8 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	# Clear LoS visualization after shooting
 	if los_debug_visual:
 		los_debug_visual.clear_los_lines()
+	# Update grenade button (unit may have shot, reducing eligible units)
+	_update_grenade_button_visibility()
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
@@ -2414,3 +2434,129 @@ func _on_apply_to_all_pressed() -> void:
 
 	# Update UI state
 	_update_ui_state()
+
+# ============================================================================
+# GRENADE STRATAGEM SUPPORT
+# ============================================================================
+
+func _update_grenade_button_visibility() -> void:
+	"""Show/hide the grenade button based on whether any GRENADES units are eligible."""
+	if not grenade_button:
+		return
+
+	if not current_phase:
+		grenade_button.visible = false
+		return
+
+	# Only show for the active player
+	var current_player = current_phase.get_current_player()
+
+	# Check if local player is the active player (multiplayer support)
+	if NetworkManager.is_networked():
+		var local_player = NetworkManager.get_local_player()
+		if local_player != current_player:
+			grenade_button.visible = false
+			return
+
+	# Check if any units can use GRENADE
+	var eligible = StratagemManager.get_grenade_eligible_units(current_player)
+	var player_cp = StratagemManager.get_player_cp(current_player)
+
+	if eligible.is_empty() or player_cp < 1:
+		grenade_button.visible = false
+	else:
+		grenade_button.visible = true
+		grenade_button.text = "Use GRENADE (1 CP) — %d unit%s" % [eligible.size(), "s" if eligible.size() != 1 else ""]
+
+func _on_grenade_button_pressed() -> void:
+	"""Handle grenade button press - show GrenadeTargetDialog."""
+	if not current_phase:
+		return
+
+	var current_player = current_phase.get_current_player()
+	var eligible = StratagemManager.get_grenade_eligible_units(current_player)
+
+	if eligible.is_empty():
+		if dice_log_display:
+			dice_log_display.append_text("[color=red]No eligible GRENADES units available[/color]\n")
+		return
+
+	print("ShootingController: Opening GrenadeTargetDialog with %d eligible units" % eligible.size())
+
+	var dialog = GrenadeTargetDialog.new()
+	dialog.grenade_confirmed.connect(_on_grenade_confirmed)
+	dialog.grenade_cancelled.connect(_on_grenade_cancelled)
+
+	get_tree().root.add_child(dialog)
+	dialog.setup(current_player, eligible)
+	dialog.popup_centered()
+
+func _on_grenade_confirmed(grenade_unit_id: String, target_unit_id: String) -> void:
+	"""Handle grenade target selection confirmed - send action."""
+	print("ShootingController: Grenade confirmed: %s -> %s" % [grenade_unit_id, target_unit_id])
+
+	if dice_log_display:
+		var grenade_unit = GameState.get_unit(grenade_unit_id)
+		var target_unit = GameState.get_unit(target_unit_id)
+		dice_log_display.append_text("[color=orange]GRENADE: %s throws at %s...[/color]\n" % [
+			grenade_unit.get("meta", {}).get("name", grenade_unit_id),
+			target_unit.get("meta", {}).get("name", target_unit_id)
+		])
+
+	emit_signal("shoot_action_requested", {
+		"type": "USE_GRENADE_STRATAGEM",
+		"grenade_unit_id": grenade_unit_id,
+		"target_unit_id": target_unit_id
+	})
+
+func _on_grenade_cancelled() -> void:
+	"""Handle grenade dialog cancelled."""
+	print("ShootingController: Grenade cancelled")
+
+func _on_grenade_result(result: Dictionary) -> void:
+	"""Handle grenade result - show result dialog and update UI."""
+	print("ShootingController: Grenade result received: %s" % str(result))
+
+	var dice_rolls = result.get("dice_rolls", [])
+	var mortal_wounds = result.get("mortal_wounds", 0)
+	var casualties = result.get("casualties", 0)
+
+	# Log to dice display
+	if dice_log_display:
+		var rolls_str = ""
+		for roll in dice_rolls:
+			if roll >= 4:
+				rolls_str += "[color=green][%d][/color] " % roll
+			else:
+				rolls_str += "[color=red][%d][/color] " % roll
+
+		dice_log_display.append_text("[color=orange]GRENADE:[/color] Rolled 6D6: %s\n" % rolls_str)
+		if mortal_wounds > 0:
+			dice_log_display.append_text("[color=green]  → %d mortal wound%s dealt" % [mortal_wounds, "s" if mortal_wounds != 1 else ""])
+			if casualties > 0:
+				dice_log_display.append_text(", %d model%s destroyed" % [casualties, "s" if casualties != 1 else ""])
+			dice_log_display.append_text("[/color]\n")
+		else:
+			dice_log_display.append_text("[color=gray]  → No mortal wounds dealt[/color]\n")
+
+	# Show result dialog
+	var grenade_result_data = {
+		"dice_rolls": dice_rolls,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties,
+		"grenade_unit_id": result.get("grenade_unit_id", ""),
+		"target_unit_id": result.get("target_unit_id", ""),
+		"message": result.get("message", "")
+	}
+
+	var result_dialog = GrenadeResultDialog.new()
+	result_dialog.result_acknowledged.connect(_on_grenade_result_acknowledged)
+	get_tree().root.add_child(result_dialog)
+	result_dialog.setup(grenade_result_data)
+	result_dialog.popup_centered()
+
+func _on_grenade_result_acknowledged() -> void:
+	"""Handle grenade result dialog dismissed - refresh UI."""
+	print("ShootingController: Grenade result acknowledged, refreshing UI")
+	_refresh_unit_list()
+	_update_grenade_button_visibility()

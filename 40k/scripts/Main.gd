@@ -1471,6 +1471,9 @@ func setup_phase_controllers() -> void:
 			if phase_instance.reactive_stratagem_opportunity.is_connected(shooting_controller._on_reactive_stratagem_opportunity):
 				phase_instance.reactive_stratagem_opportunity.disconnect(shooting_controller._on_reactive_stratagem_opportunity)
 				print("Main: Disconnected reactive_stratagem_opportunity")
+			if phase_instance.grenade_result.is_connected(shooting_controller._on_grenade_result):
+				phase_instance.grenade_result.disconnect(shooting_controller._on_grenade_result)
+				print("Main: Disconnected grenade_result")
 
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):

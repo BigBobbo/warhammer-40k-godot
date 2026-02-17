@@ -4509,6 +4509,112 @@ static func roll_feel_no_pain(wounds_to_lose: int, fnp_value: int, rng: RNGServi
 		"wounds_remaining": wounds_remaining
 	}
 
+# ==========================================
+# MORTAL WOUNDS (Stratagem Support)
+# ==========================================
+
+static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Apply mortal wounds to a target unit. Mortal wounds bypass saves entirely.
+	Each mortal wound deals 1 damage. Feel No Pain can still prevent mortal wound damage.
+	Returns { diffs: Array, casualties: int, wounds_applied: int, fnp_rolls: Array }
+	"""
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+	if target_unit.is_empty():
+		return {"diffs": [], "casualties": 0, "wounds_applied": 0, "fnp_rolls": []}
+
+	var models = target_unit.get("models", [])
+
+	# Check for Feel No Pain
+	var fnp_value = get_unit_fnp(target_unit)
+	var actual_wounds = mortal_wounds
+	var fnp_result = {}
+
+	if fnp_value > 0 and rng != null:
+		fnp_result = roll_feel_no_pain(mortal_wounds, fnp_value, rng)
+		actual_wounds = fnp_result.get("wounds_remaining", mortal_wounds)
+		print("RulesEngine: Mortal wounds FNP check — %d MW, FNP %d+, %d wounds remaining after FNP" % [mortal_wounds, fnp_value, actual_wounds])
+
+	if actual_wounds <= 0:
+		return {
+			"diffs": [],
+			"casualties": 0,
+			"wounds_applied": 0,
+			"fnp_rolls": fnp_result.get("rolls", [])
+		}
+
+	# Apply damage using the standard pool method (wounded models first)
+	var damage_result = _apply_damage_to_unit_pool(target_unit_id, actual_wounds, models, board)
+
+	return {
+		"diffs": damage_result.get("diffs", []),
+		"casualties": damage_result.get("casualties", 0),
+		"wounds_applied": actual_wounds,
+		"fnp_rolls": fnp_result.get("rolls", [])
+	}
+
+static func get_grenade_eligible_targets(actor_unit_id: String, board: Dictionary) -> Array:
+	"""Get enemy units within 8\" and visible to the grenade-throwing unit.
+	Returns array of { unit_id: String, unit_name: String, model_count: int }
+	"""
+	var eligible = []
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+
+	if actor_unit.is_empty():
+		return eligible
+
+	var actor_owner = actor_unit.get("owner", 0)
+	var grenade_range_px = Measurement.inches_to_px(8)
+
+	for target_unit_id in units:
+		var target_unit = units[target_unit_id]
+
+		# Skip friendly units
+		if target_unit.get("owner", 0) == actor_owner:
+			continue
+
+		# Skip destroyed units
+		var alive_count = 0
+		for model in target_unit.get("models", []):
+			if model.get("alive", true):
+				alive_count += 1
+		if alive_count == 0:
+			continue
+
+		# Check if any actor model is within 8" and has LoS to any target model
+		var in_range_and_visible = false
+		for actor_model in actor_unit.get("models", []):
+			if not actor_model.get("alive", true):
+				continue
+			var actor_pos = _get_model_position(actor_model)
+			if actor_pos == Vector2.ZERO:
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var target_pos = _get_model_position(target_model)
+				if target_pos == Vector2.ZERO:
+					continue
+
+				var distance = actor_pos.distance_to(target_pos)
+				if distance <= grenade_range_px:
+					in_range_and_visible = true
+					break
+
+			if in_range_and_visible:
+				break
+
+		if in_range_and_visible:
+			eligible.append({
+				"unit_id": target_unit_id,
+				"unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+				"model_count": alive_count
+			})
+
+	return eligible
+
 # DEVASTATING WOUNDS (PRP-012): Find next alive model starting from given index
 static func _find_next_alive_model_index(models: Array, start_index: int) -> int:
 	"""Find next alive model starting from given index"""
