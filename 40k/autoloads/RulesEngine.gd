@@ -377,6 +377,57 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> D
 
 	return result
 
+# Wound modifier flags (can be combined with bitwise OR)
+# Per 10e rules: wound roll modifiers are capped at net +1/-1
+enum WoundModifier {
+	NONE = 0,
+	REROLL_ONES = 1,    # Re-roll 1s to wound
+	REROLL_FAILED = 2,  # Re-roll all failed wound rolls (Twin-linked)
+	PLUS_ONE = 4,       # +1 to wound (e.g., Lance on charge)
+	MINUS_ONE = 8,      # -1 to wound
+}
+
+# Apply wound modifiers to a single roll
+# Returns the modified roll value and any re-roll that occurred
+# Per 10e rules: Unmodified 1 always fails, modifiers capped at +1/-1
+static func apply_wound_modifiers(roll: int, modifiers: int, wound_threshold: int, rng: RNGService) -> Dictionary:
+	var result = {
+		"original_roll": roll,
+		"modified_roll": roll,
+		"rerolled": false,
+		"reroll_value": 0,
+		"modifier_applied": 0
+	}
+
+	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
+	# Re-roll ones takes priority check first
+	if (modifiers & WoundModifier.REROLL_ONES) and roll == 1:
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+	elif (modifiers & WoundModifier.REROLL_FAILED) and roll < wound_threshold:
+		# Twin-linked: Re-roll all failed wound rolls
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+
+	# Step 2: Then apply numeric modifiers (capped at net +1/-1)
+	var net_modifier = 0
+	if modifiers & WoundModifier.PLUS_ONE:
+		net_modifier += 1
+	if modifiers & WoundModifier.MINUS_ONE:
+		net_modifier -= 1
+
+	# Cap modifiers at +1/-1 maximum per 10e rules
+	net_modifier = clamp(net_modifier, -1, 1)
+
+	result.modifier_applied = net_modifier
+	result.modified_roll += net_modifier
+
+	return result
+
 # Main shooting resolution entry point
 static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
@@ -716,19 +767,51 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags from assignment and game state
+	var wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if weapon_has_twin_linked:
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE — +1 to wound (unit charged this turn)")
+
+	var wound_modifier_net = 0
+	if wound_modifiers & WoundModifier.PLUS_ONE:
+		wound_modifier_net += 1
+	if wound_modifiers & WoundModifier.MINUS_ONE:
+		wound_modifier_net -= 1
+	wound_modifier_net = clamp(wound_modifier_net, -1, 1)
+
+	if wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net = %+d (capped at +1/-1)" % wound_modifier_net)
+
 	# LETHAL HITS + SUSTAINED HITS + DEVASTATING WOUNDS + ANTI-KEYWORD + TWIN-LINKED interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - Critical wounds (unmodified X+ to wound per Anti threshold, or 6s normally) with Devastating Wounds bypass saves
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
-	# - Twin-linked: Re-roll all failed wound rolls
+	# - Twin-linked: Re-roll all failed wound rolls (via WoundModifier system)
+	# - Wound modifiers: +1/-1 cap applied to each roll; unmodified 1 always fails
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0   # Non-critical wounds
-	var wound_reroll_data = []  # Track twin-linked re-rolls
+	var wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -743,26 +826,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var is_critical_wound = (roll >= critical_wound_threshold)
-				if is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if wmod_result.rerolled:
+					wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
+					unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
+				var final_wound_roll = wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
+				if is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					# Track critical wounds for Devastating Wounds interaction
 					if weapon_has_devastating_wounds and is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical wounds for DW)
 		regular_wound_count += auto_wounds
@@ -770,26 +854,27 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-			var is_critical_wound = (roll >= critical_wound_threshold)
-			if is_critical_wound or roll >= wound_threshold:
+			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+			var wmod_result = apply_wound_modifiers(roll, wound_modifiers, wound_threshold, rng)
+			var unmodified_roll = roll
+			if wmod_result.rerolled:
+				wound_reroll_data.append({"original": wmod_result.original_roll, "rerolled_to": wmod_result.reroll_value})
+				unmodified_roll = wmod_result.reroll_value  # Use rerolled value for crit check
+			var final_wound_roll = wmod_result.modified_roll
+
+			# 10e rules: Unmodified 1 always fails to wound
+			if unmodified_roll == 1:
+				continue
+
+			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+			var is_critical_wound = (unmodified_roll >= critical_wound_threshold)
+			if is_critical_wound or final_wound_roll >= wound_threshold:
 				wounds_from_rolls += 1
 				# Track critical wounds for Devastating Wounds interaction
 				if weapon_has_devastating_wounds and is_critical_wound:
 					critical_wound_count += 1
 				else:
 					regular_wound_count += 1
-			elif weapon_has_twin_linked:
-				# Twin-linked: Re-roll failed wound roll
-				var reroll = rng.roll_d6(1)[0]
-				wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-				var reroll_is_critical = (reroll >= critical_wound_threshold)
-				if reroll_is_critical or reroll >= wound_threshold:
-					wounds_from_rolls += 1
-					if weapon_has_devastating_wounds and reroll_is_critical:
-						critical_wound_count += 1
-					else:
-						regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -819,7 +904,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		"critical_wound_threshold": critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": weapon_has_twin_linked,
-		"wound_rerolls": wound_reroll_data
+		"wound_rerolls": wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": wound_modifier_net,
+		"wound_modifiers_applied": wound_modifiers
 	})
 
 	if wounds_caused == 0:
@@ -1117,16 +1205,48 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
-	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD + TWIN-LINKED interaction:
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags for auto-resolve path
+	var ar_wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			ar_wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if ar_weapon_has_twin_linked:
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE (auto-resolve) — +1 to wound (unit charged this turn)")
+
+	var ar_wound_modifier_net = 0
+	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
+		ar_wound_modifier_net += 1
+	if ar_wound_modifiers & WoundModifier.MINUS_ONE:
+		ar_wound_modifier_net -= 1
+	ar_wound_modifier_net = clamp(ar_wound_modifier_net, -1, 1)
+
+	if ar_wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net (auto-resolve) = %+d (capped at +1/-1)" % ar_wound_modifier_net)
+
+	# LETHAL HITS + SUSTAINED HITS + ANTI-KEYWORD + TWIN-LINKED + WOUND MODIFIERS interaction:
 	# - Critical hits with Lethal Hits auto-wound (no roll needed) - NOT for Torrent (no crits)
 	# - Bonus hits from Sustained Hits always roll to wound (even if weapon has Lethal Hits) - NOT for Torrent (no crits)
 	# - Regular (non-critical) hits always roll to wound
 	# - ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching keyword targets; critical wounds always succeed
-	# - Twin-linked: Re-roll all failed wound rolls
+	# - Twin-linked: Re-roll all failed wound rolls (via WoundModifier system)
+	# - Wound modifiers: +1/-1 cap applied to each roll; unmodified 1 always fails
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
-	var ar_wound_reroll_data = []  # Track twin-linked re-rolls
+	var ar_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -1138,32 +1258,42 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
-				if ar_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if ar_wmod_result.rerolled:
+					ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
+					unmodified_roll = ar_wmod_result.reroll_value
+				var final_wound_roll = ar_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
+				if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
-				elif ar_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
 	else:
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
 		for roll in wound_rolls:
-			# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-			var ar_is_critical_wound = (roll >= ar_critical_wound_threshold)
-			if ar_is_critical_wound or roll >= wound_threshold:
+			# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+			var ar_wmod_result = apply_wound_modifiers(roll, ar_wound_modifiers, wound_threshold, rng)
+			var unmodified_roll = roll
+			if ar_wmod_result.rerolled:
+				ar_wound_reroll_data.append({"original": ar_wmod_result.original_roll, "rerolled_to": ar_wmod_result.reroll_value})
+				unmodified_roll = ar_wmod_result.reroll_value
+			var final_wound_roll = ar_wmod_result.modified_roll
+
+			# 10e rules: Unmodified 1 always fails to wound
+			if unmodified_roll == 1:
+				continue
+
+			# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+			var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
+			if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 				wounds_from_rolls += 1
-			elif ar_weapon_has_twin_linked:
-				# Twin-linked: Re-roll failed wound roll
-				var reroll = rng.roll_d6(1)[0]
-				ar_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-				var reroll_is_critical = (reroll >= ar_critical_wound_threshold)
-				if reroll_is_critical or reroll >= wound_threshold:
-					wounds_from_rolls += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -1189,7 +1319,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"critical_wound_threshold": ar_critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": ar_weapon_has_twin_linked,
-		"wound_rerolls": ar_wound_reroll_data
+		"wound_rerolls": ar_wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": ar_wound_modifier_net,
+		"wound_modifiers_applied": ar_wound_modifiers
 	})
 
 	if wounds_caused == 0:
@@ -2191,6 +2324,24 @@ static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> D
 			result[model_id] = heavy_weapons
 
 	return result
+
+# ==========================================
+# LANCE WEAPON KEYWORD (T1-3)
+# ==========================================
+# Lance: +1 to wound rolls if the bearer's unit made a charge move this turn
+# This modifier is subject to the +1/-1 wound modifier cap
+
+# Check if a weapon has the Lance keyword
+static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "LANCE":
+			return true
+	return false
 
 # ==========================================
 # BIG GUNS NEVER TIRE (PRP-005)
@@ -3749,12 +3900,43 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# TWIN-LINKED: Check if weapon has Twin-linked (re-roll all failed wound rolls)
 	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board) or assignment.get("twin_linked", false)
 
+	# WOUND MODIFIERS (T1-3): Build wound modifier flags for melee path
+	var melee_wound_modifiers = WoundModifier.NONE
+	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
+		var wound_mods = assignment.modifiers.wound
+		if wound_mods.get("reroll_ones", false):
+			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("plus_one", false):
+			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		if wound_mods.get("minus_one", false):
+			melee_wound_modifiers |= WoundModifier.MINUS_ONE
+	# Twin-linked handled via WoundModifier system for re-rolls
+	if melee_weapon_has_twin_linked:
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
+	if is_lance_weapon(weapon_id, board):
+		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
+
+	var melee_wound_modifier_net = 0
+	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
+		melee_wound_modifier_net += 1
+	if melee_wound_modifiers & WoundModifier.MINUS_ONE:
+		melee_wound_modifier_net -= 1
+	melee_wound_modifier_net = clamp(melee_wound_modifier_net, -1, 1)
+
+	if melee_wound_modifier_net != 0:
+		print("RulesEngine: Wound modifier net (melee) = %+d (capped at +1/-1)" % melee_wound_modifier_net)
+
 	var auto_wounds = 0  # From Lethal Hits
 	var wounds_from_rolls = 0
 	var wound_rolls = []
 	var critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var regular_wound_count = 0
-	var melee_wound_reroll_data = []  # Track twin-linked re-rolls
+	var melee_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	if weapon_has_lethal_hits and not is_torrent:
 		# Lethal Hits: Critical hits (unmodified 6s to hit) automatically wound - no wound roll
@@ -3767,25 +3949,26 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if hits_to_roll > 0:
 			wound_rolls = rng.roll_d6(hits_to_roll)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if melee_wmod_result.rerolled:
+					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
+					unmodified_roll = melee_wmod_result.reroll_value
+				var final_wound_roll = melee_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif melee_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 		# Lethal Hits auto-wounds go to regular wounds (not critical for DW)
 		regular_wound_count += auto_wounds
@@ -3794,25 +3977,26 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if total_hits_for_wounds > 0:
 			wound_rolls = rng.roll_d6(total_hits_for_wounds)
 			for roll in wound_rolls:
-				# ANTI-[KEYWORD] X+: Critical wounds on X+ vs matching targets; always succeed
-				var melee_is_critical_wound = (roll >= melee_critical_wound_threshold)
-				if melee_is_critical_wound or roll >= wound_threshold:
+				# Apply wound modifiers (re-rolls first, then +1/-1 cap)
+				var melee_wmod_result = apply_wound_modifiers(roll, melee_wound_modifiers, wound_threshold, rng)
+				var unmodified_roll = roll
+				if melee_wmod_result.rerolled:
+					melee_wound_reroll_data.append({"original": melee_wmod_result.original_roll, "rerolled_to": melee_wmod_result.reroll_value})
+					unmodified_roll = melee_wmod_result.reroll_value
+				var final_wound_roll = melee_wmod_result.modified_roll
+
+				# 10e rules: Unmodified 1 always fails to wound
+				if unmodified_roll == 1:
+					continue
+
+				# ANTI-[KEYWORD] X+: Critical wounds checked on UNMODIFIED roll
+				var melee_is_critical_wound = (unmodified_roll >= melee_critical_wound_threshold)
+				if melee_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
 					if weapon_has_devastating_wounds and melee_is_critical_wound:
 						critical_wound_count += 1
 					else:
 						regular_wound_count += 1
-				elif melee_weapon_has_twin_linked:
-					# Twin-linked: Re-roll failed wound roll
-					var reroll = rng.roll_d6(1)[0]
-					melee_wound_reroll_data.append({"original": roll, "rerolled_to": reroll})
-					var reroll_is_critical = (reroll >= melee_critical_wound_threshold)
-					if reroll_is_critical or reroll >= wound_threshold:
-						wounds_from_rolls += 1
-						if weapon_has_devastating_wounds and reroll_is_critical:
-							critical_wound_count += 1
-						else:
-							regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -3844,7 +4028,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"critical_wound_threshold": melee_critical_wound_threshold,
 		# TWIN-LINKED tracking
 		"twin_linked_weapon": melee_weapon_has_twin_linked,
-		"wound_rerolls": melee_wound_reroll_data
+		"wound_rerolls": melee_wound_reroll_data,
+		# WOUND MODIFIER tracking (T1-3)
+		"wound_modifier_net": melee_wound_modifier_net,
+		"wound_modifiers_applied": melee_wound_modifiers
 	})
 
 	if wounds_caused == 0:
