@@ -1004,6 +1004,98 @@ func execute_command_reroll(player: int, unit_id: String, roll_context: Dictiona
 		"message": "COMMAND RE-ROLL used on %s (%s)" % [unit_name, roll_type]
 	}
 
+func is_counter_offensive_available(player: int) -> Dictionary:
+	"""
+	Check if Counter-Offensive stratagem is available for a player.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "counter_offensive")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func get_counter_offensive_eligible_units(player: int, units_that_fought: Array, game_state_snapshot: Dictionary) -> Array:
+	"""
+	Get units eligible for Counter-Offensive for a given player.
+	Requirements: owned by player, in engagement range, not fought this phase, not battle-shocked.
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Check if the stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "counter_offensive")
+	if not validation.can_use:
+		return eligible
+
+	var all_units = game_state_snapshot.get("units", {})
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+
+		# Must not have already fought this phase
+		if unit_id in units_that_fought:
+			continue
+
+		# Must not be battle-shocked
+		var flags = unit.get("flags", {})
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Must be in engagement range of at least one enemy
+		var in_engagement = false
+		var unit_owner = int(unit.get("owner", 0))
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if int(other_unit.get("owner", 0)) == unit_owner:
+				continue
+			if _units_in_engagement_range(unit, other_unit):
+				in_engagement = true
+				break
+
+		if not in_engagement:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
+	"""Check if any model from unit1 is within 1\" of any model from unit2."""
+	var models1 = unit1.get("models", [])
+	var models2 = unit2.get("models", [])
+
+	for model1 in models1:
+		if not model1.get("alive", true):
+			continue
+		var pos1_data = model1.get("position", {})
+		if pos1_data == null:
+			continue
+
+		for model2 in models2:
+			if not model2.get("alive", true):
+				continue
+			var pos2_data = model2.get("position", {})
+			if pos2_data == null:
+				continue
+
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+				return true
+
+	return false
+
 func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
 	"""
 	Get reactive stratagems available to the defending player during opponent's shooting.
