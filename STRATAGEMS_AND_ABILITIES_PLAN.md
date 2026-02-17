@@ -503,7 +503,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 1 | StratagemManager + Insane Bravery | Pipeline end-to-end (data, CP, usage tracking, phase integration, UI) | **COMPLETED** |
 | 2 | Go to Ground + Smokescreen | Reactive/opponent-turn flow with defensive modifiers | **COMPLETED** |
 | 3 | Grenade | Mortal wounds path (bypasses normal attack sequence) | **COMPLETED** |
-| 4 | Epic Challenge | Weapon keyword granting (PRECISION) | Pending |
+| 4 | Epic Challenge | Weapon keyword granting (PRECISION) | **COMPLETED** |
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | Pending |
 | 6 | Counter-Offensive | Fight order manipulation | Pending |
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | Pending |
@@ -570,3 +570,29 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 3. `RulesEngine.apply_mortal_wounds()` provides a reusable mortal wound pipeline
 4. Two-step dialog selection (source unit → target unit) works for active stratagems
 5. Grenade range checking (8") works via model position distance calculation
+
+### Task 4: Epic Challenge (COMPLETED)
+
+**Implementation approach**: Active-player stratagem during own Fight phase. When a CHARACTER unit is selected to fight, player is offered Epic Challenge. The stratagem sets a flag on the unit that RulesEngine checks during melee resolution to activate the PRECISION ability (critical hits allocate wounds to CHARACTER models in the target).
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` -- Added `is_epic_challenge_available()` method for CHARACTER keyword validation. Added `"epic_challenge"` case in `_apply_stratagem_effects()` to set `stratagem_precision_melee` flag. Added `"epic_challenge"` case in `_clear_stratagem_flags()` for cleanup on phase end.
+- `40k/autoloads/RulesEngine.gd` -- Added `has_precision()` static method to detect PRECISION from weapon special_rules. Added `has_stratagem_precision_melee()` to detect stratagem flag on attacker unit. Added `_find_character_model_indices()` to find CHARACTER models in target units. Added `_apply_damage_to_character_models()` for PRECISION-targeted damage allocation. Modified `_resolve_melee_assignment()` Phase 3 to detect PRECISION (from weapon or stratagem), and Phase 7 to split damage between precision-targeted (CHARACTER models) and regular allocation using proportional damage splitting.
+- `40k/phases/FightPhase.gd` -- Added `epic_challenge_opportunity` signal. Modified `_process_select_fighter()` to check Epic Challenge availability before pile-in. Added `USE_EPIC_CHALLENGE` and `DECLINE_EPIC_CHALLENGE` action types with validation and processing. USE applies the stratagem flag to both GameState and the local game_state_snapshot, then proceeds to pile-in. DECLINE proceeds directly to pile-in.
+- `40k/scripts/FightController.gd` -- Connected `epic_challenge_opportunity` signal. Added `_on_epic_challenge_opportunity()`, `_on_epic_challenge_used()`, `_on_epic_challenge_declined()` handlers. Shows EpicChallengeDialog to the player, routes USE/DECLINE actions back through `fight_action_requested`.
+
+**Files created:**
+- `40k/dialogs/EpicChallengeDialog.gd` -- AcceptDialog-based UI showing Epic Challenge details (cost, target, effect description, PRECISION explanation) with Use and Decline buttons.
+- `40k/tests/unit/test_epic_challenge.gd` -- Comprehensive test suite covering: stratagem definition, validation (CHARACTER required, CP, once-per-phase, battle-shocked), effect application (flag set, CP deduction, active effect tracking), effect expiry (flag cleared on phase end), RulesEngine PRECISION detection (weapon special_rules, stratagem flag), CHARACTER model detection (unit-level, model-level keywords), PRECISION damage allocation (_apply_damage_to_character_models), full integration flow, and edge cases.
+
+**Architecture decisions:**
+- **Proactive stratagem in fight phase**: Unlike Go to Ground (reactive, opponent's turn), Epic Challenge triggers during the player's own fighter selection. Uses a dialog between SELECT_FIGHTER and PILE_IN steps.
+- **Dual PRECISION source**: RulesEngine checks both weapon-inherent PRECISION (`has_precision()`) and stratagem-granted PRECISION (`has_stratagem_precision_melee()`). This supports both Epic Challenge and future weapons with built-in PRECISION.
+- **Proportional damage splitting**: Rather than tracking individual attacks through the wound pipeline, PRECISION damage is calculated proportionally: `precision_share = (critical_hits / total_unsaved) * actual_damage`. This avoids modifying the core wound/save pipeline while correctly approximating PRECISION behavior.
+- **Flag on attacker unit**: The `stratagem_precision_melee` flag is set on the ATTACKING unit (not the target), and RulesEngine reads it during resolution. This matches the rules: "attacks made by that model have [PRECISION]".
+
+**What this proved:**
+1. Fight phase stratagem flow works (dialog inserted between fighter selection and pile-in)
+2. Weapon keyword granting via stratagem flags integrates with RulesEngine melee resolution
+3. PRECISION damage allocation to CHARACTER models works via separate allocation function
+4. Pattern generalizes to other keyword-granting stratagems (e.g., LANCE, SUSTAINED HITS)

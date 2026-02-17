@@ -305,6 +305,8 @@ func set_phase(phase: BasePhase) -> void:
 			phase.consolidate_required.connect(_on_consolidate_required)
 		if phase.has_signal("subphase_transition") and not phase.subphase_transition.is_connected(_on_subphase_transition):
 			phase.subphase_transition.connect(_on_subphase_transition)
+		if phase.has_signal("epic_challenge_opportunity") and not phase.epic_challenge_opportunity.is_connected(_on_epic_challenge_opportunity):
+			phase.epic_challenge_opportunity.connect(_on_epic_challenge_opportunity)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -1187,6 +1189,50 @@ func _on_fighter_selected_from_dialog(unit_id: String) -> void:
 		"type": "SELECT_FIGHTER",
 		"unit_id": unit_id,
 		"player": player_id
+	}
+	emit_signal("fight_action_requested", action)
+
+func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
+	"""Show Epic Challenge dialog when a CHARACTER unit is selected to fight"""
+	print("[FightController] Epic Challenge opportunity for unit %s (player %d)" % [unit_id, player])
+
+	var dialog_script = load("res://dialogs/EpicChallengeDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load EpicChallengeDialog.gd")
+		# Decline automatically if dialog can't be loaded
+		_on_epic_challenge_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, player)
+	dialog.epic_challenge_used.connect(_on_epic_challenge_used)
+	dialog.epic_challenge_declined.connect(_on_epic_challenge_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("[FightController] Epic Challenge dialog shown")
+
+func _on_epic_challenge_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Epic Challenge"""
+	print("[FightController] Epic Challenge USED for %s" % unit_id)
+	var action = {
+		"type": "USE_EPIC_CHALLENGE",
+		"unit_id": unit_id,
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
+
+	if dice_log_display:
+		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
+		dice_log_display.append_text("[color=gold]EPIC CHALLENGE used on %s — melee attacks gain [PRECISION][/color]\n" % unit_name)
+
+func _on_epic_challenge_declined(unit_id: String, player: int) -> void:
+	"""Handle player declining Epic Challenge"""
+	print("[FightController] Epic Challenge DECLINED for %s" % unit_id)
+	var action = {
+		"type": "DECLINE_EPIC_CHALLENGE",
+		"unit_id": unit_id,
+		"player": player
 	}
 	emit_signal("fight_action_requested", action)
 
