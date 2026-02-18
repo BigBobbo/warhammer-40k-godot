@@ -27,6 +27,7 @@ var resolution_state: Dictionary = {}  # State for step-by-step resolution
 var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
 var pending_save_data: Array = []  # Save data awaiting resolution
+var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 
 func _init():
@@ -40,6 +41,7 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_shot.clear()
+	pending_hazardous_weapons.clear()
 	awaiting_reactive_stratagem = false
 
 	_initialize_shooting()
@@ -590,6 +592,28 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		print("║ active_shooter_id: ", active_shooter_id)
 		print("╚═══════════════════════════════════════════════════════════════")
 
+		# HAZARDOUS (T2-3): Still process Hazardous check even if weapon missed
+		var haz_diffs_on_miss = []
+		var hazardous_weapons_on_miss = result.get("hazardous_weapons", [])
+		if not hazardous_weapons_on_miss.is_empty():
+			print("║ HAZARDOUS: Processing %d hazardous weapon check(s) despite miss" % hazardous_weapons_on_miss.size())
+			var haz_rng = RulesEngine.RNGService.new()
+			for haz_weapon in hazardous_weapons_on_miss:
+				var haz_result = RulesEngine.resolve_hazardous_check(
+					active_shooter_id,
+					haz_weapon.get("weapon_id", ""),
+					haz_weapon.get("models_that_fired", 0),
+					game_state_snapshot,
+					haz_rng
+				)
+				if haz_result.hazardous_triggered:
+					haz_diffs_on_miss.append_array(haz_result.diffs)
+				for haz_dice in haz_result.dice:
+					dice_log.append(haz_dice)
+					dice_data.append(haz_dice)
+				if haz_result.log_text:
+					log_phase_message(haz_result.log_text)
+
 		# Check if this is single weapon mode (not sequential)
 		var mode = resolution_state.get("mode", "")
 		if mode != "sequential" and active_shooter_id != "":
@@ -645,7 +669,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 			# Return with pause indicator - completion will happen when user clicks "Complete Shooting"
 			# IMPORTANT: Do NOT mark has_shot yet - that happens when user confirms
-			return create_result(true, [], "Single weapon missed - awaiting confirmation", {
+			return create_result(true, haz_diffs_on_miss, "Single weapon missed - awaiting confirmation", {
 				"sequential_pause": true,
 				"remaining_weapons": [],
 				"last_weapon_result": last_weapon_result,
@@ -662,6 +686,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+		# HAZARDOUS (T2-3): Include hazardous diffs in changes
+		changes.append_array(haz_diffs_on_miss)
 
 		units_that_shot.append(active_shooter_id)
 		active_shooter_id = ""
@@ -675,6 +701,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	# Store save data and trigger interactive saves
 	pending_save_data = save_data_list
+
+	# HAZARDOUS (T2-3): Store hazardous weapon data for post-save resolution
+	pending_hazardous_weapons = result.get("hazardous_weapons", [])
 
 	# LOGGING: Track saves_required emission
 	var timestamp = Time.get_ticks_msec()
@@ -818,6 +847,25 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		print("║ AI SHOOT: Saves resolved - %d casualties" % total_casualties)
 	else:
 		print("║ AI SHOOT: No wounds caused (all missed)")
+
+	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve (AI path)
+	var hazardous_weapons = result.get("hazardous_weapons", [])
+	if not hazardous_weapons.is_empty():
+		print("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size())
+		var haz_rng = RulesEngine.RNGService.new()
+		for haz_weapon in hazardous_weapons:
+			var haz_result = RulesEngine.resolve_hazardous_check(
+				active_shooter_id,
+				haz_weapon.get("weapon_id", ""),
+				haz_weapon.get("models_that_fired", 0),
+				game_state_snapshot,
+				haz_rng
+			)
+			if haz_result.hazardous_triggered:
+				all_changes.append_array(haz_result.diffs)
+			all_dice.append_array(haz_result.dice)
+			if haz_result.log_text:
+				log_phase_message(haz_result.log_text)
 
 	# Step 5: Mark unit as done
 	all_changes.append({
@@ -1259,6 +1307,9 @@ func _resolve_next_weapon() -> Dictionary:
 	# Store save data and trigger interactive saves
 	pending_save_data = save_data_list
 	resolution_state.awaiting_saves = true
+
+	# HAZARDOUS (T2-3): Store hazardous weapon data for post-save resolution
+	pending_hazardous_weapons = result.get("hazardous_weapons", [])
 
 	# Add sequence context to save data for WoundAllocationOverlay
 	for save_data in save_data_list:
@@ -2195,6 +2246,29 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				dice_log.append(fnp_overlay_block)
 				emit_signal("dice_rolled", fnp_overlay_block)
 				print("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()])
+
+	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve
+	if not pending_hazardous_weapons.is_empty():
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size())
+		print("╚═══════════════════════════════════════════════════════════════")
+		var haz_rng = RulesEngine.RNGService.new()
+		for haz_weapon in pending_hazardous_weapons:
+			var haz_result = RulesEngine.resolve_hazardous_check(
+				active_shooter_id,
+				haz_weapon.get("weapon_id", ""),
+				haz_weapon.get("models_that_fired", 0),
+				game_state_snapshot,
+				haz_rng
+			)
+			if haz_result.hazardous_triggered:
+				all_diffs.append_array(haz_result.diffs)
+			for haz_dice in haz_result.dice:
+				dice_log.append(haz_dice)
+				emit_signal("dice_rolled", haz_dice)
+			if haz_result.log_text:
+				log_phase_message(haz_result.log_text)
+		pending_hazardous_weapons.clear()
 
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")

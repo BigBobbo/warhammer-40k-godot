@@ -61,6 +61,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-8: Failed charge measurement divergence (client vs server) — unified to inches | Charge | CHARGE_PHASE_AUDIT.md §2.5 |
 | T1-9: [MH-BUG-1] Mathhammer damage extraction — wound delta computation + double-count fix | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T1-7: Base-to-base contact enforcement in charge — B2B validation with tolerance | Charge | CHARGE_PHASE_AUDIT.md §2.4 |
+| T1-6: Base-to-base contact enforcement in pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.3 |
 
 ---
 
@@ -186,12 +187,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Files:** `FightPhase.gd` — `_validate_pile_in()` needs final unit-level ER check
 - **Resolution:** Added unit-level engagement range check to `_validate_pile_in()` in FightPhase.gd. After all per-model movement validations (3" limit, toward closest enemy, coherency, no overlaps), the validator now calls `_can_unit_maintain_engagement_after_movement()` to verify at least one model ends within 1" of an enemy. Reuses the existing shape-aware engagement range check already used by consolidation validation.
 
-### T1-6. Base-to-base contact enforcement in pile-in/consolidation
+### T1-6. Base-to-base contact enforcement in pile-in/consolidation — **DONE**
 - **Phase:** Fight
 - **Rule:** Models must end in base-to-base contact with closest enemy *if possible*
 - **Impact:** Players can avoid base contact for positional advantage
 - **Source:** FIGHT_PHASE_AUDIT.md §2.3
 - **Files:** `FightPhase.gd` — PileIn/Consolidate validation
+- **Resolution:** Added `_validate_base_to_base_if_possible()` to FightPhase.gd, called from both `_validate_pile_in()` and `_validate_consolidate_engagement_range()`. For each moved model, finds the closest enemy (edge-to-edge), checks if b2b is reachable within the 3" move limit, and rejects placements that stop short when b2b was achievable. Uses `BASE_CONTACT_TOLERANCE_INCHES` (0.25") for digital positioning tolerance and a small reachability tolerance (0.05") for floating-point precision. Comprehensive test suite in `test_pile_in_b2b_enforcement.gd` (10 tests covering valid b2b, unreachable, boundary, multi-model, dead models, and stationary models).
 
 ### T1-7. Base-to-base contact enforcement in charge — **DONE**
 - **Phase:** Charge
@@ -759,14 +761,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 9 | 1 | 10 |
+| Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **9** | **119** | **128** |
-| **Recently Completed** | **39** | — | **39** |
+| **Total Open** | **10** | **118** | **128** |
+| **Recently Completed** | **40** | — | **40** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---

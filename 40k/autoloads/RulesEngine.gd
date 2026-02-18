@@ -345,6 +345,29 @@ const WEAPON_PROFILES = {
 		"ap": 1,
 		"damage": 2,
 		"keywords": ["TWIN-LINKED", "DEVASTATING WOUNDS"]  # Re-roll wounds + crit wounds bypass saves
+	},
+	# HAZARDOUS WEAPONS (T2-3) — After attacking, roll D6 per Hazardous weapon; on 1, bearer takes 3 MW
+	# TEST WEAPON: Basic Hazardous plasma gun
+	"hazardous_plasma": {
+		"name": "Hazardous Plasma Gun (Test)",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 7,
+		"ap": 2,
+		"damage": 1,
+		"keywords": ["HAZARDOUS"]  # On 1: CHARACTER/VEHICLE/MONSTER = 3MW, other = model slain
+	},
+	# TEST WEAPON: Hazardous + Rapid Fire combo (common on plasma incinerators)
+	"hazardous_rapid_fire": {
+		"name": "Hazardous Rapid Fire (Test)",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 7,
+		"ap": 2,
+		"damage": 1,
+		"keywords": ["HAZARDOUS", "RAPID FIRE 1"]  # Hazardous + Rapid Fire combo
 	}
 }
 
@@ -535,6 +558,17 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
 
+		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage
+		var weapon_id = assignment.get("weapon_id", "")
+		if is_hazardous_weapon(weapon_id, board):
+			var models_that_fired = assignment.get("model_ids", []).size()
+			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fired, board, rng_service)
+			if hazardous_result.hazardous_triggered:
+				result.diffs.append_array(hazardous_result.diffs)
+			result.dice.append_array(hazardous_result.dice)
+			if hazardous_result.log_text:
+				result.log_text += hazardous_result.log_text + "\n"
+
 	return result
 
 # Shooting resolution that stops before saves (for interactive save system)
@@ -566,6 +600,9 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 		result.log_text = "Actor unit not found"
 		return result
 
+	# HAZARDOUS (T2-3): Collect hazardous weapon info for post-save resolution
+	var hazardous_weapons = []
+
 	# Process each weapon assignment up to wounds
 	for assignment in assignments:
 		var assignment_result = _resolve_assignment_until_wounds(assignment, actor_unit_id, board, rng_service)
@@ -579,6 +616,18 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 		# If wounds were caused, add save data
 		if assignment_result.has("save_data") and assignment_result.save_data.get("success", false):
 			result.save_data_list.append(assignment_result.save_data)
+
+		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
+		var weapon_id = assignment.get("weapon_id", "")
+		if is_hazardous_weapon(weapon_id, board):
+			hazardous_weapons.append({
+				"weapon_id": weapon_id,
+				"models_that_fired": assignment.get("model_ids", []).size()
+			})
+
+	# HAZARDOUS (T2-3): Store hazardous weapon data in result for ShootingPhase to process after saves
+	if not hazardous_weapons.is_empty():
+		result["hazardous_weapons"] = hazardous_weapons
 
 	return result
 
@@ -3077,6 +3126,167 @@ static func get_unit_torrent_weapons(unit_id: String, board: Dictionary = {}) ->
 		if not torrent_weapons.is_empty():
 			result[model_id] = torrent_weapons
 
+	return result
+
+# ==========================================
+# HAZARDOUS KEYWORD (T2-3)
+# ==========================================
+
+# Check if a weapon has the HAZARDOUS keyword
+# Hazardous weapons: After attacking, roll D6; on 1, bearer takes self-damage
+# CHARACTER/VEHICLE/MONSTER: 3 mortal wounds per 1
+# Other models: 1 model destroyed per 1
+static func is_hazardous_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Hazardous" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "hazardous" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "HAZARDOUS":
+			return true
+
+	return false
+
+# Resolve Hazardous self-damage check after a weapon has fired
+# Per 10e rules: Roll D6 per Hazardous weapon fired. On a 1:
+#   - CHARACTER, VEHICLE, or MONSTER: 3 mortal wounds
+#   - Other models: 1 model destroyed (owner's choice, simplified to first alive model)
+# Returns { hazardous_triggered, rolls, ones_rolled, diffs, dice, log_text }
+static func resolve_hazardous_check(
+	actor_unit_id: String,
+	weapon_id: String,
+	models_that_fired: int,
+	board: Dictionary,
+	rng: RNGService
+) -> Dictionary:
+	var result = {
+		"hazardous_triggered": false,
+		"rolls": [],
+		"ones_rolled": 0,
+		"diffs": [],
+		"dice": [],
+		"log_text": ""
+	}
+
+	if not is_hazardous_weapon(weapon_id, board):
+		return result
+
+	# Roll D6 for each model that fired this Hazardous weapon
+	var rolls = rng.roll_d6(models_that_fired)
+	result.rolls = rolls
+
+	var ones_rolled = 0
+	for roll in rolls:
+		if roll == 1:
+			ones_rolled += 1
+	result.ones_rolled = ones_rolled
+
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	var weapon_name = weapon_profile.get("name", weapon_id)
+
+	print("RulesEngine: [HAZARDOUS] %s — rolled %s, ones: %d" % [weapon_name, str(rolls), ones_rolled])
+
+	# Build dice log entry
+	result.dice.append({
+		"context": "hazardous_check",
+		"weapon_id": weapon_id,
+		"weapon_name": weapon_name,
+		"rolls": rolls,
+		"ones_rolled": ones_rolled,
+		"models_checked": models_that_fired,
+		"triggered": ones_rolled > 0,
+		"message": "Hazardous check for %s: rolled %s — %d ones" % [weapon_name, str(rolls), ones_rolled]
+	})
+
+	if ones_rolled == 0:
+		result.log_text = "Hazardous check: %s safe (%s)" % [weapon_name, str(rolls)]
+		print("RulesEngine: [HAZARDOUS] No ones rolled — safe")
+		return result
+
+	result.hazardous_triggered = true
+
+	# Determine damage type based on unit keywords
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var unit_keywords = actor_unit.get("meta", {}).get("keywords", [])
+
+	# Normalize keywords for comparison
+	var normalized_keywords = []
+	for kw in unit_keywords:
+		normalized_keywords.append(kw.to_upper())
+
+	var is_character_vehicle_monster = (
+		"CHARACTER" in normalized_keywords or
+		"VEHICLE" in normalized_keywords or
+		"MONSTER" in normalized_keywords
+	)
+
+	if is_character_vehicle_monster:
+		# CHARACTER/VEHICLE/MONSTER: 3 mortal wounds per 1 rolled
+		var total_mw = 3 * ones_rolled
+		print("RulesEngine: [HAZARDOUS] Unit has CHARACTER/VEHICLE/MONSTER keyword — applying %d mortal wounds" % total_mw)
+
+		var mw_result = apply_mortal_wounds(actor_unit_id, total_mw, board, rng)
+		result.diffs.append_array(mw_result.get("diffs", []))
+		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to bearer (%d wounds applied)" % [
+			weapon_name, ones_rolled, total_mw, mw_result.get("wounds_applied", 0)
+		]
+
+		# Add mortal wound details to dice log
+		result.dice.append({
+			"context": "hazardous_damage",
+			"damage_type": "mortal_wounds",
+			"mortal_wounds": total_mw,
+			"wounds_applied": mw_result.get("wounds_applied", 0),
+			"casualties": mw_result.get("casualties", 0),
+			"fnp_rolls": mw_result.get("fnp_rolls", []),
+			"message": "Hazardous: %d mortal wounds to %s" % [total_mw, actor_unit.get("meta", {}).get("name", actor_unit_id)]
+		})
+	else:
+		# Other models: 1 model destroyed per 1 rolled (owner's choice, simplified to first alive)
+		print("RulesEngine: [HAZARDOUS] Regular unit — destroying %d model(s)" % ones_rolled)
+		var models = actor_unit.get("models", [])
+		var models_destroyed = 0
+
+		for _i in range(ones_rolled):
+			# Find first alive model to destroy
+			for model_idx in range(models.size()):
+				var model = models[model_idx]
+				if model.get("alive", true):
+					# Check not already killed by a previous hazardous roll in this batch
+					var already_killed = false
+					for diff in result.diffs:
+						if diff.get("path", "") == "units.%s.models.%d.alive" % [actor_unit_id, model_idx]:
+							already_killed = true
+							break
+					if already_killed:
+						continue
+
+					result.diffs.append({
+						"op": "set",
+						"path": "units.%s.models.%d.alive" % [actor_unit_id, model_idx],
+						"value": false
+					})
+					models_destroyed += 1
+					break
+
+		result.log_text = "HAZARDOUS! %s: %d ones → %d model(s) destroyed" % [weapon_name, ones_rolled, models_destroyed]
+
+		result.dice.append({
+			"context": "hazardous_damage",
+			"damage_type": "slay_model",
+			"models_destroyed": models_destroyed,
+			"message": "Hazardous: %d model(s) destroyed from %s" % [models_destroyed, actor_unit.get("meta", {}).get("name", actor_unit_id)]
+		})
+
+	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
 
 # Check if a unit has any Rapid Fire weapons
