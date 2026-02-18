@@ -194,15 +194,31 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 			}
 			
 			# Apply rule toggles that affect attack count
+			var effective_attacks = base_attacks
+
 			# Rapid Fire X: adds +X attacks per model at half range (not double)
 			if rule_toggles.get("rapid_fire", false):
 				var rf_value = RulesEngine.get_rapid_fire_value(weapon_id, board)
 				var rf_bonus = rf_value * model_ids.size()
-				assignment["attacks_override"] = base_attacks + rf_bonus
+				effective_attacks += rf_bonus
 				if rf_bonus > 0:
-					print("Mathhammer: Rapid Fire %d on %s — +%d attacks (%d models × RF%d), total: %d" % [rf_value, weapon_id, rf_bonus, model_ids.size(), rf_value, base_attacks + rf_bonus])
-			else:
-				assignment["attacks_override"] = base_attacks
+					print("Mathhammer: Rapid Fire %d on %s — +%d attacks (%d models × RF%d), total: %d" % [rf_value, weapon_id, rf_bonus, model_ids.size(), rf_value, effective_attacks])
+
+			# BLAST KEYWORD (T3-22): Auto-calculate Blast bonus from defender model count
+			# Per 10e rules: +1 attack per 5 models in target unit; minimum 3 attacks vs 6+ model units
+			if RulesEngine.is_blast_weapon(weapon_id, board):
+				var target_unit = board.get("units", {}).get(target_unit_id, {})
+				if not target_unit.is_empty():
+					var blast_bonus = RulesEngine.calculate_blast_bonus(weapon_id, target_unit, board)
+					effective_attacks += blast_bonus
+					# Enforce minimum 3 attacks against 6+ model units
+					var blast_min = RulesEngine.calculate_blast_minimum(weapon_id, effective_attacks, target_unit, board)
+					if blast_min > effective_attacks:
+						effective_attacks = blast_min
+					var model_count = RulesEngine.count_alive_models(target_unit)
+					print("Mathhammer: Blast on %s — +%d bonus attacks (%d defender models), effective min: %d, total: %d" % [weapon_id, blast_bonus, model_count, blast_min, effective_attacks])
+
+			assignment["attacks_override"] = effective_attacks
 
 			# Apply rule toggles that affect wound rolls
 			if rule_toggles.get("twin_linked", false):
