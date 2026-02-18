@@ -448,6 +448,26 @@ func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictiona
 # USAGE / EXECUTION
 # ============================================================================
 
+func _safe_apply_state_changes(diffs: Array) -> void:
+	"""Apply state changes via PhaseManager if available, otherwise apply directly."""
+	if PhaseManager != null:
+		PhaseManager.apply_state_changes(diffs)
+	else:
+		# Fallback: apply diffs directly to GameState (for tests where PhaseManager isn't loaded)
+		for diff in diffs:
+			if diff.get("op", "") == "set":
+				var parts = diff.path.split(".")
+				var current = GameState.state
+				for i in range(parts.size() - 1):
+					var part = parts[i]
+					if current is Dictionary:
+						if not current.has(part):
+							current[part] = {}
+						current = current[part]
+				var final_key = parts[-1]
+				if current is Dictionary:
+					current[final_key] = diff.value
+
 func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "", context: Dictionary = {}) -> Dictionary:
 	"""
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
@@ -482,7 +502,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	_usage_history[str(player)].append(usage_record)
 
 	# Apply the CP diff immediately
-	PhaseManager.apply_state_changes(diffs)
+	_safe_apply_state_changes(diffs)
 
 	print("StratagemManager: Player %d used %s on %s (cost %d CP, %d -> %d)" % [
 		player, strat.name, target_unit_id if target_unit_id != "" else "N/A",
@@ -503,7 +523,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Apply stratagem-specific effects to game state (unit flags for RulesEngine)
 	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat)
 	if not effect_diffs.is_empty():
-		PhaseManager.apply_state_changes(effect_diffs)
+		_safe_apply_state_changes(effect_diffs)
 		diffs.append_array(effect_diffs)
 
 	# Track active effect for duration management
@@ -822,7 +842,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 	_usage_history[str(player)].append(usage_record)
 
 	# Apply CP diff
-	PhaseManager.apply_state_changes(diffs)
+	_safe_apply_state_changes(diffs)
 
 	print("StratagemManager: Player %d used GRENADE with %s targeting %s (cost %d CP, %d -> %d)" % [
 		player, grenade_unit_id, target_unit_id, strat.cp_cost, current_cp, new_cp
@@ -862,7 +882,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		casualties = mw_result.get("casualties", 0)
 
 		if not mw_diffs.is_empty():
-			PhaseManager.apply_state_changes(mw_diffs)
+			_safe_apply_state_changes(mw_diffs)
 			diffs.append_array(mw_diffs)
 
 		print("StratagemManager: GRENADE applied %d mortal wounds to %s (%d casualties)" % [mortal_wounds, target_unit_id, casualties])
@@ -873,7 +893,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		"path": "units.%s.flags.has_shot" % grenade_unit_id,
 		"value": true
 	}
-	PhaseManager.apply_state_changes([shot_diff])
+	_safe_apply_state_changes([shot_diff])
 	diffs.append(shot_diff)
 
 	# Track active effect (no persistent flags needed for grenade - it's instant)
@@ -1409,7 +1429,7 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 	# Apply the diffs from shooting
 	var shooting_diffs = shooting_result.get("diffs", [])
 	if not shooting_diffs.is_empty():
-		PhaseManager.apply_state_changes(shooting_diffs)
+		_safe_apply_state_changes(shooting_diffs)
 
 	# Log the overwatch to phase log
 	GameState.add_action_to_phase_log({
