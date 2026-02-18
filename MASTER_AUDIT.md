@@ -87,6 +87,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
 | T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
+| T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -534,12 +535,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `LineOfSightCalculator.gd`
 - **Resolution:** Implemented height-aware LoS blocking across all four LoS systems (LineOfSightCalculator, EnhancedLineOfSight, LineOfSightManager, RulesEngine legacy path). Low terrain (<2") never blocks LoS. Tall terrain (>5") always blocks LoS (Obscuring). Medium terrain (2-5") blocks LoS only when both shooter and target are shorter than the terrain — MONSTER/VEHICLE/TITANIC models (5"+) can see and be seen over medium terrain. Added `get_model_height_inches()` helper that detects height from model keywords. 31 unit tests in `test_terrain_height_los.gd`.
 
-### T3-20. [MH-BUG-4] Rapid Fire toggle doubles attacks instead of adding X
+### T3-20. [MH-BUG-4] Rapid Fire toggle doubles attacks instead of adding X — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Rapid Fire X adds +X attacks at half range (e.g., Rapid Fire 1 on 2A weapon = 3 attacks, not 4)
 - **Impact:** Overstates Rapid Fire weapon output by ~33% for RF1 weapons
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd:188-189` — `attacks_override` should add RF value, not multiply by 2
+- **Resolution:** Changed `attacks_override` from `base_attacks * 2` to `base_attacks + rf_value * model_count`, using `RulesEngine.get_rapid_fire_value()` to look up the weapon's actual RF X value. Fixed misleading "Double attacks" descriptions in MathhhammerUI and MathhhammerRuleModifiers.
 
 ### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles
 - **Phase:** Mathhammer
@@ -813,13 +815,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 10 | 16 | 26 |
+| Tier 3 — Medium Rules | 11 | 15 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **31** | **97** | **128** |
-| **Recently Completed** | **58** | — | **58** |
-| *Mathhammer items (subset)* | *4* | *27* | *31* |
+| **Total Open** | **32** | **96** | **128** |
+| **Recently Completed** | **59** | — | **59** |
+| *Mathhammer items (subset)* | *5* | *26* | *31* |
 
 ---
 

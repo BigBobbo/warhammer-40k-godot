@@ -194,8 +194,13 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 			}
 			
 			# Apply rule toggles that affect attack count
+			# Rapid Fire X: adds +X attacks per model at half range (not double)
 			if rule_toggles.get("rapid_fire", false):
-				assignment["attacks_override"] = base_attacks * 2
+				var rf_value = RulesEngine.get_rapid_fire_value(weapon_id, board)
+				var rf_bonus = rf_value * model_ids.size()
+				assignment["attacks_override"] = base_attacks + rf_bonus
+				if rf_bonus > 0:
+					print("Mathhammer: Rapid Fire %d on %s — +%d attacks (%d models × RF%d), total: %d" % [rf_value, weapon_id, rf_bonus, model_ids.size(), rf_value, base_attacks + rf_bonus])
 			else:
 				assignment["attacks_override"] = base_attacks
 

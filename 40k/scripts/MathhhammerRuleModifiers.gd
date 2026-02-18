@@ -122,7 +122,7 @@ static func _register_damage_modifiers() -> void:
 
 # Register situational modifiers
 static func _register_situational_modifiers() -> void:
-	var rule = RuleDefinition.new("rapid_fire", "Rapid Fire Range", "Double attacks at half range", RuleCategory.SITUATIONAL)
+	var rule = RuleDefinition.new("rapid_fire", "Rapid Fire Range", "+X attacks at half range (per model)", RuleCategory.SITUATIONAL)
 	rule.apply_function = _apply_rapid_fire
 	RULE_REGISTRY[rule.id] = rule
 	
