@@ -847,7 +847,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			categorized_errors.append({"category": FAIL_COHERENCY, "detail": err})
 
 	# 5. Validate base-to-base if possible
-	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids)
+	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids, rolled_distance)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
 		for err in base_to_base_validation.errors:
@@ -968,11 +968,74 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
-	# For MVP, we'll implement a simplified check
-	# In full implementation, this would check if base-to-base contact is achievable
-	# and required when all other constraints are satisfied
-	return {"valid": true, "errors": []}
+func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionary, target_ids: Array, rolled_distance: int) -> Dictionary:
+	# 10e rule: If a charging model CAN make base-to-base contact with an enemy
+	# model while still satisfying all other charge conditions, it MUST do so.
+	#
+	# For each charging model, we check:
+	# 1. Could it reach base-to-base with any target model (straight-line distance <= rolled distance)?
+	# 2. If yes, does its final position actually achieve base-to-base contact?
+	# 3. If it could but didn't, flag a validation error.
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+	const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Match RulesEngine tolerance for digital positioning
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		var start_pos = _get_model_position(model)
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Create model dict at final position for shape-aware distance checks
+		var model_at_final = model.duplicate()
+		model_at_final["position"] = final_pos
+
+		# Check if this model could reach b2b with any target model and whether it did
+		var could_reach_b2b = false
+		var is_in_b2b = false
+		var closest_reachable_target_name = ""
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position(target_model)
+				if target_pos == null:
+					continue
+
+				# Check if model could reach b2b from its starting position
+				# Straight-line edge-to-edge distance from start to target
+				var start_distance = Measurement.model_to_model_distance_inches(model, target_model)
+				if start_distance <= float(rolled_distance):
+					could_reach_b2b = true
+					if closest_reachable_target_name.is_empty():
+						var target_name = target_unit.get("meta", {}).get("name", target_id)
+						var target_model_id = target_model.get("id", "unknown")
+						closest_reachable_target_name = "%s (model %s)" % [target_name, target_model_id]
+
+				# Check if model's final position IS in b2b with this target model
+				var final_distance = Measurement.model_to_model_distance_inches(model_at_final, target_model)
+				if final_distance <= BASE_CONTACT_TOLERANCE_INCHES:
+					is_in_b2b = true
+
+		# If model could reach b2b but didn't, flag the error
+		if could_reach_b2b and not is_in_b2b:
+			var err = "Model %s can reach base-to-base contact with %s but did not — charging models must make base contact when possible" % [model_id, closest_reachable_target_name]
+			errors.append(err)
+			print("ChargePhase: B2B enforcement - %s" % err)
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")

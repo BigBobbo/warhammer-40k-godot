@@ -3283,7 +3283,7 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 		auto_fix_suggestions.append("Move models closer together to maintain coherency")
 	
 	# 4. Validate base-to-base if possible
-	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board)
+	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board, roll)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
 		auto_fix_suggestions.append("Move models to achieve base-to-base contact when possible")
@@ -3517,12 +3517,70 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-# Validate base-to-base if possible for charge (simplified for MVP)
-static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
-	# For MVP, we'll implement a simplified check
-	# In full implementation, this would check if base-to-base contact is achievable
-	# and required when all other constraints are satisfied
-	return {"valid": true, "errors": []}
+# Validate base-to-base if possible for charge
+# 10e rule: If a charging model CAN make base-to-base contact with an enemy
+# model while still satisfying all other charge conditions, it MUST do so.
+static func _validate_base_to_base_possible_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary, rolled_distance: int = 0) -> Dictionary:
+	var errors = []
+	var all_units = board.get("units", {})
+	var unit = all_units.get(unit_id, {})
+	if unit.is_empty():
+		return {"valid": true, "errors": []}
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit_rules(unit, model_id)
+		if model.is_empty():
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Create model dict at final position for shape-aware distance checks
+		var model_at_final = model.duplicate()
+		model_at_final["position"] = final_pos
+
+		# Check if this model could reach b2b with any target model and whether it did
+		var could_reach_b2b = false
+		var is_in_b2b = false
+		var closest_reachable_target_name = ""
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position_rules(target_model)
+				if target_pos == null:
+					continue
+
+				# Check if model could reach b2b from its starting position
+				var start_distance = Measurement.model_to_model_distance_inches(model, target_model)
+				if start_distance <= float(rolled_distance):
+					could_reach_b2b = true
+					if closest_reachable_target_name.is_empty():
+						var target_name = target_unit.get("meta", {}).get("name", target_id)
+						var target_model_id = target_model.get("id", "unknown")
+						closest_reachable_target_name = "%s (model %s)" % [target_name, target_model_id]
+
+				# Check if model's final position IS in b2b with this target model
+				var final_distance = Measurement.model_to_model_distance_inches(model_at_final, target_model)
+				if final_distance <= BASE_CONTACT_TOLERANCE_INCHES:
+					is_in_b2b = true
+
+		# If model could reach b2b but didn't, flag the error
+		if could_reach_b2b and not is_in_b2b:
+			var err = "Model %s can reach base-to-base contact with %s but did not — charging models must make base contact when possible" % [model_id, closest_reachable_target_name]
+			errors.append(err)
+			print("RulesEngine: B2B enforcement - %s" % err)
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 # Helper to get model in unit for charge calculations
 static func _get_model_in_unit_rules(unit: Dictionary, model_id: String) -> Dictionary:
