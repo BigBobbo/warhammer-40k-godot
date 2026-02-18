@@ -346,6 +346,29 @@ const WEAPON_PROFILES = {
 		"damage": 2,
 		"keywords": ["TWIN-LINKED", "DEVASTATING WOUNDS"]  # Re-roll wounds + crit wounds bypass saves
 	},
+	# INDIRECT FIRE WEAPONS (T2-4) — Can shoot without LoS; -1 to hit, unmodified 1-3 always fail, target gains cover
+	# TEST WEAPON: Basic Indirect Fire weapon (e.g., artillery)
+	"indirect_mortar": {
+		"name": "Indirect Mortar (Test)",
+		"range": 48,
+		"attacks": 3,
+		"bs": 4,
+		"strength": 5,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["INDIRECT FIRE", "BLAST"]  # Indirect Fire + Blast combo (common on artillery)
+	},
+	# TEST WEAPON: Indirect Fire only (no combos)
+	"indirect_basic": {
+		"name": "Indirect Basic (Test)",
+		"range": 36,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["INDIRECT FIRE"]  # Pure Indirect Fire weapon
+	},
 	# HAZARDOUS WEAPONS (T2-3) — After attacking, roll D6 per Hazardous weapon; on 1, bearer takes 3 MW
 	# TEST WEAPON: Basic Hazardous plasma gun
 	"hazardous_plasma": {
@@ -701,6 +724,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board)
 
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
+	var is_indirect_fire = has_indirect_fire(weapon_id, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var hits = 0
@@ -709,6 +735,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
+	var indirect_fire_applied = false
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -793,6 +820,12 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
+		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
+		if is_indirect_fire:
+			hit_modifiers |= HitModifier.MINUS_ONE
+			indirect_fire_applied = true
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -812,8 +845,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
+			elif is_indirect_fire and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
 			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
@@ -843,6 +879,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"modifiers_applied": hit_modifiers,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"indirect_fire_applied": indirect_fire_applied,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
 			"models_in_half_range": models_in_half_range,
@@ -1163,6 +1200,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board)
 
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
+	var is_indirect_fire = has_indirect_fire(weapon_id, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var hits = 0
@@ -1171,6 +1211,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
+	var indirect_fire_applied = false
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -1255,6 +1296,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
+		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
+		if is_indirect_fire:
+			hit_modifiers |= HitModifier.MINUS_ONE
+			indirect_fire_applied = true
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1275,8 +1322,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
+			elif is_indirect_fire and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
 			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
@@ -1306,6 +1356,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"modifiers_applied": hit_modifiers,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"indirect_fire_applied": indirect_fire_applied,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
 			"models_in_half_range": models_in_half_range,
@@ -1550,11 +1601,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		
 		# Check for cover (IGNORES COVER skips this)
 		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
+		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
 		var auto_target_flags = target_unit.get("flags", {})
 		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
 		var has_cover = false
 		if not auto_weapon_ignores_cover:
-			has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
+			if is_indirect_fire:
+				has_cover = true
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (auto-resolve)")
+			else:
+				has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
 
 		# Check stratagem-granted invulnerable save (Go to Ground)
 		var auto_model_invuln = target_model.get("invuln", 0)
@@ -1808,40 +1864,47 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
 	var weapon_profile = get_weapon_profile(weapon_id, board)
-	
+
 	if actor_unit.is_empty() or target_unit.is_empty() or weapon_profile.is_empty():
 		return {"visible": false, "reason": "Invalid units or weapon"}
-	
+
 	var weapon_range = weapon_profile.get("range", 12)
 	var range_px = Measurement.inches_to_px(weapon_range)
-	
+
+	# INDIRECT FIRE (T2-4): Indirect Fire weapons can shoot without Line of Sight
+	var is_indirect = has_indirect_fire(weapon_id, board)
+
 	# Check if any model in actor unit can see and is in range of any model in target unit
 	var actor_models = actor_unit.get("models", [])
 	var target_models = target_unit.get("models", [])
-	
+
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
 			continue
-		
+
 		var actor_pos = _get_model_position(actor_model)
 		if not actor_pos:
 			continue
-		
+
 		for target_model in target_models:
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
 				continue
-			
+
 			# Check range using shape-aware edge-to-edge distance
 			var distance = Measurement.model_to_model_distance_px(actor_model, target_model)
 			if distance <= range_px:
+				# INDIRECT FIRE (T2-4): Skip LoS check for Indirect Fire weapons — range alone suffices
+				if is_indirect:
+					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
+					return {"visible": true, "reason": ""}
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}
-	
+
 	return {"visible": false, "reason": "No valid targets in range and LoS"}
 
 static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
@@ -3351,6 +3414,33 @@ static func resolve_hazardous_check(
 
 	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
+
+# ==========================================
+# INDIRECT FIRE KEYWORD (T2-4)
+# ==========================================
+
+# Check if a weapon has the INDIRECT FIRE keyword
+# Indirect Fire weapons: Can shoot without LoS, but:
+# - -1 to hit
+# - Unmodified hit rolls of 1-3 always fail (instead of just 1)
+# - Target always gains Benefit of Cover
+static func has_indirect_fire(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Indirect Fire" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "indirect fire" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "INDIRECT FIRE":
+			return true
+
+	return false
 
 # Check if a unit has any Rapid Fire weapons
 static func unit_has_rapid_fire_weapons(unit_id: String, board: Dictionary = {}) -> bool:
@@ -4888,6 +4978,19 @@ static func prepare_save_resolution(
 			if "ignores cover" in special_rules:
 				weapon_ignores_cover = true
 
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire for automatic cover
+	var weapon_is_indirect_fire = false
+	if not weapon_ignores_cover:
+		var if_keywords = weapon_profile.get("keywords", [])
+		for if_kw in if_keywords:
+			if if_kw.to_upper() == "INDIRECT FIRE":
+				weapon_is_indirect_fire = true
+				break
+		if not weapon_is_indirect_fire:
+			var if_special = weapon_profile.get("special_rules", "").to_lower()
+			if "indirect fire" in if_special:
+				weapon_is_indirect_fire = true
+
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
 
@@ -4906,9 +5009,14 @@ static func prepare_save_resolution(
 	for model_info in allocation_info.models:
 		var model = model_info.model
 		# Cover: from terrain OR from stratagem (unless weapon ignores cover)
+		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
 		var has_cover = false
 		if not weapon_ignores_cover:
-			has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
+			if weapon_is_indirect_fire:
+				has_cover = true
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)")
+			else:
+				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
 
 		# Invulnerable save: use best of model's native invuln and stratagem-granted invuln
 		var model_invuln = model.get("invuln", 0)
@@ -4967,6 +5075,8 @@ static func prepare_save_resolution(
 		"devastating_damage": devastating_damage,  # Fixed estimate; actual DW damage rolled at application time
 		# IGNORES COVER: Flag for UI display
 		"ignores_cover": weapon_ignores_cover,
+		# INDIRECT FIRE (T2-4): Flag for UI display
+		"indirect_fire": weapon_is_indirect_fire,
 		# MELTA X (T1-1): Bonus damage at half range
 		"melta_bonus": melta_bonus,
 		"melta_models_in_half_range": melta_models_in_half_range,

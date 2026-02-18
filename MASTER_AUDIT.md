@@ -65,6 +65,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-1: Stealth ability — -1 to hit for ranged attacks | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-2: Lone Operative — 12" targeting restriction | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-3: Hazardous weapon keyword — mortal wounds on roll of 1 | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-4: Indirect Fire weapon keyword — LoS skip, -1 to hit, 1-3 auto-fail, cover | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 
 ---
 
@@ -260,12 +261,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `RulesEngine.gd`, `ShootingPhase.gd` — post-attack resolution
 - **Resolution:** Added `is_hazardous_weapon()` to detect HAZARDOUS keyword from both `keywords` array and `special_rules` string (case-insensitive). Added `resolve_hazardous_check()` which rolls D6 per model that fired; on 1, CHARACTER/VEHICLE/MONSTER takes 3 mortal wounds via `apply_mortal_wounds()`, other models are slain. Integrated into `resolve_shoot()` (auto-resolve), `resolve_shoot_until_wounds()` (interactive path with deferred post-save resolution), and `resolve_melee_attacks()` (fight phase). ShootingPhase.gd handles hazardous checks in all code paths: miss path, AI path, interactive post-save path, and sequential weapon resolution. Test weapons (`hazardous_plasma`, `hazardous_rapid_fire`) and comprehensive unit tests added.
 
-### T2-4. Indirect Fire weapon keyword
+### T2-4. Indirect Fire weapon keyword — **DONE**
 - **Phase:** Shooting
 - **Rule:** Can shoot without LoS; -1 to hit, unmodified 1-3 always fail, target gains cover
 - **Impact:** Key for artillery units
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd` — `validate_shoot()`, `get_eligible_targets()`, hit roll logic, cover
+- **Resolution:** Added `has_indirect_fire()` checker function. Modified `_check_target_visibility()` to skip LoS check (range-only) for Indirect Fire weapons. Applied -1 hit modifier and unmodified 1-3 auto-fail in both `_resolve_assignment_until_wounds()` and `_resolve_assignment()`. Granted automatic Benefit of Cover in both auto-resolve and interactive (`prepare_save_resolution`) save paths. Ignores Cover correctly overrides Indirect Fire cover. Added indirect_mortar and indirect_basic test weapon profiles and 17 unit tests.
 
 ### T2-5. Pistol mutual exclusivity
 - **Phase:** Shooting
@@ -768,13 +770,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 3 | 13 | 16 |
+| Tier 2 — High Rules | 4 | 12 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **12** | **116** | **128** |
-| **Recently Completed** | **41** | — | **41** |
+| **Total Open** | **13** | **115** | **128** |
+| **Recently Completed** | **42** | — | **42** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---
