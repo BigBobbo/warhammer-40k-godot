@@ -548,6 +548,7 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Summary: %d moved, %d not moved" % [moved_count, unacted_count])
 
+	# Check local active_moves for uncommitted staged/model moves
 	for unit_id in active_moves:
 		var move_data = active_moves[unit_id]
 		# Check if unit has been marked as moved in GameState (synced across network)
@@ -557,9 +558,10 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 		log_phase_message("Checking active_move for unit %s (%s)" % [unit_id, unit_name])
 		log_phase_message("  - flags.moved: %s" % str(has_moved))
+		log_phase_message("  - flags.movement_active: %s" % str(unit.get("flags", {}).get("movement_active", false)))
 		log_phase_message("  - staged_moves: %d" % move_data.get("staged_moves", []).size())
 		log_phase_message("  - model_moves: %d" % move_data.get("model_moves", []).size())
-		log_phase_message("  - completed flag: %s" % str(move_data.get("completed", false)))
+		log_phase_message("  - completed flag (local): %s" % str(move_data.get("completed", false)))
 
 		# If not marked as moved in GameState, check if move was actually started
 		if not has_moved:
@@ -571,6 +573,16 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 			# Unit has staged or committed moves that haven't been confirmed
 			log_phase_message("  → BLOCKING: Unit has uncommitted moves!")
+			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
+			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
+
+	# Also check synced GameState for any units with movement_active but not moved (T2-12)
+	# This catches cases where the client's active_moves dict is out of sync with the host
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("flags", {}).get("movement_active", false) and not unit.get("flags", {}).get("moved", false):
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("  → BLOCKING (via GameState): Unit %s (%s) has movement_active=true but moved=false" % [unit_id, unit_name])
 			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
 			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
 
@@ -610,6 +622,11 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	])
 
@@ -716,6 +733,11 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": total_move
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	], "", {"dice": [{"context": "advance", "n": 1, "rolls": [advance_roll]}]})
 
@@ -801,6 +823,11 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	])
 
@@ -967,9 +994,35 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	move_data.staged_moves.clear()
 	move_data.model_distances.clear()  # Clear per-model distances
 	move_data.original_positions.clear()
-	
+
+	# Clear movement_active flag (synced across network)
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.movement_active" % unit_id
+	})
+	# Also clear move_cap_inches since the move is being reset
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.move_cap_inches" % unit_id
+	})
+	# Clear fell_back flag if it was set during BEGIN_FALL_BACK
+	if move_data.mode == "FALL_BACK":
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.fell_back" % unit_id
+		})
+	# Clear advanced flag if it was set during BEGIN_ADVANCE
+	if move_data.mode == "ADVANCE":
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.advanced" % unit_id
+		})
+
+	# Remove from local tracking
+	active_moves.erase(unit_id)
+
 	emit_signal("unit_move_reset", unit_id)
-	
+
 	return create_result(true, changes)
 
 func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
@@ -1039,6 +1092,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	changes.append({
 		"op": "remove",
 		"path": "units.%s.flags.move_cap_inches" % unit_id
+	})
+
+	# Clear movement_active flag (synced across network)
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.movement_active" % unit_id
 	})
 	
 	# Set movement restrictions for later phases
@@ -1366,10 +1425,24 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("=== PROCESSING END_MOVEMENT ===")
+
+	# Clean up any stale movement_active flags (safety net for T2-12)
+	var changes = []
+	var current_player = get_current_player()
+	var all_units = get_units_for_player(current_player)
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("flags", {}).get("movement_active", false):
+			log_phase_message("Cleaning up stale movement_active flag for unit %s" % unit_id)
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.movement_active" % unit_id
+			})
+
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
 	emit_signal("phase_completed")
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
-	return create_result(true, [])
+	return create_result(true, changes)
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -1800,8 +1873,10 @@ func get_available_actions() -> Array:
 			})
 	
 	# Add active move actions (skip completed moves)
+	# Use synced GameState flags.moved to determine completion for multiplayer compatibility
 	for unit_id in active_moves:
-		if active_moves[unit_id].get("completed", false):
+		var unit_check = get_unit(unit_id)
+		if unit_check.get("flags", {}).get("moved", false):
 			continue
 		actions.append({
 			"type": "CONFIRM_UNIT_MOVE",
@@ -1821,11 +1896,12 @@ func get_available_actions() -> Array:
 			})
 	
 	# Add End Movement Phase action if no incomplete moves
-	# Check using synced GameState to ensure multiplayer compatibility
+	# Check using synced GameState flags for multiplayer compatibility (T2-12 fix)
 	var has_incomplete_moves = false
 	log_phase_message("[get_available_actions] Checking if END_MOVEMENT should be available...")
-	log_phase_message("[get_available_actions] Active moves: %s" % str(active_moves.keys()))
+	log_phase_message("[get_available_actions] Active moves (local): %s" % str(active_moves.keys()))
 
+	# Check local active_moves against synced GameState
 	for unit_id in active_moves:
 		var unit = get_unit(unit_id)
 		var has_moved = unit.get("flags", {}).get("moved", false)
@@ -1835,6 +1911,18 @@ func get_available_actions() -> Array:
 			has_incomplete_moves = true
 			log_phase_message("[get_available_actions]   → This unit has incomplete moves!")
 			break
+
+	# Also check GameState for any units with movement_active flag set
+	# This catches cases where the client's active_moves is out of sync (T2-12)
+	if not has_incomplete_moves:
+		var all_units = get_units_for_player(current_player)
+		for unit_id in all_units:
+			var unit = all_units[unit_id]
+			if unit.get("flags", {}).get("movement_active", false) and not unit.get("flags", {}).get("moved", false):
+				has_incomplete_moves = true
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				log_phase_message("[get_available_actions]   → GameState flags show %s (%s) has active movement!" % [unit_id, unit_name])
+				break
 
 	if not has_incomplete_moves:
 		log_phase_message("[get_available_actions] ✓ Adding END_MOVEMENT action")
@@ -1862,6 +1950,25 @@ func get_active_move_data(unit_id: String) -> Dictionary:
 	if active_moves.has(unit_id):
 		return active_moves[unit_id]
 	return {}
+
+func _check_active_moves_sync() -> void:
+	# T2-12: Debug consistency check between local active_moves and synced GameState
+	# Call this periodically or after action processing to detect desync
+	for unit_id in active_moves:
+		var unit = get_unit(unit_id)
+		var local_completed = active_moves[unit_id].get("completed", false)
+		var synced_moved = unit.get("flags", {}).get("moved", false)
+		var synced_active = unit.get("flags", {}).get("movement_active", false)
+
+		# If local says completed but GameState says not moved, we have a desync
+		if local_completed and not synced_moved:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("WARNING: MULTIPLAYER DESYNC DETECTED for %s (%s) - local completed=%s, GameState moved=%s" % [unit_id, unit_name, local_completed, synced_moved])
+
+		# If local has active move but GameState doesn't show movement_active
+		if not local_completed and not synced_active and not synced_moved:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("WARNING: MULTIPLAYER DESYNC DETECTED for %s (%s) - local has active move but GameState movement_active=%s" % [unit_id, unit_name, synced_active])
 
 # GROUP MOVEMENT VALIDATION FUNCTIONS
 
@@ -2437,6 +2544,11 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	]
 
@@ -2449,6 +2561,7 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 	if not local_unit.has("flags"):
 		local_unit["flags"] = {}
 	local_unit.flags["move_cap_inches"] = move_inches
+	local_unit.flags["movement_active"] = true
 
 	log_phase_message("Active moves successfully set up for %s. Total active moves: %s" % [unit_id, active_moves.keys()])
 
