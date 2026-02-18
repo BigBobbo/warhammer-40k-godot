@@ -85,8 +85,8 @@ These items were previously open in the audit files and have now been verified a
 | T2-13: [MH-BUG-3] Anti-keyword modifier uses wrong mechanic — critical wound threshold override | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
-<<<<<<< HEAD
 | T3-4: Precision weapon keyword — allocate wounds to Characters | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 3 |
+| T3-6: Pre-battle formations declaration | Deployment | DEPLOYMENT_AUDIT.md §1 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 | T3-11: Overwatch integration into charge/movement phases — reaction windows + shooting resolution | Charge/Movement | CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10 |
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
@@ -98,9 +98,6 @@ These items were previously open in the audit files and have now been verified a
 | T3-23: Full re-roll support for hits and wounds (re-roll 1s, re-roll all failed) | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
-=======
-| T3-6: Pre-battle formations declaration | Deployment | DEPLOYMENT_AUDIT.md §1 |
->>>>>>> audit/T3-6/t3-6-pre-battle-formations-declaration
 
 ---
 
@@ -838,23 +835,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-<<<<<<< HEAD
-| Tier 3 — Medium Rules | 19 | 7 | 26 |
+| Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **40** | **88** | **128** |
-| **Recently Completed** | **67** | — | **67** |
+| **Total Open** | **41** | **87** | **128** |
+| **Recently Completed** | **68** | — | **68** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
-=======
-| Tier 3 — Medium Rules | 8 | 18 | 26 |
-| Tier 4 — Low/Niche | 0 | 20 | 20 |
-| Tier 5 — QoL/Visual | 0 | 51 | 51 |
-| Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **30** | **98** | **128** |
-| **Recently Completed** | **57** | — | **57** |
-| *Mathhammer items (subset)* | *4* | *27* | *31* |
->>>>>>> audit/T3-6/t3-6-pre-battle-formations-declaration
 
 ---
 
