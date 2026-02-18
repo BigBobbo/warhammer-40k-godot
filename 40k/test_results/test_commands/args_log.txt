@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_per_model_fight_eligibility.gd", "-gexit", "--no-window"]
+ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_terrain_charge_interaction.gd"]
