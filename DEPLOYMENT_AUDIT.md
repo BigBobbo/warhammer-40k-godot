@@ -91,21 +91,10 @@ Then both players simultaneously reveal their choices.
 
 **Recommendation**: After deployment ends, present a roll-off UI (animated dice roll). The winner is prompted to choose first or second turn. This affects who gets Scout moves first and the Attacker/Defender designation.
 
-### 7. Deployment Map Variety
+### 7. Deployment Map Variety — **DONE**
 **Rule**: 10th Edition uses multiple deployment maps (Dawn of War, Hammer and Anvil, Search and Destroy, Crucible of Battle, etc.) depending on the mission.
 
-**Current Implementation**: Only Dawn of War is implemented. Zones are hardcoded in `GameState._get_dawn_of_war_zone_1_coords()` (`40k/autoloads/GameState.gd:204-218`).
-- Player 1: `(0,0)` to `(44,12)` (12" deep strip)
-- Player 2: `(0,48)` to `(44,60)` (12" deep strip)
-
-**Impact**: Medium — Different deployment maps create variety and affect list building. Playing Dawn of War every game gets repetitive.
-
-**Recommendation**: Add at least the core deployment maps:
-- **Hammer and Anvil**: Zones on the short edges (24" deep on a 44"-wide board)
-- **Search and Destroy**: Diagonal quarters
-- **Crucible of Battle**: L-shaped zones
-
-Store deployment map data as configuration rather than hardcoded coordinates.
+**Status**: **Implemented.** Five deployment map types are available: Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, and Crucible of Battle. Zone polygons and objective positions are defined in `DeploymentZoneData.gd` with JSON file fallbacks in `deployment_zones/`. The MainMenu, MultiplayerLobby, and WebLobby all expose a deployment type dropdown selector. Selected deployment type flows through `GameState.initialize_default_state()` → `BoardState.initialize_deployment_zones()` → visual zone rendering in `Main.setup_deployment_zones()`. Multiplayer lobbies sync the deployment selection to clients via RPC (LAN) or relay message (Web).
 
 ### 8. Mission Selection
 **Rule**: 10th Edition has multiple mission types with different primary objectives and deployment configurations.
@@ -340,7 +329,7 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
 | Unit name labels on tokens | **Low** | Low | Visual | Open |
 | Opponent zone dimming | **Low** | Low | Visual | Open |
-| Deployment map variety | **Low** | Medium | Rules | Open |
+| Deployment map variety | **Low** | Medium | Rules | **DONE** |
 | Phase transition animation | **Low** | Low | Visual | Open |
 | Unit placement animation | **Low** | Low | Visual | Open |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
