@@ -4166,7 +4166,18 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		result.dice.append_array(assignment_result.dice)
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
-	
+
+		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		var weapon_id = assignment.get("weapon", "")
+		if is_hazardous_weapon(weapon_id, board):
+			var models_that_fought = assignment.get("models", []).size()
+			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
+			if hazardous_result.hazardous_triggered:
+				result.diffs.append_array(hazardous_result.diffs)
+			result.dice.append_array(hazardous_result.dice)
+			if hazardous_result.log_text:
+				result.log_text += hazardous_result.log_text + "\n"
+
 	return result
 
 # Resolve a single melee assignment (models with weapon -> target)

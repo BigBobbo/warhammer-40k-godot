@@ -64,6 +64,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-6: Base-to-base contact enforcement in pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.3 |
 | T2-1: Stealth ability — -1 to hit for ranged attacks | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-2: Lone Operative — 12" targeting restriction | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-3: Hazardous weapon keyword — mortal wounds on roll of 1 | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 
 ---
 
@@ -251,12 +252,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `RulesEngine.gd` — `get_eligible_targets()`, `validate_shoot()`
 - **Resolution:** Added `has_lone_operative()` static function to detect the Lone Operative ability (string or dict format, case-insensitive). Updated `get_eligible_targets()` to skip Lone Operative targets beyond 12" (unless the unit has attached characters, meaning it's leading a squad). Updated `validate_shoot()` with matching validation error. Distance check uses existing `_get_min_distance_to_target_rules()` for shape-aware edge-to-edge measurement.
 
-### T2-3. Hazardous weapon keyword — mortal wounds on roll of 1
+### T2-3. Hazardous weapon keyword — mortal wounds on roll of 1 — **DONE**
 - **Phase:** Shooting
 - **Rule:** After attacking, roll D6 per Hazardous weapon; on 1, bearer takes 3 MW
 - **Impact:** Affects all plasma weapons (common across many armies)
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd`, `ShootingPhase.gd` — post-attack resolution
+- **Resolution:** Added `is_hazardous_weapon()` to detect HAZARDOUS keyword from both `keywords` array and `special_rules` string (case-insensitive). Added `resolve_hazardous_check()` which rolls D6 per model that fired; on 1, CHARACTER/VEHICLE/MONSTER takes 3 mortal wounds via `apply_mortal_wounds()`, other models are slain. Integrated into `resolve_shoot()` (auto-resolve), `resolve_shoot_until_wounds()` (interactive path with deferred post-save resolution), and `resolve_melee_attacks()` (fight phase). ShootingPhase.gd handles hazardous checks in all code paths: miss path, AI path, interactive post-save path, and sequential weapon resolution. Test weapons (`hazardous_plasma`, `hazardous_rapid_fire`) and comprehensive unit tests added.
 
 ### T2-4. Indirect Fire weapon keyword
 - **Phase:** Shooting
@@ -766,12 +768,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 2 | 14 | 16 |
+| Tier 2 — High Rules | 3 | 13 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **11** | **117** | **128** |
+| **Total Open** | **12** | **116** | **128** |
 | **Recently Completed** | **41** | — | **41** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
