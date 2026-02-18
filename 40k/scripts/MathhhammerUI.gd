@@ -392,7 +392,10 @@ func _populate_rule_toggles() -> void:
 		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus"},
 		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls"},
 		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls"},
-		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range"}
+		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range"},
+		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+"},
+		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+"},
+		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+"}
 	]
 	
 	for rule in common_rules:
