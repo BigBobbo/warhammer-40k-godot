@@ -1020,29 +1020,108 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 
 func _show_mathhammer_predictions() -> void:
 	# Use mathhammer to calculate expected results before rolling
-	if not confirmed_attacks.is_empty():
-		# Build config for mathhammer simulation
-		var attacker_unit = get_unit(active_fighter_id)
-		var defender_units = {}
-		
-		# Collect all target units
-		for attack in confirmed_attacks:
-			var target_id = attack.get("target", "")
-			if target_id != "" and not defender_units.has(target_id):
-				defender_units[target_id] = get_unit(target_id)
-		
-		# For now, show basic prediction text
-		# TODO: Integrate full mathhammer simulation for melee
-		var prediction_text = "Expected: Calculating melee predictions for %s vs %d targets..." % [
-			attacker_unit.get("meta", {}).get("name", active_fighter_id),
-			defender_units.size()
-		]
-		
-		# Display predictions via dice_rolled signal (like shooting phase)
-		emit_signal("dice_rolled", {
-			"context": "mathhammer_prediction", 
-			"message": prediction_text
-		})
+	if confirmed_attacks.is_empty():
+		return
+
+	var attacker_unit = get_unit(active_fighter_id)
+	var attacker_name = attacker_unit.get("meta", {}).get("name", active_fighter_id)
+	var attacker_models = attacker_unit.get("models", [])
+
+	# Group confirmed attacks by target for per-target simulations
+	var attacks_by_target: Dictionary = {}
+	for attack in confirmed_attacks:
+		var target_id = attack.get("target", "")
+		if target_id == "":
+			continue
+		if not attacks_by_target.has(target_id):
+			attacks_by_target[target_id] = []
+		attacks_by_target[target_id].append(attack)
+
+	var prediction_lines = ["[b]Mathhammer Melee Predictions:[/b]"]
+
+	for target_id in attacks_by_target:
+		var target_attacks = attacks_by_target[target_id]
+		var target_unit = get_unit(target_id)
+		var target_name = target_unit.get("meta", {}).get("name", target_id)
+
+		# Build attacker weapon configs from confirmed attacks for this target
+		var weapons = []
+		for attack in target_attacks:
+			var weapon_id = attack.get("weapon", "")
+			var attacking_models = attack.get("models", [])
+
+			# Build model_ids list from attacking models
+			var model_ids = []
+			if not attacking_models.is_empty():
+				model_ids = attacking_models
+			else:
+				# Default to all alive models
+				for i in range(attacker_models.size()):
+					if attacker_models[i].get("alive", true):
+						model_ids.append(str(i))
+
+			# Get weapon profile to determine attack count
+			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot)
+			var base_attacks = weapon_profile.get("attacks", 1)
+
+			weapons.append({
+				"weapon_id": weapon_id,
+				"model_ids": model_ids,
+				"attacks": base_attacks
+			})
+
+		var attacker_config = {
+			"unit_id": active_fighter_id,
+			"weapons": weapons
+		}
+
+		# Check if attacker has charged this turn (for Lance bonus)
+		var rule_toggles = {}
+		var flags = attacker_unit.get("flags", {})
+		if flags.get("charged_this_turn", false):
+			rule_toggles["lance_charged"] = true
+
+		# Build mathhammer simulation config
+		var config = {
+			"trials": 1000,  # Reduced for real-time predictions
+			"attackers": [attacker_config],
+			"defender": {"unit_id": target_id},
+			"rule_toggles": rule_toggles,
+			"phase": "fight",
+			"seed": randi()
+		}
+
+		# Run simulation
+		var result = Mathhammer.simulate_combat(config)
+		var avg_damage = result.get_average_damage()
+		var kill_prob = result.kill_probability * 100.0
+
+		# Build weapon breakdown text
+		var weapon_texts = []
+		for attack in target_attacks:
+			var w_id = attack.get("weapon", "")
+			var w_profile = RulesEngine.get_weapon_profile(w_id, game_state_snapshot)
+			var w_name = w_profile.get("name", w_id)
+			weapon_texts.append(w_name)
+
+		prediction_lines.append(
+			"%s (%s) -> %s: ~%.1f wounds, %.0f%% kill" % [
+				attacker_name,
+				", ".join(weapon_texts),
+				target_name,
+				avg_damage,
+				kill_prob
+			]
+		)
+
+	var prediction_text = "\n".join(prediction_lines)
+	print("[FightPhase] Mathhammer prediction: %s" % prediction_text)
+
+	# Display predictions via dice_rolled signal (like shooting phase)
+	emit_signal("dice_rolled", {
+		"context": "mathhammer_prediction",
+		"message": prediction_text
+	})
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
 	var changes = []
