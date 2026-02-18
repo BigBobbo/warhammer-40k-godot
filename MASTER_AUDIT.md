@@ -69,6 +69,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-6: Consolidation into new enemies triggers new fights | Fight | FIGHT_PHASE_AUDIT.md §2.4 |
 | T2-8: Terrain interaction during charges — vertical distance penalty + FLY diagonal | Charge | CHARGE_PHASE_AUDIT.md §2.6 |
 | T2-10: Cover determination supports all terrain types (ruins, woods, craters, obstacles, barricades) | Shooting | SHOOTING_PHASE_AUDIT.md §2.9 |
+| T2-11: Devastating Wounds — mortal wound spillover verified and melee path fixed | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.10 |
 
 ---
 
@@ -317,12 +318,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `RulesEngine.gd` — `check_benefit_of_cover()` (~lines 1440-1461)
 - **Resolution:** Extended `check_benefit_of_cover()` to support all cover-granting terrain types per 10e rules. Ruins/obstacles/barricades grant cover when target is within OR behind terrain. Area terrain (woods, craters, forest) grants cover only when target is within. Updated `TerrainManager._add_terrain_piece()` and JSON loader to support arbitrary terrain types. 19 new tests in `test_cover_terrain_types.gd`.
 
-### T2-11. Devastating Wounds — mortal wound spillover needs verification
+### T2-11. Devastating Wounds — mortal wound spillover needs verification — **DONE**
 - **Phase:** Shooting/Fight
 - **Rule:** Devastating Wounds create mortal wounds that spill over and are allocated after normal attacks
 - **Impact:** Edge cases around spillover and FNP interaction
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.10
 - **Files:** `RulesEngine.gd` — devastating wound handling (~lines 3776-3790)
+- **Resolution:** Restructured melee damage application to properly separate devastating wound damage (mortal wounds with spillover via `_apply_damage_to_unit_pool`) from regular failed-save damage (per-wound, no spillover via new `_apply_damage_per_wound_no_spillover`). FNP now rolled separately for each damage category. Added helper functions `_distribute_fnp_across_wounds` and `_trim_wound_damages_to_total`. Ranged path already correct. 23 tests in `test_devastating_wounds.gd` including spillover verification.
 
 ### T2-12. active_moves dictionary not synced in multiplayer
 - **Phase:** Movement
@@ -776,13 +778,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 7 | 9 | 16 |
+| Tier 2 — High Rules | 8 | 8 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **16** | **112** | **128** |
-| **Recently Completed** | **45** | — | **45** |
+| **Total Open** | **17** | **111** | **128** |
+| **Recently Completed** | **46** | — | **46** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---
