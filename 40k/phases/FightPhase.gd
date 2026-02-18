@@ -58,6 +58,7 @@ enum FightPriority {
 enum Subphase {
 	FIGHTS_FIRST,
 	REMAINING_COMBATS,
+	FIGHTS_LAST,
 	COMPLETE
 }
 
@@ -149,6 +150,8 @@ func _initialize_fight_sequence() -> void:
 	log_phase_message("  Fights First P2: %s" % str(fights_first_sequence["2"]))
 	log_phase_message("  Normal P1: %s" % str(normal_sequence["1"]))
 	log_phase_message("  Normal P2: %s" % str(normal_sequence["2"]))
+	log_phase_message("  Fights Last P1: %s" % str(fights_last_sequence["1"]))
+	log_phase_message("  Fights Last P2: %s" % str(fights_last_sequence["2"]))
 	log_phase_message("  Current subphase: %s, Selecting Player: %d (defending)" % [Subphase.keys()[current_subphase], current_selecting_player])
 	log_phase_message("===================================")
 
@@ -1278,6 +1281,7 @@ func _build_fight_selection_dialog_data_internal() -> Dictionary:
 		"eligible_units": eligible_units,
 		"fights_first_units": fights_first_sequence,
 		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"fights_last_units": fights_last_sequence,
 		"units_that_fought": units_that_fought
 	}
 
@@ -1322,6 +1326,7 @@ func _build_fight_selection_dialog_data() -> Dictionary:
 		"eligible_units": eligible_units,
 		"fights_first_units": fights_first_sequence,
 		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"fights_last_units": fights_last_sequence,
 		"units_that_fought": units_that_fought
 	}
 
@@ -1340,7 +1345,16 @@ func _get_eligible_units_for_selection() -> Dictionary:
 	"""Get units eligible for selection by current player in current subphase"""
 	var eligible = {}
 	var player_key = str(current_selecting_player)
-	var source_list = fights_first_sequence if current_subphase == Subphase.FIGHTS_FIRST else normal_sequence
+	var source_list: Dictionary
+	match current_subphase:
+		Subphase.FIGHTS_FIRST:
+			source_list = fights_first_sequence
+		Subphase.REMAINING_COMBATS:
+			source_list = normal_sequence
+		Subphase.FIGHTS_LAST:
+			source_list = fights_last_sequence
+		_:
+			return eligible
 
 	for unit_id in source_list.get(player_key, []):
 		if unit_id not in units_that_fought:
@@ -1361,7 +1375,7 @@ func _switch_selecting_player() -> void:
 	log_phase_message("Selection SWITCHED: Player %d → Player %d" % [old_player, current_selecting_player])
 
 func _transition_subphase() -> Dictionary:
-	"""Transition from Fights First to Remaining Combats or complete phase.
+	"""Transition from Fights First → Remaining Combats → Fights Last → Complete.
 	Returns dialog data for the new subphase if there are units to fight, empty dict otherwise."""
 	if current_subphase == Subphase.FIGHTS_FIRST:
 		log_phase_message("Fights First complete. Starting Remaining Combats.")
@@ -1372,16 +1386,31 @@ func _transition_subphase() -> Dictionary:
 
 		# Check if there are any remaining combats
 		if normal_sequence["1"].is_empty() and normal_sequence["2"].is_empty():
-			log_phase_message("No remaining combats. All eligible units have fought.")
-			log_phase_message("Waiting for player to click 'End Fight Phase' button.")
-			# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
-			return {}
+			log_phase_message("No remaining combats. Checking for Fights Last units.")
+			# Fall through to transition to FIGHTS_LAST
+			return _transition_subphase()
 		else:
 			# Build and return dialog data for new subphase WITHOUT calling _emit_fight_selection_required
 			# The caller will handle emitting the signal
 			return _build_fight_selection_dialog_data_internal()
+	elif current_subphase == Subphase.REMAINING_COMBATS:
+		log_phase_message("Remaining Combats complete. Starting Fights Last.")
+		emit_signal("subphase_transition", "REMAINING_COMBATS", "FIGHTS_LAST")
+
+		current_subphase = Subphase.FIGHTS_LAST
+		current_selecting_player = _get_defending_player()  # Reset to defender
+
+		# Check if there are any Fights Last units
+		if fights_last_sequence["1"].is_empty() and fights_last_sequence["2"].is_empty():
+			log_phase_message("No Fights Last units. All eligible units have fought.")
+			log_phase_message("Waiting for player to click 'End Fight Phase' button.")
+			# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
+			return {}
+		else:
+			log_phase_message("Fights Last units found - P1: %s, P2: %s" % [str(fights_last_sequence["1"]), str(fights_last_sequence["2"])])
+			return _build_fight_selection_dialog_data_internal()
 	else:
-		# Remaining Combats complete - all eligible units have fought
+		# Fights Last complete - all eligible units have fought
 		log_phase_message("All eligible units have fought in Fight Phase.")
 		log_phase_message("Waiting for player to click 'End Fight Phase' button.")
 		# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
@@ -2230,22 +2259,29 @@ func get_eligible_fighters_for_player(player: int) -> Dictionary:
 	var result = {
 		"fights_first": [],
 		"normal": [],
+		"fights_last": [],
 		"current_subphase": current_subphase,
 		"active_player": current_selecting_player == player
 	}
-	
+
 	# Get Fights First units that haven't fought
 	if player_key in fights_first_sequence:
 		for unit_id in fights_first_sequence[player_key]:
 			if unit_id not in units_that_fought:
 				result["fights_first"].append(unit_id)
-	
+
 	# Get Normal units that haven't fought
 	if player_key in normal_sequence:
 		for unit_id in normal_sequence[player_key]:
 			if unit_id not in units_that_fought:
 				result["normal"].append(unit_id)
-	
+
+	# Get Fights Last units that haven't fought
+	if player_key in fights_last_sequence:
+		for unit_id in fights_last_sequence[player_key]:
+			if unit_id not in units_that_fought:
+				result["fights_last"].append(unit_id)
+
 	return result
 
 func advance_to_next_fighter() -> void:
@@ -2292,7 +2328,7 @@ func advance_to_next_fighter() -> void:
 		for unit_id in normal_sequence[other_player_key]:
 			if unit_id not in units_that_fought:
 				other_player_remaining += 1
-				
+
 		# Check if we should switch players
 		if other_player_remaining > 0:
 			# Alternate to other player
@@ -2302,8 +2338,43 @@ func advance_to_next_fighter() -> void:
 			# Stay with current player
 			log_phase_message("Continuing with player %d for Normal fights" % current_selecting_player)
 		else:
+			# Transition to Fights Last subphase
+			log_phase_message("All Remaining Combats units have fought, moving to Fights Last subphase")
+			current_subphase = Subphase.FIGHTS_LAST
+			emit_signal("subphase_transition", "REMAINING_COMBATS", "FIGHTS_LAST")
+			current_selecting_player = _get_defending_player()  # Reset to defender
+			# Start with whoever has units
+			var has_p1 = false
+			var has_p2 = false
+			for unit_id in fights_last_sequence.get("1", []):
+				if unit_id not in units_that_fought:
+					has_p1 = true
+					break
+			for unit_id in fights_last_sequence.get("2", []):
+				if unit_id not in units_that_fought:
+					has_p2 = true
+					break
+			if not has_p1 and not has_p2:
+				log_phase_message("No Fights Last units to process")
+
+	elif current_subphase == Subphase.FIGHTS_LAST:
+		for unit_id in fights_last_sequence[current_player_key]:
+			if unit_id not in units_that_fought:
+				current_player_remaining += 1
+		for unit_id in fights_last_sequence[other_player_key]:
+			if unit_id not in units_that_fought:
+				other_player_remaining += 1
+
+		# Check if we should switch players
+		if other_player_remaining > 0:
+			# Alternate to other player
+			current_selecting_player = other_player
+			log_phase_message("Switching to player %d for Fights Last" % other_player)
+		elif current_player_remaining > 0:
+			# Stay with current player
+			log_phase_message("Continuing with player %d for Fights Last" % current_selecting_player)
+		else:
 			# All units have fought
-			log_phase_message("All units have fought")
-			# Could transition to FIGHTS_LAST if we implement it
-	
+			log_phase_message("All units have fought (including Fights Last)")
+
 	emit_signal("fight_sequence_updated")
