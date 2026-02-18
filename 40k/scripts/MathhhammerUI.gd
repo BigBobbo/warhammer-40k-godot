@@ -414,6 +414,11 @@ func _populate_rule_toggles() -> void:
 		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls", "phase": "both"},
 		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range", "phase": "shooting"},
 		{"id": "lance_charged", "name": "Charged (Lance +1 Wound)", "description": "Unit charged this turn - Lance weapons get +1 to wound", "phase": "melee"},
+		{"id": "invuln_6", "name": "Invulnerable Save 6+", "description": "Defender has 6+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_5", "name": "Invulnerable Save 5+", "description": "Defender has 5+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_4", "name": "Invulnerable Save 4+", "description": "Defender has 4+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_3", "name": "Invulnerable Save 3+", "description": "Defender has 3+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_2", "name": "Invulnerable Save 2+", "description": "Defender has 2+ invulnerable save (ignores AP)", "phase": "both"},
 		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+", "phase": "both"},
 		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+", "phase": "both"},
 		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"}

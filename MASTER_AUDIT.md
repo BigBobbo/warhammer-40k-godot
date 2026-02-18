@@ -82,6 +82,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
 | T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
 | T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
+| T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -356,12 +357,13 @@ These affect gameplay balance and tactical options significantly.
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd:77-83,296-299` — needs threshold parameter and crit wound threshold override
 
-### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override
+### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Defender invulnerable save is a core defensive stat that determines whether AP is relevant
 - **Impact:** Cannot model matchups involving invulnerable saves — a fundamental part of 40k combat math
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd` — needs defender stat override panel; `Mathhammer.gd` — needs to pass invuln to trial board state
+- **Resolution:** Added invulnerable save 2+/3+/4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` with `_get_invuln_from_toggles()` to apply the selected invuln value to each defender model's `invuln` property, which RulesEngine already reads via `model.get("invuln", 0)` during save resolution. Only overrides if the toggle value is better (lower) than any existing model invuln.
 
 ### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation — **DONE**
 - **Phase:** Mathhammer
@@ -802,14 +804,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 14 | 2 | 16 |
+| Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 6 | 20 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **27** | **101** | **128** |
-| **Recently Completed** | **54** | — | **54** |
-| *Mathhammer items (subset)* | *3* | *28* | *31* |
+| **Total Open** | **28** | **100** | **128** |
+| **Recently Completed** | **55** | — | **55** |
+| *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
 
