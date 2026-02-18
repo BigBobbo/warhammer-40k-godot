@@ -8,6 +8,11 @@ class_name LineOfSightCalculator
 const DEFAULT_GRID_SIZE: int = 20
 const DEFAULT_MAX_RANGE: float = 48.0  # inches
 
+# T3-19: Model height constants for terrain height LoS interaction
+# Per 10e rules, terrain blocks LoS based on relative height of terrain vs models
+const DEFAULT_INFANTRY_HEIGHT_INCHES: float = 2.0  # Standard infantry ~2"
+const LARGE_MODEL_HEIGHT_INCHES: float = 5.0  # MONSTER/VEHICLE/TITANIC models are typically >5"
+
 # Static methods for LoS calculations
 static func calculate_visibility_grid(models: Array, grid_size: int = DEFAULT_GRID_SIZE, max_range_inches: float = DEFAULT_MAX_RANGE) -> Dictionary:
 	var visibility_map = {}
@@ -55,14 +60,15 @@ static func calculate_visibility_grid(models: Array, grid_size: int = DEFAULT_GR
 	return visibility_map
 
 # Check if there's clear line of sight between two points
-static func check_line_of_sight(from: Vector2, to: Vector2, terrain_features: Array = []) -> bool:
+# T3-19: Added optional shooter_model/target_model for height-based terrain blocking
+static func check_line_of_sight(from: Vector2, to: Vector2, terrain_features: Array = [], shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	# If no terrain provided, get it
 	if terrain_features.is_empty():
 		terrain_features = _get_terrain_features()
 
 	# Check each terrain piece for blocking
 	for terrain in terrain_features:
-		if _terrain_blocks_los(from, to, terrain):
+		if _terrain_blocks_los(from, to, terrain, shooter_model, target_model):
 			return false
 
 		# Check walls within this terrain piece
@@ -71,12 +77,49 @@ static func check_line_of_sight(from: Vector2, to: Vector2, terrain_features: Ar
 
 	return true
 
+# T3-19: Get model height in inches from model data
+# Uses model_height_inches if explicitly set, otherwise estimates from keywords/base size
+# MONSTER/VEHICLE/TITANIC models are considered "large" (5"+), others are infantry-height (2")
+static func get_model_height_inches(model: Dictionary) -> float:
+	# Check for explicit height override
+	if model.has("model_height_inches"):
+		return model.get("model_height_inches", DEFAULT_INFANTRY_HEIGHT_INCHES)
+
+	# Check unit-level keywords passed through to model (meta.keywords)
+	var keywords = model.get("keywords", [])
+	if keywords.is_empty():
+		keywords = model.get("meta", {}).get("keywords", [])
+	for keyword in keywords:
+		var kw_upper = str(keyword).to_upper()
+		if kw_upper == "MONSTER" or kw_upper == "VEHICLE" or kw_upper == "TITANIC":
+			return LARGE_MODEL_HEIGHT_INCHES
+
+	# Default to infantry height
+	return DEFAULT_INFANTRY_HEIGHT_INCHES
+
+# T3-19: Get terrain height in inches from height category
+static func _get_terrain_height_inches(terrain: Dictionary) -> float:
+	var height_cat = terrain.get("height_category", "tall")
+	match height_cat:
+		"low":
+			return 1.5  # <2" terrain
+		"medium":
+			return 3.5  # 2-5" terrain
+		"tall":
+			return 6.0  # >5" terrain
+		_:
+			return 6.0
+
 # Check if terrain blocks line of sight
-static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary) -> bool:
-	# Only tall terrain blocks LoS completely
+# T3-19: Now handles all terrain heights, not just "tall"
+# - Tall terrain (>5"): Blocks LoS for all models (Obscuring)
+# - Medium terrain (2-5"): Blocks LoS only if both models are shorter than terrain
+# - Low terrain (<2"): Never blocks LoS (cover only)
+static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	var height_cat = terrain.get("height_category", "")
-	if height_cat != "tall":
-		# TODO: Handle medium/low terrain based on model height
+
+	# Low terrain never blocks LoS
+	if height_cat == "low":
 		return false
 
 	var polygon = terrain.get("polygon", PackedVector2Array())
@@ -84,11 +127,31 @@ static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary)
 		return false
 
 	# Check if the line intersects the terrain polygon
-	if _segment_intersects_polygon(from, to, polygon):
-		# Models inside terrain can see out and be seen
-		# So only block if both points are outside
-		if not _point_in_polygon(from, polygon) and not _point_in_polygon(to, polygon):
-			return true
+	if not _segment_intersects_polygon(from, to, polygon):
+		return false
+
+	# Models inside terrain can see out and be seen
+	# So only block if both points are outside
+	if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+		return false
+
+	# Tall terrain blocks LoS for all models (Obscuring)
+	if height_cat == "tall":
+		return true
+
+	# Medium terrain: blocks LoS only if both models are shorter than the terrain
+	# Per 10e: MONSTER/VEHICLE/TITANIC models can see and be seen over medium terrain
+	if height_cat == "medium":
+		var terrain_height = _get_terrain_height_inches(terrain)
+		var shooter_height = get_model_height_inches(shooter_model)
+		var target_height = get_model_height_inches(target_model)
+
+		# If either model is taller than the terrain, LoS is not blocked
+		if shooter_height >= terrain_height or target_height >= terrain_height:
+			return false
+
+		# Both models are shorter than the terrain — LoS is blocked
+		return true
 
 	return false
 
