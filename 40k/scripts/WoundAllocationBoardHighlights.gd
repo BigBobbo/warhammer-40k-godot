@@ -10,7 +10,8 @@ enum HighlightType {
 	SELECTABLE,         # Green steady - can select
 	SELECTED,           # Yellow flash - just selected
 	DEAD,               # Gray X marker - model destroyed
-	CHARACTER_PROTECTED # Blue/purple - character protected by bodyguard (non-selectable)
+	CHARACTER_PROTECTED, # Blue/purple - character protected by bodyguard (non-selectable)
+	PRECISION_TARGET    # Orange - character targetable by Precision weapon (T3-4)
 }
 
 # Preload shader at class level (REQUIRED for instantiation to work)
@@ -91,6 +92,19 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 			shield_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			highlight.add_child(shield_label)
 			print("WoundAllocationBoardHighlights: Created CHARACTER_PROTECTED highlight (blue) at ", model_pos)
+
+		HighlightType.PRECISION_TARGET:
+			# PRECISION (T3-4): Orange highlight for CHARACTER models targetable by Precision
+			highlight.modulate = Color(0.9, 0.5, 0.1, 0.7)  # Orange
+			# Add crosshair icon label
+			var precision_label = Label.new()
+			precision_label.text = "🎯"
+			precision_label.add_theme_font_size_override("font_size", int(base_px * 1.0))
+			precision_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.1))
+			precision_label.position = Vector2(-base_px * 0.4, -base_px * 0.5)
+			precision_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			highlight.add_child(precision_label)
+			print("WoundAllocationBoardHighlights: Created PRECISION_TARGET highlight (orange) at ", model_pos)
 
 		HighlightType.DEAD:
 			# Gray semitransparent circle with skull marker

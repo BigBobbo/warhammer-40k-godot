@@ -937,7 +937,14 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 
 		# Build allocation order: wounded models first, then by model_index
 		var allocation_order = []
+		# PRECISION (T3-4): Separate character and non-character models
+		var character_profiles = []
+		var bodyguard_profiles = []
 		for profile in model_save_profiles:
+			if profile.get("is_character", false):
+				character_profiles.append(profile)
+			else:
+				bodyguard_profiles.append(profile)
 			allocation_order.append(profile)
 
 		# Sort: wounded models first (is_wounded = true first)
@@ -949,16 +956,43 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 			return a.get("model_index", 0) < b.get("model_index", 0)
 		)
 
+		# PRECISION (T3-4): Check if weapon has Precision and there are character models
+		var has_precision = save_data.get("has_precision", false)
+		var precision_wounds = save_data.get("precision_wounds", 0)
+		var precision_wounds_remaining = precision_wounds if has_precision else 0
+		var bodyguard_alive = not bodyguard_profiles.is_empty()
+
+		if has_precision and precision_wounds > 0 and not character_profiles.is_empty():
+			print("ShootingPhase: PRECISION — %d wounds can target CHARACTER models" % precision_wounds)
+
 		# Roll all saves at once, then allocate to models in priority order
 		var all_rolls = rng.roll_d6(wounds_to_save)
 		var alloc_idx = 0
+		# PRECISION (T3-4): Track character allocation index separately
+		var char_alloc_idx = 0
 		for w in range(wounds_to_save):
-			if alloc_idx >= allocation_order.size():
-				alloc_idx = 0  # Wrap around if more wounds than models
-			if allocation_order.is_empty():
-				break
+			# PRECISION (T3-4): Allocate precision wounds to CHARACTER models first
+			var use_character_target = false
+			if precision_wounds_remaining > 0 and not character_profiles.is_empty():
+				use_character_target = true
+				precision_wounds_remaining -= 1
 
-			var profile = allocation_order[alloc_idx]
+			var profile: Dictionary
+			if use_character_target:
+				if char_alloc_idx >= character_profiles.size():
+					char_alloc_idx = 0  # Wrap around
+				profile = character_profiles[char_alloc_idx]
+				char_alloc_idx += 1
+			else:
+				# Normal allocation: bodyguard models (or all models if no bodyguard)
+				var normal_order = bodyguard_profiles if bodyguard_alive else allocation_order
+				if normal_order.is_empty():
+					break
+				if alloc_idx >= normal_order.size():
+					alloc_idx = 0  # Wrap around
+				profile = normal_order[alloc_idx]
+				alloc_idx += 1
+
 			var save_needed = profile.get("save_needed", 7)
 			var roll = all_rolls[w]
 			save_rolls_raw.append(roll)
@@ -970,15 +1004,14 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 				"model_index": profile.get("model_index", 0),
 				"roll": roll,
 				"damage": save_data.get("damage", 1),
-				"model_destroyed": false  # Will be determined by apply_save_damage
+				"model_destroyed": false,  # Will be determined by apply_save_damage
+				"precision_wound": use_character_target  # PRECISION (T3-4): Track precision wounds
 			})
 
 			if saved:
 				saves_passed += 1
 			else:
 				saves_failed += 1
-
-			alloc_idx += 1
 
 		# Build dice block for save rolls
 		if not save_rolls_raw.is_empty():
