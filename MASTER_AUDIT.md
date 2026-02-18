@@ -91,6 +91,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-18: FLY units ignore terrain elevation during movement | Movement | MOVEMENT_PHASE_AUDIT.md §2.3 |
 | T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
 | T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-21: Torrent weapons (auto-hit) toggle in Mathhammer simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
@@ -552,12 +553,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `Mathhammer.gd:188-189` — `attacks_override` should add RF value, not multiply by 2
 - **Resolution:** Changed `attacks_override` from `base_attacks * 2` to `base_attacks + rf_value * model_count`, using `RulesEngine.get_rapid_fire_value()` to look up the weapon's actual RF X value. Fixed misleading "Double attacks" descriptions in MathhhammerUI and MathhhammerRuleModifiers.
 
-### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles
+### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Torrent weapons automatically hit — no hit roll made, no critical hits possible
 - **Impact:** Torrent is a common ability (flamers, etc.) that changes the math significantly
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd` — needs Torrent toggle that bypasses hit rolls
+- **Resolution:** Added Torrent toggle to MathhhammerRuleModifiers (rule definition + conflict with hit modifiers), MathhhammerUI (shooting-phase checkbox), and Mathhammer.gd (passes `torrent` flag through weapon assignment). Extended RulesEngine to accept `assignment.get("torrent", false)` override on all 3 combat paths (interactive shoot, auto-resolve shoot, melee). Also fixed missing `auto_hit` dice context tracking in trial stats extraction.
 
 ### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count — **DONE**
 - **Phase:** Mathhammer
@@ -827,13 +829,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 16 | 10 | 26 |
+| Tier 3 — Medium Rules | 17 | 9 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **37** | **91** | **128** |
-| **Recently Completed** | **64** | — | **64** |
-| *Mathhammer items (subset)* | *8* | *23* | *31* |
+| **Total Open** | **38** | **90** | **128** |
+| **Recently Completed** | **65** | — | **65** |
+| *Mathhammer items (subset)* | *9* | *22* | *31* |
+>>>>>>> audit/T3-21/t3-21-mh-rule-5-torrent-weapons-auto-hit
 
 ---
 

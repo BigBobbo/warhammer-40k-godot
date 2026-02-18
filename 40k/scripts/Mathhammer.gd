@@ -148,10 +148,10 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 				# Handle both shooting and melee dice context names
 				for dice_roll in combat_result.dice:
 					match dice_roll.context:
-						"to_hit", "hit_roll_melee", "auto_hit_melee":
+						"to_hit", "hit_roll_melee", "auto_hit_melee", "auto_hit":
 							trial_result.hits += dice_roll.get("successes", dice_roll.get("total_attacks", 0))
 							var roll_count = dice_roll.get("rolls_raw", []).size()
-							if dice_roll.context == "auto_hit_melee":
+							if dice_roll.context in ["auto_hit_melee", "auto_hit"]:
 								roll_count = dice_roll.get("total_attacks", 0)
 							trial_result.attacks_made += roll_count
 							trial_result.weapon_breakdown[weapon_id].attacks_made += roll_count
@@ -219,6 +219,11 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 					print("Mathhammer: Blast on %s — +%d bonus attacks (%d defender models), effective min: %d, total: %d" % [weapon_id, blast_bonus, model_count, blast_min, effective_attacks])
 
 			assignment["attacks_override"] = effective_attacks
+
+			# Apply Torrent toggle (auto-hit, bypasses hit rolls)
+			if rule_toggles.get("torrent", false):
+				assignment["torrent"] = true
+				print("Mathhammer: Applied Torrent to %s — all attacks auto-hit" % weapon_id)
 
 			# Apply rule toggles that affect wound rolls
 			if rule_toggles.get("twin_linked", false):
