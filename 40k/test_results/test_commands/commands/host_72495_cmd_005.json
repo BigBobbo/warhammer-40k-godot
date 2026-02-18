@@ -1,0 +1,12 @@
+{
+	"command": {
+		"action": "get_game_state",
+		"parameters": {
+
+		}
+	},
+	"sequence": 5,
+	"timeout_ms": 5000,
+	"timestamp": 141140,
+	"version": "1.0"
+}
