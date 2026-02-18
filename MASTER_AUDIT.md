@@ -67,6 +67,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-3: Hazardous weapon keyword — mortal wounds on roll of 1 | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-4: Indirect Fire weapon keyword — LoS skip, -1 to hit, 1-3 auto-fail, cover | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-6: Consolidation into new enemies triggers new fights | Fight | FIGHT_PHASE_AUDIT.md §2.4 |
+| T2-8: Terrain interaction during charges — vertical distance penalty + FLY diagonal | Charge | CHARGE_PHASE_AUDIT.md §2.6 |
 
 ---
 
@@ -292,12 +293,13 @@ These affect gameplay balance and tactical options significantly.
 - **Source:** FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2
 - **Files:** `FightPhase.gd:1020-1023` (stub), StratagemManager integration
 
-### T2-8. Terrain interaction during charges — not implemented
+### T2-8. Terrain interaction during charges — **DONE**
 - **Phase:** Charge
 - **Rule:** Charging over terrain >2" costs vertical distance against charge roll; FLY allows diagonal
 - **Impact:** Charges through terrain have no distance penalty
 - **Source:** CHARGE_PHASE_AUDIT.md §2.6
-- **Files:** `ChargePhase.gd`, `ChargeController.gd`
+- **Files:** `ChargePhase.gd`, `ChargeController.gd`, `TerrainManager.gd`, `RulesEngine.gd`
+- **Resolution:** Added terrain vertical distance penalty system. TerrainManager now provides `calculate_charge_terrain_penalty()` which checks path segments against terrain features. Terrain >2" adds climb up + climb down distance for non-FLY units, and diagonal measurement for FLY units. Integrated into ChargePhase path validation, ChargeController drag validation, and RulesEngine charge path validation. 14 unit tests verify all scenarios.
 
 ### T2-9. AIRCRAFT restriction — not checked in charge
 - **Phase:** Charge
@@ -772,13 +774,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 5 | 11 | 16 |
+| Tier 2 — High Rules | 6 | 10 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **14** | **114** | **128** |
-| **Recently Completed** | **43** | — | **43** |
+| **Total Open** | **15** | **113** | **128** |
+| **Recently Completed** | **44** | — | **44** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---

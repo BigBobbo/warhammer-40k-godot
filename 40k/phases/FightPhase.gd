@@ -1146,26 +1146,32 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_heroic_intervention(action: Dictionary) -> Dictionary:
-	# Placeholder for heroic intervention
-	log_phase_message("Heroic intervention not yet implemented")
-	return create_result(false, [], "Heroic intervention not implemented")
+	# Heroic Intervention is now handled in ChargePhase.gd (after enemy charge move).
+	# This action type in FightPhase is kept for backwards compatibility but redirects
+	# to an informative error since the stratagem window occurs during the Charge phase.
+	log_phase_message("Heroic Intervention is handled during the Charge phase, not the Fight phase")
+	return create_result(false, [], "Heroic Intervention is handled during the Charge phase (after an enemy unit ends a Charge move)")
 
 # Helper methods
 func _get_fight_priority(unit: Dictionary) -> int:
-	# Check if unit charged this turn
-	if unit.get("flags", {}).get("charged_this_turn", false):
+	var flags = unit.get("flags", {})
+
+	# Check if unit charged this turn — but Heroic Intervention units do NOT get Fights First
+	# Per 10e: "That unit is not eligible to fight in the Fights First step of the following
+	# Fight phase." Heroic Intervention sets charged_this_turn but also heroic_intervention flag.
+	if flags.get("charged_this_turn", false) and not flags.get("heroic_intervention", false):
 		return FightPriority.FIGHTS_FIRST
-	
+
 	# Check for Fights First ability
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
 		if "fights_first" in str(ability).to_lower():
 			return FightPriority.FIGHTS_FIRST
-	
+
 	# Check for Fights Last debuff
 	if unit.get("status_effects", {}).get("fights_last", false):
 		return FightPriority.FIGHTS_LAST
-	
+
 	return FightPriority.NORMAL
 
 func _get_defending_player() -> int:
@@ -1937,36 +1943,12 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-# Legacy method compatibility 
+# Legacy method compatibility — Heroic Intervention is now fully implemented in ChargePhase.gd
+# This validator is kept for the HEROIC_INTERVENTION action type routing in FightPhase
 func _validate_heroic_intervention_action(action: Dictionary) -> Dictionary:
-	var errors = []
-	
-	var required_fields = ["unit_id", "new_positions"]
-	for field in required_fields:
-		if not action.has(field):
-			errors.append("Missing required field: " + field)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	var unit_id = action.unit_id
-	var unit = get_unit(unit_id)
-	
-	if unit.is_empty():
-		errors.append("Unit not found: " + unit_id)
-		return {"valid": false, "errors": errors}
-	
-	# Check if unit is a character
-	var keywords = unit.get("meta", {}).get("keywords", [])
-	if not "CHARACTER" in keywords:
-		errors.append("Only characters can perform heroic interventions")
-	
-	# TODO: Add heroic intervention specific validation
-	# - Check 6" range from enemy units
-	# - Check that character is not already in combat
-	# - Check timing (at start of fight phase)
-	
-	return {"valid": errors.size() == 0, "errors": errors}
+	# Heroic Intervention is now handled in ChargePhase.gd after enemy charge moves.
+	# This action type should no longer be used from the Fight phase.
+	return {"valid": false, "errors": ["Heroic Intervention is now handled during the Charge phase (use USE_HEROIC_INTERVENTION during Charge phase)"]}
 
 func _validate_use_epic_challenge(action: Dictionary) -> Dictionary:
 	var errors = []

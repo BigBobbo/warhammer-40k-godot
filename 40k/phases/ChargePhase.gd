@@ -19,6 +19,7 @@ signal charge_unit_completed(unit_id: String)
 signal charge_unit_skipped(unit_id: String)
 signal dice_rolled(dice_data: Dictionary)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal heroic_intervention_opportunity(player: int, eligible_units: Array, charging_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -33,6 +34,13 @@ var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
 var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
 var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
+
+# Heroic Intervention state tracking
+var awaiting_heroic_intervention: bool = false
+var heroic_intervention_player: int = 0  # Defending player being offered HI
+var heroic_intervention_charging_unit_id: String = ""  # The enemy unit that just charged
+var heroic_intervention_unit_id: String = ""  # Unit selected for HI (set on USE)
+var heroic_intervention_pending_charge: Dictionary = {}  # Pending charge data for HI unit
 
 # Failure category constants for structured error reporting
 const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
@@ -68,6 +76,11 @@ func _on_phase_enter() -> void:
 	failed_charge_attempts.clear()
 	awaiting_reroll_decision = false
 	reroll_pending_unit_id = ""
+	awaiting_heroic_intervention = false
+	heroic_intervention_player = 0
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
 
 	_initialize_charge()
 
@@ -113,6 +126,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _validate_command_reroll(action)
+		"USE_HEROIC_INTERVENTION":
+			return _validate_use_heroic_intervention(action)
+		"DECLINE_HEROIC_INTERVENTION":
+			return _validate_decline_heroic_intervention(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _validate_heroic_intervention_charge_roll(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _validate_apply_heroic_intervention_move(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -138,6 +159,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _process_decline_command_reroll(action)
+		"USE_HEROIC_INTERVENTION":
+			return _process_use_heroic_intervention(action)
+		"DECLINE_HEROIC_INTERVENTION":
+			return _process_decline_heroic_intervention(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _process_heroic_intervention_charge_roll(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _process_apply_heroic_intervention_move(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -625,11 +654,58 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	units_that_charged.append(unit_id)
 	pending_charges.erase(unit_id)
 	# Don't mark as completed yet - wait for COMPLETE_UNIT_CHARGE action
-	
+
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
 
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
+
+	# Check if Heroic Intervention is available for the defending player
+	# Per 10e rules: "just after an enemy unit ends a Charge move"
+	var charging_unit = get_unit(unit_id)
+	var charging_owner = int(charging_unit.get("owner", 0))
+	var defending_player = 2 if charging_owner == 1 else 1
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
+		if hi_check.available:
+			# Need to apply changes first so the snapshot is up-to-date for distance checks
+			# We do this through the result — BasePhase.execute_action applies changes before
+			# we check, but we need to use the FUTURE state. Build a temporary snapshot.
+			var temp_snapshot = game_state_snapshot.duplicate(true)
+			# Apply position changes to temp snapshot for distance calculation
+			for change in changes:
+				if change.get("op", "") == "set":
+					var path_parts = change.path.split(".")
+					if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+						var u_id = path_parts[1]
+						var m_idx = int(path_parts[3])
+						var field = path_parts[4] if path_parts.size() > 4 else ""
+						if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+							var models = temp_snapshot.units[u_id].get("models", [])
+							if m_idx < models.size():
+								models[m_idx]["position"] = change.value
+
+			var hi_eligible = strat_manager.get_heroic_intervention_eligible_units(
+				defending_player, unit_id, temp_snapshot
+			)
+
+			if not hi_eligible.is_empty():
+				# Heroic Intervention is available! Pause and offer it to the defender
+				awaiting_heroic_intervention = true
+				heroic_intervention_player = defending_player
+				heroic_intervention_charging_unit_id = unit_id
+				log_phase_message("HEROIC INTERVENTION available for Player %d (%d eligible units)" % [defending_player, hi_eligible.size()])
+
+				emit_signal("heroic_intervention_opportunity", defending_player, hi_eligible, unit_id)
+
+				var result = create_result(true, changes)
+				result["trigger_heroic_intervention"] = true
+				result["heroic_intervention_player"] = defending_player
+				result["heroic_intervention_eligible_units"] = hi_eligible
+				result["heroic_intervention_charging_unit_id"] = unit_id
+				return result
 
 	return create_result(true, changes)
 
@@ -811,13 +887,34 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 	var rolled_distance = charge_data.distance
 	var target_ids = charge_data.targets
 
-	# 1. Validate path distances
+	# Check if unit has FLY keyword (for terrain penalty calculation)
+	var unit = get_unit(unit_id)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	# 1. Validate path distances (including terrain vertical distance penalties)
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
-			if path_distance > rolled_distance:
-				var err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
+
+			# T2-8: Add terrain vertical distance penalty
+			# Terrain >2" high costs vertical distance against charge roll
+			# FLY units measure diagonally instead (shorter penalty)
+			var terrain_penalty = _calculate_path_terrain_penalty(path, has_fly)
+			var effective_distance = path_distance + terrain_penalty
+
+			if terrain_penalty > 0.0:
+				print("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
+					model_id, terrain_penalty, str(has_fly), effective_distance])
+
+			if effective_distance > rolled_distance:
+				var err = ""
+				if terrain_penalty > 0.0:
+					err = "Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [
+						model_id, path_distance, terrain_penalty, effective_distance, rolled_distance]
+				else:
+					err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
 				errors.append(err)
 				categorized_errors.append({"category": FAIL_DISTANCE, "detail": err})
 
@@ -1037,6 +1134,39 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
+## T2-8: Calculate the total terrain vertical distance penalty for a charge path.
+## For each segment of the path that crosses terrain >2" high, adds vertical
+## distance (climb up + down for non-FLY, diagonal for FLY units).
+func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
+	var total_penalty: float = 0.0
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager:
+		return 0.0
+
+	# Check each segment of the path for terrain crossings
+	for i in range(1, path.size()):
+		var from_pos: Vector2
+		var to_pos: Vector2
+
+		# Handle both Vector2 and Array [x, y] formats
+		if path[i - 1] is Vector2:
+			from_pos = path[i - 1]
+		elif path[i - 1] is Array:
+			from_pos = Vector2(path[i - 1][0], path[i - 1][1])
+		else:
+			continue
+
+		if path[i] is Vector2:
+			to_pos = path[i]
+		elif path[i] is Array:
+			to_pos = Vector2(path[i][0], path[i][1])
+		else:
+			continue
+
+		total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+
+	return total_penalty
+
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
 	if pos == null:
@@ -1243,7 +1373,8 @@ func has_pending_charge(unit_id: String) -> bool:
 func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	"""Check if the rolled distance is sufficient for at least one model to reach
 	engagement range (1") of at least one target model in any declared target unit.
-	This is the server-side feasibility check performed immediately after the roll."""
+	This is the server-side feasibility check performed immediately after the roll.
+	T2-8: Now accounts for terrain vertical distance penalties along the charge path."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -1255,9 +1386,15 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	if target_ids.is_empty():
 		return false
 
+	# T2-8: Check FLY keyword for terrain penalty calculation
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
+
+		var model_pos = _get_model_position(model)
 
 		for target_id in target_ids:
 			var target_unit = get_unit(target_id)
@@ -1271,7 +1408,14 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 				# Edge-to-edge distance in inches, minus engagement range
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
 				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
-				if distance_to_close <= rolled_distance:
+
+				# T2-8: Add terrain penalty for the straight-line path
+				var target_pos = _get_model_position(target_model)
+				var terrain_penalty = _calculate_path_terrain_penalty(
+					[model_pos, target_pos], has_fly)
+				var effective_distance = distance_to_close + terrain_penalty
+
+				if effective_distance <= rolled_distance:
 					return true
 
 	return false
@@ -1302,6 +1446,313 @@ func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
 		return pending_charges[unit_id].distance
 	return 0
+
+# ============================================================================
+# HEROIC INTERVENTION
+# ============================================================================
+
+func _validate_use_heroic_intervention(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", heroic_intervention_player)
+
+	if not awaiting_heroic_intervention:
+		errors.append("Not awaiting Heroic Intervention decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Heroic Intervention")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.is_heroic_intervention_available(player)
+		if not check.available:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		errors.append("Battle-shocked units cannot use Stratagems")
+		return {"valid": false, "errors": errors}
+
+	# Check VEHICLE restriction
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var is_vehicle = false
+	var is_walker = false
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "VEHICLE":
+			is_vehicle = true
+		if kw_upper == "WALKER":
+			is_walker = true
+	if is_vehicle and not is_walker:
+		errors.append("VEHICLE units cannot use Heroic Intervention unless they have the WALKER keyword")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_heroic_intervention(action: Dictionary) -> Dictionary:
+	if not awaiting_heroic_intervention:
+		return {"valid": false, "errors": ["Not awaiting Heroic Intervention decision"]}
+	return {"valid": true, "errors": []}
+
+func _validate_heroic_intervention_charge_roll(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id.is_empty():
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if heroic_intervention_unit_id.is_empty():
+		return {"valid": false, "errors": ["No unit selected for Heroic Intervention charge"]}
+	if unit_id != heroic_intervention_unit_id:
+		return {"valid": false, "errors": ["Unit does not match Heroic Intervention selection"]}
+	if heroic_intervention_pending_charge.is_empty():
+		return {"valid": false, "errors": ["No Heroic Intervention charge pending"]}
+	return {"valid": true, "errors": []}
+
+func _validate_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+
+	if unit_id.is_empty():
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if per_model_paths.is_empty():
+		return {"valid": false, "errors": ["Missing per_model_paths"]}
+	if unit_id != heroic_intervention_unit_id:
+		return {"valid": false, "errors": ["Unit does not match Heroic Intervention selection"]}
+	if heroic_intervention_pending_charge.is_empty():
+		return {"valid": false, "errors": ["No Heroic Intervention charge data"]}
+
+	# Validate movement constraints (same as normal charge but target is only the charging enemy)
+	var charge_data = heroic_intervention_pending_charge
+	if not charge_data.has("distance"):
+		return {"valid": false, "errors": ["No charge distance rolled yet"]}
+
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	return validation
+
+func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", heroic_intervention_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "heroic_intervention", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Heroic Intervention: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses HEROIC INTERVENTION — %s will counter-charge!" % [player, unit_name])
+
+	# Set up the heroic intervention charge
+	awaiting_heroic_intervention = false
+	heroic_intervention_unit_id = unit_id
+
+	# Set up pending charge data targeting only the charging enemy unit
+	heroic_intervention_pending_charge = {
+		"targets": [heroic_intervention_charging_unit_id],
+		"declared_at": Time.get_unix_time_from_system()
+	}
+
+	# Now auto-roll the charge dice (HI uses a normal 2D6 charge roll)
+	var rng = RulesEngine.RNGService.new()
+	var rolls = rng.roll_d6(2)
+	var total_distance = rolls[0] + rolls[1]
+
+	heroic_intervention_pending_charge.distance = total_distance
+	heroic_intervention_pending_charge.dice_rolls = rolls
+
+	log_phase_message("HEROIC INTERVENTION charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
+
+	# Check if the charge roll is sufficient
+	var target_ids = [heroic_intervention_charging_unit_id]
+	var roll_sufficient = _is_heroic_intervention_roll_sufficient(unit_id, total_distance, target_ids)
+
+	var dice_result = {
+		"context": "heroic_intervention_charge_roll",
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"rolls": rolls,
+		"total": total_distance,
+		"targets": target_ids,
+		"charge_failed": not roll_sufficient,
+	}
+	dice_log.append(dice_result)
+	emit_signal("dice_rolled", dice_result)
+
+	if not roll_sufficient:
+		# Heroic Intervention charge failed
+		log_phase_message("HEROIC INTERVENTION charge FAILED for %s (rolled %d)" % [unit_name, total_distance])
+		print("ChargePhase: Heroic Intervention charge roll INSUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+
+		# Clean up HI state
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_charging_unit_id = ""
+		heroic_intervention_player = 0
+
+		return create_result(true, [], "", {
+			"dice": [dice_result],
+			"heroic_intervention_failed": true,
+			"heroic_intervention_unit_id": unit_id,
+		})
+
+	# Roll sufficient — enable movement
+	print("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
+
+	return create_result(true, [], "", {
+		"dice": [dice_result],
+		"heroic_intervention_roll_success": true,
+		"heroic_intervention_unit_id": unit_id,
+		"heroic_intervention_distance": total_distance,
+	})
+
+func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
+	var player = action.get("player", heroic_intervention_player)
+	log_phase_message("Player %d declined HEROIC INTERVENTION" % player)
+
+	# Clear HI state
+	awaiting_heroic_intervention = false
+	heroic_intervention_player = 0
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
+
+	return create_result(true, [])
+
+func _process_heroic_intervention_charge_roll(action: Dictionary) -> Dictionary:
+	# This action is for manual triggering of the charge roll if needed
+	# In the current flow, the roll is done automatically in _process_use_heroic_intervention
+	# This is kept for compatibility with potential future UI changes
+	return create_result(true, [])
+
+func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+	var per_model_rotations = payload.get("per_model_rotations", {})
+
+	if heroic_intervention_pending_charge.is_empty():
+		return create_result(false, [], "No Heroic Intervention charge data")
+
+	var charge_data = heroic_intervention_pending_charge
+
+	# Final validation
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	if not validation.valid:
+		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		log_phase_message("Heroic Intervention charge failed for %s: %s" % [unit_name, validation.errors[0]])
+
+		# Clean up HI state
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_charging_unit_id = ""
+		heroic_intervention_player = 0
+
+		emit_signal("charge_resolved", unit_id, false, {
+			"reason": validation.errors[0],
+			"heroic_intervention": true,
+		})
+		return create_result(true, [])
+
+	# Apply successful HI charge movement
+	var changes = []
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var final_pos = path[-1]
+		var model_index = _get_model_index(unit_id, model_id)
+		if model_index < 0:
+			continue
+
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"value": {"x": final_pos[0], "y": final_pos[1]}
+		})
+
+		if per_model_rotations.has(model_id):
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"value": per_model_rotations[model_id]
+			})
+
+	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)
+	# Per 10e rules: Heroic Intervention does NOT grant Fights First
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.charged_this_turn" % unit_id,
+		"value": true
+	})
+	# Explicitly do NOT set fights_first — this is the key mechanical difference
+	# The unit fights in the normal (Remaining Combats) subphase
+
+	# Mark as heroic intervention unit for tracking
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.heroic_intervention" % unit_id,
+		"value": true
+	})
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
+
+	emit_signal("charge_resolved", unit_id, true, {
+		"distance": charge_data.distance,
+		"heroic_intervention": true,
+	})
+
+	# Clean up HI state
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
+
+	return create_result(true, changes)
+
+func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
+	"""Check if the HI charge roll is sufficient to reach engagement range of the target."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		for target_id in target_ids:
+			var target_unit = get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
+				if distance_to_close <= rolled_distance:
+					return true
+
+	return false
 
 # Override create_result to support additional data
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:

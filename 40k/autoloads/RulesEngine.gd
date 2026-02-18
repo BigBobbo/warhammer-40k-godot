@@ -3623,14 +3623,29 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 static func validate_charge_paths(unit_id: String, targets: Array, roll: int, paths: Dictionary, board: Dictionary) -> Dictionary:
 	var errors = []
 	var auto_fix_suggestions = []
-	
-	# 1. Validate path distances
+
+	# T2-8: Check if unit has FLY keyword for terrain penalty calculation
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	# 1. Validate path distances (including terrain penalty - T2-8)
 	for model_id in paths:
 		var path = paths[model_id]
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
-			if path_distance > roll:
-				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
+
+			# T2-8: Calculate terrain vertical distance penalty
+			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board)
+			var effective_distance = path_distance + terrain_penalty
+
+			if effective_distance > roll:
+				if terrain_penalty > 0.0:
+					errors.append("Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [
+						model_id, path_distance, terrain_penalty, effective_distance, roll])
+				else:
+					errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
 				auto_fix_suggestions.append("Reduce path length for model %s" % model_id)
 	
 	# 2. Validate engagement range with ALL targets
@@ -3762,6 +3777,101 @@ static func _get_model_position_rules(model: Dictionary) -> Vector2:
 		return Vector2(pos.get("x", 0), pos.get("y", 0))
 	elif pos is Vector2:
 		return pos
+	return Vector2.ZERO
+
+# T2-8: Calculate terrain vertical distance penalty for a charge path segment.
+# Uses board terrain_features data to check for terrain >2" high.
+# Non-FLY units pay full climb (height * 2 for up + down).
+# FLY units pay diagonal distance (shorter).
+static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary) -> float:
+	var total_penalty: float = 0.0
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty():
+		# Fall back to TerrainManager autoload if terrain not in board dict
+		var terrain_manager = Engine.get_singleton("TerrainManager") if Engine.has_singleton("TerrainManager") else null
+		if terrain_manager == null:
+			# Try node path
+			var tree = Engine.get_main_loop()
+			if tree and tree.has_method("get_root"):
+				var root = tree.get_root()
+				if root:
+					terrain_manager = root.get_node_or_null("TerrainManager")
+		if terrain_manager and terrain_manager.has_method("calculate_charge_terrain_penalty"):
+			# Delegate to TerrainManager for each path segment
+			for i in range(1, path.size()):
+				var from_pos = _path_point_to_vector2(path[i - 1])
+				var to_pos = _path_point_to_vector2(path[i])
+				if from_pos != null and to_pos != null:
+					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+			return total_penalty
+
+	# Use terrain_features from board dict
+	for i in range(1, path.size()):
+		var from_pos = _path_point_to_vector2(path[i - 1])
+		var to_pos = _path_point_to_vector2(path[i])
+		if from_pos == null or to_pos == null:
+			continue
+
+		for terrain in terrain_features:
+			var height_cat = terrain.get("height_category", "tall")
+			var height_inches: float = 6.0
+			match height_cat:
+				"low":
+					height_inches = 1.5
+				"medium":
+					height_inches = 3.5
+				"tall":
+					height_inches = 6.0
+
+			# Skip terrain 2" or less (no penalty)
+			if height_inches <= 2.0:
+				continue
+
+			# Check if path segment crosses this terrain
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			if polygon.is_empty():
+				continue
+
+			var crosses = false
+			for j in range(polygon.size()):
+				var edge_start = polygon[j]
+				var edge_end = polygon[(j + 1) % polygon.size()]
+				if Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end) != null:
+					crosses = true
+					break
+
+			if not crosses:
+				continue
+
+			if has_fly:
+				# FLY: diagonal measurement through terrain
+				# Find crossing distance through polygon
+				var intersections: Array = []
+				for j in range(polygon.size()):
+					var edge_start = polygon[j]
+					var edge_end = polygon[(j + 1) % polygon.size()]
+					var result = Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end)
+					if result != null:
+						intersections.append(result)
+
+				var cross_distance_px: float = 0.0
+				if intersections.size() >= 2:
+					cross_distance_px = intersections[0].distance_to(intersections[1])
+				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+				total_penalty += diagonal - cross_distance_inches
+			else:
+				# Non-FLY: climb up + climb down = height * 2
+				total_penalty += height_inches * 2.0
+
+	return total_penalty
+
+# Helper to convert a path point (Vector2 or Array) to Vector2
+static func _path_point_to_vector2(point) -> Vector2:
+	if point is Vector2:
+		return point
+	elif point is Array and point.size() >= 2:
+		return Vector2(point[0], point[1])
 	return Vector2.ZERO
 
 # Validate engagement range constraints for charge
