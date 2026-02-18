@@ -285,9 +285,13 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model has no current position"]}
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
-	if distance_inches > move_data.move_cap_inches:
-		return {"valid": false, "errors": ["Move exceeds cap: %.1f\" > %.1f\"" % [distance_inches, move_data.move_cap_inches]]}
-	
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
+	var effective_distance = distance_inches + terrain_penalty
+	if effective_distance > move_data.move_cap_inches:
+		return {"valid": false, "errors": ["Move exceeds cap: %.1f\" > %.1f\"" % [effective_distance, move_data.move_cap_inches]]}
+
 	# Check engagement range restrictions
 	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
 	if not er_check.valid:
@@ -357,7 +361,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 
 	# Calculate total distance from original position to destination
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	log_phase_message("  Distance calculation: %.2f inches" % total_distance_for_model)
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
+	total_distance_for_model += terrain_penalty
+	log_phase_message("  Distance calculation: %.2f inches (terrain penalty: %.2f\")" % [total_distance_for_model, terrain_penalty])
 
 	# Check if this specific model's distance exceeds cap (with floating-point tolerance)
 	if total_distance_for_model > move_data.move_cap_inches + MOVEMENT_CAP_EPSILON:
@@ -904,7 +912,11 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Calculate total distance from original position
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
+	total_distance_for_model += terrain_penalty
+
 	# Remove any existing staged move for this model to prevent duplicates
 	var moves_to_remove = []
 	for i in range(move_data.staged_moves.size()):
@@ -1609,6 +1621,19 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	return "FLY" in keywords
 
+func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
+	# Calculate terrain elevation penalty for movement.
+	# FLY units ignore terrain elevation entirely (return 0).
+	# Non-FLY units must count vertical distance (climb up + down) for terrain >2".
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
+		return 0.0
+	var has_fly = _unit_has_fly_keyword(unit_id)
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
+	if penalty > 0.0:
+		log_phase_message("  Terrain elevation penalty: %.1f\" (FLY=%s)" % [penalty, has_fly])
+	return penalty
+
 func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
 	# Check if a movement path crosses any enemy model bases using shape-aware overlap.
 	# 10e Rule: A model cannot move through enemy models during Normal Move or Advance.
@@ -2003,6 +2028,9 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 
 		# Calculate individual distance
 		var total_distance = Measurement.distance_inches(original_pos, new_pos)
+		# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+		# FLY units ignore terrain elevation entirely (penalty = 0)
+		total_distance += _get_movement_terrain_penalty(original_pos, new_pos, unit_id)
 		group_validation.individual_distances[model_id] = total_distance
 
 		# Validate against movement cap (with floating-point tolerance)
@@ -2078,6 +2106,9 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	# Check distance limit
 	var original_pos = move_data.original_positions.get(model_id, _get_model_position(model))
 	var total_distance = Measurement.distance_inches(original_pos, dest_pos)
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	total_distance += _get_movement_terrain_penalty(original_pos, dest_pos, unit_id)
 
 	if total_distance > move_data.move_cap_inches:
 		return false

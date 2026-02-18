@@ -377,6 +377,40 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 
 	return total_penalty
 
+## Calculate the vertical distance penalty for a movement path crossing terrain.
+## Per 10e rules: terrain 2" or less can be moved over freely.
+## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
+## against the unit's movement allowance.
+## FLY units ignore terrain elevation entirely during movement — penalty is always 0.
+##
+## Returns the extra distance in inches that must be added to the movement distance.
+func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+	# FLY units ignore terrain elevation entirely during movement
+	if has_fly:
+		print("[TerrainManager] FLY unit ignores terrain elevation during movement")
+		return 0.0
+
+	var total_penalty: float = 0.0
+
+	for terrain in terrain_features:
+		# Check if the movement path crosses this terrain piece
+		if not check_line_intersects_terrain(from_pos, to_pos, terrain):
+			continue
+
+		var height_inches = get_height_inches(terrain)
+
+		# Terrain 2" or less: no penalty (can move over freely)
+		if height_inches <= 2.0:
+			continue
+
+		# Non-FLY units must climb up and back down: penalty = height * 2
+		# (climb up one side, climb down the other)
+		total_penalty += height_inches * 2.0
+		print("[TerrainManager] Movement terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+			terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+
+	return total_penalty
+
 ## Calculate the horizontal distance a path travels through a terrain polygon.
 func _get_terrain_crossing_distance(from_pos: Vector2, to_pos: Vector2, polygon: PackedVector2Array) -> float:
 	if polygon.is_empty():

@@ -86,6 +86,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
+| T3-18: FLY units ignore terrain elevation during movement | Movement | MOVEMENT_PHASE_AUDIT.md §2.3 |
 
 ---
 
@@ -518,12 +519,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
 - **Files:** `RulesEngine.gd` — `_resolve_assignment()` vs `_resolve_assignment_until_wounds()`
 
-### T3-18. FLY units should ignore terrain elevation during movement
+### T3-18. FLY units should ignore terrain elevation during movement — **DONE**
 - **Phase:** Movement
 - **Rule:** FLY keyword allows ignoring vertical distance
 - **Impact:** FLY units taxed by terrain height incorrectly
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.3 (remaining work)
 - **Files:** `MovementPhase.gd`, `TerrainManager.gd`
+- **Resolution:** Added `calculate_movement_terrain_penalty()` to TerrainManager.gd — FLY units return 0 penalty (ignore terrain elevation entirely), non-FLY units pay height*2 for terrain >2". Added `_get_movement_terrain_penalty()` helper in MovementPhase.gd, integrated into all movement distance calculations: `_validate_set_model_dest`, `_validate_stage_model_move`, `_process_stage_model_move`, `_process_group_movement`, and `_validate_individual_move_internal`. Tests in `test_fly_movement_terrain.gd`.
 
 ### T3-19. Terrain height handling in LoS — only "tall" terrain handled
 - **Phase:** Shooting (LoS)
@@ -811,12 +813,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 9 | 17 | 26 |
+| Tier 3 — Medium Rules | 10 | 16 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **30** | **98** | **128** |
-| **Recently Completed** | **57** | — | **57** |
+| **Total Open** | **31** | **97** | **128** |
+| **Recently Completed** | **58** | — | **58** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
