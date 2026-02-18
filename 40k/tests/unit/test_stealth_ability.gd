@@ -8,7 +8,7 @@ extends "res://addons/gut/test.gd"
 #
 # Stealth can come from:
 # 1. Base unit ability (in meta.abilities)
-# 2. Smokescreen stratagem (sets stratagem_stealth flag)
+# 2. Smokescreen stratagem (sets effect_stealth flag)
 #
 # These tests verify:
 # 1. has_stealth_ability() correctly detects Stealth in string format

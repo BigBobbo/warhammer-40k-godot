@@ -19,7 +19,7 @@ extends "res://addons/gut/test.gd"
 # 5. Effect flag set on target unit
 # 6. Effect flag cleared at end of phase
 # 7. RulesEngine has_precision() detects weapon-inherent PRECISION
-# 8. RulesEngine has_stratagem_precision_melee() detects stratagem flag
+# 8. RulesEngine has_effect_precision_melee() detects stratagem flag
 # 9. RulesEngine PRECISION damage allocation targets CHARACTER models
 # 10. Edge cases (no CP, battle-shocked, non-CHARACTER)
 
@@ -192,7 +192,7 @@ func test_cannot_use_epic_challenge_on_battle_shocked():
 # ==========================================
 
 func test_epic_challenge_sets_precision_flag():
-	"""Using Epic Challenge should set stratagem_precision_melee flag on the unit."""
+	"""Using Epic Challenge should set effect_precision_melee flag on the unit."""
 	_setup_fight_scenario()
 
 	var result = StratagemManager.use_stratagem(1, "epic_challenge", "U_CHARACTER")
@@ -200,7 +200,7 @@ func test_epic_challenge_sets_precision_flag():
 
 	var unit = GameState.get_unit("U_CHARACTER")
 	var flags = unit.get("flags", {})
-	assert_true(flags.get("stratagem_precision_melee", false), "Should have stratagem_precision_melee flag")
+	assert_true(flags.get("effect_precision_melee", false), "Should have effect_precision_melee flag")
 
 func test_epic_challenge_deducts_cp():
 	"""Using Epic Challenge should deduct 1 CP."""
@@ -240,14 +240,14 @@ func test_epic_challenge_flag_cleared_on_phase_end():
 
 	# Verify flag is set
 	var flags_before = GameState.get_unit("U_CHARACTER").get("flags", {})
-	assert_true(flags_before.get("stratagem_precision_melee", false), "Flag should be set before phase end")
+	assert_true(flags_before.get("effect_precision_melee", false), "Flag should be set before phase end")
 
 	# Simulate phase end
 	StratagemManager.on_phase_end(GameStateData.Phase.FIGHT)
 
 	# Flag should be cleared
 	var flags_after = GameState.get_unit("U_CHARACTER").get("flags", {})
-	assert_false(flags_after.get("stratagem_precision_melee", false), "Flag should be cleared after phase end")
+	assert_false(flags_after.get("effect_precision_melee", false), "Flag should be cleared after phase end")
 
 
 # ==========================================
@@ -288,15 +288,15 @@ func test_has_precision_negative():
 	}
 	assert_false(RulesEngine.has_precision("power_sword", board), "Should not detect precision")
 
-func test_has_stratagem_precision_melee():
-	"""RulesEngine.has_stratagem_precision_melee should detect stratagem flag."""
-	var unit_with_flag = {"flags": {"stratagem_precision_melee": true}}
+func test_has_effect_precision_melee():
+	"""RulesEngine.has_effect_precision_melee should detect stratagem flag."""
+	var unit_with_flag = {"flags": {"effect_precision_melee": true}}
 	var unit_without_flag = {"flags": {}}
 	var unit_no_flags = {}
 
-	assert_true(RulesEngine.has_stratagem_precision_melee(unit_with_flag), "Should detect flag")
-	assert_false(RulesEngine.has_stratagem_precision_melee(unit_without_flag), "Should not detect when flag absent")
-	assert_false(RulesEngine.has_stratagem_precision_melee(unit_no_flags), "Should not detect when no flags dict")
+	assert_true(RulesEngine.has_effect_precision_melee(unit_with_flag), "Should detect flag")
+	assert_false(RulesEngine.has_effect_precision_melee(unit_without_flag), "Should not detect when flag absent")
+	assert_false(RulesEngine.has_effect_precision_melee(unit_no_flags), "Should not detect when no flags dict")
 
 
 # ==========================================
@@ -408,7 +408,7 @@ func test_precision_detected_in_melee_resolution():
 		"special_rules": ""
 	}]
 
-	var board = _make_precision_board(weapons, {"stratagem_precision_melee": true})
+	var board = _make_precision_board(weapons, {"effect_precision_melee": true})
 	var action = {
 		"actor_unit_id": "attacker_unit",
 		"payload": {
@@ -534,10 +534,10 @@ func test_epic_challenge_full_flow():
 
 	# Verify flag
 	var unit = GameState.get_unit("U_CHARACTER")
-	assert_true(unit.get("flags", {}).get("stratagem_precision_melee", false), "Flag should be set")
+	assert_true(unit.get("flags", {}).get("effect_precision_melee", false), "Flag should be set")
 
 	# Verify RulesEngine detects it
-	assert_true(RulesEngine.has_stratagem_precision_melee(unit), "RulesEngine should detect stratagem flag")
+	assert_true(RulesEngine.has_effect_precision_melee(unit), "RulesEngine should detect stratagem flag")
 
 	# Verify CP was deducted
 	assert_eq(GameState.state.players["1"]["cp"], 4, "CP should be 4 after use")
@@ -572,7 +572,7 @@ func test_precision_no_character_in_target():
 	}]
 
 	# Target has no CHARACTER keyword
-	var board = _make_precision_board(weapons, {"stratagem_precision_melee": true}, ["INFANTRY", "CHARACTER"], ["INFANTRY"])
+	var board = _make_precision_board(weapons, {"effect_precision_melee": true}, ["INFANTRY", "CHARACTER"], ["INFANTRY"])
 	var action = {
 		"actor_unit_id": "attacker_unit",
 		"payload": {

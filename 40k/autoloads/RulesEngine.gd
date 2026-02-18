@@ -921,18 +921,18 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		if not target_model:
 			break  # No more alive models
 
-		# Check cover
-		var stratagem_cover = target_flags.get("stratagem_cover", false)
+		# Check cover (terrain or effect-granted)
+		var effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
 		var has_cover = false
 		if not weapon_ignores_cover:
-			has_cover = _check_model_has_cover(target_model, shooter_unit_id, board) or stratagem_cover
+			has_cover = _check_model_has_cover(target_model, shooter_unit_id, board) or effect_cover
 
-		# Check invuln
+		# Check invuln (model native or effect-granted)
 		var model_invuln = target_model.get("invuln", 0)
-		var stratagem_invuln = target_flags.get("stratagem_invuln", 0)
-		if stratagem_invuln > 0:
-			if model_invuln == 0 or stratagem_invuln < model_invuln:
-				model_invuln = stratagem_invuln
+		var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		if effect_invuln > 0:
+			if model_invuln == 0 or effect_invuln < model_invuln:
+				model_invuln = effect_invuln
 
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
@@ -1165,12 +1165,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
-		# STEALTH (T2-1): Check if target unit has Stealth (from base ability or Smokescreen stratagem)
+		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		var target_flags = target_unit.get("flags", {})
-		if target_flags.get("stratagem_stealth", false):
+		if EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
-			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
 		elif has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
@@ -1626,12 +1625,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
-		# STEALTH (T2-1): Check if target unit has Stealth (from base ability or Smokescreen stratagem)
+		# STEALTH (T2-1): Check if target unit has Stealth (from effect or base ability)
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
-		var target_flags_2 = target_unit.get("flags", {})
-		if target_flags_2.get("stratagem_stealth", false):
+		if EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
-			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
 		elif has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
@@ -1930,19 +1928,18 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			break  # No more models to allocate to
 		
 		# Check for cover (IGNORES COVER skips this)
-		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
-		var auto_target_flags = target_unit.get("flags", {})
-		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
+		# Also check effect-granted cover (Go to Ground / Smokescreen / abilities)
+		var auto_effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
 		var has_cover = false
 		if not auto_weapon_ignores_cover:
-			has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
+			has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_effect_cover
 
-		# Check stratagem-granted invulnerable save (Go to Ground)
+		# Check effect-granted invulnerable save (Go to Ground / abilities)
 		var auto_model_invuln = target_model.get("invuln", 0)
-		var auto_stratagem_invuln = auto_target_flags.get("stratagem_invuln", 0)
-		if auto_stratagem_invuln > 0:
-			if auto_model_invuln == 0 or auto_stratagem_invuln < auto_model_invuln:
-				auto_model_invuln = auto_stratagem_invuln
+		var auto_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		if auto_effect_invuln > 0:
+			if auto_model_invuln == 0 or auto_effect_invuln < auto_model_invuln:
+				auto_model_invuln = auto_effect_invuln
 
 		# Calculate save needed
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, auto_model_invuln)
@@ -3167,9 +3164,13 @@ static func has_precision(weapon_id: String, board: Dictionary = {}) -> bool:
 
 	return false
 
-# Check if an attacker unit has PRECISION from a stratagem (e.g., Epic Challenge)
+# Check if an attacker unit has PRECISION from an effect (e.g., Epic Challenge stratagem, ability)
+static func has_effect_precision_melee(attacker_unit: Dictionary) -> bool:
+	return EffectPrimitivesData.has_effect_precision_melee(attacker_unit)
+
+# Legacy alias for backwards compatibility
 static func has_stratagem_precision_melee(attacker_unit: Dictionary) -> bool:
-	return attacker_unit.get("flags", {}).get("stratagem_precision_melee", false)
+	return has_effect_precision_melee(attacker_unit)
 
 # Find CHARACTER model indices in a target unit (for PRECISION allocation)
 static func _find_character_model_indices(target_unit: Dictionary) -> Array:
@@ -4602,8 +4603,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var sustained_data = get_sustained_hits_value(weapon_id, board)
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
 	var is_torrent = is_torrent_weapon(weapon_id, board)
-	# PRECISION: Check both weapon keyword and stratagem flag on attacker
-	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
+	# PRECISION: Check both weapon keyword and effect-granted flag on attacker
+	var weapon_has_precision = has_precision(weapon_id, board) or has_effect_precision_melee(attacker_unit)
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -5219,30 +5220,29 @@ static func prepare_save_resolution(
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
 
-	# STRATAGEM EFFECTS: Check for Go to Ground / Smokescreen cover and invuln
-	var target_flags = target_unit.get("flags", {})
-	var stratagem_cover = target_flags.get("stratagem_cover", false)
-	var stratagem_invuln = target_flags.get("stratagem_invuln", 0)
+	# EFFECT-GRANTED MODIFIERS: Check for cover and invuln from stratagems/abilities
+	var effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 
-	if stratagem_cover:
-		print("RulesEngine: Target has stratagem-granted Benefit of Cover")
-	if stratagem_invuln > 0:
-		print("RulesEngine: Target has stratagem-granted %d+ invulnerable save" % stratagem_invuln)
+	if effect_cover:
+		print("RulesEngine: Target has effect-granted Benefit of Cover")
+	if effect_invuln > 0:
+		print("RulesEngine: Target has effect-granted %d+ invulnerable save" % effect_invuln)
 
 	# Calculate save profile for each model
 	var model_save_profiles = []
 	for model_info in allocation_info.models:
 		var model = model_info.model
-		# Cover: from terrain OR from stratagem (unless weapon ignores cover)
+		# Cover: from terrain OR from effects (unless weapon ignores cover)
 		var has_cover = false
 		if not weapon_ignores_cover:
-			has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
+			has_cover = _check_model_has_cover(model, shooter_unit_id, board) or effect_cover
 
-		# Invulnerable save: use best of model's native invuln and stratagem-granted invuln
+		# Invulnerable save: use best of model's native invuln and effect-granted invuln
 		var model_invuln = model.get("invuln", 0)
-		if stratagem_invuln > 0:
-			if model_invuln == 0 or stratagem_invuln < model_invuln:
-				model_invuln = stratagem_invuln
+		if effect_invuln > 0:
+			if model_invuln == 0 or effect_invuln < model_invuln:
+				model_invuln = effect_invuln
 
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
