@@ -3462,6 +3462,7 @@ func _on_phase_completed(phase: GameStateData.Phase) -> void:
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
+		GameStateData.Phase.SCOUT: return "Scout Moves"
 		GameStateData.Phase.COMMAND: return "Command Phase"
 		GameStateData.Phase.MOVEMENT: return "Movement Phase"
 		GameStateData.Phase.SHOOTING: return "Shooting Phase"
@@ -3474,6 +3475,7 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
+		GameStateData.Phase.SCOUT: return "End Scout Moves"
 		GameStateData.Phase.COMMAND: return "End Command Phase"
 		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
 		GameStateData.Phase.SHOOTING: return "End Shooting Phase"
@@ -3518,6 +3520,8 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.DEPLOYMENT:
 			_on_end_deployment_pressed()  # Already handles network routing
 			return
+		GameStateData.Phase.SCOUT:
+			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.COMMAND:
 			action = {"type": "END_COMMAND", "player": active_player}
 		GameStateData.Phase.MOVEMENT:

@@ -228,6 +228,12 @@
             "name": "Omni-scramblers",
             "type": "Datasheet",
             "description": "Enemy units that are set up on the battlefield as Reinforcements cannot be set up within 12\" of this unit."
+          },
+          {
+            "name": "Scout 6\"",
+            "type": "Core",
+            "value": 6,
+            "description": "After both players have deployed their armies, this unit can make a Normal Move of up to 6\". It cannot end this move within 9\" of any enemy models."
           }
         ],
         "unit_composition": [

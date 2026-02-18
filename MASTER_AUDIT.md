@@ -75,6 +75,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-16: [MH-RULE-12] No melee combat support in Mathhammer | Mathhammer/Fight | MASTER_AUDIT.md §MATHHAMMER |
 | T3-1: Fights Last subphase not processed | Fight | FIGHT_PHASE_AUDIT.md §2.6 |
 | T3-2: Fights First + Fights Last cancellation | Fight | FIGHT_PHASE_AUDIT.md §2.7 |
+| T3-5: Scout moves — pre-game Scout phase with validation | Pre-game | DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8 |
 
 ---
 
@@ -405,12 +406,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 3
 - **Files:** `RulesEngine.gd` — wound allocation (~lines 3648-3718), `WoundAllocationOverlay.gd`
 
-### T3-5. Scout moves — not implemented
+### T3-5. Scout moves — **DONE**
 - **Phase:** Pre-game (between Deployment and Turn 1)
 - **Rule:** Units with Scout X" can move X" after deployment, ending >9" from enemies
 - **Impact:** Many army builds depend on early positioning
 - **Source:** DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8
 - **Files:** New pre-game phase needed
+- **Resolution:** Added SCOUT phase to Phase enum between DEPLOYMENT and COMMAND. Created ScoutPhase.gd with full movement validation (distance cap, >9" from enemies, board bounds, model overlap). Added unit_has_scout/get_scout_distance helpers to GameState.gd. Registered in PhaseManager with auto-skip when no Scout units. Added Scout 6" ability to Space Marines Infiltrator Squad. AI skips Scout moves. 27 dedicated tests pass.
 
 ### T3-6. Pre-battle formations declaration
 - **Phase:** Deployment
@@ -789,12 +791,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 11 | 5 | 16 |
-| Tier 3 — Medium Rules | 2 | 24 | 26 |
+| Tier 3 — Medium Rules | 3 | 23 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **22** | **106** | **128** |
-| **Recently Completed** | **49** | — | **49** |
+| **Total Open** | **23** | **105** | **128** |
+| **Recently Completed** | **50** | — | **50** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---
