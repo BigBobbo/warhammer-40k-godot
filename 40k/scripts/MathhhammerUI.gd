@@ -1085,12 +1085,13 @@ func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.Simul
 	print("MathhhammerUI: parent child_count before: %d" % parent.get_child_count())
 	parent.add_child(stats_panel)
 	print("MathhhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count())
-	
+
+	var stats_content = stats_panel.get_meta("content_vbox")
 	var stats_grid = GridContainer.new()
 	stats_grid.columns = 2
 	stats_grid.add_theme_constant_override("h_separation", 20)
 	stats_grid.add_theme_constant_override("v_separation", 8)
-	stats_panel.add_child(stats_grid)
+	stats_content.add_child(stats_grid)
 	
 	# Add key statistics
 	add_stat_row(stats_grid, "Trials Run:", "%d" % result.trials_run)
@@ -1106,7 +1107,8 @@ func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.Si
 	
 	var weapon_panel = create_styled_panel("Weapon Breakdown", Color(0.5, 0.2, 0.2, 0.8))
 	parent.add_child(weapon_panel)
-	
+	var weapon_content = weapon_panel.get_meta("content_vbox")
+
 	# Aggregate weapon stats
 	var weapon_totals = {}
 	for trial in result.detailed_trials:
@@ -1141,18 +1143,19 @@ func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.Si
 		
 		# Create weapon subsection
 		var weapon_section = create_weapon_section(weapon_count, stats.weapon_name, stats, hit_rate, wound_rate, unsaved_rate, avg_damage_per_trial, result.trials_run)
-		weapon_panel.add_child(weapon_section)
+		weapon_content.add_child(weapon_section)
 
 func _create_damage_distribution_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
 	var dist_panel = create_styled_panel("Damage Distribution", Color(0.2, 0.5, 0.2, 0.8))
 	parent.add_child(dist_panel)
-	
+	var dist_content = dist_panel.get_meta("content_vbox")
+
 	var stats = result.statistical_summary
 	var dist_grid = GridContainer.new()
 	dist_grid.columns = 2
 	dist_grid.add_theme_constant_override("h_separation", 20)
 	dist_grid.add_theme_constant_override("v_separation", 6)
-	dist_panel.add_child(dist_grid)
+	dist_content.add_child(dist_grid)
 	
 	add_stat_row(dist_grid, "25th Percentile:", "%d wounds" % stats.get("percentile_25", 0))
 	add_stat_row(dist_grid, "75th Percentile:", "%d wounds" % stats.get("percentile_75", 0))
@@ -1164,7 +1167,7 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	var panel_container = VBoxContainer.new()
 	panel_container.add_theme_constant_override("separation", 8)
 	print("MathhhammerUI: Created panel_container: %s" % str(panel_container != null))
-	
+
 	# Add background
 	var style_box = StyleBoxFlat.new()
 	style_box.bg_color = bg_color
@@ -1176,31 +1179,27 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	style_box.content_margin_right = 12
 	style_box.content_margin_top = 8
 	style_box.content_margin_bottom = 8
-	
+
 	var panel_bg = PanelContainer.new()
 	panel_bg.add_theme_stylebox_override("panel", style_box)
 	panel_container.add_child(panel_bg)
-	
+
 	var content_vbox = VBoxContainer.new()
 	content_vbox.add_theme_constant_override("separation", 6)
 	panel_bg.add_child(content_vbox)
-	
+
 	# Title
 	var title_label = Label.new()
 	title_label.text = title
 	title_label.add_theme_font_size_override("font_size", 14)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	content_vbox.add_child(title_label)
-	
-	print("MathhhammerUI: create_styled_panel returning content_vbox: %s" % str(content_vbox != null))
-	print("MathhhammerUI: content_vbox type: %s" % content_vbox.get_class() if content_vbox else "null")
-	print("MathhhammerUI: content_vbox.get_parent(): %s" % str(content_vbox.get_parent()))
-	# Remove content_vbox from its parent so it can be reparented
-	if content_vbox.get_parent():
-		print("MathhhammerUI: Removing content_vbox from its current parent")
-		content_vbox.get_parent().remove_child(content_vbox)
-		print("MathhhammerUI: content_vbox.get_parent() after removal: %s" % str(content_vbox.get_parent()))
-	return content_vbox
+
+	# Store content_vbox reference so callers can add children inside the styled panel
+	panel_container.set_meta("content_vbox", content_vbox)
+
+	print("MathhhammerUI: create_styled_panel returning panel_container with content_vbox inside")
+	return panel_container
 
 func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
 	print("MathhhammerUI: _populate_breakdown_panel called")
