@@ -106,6 +106,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-8: Secondary missions + New Orders stratagem | Command | AUDIT_COMMAND_PHASE.md §P3 |
 | T4-10: Mission selection variety — 9 primary missions from Chapter Approved 2025-26 | Pre-game | DEPLOYMENT_AUDIT.md §8 |
 | T4-11: Fortification deployment — cannot place in reserves, must deploy on table | Deployment | DEPLOYMENT_AUDIT.md §9 |
+| T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
 
 ---
 
@@ -670,10 +671,11 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** DEPLOYMENT_AUDIT.md §9
 - **Resolution:** Added `GameState.unit_is_fortification()` to check for the FORTIFICATION keyword. `DeploymentPhase._validate_place_in_reserves()` now blocks fortification units from being placed in any reserve type (Strategic Reserves or Deep Strike) with a clear error message. `get_available_actions()` excludes reserve options for fortification units. `Main.gd` disables the reserves button and shows "Must Deploy (Fortification)" text for fortification units, and displays a `[FORT]` tag in the deployment unit list. Existing wholly-within-zone and no-overlap validation already applies.
 
-### T4-12. Unmodified wound roll of 1 always fails (defensive check)
+### T4-12. Unmodified wound roll of 1 always fails (defensive check) — **DONE**
 - **Phase:** Shooting/Fight
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.12
 - **Depends on:** T1-3 (wound modifier system)
+- **Resolution:** Verified that the `unmodified_roll == 1` auto-fail check already exists in all 6 wound roll code paths: interactive shooting (with/without Lethal Hits), auto-resolve shooting (with/without Lethal Hits), and fight phase (with/without Lethal Hits). Added `test_wound_roll_auto_fail.gd` with 13 tests covering the rule.
 
 ### T4-13. Unmodified save roll of 1 always fails (auto-resolve path)
 - **Phase:** Shooting
@@ -852,11 +854,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 8 | 12 | 20 |
+| Tier 4 — Low/Niche | 9 | 11 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **49** | **79** | **128** |
-| **Recently Completed** | **76** | — | **76** |
+| **Total Open** | **50** | **78** | **128** |
+| **Recently Completed** | **77** | — | **77** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
