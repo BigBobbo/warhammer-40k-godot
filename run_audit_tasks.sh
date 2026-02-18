@@ -22,7 +22,7 @@
 #   --list               List all open tasks and exit
 #   --no-merge           Skip merging to main (leave on feature branch)
 #   --model MODEL        Claude model to use (default: sonnet)
-#   --timeout SECS       Max seconds per task before killing (default: 600)
+#   --timeout SECS       Max seconds per task before killing (default: 1800)
 #   --help               Show this help
 #
 ###############################################################################
@@ -36,7 +36,7 @@ STATE_FILE="$PROJECT_DIR/.audit_runner_state"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
 MAIN_BRANCH="main"
 CLAUDE_MODEL="sonnet"
-TASK_TIMEOUT=600  # seconds (10 minutes)
+TASK_TIMEOUT=1800  # seconds (30 minutes)
 
 # CLI flags
 DRY_RUN=false
@@ -227,9 +227,15 @@ create_feature_branch() {
     git -C "$PROJECT_DIR" checkout "$MAIN_BRANCH" 2>/dev/null
     git -C "$PROJECT_DIR" pull origin "$MAIN_BRANCH" 2>/dev/null || true
 
-    # Create and switch to the feature branch
-    git -C "$PROJECT_DIR" checkout -b "$branch_name" 2>/dev/null || \
-        git -C "$PROJECT_DIR" checkout "$branch_name" 2>/dev/null
+    # If the branch already exists (stale from a previous failed run), delete it
+    # so we get a clean start from main
+    if git -C "$PROJECT_DIR" rev-parse --verify "$branch_name" >/dev/null 2>&1; then
+        log_warn "Deleting stale branch: ${branch_name}"
+        git -C "$PROJECT_DIR" branch -D "$branch_name" 2>/dev/null || true
+    fi
+
+    # Create and switch to the fresh feature branch
+    git -C "$PROJECT_DIR" checkout -b "$branch_name"
 }
 
 merge_to_main() {
