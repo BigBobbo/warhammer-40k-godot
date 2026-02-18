@@ -1,1 +1,1 @@
-ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_terrain_charge_interaction.gd", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_melta_keyword.gd", "-gexit"]

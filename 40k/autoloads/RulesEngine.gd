@@ -4798,17 +4798,24 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		return result
 
 	# ===== PHASE 7: DAMAGE APPLICATION =====
-	# Roll variable damage per unsaved wound (D3, D6, etc.)
+	# T2-11: Devastating Wounds mortal wound spillover — separate DW from regular damage
+	# Per 10e rules: Devastating Wounds create mortal wounds that spill over between models.
+	# Regular failed-save damage does NOT spill over (excess damage lost when model dies).
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-	var regular_damage = 0
 	var damage_roll_log = []
+
+	# Roll variable damage per regular failed save
+	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
-		regular_damage += dmg_result.value
+		regular_wound_damages.append(dmg_result.value)
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
+	var regular_damage = 0
+	for d in regular_wound_damages:
+		regular_damage += d
 
-	# Devastating wounds also use per-wound variable damage
+	# Roll variable damage per devastating wound (mortal wounds that spill over)
 	devastating_damage = 0
 	for _i in range(devastating_wound_count):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -4818,31 +4825,63 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	var total_damage = regular_damage + devastating_damage
 
-	# FEEL NO PAIN: Roll FNP for total damage before applying
+	# FEEL NO PAIN: Roll FNP separately for devastating wounds and regular damage
 	var fnp_value = get_unit_fnp(target_unit)
-	var actual_damage = total_damage
+	var actual_dw_damage = devastating_damage
+	var actual_regular_damage = regular_damage
+	var total_fnp_prevented = 0
 
 	if fnp_value > 0:
-		var fnp_result = roll_feel_no_pain(total_damage, fnp_value, rng)
-		actual_damage = fnp_result.wounds_remaining
-		result.dice.append({
-			"context": "feel_no_pain",
-			"threshold": str(fnp_value) + "+",
-			"rolls_raw": fnp_result.rolls,
-			"fnp_value": fnp_value,
-			"wounds_prevented": fnp_result.wounds_prevented,
-			"wounds_remaining": fnp_result.wounds_remaining,
-			"total_wounds": total_damage
-		})
-		print("RulesEngine: Melee FNP %d+ — %d/%d damage prevented" % [fnp_value, fnp_result.wounds_prevented, total_damage])
+		# T2-11: FNP for devastating wound mortal wounds
+		if devastating_damage > 0:
+			var fnp_dw = roll_feel_no_pain(devastating_damage, fnp_value, rng)
+			actual_dw_damage = fnp_dw.wounds_remaining
+			total_fnp_prevented += fnp_dw.wounds_prevented
+			result.dice.append({
+				"context": "feel_no_pain",
+				"source": "devastating_wounds",
+				"threshold": str(fnp_value) + "+",
+				"rolls_raw": fnp_dw.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_dw.wounds_prevented,
+				"wounds_remaining": fnp_dw.wounds_remaining,
+				"total_wounds": devastating_damage
+			})
+			print("RulesEngine: Melee DW FNP %d+ — %d/%d mortal wound damage prevented" % [fnp_value, fnp_dw.wounds_prevented, devastating_damage])
+
+		# FNP for regular failed save damage
+		if regular_damage > 0:
+			var fnp_reg = roll_feel_no_pain(regular_damage, fnp_value, rng)
+			actual_regular_damage = fnp_reg.wounds_remaining
+			total_fnp_prevented += fnp_reg.wounds_prevented
+			# Recalculate per-wound damages after FNP (distribute FNP prevention across wounds)
+			regular_wound_damages = _distribute_fnp_across_wounds(regular_wound_damages, fnp_reg.wounds_prevented)
+			result.dice.append({
+				"context": "feel_no_pain",
+				"source": "failed_saves",
+				"threshold": str(fnp_value) + "+",
+				"rolls_raw": fnp_reg.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_reg.wounds_prevented,
+				"wounds_remaining": fnp_reg.wounds_remaining,
+				"total_wounds": regular_damage
+			})
+			print("RulesEngine: Melee regular FNP %d+ — %d/%d damage prevented" % [fnp_value, fnp_reg.wounds_prevented, regular_damage])
+
+		if total_fnp_prevented > 0:
+			print("RulesEngine: Melee FNP total — %d/%d damage prevented" % [total_fnp_prevented, total_damage])
+
+	var actual_damage = actual_dw_damage + actual_regular_damage
 
 	if actual_damage == 0:
 		result.log_text = "Melee: %s (%s) → %s: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [attacker_name, weapon_name, target_name, total_attacks, hits, wounds_caused, total_unsaved]
 		return result
 
 	# Apply damage to target unit
+	# T2-11: Devastating wounds (mortal wounds) applied first with spillover,
+	# then regular failed-save damage applied per-wound WITHOUT spillover
 	var target_models = target_unit.get("models", [])
-	var damage_result: Dictionary
+	var damage_result: Dictionary = {"diffs": [], "casualties": 0, "damage_applied": 0}
 	var precision_wounds_allocated = 0
 
 	# PRECISION: Wounds from critical hits can be allocated to CHARACTER models first
@@ -4858,7 +4897,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			if total_unsaved > 0 and actual_damage > 0:
 				precision_damage = maxi(1, int(round(float(actual_damage) * float(precision_unsaved) / float(total_unsaved))))
 			precision_damage = mini(precision_damage, actual_damage)
-			var regular_pool_damage = actual_damage - precision_damage
 
 			# Apply precision damage to CHARACTER models first
 			if precision_damage > 0:
@@ -4866,27 +4904,61 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				result.diffs.append_array(precision_result.diffs)
 				precision_wounds_allocated = precision_result.get("damage_applied", 0)
 				print("RulesEngine: PRECISION — allocated %d damage to CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
-				damage_result = precision_result
+				damage_result["casualties"] += precision_result.get("casualties", 0)
+				damage_result["damage_applied"] += precision_result.get("damage_applied", 0)
 
-			# Apply remaining damage normally
-			if regular_pool_damage > 0:
-				var regular_result = _apply_damage_to_unit_pool(target_id, regular_pool_damage, target_models, board)
-				result.diffs.append_array(regular_result.diffs)
-				# Merge casualty counts
-				if damage_result.is_empty():
-					damage_result = regular_result
-				else:
-					damage_result["casualties"] = damage_result.get("casualties", 0) + regular_result.get("casualties", 0)
+			# Remaining damage split: DW mortal wounds (spillover) + regular (no spillover)
+			var remaining_after_precision = actual_damage - precision_damage
+			# Proportional split of remaining between DW and regular
+			var remaining_dw = 0
+			var remaining_regular_wounds = []
+			if remaining_after_precision > 0 and actual_damage > 0:
+				remaining_dw = mini(actual_dw_damage, remaining_after_precision)
+				var remaining_reg = remaining_after_precision - remaining_dw
+				# Build per-wound damages for remaining regular wounds
+				remaining_regular_wounds = _trim_wound_damages_to_total(regular_wound_damages, remaining_reg)
 
-			if damage_result.is_empty():
-				damage_result = {"diffs": [], "casualties": 0, "damage_applied": 0}
+			# Apply devastating wound mortal wounds with spillover
+			if remaining_dw > 0:
+				var dw_result = _apply_damage_to_unit_pool(target_id, remaining_dw, target_models, board)
+				result.diffs.append_array(dw_result.diffs)
+				damage_result["casualties"] += dw_result.get("casualties", 0)
+				damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+				print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [remaining_dw, dw_result.casualties])
+
+			# Apply regular wounds per-wound without spillover
+			if not remaining_regular_wounds.is_empty():
+				var reg_result = _apply_damage_per_wound_no_spillover(target_id, remaining_regular_wounds, target_models, board)
+				result.diffs.append_array(reg_result.diffs)
+				damage_result["casualties"] += reg_result.get("casualties", 0)
+				damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 		else:
-			# No CHARACTER models in target, apply damage normally
-			damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
-			result.diffs.append_array(damage_result.diffs)
+			# No CHARACTER models in target — apply DW then regular separately
+			if actual_dw_damage > 0:
+				var dw_result = _apply_damage_to_unit_pool(target_id, actual_dw_damage, target_models, board)
+				result.diffs.append_array(dw_result.diffs)
+				damage_result["casualties"] += dw_result.get("casualties", 0)
+				damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+				print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [actual_dw_damage, dw_result.casualties])
+			if actual_regular_damage > 0:
+				var reg_result = _apply_damage_per_wound_no_spillover(target_id, regular_wound_damages, target_models, board)
+				result.diffs.append_array(reg_result.diffs)
+				damage_result["casualties"] += reg_result.get("casualties", 0)
+				damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 	else:
-		damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
-		result.diffs.append_array(damage_result.diffs)
+		# No precision — T2-11: Apply devastating wounds (mortal wounds) with spillover first
+		if actual_dw_damage > 0:
+			var dw_result = _apply_damage_to_unit_pool(target_id, actual_dw_damage, target_models, board)
+			result.diffs.append_array(dw_result.diffs)
+			damage_result["casualties"] += dw_result.get("casualties", 0)
+			damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+			print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [actual_dw_damage, dw_result.casualties])
+		# Then apply regular failed-save damage per-wound WITHOUT spillover
+		if actual_regular_damage > 0:
+			var reg_result = _apply_damage_per_wound_no_spillover(target_id, regular_wound_damages, target_models, board)
+			result.diffs.append_array(reg_result.diffs)
+			damage_result["casualties"] += reg_result.get("casualties", 0)
+			damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 
 	# ===== BUILD LOG TEXT =====
 	var log_parts = []
@@ -5333,7 +5405,8 @@ static func apply_save_damage(
 	# FEEL NO PAIN: Check if target unit has FNP
 	var fnp_value = get_unit_fnp(target_unit)
 
-	# DEVASTATING WOUNDS (PRP-012): Apply devastating damage first (unsaveable)
+	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
+	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
 	var devastating_wound_count = save_data.get("devastating_wounds", 0)
 	var dw_damage = 0
@@ -5526,6 +5599,100 @@ static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int
 			models[target_model_index]["alive"] = false
 
 	return result
+
+# T2-11: Apply damage per-wound WITHOUT spillover (for regular failed saves in melee)
+# Each wound's damage is applied to one model; excess damage beyond that model's HP is LOST.
+# This matches 10e rules where normal attack damage does not spill over between models.
+static func _apply_damage_per_wound_no_spillover(target_unit_id: String, wound_damages: Array, models: Array, board: Dictionary) -> Dictionary:
+	"""Apply per-wound damage without spillover. Each wound targets an allocated model;
+	if the model dies, excess damage from that wound is lost (does not carry to next model).
+	Next wound targets next alive model."""
+	var result_ns = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	for wound_dmg in wound_damages:
+		if wound_dmg <= 0:
+			continue
+
+		# Find next model to allocate this wound to (wounded first, then any alive)
+		var target_idx = _find_allocation_target_model(models)
+		if target_idx < 0:
+			break  # No alive models left
+
+		var model = models[target_idx]
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		# Damage is CAPPED at model's remaining wounds — NO spillover
+		var damage_to_apply = mini(wound_dmg, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+
+		result_ns.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_idx],
+			"value": new_wounds
+		})
+
+		result_ns.damage_applied += damage_to_apply
+		models[target_idx]["current_wounds"] = new_wounds
+
+		if new_wounds == 0:
+			result_ns.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [target_unit_id, target_idx],
+				"value": false
+			})
+			result_ns.casualties += 1
+			models[target_idx]["alive"] = false
+			# Excess damage from this wound is LOST (no spillover)
+			var excess = wound_dmg - damage_to_apply
+			if excess > 0:
+				print("RulesEngine: T2-11 — %d excess damage lost (no spillover for regular wounds)" % excess)
+
+	return result_ns
+
+# T2-11: Distribute FNP prevention across per-wound damage values
+# Reduces wound damages from last to first, removing prevented damage
+static func _distribute_fnp_across_wounds(wound_damages: Array, wounds_prevented: int) -> Array:
+	"""Reduce per-wound damage values by distributing FNP prevention.
+	Removes prevented damage starting from the last wounds (least impactful)."""
+	var result_arr = wound_damages.duplicate()
+	var remaining_prevention = wounds_prevented
+
+	# Remove prevented damage from end of array (last wounds prevented first)
+	var i = result_arr.size() - 1
+	while remaining_prevention > 0 and i >= 0:
+		if result_arr[i] <= remaining_prevention:
+			remaining_prevention -= result_arr[i]
+			result_arr[i] = 0
+		else:
+			result_arr[i] -= remaining_prevention
+			remaining_prevention = 0
+		i -= 1
+
+	# Filter out zero-damage wounds
+	return result_arr.filter(func(d): return d > 0)
+
+# T2-11: Trim wound damage array to match a target total
+static func _trim_wound_damages_to_total(wound_damages: Array, target_total: int) -> Array:
+	"""Return a subset of wound_damages whose sum equals target_total.
+	Takes wounds from the front, trimming the last wound if needed."""
+	if target_total <= 0:
+		return []
+	var result_arr = []
+	var running_total = 0
+	for d in wound_damages:
+		if running_total >= target_total:
+			break
+		var needed = target_total - running_total
+		if d <= needed:
+			result_arr.append(d)
+			running_total += d
+		else:
+			result_arr.append(needed)
+			running_total = target_total
+	return result_arr
 
 # PRECISION: Apply damage specifically to CHARACTER models in the target unit
 static func _apply_damage_to_character_models(target_unit_id: String, total_damage: int, models: Array, character_indices: Array, board: Dictionary) -> Dictionary:
