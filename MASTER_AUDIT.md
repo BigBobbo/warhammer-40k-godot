@@ -79,6 +79,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-8: Charge move direction constraint — each model must end closer to a target | Charge | CHARGE_PHASE_AUDIT.md §2.9 |
 | T3-9: Barricade engagement range (2" instead of 1") | Charge/Fight | CHARGE_PHASE_AUDIT.md §2.8 |
 | T3-10: Faction abilities (Oath of Moment, etc.) | Command | AUDIT_COMMAND_PHASE.md §2.4 |
+| T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
 
 ---
 
@@ -282,12 +283,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `RulesEngine.gd` — `validate_shoot()`, `get_eligible_targets()`, hit roll logic, cover
 - **Resolution:** Added `has_indirect_fire()` checker function. Modified `_check_target_visibility()` to skip LoS check (range-only) for Indirect Fire weapons. Applied -1 hit modifier and unmodified 1-3 auto-fail in both `_resolve_assignment_until_wounds()` and `_resolve_assignment()`. Granted automatic Benefit of Cover in both auto-resolve and interactive (`prepare_save_resolution`) save paths. Ignores Cover correctly overrides Indirect Fire cover. Added indirect_mortar and indirect_basic test weapon profiles and 17 unit tests.
 
-### T2-5. Pistol mutual exclusivity
+### T2-5. Pistol mutual exclusivity — **DONE**
 - **Phase:** Shooting
 - **Rule:** Cannot fire both Pistol and non-Pistol weapons on same model
 - **Impact:** Rules violation allowing extra firepower
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.11
 - **Files:** `ShootingPhase.gd` — `_validate_assign_target()` (~lines 180-211)
+- **Resolution:** Added pistol mutual exclusivity validation in both `RulesEngine.validate_shoot()` (cross-assignment check after individual validation) and `ShootingPhase._validate_assign_target()` (early check against pending assignments). Per 10e rules, a unit must choose to fire either its Pistol weapons or its non-Pistol weapons — never both. MONSTER and VEHICLE units are exempt. Added 6 unit tests covering: rejection of mixed assignments, pistol-only allowed, non-pistol-only allowed, MONSTER/VEHICLE exemption, and multiple-pistols allowed.
 
 ### T2-6. Consolidation into new enemies doesn't trigger new fights — **DONE**
 - **Phase:** Fight
@@ -796,13 +798,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 11 | 5 | 16 |
+| Tier 2 — High Rules | 12 | 4 | 16 |
 | Tier 3 — Medium Rules | 6 | 20 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **26** | **102** | **128** |
-| **Recently Completed** | **53** | — | **53** |
+| **Total Open** | **27** | **101** | **128** |
+| **Recently Completed** | **54** | — | **54** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---
