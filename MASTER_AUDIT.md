@@ -72,6 +72,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-11: Devastating Wounds — mortal wound spillover verified and melee path fixed | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.10 |
 | T2-12: active_moves dictionary synced via GameState flags for multiplayer | Movement | MOVEMENT_PHASE_AUDIT.md §3.1 |
 | T2-15: [MH-RULE-10] FNP toggle integration with simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T2-16: [MH-RULE-12] No melee combat support in Mathhammer | Mathhammer/Fight | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -358,12 +359,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `MathhhammerRuleModifiers.gd:109-121`, `Mathhammer.gd:204-229` — `_create_trial_board_state()` needs to apply FNP from toggles
 - **Resolution:** Added FNP 4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` to accept `rule_toggles` and apply FNP threshold to the defender unit's `meta.stats.fnp`, which RulesEngine already reads via `get_unit_fnp()` during damage resolution.
 
-### T2-16. [MH-RULE-12] No melee combat support in Mathhammer
+### T2-16. [MH-RULE-12] No melee combat support in Mathhammer — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Melee uses the same attack sequence as shooting (WS instead of BS) with additional modifiers (Lance, charged condition)
 - **Impact:** All community mathhammer tools support melee. Missing melee means Fight phase has no statistical preview.
 - **Source:** MATHHAMMER_AUDIT, code TODO at `FightPhase.gd:947`
 - **Files:** `Mathhammer.gd` — hardcoded to "shooting" phase; `MathhhammerUI.gd` — needs shooting/melee toggle
+- **Resolution:** Added melee combat support to Mathhammer simulation engine. `Mathhammer.gd` now branches on phase parameter to call `resolve_melee_attacks()` for fight/melee phase with proper engagement range positioning. `MathhhammerUI.gd` gains a Shooting/Melee phase selector that filters weapons by type and shows phase-specific rule toggles (Lance/Charged). `FightPhase.gd` placeholder replaced with full Mathhammer simulation providing per-target damage predictions.
 
 ---
 
@@ -782,14 +784,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 10 | 6 | 16 |
+| Tier 2 — High Rules | 11 | 5 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **19** | **109** | **128** |
-| **Recently Completed** | **46** | — | **46** |
-| *Mathhammer items (subset)* | *2* | *29* | *31* |
+| **Total Open** | **20** | **108** | **128** |
+| **Recently Completed** | **47** | — | **47** |
+| *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---
 

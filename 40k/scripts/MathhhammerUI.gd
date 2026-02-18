@@ -26,6 +26,7 @@ var defender_selector: OptionButton
 var weapon_selection_panel: VBoxContainer
 var run_simulation_button: Button
 var trials_spinbox: SpinBox
+var phase_toggle: OptionButton  # Shooting/Melee phase selector
 
 # Results display elements
 var results_label: RichTextLabel
@@ -106,15 +107,30 @@ func _create_content_sections() -> void:
 	unit_selector.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	unit_selector.add_theme_constant_override("separation", 8)
 	content_container.add_child(unit_selector)
-	
+
 	# Add some spacing between sections
 	var section_spacer1 = Control.new()
 	section_spacer1.custom_minimum_size.y = 20
-	
+
 	var selector_label = Label.new()
 	selector_label.text = "Unit Selection"
 	selector_label.add_theme_font_size_override("font_size", 16)
 	unit_selector.add_child(selector_label)
+
+	# Phase selector (Shooting/Melee)
+	var phase_hbox = HBoxContainer.new()
+	unit_selector.add_child(phase_hbox)
+	var phase_label = Label.new()
+	phase_label.text = "Phase:"
+	phase_label.custom_minimum_size.x = 80
+	phase_hbox.add_child(phase_label)
+	phase_toggle = OptionButton.new()
+	phase_toggle.add_item("Shooting")
+	phase_toggle.set_item_metadata(0, "shooting")
+	phase_toggle.add_item("Melee")
+	phase_toggle.set_item_metadata(1, "fight")
+	phase_toggle.selected = 0
+	phase_hbox.add_child(phase_toggle)
 	
 	# Multiple attacker selection with checkboxes
 	var attacker_label = Label.new()
@@ -264,9 +280,12 @@ func _connect_signals() -> void:
 	
 	if attacker_selector:
 		attacker_selector.item_selected.connect(_on_attacker_selection_changed)
-	
+
 	if defender_selector:
 		defender_selector.item_selected.connect(_on_unit_selection_changed)
+
+	if phase_toggle:
+		phase_toggle.item_selected.connect(_on_phase_changed)
 
 func _on_toggle_pressed() -> void:
 	set_collapsed(!is_collapsed)
@@ -383,30 +402,50 @@ func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 	return false
 
 func _populate_rule_toggles() -> void:
-	# Create common rule toggles
+	# Create common rule toggles with phase applicability
+	# phase: "both" = always visible, "shooting" = shooting only, "melee" = melee only
 	var common_rules = [
-		{"id": "lethal_hits", "name": "Lethal Hits", "description": "6s to hit automatically wound"},
-		{"id": "sustained_hits", "name": "Sustained Hits", "description": "6s to hit generate extra hits"},
-		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll failed wound rolls"},
-		{"id": "devastating_wounds", "name": "Devastating Wounds", "description": "6s to wound become mortal wounds"},
-		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus"},
-		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls"},
-		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls"},
-		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range"},
-		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+"},
-		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+"},
-		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+"}
+		{"id": "lethal_hits", "name": "Lethal Hits", "description": "6s to hit automatically wound", "phase": "both"},
+		{"id": "sustained_hits", "name": "Sustained Hits", "description": "6s to hit generate extra hits", "phase": "both"},
+		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll failed wound rolls", "phase": "both"},
+		{"id": "devastating_wounds", "name": "Devastating Wounds", "description": "6s to wound become mortal wounds", "phase": "both"},
+		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus", "phase": "shooting"},
+		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls", "phase": "both"},
+		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls", "phase": "both"},
+		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range", "phase": "shooting"},
+		{"id": "lance_charged", "name": "Charged (Lance +1 Wound)", "description": "Unit charged this turn - Lance weapons get +1 to wound", "phase": "melee"},
+		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+", "phase": "both"},
+		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+", "phase": "both"},
+		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"}
 	]
-	
+
 	for rule in common_rules:
 		var checkbox = CheckBox.new()
 		checkbox.text = rule.name
 		checkbox.tooltip_text = rule.description
+		checkbox.set_meta("rule_phase", rule.get("phase", "both"))
 		rule_toggles_panel.add_child(checkbox)
-		
+
 		# Connect signal with rule ID
 		checkbox.toggled.connect(_on_rule_toggled.bind(rule.id))
 		rule_toggles[rule.id] = false
+
+	# Apply initial phase visibility
+	_update_rule_toggles_for_phase()
+
+func _update_rule_toggles_for_phase() -> void:
+	var selected_phase = _get_selected_phase()
+	var is_melee = selected_phase == "fight"
+
+	for child in rule_toggles_panel.get_children():
+		if child is CheckBox and child.has_meta("rule_phase"):
+			var rule_phase = child.get_meta("rule_phase")
+			if rule_phase == "both":
+				child.visible = true
+			elif rule_phase == "shooting":
+				child.visible = not is_melee
+			elif rule_phase == "melee":
+				child.visible = is_melee
 
 func _update_weapon_selection() -> void:
 	# Clear existing weapon selection
@@ -432,11 +471,16 @@ func _update_weapon_selection() -> void:
 		weapon_selection_panel.add_child(no_selection_label)
 		return
 	
+	# Determine which weapon types to show based on selected phase
+	var selected_phase = _get_selected_phase()
+	var show_ranged = selected_phase == "shooting"
+	var show_melee = selected_phase == "fight"
+
 	# Create weapon entries with attack count spinboxes
 	for unit_id in selected_attackers:
 		if selected_attackers[unit_id] <= 0:
 			continue
-			
+
 		var unit = GameState.get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		var unit_weapons = unit.get("meta", {}).get("weapons", [])
@@ -450,15 +494,22 @@ func _update_weapon_selection() -> void:
 		
 		for i in range(unit_weapons.size()):
 			var weapon = unit_weapons[i]
+			var weapon_type = weapon.get("type", "Unknown")
+
+			# Filter weapons by selected phase
+			if show_ranged and weapon_type.to_lower() != "ranged":
+				continue
+			if show_melee and weapon_type.to_lower() != "melee":
+				continue
+
 			var weapon_name = weapon.get("name", "Weapon %d" % (i + 1))
 			var weapon_key = "%s_weapon_%d" % [unit_id, i]
-			
+
 			# Create weapon row container
 			var weapon_row = HBoxContainer.new()
 			weapon_selection_panel.add_child(weapon_row)
 			
 			# Weapon label with stats
-			var weapon_type = weapon.get("type", "Unknown")
 			var weapon_stats = ""
 			
 			if weapon_type == "Ranged":
@@ -530,6 +581,19 @@ func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 func _on_rule_toggled(rule_id: String, active: bool) -> void:
 	rule_toggles[rule_id] = active
 	print("MathhhammerUI: Rule toggle changed - %s: %s" % [rule_id, active])
+
+func _get_selected_phase() -> String:
+	if phase_toggle and phase_toggle.selected >= 0:
+		return phase_toggle.get_item_metadata(phase_toggle.selected)
+	return "shooting"
+
+func _on_phase_changed(_index: int) -> void:
+	var phase = _get_selected_phase()
+	print("MathhhammerUI: Phase changed to: %s" % phase)
+	# Refresh weapon selection to show only relevant weapons for the phase
+	_update_weapon_selection()
+	# Update rule toggles visibility based on phase
+	_update_rule_toggles_for_phase()
 
 func _on_attacker_attack_count_changed(value: float, unit_id: String) -> void:
 	selected_attackers[unit_id] = int(value)
@@ -616,7 +680,7 @@ func _on_run_simulation_pressed() -> void:
 		"attackers": attackers,
 		"defender": _build_defender_config(defender_id),
 		"rule_toggles": rule_toggles.duplicate(),
-		"phase": "shooting"
+		"phase": _get_selected_phase()
 	}
 	
 	# Validate configuration

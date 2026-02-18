@@ -90,7 +90,7 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 	}
 	
 	# Create a mutable copy of board state for this trial
-	var trial_board = _create_trial_board_state(attackers, defender, rule_toggles)
+	var trial_board = _create_trial_board_state(attackers, defender, rule_toggles, phase)
 	
 	# Process each attacking unit sequentially
 	for attacker_config in attackers:
@@ -128,10 +128,15 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 				"unit_id": unit_id,
 				"weapons": [weapon_config]
 			}
-			
-			var shoot_action = _build_shoot_action(single_weapon_config, defender, rule_toggles, trial_board)
-			var combat_result = RulesEngine.resolve_shoot(shoot_action, trial_board, rng)
-			
+
+			var combat_result: Dictionary
+			if phase == "fight" or phase == "melee":
+				var melee_action = _build_melee_action(single_weapon_config, defender, rule_toggles, trial_board)
+				combat_result = RulesEngine.resolve_melee_attacks(melee_action, trial_board, rng)
+			else:
+				var shoot_action = _build_shoot_action(single_weapon_config, defender, rule_toggles, trial_board)
+				combat_result = RulesEngine.resolve_shoot(shoot_action, trial_board, rng)
+
 			if combat_result.success:
 				# Extract combat statistics (pass trial_board for wound delta calculation)
 				var damage_dealt = _extract_damage_from_result(combat_result, trial_board)
@@ -140,20 +145,24 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 				trial_result.weapon_breakdown[weapon_id].damage += damage_dealt
 
 				# Extract dice statistics for detailed breakdown
+				# Handle both shooting and melee dice context names
 				for dice_roll in combat_result.dice:
 					match dice_roll.context:
-						"to_hit":
-							trial_result.hits += dice_roll.successes
-							trial_result.attacks_made += dice_roll.rolls_raw.size()
-							trial_result.weapon_breakdown[weapon_id].attacks_made += dice_roll.rolls_raw.size()
-							trial_result.weapon_breakdown[weapon_id].hits += dice_roll.successes
-						"to_wound":
+						"to_hit", "hit_roll_melee", "auto_hit_melee":
+							trial_result.hits += dice_roll.get("successes", dice_roll.get("total_attacks", 0))
+							var roll_count = dice_roll.get("rolls_raw", []).size()
+							if dice_roll.context == "auto_hit_melee":
+								roll_count = dice_roll.get("total_attacks", 0)
+							trial_result.attacks_made += roll_count
+							trial_result.weapon_breakdown[weapon_id].attacks_made += roll_count
+							trial_result.weapon_breakdown[weapon_id].hits += dice_roll.get("successes", dice_roll.get("total_attacks", 0))
+						"to_wound", "wound_roll_melee":
 							trial_result.wounds += dice_roll.successes
 							trial_result.weapon_breakdown[weapon_id].wounds += dice_roll.successes
-						"save":
+						"save", "save_roll_melee":
 							trial_result.saves_failed += dice_roll.get("fails", 0)
 							trial_result.weapon_breakdown[weapon_id].saves_failed += dice_roll.get("fails", 0)
-				
+
 				# Apply damage to trial board state for sequential attackers
 				_apply_diffs_to_board(combat_result.diffs, trial_board)
 	
@@ -204,8 +213,39 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 		}
 	}
 
+# Build melee action for RulesEngine integration
+static func _build_melee_action(attacker_config: Dictionary, defender: Dictionary, rule_toggles: Dictionary, board: Dictionary) -> Dictionary:
+	var unit_id = attacker_config.get("unit_id", "")
+	var target_unit_id = defender.get("unit_id", "")
+	var weapons = attacker_config.get("weapons", [])
+
+	var assignments = []
+
+	# Create melee assignments matching FightPhase confirmed_attacks format
+	for weapon_config in weapons:
+		var weapon_id = weapon_config.get("weapon_id", "")
+		var model_ids = weapon_config.get("model_ids", [])
+		var base_attacks = weapon_config.get("attacks", 1)
+
+		if weapon_id != "" and not model_ids.is_empty():
+			var assignment = {
+				"attacker": unit_id,
+				"target": target_unit_id,
+				"weapon": weapon_id,
+				"models": model_ids
+			}
+			assignments.append(assignment)
+
+	return {
+		"type": "FIGHT",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"assignments": assignments
+		}
+	}
+
 # Create a mutable board state for trial simulation
-static func _create_trial_board_state(attackers: Array, defender: Dictionary, rule_toggles: Dictionary = {}) -> Dictionary:
+static func _create_trial_board_state(attackers: Array, defender: Dictionary, rule_toggles: Dictionary = {}, phase: String = "shooting") -> Dictionary:
 	var trial_board = {
 		"units": {}
 	}
@@ -242,7 +282,40 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 
 			trial_board.units[defender_unit_id] = fresh_defender
 
+	# For melee simulations, ensure all models have positions within engagement range
+	# so the eligibility check in resolve_melee_attacks passes
+	if phase == "fight" or phase == "melee":
+		_place_models_in_engagement_range(trial_board, attackers, defender)
+		# Apply charged_this_turn flag if lance toggle is active
+		if rule_toggles.get("lance_charged", false):
+			for attacker_config in attackers:
+				var unit_id = attacker_config.get("unit_id", "")
+				if trial_board.units.has(unit_id):
+					if not trial_board.units[unit_id].has("flags"):
+						trial_board.units[unit_id]["flags"] = {}
+					trial_board.units[unit_id]["flags"]["charged_this_turn"] = true
+
 	return trial_board
+
+# Place all attacker and defender models in engagement range for melee simulation
+# This ensures the eligibility check in resolve_melee_attacks passes for all alive models
+static func _place_models_in_engagement_range(trial_board: Dictionary, attackers: Array, defender: Dictionary) -> void:
+	var defender_unit_id = defender.get("unit_id", "")
+	var defender_unit = trial_board.units.get(defender_unit_id, {})
+	var defender_models = defender_unit.get("models", [])
+
+	# Place defender models at origin
+	for i in range(defender_models.size()):
+		defender_models[i]["position"] = {"x": float(i) * 0.5, "y": 0.0}
+
+	# Place attacker models adjacent to defender (within engagement range = 1")
+	for attacker_config in attackers:
+		var unit_id = attacker_config.get("unit_id", "")
+		var attacker_unit = trial_board.units.get(unit_id, {})
+		var attacker_models = attacker_unit.get("models", [])
+		for i in range(attacker_models.size()):
+			# Place within 0.5" of corresponding defender model (well within ER)
+			attacker_models[i]["position"] = {"x": float(i) * 0.5, "y": 0.5}
 
 # Extract the best (lowest) FNP value from active rule toggles
 static func _get_fnp_from_toggles(rule_toggles: Dictionary) -> int:
