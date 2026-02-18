@@ -5115,6 +5115,137 @@ static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
 	
 	return result
 
+# ==========================================
+# FIGHT PHASE HELPERS — T4-4: Aircraft restrictions
+# ==========================================
+
+# T4-4: Check if a unit is eligible to fight in the fight phase.
+# Aircraft can only fight if they have FLY opponents in engagement range.
+static func is_eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_is_aircraft = "AIRCRAFT" in unit_keywords
+
+	# Check if any alive models
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return false
+
+	# Check engagement range with valid opponents
+	for other_id in units:
+		var other_unit = units.get(other_id, {})
+		if other_unit.get("owner", 0) == unit_owner:
+			continue
+
+		var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+		# Aircraft can only fight FLY units
+		if unit_is_aircraft and "FLY" not in other_keywords:
+			continue
+		# Non-FLY units ignore Aircraft
+		if "AIRCRAFT" in other_keywords and "FLY" not in unit_keywords:
+			continue
+
+		# Check if any enemy models are alive
+		var enemy_alive = false
+		for em in other_unit.get("models", []):
+			if em.get("alive", true):
+				enemy_alive = true
+				break
+		if not enemy_alive:
+			continue
+
+		# Check engagement range
+		if _are_units_in_engagement_range_rules(unit, other_unit, board):
+			return true
+
+	return false
+
+# T4-4: Get eligible melee targets for a unit, respecting Aircraft restrictions.
+# Aircraft can only target FLY units; non-FLY units cannot target Aircraft.
+static func fight_targets_in_engagement(unit_id: String, board: Dictionary) -> Dictionary:
+	var eligible = {}
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return eligible
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_is_aircraft = "AIRCRAFT" in unit_keywords
+	var unit_has_fly = "FLY" in unit_keywords
+
+	for target_id in units:
+		var target_unit = units.get(target_id, {})
+		if target_unit.get("owner", 0) == unit_owner:
+			continue
+
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+
+		# T4-4: Aircraft can only fight against units that can Fly
+		if unit_is_aircraft and "FLY" not in target_keywords:
+			continue
+		# T4-4: Non-FLY units cannot target Aircraft
+		if "AIRCRAFT" in target_keywords and not unit_has_fly:
+			continue
+
+		# Check alive models
+		var target_alive = false
+		for tm in target_unit.get("models", []):
+			if tm.get("alive", true):
+				target_alive = true
+				break
+		if not target_alive:
+			continue
+
+		# Check engagement range
+		if _are_units_in_engagement_range_rules(unit, target_unit, board):
+			eligible[target_id] = {
+				"name": target_unit.get("meta", {}).get("name", target_id),
+			}
+
+	return eligible
+
+# T4-4: Check if an Aircraft unit can pile in (it cannot).
+static func can_unit_pile_in(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "AIRCRAFT" not in keywords
+
+# T4-4: Check if an Aircraft unit can consolidate (it cannot).
+static func can_unit_consolidate(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "AIRCRAFT" not in keywords
+
+# Helper: Check if two units are within engagement range (1") using model positions
+static func _are_units_in_engagement_range_rules(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
+	var models1 = unit1.get("models", [])
+	var models2 = unit2.get("models", [])
+	for m1 in models1:
+		if not m1.get("alive", true):
+			continue
+		for m2 in models2:
+			if not m2.get("alive", true):
+				continue
+			if Measurement.is_in_engagement_range_shape_aware(m1, m2):
+				return true
+	return false
+
 # ===== MELEE COMBAT FUNCTIONS =====
 
 # Per 10e rules: A model can make melee attacks if, after pile-in, it is:
