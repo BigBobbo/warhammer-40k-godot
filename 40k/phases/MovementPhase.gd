@@ -1551,6 +1551,16 @@ func _is_unit_engaged(unit_id: String) -> bool:
 	
 	return false
 
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
+	if not is_inside_tree():
+		return ENGAGEMENT_RANGE_INCHES
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+	return ENGAGEMENT_RANGE_INCHES
+
 func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Vector2) -> bool:
 	var model = _get_model_in_unit(unit_id, model_id)
 
@@ -1573,7 +1583,9 @@ func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Ve
 				continue
 			var enemy_pos = _get_model_position(enemy_model)
 			if enemy_pos:
-				if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
+				# T3-9: Use barricade-aware engagement range (2" through barricades)
+				var effective_er = _get_effective_engagement_range(pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, effective_er):
 					return true
 
 	return false
@@ -2409,7 +2421,15 @@ func _model_in_engagement_range(model_data: Dictionary, owner: int) -> bool:
 			if not model.alive or model.position == null:
 				continue
 
-			if Measurement.is_in_engagement_range_shape_aware(model_data, model, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var model_pos = model_data.get("position", Vector2.ZERO)
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+			var enemy_pos = model.get("position", Vector2.ZERO)
+			if enemy_pos is Dictionary:
+				enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+			var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+			if Measurement.is_in_engagement_range_shape_aware(model_data, model, effective_er):
 				return true
 
 	return false

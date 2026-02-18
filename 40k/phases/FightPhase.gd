@@ -597,8 +597,15 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 				if not enemy_model.get("alive", true):
 					continue
 
-				# Check engagement range (1") using shape-aware edge-to-edge
-				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, 1.0):
+				# T3-9: Check engagement range using barricade-aware distance
+				var our_pos = our_model.get("position", Vector2.ZERO)
+				if our_pos is Dictionary:
+					our_pos = Vector2(our_pos.get("x", 0), our_pos.get("y", 0))
+				var enemy_pos = enemy_model.get("position", Vector2.ZERO)
+				if enemy_pos is Dictionary:
+					enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+				var effective_er = _get_effective_engagement_range(our_pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -1817,6 +1824,16 @@ func _is_unit_in_combat(unit: Dictionary) -> bool:
 	
 	return false
 
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
+	if not is_inside_tree():
+		return 1.0
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+	return 1.0
+
 func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	# Check if any model from unit1 is within 1" of any model from unit2
 	# Uses shape-aware distance to correctly handle non-circular bases (oval, rectangular)
@@ -1849,9 +1866,9 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			if pos2 == Vector2.ZERO:
 				continue
 
-			# Use shape-aware engagement range check for correct handling of
-			# non-circular bases (oval, rectangular) - consistent with ChargePhase
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range(pos1, pos2)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
 				var distance_inches = Measurement.model_to_model_distance_inches(model1, model2)
 				log_phase_message("Units %s and %s are within engagement range! (%.2f\")" % [unit1_name, unit2_name, distance_inches])
 				return true
@@ -2004,7 +2021,9 @@ func _units_in_engagement_range_with_override(unit1: Dictionary, unit2_override:
 			if pos2 == Vector2.ZERO:
 				continue
 
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			# T3-9: Use barricade-aware engagement range
+			var effective_er = _get_effective_engagement_range(pos1, pos2)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
 				return true
 	return false
 
