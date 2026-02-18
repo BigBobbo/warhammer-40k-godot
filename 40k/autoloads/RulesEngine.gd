@@ -729,6 +729,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
+	var is_overwatch = assignment.get("overwatch", false)
+
+	# T3-11: FIRE OVERWATCH — only unmodified 6s hit (set BS to 7 so only the
+	# auto-hit on natural 6 rule applies; modifiers and rerolls still function
+	# normally but cannot lower the threshold below the unmodified-6 check)
+	if is_overwatch:
+		bs = 7
+		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
+
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
@@ -1215,6 +1224,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
+	var is_overwatch = assignment.get("overwatch", false)
+
+	# T3-11: FIRE OVERWATCH — only unmodified 6s hit (set BS to 7 so only the
+	# auto-hit on natural 6 rule applies)
+	if is_overwatch:
+		bs = 7
+		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
+
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits

@@ -20,6 +20,7 @@ signal charge_unit_skipped(unit_id: String)
 signal dice_rolled(dice_data: Dictionary)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 signal heroic_intervention_opportunity(player: int, eligible_units: Array, charging_unit_id: String)
+signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -34,6 +35,12 @@ var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
 var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
 var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
+
+# Fire Overwatch state tracking (T3-11)
+var awaiting_fire_overwatch: bool = false
+var fire_overwatch_player: int = 0         # Defending player being offered Overwatch
+var fire_overwatch_enemy_unit_id: String = ""  # The enemy unit that triggered the opportunity
+var fire_overwatch_eligible_units: Array = []  # Units eligible for Overwatch
 
 # Heroic Intervention state tracking
 var awaiting_heroic_intervention: bool = false
@@ -78,6 +85,10 @@ func _on_phase_enter() -> void:
 	failed_charge_attempts.clear()
 	awaiting_reroll_decision = false
 	reroll_pending_unit_id = ""
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
 	awaiting_heroic_intervention = false
 	heroic_intervention_player = 0
 	heroic_intervention_charging_unit_id = ""
@@ -128,6 +139,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _validate_command_reroll(action)
+		"USE_FIRE_OVERWATCH":
+			return _validate_use_fire_overwatch(action)
+		"DECLINE_FIRE_OVERWATCH":
+			return _validate_decline_fire_overwatch(action)
 		"USE_HEROIC_INTERVENTION":
 			return _validate_use_heroic_intervention(action)
 		"DECLINE_HEROIC_INTERVENTION":
@@ -161,6 +176,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _process_decline_command_reroll(action)
+		"USE_FIRE_OVERWATCH":
+			return _process_use_fire_overwatch(action)
+		"DECLINE_FIRE_OVERWATCH":
+			return _process_decline_fire_overwatch(action)
 		"USE_HEROIC_INTERVENTION":
 			return _process_use_heroic_intervention(action)
 		"DECLINE_HEROIC_INTERVENTION":
@@ -360,7 +379,39 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		target_names.append(target.get("meta", {}).get("name", target_id))
 	
 	log_phase_message("%s declared charge against %s" % [unit_name, ", ".join(target_names)])
-	
+
+	# T3-11: Check for Fire Overwatch opportunity for the defending player
+	# Per 10e rules: After a charge is declared, the defending player may use
+	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
+	var charging_owner = int(unit.get("owner", 0))
+	var defending_player = 2 if charging_owner == 1 else 1
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+		if ow_check.available:
+			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+				defending_player, unit_id, game_state_snapshot
+			)
+
+			if not ow_eligible.is_empty():
+				# Fire Overwatch is available! Pause and offer it to the defender
+				awaiting_fire_overwatch = true
+				fire_overwatch_player = defending_player
+				fire_overwatch_enemy_unit_id = unit_id
+				fire_overwatch_eligible_units = ow_eligible
+				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
+				print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+
+				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+
+				var result = create_result(true, [])
+				result["trigger_fire_overwatch"] = true
+				result["fire_overwatch_player"] = defending_player
+				result["fire_overwatch_eligible_units"] = ow_eligible
+				result["fire_overwatch_enemy_unit_id"] = unit_id
+				return result
+
 	return create_result(true, [])
 
 func _process_charge_roll(action: Dictionary) -> Dictionary:
@@ -1550,6 +1601,170 @@ func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
 		return pending_charges[unit_id].distance
 	return 0
+
+# ============================================================================
+# FIRE OVERWATCH (T3-11)
+# ============================================================================
+
+func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", fire_overwatch_player)
+
+	if not awaiting_fire_overwatch:
+		errors.append("Not awaiting Fire Overwatch decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Fire Overwatch")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.is_fire_overwatch_available(player)
+		if not check.available:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		errors.append("Battle-shocked units cannot use Stratagems")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	if not awaiting_fire_overwatch:
+		return {"valid": false, "errors": ["Not awaiting Fire Overwatch decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", fire_overwatch_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var enemy_unit_id = fire_overwatch_enemy_unit_id
+	var enemy_unit_name = get_unit(enemy_unit_id).get("meta", {}).get("name", enemy_unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "fire_overwatch", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Fire Overwatch: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at charging %s!" % [player, unit_name, enemy_unit_name])
+	print("ChargePhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
+
+	# Resolve Overwatch shooting using RulesEngine
+	# Overwatch only hits on unmodified 6s (special rule)
+	var overwatch_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+
+	# Clear Overwatch state
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
+
+	var result = create_result(true, overwatch_result.get("diffs", []))
+	result["fire_overwatch_used"] = true
+	result["fire_overwatch_unit_id"] = unit_id
+	result["fire_overwatch_target_id"] = enemy_unit_id
+	result["fire_overwatch_shooting_result"] = overwatch_result
+	if overwatch_result.has("dice"):
+		result["dice"] = overwatch_result.dice
+	if overwatch_result.has("log_text"):
+		result["log_text"] = overwatch_result.log_text
+	return result
+
+func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	var player = action.get("player", fire_overwatch_player)
+	log_phase_message("Player %d declined FIRE OVERWATCH" % player)
+	print("ChargePhase: Fire Overwatch DECLINED by Player %d" % player)
+
+	# Clear Overwatch state
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
+
+	return create_result(true, [])
+
+func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
+	"""
+	Resolve Overwatch shooting. Uses the normal shooting resolution but forces
+	all hit rolls to only succeed on unmodified 6s (per 10e Overwatch rules).
+	"""
+	var shooting_unit = get_unit(shooting_unit_id)
+	var target_unit = get_unit(target_unit_id)
+
+	if shooting_unit.is_empty() or target_unit.is_empty():
+		return {"diffs": [], "dice": [], "log_text": "Overwatch: Invalid units"}
+
+	# Build weapon assignments from all ranged weapons
+	var assignments = []
+	var weapons = shooting_unit.get("meta", {}).get("weapons", [])
+	var alive_model_ids = []
+	for model in shooting_unit.get("models", []):
+		if model.get("alive", true):
+			alive_model_ids.append(model.get("id", ""))
+
+	for weapon in weapons:
+		var weapon_type = weapon.get("type", "").to_lower()
+		var weapon_range = weapon.get("range", "")
+		var is_melee = weapon_type == "melee" or weapon_range == "Melee"
+		if is_melee:
+			continue
+
+		# All alive models fire their ranged weapons
+		assignments.append({
+			"weapon_id": weapon.get("id", weapon.get("name", "")),
+			"target_unit_id": target_unit_id,
+			"model_ids": alive_model_ids,
+			"overwatch": true,  # Flag for RulesEngine to use hit_on: 6
+		})
+
+	if assignments.is_empty():
+		log_phase_message("Overwatch: %s has no ranged weapons to fire" % shooting_unit.get("meta", {}).get("name", shooting_unit_id))
+		return {"diffs": [], "dice": [], "log_text": "No ranged weapons available for Overwatch"}
+
+	# Build the shooting action for RulesEngine
+	var shoot_action = {
+		"actor_unit_id": shooting_unit_id,
+		"payload": {
+			"assignments": assignments,
+			"overwatch": true,  # Global overwatch flag
+		}
+	}
+
+	# Use RulesEngine.resolve_shoot for full resolution
+	var board = game_state_snapshot
+	var rng = RulesEngine.RNGService.new()
+	var shoot_result = RulesEngine.resolve_shoot(shoot_action, board, rng)
+
+	var total_damage = 0
+	for diff in shoot_result.get("diffs", []):
+		if diff.get("op", "") == "set" and "wounds" in diff.get("path", ""):
+			total_damage += 1
+
+	log_phase_message("FIRE OVERWATCH result: %s fired at %s — %s" % [
+		shooting_unit.get("meta", {}).get("name", shooting_unit_id),
+		target_unit.get("meta", {}).get("name", target_unit_id),
+		shoot_result.get("log_text", "no hits")
+	])
+
+	return shoot_result
 
 # ============================================================================
 # HEROIC INTERVENTION

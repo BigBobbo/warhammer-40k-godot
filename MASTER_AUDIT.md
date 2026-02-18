@@ -85,6 +85,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
+| T3-11: Overwatch integration into charge/movement phases — reaction windows + shooting resolution | Charge/Movement | CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10 |
 
 ---
 
@@ -467,12 +468,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** New ability trigger system, army JSON data already has text descriptions
 - **Resolution:** Created `FactionAbilityManager.gd` autoload that detects faction abilities from army JSON data and manages Oath of Moment target selection. Added `SELECT_OATH_TARGET` action to CommandPhase with validation and processing. Integrated reroll-1s for both hit and wound rolls into all three RulesEngine resolution paths (interactive shooting, auto-resolve shooting, melee) when ADEPTUS ASTARTES units attack the oath target. Added UI section in CommandController for target selection with current-target display. Auto-selects first enemy unit if player forgets. Extensible design for future faction abilities. 32 unit tests in `test_faction_abilities.gd`.
 
-### T3-11. Overwatch integration into charge/movement phases
+### T3-11. Overwatch integration into charge/movement phases — **DONE**
 - **Phase:** Charge/Movement
 - **Rule:** Overwatch can be triggered during charge and movement phases by the defending player
 - **Impact:** Stratagem defined but reaction window not integrated into charge/movement flows
 - **Source:** CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10
 - **Files:** `ChargePhase.gd`, `MovementPhase.gd`, `StratagemManager.gd`
+- **Resolution:** Added `is_fire_overwatch_available()` and `get_fire_overwatch_eligible_units()` to StratagemManager with 24" range check, ranged weapon check, engagement range exclusion, and battle-shock exclusion. Integrated reaction windows into ChargePhase (after DECLARE_CHARGE, before charge roll) and MovementPhase (after CONFIRM_UNIT_MOVE). Both phases emit `fire_overwatch_opportunity` signal and support `USE_FIRE_OVERWATCH`/`DECLINE_FIRE_OVERWATCH` actions following the established Heroic Intervention pattern. Added overwatch flag to RulesEngine `_resolve_assignment` and `_resolve_assignment_until_wounds` that forces BS=7 so only unmodified 6s hit. CP deduction and once-per-turn restriction enforced via existing StratagemManager infrastructure.
 
 ### T3-12. Multiplayer race condition in fight dialog sequencing
 - **Phase:** Fight
@@ -809,12 +811,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 8 | 18 | 26 |
+| Tier 3 — Medium Rules | 9 | 17 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **29** | **99** | **128** |
-| **Recently Completed** | **56** | — | **56** |
+| **Total Open** | **30** | **98** | **128** |
+| **Recently Completed** | **57** | — | **57** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
