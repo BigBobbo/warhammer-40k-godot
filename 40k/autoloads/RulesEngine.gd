@@ -1087,7 +1087,6 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if melta_value > 0 and not melta_data.is_empty() and melta_data.models_in_half_range > 0:
 		log_parts.append("MELTA +%d damage (half range)" % melta_value)
 
-	log_parts.append("awaiting saves")
 	result.log_text = " - ".join(log_parts)
 
 	return result
