@@ -84,6 +84,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
+| T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 
 ---
 
@@ -434,12 +435,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** DEPLOYMENT_AUDIT.md §1
 - **Files:** New pre-deployment configuration screen
 
-### T3-7. Determine first turn roll-off
+### T3-7. Determine first turn roll-off — **DONE**
 - **Phase:** Post-deployment
 - **Rule:** Players roll off; winner chooses first or second turn
 - **Impact:** Going first vs second is a major strategic decision
 - **Source:** DEPLOYMENT_AUDIT.md §6
 - **Files:** `TurnManager.gd` — currently hardcoded
+- **Resolution:** Added `ROLL_OFF` phase to the Phase enum (between SCOUT and COMMAND). Created `RollOffPhase.gd` implementing D6 roll-off with tie re-rolls and winner's choice of first/second turn. Phase flow is now SCOUT → ROLL_OFF → COMMAND. Roll-off results and first-turn-player stored in game state meta. Active player set based on winner's choice. Attacker/Defender labels in UI now dynamically computed from roll-off result. 77 tests pass including 20 new roll-off-specific tests.
 
 ### T3-8. Charge move direction constraint — **DONE**
 - **Phase:** Charge
@@ -807,7 +809,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 7 | 19 | 26 |
+| Tier 3 — Medium Rules | 8 | 18 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |

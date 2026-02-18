@@ -138,6 +138,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_FIGHT":
 			return process_end_fight(action)
 
+		# Roll-off actions
+		"ROLL_FOR_FIRST_TURN":
+			return _delegate_to_current_phase(action)
+		"CHOOSE_TURN_ORDER":
+			return _delegate_to_current_phase(action)
+
 		# Command actions
 		"USE_STRATAGEM":
 			return process_use_stratagem(action)
@@ -708,6 +714,8 @@ func _get_next_phase(current: int) -> int:
 	"""
 	match current:
 		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.ROLL_OFF
+		GameStateData.Phase.ROLL_OFF:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.COMMAND:
 			return GameStateData.Phase.MOVEMENT

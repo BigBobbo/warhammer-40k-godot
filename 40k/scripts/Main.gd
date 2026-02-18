@@ -2292,10 +2292,13 @@ func refresh_unit_list() -> void:
 
 func update_ui() -> void:
 	var active_player = GameState.get_active_player()
-	var player_text = "Player %d (%s)" % [
-		active_player,
-		"Defender" if active_player == 1 else "Attacker"
-	]
+	var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 0)
+	var role_label = ""
+	if first_turn_player > 0:
+		role_label = "Attacker" if active_player == first_turn_player else "Defender"
+	else:
+		role_label = "Defender" if active_player == 1 else "Attacker"
+	var player_text = "Player %d (%s)" % [active_player, role_label]
 	active_player_badge.text = player_text
 	
 	# Phase-specific UI updates
@@ -2346,7 +2349,8 @@ func update_ui() -> void:
 					# Check if AI player is deploying
 					var ai_player_node = get_node_or_null("/root/AIPlayer")
 					if ai_player_node and ai_player_node.is_ai_player(active_player):
-						status_label.text = "AI Player %d (%s) is deploying..." % [active_player, "Defender" if active_player == 1 else "Attacker"]
+						var ai_role = "Defender" if active_player == 1 else "Attacker"
+						status_label.text = "AI Player %d (%s) is deploying..." % [active_player, ai_role]
 					# Check if it's our turn in multiplayer
 					elif get_node_or_null("/root/NetworkManager") and get_node("/root/NetworkManager").is_networked() and not get_node("/root/NetworkManager").is_local_player_turn():
 						var local_player = get_node("/root/NetworkManager").get_local_player()
