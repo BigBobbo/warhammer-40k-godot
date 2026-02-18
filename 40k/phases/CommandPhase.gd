@@ -36,7 +36,11 @@ func _on_phase_enter() -> void:
 	print("CommandPhase: Entering command phase for player ", current_player)
 	print("CommandPhase: Battle round ", battle_round)
 
-	# Step 0: Initialize secondary mission decks on first command phase
+	# Step 0a: Reset per-round kill tracking for Purge the Foe at start of each battle round
+	if MissionManager and current_player == 1:
+		MissionManager.reset_round_kills()
+
+	# Step 0b: Initialize secondary mission decks on first command phase
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and battle_round == 1 and current_player == 1:
 		if not secondary_mgr.is_initialized(1):

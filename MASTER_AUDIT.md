@@ -104,6 +104,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-5: Models in base contact should not move during pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.11 |
 | T4-7: Rapid Ingress stratagem (1 CP, arrive from reserves at end of opponent's movement) | Movement | MOVEMENT_PHASE_AUDIT.md §2.11 |
 | T4-8: Secondary missions + New Orders stratagem | Command | AUDIT_COMMAND_PHASE.md §P3 |
+| T4-10: Mission selection variety — 9 primary missions from Chapter Approved 2025-26 | Pre-game | DEPLOYMENT_AUDIT.md §8 |
 
 ---
 
@@ -658,9 +659,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Phase:** Deployment
 - **Source:** DEPLOYMENT_AUDIT.md §7
 
-### T4-10. Mission selection variety
+### T4-10. Mission selection variety — **DONE**
 - **Phase:** Pre-game
 - **Source:** DEPLOYMENT_AUDIT.md §8
+- **Resolution:** Created MissionData.gd registry with 9 primary missions from Chapter Approved 2025-26 (Take and Hold, Supply Drop, Purge the Foe, Scorched Earth, The Ritual, Sites of Power, Terraform, Linchpin, Hidden Supplies). Refactored MissionManager.gd to accept any mission_id from MissionData and dispatch scoring to mission-specific methods (_score_hold_objectives, _score_hold_and_kill, _score_supply_drop, _score_sites_of_power). Wired mission selection through MainMenu → GameState config → MissionManager.initialize_mission(). MainMenu dropdown now shows all 9 missions. Added kill tracking (record_unit_destroyed/reset_round_kills) for Purge the Foe integrated into ShootingPhase and FightPhase destruction hooks. Missions with complex special mechanics (burn, ritual, terraform) fall back to hold_objectives scoring until their action systems are implemented. 9 unit tests (99 assertions) verify MissionData registry, all mission structures, and API.
 
 ### T4-11. Fortification deployment
 - **Phase:** Deployment
@@ -848,11 +850,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 6 | 14 | 20 |
+| Tier 4 — Low/Niche | 7 | 13 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **47** | **81** | **128** |
-| **Recently Completed** | **74** | — | **74** |
+| **Total Open** | **48** | **80** | **128** |
+| **Recently Completed** | **75** | — | **75** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
