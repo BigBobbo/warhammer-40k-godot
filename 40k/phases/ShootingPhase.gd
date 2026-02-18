@@ -445,6 +445,9 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 
 	pending_assignments.clear()
 
+	# T3-3: Auto-inject Extra Attacks ranged weapons if not already assigned
+	_auto_inject_extra_attacks_weapons_shooting()
+
 	emit_signal("shooting_begun", active_shooter_id)
 	log_phase_message("Confirmed targets, ready to resolve shooting")
 
@@ -1477,6 +1480,59 @@ func _unit_has_assault_weapons(unit: Dictionary) -> bool:
 # ============================================================================
 # REACTIVE STRATAGEM SUPPORT (Go to Ground, Smokescreen)
 # ============================================================================
+
+# T3-3: Auto-inject Extra Attacks ranged weapons that aren't already in confirmed_assignments
+# Extra Attacks weapons are used IN ADDITION to other weapons, not instead of them.
+func _auto_inject_extra_attacks_weapons_shooting() -> void:
+	if active_shooter_id.is_empty():
+		return
+
+	var unit = get_unit(active_shooter_id)
+	if unit.is_empty():
+		return
+
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+
+	# Find Extra Attacks ranged weapons
+	var ea_weapons = []
+	for weapon in weapons_data:
+		if weapon.get("type", "").to_lower() != "melee":
+			if RulesEngine.weapon_data_has_extra_attacks(weapon):
+				ea_weapons.append(weapon)
+
+	if ea_weapons.is_empty():
+		return
+
+	# Check which EA weapons are already assigned
+	var assigned_weapon_ids = {}
+	for assignment in confirmed_assignments:
+		assigned_weapon_ids[assignment.get("weapon_id", "")] = true
+
+	# Determine default target: use first confirmed assignment's target
+	var default_target = ""
+	if not confirmed_assignments.is_empty():
+		default_target = confirmed_assignments[0].get("target_unit_id", "")
+
+	for weapon in ea_weapons:
+		var weapon_name = weapon.get("name", "Unknown")
+		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+
+		if assigned_weapon_ids.has(weapon_id):
+			print("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
+			continue
+
+		if default_target.is_empty():
+			print("[ShootingPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name)
+			continue
+
+		confirmed_assignments.append({
+			"weapon_id": weapon_id,
+			"target_unit_id": default_target,
+			"model_ids": []
+		})
+		print("[ShootingPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target])
+
+	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_shooter_id)
 
 func _check_reactive_stratagems() -> Dictionary:
 	"""

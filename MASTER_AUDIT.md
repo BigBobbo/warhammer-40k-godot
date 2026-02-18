@@ -83,6 +83,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
 | T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 
 ---
 
@@ -403,12 +404,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `FightPhase.gd` — `_get_fight_priority()` (~lines 1026-1041)
 - **Resolution:** Refactored `_get_fight_priority()` in both `FightPhase.gd` and `RulesEngine.gd` to collect Fights First and Fights Last conditions independently before returning a priority. When both apply, they cancel out and the unit returns NORMAL (Remaining Combats). Added debug logging for cancellation events.
 
-### T3-3. Extra Attacks weapon ability
+### T3-3. Extra Attacks weapon ability — **DONE**
 - **Phase:** Fight/Shooting
 - **Rule:** Extra Attacks weapons are used IN ADDITION to normal weapon, not as alternative
 - **Impact:** Players may miss using or misuse these weapons
 - **Source:** FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4
 - **Files:** `AttackAssignmentDialog.gd`, `ShootingPhase.gd` — weapon assignment logic
+- **Resolution:** Added `has_extra_attacks()` and `weapon_data_has_extra_attacks()` detection functions to RulesEngine.gd. Updated AttackAssignmentDialog.gd to separate Extra Attacks weapons from regular weapons in the UI — they are shown as mandatory additions and auto-included in assignments when confirmed. Added `_auto_inject_extra_attacks_weapons()` safety net in FightPhase.gd for AI/auto-resolve paths. Added parallel `_auto_inject_extra_attacks_weapons_shooting()` in ShootingPhase.gd for ranged Extra Attacks weapons. Validation prevents using Extra Attacks weapons as the only weapon choice. Added 12 unit tests.
 
 ### T3-4. Precision weapon keyword — allocate wounds to Characters
 - **Phase:** Shooting/Fight
@@ -805,12 +807,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 6 | 20 | 26 |
+| Tier 3 — Medium Rules | 7 | 19 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **28** | **100** | **128** |
-| **Recently Completed** | **55** | — | **55** |
+| **Total Open** | **29** | **99** | **128** |
+| **Recently Completed** | **56** | — | **56** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
