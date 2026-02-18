@@ -50,6 +50,7 @@ const FAIL_NON_TARGET_ER = "NON_TARGET_ER"
 const FAIL_COHERENCY = "COHERENCY"
 const FAIL_OVERLAP = "OVERLAP"
 const FAIL_BASE_CONTACT = "BASE_CONTACT"
+const FAIL_DIRECTION = "DIRECTION"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 const FAIL_CATEGORY_TOOLTIPS = {
@@ -60,6 +61,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" of at least one other model) after the charge move completes.",
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
+	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
 }
 
 func _init():
@@ -918,14 +920,21 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 				errors.append(err)
 				categorized_errors.append({"category": FAIL_DISTANCE, "detail": err})
 
-	# 2. Validate no model overlaps
+	# 2. Validate each model ends closer to at least one charge target (T3-8)
+	var direction_validation = _validate_charge_direction_constraint(unit_id, per_model_paths, target_ids)
+	if not direction_validation.valid:
+		errors.append_array(direction_validation.errors)
+		for err in direction_validation.errors:
+			categorized_errors.append({"category": FAIL_DIRECTION, "detail": err})
+
+	# 3. Validate no model overlaps
 	var overlap_validation = _validate_no_model_overlaps(unit_id, per_model_paths)
 	if not overlap_validation.valid:
 		errors.append_array(overlap_validation.errors)
 		for err in overlap_validation.errors:
 			categorized_errors.append({"category": FAIL_OVERLAP, "detail": err})
 
-	# 3. Validate engagement range with ALL targets
+	# 5. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
@@ -936,14 +945,14 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			else:
 				categorized_errors.append({"category": FAIL_ENGAGEMENT, "detail": err})
 
-	# 4. Validate unit coherency
+	# 6. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge(unit_id, per_model_paths)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
 		for err in coherency_validation.errors:
 			categorized_errors.append({"category": FAIL_COHERENCY, "detail": err})
 
-	# 5. Validate base-to-base if possible
+	# 7. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids, rolled_distance)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
@@ -1131,6 +1140,60 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 			var err = "Model %s can reach base-to-base contact with %s but did not — charging models must make base contact when possible" % [model_id, closest_reachable_target_name]
 			errors.append(err)
 			print("ChargePhase: B2B enforcement - %s" % err)
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+## T3-8: Validate that each model ends its charge move closer to at least one
+## charge target than it started. This is a 10e core rule for charge moves.
+func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		var start_pos = _get_model_position(model)
+		if start_pos == null or start_pos == Vector2.ZERO:
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Check if model ends closer to at least one target model in any target unit
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position(target_model)
+				if target_pos == null:
+					continue
+
+				var start_distance = start_pos.distance_to(target_pos)
+				var final_distance = final_pos.distance_to(target_pos)
+
+				if final_distance < start_distance:
+					ends_closer_to_any_target = true
+					break
+
+			if ends_closer_to_any_target:
+				break
+
+		if not ends_closer_to_any_target:
+			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
+			errors.append(err)
+			print("ChargePhase: Direction constraint - %s" % err)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 

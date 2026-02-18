@@ -76,6 +76,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-1: Fights Last subphase not processed | Fight | FIGHT_PHASE_AUDIT.md §2.6 |
 | T3-2: Fights First + Fights Last cancellation | Fight | FIGHT_PHASE_AUDIT.md §2.7 |
 | T3-5: Scout moves — pre-game Scout phase with validation | Pre-game | DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8 |
+| T3-8: Charge move direction constraint — each model must end closer to a target | Charge | CHARGE_PHASE_AUDIT.md §2.9 |
 
 ---
 
@@ -428,12 +429,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** DEPLOYMENT_AUDIT.md §6
 - **Files:** `TurnManager.gd` — currently hardcoded
 
-### T3-8. Charge move direction constraint
+### T3-8. Charge move direction constraint — **DONE**
 - **Phase:** Charge
 - **Rule:** Each model must end charge move closer to at least one charge target
 - **Impact:** Models can be placed suboptimally without enforcement
 - **Source:** CHARGE_PHASE_AUDIT.md §2.9
 - **Files:** `ChargeController.gd:1265-1286`, `ChargePhase.gd`
+- **Resolution:** Added `_validate_charge_direction_constraint()` in ChargePhase.gd (server-side), direction check in `_validate_charge_position()` in ChargeController.gd (client-side drag validation), and `_validate_charge_direction_constraint_rules()` in RulesEngine.gd (auto-resolve path). New `FAIL_DIRECTION` error category with player-facing tooltip. All three paths consistently enforce that each model must end its charge move closer (center-to-center) to at least one model in any declared target unit.
 
 ### T3-9. Barricade engagement range (2" instead of 1")
 - **Phase:** Charge/Fight
@@ -791,12 +793,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 11 | 5 | 16 |
-| Tier 3 — Medium Rules | 3 | 23 | 26 |
+| Tier 3 — Medium Rules | 4 | 22 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **23** | **105** | **128** |
-| **Recently Completed** | **50** | — | **50** |
+| **Total Open** | **24** | **104** | **128** |
+| **Recently Completed** | **51** | — | **51** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---

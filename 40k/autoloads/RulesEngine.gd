@@ -3659,19 +3659,25 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 					errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
 				auto_fix_suggestions.append("Reduce path length for model %s" % model_id)
 	
-	# 2. Validate engagement range with ALL targets
+	# 2. T3-8: Validate each model ends closer to at least one charge target
+	var direction_validation = _validate_charge_direction_constraint_rules(unit_id, paths, targets, board)
+	if not direction_validation.valid:
+		errors.append_array(direction_validation.errors)
+		auto_fix_suggestions.append("Move models closer to declared charge targets")
+
+	# 3. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints_rules(unit_id, paths, targets, board)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
 		auto_fix_suggestions.append("Adjust final positions to reach all targets")
-	
-	# 3. Validate unit coherency
+
+	# 4. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge_rules(unit_id, paths, board)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
 		auto_fix_suggestions.append("Move models closer together to maintain coherency")
-	
-	# 4. Validate base-to-base if possible
+
+	# 5. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board, roll)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
@@ -3960,6 +3966,64 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+# T3-8: Validate each model ends closer to at least one charge target than it started.
+# 10e core rule: Each model making a charge move must end that move closer to
+# at least one of the charge target units.
+static func _validate_charge_direction_constraint_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
+	var errors = []
+	var all_units = board.get("units", {})
+	var unit = all_units.get(unit_id, {})
+	if unit.is_empty():
+		return {"valid": true, "errors": []}
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit_rules(unit, model_id)
+		if model.is_empty():
+			continue
+
+		var start_pos = _get_model_position_rules(model)
+		if start_pos == null or start_pos == Vector2.ZERO:
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Check if model ends closer to at least one target model in any target unit
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position_rules(target_model)
+				if target_pos == null:
+					continue
+
+				var start_distance = start_pos.distance_to(target_pos)
+				var final_distance = final_pos.distance_to(target_pos)
+
+				if final_distance < start_distance:
+					ends_closer_to_any_target = true
+					break
+
+			if ends_closer_to_any_target:
+				break
+
+		if not ends_closer_to_any_target:
+			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
+			errors.append(err)
+			print("RulesEngine: Direction constraint - %s" % err)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
