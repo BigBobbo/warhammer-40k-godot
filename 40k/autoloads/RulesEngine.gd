@@ -4989,21 +4989,36 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 # Get fight priority for unit
 static func get_fight_priority(unit: Dictionary) -> int:
-	# Check if unit charged this turn
-	if unit.get("flags", {}).get("charged_this_turn", false):
-		return 0  # FIGHTS_FIRST
-	
+	var flags = unit.get("flags", {})
+
+	# Determine Fights First status
+	# Charged units get Fights First — but Heroic Intervention units do NOT
+	var has_fights_first = false
+	if flags.get("charged_this_turn", false) and not flags.get("heroic_intervention", false):
+		has_fights_first = true
+
 	# Check for Fights First ability
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		if "fights_first" in str(ability).to_lower():
-			return 0  # FIGHTS_FIRST
-	
-	# Check for Fights Last debuff
-	var status_effects = unit.get("status_effects", {})
-	if status_effects.get("fights_last", false):
+	if not has_fights_first:
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			if "fights_first" in str(ability).to_lower():
+				has_fights_first = true
+				break
+
+	# Determine Fights Last status
+	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
+
+	# Per 10e Rules Commentary: If a unit has both Fights First and Fights Last,
+	# they cancel out and the unit fights in the Remaining Combats step (NORMAL).
+	if has_fights_first and has_fights_last:
+		return 1  # NORMAL (cancellation)
+
+	if has_fights_first:
+		return 0  # FIGHTS_FIRST
+
+	if has_fights_last:
 		return 2  # FIGHTS_LAST
-	
+
 	return 1  # NORMAL
 
 # Check if two model dicts are in engagement range (shape-aware)
