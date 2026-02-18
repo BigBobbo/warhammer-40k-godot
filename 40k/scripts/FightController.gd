@@ -1361,10 +1361,16 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	dialog.popup_centered()
 
 func _on_attacks_confirmed(assignments: Array) -> void:
-	"""Submit attack assignments and trigger resolution"""
+	"""Submit attack assignments and trigger resolution via a single batched action.
+	T3-12: Previously sent individual actions with fixed 50ms/100ms delays between them,
+	which caused race conditions in multiplayer when network latency exceeded the delays.
+	Now bundles all sub-actions into a single BATCH_FIGHT_ACTIONS that is processed atomically."""
 	print("[FightController] Attacks confirmed, processing %d assignments" % assignments.size())
 
-	# First, send individual ASSIGN_ATTACKS actions to populate pending_attacks
+	# Build all sub-actions for the batch
+	var sub_actions: Array = []
+
+	# 1. ASSIGN_ATTACKS for each weapon assignment
 	for assignment in assignments:
 		var assign_action = {
 			"type": "ASSIGN_ATTACKS",
@@ -1374,28 +1380,29 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 			"attacking_models": assignment.get("models", []),
 			"player": current_fighter_owner
 		}
-		print("[FightController] Sending ASSIGN_ATTACKS: ", assign_action)
-		emit_signal("fight_action_requested", assign_action)
-		# Small delay to ensure actions process in order
-		await get_tree().create_timer(0.05).timeout
+		print("[FightController] Batching ASSIGN_ATTACKS: ", assign_action)
+		sub_actions.append(assign_action)
 
-	# Now confirm the attacks
-	var confirm_action = {
+	# 2. CONFIRM_AND_RESOLVE_ATTACKS
+	sub_actions.append({
 		"type": "CONFIRM_AND_RESOLVE_ATTACKS",
 		"player": current_fighter_owner
-	}
-	print("[FightController] Sending CONFIRM_AND_RESOLVE_ATTACKS")
-	emit_signal("fight_action_requested", confirm_action)
+	})
 
-	# Then trigger dice rolling
-	var roll_action = {
+	# 3. ROLL_DICE
+	sub_actions.append({
 		"type": "ROLL_DICE",
 		"player": current_fighter_owner
+	})
+
+	# Send as a single atomic action — no delays needed
+	var batch_action = {
+		"type": "BATCH_FIGHT_ACTIONS",
+		"sub_actions": sub_actions,
+		"player": current_fighter_owner
 	}
-	# Delay slightly to let confirmation process
-	await get_tree().create_timer(0.1).timeout
-	print("[FightController] Sending ROLL_DICE")
-	emit_signal("fight_action_requested", roll_action)
+	print("[FightController] Sending BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
+	emit_signal("fight_action_requested", batch_action)
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""

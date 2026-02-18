@@ -85,6 +85,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
+| T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
 
 ---
 
@@ -474,12 +475,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10
 - **Files:** `ChargePhase.gd`, `MovementPhase.gd`, `StratagemManager.gd`
 
-### T3-12. Multiplayer race condition in fight dialog sequencing
+### T3-12. Multiplayer race condition in fight dialog sequencing — **DONE**
 - **Phase:** Fight
 - **Rule:** Actions must arrive in order
 - **Impact:** Fixed 50ms delays between actions may be insufficient on slow connections
 - **Source:** FIGHT_PHASE_AUDIT.md §3.3
 - **Files:** `FightController.gd:1357-1392`
+- **Resolution:** Replaced sequential individual actions (ASSIGN_ATTACKS × N + CONFIRM + ROLL_DICE) with fixed timing delays with a single atomic BATCH_FIGHT_ACTIONS composite action processed by FightPhase. Eliminates race condition by sending one action over the network instead of multiple actions with 50ms/100ms delays.
 
 ### T3-13. Fight selection dialog sync for remote player
 - **Phase:** Fight
@@ -809,12 +811,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 8 | 18 | 26 |
+| Tier 3 — Medium Rules | 9 | 17 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **29** | **99** | **128** |
-| **Recently Completed** | **56** | — | **56** |
+| **Total Open** | **30** | **98** | **128** |
+| **Recently Completed** | **57** | — | **57** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
