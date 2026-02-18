@@ -135,11 +135,12 @@ func _ready() -> void:
 	view_offset = Vector2(0, 0)  # Start at top-left
 	update_view_transform()
 
-	# Initialize PhaseManager with deployment phase NOW that armies are loaded
+	# Initialize PhaseManager with formations phase NOW that armies are loaded
+	# Per 10e rules, Declare Battle Formations happens before Deployment
 	var phase_manager = get_node("/root/PhaseManager")
 	if phase_manager and not phase_manager.current_phase_instance:
-		print("Main: Initializing deployment phase with ", GameState.state.units.size(), " units")
-		phase_manager.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+		print("Main: Initializing formations phase with ", GameState.state.units.size(), " units")
+		phase_manager.transition_to_phase(GameStateData.Phase.FORMATIONS)
 
 		# DEBUG: Verify phase was created correctly
 		await get_tree().process_frame
@@ -1515,6 +1516,8 @@ func setup_phase_controllers() -> void:
 	
 	# Setup controller based on current phase
 	match current_phase:
+		GameStateData.Phase.FORMATIONS:
+			_setup_formations_phase()
 		GameStateData.Phase.DEPLOYMENT:
 			setup_deployment_controller()
 		GameStateData.Phase.COMMAND:
@@ -2300,6 +2303,10 @@ func update_ui() -> void:
 	
 	# Phase-specific UI updates
 	match current_phase:
+		GameStateData.Phase.FORMATIONS:
+			status_label.text = "Declare Battle Formations — Player %d" % active_player
+			phase_action_button.disabled = false
+
 		GameStateData.Phase.DEPLOYMENT:
 			var all_deployed = GameState.all_units_deployed()
 			print("Main: ⚠️ update_ui() - DEPLOYMENT phase - all_deployed: ", all_deployed)
@@ -2692,6 +2699,107 @@ func _on_deployment_side_changed(player: int) -> void:
 func _on_deployment_complete() -> void:
 	status_label.text = "Deployment complete!"
 	phase_action_button.disabled = false
+
+# ========================================
+# Formations Phase UI
+# ========================================
+
+var formations_dialog: Node = null
+
+func _setup_formations_phase() -> void:
+	"""Set up the Formations phase — show the declaration dialog for the active player."""
+	print("Main: Setting up Formations phase")
+	var active_player = GameState.get_active_player()
+	_show_formations_dialog(active_player)
+
+func _show_formations_dialog(player: int) -> void:
+	"""Show the formations declaration dialog for a player."""
+	# Clean up any existing dialog
+	if formations_dialog and is_instance_valid(formations_dialog):
+		formations_dialog.queue_free()
+		formations_dialog = null
+
+	var dialog_script = preload("res://scripts/FormationsDeclarationDialog.gd")
+	formations_dialog = AcceptDialog.new()
+	formations_dialog.set_script(dialog_script)
+	add_child(formations_dialog)
+	formations_dialog.setup(player)
+	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
+	formations_dialog.popup_centered()
+	print("Main: Showed formations dialog for Player %d" % player)
+
+func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> void:
+	"""Handle formations dialog confirmation — apply declarations through the phase."""
+	print("Main: Player %d confirmed formations: %s" % [player, str(formations)])
+
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if not phase_instance:
+		print("Main: ERROR - No phase instance for formations confirmation")
+		return
+
+	# Apply leader attachments
+	for char_id in formations.get("leader_attachments", {}):
+		var bg_id = formations["leader_attachments"][char_id]
+		var action = {
+			"type": "DECLARE_LEADER_ATTACHMENT",
+			"character_id": char_id,
+			"bodyguard_id": bg_id,
+			"player": player
+		}
+		phase_instance.execute_action(action)
+
+	# Apply transport embarkations
+	for transport_id in formations.get("transport_embarkations", {}):
+		var unit_ids = formations["transport_embarkations"][transport_id]
+		if unit_ids.size() > 0:
+			var action = {
+				"type": "DECLARE_TRANSPORT_EMBARKATION",
+				"transport_id": transport_id,
+				"unit_ids": unit_ids,
+				"player": player
+			}
+			phase_instance.execute_action(action)
+
+	# Apply reserves declarations
+	for entry in formations.get("reserves", []):
+		var action = {
+			"type": "DECLARE_RESERVES",
+			"unit_id": entry["unit_id"],
+			"reserve_type": entry["reserve_type"],
+			"player": player
+		}
+		phase_instance.execute_action(action)
+
+	# Confirm this player's formations
+	phase_instance.execute_action({
+		"type": "CONFIRM_FORMATIONS",
+		"player": player
+	})
+
+	# Check if we need to show the dialog for the other player
+	var other_player = 3 - player
+	if not phase_instance.players_confirmed.get(other_player, false):
+		# Show dialog for the other player
+		print("Main: Showing formations dialog for Player %d" % other_player)
+		_show_formations_dialog(other_player)
+	else:
+		# Both players confirmed — the phase will auto-complete via _apply_formations
+		print("Main: Both players confirmed formations — phase completing")
+
+func _on_formations_confirm_pressed() -> void:
+	"""Handle the phase action button press during formations phase."""
+	print("Main: Formations confirm button pressed")
+	# If no dialog is showing, just confirm empty formations for current player
+	var active_player = GameState.get_active_player()
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance and not phase_instance.players_confirmed.get(active_player, false):
+		phase_instance.execute_action({
+			"type": "CONFIRM_FORMATIONS",
+			"player": active_player
+		})
+		var other_player = 3 - active_player
+		if not phase_instance.players_confirmed.get(other_player, false):
+			_show_formations_dialog(other_player)
 
 func _on_end_deployment_pressed() -> void:
 	print("Main: ========== _on_end_deployment_pressed CALLED ==========")
@@ -3461,6 +3569,7 @@ func _on_phase_completed(phase: GameStateData.Phase) -> void:
 
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
+		GameStateData.Phase.FORMATIONS: return "Declare Battle Formations"
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
 		GameStateData.Phase.SCOUT: return "Scout Moves"
 		GameStateData.Phase.COMMAND: return "Command Phase"
@@ -3474,6 +3583,7 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 
 func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	match phase:
+		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
 		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
 		GameStateData.Phase.SCOUT: return "End Scout Moves"
 		GameStateData.Phase.COMMAND: return "End Command Phase"
@@ -3517,6 +3627,9 @@ func _on_phase_action_pressed() -> void:
 	var active_player = GameState.get_active_player()
 
 	match current_phase:
+		GameStateData.Phase.FORMATIONS:
+			_on_formations_confirm_pressed()
+			return
 		GameStateData.Phase.DEPLOYMENT:
 			_on_end_deployment_pressed()  # Already handles network routing
 			return
@@ -3625,6 +3738,18 @@ func update_ui_for_phase() -> void:
 
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
+		GameStateData.Phase.FORMATIONS:
+			# Hide deployment zones during formations declaration
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Hide unit list and unit card during formations
+			unit_list.visible = false
+			unit_card.visible = false
+			# Button starts enabled — formations dialog handles the interaction
+			phase_action_button.disabled = false
+
 		GameStateData.Phase.DEPLOYMENT:
 			# Show deployment zones
 			p1_zone.visible = true

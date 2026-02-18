@@ -23,6 +23,7 @@ func _ready() -> void:
 
 func register_phase_classes() -> void:
 	# Register phase implementations
+	phase_classes[GameStateData.Phase.FORMATIONS] = preload("res://phases/FormationsPhase.gd")
 	phase_classes[GameStateData.Phase.DEPLOYMENT] = preload("res://phases/DeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.SCOUT] = preload("res://phases/ScoutPhase.gd")
 	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
@@ -122,6 +123,8 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 	# Define the standard 40k phase order with Command and Scoring phases
 	# Scout phase runs once between Deployment and the first Command phase
 	match current:
+		GameStateData.Phase.FORMATIONS:
+			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.SCOUT
 		GameStateData.Phase.SCOUT:

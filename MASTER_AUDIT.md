@@ -84,6 +84,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
+| T3-6: Pre-battle formations declaration | Deployment | DEPLOYMENT_AUDIT.md §1 |
 
 ---
 
@@ -427,12 +428,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** New pre-game phase needed
 - **Resolution:** Added SCOUT phase to Phase enum between DEPLOYMENT and COMMAND. Created ScoutPhase.gd with full movement validation (distance cap, >9" from enemies, board bounds, model overlap). Added unit_has_scout/get_scout_distance helpers to GameState.gd. Registered in PhaseManager with auto-skip when no Scout units. Added Scout 6" ability to Space Marines Infiltrator Squad. AI skips Scout moves. 27 dedicated tests pass.
 
-### T3-6. Pre-battle formations declaration
+### T3-6. Pre-battle formations declaration — **DONE**
 - **Phase:** Deployment
 - **Rule:** Before deployment, players secretly declare leader attachments, transport embarkations, and reserves
 - **Impact:** Seeing opponent deployment before declaring formations is a strategic advantage
 - **Source:** DEPLOYMENT_AUDIT.md §1
 - **Files:** New pre-deployment configuration screen
+- **Resolution:** Added FORMATIONS to Phase enum (before DEPLOYMENT). Created FormationsPhase.gd with full declaration/validation/confirmation flow for leader attachments, transport embarkations, and reserves. Added FormationsDeclarationDialog.gd UI with sections for each declaration type. Added GameState helpers (get_characters_for_player, get_transports_for_player, get_eligible_bodyguards_for_character, formations_declared, etc.). Integrated into PhaseManager, Main.gd, TurnManager, and GameManager phase flows. Phase auto-skips when no declarations possible. 28 dedicated tests pass.
 
 ### T3-7. Determine first turn roll-off
 - **Phase:** Post-deployment
@@ -807,12 +809,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 7 | 19 | 26 |
+| Tier 3 — Medium Rules | 8 | 18 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **29** | **99** | **128** |
-| **Recently Completed** | **56** | — | **56** |
+| **Total Open** | **30** | **98** | **128** |
+| **Recently Completed** | **57** | — | **57** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---

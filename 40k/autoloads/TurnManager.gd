@@ -50,6 +50,9 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	match new_phase:
+		GameStateData.Phase.FORMATIONS:
+			# Formations phase starts with Player 1
+			_set_active_player(1)
 		GameStateData.Phase.DEPLOYMENT:
 			_handle_deployment_phase_start()
 
