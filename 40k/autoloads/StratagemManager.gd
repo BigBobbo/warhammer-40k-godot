@@ -1281,6 +1281,7 @@ func _get_player_cp(player: int) -> int:
 func _phase_to_string(phase: int) -> String:
 	match phase:
 		GameStateData.Phase.DEPLOYMENT: return "deployment"
+		GameStateData.Phase.ROLL_OFF: return "roll_off"
 		GameStateData.Phase.COMMAND: return "command"
 		GameStateData.Phase.MOVEMENT: return "movement"
 		GameStateData.Phase.SHOOTING: return "shooting"

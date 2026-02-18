@@ -769,6 +769,8 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 		match current_phase:
 			GameStateData.Phase.DEPLOYMENT:
 				phase_name = "Deployment"
+			GameStateData.Phase.ROLL_OFF:
+				phase_name = "Roll-Off"
 			GameStateData.Phase.COMMAND:
 				phase_name = "Command"
 			GameStateData.Phase.MOVEMENT:
