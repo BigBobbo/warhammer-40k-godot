@@ -18,6 +18,16 @@ const FILTERED_ACTIONS = [
 	"SELECT_UNIT",
 	"DESELECT_UNIT",
 	"DEBUG_MOVE",
+	"SELECT_SHOOTER",
+	"ASSIGN_TARGET",
+	"CLEAR_ASSIGNMENT",
+	"CLEAR_ALL_ASSIGNMENTS",
+	"COMPLETE_SHOOTING_FOR_UNIT",
+	"SELECT_FIGHTER",
+	"SELECT_MELEE_WEAPON",
+	"ASSIGN_ATTACKS",
+	"CONFIRM_AND_RESOLVE_ATTACKS",
+	"DECLINE_REACTIVE_STRATAGEM",
 ]
 
 const PHASE_NAMES = {
@@ -87,17 +97,19 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 				return prefix + ai_desc
 			return prefix + "%s advanced" % unit_name
 		"SHOOT":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
 			if ai_desc != "":
 				return prefix + ai_desc
-			var log_text = action.get("_log_text", "")
-			if log_text != "":
-				return prefix + log_text
 			var target_name = _get_unit_name(action.get("target_unit_id", action.get("target_id", "")))
 			return prefix + "%s shot at %s" % [unit_name, target_name]
-		"FIGHT":
+		"FIGHT", "ROLL_DICE":
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
 			var target_name = _get_unit_name(action.get("target_unit_id", action.get("target_id", "")))
 			return prefix + "%s fought %s" % [unit_name, target_name]
 		"CHARGE":

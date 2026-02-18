@@ -867,7 +867,37 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
 
-	# Step 5: Mark unit as done
+	# Step 5: Build comprehensive attack summary for game event log
+	var actor_name = game_state_snapshot.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+	var target_names = []
+	for a in confirmed_assignments:
+		var tid = a.get("target_unit_id", "")
+		var tn = game_state_snapshot.get("units", {}).get(tid, {}).get("meta", {}).get("name", tid)
+		if tn not in target_names:
+			target_names.append(tn)
+
+	var total_hits = 0
+	var total_wounds = 0
+	var total_saves_passed = 0
+	var total_saves_failed = 0
+	for db in all_dice:
+		var ctx = db.get("context", "")
+		if ctx == "to_hit" or ctx == "hit_roll" or ctx == "auto_hit":
+			total_hits += db.get("successes", 0)
+		elif ctx == "to_wound":
+			total_wounds += db.get("successes", 0)
+		elif ctx == "save_roll":
+			total_saves_passed += db.get("successes", 0)
+			total_saves_failed += db.get("failed", 0)
+
+	var target_text = ", ".join(target_names)
+	var attack_summary = "%s → %s: %d hits, %d wounds" % [actor_name, target_text, total_hits, total_wounds]
+	if total_saves_passed > 0 or total_saves_failed > 0:
+		attack_summary += ", %d saved, %d failed" % [total_saves_passed, total_saves_failed]
+	if total_casualties > 0:
+		attack_summary += " → %d slain" % total_casualties
+
+	# Step 6: Mark unit as done
 	all_changes.append({
 		"op": "set",
 		"path": "units.%s.flags.has_shot" % unit_id,
@@ -875,23 +905,24 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	})
 	units_that_shot.append(unit_id)
 
-	# Step 6: Clear state
+	# Step 7: Clear state
 	var shooter_id = active_shooter_id
 	active_shooter_id = ""
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
 
-	# Step 7: Emit shooting_resolved for visual cleanup (non-blocking)
+	# Step 8: Emit shooting_resolved for visual cleanup (non-blocking)
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
 
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ AI SHOOT (atomic): Complete for %s - %d casualties" % [unit_id, total_casualties])
 	print("╚═══════════════════════════════════════════════════════════════")
 
-	return create_result(true, all_changes, "AI shooting complete - %d casualties" % total_casualties, {
+	return create_result(true, all_changes, "", {
 		"dice": all_dice,
-		"casualties": total_casualties
+		"casualties": total_casualties,
+		"log_text": attack_summary
 	})
 
 func _auto_roll_saves(save_data_list: Array) -> Dictionary:
@@ -1301,7 +1332,8 @@ func _resolve_next_weapon() -> Dictionary:
 			"weapons_remaining": weapon_order.size() - resolution_state.current_index,
 			"remaining_weapons": remaining_weapons,
 			"last_weapon_result": last_weapon_result,
-			"dice": dice_data
+			"dice": dice_data,
+			"log_text": result.get("log_text", "")
 		})
 
 	# Store save data and trigger interactive saves
@@ -1353,7 +1385,8 @@ func _resolve_next_weapon() -> Dictionary:
 	print("========================================")
 	return create_result(true, [], "Awaiting save resolution", {
 		"dice": dice_data,
-		"save_data_list": save_data_list
+		"save_data_list": save_data_list,
+		"log_text": result.get("log_text", "")
 	})
 
 # Helper Methods
@@ -2087,6 +2120,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	var all_diffs = []
 	var total_casualties = 0
 	var save_dice_blocks = []  # Collect save dice for dice log + multiplayer sync
+	var save_log_parts = []  # Accumulate per-target save summaries for game event log
+	var shooter_unit = game_state_snapshot.get("units", {}).get(active_shooter_id, {})
+	var shooter_name = shooter_unit.get("meta", {}).get("name", active_shooter_id)
 
 	# Process each save result (one per target unit)
 	for i in range(save_results_list.size()):
@@ -2166,6 +2202,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			saved_count,
 			failed_count,
 			damage_result.casualties
+		])
+		save_log_parts.append("%s → %s: %d saved, %d failed → %d slain" % [
+			shooter_name, target_name, saved_count, failed_count, damage_result.casualties
 		])
 
 		# Build save dice block for dice log (so both players can see save rolls)
@@ -2269,6 +2308,9 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
 		pending_hazardous_weapons.clear()
+
+	# Build combined save log text for game event log
+	var save_log_text = ", ".join(save_log_parts)
 
 	# Check if we're in sequential weapon resolution mode
 	var mode = resolution_state.get("mode", "")
@@ -2396,7 +2438,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				"dice": save_dice_blocks,
 				"weapons_remaining": weapon_order.size() - resolution_state.current_index,
 				"remaining_weapons": remaining_weapons,
-				"last_weapon_result": last_weapon_result
+				"last_weapon_result": last_weapon_result,
+				"log_text": save_log_text
 			})
 
 			print("╔═══════════════════════════════════════════════════════════════")
@@ -2483,7 +2526,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		"last_weapon_result": last_weapon_result,
 		"current_weapon_index": 0,
 		"total_weapons": 1,
-		"dice": save_dice_blocks
+		"dice": save_dice_blocks,
+		"log_text": save_log_text
 	})
 
 	print("╔═══════════════════════════════════════════════════════════════")

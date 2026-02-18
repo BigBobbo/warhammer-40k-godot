@@ -1005,10 +1005,11 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	emit_signal("consolidate_required", active_fighter_id, 3.0)
 
 	# Add metadata for NetworkManager to re-emit signal on client
-	var final_result = create_result(true, result.get("diffs", []), result.get("log_text", ""))
+	var final_result = create_result(true, result.get("diffs", []))
 	final_result["trigger_consolidate"] = true
 	final_result["consolidate_unit_id"] = active_fighter_id
 	final_result["consolidate_distance"] = 3.0
+	final_result["log_text"] = result.get("log_text", "")
 
 	# Preserve dice and save_data_list from combat resolution
 	if result.has("dice"):
