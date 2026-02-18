@@ -949,12 +949,16 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
 	pending_attacks.clear()
-	
+
+	# T3-3: Auto-inject Extra Attacks weapons if not already assigned
+	# This is a safety net for AI/auto-resolve paths that bypass the dialog
+	_auto_inject_extra_attacks_weapons()
+
 	emit_signal("fighting_begun", active_fighter_id)
-	
+
 	# Show mathhammer predictions before rolling
 	_show_mathhammer_predictions()
-	
+
 	log_phase_message("Attack assignments confirmed for %s - ready to roll dice!" % active_fighter_id)
 	return create_result(true, [])
 
@@ -1027,6 +1031,60 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 		final_result["save_data_list"] = result["save_data_list"]
 
 	return final_result
+
+# T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
+# Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
+# This ensures AI/auto-resolve paths also correctly include Extra Attacks.
+func _auto_inject_extra_attacks_weapons() -> void:
+	if active_fighter_id.is_empty():
+		return
+
+	var unit = get_unit(active_fighter_id)
+	if unit.is_empty():
+		return
+
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+
+	# Find Extra Attacks melee weapons
+	var ea_weapons = []
+	for weapon in weapons_data:
+		if weapon.get("type", "").to_lower() == "melee":
+			if RulesEngine.weapon_data_has_extra_attacks(weapon):
+				ea_weapons.append(weapon)
+
+	if ea_weapons.is_empty():
+		return
+
+	# Check which EA weapons are already assigned
+	var assigned_weapon_ids = {}
+	for attack in confirmed_attacks:
+		assigned_weapon_ids[attack.get("weapon", "")] = true
+
+	# Determine default target: use first confirmed attack's target, or first known target
+	var default_target = ""
+	if not confirmed_attacks.is_empty():
+		default_target = confirmed_attacks[0].get("target", "")
+
+	for weapon in ea_weapons:
+		var weapon_name = weapon.get("name", "Unknown")
+		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+
+		if assigned_weapon_ids.has(weapon_id):
+			print("[FightPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
+			continue
+
+		if default_target.is_empty():
+			print("[FightPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name)
+			continue
+
+		confirmed_attacks.append({
+			"attacker": active_fighter_id,
+			"weapon": weapon_id,
+			"target": default_target
+		})
+		print("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target])
+
+	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_fighter_id)
 
 func _show_mathhammer_predictions() -> void:
 	# Use mathhammer to calculate expected results before rolling

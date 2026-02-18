@@ -1,1 +1,1 @@
-ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_mathhammer", "-glog=2", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-ginclude=test_extra_attacks_keyword.gd", "-gexit"]

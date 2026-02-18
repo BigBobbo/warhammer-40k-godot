@@ -2648,6 +2648,43 @@ static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	return false
 
 # ==========================================
+# EXTRA ATTACKS (T3-3)
+# ==========================================
+# Extra Attacks: Weapons with this ability are used IN ADDITION to another weapon,
+# not as an alternative. A model makes attacks with this weapon on top of whichever
+# other weapon it selects.
+
+# Check if a weapon has the Extra Attacks keyword
+static func has_extra_attacks(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Extra Attacks" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "extra attacks" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if "extra attacks" in keyword.to_lower():
+			return true
+
+	return false
+
+# Check if a weapon data dictionary (raw, not profile) has Extra Attacks
+static func weapon_data_has_extra_attacks(weapon_data: Dictionary) -> bool:
+	var special_rules = weapon_data.get("special_rules", "").to_lower()
+	if "extra attacks" in special_rules:
+		return true
+	var keywords = weapon_data.get("keywords", [])
+	for keyword in keywords:
+		if "extra attacks" in keyword.to_lower():
+			return true
+	return false
+
+# ==========================================
 # MELTA X (T1-1)
 # ==========================================
 
