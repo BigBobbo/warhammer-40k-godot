@@ -80,6 +80,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-9: Barricade engagement range (2" instead of 1") | Charge/Fight | CHARGE_PHASE_AUDIT.md §2.8 |
 | T3-10: Faction abilities (Oath of Moment, etc.) | Command | AUDIT_COMMAND_PHASE.md §2.4 |
 | T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
+| T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
 
 ---
 
@@ -299,12 +300,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `FightPhase.gd` — `_process_consolidate()`, fight sequence rebuild
 - **Resolution:** Added `_scan_newly_eligible_units_after_consolidation()` which runs after every consolidation move. Uses post-consolidation positions (via temporary override) to check all units not already in a fight sequence. Newly eligible units are added to `normal_sequence` (Remaining Combats). Added `_units_in_engagement_range_with_override()` helper for checking engagement with updated positions before game state snapshot refresh. 14 test cases (26 assertions) cover: new enemies added, no false positives, already-in-sequence/already-fought/dead exclusion, multi-enemy, correct player assignment, both player directions, and edge cases.
 
-### T2-7. Heroic Intervention — not implemented
+### T2-7. Heroic Intervention — not implemented — **DONE**
 - **Phase:** Fight/Charge
 - **Rule:** 2CP stratagem allowing CHARACTER within 6" to counter-charge
 - **Impact:** Key defensive option missing for non-active player
 - **Source:** FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2
 - **Files:** `FightPhase.gd:1020-1023` (stub), StratagemManager integration
+- **Resolution:** Full Heroic Intervention implementation verified across all layers: StratagemManager (2CP definition, eligibility validation within 6", VEHICLE/WALKER/battle-shocked checks), ChargePhase (trigger after successful charge, USE/DECLINE/CHARGE_ROLL/APPLY_MOVE action processing, auto 2D6 roll, heroic_intervention flag), FightPhase (HI units excluded from Fights First), HeroicInterventionDialog (UI), ChargeController (signal/dialog integration), GameManager (action routing), and NetworkManager (multiplayer signal re-emission for HI actions added). 37 tests pass.
 
 ### T2-8. Terrain interaction during charges — **DONE**
 - **Phase:** Charge
@@ -773,8 +775,8 @@ The following TODOs were found in code but were not tracked in any existing audi
 | ~~`MoralePhase.gd`~~ | ~~339-343~~ | ~~Implement morale modifiers (keywords, characters, conditions)~~ | ~~T1-4~~ **DONE** |
 | ~~`MoralePhase.gd`~~ | ~~357-359~~ | ~~Add helper methods for morale mechanics~~ | ~~T1-4~~ **DONE** |
 | `FightPhase.gd` | 947 | Integrate full mathhammer simulation for melee | T5-UX14 |
-| `FightPhase.gd` | 1022-1023 | Heroic intervention not yet implemented | T2-7 |
-| `FightPhase.gd` | 1635-1637 | Add heroic intervention specific validation | T2-7 |
+| ~~`FightPhase.gd`~~ | ~~1022-1023~~ | ~~Heroic intervention not yet implemented~~ | ~~T2-7~~ **DONE** |
+| ~~`FightPhase.gd`~~ | ~~1635-1637~~ | ~~Add heroic intervention specific validation~~ | ~~T2-7~~ **DONE** |
 | `LineOfSightCalculator.gd` | 79 | Handle medium/low terrain based on model height | T3-19 |
 | `MathhhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
@@ -798,7 +800,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 12 | 4 | 16 |
+| Tier 2 — High Rules | 13 | 3 | 16 |
 | Tier 3 — Medium Rules | 6 | 20 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
