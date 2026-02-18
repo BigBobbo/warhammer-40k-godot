@@ -234,13 +234,23 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary) ->
 
 # Extract total damage dealt from combat result by computing wound deltas
 # Requires trial_board (pre-diff state) so we can compare old wounds vs new wounds
+# Tracks per-path wound values so multiple diffs on the same model (e.g. devastating wounds
+# then failed save damage) don't double-count against the trial_board's original wounds.
 static func _extract_damage_from_result(combat_result: Dictionary, trial_board: Dictionary) -> int:
 	var damage = 0
+	var last_wounds_by_path: Dictionary = {}  # path -> last known wounds value
 	for diff in combat_result.get("diffs", []):
 		if diff.get("op", "") == "set" and diff.get("path", "").ends_with(".current_wounds"):
+			var path = diff.get("path", "")
 			var new_wounds = diff.get("value", 0)
-			var old_wounds = _get_wounds_from_board_by_path(trial_board, diff.get("path", ""))
+			# Use last diff value for this path if available, otherwise read from trial board
+			var old_wounds: int
+			if last_wounds_by_path.has(path):
+				old_wounds = last_wounds_by_path[path]
+			else:
+				old_wounds = _get_wounds_from_board_by_path(trial_board, path)
 			damage += max(0, old_wounds - new_wounds)
+			last_wounds_by_path[path] = new_wounds
 	return damage
 
 # Look up a model's current_wounds from the trial board using a diff path

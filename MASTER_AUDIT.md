@@ -59,6 +59,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-4: Morale Phase 10e overhaul — replaced 9e stub with proper bookkeeping phase | Morale | MASTER_AUDIT.md §Tier 1 |
 | T1-5: Pile-in must end with unit in engagement range | Fight | FIGHT_PHASE_AUDIT.md §2.2 |
 | T1-8: Failed charge measurement divergence (client vs server) — unified to inches | Charge | CHARGE_PHASE_AUDIT.md §2.5 |
+| T1-9: [MH-BUG-1] Mathhammer damage extraction — wound delta computation + double-count fix | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -83,7 +84,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 
 | ID | Severity | Issue | File:Line |
 |----|----------|-------|-----------|
-| MH-BUG-1 | **CRITICAL** | `_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed. | `Mathhammer.gd:232-240` |
+| MH-BUG-1 | ~~**CRITICAL**~~ **DONE** | ~~`_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed.~~ Fixed: computes wound deltas from diffs with double-count prevention. | `Mathhammer.gd:239-254` |
 | MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
 | MH-BUG-3 | **HIGH** | Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold. | `MathhhammerRuleModifiers.gd:77-83,296-299` |
 | MH-BUG-4 | **MEDIUM** | Rapid Fire toggle doubles all attacks (`attacks * 2`) but 10e Rapid Fire X adds only +X attacks, not double. Rapid Fire 1 on a 2-attack weapon = 3 attacks, not 4. | `Mathhammer.gd:188-189` |
@@ -206,12 +207,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Files:** `ChargeController.gd:790-831` vs `ChargePhase.gd:359`
 - **Resolution:** Unified `ChargeController._is_charge_successful()` to use `Measurement.model_to_model_distance_inches()` (same as `ChargePhase._is_charge_roll_sufficient()`), eliminating pixel/inch conversion divergence. Both paths now compute edge-to-edge distance in inches and compare against rolled distance minus 1" engagement range.
 
-### T1-9. [MH-BUG-1] Mathhammer damage extraction is fundamentally broken
+### T1-9. [MH-BUG-1] Mathhammer damage extraction is fundamentally broken — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Damage dealt should equal wound points removed from defender models
-- **Impact:** `_extract_damage_from_result()` only counts model kills as 1 damage each. A lascannon dealing 6 damage to a 12W vehicle that doesn't die counts as 0 damage. Average damage, kill probability, efficiency — all output is wrong.
+- **Impact:** ~~`_extract_damage_from_result()` only counts model kills as 1 damage each. A lascannon dealing 6 damage to a 12W vehicle that doesn't die counts as 0 damage. Average damage, kill probability, efficiency — all output is wrong.~~ Fixed
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `Mathhammer.gd:232-240` — needs to compute actual wound delta from diffs (old wounds - new wounds) instead of checking `new_wounds == 0`
+- **Files:** `Mathhammer.gd:239-254`
+- **Resolution:** Rewrote `_extract_damage_from_result()` to compute actual wound deltas (old_wounds − new_wounds) from `.current_wounds` diffs, reading pre-combat wounds from the trial board. Added `_get_wounds_from_board_by_path()` helper to look up model wounds from diff paths. Also tracks per-path wound values so multiple diffs on the same model (e.g. devastating wounds then failed save damage) don't double-count. Added 9 unit tests in `test_mathhammer_damage_extraction.gd`.
 
 ### T1-10. ~~[MH-BUG-2] Twin-linked modifier re-rolls hits instead of wounds~~ **DONE**
 - **Phase:** Mathhammer
@@ -743,7 +745,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `test_multiplayer_deployment.gd` | 569 | Implement coherency check in tests | T6-4 |
 | `test_multiplayer_deployment.gd` | 574 | Extract unit model positions from game state | T6-4 |
 | `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
-| `Mathhammer.gd` | 232-240 | `_extract_damage_from_result()` broken — counts kills as 1 damage | T1-9 |
+| `Mathhammer.gd` | 232-240 | ~~`_extract_damage_from_result()` broken — counts kills as 1 damage~~ **DONE** | T1-9 |
 | `MathhhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
 | `MathhhammerRuleModifiers.gd` | 77-83 | Anti-keyword uses re-roll instead of crit threshold | T2-13 |
 | `MathhhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
@@ -755,15 +757,15 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 7 | 3 | 10 |
+| Tier 1 — Critical Rules | 8 | 2 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **7** | **121** | **128** |
-| **Recently Completed** | **37** | — | **37** |
-| *Mathhammer items (subset)* | *1* | *30* | *31* |
+| **Total Open** | **8** | **120** | **128** |
+| **Recently Completed** | **38** | — | **38** |
+| *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---
 
