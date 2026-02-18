@@ -240,6 +240,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": true}
 		"END_FIGHT":
 			return _validate_end_fight(action)
+		"BATCH_FIGHT_ACTIONS":
+			return _validate_batch_fight_actions(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -275,6 +277,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_counter_offensive(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
+		"BATCH_FIGHT_ACTIONS":
+			return _process_batch_fight_actions(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1031,6 +1035,72 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 		final_result["save_data_list"] = result["save_data_list"]
 
 	return final_result
+
+# T3-12: Batch fight actions to avoid multiplayer race conditions
+# Instead of sending individual ASSIGN_ATTACKS + CONFIRM + ROLL_DICE with fixed delays,
+# the controller sends a single BATCH_FIGHT_ACTIONS that is processed atomically.
+func _validate_batch_fight_actions(action: Dictionary) -> Dictionary:
+	var sub_actions = action.get("sub_actions", [])
+	if sub_actions.is_empty():
+		return {"valid": false, "errors": ["BATCH_FIGHT_ACTIONS requires non-empty sub_actions array"]}
+
+	# Validate each sub-action individually
+	for i in range(sub_actions.size()):
+		var sub = sub_actions[i]
+		# Copy player/timestamp from parent action if not present on sub-action
+		if not sub.has("player"):
+			sub["player"] = action.get("player", 0)
+		if not sub.has("timestamp"):
+			sub["timestamp"] = action.get("timestamp", 0)
+		var sub_result = validate_action(sub)
+		if not sub_result.get("valid", false):
+			# For ASSIGN_ATTACKS, validate only the first one before processing
+			# (subsequent ones depend on state changes from earlier actions)
+			# So we only validate the first sub-action strictly
+			if i == 0:
+				return {"valid": false, "errors": sub_result.get("errors", ["Sub-action %d failed validation" % i])}
+			else:
+				# Skip validation for later sub-actions since state will change
+				# as earlier actions are processed
+				break
+
+	return {"valid": true}
+
+func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
+	var sub_actions = action.get("sub_actions", [])
+	var all_changes = []
+	var last_result = {}
+
+	print("[FightPhase] Processing BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
+
+	for i in range(sub_actions.size()):
+		var sub = sub_actions[i]
+		# Copy player/timestamp from parent action if not present
+		if not sub.has("player"):
+			sub["player"] = action.get("player", 0)
+		if not sub.has("timestamp"):
+			sub["timestamp"] = action.get("timestamp", 0)
+
+		print("[FightPhase] Batch sub-action %d: %s" % [i, sub.get("type", "")])
+		var result = process_action(sub)
+
+		if not result.get("success", false):
+			push_error("[FightPhase] Batch sub-action %d (%s) failed: %s" % [i, sub.get("type", ""), result.get("log_text", "unknown error")])
+			return result
+
+		# Accumulate state changes from all sub-actions
+		if result.has("changes"):
+			all_changes.append_array(result.get("changes", []))
+
+		last_result = result
+
+	# Return the last result (ROLL_DICE result) with all accumulated changes
+	# This preserves metadata like trigger_consolidate, dice, save_data_list
+	if not all_changes.is_empty():
+		last_result["changes"] = all_changes
+
+	print("[FightPhase] BATCH_FIGHT_ACTIONS completed successfully")
+	return last_result
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
