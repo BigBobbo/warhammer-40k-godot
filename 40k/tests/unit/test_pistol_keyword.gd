@@ -141,3 +141,186 @@ func test_slugga_has_both_pistol_and_assault():
 	var is_assault = rules_engine.is_assault_weapon("slugga")
 	assert_true(is_pistol, "slugga should be a Pistol weapon")
 	assert_true(is_assault, "slugga should also be an Assault weapon")
+
+# ==========================================
+# Pistol Mutual Exclusivity Tests (T2-5)
+# Per 10e: "If a model is equipped with one or more Pistols, unless it is a
+# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all
+# of its other ranged weapons."
+# ==========================================
+
+func _create_pistol_exclusivity_board(actor_keywords: Array = ["INFANTRY"]) -> Dictionary:
+	"""Helper: create a board with a unit that has both Pistol and non-Pistol weapons"""
+	return {
+		"units": {
+			"shooter": {
+				"owner": 1,
+				"meta": {
+					"name": "Test Shooter",
+					"keywords": actor_keywords,
+					"stats": {"toughness": 4, "save": 3, "wounds": 2},
+					"weapons": [
+						{
+							"name": "Bolt Rifle",
+							"type": "Ranged",
+							"range": "24",
+							"attacks": "2",
+							"ballistic_skill": "3",
+							"strength": "4",
+							"ap": "-1",
+							"damage": "1",
+							"special_rules": ""
+						},
+						{
+							"name": "Plasma Pistol",
+							"type": "Ranged",
+							"range": "12",
+							"attacks": "1",
+							"ballistic_skill": "3",
+							"strength": "7",
+							"ap": "-2",
+							"damage": "1",
+							"special_rules": "pistol"
+						}
+					]
+				},
+				"models": [
+					{"id": "m1", "alive": true, "wounds_current": 2, "wounds_max": 2, "position": {"x": 100, "y": 100}, "base_size_mm": 32}
+				],
+				"flags": {}
+			},
+			"target": {
+				"owner": 2,
+				"meta": {
+					"name": "Enemy Target",
+					"keywords": ["INFANTRY"],
+					"stats": {"toughness": 4, "save": 4, "wounds": 1},
+					"weapons": []
+				},
+				"models": [
+					{"id": "t1", "alive": true, "wounds_current": 1, "wounds_max": 1, "position": {"x": 200, "y": 100}, "base_size_mm": 32}
+				],
+				"flags": {}
+			}
+		}
+	}
+
+func test_pistol_exclusivity_rejects_pistol_and_non_pistol_together():
+	"""Test that validate_shoot rejects mixing Pistol and non-Pistol weapons"""
+	var board = _create_pistol_exclusivity_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m1"]},
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	assert_false(result.valid, "Should reject mixing Pistol and non-Pistol weapons")
+	var has_exclusivity_error = false
+	for error in result.errors:
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_true(has_exclusivity_error, "Error should mention Pistol mutual exclusivity")
+
+func test_pistol_exclusivity_allows_only_pistol_weapons():
+	"""Test that validate_shoot allows using only Pistol weapons"""
+	var board = _create_pistol_exclusivity_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	# Should not have a pistol exclusivity error (may have other errors like range)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "Should NOT have pistol exclusivity error when using only Pistol weapons")
+
+func test_pistol_exclusivity_allows_only_non_pistol_weapons():
+	"""Test that validate_shoot allows using only non-Pistol weapons"""
+	var board = _create_pistol_exclusivity_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "Should NOT have pistol exclusivity error when using only non-Pistol weapons")
+
+func test_pistol_exclusivity_monster_vehicle_exempt():
+	"""Test that MONSTER/VEHICLE units are exempt from pistol mutual exclusivity"""
+	var board = _create_pistol_exclusivity_board(["MONSTER", "INFANTRY"])
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m1"]},
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "MONSTER should be exempt from pistol mutual exclusivity")
+
+func test_pistol_exclusivity_vehicle_exempt():
+	"""Test that VEHICLE units are exempt from pistol mutual exclusivity"""
+	var board = _create_pistol_exclusivity_board(["VEHICLE"])
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m1"]},
+				{"weapon_id": "bolt_rifle", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "VEHICLE should be exempt from pistol mutual exclusivity")
+
+func test_pistol_exclusivity_multiple_pistols_allowed():
+	"""Test that using multiple different Pistol weapons is allowed"""
+	var board = _create_pistol_exclusivity_board()
+	var action = {
+		"actor_unit_id": "shooter",
+		"payload": {
+			"assignments": [
+				{"weapon_id": "plasma_pistol", "target_unit_id": "target", "model_ids": ["m1"]},
+				{"weapon_id": "slugga", "target_unit_id": "target", "model_ids": ["m1"]}
+			]
+		}
+	}
+	var result = rules_engine.validate_shoot(action, board)
+	var has_exclusivity_error = false
+	for error in result.get("errors", []):
+		if "Pistol" in error and "non-Pistol" in error:
+			has_exclusivity_error = true
+			break
+	assert_false(has_exclusivity_error, "Multiple Pistol weapons should be allowed together")

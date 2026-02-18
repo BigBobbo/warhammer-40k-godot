@@ -1831,6 +1831,26 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					if not visibility_result.visible:
 						errors.append(visibility_result.reason)
 
+	# PISTOL MUTUAL EXCLUSIVITY (T2-5): A model cannot fire both Pistol and non-Pistol
+	# weapons in the same shooting activation. Exception: MONSTER/VEHICLE models.
+	# Per 10e rules: "If a model is equipped with one or more Pistols, unless it is a
+	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all of its
+	# other ranged weapons."
+	if not is_monster_or_vehicle(actor_unit):
+		var has_pistol_assignment = false
+		var has_non_pistol_assignment = false
+		for assignment in assignments:
+			var w_id = assignment.get("weapon_id", "")
+			if w_id == "":
+				continue
+			if is_pistol_weapon(w_id, board):
+				has_pistol_assignment = true
+			else:
+				has_non_pistol_assignment = true
+		if has_pistol_assignment and has_non_pistol_assignment:
+			errors.append("Cannot fire both Pistol and non-Pistol weapons — a unit must choose one or the other (MONSTER/VEHICLE exempt)")
+			print("RulesEngine: PISTOL MUTUAL EXCLUSIVITY — rejected: unit has both Pistol and non-Pistol weapon assignments")
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Helper functions
