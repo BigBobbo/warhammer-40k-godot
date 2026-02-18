@@ -1480,9 +1480,11 @@ func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, 
 			continue  # No enemies found, skip
 
 		# Check if b2b is reachable: edge-to-edge distance from original position <= max_move_inches
+		# Use small tolerance (0.05") to account for floating-point imprecision in px↔inch conversion
 		var distance_to_closest = Measurement.model_to_model_distance_inches(model_at_old, closest_enemy)
+		var reachability_tolerance: float = 0.05
 
-		if distance_to_closest <= max_move_inches:
+		if distance_to_closest <= max_move_inches + reachability_tolerance:
 			# B2B IS reachable — check if model actually achieved it
 			var model_at_new = model.duplicate()
 			model_at_new["position"] = new_pos

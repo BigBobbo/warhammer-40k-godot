@@ -86,7 +86,7 @@ The eligibility filter is enforced in `_resolve_melee_assignment()` (RulesEngine
 
 ---
 
-### 2.3 HIGH: Base-to-Base Contact Not Enforced in Pile-In/Consolidation
+### 2.3 ~~HIGH~~ **RESOLVED**: Base-to-Base Contact Not Enforced in Pile-In/Consolidation
 
 **Rule (10e):** "Each model that makes a Pile-in move must end closer to the closest enemy model, **and in base-to-base contact with it if possible.**" Same requirement for consolidation in engagement mode.
 
@@ -95,6 +95,8 @@ The eligibility filter is enforced in `_resolve_melee_assignment()` (RulesEngine
 **Impact:** Players can place models close to but not touching enemies even when base contact is achievable, gaining a positional advantage that the rules don't allow.
 
 **Recommendation:** After pile-in/consolidate, for each model that moved, check if it could have ended in base contact (i.e., the base-to-base position is reachable within 3"). If so, warn or reject the placement.
+
+**Fix applied:** Added `_validate_base_to_base_if_possible()` to `FightPhase.gd`, called from both `_validate_pile_in()` and `_validate_consolidate_engagement_range()`. For each moved model, computes edge-to-edge distance to the closest enemy; if reachable within 3" (with floating-point tolerance), the model MUST end in b2b (within 0.25" tolerance) or the move is rejected. 10-test suite in `test_pile_in_b2b_enforcement.gd`.
 
 ---
 
