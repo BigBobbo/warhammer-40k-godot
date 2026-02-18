@@ -713,6 +713,8 @@ func _get_next_phase(current: int) -> int:
 	This mirrors PhaseManager._get_next_phase() logic.
 	"""
 	match current:
+		GameStateData.Phase.FORMATIONS:
+			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
 			return GameStateData.Phase.ROLL_OFF
 		GameStateData.Phase.ROLL_OFF:
