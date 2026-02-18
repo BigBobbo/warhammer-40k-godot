@@ -1724,6 +1724,16 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 					errors.append("Cannot target '%s' — it is within engagement range of a friendly unit" % target_name)
 
+			# LONE OPERATIVE (T2-2): Units with Lone Operative can only be targeted from within 12"
+			# unless they are part of an Attached unit
+			if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+				var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+				if attached_chars.is_empty():
+					var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+					if min_dist > 12.0:
+						var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
+
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			if actor_in_engagement:
 				var target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
@@ -2106,6 +2116,22 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 			var target_engaged_with_friendly = _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board)
 			if target_engaged_with_friendly:
 				continue
+
+		# LONE OPERATIVE (T2-2): Units with Lone Operative can only be targeted from within 12"
+		# unless they are part of an Attached unit (attached_to != null is already skipped above,
+		# but Lone Operative units that are leading a bodyguard squad won't have attached_to set —
+		# they ARE the parent unit. Check if this unit has attached characters, meaning it's a
+		# bodyguard unit with a leader attached, which does NOT count as "Lone Operative attached".)
+		# The rule applies to the Lone Operative unit itself when it is standalone.
+		if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+			# Check if the unit has attached characters (meaning it's leading a bodyguard)
+			var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+			if attached_chars.is_empty():
+				# Standalone Lone Operative — check if any actor model is within 12"
+				var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+				if min_dist > 12.0:
+					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
+					continue
 
 		# Check if target is within engagement range (needed for Pistol targeting)
 		var target_in_er = false
@@ -2877,6 +2903,22 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 	var kw_upper = keyword.to_upper()
 	for kw in keywords:
 		if kw.to_upper() == kw_upper:
+			return true
+	return false
+
+# LONE OPERATIVE (T2-2): Check if a unit has the Lone Operative ability
+# Per 10e rules: Unless part of an Attached unit, this unit can only be selected as the target
+# of a ranged attack if the attacking model is within 12"
+# Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
+static func has_lone_operative(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name.to_lower() == "lone operative":
 			return true
 	return false
 
