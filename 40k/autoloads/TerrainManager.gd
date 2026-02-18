@@ -119,6 +119,7 @@ func _load_layout_from_json(layout_name: String) -> bool:
 		var height_str = piece_data.get("height", "tall")
 		var rotation_deg = piece_data.get("rotation", 0.0)
 		var piece_id = piece_data.get("id", "terrain")
+		var piece_type = piece_data.get("type", "ruins")
 
 		# Convert inches to pixels
 		var position_px = Vector2(pos_inches[0] * px_per_inch, pos_inches[1] * px_per_inch)
@@ -126,7 +127,7 @@ func _load_layout_from_json(layout_name: String) -> bool:
 
 		var height_cat = _parse_height_category(height_str)
 
-		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg)
+		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type)
 
 		# Process walls from JSON (local coordinates -> absolute world coordinates)
 		var json_walls = piece_data.get("walls", [])
@@ -208,7 +209,7 @@ func _setup_layout_2() -> void:
 	# Add walls to terrain pieces based on layout diagram
 	_add_sample_walls_to_terrain()
 
-func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0) -> void:
+func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins") -> void:
 	# Create polygon from position and size (rectangle)
 	var half_size = size * 0.5
 
@@ -245,7 +246,7 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 
 	var terrain_piece = {
 		"id": id,
-		"type": "ruins",
+		"type": terrain_type,
 		"polygon": polygon,
 		"height_category": height_name,
 		"position": position,
@@ -615,6 +616,7 @@ func load_terrain_from_save(save_data: Array) -> void:
 			"tall":
 				height_cat = HeightCategory.TALL
 
-		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation)
+		var saved_type = terrain_data.get("type", "ruins")
+		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type)
 
 	emit_signal("terrain_loaded", terrain_features)

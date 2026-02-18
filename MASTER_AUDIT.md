@@ -68,6 +68,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-4: Indirect Fire weapon keyword — LoS skip, -1 to hit, 1-3 auto-fail, cover | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-6: Consolidation into new enemies triggers new fights | Fight | FIGHT_PHASE_AUDIT.md §2.4 |
 | T2-8: Terrain interaction during charges — vertical distance penalty + FLY diagonal | Charge | CHARGE_PHASE_AUDIT.md §2.6 |
+| T2-10: Cover determination supports all terrain types (ruins, woods, craters, obstacles, barricades) | Shooting | SHOOTING_PHASE_AUDIT.md §2.9 |
 
 ---
 
@@ -308,12 +309,13 @@ These affect gameplay balance and tactical options significantly.
 - **Source:** CHARGE_PHASE_AUDIT.md §2.7
 - **Files:** `ChargePhase.gd` — `_can_unit_charge()`, `_validate_declare_charge()`
 
-### T2-10. Cover determination limited to ruins only
+### T2-10. Cover determination limited to ruins only — **DONE**
 - **Phase:** Shooting
 - **Rule:** Cover can be granted by ruins, area terrain, obstacles, woods, craters, barricades
 - **Impact:** Non-ruins terrain gives no cover
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.9
 - **Files:** `RulesEngine.gd` — `check_benefit_of_cover()` (~lines 1440-1461)
+- **Resolution:** Extended `check_benefit_of_cover()` to support all cover-granting terrain types per 10e rules. Ruins/obstacles/barricades grant cover when target is within OR behind terrain. Area terrain (woods, craters, forest) grants cover only when target is within. Updated `TerrainManager._add_terrain_piece()` and JSON loader to support arbitrary terrain types. 19 new tests in `test_cover_terrain_types.gd`.
 
 ### T2-11. Devastating Wounds — mortal wound spillover needs verification
 - **Phase:** Shooting/Fight
@@ -774,13 +776,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 6 | 10 | 16 |
+| Tier 2 — High Rules | 7 | 9 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **15** | **113** | **128** |
-| **Recently Completed** | **44** | — | **44** |
+| **Total Open** | **16** | **112** | **128** |
+| **Recently Completed** | **45** | — | **45** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---

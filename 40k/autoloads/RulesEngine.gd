@@ -1985,28 +1985,39 @@ static func _point_in_polygon(point: Vector2, poly) -> bool:
 # COVER SYSTEM
 # ==========================================
 
+# Terrain types that grant Benefit of Cover per 10e rules (T2-10)
+# Ruins, area terrain (woods, craters), and obstacles (barricades) all grant cover
+const COVER_TERRAIN_TYPES_WITHIN_AND_BEHIND = ["ruins", "obstacle", "barricade"]
+const COVER_TERRAIN_TYPES_WITHIN_ONLY = ["woods", "crater", "area_terrain", "forest"]
+
 # Check if a target position has benefit of cover from a shooter position
 static func check_benefit_of_cover(target_pos: Vector2, shooter_pos: Vector2, board: Dictionary) -> bool:
 	var terrain_features = board.get("terrain_features", [])
-	
+
 	for terrain_piece in terrain_features:
-		if terrain_piece.get("type", "") != "ruins":
-			continue
-		
+		var terrain_type = terrain_piece.get("type", "")
+
 		var polygon = terrain_piece.get("polygon", PackedVector2Array())
 		if polygon.is_empty():
 			continue
-		
-		# Target within terrain gets cover
-		if _point_in_polygon(target_pos, polygon):
-			return true
-		
-		# Target behind terrain (LoS crosses terrain)
-		if _segment_intersects_polygon(shooter_pos, target_pos, polygon):
-			# Check if shooter is not inside the same terrain piece
-			if not _point_in_polygon(shooter_pos, polygon):
+
+		# Ruins, obstacles, barricades: cover when within OR behind (LoS crosses terrain)
+		if terrain_type in COVER_TERRAIN_TYPES_WITHIN_AND_BEHIND:
+			# Target within terrain gets cover
+			if _point_in_polygon(target_pos, polygon):
 				return true
-	
+
+			# Target behind terrain (LoS crosses terrain)
+			if _segment_intersects_polygon(shooter_pos, target_pos, polygon):
+				# Check if shooter is not inside the same terrain piece
+				if not _point_in_polygon(shooter_pos, polygon):
+					return true
+
+		# Area terrain (woods, craters): cover when target is within the terrain
+		elif terrain_type in COVER_TERRAIN_TYPES_WITHIN_ONLY:
+			if _point_in_polygon(target_pos, polygon):
+				return true
+
 	return false
 
 # Check if any models in a unit have cover from the shooting unit
@@ -2078,7 +2089,7 @@ static func _segment_rect_intersection(seg_start: Vector2, seg_end: Vector2, rec
 	return true
 
 static func _check_model_has_cover(model: Dictionary, shooting_unit_id: String, board: Dictionary) -> bool:
-	# Check if model has benefit of cover from ruins terrain
+	# Check if model has benefit of cover from terrain (ruins, woods, craters, obstacles, etc.)
 	var model_pos = _get_model_position(model)
 	if not model_pos:
 		return false
