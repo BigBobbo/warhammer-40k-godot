@@ -23,10 +23,10 @@ func _ready() -> void:
 static func check_enhanced_visibility(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary) -> Dictionary:
 	var shooter_pos = _get_model_position(shooter_model)
 	var target_pos = _get_model_position(target_model)
-	
+
 	if shooter_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
 		return {"has_los": false, "reason": "Invalid model positions", "sight_line": [], "attempted_lines": []}
-	
+
 	# Get model rotations for shape-aware sampling
 	var shooter_rotation = shooter_model.get("rotation", 0.0)
 	var target_rotation = target_model.get("rotation", 0.0)
@@ -40,41 +40,44 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		shooter_shape, shooter_pos, shooter_rotation,
 		target_shape, target_pos, target_rotation
 	)
-	
+
 	var attempted_lines = []
-	
+
 	# Phase 1: Center-to-center (fast path for 85% of cases)
-	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board)
+	# T3-19: Pass model data for height-based terrain blocking
+	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model)
 	attempted_lines.append({"from": shooter_pos, "to": target_pos, "blocked": not center_check.has_los})
-	
+
 	if center_check.has_los:
 		return {
-			"has_los": true, 
+			"has_los": true,
 			"sight_line": [shooter_pos, target_pos],
 			"method": "center_to_center",
 			"attempted_lines": attempted_lines,
 			"blocking_terrain": []
 		}
-	
+
 	# Phase 2: Progressive sampling through edge and circumference points
 	for shooter_point in sample_points.shooter:
 		for target_point in sample_points.target:
-			var los_check = _check_single_line_of_sight(shooter_point, target_point, board)
+			# T3-19: Pass model data for height-based terrain blocking
+			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model)
 			attempted_lines.append({"from": shooter_point, "to": target_point, "blocked": not los_check.has_los})
-			
+
 			if los_check.has_los:
 				return {
-					"has_los": true, 
+					"has_los": true,
 					"sight_line": [shooter_point, target_point],
 					"method": "edge_to_edge",
 					"attempted_lines": attempted_lines,
 					"blocking_terrain": []
 				}
-	
+
 	# No clear sight lines found
-	var blocking_terrain = _get_blocking_terrain(sample_points, board)
+	# T3-19: Pass model data for height-based terrain blocking
+	var blocking_terrain = _get_blocking_terrain(sample_points, board, shooter_model, target_model)
 	return {
-		"has_los": false, 
+		"has_los": false,
 		"sight_line": [],
 		"method": "full_sampling",
 		"attempted_lines": attempted_lines,
@@ -245,56 +248,87 @@ static func _determine_sample_density(distance_inches: float, base_size_mm: int)
 		return 8  # Full circumference sampling for large bases
 
 # Single line of sight check with terrain intersection
-static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary) -> Dictionary:
+# T3-19: Added shooter_model/target_model for height-based terrain blocking
+static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> Dictionary:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
-	
+
 	var blocking_terrain = []
-	
+
 	for terrain_piece in terrain_features:
-		# Only tall terrain (>5") blocks LoS completely
-		if terrain_piece.get("height_category", "") == "tall":
-			var polygon = terrain_piece.get("polygon", PackedVector2Array())
-			if _segment_intersects_polygon(from, to, polygon):
-				# Check if both points are outside the terrain
-				# (models inside can see out and be seen)
-				if not _point_in_polygon(from, polygon) and not _point_in_polygon(to, polygon):
-					blocking_terrain.append(terrain_piece.get("id", "unknown"))
-	
+		var height_cat = terrain_piece.get("height_category", "")
+
+		# Low terrain never blocks LoS
+		if height_cat == "low":
+			continue
+
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		if not _segment_intersects_polygon(from, to, polygon):
+			continue
+
+		# Models inside terrain can see out and be seen
+		if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+			continue
+
+		if height_cat == "tall":
+			# Tall terrain blocks LoS for all models
+			blocking_terrain.append(terrain_piece.get("id", "unknown"))
+		elif height_cat == "medium":
+			# T3-19: Medium terrain blocks LoS only if both models are shorter than terrain
+			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain_piece)
+			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
+			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
+			if shooter_height < terrain_height and target_height < terrain_height:
+				blocking_terrain.append(terrain_piece.get("id", "unknown"))
+
 	return {
 		"has_los": blocking_terrain.is_empty(),
 		"blocking_terrain": blocking_terrain
 	}
 
 # Get all terrain pieces that block any line in the sample set
-static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary) -> Array:
+# T3-19: Added shooter_model/target_model for height-based terrain blocking
+static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> Array:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
-	
+
 	var blocking_terrain = []
-	
+
 	for terrain_piece in terrain_features:
-		if terrain_piece.get("height_category", "") == "tall":
-			var polygon = terrain_piece.get("polygon", PackedVector2Array())
-			var terrain_id = terrain_piece.get("id", "unknown")
-			var terrain_blocks_any_line = false
-			
-			# Check if this terrain blocks any potential sight line
-			for shooter_point in sample_points.shooter:
-				for target_point in sample_points.target:
-					if _segment_intersects_polygon(shooter_point, target_point, polygon):
-						# Check if both points are outside the terrain
-						if not _point_in_polygon(shooter_point, polygon) and not _point_in_polygon(target_point, polygon):
-							terrain_blocks_any_line = true
-							break
-				if terrain_blocks_any_line:
-					break
-			
+		var height_cat = terrain_piece.get("height_category", "")
+
+		# Low terrain never blocks LoS
+		if height_cat == "low":
+			continue
+
+		# T3-19: For medium terrain, check if models can see over it
+		if height_cat == "medium":
+			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain_piece)
+			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
+			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
+			if shooter_height >= terrain_height or target_height >= terrain_height:
+				continue  # At least one model can see over medium terrain
+
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		var terrain_id = terrain_piece.get("id", "unknown")
+		var terrain_blocks_any_line = false
+
+		# Check if this terrain blocks any potential sight line
+		for shooter_point in sample_points.shooter:
+			for target_point in sample_points.target:
+				if _segment_intersects_polygon(shooter_point, target_point, polygon):
+					# Check if both points are outside the terrain
+					if not _point_in_polygon(shooter_point, polygon) and not _point_in_polygon(target_point, polygon):
+						terrain_blocks_any_line = true
+						break
 			if terrain_blocks_any_line:
-				blocking_terrain.append(terrain_id)
-	
+				break
+
+		if terrain_blocks_any_line:
+			blocking_terrain.append(terrain_id)
+
 	return blocking_terrain
 
 # Helper function to get model position (reused from RulesEngine)

@@ -1958,18 +1958,30 @@ static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dict
 
 static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
 	# Original simple line of sight checking (preserved for backward compatibility)
+	# T3-19: Now handles medium terrain using default infantry height
 	var terrain_features = board.get("terrain_features", [])
-	
+
 	for terrain_piece in terrain_features:
-		# Only tall terrain (>5") blocks LoS completely
-		if terrain_piece.get("height_category", "") == "tall":
+		var height_cat = terrain_piece.get("height_category", "")
+
+		# Low terrain never blocks LoS
+		if height_cat == "low":
+			continue
+
+		if height_cat == "tall" or height_cat == "medium":
 			var polygon = terrain_piece.get("polygon", PackedVector2Array())
 			if _segment_intersects_polygon(from_pos, to_pos, polygon):
 				# Check if both models are outside the terrain
 				# (models inside can see out and be seen)
 				if not _point_in_polygon(from_pos, polygon) and not _point_in_polygon(to_pos, polygon):
-					return false
-	
+					if height_cat == "tall":
+						return false
+					elif height_cat == "medium":
+						# T3-19: Legacy path has no model info, assume infantry height
+						# This means medium terrain blocks LoS in the legacy path
+						# (conservative: infantry is default and is shorter than medium terrain)
+						return false
+
 	return true
 
 static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:

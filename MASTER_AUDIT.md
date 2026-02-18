@@ -86,6 +86,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
+| T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
 
 ---
 
@@ -525,12 +526,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.3 (remaining work)
 - **Files:** `MovementPhase.gd`, `TerrainManager.gd`
 
-### T3-19. Terrain height handling in LoS — only "tall" terrain handled
+### T3-19. Terrain height handling in LoS — only "tall" terrain handled — **DONE**
 - **Phase:** Shooting (LoS)
 - **Rule:** Medium/low terrain should be handled based on model height
 - **Impact:** LoS calculations may be incorrect for non-tall terrain
 - **Source:** Code TODO in `LineOfSightCalculator.gd:79`
 - **Files:** `LineOfSightCalculator.gd`
+- **Resolution:** Implemented height-aware LoS blocking across all four LoS systems (LineOfSightCalculator, EnhancedLineOfSight, LineOfSightManager, RulesEngine legacy path). Low terrain (<2") never blocks LoS. Tall terrain (>5") always blocks LoS (Obscuring). Medium terrain (2-5") blocks LoS only when both shooter and target are shorter than the terrain — MONSTER/VEHICLE/TITANIC models (5"+) can see and be seen over medium terrain. Added `get_model_height_inches()` helper that detects height from model keywords. 31 unit tests in `test_terrain_height_los.gd`.
 
 ### T3-20. [MH-BUG-4] Rapid Fire toggle doubles attacks instead of adding X
 - **Phase:** Mathhammer
@@ -787,7 +789,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `FightPhase.gd` | 947 | Integrate full mathhammer simulation for melee | T5-UX14 |
 | ~~`FightPhase.gd`~~ | ~~1022-1023~~ | ~~Heroic intervention not yet implemented~~ | ~~T2-7~~ **DONE** |
 | ~~`FightPhase.gd`~~ | ~~1635-1637~~ | ~~Add heroic intervention specific validation~~ | ~~T2-7~~ **DONE** |
-| `LineOfSightCalculator.gd` | 79 | Handle medium/low terrain based on model height | T3-19 |
+| ~~`LineOfSightCalculator.gd`~~ | ~~79~~ | ~~Handle medium/low terrain based on model height~~ | ~~T3-19~~ **DONE** |
 | `MathhhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
 | `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
@@ -811,12 +813,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 9 | 17 | 26 |
+| Tier 3 — Medium Rules | 10 | 16 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **30** | **98** | **128** |
-| **Recently Completed** | **57** | — | **57** |
+| **Total Open** | **31** | **97** | **128** |
+| **Recently Completed** | **58** | — | **58** |
 | *Mathhammer items (subset)* | *4* | *27* | *31* |
 
 ---
