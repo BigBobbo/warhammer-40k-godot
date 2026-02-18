@@ -286,31 +286,44 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 		if not defender_data.is_empty():
 			# Reset defender to full health for clean trial
 			var fresh_defender = defender_data.duplicate(true)
+
+			# Apply custom defender stat overrides from UI panel
+			var overrides = defender.get("overrides", {})
+			if not overrides.is_empty():
+				fresh_defender = _apply_defender_overrides(fresh_defender, overrides, defender_unit_id)
+
 			for model in fresh_defender.get("models", []):
 				model["alive"] = true
 				model["current_wounds"] = model.get("wounds", 1)
 
 			# Apply Feel No Pain from rule toggles to defender stats
 			# FNP toggles override any existing FNP on the unit (use best value toggled)
+			# Custom override FNP takes priority over toggle FNP
 			var fnp_value = _get_fnp_from_toggles(rule_toggles)
+			var override_fnp = overrides.get("fnp", 0)
+			if override_fnp > 0:
+				fnp_value = override_fnp  # Custom override wins
 			if fnp_value > 0:
 				if not fresh_defender.has("meta"):
 					fresh_defender["meta"] = {}
 				if not fresh_defender["meta"].has("stats"):
 					fresh_defender["meta"]["stats"] = {}
 				fresh_defender["meta"]["stats"]["fnp"] = fnp_value
-				print("Mathhammer: Applied FNP %d+ to defender %s from rule toggles" % [fnp_value, defender_unit_id])
+				print("Mathhammer: Applied FNP %d+ to defender %s" % [fnp_value, defender_unit_id])
 
 			# Apply invulnerable save from rule toggles to defender models
 			# Invuln is set per-model since RulesEngine reads model.get("invuln", 0)
-			# Only override if the toggle value is better (lower) than any existing invuln
+			# Custom override invuln takes priority over toggle invuln
 			var invuln_value = _get_invuln_from_toggles(rule_toggles)
+			var override_invuln = overrides.get("invuln", 0)
+			if override_invuln > 0:
+				invuln_value = override_invuln  # Custom override wins
 			if invuln_value > 0:
 				for model in fresh_defender.get("models", []):
 					var existing_invuln = model.get("invuln", 0)
 					if existing_invuln == 0 or invuln_value < existing_invuln:
 						model["invuln"] = invuln_value
-				print("Mathhammer: Applied invulnerable save %d+ to defender %s from rule toggles" % [invuln_value, defender_unit_id])
+				print("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id])
 
 			trial_board.units[defender_unit_id] = fresh_defender
 
@@ -374,6 +387,55 @@ static func _get_invuln_from_toggles(rule_toggles: Dictionary) -> int:
 	elif rule_toggles.get("invuln_6", false):
 		invuln_value = 6
 	return invuln_value
+
+# Apply custom defender stat overrides to the defender unit
+# Modifies toughness, save, wounds, model count based on user input
+static func _apply_defender_overrides(defender: Dictionary, overrides: Dictionary, defender_id: String) -> Dictionary:
+	print("Mathhammer: Applying defender overrides for %s: %s" % [defender_id, str(overrides)])
+
+	# Ensure meta.stats exists
+	if not defender.has("meta"):
+		defender["meta"] = {}
+	if not defender["meta"].has("stats"):
+		defender["meta"]["stats"] = {}
+
+	# Override Toughness
+	if overrides.has("toughness") and overrides.toughness > 0:
+		defender["meta"]["stats"]["toughness"] = overrides.toughness
+		print("Mathhammer: Override toughness = %d for %s" % [overrides.toughness, defender_id])
+
+	# Override Armor Save
+	if overrides.has("save") and overrides.save > 0:
+		defender["meta"]["stats"]["save"] = overrides.save
+		print("Mathhammer: Override save = %d+ for %s" % [overrides.save, defender_id])
+
+	# Override Wounds per model
+	if overrides.has("wounds") and overrides.wounds > 0:
+		for model in defender.get("models", []):
+			model["wounds"] = overrides.wounds
+			model["current_wounds"] = overrides.wounds
+		print("Mathhammer: Override wounds = %d per model for %s" % [overrides.wounds, defender_id])
+
+	# Override Model Count — add or remove models to match desired count
+	if overrides.has("model_count") and overrides.model_count > 0:
+		var models = defender.get("models", [])
+		var target_count = overrides.model_count
+		var current_count = models.size()
+
+		if target_count > current_count and current_count > 0:
+			# Add models by duplicating the first model template
+			var template = models[0].duplicate(true)
+			for i in range(target_count - current_count):
+				var new_model = template.duplicate(true)
+				new_model["id"] = "m%d" % (current_count + i)
+				models.append(new_model)
+			print("Mathhammer: Added %d models (now %d) for %s" % [target_count - current_count, models.size(), defender_id])
+		elif target_count < current_count:
+			# Remove excess models from the end
+			models.resize(target_count)
+			print("Mathhammer: Removed %d models (now %d) for %s" % [current_count - target_count, models.size(), defender_id])
+
+	return defender
 
 # Extract total damage dealt from combat result by computing wound deltas
 # Requires trial_board (pre-diff state) so we can compare old wounds vs new wounds
@@ -468,12 +530,21 @@ static func _apply_path_value(dict: Dictionary, path: String, value) -> void:
 
 # Utility functions for analysis
 static func _get_total_models(unit_config: Dictionary) -> int:
+	var overrides = unit_config.get("overrides", {})
+	if overrides.has("model_count") and overrides.model_count > 0:
+		return overrides.model_count
 	if GameState:
 		var unit_data = GameState.get_unit(unit_config.get("unit_id", ""))
 		return unit_data.get("models", []).size()
 	return 0
 
 static func _get_total_wounds(unit_config: Dictionary) -> int:
+	var overrides = unit_config.get("overrides", {})
+	if not overrides.is_empty():
+		var model_count = _get_total_models(unit_config)
+		var wounds_per_model = overrides.get("wounds", 0)
+		if wounds_per_model > 0:
+			return model_count * wounds_per_model
 	if GameState:
 		var unit_data = GameState.get_unit(unit_config.get("unit_id", ""))
 		var total = 0

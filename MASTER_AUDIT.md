@@ -89,6 +89,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
 | T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -573,12 +574,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd` — needs custom defender input fields alongside the unit dropdown
 
-### T3-25. [MH-FEAT-11] Simulation blocks main thread
+### T3-25. [MH-FEAT-11] Simulation blocks main thread — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** 10,000 Monte Carlo trials should run on a background thread to avoid freezing the UI
 - **Impact:** UI is unresponsive during simulation; at 100K trials this could freeze the browser tab
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd:673-689` — `_run_simulation_async()` is not actually async
+- **Resolution:** Refactored `_run_simulation_async()` to use Godot's `Thread` class. Simulation now runs on a background thread via `_simulation_thread_func()`, with UI updates deferred to the main thread via `call_deferred("_on_simulation_completed")`. Thread is properly joined on completion and cleaned up in `_exit_tree()`.
 
 ### T3-26. [MH-BUG-5] Styled panel background is empty (visual bug)
 - **Phase:** Mathhammer
@@ -817,13 +819,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 12 | 14 | 26 |
+| Tier 3 — Medium Rules | 13 | 13 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **33** | **95** | **128** |
-| **Recently Completed** | **60** | — | **60** |
-| *Mathhammer items (subset)* | *6* | *25* | *31* |
+| **Total Open** | **34** | **94** | **128** |
+| **Recently Completed** | **61** | — | **61** |
+| *Mathhammer items (subset)* | *7* | *24* | *31* |
 
 ---
 
