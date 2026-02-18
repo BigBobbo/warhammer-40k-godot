@@ -88,6 +88,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
 | T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
 | T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -550,12 +551,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd` — needs Torrent toggle that bypasses hit rolls
 
-### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count
+### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Blast weapons get +1 attack per 5 models in target unit; minimum 3 attacks vs 6+ model units
 - **Impact:** Mathhammer has defender unit data available but doesn't auto-adjust Blast weapon attacks
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd` — `_build_shoot_action()` should check Blast keyword and adjust
+- **Resolution:** Added Blast keyword auto-calculation to `_build_shoot_action()` in Mathhammer.gd. Uses existing `RulesEngine.is_blast_weapon()`, `calculate_blast_bonus()`, and `calculate_blast_minimum()` to adjust `attacks_override` based on defender model count in the trial board. Bonus stacks with Rapid Fire.
 
 ### T3-23. [MH-RULE-13] No wound re-roll support (only hit re-roll 1s exists)
 - **Phase:** Mathhammer
@@ -815,13 +817,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 11 | 15 | 26 |
+| Tier 3 — Medium Rules | 12 | 14 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **32** | **96** | **128** |
-| **Recently Completed** | **59** | — | **59** |
-| *Mathhammer items (subset)* | *5* | *26* | *31* |
+| **Total Open** | **33** | **95** | **128** |
+| **Recently Completed** | **60** | — | **60** |
+| *Mathhammer items (subset)* | *6* | *25* | *31* |
 
 ---
 
