@@ -1315,9 +1315,31 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Position would overlap with another model")
 		return false
 
-	# Check 3: For individual model validation during drag, we're more lenient
-	# We only require that the model is moving toward an enemy (not strict engagement)
-	# The full unit validation will happen when confirming the charge
+	# Check 3 (T3-8): Each model must end closer to at least one charge target
+	var charge_targets = selected_targets
+	if charge_targets.is_empty() and current_phase:
+		charge_targets = _get_charge_targets_from_phase(active_unit_id)
+	if not charge_targets.is_empty():
+		var ends_closer = false
+		for target_id in charge_targets:
+			var target_unit = GameState.get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var target_pos = _get_model_position(target_model)
+				if target_pos == null or target_pos == Vector2.ZERO:
+					continue
+				if new_pos.distance_to(target_pos) < old_pos.distance_to(target_pos):
+					ends_closer = true
+					break
+			if ends_closer:
+				break
+		if not ends_closer:
+			print("T3-8: Model must end charge move closer to at least one charge target")
+			return false
+
 	print("DEBUG: Model position validation passed for individual drag")
 
 	return true
