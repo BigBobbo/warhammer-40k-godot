@@ -78,6 +78,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-5: Scout moves — pre-game Scout phase with validation | Pre-game | DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8 |
 | T3-8: Charge move direction constraint — each model must end closer to a target | Charge | CHARGE_PHASE_AUDIT.md §2.9 |
 | T3-9: Barricade engagement range (2" instead of 1") | Charge/Fight | CHARGE_PHASE_AUDIT.md §2.8 |
+| T3-10: Faction abilities (Oath of Moment, etc.) | Command | AUDIT_COMMAND_PHASE.md §2.4 |
 
 ---
 
@@ -446,12 +447,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** No barricade terrain type exists
 - **Resolution:** Added barricade-aware engagement range system. TerrainManager now provides `is_barricade_between()` and `get_engagement_range_for_positions()` which return 2" when a barricade terrain feature lies between two model positions, 1" otherwise. Updated all engagement range checks across ChargePhase.gd (charge validation, roll sufficiency, pre-charge ER check), RulesEngine.gd (static charge validation, fight eligibility, shooting ER checks), FightPhase.gd (unit engagement range, consolidation), and MovementPhase.gd (engagement range at position). 12 new tests in `test_barricade_engagement_range.gd`.
 
-### T3-10. Faction abilities (Oath of Moment, etc.)
+### T3-10. Faction abilities (Oath of Moment, etc.) — **DONE**
 - **Phase:** Command
 - **Rule:** Many factions have Command Phase abilities (re-rolls, sticky objectives, etc.)
 - **Impact:** Faction identity missing
 - **Source:** AUDIT_COMMAND_PHASE.md §2.4
 - **Files:** New ability trigger system, army JSON data already has text descriptions
+- **Resolution:** Created `FactionAbilityManager.gd` autoload that detects faction abilities from army JSON data and manages Oath of Moment target selection. Added `SELECT_OATH_TARGET` action to CommandPhase with validation and processing. Integrated reroll-1s for both hit and wound rolls into all three RulesEngine resolution paths (interactive shooting, auto-resolve shooting, melee) when ADEPTUS ASTARTES units attack the oath target. Added UI section in CommandController for target selection with current-target display. Auto-selects first enemy unit if player forgets. Extensible design for future faction abilities. 32 unit tests in `test_faction_abilities.gd`.
 
 ### T3-11. Overwatch integration into charge/movement phases
 - **Phase:** Charge/Movement
@@ -795,12 +797,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 11 | 5 | 16 |
-| Tier 3 — Medium Rules | 5 | 21 | 26 |
+| Tier 3 — Medium Rules | 6 | 20 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **25** | **103** | **128** |
-| **Recently Completed** | **52** | — | **52** |
+| **Total Open** | **26** | **102** | **128** |
+| **Recently Completed** | **53** | — | **53** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---
