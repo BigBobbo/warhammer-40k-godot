@@ -90,7 +90,7 @@ static func _run_single_trial(attackers: Array, defender: Dictionary, phase: Str
 	}
 	
 	# Create a mutable copy of board state for this trial
-	var trial_board = _create_trial_board_state(attackers, defender)
+	var trial_board = _create_trial_board_state(attackers, defender, rule_toggles)
 	
 	# Process each attacking unit sequentially
 	for attacker_config in attackers:
@@ -205,11 +205,11 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 	}
 
 # Create a mutable board state for trial simulation
-static func _create_trial_board_state(attackers: Array, defender: Dictionary) -> Dictionary:
+static func _create_trial_board_state(attackers: Array, defender: Dictionary, rule_toggles: Dictionary = {}) -> Dictionary:
 	var trial_board = {
 		"units": {}
 	}
-	
+
 	# Add attacker units
 	for attacker_config in attackers:
 		var unit_id = attacker_config.get("unit_id", "")
@@ -217,7 +217,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary) ->
 			var unit_data = GameState.get_unit(unit_id)
 			if not unit_data.is_empty():
 				trial_board.units[unit_id] = unit_data.duplicate(true)
-	
+
 	# Add defender unit with full health
 	var defender_unit_id = defender.get("unit_id", "")
 	if defender_unit_id != "" and GameState:
@@ -228,9 +228,32 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary) ->
 			for model in fresh_defender.get("models", []):
 				model["alive"] = true
 				model["current_wounds"] = model.get("wounds", 1)
+
+			# Apply Feel No Pain from rule toggles to defender stats
+			# FNP toggles override any existing FNP on the unit (use best value toggled)
+			var fnp_value = _get_fnp_from_toggles(rule_toggles)
+			if fnp_value > 0:
+				if not fresh_defender.has("meta"):
+					fresh_defender["meta"] = {}
+				if not fresh_defender["meta"].has("stats"):
+					fresh_defender["meta"]["stats"] = {}
+				fresh_defender["meta"]["stats"]["fnp"] = fnp_value
+				print("Mathhammer: Applied FNP %d+ to defender %s from rule toggles" % [fnp_value, defender_unit_id])
+
 			trial_board.units[defender_unit_id] = fresh_defender
-	
+
 	return trial_board
+
+# Extract the best (lowest) FNP value from active rule toggles
+static func _get_fnp_from_toggles(rule_toggles: Dictionary) -> int:
+	var fnp_value = 0
+	if rule_toggles.get("feel_no_pain_4", false):
+		fnp_value = 4
+	elif rule_toggles.get("feel_no_pain_5", false):
+		fnp_value = 5
+	elif rule_toggles.get("feel_no_pain_6", false):
+		fnp_value = 6
+	return fnp_value
 
 # Extract total damage dealt from combat result by computing wound deltas
 # Requires trial_board (pre-diff state) so we can compare old wounds vs new wounds

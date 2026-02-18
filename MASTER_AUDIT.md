@@ -71,6 +71,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-10: Cover determination supports all terrain types (ruins, woods, craters, obstacles, barricades) | Shooting | SHOOTING_PHASE_AUDIT.md §2.9 |
 | T2-11: Devastating Wounds — mortal wound spillover verified and melee path fixed | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.10 |
 | T2-12: active_moves dictionary synced via GameState flags for multiplayer | Movement | MOVEMENT_PHASE_AUDIT.md §3.1 |
+| T2-15: [MH-RULE-10] FNP toggle integration with simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -115,7 +116,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-RULE-7 | Half Damage | Halve incoming damage (round up) | LOW |
 | MH-RULE-8 | Stealth | Always has Benefit of Cover | LOW — see T2-1 |
 | MH-RULE-9 | Invulnerable Save toggle | UI needs invuln save override input for defender | HIGH |
-| MH-RULE-10 | FNP toggle integration | FNP exists in RulesEngine but Mathhammer toggles don't pass threshold to RulesEngine board state | HIGH |
+| MH-RULE-10 | ~~FNP toggle integration~~ **DONE** | ~~FNP exists in RulesEngine but Mathhammer toggles don't pass threshold to RulesEngine board state~~ Fixed: FNP toggles added to UI and propagated to trial board state | ~~HIGH~~ |
 | MH-RULE-11 | Blast | +1 attack per 5 defender models — Mathhammer UI doesn't auto-calculate from defender model count | MEDIUM |
 | MH-RULE-12 | Melee support | Mathhammer only supports shooting phase; no WS input, no Lance/charge conditions | HIGH |
 | MH-RULE-13 | Re-roll wound rolls (generic) | Only re-roll hit 1s exists; no re-roll wounds, re-roll all failed hits/wounds | MEDIUM |
@@ -349,12 +350,13 @@ These affect gameplay balance and tactical options significantly.
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd` — needs defender stat override panel; `Mathhammer.gd` — needs to pass invuln to trial board state
 
-### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation
+### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Feel No Pain is a per-wound save that dramatically reduces effective damage
 - **Impact:** FNP exists in RulesEngine but the Mathhammer toggle values are not propagated to the trial board state's unit stats
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd:109-121`, `Mathhammer.gd:204-229` — `_create_trial_board_state()` needs to apply FNP from toggles
+- **Resolution:** Added FNP 4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` to accept `rule_toggles` and apply FNP threshold to the defender unit's `meta.stats.fnp`, which RulesEngine already reads via `get_unit_fnp()` during damage resolution.
 
 ### T2-16. [MH-RULE-12] No melee combat support in Mathhammer
 - **Phase:** Mathhammer
@@ -780,12 +782,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 9 | 7 | 16 |
+| Tier 2 — High Rules | 10 | 6 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **18** | **110** | **128** |
+| **Total Open** | **19** | **109** | **128** |
 | **Recently Completed** | **46** | — | **46** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
