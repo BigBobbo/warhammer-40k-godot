@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_devastating_wounds", "-glog=1", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_base_contact_enforcement.gd", "-gexit"]

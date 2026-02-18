@@ -390,6 +390,14 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 			errors.append("Unit must end within Engagement Range of at least one enemy after pile-in")
 			log_phase_message("[Pile-In] REJECTED: Unit %s would not be in Engagement Range after pile-in" % unit_id)
 
+	# T1-6: Base-to-base contact enforcement
+	# Rule: "Each model must end closer to the closest enemy model, and in base-to-base
+	# contact with it if possible." If a model CAN reach b2b within 3", it MUST.
+	if not unit.is_empty() and not movements.is_empty():
+		var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, 3.0)
+		if not b2b_check.valid:
+			errors.append_array(b2b_check.errors)
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_assign_attacks(action: Dictionary) -> Dictionary:
@@ -719,6 +727,12 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 	# Check unit ends in engagement range
 	if not _can_unit_maintain_engagement_after_movement(unit, movements):
 		errors.append("Unit must end within Engagement Range of at least one enemy")
+
+	# T1-6: Base-to-base contact enforcement for consolidation in engagement mode
+	# Same rule as pile-in: models must end in b2b with closest enemy if possible.
+	var b2b_check = _validate_base_to_base_if_possible(unit_id, movements, 3.0)
+	if not b2b_check.valid:
+		errors.append_array(b2b_check.errors)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -1420,6 +1434,68 @@ func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2
 				closest_pos = model_pos
 
 	return closest_pos
+
+const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Match RulesEngine tolerance for digital positioning
+
+func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, max_move_inches: float) -> Dictionary:
+	"""T1-6: Enforce base-to-base contact in pile-in/consolidation.
+	Rule: Each model must end in base-to-base contact with the closest enemy model
+	IF it is possible to reach b2b within the movement limit (3").
+	For each moved model:
+	  1. Find the closest enemy model (from original position, edge-to-edge)
+	  2. If the edge-to-edge distance to that enemy is <= max_move_inches, b2b IS reachable
+	  3. If reachable, check if the model's final position IS in b2b (within tolerance)
+	  4. If reachable but NOT achieved, flag an error."""
+	var errors = []
+	var unit = get_unit(unit_id)
+	var models = unit.get("models", [])
+	var all_units = game_state_snapshot.get("units", {})
+	var unit_owner = unit.get("owner", 0)
+
+	for model_id in movements:
+		var model_index = int(model_id)
+		if model_index >= models.size():
+			continue
+
+		var model = models[model_index]
+		if not model.get("alive", true):
+			continue
+
+		var old_pos = _get_model_position(unit_id, model_id)
+		var new_pos = movements[model_id]
+		if old_pos == Vector2.ZERO:
+			continue
+
+		# Skip models that didn't actually move (no enforcement needed)
+		if old_pos.distance_to(new_pos) < 0.5:  # Sub-pixel tolerance
+			continue
+
+		# Create model dict at original position for distance calculation
+		var model_at_old = model.duplicate()
+		model_at_old["position"] = old_pos
+
+		# Find the closest enemy model using shape-aware edge-to-edge distance
+		var closest_enemy = _find_closest_enemy_model(unit_id, model, old_pos)
+		if closest_enemy.is_empty():
+			continue  # No enemies found, skip
+
+		# Check if b2b is reachable: edge-to-edge distance from original position <= max_move_inches
+		var distance_to_closest = Measurement.model_to_model_distance_inches(model_at_old, closest_enemy)
+
+		if distance_to_closest <= max_move_inches:
+			# B2B IS reachable — check if model actually achieved it
+			var model_at_new = model.duplicate()
+			model_at_new["position"] = new_pos
+			var final_distance = Measurement.model_to_model_distance_inches(model_at_new, closest_enemy)
+
+			if final_distance > BASE_CONTACT_TOLERANCE_INCHES:
+				var enemy_name = "enemy model"
+				errors.append("Model %s can reach base-to-base contact with %s (%.2f\" away) but did not (%.2f\" gap) — must make base contact when possible" % [model_id, enemy_name, distance_to_closest, final_distance])
+				log_phase_message("[B2B Enforcement] Model %s could reach b2b (%.2f\" to closest enemy) but ended %.2f\" away" % [model_id, distance_to_closest, final_distance])
+		else:
+			log_phase_message("[B2B Enforcement] Model %s cannot reach b2b (%.2f\" to closest enemy, max move %.1f\") — no enforcement needed" % [model_id, distance_to_closest, max_move_inches])
+
+	return {"valid": errors.is_empty(), "errors": errors}
 
 func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dictionary:
 	# Use similar logic to MovementPhase coherency checking
