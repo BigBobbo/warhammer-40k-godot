@@ -27,8 +27,15 @@ var terrain_options = [
 ]
 
 var mission_options = [
-	{"id": "take_and_hold", "name": "Take and Hold"}
-	# Future: Add more missions
+	{"id": "take_and_hold", "name": "Take and Hold"},
+	{"id": "supply_drop", "name": "Supply Drop"},
+	{"id": "purge_the_foe", "name": "Purge the Foe"},
+	{"id": "linchpin", "name": "Linchpin"},
+	{"id": "sites_of_power", "name": "Sites of Power"},
+	{"id": "scorched_earth", "name": "Scorched Earth"},
+	{"id": "the_ritual", "name": "The Ritual"},
+	{"id": "terraform", "name": "Terraform"},
+	{"id": "hidden_supplies", "name": "Hidden Supplies"},
 ]
 
 var deployment_options = [
@@ -344,8 +351,10 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	if BoardState:
 		BoardState.initialize_deployment_zones(config.deployment)
 
-	# Apply mission configuration (MissionManager will use default "Take and Hold" for now)
-	# Future: Add mission configuration when more missions are available
+	# Apply mission configuration — initialize MissionManager with selected mission
+	if MissionManager:
+		MissionManager.initialize_mission(config.mission)
+		print("MainMenu: Mission initialized: ", config.mission)
 	
 	# Clear existing units before loading new armies
 	GameState.state.units.clear()

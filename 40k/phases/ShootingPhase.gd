@@ -95,6 +95,18 @@ func _check_kill_diffs(changes: Array) -> void:
 
 	for unit_id in unit_ids_to_check:
 		SecondaryMissionManager.check_and_report_unit_destroyed(unit_id)
+		# Track kills for primary mission scoring (Purge the Foe)
+		if MissionManager:
+			var unit = GameState.state.get("units", {}).get(unit_id, {})
+			if not unit.is_empty():
+				var all_dead = true
+				for model in unit.get("models", []):
+					if model.get("alive", true):
+						all_dead = false
+						break
+				if all_dead:
+					var destroyed_by = get_current_player()
+					MissionManager.record_unit_destroyed(destroyed_by)
 
 func _initialize_shooting() -> void:
 	var current_player = get_current_player()
