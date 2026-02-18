@@ -79,17 +79,13 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Impact:** Players can legally place models within engagement range but not in base-to-base contact even when B2B is achievable. This is a rules violation.
 
-### 2.5 HIGH: Failed Charge Handling — Split Between Client and Server **[UPDATED]**
+### 2.5 ~~HIGH: Failed Charge Handling — Split Between Client and Server~~ **[RESOLVED — T1-8]**
 
 **Rule:** If a charge fails (rolled distance insufficient), the unit does **not move at all**. It stays exactly where it was.
 
 **Current state (improved since v1):** The controller now calls `current_phase.record_insufficient_roll_failure()` when a roll is insufficient (`ChargeController.gd:1765-1766`), and the phase records structured failure data in `failed_charge_attempts`. Failed charges are displayed in the UI with category-coloured tooltips.
 
-**Remaining issue:** The success/failure determination still happens in two places with different measurement systems:
-1. `ChargeController.gd:790-831` — `_is_charge_successful()` using `Measurement.model_to_model_distance_px()`
-2. `ChargePhase.gd:359` — `_validate_charge_movement_constraints()` using `Measurement.model_to_model_distance_inches()`
-
-The controller uses pixel-based measurements while the phase uses inch-based. While these should be equivalent through conversion, the different code paths create a risk of divergence. If they disagree, a client may allow movement for a charge the server will reject (or vice versa).
+**Resolved:** `ChargeController._is_charge_successful()` has been updated to use `Measurement.model_to_model_distance_inches()` — the same measurement function used by `ChargePhase._is_charge_roll_sufficient()`. Both paths now compute in inches, eliminating the pixel/inch conversion divergence risk.
 
 ### 2.6 MEDIUM: Terrain Interaction During Charges — Not Implemented
 
@@ -302,13 +298,13 @@ When the opponent is charging, the defending player has minimal feedback:
 
 Both `ChargePhase.gd` and `ChargeController.gd` contain extensive `print()` debug statements throughout. While the CLAUDE.md says not to remove debugging logs unless asked, this volume of logging (100+ print statements in ChargeController alone) will impact performance and clutter console output.
 
-### 5.2 Duplicate Success/Failure Logic
+### 5.2 ~~Duplicate Success/Failure Logic~~ **[RESOLVED — T1-8]**
 
-Charge success is determined in two separate places with slightly different logic:
-1. `ChargeController.gd:790-831` — `_is_charge_successful()` using pixel measurements
-2. `ChargePhase.gd:359` — `_validate_charge_movement_constraints()` using inch measurements
+Charge success is determined in two separate places but both now use the same measurement system:
+1. `ChargeController.gd` — `_is_charge_successful()` using `Measurement.model_to_model_distance_inches()`
+2. `ChargePhase.gd` — `_is_charge_roll_sufficient()` using `Measurement.model_to_model_distance_inches()`
 
-This duplication creates a risk of divergence. The controller's check uses `Measurement.model_to_model_distance_px()` while the phase uses `Measurement.model_to_model_distance_inches()`.
+Both paths now compute edge-to-edge distance in inches, eliminating the pixel/inch divergence risk. The controller still prefers the server's authoritative `charge_failed` flag and only falls back to its local check for backwards compatibility.
 
 ### 5.3 `_process()` Called Every Frame Unnecessarily
 

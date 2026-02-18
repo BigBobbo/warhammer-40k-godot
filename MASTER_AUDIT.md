@@ -58,6 +58,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-2: Twin-linked weapon keyword — re-roll wound rolls | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-4: Morale Phase 10e overhaul — replaced 9e stub with proper bookkeeping phase | Morale | MASTER_AUDIT.md §Tier 1 |
 | T1-5: Pile-in must end with unit in engagement range | Fight | FIGHT_PHASE_AUDIT.md §2.2 |
+| T1-8: Failed charge measurement divergence (client vs server) — unified to inches | Charge | CHARGE_PHASE_AUDIT.md §2.5 |
 
 ---
 
@@ -197,12 +198,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Source:** CHARGE_PHASE_AUDIT.md §2.4
 - **Files:** `ChargePhase.gd:784-788` — `_validate_base_to_base_possible()` currently returns `true` always
 
-### T1-8. Failed charge measurement divergence (client vs server)
+### T1-8. Failed charge measurement divergence (client vs server) — **DONE**
 - **Phase:** Charge
 - **Rule:** Charge success/failure must be deterministic
 - **Impact:** Client uses pixel measurement, server uses inches — potential desync
 - **Source:** CHARGE_PHASE_AUDIT.md §2.5
 - **Files:** `ChargeController.gd:790-831` vs `ChargePhase.gd:359`
+- **Resolution:** Unified `ChargeController._is_charge_successful()` to use `Measurement.model_to_model_distance_inches()` (same as `ChargePhase._is_charge_roll_sufficient()`), eliminating pixel/inch conversion divergence. Both paths now compute edge-to-edge distance in inches and compare against rolled distance minus 1" engagement range.
 
 ### T1-9. [MH-BUG-1] Mathhammer damage extraction is fundamentally broken
 - **Phase:** Mathhammer
@@ -753,14 +755,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 6 | 4 | 10 |
+| Tier 1 — Critical Rules | 7 | 3 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **6** | **122** | **128** |
-| **Recently Completed** | **36** | — | **36** |
+| **Total Open** | **7** | **121** | **128** |
+| **Recently Completed** | **37** | — | **37** |
 | *Mathhammer items (subset)* | *1* | *30* | *31* |
 
 ---
