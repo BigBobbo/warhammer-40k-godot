@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_active_moves_sync.gd", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gtest=res://tests/unit/test_mathhammer_damage_extraction.gd", "-gexit"]
