@@ -801,12 +801,13 @@ func _get_charge_targets_from_phase(unit_id: String) -> Array:
 	return targets
 
 func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
-	# Check if at least one model can reach engagement range (1") of any target
+	# Check if at least one model can reach engagement range (1") of any target.
+	# T1-8 fix: Use inches (same unit as ChargePhase._is_charge_roll_sufficient)
+	# to ensure deterministic results and avoid pixel/inch conversion divergence.
 	var unit = GameState.get_unit(unit_id)
 	if unit.is_empty():
 		return false
-	
-	var rolled_px = Measurement.inches_to_px(rolled_distance)
+
 	# Check each model in the charging unit
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
@@ -831,12 +832,12 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 				if target_pos == null:
 					continue
 
-				# Use shape-aware edge-to-edge distance
-				var edge_distance_px = Measurement.model_to_model_distance_px(model, target_model)
-				var engagement_px = Measurement.inches_to_px(1.0)
+				# Edge-to-edge distance in inches, minus engagement range (1")
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				var distance_to_close = distance_inches - 1.0  # 1" engagement range
 
 				# Check if this model could reach engagement range with the rolled distance
-				if edge_distance_px - engagement_px <= rolled_px:
+				if distance_to_close <= rolled_distance:
 					print("Charge successful: Model can reach engagement range with roll of ", rolled_distance)
 					return true
 
