@@ -646,6 +646,132 @@ func _on_reinforcement_confirmed() -> void:
 	refresh_unit_list()
 	update_ui()
 
+# T4-7: Rapid Ingress placement — same as reinforcement but uses PLACE_RAPID_INGRESS_REINFORCEMENT
+var _rapid_ingress_unit_id: String = ""
+
+func _begin_rapid_ingress_placement(unit_id: String) -> void:
+	"""Start placing a reserve unit on the battlefield via Rapid Ingress stratagem."""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+
+	print("Main: Beginning Rapid Ingress placement for %s (%s)" % [unit_name, type_label])
+
+	# Use the deployment controller to handle model placement
+	if deployment_controller:
+		deployment_controller.is_reinforcement_mode = true
+
+		# Temporarily set unit status to DEPLOYING so the controller can work with it
+		if has_node("/root/PhaseManager"):
+			var phase_manager = get_node("/root/PhaseManager")
+			if phase_manager.current_phase_instance:
+				phase_manager.apply_state_changes([{
+					"op": "set",
+					"path": "units.%s.status" % unit_id,
+					"value": GameStateData.UnitStatus.DEPLOYING
+				}])
+
+		deployment_controller.unit_id = unit_id
+		deployment_controller.model_idx = 0
+		deployment_controller.temp_positions.clear()
+		deployment_controller.temp_rotations.clear()
+		var unit_data = GameState.get_unit(unit_id)
+		deployment_controller.temp_positions.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.resize(unit_data["models"].size())
+		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.formation_rotation = 0.0
+
+		# Create ghost for placement
+		deployment_controller._create_ghost()
+
+		# Store that we're in rapid ingress placement mode
+		_rapid_ingress_unit_id = unit_id
+
+		# Connect to confirm signal for rapid ingress completion
+		if not deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
+			deployment_controller.unit_confirmed.connect(_on_rapid_ingress_confirmed)
+
+		status_label.text = "Rapid Ingress: placing %s (%s) — >9\" from enemies" % [unit_name, type_label]
+		if reserve_type == "strategic_reserves":
+			status_label.text += " — within 6\" of board edge"
+
+		unit_list.visible = false
+		show_unit_card(unit_id)
+
+func _on_rapid_ingress_confirmed() -> void:
+	"""Handle Rapid Ingress placement completion."""
+	if _rapid_ingress_unit_id == "":
+		return
+
+	var unit_id = _rapid_ingress_unit_id
+	var unit_data = GameState.get_unit(unit_id)
+
+	if unit_data.is_empty() or not deployment_controller:
+		return
+
+	# Collect model positions from the deployment controller
+	var model_positions = []
+	for pos in deployment_controller.temp_positions:
+		model_positions.append(pos)
+
+	var model_rotations = deployment_controller.temp_rotations.duplicate()
+
+	print("Main: Rapid Ingress placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+
+	# Reset the unit status back to IN_RESERVES before sending the action
+	# (the action processor will set it to DEPLOYED)
+	if has_node("/root/PhaseManager"):
+		var phase_manager = get_node("/root/PhaseManager")
+		if phase_manager.current_phase_instance:
+			phase_manager.apply_state_changes([{
+				"op": "set",
+				"path": "units.%s.status" % unit_id,
+				"value": GameStateData.UnitStatus.IN_RESERVES
+			}])
+
+	# Create the rapid ingress reinforcement action
+	var action = {
+		"type": "PLACE_RAPID_INGRESS_REINFORCEMENT",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations,
+		"phase": GameStateData.Phase.MOVEMENT,
+		"timestamp": Time.get_unix_time_from_system()
+	}
+
+	var result = NetworkIntegration.route_action(action)
+
+	if result.success:
+		var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_success("Rapid Ingress: %s arrived!" % unit_name)
+		print("Main: Rapid Ingress reinforcement placed successfully for %s" % unit_name)
+	else:
+		var errors = result.get("errors", [])
+		var error_msg = errors[0] if errors.size() > 0 else "Failed to place reinforcement via Rapid Ingress"
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_error(error_msg)
+		print("Main: Rapid Ingress placement failed: %s" % str(errors))
+
+	_rapid_ingress_unit_id = ""
+
+	# Reset reinforcement mode
+	if deployment_controller:
+		deployment_controller.is_reinforcement_mode = false
+
+	# Disconnect rapid ingress signal
+	if deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
+		deployment_controller.unit_confirmed.disconnect(_on_rapid_ingress_confirmed)
+
+	refresh_unit_list()
+	update_ui()
+
 func _restructure_ui_layout() -> void:
 	# Move HUD_Bottom to top of screen
 	var hud_bottom = get_node("HUD_Bottom")
@@ -3902,6 +4028,13 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 						if movement_controller:
 							movement_controller.active_unit_id = ""
 							movement_controller._update_selected_unit_display()
+
+			# T4-7: Handle Rapid Ingress — start reinforcement placement for the selected unit
+			if action.type == "USE_RAPID_INGRESS" and result.get("rapid_ingress_used", false):
+				var ri_unit_id = result.get("rapid_ingress_unit_id", action.get("actor_unit_id", ""))
+				if ri_unit_id != "":
+					print("Main: Rapid Ingress used — starting reinforcement placement for %s" % ri_unit_id)
+					_begin_rapid_ingress_placement(ri_unit_id)
 
 			# Update UI after successful action
 			update_movement_card_buttons()

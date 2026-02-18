@@ -520,6 +520,9 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("overwatch_opportunity"):
 				if not phase.overwatch_opportunity.is_connected(_on_overwatch_opportunity):
 					phase.overwatch_opportunity.connect(_on_overwatch_opportunity)
+			if phase.has_signal("rapid_ingress_opportunity"):
+				if not phase.rapid_ingress_opportunity.is_connected(_on_rapid_ingress_opportunity):
+					phase.rapid_ingress_opportunity.connect(_on_rapid_ingress_opportunity)
 
 			# Update the game state snapshot reference
 			if phase.has_method("get_game_state_snapshot"):
@@ -3057,5 +3060,56 @@ func _on_fire_overwatch_declined(player: int) -> void:
 	print("MovementController: Fire Overwatch DECLINED by player %d" % player)
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_FIRE_OVERWATCH",
+		"actor_unit_id": "",
+	})
+
+# ===================================================
+# RAPID INGRESS HANDLING (T4-7)
+# ===================================================
+
+func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
+	"""Handle Rapid Ingress opportunity — show dialog to the non-active player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ MovementController: RAPID INGRESS OPPORTUNITY")
+	print("║ Non-active player %d has %d eligible reserve units" % [player, eligible_units.size()])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	if eligible_units.is_empty():
+		# No eligible units — auto-decline
+		_on_rapid_ingress_declined(player)
+		return
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/RapidIngressDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load RapidIngressDialog.gd")
+		_on_rapid_ingress_declined(player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(player, eligible_units)
+	dialog.rapid_ingress_used.connect(_on_rapid_ingress_used)
+	dialog.rapid_ingress_declined.connect(_on_rapid_ingress_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("MovementController: Rapid Ingress dialog shown for player %d" % player)
+
+func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Rapid Ingress."""
+	print("MovementController: Rapid Ingress USED — unit %s by player %d" % [unit_id, player])
+	emit_signal("move_action_requested", {
+		"type": "USE_RAPID_INGRESS",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"unit_id": unit_id
+		}
+	})
+
+func _on_rapid_ingress_declined(player: int) -> void:
+	"""Handle player declining Rapid Ingress."""
+	print("MovementController: Rapid Ingress DECLINED by player %d" % player)
+	emit_signal("move_action_requested", {
+		"type": "DECLINE_RAPID_INGRESS",
 		"actor_unit_id": "",
 	})
