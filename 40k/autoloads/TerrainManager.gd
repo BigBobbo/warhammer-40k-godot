@@ -261,6 +261,29 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 
 	terrain_features.append(terrain_piece)
 
+## T3-9: Standard engagement range (1") and barricade engagement range (2")
+const STANDARD_ENGAGEMENT_RANGE_INCHES: float = 1.0
+const BARRICADE_ENGAGEMENT_RANGE_INCHES: float = 2.0
+
+## T3-9: Check if a barricade terrain feature lies between two positions.
+## Returns true if the line from pos1 to pos2 crosses a barricade terrain piece.
+func is_barricade_between(pos1: Vector2, pos2: Vector2) -> bool:
+	for terrain in terrain_features:
+		if terrain.get("type", "") != "barricade":
+			continue
+		if check_line_intersects_terrain(pos1, pos2, terrain):
+			print("[TerrainManager] Barricade '%s' detected between positions" % terrain.get("id", "unknown"))
+			return true
+	return false
+
+## T3-9: Get the effective engagement range between two model positions.
+## Returns 2" if a barricade lies between them, 1" otherwise.
+## Per 10e rules: engagement range through barricades is 2" instead of the standard 1".
+func get_engagement_range_for_positions(pos1: Vector2, pos2: Vector2) -> float:
+	if is_barricade_between(pos1, pos2):
+		return BARRICADE_ENGAGEMENT_RANGE_INCHES
+	return STANDARD_ENGAGEMENT_RANGE_INCHES
+
 func get_terrain_at_position(pos: Vector2) -> Dictionary:
 	for terrain in terrain_features:
 		if is_point_in_polygon(pos, terrain.polygon):

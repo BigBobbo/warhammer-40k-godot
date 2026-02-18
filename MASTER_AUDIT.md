@@ -77,6 +77,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-2: Fights First + Fights Last cancellation | Fight | FIGHT_PHASE_AUDIT.md §2.7 |
 | T3-5: Scout moves — pre-game Scout phase with validation | Pre-game | DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8 |
 | T3-8: Charge move direction constraint — each model must end closer to a target | Charge | CHARGE_PHASE_AUDIT.md §2.9 |
+| T3-9: Barricade engagement range (2" instead of 1") | Charge/Fight | CHARGE_PHASE_AUDIT.md §2.8 |
 
 ---
 
@@ -437,12 +438,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `ChargeController.gd:1265-1286`, `ChargePhase.gd`
 - **Resolution:** Added `_validate_charge_direction_constraint()` in ChargePhase.gd (server-side), direction check in `_validate_charge_position()` in ChargeController.gd (client-side drag validation), and `_validate_charge_direction_constraint_rules()` in RulesEngine.gd (auto-resolve path). New `FAIL_DIRECTION` error category with player-facing tooltip. All three paths consistently enforce that each model must end its charge move closer (center-to-center) to at least one model in any declared target unit.
 
-### T3-9. Barricade engagement range (2" instead of 1")
+### T3-9. Barricade engagement range (2" instead of 1") — **DONE**
 - **Phase:** Charge/Fight
 - **Rule:** Engagement range through barricades is 2"
 - **Impact:** Charges across barricades are incorrectly strict
 - **Source:** CHARGE_PHASE_AUDIT.md §2.8
 - **Files:** No barricade terrain type exists
+- **Resolution:** Added barricade-aware engagement range system. TerrainManager now provides `is_barricade_between()` and `get_engagement_range_for_positions()` which return 2" when a barricade terrain feature lies between two model positions, 1" otherwise. Updated all engagement range checks across ChargePhase.gd (charge validation, roll sufficiency, pre-charge ER check), RulesEngine.gd (static charge validation, fight eligibility, shooting ER checks), FightPhase.gd (unit engagement range, consolidation), and MovementPhase.gd (engagement range at position). 12 new tests in `test_barricade_engagement_range.gd`.
 
 ### T3-10. Faction abilities (Oath of Moment, etc.)
 - **Phase:** Command
@@ -793,12 +795,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 11 | 5 | 16 |
-| Tier 3 — Medium Rules | 4 | 22 | 26 |
+| Tier 3 — Medium Rules | 5 | 21 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **24** | **104** | **128** |
-| **Recently Completed** | **51** | — | **51** |
+| **Total Open** | **25** | **103** | **128** |
+| **Recently Completed** | **52** | — | **52** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---

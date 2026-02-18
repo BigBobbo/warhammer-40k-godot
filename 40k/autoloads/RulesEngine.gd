@@ -2253,7 +2253,7 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 	return eligible
 
-# Check if target unit is within engagement range (1") of actor unit
+# Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
@@ -2279,8 +2279,9 @@ static func _is_target_within_engagement_range(actor_unit_id: String, target_uni
 			if target_pos == Vector2.ZERO:
 				continue
 
-			# Use shape-aware edge-to-edge engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(actor_model, target_model, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range_rules(actor_pos, target_pos, board)
+			if Measurement.is_in_engagement_range_shape_aware(actor_model, target_model, effective_er):
 				return true
 
 	return false
@@ -3093,6 +3094,7 @@ static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target
 
 # Check if a unit is in engagement range with any model of another unit
 # Used for Blast targeting restriction
+# T3-9: Now barricade-aware (2" ER through barricades)
 static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
 	for model1 in unit1.get("models", []):
 		if not model1.get("alive", true):
@@ -3110,8 +3112,9 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 			if pos2 == Vector2.ZERO:
 				continue
 
-			# Use shape-aware edge-to-edge engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range_rules(pos1, pos2, board)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
 				return true
 
 	return false
@@ -3717,7 +3720,9 @@ static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Diction
 				if enemy_pos == null:
 					continue
 
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+				# T3-9: Use barricade-aware engagement range
+				var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -3891,6 +3896,49 @@ static func _path_point_to_vector2(point) -> Vector2:
 		return Vector2(point[0], point[1])
 	return Vector2.ZERO
 
+## T3-9: Get the effective engagement range between two positions considering barricade terrain.
+## Returns 2" if a barricade terrain feature lies between the two positions, 1" otherwise.
+## Uses board terrain_features data when available, falls back to TerrainManager autoload.
+static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, board: Dictionary) -> float:
+	const STANDARD_ER = 1.0
+	const BARRICADE_ER = 2.0
+
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty():
+		# Fall back to TerrainManager autoload
+		var terrain_manager = _get_terrain_manager_node()
+		if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+			return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+		return STANDARD_ER
+
+	# Check if any barricade terrain lies between the two positions
+	for terrain in terrain_features:
+		if terrain.get("type", "") != "barricade":
+			continue
+
+		var polygon = terrain.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+
+		# Check if the line between pos1 and pos2 crosses this barricade
+		for i in range(polygon.size()):
+			var edge_start = polygon[i]
+			var edge_end = polygon[(i + 1) % polygon.size()]
+			if Geometry2D.segment_intersects_segment(pos1, pos2, edge_start, edge_end) != null:
+				print("[RulesEngine] T3-9: Barricade '%s' between models — engagement range is 2\"" % terrain.get("id", "unknown"))
+				return BARRICADE_ER
+
+	return STANDARD_ER
+
+## Helper to get TerrainManager node from static context.
+static func _get_terrain_manager_node():
+	var tree = Engine.get_main_loop()
+	if tree and tree.has_method("get_root"):
+		var root = tree.get_root()
+		if root:
+			return root.get_node_or_null("TerrainManager")
+	return null
+
 # Validate engagement range constraints for charge
 static func _validate_engagement_range_constraints_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
 	const ENGAGEMENT_RANGE_INCHES = 1.0
@@ -3925,7 +3973,9 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 					if target_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, 1.0):
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var effective_er = _get_effective_engagement_range_rules(final_pos, target_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, effective_er):
 						unit_in_er_of_target = true
 						break
 
@@ -3962,7 +4012,9 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 					if enemy_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final, enemy_model, 1.0):
+					# T3-9: Use barricade-aware engagement range for non-target check too
+					var effective_er = _get_effective_engagement_range_rules(final_pos, enemy_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, enemy_model, effective_er):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
@@ -4354,6 +4406,7 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 		if not model.get("alive", true):
 			continue
 
+		var model_pos = _get_model_position(model)
 		var in_er = false
 		var in_base_contact = false
 		for other_unit_id in all_units:
@@ -4369,8 +4422,12 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 					in_base_contact = true
 					in_er = true  # Base contact implies ER
 					break
-				elif Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
-					in_er = true
+				else:
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var enemy_pos = _get_model_position(enemy_model)
+					var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+						in_er = true
 			if in_base_contact:
 				break  # Found base contact (best result), stop checking other units
 			# Don't break for in_er alone — keep checking other units for base contact

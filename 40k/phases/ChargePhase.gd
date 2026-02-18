@@ -801,8 +801,9 @@ func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 				if enemy_pos == null:
 					continue
 
-				# Use shape-aware engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+				# T3-9: Use barricade-aware engagement range check
+				var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -993,7 +994,9 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					if target_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, ENGAGEMENT_RANGE_INCHES):
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var effective_er = _get_effective_engagement_range(final_pos, target_pos)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, effective_er):
 						unit_in_er_of_target = true
 						break
 
@@ -1032,7 +1035,9 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					if enemy_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
+					# T3-9: Use barricade-aware engagement range for non-target check too
+					var effective_er = _get_effective_engagement_range(final_pos, enemy_pos)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, enemy_model, effective_er):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
@@ -1229,6 +1234,16 @@ func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
 		total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
 
 	return total_penalty
+
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(model1_pos: Vector2, model2_pos: Vector2) -> float:
+	if not is_inside_tree():
+		return ENGAGEMENT_RANGE_INCHES
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(model1_pos, model2_pos)
+	return ENGAGEMENT_RANGE_INCHES
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -1470,10 +1485,12 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 
 				# Edge-to-edge distance in inches, minus engagement range
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
+				# T3-9: Use barricade-aware engagement range
+				var target_pos = _get_model_position(target_model)
+				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
+				var distance_to_close = distance_inches - effective_er
 
 				# T2-8: Add terrain penalty for the straight-line path
-				var target_pos = _get_model_position(target_model)
 				var terrain_penalty = _calculate_path_terrain_penalty(
 					[model_pos, target_pos], has_fly)
 				var effective_distance = distance_to_close + terrain_penalty
@@ -1811,7 +1828,11 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 					continue
 
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
+				# T3-9: Use barricade-aware engagement range
+				var model_pos = _get_model_position(model)
+				var target_pos = _get_model_position(target_model)
+				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
+				var distance_to_close = distance_inches - effective_er
 				if distance_to_close <= rolled_distance:
 					return true
 
