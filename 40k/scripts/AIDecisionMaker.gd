@@ -1494,6 +1494,19 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			var weapon_name = weapon.get("name", "")
 			var weapon_id = _generate_weapon_id(weapon_name)
 
+			# ONE SHOT (T4-2): Skip one-shot weapons that have been fired
+			if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
+				var all_fired = true
+				var models = unit.get("models", [])
+				for model in models:
+					if model.get("alive", true):
+						var model_id = model.get("id", "")
+						if not RulesEngine.has_fired_one_shot(unit, model_id, weapon_id):
+							all_fired = false
+							break
+				if all_fired:
+					continue
+
 			# Score each enemy target
 			var best_target_id = ""
 			var best_score = -1.0

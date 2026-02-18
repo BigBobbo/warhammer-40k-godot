@@ -99,6 +99,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-1: Lance weapon keyword (+1 wound on charge) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 4 |
+| T4-3: Counter-Offensive stratagem (2 CP, fight next after enemy fought) | Fight | FIGHT_PHASE_AUDIT.md §2.9 |
 
 ---
 
@@ -620,9 +621,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 4
 
-### T4-3. Counter-Offensive stratagem
+### T4-3. Counter-Offensive stratagem — **DONE**
 - **Phase:** Fight
 - **Source:** FIGHT_PHASE_AUDIT.md §2.9
+- **Resolution:** Full implementation already existed in StratagemManager (definition, validation, CP deduction, eligibility checks), FightPhase (trigger after consolidation, USE/DECLINE actions), FightController (UI signal wiring), and CounterOffensiveDialog (UI). Fixed StratagemManager.use_stratagem() null-safety for PhaseManager in test environment. All 26 tests pass.
 
 ### T4-4. Aircraft restrictions in fight phase
 - **Phase:** Fight
@@ -838,11 +840,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 1 | 19 | 20 |
+| Tier 4 — Low/Niche | 2 | 18 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **42** | **86** | **128** |
-| **Recently Completed** | **69** | — | **69** |
+| **Total Open** | **43** | **85** | **128** |
+| **Recently Completed** | **70** | — | **70** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---

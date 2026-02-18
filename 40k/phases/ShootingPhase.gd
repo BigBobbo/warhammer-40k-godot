@@ -28,6 +28,7 @@ var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
 var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
+var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 
 func _init():
@@ -42,6 +43,7 @@ func _on_phase_enter() -> void:
 	dice_log.clear()
 	units_that_shot.clear()
 	pending_hazardous_weapons.clear()
+	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
 
 	_initialize_shooting()
@@ -592,6 +594,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	if not result.success:
 		return create_result(false, [], result.get("log_text", "Shooting failed"))
 
+	# ONE SHOT (T4-2): Collect one-shot diffs from result (weapon marked as fired immediately)
+	var one_shot_diffs = result.get("one_shot_diffs", [])
+
 	# Record hit/wound dice rolls
 	var dice_data = result.get("dice", [])
 	for dice_block in dice_data:
@@ -689,7 +694,10 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 			# Return with pause indicator - completion will happen when user clicks "Complete Shooting"
 			# IMPORTANT: Do NOT mark has_shot yet - that happens when user confirms
-			return create_result(true, haz_diffs_on_miss, "Single weapon missed - awaiting confirmation", {
+			# ONE SHOT (T4-2): Include one-shot diffs even on miss
+			var miss_one_shot_changes = haz_diffs_on_miss.duplicate()
+			miss_one_shot_changes.append_array(one_shot_diffs)
+			return create_result(true, miss_one_shot_changes, "Single weapon missed - awaiting confirmation", {
 				"sequential_pause": true,
 				"remaining_weapons": [],
 				"last_weapon_result": last_weapon_result,
@@ -708,6 +716,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		}]
 		# HAZARDOUS (T2-3): Include hazardous diffs in changes
 		changes.append_array(haz_diffs_on_miss)
+		# ONE SHOT (T4-2): Include one-shot diffs in changes
+		changes.append_array(one_shot_diffs)
 
 		units_that_shot.append(active_shooter_id)
 		active_shooter_id = ""
@@ -724,6 +734,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	# HAZARDOUS (T2-3): Store hazardous weapon data for post-save resolution
 	pending_hazardous_weapons = result.get("hazardous_weapons", [])
+
+	# ONE SHOT (T4-2): Store one-shot diffs for inclusion in saves result
+	pending_one_shot_diffs = one_shot_diffs
 
 	# LOGGING: Track saves_required emission
 	var timestamp = Time.get_ticks_msec()
@@ -886,6 +899,12 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			all_dice.append_array(haz_result.dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+
+	# ONE SHOT (T4-2): Include one-shot diffs in AI path
+	var ai_one_shot_diffs = result.get("one_shot_diffs", [])
+	if not ai_one_shot_diffs.is_empty():
+		all_changes.append_array(ai_one_shot_diffs)
+		print("║ AI SHOOT: ONE SHOT — included %d one-shot diffs" % ai_one_shot_diffs.size())
 
 	# Step 5: Build comprehensive attack summary for game event log
 	var actor_name = game_state_snapshot.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
@@ -1267,6 +1286,11 @@ func _resolve_next_weapon() -> Dictionary:
 		print("========================================")
 		return create_result(false, [], result.get("log_text", "Weapon resolution failed"))
 
+	# ONE SHOT (T4-2): Collect one-shot diffs from result (weapon marked as fired immediately)
+	var seq_one_shot_diffs = result.get("one_shot_diffs", [])
+	# Store for inclusion in subsequent results
+	pending_one_shot_diffs.append_array(seq_one_shot_diffs)
+
 	# Record dice rolls
 	var dice_data = result.get("dice", [])
 	print("ShootingPhase: Dice blocks returned: %d" % dice_data.size())
@@ -1376,9 +1400,14 @@ func _resolve_next_weapon() -> Dictionary:
 		emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
 		# Return success with pause indicator for multiplayer sync
+		# ONE SHOT (T4-2): Include one-shot diffs in the result
+		var seq_miss_changes = []
+		if not pending_one_shot_diffs.is_empty():
+			seq_miss_changes.append_array(pending_one_shot_diffs)
+			pending_one_shot_diffs.clear()
 		print("ShootingPhase: Returning result with sequential_pause indicator")
 		print("========================================")
-		return create_result(true, [], "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
+		return create_result(true, seq_miss_changes, "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
 			"sequential_pause": true,
 			"current_weapon_index": resolution_state.current_index,
 			"total_weapons": weapon_order.size(),
@@ -2414,6 +2443,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
 		pending_hazardous_weapons.clear()
+
+	# ONE SHOT (T4-2): Include one-shot diffs in save result changes
+	if not pending_one_shot_diffs.is_empty():
+		all_diffs.append_array(pending_one_shot_diffs)
+		pending_one_shot_diffs.clear()
 
 	# Build combined save log text for game event log
 	var save_log_text = ", ".join(save_log_parts)

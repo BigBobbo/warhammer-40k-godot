@@ -430,6 +430,40 @@ const WEAPON_PROFILES = {
 		"damage": 2,
 		"type": "ranged",
 		"keywords": ["LANCE"]  # +1 to wound on charge (ranged Lance)
+	},
+	# ONE SHOT WEAPONS (T4-2) — Weapon can only be fired once per battle
+	# TEST WEAPON: Basic One Shot missile (e.g., Hunter-killer missile)
+	"one_shot_missile": {
+		"name": "Hunter-killer Missile (Test)",
+		"range": 48,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 14,
+		"ap": 3,
+		"damage": 6,
+		"keywords": ["ONE SHOT"]  # Can only fire once per battle
+	},
+	# TEST WEAPON: One Shot + Blast combo
+	"one_shot_blast": {
+		"name": "One Shot Blast (Test)",
+		"range": 36,
+		"attacks": 3,
+		"bs": 3,
+		"strength": 8,
+		"ap": 2,
+		"damage": 2,
+		"keywords": ["ONE SHOT", "BLAST"]  # One Shot + Blast combo
+	},
+	# TEST WEAPON: One Shot with fixed stats for predictable testing
+	"one_shot_test": {
+		"name": "One Shot Test Weapon",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["ONE SHOT"]  # Simple One Shot for testing
 	}
 }
 
@@ -640,6 +674,17 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 			if hazardous_result.log_text:
 				result.log_text += hazardous_result.log_text + "\n"
 
+		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
+		if is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				var one_shot_diffs = mark_one_shot_fired_diffs(actor_unit_id, actor_unit, model_id, weapon_id)
+				result.diffs.append_array(one_shot_diffs)
+				# Apply diffs to local board so subsequent assignments see updated state
+				for d in one_shot_diffs:
+					_apply_diff_to_board(board, d)
+			print("RulesEngine: [ONE SHOT] Marked weapon '%s' as fired for %d model(s)" % [weapon_id, model_ids.size()])
+
 	return result
 
 # Shooting resolution that stops before saves (for interactive save system)
@@ -695,6 +740,19 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
 			})
+
+		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
+		if is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				var one_shot_diffs = mark_one_shot_fired_diffs(actor_unit_id, actor_unit, model_id, weapon_id)
+				if not result.has("one_shot_diffs"):
+					result["one_shot_diffs"] = []
+				result["one_shot_diffs"].append_array(one_shot_diffs)
+				# Apply diffs to local board so subsequent assignments see updated state
+				for d in one_shot_diffs:
+					_apply_diff_to_board(board, d)
+			print("RulesEngine: [ONE SHOT] Marked weapon '%s' as fired for %d model(s) (interactive path)" % [weapon_id, model_ids.size()])
 
 	# HAZARDOUS (T2-3): Store hazardous weapon data in result for ShootingPhase to process after saves
 	if not hazardous_weapons.is_empty():
@@ -2306,6 +2364,15 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					if not visibility_result.visible:
 						errors.append(visibility_result.reason)
 
+		# ONE SHOT (T4-2): Check if any model has already fired this one-shot weapon
+		if weapon_id != "" and is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				if has_fired_one_shot(actor_unit, model_id, weapon_id):
+					var wp = get_weapon_profile(weapon_id, board)
+					var wp_name = wp.get("name", weapon_id)
+					errors.append("One Shot weapon '%s' has already been fired by model '%s' this battle" % [wp_name, model_id])
+
 	# PISTOL MUTUAL EXCLUSIVITY (T2-5): A model cannot fire both Pistol and non-Pistol
 	# weapons in the same shooting activation. Exception: MONSTER/VEHICLE models.
 	# Per 10e rules: "If a model is equipped with one or more Pistols, unless it is a
@@ -3114,6 +3181,93 @@ static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> D
 		if not heavy_weapons.is_empty():
 			result[model_id] = heavy_weapons
 
+	return result
+
+# ==========================================
+# ONE SHOT WEAPON KEYWORD (T4-2)
+# ==========================================
+# One Shot: Weapons with this ability can only be fired once per entire battle.
+# After firing, the weapon is permanently unavailable for the rest of the game.
+# Tracked per model — each model gets one use of its one-shot weapon.
+# Detection checks both keywords array and special_rules string (case-insensitive).
+
+# Check if a weapon has the One Shot keyword
+static func is_one_shot_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "One Shot" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "one shot" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "ONE SHOT":
+			return true
+	return false
+
+# Check if a specific model has already fired a one-shot weapon this battle
+static func has_fired_one_shot(unit: Dictionary, model_id: String, weapon_id: String) -> bool:
+	var fired = unit.get("flags", {}).get("one_shot_fired", {})
+	var model_fired = fired.get(model_id, [])
+	return weapon_id in model_fired
+
+# Generate diffs to mark a one-shot weapon as fired for a specific model
+static func mark_one_shot_fired_diffs(unit_id: String, unit: Dictionary, model_id: String, weapon_id: String) -> Array:
+	var diffs = []
+	var flags = unit.get("flags", {})
+	var one_shot_fired = flags.get("one_shot_fired", {})
+
+	if not one_shot_fired.has(model_id):
+		# First one-shot weapon fired by this model — create the model entry
+		var new_model_entry = [weapon_id]
+		var new_one_shot = one_shot_fired.duplicate(true)
+		new_one_shot[model_id] = new_model_entry
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.flags.one_shot_fired" % unit_id,
+			"value": new_one_shot
+		})
+	else:
+		# Model already has some one-shot weapons fired — append this one
+		var existing = one_shot_fired[model_id].duplicate()
+		if weapon_id not in existing:
+			existing.append(weapon_id)
+			var new_one_shot = one_shot_fired.duplicate(true)
+			new_one_shot[model_id] = existing
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.one_shot_fired" % unit_id,
+				"value": new_one_shot
+			})
+
+	return diffs
+
+# Filter out one-shot weapons that have already been fired for a unit
+# Returns a new weapons dict with fired one-shot weapons removed per model
+static func filter_fired_one_shot_weapons(unit_id: String, unit_weapons_dict: Dictionary, board: Dictionary = {}) -> Dictionary:
+	var units = {}
+	if not board.is_empty():
+		units = board.get("units", {})
+	else:
+		units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return unit_weapons_dict
+
+	var result = {}
+	for model_id in unit_weapons_dict:
+		var weapons = unit_weapons_dict[model_id]
+		var filtered = []
+		for weapon_id in weapons:
+			if is_one_shot_weapon(weapon_id, board) and has_fired_one_shot(unit, model_id, weapon_id):
+				print("RulesEngine: [ONE SHOT] Filtering out fired weapon '%s' for model '%s'" % [weapon_id, model_id])
+				continue
+			filtered.append(weapon_id)
+		result[model_id] = filtered
 	return result
 
 # ==========================================
