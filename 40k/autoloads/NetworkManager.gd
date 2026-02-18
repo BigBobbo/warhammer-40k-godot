@@ -1169,6 +1169,68 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("NetworkManager: Client re-emitting charge_unit_skipped for %s" % unit_id)
 			phase.emit_signal("charge_unit_skipped", unit_id)
 
+	# ====================================================================
+	# HEROIC INTERVENTION - Signal re-emission for multiplayer sync
+	# ====================================================================
+
+	# Handle trigger_heroic_intervention flag from APPLY_CHARGE_MOVE result
+	# When host processes a successful charge that triggers HI, the result includes
+	# metadata for the defending player's HI opportunity dialog
+	if result.get("trigger_heroic_intervention", false):
+		var hi_player = result.get("heroic_intervention_player", 0)
+		var hi_eligible = result.get("heroic_intervention_eligible_units", [])
+		var hi_charging_id = result.get("heroic_intervention_charging_unit_id", "")
+		if hi_player > 0 and not hi_eligible.is_empty() and phase.has_signal("heroic_intervention_opportunity"):
+			print("NetworkManager: Client re-emitting heroic_intervention_opportunity for player %d (%d eligible units)" % [hi_player, hi_eligible.size()])
+			phase.emit_signal("heroic_intervention_opportunity", hi_player, hi_eligible, hi_charging_id)
+
+	# Handle USE_HEROIC_INTERVENTION — re-emit dice_rolled and charge_path_tools_enabled or failure
+	if action_type == "USE_HEROIC_INTERVENTION":
+		var dice_array = result.get("dice", [])
+		if not dice_array.is_empty() and phase.has_signal("dice_rolled"):
+			print("NetworkManager: Client re-emitting dice_rolled for Heroic Intervention")
+			phase.emit_signal("dice_rolled", dice_array[0])
+
+		var hi_unit_id = result.get("heroic_intervention_unit_id", "")
+		if result.get("heroic_intervention_failed", false):
+			# HI charge roll failed — re-emit charge_resolved(false)
+			if hi_unit_id != "" and phase.has_signal("charge_resolved"):
+				print("NetworkManager: Client re-emitting charge_resolved (HI ROLL FAILED) for %s" % hi_unit_id)
+				phase.emit_signal("charge_resolved", hi_unit_id, false, {
+					"reason": "Heroic Intervention charge roll insufficient",
+					"heroic_intervention": true,
+				})
+		elif result.get("heroic_intervention_roll_success", false):
+			# HI charge roll succeeded — re-emit charge_path_tools_enabled
+			var hi_distance = result.get("heroic_intervention_distance", 0)
+			if hi_unit_id != "" and phase.has_signal("charge_path_tools_enabled"):
+				print("NetworkManager: Client re-emitting charge_path_tools_enabled (HI) for %s (distance=%d)" % [hi_unit_id, hi_distance])
+				phase.emit_signal("charge_path_tools_enabled", hi_unit_id, hi_distance)
+
+	# Handle APPLY_HEROIC_INTERVENTION_MOVE — re-emit charge_resolved
+	if action_type == "APPLY_HEROIC_INTERVENTION_MOVE":
+		if phase.has_signal("charge_resolved"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			if unit_id != "":
+				var diffs = result.get("diffs", result.get("changes", []))
+				var has_position_changes = false
+				for diff in diffs:
+					var path_str = diff.get("path", "")
+					if ".position" in path_str:
+						has_position_changes = true
+						break
+				if has_position_changes:
+					print("NetworkManager: Client re-emitting charge_resolved (HI SUCCESS) for %s" % unit_id)
+					phase.emit_signal("charge_resolved", unit_id, true, {
+						"heroic_intervention": true,
+					})
+				else:
+					print("NetworkManager: Client re-emitting charge_resolved (HI MOVE FAILED) for %s" % unit_id)
+					phase.emit_signal("charge_resolved", unit_id, false, {
+						"reason": "Heroic Intervention movement validation failed",
+						"heroic_intervention": true,
+					})
+
 	print("NetworkManager: _emit_client_visual_updates END")
 
 # ============================================================================
@@ -1376,6 +1438,11 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"CONSOLIDATE",
 		"SKIP_UNIT",
 		"HEROIC_INTERVENTION",
+		# Heroic Intervention actions - defending player reacts during opponent's charge phase
+		"USE_HEROIC_INTERVENTION",
+		"DECLINE_HEROIC_INTERVENTION",
+		"HEROIC_INTERVENTION_CHARGE_ROLL",
+		"APPLY_HEROIC_INTERVENTION_MOVE",
 		"END_FIGHT"
 	]
 	var is_exempt = action_type in exempt_actions
