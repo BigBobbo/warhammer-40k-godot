@@ -101,6 +101,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-1: Lance weapon keyword (+1 wound on charge) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T4-3: Counter-Offensive stratagem (2 CP, fight next after enemy fought) | Fight | FIGHT_PHASE_AUDIT.md §2.9 |
 | T4-4: Aircraft restrictions in fight phase — AIRCRAFT/FLY keyword checks | Fight | FIGHT_PHASE_AUDIT.md §2.10 |
+| T4-5: Models in base contact should not move during pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.11 |
 
 ---
 
@@ -632,9 +633,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** FIGHT_PHASE_AUDIT.md §2.10
 - **Resolution:** Added AIRCRAFT/FLY keyword checks throughout fight phase: `_is_unit_in_combat()` filters Aircraft from non-FLY combat eligibility, `_get_eligible_melee_targets()` enforces Aircraft↔FLY targeting, `_find_closest_enemy_model/position()` ignores Aircraft for non-FLY units during pile-in/consolidation, `_validate_pile_in/consolidate()` blocks Aircraft from making these moves, `_find_enemies_in_engagement_range()` and `_scan_newly_eligible_units_after_consolidation()` respect Aircraft restrictions. Added matching static helpers in RulesEngine (`is_eligible_to_fight`, `fight_targets_in_engagement`, `can_unit_pile_in`, `can_unit_consolidate`). All 18 tests pass.
 
-### T4-5. Models in base contact should not move during pile-in
+### T4-5. Models in base contact should not move during pile-in — **DONE**
 - **Phase:** Fight
 - **Source:** FIGHT_PHASE_AUDIT.md §2.11
+- **Resolution:** Added proactive UI-level prevention and validation enforcement. FightController detects models already in base contact (within 0.25" tolerance) during `_enable_pile_in_mode()` and locks them from being dragged. Visual indicators (red X with "B2B" label) show locked models. FightPhase `_validate_pile_in()` and `_validate_consolidate_engagement_range()` reject movements from models already in base contact via new `_is_model_in_base_contact_with_enemy()` helper. Same rule enforced for both pile-in and consolidation. PileInDialog info updated. Test file added: `test_pile_in_base_contact_locked.gd` (10 tests).
 
 ### T4-6. Go to Ground / Smokescreen stratagems
 - **Phase:** Shooting
@@ -842,11 +844,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 3 | 17 | 20 |
+| Tier 4 — Low/Niche | 4 | 16 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **44** | **84** | **128** |
-| **Recently Completed** | **71** | — | **71** |
+| **Total Open** | **45** | **83** | **128** |
+| **Recently Completed** | **72** | — | **72** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---

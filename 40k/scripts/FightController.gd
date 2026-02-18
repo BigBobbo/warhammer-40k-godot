@@ -30,6 +30,7 @@ var dragging_model: Node2D = null
 var drag_model_id: String = ""
 var drag_offset: Vector2 = Vector2.ZERO
 var drag_start_pos: Vector2 = Vector2.ZERO
+var locked_base_contact_models: Dictionary = {}  # T4-5: model_id -> true for models already in base contact
 
 # UI References
 var board_view: Node2D
@@ -1519,6 +1520,7 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 
 	original_model_positions.clear()
 	current_model_positions.clear()
+	locked_base_contact_models.clear()
 
 	var models = unit.get("models", [])
 	for i in range(models.size()):
@@ -1533,10 +1535,56 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 		current_model_positions[model_id] = pos
 		print("[FightController] Stored position for model ", model_id, " at ", pos)
 
+	# T4-5: Detect models already in base contact with an enemy and lock them
+	_detect_locked_base_contact_models(unit)
+
 	# Create visual indicators
 	_create_pile_in_visuals()
 
 	print("[FightController] Pile-in mode enabled for ", unit_id)
+	if not locked_base_contact_models.is_empty():
+		print("[FightController] T4-5: %d model(s) locked (already in base contact)" % locked_base_contact_models.size())
+
+func _detect_locked_base_contact_models(unit: Dictionary) -> void:
+	"""T4-5: Detect models already in base-to-base contact with an enemy.
+	Per 10e rules, models already in base contact are not moved during pile-in/consolidation."""
+	if not current_phase:
+		return
+
+	var models = unit.get("models", [])
+	var all_units = current_phase.game_state_snapshot.get("units", {})
+	var unit_owner = unit.get("owner", 0)
+	const B2B_TOLERANCE: float = 0.25  # Match BASE_CONTACT_TOLERANCE_INCHES
+
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = model.get("id", "m%d" % (i + 1))
+		var pos_data = model.get("position", {})
+		if pos_data == null:
+			continue
+
+		# Check distance to all enemy models
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if other_unit.get("owner", 0) == unit_owner:
+				continue  # Skip friendly units
+
+			var enemy_models = other_unit.get("models", [])
+			for enemy_model in enemy_models:
+				if not enemy_model.get("alive", true):
+					continue
+
+				var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
+				if distance <= B2B_TOLERANCE:
+					locked_base_contact_models[model_id] = true
+					print("[FightController] T4-5: Model %s is in base contact with enemy (%.2f\") — locked" % [model_id, distance])
+					break  # No need to check more enemies for this model
+
+			if model_id in locked_base_contact_models:
+				break  # Already found base contact, skip remaining enemy units
 
 func _disable_pile_in_mode() -> void:
 	"""Disable pile-in mode and clean up"""
@@ -1549,6 +1597,7 @@ func _disable_pile_in_mode() -> void:
 	pile_in_dialog_ref = null
 	original_model_positions.clear()
 	current_model_positions.clear()
+	locked_base_contact_models.clear()
 	dragging_model = null
 	drag_model_id = ""
 
@@ -1574,16 +1623,29 @@ func _create_pile_in_visuals() -> void:
 	pile_in_visuals.z_index = 100  # Draw on top
 	board_view.add_child(pile_in_visuals)
 
-	# Create range circles for each model (3" radius)
+	# Create range circles for each model (3" radius) — skip locked models
 	for model_id in original_model_positions:
+		if model_id in locked_base_contact_models:
+			continue  # T4-5: No range circle for locked models
 		var pos = original_model_positions[model_id]
 		var circle = _create_range_circle(pos, 3.0)
 		circle.name = "RangeCircle_" + model_id
 		pile_in_visuals.add_child(circle)
 		range_circles[model_id] = circle
 
-	# Create direction lines for each model
+	# T4-5: Create lock indicators for models in base contact
+	for model_id in locked_base_contact_models:
+		var pos = original_model_positions.get(model_id, Vector2.ZERO)
+		if pos == Vector2.ZERO:
+			continue
+		var lock_indicator = _create_locked_model_indicator(pos)
+		lock_indicator.name = "LockedIndicator_" + model_id
+		pile_in_visuals.add_child(lock_indicator)
+
+	# Create direction lines for each model — skip locked models
 	for model_id in original_model_positions:
+		if model_id in locked_base_contact_models:
+			continue  # T4-5: No direction line for locked models
 		var line = Line2D.new()
 		line.width = 2.0
 		line.default_color = Color.YELLOW
@@ -1611,6 +1673,37 @@ func _create_range_circle(center: Vector2, radius_inches: float) -> Node2D:
 
 	circle.add_child(line)
 	return circle
+
+func _create_locked_model_indicator(center: Vector2) -> Node2D:
+	"""T4-5: Create a visual indicator showing a model is locked (in base contact, cannot move).
+	Draws a red X over the model position."""
+	var indicator = Node2D.new()
+	var cross_size = 15.0  # Pixel size of the X arms
+
+	# Draw an X shape with two lines
+	var line1 = Line2D.new()
+	line1.width = 3.0
+	line1.default_color = Color(1.0, 0.3, 0.3, 0.8)  # Red, semi-transparent
+	line1.add_point(center + Vector2(-cross_size, -cross_size))
+	line1.add_point(center + Vector2(cross_size, cross_size))
+	indicator.add_child(line1)
+
+	var line2 = Line2D.new()
+	line2.width = 3.0
+	line2.default_color = Color(1.0, 0.3, 0.3, 0.8)
+	line2.add_point(center + Vector2(cross_size, -cross_size))
+	line2.add_point(center + Vector2(-cross_size, cross_size))
+	indicator.add_child(line2)
+
+	# Add a "LOCKED" label
+	var label = Label.new()
+	label.text = "B2B"
+	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 0.9))
+	label.position = center + Vector2(-12, cross_size + 2)
+	indicator.add_child(label)
+
+	return indicator
 
 func _clear_pile_in_visuals() -> void:
 	"""Remove all pile-in visual indicators"""
@@ -1834,6 +1927,10 @@ func _start_model_drag_pile_in(mouse_pos: Vector2) -> void:
 
 		# Check if click is within model's base (50px radius for easier clicking)
 		if distance_to_mouse < 50.0:
+			# T4-5: Block dragging for models already in base contact with an enemy
+			if model_id in locked_base_contact_models:
+				print("[FightController] T4-5: Model %s is locked (already in base contact) — cannot drag" % model_id)
+				return
 			print("[FightController] Distance check passed! Looking for token with unit_id=", pile_in_unit_id, " model_id=", model_id)
 			# Find the actual token in token_layer with matching metadata
 			var tokens_checked = 0

@@ -376,16 +376,24 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 	for model_id in movements:
 		var old_pos = _get_model_position(unit_id, model_id)
 		var new_pos = movements[model_id]
-		
+
 		if old_pos == Vector2.ZERO:
 			errors.append("Model %s position not found" % model_id)
 			continue
-		
+
+		# T4-5: Reject movement for models already in base contact with an enemy
+		if _is_model_in_base_contact_with_enemy(unit_id, model_id):
+			var move_distance = Measurement.distance_inches(old_pos, new_pos)
+			if move_distance > 0.01:  # Model actually moved
+				errors.append("Model %s is already in base contact — cannot move during pile-in" % model_id)
+				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\"" % [model_id, move_distance])
+				continue
+
 		# Check 3" movement limit
 		var distance = Measurement.distance_inches(old_pos, new_pos)
 		if distance > 3.0:
 			errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [model_id, distance])
-		
+
 		# Check movement is toward closest enemy
 		if not _is_moving_toward_closest_enemy(unit_id, model_id, old_pos, new_pos):
 			errors.append("Model %s must pile in toward closest enemy" % model_id)
@@ -740,6 +748,14 @@ func _validate_consolidate_engagement_range(unit_id: String, movements: Dictiona
 		if old_pos == Vector2.ZERO:
 			errors.append("Model %s position not found" % model_id)
 			continue
+
+		# T4-5: Reject movement for models already in base contact with an enemy
+		if _is_model_in_base_contact_with_enemy(unit_id, model_id):
+			var move_distance = Measurement.distance_inches(old_pos, new_pos)
+			if move_distance > 0.01:  # Model actually moved
+				errors.append("Model %s is already in base contact — cannot move during consolidation" % model_id)
+				log_phase_message("[T4-5] Model %s rejected: already in base contact, moved %.2f\" during consolidation" % [model_id, move_distance])
+				continue
 
 		# Check 3" movement limit
 		var distance = Measurement.distance_inches(old_pos, new_pos)
@@ -1760,6 +1776,40 @@ func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2
 	return closest_pos
 
 const BASE_CONTACT_TOLERANCE_INCHES: float = 0.25  # Match RulesEngine tolerance for digital positioning
+
+func _is_model_in_base_contact_with_enemy(unit_id: String, model_id: String) -> bool:
+	"""T4-5: Check if a model is currently in base-to-base contact with any enemy model.
+	Uses the original positions from game_state_snapshot (before any pile-in/consolidate movement)."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	var models = unit.get("models", [])
+	var model_index = int(model_id)
+	if model_index >= models.size():
+		return false
+
+	var model = models[model_index]
+	if not model.get("alive", true):
+		return false
+
+	var unit_owner = unit.get("owner", 0)
+	var all_units = game_state_snapshot.get("units", {})
+
+	for other_unit_id in all_units:
+		var other_unit = all_units[other_unit_id]
+		if other_unit.get("owner", 0) == unit_owner:
+			continue  # Skip friendly units
+
+		for enemy_model in other_unit.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+
+			var distance = Measurement.model_to_model_distance_inches(model, enemy_model)
+			if distance <= BASE_CONTACT_TOLERANCE_INCHES:
+				return true
+
+	return false
 
 func _validate_base_to_base_if_possible(unit_id: String, movements: Dictionary, max_move_inches: float) -> Dictionary:
 	"""T1-6: Enforce base-to-base contact in pile-in/consolidation.
