@@ -369,6 +369,15 @@ func confirm() -> void:
 		_complete_deployment()
 		return
 
+	# If formations were declared pre-deployment, skip the interactive dialogs
+	# The leader attachments and transport embarkations are already applied to GameState
+	if GameState.formations_declared():
+		DebugLogger.info("Formations pre-declared, skipping deploy-time dialogs", {
+			"unit_id": unit_id
+		})
+		_complete_deployment()
+		return
+
 	# Check if this unit can have characters attached - show attach dialog FIRST
 	if _has_attachable_characters(unit_id) and not is_awaiting_attach_dialog and not is_awaiting_embark_dialog:
 		DebugLogger.info("Unit being deployed has attachable characters - showing attach dialog", {

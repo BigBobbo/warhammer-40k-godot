@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_fight_priority", "-glog=1", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gfile=res://tests/unit/test_charge_direction_constraint.gd", "-gexit"]
