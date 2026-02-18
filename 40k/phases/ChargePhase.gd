@@ -225,23 +225,32 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	
 	if not _can_unit_charge(unit):
 		return {"valid": false, "errors": ["Unit cannot charge"]}
-	
+
 	if unit_id in completed_charges:
 		return {"valid": false, "errors": ["Unit has already charged this phase"]}
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_keywords = unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	# Validate each target
 	for target_id in target_ids:
 		var target_unit = get_unit(target_id)
 		if target_unit.is_empty():
 			return {"valid": false, "errors": ["Target unit not found: " + target_id]}
-		
+
 		if target_unit.get("owner", 0) == get_current_player():
 			return {"valid": false, "errors": ["Cannot charge own units"]}
-		
+
+		# T2-9: Only FLY units can charge AIRCRAFT targets
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in target_keywords and not charger_has_fly:
+			return {"valid": false, "errors": ["Only units with FLY can charge AIRCRAFT: " + target_id]}
+
 		# Check 12" range
 		if not _is_target_within_charge_range(unit_id, target_id):
 			return {"valid": false, "errors": ["Target beyond 12\" charge range: " + target_id]}
-	
+
 	return {"valid": true, "errors": []}
 
 func _validate_charge_roll(action: Dictionary) -> Dictionary:
@@ -756,10 +765,15 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	
 	if flags.get("fell_back", false):
 		return false
-	
+
 	if flags.get("charged_this_turn", false):
 		return false
-	
+
+	# T2-9: AIRCRAFT units cannot declare charges
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return false
+
 	# Check if already in engagement range (cannot declare charges)
 	if _is_unit_in_engagement_range(unit):
 		return false
@@ -845,16 +859,26 @@ func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	var eligible = {}
 	var current_player = get_current_player()
 	var all_units = game_state_snapshot.get("units", {})
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_unit = get_unit(unit_id)
+	var charger_keywords = charger_unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	for target_id in all_units:
 		var target_unit = all_units[target_id]
 		if target_unit.get("owner", 0) != current_player:  # Enemy unit
+			# T2-9: Only FLY units can charge AIRCRAFT targets
+			var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+			if "AIRCRAFT" in target_keywords and not charger_has_fly:
+				continue
+
 			if _is_target_within_charge_range(unit_id, target_id):
 				eligible[target_id] = {
 					"name": target_unit.get("meta", {}).get("name", target_id),
 					"distance": _get_min_distance_to_target(unit_id, target_id)
 				}
-	
+
 	return eligible
 
 func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:

@@ -3640,30 +3640,39 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 	var eligible = {}
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
-	
+
 	if unit.is_empty():
 		return eligible
-	
+
 	var unit_owner = unit.get("owner", 0)
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_keywords = unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	# Check each potential target unit
 	for target_id in units:
 		var target_unit = units[target_id]
-		
+
 		# Skip friendly units
 		if target_unit.get("owner", 0) == unit_owner:
 			continue
-		
+
 		# Skip destroyed units
 		var has_alive_models = false
 		for model in target_unit.get("models", []):
 			if model.get("alive", true):
 				has_alive_models = true
 				break
-		
+
 		if not has_alive_models:
 			continue
-		
+
+		# T2-9: Only FLY units can charge AIRCRAFT targets
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in target_keywords and not charger_has_fly:
+			continue
+
 		# Check if within 12" charge range
 		if _is_target_within_charge_range_rules(unit_id, target_id, board):
 			eligible[target_id] = {
