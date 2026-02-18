@@ -1231,6 +1231,20 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 						"heroic_intervention": true,
 					})
 
+	# ====================================================================
+	# RAPID INGRESS - Signal re-emission for multiplayer sync (T4-7)
+	# ====================================================================
+
+	# Handle trigger_rapid_ingress flag from END_MOVEMENT result
+	# When host processes END_MOVEMENT that triggers Rapid Ingress, the result includes
+	# metadata for the non-active player's Rapid Ingress opportunity dialog
+	if result.get("trigger_rapid_ingress", false):
+		var ri_player = result.get("rapid_ingress_player", 0)
+		var ri_eligible = result.get("rapid_ingress_eligible_units", [])
+		if ri_player > 0 and not ri_eligible.is_empty() and phase.has_signal("rapid_ingress_opportunity"):
+			print("NetworkManager: Client re-emitting rapid_ingress_opportunity for player %d (%d eligible units)" % [ri_player, ri_eligible.size()])
+			phase.emit_signal("rapid_ingress_opportunity", ri_player, ri_eligible)
+
 	print("NetworkManager: _emit_client_visual_updates END")
 
 # ============================================================================

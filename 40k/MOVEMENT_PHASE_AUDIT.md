@@ -197,7 +197,7 @@ Visual feedback added in `MovementController.gd`:
 
 **Rule:** Used at the end of your opponent's Movement phase to bring in a Reserves unit.
 
-**Status (updated 2026-02-16):** Reserves system is now implemented (see 2.2). Rapid Ingress stratagem itself is not yet integrated — the interrupt/reaction window for the opponent's movement phase end does not exist.
+**Status (updated 2026-02-18):** IMPLEMENTED. Rapid Ingress stratagem fully integrated. At the end of the opponent's Movement phase (END_MOVEMENT action), the non-active player is offered the opportunity to use Rapid Ingress (1 CP) if they have units in reserves and it is battle round 2+. Uses RapidIngressDialog.gd for unit selection, then existing deployment controller for model placement. Validates 9" enemy distance, board edge rules for Strategic Reserves, deployment zone restrictions, and unit coherency. Multiplayer sync via NetworkManager.gd.
 
 **Impact:** Low — niche stratagem usage.
 

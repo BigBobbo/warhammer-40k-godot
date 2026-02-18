@@ -102,6 +102,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-3: Counter-Offensive stratagem (2 CP, fight next after enemy fought) | Fight | FIGHT_PHASE_AUDIT.md §2.9 |
 | T4-4: Aircraft restrictions in fight phase — AIRCRAFT/FLY keyword checks | Fight | FIGHT_PHASE_AUDIT.md §2.10 |
 | T4-5: Models in base contact should not move during pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.11 |
+| T4-7: Rapid Ingress stratagem (1 CP, arrive from reserves at end of opponent's movement) | Movement | MOVEMENT_PHASE_AUDIT.md §2.11 |
 
 ---
 
@@ -642,9 +643,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 4
 
-### T4-7. Rapid Ingress stratagem
+### T4-7. Rapid Ingress stratagem — **DONE**
 - **Phase:** Movement
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.11
+- **Resolution:** Implemented Rapid Ingress stratagem (1 CP, opponent's Movement phase end). Added rapid_ingress_opportunity signal to MovementPhase.gd, USE_RAPID_INGRESS / DECLINE_RAPID_INGRESS / PLACE_RAPID_INGRESS_REINFORCEMENT action types, RapidIngressDialog.gd for unit selection UI, MovementController.gd signal handling, Main.gd placement flow, and NetworkManager.gd multiplayer sync. Includes battle round >= 2 restriction, 9" enemy distance check, Strategic Reserves edge placement rules, and unit coherency validation.
 
 ### T4-8. Secondary missions + New Orders stratagem
 - **Phase:** Command
@@ -844,11 +846,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 4 | 16 | 20 |
+| Tier 4 — Low/Niche | 5 | 15 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **45** | **83** | **128** |
-| **Recently Completed** | **72** | — | **72** |
+| **Total Open** | **46** | **82** | **128** |
+| **Recently Completed** | **73** | — | **73** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
