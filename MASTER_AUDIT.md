@@ -88,6 +88,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
 | T3-11: Overwatch integration into charge/movement phases — reaction windows + shooting resolution | Charge/Movement | CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10 |
 | T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
+| T3-18: FLY units ignore terrain elevation during movement | Movement | MOVEMENT_PHASE_AUDIT.md §2.3 |
 | T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
 | T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
@@ -527,12 +528,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
 - **Files:** `RulesEngine.gd` — `_resolve_assignment()` vs `_resolve_assignment_until_wounds()`
 
-### T3-18. FLY units should ignore terrain elevation during movement
+### T3-18. FLY units should ignore terrain elevation during movement — **DONE**
 - **Phase:** Movement
 - **Rule:** FLY keyword allows ignoring vertical distance
 - **Impact:** FLY units taxed by terrain height incorrectly
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.3 (remaining work)
 - **Files:** `MovementPhase.gd`, `TerrainManager.gd`
+- **Resolution:** Added `calculate_movement_terrain_penalty()` to TerrainManager.gd — FLY units return 0 penalty (ignore terrain elevation entirely), non-FLY units pay height*2 for terrain >2". Added `_get_movement_terrain_penalty()` helper in MovementPhase.gd, integrated into all movement distance calculations: `_validate_set_model_dest`, `_validate_stage_model_move`, `_process_stage_model_move`, `_process_group_movement`, and `_validate_individual_move_internal`. Tests in `test_fly_movement_terrain.gd`.
 
 ### T3-19. Terrain height handling in LoS — only "tall" terrain handled — **DONE**
 - **Phase:** Shooting (LoS)
@@ -825,12 +827,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 15 | 11 | 26 |
+| Tier 3 — Medium Rules | 16 | 10 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **36** | **92** | **128** |
-| **Recently Completed** | **63** | — | **63** |
+| **Total Open** | **37** | **91** | **128** |
+| **Recently Completed** | **64** | — | **64** |
 | *Mathhammer items (subset)* | *8* | *23* | *31* |
 
 ---
