@@ -28,6 +28,16 @@ var run_simulation_button: Button
 var trials_spinbox: SpinBox
 var phase_toggle: OptionButton  # Shooting/Melee phase selector
 
+# Defender stats override controls
+var defender_override_checkbox: CheckBox
+var defender_override_panel: VBoxContainer
+var override_toughness_spinbox: SpinBox
+var override_save_spinbox: SpinBox
+var override_wounds_spinbox: SpinBox
+var override_invuln_spinbox: SpinBox
+var override_fnp_spinbox: SpinBox
+var override_model_count_spinbox: SpinBox
+
 # Results display elements
 var results_label: RichTextLabel
 var histogram_display: Control
@@ -42,22 +52,31 @@ var selected_attackers: Dictionary = {}  # unit_id -> selected state
 var rule_toggles: Dictionary = {}
 var tween: Tween
 
+# Background thread for simulation (T3-25)
+var _simulation_thread: Thread = null
+
 # Signals
 signal simulation_requested(config: Dictionary)
 signal unit_selection_changed(attacker_id: String, defender_id: String)
 
 func _ready() -> void:
 	print("MathhhammerUI: Initializing...")
-	
+
 	_setup_ui_structure()
 	_setup_controls()
 	_connect_signals()
 	_populate_unit_selectors()
 	_populate_rule_toggles()
-	
+
 	# Start collapsed following UnitStatsPanel pattern
 	is_collapsed = true
 	set_collapsed(false)  # Start expanded to show functionality
+
+func _exit_tree() -> void:
+	# Clean up background simulation thread on node removal (T3-25)
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhhammerUI: Waiting for simulation thread to finish before exit...")
+		_simulation_thread.wait_to_finish()
 
 func _setup_ui_structure() -> void:
 	# Create the main UI structure programmatically if nodes don't exist
@@ -153,10 +172,29 @@ func _create_content_sections() -> void:
 	defender_selector = OptionButton.new()
 	defender_hbox.add_child(defender_selector)
 	
+	# Defender Stats Override Section
+	var override_separator = HSeparator.new()
+	unit_selector.add_child(override_separator)
+
+	defender_override_checkbox = CheckBox.new()
+	defender_override_checkbox.text = "Custom Defender Stats"
+	defender_override_checkbox.tooltip_text = "Override defender T/Sv/W/Invuln/FNP with custom values"
+	defender_override_checkbox.add_theme_font_size_override("font_size", 13)
+	unit_selector.add_child(defender_override_checkbox)
+	defender_override_checkbox.toggled.connect(_on_defender_override_toggled)
+
+	defender_override_panel = VBoxContainer.new()
+	defender_override_panel.name = "DefenderOverridePanel"
+	defender_override_panel.add_theme_constant_override("separation", 4)
+	defender_override_panel.visible = false  # Hidden until checkbox is toggled
+	unit_selector.add_child(defender_override_panel)
+
+	_create_defender_override_fields()
+
 	# Weapon Selection Section
 	var weapon_separator = HSeparator.new()
 	unit_selector.add_child(weapon_separator)
-	
+
 	var weapon_label = Label.new()
 	weapon_label.text = "Weapon Selection"
 	weapon_label.add_theme_font_size_override("font_size", 14)
@@ -618,14 +656,112 @@ func _on_attacker_selection_changed(_index: int) -> void:
 func _on_unit_selection_changed(_index: int) -> void:
 	var attacker_id = ""
 	var defender_id = ""
-	
+
 	if attacker_selector.selected >= 0:
 		attacker_id = attacker_selector.get_item_metadata(attacker_selector.selected)
-	
+
 	if defender_selector.selected >= 0:
 		defender_id = defender_selector.get_item_metadata(defender_selector.selected)
-	
+
+	# Auto-populate override fields with selected defender's actual stats
+	_populate_override_from_defender(defender_id)
+
 	emit_signal("unit_selection_changed", attacker_id, defender_id)
+
+func _create_defender_override_fields() -> void:
+	# Helper to create a labeled spinbox row
+	var fields = [
+		{"label": "Toughness (T):", "min": 1, "max": 14, "default": 4, "field": "toughness"},
+		{"label": "Armor Save (Sv):", "min": 2, "max": 7, "default": 3, "field": "save"},
+		{"label": "Wounds (W):", "min": 1, "max": 30, "default": 1, "field": "wounds"},
+		{"label": "Models:", "min": 1, "max": 30, "default": 1, "field": "model_count"},
+		{"label": "Invuln Save:", "min": 0, "max": 6, "default": 0, "field": "invuln"},
+		{"label": "Feel No Pain:", "min": 0, "max": 6, "default": 0, "field": "fnp"},
+	]
+
+	for field_def in fields:
+		var row = HBoxContainer.new()
+		var label = Label.new()
+		label.text = field_def.label
+		label.custom_minimum_size.x = 120
+		label.add_theme_font_size_override("font_size", 12)
+		row.add_child(label)
+
+		var spinbox = SpinBox.new()
+		spinbox.min_value = field_def.min
+		spinbox.max_value = field_def.max
+		spinbox.value = field_def.default
+		spinbox.step = 1
+		spinbox.custom_minimum_size.x = 80
+		spinbox.add_theme_font_size_override("font_size", 11)
+		row.add_child(spinbox)
+
+		# Add hint for 0 = none fields
+		if field_def.field == "invuln" or field_def.field == "fnp":
+			var hint = Label.new()
+			hint.text = " (0 = none)"
+			hint.add_theme_font_size_override("font_size", 10)
+			hint.add_theme_color_override("font_color", Color.GRAY)
+			row.add_child(hint)
+
+		defender_override_panel.add_child(row)
+
+		# Store references to spinboxes
+		match field_def.field:
+			"toughness":
+				override_toughness_spinbox = spinbox
+			"save":
+				override_save_spinbox = spinbox
+			"wounds":
+				override_wounds_spinbox = spinbox
+			"model_count":
+				override_model_count_spinbox = spinbox
+			"invuln":
+				override_invuln_spinbox = spinbox
+			"fnp":
+				override_fnp_spinbox = spinbox
+
+	# Add note about overrides
+	var note = Label.new()
+	note.text = "Overrides replace defender's unit stats for simulation"
+	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_color_override("font_color", Color.GRAY)
+	defender_override_panel.add_child(note)
+
+func _on_defender_override_toggled(enabled: bool) -> void:
+	print("MathhhammerUI: Defender override toggled: %s" % enabled)
+	defender_override_panel.visible = enabled
+	# Auto-populate from selected defender when enabling
+	if enabled and defender_selector.selected >= 0:
+		var defender_id = defender_selector.get_item_metadata(defender_selector.selected)
+		_populate_override_from_defender(defender_id)
+
+func _populate_override_from_defender(defender_id: String) -> void:
+	if defender_id == "" or not GameState:
+		return
+	var unit = GameState.get_unit(defender_id)
+	if unit.is_empty():
+		return
+	var stats = unit.get("meta", {}).get("stats", {})
+	var models = unit.get("models", [])
+
+	if override_toughness_spinbox:
+		override_toughness_spinbox.value = stats.get("toughness", 4)
+	if override_save_spinbox:
+		override_save_spinbox.value = stats.get("save", 3)
+	if override_wounds_spinbox and not models.is_empty():
+		override_wounds_spinbox.value = models[0].get("wounds", 1)
+	if override_model_count_spinbox:
+		override_model_count_spinbox.value = models.size()
+	if override_invuln_spinbox and not models.is_empty():
+		override_invuln_spinbox.value = models[0].get("invuln", 0)
+	if override_fnp_spinbox:
+		override_fnp_spinbox.value = stats.get("fnp", 0)
+
+	print("MathhhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
+		defender_id, int(override_toughness_spinbox.value), int(override_save_spinbox.value),
+		int(override_wounds_spinbox.value), int(override_model_count_spinbox.value),
+		int(override_invuln_spinbox.value), int(override_fnp_spinbox.value)])
 
 func _on_run_simulation_pressed() -> void:
 	var defender_id = ""
@@ -738,25 +874,62 @@ func _build_attacker_config(unit_id: String) -> Dictionary:
 	}
 
 func _build_defender_config(unit_id: String) -> Dictionary:
-	return {
+	var config = {
 		"unit_id": unit_id
 	}
 
+	# Include custom defender stat overrides if enabled
+	if defender_override_checkbox and defender_override_checkbox.button_pressed:
+		config["overrides"] = {
+			"toughness": int(override_toughness_spinbox.value),
+			"save": int(override_save_spinbox.value),
+			"wounds": int(override_wounds_spinbox.value),
+			"model_count": int(override_model_count_spinbox.value),
+			"invuln": int(override_invuln_spinbox.value),
+			"fnp": int(override_fnp_spinbox.value),
+		}
+		print("MathhhammerUI: Defender config with overrides: %s" % str(config))
+
+	return config
+
 func _run_simulation_async(config: Dictionary) -> void:
+	# Clean up any previous thread before starting a new one
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhhammerUI: Waiting for previous simulation thread to finish...")
+		_simulation_thread.wait_to_finish()
+
 	run_simulation_button.disabled = true
 	run_simulation_button.text = "Running..."
-	
-	# Run simulation (this might need to be async for large simulations)
-	print("MathhhammerUI: About to run simulation...")
+
+	# Run simulation on a background thread to avoid freezing the UI (T3-25)
+	print("MathhhammerUI: Starting simulation on background thread...")
+	_simulation_thread = Thread.new()
+	_simulation_thread.start(_simulation_thread_func.bind(config))
+
+func _simulation_thread_func(config: Dictionary) -> void:
+	# This runs on a background thread — no UI access allowed here
+	print("MathhhammerUI: Background thread started, running simulation...")
 	var result = Mathhammer.simulate_combat(config)
+	print("MathhhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
+	# Defer UI update back to the main thread
+	call_deferred("_on_simulation_completed", result)
+
+func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
+	# This runs on the main thread via call_deferred — safe to update UI
+	print("MathhhammerUI: Simulation completed callback on main thread")
+
+	# Join the background thread to clean up resources
+	if _simulation_thread != null and _simulation_thread.is_started():
+		_simulation_thread.wait_to_finish()
+		print("MathhhammerUI: Background thread joined successfully")
+
 	current_simulation_result = result
-	print("MathhhammerUI: Simulation complete, result type: %s" % typeof(result))
-	
+
 	# Update UI with results
 	print("MathhhammerUI: About to display results...")
 	_display_simulation_results(result)
 	print("MathhhammerUI: Results display completed")
-	
+
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
 
