@@ -71,13 +71,11 @@ However, several **rules-required features are missing or incomplete**, and the 
 
 **Status (updated 2026-02-16):** IMPLEMENTED. `ChargePhase.gd:488-493` now sets `flags.has_been_charged` on charge targets. The flag is integrated into the charge resolution system.
 
-### 2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed
+### ~~2.4 HIGH: Base-to-Base Contact Enforcement — Stubbed~~ DONE
 
 **Rule:** If it is possible for a charging model to end its move in base-to-base contact with an enemy model (while satisfying all other constraints), it **must** do so.
 
-**Current state:** `ChargePhase.gd:784-788` — `_validate_base_to_base_possible()` returns `{"valid": true}` always. Comment says "For MVP, we'll implement a simplified check."
-
-**Impact:** Players can legally place models within engagement range but not in base-to-base contact even when B2B is achievable. This is a rules violation.
+**Status (updated 2026-02-17):** IMPLEMENTED. `ChargePhase.gd:971-1038` and `RulesEngine.gd:3523-3583` now enforce B2B contact. For each charging model, the validator checks whether B2B is reachable (edge-to-edge distance ≤ rolled distance) and whether the final position achieves it (within 0.25" tolerance). Validation errors are raised if B2B is achievable but not achieved. Both interactive and auto-resolve paths are consistent.
 
 ### 2.5 ~~HIGH: Failed Charge Handling — Split Between Client and Server~~ **[RESOLVED — T1-8]**
 

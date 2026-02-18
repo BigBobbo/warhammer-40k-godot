@@ -60,6 +60,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-5: Pile-in must end with unit in engagement range | Fight | FIGHT_PHASE_AUDIT.md §2.2 |
 | T1-8: Failed charge measurement divergence (client vs server) — unified to inches | Charge | CHARGE_PHASE_AUDIT.md §2.5 |
 | T1-9: [MH-BUG-1] Mathhammer damage extraction — wound delta computation + double-count fix | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T1-7: Base-to-base contact enforcement in charge — B2B validation with tolerance | Charge | CHARGE_PHASE_AUDIT.md §2.4 |
 
 ---
 
@@ -192,12 +193,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Source:** FIGHT_PHASE_AUDIT.md §2.3
 - **Files:** `FightPhase.gd` — PileIn/Consolidate validation
 
-### T1-7. Base-to-base contact enforcement in charge
+### T1-7. Base-to-base contact enforcement in charge — **DONE**
 - **Phase:** Charge
 - **Rule:** If a charging model can end in B2B with an enemy, it must
 - **Impact:** Rules violation allowing positional advantage
 - **Source:** CHARGE_PHASE_AUDIT.md §2.4
-- **Files:** `ChargePhase.gd:784-788` — `_validate_base_to_base_possible()` currently returns `true` always
+- **Files:** `ChargePhase.gd:971-1038`, `RulesEngine.gd:3523-3583`
+- **Resolution:** Replaced the stub with real B2B enforcement logic. For each charging model, the validator checks whether it could reach base-to-base contact (straight-line distance ≤ rolled distance) and whether its final position achieves B2B (within 0.25" tolerance). If reachable but not achieved, a validation error is raised. Implemented consistently in both ChargePhase (interactive) and RulesEngine (auto-resolve) paths. 7 unit tests (17 assertions) verify all cases: valid B2B, missing B2B, unreachable targets, mixed models, dead targets, empty paths, and tolerance edge case.
 
 ### T1-8. Failed charge measurement divergence (client vs server) — **DONE**
 - **Phase:** Charge
@@ -757,14 +759,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 
 | Category | Done | Open | Total |
 |----------|------|------|-------|
-| Tier 1 — Critical Rules | 8 | 2 | 10 |
+| Tier 1 — Critical Rules | 9 | 1 | 10 |
 | Tier 2 — High Rules | 0 | 16 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **8** | **120** | **128** |
-| **Recently Completed** | **38** | — | **38** |
+| **Total Open** | **9** | **119** | **128** |
+| **Recently Completed** | **39** | — | **39** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---
