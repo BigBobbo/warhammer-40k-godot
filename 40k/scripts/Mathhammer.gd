@@ -229,6 +229,29 @@ static func _build_shoot_action(attacker_config: Dictionary, defender: Dictionar
 			if rule_toggles.get("twin_linked", false):
 				assignment["twin_linked"] = true
 
+			# Build modifiers dict for hit and wound re-rolls from rule toggles
+			var hit_mods = {}
+			var wound_mods = {}
+
+			# Hit re-roll toggles
+			if rule_toggles.get("reroll_hits_ones", false):
+				hit_mods["reroll_ones"] = true
+			if rule_toggles.get("reroll_hits_failed", false):
+				hit_mods["reroll_failed"] = true
+
+			# Wound re-roll toggles
+			if rule_toggles.get("reroll_wounds_ones", false):
+				wound_mods["reroll_ones"] = true
+			if rule_toggles.get("reroll_wounds_failed", false):
+				wound_mods["reroll_failed"] = true
+
+			if not hit_mods.is_empty() or not wound_mods.is_empty():
+				assignment["modifiers"] = {}
+				if not hit_mods.is_empty():
+					assignment["modifiers"]["hit"] = hit_mods
+				if not wound_mods.is_empty():
+					assignment["modifiers"]["wound"] = wound_mods
+
 			assignments.append(assignment)
 	
 	return {
@@ -260,6 +283,34 @@ static func _build_melee_action(attacker_config: Dictionary, defender: Dictionar
 				"weapon": weapon_id,
 				"models": model_ids
 			}
+
+			# Apply rule toggles that affect wound rolls
+			if rule_toggles.get("twin_linked", false):
+				assignment["twin_linked"] = true
+
+			# Build modifiers dict for hit and wound re-rolls from rule toggles
+			var hit_mods = {}
+			var wound_mods = {}
+
+			# Hit re-roll toggles
+			if rule_toggles.get("reroll_hits_ones", false):
+				hit_mods["reroll_ones"] = true
+			if rule_toggles.get("reroll_hits_failed", false):
+				hit_mods["reroll_failed"] = true
+
+			# Wound re-roll toggles
+			if rule_toggles.get("reroll_wounds_ones", false):
+				wound_mods["reroll_ones"] = true
+			if rule_toggles.get("reroll_wounds_failed", false):
+				wound_mods["reroll_failed"] = true
+
+			if not hit_mods.is_empty() or not wound_mods.is_empty():
+				assignment["modifiers"] = {}
+				if not hit_mods.is_empty():
+					assignment["modifiers"]["hit"] = hit_mods
+				if not wound_mods.is_empty():
+					assignment["modifiers"]["wound"] = wound_mods
+
 			assignments.append(assignment)
 
 	return {

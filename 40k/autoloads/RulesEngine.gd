@@ -458,11 +458,13 @@ enum HitModifier {
 	REROLL_ONES = 1,    # Re-roll 1s to hit
 	PLUS_ONE = 2,       # +1 to hit
 	MINUS_ONE = 4,      # -1 to hit (cover, moved, etc.)
+	REROLL_FAILED = 8,  # Re-roll all failed hit rolls
 }
 
 # Apply hit modifiers to a single roll
 # Returns the modified roll value and any re-roll that occurred
-static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> Dictionary:
+# hit_threshold: the BS/WS value needed to hit (e.g. 3 for 3+); required for REROLL_FAILED
+static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_threshold: int = 0) -> Dictionary:
 	var result = {
 		"original_roll": roll,
 		"modified_roll": roll,
@@ -472,7 +474,14 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> D
 	}
 
 	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
+	# Re-roll ones takes priority check first
 	if (modifiers & HitModifier.REROLL_ONES) and roll == 1:
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+	elif (modifiers & HitModifier.REROLL_FAILED) and hit_threshold > 0 and roll < hit_threshold:
+		# Re-roll all failed hit rolls (roll below BS/WS threshold)
 		var reroll_result = rng.roll_d6(1)[0]
 		result.rerolled = true
 		result.reroll_value = reroll_result
@@ -800,6 +809,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				hit_modifiers |= HitModifier.REROLL_FAILED
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
 			if hit_mods.get("minus_one", false):
@@ -846,7 +857,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -946,6 +957,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):
@@ -1294,6 +1307,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				hit_modifiers |= HitModifier.REROLL_FAILED
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
 			if hit_mods.get("minus_one", false):
@@ -1341,7 +1356,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
 			# Apply modifiers to this roll
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -1438,6 +1453,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			ar_wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):
@@ -4769,21 +4786,39 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# Build melee hit modifiers using the HitModifier system
+		var melee_hit_modifiers = HitModifier.NONE
+
+		# Get hit modifiers from assignment
+		if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+			var hit_mods = assignment.modifiers.hit
+			if hit_mods.get("reroll_ones", false):
+				melee_hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				melee_hit_modifiers |= HitModifier.REROLL_FAILED
+
 		# OATH OF MOMENT (T3-10): Check if attacker benefits from Oath for melee hit rerolls
 		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
 		if melee_oath_reroll_hits:
+			melee_hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to hit against %s" % target_name)
 
+		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll
 
-			# OATH OF MOMENT: Re-roll 1s to hit in melee
-			if melee_oath_reroll_hits and roll == 1:
-				var new_roll = rng.roll_d6(1)[0]
-				print("RulesEngine: OATH OF MOMENT melee hit reroll: %d → %d" % [roll, new_roll])
-				roll = new_roll
-				unmodified_roll = new_roll
+			# Apply hit modifiers (re-rolls first, using HitModifier system)
+			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, ws)
+			roll = modifier_result.modified_roll
+
+			# Track re-rolls for dice log
+			if modifier_result.rerolled:
+				melee_hit_reroll_data.append({
+					"original": modifier_result.original_roll,
+					"rerolled_to": modifier_result.reroll_value
+				})
+				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
@@ -4848,6 +4883,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):

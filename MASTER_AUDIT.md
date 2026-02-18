@@ -93,6 +93,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-21: Torrent weapons (auto-hit) toggle in Mathhammer simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-23: Full re-roll support for hits and wounds (re-roll 1s, re-roll all failed) | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
@@ -569,12 +570,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `Mathhammer.gd` — `_build_shoot_action()` should check Blast keyword and adjust
 - **Resolution:** Added Blast keyword auto-calculation to `_build_shoot_action()` in Mathhammer.gd. Uses existing `RulesEngine.is_blast_weapon()`, `calculate_blast_bonus()`, and `calculate_blast_minimum()` to adjust `attacks_override` based on defender model count in the trial board. Bonus stacks with Rapid Fire.
 
-### T3-23. [MH-RULE-13] No wound re-roll support (only hit re-roll 1s exists)
+### T3-23. [MH-RULE-13] No wound re-roll support (only hit re-roll 1s exists) — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Many abilities grant re-roll all failed wounds, re-roll wound rolls of 1, re-roll all failed hits
 - **Impact:** Re-rolls are one of the most impactful modifiers; only partial support exists
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `RulesEngine.gd` — only `REROLL_ONES` hit modifier exists (line 342); needs WoundModifier with re-rolls
+- **Resolution:** Added `HitModifier.REROLL_FAILED` (value 8) to the enum and updated `apply_hit_modifiers()` with a `hit_threshold` parameter. Wired up `reroll_failed` flag reading in all three combat paths (resolve_shoot, auto_resolve_shoot, resolve_melee_attacks). Refactored melee hit re-rolls to use the HitModifier system. Added 4 new Mathhammer UI toggles: Re-roll 1s to Hit, Re-roll All Failed Hits, Re-roll 1s to Wound, Re-roll All Failed Wounds. Both Mathhammer `_build_shoot_action` and `_build_melee_action` now pass hit/wound re-roll modifiers from rule toggles to RulesEngine assignments.
 
 ### T3-24. [MH-FEAT-6] No defender stats override panel
 - **Phase:** Mathhammer
@@ -829,14 +831,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 17 | 9 | 26 |
+| Tier 3 — Medium Rules | 18 | 8 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **38** | **90** | **128** |
-| **Recently Completed** | **65** | — | **65** |
-| *Mathhammer items (subset)* | *9* | *22* | *31* |
->>>>>>> audit/T3-21/t3-21-mh-rule-5-torrent-weapons-auto-hit
+| **Total Open** | **39** | **89** | **128** |
+| **Recently Completed** | **66** | — | **66** |
+| *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
 
