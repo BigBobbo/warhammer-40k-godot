@@ -32,6 +32,9 @@ func _create_toast_container() -> void:
 	# Space between toasts
 	toast_container.add_theme_constant_override("separation", 6)
 
+	# Don't intercept mouse events - toasts are display-only notifications
+	toast_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	add_child(toast_container)
 
 func show_toast(message: String, color: Color = Color.WHITE, duration: float = DEFAULT_DURATION) -> void:
@@ -102,6 +105,10 @@ func _create_toast_panel(message: String, color: Color) -> PanelContainer:
 
 	panel.add_child(label)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Don't intercept mouse events - toasts are display-only notifications
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	return panel
 
