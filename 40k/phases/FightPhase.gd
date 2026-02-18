@@ -40,6 +40,7 @@ var confirmed_attacks: Array = []
 var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
+var units_that_piled_in: Dictionary = {}  # unit_id -> true, tracks which units have already piled in
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
@@ -83,6 +84,7 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_fought.clear()
+	units_that_piled_in.clear()
 	awaiting_counter_offensive = false
 	counter_offensive_player = 0
 	counter_offensive_unit_id = ""
@@ -916,6 +918,7 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 		})
 
 	emit_signal("pile_in_preview", unit_id, movements)
+	units_that_piled_in[unit_id] = true
 	log_phase_message("Unit %s piled in" % unit_id)
 
 	# After pile-in, request attack assignment
@@ -1023,10 +1026,11 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 	emit_signal("consolidate_required", active_fighter_id, 3.0)
 
 	# Add metadata for NetworkManager to re-emit signal on client
-	var final_result = create_result(true, result.get("diffs", []), result.get("log_text", ""))
+	var final_result = create_result(true, result.get("diffs", []))
 	final_result["trigger_consolidate"] = true
 	final_result["consolidate_unit_id"] = active_fighter_id
 	final_result["consolidate_distance"] = 3.0
+	final_result["log_text"] = result.get("log_text", "")
 
 	# Preserve dice and save_data_list from combat resolution
 	if result.has("dice"):
@@ -1842,12 +1846,14 @@ func get_available_actions() -> Array:
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
-			actions.append({
-				"type": "PILE_IN",
-				"unit_id": active_fighter_id,
-				"description": "Pile in with %s" % active_fighter_id
-			})
-			
+			# Only offer pile-in if the unit hasn't already piled in
+			if not units_that_piled_in.get(active_fighter_id, false):
+				actions.append({
+					"type": "PILE_IN",
+					"unit_id": active_fighter_id,
+					"description": "Pile in with %s" % active_fighter_id
+				})
+
 			# Action to assign attacks (weapon/target selection handled by UI)
 			actions.append({
 				"type": "ASSIGN_ATTACKS_UI",

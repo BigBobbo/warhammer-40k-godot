@@ -506,7 +506,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 4 | Epic Challenge | Weapon keyword granting (PRECISION) | **COMPLETED** |
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | **COMPLETED** |
 | 6 | Counter-Offensive | Fight order manipulation | **COMPLETED** |
-| 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | Pending |
+| 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | **COMPLETED** |
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
 | 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
@@ -668,3 +668,39 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 3. Reactive opponent-turn stratagems in the Fight phase follow the same signal→dialog→action pattern as shooting phase stratagems
 4. Counter-Offensive composes with Epic Challenge (the CO unit can also use Epic Challenge before pile-in)
 5. Both players can use Counter-Offensive independently in the same phase (once per player)
+
+### Step 7: Fire Overwatch + Heroic Intervention — Implementation Notes
+
+**What was implemented:**
+- FIRE OVERWATCH (Core – Strategic Ploy Stratagem, 1 CP): During opponent's Movement or Charge phase, after an enemy unit moves/declares a charge, one friendly unit within 24" can shoot the enemy unit. All attacks only hit on unmodified rolls of 6 (no hit modifiers apply). Wound, save, and damage resolution are normal. Once per turn.
+- HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 1 CP): During opponent's Charge phase, after an enemy unit completes a charge move, one friendly unit within 6" can declare a counter-charge targeting only that enemy unit. No charge bonus (+1 to hit) is granted. VEHICLE units cannot use this unless they also have the WALKER keyword. Once per phase.
+
+**Implementation approach**: Both are reactive stratagems that trigger during the opponent's phase. Fire Overwatch pauses after movement confirmation / charge declaration to offer the defending player a chance to shoot. Heroic Intervention pauses after a charge move completes to offer a counter-charge. Both follow the established signal→dialog→action pattern from Counter-Offensive.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Added `is_fire_overwatch_available()`, `get_overwatch_eligible_units()`, `execute_fire_overwatch()` for Fire Overwatch (checks 24" range, alive models, not battle-shocked). Added `is_heroic_intervention_available()`, `get_heroic_intervention_eligible_units()` for Heroic Intervention (checks 6" range, alive models, not battle-shocked, not VEHICLE unless WALKER, not already engaged). Added helper methods `_is_within_range()` and `_is_unit_in_engagement_range()`.
+- `40k/autoloads/RulesEngine.gd` — Added `resolve_overwatch_shooting()` static method as the core overwatch shooting resolver. Creates weapon assignments from all ranged weapons on alive models via `_build_overwatch_weapon_assignments()`. Each weapon is resolved by `_resolve_overwatch_assignment()` which rolls attacks normally, but only counts unmodified 6s as hits (no hit modifiers, no BS threshold). Wounds, saves, and damage follow standard rules. Added `_apply_diff_to_board()` helper for sequential weapon resolution (so subsequent weapons see updated model state).
+- `40k/phases/MovementPhase.gd` — Added `overwatch_opportunity` and `overwatch_result` signals. Added `_awaiting_overwatch_decision` and `_overwatch_moved_unit_id` state. After `_process_confirm_unit_move()`, checks if Fire Overwatch is available for the defending player. If so, emits signal and returns `awaiting_overwatch` result. Added `USE_FIRE_OVERWATCH` and `DECLINE_FIRE_OVERWATCH` action validation and processing.
+- `40k/phases/ChargePhase.gd` — Added `overwatch_opportunity`, `overwatch_result`, and `heroic_intervention_opportunity` signals. Added state variables for both overwatch and heroic intervention decision tracking. After `_process_declare_charge()`, checks Fire Overwatch availability. After `_process_apply_charge_move()`, checks Heroic Intervention availability. Added `USE_FIRE_OVERWATCH`, `DECLINE_FIRE_OVERWATCH`, `USE_HEROIC_INTERVENTION`, and `DECLINE_HEROIC_INTERVENTION` action types with full validation and processing. Heroic Intervention sets `heroic_intervention_charge` flag on the counter-charger and adds it to `pending_charges` with the charging unit as the sole target.
+- `40k/scripts/MovementController.gd` — Connected to `overwatch_opportunity` signal in `set_phase()`. Added `_on_overwatch_opportunity()` handler that shows FireOverwatchDialog, plus `_on_fire_overwatch_used()` and `_on_fire_overwatch_declined()` action emitters.
+- `40k/scripts/ChargeController.gd` — Connected to both `overwatch_opportunity` and `heroic_intervention_opportunity` signals in `set_phase()`. Added handlers for both: `_on_overwatch_opportunity()` shows FireOverwatchDialog, `_on_heroic_intervention_opportunity()` shows HeroicInterventionDialog. Each dialog result routes through `charge_action_requested` signal.
+
+**Files created:**
+- `40k/dialogs/FireOverwatchDialog.gd` — AcceptDialog-based UI showing stratagem info (1 CP, target enemy unit name), scrollable list of eligible friendly units with "Fire Overwatch (1 CP)" buttons, and "Decline" button. Follows CounterOffensiveDialog pattern.
+- `40k/dialogs/HeroicInterventionDialog.gd` — AcceptDialog-based UI showing stratagem info (1 CP, charging enemy unit name, no charge bonus note), scrollable list of eligible friendly units with "Counter-Charge (1 CP)" buttons, and "Decline" button.
+- `40k/tests/unit/test_fire_overwatch.gd` — Tests: overwatch hits only on unmodified 6s, wounds resolve normally, no weapons yields no hits, availability with/without CP, eligibility within/beyond 24", battle-shocked exclusion, once-per-turn restriction, 1 CP deduction.
+- `40k/tests/unit/test_heroic_intervention.gd` — Tests: availability with/without CP, eligibility within 6", VEHICLE exclusion, WALKER exception, battle-shocked exclusion, dead unit exclusion, once-per-phase restriction, 1 CP deduction, friendly unit exclusion.
+
+**Architecture decisions:**
+- **Hit-on-6-only via separate resolution path**: Rather than adding a flag to the existing `_resolve_assignment()`, a dedicated `resolve_overwatch_shooting()` method was created. This avoids complicating the main shooting flow with conditional modifier logic. The overwatch path explicitly ignores all hit modifiers (Heavy, BGNT, Stealth, etc.) and simply checks `roll == 6`.
+- **Trigger after confirm/declare/apply**: Fire Overwatch triggers after `_process_confirm_unit_move()` in MovementPhase and after `_process_declare_charge()` in ChargePhase. Heroic Intervention triggers after `_process_apply_charge_move()`. These are the natural insertion points matching the rules timing.
+- **StratagemManager.execute_fire_overwatch() handles everything**: The full shooting resolution and diff application is encapsulated in StratagemManager, which calls RulesEngine internally. The phase only needs to emit the signal, receive the action, and call execute.
+- **Heroic Intervention enters normal charge flow**: When HI is accepted, the counter-charging unit is added to `pending_charges` and set as `current_charging_unit`. It then follows the normal charge roll and movement flow, but with the `heroic_intervention` flag set to deny the charge bonus in FightPhase.
+- **Sequential weapon resolution**: Overwatch resolves each weapon sequentially and applies diffs to the board snapshot between weapons, so if earlier weapons kill models, later weapons correctly see updated alive/wounds state.
+
+**What this proved:**
+1. Cross-phase reactive actions work with the same signal→dialog→action pattern
+2. The overwatch hit-on-6-only mechanic is cleanly isolated in its own resolution path
+3. Both Movement and Charge phases can trigger the same stratagem (Fire Overwatch) with the same dialog
+4. Heroic Intervention can inject a counter-charge into the charge flow by reusing existing charge infrastructure
+5. The `_is_within_range()` helper using `Measurement.model_to_model_distance_inches()` correctly handles variable unit ranges

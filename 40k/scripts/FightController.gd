@@ -1288,6 +1288,12 @@ func _on_counter_offensive_declined(player: int) -> void:
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	"""Show pile-in dialog and enable interactive movement"""
+	# Skip dialog for AI players - they submit PILE_IN actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping pile-in dialog for AI player %d" % current_fighter_owner)
+		return
+
 	var dialog_script = load("res://dialogs/PileInDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load PileInDialog.gd")
@@ -1341,6 +1347,12 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	"""Show attack assignment dialog"""
 	print("[FightController] Attack assignment required for ", unit_id)
 	print("[FightController] Eligible targets: ", targets.keys())
+
+	# Skip dialog for AI players - they submit ASSIGN_ATTACKS actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping dialog for AI player %d" % current_fighter_owner)
+		return
 
 	# Wait for previous dialog to close
 	await get_tree().create_timer(0.3).timeout
@@ -1406,6 +1418,12 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""
+	# Skip dialog for AI players - they submit CONSOLIDATE actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping consolidate dialog for AI player %d" % current_fighter_owner)
+		return
+
 	var dialog_script = load("res://dialogs/ConsolidateDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load ConsolidateDialog.gd")

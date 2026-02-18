@@ -24,6 +24,7 @@ extends "res://addons/gut/test.gd"
 const GameStateData = preload("res://autoloads/GameState.gd")
 const FightPhase = preload("res://phases/FightPhase.gd")
 
+
 # ==========================================
 # Helpers
 # ==========================================
@@ -36,7 +37,7 @@ func _create_unit(id: String, model_count: int, owner: int = 1, keywords: Array 
 			"wounds": wounds,
 			"current_wounds": wounds,
 			"base_mm": 32,
-			"position": {"x": 100 + i * 20 + (owner - 1) * 5, "y": 100},
+			"position": {"x": 100 + i * 20 + (owner - 1) * 50, "y": 100},
 			"alive": true,
 			"status_effects": []
 		})
@@ -102,8 +103,47 @@ func _setup_charge_scenario() -> void:
 
 	StratagemManager.reset_for_new_game()
 
+func _setup_heroic_intervention_scenario() -> Dictionary:
+	"""Set up a basic heroic intervention scenario: P1 unit just charged, P2 unit within 6\"."""
+	GameState.state.meta.phase = GameStateData.Phase.CHARGE
+	GameState.state.meta.active_player = 1
+	GameState.state.meta.battle_round = 2
+
+	# Player 1 unit (just charged)
+	var charger = _create_unit("U_CHARGER", 5, 1, ["INFANTRY"], 3, 4, 1)
+	for i in range(charger.models.size()):
+		charger.models[i].position = {"x": 200 + i * 20, "y": 200}
+	charger.flags["charged_this_turn"] = true
+	GameState.state.units["U_CHARGER"] = charger
+
+	# Player 2 unit (defender, within 6" of charger, can counter-charge)
+	var defender = _create_unit("U_DEFENDER", 5, 2, ["INFANTRY"], 3, 4, 1)
+	for i in range(defender.models.size()):
+		# Place within 6" (close enough)
+		defender.models[i].position = {"x": 200 + i * 20, "y": 250}
+	GameState.state.units["U_DEFENDER"] = defender
+
+	# Player 2 unit far away (should not be eligible)
+	var far_unit = _create_unit("U_FAR", 3, 2, ["INFANTRY"], 3, 4, 1)
+	for i in range(far_unit.models.size()):
+		far_unit.models[i].position = {"x": 5000 + i * 20, "y": 5000}
+	GameState.state.units["U_FAR"] = far_unit
+
+	# Give both players CP
+	if not GameState.state.has("players"):
+		GameState.state["players"] = {}
+	GameState.state.players["1"] = {"cp": 3}
+	GameState.state.players["2"] = {"cp": 3}
+
+	# Reset stratagem usage
+	StratagemManager.reset_for_new_turn(2)
+
+	return GameState.create_snapshot()
+
 func before_each():
-	GameState.state.units.clear()
+	GameState.state = GameState._create_default_state()
+	if GameState.state.has("units"):
+		GameState.state.units.clear()
 	GameState.state.players = {
 		"1": {"cp": 5, "faction": ""},
 		"2": {"cp": 5, "faction": ""}
@@ -112,7 +152,7 @@ func before_each():
 
 
 # ==========================================
-# Stratagem Definition Tests
+# Stratagem Definition Tests (local audit)
 # ==========================================
 
 func test_heroic_intervention_stratagem_exists():
@@ -147,7 +187,7 @@ func test_heroic_intervention_effect_no_fights_first():
 
 
 # ==========================================
-# Validation Tests
+# Validation Tests (local audit)
 # ==========================================
 
 func test_can_use_heroic_intervention_with_cp():
@@ -176,6 +216,26 @@ func test_heroic_intervention_not_available_no_cp():
 	GameState.state.players["2"]["cp"] = 0
 	var check = StratagemManager.is_heroic_intervention_available(2)
 	assert_false(check.available, "HI should not be available with 0 CP")
+
+
+# ==========================================
+# StratagemManager Availability Tests (remote PR)
+# ==========================================
+
+func test_heroic_intervention_available_with_cp():
+	"""Heroic Intervention should be available when player has CP."""
+	_setup_heroic_intervention_scenario()
+
+	var check = StratagemManager.is_heroic_intervention_available(2)
+	assert_true(check.available, "Heroic Intervention should be available with 3 CP")
+
+func test_heroic_intervention_not_available_without_cp():
+	"""Heroic Intervention should not be available when player has 0 CP."""
+	_setup_heroic_intervention_scenario()
+	GameState.state.players["2"] = {"cp": 0}
+
+	var check = StratagemManager.is_heroic_intervention_available(2)
+	assert_false(check.available, "Heroic Intervention should not be available with 0 CP")
 
 
 # ==========================================
@@ -278,7 +338,7 @@ func test_enemy_units_not_eligible():
 
 
 # ==========================================
-# FightPhase Priority Tests
+# FightPhase Priority Tests (local audit)
 # ==========================================
 
 func test_fight_priority_normal_charge_gets_fights_first():
@@ -307,7 +367,7 @@ func test_fight_priority_no_charge_is_normal():
 
 
 # ==========================================
-# CP Deduction Tests
+# CP Deduction Tests (local audit)
 # ==========================================
 
 func test_heroic_intervention_deducts_2cp():
@@ -341,7 +401,7 @@ func test_heroic_intervention_once_per_phase_enforced():
 
 
 # ==========================================
-# ChargePhase Integration Tests
+# ChargePhase Integration Tests (local audit)
 # ==========================================
 
 func test_charge_phase_validates_use_heroic_intervention():
@@ -390,3 +450,117 @@ func test_charge_phase_decline_clears_state():
 	assert_eq(charge_phase.heroic_intervention_player, 0, "heroic_intervention_player should be 0 after decline")
 	assert_eq(charge_phase.heroic_intervention_charging_unit_id, "", "charging_unit_id should be empty after decline")
 	charge_phase.free()
+
+
+# ==========================================
+# Eligibility Tests (remote PR)
+# ==========================================
+
+func test_eligible_units_within_6_inches():
+	"""Units within 6\" of the charging enemy should be eligible."""
+	var board = _setup_heroic_intervention_scenario()
+
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(2, "U_CHARGER", board)
+
+	# U_DEFENDER should be eligible (within 6"), U_FAR should not
+	var eligible_ids = []
+	for e in eligible:
+		eligible_ids.append(e.unit_id)
+
+	assert_true("U_DEFENDER" in eligible_ids, "U_DEFENDER within 6\" should be eligible")
+	assert_false("U_FAR" in eligible_ids, "U_FAR beyond 6\" should not be eligible")
+
+func test_vehicle_not_eligible_unless_walker():
+	"""VEHICLE units should not be eligible for Heroic Intervention unless WALKER."""
+	_setup_heroic_intervention_scenario()
+
+	# Change defender to a VEHICLE
+	GameState.state.units["U_DEFENDER"].meta.keywords = ["VEHICLE"]
+	var board = GameState.create_snapshot()
+
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(2, "U_CHARGER", board)
+	var eligible_ids = []
+	for e in eligible:
+		eligible_ids.append(e.unit_id)
+
+	assert_false("U_DEFENDER" in eligible_ids, "VEHICLE should not be eligible")
+
+func test_walker_vehicle_is_eligible():
+	"""VEHICLE WALKER units should be eligible for Heroic Intervention."""
+	_setup_heroic_intervention_scenario()
+
+	# Change defender to a WALKER VEHICLE
+	GameState.state.units["U_DEFENDER"].meta.keywords = ["VEHICLE", "WALKER"]
+	var board = GameState.create_snapshot()
+
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(2, "U_CHARGER", board)
+	var eligible_ids = []
+	for e in eligible:
+		eligible_ids.append(e.unit_id)
+
+	assert_true("U_DEFENDER" in eligible_ids, "WALKER VEHICLE should be eligible")
+
+func test_battle_shocked_not_eligible():
+	"""Battle-shocked units should not be eligible for Heroic Intervention."""
+	_setup_heroic_intervention_scenario()
+
+	GameState.state.units["U_DEFENDER"].flags["battle_shocked"] = true
+	var board = GameState.create_snapshot()
+
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(2, "U_CHARGER", board)
+	var eligible_ids = []
+	for e in eligible:
+		eligible_ids.append(e.unit_id)
+
+	assert_false("U_DEFENDER" in eligible_ids, "Battle-shocked unit should not be eligible")
+
+func test_dead_unit_not_eligible():
+	"""Units with no alive models should not be eligible."""
+	_setup_heroic_intervention_scenario()
+
+	# Kill all models in defender
+	for model in GameState.state.units["U_DEFENDER"].models:
+		model["alive"] = false
+	var board = GameState.create_snapshot()
+
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(2, "U_CHARGER", board)
+	assert_eq(eligible.size(), 0, "Dead unit should not be eligible")
+
+
+# ==========================================
+# Restriction Tests (remote PR)
+# ==========================================
+
+func test_heroic_intervention_once_per_phase():
+	"""Heroic Intervention can only be used once per phase."""
+	_setup_heroic_intervention_scenario()
+
+	# Use it once
+	var result1 = StratagemManager.use_stratagem(2, "heroic_intervention", "U_DEFENDER")
+	assert_true(result1.success, "First use should succeed")
+
+	# Try to use again — should fail (once per phase)
+	var result2 = StratagemManager.can_use_stratagem(2, "heroic_intervention")
+	assert_false(result2.can_use, "Second use should be blocked (once per phase)")
+
+func test_heroic_intervention_deducts_1_cp():
+	"""Using Heroic Intervention should deduct 1 CP."""
+	_setup_heroic_intervention_scenario()
+
+	var cp_before = GameState.state.players["2"].cp
+	StratagemManager.use_stratagem(2, "heroic_intervention", "U_DEFENDER")
+	var cp_after = GameState.state.players["2"].cp
+
+	assert_eq(cp_before - cp_after, 1, "Should deduct exactly 1 CP")
+
+func test_friendly_units_not_eligible():
+	"""Only the defending player's units should be eligible, not the charging player's."""
+	var board = _setup_heroic_intervention_scenario()
+
+	# Player 1's own units should never appear in HI eligible list for player 1
+	var eligible = StratagemManager.get_heroic_intervention_eligible_units(1, "U_CHARGER", board)
+	var eligible_ids = []
+	for e in eligible:
+		eligible_ids.append(e.unit_id)
+
+	assert_false("U_CHARGER" in eligible_ids, "Charging unit should not be eligible for its own player's HI")

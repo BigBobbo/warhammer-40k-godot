@@ -663,6 +663,388 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 
 	return result
 
+# ==========================================
+# OVERWATCH SHOOTING (Fire Overwatch Stratagem)
+# Only unmodified 6s hit. All other shooting mechanics (wound, save, damage) are normal.
+# ==========================================
+
+static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	"""Resolve overwatch shooting: all weapons fire at the target, but only unmodified 6s count as hits.
+	No hit modifiers are applied. Wound rolls, saves, and damage work normally.
+	Returns { success, diffs, dice, log_text, total_hits, total_wounds, total_damage, total_casualties, weapon_results }
+	"""
+	if not rng_service:
+		rng_service = RNGService.new()
+
+	var result = {
+		"success": true,
+		"diffs": [],
+		"dice": [],
+		"log_text": "",
+		"total_hits": 0,
+		"total_wounds": 0,
+		"total_damage": 0,
+		"total_casualties": 0,
+		"weapon_results": []
+	}
+
+	var units = board.get("units", {})
+	var shooter_unit = units.get(shooter_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if shooter_unit.is_empty():
+		result.success = false
+		result.log_text = "Shooter unit not found"
+		return result
+
+	if target_unit.is_empty():
+		result.success = false
+		result.log_text = "Target unit not found"
+		return result
+
+	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	# Gather all ranged weapons from the shooter unit's alive models
+	var weapon_assignments = _build_overwatch_weapon_assignments(shooter_unit, shooter_unit_id, board)
+
+	if weapon_assignments.is_empty():
+		result.log_text = "%s has no ranged weapons for overwatch" % shooter_name
+		return result
+
+	# Resolve each weapon assignment with overwatch rules
+	for wa in weapon_assignments:
+		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service)
+		result.diffs.append_array(wa_result.get("diffs", []))
+		result.dice.append_array(wa_result.get("dice", []))
+		result.total_hits += wa_result.get("hits", 0)
+		result.total_wounds += wa_result.get("wounds", 0)
+		result.total_damage += wa_result.get("damage", 0)
+		result.total_casualties += wa_result.get("casualties", 0)
+		result.weapon_results.append(wa_result)
+
+		if wa_result.get("log_text", "") != "":
+			result.log_text += wa_result.log_text + "\n"
+
+		# Update the board snapshot with applied diffs for subsequent weapons
+		# (so model alive/wounds is up to date for wound allocation)
+		for diff in wa_result.get("diffs", []):
+			_apply_diff_to_board(board, diff)
+
+	if result.total_casualties > 0:
+		result.log_text = "OVERWATCH: %s → %s: %d hit(s), %d wound(s), %d slain" % [
+			shooter_name, target_name, result.total_hits, result.total_wounds, result.total_casualties
+		]
+	elif result.total_hits > 0:
+		result.log_text = "OVERWATCH: %s → %s: %d hit(s), %d wound(s), all saved" % [
+			shooter_name, target_name, result.total_hits, result.total_wounds
+		]
+	else:
+		result.log_text = "OVERWATCH: %s → %s: No hits (only unmodified 6s hit)" % [shooter_name, target_name]
+
+	print("RulesEngine: %s" % result.log_text)
+	return result
+
+static func _build_overwatch_weapon_assignments(shooter_unit: Dictionary, shooter_unit_id: String, board: Dictionary) -> Array:
+	"""Build weapon assignments for overwatch: gather all ranged weapons from alive models."""
+	var assignments = []
+	var models = shooter_unit.get("models", [])
+
+	# Group models by weapon
+	var weapon_models: Dictionary = {}  # weapon_id -> [model_ids]
+
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var model_id = model.get("id", "m%d" % (i + 1))
+		var weapons = model.get("weapons", [])
+
+		for weapon in weapons:
+			var weapon_id = ""
+			if weapon is Dictionary:
+				weapon_id = weapon.get("id", weapon.get("weapon_id", ""))
+			elif weapon is String:
+				weapon_id = weapon
+
+			if weapon_id == "":
+				continue
+
+			# Only include ranged weapons (have BS stat, or check type)
+			var profile = get_weapon_profile(weapon_id, board)
+			if profile.is_empty():
+				continue
+
+			# Skip melee-only weapons
+			var weapon_type = profile.get("type", "ranged").to_lower()
+			if weapon_type == "melee":
+				continue
+
+			# Has a BS stat? It's a ranged weapon
+			if not profile.has("bs") and not profile.has("ballistic_skill"):
+				continue
+
+			if not weapon_models.has(weapon_id):
+				weapon_models[weapon_id] = []
+			weapon_models[weapon_id].append(model_id)
+
+	# Build assignments
+	for weapon_id in weapon_models:
+		assignments.append({
+			"weapon_id": weapon_id,
+			"model_ids": weapon_models[weapon_id],
+			"modifiers": {}
+		})
+
+	return assignments
+
+static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_id: String, target_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+	"""Resolve a single weapon assignment during overwatch.
+	Key difference: only unmodified 6s count as hits. No hit modifiers apply."""
+	var result = {
+		"diffs": [],
+		"dice": [],
+		"log_text": "",
+		"hits": 0,
+		"wounds": 0,
+		"damage": 0,
+		"casualties": 0
+	}
+
+	var weapon_id = assignment.get("weapon_id", "")
+	var model_ids = assignment.get("model_ids", [])
+
+	var units = board.get("units", {})
+	var shooter_unit = units.get(shooter_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if target_unit.is_empty():
+		return result
+
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		return result
+
+	var weapon_name = weapon_profile.get("name", weapon_id)
+
+	# --- PHASE 1: Determine attacks ---
+	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+	var total_attacks = 0
+
+	for model_id in model_ids:
+		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
+		total_attacks += attacks_result.value
+
+	if total_attacks <= 0:
+		return result
+
+	# --- PHASE 2: Hit rolls (OVERWATCH: only unmodified 6s hit) ---
+	var hit_rolls = rng.roll_d6(total_attacks)
+	var hits = 0
+
+	for roll in hit_rolls:
+		if roll == 6:  # ONLY unmodified 6s — no modifiers applied
+			hits += 1
+
+	result.dice.append({
+		"context": "overwatch_to_hit",
+		"weapon_name": weapon_name,
+		"threshold": "6 (Overwatch)",
+		"rolls_raw": hit_rolls,
+		"total_attacks": total_attacks,
+		"successes": hits,
+		"overwatch": true
+	})
+
+	result.hits = hits
+
+	if hits == 0:
+		result.log_text = "%s (Overwatch): No hits" % weapon_name
+		return result
+
+	# --- PHASE 3: Wound rolls (normal rules apply) ---
+	var strength = weapon_profile.get("strength", 4)
+	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var wound_threshold = _calculate_wound_threshold(strength, toughness)
+
+	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
+
+	var wound_rolls = rng.roll_d6(hits)
+	var wounds = 0
+
+	for roll in wound_rolls:
+		if roll == 1:
+			continue  # Unmodified 1 always fails
+		var is_critical_wound = (roll >= critical_wound_threshold)
+		if is_critical_wound or roll >= wound_threshold:
+			wounds += 1
+
+	result.dice.append({
+		"context": "to_wound",
+		"weapon_name": weapon_name,
+		"threshold": str(wound_threshold) + "+",
+		"rolls_raw": wound_rolls,
+		"successes": wounds,
+		"overwatch": true
+	})
+
+	result.wounds = wounds
+
+	if wounds == 0:
+		result.log_text = "%s (Overwatch): %d hits, no wounds" % [weapon_name, hits]
+		return result
+
+	# --- PHASE 4: Saves and damage (normal rules apply) ---
+	var ap = weapon_profile.get("ap", 0)
+	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+	var target_flags = target_unit.get("flags", {})
+
+	# Check IGNORES COVER
+	var weapon_ignores_cover = false
+	var keywords = weapon_profile.get("keywords", [])
+	for kw in keywords:
+		if "ignores cover" in kw.to_lower():
+			weapon_ignores_cover = true
+			break
+	if not weapon_ignores_cover:
+		var special = weapon_profile.get("special_rules", "").to_lower()
+		if "ignores cover" in special:
+			weapon_ignores_cover = true
+
+	var allocation_focus_model_id = null
+	var models = target_unit.get("models", [])
+	var casualties = 0
+	var damage_total = 0
+
+	# Find previously wounded model for allocation
+	for i in range(models.size()):
+		var model = models[i]
+		if model.get("alive", true):
+			var max_wounds = model.get("wounds", 1)
+			var current_wounds = model.get("current_wounds", max_wounds)
+			if current_wounds < max_wounds:
+				allocation_focus_model_id = model.get("id", "m%d" % i)
+				break
+
+	for wound_idx in range(wounds):
+		# Select target model
+		var target_model = null
+		var target_model_index = -1
+
+		if allocation_focus_model_id:
+			for i in range(models.size()):
+				var model = models[i]
+				if model.get("id", "m%d" % i) == allocation_focus_model_id and model.get("alive", true):
+					target_model = model
+					target_model_index = i
+					break
+
+		if not target_model:
+			for i in range(models.size()):
+				var model = models[i]
+				if model.get("alive", true):
+					target_model = model
+					target_model_index = i
+					allocation_focus_model_id = model.get("id", "m%d" % i)
+					break
+
+		if not target_model:
+			break  # No more alive models
+
+		# Check cover
+		var stratagem_cover = target_flags.get("stratagem_cover", false)
+		var has_cover = false
+		if not weapon_ignores_cover:
+			has_cover = _check_model_has_cover(target_model, shooter_unit_id, board) or stratagem_cover
+
+		# Check invuln
+		var model_invuln = target_model.get("invuln", 0)
+		var stratagem_invuln = target_flags.get("stratagem_invuln", 0)
+		if stratagem_invuln > 0:
+			if model_invuln == 0 or stratagem_invuln < model_invuln:
+				model_invuln = stratagem_invuln
+
+		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
+
+		# Roll save
+		var save_roll = rng.roll_d6(1)[0]
+		var saved = false
+		if save_roll > 1:
+			if save_result.use_invuln:
+				saved = save_roll >= save_result.inv
+			else:
+				saved = save_roll >= save_result.armour
+
+		if not saved:
+			# Roll damage
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dmg = dmg_result.value
+
+			# Apply damage
+			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
+			var new_wounds = max(0, current_wounds - dmg)
+
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+				"value": new_wounds
+			})
+
+			damage_total += dmg
+
+			if new_wounds == 0:
+				result.diffs.append({
+					"op": "set",
+					"path": "units.%s.models.%d.alive" % [target_unit_id, target_model_index],
+					"value": false
+				})
+				casualties += 1
+				allocation_focus_model_id = null
+				# Mark model as dead in local reference for subsequent wounds
+				target_model["alive"] = false
+			else:
+				target_model["current_wounds"] = new_wounds
+
+	result.casualties = casualties
+	result.damage = damage_total
+	result.log_text = "%s (Overwatch): %d hits, %d wounds, %d damage, %d slain" % [weapon_name, hits, wounds, damage_total, casualties]
+
+	return result
+
+static func _apply_diff_to_board(board: Dictionary, diff: Dictionary) -> void:
+	"""Apply a single diff to the board snapshot in-place (for sequential weapon resolution)."""
+	var path = diff.get("path", "")
+	var value = diff.get("value")
+	var parts = path.split(".")
+
+	if parts.size() < 2:
+		return
+
+	var current = board
+	for i in range(parts.size() - 1):
+		var key = parts[i]
+		# Handle numeric indices (for model arrays)
+		if key.is_valid_int():
+			var idx = int(key)
+			if current is Array and idx < current.size():
+				current = current[idx]
+			else:
+				return
+		elif current is Dictionary and current.has(key):
+			current = current[key]
+		else:
+			return
+
+	var last_key = parts[-1]
+	if last_key.is_valid_int():
+		var idx = int(last_key)
+		if current is Array and idx < current.size():
+			current[idx] = value
+	elif current is Dictionary:
+		current[last_key] = value
+
 # Resolve assignment up to wound stage (stops before saves)
 # SUSTAINED HITS (PRP-011): This function is modified to handle Sustained Hits
 # BLAST (PRP-013): This function is modified to handle Blast keyword

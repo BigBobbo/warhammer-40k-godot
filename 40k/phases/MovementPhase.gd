@@ -14,6 +14,8 @@ signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array)
+signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
@@ -25,6 +27,8 @@ var dice_log: Array = []
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_data: Dictionary = {}  # Stores original roll info
+var _awaiting_overwatch_decision: bool = false
+var _overwatch_moved_unit_id: String = ""  # The unit that just moved (potential target)
 
 # Fire Overwatch state tracking (T3-11)
 var _awaiting_fire_overwatch: bool = false
@@ -60,6 +64,8 @@ func _on_phase_enter() -> void:
 	_awaiting_reroll_decision = false
 	_reroll_pending_unit_id = ""
 	_reroll_pending_data = {}
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
 	_awaiting_fire_overwatch = false
 	_fire_overwatch_player = 0
 	_fire_overwatch_enemy_unit_id = ""
@@ -823,7 +829,7 @@ func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var player = action.get("player", _fire_overwatch_player)
 
-	if not _awaiting_fire_overwatch:
+	if not _awaiting_fire_overwatch and not _awaiting_overwatch_decision:
 		errors.append("Not awaiting Fire Overwatch decision")
 		return {"valid": false, "errors": errors}
 
@@ -858,7 +864,7 @@ func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_decline_fire_overwatch(action: Dictionary) -> Dictionary:
-	if not _awaiting_fire_overwatch:
+	if not _awaiting_fire_overwatch and not _awaiting_overwatch_decision:
 		return {"valid": false, "errors": ["Not awaiting Fire Overwatch decision"]}
 	return {"valid": true, "errors": []}
 
@@ -867,6 +873,8 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	var player = action.get("player", _fire_overwatch_player)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var enemy_unit_id = _fire_overwatch_enemy_unit_id
+	if enemy_unit_id.is_empty():
+		enemy_unit_id = _overwatch_moved_unit_id
 	var enemy_unit_name = get_unit(enemy_unit_id).get("meta", {}).get("name", enemy_unit_id)
 
 	# Use the stratagem via StratagemManager (deducts CP, records usage)
@@ -880,23 +888,27 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	print("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
 
 	# Resolve Overwatch shooting using RulesEngine
-	var overwatch_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+	var ow_shooting_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
 
 	# Clear Overwatch state
 	_awaiting_fire_overwatch = false
 	_fire_overwatch_player = 0
 	_fire_overwatch_enemy_unit_id = ""
 	_fire_overwatch_eligible_units = []
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
 
-	var result = create_result(true, overwatch_result.get("diffs", []))
+	emit_signal("overwatch_result", unit_id, enemy_unit_id, ow_shooting_result)
+
+	var result = create_result(true, ow_shooting_result.get("diffs", []))
 	result["fire_overwatch_used"] = true
 	result["fire_overwatch_unit_id"] = unit_id
 	result["fire_overwatch_target_id"] = enemy_unit_id
-	result["fire_overwatch_shooting_result"] = overwatch_result
-	if overwatch_result.has("dice"):
-		result["dice"] = overwatch_result.dice
-	if overwatch_result.has("log_text"):
-		result["log_text"] = overwatch_result.log_text
+	result["fire_overwatch_shooting_result"] = ow_shooting_result
+	if ow_shooting_result.has("dice"):
+		result["dice"] = ow_shooting_result.dice
+	if ow_shooting_result.has("log_text"):
+		result["log_text"] = ow_shooting_result.log_text
 	return result
 
 func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
@@ -909,6 +921,8 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	_fire_overwatch_player = 0
 	_fire_overwatch_enemy_unit_id = ""
 	_fire_overwatch_eligible_units = []
+	_awaiting_overwatch_decision = false
+	_overwatch_moved_unit_id = ""
 
 	return create_result(true, [])
 
@@ -971,6 +985,7 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 	])
 
 	return shoot_result
+
 
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -1365,6 +1380,8 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			if not ow_eligible.is_empty():
 				# Fire Overwatch is available! Pause and offer it to the defender
 				_awaiting_fire_overwatch = true
+				_awaiting_overwatch_decision = true
+				_overwatch_moved_unit_id = unit_id
 				_fire_overwatch_player = defending_player
 				_fire_overwatch_enemy_unit_id = unit_id
 				_fire_overwatch_eligible_units = ow_eligible
@@ -1372,9 +1389,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
 
 				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
 
 				var result = create_result(true, changes, "", {"dice": additional_dice})
 				result["trigger_fire_overwatch"] = true
+				result["awaiting_overwatch"] = true
 				result["fire_overwatch_player"] = defending_player
 				result["fire_overwatch_eligible_units"] = ow_eligible
 				result["fire_overwatch_enemy_unit_id"] = unit_id

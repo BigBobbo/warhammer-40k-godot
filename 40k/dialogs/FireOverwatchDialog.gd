@@ -1,35 +1,31 @@
 extends AcceptDialog
 
-# HeroicInterventionDialog - UI for Heroic Intervention stratagem during opponent's charge
+# FireOverwatchDialog - UI for Fire Overwatch stratagem during opponent's movement/charge
 #
-# HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 2 CP)
-# WHEN: Your opponent's Charge phase, just after an enemy unit ends a Charge move.
-# TARGET: One unit from your army within 6" of that enemy unit and not within
-#         Engagement Range of any enemy units.
-# EFFECT: Your unit declares a charge targeting only that enemy unit, then makes
-#         a charge roll. It cannot be selected to fight in the Fights First step.
-# RESTRICTION: Cannot select a VEHICLE unit unless it has the WALKER keyword.
-#              Once per phase.
+# FIRE OVERWATCH (Core – Strategic Ploy Stratagem, 1 CP)
+# WHEN: Your opponent's Movement or Charge phase, just after an enemy unit is set up
+#       or when an enemy unit starts or ends a Normal, Advance, or Fall Back move.
+# TARGET: One unit from your army that is within 24" of that enemy unit and that
+#         would be eligible to shoot.
+# EFFECT: Your unit can shoot that enemy unit as if it were your Shooting phase,
+#         but its attacks can only hit on unmodified Hit rolls of 6.
+# RESTRICTION: Once per turn.
 #
 # Shows eligible units with "Use" buttons and a "Decline" button.
 
-signal heroic_intervention_used(unit_id: String, player: int)
-signal heroic_intervention_declined(player: int)
+signal fire_overwatch_used(shooter_unit_id: String, player: int)
+signal fire_overwatch_declined(player: int)
 
 var player: int = 0
-var charging_unit_id: String = ""  # The enemy unit that just charged
+var target_unit_id: String = ""  # The enemy unit that just moved/charged
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String }
-var charging_unit_name: String = ""
 
-func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -> void:
+func setup(p_player: int, p_target_unit_id: String, p_eligible_units: Array) -> void:
 	player = p_player
-	charging_unit_id = p_charging_unit_id
+	target_unit_id = p_target_unit_id
 	eligible_units = p_eligible_units
-	# Derive the display name from the charging unit
-	var charging_unit = GameState.get_unit(charging_unit_id)
-	charging_unit_name = charging_unit.get("meta", {}).get("name", charging_unit_id)
 
-	title = "Heroic Intervention Available - Player %d" % player
+	title = "Fire Overwatch Available - Player %d" % player
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -38,13 +34,13 @@ func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(520, 350)
+	main_container.custom_minimum_size = Vector2(520, 320)
 
 	# Header
 	var header = Label.new()
-	header.text = "HEROIC INTERVENTION"
+	header.text = "FIRE OVERWATCH"
 	header.add_theme_font_size_override("font_size", 20)
-	header.add_theme_color_override("font_color", Color.GOLD)
+	header.add_theme_color_override("font_color", Color.ORANGE_RED)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
 
@@ -61,7 +57,7 @@ func _build_ui() -> void:
 	# CP info
 	var cp_label = Label.new()
 	var current_cp = StratagemManager.get_player_cp(player)
-	cp_label.text = "Cost: 2 CP (You have %d CP)" % current_cp
+	cp_label.text = "Cost: 1 CP (You have %d CP)" % current_cp
 	cp_label.add_theme_font_size_override("font_size", 14)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -69,34 +65,28 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
-	# Charging unit info (red highlight from remote PR)
+	# Target info
+	var target_unit = GameState.get_unit(target_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 	var target_label = Label.new()
-	target_label.text = "Enemy unit that charged: %s" % charging_unit_name
+	target_label.text = "Enemy unit: %s" % target_name
 	target_label.add_theme_font_size_override("font_size", 14)
 	target_label.add_theme_color_override("font_color", Color.RED)
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(target_label)
 
-	# Trigger description
-	var trigger_label = Label.new()
-	trigger_label.text = "%s has just completed a charge move. You may counter-charge with one of your eligible units." % charging_unit_name
-	trigger_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	trigger_label.add_theme_font_size_override("font_size", 13)
-	main_container.add_child(trigger_label)
-
 	# Effect description
 	var effect_label = Label.new()
-	effect_label.text = "Your unit will declare a charge targeting only that enemy unit and make a 2D6 charge roll. Note: The unit does NOT gain Fights First."
+	effect_label.text = "Select one of your units to shoot at the enemy. Only unmodified hit rolls of 6 will hit. This uses your unit's normal ranged weapons."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.add_theme_font_size_override("font_size", 12)
-	effect_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	effect_label.add_theme_font_size_override("font_size", 13)
 	main_container.add_child(effect_label)
 
 	main_container.add_child(HSeparator.new())
 
 	# Eligible units section
 	var units_label = Label.new()
-	units_label.text = "Select a unit to counter-charge:"
+	units_label.text = "Select a unit to fire overwatch:"
 	units_label.add_theme_font_size_override("font_size", 14)
 	main_container.add_child(units_label)
 
@@ -115,7 +105,7 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		var use_button = Button.new()
-		use_button.text = "Counter-Charge (2 CP)"
+		use_button.text = "Fire Overwatch (1 CP)"
 		use_button.custom_minimum_size = Vector2(170, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))
 		unit_container.add_child(use_button)
@@ -141,19 +131,19 @@ func _build_ui() -> void:
 
 	add_child(main_container)
 
-func _on_use_pressed(unit_id: String) -> void:
+func _on_use_pressed(shooter_unit_id: String) -> void:
 	var unit_name = ""
 	for unit_info in eligible_units:
-		if unit_info.unit_id == unit_id:
+		if unit_info.unit_id == shooter_unit_id:
 			unit_name = unit_info.unit_name
 			break
-	print("HeroicInterventionDialog: Player %d uses HEROIC INTERVENTION with %s (%s)" % [player, unit_name, unit_id])
-	emit_signal("heroic_intervention_used", unit_id, player)
+	print("FireOverwatchDialog: Player %d uses FIRE OVERWATCH with %s (%s)" % [player, unit_name, shooter_unit_id])
+	emit_signal("fire_overwatch_used", shooter_unit_id, player)
 	hide()
 	queue_free()
 
 func _on_decline_pressed() -> void:
-	print("HeroicInterventionDialog: Player %d declines HEROIC INTERVENTION" % player)
-	emit_signal("heroic_intervention_declined", player)
+	print("FireOverwatchDialog: Player %d declines FIRE OVERWATCH" % player)
+	emit_signal("fire_overwatch_declined", player)
 	hide()
 	queue_free()
