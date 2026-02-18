@@ -294,6 +294,106 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 
 	return false
 
+## Returns the height in inches for a terrain height category.
+## LOW (<2") = 1.5", MEDIUM (2-5") = 3.5", TALL (>5") = 6.0"
+func get_height_inches(terrain_piece: Dictionary) -> float:
+	var height_cat = terrain_piece.get("height_category", "tall")
+	match height_cat:
+		"low":
+			return 1.5  # Representative height for <2" terrain
+		"medium":
+			return 3.5  # Representative height for 2-5" terrain
+		"tall":
+			return 6.0  # Representative height for >5" terrain
+		_:
+			return 6.0  # Default to tall
+
+## Calculate the vertical distance penalty for a charge path crossing terrain.
+## Per 10e rules: terrain 2" or less can be moved over freely.
+## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
+## against the charge roll.
+## FLY units measure diagonally instead of vertically, which is more efficient.
+##
+## Returns the extra distance in inches that must be added to the path distance.
+func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+	var total_penalty: float = 0.0
+
+	for terrain in terrain_features:
+		# Check if the movement path crosses this terrain piece
+		if not check_line_intersects_terrain(from_pos, to_pos, terrain):
+			continue
+
+		var height_inches = get_height_inches(terrain)
+
+		# Terrain 2" or less: no penalty (can move over freely)
+		if height_inches <= 2.0:
+			continue
+
+		if has_fly:
+			# FLY units measure diagonally through the air
+			# The diagonal distance through a terrain piece of height h
+			# is sqrt(horizontal_cross^2 + h^2) - horizontal_cross
+			# This is less than the vertical climb (up + down = 2*h)
+			# For simplicity, we use the diagonal penalty: sqrt(h^2 + cross^2) - cross
+			# where cross is the horizontal distance through the terrain
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
+			var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+			var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+			var fly_penalty = diagonal - cross_distance_inches
+			total_penalty += fly_penalty
+			print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
+				terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
+		else:
+			# Non-FLY units must climb up and back down: penalty = height * 2
+			# (climb up one side, climb down the other)
+			total_penalty += height_inches * 2.0
+			print("[TerrainManager] Terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+				terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+
+	return total_penalty
+
+## Calculate the horizontal distance a path travels through a terrain polygon.
+func _get_terrain_crossing_distance(from_pos: Vector2, to_pos: Vector2, polygon: PackedVector2Array) -> float:
+	if polygon.is_empty():
+		return 0.0
+
+	# Find intersection points of the line with the polygon edges
+	var intersections: Array[Vector2] = []
+	for i in range(polygon.size()):
+		var edge_start = polygon[i]
+		var edge_end = polygon[(i + 1) % polygon.size()]
+		var result = Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end)
+		if result != null:
+			intersections.append(result)
+
+	if intersections.size() >= 2:
+		# Distance between the two intersection points (entry and exit)
+		return intersections[0].distance_to(intersections[1])
+	elif intersections.size() == 1:
+		# Path starts or ends inside the terrain — use distance from intersection to whichever end is inside
+		if is_point_in_polygon(from_pos, polygon):
+			return from_pos.distance_to(intersections[0])
+		elif is_point_in_polygon(to_pos, polygon):
+			return to_pos.distance_to(intersections[0])
+		return 0.0
+	else:
+		# Both points might be inside the terrain or no intersection
+		if is_point_in_polygon(from_pos, polygon) and is_point_in_polygon(to_pos, polygon):
+			return from_pos.distance_to(to_pos)
+		return 0.0
+
+## Get all terrain pieces that a path segment crosses which are taller than 2".
+func get_tall_terrain_on_path(from_pos: Vector2, to_pos: Vector2) -> Array:
+	var results = []
+	for terrain in terrain_features:
+		var height_inches = get_height_inches(terrain)
+		if height_inches <= 2.0:
+			continue
+		if check_line_intersects_terrain(from_pos, to_pos, terrain):
+			results.append(terrain)
+	return results
+
 func set_terrain_visibility(visible: bool) -> void:
 	terrain_visible = visible
 	emit_signal("terrain_visibility_changed", visible)

@@ -107,6 +107,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"END_CHARGE":
 			return process_end_charge(action)
+		"USE_HEROIC_INTERVENTION":
+			return _delegate_to_current_phase(action)
+		"DECLINE_HEROIC_INTERVENTION":
+			return _delegate_to_current_phase(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _delegate_to_current_phase(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _delegate_to_current_phase(action)
 
 		# Fight actions (modern phase-based system)
 		"SELECT_FIGHTER":
