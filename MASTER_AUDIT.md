@@ -81,6 +81,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-10: Faction abilities (Oath of Moment, etc.) | Command | AUDIT_COMMAND_PHASE.md §2.4 |
 | T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
 | T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
+| T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
 
 ---
 
@@ -316,12 +317,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `ChargePhase.gd`, `ChargeController.gd`, `TerrainManager.gd`, `RulesEngine.gd`
 - **Resolution:** Added terrain vertical distance penalty system. TerrainManager now provides `calculate_charge_terrain_penalty()` which checks path segments against terrain features. Terrain >2" adds climb up + climb down distance for non-FLY units, and diagonal measurement for FLY units. Integrated into ChargePhase path validation, ChargeController drag validation, and RulesEngine charge path validation. 14 unit tests verify all scenarios.
 
-### T2-9. AIRCRAFT restriction — not checked in charge
+### T2-9. AIRCRAFT restriction — not checked in charge — **DONE**
 - **Phase:** Charge
 - **Rule:** AIRCRAFT cannot charge; only FLY units can charge AIRCRAFT
 - **Impact:** Invalid charges allowed
 - **Source:** CHARGE_PHASE_AUDIT.md §2.7
-- **Files:** `ChargePhase.gd` — `_can_unit_charge()`, `_validate_declare_charge()`
+- **Files:** `ChargePhase.gd` — `_can_unit_charge()`, `_validate_declare_charge()`, `_get_eligible_targets_for_unit()`; `RulesEngine.gd` — `eligible_to_charge()`, `charge_targets_within_12()`
+- **Resolution:** Added AIRCRAFT keyword check to `_can_unit_charge()` in ChargePhase.gd (blocking AIRCRAFT units from charging). Added FLY-only restriction for charging AIRCRAFT targets in `_validate_declare_charge()`, `_get_eligible_targets_for_unit()` (ChargePhase.gd), and `charge_targets_within_12()` (RulesEngine.gd). RulesEngine `eligible_to_charge()` already had the AIRCRAFT-cannot-charge check. 7 unit tests verify all scenarios.
 
 ### T2-10. Cover determination limited to ruins only — **DONE**
 - **Phase:** Shooting
@@ -800,7 +802,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 13 | 3 | 16 |
+| Tier 2 — High Rules | 14 | 2 | 16 |
 | Tier 3 — Medium Rules | 6 | 20 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
