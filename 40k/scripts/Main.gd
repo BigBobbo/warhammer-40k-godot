@@ -2330,7 +2330,9 @@ func refresh_unit_list() -> void:
 					var model_count = unit_data["models"].size()
 					# Add ability indicators for units with special deployment abilities
 					var ability_tag = ""
-					if GameState.unit_has_deep_strike(unit_id):
+					if GameState.unit_is_fortification(unit_id):
+						ability_tag = " [FORT]"
+					elif GameState.unit_has_deep_strike(unit_id):
 						ability_tag = " [DS]"
 					elif GameState.unit_has_infiltrators(unit_id):
 						ability_tag = " [INF]"
@@ -2557,12 +2559,17 @@ func _on_unit_selected(index: int) -> void:
 		# Update reserves button state for the selected unit
 		if reserves_button:
 			_selected_unit_for_reserves = unit_id
-			reserves_button.disabled = false
-			# Update button text based on unit abilities
-			if GameState.unit_has_deep_strike(unit_id):
-				reserves_button.text = "Deep Strike (Reserves)"
+			# Fortification units cannot be placed in reserves — disable the button
+			if GameState.unit_is_fortification(unit_id):
+				reserves_button.disabled = true
+				reserves_button.text = "Must Deploy (Fortification)"
 			else:
-				reserves_button.text = "Strategic Reserves"
+				reserves_button.disabled = false
+				# Update button text based on unit abilities
+				if GameState.unit_has_deep_strike(unit_id):
+					reserves_button.text = "Deep Strike (Reserves)"
+				else:
+					reserves_button.text = "Strategic Reserves"
 
 		# Check if this is a transport unit
 		var unit_keywords = unit_data.get("meta", {}).get("keywords", [])

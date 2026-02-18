@@ -428,6 +428,17 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 func unit_has_infiltrators(unit_id: String) -> bool:
 	return unit_has_ability(unit_id, "Infiltrators")
 
+func unit_is_fortification(unit_id: String) -> bool:
+	"""Check if a unit has the FORTIFICATION keyword. Fortifications cannot be placed in reserves."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if kw.to_upper() == "FORTIFICATION":
+			return true
+	return false
+
 func unit_has_scout(unit_id: String) -> bool:
 	"""Check if a unit has the Scout ability (any variant like 'Scout 6\"')"""
 	var unit = get_unit(unit_id)
