@@ -70,12 +70,16 @@ static func _register_wound_modifiers() -> void:
 	rule.apply_function = _apply_devastating_wounds
 	RULE_REGISTRY[rule.id] = rule
 	
-	rule = RuleDefinition.new("anti_infantry", "Anti-Infantry", "Re-roll wounds vs INFANTRY", RuleCategory.WOUND_MODIFIER)
-	rule.apply_function = _apply_anti_keyword.bind(["INFANTRY"])
+	rule = RuleDefinition.new("anti_infantry_4", "Anti-Infantry 4+", "Critical wounds on 4+ vs INFANTRY", RuleCategory.WOUND_MODIFIER)
+	rule.apply_function = _apply_anti_keyword.bind("INFANTRY", 4)
 	RULE_REGISTRY[rule.id] = rule
-	
-	rule = RuleDefinition.new("anti_vehicle", "Anti-Vehicle", "Re-roll wounds vs VEHICLE", RuleCategory.WOUND_MODIFIER)
-	rule.apply_function = _apply_anti_keyword.bind(["VEHICLE"])
+
+	rule = RuleDefinition.new("anti_vehicle_4", "Anti-Vehicle 4+", "Critical wounds on 4+ vs VEHICLE", RuleCategory.WOUND_MODIFIER)
+	rule.apply_function = _apply_anti_keyword.bind("VEHICLE", 4)
+	RULE_REGISTRY[rule.id] = rule
+
+	rule = RuleDefinition.new("anti_monster_4", "Anti-Monster 4+", "Critical wounds on 4+ vs MONSTER", RuleCategory.WOUND_MODIFIER)
+	rule.apply_function = _apply_anti_keyword.bind("MONSTER", 4)
 	RULE_REGISTRY[rule.id] = rule
 	
 	rule = RuleDefinition.new("twin_linked", "Twin-linked", "Re-roll failed wound rolls", RuleCategory.WOUND_MODIFIER)
@@ -190,8 +194,9 @@ static func _parse_weapon_special_rules(special_rules: String) -> Array:
 		"sustained hits": "sustained_hits", 
 		"devastating wounds": "devastating_wounds",
 		"twin-linked": "twin_linked",
-		"anti-infantry": "anti_infantry",
-		"anti-vehicle": "anti_vehicle",
+		"anti-infantry": "anti_infantry_4",
+		"anti-vehicle": "anti_vehicle_4",
+		"anti-monster": "anti_monster_4",
 		"ignores cover": "ignores_cover",
 		"rapid fire": "rapid_fire"
 	}
@@ -293,10 +298,18 @@ static func _apply_devastating_wounds(config: Dictionary) -> void:
 	config["modifiers"] = config.get("modifiers", {})
 	config.modifiers["devastating_wounds"] = true
 
-static func _apply_anti_keyword(keywords: Array, config: Dictionary) -> void:
-	# Anti-X: Re-roll wounds against specified keywords
+static func _apply_anti_keyword(keyword: String, threshold: int, config: Dictionary) -> void:
+	# Anti-[KEYWORD] X+: Lowers the critical wound threshold (e.g., Anti-Infantry 4+ = crits on wound rolls of 4+)
+	# This is NOT a re-roll; it makes wound rolls of X+ count as critical wounds vs matching keyword targets.
 	config["modifiers"] = config.get("modifiers", {})
-	config.modifiers["anti_keywords"] = keywords
+	# Store anti-keyword entries so Mathhammer can inject them into weapon special_rules
+	if not config.modifiers.has("anti_keyword_entries"):
+		config.modifiers["anti_keyword_entries"] = []
+	config.modifiers["anti_keyword_entries"].append({
+		"keyword": keyword,
+		"threshold": threshold,
+		"text": "anti-%s %d+" % [keyword.to_lower(), threshold]
+	})
 
 static func _apply_wound_modifier(modifier: int, config: Dictionary) -> void:
 	# Generic wound roll modifier
