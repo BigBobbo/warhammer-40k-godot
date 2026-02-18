@@ -360,9 +360,12 @@ run_claude() {
     ) &
     local claude_pid=$!
 
-    # Poll until completion or timeout
+    # Poll until completion or timeout, printing progress updates
     local elapsed=0
     local poll_interval=5
+    local status_interval=30  # print status every 30s
+    local last_status=0
+    local last_log_size=0
     while kill -0 "$claude_pid" 2>/dev/null; do
         if [[ "$elapsed" -ge "$TASK_TIMEOUT" ]]; then
             log_err "TIMEOUT: Claude session exceeded ${TASK_TIMEOUT}s — killing process tree"
@@ -374,6 +377,45 @@ run_claude() {
             rm -f "$prompt_file"
             return 1
         fi
+
+        # Print progress update every status_interval seconds
+        if [[ $((elapsed - last_status)) -ge "$status_interval" && "$elapsed" -gt 0 ]]; then
+            local mins=$((elapsed / 60))
+            local secs=$((elapsed % 60))
+            local remaining=$(( (TASK_TIMEOUT - elapsed) / 60 ))
+            local cur_log_size=0
+            if [[ -f "$log_file" ]]; then
+                cur_log_size=$(wc -c < "$log_file" 2>/dev/null | tr -d ' ')
+            fi
+
+            # Count child processes (godot tests, etc.)
+            local child_count
+            child_count=$(pgrep -P "$claude_pid" 2>/dev/null | wc -l | tr -d ' ')
+
+            # Build status line
+            local activity=""
+            if [[ "$cur_log_size" -gt "$last_log_size" ]]; then
+                activity="output growing"
+            elif [[ "$child_count" -gt 0 ]]; then
+                # Check if any godot tests are running
+                local godot_test
+                godot_test=$(pgrep -lf "godot.*--headless" 2>/dev/null | grep -oE 'test_[a-z_]+' | tail -1 || true)
+                if [[ -n "$godot_test" ]]; then
+                    activity="running ${godot_test}"
+                else
+                    activity="${child_count} subprocess(es) active"
+                fi
+            else
+                activity="waiting for output"
+            fi
+
+            printf "  ${CYAN}⏳ [%dm%02ds elapsed, %dm remaining] %s${NC}\n" \
+                "$mins" "$secs" "$remaining" "$activity"
+
+            last_log_size="$cur_log_size"
+            last_status="$elapsed"
+        fi
+
         sleep "$poll_interval"
         elapsed=$((elapsed + poll_interval))
     done
