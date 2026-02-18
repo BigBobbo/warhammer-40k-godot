@@ -783,12 +783,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
-		# STEALTH: Check if target unit has Stealth (from Smokescreen stratagem or ability)
-		# Stealth imposes -1 to hit rolls against this unit
+		# STEALTH (T2-1): Check if target unit has Stealth (from base ability or Smokescreen stratagem)
+		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
 		var target_flags = target_unit.get("flags", {})
 		if target_flags.get("stratagem_stealth", false):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+		elif has_stealth_ability(target_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -1242,12 +1245,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.MINUS_ONE
 				bgnt_penalty_applied = true
 
-		# STEALTH: Check if target unit has Stealth (from Smokescreen stratagem or ability)
-		# Stealth imposes -1 to hit rolls against this unit
+		# STEALTH (T2-1): Check if target unit has Stealth (from base ability or Smokescreen stratagem)
+		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
 		var target_flags_2 = target_unit.get("flags", {})
 		if target_flags_2.get("stratagem_stealth", false):
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (Smokescreen) applied -1 to hit against %s" % target_unit_id)
+		elif has_stealth_ability(target_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -2871,6 +2877,21 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 	var kw_upper = keyword.to_upper()
 	for kw in keywords:
 		if kw.to_upper() == kw_upper:
+			return true
+	return false
+
+# STEALTH (T2-1): Check if a unit has the Stealth ability
+# Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
+# Abilities can be stored as strings ("Stealth") or dicts ({"name": "Stealth", ...})
+static func has_stealth_ability(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name.to_lower() == "stealth":
 			return true
 	return false
 

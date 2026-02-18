@@ -62,6 +62,7 @@ These items were previously open in the audit files and have now been verified a
 | T1-9: [MH-BUG-1] Mathhammer damage extraction — wound delta computation + double-count fix | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T1-7: Base-to-base contact enforcement in charge — B2B validation with tolerance | Charge | CHARGE_PHASE_AUDIT.md §2.4 |
 | T1-6: Base-to-base contact enforcement in pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.3 |
+| T2-1: Stealth ability — -1 to hit for ranged attacks | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 
 ---
 
@@ -233,12 +234,13 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 
 These affect gameplay balance and tactical options significantly.
 
-### T2-1. Stealth ability — -1 to hit for ranged attacks
+### T2-1. Stealth ability — -1 to hit for ranged attacks — **DONE**
 - **Phase:** Shooting
 - **Rule:** If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
 - **Impact:** Many units rely on this for survivability (currently only implemented via Smokescreen stratagem, not as base ability)
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd` — hit modifier section in `_resolve_assignment_until_wounds()` (~lines 591-601)
+- **Resolution:** Added `has_stealth_ability()` static function to detect Stealth in unit abilities (string or dict format, case-insensitive). Updated both `_resolve_assignment_until_wounds()` and `_resolve_assignment()` hit modifier sections to apply -1 to hit when target has Stealth ability (in addition to existing Smokescreen stratagem check). Stealth correctly only applies to ranged attacks, not melee.
 
 ### T2-2. Lone Operative — 12" targeting restriction
 - **Phase:** Shooting
@@ -762,13 +764,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 0 | 16 | 16 |
+| Tier 2 — High Rules | 1 | 15 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **10** | **118** | **128** |
-| **Recently Completed** | **40** | — | **40** |
+| **Total Open** | **11** | **117** | **128** |
+| **Recently Completed** | **41** | — | **41** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---
