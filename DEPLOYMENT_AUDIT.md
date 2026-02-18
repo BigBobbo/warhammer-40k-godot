@@ -114,14 +114,10 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 **Impact**: Low-Medium for deployment specifically, but high for overall game replayability.
 
-### 9. Fortification Deployment
+### 9. Fortification Deployment — RESOLVED
 **Rule**: Fortification units are set up in your deployment zone during the Declare Battle Formations step. They cannot be placed in reserves and have specific placement rules (must be wholly within deployment zone, cannot overlap other terrain or units).
 
-**Current Implementation**: Not implemented. No fortification-specific handling exists.
-
-**Impact**: Low — Fortifications are relatively niche in competitive play.
-
-**Recommendation**: Low priority, but if fortification datasheets are added to army lists, add placement validation that enforces their specific rules (cannot reserve, must be on table).
+**Status**: **Fixed.** `GameState.unit_is_fortification()` checks for the FORTIFICATION keyword. `DeploymentPhase._validate_place_in_reserves()` blocks fortification units from any reserve type with a clear error message. `get_available_actions()` excludes reserve options for fortification units. `Main.gd` disables the reserves button and shows "Must Deploy (Fortification)" when a fortification unit is selected, and displays a `[FORT]` tag in the deployment unit list. Existing deployment zone and overlap validation already applies to fortifications.
 
 ---
 
