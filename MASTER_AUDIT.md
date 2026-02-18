@@ -74,6 +74,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-15: [MH-RULE-10] FNP toggle integration with simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T2-16: [MH-RULE-12] No melee combat support in Mathhammer | Mathhammer/Fight | MASTER_AUDIT.md §MATHHAMMER |
 | T3-1: Fights Last subphase not processed | Fight | FIGHT_PHASE_AUDIT.md §2.6 |
+| T3-2: Fights First + Fights Last cancellation | Fight | FIGHT_PHASE_AUDIT.md §2.7 |
 
 ---
 
@@ -382,12 +383,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `FightPhase.gd` — Subphase enum (add FIGHTS_LAST), `_transition_subphase()`
 - **Resolution:** Added `FIGHTS_LAST` to the `Subphase` enum. Updated `_transition_subphase()` to progress FIGHTS_FIRST → REMAINING_COMBATS → FIGHTS_LAST → COMPLETE. Updated `_get_eligible_units_for_selection()`, `advance_to_next_fighter()`, `get_eligible_fighters_for_player()`, and dialog data builders to handle the new subphase. Updated `FightSelectionDialog.gd` to display Fights Last units.
 
-### T3-2. Fights First + Fights Last cancellation
+### T3-2. Fights First + Fights Last cancellation — **DONE**
 - **Phase:** Fight
 - **Rule:** If both apply, unit fights in Remaining Combats (normal)
 - **Impact:** Incorrect fight order
 - **Source:** FIGHT_PHASE_AUDIT.md §2.7
 - **Files:** `FightPhase.gd` — `_get_fight_priority()` (~lines 1026-1041)
+- **Resolution:** Refactored `_get_fight_priority()` in both `FightPhase.gd` and `RulesEngine.gd` to collect Fights First and Fights Last conditions independently before returning a priority. When both apply, they cancel out and the unit returns NORMAL (Remaining Combats). Added debug logging for cancellation events.
 
 ### T3-3. Extra Attacks weapon ability
 - **Phase:** Fight/Shooting
@@ -787,12 +789,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 11 | 5 | 16 |
-| Tier 3 — Medium Rules | 1 | 25 | 26 |
+| Tier 3 — Medium Rules | 2 | 24 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **21** | **107** | **128** |
-| **Recently Completed** | **48** | — | **48** |
+| **Total Open** | **22** | **106** | **128** |
+| **Recently Completed** | **49** | — | **49** |
 | *Mathhammer items (subset)* | *3* | *28* | *31* |
 
 ---

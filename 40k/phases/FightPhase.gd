@@ -1238,20 +1238,36 @@ func _process_heroic_intervention(action: Dictionary) -> Dictionary:
 func _get_fight_priority(unit: Dictionary) -> int:
 	var flags = unit.get("flags", {})
 
-	# Check if unit charged this turn — but Heroic Intervention units do NOT get Fights First
+	# Determine Fights First status
+	# Charged units get Fights First — but Heroic Intervention units do NOT
 	# Per 10e: "That unit is not eligible to fight in the Fights First step of the following
 	# Fight phase." Heroic Intervention sets charged_this_turn but also heroic_intervention flag.
+	var has_fights_first = false
 	if flags.get("charged_this_turn", false) and not flags.get("heroic_intervention", false):
-		return FightPriority.FIGHTS_FIRST
+		has_fights_first = true
 
 	# Check for Fights First ability
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		if "fights_first" in str(ability).to_lower():
-			return FightPriority.FIGHTS_FIRST
+	if not has_fights_first:
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			if "fights_first" in str(ability).to_lower():
+				has_fights_first = true
+				break
 
-	# Check for Fights Last debuff
-	if unit.get("status_effects", {}).get("fights_last", false):
+	# Determine Fights Last status
+	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
+
+	# Per 10e Rules Commentary: If a unit has both Fights First and Fights Last,
+	# they cancel out and the unit fights in the Remaining Combats step (NORMAL).
+	if has_fights_first and has_fights_last:
+		var unit_name = unit.get("meta", {}).get("name", "Unknown")
+		log_phase_message("Unit %s has both Fights First and Fights Last — cancellation applies, fighting in Remaining Combats" % unit_name)
+		return FightPriority.NORMAL
+
+	if has_fights_first:
+		return FightPriority.FIGHTS_FIRST
+
+	if has_fights_last:
 		return FightPriority.FIGHTS_LAST
 
 	return FightPriority.NORMAL
