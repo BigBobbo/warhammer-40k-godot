@@ -796,6 +796,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
 
+		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: OATH OF MOMENT — re-roll 1s to hit against %s" % target_unit_id)
+
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
@@ -939,6 +944,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if weapon_has_twin_linked:
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT — re-roll 1s to wound against %s" % target_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
 	if is_lance_weapon(weapon_id, board):
@@ -1272,6 +1282,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
 
+		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to hit against %s" % target_unit_id)
+
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
@@ -1413,6 +1428,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if ar_weapon_has_twin_linked:
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to wound against %s" % target_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
@@ -4654,9 +4674,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# OATH OF MOMENT (T3-10): Check if attacker benefits from Oath for melee hit rerolls
+		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
+		if melee_oath_reroll_hits:
+			print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to hit against %s" % target_name)
+
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll
+
+			# OATH OF MOMENT: Re-roll 1s to hit in melee
+			if melee_oath_reroll_hits and roll == 1:
+				var new_roll = rng.roll_d6(1)[0]
+				print("RulesEngine: OATH OF MOMENT melee hit reroll: %d → %d" % [roll, new_roll])
+				roll = new_roll
+				unmodified_roll = new_roll
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
@@ -4728,6 +4760,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if melee_weapon_has_twin_linked:
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
+		melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to wound against %s" % target_name)
 
 	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
