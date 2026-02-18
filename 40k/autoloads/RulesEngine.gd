@@ -1126,6 +1126,21 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		}
 		print("RulesEngine: MELTA %d — %d/%d models in half range" % [melta_value, melta_models_in_half_range, model_ids.size()])
 
+	# PRECISION (T3-4): Check if weapon has Precision keyword
+	# Critical hits (unmodified 6 to hit) from Precision weapons allow wound allocation to CHARACTER models
+	var weapon_has_precision = has_precision(weapon_id, board)
+	var precision_data = {}
+	if weapon_has_precision:
+		# Number of precision wounds = min(critical_hits, wounds_caused)
+		# These wounds CAN be allocated to CHARACTER models even if bodyguard is alive
+		var precision_wounds = mini(critical_hits, wounds_caused)
+		precision_data = {
+			"has_precision": true,
+			"critical_hits": critical_hits,
+			"precision_wounds": precision_wounds
+		}
+		print("RulesEngine: PRECISION — %d critical hits, %d precision wounds (can target CHARACTER)" % [critical_hits, precision_wounds])
+
 	var save_data = prepare_save_resolution(
 		wounds_caused,
 		target_unit_id,
@@ -1133,7 +1148,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		weapon_profile,
 		board,
 		devastating_wounds_data,
-		melta_data
+		melta_data,
+		precision_data
 	)
 
 	result["save_data"] = save_data
@@ -1155,6 +1171,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# MELTA X (T1-1): Add melta info to log
 	if melta_value > 0 and not melta_data.is_empty() and melta_data.models_in_half_range > 0:
 		log_parts.append("MELTA +%d damage (half range)" % melta_value)
+
+	# PRECISION (T3-4): Add precision info to log
+	if weapon_has_precision and critical_hits > 0:
+		log_parts.append("PRECISION: %d wounds can target CHARACTER" % precision_data.precision_wounds)
 
 	log_parts.append("awaiting saves")
 	result.log_text = " - ".join(log_parts)
@@ -5442,13 +5462,15 @@ static func prepare_save_resolution(
 	weapon_profile: Dictionary,
 	board: Dictionary,
 	devastating_wounds_data: Dictionary = {},
-	melta_data: Dictionary = {}
+	melta_data: Dictionary = {},
+	precision_data: Dictionary = {}
 ) -> Dictionary:
 	"""
 	Prepares all data needed for interactive save resolution.
 	Returns save requirements without auto-resolving.
 	DEVASTATING WOUNDS: Includes devastating_wounds count for unsaveable damage.
 	MELTA X (T1-1): Includes melta bonus data for damage increase at half range.
+	PRECISION (T3-4): Includes precision data for CHARACTER model targeting.
 	"""
 	var units = board.get("units", {})
 	var target_unit = units.get(target_unit_id, {})
@@ -5528,6 +5550,7 @@ static func prepare_save_resolution(
 			"model_id": model_info.model_id,
 			"model_index": model_info.model_index,
 			"is_wounded": model_info.is_wounded,
+			"is_character": model_info.get("is_character", false),  # PRECISION (T3-4): Track character models
 			"current_wounds": model.get("current_wounds", model.get("wounds", 1)),
 			"max_wounds": model.get("wounds", 1),
 			"has_cover": has_cover,
@@ -5578,7 +5601,14 @@ static func prepare_save_resolution(
 		# MELTA X (T1-1): Bonus damage at half range
 		"melta_bonus": melta_bonus,
 		"melta_models_in_half_range": melta_models_in_half_range,
-		"melta_total_models": melta_total_models
+		"melta_total_models": melta_total_models,
+		# PRECISION (T3-4): Character targeting data
+		"has_precision": precision_data.get("has_precision", false),
+		"precision_wounds": precision_data.get("precision_wounds", 0),
+		"precision_critical_hits": precision_data.get("critical_hits", 0),
+		# Character model IDs for precision targeting
+		"character_model_ids": allocation_info.character_model_ids,
+		"bodyguard_alive": allocation_info.bodyguard_alive
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)

@@ -20,6 +20,9 @@ var allocation_history: Array = []  # [{wound_index, model_id, roll, saved, dama
 var defender_player: int = 0
 var awaiting_selection: bool = false
 var rng_service: RulesEngine.RNGService = null
+# PRECISION (T3-4): Track precision wounds that can target CHARACTER models
+var precision_wounds_remaining: int = 0
+var has_precision: bool = false
 
 # References
 var board_view: Node2D
@@ -362,6 +365,12 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 	current_wound_index = 0
 	allocation_history.clear()
 
+	# PRECISION (T3-4): Initialize precision state
+	has_precision = save_data.get("has_precision", false)
+	precision_wounds_remaining = save_data.get("precision_wounds", 0) if has_precision else 0
+	if has_precision and precision_wounds_remaining > 0:
+		print("WoundAllocationOverlay: PRECISION active — %d wounds can target CHARACTER models" % precision_wounds_remaining)
+
 	print("WoundAllocationOverlay: [SETUP STEP 2] Save data loaded:")
 	print("  - Total wounds: ", total_wounds)
 	print("  - Defender player: ", defender_player)
@@ -453,7 +462,8 @@ func _update_ui_for_current_wound() -> void:
 	# Show variable damage notation (e.g. "D6") if damage is not fixed
 	var damage_display = damage_raw if not damage_raw.is_valid_int() else str(damage)
 	if attack_info_label:
-		attack_info_label.text = "⚔ %s (AP%d, D%s)" % [weapon_name, ap, damage_display]
+		var precision_tag = " [PRECISION]" if _is_precision_wound_active() else ""
+		attack_info_label.text = "⚔ %s (AP%d, D%s)%s" % [weapon_name, ap, damage_display, precision_tag]
 		print("  - Set attack_info_label.text: ", attack_info_label.text)
 	else:
 		push_error("WoundAllocationOverlay: attack_info_label is NULL in _update_ui_for_current_wound!")
@@ -489,7 +499,14 @@ func _update_ui_for_current_wound() -> void:
 
 	# Instructions
 	var wounded_models = _get_wounded_models()
-	if not wounded_models.is_empty():
+	# PRECISION (T3-4): Show precision targeting instructions
+	if _is_precision_wound_active():
+		var char_wounded = _get_wounded_character_models()
+		if not char_wounded.is_empty():
+			instruction_label.text = "[center][b]PRECISION — TARGET CHARACTER[/b]\n[color=orange]Wounded CHARACTER must be selected![/color]\nClick on the [color=orange][b]ORANGE[/b][/color] highlighted CHARACTER model[/center]"
+		else:
+			instruction_label.text = "[center][b]PRECISION — Can target CHARACTER[/b]\n[color=orange]Select a CHARACTER ([b]ORANGE[/b]) or bodyguard model[/color]\n(%d precision wounds remaining)[/center]" % precision_wounds_remaining
+	elif not wounded_models.is_empty():
 		instruction_label.text = "[center][b]⚠ PRIORITY TARGET ⚠[/b]\n[color=red]Must select wounded model first![/color]\nClick on the [color=red][b]RED PULSING[/b][/color] model on the board[/center]"
 	else:
 		instruction_label.text = "[center][b]Click on a model to allocate this wound[/b]\nClick any [color=green][b]GREEN[/b][/color] highlighted model on the board[/center]"
@@ -570,7 +587,31 @@ func _highlight_valid_models() -> void:
 				)
 				continue
 
-			if has_alive_bodyguard:
+			# PRECISION (T3-4): During precision wounds, characters are selectable targets
+			if _is_precision_wound_active():
+				var char_wounded = _get_wounded_character_models()
+				if composite_id in char_wounded:
+					# Wounded character — must select (priority)
+					board_highlighter.create_highlight(
+						char_pos, char_base_mm,
+						WoundAllocationBoardHighlights.HighlightType.PRECISION_TARGET,
+						composite_id
+					)
+				elif char_wounded.is_empty():
+					# No wounded characters — all alive characters are selectable
+					board_highlighter.create_highlight(
+						char_pos, char_base_mm,
+						WoundAllocationBoardHighlights.HighlightType.PRECISION_TARGET,
+						composite_id
+					)
+				else:
+					# Other characters not wounded — not selectable while wounded char exists
+					board_highlighter.create_highlight(
+						char_pos, char_base_mm,
+						WoundAllocationBoardHighlights.HighlightType.CHARACTER_PROTECTED,
+						composite_id
+					)
+			elif has_alive_bodyguard:
 				# Character is PROTECTED - show blue/purple non-selectable highlight
 				board_highlighter.create_highlight(
 					char_pos, char_base_mm,
@@ -624,8 +665,17 @@ func _on_model_clicked(model_id: String) -> void:
 
 	# Validate selection
 	if not _is_valid_selection(model_id):
-		_show_error_flash("Must select wounded model first!")
+		# PRECISION (T3-4): Show appropriate error message
+		if _is_precision_wound_active() and not _is_character_model(model_id):
+			_show_error_flash("PRECISION: Must target CHARACTER model!")
+		else:
+			_show_error_flash("Must select wounded model first!")
 		return
+
+	# PRECISION (T3-4): Decrement precision wounds when targeting a character
+	if _is_precision_wound_active() and _is_character_model(model_id):
+		precision_wounds_remaining -= 1
+		print("WoundAllocationOverlay: PRECISION wound allocated to CHARACTER — %d precision wounds remaining" % precision_wounds_remaining)
 
 	awaiting_selection = false
 	set_process_input(false)
@@ -1136,8 +1186,19 @@ func _close() -> void:
 func _is_valid_selection(model_id: String) -> bool:
 	"""Check if model can be selected per 10e rules"""
 	# CHARACTER PROTECTION: If this is a character model and bodyguard is alive, cannot select
+	# PRECISION (T3-4): UNLESS this is a precision wound — then characters ARE valid targets
 	if _is_character_model(model_id) and _has_alive_bodyguard_models():
-		return false
+		if not _is_precision_wound_active():
+			return false
+		# Precision wound: character IS selectable — check if alive
+		var model = _get_model_by_id(model_id)
+		if model.is_empty() or not model.get("alive", true):
+			return false
+		# Check wounded character priority: if a character is already wounded, must select them
+		var char_wounded = _get_wounded_character_models()
+		if not char_wounded.is_empty():
+			return model_id in char_wounded
+		return true
 
 	var wounded_models = _get_wounded_models()
 
@@ -1145,7 +1206,7 @@ func _is_valid_selection(model_id: String) -> bool:
 	if not wounded_models.is_empty():
 		return model_id in wounded_models
 
-	# Otherwise, any alive model is valid
+	# Otherwise, any alive model is valid (non-character bodyguard models, or characters if bodyguard dead)
 	var model = _get_model_by_id(model_id)
 	return model.get("alive", true) if not model.is_empty() else false
 
@@ -1187,6 +1248,29 @@ func _get_wounded_models() -> Array:
 func _is_character_model(model_id: String) -> bool:
 	"""Check if a model_id represents an attached character model (composite ID)"""
 	return ":" in model_id
+
+func _is_precision_wound_active() -> bool:
+	"""PRECISION (T3-4): Check if current wound can target CHARACTER models"""
+	return has_precision and precision_wounds_remaining > 0
+
+func _get_wounded_character_models() -> Array:
+	"""PRECISION (T3-4): Return array of wounded CHARACTER model composite IDs"""
+	var wounded = []
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_chars:
+		var char_unit = GameState.get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			if not char_model.get("alive", true):
+				continue
+			var current_wounds = char_model.get("current_wounds", char_model.get("wounds", 1))
+			var max_wounds = char_model.get("wounds", 1)
+			if current_wounds < max_wounds:
+				wounded.append("%s:%s" % [char_id, char_model.get("id", "m%d" % j)])
+	return wounded
 
 func _has_alive_bodyguard_models() -> bool:
 	"""Check if the target unit still has alive non-character bodyguard models"""
