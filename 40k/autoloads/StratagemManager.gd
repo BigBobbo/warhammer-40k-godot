@@ -1156,6 +1156,251 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 	return results
 
 # ============================================================================
+# FIRE OVERWATCH
+# ============================================================================
+
+func is_fire_overwatch_available(player: int) -> Dictionary:
+	"""
+	Check if Fire Overwatch stratagem is available for a player.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "fire_overwatch")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func get_overwatch_eligible_units(player: int, enemy_unit_id: String, game_state_snapshot: Dictionary) -> Array:
+	"""
+	Get units eligible for Fire Overwatch for a given player against an enemy unit.
+	Requirements: owned by player, within 24" of the enemy unit, eligible to shoot
+	(not battle-shocked, has alive models, not already shot, not in engagement range
+	unless PISTOL weapons available).
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Check if the stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "fire_overwatch")
+	if not validation.can_use:
+		return eligible
+
+	var all_units = game_state_snapshot.get("units", {})
+	var enemy_unit = all_units.get(enemy_unit_id, {})
+	if enemy_unit.is_empty():
+		return eligible
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Must not be battle-shocked
+		var flags = unit.get("flags", {})
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must be within 24" of the enemy unit
+		if not _is_within_range(unit, enemy_unit, 24.0):
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id: String, game_state_snapshot: Dictionary) -> Dictionary:
+	"""
+	Execute the Fire Overwatch stratagem: shooting at the target with hit-on-6-only.
+	Handles CP deduction, usage tracking, overwatch shooting resolution.
+	Returns { success: bool, diffs: Array, shooting_result: Dictionary, message: String }
+	"""
+	var validation = can_use_stratagem(player, "fire_overwatch", shooter_unit_id)
+	if not validation.can_use:
+		return {"success": false, "error": validation.reason, "diffs": [], "shooting_result": {}}
+
+	# Use the standard use_stratagem flow for CP deduction and usage tracking
+	var result = use_stratagem(player, "fire_overwatch", shooter_unit_id)
+	if not result.success:
+		return {"success": false, "error": result.get("error", "Failed"), "diffs": [], "shooting_result": {}}
+
+	var shooter_unit = GameState.get_unit(shooter_unit_id)
+	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
+	var target_unit = GameState.get_unit(target_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	print("StratagemManager: FIRE OVERWATCH — %s (player %d) fires at %s" % [shooter_name, player, target_name])
+
+	# Build an action for RulesEngine.resolve_overwatch_shooting()
+	var board = GameState.create_snapshot()
+	var rng = RulesEngine.RNGService.new()
+	var shooting_result = RulesEngine.resolve_overwatch_shooting(shooter_unit_id, target_unit_id, board, rng)
+
+	# Apply the diffs from shooting
+	var shooting_diffs = shooting_result.get("diffs", [])
+	if not shooting_diffs.is_empty():
+		PhaseManager.apply_state_changes(shooting_diffs)
+
+	# Log the overwatch to phase log
+	GameState.add_action_to_phase_log({
+		"type": "FIRE_OVERWATCH",
+		"player": player,
+		"shooter_unit_id": shooter_unit_id,
+		"shooter_unit_name": shooter_name,
+		"target_unit_id": target_unit_id,
+		"target_unit_name": target_name,
+		"hits": shooting_result.get("total_hits", 0),
+		"wounds": shooting_result.get("total_wounds", 0),
+		"damage": shooting_result.get("total_damage", 0),
+		"casualties": shooting_result.get("total_casualties", 0),
+		"turn": GameState.get_battle_round()
+	})
+
+	return {
+		"success": true,
+		"diffs": shooting_diffs,
+		"shooting_result": shooting_result,
+		"message": "FIRE OVERWATCH: %s shot at %s — %d hit(s), %d wound(s), %d damage, %d casualt%s" % [
+			shooter_name, target_name,
+			shooting_result.get("total_hits", 0),
+			shooting_result.get("total_wounds", 0),
+			shooting_result.get("total_damage", 0),
+			shooting_result.get("total_casualties", 0),
+			"y" if shooting_result.get("total_casualties", 0) == 1 else "ies"
+		]
+	}
+
+# ============================================================================
+# HEROIC INTERVENTION
+# ============================================================================
+
+func is_heroic_intervention_available(player: int) -> Dictionary:
+	"""
+	Check if Heroic Intervention stratagem is available for a player.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "heroic_intervention")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func get_heroic_intervention_eligible_units(player: int, charging_unit_id: String, game_state_snapshot: Dictionary) -> Array:
+	"""
+	Get units eligible for Heroic Intervention for a given player.
+	Requirements: owned by player, within 6" of the charging enemy unit,
+	has alive models, not battle-shocked, not a VEHICLE (unless WALKER).
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Check if the stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "heroic_intervention")
+	if not validation.can_use:
+		return eligible
+
+	var all_units = game_state_snapshot.get("units", {})
+	var charging_unit = all_units.get(charging_unit_id, {})
+	if charging_unit.is_empty():
+		return eligible
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Must not be battle-shocked
+		var flags = unit.get("flags", {})
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Cannot be a VEHICLE unless it is a WALKER
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_vehicle = false
+		var is_walker = false
+		for kw in keywords:
+			if kw.to_upper() == "VEHICLE":
+				is_vehicle = true
+			if kw.to_upper() == "WALKER":
+				is_walker = true
+		if is_vehicle and not is_walker:
+			continue
+
+		# Must not already be in engagement range (already engaged units can't declare charges)
+		if _is_unit_in_engagement_range(unit, all_units, player):
+			continue
+
+		# Must be within 6" of the charging enemy unit
+		if not _is_within_range(unit, charging_unit, 6.0):
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func _is_within_range(unit1: Dictionary, unit2: Dictionary, range_inches: float) -> bool:
+	"""Check if any alive model from unit1 is within range_inches of any alive model from unit2."""
+	var models1 = unit1.get("models", [])
+	var models2 = unit2.get("models", [])
+
+	for model1 in models1:
+		if not model1.get("alive", true):
+			continue
+
+		for model2 in models2:
+			if not model2.get("alive", true):
+				continue
+
+			var distance = Measurement.model_to_model_distance_inches(model1, model2)
+			if distance <= range_inches:
+				return true
+
+	return false
+
+func _is_unit_in_engagement_range(unit: Dictionary, all_units: Dictionary, owner: int) -> bool:
+	"""Check if any model in unit is within engagement range (1\") of any enemy model."""
+	var models = unit.get("models", [])
+
+	for model in models:
+		if not model.get("alive", true):
+			continue
+
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if int(other_unit.get("owner", 0)) == owner:
+				continue  # Skip friendly units
+
+			for other_model in other_unit.get("models", []):
+				if not other_model.get("alive", true):
+					continue
+
+				if Measurement.is_in_engagement_range_shape_aware(model, other_model, 1.0):
+					return true
+
+	return false
+
+# ============================================================================
 # HELPERS
 # ============================================================================
 

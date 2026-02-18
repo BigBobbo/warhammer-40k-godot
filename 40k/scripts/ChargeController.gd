@@ -464,6 +464,14 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 			current_phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
 
+	if current_phase.has_signal("overwatch_opportunity"):
+		if not current_phase.overwatch_opportunity.is_connected(_on_overwatch_opportunity):
+			current_phase.overwatch_opportunity.connect(_on_overwatch_opportunity)
+
+	if current_phase.has_signal("heroic_intervention_opportunity"):
+		if not current_phase.heroic_intervention_opportunity.is_connected(_on_heroic_intervention_opportunity):
+			current_phase.heroic_intervention_opportunity.connect(_on_heroic_intervention_opportunity)
+
 	# Refresh UI with current phase data
 	_refresh_ui()
 
@@ -2195,4 +2203,116 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
+	})
+
+# ===================================================
+# FIRE OVERWATCH HANDLING (during Charge Phase)
+# ===================================================
+
+func _on_overwatch_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array) -> void:
+	"""Handle Fire Overwatch opportunity — show dialog to the defending player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ChargeController: FIRE OVERWATCH OPPORTUNITY (Charge Phase)")
+	print("║ Charging unit: %s (defending player %d)" % [charging_unit_id, defending_player])
+	print("║ Eligible units: %d" % eligible_units.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	if eligible_units.is_empty():
+		_on_fire_overwatch_declined(defending_player)
+		return
+
+	var dialog_script = load("res://dialogs/FireOverwatchDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load FireOverwatchDialog.gd")
+		_on_fire_overwatch_declined(defending_player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(defending_player, charging_unit_id, eligible_units)
+	dialog.fire_overwatch_used.connect(_on_fire_overwatch_used)
+	dialog.fire_overwatch_declined.connect(_on_fire_overwatch_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=orange_red]FIRE OVERWATCH available for Player %d![/color]\n" % defending_player)
+
+func _on_fire_overwatch_used(shooter_unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Fire Overwatch during charge."""
+	print("ChargeController: Fire Overwatch USED by %s" % shooter_unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=orange_red]FIRE OVERWATCH! Player %d fires with %s[/color]\n" % [player, shooter_unit_id])
+	emit_signal("charge_action_requested", {
+		"type": "USE_FIRE_OVERWATCH",
+		"actor_unit_id": shooter_unit_id,
+		"payload": {
+			"shooter_unit_id": shooter_unit_id
+		}
+	})
+
+func _on_fire_overwatch_declined(player: int) -> void:
+	"""Handle player declining Fire Overwatch during charge."""
+	print("ChargeController: Fire Overwatch DECLINED by player %d" % player)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Fire Overwatch declined.[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "DECLINE_FIRE_OVERWATCH",
+		"actor_unit_id": "",
+	})
+
+# ===================================================
+# HEROIC INTERVENTION HANDLING
+# ===================================================
+
+func _on_heroic_intervention_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array) -> void:
+	"""Handle Heroic Intervention opportunity — show dialog to the defending player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ChargeController: HEROIC INTERVENTION OPPORTUNITY")
+	print("║ Charging unit: %s (defending player %d)" % [charging_unit_id, defending_player])
+	print("║ Eligible units: %d" % eligible_units.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	if eligible_units.is_empty():
+		_on_heroic_intervention_declined(defending_player)
+		return
+
+	var dialog_script = load("res://dialogs/HeroicInterventionDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load HeroicInterventionDialog.gd")
+		_on_heroic_intervention_declined(defending_player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(defending_player, charging_unit_id, eligible_units)
+	dialog.heroic_intervention_used.connect(_on_heroic_intervention_used)
+	dialog.heroic_intervention_declined.connect(_on_heroic_intervention_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d![/color]\n" % defending_player)
+
+func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Heroic Intervention."""
+	print("ChargeController: Heroic Intervention USED by %s" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION! Player %d counter-charges with %s[/color]\n" % [player, unit_id])
+	emit_signal("charge_action_requested", {
+		"type": "USE_HEROIC_INTERVENTION",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"unit_id": unit_id
+		}
+	})
+
+func _on_heroic_intervention_declined(player: int) -> void:
+	"""Handle player declining Heroic Intervention."""
+	print("ChargeController: Heroic Intervention DECLINED by player %d" % player)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Heroic Intervention declined.[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "DECLINE_HEROIC_INTERVENTION",
+		"actor_unit_id": "",
 	})
