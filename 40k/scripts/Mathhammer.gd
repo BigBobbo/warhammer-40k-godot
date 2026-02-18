@@ -404,18 +404,20 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 					weapon["special_rules"] = existing_rules
 				print("Mathhammer: Injected anti-keyword rules [%s] into attacker %s weapons" % [", ".join(anti_keyword_texts), unit_id])
 
+	# Apply charged_this_turn flag if lance toggle is active (both shooting and melee)
+	# Per 10e: Lance +1 to wound applies to any attack with a Lance weapon if bearer charged
+	if rule_toggles.get("lance_charged", false):
+		for attacker_config in attackers:
+			var unit_id = attacker_config.get("unit_id", "")
+			if trial_board.units.has(unit_id):
+				if not trial_board.units[unit_id].has("flags"):
+					trial_board.units[unit_id]["flags"] = {}
+				trial_board.units[unit_id]["flags"]["charged_this_turn"] = true
+
 	# For melee simulations, ensure all models have positions within engagement range
 	# so the eligibility check in resolve_melee_attacks passes
 	if phase == "fight" or phase == "melee":
 		_place_models_in_engagement_range(trial_board, attackers, defender)
-		# Apply charged_this_turn flag if lance toggle is active
-		if rule_toggles.get("lance_charged", false):
-			for attacker_config in attackers:
-				var unit_id = attacker_config.get("unit_id", "")
-				if trial_board.units.has(unit_id):
-					if not trial_board.units[unit_id].has("flags"):
-						trial_board.units[unit_id]["flags"] = {}
-					trial_board.units[unit_id]["flags"]["charged_this_turn"] = true
 
 	return trial_board
 

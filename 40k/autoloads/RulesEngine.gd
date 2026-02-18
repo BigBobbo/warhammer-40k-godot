@@ -391,6 +391,45 @@ const WEAPON_PROFILES = {
 		"ap": 2,
 		"damage": 1,
 		"keywords": ["HAZARDOUS", "RAPID FIRE 1"]  # Hazardous + Rapid Fire combo
+	},
+	# LANCE WEAPONS (T4-1) — +1 to wound if bearer's unit made a charge move this turn
+	# TEST WEAPON: Basic Lance melee weapon (e.g., Shining Spears laser lance)
+	"lance_melee": {
+		"name": "Lance Melee (Test)",
+		"range": 0,
+		"attacks": 3,
+		"bs": 4,
+		"ws": 3,
+		"strength": 6,
+		"ap": 2,
+		"damage": 2,
+		"type": "melee",
+		"keywords": ["LANCE"]  # +1 to wound on charge
+	},
+	# TEST WEAPON: Lance + Lethal Hits combo
+	"lance_lethal": {
+		"name": "Lance + Lethal (Test)",
+		"range": 0,
+		"attacks": 4,
+		"bs": 4,
+		"ws": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"type": "melee",
+		"keywords": ["LANCE", "LETHAL HITS"]  # +1 to wound on charge + auto-wound on crit hits
+	},
+	# TEST WEAPON: Lance ranged weapon (Lance applies to ranged too per rules)
+	"lance_ranged": {
+		"name": "Lance Ranged (Test)",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 6,
+		"ap": 2,
+		"damage": 2,
+		"type": "ranged",
+		"keywords": ["LANCE"]  # +1 to wound on charge (ranged Lance)
 	}
 }
 
@@ -1354,7 +1393,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT — re-roll 1s to wound against %s" % target_unit_id)
 
-	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
+	# LANCE (T4-1): +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
@@ -1870,7 +1909,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to wound against %s" % target_unit_id)
 
-	# LANCE: +1 to wound if unit charged this turn
+	# LANCE (T4-1): +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
@@ -3078,10 +3117,11 @@ static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> D
 	return result
 
 # ==========================================
-# LANCE WEAPON KEYWORD (T1-3)
+# LANCE WEAPON KEYWORD (T4-1)
 # ==========================================
 # Lance: +1 to wound rolls if the bearer's unit made a charge move this turn
 # This modifier is subject to the +1/-1 wound modifier cap
+# Detection checks both keywords array and special_rules string (case-insensitive)
 
 # Check if a weapon has the Lance keyword
 static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
@@ -3089,6 +3129,12 @@ static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	if profile.is_empty():
 		return false
 
+	# Check special_rules string for "Lance" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "lance" in special_rules:
+		return true
+
+	# Check keywords array
 	var keywords = profile.get("keywords", [])
 	for keyword in keywords:
 		if keyword.to_upper() == "LANCE":
@@ -5300,7 +5346,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to wound against %s" % target_name)
 
-	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
+	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
