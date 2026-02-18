@@ -66,6 +66,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-2: Lone Operative — 12" targeting restriction | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-3: Hazardous weapon keyword — mortal wounds on roll of 1 | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T2-4: Indirect Fire weapon keyword — LoS skip, -1 to hit, 1-3 auto-fail, cover | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-6: Consolidation into new enemies triggers new fights | Fight | FIGHT_PHASE_AUDIT.md §2.4 |
 
 ---
 
@@ -276,12 +277,13 @@ These affect gameplay balance and tactical options significantly.
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.11
 - **Files:** `ShootingPhase.gd` — `_validate_assign_target()` (~lines 180-211)
 
-### T2-6. Consolidation into new enemies doesn't trigger new fights
+### T2-6. Consolidation into new enemies doesn't trigger new fights — **DONE**
 - **Phase:** Fight
 - **Rule:** After consolidation, newly eligible enemy units can fight back
 - **Impact:** Removes major tactical risk of aggressive consolidation
 - **Source:** FIGHT_PHASE_AUDIT.md §2.4
 - **Files:** `FightPhase.gd` — `_process_consolidate()`, fight sequence rebuild
+- **Resolution:** Added `_scan_newly_eligible_units_after_consolidation()` which runs after every consolidation move. Uses post-consolidation positions (via temporary override) to check all units not already in a fight sequence. Newly eligible units are added to `normal_sequence` (Remaining Combats). Added `_units_in_engagement_range_with_override()` helper for checking engagement with updated positions before game state snapshot refresh. 14 test cases (26 assertions) cover: new enemies added, no false positives, already-in-sequence/already-fought/dead exclusion, multi-enemy, correct player assignment, both player directions, and edge cases.
 
 ### T2-7. Heroic Intervention — not implemented
 - **Phase:** Fight/Charge
@@ -770,13 +772,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 4 | 12 | 16 |
+| Tier 2 — High Rules | 5 | 11 | 16 |
 | Tier 3 — Medium Rules | 0 | 26 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **13** | **115** | **128** |
-| **Recently Completed** | **42** | — | **42** |
+| **Total Open** | **14** | **114** | **128** |
+| **Recently Completed** | **43** | — | **43** |
 | *Mathhammer items (subset)* | *2* | *29* | *31* |
 
 ---

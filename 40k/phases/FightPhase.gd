@@ -1071,6 +1071,14 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# Legacy support - update old index
 	current_fight_index += 1
 
+	# T2-6: After consolidation, scan for newly eligible units.
+	# Per 10e rules: "After an enemy unit has finished its Consolidation move,
+	# if previously ineligible units are now eligible to Fight — these units can
+	# then be selected to fight."
+	# We must check using post-consolidation positions since the game_state_snapshot
+	# hasn't been updated yet (diffs are applied after process_action returns).
+	var newly_eligible = _scan_newly_eligible_units_after_consolidation(unit_id, movements)
+
 	# Determine which player just fought and which is the opponent
 	var fought_unit = get_unit(unit_id)
 	var fought_unit_owner = int(fought_unit.get("owner", 0))
@@ -1096,6 +1104,8 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 		result["trigger_counter_offensive"] = true
 		result["counter_offensive_player"] = opponent_player
 		result["counter_offensive_eligible_units"] = co_eligible
+		if not newly_eligible.is_empty():
+			result["newly_eligible_units"] = newly_eligible
 		return result
 
 	# No Counter-Offensive available — proceed with normal fight selection
@@ -1113,6 +1123,8 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	var result = create_result(true, changes)
 	result["trigger_fight_selection"] = true
 	result["fight_selection_data"] = dialog_data
+	if not newly_eligible.is_empty():
+		result["newly_eligible_units"] = newly_eligible
 
 	return result
 
@@ -1728,6 +1740,143 @@ func _find_enemies_in_engagement_range(unit: Dictionary) -> Array:
 			enemies.append(other_unit_id)
 
 	return enemies
+
+func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: String, movements: Dictionary) -> Array:
+	"""T2-6: After consolidation, check if any previously ineligible units are now
+	eligible to fight (newly in engagement range). Per 10e rules, these units can
+	then be selected to fight in the current phase.
+
+	Since game_state_snapshot hasn't been updated with the consolidation positions yet
+	(diffs are applied after process_action returns), we build a temporary view of
+	positions with the consolidation moves applied."""
+
+	var newly_eligible = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	# Build a set of all unit IDs already in any fight sequence
+	var already_in_sequence = {}
+	for player_key in ["1", "2"]:
+		for uid in fights_first_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+		for uid in normal_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+		for uid in fights_last_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+
+	# Build a temporary copy of the consolidating unit with updated positions
+	var consolidating_unit = all_units.get(consolidating_unit_id, {})
+	if consolidating_unit.is_empty():
+		return newly_eligible
+
+	var temp_consolidating_unit = consolidating_unit.duplicate(true)
+	var temp_models = temp_consolidating_unit.get("models", [])
+	for model_id in movements:
+		var idx = int(model_id)
+		if idx < temp_models.size():
+			var new_pos = movements[model_id]
+			temp_models[idx]["position"] = {"x": new_pos.x, "y": new_pos.y}
+
+	var consolidating_owner = consolidating_unit.get("owner", 0)
+
+	# Check every unit NOT already in a fight sequence
+	for check_unit_id in all_units:
+		if check_unit_id in already_in_sequence:
+			continue
+		if check_unit_id in units_that_fought:
+			continue
+
+		var check_unit = all_units[check_unit_id]
+		var check_owner = check_unit.get("owner", 0)
+
+		# Check if any models are alive
+		var has_alive = false
+		for model in check_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check if this unit is now in engagement range with any enemy
+		# We need to consider the consolidated unit's new positions
+		var is_now_eligible = false
+
+		# If the check_unit is an enemy of the consolidating unit,
+		# check against the updated positions
+		if check_owner != consolidating_owner:
+			if _units_in_engagement_range_with_override(check_unit, temp_consolidating_unit):
+				is_now_eligible = true
+
+		# Also check against all other units (not affected by consolidation) at their current positions
+		if not is_now_eligible:
+			for other_unit_id in all_units:
+				if other_unit_id == check_unit_id:
+					continue
+				var other_unit = all_units[other_unit_id]
+				if other_unit.get("owner", 0) == check_owner:
+					continue  # Same team
+
+				# For the consolidating unit, use updated positions
+				if other_unit_id == consolidating_unit_id:
+					continue  # Already checked above with override
+
+				if _units_in_engagement_range(check_unit, other_unit):
+					is_now_eligible = true
+					break
+
+		if is_now_eligible:
+			# This unit was NOT previously in any fight sequence but IS now in engagement range
+			var check_name = check_unit.get("meta", {}).get("name", check_unit_id)
+			var owner_key = str(int(check_owner))
+
+			# Add to normal_sequence (Remaining Combats) since they became eligible mid-phase
+			if owner_key in normal_sequence:
+				normal_sequence[owner_key].append(check_unit_id)
+				newly_eligible.append(check_unit_id)
+				log_phase_message("[T2-6] NEW FIGHT ELIGIBLE: %s (player %s) is now in engagement range after consolidation by %s — added to Remaining Combats" % [
+					check_name, owner_key, consolidating_unit_id
+				])
+
+			# Also update legacy fight_sequence for compatibility
+			fight_sequence.append(check_unit_id)
+
+	if newly_eligible.size() > 0:
+		log_phase_message("[T2-6] %d unit(s) became newly eligible to fight after consolidation" % newly_eligible.size())
+		emit_signal("fight_sequence_updated", fight_sequence)
+	else:
+		log_phase_message("[T2-6] No new units became eligible to fight after consolidation")
+
+	return newly_eligible
+
+func _units_in_engagement_range_with_override(unit1: Dictionary, unit2_override: Dictionary) -> bool:
+	"""Check engagement range using a unit with overridden model positions.
+	Used for checking engagement after consolidation before game state is updated."""
+	var models1 = unit1.get("models", [])
+	var models2 = unit2_override.get("models", [])
+
+	for model1 in models1:
+		if not model1.get("alive", true):
+			continue
+		var pos1_data = model1.get("position", {})
+		if pos1_data == null:
+			continue
+		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0)) if pos1_data is Dictionary else pos1_data
+		if pos1 == Vector2.ZERO:
+			continue
+
+		for model2 in models2:
+			if not model2.get("alive", true):
+				continue
+			var pos2_data = model2.get("position", {})
+			if pos2_data == null:
+				continue
+			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0)) if pos2_data is Dictionary else pos2_data
+			if pos2 == Vector2.ZERO:
+				continue
+
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+				return true
+	return false
 
 func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) -> Dictionary:
 	var errors = []
