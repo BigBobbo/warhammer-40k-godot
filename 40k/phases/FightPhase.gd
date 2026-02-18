@@ -351,16 +351,26 @@ func _validate_pile_in(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 	var movements = action.get("movements", {})
 	var errors = []
-	
+
 	# Handle single position movement (from FightController)
 	if movements.is_empty() and action.has("position"):
 		var position = action.get("position")
 		movements["0"] = Vector2(position.get("x", 0), position.get("y", 0))
-	
+
 	# Check unit is active fighter
 	if unit_id != active_fighter_id:
 		errors.append("Not the active fighter")
 		return {"valid": false, "errors": errors}
+
+	# T4-4: Aircraft cannot Pile In
+	var unit = get_unit(unit_id)
+	if _unit_has_keyword(unit, "AIRCRAFT"):
+		log_phase_message("[T4-4] AIRCRAFT unit %s cannot Pile In — skipping movement" % unit_id)
+		if not movements.is_empty():
+			errors.append("AIRCRAFT units cannot Pile In")
+			return {"valid": false, "errors": errors}
+		# Empty movements = skip, which is valid for Aircraft
+		return {"valid": true, "errors": []}
 	
 	# Validate each model movement
 	for model_id in movements:
@@ -489,6 +499,16 @@ func _validate_consolidate(action: Dictionary) -> Dictionary:
 	if not pending_attacks.is_empty():
 		errors.append("Must resolve attacks before consolidating")
 		return {"valid": false, "errors": errors}
+
+	# T4-4: Aircraft cannot Consolidate
+	var unit_for_kw = get_unit(unit_id)
+	if _unit_has_keyword(unit_for_kw, "AIRCRAFT"):
+		log_phase_message("[T4-4] AIRCRAFT unit %s cannot Consolidate — skipping movement" % unit_id)
+		if not movements.is_empty():
+			errors.append("AIRCRAFT units cannot Consolidate")
+			return {"valid": false, "errors": errors}
+		# Empty movements = skip, which is valid for Aircraft
+		return {"valid": true, "errors": []}
 
 	# If no movements provided, it's a skip - always valid
 	if movements.is_empty():
@@ -1600,17 +1620,29 @@ func _get_eligible_melee_targets(unit_id: String) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
-	
+	var unit_is_aircraft = _unit_has_keyword(unit, "AIRCRAFT")
+	var unit_has_fly = _unit_has_keyword(unit, "FLY")
+
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
-		
+
 		if other_owner != unit_owner and _units_in_engagement_range(unit, other_unit):
+			# T4-4: Aircraft can only fight against units that can Fly
+			var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
+			if unit_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):
+				log_phase_message("[T4-4] Target %s excluded: AIRCRAFT %s can only fight FLY units" % [other_unit_id, unit_id])
+				continue
+			# T4-4: Non-FLY units cannot target Aircraft
+			if other_is_aircraft and not unit_has_fly:
+				log_phase_message("[T4-4] Target AIRCRAFT %s excluded: attacker %s does not have FLY" % [other_unit_id, unit_id])
+				continue
+
 			targets[other_unit_id] = {
 				"name": other_unit.get("meta", {}).get("name", other_unit_id),
 				"owner": other_owner
 			}
-	
+
 	return targets
 
 func _get_model_position(unit_id: String, model_id: String) -> Vector2:
@@ -1653,9 +1685,11 @@ func _is_moving_toward_closest_enemy(unit_id: String, model_id: String, old_pos:
 	return new_distance <= old_distance
 
 func _find_closest_enemy_model(unit_id: String, model_data: Dictionary, from_pos: Vector2) -> Dictionary:
-	"""Find the closest enemy model using shape-aware edge-to-edge distance"""
+	"""Find the closest enemy model using shape-aware edge-to-edge distance.
+	T4-4: Unless a model can Fly, ignore Aircraft when determining the closest enemy model."""
 	var unit = get_unit(unit_id)
 	var unit_owner = unit.get("owner", 0)
+	var unit_has_fly = _unit_has_keyword(unit, "FLY")
 	var all_units = game_state_snapshot.get("units", {})
 	var closest_enemy = {}
 	var closest_distance = INF
@@ -1668,6 +1702,10 @@ func _find_closest_enemy_model(unit_id: String, model_data: Dictionary, from_pos
 		var other_unit = all_units[other_unit_id]
 		if other_unit.get("owner", 0) == unit_owner:
 			continue  # Skip same army
+
+		# T4-4: Unless a model can Fly, ignore Aircraft when determining closest enemy
+		if _unit_has_keyword(other_unit, "AIRCRAFT") and not unit_has_fly:
+			continue
 
 		var enemy_models = other_unit.get("models", [])
 		for enemy_model in enemy_models:
@@ -1690,6 +1728,7 @@ func _find_closest_enemy_model(unit_id: String, model_data: Dictionary, from_pos
 func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2:
 	var unit = get_unit(unit_id)
 	var unit_owner = unit.get("owner", 0)
+	var unit_has_fly = _unit_has_keyword(unit, "FLY")
 	var all_units = game_state_snapshot.get("units", {})
 	var closest_pos = Vector2.ZERO
 	var closest_distance = INF
@@ -1698,6 +1737,10 @@ func _find_closest_enemy_position(unit_id: String, from_pos: Vector2) -> Vector2
 		var other_unit = all_units[other_unit_id]
 		if other_unit.get("owner", 0) == unit_owner:
 			continue  # Skip same army
+
+		# T4-4: Unless a model can Fly, ignore Aircraft when determining closest enemy
+		if _unit_has_keyword(other_unit, "AIRCRAFT") and not unit_has_fly:
+			continue
 
 		var models_list = other_unit.get("models", [])
 		for model in models_list:
@@ -1938,24 +1981,41 @@ func _all_eligible_units_have_fought() -> bool:
 
 	return true
 
+# T4-4: Helper to check if a unit has a specific keyword
+func _unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return keyword in keywords
+
 # Legacy method compatibility (for existing helper methods)
 func _is_unit_in_combat(unit: Dictionary) -> bool:
 	# Check if unit is within engagement range of any enemy
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
 	var unit_name = unit.get("meta", {}).get("name", unit.get("id", "unknown"))
-	
+	var unit_is_aircraft = _unit_has_keyword(unit, "AIRCRAFT")
+
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
 		var other_name = other_unit.get("meta", {}).get("name", other_unit_id)
-		
+
 		if other_owner != unit_owner:
+			# T4-4: Aircraft restrictions in fight phase
+			# Aircraft can only fight against units that can Fly
+			# Non-FLY units ignore Aircraft for combat eligibility
+			var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
+			if unit_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):
+				log_phase_message("[T4-4] Skipping %s: AIRCRAFT unit %s can only fight FLY units" % [other_name, unit_name])
+				continue
+			if other_is_aircraft and not _unit_has_keyword(unit, "FLY"):
+				log_phase_message("[T4-4] Skipping AIRCRAFT %s: unit %s does not have FLY" % [other_name, unit_name])
+				continue
+
 			log_phase_message("Checking engagement between %s (player %d) and %s (player %d)" % [unit_name, unit_owner, other_name, other_owner])
 			if _units_in_engagement_range(unit, other_unit):
 				log_phase_message("Units %s and %s are in engagement range!" % [unit_name, other_name])
 				return true
-	
+
 	return false
 
 ## T3-9: Get the effective engagement range between two model positions,
@@ -2012,13 +2072,21 @@ func _find_enemies_in_engagement_range(unit: Dictionary) -> Array:
 	var enemies = []
 	var all_units = game_state_snapshot.get("units", {})
 	var unit_owner = unit.get("owner", 0)
+	var unit_is_aircraft = _unit_has_keyword(unit, "AIRCRAFT")
+	var unit_has_fly = _unit_has_keyword(unit, "FLY")
 
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
 
-		if other_owner != unit_owner and _units_in_engagement_range(unit, other_unit):
-			enemies.append(other_unit_id)
+		if other_owner != unit_owner:
+			# T4-4: Aircraft restrictions
+			if unit_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):
+				continue
+			if _unit_has_keyword(other_unit, "AIRCRAFT") and not unit_has_fly:
+				continue
+			if _units_in_engagement_range(unit, other_unit):
+				enemies.append(other_unit_id)
 
 	return enemies
 
@@ -2078,6 +2146,10 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 		if not has_alive:
 			continue
 
+		# T4-4: Apply Aircraft restrictions when checking newly eligible units
+		var check_is_aircraft = _unit_has_keyword(check_unit, "AIRCRAFT")
+		var check_has_fly = _unit_has_keyword(check_unit, "FLY")
+
 		# Check if this unit is now in engagement range with any enemy
 		# We need to consider the consolidated unit's new positions
 		var is_now_eligible = false
@@ -2085,7 +2157,15 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 		# If the check_unit is an enemy of the consolidating unit,
 		# check against the updated positions
 		if check_owner != consolidating_owner:
-			if _units_in_engagement_range_with_override(check_unit, temp_consolidating_unit):
+			# T4-4: Aircraft can only fight FLY units; non-FLY units ignore Aircraft
+			var consol_is_aircraft = _unit_has_keyword(consolidating_unit, "AIRCRAFT")
+			var consol_has_fly = _unit_has_keyword(consolidating_unit, "FLY")
+			var skip_pair = false
+			if check_is_aircraft and not consol_has_fly:
+				skip_pair = true
+			if consol_is_aircraft and not check_has_fly:
+				skip_pair = true
+			if not skip_pair and _units_in_engagement_range_with_override(check_unit, temp_consolidating_unit):
 				is_now_eligible = true
 
 		# Also check against all other units (not affected by consolidation) at their current positions
@@ -2100,6 +2180,13 @@ func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: Strin
 				# For the consolidating unit, use updated positions
 				if other_unit_id == consolidating_unit_id:
 					continue  # Already checked above with override
+
+				# T4-4: Aircraft restrictions
+				var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
+				if check_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):
+					continue
+				if other_is_aircraft and not check_has_fly:
+					continue
 
 				if _units_in_engagement_range(check_unit, other_unit):
 					is_now_eligible = true

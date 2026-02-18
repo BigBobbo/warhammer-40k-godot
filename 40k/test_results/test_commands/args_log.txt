@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-ginclude_subdirs", "-gdir=res://tests/unit", "-gprefix=test_counter_offensive", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=test_aircraft_fight_restriction.gd"]

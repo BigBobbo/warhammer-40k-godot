@@ -100,6 +100,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-1: Lance weapon keyword (+1 wound on charge) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T4-3: Counter-Offensive stratagem (2 CP, fight next after enemy fought) | Fight | FIGHT_PHASE_AUDIT.md §2.9 |
+| T4-4: Aircraft restrictions in fight phase — AIRCRAFT/FLY keyword checks | Fight | FIGHT_PHASE_AUDIT.md §2.10 |
 
 ---
 
@@ -626,9 +627,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** FIGHT_PHASE_AUDIT.md §2.9
 - **Resolution:** Full implementation already existed in StratagemManager (definition, validation, CP deduction, eligibility checks), FightPhase (trigger after consolidation, USE/DECLINE actions), FightController (UI signal wiring), and CounterOffensiveDialog (UI). Fixed StratagemManager.use_stratagem() null-safety for PhaseManager in test environment. All 26 tests pass.
 
-### T4-4. Aircraft restrictions in fight phase
+### T4-4. Aircraft restrictions in fight phase — **DONE**
 - **Phase:** Fight
 - **Source:** FIGHT_PHASE_AUDIT.md §2.10
+- **Resolution:** Added AIRCRAFT/FLY keyword checks throughout fight phase: `_is_unit_in_combat()` filters Aircraft from non-FLY combat eligibility, `_get_eligible_melee_targets()` enforces Aircraft↔FLY targeting, `_find_closest_enemy_model/position()` ignores Aircraft for non-FLY units during pile-in/consolidation, `_validate_pile_in/consolidate()` blocks Aircraft from making these moves, `_find_enemies_in_engagement_range()` and `_scan_newly_eligible_units_after_consolidation()` respect Aircraft restrictions. Added matching static helpers in RulesEngine (`is_eligible_to_fight`, `fight_targets_in_engagement`, `can_unit_pile_in`, `can_unit_consolidate`). All 18 tests pass.
 
 ### T4-5. Models in base contact should not move during pile-in
 - **Phase:** Fight
@@ -840,11 +842,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 2 | 18 | 20 |
+| Tier 4 — Low/Niche | 3 | 17 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **43** | **85** | **128** |
-| **Recently Completed** | **70** | — | **70** |
+| **Total Open** | **44** | **84** | **128** |
+| **Recently Completed** | **71** | — | **71** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
