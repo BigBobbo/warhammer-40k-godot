@@ -38,6 +38,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	match phase:
 		GameStateData.Phase.DEPLOYMENT:
 			return _decide_deployment(snapshot, available_actions, player)
+		GameStateData.Phase.SCOUT:
+			return _decide_scout(snapshot, available_actions, player)
 		GameStateData.Phase.COMMAND:
 			return _decide_command(snapshot, available_actions, player)
 		GameStateData.Phase.MOVEMENT:
@@ -160,6 +162,28 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		"model_rotations": rotations,
 		"_ai_description": "Deployed %s" % unit_name
 	}
+
+# =============================================================================
+# SCOUT PHASE
+# =============================================================================
+
+static func _decide_scout(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# AI strategy: Skip all scout moves for now (simple fallback)
+	# Future improvement: move scouts toward nearest objective
+	for action in available_actions:
+		if action.get("type") == "SKIP_SCOUT_MOVE":
+			return {
+				"type": "SKIP_SCOUT_MOVE",
+				"unit_id": action.get("unit_id", ""),
+				"_ai_description": "Skip Scout move for %s" % action.get("unit_id", "")
+			}
+
+	# If all scouts handled, end phase
+	for action in available_actions:
+		if action.get("type") == "END_SCOUT_PHASE":
+			return {"type": "END_SCOUT_PHASE", "_ai_description": "End Scout Phase"}
+
+	return {}
 
 # =============================================================================
 # COMMAND PHASE
