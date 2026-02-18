@@ -103,6 +103,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-4: Aircraft restrictions in fight phase — AIRCRAFT/FLY keyword checks | Fight | FIGHT_PHASE_AUDIT.md §2.10 |
 | T4-5: Models in base contact should not move during pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.11 |
 | T4-7: Rapid Ingress stratagem (1 CP, arrive from reserves at end of opponent's movement) | Movement | MOVEMENT_PHASE_AUDIT.md §2.11 |
+| T4-8: Secondary missions + New Orders stratagem | Command | AUDIT_COMMAND_PHASE.md §P3 |
 
 ---
 
@@ -648,9 +649,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.11
 - **Resolution:** Implemented Rapid Ingress stratagem (1 CP, opponent's Movement phase end). Added rapid_ingress_opportunity signal to MovementPhase.gd, USE_RAPID_INGRESS / DECLINE_RAPID_INGRESS / PLACE_RAPID_INGRESS_REINFORCEMENT action types, RapidIngressDialog.gd for unit selection UI, MovementController.gd signal handling, Main.gd placement flow, and NetworkManager.gd multiplayer sync. Includes battle round >= 2 restriction, 9" enemy distance check, Strategic Reserves edge placement rules, and unit coherency validation.
 
-### T4-8. Secondary missions + New Orders stratagem
+### T4-8. Secondary missions + New Orders stratagem — **DONE**
 - **Phase:** Command
 - **Source:** AUDIT_COMMAND_PHASE.md §P3
+- **Resolution:** Full secondary missions system already implemented across multiple files. SecondaryMissionManager.gd (1360 lines) handles tactical deck building (18 cards), card drawing (max 2 active), voluntary discard (+1 CP), New Orders stratagem execution (discard and draw replacement), scoring with VP caps (40 secondary, 90 combined), when-drawn conditions (shuffle back, discard-and-draw, requires-interaction), and unit destruction tracking for kill-based missions. SecondaryMissionData.gd defines all 18 mission cards across 5 categories (Shadow Operations, Battlefield Supremacy, Strategic Conquests, Purge the Enemy, action-based). New Orders stratagem defined in StratagemManager.gd (1 CP, your Command phase, once per battle). CommandPhase.gd integrates deck init, card drawing, VOLUNTARY_DISCARD/USE_NEW_ORDERS/RESOLVE_MARKED_FOR_DEATH/RESOLVE_TEMPTING_TARGET actions with full validation. CommandController.gd provides UI with mission cards, discard buttons, New Orders buttons with availability checking. ScoringPhase.gd scores secondary missions at end of turn. ShootingPhase/FightPhase/WoundAllocationOverlay report unit destructions for kill-based missions. MarkedForDeathDialog.gd and TemptingTargetDialog.gd handle interactive mission requirements. Fixed broken test suite (test_secondary_missions.gd) — 292 tests pass.
 
 ### T4-9. Deployment map variety (Hammer and Anvil, Search and Destroy, etc.)
 - **Phase:** Deployment
@@ -846,11 +848,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 5 | 15 | 20 |
+| Tier 4 — Low/Niche | 6 | 14 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **46** | **82** | **128** |
-| **Recently Completed** | **73** | — | **73** |
+| **Total Open** | **47** | **81** | **128** |
+| **Recently Completed** | **74** | — | **74** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
