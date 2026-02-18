@@ -110,14 +110,60 @@ func get_current_phase_instance() -> BasePhase:
 	return current_phase_instance
 
 func advance_to_next_phase() -> void:
+	print("PhaseManager: advance_to_next_phase() called")
 	var current = get_current_phase()
 	var next_phase = _get_next_phase(current)
-	
+	print("PhaseManager: current=", GameStateData.Phase.keys()[current], " next=", GameStateData.Phase.keys()[next_phase])
+
+	# MULTIPLAYER FIX: When phase advances automatically (auto-complete),
+	# we need to sync this with clients via NetworkManager
+	var network_mgr = get_node_or_null("/root/NetworkManager")
+	var is_networked = network_mgr and network_mgr.is_networked()
+	var is_host = network_mgr and network_mgr.is_host()
+	print("PhaseManager: is_networked=", is_networked, " is_host=", is_host)
+
 	if next_phase != current:
+		# Normal phase advance
+		if is_networked and is_host:
+			# Host: broadcast phase change to clients via a state diff
+			print("PhaseManager: Host broadcasting auto phase change: ", GameStateData.Phase.keys()[current], " -> ", GameStateData.Phase.keys()[next_phase])
+			var result = {
+				"success": true,
+				"diffs": [{
+					"op": "set",
+					"path": "meta.phase",
+					"value": next_phase
+				}],
+				"action_type": "AUTO_PHASE_ADVANCE",
+				"action_data": {
+					"type": "AUTO_PHASE_ADVANCE",
+					"from_phase": current,
+					"to_phase": next_phase
+				}
+			}
+			# Apply locally first
+			GameState.set_phase(next_phase)
+			# Then broadcast to clients
+			network_mgr._broadcast_result_from_phase_manager(result)
+
 		transition_to_phase(next_phase)
 	else:
 		# End of turn, advance turn and start with deployment
 		GameState.advance_turn()
+
+		if is_networked and is_host:
+			# Broadcast turn advance and phase reset
+			print("PhaseManager: Host broadcasting turn advance and phase reset")
+			var result = {
+				"success": true,
+				"diffs": [
+					{"op": "set", "path": "meta.turn_number", "value": GameState.get_turn_number()},
+					{"op": "set", "path": "meta.phase", "value": GameStateData.Phase.DEPLOYMENT}
+				],
+				"action_type": "AUTO_TURN_ADVANCE"
+			}
+			network_mgr._broadcast_result_from_phase_manager(result)
+
 		transition_to_phase(GameStateData.Phase.DEPLOYMENT)
 
 func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:

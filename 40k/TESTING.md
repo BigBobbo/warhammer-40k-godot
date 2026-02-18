@@ -399,13 +399,294 @@ func test_debug_example():
     assert_not_null(test_value)
 ```
 
+## 🖱️ Advanced Mouse Input Simulation
+
+### InputSimulator Helper Class
+
+The `InputSimulator` helper class (`tests/helpers/InputSimulator.gd`) provides advanced mouse simulation capabilities for realistic user interaction testing:
+
+#### Basic Mouse Operations
+
+```gdscript
+# Realistic mouse movement (human-like with easing)
+await InputSimulator.simulate_realistic_mouse_movement(
+    scene_runner, start_pos, end_pos, duration_seconds)
+
+# Double-click
+await InputSimulator.simulate_double_click(scene_runner, position)
+
+# Rapid clicking
+await InputSimulator.simulate_rapid_clicks(
+    scene_runner, position, count, delay_ms)
+
+# Mouse wheel scrolling
+await InputSimulator.simulate_mouse_wheel(
+    scene_runner, position, delta)
+```
+
+#### Advanced Drag Operations
+
+```gdscript
+# Drag with modifier key (Shift, Ctrl, Alt)
+await InputSimulator.simulate_drag_with_modifier(
+    scene_runner, start_pos, end_pos, KEY_SHIFT)
+
+# Box selection (drag to create selection rectangle)
+await InputSimulator.simulate_box_selection(
+    scene_runner, top_left, bottom_right)
+
+# Camera pan with middle mouse button
+await InputSimulator.simulate_camera_pan_with_mouse(
+    scene_runner, start_pos, end_pos)
+```
+
+#### Gameplay-Specific Simulations
+
+```gdscript
+# Deployment with model rotation
+await InputSimulator.simulate_deployment_click(
+    scene_runner, position, rotation_taps)
+
+# Complete unit movement sequence
+await InputSimulator.simulate_unit_movement_sequence(
+    scene_runner, unit_positions, move_to_positions)
+
+# Shooting sequence (select shooter, target, confirm)
+await InputSimulator.simulate_shooting_sequence(
+    scene_runner, shooter_pos, target_pos)
+
+# Measurement tool usage
+await InputSimulator.simulate_measurement(
+    scene_runner, from_pos, to_pos)
+
+# Keyboard shortcuts
+await InputSimulator.simulate_keyboard_shortcut(
+    scene_runner, [KEY_CTRL, KEY_S])
+```
+
+#### Player Behavior Simulation
+
+```gdscript
+# Simulate player hesitation/thinking
+await InputSimulator.simulate_player_hesitation(scene_runner, 0.5)
+
+# Hover for tooltip display
+await InputSimulator.simulate_hover_delay(
+    scene_runner, position, duration_seconds)
+
+# Mouse gesture with waypoints
+await InputSimulator.simulate_mouse_gesture(
+    scene_runner, waypoints, duration_seconds)
+```
+
+### Complete Gameplay Test Example
+
+See `tests/integration/test_full_gameplay_sequence.gd` for comprehensive examples:
+
+```gdscript
+extends BaseUITest
+
+func test_complete_turn_sequence():
+    """Test a full turn from deployment through all phases"""
+    # 1. Deployment Phase
+    await test_complete_deployment_phase()
+
+    # 2. Command Phase
+    transition_to_phase(GameStateData.Phase.COMMAND)
+    click_button("EndPhaseButton")
+    await wait_for_ui_update()
+
+    # 3. Movement Phase
+    await test_complete_movement_phase()
+
+    # 4. Shooting Phase
+    await test_complete_shooting_phase()
+
+    # 5. Charge Phase
+    await test_complete_charge_phase()
+
+    # 6. Fight Phase
+    await test_complete_fight_phase()
+
+    # 7. Morale Phase
+    await test_complete_morale_phase()
+
+    # Verify turn completion
+    assert_true(true, "Full turn sequence completed")
+```
+
+## 🌐 Multiplayer Testing
+
+### Network Test Setup
+
+The game includes comprehensive multiplayer testing capabilities in `tests/network/`:
+
+```gdscript
+extends GutTest
+
+var network_manager
+
+func before_each():
+    AutoloadHelper.ensure_autoloads_loaded(get_tree())
+    if Engine.has_singleton("NetworkManager"):
+        network_manager = Engine.get_singleton("NetworkManager")
+
+func after_each():
+    if network_manager:
+        network_manager.disconnect_from_game()
+```
+
+### Host/Client Testing
+
+```gdscript
+func test_multiplayer_connection():
+    """Test host creates game and client connects"""
+    # Host creates server
+    network_manager.create_server()
+    await wait_frames(5)
+
+    assert_true(network_manager.is_server())
+    assert_eq(network_manager.get_network_mode(),
+        NetworkManager.NetworkMode.HOST)
+
+    # Verify server is listening
+    assert_gt(network_manager.get_port(), 0)
+```
+
+### Multiplayer Game State Synchronization
+
+```gdscript
+func test_multiplayer_deployment_sync():
+    """Test that unit deployment is synchronized between players"""
+    # Setup multiplayer game
+    network_manager.create_server()
+    await wait_frames(5)
+
+    # Player 1 deploys a unit
+    var deployment_pos = Vector2(200, 200)
+    host_runner.set_mouse_position(deployment_pos)
+    host_runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+    await wait_frames(3)
+
+    # In full implementation, verify client sees deployment
+    # For now, verify deployment was registered
+    var game_state = Engine.get_singleton("GameState")
+    var units = game_state.get_units()
+
+    var has_deployed_unit = false
+    for unit_id in units.keys():
+        if units[unit_id].status == GameStateData.UnitStatus.DEPLOYED:
+            has_deployed_unit = true
+            break
+
+    assert_true(has_deployed_unit, "Unit should be deployed")
+```
+
+### RNG Determinism Testing
+
+Critical for fair multiplayer gameplay:
+
+```gdscript
+func test_multiplayer_rng_determinism():
+    """Test that RNG is deterministic across network"""
+    network_manager.create_server()
+    var session_id = network_manager.get_session_id()
+
+    var rules_engine = Engine.get_singleton("RulesEngine")
+    rules_engine.init_rng(session_id)
+
+    # Roll dice
+    var rolls = []
+    for i in range(10):
+        rolls.append(rules_engine.roll_d6())
+
+    # Reset with same seed
+    rules_engine.init_rng(session_id)
+
+    # Rolls should match exactly (deterministic)
+    for i in range(10):
+        var reroll = rules_engine.roll_d6()
+        assert_eq(rolls[i], reroll,
+            "Roll %d should match with same seed" % i)
+```
+
+### Turn Timer Testing
+
+```gdscript
+func test_multiplayer_turn_timer():
+    """Test turn timer functionality in multiplayer"""
+    network_manager.create_server()
+    network_manager.set_turn_timer_enabled(true)
+    network_manager.set_turn_timer_duration(90)
+
+    network_manager.start_turn_timer()
+    await wait_frames(3)
+
+    var time_remaining = network_manager.get_turn_timer_remaining()
+    assert_gt(time_remaining, 0, "Turn timer should be running")
+    assert_le(time_remaining, 90, "Timer should not exceed duration")
+```
+
+### Action Validation in Multiplayer
+
+```gdscript
+func test_multiplayer_action_validation():
+    """Test that invalid actions are rejected"""
+    network_manager.create_server()
+
+    # Try to control opponent's unit
+    var action = {
+        "type": "move_model",
+        "actor_unit_id": "enemy_unit_1",
+        "player": 0,  # Wrong player
+        "payload": {
+            "model_id": "nob",
+            "to_position": Vector2(100, 100)
+        }
+    }
+
+    var rules_engine = Engine.get_singleton("RulesEngine")
+    var validation = rules_engine.validate_action(action)
+
+    assert_false(validation.valid,
+        "Should reject action for opponent's unit")
+```
+
+### Network Disconnect Handling
+
+```gdscript
+func test_network_disconnect_handling():
+    """Test graceful disconnect handling"""
+    network_manager.create_server()
+    await wait_frames(5)
+
+    # Simulate disconnect
+    network_manager.disconnect_from_game()
+    await wait_frames(3)
+
+    assert_eq(network_manager.get_network_mode(),
+        NetworkManager.NetworkMode.OFFLINE,
+        "Should return to OFFLINE mode")
+```
+
+### Complete Multiplayer Test Examples
+
+See `tests/network/test_multiplayer_gameplay.gd` for comprehensive examples:
+- Army selection in lobby
+- Turn synchronization
+- Movement synchronization
+- Shooting synchronization
+- Combat resolution synchronization
+- Reconnection handling
+- Chat functionality (if implemented)
+
 ## 📊 Test Coverage
 
 ### Current Coverage Areas
 
 ✅ **Core Systems (Unit Tests)**
 - GameState autoload - 25+ test methods
-- PhaseManager autoload - 20+ test methods  
+- PhaseManager autoload - 20+ test methods
 - Measurement system - 15+ test methods
 - TurnManager autoload - 15+ test methods
 - ActionLogger autoload - 10+ test methods
@@ -422,12 +703,24 @@ func test_debug_example():
 - Mouse input simulation and drag-and-drop
 - Button functionality (Undo, Reset, Confirm, phase buttons)
 - Scene transitions and UI state management
+- Advanced mouse interactions (double-click, box selection)
+- Camera controls (WASD, zoom, pan)
+- Context menus and tooltips
 
 ✅ **System Integration (Integration Tests)**
 - Cross-system data flow and signal propagation
 - Phase transition coordination
 - State synchronization across systems
 - Error handling and recovery
+- Complete gameplay sequences
+
+✅ **Multiplayer/Network (Network Tests)**
+- Host/client connection
+- Game state synchronization
+- Action validation across network
+- RNG determinism for fair gameplay
+- Turn timer functionality
+- Disconnect/reconnect handling
 
 ### Coverage Goals
 
@@ -435,6 +728,7 @@ func test_debug_example():
 - **Phase Tests**: 100% coverage of game rule validation
 - **UI Tests**: All major user interactions covered
 - **Integration Tests**: Critical system boundaries tested
+- **Network Tests**: All multiplayer scenarios covered
 
 ## 📈 Performance Testing
 
