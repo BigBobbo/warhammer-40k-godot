@@ -1096,6 +1096,106 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 
 	return false
 
+func is_fire_overwatch_available(player: int) -> Dictionary:
+	"""
+	Check if Fire Overwatch stratagem is available for a player.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "fire_overwatch")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_state_snapshot: Dictionary) -> Array:
+	"""
+	Get units eligible to Fire Overwatch for a given player against an enemy unit.
+	Requirements (10e rules):
+	  - Owned by player
+	  - Within 24\" of the enemy unit
+	  - Not battle-shocked
+	  - Has alive models
+	  - Eligible to shoot (has ranged weapons, not in engagement range)
+	Returns array of { unit_id: String, unit_name: String }
+	"""
+	var eligible = []
+
+	# Check if the stratagem can be used at all (CP, restrictions)
+	var validation = can_use_stratagem(player, "fire_overwatch")
+	if not validation.can_use:
+		return eligible
+
+	var all_units = game_state_snapshot.get("units", {})
+	var enemy_unit = all_units.get(enemy_unit_id, {})
+	if enemy_unit.is_empty():
+		return eligible
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+
+		# Must not be battle-shocked
+		var flags = unit.get("flags", {})
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Must have alive models
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Must NOT already be in engagement range of any enemy unit (can't shoot while in melee)
+		var in_engagement = false
+		var unit_owner = int(unit.get("owner", 0))
+		for other_unit_id in all_units:
+			var other_unit = all_units[other_unit_id]
+			if int(other_unit.get("owner", 0)) == unit_owner:
+				continue
+			if _units_in_engagement_range(unit, other_unit):
+				in_engagement = true
+				break
+		if in_engagement:
+			continue
+
+		# Must have at least one ranged weapon
+		var has_ranged_weapon = _unit_has_ranged_weapons(unit)
+		if not has_ranged_weapon:
+			continue
+
+		# Must be within 24" of the enemy unit
+		var within_24 = _unit_within_distance_of_unit(unit, enemy_unit, 24.0)
+		if not within_24:
+			continue
+
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id)
+		})
+
+	return eligible
+
+func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
+	"""Check if a unit has any ranged weapons (non-melee)."""
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for weapon in weapons:
+		var weapon_type = weapon.get("type", "").to_lower()
+		# A weapon is ranged if it's not a melee weapon
+		if weapon_type != "melee":
+			return true
+		# Also check the range field - if range > 0, it's ranged
+		var weapon_range = weapon.get("range", "")
+		if weapon_range is String and weapon_range != "" and weapon_range != "Melee":
+			return true
+		elif weapon_range is int and weapon_range > 0:
+			return true
+		elif weapon_range is float and weapon_range > 0.0:
+			return true
+	return false
+
 func is_heroic_intervention_available(player: int) -> Dictionary:
 	"""
 	Check if Heroic Intervention stratagem is available for a player.
