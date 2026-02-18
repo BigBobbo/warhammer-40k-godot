@@ -1,1 +1,1 @@
-ARGS: ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_devastating_wounds", "-glog=1", "-gexit"]
