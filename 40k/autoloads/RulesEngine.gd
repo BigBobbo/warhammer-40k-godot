@@ -722,7 +722,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
@@ -1208,7 +1208,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
@@ -4703,7 +4703,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
 	var sustained_data = get_sustained_hits_value(weapon_id, board)
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 

@@ -54,13 +54,18 @@ static func _register_hit_modifiers() -> void:
 	rule.apply_function = _apply_sustained_hits
 	RULE_REGISTRY[rule.id] = rule
 	
+	rule = RuleDefinition.new("torrent", "Torrent", "Auto-hit (no hit roll, no critical hits)", RuleCategory.HIT_MODIFIER)
+	rule.conflicts_with = ["hit_plus_1", "hit_minus_1"]
+	rule.apply_function = _apply_torrent
+	RULE_REGISTRY[rule.id] = rule
+
 	rule = RuleDefinition.new("hit_plus_1", "+1 to Hit", "Add 1 to hit rolls", RuleCategory.HIT_MODIFIER)
-	rule.conflicts_with = ["hit_minus_1"]
+	rule.conflicts_with = ["hit_minus_1", "torrent"]
 	rule.apply_function = _apply_hit_modifier.bind(1)
 	RULE_REGISTRY[rule.id] = rule
-	
+
 	rule = RuleDefinition.new("hit_minus_1", "-1 to Hit", "Subtract 1 from hit rolls", RuleCategory.HIT_MODIFIER)
-	rule.conflicts_with = ["hit_plus_1"]
+	rule.conflicts_with = ["hit_plus_1", "torrent"]
 	rule.apply_function = _apply_hit_modifier.bind(-1)
 	RULE_REGISTRY[rule.id] = rule
 
@@ -170,7 +175,7 @@ static func extract_unit_rules(unit_ids: Array) -> Array:
 	# Add universal modifiers that are always available
 	var universal_rules = [
 		"hit_plus_1", "hit_minus_1", "wound_plus_1", "wound_minus_1",
-		"cover", "ignores_cover", "rapid_fire"
+		"cover", "ignores_cover", "rapid_fire", "torrent"
 	]
 	
 	for rule_id in universal_rules:
@@ -193,7 +198,8 @@ static func _parse_weapon_special_rules(special_rules: String) -> Array:
 		"anti-infantry": "anti_infantry",
 		"anti-vehicle": "anti_vehicle",
 		"ignores cover": "ignores_cover",
-		"rapid fire": "rapid_fire"
+		"rapid fire": "rapid_fire",
+		"torrent": "torrent"
 	}
 	
 	for rule_text in rule_mappings:
@@ -277,6 +283,11 @@ static func _apply_sustained_hits(config: Dictionary) -> void:
 	# Sustained Hits: 6s to hit generate extra hits
 	config["modifiers"] = config.get("modifiers", {})
 	config.modifiers["sustained_hits"] = true
+
+static func _apply_torrent(config: Dictionary) -> void:
+	# Torrent: All attacks automatically hit — no hit roll made, no critical hits possible
+	config["modifiers"] = config.get("modifiers", {})
+	config.modifiers["torrent"] = true
 
 static func _apply_twin_linked(config: Dictionary) -> void:
 	# Twin-linked: Re-roll all failed wound rolls (10e rules)
