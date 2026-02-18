@@ -97,7 +97,7 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"DECLARE_CHARGE":
 			return process_declare_charge(action)
-		"CHARGE_ROLL":
+		"ROLL_CHARGE", "CHARGE_ROLL":
 			return process_roll_charge(action)
 		"APPLY_CHARGE_MOVE":
 			return _delegate_to_current_phase(action)
