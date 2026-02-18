@@ -1372,68 +1372,12 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 	return results
 
 # ============================================================================
-# FIRE OVERWATCH
+# FIRE OVERWATCH — Execution
 # ============================================================================
 
-func is_fire_overwatch_available(player: int) -> Dictionary:
-	"""
-	Check if Fire Overwatch stratagem is available for a player.
-	Returns { available: bool, reason: String }
-	"""
-	var validation = can_use_stratagem(player, "fire_overwatch")
-	if not validation.can_use:
-		return {"available": false, "reason": validation.reason}
-	return {"available": true, "reason": ""}
-
+# Alias for backward-compatibility with tests that use the shorter name
 func get_overwatch_eligible_units(player: int, enemy_unit_id: String, game_state_snapshot: Dictionary) -> Array:
-	"""
-	Get units eligible for Fire Overwatch for a given player against an enemy unit.
-	Requirements: owned by player, within 24" of the enemy unit, eligible to shoot
-	(not battle-shocked, has alive models, not already shot, not in engagement range
-	unless PISTOL weapons available).
-	Returns array of { unit_id: String, unit_name: String }
-	"""
-	var eligible = []
-
-	# Check if the stratagem can be used at all (CP, restrictions)
-	var validation = can_use_stratagem(player, "fire_overwatch")
-	if not validation.can_use:
-		return eligible
-
-	var all_units = game_state_snapshot.get("units", {})
-	var enemy_unit = all_units.get(enemy_unit_id, {})
-	if enemy_unit.is_empty():
-		return eligible
-
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
-			continue
-
-		# Must be within 24" of the enemy unit
-		if not _is_within_range(unit, enemy_unit, 24.0):
-			continue
-
-		eligible.append({
-			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
-		})
-
-	return eligible
+	return get_fire_overwatch_eligible_units(player, enemy_unit_id, game_state_snapshot)
 
 func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id: String, game_state_snapshot: Dictionary) -> Dictionary:
 	"""
@@ -1495,85 +1439,6 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 			"y" if shooting_result.get("total_casualties", 0) == 1 else "ies"
 		]
 	}
-
-# ============================================================================
-# HEROIC INTERVENTION
-# ============================================================================
-
-func is_heroic_intervention_available(player: int) -> Dictionary:
-	"""
-	Check if Heroic Intervention stratagem is available for a player.
-	Returns { available: bool, reason: String }
-	"""
-	var validation = can_use_stratagem(player, "heroic_intervention")
-	if not validation.can_use:
-		return {"available": false, "reason": validation.reason}
-	return {"available": true, "reason": ""}
-
-func get_heroic_intervention_eligible_units(player: int, charging_unit_id: String, game_state_snapshot: Dictionary) -> Array:
-	"""
-	Get units eligible for Heroic Intervention for a given player.
-	Requirements: owned by player, within 6" of the charging enemy unit,
-	has alive models, not battle-shocked, not a VEHICLE (unless WALKER).
-	Returns array of { unit_id: String, unit_name: String }
-	"""
-	var eligible = []
-
-	# Check if the stratagem can be used at all (CP, restrictions)
-	var validation = can_use_stratagem(player, "heroic_intervention")
-	if not validation.can_use:
-		return eligible
-
-	var all_units = game_state_snapshot.get("units", {})
-	var charging_unit = all_units.get(charging_unit_id, {})
-	if charging_unit.is_empty():
-		return eligible
-
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
-			continue
-
-		# Cannot be a VEHICLE unless it is a WALKER
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_vehicle = false
-		var is_walker = false
-		for kw in keywords:
-			if kw.to_upper() == "VEHICLE":
-				is_vehicle = true
-			if kw.to_upper() == "WALKER":
-				is_walker = true
-		if is_vehicle and not is_walker:
-			continue
-
-		# Must not already be in engagement range (already engaged units can't declare charges)
-		if _is_unit_in_engagement_range(unit, all_units, player):
-			continue
-
-		# Must be within 6" of the charging enemy unit
-		if not _is_within_range(unit, charging_unit, 6.0):
-			continue
-
-		eligible.append({
-			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
-		})
-
-	return eligible
 
 func _is_within_range(unit1: Dictionary, unit2: Dictionary, range_inches: float) -> bool:
 	"""Check if any alive model from unit1 is within range_inches of any alive model from unit2."""

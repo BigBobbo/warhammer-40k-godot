@@ -98,6 +98,7 @@ These items were previously open in the audit files and have now been verified a
 | T3-23: Full re-roll support for hits and wounds (re-roll 1s, re-roll all failed) | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T4-1: Lance weapon keyword (+1 wound on charge) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 
 ---
 
@@ -609,10 +610,11 @@ These are real rules gaps but affect niche situations or have workarounds.
 
 ## TIER 4 — LOW: Niche Rules & Stratagems
 
-### T4-1. Lance weapon keyword (+1 wound on charge)
+### T4-1. Lance weapon keyword (+1 wound on charge) — **DONE**
 - **Phase:** Shooting/Fight
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 4
 - **Depends on:** T1-3 (wound modifier system)
+- **Resolution:** Enhanced `is_lance_weapon()` to detect Lance from both `keywords` array and `special_rules` string (case-insensitive), matching the pattern of other keyword detectors. Lance +1 wound modifier was already integrated into all three RulesEngine resolution paths (interactive shooting, auto-resolve shooting, melee) via the WoundModifier.PLUS_ONE flag when `charged_this_turn` is true. The `charged_this_turn` flag is set by ChargePhase on successful charges and Heroic Interventions. Added `lance_melee`, `lance_lethal`, and `lance_ranged` test weapon profiles. Updated Mathhammer to apply Lance toggle for both shooting and melee phases. Fixed duplicate function declarations in StratagemManager.gd. 25 unit tests in `test_lance_keyword.gd`.
 
 ### T4-2. One Shot weapon keyword (single use per battle)
 - **Phase:** Shooting
@@ -836,11 +838,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 0 | 20 | 20 |
+| Tier 4 — Low/Niche | 1 | 19 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **41** | **87** | **128** |
-| **Recently Completed** | **68** | — | **68** |
+| **Total Open** | **42** | **86** | **128** |
+| **Recently Completed** | **69** | — | **69** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---

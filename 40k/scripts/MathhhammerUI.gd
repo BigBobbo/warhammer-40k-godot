@@ -456,7 +456,7 @@ func _populate_rule_toggles() -> void:
 		{"id": "reroll_wounds_ones", "name": "Re-roll 1s to Wound", "description": "Re-roll wound rolls of 1", "phase": "both"},
 		{"id": "reroll_wounds_failed", "name": "Re-roll All Failed Wounds", "description": "Re-roll all failed wound rolls (e.g. Twin-linked ability)", "phase": "both"},
 		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "+X attacks at half range (per model)", "phase": "shooting"},
-		{"id": "lance_charged", "name": "Charged (Lance +1 Wound)", "description": "Unit charged this turn - Lance weapons get +1 to wound", "phase": "melee"},
+		{"id": "lance_charged", "name": "Charged (Lance +1 Wound)", "description": "Unit charged this turn - Lance weapons get +1 to wound", "phase": "both"},
 		{"id": "invuln_6", "name": "Invulnerable Save 6+", "description": "Defender has 6+ invulnerable save (ignores AP)", "phase": "both"},
 		{"id": "invuln_5", "name": "Invulnerable Save 5+", "description": "Defender has 5+ invulnerable save (ignores AP)", "phase": "both"},
 		{"id": "invuln_4", "name": "Invulnerable Save 4+", "description": "Defender has 4+ invulnerable save (ignores AP)", "phase": "both"},
