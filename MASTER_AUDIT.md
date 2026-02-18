@@ -82,6 +82,7 @@ These items were previously open in the audit files and have now been verified a
 | T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
 | T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
 | T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
+| T2-13: [MH-BUG-3] Anti-keyword modifier uses wrong mechanic — critical wound threshold override | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
@@ -117,7 +118,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 |----|----------|-------|-----------|
 | MH-BUG-1 | ~~**CRITICAL**~~ **DONE** | ~~`_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed.~~ Fixed: computes wound deltas from diffs with double-count prevention. | `Mathhammer.gd:239-254` |
 | MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
-| MH-BUG-3 | **HIGH** | Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold. | `MathhhammerRuleModifiers.gd:77-83,296-299` |
+| MH-BUG-3 | ~~**HIGH**~~ **DONE** | ~~Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold.~~ Fixed: Anti-keyword rules now include threshold parameter, inject text into weapon special_rules so RulesEngine's existing critical wound threshold logic picks it up. UI toggles added. | `MathhhammerRuleModifiers.gd`, `Mathhammer.gd`, `MathhhammerUI.gd` |
 | MH-BUG-4 | **MEDIUM** | Rapid Fire toggle doubles all attacks (`attacks * 2`) but 10e Rapid Fire X adds only +X attacks, not double. Rapid Fire 1 on a 2-attack weapon = 3 attacks, not 4. | `Mathhammer.gd:188-189` |
 | MH-BUG-5 | ~~**MEDIUM**~~ **DONE** | ~~`create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background.~~ Fixed: function now returns `panel_container` with full node tree intact; callers use `get_meta("content_vbox")` to add content inside the styled background. | `MathhhammerUI.gd:1162-1202` |
 | MH-BUG-6 | **LOW** | Class name typo — triple 'h': `MathhhammerUI`, `MathhhammerResults`, `MathhhammerRuleModifiers`. Inconsistent with `Mathhammer.gd` (double 'h'). | All Mathhammer files |
@@ -358,12 +359,13 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `MovementPhase.gd:20`, `NetworkManager`
 - **Resolution:** Added synced `flags.movement_active` GameState flag that mirrors the local `active_moves` lifecycle. Flag set on BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, BEGIN_FALL_BACK; cleared on CONFIRM_UNIT_MOVE and RESET_UNIT_MOVE. Updated `get_available_actions()` and `_validate_end_movement()` to check GameState flags (not local `active_moves.completed`). END_MOVEMENT now cleans up stale flags. Added `_check_active_moves_sync()` debug consistency checker. 33 tests in `test_active_moves_sync.gd`.
 
-### T2-13. [MH-BUG-3] Anti-keyword modifier uses wrong mechanic
+### T2-13. [MH-BUG-3] Anti-keyword modifier uses wrong mechanic — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Anti-[KEYWORD] X+ lowers the critical wound threshold (e.g., Anti-Vehicle 4+ = crits on wound rolls of 4+). It is NOT a wound re-roll.
 - **Impact:** Simulation doesn't correctly model Anti-keyword; one of the most impactful offensive abilities in 10e
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd:77-83,296-299` — needs threshold parameter and crit wound threshold override
+- **Resolution:** Rewrote Anti-keyword rule definitions with threshold parameter (e.g., Anti-Infantry 4+, Anti-Vehicle 4+, Anti-Monster 4+). Changed `_apply_anti_keyword()` from setting `anti_keywords` (re-roll mechanic) to storing anti-keyword entries with keyword+threshold. Mathhammer now injects anti-keyword text (e.g., "Anti-Infantry 4+") into weapon `special_rules` in the trial board state, so RulesEngine's existing `get_anti_keyword_data()` / `get_critical_wound_threshold()` correctly lowers the critical wound threshold. Added UI toggles in MathhhammerUI.gd.
 
 ### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override — **DONE**
 - **Phase:** Mathhammer
@@ -809,7 +811,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
 | `Mathhammer.gd` | 232-240 | ~~`_extract_damage_from_result()` broken — counts kills as 1 damage~~ **DONE** | T1-9 |
 | `MathhhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
-| `MathhhammerRuleModifiers.gd` | 77-83 | Anti-keyword uses re-roll instead of crit threshold | T2-13 |
+| `MathhhammerRuleModifiers.gd` | 77-83 | ~~Anti-keyword uses re-roll instead of crit threshold~~ **DONE** | T2-13 |
 | `MathhhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
 | `Mathhammer.gd` | 188-189 | Rapid Fire doubles attacks instead of adding X | T3-20 |
 

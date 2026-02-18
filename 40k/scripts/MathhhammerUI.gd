@@ -457,6 +457,9 @@ func _populate_rule_toggles() -> void:
 		{"id": "invuln_4", "name": "Invulnerable Save 4+", "description": "Defender has 4+ invulnerable save (ignores AP)", "phase": "both"},
 		{"id": "invuln_3", "name": "Invulnerable Save 3+", "description": "Defender has 3+ invulnerable save (ignores AP)", "phase": "both"},
 		{"id": "invuln_2", "name": "Invulnerable Save 2+", "description": "Defender has 2+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "anti_infantry_4", "name": "Anti-Infantry 4+", "description": "Critical wounds on 4+ vs INFANTRY targets", "phase": "both"},
+		{"id": "anti_vehicle_4", "name": "Anti-Vehicle 4+", "description": "Critical wounds on 4+ vs VEHICLE targets", "phase": "both"},
+		{"id": "anti_monster_4", "name": "Anti-Monster 4+", "description": "Critical wounds on 4+ vs MONSTER targets", "phase": "both"},
 		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+", "phase": "both"},
 		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+", "phase": "both"},
 		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"}

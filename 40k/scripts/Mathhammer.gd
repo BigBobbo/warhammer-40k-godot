@@ -327,6 +327,27 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 
 			trial_board.units[defender_unit_id] = fresh_defender
 
+	# ANTI-[KEYWORD] X+ (T2-13): Inject anti-keyword text into attacker weapon special_rules
+	# so RulesEngine's get_anti_keyword_data() / get_critical_wound_threshold() picks it up.
+	# Anti-keyword lowers the critical wound threshold (e.g., Anti-Infantry 4+ = crits on wound 4+).
+	var anti_keyword_texts = _get_anti_keyword_texts_from_toggles(rule_toggles)
+	if not anti_keyword_texts.is_empty():
+		for attacker_config in attackers:
+			var unit_id = attacker_config.get("unit_id", "")
+			if trial_board.units.has(unit_id):
+				var unit = trial_board.units[unit_id]
+				var weapons = unit.get("meta", {}).get("weapons", [])
+				for weapon in weapons:
+					var existing_rules = weapon.get("special_rules", "")
+					for anti_text in anti_keyword_texts:
+						# Only append if not already present in the weapon's special_rules
+						if anti_text.to_lower() not in existing_rules.to_lower():
+							if existing_rules != "":
+								existing_rules += ", "
+							existing_rules += anti_text
+					weapon["special_rules"] = existing_rules
+				print("Mathhammer: Injected anti-keyword rules [%s] into attacker %s weapons" % [", ".join(anti_keyword_texts), unit_id])
+
 	# For melee simulations, ensure all models have positions within engagement range
 	# so the eligibility check in resolve_melee_attacks passes
 	if phase == "fight" or phase == "melee":
@@ -387,6 +408,19 @@ static func _get_invuln_from_toggles(rule_toggles: Dictionary) -> int:
 	elif rule_toggles.get("invuln_6", false):
 		invuln_value = 6
 	return invuln_value
+
+# Extract anti-keyword text strings from active rule toggles (T2-13)
+# Returns an array of strings like ["Anti-Infantry 4+", "Anti-Vehicle 4+"]
+# These get injected into weapon special_rules so RulesEngine picks them up
+static func _get_anti_keyword_texts_from_toggles(rule_toggles: Dictionary) -> Array:
+	var texts = []
+	if rule_toggles.get("anti_infantry_4", false):
+		texts.append("Anti-Infantry 4+")
+	if rule_toggles.get("anti_vehicle_4", false):
+		texts.append("Anti-Vehicle 4+")
+	if rule_toggles.get("anti_monster_4", false):
+		texts.append("Anti-Monster 4+")
+	return texts
 
 # Apply custom defender stat overrides to the defender unit
 # Modifies toughness, save, wounds, model count based on user input
