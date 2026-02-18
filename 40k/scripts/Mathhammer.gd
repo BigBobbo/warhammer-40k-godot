@@ -280,6 +280,17 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 				fresh_defender["meta"]["stats"]["fnp"] = fnp_value
 				print("Mathhammer: Applied FNP %d+ to defender %s from rule toggles" % [fnp_value, defender_unit_id])
 
+			# Apply invulnerable save from rule toggles to defender models
+			# Invuln is set per-model since RulesEngine reads model.get("invuln", 0)
+			# Only override if the toggle value is better (lower) than any existing invuln
+			var invuln_value = _get_invuln_from_toggles(rule_toggles)
+			if invuln_value > 0:
+				for model in fresh_defender.get("models", []):
+					var existing_invuln = model.get("invuln", 0)
+					if existing_invuln == 0 or invuln_value < existing_invuln:
+						model["invuln"] = invuln_value
+				print("Mathhammer: Applied invulnerable save %d+ to defender %s from rule toggles" % [invuln_value, defender_unit_id])
+
 			trial_board.units[defender_unit_id] = fresh_defender
 
 	# For melee simulations, ensure all models have positions within engagement range
@@ -327,6 +338,21 @@ static func _get_fnp_from_toggles(rule_toggles: Dictionary) -> int:
 	elif rule_toggles.get("feel_no_pain_6", false):
 		fnp_value = 6
 	return fnp_value
+
+# Extract the best (lowest) invulnerable save value from active rule toggles
+static func _get_invuln_from_toggles(rule_toggles: Dictionary) -> int:
+	var invuln_value = 0
+	if rule_toggles.get("invuln_2", false):
+		invuln_value = 2
+	elif rule_toggles.get("invuln_3", false):
+		invuln_value = 3
+	elif rule_toggles.get("invuln_4", false):
+		invuln_value = 4
+	elif rule_toggles.get("invuln_5", false):
+		invuln_value = 5
+	elif rule_toggles.get("invuln_6", false):
+		invuln_value = 6
+	return invuln_value
 
 # Extract total damage dealt from combat result by computing wound deltas
 # Requires trial_board (pre-diff state) so we can compare old wounds vs new wounds
