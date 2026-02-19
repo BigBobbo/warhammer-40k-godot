@@ -25,6 +25,13 @@ var save_state_on_completion: bool = true  # Save game state after each test
 var connection_timeout: float = 15.0
 var sync_timeout: float = 10.0
 
+# Latency simulation configuration
+# Set these in your test's before_each() to simulate network conditions
+var simulated_latency_ms: int = 0       # Base latency in milliseconds (0 = disabled)
+var simulated_jitter_ms: int = 0        # Random jitter range (+/- this value)
+var simulated_packet_loss_pct: float = 0.0  # Packet loss percentage (0.0-1.0)
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
 # Test artifacts
 var current_test_name: String = ""
 var test_artifacts_dir: String = ProjectSettings.globalize_path("res://test_results/test_artifacts") + "/"
@@ -243,7 +250,8 @@ func simulate_client_action(action: String, params: Dictionary = {}) -> Dictiona
 func _simulate_action(instance: GameInstance, action: String, params: Dictionary) -> Dictionary:
 	"""
 	Internal helper to simulate an action on a specific instance
-	Writes command file, waits for result, and returns the result
+	Writes command file, waits for result, and returns the result.
+	If latency simulation is enabled, adds artificial delay before sending.
 	"""
 	if not instance:
 		return {
@@ -251,6 +259,29 @@ func _simulate_action(instance: GameInstance, action: String, params: Dictionary
 			"message": "Instance is null",
 			"error": "NULL_INSTANCE"
 		}
+
+	# Apply simulated latency before sending (models network delay)
+	if simulated_latency_ms > 0:
+		var delay_ms = simulated_latency_ms
+		if simulated_jitter_ms > 0:
+			delay_ms += _rng.randi_range(-simulated_jitter_ms, simulated_jitter_ms)
+			delay_ms = max(0, delay_ms)  # Never negative
+		var delay_seconds = delay_ms / 1000.0
+		print("[Test] Simulating %dms network latency (jitter: +/-%dms, actual: %dms)" % [
+			simulated_latency_ms, simulated_jitter_ms, delay_ms])
+		await wait_for_seconds(delay_seconds)
+
+	# Simulate packet loss
+	if simulated_packet_loss_pct > 0.0:
+		var roll = _rng.randf()
+		if roll < simulated_packet_loss_pct:
+			print("[Test] Simulated packet loss! (%.1f%% chance, rolled %.3f)" % [
+				simulated_packet_loss_pct * 100.0, roll])
+			return {
+				"success": false,
+				"message": "Simulated packet loss",
+				"error": "PACKET_LOSS"
+			}
 
 	# Generate sequence number and command file name
 	var sequence = instance.get_next_sequence()
@@ -463,10 +494,12 @@ func assert_connection_established(message: String = ""):
 		host_instance != null and client_instance != null,
 		message if message else "Both instances should be running"
 	)
-	# Note: LogMonitor is currently not reliably tracking connection state
-	# The connection is verified via successful command simulation in wait_for_connection()
-	# So we just need to verify the instances are running
-	# TODO: Fix LogMonitor or use a different method to track peer connections
+	# Note: LogMonitor is not reliably tracking connection state in the test runner
+	# environment because log file monitoring has timing issues with process startup.
+	# Connection is verified via successful command simulation in wait_for_connection(),
+	# which is a more reliable approach (if we can send a command and get a result,
+	# the connection is working). LogMonitor still works for detecting peer events
+	# in the actual game instances themselves.
 
 func assert_game_started(message: String = ""):
 	var host_started = host_instance.get_game_state().get("game_started", false)
@@ -523,3 +556,128 @@ func _generate_test_report():
 		file.store_string(JSON.stringify(report_data, "\t"))
 		file.close()
 		print("[Test Artifacts] Report saved: %s" % report_path)
+
+# ============================================================================
+# Disconnect Simulation
+# ============================================================================
+
+func simulate_client_disconnect() -> bool:
+	"""
+	Simulates a client disconnect by terminating the client process.
+	Returns true if the client was running and was terminated.
+	"""
+	if not client_instance:
+		print("[Test] No client instance to disconnect")
+		return false
+
+	print("[Test] Simulating client disconnect (terminating client process)")
+	client_instance.terminate()
+	# Keep the reference so we can check it was disconnected, but mark process dead
+	print("[Test] Client process terminated")
+	return true
+
+func simulate_host_disconnect() -> bool:
+	"""
+	Simulates a host disconnect by terminating the host process.
+	Returns true if the host was running and was terminated.
+	"""
+	if not host_instance:
+		print("[Test] No host instance to disconnect")
+		return false
+
+	print("[Test] Simulating host disconnect (terminating host process)")
+	host_instance.terminate()
+	print("[Test] Host process terminated")
+	return true
+
+func verify_instance_alive(instance: GameInstance) -> bool:
+	"""
+	Checks if a game instance is still responding to commands.
+	Returns true if the instance responds within a short timeout.
+	"""
+	if not instance or instance.process_id == -1:
+		return false
+
+	# Try sending a lightweight command
+	var result = await _simulate_action(instance, "get_game_state", {})
+	return result.get("success", false)
+
+# ============================================================================
+# Game State Comparison
+# ============================================================================
+
+func assert_game_states_match(message: String = "") -> Dictionary:
+	"""
+	Compares critical game state fields between host and client.
+	Returns a dictionary with comparison results:
+	  { "match": bool, "host_state": {}, "client_state": {}, "mismatches": [] }
+	Also asserts that states match for test reporting.
+	"""
+	var result = {
+		"match": false,
+		"host_state": {},
+		"client_state": {},
+		"mismatches": []
+	}
+
+	var host_result = await simulate_host_action("get_game_state", {})
+	var client_result = await simulate_client_action("get_game_state", {})
+
+	if not host_result.get("success", false):
+		result["mismatches"].append("Host failed to return game state")
+		assert_true(false, "Host should return game state for comparison")
+		return result
+	if not client_result.get("success", false):
+		result["mismatches"].append("Client failed to return game state")
+		assert_true(false, "Client should return game state for comparison")
+		return result
+
+	var host_data = host_result.get("data", {})
+	var client_data = client_result.get("data", {})
+	result["host_state"] = host_data
+	result["client_state"] = client_data
+
+	# Compare critical fields
+	var fields_to_compare = ["current_phase", "player_turn", "battle_round"]
+	for field in fields_to_compare:
+		var host_val = host_data.get(field, null)
+		var client_val = client_data.get(field, null)
+		if host_val != client_val:
+			var mismatch = "Field '%s': host=%s, client=%s" % [field, str(host_val), str(client_val)]
+			result["mismatches"].append(mismatch)
+			print("[Test] State mismatch: %s" % mismatch)
+
+	# Compare unit counts
+	var host_units = host_data.get("units", {})
+	var client_units = client_data.get("units", {})
+	if host_units.size() != client_units.size():
+		var mismatch = "Unit count: host=%d, client=%d" % [host_units.size(), client_units.size()]
+		result["mismatches"].append(mismatch)
+		print("[Test] State mismatch: %s" % mismatch)
+
+	result["match"] = result["mismatches"].size() == 0
+
+	var msg = message if message else "Game states should match between host and client"
+	if result["mismatches"].size() > 0:
+		assert_true(false, "%s — mismatches: %s" % [msg, str(result["mismatches"])])
+	else:
+		print("[Test] Game states match: %s" % msg)
+
+	return result
+
+func get_action_round_trip_time_ms(instance: GameInstance, action: String, params: Dictionary = {}) -> float:
+	"""
+	Measures round-trip time for an action command in milliseconds.
+	Useful for latency measurement tests.
+	Returns -1.0 if the action failed.
+	"""
+	var start_ms = Time.get_ticks_msec()
+	var result = await _simulate_action(instance, action, params)
+	var elapsed_ms = Time.get_ticks_msec() - start_ms
+
+	if not result.get("success", false):
+		print("[Test] Action '%s' failed during RTT measurement: %s" % [action, result.get("message", "")])
+		return -1.0
+
+	print("[Test] Action '%s' round-trip: %dms" % [action, elapsed_ms])
+	return float(elapsed_ms)

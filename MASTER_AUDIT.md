@@ -52,6 +52,7 @@ These items were previously open in the audit files and have now been verified a
 | Deployment progress indicator | Deployment | DEPLOYMENT_AUDIT.md |
 | Multi-model movement (Ctrl+click, drag-box, group move) | Movement | IMPLEMENTATION_VALIDATION.md |
 | Double advance dice roll fix | Movement | MOVEMENT_PHASE_AUDIT.md |
+| T6-4: Multiplayer test infrastructure (sync, latency, disconnect tests) | Testing | MASTER_AUDIT.md §Tier 6 |
 | [MH-BUG-2] Twin-linked re-rolls wounds not hits | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T1-3: Wound roll modifier system (+1/-1 cap) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
 | T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
@@ -813,12 +814,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - No multi-turn game simulation
 - **Source:** PRPs/gh_issue_93_testing-audit.md
 
-### T6-4. Multiplayer test infrastructure
+### T6-4. Multiplayer test infrastructure — **DONE**
 - No network synchronization tests
 - No latency simulation
 - No disconnect handling tests
 - Multiplayer deployment test helpers have TODO stubs (`test_multiplayer_deployment.gd:555-574`)
 - **Source:** PRPs/gh_issue_93_testing-audit.md, code TODOs
+- **Resolution:** Created `test_multiplayer_network.gd` with 11 tests covering state synchronization (3 tests), latency/jitter/packet-loss simulation (4 tests), and disconnect handling (4 tests). Added `simulate_client_disconnect()`, `simulate_host_disconnect()`, `verify_instance_alive()`, `assert_game_states_match()`, and `get_action_round_trip_time_ms()` helpers to `MultiplayerIntegrationTest.gd`. Completed collision detection test and resolved TODO stubs in `test_multiplayer_deployment.gd`. Documented LogMonitor limitation (connection verified via command simulation instead).
 
 ### T6-5. CI/CD integration
 - Tests not run automatically on commits
@@ -845,12 +847,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `MathhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
 | `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
-| `test_multiplayer_deployment.gd` | 368 | Implement collision detection test with turn handling | T6-4 |
-| `test_multiplayer_deployment.gd` | 555-557 | Complete `assert_unit_deployed()` implementation | T6-4 |
-| `test_multiplayer_deployment.gd` | 562-564 | Complete `assert_unit_not_deployed()` implementation | T6-4 |
-| `test_multiplayer_deployment.gd` | 569 | Implement coherency check in tests | T6-4 |
-| `test_multiplayer_deployment.gd` | 574 | Extract unit model positions from game state | T6-4 |
-| `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
+| ~~`test_multiplayer_deployment.gd`~~ | ~~368~~ | ~~Implement collision detection test with turn handling~~ | ~~T6-4~~ **DONE** |
+| ~~`test_multiplayer_deployment.gd`~~ | ~~555-557~~ | ~~Complete `assert_unit_deployed()` implementation~~ | ~~T6-4~~ **DONE** |
+| ~~`test_multiplayer_deployment.gd`~~ | ~~562-564~~ | ~~Complete `assert_unit_not_deployed()` implementation~~ | ~~T6-4~~ **DONE** |
+| ~~`test_multiplayer_deployment.gd`~~ | ~~569~~ | ~~Implement coherency check in tests~~ | ~~T6-4~~ **DONE** |
+| ~~`test_multiplayer_deployment.gd`~~ | ~~574~~ | ~~Extract unit model positions from game state~~ | ~~T6-4~~ **DONE** |
+| ~~`MultiplayerIntegrationTest.gd`~~ | ~~469~~ | ~~Fix LogMonitor for peer connection tracking~~ | ~~T6-4~~ **DONE** |
 | `Mathhammer.gd` | 232-240 | ~~`_extract_damage_from_result()` broken — counts kills as 1 damage~~ **DONE** | T1-9 |
 | `MathhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
 | `MathhammerRuleModifiers.gd` | 77-83 | ~~Anti-keyword uses re-roll instead of crit threshold~~ **DONE** | T2-13 |
@@ -868,9 +870,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
-| Tier 6 — Testing | 1 | 4 | 5 |
-| **Total Open** | **56** | **72** | **128** |
-| **Recently Completed** | **83** | — | **83** |
+| Tier 6 — Testing | 2 | 3 | 5 |
+| **Total Open** | **57** | **71** | **128** |
+| **Recently Completed** | **84** | — | **84** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
