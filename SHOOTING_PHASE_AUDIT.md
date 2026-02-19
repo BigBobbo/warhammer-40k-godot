@@ -276,11 +276,13 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 
 **Suggestion:** Add a "Shoot All Remaining" or "Auto-Shoot Remaining" option that iterates through all eligible units that haven't shot, using a default target assignment (e.g., nearest eligible target). Include a confirmation step before executing.
 
-### 5.3 HIGH: Show Weapon Stats in Target Assignment UI
+### 5.3 HIGH: Show Weapon Stats in Target Assignment UI — **DONE**
 
 **Current:** When assigning weapons to targets, the player must remember weapon profiles (range, S, AP, D) or look them up separately.
 
 **Suggestion:** Show a compact weapon stat line next to each weapon in the assignment panel (e.g., "Bolt Rifle: 24" S4 AP-1 D1 [Rapid Fire 1, Heavy]"). This removes the need to cross-reference unit cards.
+
+**Resolution:** Added compact weapon stat sub-line as a child TreeItem beneath each weapon in the shooting phase weapon tree. Displays Range, Attacks, BS/WS, Strength, AP, and Damage in muted gold. Non-selectable, always visible (folding disabled), and grayed out for disabled weapons.
 
 ### 5.4 MEDIUM: Expected Damage Preview
 

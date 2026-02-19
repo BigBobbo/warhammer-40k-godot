@@ -667,6 +667,24 @@ func _refresh_weapon_tree() -> void:
 		weapon_item.set_text(0, display_name)
 		weapon_item.set_metadata(0, weapon_id)
 
+		# T5-UX6: Show weapon stats as compact sub-line beneath each weapon
+		var _wp_range = weapon_profile.get("range", 0)
+		var _range_display = "Melee" if (weapon_profile.get("type", "") == "Melee" or _wp_range == 0) else str(_wp_range) + "\""
+		var _atk_display = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+		var _skill_key = "WS" if weapon_profile.get("type", "") == "Melee" else "BS"
+		var _skill_val = weapon_profile.get("ws", 4) if weapon_profile.get("type", "") == "Melee" else weapon_profile.get("bs", 4)
+		var _s_display = str(weapon_profile.get("strength", 3))
+		var _ap_display = str(weapon_profile.get("ap", 0))
+		var _dmg_display = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+		var stat_line = "%s  A:%s %s:%s+ S:%s AP:%s D:%s" % [_range_display, _atk_display, _skill_key, str(_skill_val), _s_display, _ap_display, _dmg_display]
+		var stats_item = weapon_tree.create_item(weapon_item)
+		stats_item.set_text(0, stat_line)
+		stats_item.set_selectable(0, false)
+		stats_item.set_selectable(1, false)
+		stats_item.set_custom_color(0, Color(0.7, 0.65, 0.4))  # Muted gold for stat line
+		stats_item.set_metadata(0, weapon_id)  # Same weapon_id so hover triggers damage preview
+		weapon_item.set_disable_folding(true)  # Always show stats, no collapse arrow
+
 		# PISTOL RULES: Disable non-Pistol weapons when in engagement
 		# ASSAULT RULES: Disable non-Assault weapons when unit has advanced
 		var weapon_disabled = false
@@ -687,6 +705,10 @@ func _refresh_weapon_tree() -> void:
 			weapon_item.set_selectable(1, false)
 			weapon_item.set_text(1, disable_reason)
 			weapon_item.set_custom_bg_color(0, Color(0.3, 0.3, 0.3, 0.3))
+			# T5-UX6: Also gray out the stats sub-line
+			var disabled_stats = weapon_item.get_first_child()
+			if disabled_stats:
+				disabled_stats.set_custom_color(0, Color(0.5, 0.5, 0.5))
 
 			# Show feedback in dice log (only once)
 			if dice_log_display and weapon_counts[weapon_id] > 0:
