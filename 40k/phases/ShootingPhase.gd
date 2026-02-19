@@ -617,6 +617,33 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	log_phase_message(result.get("log_text", "Attack rolls complete"))
 
+	# Extract hit/wound data from dice blocks and store in resolution_state
+	# so _process_apply_saves can build accurate last_weapon_result (T4-15)
+	var hit_data = {}
+	var wound_data = {}
+	for dice_block in dice_data:
+		var context = dice_block.get("context", "")
+		if context == "hit_roll":
+			hit_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"rerolls": dice_block.get("rerolls", []),
+				"threshold": dice_block.get("threshold", "")
+			}
+		elif context == "wound_roll":
+			wound_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"threshold": dice_block.get("threshold", "")
+			}
+	resolution_state.last_weapon_dice_data = dice_data
+	resolution_state.last_weapon_hit_data = hit_data
+	resolution_state.last_weapon_wound_data = wound_data
+
 	# Check if any saves are needed
 	var save_data_list = result.get("save_data_list", [])
 
@@ -669,14 +696,11 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				var target_unit_id = assignment.get("target_unit_id", "")
 				var target_unit = get_unit(target_unit_id)
 
-				# Extract hit data from dice_data
-				var hits = 0
-				var total_attacks = 0
-				for dice_block in dice_data:
-					if dice_block.get("context", "") == "hit_roll":
-						hits = dice_block.get("successes", 0)
-						total_attacks = dice_block.get("rolls_raw", []).size()
-						break
+				# T4-15: Retrieve hit/wound data from resolution_state (stored earlier in this function)
+				var miss_hit_data = resolution_state.get("last_weapon_hit_data", {})
+				var miss_wound_data = resolution_state.get("last_weapon_wound_data", {})
+				var hits = miss_hit_data.get("successes", 0)
+				var total_attacks = miss_hit_data.get("total", 0)
 
 				last_weapon_result = {
 					"weapon_id": weapon_id,
@@ -688,7 +712,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					"saves_failed": 0,
 					"casualties": 0,
 					"total_attacks": total_attacks,
-					"dice_rolls": dice_data
+					"dice_rolls": dice_data,
+					"hit_data": miss_hit_data,
+					"wound_data": miss_wound_data
 				}
 
 				print("║ last_weapon_result built:")
@@ -2634,20 +2660,30 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		for save_result in save_results_list:
 			saves_failed += save_result.get("saves_failed", 0)
 
+		# T4-15: Retrieve hit/wound data from resolution_state (stored during _process_resolve_shooting)
+		var sw_dice_data = resolution_state.get("last_weapon_dice_data", [])
+		var sw_hit_data = resolution_state.get("last_weapon_hit_data", {})
+		var sw_wound_data = resolution_state.get("last_weapon_wound_data", {})
+		var sw_hits = sw_hit_data.get("successes", 0)
+		var sw_total_attacks = sw_hit_data.get("total", 0)
+
 		print("║   saves_failed: ", saves_failed)
 		print("║   casualties: ", total_casualties)
+		print("║   hits: ", sw_hits, " / ", sw_total_attacks)
 
 		last_weapon_result = {
 			"weapon_id": weapon_id,
 			"weapon_name": weapon_profile.get("name", weapon_id),
 			"target_unit_id": target_unit_id,
 			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
-			"hits": 0,  # We don't have this data easily accessible in single weapon mode
+			"hits": sw_hits,
 			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
 			"saves_failed": saves_failed,
 			"casualties": total_casualties,
-			"total_attacks": 0,  # We don't have this data easily accessible
-			"dice_rolls": []
+			"total_attacks": sw_total_attacks,
+			"dice_rolls": sw_dice_data,
+			"hit_data": sw_hit_data,
+			"wound_data": sw_wound_data
 		}
 		print("║ ✓ last_weapon_result built successfully!")
 	else:

@@ -108,6 +108,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-11: Fortification deployment — cannot place in reserves, must deploy on table | Deployment | DEPLOYMENT_AUDIT.md §9 |
 | T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
 | T4-14: Weapon ID collision for similar weapon names — type-aware IDs | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
+| T4-15: Single weapon result dialog has hardcoded zeros — stored hit/wound data in resolution_state | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 
 ---
 
@@ -688,10 +689,11 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
 - **Resolution:** Added weapon type suffix (_ranged/_melee) to `_generate_weapon_id()` to prevent collisions between ranged/melee variants of the same weapon name (e.g., "Guardian spear"). Consolidated all inline weapon ID generation to use the central function. Added backwards-compatible matching in `get_weapon_profile()` (typed ID, legacy ID, and exact name).
 
-### T4-15. Single weapon result dialog has hardcoded zeros
+### T4-15. Single weapon result dialog has hardcoded zeros — **DONE**
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
 - **Files:** `ShootingPhase.gd:1796-1807`
+- **Resolution:** Stored hit/wound/dice data in `resolution_state` during `_process_resolve_shooting` (single weapon path), then retrieved it in both the miss path and `_process_apply_saves` single weapon result builder. Replaced hardcoded zeros for `hits`, `total_attacks`, and empty `dice_rolls` with actual values from the resolution. Also added `hit_data` and `wound_data` fields for consistency with the sequential weapon path.
 
 ### T4-16. [MH-RULE-6] Conversion X+ (expanded crit range at distance)
 - **Phase:** Mathhammer
@@ -856,11 +858,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 10 | 10 | 20 |
+| Tier 4 — Low/Niche | 11 | 9 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **51** | **77** | **128** |
-| **Recently Completed** | **78** | — | **78** |
+| **Total Open** | **52** | **76** | **128** |
+| **Recently Completed** | **79** | — | **79** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
