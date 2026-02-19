@@ -1,1 +1,1 @@
-ARGS: ["--test-mode"]
+ARGS: []
