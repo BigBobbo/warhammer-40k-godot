@@ -21,7 +21,8 @@ signal dice_rolled(dice_data: Dictionary)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 signal overwatch_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array)
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
-signal heroic_intervention_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array)
+signal heroic_intervention_opportunity(player: int, eligible_units: Array, charging_unit_id: String)
+signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -36,11 +37,20 @@ var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
 var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
 var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
-var awaiting_overwatch_decision: bool = false  # True when waiting for Fire Overwatch response
-var overwatch_charging_unit_id: String = ""   # The unit that declared the charge (overwatch target)
+# Fire Overwatch state tracking (T3-11 + remote PR)
+var awaiting_overwatch_decision: bool = false  # True when waiting for Fire Overwatch response (remote)
+var overwatch_charging_unit_id: String = ""   # The unit that declared the charge (overwatch target, remote)
+var awaiting_fire_overwatch: bool = false      # True when waiting for Fire Overwatch (local T3-11)
+var fire_overwatch_player: int = 0             # Defending player being offered Overwatch
+var fire_overwatch_enemy_unit_id: String = ""  # The enemy unit that triggered the opportunity
+var fire_overwatch_eligible_units: Array = []  # Units eligible for Overwatch
+
+# Heroic Intervention state tracking
 var awaiting_heroic_intervention: bool = false  # True when waiting for Heroic Intervention response
-var heroic_intervention_charging_unit_id: String = ""  # The unit that just completed a charge move
-var heroic_intervention_player: int = 0  # The defending player who can use Heroic Intervention
+var heroic_intervention_player: int = 0  # Defending player being offered HI
+var heroic_intervention_charging_unit_id: String = ""  # The enemy unit that just charged
+var heroic_intervention_unit_id: String = ""  # Unit selected for HI (set on USE)
+var heroic_intervention_pending_charge: Dictionary = {}  # Pending charge data for HI unit
 
 # Failure category constants for structured error reporting
 const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
@@ -50,6 +60,7 @@ const FAIL_NON_TARGET_ER = "NON_TARGET_ER"
 const FAIL_COHERENCY = "COHERENCY"
 const FAIL_OVERLAP = "OVERLAP"
 const FAIL_BASE_CONTACT = "BASE_CONTACT"
+const FAIL_DIRECTION = "DIRECTION"
 
 # Human-readable explanations for each failure category (teaches players the rules)
 const FAIL_CATEGORY_TOOLTIPS = {
@@ -60,6 +71,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" of at least one other model) after the charge move completes.",
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
+	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
 }
 
 func _init():
@@ -78,9 +90,15 @@ func _on_phase_enter() -> void:
 	reroll_pending_unit_id = ""
 	awaiting_overwatch_decision = false
 	overwatch_charging_unit_id = ""
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
 	awaiting_heroic_intervention = false
-	heroic_intervention_charging_unit_id = ""
 	heroic_intervention_player = 0
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
 
 	_initialize_charge()
 
@@ -127,21 +145,17 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_COMMAND_REROLL":
 			return _validate_command_reroll(action)
 		"USE_FIRE_OVERWATCH":
-			if not awaiting_overwatch_decision:
-				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_use_fire_overwatch(action)
 		"DECLINE_FIRE_OVERWATCH":
-			if not awaiting_overwatch_decision:
-				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_decline_fire_overwatch(action)
 		"USE_HEROIC_INTERVENTION":
-			if not awaiting_heroic_intervention:
-				return {"valid": false, "errors": ["Not awaiting a Heroic Intervention decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_use_heroic_intervention(action)
 		"DECLINE_HEROIC_INTERVENTION":
-			if not awaiting_heroic_intervention:
-				return {"valid": false, "errors": ["Not awaiting a Heroic Intervention decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_decline_heroic_intervention(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _validate_heroic_intervention_charge_roll(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _validate_apply_heroic_intervention_move(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -175,6 +189,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_heroic_intervention(action)
 		"DECLINE_HEROIC_INTERVENTION":
 			return _process_decline_heroic_intervention(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _process_heroic_intervention_charge_roll(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _process_apply_heroic_intervention_move(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -231,23 +249,32 @@ func _validate_declare_charge(action: Dictionary) -> Dictionary:
 	
 	if not _can_unit_charge(unit):
 		return {"valid": false, "errors": ["Unit cannot charge"]}
-	
+
 	if unit_id in completed_charges:
 		return {"valid": false, "errors": ["Unit has already charged this phase"]}
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_keywords = unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	# Validate each target
 	for target_id in target_ids:
 		var target_unit = get_unit(target_id)
 		if target_unit.is_empty():
 			return {"valid": false, "errors": ["Target unit not found: " + target_id]}
-		
+
 		if target_unit.get("owner", 0) == get_current_player():
 			return {"valid": false, "errors": ["Cannot charge own units"]}
-		
+
+		# T2-9: Only FLY units can charge AIRCRAFT targets
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in target_keywords and not charger_has_fly:
+			return {"valid": false, "errors": ["Only units with FLY can charge AIRCRAFT: " + target_id]}
+
 		# Check 12" range
 		if not _is_target_within_charge_range(unit_id, target_id):
 			return {"valid": false, "errors": ["Target beyond 12\" charge range: " + target_id]}
-	
+
 	return {"valid": true, "errors": []}
 
 func _validate_charge_roll(action: Dictionary) -> Dictionary:
@@ -358,23 +385,41 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("%s declared charge against %s" % [unit_name, ", ".join(target_names)])
 
-	# Check for Fire Overwatch opportunity for the defending player
-	var current_player = get_current_player()
-	var defending_player = 2 if current_player == 1 else 1
+	# T3-11: Check for Fire Overwatch opportunity for the defending player
+	# Per 10e rules: After a charge is declared, the defending player may use
+	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
+	var charging_owner = int(unit.get("owner", 0))
+	var defending_player = 2 if charging_owner == 1 else 1
+
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
 		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
 		if ow_check.available:
-			var snapshot = GameState.create_snapshot()
-			var ow_eligible = strat_manager.get_overwatch_eligible_units(defending_player, unit_id, snapshot)
+			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+				defending_player, unit_id, game_state_snapshot
+			)
+
 			if not ow_eligible.is_empty():
+				# Fire Overwatch is available! Pause and offer it to the defender
+				awaiting_fire_overwatch = true
 				awaiting_overwatch_decision = true
 				overwatch_charging_unit_id = unit_id
-				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units)" % [defending_player, ow_eligible.size()])
+				fire_overwatch_player = defending_player
+				fire_overwatch_enemy_unit_id = unit_id
+				fire_overwatch_eligible_units = ow_eligible
+				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
+				print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+
+				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
 				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
-				var ow_result = create_result(true, [])
-				ow_result["awaiting_overwatch"] = true
-				return ow_result
+
+				var result = create_result(true, [])
+				result["trigger_fire_overwatch"] = true
+				result["awaiting_overwatch"] = true
+				result["fire_overwatch_player"] = defending_player
+				result["fire_overwatch_eligible_units"] = ow_eligible
+				result["fire_overwatch_enemy_unit_id"] = unit_id
+				return result
 
 	return create_result(true, [])
 
@@ -788,30 +833,59 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	units_that_charged.append(unit_id)
 	pending_charges.erase(unit_id)
 	# Don't mark as completed yet - wait for COMPLETE_UNIT_CHARGE action
-	
+
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	log_phase_message("Successful charge: %s moved into engagement range" % unit_name)
 
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
 
-	# Check for Heroic Intervention opportunity for the defending player
-	var current_player = get_current_player()
-	var hi_defending_player = 2 if current_player == 1 else 1
+	# Check if Heroic Intervention is available for the defending player
+	# Per 10e rules: "just after an enemy unit ends a Charge move"
+	var charging_unit = get_unit(unit_id)
+	var charging_owner = int(charging_unit.get("owner", 0))
+	var defending_player = 2 if charging_owner == 1 else 1
+
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
-		var hi_check = strat_manager.is_heroic_intervention_available(hi_defending_player)
+		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
 		if hi_check.available:
-			var snapshot = GameState.create_snapshot()
-			var hi_eligible = strat_manager.get_heroic_intervention_eligible_units(hi_defending_player, unit_id, snapshot)
+			# Need to apply changes first so the snapshot is up-to-date for distance checks
+			# We do this through the result — BasePhase.execute_action applies changes before
+			# we check, but we need to use the FUTURE state. Build a temporary snapshot.
+			var temp_snapshot = game_state_snapshot.duplicate(true)
+			# Apply position changes to temp snapshot for distance calculation
+			for change in changes:
+				if change.get("op", "") == "set":
+					var path_parts = change.path.split(".")
+					if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+						var u_id = path_parts[1]
+						var m_idx = int(path_parts[3])
+						var field = path_parts[4] if path_parts.size() > 4 else ""
+						if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+							var models = temp_snapshot.units[u_id].get("models", [])
+							if m_idx < models.size():
+								models[m_idx]["position"] = change.value
+
+			var hi_eligible = strat_manager.get_heroic_intervention_eligible_units(
+				defending_player, unit_id, temp_snapshot
+			)
+
 			if not hi_eligible.is_empty():
+				# Heroic Intervention is available! Pause and offer it to the defender
 				awaiting_heroic_intervention = true
+				heroic_intervention_player = defending_player
 				heroic_intervention_charging_unit_id = unit_id
-				heroic_intervention_player = hi_defending_player
-				log_phase_message("HEROIC INTERVENTION available for Player %d (%d eligible units)" % [hi_defending_player, hi_eligible.size()])
-				emit_signal("heroic_intervention_opportunity", unit_id, hi_defending_player, hi_eligible)
-				var hi_result = create_result(true, changes)
-				hi_result["awaiting_heroic_intervention"] = true
-				return hi_result
+				log_phase_message("HEROIC INTERVENTION available for Player %d (%d eligible units)" % [defending_player, hi_eligible.size()])
+
+				emit_signal("heroic_intervention_opportunity", defending_player, hi_eligible, unit_id)
+
+				var result = create_result(true, changes)
+				result["trigger_heroic_intervention"] = true
+				result["awaiting_heroic_intervention"] = true
+				result["heroic_intervention_player"] = defending_player
+				result["heroic_intervention_eligible_units"] = hi_eligible
+				result["heroic_intervention_charging_unit_id"] = unit_id
+				return result
 
 	return create_result(true, changes)
 
@@ -860,10 +934,15 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	
 	if flags.get("fell_back", false):
 		return false
-	
+
 	if flags.get("charged_this_turn", false):
 		return false
-	
+
+	# T2-9: AIRCRAFT units cannot declare charges
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return false
+
 	# Check if already in engagement range (cannot declare charges)
 	if _is_unit_in_engagement_range(unit):
 		return false
@@ -905,8 +984,9 @@ func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 				if enemy_pos == null:
 					continue
 
-				# Use shape-aware engagement range check
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, ENGAGEMENT_RANGE_INCHES):
+				# T3-9: Use barricade-aware engagement range check
+				var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -948,16 +1028,26 @@ func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	var eligible = {}
 	var current_player = get_current_player()
 	var all_units = game_state_snapshot.get("units", {})
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_unit = get_unit(unit_id)
+	var charger_keywords = charger_unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	for target_id in all_units:
 		var target_unit = all_units[target_id]
 		if target_unit.get("owner", 0) != current_player:  # Enemy unit
+			# T2-9: Only FLY units can charge AIRCRAFT targets
+			var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+			if "AIRCRAFT" in target_keywords and not charger_has_fly:
+				continue
+
 			if _is_target_within_charge_range(unit_id, target_id):
 				eligible[target_id] = {
 					"name": target_unit.get("meta", {}).get("name", target_id),
 					"distance": _get_min_distance_to_target(unit_id, target_id)
 				}
-	
+
 	return eligible
 
 func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
@@ -993,24 +1083,52 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 	var rolled_distance = charge_data.distance
 	var target_ids = charge_data.targets
 
-	# 1. Validate path distances
+	# Check if unit has FLY keyword (for terrain penalty calculation)
+	var unit = get_unit(unit_id)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	# 1. Validate path distances (including terrain vertical distance penalties)
 	for model_id in per_model_paths:
 		var path = per_model_paths[model_id]
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
-			if path_distance > rolled_distance:
-				var err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
+
+			# T2-8: Add terrain vertical distance penalty
+			# Terrain >2" high costs vertical distance against charge roll
+			# FLY units measure diagonally instead (shorter penalty)
+			var terrain_penalty = _calculate_path_terrain_penalty(path, has_fly)
+			var effective_distance = path_distance + terrain_penalty
+
+			if terrain_penalty > 0.0:
+				print("ChargePhase: Model %s terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
+					model_id, terrain_penalty, str(has_fly), effective_distance])
+
+			if effective_distance > rolled_distance:
+				var err = ""
+				if terrain_penalty > 0.0:
+					err = "Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [
+						model_id, path_distance, terrain_penalty, effective_distance, rolled_distance]
+				else:
+					err = "Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, rolled_distance]
 				errors.append(err)
 				categorized_errors.append({"category": FAIL_DISTANCE, "detail": err})
 
-	# 2. Validate no model overlaps
+	# 2. Validate each model ends closer to at least one charge target (T3-8)
+	var direction_validation = _validate_charge_direction_constraint(unit_id, per_model_paths, target_ids)
+	if not direction_validation.valid:
+		errors.append_array(direction_validation.errors)
+		for err in direction_validation.errors:
+			categorized_errors.append({"category": FAIL_DIRECTION, "detail": err})
+
+	# 3. Validate no model overlaps
 	var overlap_validation = _validate_no_model_overlaps(unit_id, per_model_paths)
 	if not overlap_validation.valid:
 		errors.append_array(overlap_validation.errors)
 		for err in overlap_validation.errors:
 			categorized_errors.append({"category": FAIL_OVERLAP, "detail": err})
 
-	# 3. Validate engagement range with ALL targets
+	# 5. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints(unit_id, per_model_paths, target_ids)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
@@ -1021,14 +1139,14 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			else:
 				categorized_errors.append({"category": FAIL_ENGAGEMENT, "detail": err})
 
-	# 4. Validate unit coherency
+	# 6. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge(unit_id, per_model_paths)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
 		for err in coherency_validation.errors:
 			categorized_errors.append({"category": FAIL_COHERENCY, "detail": err})
 
-	# 5. Validate base-to-base if possible
+	# 7. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible(unit_id, per_model_paths, target_ids, rolled_distance)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
@@ -1069,7 +1187,9 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					if target_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, ENGAGEMENT_RANGE_INCHES):
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var effective_er = _get_effective_engagement_range(final_pos, target_pos)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, target_model, effective_er):
 						unit_in_er_of_target = true
 						break
 
@@ -1108,7 +1228,9 @@ func _validate_engagement_range_constraints(unit_id: String, per_model_paths: Di
 					if enemy_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
+					# T3-9: Use barricade-aware engagement range for non-target check too
+					var effective_er = _get_effective_engagement_range(final_pos, enemy_pos)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final_pos, enemy_model, effective_er):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
@@ -1218,6 +1340,103 @@ func _validate_base_to_base_possible(unit_id: String, per_model_paths: Dictionar
 			print("ChargePhase: B2B enforcement - %s" % err)
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+## T3-8: Validate that each model ends its charge move closer to at least one
+## charge target than it started. This is a 10e core rule for charge moves.
+func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dictionary, target_ids: Array) -> Dictionary:
+	var errors = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit(unit_id, model_id)
+		if model.is_empty():
+			continue
+
+		var start_pos = _get_model_position(model)
+		if start_pos == null or start_pos == Vector2.ZERO:
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Check if model ends closer to at least one target model in any target unit
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position(target_model)
+				if target_pos == null:
+					continue
+
+				var start_distance = start_pos.distance_to(target_pos)
+				var final_distance = final_pos.distance_to(target_pos)
+
+				if final_distance < start_distance:
+					ends_closer_to_any_target = true
+					break
+
+			if ends_closer_to_any_target:
+				break
+
+		if not ends_closer_to_any_target:
+			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
+			errors.append(err)
+			print("ChargePhase: Direction constraint - %s" % err)
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+## T2-8: Calculate the total terrain vertical distance penalty for a charge path.
+## For each segment of the path that crosses terrain >2" high, adds vertical
+## distance (climb up + down for non-FLY, diagonal for FLY units).
+func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
+	var total_penalty: float = 0.0
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager:
+		return 0.0
+
+	# Check each segment of the path for terrain crossings
+	for i in range(1, path.size()):
+		var from_pos: Vector2
+		var to_pos: Vector2
+
+		# Handle both Vector2 and Array [x, y] formats
+		if path[i - 1] is Vector2:
+			from_pos = path[i - 1]
+		elif path[i - 1] is Array:
+			from_pos = Vector2(path[i - 1][0], path[i - 1][1])
+		else:
+			continue
+
+		if path[i] is Vector2:
+			to_pos = path[i]
+		elif path[i] is Array:
+			to_pos = Vector2(path[i][0], path[i][1])
+		else:
+			continue
+
+		total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+
+	return total_penalty
+
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(model1_pos: Vector2, model2_pos: Vector2) -> float:
+	if not is_inside_tree():
+		return ENGAGEMENT_RANGE_INCHES
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(model1_pos, model2_pos)
+	return ENGAGEMENT_RANGE_INCHES
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -1425,7 +1644,8 @@ func has_pending_charge(unit_id: String) -> bool:
 func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	"""Check if the rolled distance is sufficient for at least one model to reach
 	engagement range (1") of at least one target model in any declared target unit.
-	This is the server-side feasibility check performed immediately after the roll."""
+	This is the server-side feasibility check performed immediately after the roll.
+	T2-8: Now accounts for terrain vertical distance penalties along the charge path."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -1437,9 +1657,15 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	if target_ids.is_empty():
 		return false
 
+	# T2-8: Check FLY keyword for terrain penalty calculation
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
+
+		var model_pos = _get_model_position(model)
 
 		for target_id in target_ids:
 			var target_unit = get_unit(target_id)
@@ -1452,8 +1678,17 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 
 				# Edge-to-edge distance in inches, minus engagement range
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
-				var distance_to_close = distance_inches - ENGAGEMENT_RANGE_INCHES
-				if distance_to_close <= rolled_distance:
+				# T3-9: Use barricade-aware engagement range
+				var target_pos = _get_model_position(target_model)
+				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
+				var distance_to_close = distance_inches - effective_er
+
+				# T2-8: Add terrain penalty for the straight-line path
+				var terrain_penalty = _calculate_path_terrain_penalty(
+					[model_pos, target_pos], has_fly)
+				var effective_distance = distance_to_close + terrain_penalty
+
+				if effective_distance <= rolled_distance:
 					return true
 
 	return false
@@ -1484,6 +1719,481 @@ func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
 		return pending_charges[unit_id].distance
 	return 0
+
+# ============================================================================
+# FIRE OVERWATCH (T3-11)
+# ============================================================================
+
+func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", fire_overwatch_player)
+
+	if not awaiting_fire_overwatch:
+		errors.append("Not awaiting Fire Overwatch decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Fire Overwatch")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.is_fire_overwatch_available(player)
+		if not check.available:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		errors.append("Battle-shocked units cannot use Stratagems")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	if not awaiting_fire_overwatch:
+		return {"valid": false, "errors": ["Not awaiting Fire Overwatch decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", fire_overwatch_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var enemy_unit_id = fire_overwatch_enemy_unit_id
+	var enemy_unit_name = get_unit(enemy_unit_id).get("meta", {}).get("name", enemy_unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "fire_overwatch", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Fire Overwatch: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at charging %s!" % [player, unit_name, enemy_unit_name])
+	print("ChargePhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
+
+	# Resolve Overwatch shooting using RulesEngine
+	# Overwatch only hits on unmodified 6s (special rule)
+	var overwatch_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+
+	# Clear Overwatch state
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
+
+	var result = create_result(true, overwatch_result.get("diffs", []))
+	result["fire_overwatch_used"] = true
+	result["fire_overwatch_unit_id"] = unit_id
+	result["fire_overwatch_target_id"] = enemy_unit_id
+	result["fire_overwatch_shooting_result"] = overwatch_result
+	if overwatch_result.has("dice"):
+		result["dice"] = overwatch_result.dice
+	if overwatch_result.has("log_text"):
+		result["log_text"] = overwatch_result.log_text
+	return result
+
+func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	var player = action.get("player", fire_overwatch_player)
+	log_phase_message("Player %d declined FIRE OVERWATCH" % player)
+	print("ChargePhase: Fire Overwatch DECLINED by Player %d" % player)
+
+	# Clear Overwatch state
+	awaiting_fire_overwatch = false
+	fire_overwatch_player = 0
+	fire_overwatch_enemy_unit_id = ""
+	fire_overwatch_eligible_units = []
+
+	return create_result(true, [])
+
+func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
+	"""
+	Resolve Overwatch shooting. Uses the normal shooting resolution but forces
+	all hit rolls to only succeed on unmodified 6s (per 10e Overwatch rules).
+	"""
+	var shooting_unit = get_unit(shooting_unit_id)
+	var target_unit = get_unit(target_unit_id)
+
+	if shooting_unit.is_empty() or target_unit.is_empty():
+		return {"diffs": [], "dice": [], "log_text": "Overwatch: Invalid units"}
+
+	# Build weapon assignments from all ranged weapons
+	var assignments = []
+	var weapons = shooting_unit.get("meta", {}).get("weapons", [])
+	var alive_model_ids = []
+	for model in shooting_unit.get("models", []):
+		if model.get("alive", true):
+			alive_model_ids.append(model.get("id", ""))
+
+	for weapon in weapons:
+		var weapon_type = weapon.get("type", "").to_lower()
+		var weapon_range = weapon.get("range", "")
+		var is_melee = weapon_type == "melee" or weapon_range == "Melee"
+		if is_melee:
+			continue
+
+		# All alive models fire their ranged weapons
+		assignments.append({
+			"weapon_id": weapon.get("id", weapon.get("name", "")),
+			"target_unit_id": target_unit_id,
+			"model_ids": alive_model_ids,
+			"overwatch": true,  # Flag for RulesEngine to use hit_on: 6
+		})
+
+	if assignments.is_empty():
+		log_phase_message("Overwatch: %s has no ranged weapons to fire" % shooting_unit.get("meta", {}).get("name", shooting_unit_id))
+		return {"diffs": [], "dice": [], "log_text": "No ranged weapons available for Overwatch"}
+
+	# Build the shooting action for RulesEngine
+	var shoot_action = {
+		"actor_unit_id": shooting_unit_id,
+		"payload": {
+			"assignments": assignments,
+			"overwatch": true,  # Global overwatch flag
+		}
+	}
+
+	# Use RulesEngine.resolve_shoot for full resolution
+	var board = game_state_snapshot
+	var rng = RulesEngine.RNGService.new()
+	var shoot_result = RulesEngine.resolve_shoot(shoot_action, board, rng)
+
+	var total_damage = 0
+	for diff in shoot_result.get("diffs", []):
+		if diff.get("op", "") == "set" and "wounds" in diff.get("path", ""):
+			total_damage += 1
+
+	log_phase_message("FIRE OVERWATCH result: %s fired at %s — %s" % [
+		shooting_unit.get("meta", {}).get("name", shooting_unit_id),
+		target_unit.get("meta", {}).get("name", target_unit_id),
+		shoot_result.get("log_text", "no hits")
+	])
+
+	return shoot_result
+
+# ============================================================================
+# HEROIC INTERVENTION
+# ============================================================================
+
+func _validate_use_heroic_intervention(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", heroic_intervention_player)
+
+	if not awaiting_heroic_intervention:
+		errors.append("Not awaiting Heroic Intervention decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Heroic Intervention")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.is_heroic_intervention_available(player)
+		if not check.available:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		errors.append("Battle-shocked units cannot use Stratagems")
+		return {"valid": false, "errors": errors}
+
+	# Check VEHICLE restriction
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var is_vehicle = false
+	var is_walker = false
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "VEHICLE":
+			is_vehicle = true
+		if kw_upper == "WALKER":
+			is_walker = true
+	if is_vehicle and not is_walker:
+		errors.append("VEHICLE units cannot use Heroic Intervention unless they have the WALKER keyword")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_heroic_intervention(action: Dictionary) -> Dictionary:
+	if not awaiting_heroic_intervention:
+		return {"valid": false, "errors": ["Not awaiting Heroic Intervention decision"]}
+	return {"valid": true, "errors": []}
+
+func _validate_heroic_intervention_charge_roll(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id.is_empty():
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if heroic_intervention_unit_id.is_empty():
+		return {"valid": false, "errors": ["No unit selected for Heroic Intervention charge"]}
+	if unit_id != heroic_intervention_unit_id:
+		return {"valid": false, "errors": ["Unit does not match Heroic Intervention selection"]}
+	if heroic_intervention_pending_charge.is_empty():
+		return {"valid": false, "errors": ["No Heroic Intervention charge pending"]}
+	return {"valid": true, "errors": []}
+
+func _validate_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+
+	if unit_id.is_empty():
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if per_model_paths.is_empty():
+		return {"valid": false, "errors": ["Missing per_model_paths"]}
+	if unit_id != heroic_intervention_unit_id:
+		return {"valid": false, "errors": ["Unit does not match Heroic Intervention selection"]}
+	if heroic_intervention_pending_charge.is_empty():
+		return {"valid": false, "errors": ["No Heroic Intervention charge data"]}
+
+	# Validate movement constraints (same as normal charge but target is only the charging enemy)
+	var charge_data = heroic_intervention_pending_charge
+	if not charge_data.has("distance"):
+		return {"valid": false, "errors": ["No charge distance rolled yet"]}
+
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	return validation
+
+func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", heroic_intervention_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "heroic_intervention", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Heroic Intervention: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses HEROIC INTERVENTION — %s will counter-charge!" % [player, unit_name])
+
+	# Set up the heroic intervention charge
+	awaiting_heroic_intervention = false
+	heroic_intervention_unit_id = unit_id
+
+	# Set up pending charge data targeting only the charging enemy unit
+	heroic_intervention_pending_charge = {
+		"targets": [heroic_intervention_charging_unit_id],
+		"declared_at": Time.get_unix_time_from_system()
+	}
+
+	# Now auto-roll the charge dice (HI uses a normal 2D6 charge roll)
+	var rng = RulesEngine.RNGService.new()
+	var rolls = rng.roll_d6(2)
+	var total_distance = rolls[0] + rolls[1]
+
+	heroic_intervention_pending_charge.distance = total_distance
+	heroic_intervention_pending_charge.dice_rolls = rolls
+
+	log_phase_message("HEROIC INTERVENTION charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
+
+	# Check if the charge roll is sufficient
+	var target_ids = [heroic_intervention_charging_unit_id]
+	var roll_sufficient = _is_heroic_intervention_roll_sufficient(unit_id, total_distance, target_ids)
+
+	var dice_result = {
+		"context": "heroic_intervention_charge_roll",
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"rolls": rolls,
+		"total": total_distance,
+		"targets": target_ids,
+		"charge_failed": not roll_sufficient,
+	}
+	dice_log.append(dice_result)
+	emit_signal("dice_rolled", dice_result)
+
+	if not roll_sufficient:
+		# Heroic Intervention charge failed
+		log_phase_message("HEROIC INTERVENTION charge FAILED for %s (rolled %d)" % [unit_name, total_distance])
+		print("ChargePhase: Heroic Intervention charge roll INSUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+
+		# Clean up HI state
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_charging_unit_id = ""
+		heroic_intervention_player = 0
+
+		return create_result(true, [], "", {
+			"dice": [dice_result],
+			"heroic_intervention_failed": true,
+			"heroic_intervention_unit_id": unit_id,
+		})
+
+	# Roll sufficient — enable movement
+	print("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance])
+	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
+
+	return create_result(true, [], "", {
+		"dice": [dice_result],
+		"heroic_intervention_roll_success": true,
+		"heroic_intervention_unit_id": unit_id,
+		"heroic_intervention_distance": total_distance,
+	})
+
+func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
+	var player = action.get("player", heroic_intervention_player)
+	log_phase_message("Player %d declined HEROIC INTERVENTION" % player)
+
+	# Clear HI state
+	awaiting_heroic_intervention = false
+	heroic_intervention_player = 0
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
+
+	return create_result(true, [])
+
+func _process_heroic_intervention_charge_roll(action: Dictionary) -> Dictionary:
+	# This action is for manual triggering of the charge roll if needed
+	# In the current flow, the roll is done automatically in _process_use_heroic_intervention
+	# This is kept for compatibility with potential future UI changes
+	return create_result(true, [])
+
+func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var per_model_paths = payload.get("per_model_paths", {})
+	var per_model_rotations = payload.get("per_model_rotations", {})
+
+	if heroic_intervention_pending_charge.is_empty():
+		return create_result(false, [], "No Heroic Intervention charge data")
+
+	var charge_data = heroic_intervention_pending_charge
+
+	# Final validation
+	var validation = _validate_charge_movement_constraints(unit_id, per_model_paths, charge_data)
+	if not validation.valid:
+		var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		log_phase_message("Heroic Intervention charge failed for %s: %s" % [unit_name, validation.errors[0]])
+
+		# Clean up HI state
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_charging_unit_id = ""
+		heroic_intervention_player = 0
+
+		emit_signal("charge_resolved", unit_id, false, {
+			"reason": validation.errors[0],
+			"heroic_intervention": true,
+		})
+		return create_result(true, [])
+
+	# Apply successful HI charge movement
+	var changes = []
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var final_pos = path[-1]
+		var model_index = _get_model_index(unit_id, model_id)
+		if model_index < 0:
+			continue
+
+		changes.append({
+			"op": "set",
+			"path": "units.%s.models.%d.position" % [unit_id, model_index],
+			"value": {"x": final_pos[0], "y": final_pos[1]}
+		})
+
+		if per_model_rotations.has(model_id):
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.rotation" % [unit_id, model_index],
+				"value": per_model_rotations[model_id]
+			})
+
+	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)
+	# Per 10e rules: Heroic Intervention does NOT grant Fights First
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.charged_this_turn" % unit_id,
+		"value": true
+	})
+	# Explicitly do NOT set fights_first — this is the key mechanical difference
+	# The unit fights in the normal (Remaining Combats) subphase
+
+	# Mark as heroic intervention unit for tracking
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.heroic_intervention" % unit_id,
+		"value": true
+	})
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
+
+	emit_signal("charge_resolved", unit_id, true, {
+		"distance": charge_data.distance,
+		"heroic_intervention": true,
+	})
+
+	# Clean up HI state
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
+
+	return create_result(true, changes)
+
+func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
+	"""Check if the HI charge roll is sufficient to reach engagement range of the target."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		for target_id in target_ids:
+			var target_unit = get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				# T3-9: Use barricade-aware engagement range
+				var model_pos = _get_model_position(model)
+				var target_pos = _get_model_position(target_model)
+				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
+				var distance_to_close = distance_inches - effective_er
+				if distance_to_close <= rolled_distance:
+					return true
+
+	return false
 
 # Override create_result to support additional data
 func create_result(success: bool, changes: Array = [], error: String = "", additional_data: Dictionary = {}) -> Dictionary:

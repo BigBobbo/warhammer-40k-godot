@@ -128,7 +128,7 @@ func test_disembark_validation_with_shapes():
 	var distance_inches = Measurement.px_to_inches(edge_distance)
 
 	# Should be a reasonable distance (not negative, not huge)
-	assert_ge(distance_inches, 0)
+	assert_gte(distance_inches, 0)
 	assert_lt(distance_inches, 10)  # Should be less than 10 inches for this test case
 
 func test_shape_based_range_drawing():

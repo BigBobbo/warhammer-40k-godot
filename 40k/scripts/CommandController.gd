@@ -170,6 +170,9 @@ func _setup_right_panel() -> void:
 	# Battle-shock tests and Stratagems section
 	_setup_battle_shock_section(command_panel)
 
+	# Faction abilities section (Oath of Moment, etc.)
+	_setup_faction_abilities_section(command_panel)
+
 	# Show VP status
 	command_panel.add_child(HSeparator.new())
 
@@ -491,6 +494,80 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 
 		unit_box.add_child(HSeparator.new())
 
+func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
+	"""Build faction abilities display (Oath of Moment target selection, etc.)."""
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return
+
+	var current_player = GameState.get_active_player()
+	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
+		return
+
+	command_panel.add_child(HSeparator.new())
+
+	var section = VBoxContainer.new()
+	section.name = "FactionAbilitiesSection"
+	section.add_theme_constant_override("separation", 4)
+	command_panel.add_child(section)
+
+	# Section header
+	var section_title = Label.new()
+	section_title.text = "OATH OF MOMENT"
+	section_title.add_theme_font_size_override("font_size", 14)
+	section_title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	section.add_child(section_title)
+
+	var desc_label = Label.new()
+	desc_label.text = "Select one enemy unit. Re-roll hit and wound rolls of 1 against it."
+	desc_label.add_theme_font_size_override("font_size", 10)
+	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(desc_label)
+
+	# Show current target
+	var current_target_id = faction_mgr.get_oath_of_moment_target(current_player)
+	if current_target_id != "":
+		var target_unit = GameState.state.get("units", {}).get(current_target_id, {})
+		var target_name = target_unit.get("meta", {}).get("name", current_target_id)
+		var current_label = Label.new()
+		current_label.text = "Current target: %s" % target_name
+		current_label.add_theme_font_size_override("font_size", 12)
+		current_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.3))
+		section.add_child(current_label)
+
+	# Show eligible targets as buttons
+	var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
+
+	if eligible_targets.size() == 0:
+		var no_targets = Label.new()
+		no_targets.text = "No eligible enemy targets"
+		no_targets.add_theme_font_size_override("font_size", 11)
+		no_targets.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		section.add_child(no_targets)
+	else:
+		for target_info in eligible_targets:
+			var is_current = (target_info.unit_id == current_target_id)
+			var btn = Button.new()
+			btn.text = "%s%s" % [target_info.unit_name, " (SELECTED)" if is_current else ""]
+			btn.custom_minimum_size = Vector2(230, 26)
+			btn.add_theme_font_size_override("font_size", 11)
+			if is_current:
+				btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+				btn.tooltip_text = "Currently targeted by Oath of Moment"
+			else:
+				btn.tooltip_text = "Mark %s for Oath of Moment" % target_info.unit_name
+			btn.pressed.connect(_on_oath_target_pressed.bind(target_info.unit_id))
+			section.add_child(btn)
+
+func _on_oath_target_pressed(target_unit_id: String) -> void:
+	"""Handle Oath of Moment target selection button press."""
+	print("CommandController: Oath of Moment target selected: %s" % target_unit_id)
+	emit_signal("command_action_requested", {
+		"type": "SELECT_OATH_TARGET",
+		"target_unit_id": target_unit_id
+	})
+
 func _on_battle_shock_test_pressed(unit_id: String) -> void:
 	print("CommandController: Battle-shock test requested for %s" % unit_id)
 	emit_signal("command_action_requested", {
@@ -549,6 +626,19 @@ func _refresh_ui() -> void:
 				p1_label.text = "Player 1 (%s): %d CP" % [GameState.get_faction_name(1), p1_cp]
 			if p2_label:
 				p2_label.text = "Player 2 (%s): %d CP" % [GameState.get_faction_name(2), p2_cp]
+
+		# Rebuild the faction abilities section to reflect Oath of Moment changes
+		var old_faction_section = command_panel.get_node_or_null("FactionAbilitiesSection")
+		if old_faction_section:
+			var fa_idx = old_faction_section.get_index()
+			if fa_idx > 0:
+				var fa_prev = command_panel.get_child(fa_idx - 1)
+				if fa_prev is HSeparator:
+					command_panel.remove_child(fa_prev)
+					fa_prev.queue_free()
+			command_panel.remove_child(old_faction_section)
+			old_faction_section.queue_free()
+		_setup_faction_abilities_section(command_panel)
 
 		# Rebuild the secondary missions section to reflect changes
 		var old_section = command_panel.get_node_or_null("SecondaryMissionsSection")

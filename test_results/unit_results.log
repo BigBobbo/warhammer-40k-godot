@@ -1,0 +1,2624 @@
+Godot Engine v4.6.stable.steam.89cea1439 - https://godotengine.org
+
+DEBUG: System args: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_", "-glog=1", "-gexit"]
+DEBUG: User args: []
+DEBUG: Combined args: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_", "-glog=1", "-gexit"]
+DEBUG: Processing arg[0]: '-s'
+DEBUG: Processing arg[1]: 'addons/gut/gut_cmdln.gd'
+DEBUG: Processing arg[2]: '-gdir=res://tests/unit'
+DEBUG: Processing arg[3]: '-gprefix=test_'
+DEBUG: Processing arg[4]: '-glog=1'
+DEBUG: Processing arg[5]: '-gexit'
+TestModeHandler: Args -> ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_", "-glog=1", "-gexit"]
+[2026-02-18 07:29:16] [INFO.0000000] DebugLogger initialized - Session: 20260218_072916
+[2026-02-18 07:29:16] [INFO.0000000] Log file: user://logs/debug_20260218_072916.log
+[2026-02-18 07:29:16] [INFO.0000000] Real path: /Users/robertocallaghan/Library/Application Support/Godot/app_userdata/40k/logs/debug_20260218_072916.log
+[MeasuringTapeManager] Save persistence: false
+Found armies in res://: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+ArmyListManager initialized with 5 armies: ["orks", "adeptus_custodes", "space_marines", "A_C_test", "ORK_test"]
+[2026-02-18 07:29:16] [INFO.0000000] DebugManager initialized
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+GameState: Loading default armies...
+Loading army list: adeptus_custodes for player 1
+Processed unit: U_BLADE_CHAMPION_A for player 1
+Processed unit: U_CUSTODIAN_GUARD_B for player 1
+Processed unit: U_WITCHSEEKERS_C for player 1
+Processed unit: U_WITCHSEEKERS_D for player 1
+Processed unit: U_CALADIUS_GRAV-TANK_E for player 1
+Processed unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H for player 1
+Processed unit: U_TELEMON_HEAVY_DREADNOUGHT_I for player 1
+Successfully loaded army: adeptus_custodes with 7 units
+GameState: Loading Adeptus Custodes army for Player 1
+Applying army to game state for player: 1
+Removing 0 existing units for player 1
+Added unit: U_BLADE_CHAMPION_A (Blade Champion)
+Added unit: U_CUSTODIAN_GUARD_B (Custodian Guard)
+Added unit: U_WITCHSEEKERS_C (Witchseekers)
+Added unit: U_WITCHSEEKERS_D (Witchseekers)
+Added unit: U_CALADIUS_GRAV-TANK_E (Caladius Grav-tank)
+Added unit: U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H (Contemptor-Achillus Dreadnought)
+Added unit: U_TELEMON_HEAVY_DREADNOUGHT_I (Telemon Heavy Dreadnought)
+Set faction for player 1: Adeptus Custodes
+Army applied successfully. Total units in game: 7
+Loading army list: orks for player 2
+Processed unit: U_STRIKE_FORCE_A for player 2
+Processed unit: U_WARBOSS_B for player 2
+Processed unit: U_WARBOSS_C for player 2
+Processed unit: U_WARBOSS_IN_MEGA_ARMOUR_D for player 2
+Processed unit: U_BOYZ_E for player 2
+Processed unit: U_BOYZ_F for player 2
+[2026-02-18 07:29:16] [DEBUG.0000000] Parsed transport capacity keywords | Context: {"description":"This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.","keywords":["ORKS","INFANTRY"],"unit_id":"U_BATTLEWAGON_G"}
+Processed unit: U_BATTLEWAGON_G for player 2
+Processed unit: U_KOMMANDOS_H for player 2
+Successfully loaded army: orks with 8 units
+GameState: Loading Orks army for Player 2
+Applying army to game state for player: 2
+Removing 0 existing units for player 2
+Added unit: U_STRIKE_FORCE_A (Strike Force)
+Added unit: U_WARBOSS_B (Warboss)
+Added unit: U_WARBOSS_C (Warboss)
+Added unit: U_WARBOSS_IN_MEGA_ARMOUR_D (Warboss in Mega Armour)
+Added unit: U_BOYZ_E (Boyz)
+Added unit: U_BOYZ_F (Boyz)
+Added unit: U_BATTLEWAGON_G (Battlewagon)
+Added unit: U_KOMMANDOS_H (Kommandos)
+Set faction for player 2: Unknown
+Army applied successfully. Total units in game: 15
+GameState: Army loading complete. Total units: 15
+ActionLogger: Started session 20260218_072916
+StateSerializer: Pretty print enabled: true
+ReplayManager: Connected to GameManager.result_applied
+ReplayManager: Connected to PhaseManager.phase_changed, phase_action_taken, phase_completed
+ReplayManager: Ready (auto_record_ai=true)
+SaveLoadManager: Current res:// directory: res://
+SaveLoadManager: Project directory path: /Users/robertocallaghan/Documents/claude/godotv2/40k/
+SaveLoadManager: Initialized save directories in project folder
+SaveLoadManager: Save files will be stored at: /Users/robertocallaghan/Documents/claude/godotv2/40k/saves/
+[DeploymentZoneData] Loaded zones for 'hammer_anvil' from JSON
+[BoardState] Initialized deployment zones for: hammer_anvil
+StratagemManager: Loaded 12 stratagems
+[PhaseManager] Ready - awaiting explicit phase initialization
+[TerrainManager] Initializing terrain system
+[TerrainManager] Preloaded metadata for 8 terrain layouts
+[TerrainManager] Loaded layout 'layout_2' from JSON (12 terrain pieces)
+[EnhancedLineOfSight] Initialized
+MissionManager: Initializing mission system
+[DeploymentZoneData] Loaded objectives for 'hammer_anvil' from JSON
+MissionManager: Set up 5 objectives for hammer_anvil deployment
+  - obj_center at position (880.0, 1200.0) (zone: no_mans_land)
+  - obj_nml_1 at position (400.0, 720.0) (zone: no_mans_land)
+  - obj_nml_2 at position (1360.0, 1680.0) (zone: no_mans_land)
+  - obj_home_1 at position (880.0, 240.0) (zone: player1)
+  - obj_home_2 at position (880.0, 2160.0) (zone: player2)
+MissionManager: Initialized Take and Hold mission
+[MeasuringTapeManager] Initialized with save_persistence: false
+[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position
+TransportManager initialized
+TransportFactory: Loaded local server URL: wss://warhammer-40k-godot.fly.dev
+TransportFactory: Initialized
+CharacterAttachmentManager initialized
+CloudStorage: Using server URL: http://localhost:9080
+CloudStorage: Loaded player ID from file: 93aab3f0...
+CloudStorage: POST /api/players
+WebSocketRelay: Initialized with server URL: wss://warhammer-40k-godot.fly.dev
+NetworkManager: Initialized (platform: desktop)
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: orks_vehicle -> user://sprites/orks_vehicle.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: adeptus_custodes_infantry -> user://sprites/adeptus_custodes_infantry.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: infantry -> user://sprites/infantry.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: blade_champion -> user://sprites/blade_champion.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: vehicle -> user://sprites/vehicle.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: custodian_guard -> user://sprites/custodian_guard.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Found sprite: monster -> user://sprites/monster.png
+[2026-02-18 07:29:16] [INFO.0000000] [SpriteResolver] Initialized. Found 7 sprite(s) in user://sprites/
+AIPlayer: Connected to GameManager.result_applied
+AIPlayer: Connected to PhaseManager.phase_changed and phase_action_taken
+AIPlayer: Ready (disabled until configured)
+GameEventLog: Initialized
+SecondaryMissionManager: Initialized
+FactionAbilityManager: Ready
+=== GUT Test Runner ===
+DEBUG: specific_test_file = ''
+DEBUG: specific_test_method = ''
+DEBUG: Found 45 test files
+Running tests in: res://tests/unit/test_scout_moves.gd
+  Running: test_unit_has_scout_with_scout_ability
+  Running: test_unit_has_scout_returns_false_for_non_scout
+  Running: test_unit_has_scout_returns_false_for_nonexistent_unit
+  Running: test_get_scout_distance_from_value_field
+  Running: test_get_scout_distance_from_name_parsing
+  Running: test_get_scout_distance_returns_zero_for_non_scout
+  Running: test_get_scout_units_for_player
+  Running: test_get_scout_units_for_player_excludes_reserves
+  Running: test_scout_phase_exists_in_enum
+  Running: test_scout_phase_identifies_scout_units
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_scout_phase_no_scouts_auto_completes
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: []
+[1][INFO] Player 2 Scout units: []
+[1][INFO] No units with Scout ability found, skipping Scout phase
+  Running: test_validate_begin_scout_move_valid
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_validate_begin_scout_move_non_scout_unit
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_validate_begin_scout_move_wrong_player
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_validate_scout_move_within_distance
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Begin Scout move for Infiltrator Squad (Scout 6")
+  Running: test_validate_scout_move_exceeds_distance
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Begin Scout move for Infiltrator Squad (Scout 6")
+  Running: test_validate_scout_move_too_close_to_enemy
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Begin Scout move for Infiltrator Squad (Scout 6")
+  Running: test_process_begin_scout_move
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Begin Scout move for Infiltrator Squad (Scout 6")
+  Running: test_process_confirm_scout_move
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Begin Scout move for Infiltrator Squad (Scout 6")
+[GameState] Measuring tape persistence disabled
+[1][INFO] Scout move confirmed for Infiltrator Squad (1 models moved)
+[1][INFO] All Scout moves complete
+  Running: test_process_skip_scout_move
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Scout move skipped for Infiltrator Squad
+[1][INFO] All Scout moves complete
+  Running: test_get_available_actions_with_scouts
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_get_available_actions_after_all_complete
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Scout move skipped for Infiltrator Squad
+[1][INFO] All Scout moves complete
+  Running: test_scout_phase_type
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_should_complete_phase_false_while_pending
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+  Running: test_should_complete_phase_true_when_done
+[1][INFO] Entering Scout Phase
+[1][INFO] Player 1 Scout units: ["scout_unit_1"]
+[1][INFO] Player 2 Scout units: []
+[1][INFO] Scout phase active - Player 1 moves first
+[1][INFO] Scout move skipped for Infiltrator Squad
+[1][INFO] All Scout moves complete
+  Running: test_unit_has_scout_string_format
+  Running: test_get_scout_distance_string_format
+Running tests in: res://tests/unit/test_sustained_hits.gd
+  Running: test_has_sustained_hits_returns_true_for_sustained_bolter
+  Running: test_has_sustained_hits_returns_true_for_lethal_sustained_bolter
+  Running: test_has_sustained_hits_returns_true_for_torrent_sustained
+  Running: test_has_sustained_hits_returns_false_for_bolt_rifle
+  Running: test_has_sustained_hits_returns_false_for_lethal_bolter
+  Running: test_has_sustained_hits_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_get_sustained_hits_value_returns_correct_value
+  Running: test_get_sustained_hits_value_returns_empty_for_non_sustained
+  Running: test_weapon_profile_sustained_bolter_has_sustained_hits_keyword
+  Running: test_sustained_hits_generates_extra_hits
+  Running: test_sustained_hits_added_to_total_hits
+Running tests in: res://tests/unit/test_pistol_keyword.gd
+  Running: test_is_pistol_weapon_returns_true_for_plasma_pistol
+  Running: test_is_pistol_weapon_returns_true_for_slugga
+  Running: test_is_pistol_weapon_returns_false_for_bolt_rifle
+  Running: test_is_pistol_weapon_returns_false_for_shoota
+  Running: test_is_pistol_weapon_returns_false_for_heavy_bolter
+  Running: test_is_pistol_weapon_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_plasma_pistol_has_pistol_keyword
+  Running: test_weapon_profile_slugga_has_pistol_keyword
+  Running: test_weapon_profile_bolt_rifle_no_pistol_keyword
+  Running: test_unit_has_pistol_weapons_intercessors
+  Running: test_unit_has_pistol_weapons_ork_boyz
+  Running: test_unit_has_no_pistol_weapons_gretchin
+  Running: test_unit_has_pistol_weapons_unknown_unit
+WARNING: Unit not found: NONEXISTENT_UNIT
+  Running: test_get_unit_pistol_weapons_intercessors
+  Running: test_get_unit_pistol_weapons_gretchin_empty
+  Running: test_slugga_has_both_pistol_and_assault
+  Running: test_pistol_exclusivity_rejects_pistol_and_non_pistol_together
+RulesEngine: PISTOL MUTUAL EXCLUSIVITY — rejected: unit has both Pistol and non-Pistol weapon assignments
+  Running: test_pistol_exclusivity_allows_only_pistol_weapons
+  Running: test_pistol_exclusivity_allows_only_non_pistol_weapons
+  Running: test_pistol_exclusivity_monster_vehicle_exempt
+  Running: test_pistol_exclusivity_vehicle_exempt
+  Running: test_pistol_exclusivity_multiple_pistols_allowed
+Running tests in: res://tests/unit/test_assault_keyword.gd
+  Running: test_is_assault_weapon_returns_true_for_shoota
+  Running: test_is_assault_weapon_returns_true_for_slugga
+  Running: test_is_assault_weapon_returns_false_for_bolt_rifle
+  Running: test_is_assault_weapon_returns_false_for_grot_blasta
+  Running: test_is_assault_weapon_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_slugga_has_both_pistol_and_assault
+  Running: test_shoota_has_only_assault
+  Running: test_unit_has_assault_weapons_ork_boyz
+  Running: test_unit_has_no_assault_weapons_intercessors
+  Running: test_unit_has_no_assault_weapons_gretchin
+  Running: test_unit_has_assault_weapons_unknown_unit
+WARNING: Unit not found: NONEXISTENT_UNIT
+  Running: test_get_unit_assault_weapons_ork_boyz
+  Running: test_get_unit_assault_weapons_intercessors_empty
+  Running: test_weapon_profile_shoota_has_assault_keyword
+  Running: test_weapon_profile_bolt_rifle_no_assault_keyword
+Running tests in: res://tests/unit/test_hazardous_keyword.gd
+  Running: test_is_hazardous_returns_true_for_hazardous_plasma
+  Running: test_is_hazardous_returns_true_for_hazardous_rapid_fire
+  Running: test_is_hazardous_returns_false_for_bolt_rifle
+  Running: test_is_hazardous_returns_false_for_lascannon
+  Running: test_is_hazardous_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_is_hazardous_from_special_rules
+  Running: test_is_hazardous_case_insensitive
+  Running: test_resolve_hazardous_check_returns_false_for_non_hazardous_weapon
+  Running: test_resolve_hazardous_check_rolls_d6_per_model
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [6, 5, 3], ones: 0
+RulesEngine: [HAZARDOUS] No ones rolled — safe
+  Running: test_resolve_hazardous_check_safe_when_no_ones
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [6], ones: 0
+RulesEngine: [HAZARDOUS] No ones rolled — safe
+  Running: test_resolve_hazardous_check_triggers_on_roll_of_1
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Regular unit — destroying 1 model(s)
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 1 model(s) destroyed
+  Running: test_hazardous_character_takes_3_mortal_wounds
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Unit has CHARACTER/VEHICLE/MONSTER keyword — applying 3 mortal wounds
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 3 mortal wounds to bearer (3 wounds applied)
+  Running: test_hazardous_vehicle_takes_3_mortal_wounds
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Unit has CHARACTER/VEHICLE/MONSTER keyword — applying 3 mortal wounds
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 3 mortal wounds to bearer (3 wounds applied)
+  Running: test_hazardous_monster_takes_3_mortal_wounds
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Unit has CHARACTER/VEHICLE/MONSTER keyword — applying 3 mortal wounds
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 3 mortal wounds to bearer (3 wounds applied)
+  Running: test_hazardous_non_character_loses_model
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Regular unit — destroying 1 model(s)
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 1 model(s) destroyed
+  Running: test_hazardous_check_produces_dice_log
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [6, 5], ones: 0
+RulesEngine: [HAZARDOUS] No ones rolled — safe
+  Running: test_resolve_shoot_includes_hazardous_check
+RulesEngine: [HAZARDOUS] Hazardous Plasma Gun (Test) — rolled [1], ones: 1
+RulesEngine: [HAZARDOUS] Regular unit — destroying 1 model(s)
+RulesEngine: [HAZARDOUS] Result: HAZARDOUS! Hazardous Plasma Gun (Test): 1 ones → 1 model(s) destroyed
+  Running: test_resolve_shoot_until_wounds_passes_hazardous_data
+WARNING: Weapon profile not found: Hazardous Plasma Gun (Test)
+Running tests in: res://tests/unit/test_mathhammer_damage_extraction.gd
+  Running: test_partial_damage_single_model
+  Running: test_model_killed
+  Running: test_multiple_models_damaged
+  Running: test_no_damage_no_diffs
+  Running: test_multiple_diffs_same_model_no_double_count
+  Running: test_multiple_diffs_same_model_killed
+  Running: test_mixed_single_and_multiple_diffs
+  Running: test_one_wound_models
+  Running: test_ignores_alive_diffs
+Running tests in: res://tests/unit/test_ai_movement_decisions.gd
+
+=== AI Movement Decision Tests ===
+
+
+--- test_objective_evaluation_uncontrolled ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+PASS: 5 objectives evaluated
+PASS: Center objective is uncontrolled
+PASS: Uncontrolled objective has positive priority (13.0)
+
+--- test_objective_evaluation_held_safe ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=held_safe, friendly_oc=2, enemy_oc=0, priority=-5.0
+PASS: Home objective held safe (state=held_safe)
+PASS: Held safe objective has low priority (-5.0)
+
+--- test_objective_evaluation_contested ---
+AIDecisionMaker: Objective obj_center: state=contested, friendly_oc=2, enemy_oc=2, priority=11.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+PASS: Center objective is contested (state=contested)
+PASS: Contested objective has high priority (11.0)
+
+--- test_objective_evaluation_enemy_held ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=enemy_weak, friendly_oc=0, enemy_oc=2, priority=10.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+PASS: NML objective enemy held (state=enemy_weak)
+PASS: Enemy OC at nml_1 is 2 (got 2)
+
+--- test_unit_assignment_distributes_units ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+AIDecisionMaker: Assigned u1 to MOVE obj_home_2 (score: 28.0, reason: moving to objective)
+AIDecisionMaker: Assigned u3 to MOVE obj_nml_2 (score: 12.0, reason: moving to objective)
+AIDecisionMaker: Assigned u2 to MOVE obj_center (score: 8.0, reason: moving to objective)
+PASS: All 3 units assigned (got 3)
+PASS: Units spread across >= 2 objectives (got 3)
+
+--- test_unit_on_objective_holds ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=held_safe, friendly_oc=2, enemy_oc=0, priority=-5.0
+AIDecisionMaker: Assigned u1 to HOLD obj_home_2 (OC: 2, remaining need: 0)
+AIDecisionMaker: Boyz on Home holds obj_home_2 (holding objective (OC: 2), 2.0" away)
+PASS: Unit on objective holds (type=REMAIN_STATIONARY)
+PASS: Correct unit holds
+
+--- test_unit_not_on_objective_moves ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+AIDecisionMaker: Assigned u1 to MOVE obj_home_2 (score: 19.0, reason: moving to objective)
+AIDecisionMaker: Using 75% move to avoid model overlap
+AIDecisionMaker: Boyz far moving toward obj_home_2 (moving to objective, M: 6")
+PASS: Unit far from objective moves (type=BEGIN_NORMAL_MOVE)
+
+--- test_engaged_unit_on_objective_stays ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=held_threatened, friendly_oc=2, enemy_oc=1, priority=9.4
+AIDecisionMaker: Our Boyz engaged on obj_home_2 but winning OC war (2 vs 1), holding
+PASS: Engaged unit on objective stays (type=REMAIN_STATIONARY)
+
+--- test_engaged_unit_off_objective_falls_back ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+AIDecisionMaker: Our Boyz falling back (not on objective)
+PASS: Engaged unit off objective falls back (type=BEGIN_FALL_BACK)
+
+--- test_advance_decision_no_ranged ---
+PASS: Unit with no ranged weapons should advance
+
+--- test_advance_decision_round1 ---
+PASS: Round 1 unit should advance to reach NML objective
+
+--- test_no_advance_with_targets_in_range ---
+PASS: Should NOT advance when targets are in shooting range (round 3)
+
+--- test_oc_aware_holding_frees_redundant_units ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=held_safe, friendly_oc=4, enemy_oc=0, priority=-5.0
+AIDecisionMaker: Assigned u1 to MOVE obj_nml_2 (score: 10.0, reason: moving to objective)
+AIDecisionMaker: Assigned u2 to MOVE obj_center (score: 6.0, reason: moving to objective)
+AIDecisionMaker: Using 75% move to avoid model overlap
+AIDecisionMaker: Boyz A on Home moving toward obj_nml_2 (moving to objective, M: 6")
+PASS: First unit gets valid action (type=BEGIN_NORMAL_MOVE)
+
+--- test_home_objective_defended ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=22.0
+PASS: Undefended home objective has positive priority (22.0)
+PASS: No friendly OC at undefended home (got 0)
+
+--- test_movement_toward_assigned_objective ---
+AIDecisionMaker: Objective obj_center: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_nml_2: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_1: state=uncontrolled, friendly_oc=0, enemy_oc=0, priority=13.0
+AIDecisionMaker: Objective obj_home_2: state=held_safe, friendly_oc=2, enemy_oc=0, priority=-5.0
+AIDecisionMaker: Assigned u_home to HOLD obj_home_2 (OC: 2, remaining need: 0)
+AIDecisionMaker: Assigned u1 to MOVE obj_center (score: 12.0, reason: moving to objective)
+AIDecisionMaker: Boyz cannot find valid move toward obj_center
+PASS: Unit gets valid movement decision (type=REMAIN_STATIONARY, unit=u1)
+PASS: If not moving, should be stationary (type=REMAIN_STATIONARY)
+
+=== Results: 24 passed, 0 failed ===
+ALL TESTS PASSED
+Test file does not extend GutTest: res://tests/unit/test_ai_movement_decisions.gd
+Running tests in: res://tests/unit/test_big_guns_never_tire.gd
+  Running: test_is_monster_or_vehicle_returns_true_for_monster
+  Running: test_is_monster_or_vehicle_returns_true_for_vehicle
+  Running: test_is_monster_or_vehicle_returns_false_for_infantry
+  Running: test_is_monster_or_vehicle_returns_false_for_empty_keywords
+  Running: test_big_guns_never_tire_applies_to_monster
+  Running: test_big_guns_never_tire_applies_to_vehicle
+  Running: test_big_guns_never_tire_not_applies_to_infantry
+  Running: test_bgnt_penalty_when_shooting_non_engaged
+  Running: test_bgnt_no_penalty_when_shooting_engaged
+Running tests in: res://tests/unit/test_grenade_stratagem.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_grenade_stratagem.gd:159)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_grenade_stratagem.gd:502)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+ERROR: Failed to load script "res://tests/unit/test_grenade_stratagem.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+Running tests in: res://tests/unit/test_stealth_ability.gd
+  Running: test_has_stealth_ability_string_format
+  Running: test_has_stealth_ability_string_case_insensitive
+  Running: test_has_stealth_ability_dict_format
+  Running: test_has_stealth_ability_dict_case_insensitive
+  Running: test_has_stealth_ability_returns_false_no_abilities
+  Running: test_has_stealth_ability_returns_false_no_meta
+  Running: test_has_stealth_ability_returns_false_other_abilities
+  Running: test_has_stealth_ability_returns_false_partial_match
+  Running: test_has_stealth_ability_mixed_abilities
+Running tests in: res://tests/unit/test_melee_weapon_abilities.gd
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_melee_weapon_abilities.gd:337)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_melee_weapon_abilities.gd:344)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_melee_weapon_abilities.gd:352)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_melee_weapon_abilities.gd:359)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_melee_weapon_abilities.gd:366)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+ERROR: Failed to load script "res://tests/unit/test_melee_weapon_abilities.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+Running tests in: res://tests/unit/test_ai_deployment_collision.gd
+=== AI Deployment Collision Test ===
+PASS: Circular 32mm base radius = 25.20 px
+PASS: Rectangular 100x60mm base radius = 91.83 px
+PASS: Position (110,100) correctly collides with model at (100,100) for 32mm bases
+PASS: Position (200,100) correctly does not collide with model at (100,100)
+PASS: Empty snapshot returns 0 deployed positions
+PASS: Snapshot with 2 deployed models returns 2 positions
+PASS: No-collision formation keeps original positions
+PASS: Colliding position was moved (58.4 px away from original)
+PASS: Non-colliding position stayed at original
+PASS: Generated 5 formation positions
+PASS: All formation positions within zone bounds
+PASS: All 7 test units deployed without collisions (21 total models)
+
+=== Results: 12 passed, 0 failed ===
+ALL TESTS PASSED
+Test file does not extend GutTest: res://tests/unit/test_ai_deployment_collision.gd
+Running tests in: res://tests/unit/test_formations_phase.gd
+SCRIPT ERROR: Parse Error: Cannot find member "FORMATIONS" in base "GameStateData.Phase".
+          at: GDScript::reload (res://tests/unit/test_formations_phase.gd:56)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Cannot find member "FORMATIONS" in base "GameStateData.Phase".
+          at: GDScript::reload (res://tests/unit/test_formations_phase.gd:618)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Parse Error: Cannot find member "FORMATIONS" in base "GameStateData.Phase".
+          at: GDScript::reload (res://tests/unit/test_formations_phase.gd:623)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+ERROR: Failed to load script "res://tests/unit/test_formations_phase.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+Running tests in: res://tests/unit/test_faction_abilities.gd
+  Running: test_detect_oath_of_moment_from_sm_army
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_detect_no_faction_abilities_for_orks
+FactionAbilityManager: Player 2 has faction abilities: []
+  Running: test_detect_only_once_even_with_multiple_units
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_detect_ignores_destroyed_units
+FactionAbilityManager: Player 1 has faction abilities: []
+  Running: test_player_has_ability_after_detection
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_set_oath_target_success
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+  Running: test_oath_target_sets_flag_on_unit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+  Running: test_cannot_oath_own_unit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_cannot_oath_destroyed_unit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_cannot_oath_nonexistent_unit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_changing_oath_target_clears_old_flag
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_B)
+  Running: test_clear_oath_removes_flags
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+FactionAbilityManager: Cleared Oath of Moment for player 1
+  Running: test_is_oath_target_returns_true
+  Running: test_is_oath_target_returns_false_no_flag
+  Running: test_is_oath_target_returns_false_no_flags
+  Running: test_attacker_benefits_from_oath_correct_keyword
+  Running: test_attacker_without_astartes_keyword_no_benefit
+  Running: test_attacker_wrong_player_no_benefit
+  Running: test_attacker_no_benefit_against_non_oath_target
+  Running: test_astartes_keyword_case_insensitive
+  Running: test_get_eligible_targets_returns_enemy_units
+  Running: test_get_eligible_targets_excludes_own_units
+  Running: test_get_eligible_targets_excludes_destroyed
+  Running: test_on_command_phase_start_detects_abilities
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Cleared Oath of Moment for player 1
+FactionAbilityManager: Player 1 has Oath of Moment — awaiting target selection
+  Running: test_on_command_phase_start_clears_old_target
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Cleared Oath of Moment for player 1
+FactionAbilityManager: Player 1 has Oath of Moment — awaiting target selection
+  Running: test_on_command_phase_end_auto_selects
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+FactionAbilityManager: Auto-selected Oath of Moment target: Ork Boyz
+  Running: test_on_command_phase_end_keeps_existing_target
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_B)
+  Running: test_command_phase_select_oath_target_action
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_command_phase_select_oath_target_own_unit_invalid
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+  Running: test_non_astartes_unit_no_oath_benefit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+  Running: test_astartes_unit_gets_oath_benefit
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+  Running: test_save_and_load_state
+FactionAbilityManager: Player 1 has faction abilities: ["Oath of Moment"]
+FactionAbilityManager: Player 1 Oath of Moment target set to Ork Boyz (U_BOYZ_A)
+FactionAbilityManager: State loaded — effects: { "1": { "oath_of_moment_target": "U_BOYZ_A" }, "2": {  } }
+Running tests in: res://tests/unit/test_per_model_fight_eligibility.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_per_model_fight_eligibility.gd:407)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+ERROR: Failed to load script "res://tests/unit/test_per_model_fight_eligibility.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_should_complete_phase_true_when_done (res://tests/unit/test_scout_moves.gd:480)
+Running tests in: res://tests/unit/test_save_load_dialog_main_menu.gd
+  Running: test_main_menu_button_exists
+  Running: test_main_menu_signal_defined
+  Running: test_main_menu_button_shows_confirmation
+CloudStorage: register - HTTP request failed (result: 2)
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog: Connected main menu button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+SaveLoadDialog: Main Menu button pressed!
+  Running: test_confirming_emits_signal
+SaveLoadDialog: Checking node references...
+  - save_button path: VBoxContainer/SaveSection/SaveInputContainer/SaveButton
+  - save_name_input path: VBoxContainer/SaveSection/SaveInputContainer/SaveNameInput
+  - saves_list path: VBoxContainer/LoadSection/SavesScrollContainer/SavesList
+  - load_button path: VBoxContainer/LoadSection/LoadButtonContainer/LoadButton
+SaveLoadDialog: Connected save button
+SaveLoadDialog: Connected save input
+SaveLoadDialog: Connected saves list
+SaveLoadDialog: Connected load button
+SaveLoadDialog: Connected delete button
+SaveLoadDialog: Connected cancel button
+SaveLoadDialog: Connected main menu button
+SaveLoadDialog UI signals connected
+SaveLoadDialog: Found 29 save files
+SaveLoadDialog: Populated list with 29 save files
+SaveLoadDialog initialized successfully
+SaveLoadDialog: Main Menu button pressed!
+Running tests in: res://tests/unit/test_go_to_ground_smokescreen.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_go_to_ground_smokescreen.gd:180)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+ERROR: Failed to load script "res://tests/unit/test_go_to_ground_smokescreen.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+Running tests in: res://tests/unit/test_counter_offensive.gd
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_definition_loaded
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_effects
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_restriction
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_cp_cost_is_2
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_available_with_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_not_available_with_zero_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_not_available_with_1_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_not_available_after_use
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+StratagemManager: Reset for new game
+  Running: test_eligible_units_in_engagement_range
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_excludes_fought_units
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_excludes_battle_shocked
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_excludes_not_in_engagement
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_only_own_units
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_empty_when_insufficient_cp
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_empty_when_all_fought
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_units_excludes_dead_units
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_deducts_2_cp
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+ASSERTION FAILED: test_counter_offensive_deducts_2_cp - Should have deducted 2 CP (from 5 to 5)
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_tracked_in_usage_history
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_both_players_can_use_separately
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+StratagemManager: Reset for new game
+  Running: test_fight_phase_counter_offensive_state_initialized
+StratagemManager: Reset for new game
+  Running: test_fight_phase_validate_use_counter_offensive_requires_awaiting
+StratagemManager: Reset for new game
+  Running: test_fight_phase_validate_use_counter_offensive_requires_unit_id
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_full_flow_definition_to_deduction
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Player 2 used COUNTER-OFFENSIVE on U_P2_A (cost 2 CP, 5 -> 3)
+ASSERTION FAILED: test_counter_offensive_full_flow_definition_to_deduction - Should deduct 2 CP
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_with_exactly_2_cp
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 2 -> 0)
+ASSERTION FAILED: test_counter_offensive_with_exactly_2_cp - Should have 0 CP after use
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_does_not_set_unit_flags
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+StratagemManager: Reset for new game
+  Running: test_counter_offensive_active_effect_tracked
+StratagemManager: Reset for new game
+StratagemManager: Player 1 used COUNTER-OFFENSIVE on U_P1_A (cost 2 CP, 5 -> 3)
+Running tests in: res://tests/unit/test_epic_challenge.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_epic_challenge.gd:159)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_epic_challenge.gd:423)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_epic_challenge.gd:460)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Parse Error: Identifier "RNGService" not declared in the current scope.
+          at: GDScript::reload (res://tests/unit/test_epic_challenge.gd:588)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+ERROR: Failed to load script "res://tests/unit/test_epic_challenge.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+Running tests in: res://tests/unit/test_feel_no_pain.gd
+  Running: test_get_unit_fnp_returns_value_when_present
+  Running: test_get_unit_fnp_returns_0_when_no_fnp
+  Running: test_get_unit_fnp_returns_0_for_empty_unit
+  Running: test_get_unit_fnp_returns_0_when_fnp_is_0
+  Running: test_get_unit_fnp_returns_correct_for_fnp_6
+  Running: test_get_unit_fnp_returns_correct_for_fnp_4
+  Running: test_roll_feel_no_pain_rolls_correct_number_of_dice
+RulesEngine: Feel No Pain 5+ — rolled [6, 5, 3], prevented 2/3 wounds
+  Running: test_roll_feel_no_pain_returns_correct_structure
+RulesEngine: Feel No Pain 5+ — rolled [6, 5], prevented 2/2 wounds
+  Running: test_roll_feel_no_pain_fnp_value_matches_input
+RulesEngine: Feel No Pain 5+ — rolled [6, 5], prevented 2/2 wounds
+  Running: test_roll_feel_no_pain_wounds_add_up
+RulesEngine: Feel No Pain 5+ — rolled [6, 5, 3, 2], prevented 2/4 wounds
+  Running: test_roll_feel_no_pain_single_wound
+RulesEngine: Feel No Pain 5+ — rolled [6], prevented 1/1 wounds
+  Running: test_roll_feel_no_pain_zero_wounds
+RulesEngine: Feel No Pain 5+ — rolled [], prevented 0/0 wounds
+  Running: test_fnp_with_guaranteed_success_threshold
+RulesEngine: Feel No Pain 5+ — rolled [3, 2, 4, 5, 1, 4, 6, 1, 5, 2], prevented 3/10 wounds
+  Running: test_fnp_2_plus_prevents_most_wounds
+RulesEngine: Feel No Pain 2+ — rolled [6, 5, 3, 2, 5, 1, 5, 2, 4, 4, 6, 4, 2, 4, 2, 2, 2, 4, 4, 3, 4, 2, 6, 3, 3, 2, 2, 2, 6, 6, 2, 1, 4, 2, 3, 6, 5, 6, 3, 6, 3, 3, 1, 4, 4, 4, 2, 1, 1, 1, 1, 3, 2, 3, 3, 3, 3, 3, 3, 1, 6, 5, 6, 6, 4, 6, 3, 5, 4, 3, 4, 1, 3, 4, 1, 5, 6, 5, 4, 5, 5, 4, 4, 1, 1, 5, 3, 5, 4, 3, 5, 6, 2, 3, 4, 3, 1, 3, 6, 6], prevented 87/100 wounds
+  Running: test_fnp_6_plus_prevents_few_wounds
+RulesEngine: Feel No Pain 6+ — rolled [6, 5, 3, 2, 5, 1, 5, 2, 4, 4, 6, 4, 2, 4, 2, 2, 2, 4, 4, 3, 4, 2, 6, 3, 3, 2, 2, 2, 6, 6, 2, 1, 4, 2, 3, 6, 5, 6, 3, 6, 3, 3, 1, 4, 4, 4, 2, 1, 1, 1, 1, 3, 2, 3, 3, 3, 3, 3, 3, 1, 6, 5, 6, 6, 4, 6, 3, 5, 4, 3, 4, 1, 3, 4, 1, 5, 6, 5, 4, 5, 5, 4, 4, 1, 1, 5, 3, 5, 4, 3, 5, 6, 2, 3, 4, 3, 1, 3, 6, 6], prevented 16/100 wounds
+  Running: test_apply_save_damage_includes_fnp_fields_in_result
+  Running: test_apply_save_damage_no_fnp_rolls_when_all_saved
+  Running: test_apply_save_damage_fnp_rolls_on_failed_save
+RulesEngine: Feel No Pain 5+ — rolled [6, 5], prevented 2/2 wounds
+RulesEngine: FNP prevented all 2 damage from failed save!
+  Running: test_apply_save_damage_no_fnp_when_unit_has_no_fnp
+  Running: test_apply_save_damage_fnp_reduces_damage
+RulesEngine: Feel No Pain 4+ — rolled [6, 4, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 1, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 4, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 1, 4], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 4, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 2, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 3, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 2, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 2, 3], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 6, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 3, 1], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 3, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 3, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 5, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 5, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 1, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 4, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 1, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 4, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 2, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 1, 1], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 5, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 6, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 2, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 2, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 3, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 5, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 6, 2], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 4, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 2, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 6, 5], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [6, 4, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 2, 3], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 3, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 4, 6], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [2, 4, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 1, 2], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 1, 1], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 1, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 5, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 4, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 2, 4], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 6, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 2, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 2, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 3, 2], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 4, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 6, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 4, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 4, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 1, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 2], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 5, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 6, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 5, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 4, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 4], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [3, 4, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 1, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 5, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 3, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 6, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 4, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 1, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 2, 4], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 3, 2], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 2, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 4, 1], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 1, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 5, 6], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 4, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 6, 6], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [2, 1, 4], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 2, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 4, 2], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 4, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 2, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [2, 6, 4], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 2, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 1, 5], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 3, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 6, 2], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [3, 6, 5], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 4], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [5, 3, 3], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [1, 3, 2], prevented 0/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 1, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 5, 4], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+RulesEngine: Feel No Pain 4+ — rolled [1, 6, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 1, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [6, 5, 3], prevented 2/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 3, 2], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [4, 2, 1], prevented 1/3 wounds
+RulesEngine: Feel No Pain 4+ — rolled [5, 5, 6], prevented 3/3 wounds
+RulesEngine: FNP prevented all 3 damage from failed save!
+  Running: test_apply_save_damage_fnp_on_devastating_wounds
+RulesEngine: Applying 4 devastating wounds damage (unsaveable)
+RulesEngine: Feel No Pain 5+ — rolled [6, 5, 3, 2], prevented 2/4 wounds
+RulesEngine: FNP reduced devastating damage from 4 to 2
+  Running: test_apply_save_damage_fnp_prevents_all_damage_skips_wound
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [2], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [3], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [1], prevented 0/1 wounds
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [6], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [4], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+RulesEngine: Feel No Pain 2+ — rolled [5], prevented 1/1 wounds
+RulesEngine: FNP prevented all 1 damage from failed save!
+  Running: test_warboss_mega_armour_has_fnp_in_game_state
+PENDING: test_warboss_mega_armour_has_fnp_in_game_state - Unit not loaded - skipping game state test
+Running tests in: res://tests/unit/test_heavy_keyword.gd
+  Running: test_is_heavy_weapon_returns_true_for_heavy_bolter
+  Running: test_is_heavy_weapon_returns_true_for_lascannon
+  Running: test_is_heavy_weapon_returns_false_for_bolt_rifle
+  Running: test_is_heavy_weapon_returns_false_for_shoota
+  Running: test_is_heavy_weapon_returns_false_for_plasma_pistol
+  Running: test_is_heavy_weapon_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_heavy_bolter_has_heavy_keyword
+  Running: test_weapon_profile_lascannon_has_heavy_keyword
+  Running: test_weapon_profile_bolt_rifle_no_heavy_keyword
+  Running: test_unit_has_no_heavy_weapons_intercessors
+  Running: test_unit_has_no_heavy_weapons_ork_boyz
+  Running: test_unit_has_no_heavy_weapons_gretchin
+  Running: test_unit_has_heavy_weapons_unknown_unit
+WARNING: Unit not found: NONEXISTENT_UNIT
+  Running: test_get_unit_heavy_weapons_intercessors_empty
+  Running: test_get_unit_heavy_weapons_boyz_empty
+  Running: test_heavy_and_assault_are_mutually_exclusive_in_profiles
+  Running: test_heavy_and_pistol_are_mutually_exclusive_in_profiles
+Running tests in: res://tests/unit/test_melta_keyword.gd
+  Running: test_get_melta_value_returns_2_for_meltagun
+  Running: test_get_melta_value_returns_2_for_multi_melta
+  Running: test_get_melta_value_returns_2_for_test_melta_fixed
+  Running: test_get_melta_value_returns_0_for_bolt_rifle
+  Running: test_get_melta_value_returns_0_for_lascannon
+  Running: test_get_melta_value_returns_0_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_is_melta_weapon_returns_true_for_meltagun
+  Running: test_is_melta_weapon_returns_true_for_multi_melta
+  Running: test_is_melta_weapon_returns_false_for_bolt_rifle
+  Running: test_is_melta_weapon_returns_false_for_flamer
+  Running: test_get_melta_value_from_special_rules
+  Running: test_prepare_save_resolution_includes_melta_bonus
+WARNING: Weapon profile not found: Test Melta Fixed (Test)
+  Running: test_prepare_save_resolution_no_melta_when_not_melta_weapon
+WARNING: Weapon profile not found: Bolt Rifle
+  Running: test_apply_save_damage_adds_melta_bonus_to_damage
+RulesEngine: MELTA +2 — 1/1 wounds get melta bonus
+RulesEngine: MELTA +2 applied to failed save damage (total: 5)
+  Running: test_apply_save_damage_no_melta_when_outside_half_range
+  Running: test_apply_save_damage_melta_proportional_for_split_range
+RulesEngine: MELTA +2 — 1/2 wounds get melta bonus
+RulesEngine: MELTA +2 applied to failed save damage (total: 5)
+  Running: test_apply_save_damage_no_melta_bonus_for_non_melta_weapon
+Running tests in: res://tests/unit/test_battle_shock.gd
+  Running: test_full_strength_unit_not_below_half
+  Running: test_exactly_half_models_not_below_half
+  Running: test_below_half_models_is_below_half
+  Running: test_one_model_dead_from_two_is_below_half
+  Running: test_both_models_dead_from_two
+  Running: test_five_model_unit_with_two_alive
+  Running: test_five_model_unit_with_three_alive
+  Running: test_single_model_unit_full_wounds_not_below_half
+  Running: test_single_model_unit_below_half_wounds
+  Running: test_single_model_unit_at_half_wounds
+  Running: test_single_model_unit_one_wound_remaining
+  Running: test_odd_model_count_below_half
+  Running: test_odd_model_count_not_below_half
+  Running: test_single_wound_vehicle_below_half
+  Running: test_roll_equals_leadership_passes
+  Running: test_roll_above_leadership_passes
+  Running: test_roll_below_leadership_fails
+  Running: test_roll_12_always_passes
+  Running: test_roll_2_always_fails
+  Running: test_ork_leadership_6
+  Running: test_space_marine_leadership_7
+  Running: test_elite_leadership_8
+  Running: test_battle_shocked_unit_has_zero_oc
+  Running: test_non_shocked_unit_has_normal_oc
+  Running: test_battle_shocked_flag_default_false
+  Running: test_battle_shocked_movement_desperate_escape
+  Running: test_battle_shocked_flag_set_and_clear
+  Running: test_morale_phase_type
+  Running: test_morale_phase_enters_successfully
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_phase_exits_successfully
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+[8][INFO] Exiting Morale Phase
+  Running: test_morale_end_phase_always_valid
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_phase_process_end_morale
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+[8][INFO] Ending Morale Phase
+  Running: test_morale_phase_rejects_old_9e_morale_test
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_phase_rejects_old_9e_skip_morale
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_available_actions_only_end
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_battle_shocked_unit_detected_in_morale_phase
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO]   Battle-shocked: enemy_unit_1 (enemy_unit_1) — OC reduced to 0
+[8][INFO] 1 unit(s) battle-shocked for player 1: enemy_unit_1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_phase_does_not_clear_battle_shock
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO]   Battle-shocked: enemy_unit_1 (enemy_unit_1) — OC reduced to 0
+[8][INFO] 1 unit(s) battle-shocked for player 1: enemy_unit_1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+[8][INFO] Ending Morale Phase
+  Running: test_command_phase_type
+CommandPhase: Entering command phase for player 1
+CommandPhase: Battle round 2
+[GameState] Measuring tape persistence disabled
+CommandPhase: Generated CP — Player 1: 5 → 6, Player 2: 5 → 6
+CommandPhase: Cleared battle-shocked flags for player 1
+MissionManager: No objectives found, reinitializing...
+[DeploymentZoneData] Loaded objectives for 'hammer_anvil' from JSON
+MissionManager: Set up 5 objectives for hammer_anvil deployment
+  - obj_center at position (880.0, 1200.0) (zone: no_mans_land)
+  - obj_nml_1 at position (400.0, 720.0) (zone: no_mans_land)
+  - obj_nml_2 at position (1360.0, 1680.0) (zone: no_mans_land)
+  - obj_home_1 at position (880.0, 240.0) (zone: player1)
+  - obj_home_2 at position (880.0, 2160.0) (zone: player2)
+MissionManager: Checking control for 5 objectives with 4 units
+
+Checking objective: obj_center at position (880.0, 1200.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 33.7" (1348.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 33.4" (1337.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 33.1" (1325.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 32.9" (1314.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 32.6" (1303.8px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 31.1" (1243.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 30.9" (1234.3px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 30.6" (1225.4px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 33.6" (1345.6px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 33.4" (1334.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 33.1" (1323.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 32.8" (1312.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 32.5" (1301.2px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 31.0" (1241.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 30.8" (1232.1px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 30.6" (1223.2px) from obj_center at (880.0, 1200.0)
+
+Checking objective: obj_nml_1 at position (400.0, 720.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 17.2" (688.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 17.0" (680.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 16.8" (672.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 16.6" (664.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 16.4" (657.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 15.7" (628.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 15.6" (625.1px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 15.6" (622.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 17.2" (686.6px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 17.0" (678.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 16.8" (670.4px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 16.6" (663.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 16.4" (656.2px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 15.7" (627.2px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 15.6" (624.5px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 15.6" (622.4px) from obj_nml_1 at (400.0, 720.0)
+
+Checking objective: obj_nml_2 at position (1360.0, 1680.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 50.5" (2020.9px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 50.2" (2008.5px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 49.9" (1996.2px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 49.6" (1984.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 49.3" (1972.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 47.6" (1902.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 47.3" (1891.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 47.0" (1880.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 50.4" (2017.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 50.1" (2005.4px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 49.8" (1993.1px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 49.5" (1981.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 49.2" (1969.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 47.5" (1899.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 47.2" (1888.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 46.9" (1877.9px) from obj_nml_2 at (1360.0, 1680.0)
+
+Checking objective: obj_home_1 at position (880.0, 240.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 19.8" (792.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 19.3" (772.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 18.8" (753.1px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 18.3" (733.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 17.8" (713.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 14.9" (596.7px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 14.4" (577.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 13.9" (557.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 19.7" (787.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 19.2" (767.9px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 18.7" (748.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 18.2" (728.6px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 17.7" (709.0px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 14.8" (591.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 14.3" (572.4px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 13.8" (553.0px) from obj_home_1 at (880.0, 240.0)
+
+Checking objective: obj_home_2 at position (880.0, 2160.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 55.1" (2202.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 54.9" (2195.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 54.7" (2188.9px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 54.6" (2182.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 54.4" (2175.7px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 53.5" (2140.1px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 53.4" (2134.8px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 53.2" (2129.6px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 55.0" (2201.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 54.8" (2194.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 54.7" (2187.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 54.5" (2180.6px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 54.4" (2174.1px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 53.5" (2138.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 53.3" (2133.5px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 53.2" (2128.3px) from obj_home_2 at (880.0, 2160.0)
+FactionAbilityManager: Player 1 has faction abilities: []
+CommandPhase: No units need battle-shock tests
+  Running: test_command_phase_end_command_valid
+CommandPhase: Entering command phase for player 1
+CommandPhase: Battle round 2
+[GameState] Measuring tape persistence disabled
+CommandPhase: Generated CP — Player 1: 5 → 6, Player 2: 5 → 6
+CommandPhase: Cleared battle-shocked flags for player 1
+MissionManager: Checking control for 5 objectives with 4 units
+
+Checking objective: obj_center at position (880.0, 1200.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 33.7" (1348.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 33.4" (1337.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 33.1" (1325.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 32.9" (1314.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 32.6" (1303.8px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 31.1" (1243.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 30.9" (1234.3px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 30.6" (1225.4px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 33.6" (1345.6px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 33.4" (1334.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 33.1" (1323.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 32.8" (1312.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 32.5" (1301.2px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 31.0" (1241.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 30.8" (1232.1px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 30.6" (1223.2px) from obj_center at (880.0, 1200.0)
+
+Checking objective: obj_nml_1 at position (400.0, 720.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 17.2" (688.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 17.0" (680.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 16.8" (672.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 16.6" (664.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 16.4" (657.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 15.7" (628.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 15.6" (625.1px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 15.6" (622.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 17.2" (686.6px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 17.0" (678.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 16.8" (670.4px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 16.6" (663.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 16.4" (656.2px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 15.7" (627.2px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 15.6" (624.5px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 15.6" (622.4px) from obj_nml_1 at (400.0, 720.0)
+
+Checking objective: obj_nml_2 at position (1360.0, 1680.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 50.5" (2020.9px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 50.2" (2008.5px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 49.9" (1996.2px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 49.6" (1984.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 49.3" (1972.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 47.6" (1902.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 47.3" (1891.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 47.0" (1880.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 50.4" (2017.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 50.1" (2005.4px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 49.8" (1993.1px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 49.5" (1981.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 49.2" (1969.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 47.5" (1899.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 47.2" (1888.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 46.9" (1877.9px) from obj_nml_2 at (1360.0, 1680.0)
+
+Checking objective: obj_home_1 at position (880.0, 240.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 19.8" (792.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 19.3" (772.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 18.8" (753.1px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 18.3" (733.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 17.8" (713.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 14.9" (596.7px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 14.4" (577.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 13.9" (557.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 19.7" (787.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 19.2" (767.9px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 18.7" (748.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 18.2" (728.6px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 17.7" (709.0px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 14.8" (591.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 14.3" (572.4px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 13.8" (553.0px) from obj_home_1 at (880.0, 240.0)
+
+Checking objective: obj_home_2 at position (880.0, 2160.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 55.1" (2202.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 54.9" (2195.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 54.7" (2188.9px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 54.6" (2182.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 54.4" (2175.7px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 53.5" (2140.1px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 53.4" (2134.8px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 53.2" (2129.6px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 55.0" (2201.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 54.8" (2194.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 54.7" (2187.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 54.5" (2180.6px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 54.4" (2174.1px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 53.5" (2138.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 53.3" (2133.5px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 53.2" (2128.3px) from obj_home_2 at (880.0, 2160.0)
+FactionAbilityManager: Player 1 has faction abilities: []
+CommandPhase: No units need battle-shock tests
+  Running: test_command_phase_unknown_action_invalid
+CommandPhase: Entering command phase for player 1
+CommandPhase: Battle round 2
+[GameState] Measuring tape persistence disabled
+CommandPhase: Generated CP — Player 1: 5 → 6, Player 2: 5 → 6
+CommandPhase: Cleared battle-shocked flags for player 1
+MissionManager: Checking control for 5 objectives with 4 units
+
+Checking objective: obj_center at position (880.0, 1200.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 33.7" (1348.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 33.4" (1337.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 33.1" (1325.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 32.9" (1314.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 32.6" (1303.8px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 31.1" (1243.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 30.9" (1234.3px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 30.6" (1225.4px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 33.6" (1345.6px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 33.4" (1334.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 33.1" (1323.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 32.8" (1312.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 32.5" (1301.2px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 31.0" (1241.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 30.8" (1232.1px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 30.6" (1223.2px) from obj_center at (880.0, 1200.0)
+
+Checking objective: obj_nml_1 at position (400.0, 720.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 17.2" (688.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 17.0" (680.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 16.8" (672.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 16.6" (664.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 16.4" (657.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 15.7" (628.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 15.6" (625.1px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 15.6" (622.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 17.2" (686.6px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 17.0" (678.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 16.8" (670.4px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 16.6" (663.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 16.4" (656.2px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 15.7" (627.2px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 15.6" (624.5px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 15.6" (622.4px) from obj_nml_1 at (400.0, 720.0)
+
+Checking objective: obj_nml_2 at position (1360.0, 1680.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 50.5" (2020.9px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 50.2" (2008.5px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 49.9" (1996.2px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 49.6" (1984.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 49.3" (1972.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 47.6" (1902.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 47.3" (1891.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 47.0" (1880.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 50.4" (2017.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 50.1" (2005.4px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 49.8" (1993.1px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 49.5" (1981.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 49.2" (1969.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 47.5" (1899.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 47.2" (1888.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 46.9" (1877.9px) from obj_nml_2 at (1360.0, 1680.0)
+
+Checking objective: obj_home_1 at position (880.0, 240.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 19.8" (792.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 19.3" (772.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 18.8" (753.1px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 18.3" (733.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 17.8" (713.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 14.9" (596.7px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 14.4" (577.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 13.9" (557.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 19.7" (787.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 19.2" (767.9px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 18.7" (748.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 18.2" (728.6px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 17.7" (709.0px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 14.8" (591.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 14.3" (572.4px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 13.8" (553.0px) from obj_home_1 at (880.0, 240.0)
+
+Checking objective: obj_home_2 at position (880.0, 2160.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 55.1" (2202.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 54.9" (2195.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 54.7" (2188.9px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 54.6" (2182.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 54.4" (2175.7px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 53.5" (2140.1px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 53.4" (2134.8px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 53.2" (2129.6px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 55.0" (2201.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 54.8" (2194.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 54.7" (2187.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 54.5" (2180.6px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 54.4" (2174.1px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 53.5" (2138.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 53.3" (2133.5px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 53.2" (2128.3px) from obj_home_2 at (880.0, 2160.0)
+FactionAbilityManager: Player 1 has faction abilities: []
+CommandPhase: No units need battle-shock tests
+  Running: test_command_phase_available_actions
+CommandPhase: Entering command phase for player 1
+CommandPhase: Battle round 2
+[GameState] Measuring tape persistence disabled
+CommandPhase: Generated CP — Player 1: 5 → 6, Player 2: 5 → 6
+CommandPhase: Cleared battle-shocked flags for player 1
+MissionManager: Checking control for 5 objectives with 4 units
+
+Checking objective: obj_center at position (880.0, 1200.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 33.7" (1348.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 33.4" (1337.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 33.1" (1325.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 32.9" (1314.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 32.6" (1303.8px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 31.1" (1243.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 30.9" (1234.3px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 30.6" (1225.4px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 33.6" (1345.6px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 33.4" (1334.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 33.1" (1323.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 32.8" (1312.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 32.5" (1301.2px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 31.0" (1241.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 30.8" (1232.1px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 30.6" (1223.2px) from obj_center at (880.0, 1200.0)
+
+Checking objective: obj_nml_1 at position (400.0, 720.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 17.2" (688.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 17.0" (680.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 16.8" (672.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 16.6" (664.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 16.4" (657.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 15.7" (628.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 15.6" (625.1px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 15.6" (622.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 17.2" (686.6px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 17.0" (678.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 16.8" (670.4px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 16.6" (663.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 16.4" (656.2px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 15.7" (627.2px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 15.6" (624.5px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 15.6" (622.4px) from obj_nml_1 at (400.0, 720.0)
+
+Checking objective: obj_nml_2 at position (1360.0, 1680.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 50.5" (2020.9px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 50.2" (2008.5px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 49.9" (1996.2px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 49.6" (1984.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 49.3" (1972.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 47.6" (1902.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 47.3" (1891.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 47.0" (1880.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 50.4" (2017.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 50.1" (2005.4px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 49.8" (1993.1px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 49.5" (1981.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 49.2" (1969.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 47.5" (1899.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 47.2" (1888.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 46.9" (1877.9px) from obj_nml_2 at (1360.0, 1680.0)
+
+Checking objective: obj_home_1 at position (880.0, 240.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 19.8" (792.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 19.3" (772.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 18.8" (753.1px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 18.3" (733.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 17.8" (713.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 14.9" (596.7px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 14.4" (577.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 13.9" (557.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 19.7" (787.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 19.2" (767.9px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 18.7" (748.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 18.2" (728.6px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 17.7" (709.0px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 14.8" (591.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 14.3" (572.4px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 13.8" (553.0px) from obj_home_1 at (880.0, 240.0)
+
+Checking objective: obj_home_2 at position (880.0, 2160.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 55.1" (2202.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 54.9" (2195.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 54.7" (2188.9px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 54.6" (2182.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 54.4" (2175.7px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 53.5" (2140.1px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 53.4" (2134.8px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 53.2" (2129.6px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 55.0" (2201.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 54.8" (2194.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 54.7" (2187.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 54.5" (2180.6px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 54.4" (2174.1px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 53.5" (2138.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 53.3" (2133.5px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 53.2" (2128.3px) from obj_home_2 at (880.0, 2160.0)
+FactionAbilityManager: Player 1 has faction abilities: []
+CommandPhase: No units need battle-shock tests
+  Running: test_command_phase_does_not_auto_complete
+CommandPhase: Entering command phase for player 1
+CommandPhase: Battle round 2
+[GameState] Measuring tape persistence disabled
+CommandPhase: Generated CP — Player 1: 5 → 6, Player 2: 5 → 6
+CommandPhase: Cleared battle-shocked flags for player 1
+MissionManager: Checking control for 5 objectives with 4 units
+
+Checking objective: obj_center at position (880.0, 1200.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 33.7" (1348.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 33.4" (1337.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 33.1" (1325.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 32.9" (1314.7px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 32.6" (1303.8px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 31.1" (1243.5px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 30.9" (1234.3px) from obj_center at (880.0, 1200.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 30.6" (1225.4px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 33.6" (1345.6px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 33.4" (1334.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 33.1" (1323.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 32.8" (1312.0px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 32.5" (1301.2px) from obj_center at (880.0, 1200.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 31.0" (1241.2px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 30.8" (1232.1px) from obj_center at (880.0, 1200.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 30.6" (1223.2px) from obj_center at (880.0, 1200.0)
+
+Checking objective: obj_nml_1 at position (400.0, 720.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 17.2" (688.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 17.0" (680.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 16.8" (672.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 16.6" (664.8px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 16.4" (657.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 15.7" (628.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 15.6" (625.1px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 15.6" (622.9px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 17.2" (686.6px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 17.0" (678.3px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 16.8" (670.4px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 16.6" (663.0px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 16.4" (656.2px) from obj_nml_1 at (400.0, 720.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 15.7" (627.2px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 15.6" (624.5px) from obj_nml_1 at (400.0, 720.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 15.6" (622.4px) from obj_nml_1 at (400.0, 720.0)
+
+Checking objective: obj_nml_2 at position (1360.0, 1680.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 50.5" (2020.9px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 50.2" (2008.5px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 49.9" (1996.2px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 49.6" (1984.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 49.3" (1972.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 47.6" (1902.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 47.3" (1891.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 47.0" (1880.6px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 50.4" (2017.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 50.1" (2005.4px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 49.8" (1993.1px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 49.5" (1981.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 49.2" (1969.0px) from obj_nml_2 at (1360.0, 1680.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 47.5" (1899.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 47.2" (1888.8px) from obj_nml_2 at (1360.0, 1680.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 46.9" (1877.9px) from obj_nml_2 at (1360.0, 1680.0)
+
+Checking objective: obj_home_1 at position (880.0, 240.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 19.8" (792.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 19.3" (772.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 18.8" (753.1px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 18.3" (733.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 17.8" (713.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 14.9" (596.7px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 14.4" (577.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 13.9" (557.9px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 19.7" (787.5px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 19.2" (767.9px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 18.7" (748.2px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 18.2" (728.6px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 17.7" (709.0px) from obj_home_1 at (880.0, 240.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 14.8" (591.8px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 14.3" (572.4px) from obj_home_1 at (880.0, 240.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 13.8" (553.0px) from obj_home_1 at (880.0, 240.0)
+
+Checking objective: obj_home_2 at position (880.0, 2160.0)
+  Checking unit U_P1_A (Player 1, OC: 1, 5 models)
+  Model from U_P1_A at (100.0, 100.0), distance: 55.1" (2202.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (120.0, 100.0), distance: 54.9" (2195.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (140.0, 100.0), distance: 54.7" (2188.9px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (160.0, 100.0), distance: 54.6" (2182.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_A at (180.0, 100.0), distance: 54.4" (2175.7px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P1_B (Player 1, OC: 1, 3 models)
+  Model from U_P1_B at (300.0, 100.0), distance: 53.5" (2140.1px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (320.0, 100.0), distance: 53.4" (2134.8px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P1_B at (340.0, 100.0), distance: 53.2" (2129.6px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_A (Player 2, OC: 1, 5 models)
+  Model from U_P2_A at (105.0, 100.0), distance: 55.0" (2201.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (125.0, 100.0), distance: 54.8" (2194.0px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (145.0, 100.0), distance: 54.7" (2187.2px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (165.0, 100.0), distance: 54.5" (2180.6px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_A at (185.0, 100.0), distance: 54.4" (2174.1px) from obj_home_2 at (880.0, 2160.0)
+  Checking unit U_P2_B (Player 2, OC: 1, 3 models)
+  Model from U_P2_B at (305.0, 100.0), distance: 53.5" (2138.7px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (325.0, 100.0), distance: 53.3" (2133.5px) from obj_home_2 at (880.0, 2160.0)
+  Model from U_P2_B at (345.0, 100.0), distance: 53.2" (2128.3px) from obj_home_2 at (880.0, 2160.0)
+FactionAbilityManager: Player 1 has faction abilities: []
+CommandPhase: No units need battle-shock tests
+  Running: test_morale_phase_no_old_morale_test_actions
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_morale_phase_available_actions_with_battle_shocked
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO]   Battle-shocked: enemy_unit_1 (enemy_unit_1) — OC reduced to 0
+[8][INFO] 1 unit(s) battle-shocked for player 1: enemy_unit_1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_battle_shocked_desperate_escape_all_models
+  Running: test_non_shocked_desperate_escape_only_crossing
+  Running: test_battle_shock_flag_persists_between_phases
+  Running: test_battle_shock_flag_can_be_cleared
+  Running: test_unknown_action_type_rejected_by_morale
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_use_stratagem_rejected_in_10e_morale
+[8][INFO] Entering Morale Phase (10th Edition)
+[8][INFO] No units are currently battle-shocked for player 1
+[8][INFO] Morale Phase complete (10e: no active mechanics in this phase)
+  Running: test_one_model_unit_alive_above_half
+  Running: test_twenty_model_unit_with_ten_alive
+  Running: test_twenty_model_unit_with_nine_alive
+  Running: test_three_model_unit_with_one_alive
+  Running: test_three_model_unit_with_two_alive
+  Running: test_fly_keyword_skips_desperate_escape
+  Running: test_titanic_keyword_skips_desperate_escape
+  Running: test_non_fly_non_titanic_takes_desperate_escape
+  Running: test_fly_and_titanic_combined_skips_desperate_escape
+Running tests in: res://tests/unit/test_barricade_engagement_range.gd
+  Running: test_barricade_between_two_positions
+[TerrainManager] Barricade 'barricade_1' detected between positions
+  Running: test_no_barricade_between_positions
+  Running: test_ruins_not_detected_as_barricade
+  Running: test_engagement_range_through_barricade_is_2_inches
+[TerrainManager] Barricade 'barricade_1' detected between positions
+  Running: test_engagement_range_without_barricade_is_1_inch
+  Running: test_engagement_range_through_ruins_is_1_inch
+  Running: test_rules_engine_effective_er_with_barricade
+[RulesEngine] T3-9: Barricade 'barricade_1' between models — engagement range is 2"
+  Running: test_rules_engine_effective_er_without_barricade
+  Running: test_charge_valid_within_2_inches_of_target_through_barricade
+[RulesEngine] T3-9: Barricade 'barricade_1' between models — engagement range is 2"
+RulesEngine: B2B enforcement - Model marine_1 can reach base-to-base contact with Test Unit (owner 2) (model ork_1) but did not — charging models must make base contact when possible
+  Running: test_charge_fails_beyond_2_inches_through_barricade
+[RulesEngine] T3-9: Barricade 'barricade_1' between models — engagement range is 2"
+  Running: test_charge_without_barricade_requires_1_inch
+RulesEngine: B2B enforcement - Model marine_1 can reach base-to-base contact with Test Unit (owner 2) (model ork_1) but did not — charging models must make base contact when possible
+  Running: test_terrain_manager_constants
+Running tests in: res://tests/unit/test_blast_keyword.gd
+  Running: test_is_blast_weapon_returns_true_for_frag_grenade
+  Running: test_is_blast_weapon_returns_true_for_frag_missile
+  Running: test_is_blast_weapon_returns_true_for_battle_cannon
+  Running: test_is_blast_weapon_returns_true_for_torrent_blast
+  Running: test_is_blast_weapon_returns_false_for_bolt_rifle
+  Running: test_is_blast_weapon_returns_false_for_flamer
+  Running: test_is_blast_weapon_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_frag_grenade_has_blast_keyword
+  Running: test_calculate_blast_bonus_small_unit
+  Running: test_calculate_blast_bonus_medium_unit
+  Running: test_calculate_blast_bonus_large_unit
+  Running: test_calculate_blast_minimum_against_6_plus
+Running tests in: res://tests/unit/test_rapid_fire_keyword.gd
+  Running: test_get_rapid_fire_value_returns_1_for_bolt_rifle
+  Running: test_get_rapid_fire_value_returns_0_for_lascannon
+  Running: test_get_rapid_fire_value_returns_0_for_shoota
+  Running: test_get_rapid_fire_value_returns_0_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_is_rapid_fire_weapon_returns_true_for_bolt_rifle
+  Running: test_is_rapid_fire_weapon_returns_false_for_lascannon
+  Running: test_is_rapid_fire_weapon_returns_false_for_shoota
+  Running: test_is_rapid_fire_weapon_returns_false_for_flamer
+  Running: test_unit_has_rapid_fire_weapons_intercessors
+  Running: test_unit_has_rapid_fire_weapons_tactical
+  Running: test_unit_has_no_rapid_fire_weapons_ork_boyz
+  Running: test_unit_has_no_rapid_fire_weapons_gretchin
+  Running: test_get_unit_rapid_fire_weapons_intercessors
+  Running: test_get_unit_rapid_fire_weapons_ork_boyz_empty
+  Running: test_weapon_profile_bolt_rifle_has_rapid_fire_keyword
+  Running: test_rapid_fire_bonus_calculation
+  Running: test_no_rapid_fire_bonus_at_long_range
+Running tests in: res://tests/unit/test_lone_operative.gd
+  Running: test_has_lone_operative_string_format
+  Running: test_has_lone_operative_string_case_insensitive
+  Running: test_has_lone_operative_dict_format
+  Running: test_has_lone_operative_dict_case_insensitive
+  Running: test_has_lone_operative_returns_false_no_abilities
+  Running: test_has_lone_operative_returns_false_no_meta
+  Running: test_has_lone_operative_returns_false_other_abilities
+  Running: test_has_lone_operative_mixed_abilities
+  Running: test_lone_operative_excluded_from_eligible_targets_beyond_12
+RulesEngine: Lone Operative — target 'Vindicare Assassin' cannot be targeted (closest actor model is 13.7" away, must be within 12")
+  Running: test_lone_operative_included_in_eligible_targets_within_12
+  Running: test_non_lone_operative_eligible_beyond_12
+  Running: test_lone_operative_at_exactly_12_inches
+  Running: test_validate_shoot_rejects_lone_operative_beyond_12
+  Running: test_validate_shoot_allows_lone_operative_within_12
+  Running: test_lone_operative_attached_can_be_targeted_at_any_range
+Running tests in: res://tests/unit/test_devastating_wounds.gd
+  Running: test_has_devastating_wounds_returns_true_for_devastating_bolter
+  Running: test_has_devastating_wounds_returns_true_for_devastating_melta
+  Running: test_has_devastating_wounds_returns_true_for_lethal_devastating_bolter
+  Running: test_has_devastating_wounds_returns_true_for_torrent_devastating
+  Running: test_has_devastating_wounds_returns_false_for_bolt_rifle
+  Running: test_has_devastating_wounds_returns_false_for_lethal_bolter
+  Running: test_has_devastating_wounds_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_devastating_bolter_has_keyword
+  Running: test_devastating_wounds_causes_mortal_wounds
+  Running: test_devastating_wounds_bypasses_saves
+  Running: test_dw_spillover_damage_carries_to_next_model
+  Running: test_dw_spillover_excess_damage_crosses_model_boundary
+  Running: test_regular_damage_no_spillover
+RulesEngine: T2-11 — 2 excess damage lost (no spillover for regular wounds)
+  Running: test_regular_damage_no_spillover_multiple_wounds
+RulesEngine: T2-11 — 2 excess damage lost (no spillover for regular wounds)
+RulesEngine: T2-11 — 2 excess damage lost (no spillover for regular wounds)
+  Running: test_regular_damage_no_spillover_multi_wound_model
+RulesEngine: T2-11 — 2 excess damage lost (no spillover for regular wounds)
+  Running: test_dw_vs_regular_spillover_difference
+RulesEngine: T2-11 — 2 excess damage lost (no spillover for regular wounds)
+  Running: test_dw_spillover_with_fnp_in_ranged
+RulesEngine: Applying 4 devastating wounds damage (unsaveable)
+RulesEngine: Feel No Pain 5+ — rolled [6, 5, 3, 2], prevented 2/4 wounds
+RulesEngine: FNP reduced devastating damage from 4 to 2
+  Running: test_dw_ranged_spillover_kills_multiple_single_wound_models
+RulesEngine: Applying 3 devastating wounds damage (unsaveable)
+  Running: test_dw_ranged_combined_with_regular_saves
+RulesEngine: Applying 2 devastating wounds damage (unsaveable)
+  Running: test_distribute_fnp_across_wounds_basic
+  Running: test_distribute_fnp_prevents_all
+  Running: test_distribute_fnp_prevents_none
+  Running: test_trim_wound_damages_basic
+  Running: test_trim_wound_damages_zero
+  Running: test_trim_wound_damages_exact
+Running tests in: res://tests/unit/test_torrent_keyword.gd
+  Running: test_is_torrent_weapon_returns_true_for_flamer
+  Running: test_is_torrent_weapon_returns_true_for_heavy_flamer
+  Running: test_is_torrent_weapon_returns_true_for_torrent_lethal
+  Running: test_is_torrent_weapon_returns_true_for_torrent_sustained
+  Running: test_is_torrent_weapon_returns_true_for_torrent_devastating
+  Running: test_is_torrent_weapon_returns_true_for_torrent_blast
+  Running: test_is_torrent_weapon_returns_false_for_bolt_rifle
+  Running: test_is_torrent_weapon_returns_false_for_heavy_bolter
+  Running: test_is_torrent_weapon_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_flamer_has_torrent_keyword
+  Running: test_weapon_profile_heavy_flamer_has_torrent_keyword
+  Running: test_torrent_attacks_auto_hit
+  Running: test_torrent_no_hit_roll_needed
+Running tests in: res://tests/unit/test_active_moves_sync.gd
+[3][INFO] Entering Movement Phase
+  Running: test_begin_normal_move_sets_movement_active_flag
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[3][INFO] Entering Movement Phase
+  Running: test_begin_normal_move_sets_move_cap_flag
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[3][INFO] Entering Movement Phase
+  Running: test_begin_fall_back_sets_movement_active_flag
+[3][INFO] Beginning fall back for Test Marines (M: 6")
+[3][INFO] Entering Movement Phase
+  Running: test_confirm_unit_move_clears_movement_active_flag
+[BasePhase] Executing action: BEGIN_NORMAL_MOVE
+[BasePhase] For unit: N/A
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[BasePhase] Action processed successfully
+[GameState] Measuring tape persistence disabled
+[BasePhase] Refreshed game_state_snapshot after applying changes
+[BasePhase] Emitting action_taken signal
+[BasePhase] Executing action: STAGE_MODEL_MOVE
+[BasePhase] For unit: N/A
+[3][INFO] DEBUG: Validating move for model unit_a_m1
+[3][INFO]   Original pos: (200.0, 200.0), Current pos: (200.0, 200.0), Dest: (200.0, 280.0)
+[3][INFO]   Distance calculation: 2.00 inches
+[MovementPhase] Processing STAGE_MODEL_MOVE for model unit_a_m1 to (200.0, 280.0)
+  - Distance this segment: 2.0"
+  - Total distance from origin: 2.0"
+  - Remaining for this model: 4.0"
+[BasePhase] Action processed successfully
+[GameState] Measuring tape persistence disabled
+[BasePhase] Refreshed game_state_snapshot after applying changes
+[BasePhase] Emitting action_taken signal
+[MovementPhase] Confirming unit move with 1 staged moves
+[MovementPhase] Processing 1 unique models
+  Confirming move for model unit_a_m1 to (200.0, 280.0)
+[3][INFO] Confirmed normal move for Test Marines
+[3][INFO] Entering Movement Phase
+  Running: test_reset_unit_move_clears_movement_active_flag
+[BasePhase] Executing action: BEGIN_NORMAL_MOVE
+[BasePhase] For unit: N/A
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[BasePhase] Action processed successfully
+[GameState] Measuring tape persistence disabled
+[BasePhase] Refreshed game_state_snapshot after applying changes
+[BasePhase] Emitting action_taken signal
+[3][INFO] Entering Movement Phase
+  Running: test_end_movement_cleans_up_stale_movement_active_flags
+[3][INFO] === PROCESSING END_MOVEMENT ===
+[3][INFO] Cleaning up stale movement_active flag for unit unit_a
+[3][INFO] Ending Movement Phase - emitting phase_completed signal
+[3][INFO] === END_MOVEMENT COMPLETE ===
+[3][INFO] Entering Movement Phase
+  Running: test_get_available_actions_uses_gamestate_for_active_move_completion
+[BasePhase] Executing action: BEGIN_NORMAL_MOVE
+[BasePhase] For unit: N/A
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[BasePhase] Action processed successfully
+[GameState] Measuring tape persistence disabled
+[BasePhase] Refreshed game_state_snapshot after applying changes
+[BasePhase] Emitting action_taken signal
+[3][INFO] [get_available_actions] Checking if END_MOVEMENT should be available...
+[3][INFO] [get_available_actions] Active moves (local): ["unit_a"]
+[3][INFO] [get_available_actions]   Unit unit_a (Test Marines): flags.moved = true
+[3][INFO] [get_available_actions] ✓ Adding END_MOVEMENT action
+[3][INFO] Entering Movement Phase
+  Running: test_get_available_actions_blocks_end_movement_when_movement_active_in_gamestate
+[3][INFO] [get_available_actions] Checking if END_MOVEMENT should be available...
+[3][INFO] [get_available_actions] Active moves (local): []
+[3][INFO] [get_available_actions]   → GameState flags show unit_a (Test Marines) has active movement!
+[3][INFO] [get_available_actions] ✗ NOT adding END_MOVEMENT (incomplete moves exist)
+[3][INFO] Entering Movement Phase
+  Running: test_validate_end_movement_blocks_when_movement_active_in_gamestate
+[3][INFO] === END_MOVEMENT VALIDATION START ===
+[3][INFO] Active moves count: 0
+[3][INFO] Active moves keys: []
+[3][INFO] Total deployed units for player 1: 2
+[3][INFO]   ✗ Unit unit_a has NOT moved (not marked in flags)
+[3][INFO]   ✗ Unit unit_b has NOT moved (not marked in flags)
+[3][INFO] Summary: 0 moved, 2 not moved
+[3][INFO]   → BLOCKING (via GameState): Unit unit_a (Test Marines) has movement_active=true but moved=false
+[3][INFO] === END_MOVEMENT VALIDATION FAILED ===
+[3][INFO] Entering Movement Phase
+  Running: test_validate_end_movement_passes_when_no_active_moves
+[3][INFO] === END_MOVEMENT VALIDATION START ===
+[3][INFO] Active moves count: 0
+[3][INFO] Active moves keys: []
+[3][INFO] Total deployed units for player 1: 2
+[3][INFO]   ✗ Unit unit_a has NOT moved (not marked in flags)
+[3][INFO]   ✗ Unit unit_b has NOT moved (not marked in flags)
+[3][INFO] Summary: 0 moved, 2 not moved
+[3][INFO] === END_MOVEMENT VALIDATION PASSED ===
+[3][INFO] Entering Movement Phase
+  Running: test_consistency_check_detects_desync
+[BasePhase] Executing action: BEGIN_NORMAL_MOVE
+[BasePhase] For unit: N/A
+[3][INFO] Beginning normal move for Test Marines (M: 6")
+[BasePhase] Action processed successfully
+[GameState] Measuring tape persistence disabled
+[BasePhase] Refreshed game_state_snapshot after applying changes
+[BasePhase] Emitting action_taken signal
+[3][INFO] WARNING: MULTIPLAYER DESYNC DETECTED for unit_a (Test Marines) - local completed=true, GameState moved=false
+Running tests in: res://tests/unit/test_hit_roll_auto_rules.gd
+  Running: test_apply_hit_modifiers_plus_one_on_roll_of_1
+  Running: test_apply_hit_modifiers_minus_one_on_roll_of_6
+  Running: test_apply_hit_modifiers_no_modifier_on_roll_of_1
+  Running: test_apply_hit_modifiers_no_modifier_on_roll_of_6
+  Running: test_natural_1_misses_even_with_plus_one_vs_bs2
+  Running: test_natural_1_misses_with_plus_one_vs_bs3
+  Running: test_natural_1_misses_without_modifiers
+  Running: test_natural_6_hits_even_with_minus_one_vs_bs6
+  Running: test_natural_6_hits_without_modifiers
+  Running: test_natural_6_is_critical_hit
+  Running: test_modified_6_is_not_critical_hit
+  Running: test_heavy_weapon_plus_one_does_not_create_critical_on_5
+  Running: test_natural_6_with_minus_one_is_still_critical
+  Running: test_sustained_hits_only_from_unmodified_6s
+  Running: test_natural_2_with_plus_one_hits_bs2
+  Running: test_natural_3_with_minus_one_misses_bs3
+  Running: test_natural_4_no_modifier_hits_bs4
+  Running: test_natural_3_no_modifier_misses_bs4
+  Running: test_rerolled_to_1_still_auto_misses
+Running tests in: res://tests/unit/test_fight_priority_cancellation.gd
+  Running: test_charged_unit_with_fights_last_cancels_to_normal
+[6][INFO] Unit Cancellation Test Unit has both Fights First and Fights Last — cancellation applies, fighting in Remaining Combats
+  Running: test_fights_first_ability_with_fights_last_cancels_to_normal
+[6][INFO] Unit Ability Cancel Unit has both Fights First and Fights Last — cancellation applies, fighting in Remaining Combats
+  Running: test_charged_unit_without_fights_last_gets_fights_first
+  Running: test_fights_last_only_gets_fights_last
+  Running: test_normal_unit_gets_normal
+  Running: test_heroic_intervention_with_fights_last_stays_fights_last
+  Running: test_fights_first_ability_without_fights_last_gets_fights_first
+Running tests in: res://tests/unit/test_indirect_fire_keyword.gd
+  Running: test_has_indirect_fire_returns_true_for_indirect_mortar
+  Running: test_has_indirect_fire_returns_true_for_indirect_basic
+  Running: test_has_indirect_fire_returns_false_for_bolt_rifle
+  Running: test_has_indirect_fire_returns_false_for_lascannon
+  Running: test_has_indirect_fire_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_has_indirect_fire_from_special_rules
+  Running: test_has_indirect_fire_from_keywords_array
+  Running: test_has_indirect_fire_case_insensitive
+  Running: test_indirect_fire_applies_minus_one_to_hit
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+  Running: test_indirect_fire_unmodified_1_through_3_always_miss
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (auto-resolve)
+  Running: test_indirect_fire_roll_of_4_can_still_hit
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+  Running: test_indirect_fire_roll_of_6_always_hits
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+  Running: test_indirect_fire_grants_cover_auto_resolve
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+  Running: test_indirect_fire_grants_cover_interactive
+WARNING: Weapon profile not found: Indirect Basic (Test)
+RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)
+RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)
+RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)
+  Running: test_indirect_fire_cover_ignored_by_ignores_cover
+WARNING: Weapon profile not found: Test IF+IC
+  Running: test_indirect_fire_targets_visible_without_los
+RulesEngine: [INDIRECT FIRE] Weapon 'Indirect Basic (Test)' targeting without LoS
+RulesEngine: [INDIRECT FIRE] Weapon 'Indirect Basic (Test)' targeting without LoS
+  Running: test_non_indirect_fire_blocked_by_terrain
+  Running: test_resolve_shoot_with_indirect_fire
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+  Running: test_resolve_shoot_until_wounds_with_indirect_fire
+RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon 'Indirect Basic (Test)'
+Running tests in: res://tests/unit/test_insane_bravery_stratagem.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_insane_bravery_stratagem.gd:144)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_insane_bravery_stratagem.gd:163)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+ERROR: Failed to load script "res://tests/unit/test_insane_bravery_stratagem.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+Running tests in: res://tests/unit/test_consolidation_new_fights.gd
+  Running: test_consolidation_into_new_enemy_adds_to_fight_sequence
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 1 unit(s) became newly eligible to fight after consolidation
+  Running: test_consolidation_into_new_enemy_adds_to_legacy_fight_sequence
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 1 unit(s) became newly eligible to fight after consolidation
+  Running: test_consolidation_no_new_enemies_adds_nothing
+[6][INFO] [T2-6] No new units became eligible to fight after consolidation
+  Running: test_already_in_sequence_not_re_added
+[6][INFO] [T2-6] No new units became eligible to fight after consolidation
+  Running: test_units_that_already_fought_not_added
+[6][INFO] [T2-6] No new units became eligible to fight after consolidation
+  Running: test_dead_units_not_added
+[6][INFO] [T2-6] No new units became eligible to fight after consolidation
+  Running: test_multiple_new_enemies_eligible
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit D (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 2 unit(s) became newly eligible to fight after consolidation
+  Running: test_friendly_units_not_eligible
+[6][INFO] [T2-6] No new units became eligible to fight after consolidation
+  Running: test_newly_eligible_added_to_correct_player
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 1 unit(s) became newly eligible to fight after consolidation
+  Running: test_p1_unit_eligible_when_p2_consolidates
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P1) (player 1) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 1 unit(s) became newly eligible to fight after consolidation
+  Running: test_unit_in_engagement_with_other_enemy_not_in_sequence
+[6][INFO] Units Unit C (P2) and Unit D (P1) are within engagement range! (0.00")
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] Units Unit D (P1) and Unit C (P2) are within engagement range! (0.00")
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit D (P1) (player 1) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 2 unit(s) became newly eligible to fight after consolidation
+  Running: test_empty_consolidation_movements
+[6][INFO] [T2-6] NEW FIGHT ELIGIBLE: Unit C (P2) (player 2) is now in engagement range after consolidation by unit_a — added to Remaining Combats
+[6][INFO] [T2-6] 1 unit(s) became newly eligible to fight after consolidation
+  Running: test_engagement_range_with_override_in_range
+  Running: test_engagement_range_with_override_out_of_range
+Running tests in: res://tests/unit/test_pile_in_b2b_enforcement.gd
+  Running: test_pile_in_model_achieves_b2b_is_valid
+  Running: test_pile_in_model_could_reach_b2b_but_didnt
+[6][INFO] [B2B Enforcement] Model 0 could reach b2b (3.00" to closest enemy) but ended 0.79" away
+  Running: test_pile_in_model_cannot_reach_b2b_is_valid
+[6][INFO] [B2B Enforcement] Model 0 cannot reach b2b (3.74" to closest enemy, max move 3.0") — no enforcement needed
+  Running: test_model_within_tolerance_counts_as_b2b
+  Running: test_multiple_models_mixed_reachability
+[6][INFO] [B2B Enforcement] Model 1 cannot reach b2b (3.74" to closest enemy, max move 3.0") — no enforcement needed
+  Running: test_multiple_models_both_can_reach_one_doesnt
+[6][INFO] [B2B Enforcement] Model 1 could reach b2b (1.99" to closest enemy) but ended 0.79" away
+  Running: test_stationary_model_not_checked
+  Running: test_dead_model_excluded
+  Running: test_empty_movements_valid
+  Running: test_model_at_exact_3_inch_boundary
+[6][INFO] [B2B Enforcement] Model 0 could reach b2b (3.00" to closest enemy) but ended 0.50" away
+  Running: test_dead_enemy_models_ignored
+[6][INFO] [B2B Enforcement] Model 0 cannot reach b2b (5.49" to closest enemy, max move 3.0") — no enforcement needed
+Running tests in: res://tests/unit/test_lethal_hits.gd
+  Running: test_has_lethal_hits_returns_true_for_lethal_bolter
+  Running: test_has_lethal_hits_returns_true_for_lethal_sustained_bolter
+  Running: test_has_lethal_hits_returns_true_for_lethal_devastating_bolter
+  Running: test_has_lethal_hits_returns_true_for_torrent_lethal
+  Running: test_has_lethal_hits_returns_false_for_bolt_rifle
+  Running: test_has_lethal_hits_returns_false_for_heavy_bolter
+  Running: test_has_lethal_hits_returns_false_for_sustained_bolter
+  Running: test_has_lethal_hits_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_weapon_profile_lethal_bolter_has_lethal_hits_keyword
+  Running: test_weapon_profile_bolt_rifle_no_lethal_hits_keyword
+  Running: test_critical_hit_is_unmodified_6
+  Running: test_modified_6_is_not_critical_hit
+  Running: test_lethal_hits_auto_wound_logic
+  Running: test_lethal_hits_regular_hits_still_need_wound_roll
+Running tests in: res://tests/unit/test_twin_linked_keyword.gd
+  Running: test_has_twin_linked_returns_true_for_twin_linked_bolter
+  Running: test_has_twin_linked_returns_true_for_twin_linked_lethal
+  Running: test_has_twin_linked_returns_true_for_twin_linked_devastating
+  Running: test_has_twin_linked_returns_false_for_bolt_rifle
+  Running: test_has_twin_linked_returns_false_for_lascannon
+  Running: test_has_twin_linked_returns_false_for_unknown_weapon
+WARNING: Weapon profile not found: nonexistent_weapon
+  Running: test_has_twin_linked_from_special_rules
+  Running: test_has_twin_linked_case_insensitive
+  Running: test_weapon_profile_twin_linked_bolter_has_keyword
+  Running: test_weapon_profile_bolt_rifle_no_twin_linked_keyword
+  Running: test_wound_modifier_reroll_failed_exists
+  Running: test_apply_wound_modifiers_rerolls_failed_wound
+  Running: test_apply_wound_modifiers_does_not_reroll_successful_wound
+  Running: test_apply_wound_modifiers_rerolls_roll_exactly_at_boundary
+  Running: test_apply_wound_modifiers_does_not_reroll_at_threshold
+  Running: test_apply_wound_modifiers_reroll_ones_takes_priority
+  Running: test_apply_wound_modifiers_no_reroll_without_flags
+  Running: test_twin_linked_assignment_flag_triggers_reroll
+  Running: test_twin_linked_statistically_improves_wound_rate
+Twin-linked statistical test: normal=513, twin-linked=768 (out of 1000)
+  Running: test_twin_linked_with_plus_one_wound_modifier
+  Running: test_twin_linked_with_minus_one_wound_modifier
+Running tests in: res://tests/unit/test_terrain_charge_interaction.gd
+  Running: test_height_inches_low
+  Running: test_height_inches_medium
+  Running: test_height_inches_tall
+  Running: test_no_terrain_no_penalty
+  Running: test_low_terrain_no_penalty
+  Running: test_tall_terrain_non_fly_penalty
+[TerrainManager] Terrain penalty for tall_ruins: climb up + down = 12.0" (height=6.0")
+  Running: test_tall_terrain_fly_penalty_less_than_non_fly
+[TerrainManager] Terrain penalty for tall_ruins: climb up + down = 12.0" (height=6.0")
+[TerrainManager] FLY terrain penalty for tall_ruins: diagonal=6.3" cross=2.0" penalty=4.3"
+  Running: test_medium_terrain_has_penalty
+[TerrainManager] Terrain penalty for medium_ruins: climb up + down = 7.0" (height=3.5")
+  Running: test_path_misses_terrain_no_penalty
+  Running: test_rules_engine_charge_paths_terrain_penalty
+  Running: test_rules_engine_fly_unit_terrain_advantage
+  Running: test_charge_no_terrain_normal_validation
+  Running: test_get_tall_terrain_on_path
+  Running: test_multiple_terrain_penalties_accumulate
+[TerrainManager] Terrain penalty for ruins_a: climb up + down = 12.0" (height=6.0")
+[TerrainManager] Terrain penalty for ruins_b: climb up + down = 12.0" (height=6.0")
+Running tests in: res://tests/unit/test_cover_terrain_types.gd
+  Running: test_ruins_cover_target_within
+  Running: test_ruins_cover_target_behind
+  Running: test_ruins_no_cover_in_open
+  Running: test_woods_cover_target_within
+  Running: test_woods_no_cover_target_behind
+  Running: test_crater_cover_target_within
+  Running: test_crater_no_cover_target_behind
+  Running: test_obstacle_cover_target_within
+  Running: test_obstacle_cover_target_behind
+  Running: test_barricade_cover_target_behind
+  Running: test_area_terrain_cover_target_within
+  Running: test_area_terrain_no_cover_target_behind
+  Running: test_impassable_terrain_no_cover
+  Running: test_unknown_terrain_no_cover
+  Running: test_no_terrain_no_cover
+  Running: test_empty_polygon_no_cover
+  Running: test_shooter_inside_ruins_target_outside_no_cover
+  Running: test_mixed_terrain_cover_from_woods
+  Running: test_forest_type_cover_within
+Running tests in: res://tests/unit/test_ai_deployment_visuals.gd
+=== AI Deployment Visuals & Signal Test ===
+Test file does not extend GutTest: res://tests/unit/test_ai_deployment_visuals.gd
+Running tests in: res://tests/unit/test_charge_direction_constraint.gd
+  Running: test_model_moves_closer_to_target_passes
+  Running: test_model_moves_away_from_target_fails
+RulesEngine: Direction constraint - Model m1 must end its charge move closer to at least one charge target
+  Running: test_model_moves_laterally_fails
+RulesEngine: Direction constraint - Model m1 must end its charge move closer to at least one charge target
+  Running: test_model_closer_to_one_of_multiple_targets_passes
+  Running: test_multiple_models_mixed_direction
+RulesEngine: Direction constraint - Model m2 must end its charge move closer to at least one charge target
+  Running: test_model_closer_to_different_model_in_target_unit
+  Running: test_full_validation_includes_direction_constraint
+RulesEngine: Direction constraint - Model m1 must end its charge move closer to at least one charge target
+RulesEngine: B2B enforcement - Model m1 can reach base-to-base contact with Test Unit (owner 2) (model tm1) but did not — charging models must make base contact when possible
+  Running: test_full_validation_direction_passes_when_closer
+RulesEngine: B2B enforcement - Model m1 can reach base-to-base contact with Test Unit (owner 2) (model tm1) but did not — charging models must make base contact when possible
+Running tests in: res://tests/unit/test_base_contact_enforcement.gd
+  Running: test_model_in_b2b_is_valid
+  Running: test_model_could_reach_b2b_but_didnt
+RulesEngine: B2B enforcement - Model marine_1 can reach base-to-base contact with Test Unit (owner 1) (model ork_1) but did not — charging models must make base contact when possible
+  Running: test_model_cannot_reach_b2b_is_valid
+  Running: test_multiple_models_mixed_reachability
+  Running: test_dead_target_models_ignored
+  Running: test_empty_paths_handled_gracefully
+  Running: test_model_within_tolerance_is_b2b
+Running tests in: res://tests/unit/test_heroic_intervention.gd
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_stratagem_exists
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_costs_2cp
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_charge_phase_timing
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_once_per_phase_restriction
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_effect_no_fights_first
+StratagemManager: Reset for new game
+  Running: test_can_use_heroic_intervention_with_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_cannot_use_heroic_intervention_without_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_is_available
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_not_available_no_cp
+StratagemManager: Reset for new game
+StratagemManager: Reset for new game
+  Running: test_eligible_unit_within_6_inches
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_ineligible_unit_beyond_6_inches
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_ineligible_unit_already_in_engagement
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_ineligible_vehicle_without_walker
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_eligible_walker_vehicle
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_ineligible_battle_shocked_unit
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_no_eligible_units_when_all_excluded
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_enemy_units_not_eligible
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+StratagemManager: Reset for new game
+  Running: test_fight_priority_normal_charge_gets_fights_first
+StratagemManager: Reset for new game
+  Running: test_fight_priority_heroic_intervention_no_fights_first
+StratagemManager: Reset for new game
+  Running: test_fight_priority_no_charge_is_normal
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_deducts_2cp
+StratagemManager: Reset for new game
+StratagemManager: Player 2 used HEROIC INTERVENTION on U_P2_NEAR (cost 2 CP, 5 -> 3)
+SCRIPT ERROR: Invalid access to property or key 'phase_log' on a base object of type 'Dictionary'.
+          at: GameStateData.add_action_to_phase_log (res://autoloads/GameState.gd:501)
+          GDScript backtrace (most recent call first):
+              [0] add_action_to_phase_log (res://autoloads/GameState.gd:501)
+              [1] use_stratagem (res://autoloads/StratagemManager.gd:493)
+              [2] test_heroic_intervention_deducts_2cp (res://tests/unit/test_heroic_intervention.gd:319)
+              [3] run_test_file (res://addons/gut/gut_cmdln.gd:173)
+              [4] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [5] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [6] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+StratagemManager: Reset for new game
+  Running: test_heroic_intervention_once_per_phase_enforced
+StratagemManager: Reset for new game
+StratagemManager: Player 2 used HEROIC INTERVENTION on U_P2_NEAR (cost 2 CP, 5 -> 3)
+SCRIPT ERROR: Invalid access to property or key 'phase_log' on a base object of type 'Dictionary'.
+          at: GameStateData.add_action_to_phase_log (res://autoloads/GameState.gd:501)
+          GDScript backtrace (most recent call first):
+              [0] add_action_to_phase_log (res://autoloads/GameState.gd:501)
+              [1] use_stratagem (res://autoloads/StratagemManager.gd:493)
+              [2] test_heroic_intervention_once_per_phase_enforced (res://tests/unit/test_heroic_intervention.gd:335)
+              [3] run_test_file (res://addons/gut/gut_cmdln.gd:173)
+              [4] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [5] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [6] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+StratagemManager: Reset for new game
+  Running: test_charge_phase_validates_use_heroic_intervention
+StratagemManager: Reset for new game
+  Running: test_charge_phase_validates_use_heroic_intervention_requires_unit
+StratagemManager: Reset for new game
+  Running: test_charge_phase_validates_decline_heroic_intervention
+StratagemManager: Reset for new game
+  Running: test_charge_phase_decline_clears_state
+StratagemManager: Reset for new game
+[GameState] Measuring tape persistence disabled
+[5][INFO] Player 2 declined HEROIC INTERVENTION
+Running tests in: res://tests/unit/test_command_reroll_stratagem.gd
+SCRIPT ERROR: Parse Error: Function "assert_string_contains()" not found in base self.
+          at: GDScript::reload (res://tests/unit/test_command_reroll_stratagem.gd:143)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+ERROR: Failed to load script "res://tests/unit/test_command_reroll_stratagem.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)
+   GDScript backtrace (most recent call first):
+       [0] run_test_file (res://addons/gut/gut_cmdln.gd:141)
+       [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+       [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+       [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: run_test_file (res://addons/gut/gut_cmdln.gd:146)
+          GDScript backtrace (most recent call first):
+              [0] run_test_file (res://addons/gut/gut_cmdln.gd:146)
+              [1] run_tests (res://addons/gut/gut_cmdln.gd:99)
+              [2] run_test_file (res://addons/gut/gut_cmdln.gd:192)
+              [3] test_confirming_emits_signal (res://tests/unit/test_save_load_dialog_main_menu.gd:99)
+
+=== Test Results ===
+Total: 1432, Passed: 1429, Failed: 3
+ERROR: Parameter "data.tree" is null.
+   at: get_tree (scene/main/node.h:549)
+   GDScript backtrace (most recent call first):
+       [0] _run_tests (res://tests/unit/test_ai_deployment_visuals.gd:30)
+SCRIPT ERROR: Invalid access to property or key 'process_frame' on a base object of type 'null instance'.
+          at: _run_tests (res://tests/unit/test_ai_deployment_visuals.gd:30)
+          GDScript backtrace (most recent call first):
+              [0] _run_tests (res://tests/unit/test_ai_deployment_visuals.gd:30)
+[2026-02-18 07:29:19] [INFO.0000000] DebugLogger shutting down - Session: 20260218_072916
+WARNING: 3 RIDs of type "Canvas" were leaked.
+     at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2692)
+ERROR: 3 RID allocations of type 'N16RendererViewport8ViewportE' were leaked at exit.
+ERROR: 5 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 3 RID allocations of type 'N17RendererSceneCull8ScenarioE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)
+ERROR: 6 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:810)

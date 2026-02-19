@@ -346,6 +346,29 @@ const WEAPON_PROFILES = {
 		"damage": 2,
 		"keywords": ["TWIN-LINKED", "DEVASTATING WOUNDS"]  # Re-roll wounds + crit wounds bypass saves
 	},
+	# INDIRECT FIRE WEAPONS (T2-4) — Can shoot without LoS; -1 to hit, unmodified 1-3 always fail, target gains cover
+	# TEST WEAPON: Basic Indirect Fire weapon (e.g., artillery)
+	"indirect_mortar": {
+		"name": "Indirect Mortar (Test)",
+		"range": 48,
+		"attacks": 3,
+		"bs": 4,
+		"strength": 5,
+		"ap": 0,
+		"damage": 1,
+		"keywords": ["INDIRECT FIRE", "BLAST"]  # Indirect Fire + Blast combo (common on artillery)
+	},
+	# TEST WEAPON: Indirect Fire only (no combos)
+	"indirect_basic": {
+		"name": "Indirect Basic (Test)",
+		"range": 36,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 4,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["INDIRECT FIRE"]  # Pure Indirect Fire weapon
+	},
 	# HAZARDOUS WEAPONS (T2-3) — After attacking, roll D6 per Hazardous weapon; on 1, bearer takes 3 MW
 	# TEST WEAPON: Basic Hazardous plasma gun
 	"hazardous_plasma": {
@@ -435,11 +458,13 @@ enum HitModifier {
 	REROLL_ONES = 1,    # Re-roll 1s to hit
 	PLUS_ONE = 2,       # +1 to hit
 	MINUS_ONE = 4,      # -1 to hit (cover, moved, etc.)
+	REROLL_FAILED = 8,  # Re-roll all failed hit rolls
 }
 
 # Apply hit modifiers to a single roll
 # Returns the modified roll value and any re-roll that occurred
-static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> Dictionary:
+# hit_threshold: the BS/WS value needed to hit (e.g. 3 for 3+); required for REROLL_FAILED
+static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_threshold: int = 0) -> Dictionary:
 	var result = {
 		"original_roll": roll,
 		"modified_roll": roll,
@@ -449,7 +474,14 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService) -> D
 	}
 
 	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
+	# Re-roll ones takes priority check first
 	if (modifiers & HitModifier.REROLL_ONES) and roll == 1:
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+	elif (modifiers & HitModifier.REROLL_FAILED) and hit_threshold > 0 and roll < hit_threshold:
+		# Re-roll all failed hit rolls (roll below BS/WS threshold)
 		var reroll_result = rng.roll_d6(1)[0]
 		result.rerolled = true
 		result.reroll_value = reroll_result
@@ -1081,16 +1113,29 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
+	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
+	var is_overwatch = assignment.get("overwatch", false)
+
+	# T3-11: FIRE OVERWATCH — only unmodified 6s hit (set BS to 7 so only the
+	# auto-hit on natural 6 rule applies; modifiers and rerolls still function
+	# normally but cannot lower the threshold below the unmodified-6 check)
+	if is_overwatch:
+		bs = 7
+		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
+
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
+	var indirect_fire_applied = false
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -1146,10 +1191,17 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				hit_modifiers |= HitModifier.REROLL_FAILED
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
+
+		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: OATH OF MOMENT — re-roll 1s to hit against %s" % target_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
@@ -1174,13 +1226,19 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
+		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
+		if is_indirect_fire:
+			hit_modifiers |= HitModifier.MINUS_ONE
+			indirect_fire_applied = true
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -1193,8 +1251,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
+			elif is_indirect_fire and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
 			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
@@ -1224,6 +1285,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"modifiers_applied": hit_modifiers,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"indirect_fire_applied": indirect_fire_applied,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
 			"models_in_half_range": models_in_half_range,
@@ -1276,6 +1338,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):
@@ -1283,6 +1347,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if weapon_has_twin_linked:
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+		wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT — re-roll 1s to wound against %s" % target_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
 	if is_lance_weapon(weapon_id, board):
@@ -1438,6 +1507,21 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		}
 		print("RulesEngine: MELTA %d — %d/%d models in half range" % [melta_value, melta_models_in_half_range, model_ids.size()])
 
+	# PRECISION (T3-4): Check if weapon has Precision keyword
+	# Critical hits (unmodified 6 to hit) from Precision weapons allow wound allocation to CHARACTER models
+	var weapon_has_precision = has_precision(weapon_id, board)
+	var precision_data = {}
+	if weapon_has_precision:
+		# Number of precision wounds = min(critical_hits, wounds_caused)
+		# These wounds CAN be allocated to CHARACTER models even if bodyguard is alive
+		var precision_wounds = mini(critical_hits, wounds_caused)
+		precision_data = {
+			"has_precision": true,
+			"critical_hits": critical_hits,
+			"precision_wounds": precision_wounds
+		}
+		print("RulesEngine: PRECISION — %d critical hits, %d precision wounds (can target CHARACTER)" % [critical_hits, precision_wounds])
+
 	var save_data = prepare_save_resolution(
 		wounds_caused,
 		target_unit_id,
@@ -1445,7 +1529,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		weapon_profile,
 		board,
 		devastating_wounds_data,
-		melta_data
+		melta_data,
+		precision_data
 	)
 
 	result["save_data"] = save_data
@@ -1468,6 +1553,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if melta_value > 0 and not melta_data.is_empty() and melta_data.models_in_half_range > 0:
 		log_parts.append("MELTA +%d damage (half range)" % melta_value)
 
+	# PRECISION (T3-4): Add precision info to log
+	if weapon_has_precision and critical_hits > 0:
+		log_parts.append("PRECISION: %d wounds can target CHARACTER" % precision_data.precision_wounds)
+
+	log_parts.append("awaiting saves")
 	result.log_text = " - ".join(log_parts)
 
 	return result
@@ -1541,16 +1631,28 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
+	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
+	var is_overwatch = assignment.get("overwatch", false)
+
+	# T3-11: FIRE OVERWATCH — only unmodified 6s hit (set BS to 7 so only the
+	# auto-hit on natural 6 rule applies)
+	if is_overwatch:
+		bs = 7
+		print("RulesEngine: [OVERWATCH][auto-resolve] Forcing BS=7 — only unmodified 6s will hit")
+
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
+	var indirect_fire_applied = false
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -1606,10 +1708,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				hit_modifiers |= HitModifier.REROLL_FAILED
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
+
+		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to hit against %s" % target_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
@@ -1634,6 +1743,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.MINUS_ONE
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
+		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
+		if is_indirect_fire:
+			hit_modifiers |= HitModifier.MINUS_ONE
+			indirect_fire_applied = true
+			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s'" % weapon_profile.get("name", weapon_id))
+
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
 
@@ -1641,7 +1756,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll  # Store BEFORE any modifications
 			# Apply modifiers to this roll
-			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng)
+			var modifier_result = apply_hit_modifiers(roll, hit_modifiers, rng, bs)
 			var final_roll = modifier_result.modified_roll
 			modified_rolls.append(final_roll)
 
@@ -1654,8 +1769,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
+			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
+			elif is_indirect_fire and unmodified_roll <= 3:
+				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
 			elif unmodified_roll == 6 or final_roll >= bs:
 				hits += 1
 				# Critical hit = unmodified 6 (BEFORE modifiers)
@@ -1685,6 +1803,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"modifiers_applied": hit_modifiers,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
+			"indirect_fire_applied": indirect_fire_applied,
 			"rapid_fire_bonus": rapid_fire_attacks,
 			"rapid_fire_value": rapid_fire_value,
 			"models_in_half_range": models_in_half_range,
@@ -1734,6 +1853,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			ar_wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):
@@ -1741,6 +1862,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if ar_weapon_has_twin_linked:
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to wound against %s" % target_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
@@ -1928,11 +2054,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			break  # No more models to allocate to
 		
 		# Check for cover (IGNORES COVER skips this)
-		# Also check effect-granted cover (Go to Ground / Smokescreen / abilities)
-		var auto_effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
+		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
+		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
+		var auto_target_flags = target_unit.get("flags", {})
+		var auto_stratagem_cover = auto_target_flags.get("stratagem_cover", false)
 		var has_cover = false
 		if not auto_weapon_ignores_cover:
-			has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_effect_cover
+			if is_indirect_fire:
+				has_cover = true
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (auto-resolve)")
+			else:
+				has_cover = _check_model_has_cover(target_model, actor_unit_id, board) or auto_stratagem_cover
 
 		# Check effect-granted invulnerable save (Go to Ground / abilities)
 		var auto_model_invuln = target_model.get("invuln", 0)
@@ -2102,6 +2234,16 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 					errors.append("Cannot target '%s' — it is within engagement range of a friendly unit" % target_name)
 
+			# LONE OPERATIVE (T2-2): Units with Lone Operative can only be targeted from within 12"
+			# unless they are part of an Attached unit
+			if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+				var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+				if attached_chars.is_empty():
+					var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+					if min_dist > 12.0:
+						var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
+
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			if actor_in_engagement:
 				var target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
@@ -2122,6 +2264,26 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var visibility_result = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
 					if not visibility_result.visible:
 						errors.append(visibility_result.reason)
+
+	# PISTOL MUTUAL EXCLUSIVITY (T2-5): A model cannot fire both Pistol and non-Pistol
+	# weapons in the same shooting activation. Exception: MONSTER/VEHICLE models.
+	# Per 10e rules: "If a model is equipped with one or more Pistols, unless it is a
+	# MONSTER or VEHICLE model, it can either shoot with its Pistols or with all of its
+	# other ranged weapons."
+	if not is_monster_or_vehicle(actor_unit):
+		var has_pistol_assignment = false
+		var has_non_pistol_assignment = false
+		for assignment in assignments:
+			var w_id = assignment.get("weapon_id", "")
+			if w_id == "":
+				continue
+			if is_pistol_weapon(w_id, board):
+				has_pistol_assignment = true
+			else:
+				has_non_pistol_assignment = true
+		if has_pistol_assignment and has_non_pistol_assignment:
+			errors.append("Cannot fire both Pistol and non-Pistol weapons — a unit must choose one or the other (MONSTER/VEHICLE exempt)")
+			print("RulesEngine: PISTOL MUTUAL EXCLUSIVITY — rejected: unit has both Pistol and non-Pistol weapon assignments")
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -2176,40 +2338,47 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
 	var weapon_profile = get_weapon_profile(weapon_id, board)
-	
+
 	if actor_unit.is_empty() or target_unit.is_empty() or weapon_profile.is_empty():
 		return {"visible": false, "reason": "Invalid units or weapon"}
-	
+
 	var weapon_range = weapon_profile.get("range", 12)
 	var range_px = Measurement.inches_to_px(weapon_range)
-	
+
+	# INDIRECT FIRE (T2-4): Indirect Fire weapons can shoot without Line of Sight
+	var is_indirect = has_indirect_fire(weapon_id, board)
+
 	# Check if any model in actor unit can see and is in range of any model in target unit
 	var actor_models = actor_unit.get("models", [])
 	var target_models = target_unit.get("models", [])
-	
+
 	for actor_model in actor_models:
 		if not actor_model.get("alive", true):
 			continue
-		
+
 		var actor_pos = _get_model_position(actor_model)
 		if not actor_pos:
 			continue
-		
+
 		for target_model in target_models:
 			if not target_model.get("alive", true):
 				continue
-			
+
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
 				continue
-			
+
 			# Check range using shape-aware edge-to-edge distance
 			var distance = Measurement.model_to_model_distance_px(actor_model, target_model)
 			if distance <= range_px:
+				# INDIRECT FIRE (T2-4): Skip LoS check for Indirect Fire weapons — range alone suffices
+				if is_indirect:
+					print("RulesEngine: [INDIRECT FIRE] Weapon '%s' targeting without LoS" % weapon_profile.get("name", weapon_id))
+					return {"visible": true, "reason": ""}
 				# Check LoS with enhanced base-aware visibility
 				if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
 					return {"visible": true, "reason": ""}
-	
+
 	return {"visible": false, "reason": "No valid targets in range and LoS"}
 
 static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
@@ -2223,18 +2392,30 @@ static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dict
 
 static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
 	# Original simple line of sight checking (preserved for backward compatibility)
+	# T3-19: Now handles medium terrain using default infantry height
 	var terrain_features = board.get("terrain_features", [])
-	
+
 	for terrain_piece in terrain_features:
-		# Only tall terrain (>5") blocks LoS completely
-		if terrain_piece.get("height_category", "") == "tall":
+		var height_cat = terrain_piece.get("height_category", "")
+
+		# Low terrain never blocks LoS
+		if height_cat == "low":
+			continue
+
+		if height_cat == "tall" or height_cat == "medium":
 			var polygon = terrain_piece.get("polygon", PackedVector2Array())
 			if _segment_intersects_polygon(from_pos, to_pos, polygon):
 				# Check if both models are outside the terrain
 				# (models inside can see out and be seen)
 				if not _point_in_polygon(from_pos, polygon) and not _point_in_polygon(to_pos, polygon):
-					return false
-	
+					if height_cat == "tall":
+						return false
+					elif height_cat == "medium":
+						# T3-19: Legacy path has no model info, assume infantry height
+						# This means medium terrain blocks LoS in the legacy path
+						# (conservative: infantry is default and is shorter than medium terrain)
+						return false
+
 	return true
 
 static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
@@ -2290,28 +2471,39 @@ static func _point_in_polygon(point: Vector2, poly) -> bool:
 # COVER SYSTEM
 # ==========================================
 
+# Terrain types that grant Benefit of Cover per 10e rules (T2-10)
+# Ruins, area terrain (woods, craters), and obstacles (barricades) all grant cover
+const COVER_TERRAIN_TYPES_WITHIN_AND_BEHIND = ["ruins", "obstacle", "barricade"]
+const COVER_TERRAIN_TYPES_WITHIN_ONLY = ["woods", "crater", "area_terrain", "forest"]
+
 # Check if a target position has benefit of cover from a shooter position
 static func check_benefit_of_cover(target_pos: Vector2, shooter_pos: Vector2, board: Dictionary) -> bool:
 	var terrain_features = board.get("terrain_features", [])
-	
+
 	for terrain_piece in terrain_features:
-		if terrain_piece.get("type", "") != "ruins":
-			continue
-		
+		var terrain_type = terrain_piece.get("type", "")
+
 		var polygon = terrain_piece.get("polygon", PackedVector2Array())
 		if polygon.is_empty():
 			continue
-		
-		# Target within terrain gets cover
-		if _point_in_polygon(target_pos, polygon):
-			return true
-		
-		# Target behind terrain (LoS crosses terrain)
-		if _segment_intersects_polygon(shooter_pos, target_pos, polygon):
-			# Check if shooter is not inside the same terrain piece
-			if not _point_in_polygon(shooter_pos, polygon):
+
+		# Ruins, obstacles, barricades: cover when within OR behind (LoS crosses terrain)
+		if terrain_type in COVER_TERRAIN_TYPES_WITHIN_AND_BEHIND:
+			# Target within terrain gets cover
+			if _point_in_polygon(target_pos, polygon):
 				return true
-	
+
+			# Target behind terrain (LoS crosses terrain)
+			if _segment_intersects_polygon(shooter_pos, target_pos, polygon):
+				# Check if shooter is not inside the same terrain piece
+				if not _point_in_polygon(shooter_pos, polygon):
+					return true
+
+		# Area terrain (woods, craters): cover when target is within the terrain
+		elif terrain_type in COVER_TERRAIN_TYPES_WITHIN_ONLY:
+			if _point_in_polygon(target_pos, polygon):
+				return true
+
 	return false
 
 # Check if any models in a unit have cover from the shooting unit
@@ -2383,7 +2575,7 @@ static func _segment_rect_intersection(seg_start: Vector2, seg_end: Vector2, rec
 	return true
 
 static func _check_model_has_cover(model: Dictionary, shooting_unit_id: String, board: Dictionary) -> bool:
-	# Check if model has benefit of cover from ruins terrain
+	# Check if model has benefit of cover from terrain (ruins, woods, craters, obstacles, etc.)
 	var model_pos = _get_model_position(model)
 	if not model_pos:
 		return false
@@ -2485,6 +2677,22 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 			if target_engaged_with_friendly:
 				continue
 
+		# LONE OPERATIVE (T2-2): Units with Lone Operative can only be targeted from within 12"
+		# unless they are part of an Attached unit (attached_to != null is already skipped above,
+		# but Lone Operative units that are leading a bodyguard squad won't have attached_to set —
+		# they ARE the parent unit. Check if this unit has attached characters, meaning it's a
+		# bodyguard unit with a leader attached, which does NOT count as "Lone Operative attached".)
+		# The rule applies to the Lone Operative unit itself when it is standalone.
+		if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
+			# Check if the unit has attached characters (meaning it's leading a bodyguard)
+			var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+			if attached_chars.is_empty():
+				# Standalone Lone Operative — check if any actor model is within 12"
+				var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+				if min_dist > 12.0:
+					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
+					continue
+
 		# Check if target is within engagement range (needed for Pistol targeting)
 		var target_in_er = false
 		if actor_in_engagement:
@@ -2531,7 +2739,7 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 
 	return eligible
 
-# Check if target unit is within engagement range (1") of actor unit
+# Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
@@ -2557,8 +2765,9 @@ static func _is_target_within_engagement_range(actor_unit_id: String, target_uni
 			if target_pos == Vector2.ZERO:
 				continue
 
-			# Use shape-aware edge-to-edge engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(actor_model, target_model, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range_rules(actor_pos, target_pos, board)
+			if Measurement.is_in_engagement_range_shape_aware(actor_model, target_model, effective_er):
 				return true
 
 	return false
@@ -2881,6 +3090,43 @@ static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	var keywords = profile.get("keywords", [])
 	for keyword in keywords:
 		if keyword.to_upper() == "LANCE":
+			return true
+	return false
+
+# ==========================================
+# EXTRA ATTACKS (T3-3)
+# ==========================================
+# Extra Attacks: Weapons with this ability are used IN ADDITION to another weapon,
+# not as an alternative. A model makes attacks with this weapon on top of whichever
+# other weapon it selects.
+
+# Check if a weapon has the Extra Attacks keyword
+static func has_extra_attacks(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Extra Attacks" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "extra attacks" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if "extra attacks" in keyword.to_lower():
+			return true
+
+	return false
+
+# Check if a weapon data dictionary (raw, not profile) has Extra Attacks
+static func weapon_data_has_extra_attacks(weapon_data: Dictionary) -> bool:
+	var special_rules = weapon_data.get("special_rules", "").to_lower()
+	if "extra attacks" in special_rules:
+		return true
+	var keywords = weapon_data.get("keywords", [])
+	for keyword in keywords:
+		if "extra attacks" in keyword.to_lower():
 			return true
 	return false
 
@@ -3262,6 +3508,22 @@ static func unit_has_keyword(unit: Dictionary, keyword: String) -> bool:
 			return true
 	return false
 
+# LONE OPERATIVE (T2-2): Check if a unit has the Lone Operative ability
+# Per 10e rules: Unless part of an Attached unit, this unit can only be selected as the target
+# of a ranged attack if the attacking model is within 12"
+# Abilities can be stored as strings ("Lone Operative") or dicts ({"name": "Lone Operative", ...})
+static func has_lone_operative(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name.to_lower() == "lone operative":
+			return true
+	return false
+
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
 # Abilities can be stored as strings ("Stealth") or dicts ({"name": "Stealth", ...})
@@ -3359,6 +3621,7 @@ static func calculate_blast_minimum(weapon_id: String, base_attacks: int, target
 
 # Check if a unit is in engagement range with any model of another unit
 # Used for Blast targeting restriction
+# T3-9: Now barricade-aware (2" ER through barricades)
 static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
 	for model1 in unit1.get("models", []):
 		if not model1.get("alive", true):
@@ -3376,8 +3639,9 @@ static func _check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionar
 			if pos2 == Vector2.ZERO:
 				continue
 
-			# Use shape-aware edge-to-edge engagement range check
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range_rules(pos1, pos2, board)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
 				return true
 
 	return false
@@ -3692,6 +3956,33 @@ static func resolve_hazardous_check(
 	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
 
+# ==========================================
+# INDIRECT FIRE KEYWORD (T2-4)
+# ==========================================
+
+# Check if a weapon has the INDIRECT FIRE keyword
+# Indirect Fire weapons: Can shoot without LoS, but:
+# - -1 to hit
+# - Unmodified hit rolls of 1-3 always fail (instead of just 1)
+# - Target always gains Benefit of Cover
+static func has_indirect_fire(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "Indirect Fire" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "indirect fire" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "INDIRECT FIRE":
+			return true
+
+	return false
+
 # Check if a unit has any Rapid Fire weapons
 static func unit_has_rapid_fire_weapons(unit_id: String, board: Dictionary = {}) -> bool:
 	var unit_weapons = get_unit_weapons(unit_id, board)
@@ -3836,30 +4127,39 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 	var eligible = {}
 	var units = board.get("units", {})
 	var unit = units.get(unit_id, {})
-	
+
 	if unit.is_empty():
 		return eligible
-	
+
 	var unit_owner = unit.get("owner", 0)
-	
+
+	# T2-9: Check if charging unit has FLY keyword (needed to charge AIRCRAFT targets)
+	var charger_keywords = unit.get("meta", {}).get("keywords", [])
+	var charger_has_fly = "FLY" in charger_keywords
+
 	# Check each potential target unit
 	for target_id in units:
 		var target_unit = units[target_id]
-		
+
 		# Skip friendly units
 		if target_unit.get("owner", 0) == unit_owner:
 			continue
-		
+
 		# Skip destroyed units
 		var has_alive_models = false
 		for model in target_unit.get("models", []):
 			if model.get("alive", true):
 				has_alive_models = true
 				break
-		
+
 		if not has_alive_models:
 			continue
-		
+
+		# T2-9: Only FLY units can charge AIRCRAFT targets
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in target_keywords and not charger_has_fly:
+			continue
+
 		# Check if within 12" charge range
 		if _is_target_within_charge_range_rules(unit_id, target_id, board):
 			eligible[target_id] = {
@@ -3873,29 +4173,50 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 static func validate_charge_paths(unit_id: String, targets: Array, roll: int, paths: Dictionary, board: Dictionary) -> Dictionary:
 	var errors = []
 	var auto_fix_suggestions = []
-	
-	# 1. Validate path distances
+
+	# T2-8: Check if unit has FLY keyword for terrain penalty calculation
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	# 1. Validate path distances (including terrain penalty - T2-8)
 	for model_id in paths:
 		var path = paths[model_id]
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
-			if path_distance > roll:
-				errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
+
+			# T2-8: Calculate terrain vertical distance penalty
+			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board)
+			var effective_distance = path_distance + terrain_penalty
+
+			if effective_distance > roll:
+				if terrain_penalty > 0.0:
+					errors.append("Model %s path (%.1f\") + terrain penalty (%.1f\") = %.1f\" exceeds charge distance %d\"" % [
+						model_id, path_distance, terrain_penalty, effective_distance, roll])
+				else:
+					errors.append("Model %s path exceeds charge distance: %.1f\" > %d\"" % [model_id, path_distance, roll])
 				auto_fix_suggestions.append("Reduce path length for model %s" % model_id)
 	
-	# 2. Validate engagement range with ALL targets
+	# 2. T3-8: Validate each model ends closer to at least one charge target
+	var direction_validation = _validate_charge_direction_constraint_rules(unit_id, paths, targets, board)
+	if not direction_validation.valid:
+		errors.append_array(direction_validation.errors)
+		auto_fix_suggestions.append("Move models closer to declared charge targets")
+
+	# 3. Validate engagement range with ALL targets
 	var engagement_validation = _validate_engagement_range_constraints_rules(unit_id, paths, targets, board)
 	if not engagement_validation.valid:
 		errors.append_array(engagement_validation.errors)
 		auto_fix_suggestions.append("Adjust final positions to reach all targets")
-	
-	# 3. Validate unit coherency
+
+	# 4. Validate unit coherency
 	var coherency_validation = _validate_unit_coherency_for_charge_rules(unit_id, paths, board)
 	if not coherency_validation.valid:
 		errors.append_array(coherency_validation.errors)
 		auto_fix_suggestions.append("Move models closer together to maintain coherency")
-	
-	# 4. Validate base-to-base if possible
+
+	# 5. Validate base-to-base if possible
 	var base_to_base_validation = _validate_base_to_base_possible_rules(unit_id, paths, targets, board, roll)
 	if not base_to_base_validation.valid:
 		errors.append_array(base_to_base_validation.errors)
@@ -3935,7 +4256,9 @@ static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Diction
 				if enemy_pos == null:
 					continue
 
-				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+				# T3-9: Use barricade-aware engagement range
+				var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -4014,6 +4337,144 @@ static func _get_model_position_rules(model: Dictionary) -> Vector2:
 		return pos
 	return Vector2.ZERO
 
+# T2-8: Calculate terrain vertical distance penalty for a charge path segment.
+# Uses board terrain_features data to check for terrain >2" high.
+# Non-FLY units pay full climb (height * 2 for up + down).
+# FLY units pay diagonal distance (shorter).
+static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary) -> float:
+	var total_penalty: float = 0.0
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty():
+		# Fall back to TerrainManager autoload if terrain not in board dict
+		var terrain_manager = Engine.get_singleton("TerrainManager") if Engine.has_singleton("TerrainManager") else null
+		if terrain_manager == null:
+			# Try node path
+			var tree = Engine.get_main_loop()
+			if tree and tree.has_method("get_root"):
+				var root = tree.get_root()
+				if root:
+					terrain_manager = root.get_node_or_null("TerrainManager")
+		if terrain_manager and terrain_manager.has_method("calculate_charge_terrain_penalty"):
+			# Delegate to TerrainManager for each path segment
+			for i in range(1, path.size()):
+				var from_pos = _path_point_to_vector2(path[i - 1])
+				var to_pos = _path_point_to_vector2(path[i])
+				if from_pos != null and to_pos != null:
+					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+			return total_penalty
+
+	# Use terrain_features from board dict
+	for i in range(1, path.size()):
+		var from_pos = _path_point_to_vector2(path[i - 1])
+		var to_pos = _path_point_to_vector2(path[i])
+		if from_pos == null or to_pos == null:
+			continue
+
+		for terrain in terrain_features:
+			var height_cat = terrain.get("height_category", "tall")
+			var height_inches: float = 6.0
+			match height_cat:
+				"low":
+					height_inches = 1.5
+				"medium":
+					height_inches = 3.5
+				"tall":
+					height_inches = 6.0
+
+			# Skip terrain 2" or less (no penalty)
+			if height_inches <= 2.0:
+				continue
+
+			# Check if path segment crosses this terrain
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			if polygon.is_empty():
+				continue
+
+			var crosses = false
+			for j in range(polygon.size()):
+				var edge_start = polygon[j]
+				var edge_end = polygon[(j + 1) % polygon.size()]
+				if Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end) != null:
+					crosses = true
+					break
+
+			if not crosses:
+				continue
+
+			if has_fly:
+				# FLY: diagonal measurement through terrain
+				# Find crossing distance through polygon
+				var intersections: Array = []
+				for j in range(polygon.size()):
+					var edge_start = polygon[j]
+					var edge_end = polygon[(j + 1) % polygon.size()]
+					var result = Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end)
+					if result != null:
+						intersections.append(result)
+
+				var cross_distance_px: float = 0.0
+				if intersections.size() >= 2:
+					cross_distance_px = intersections[0].distance_to(intersections[1])
+				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+				total_penalty += diagonal - cross_distance_inches
+			else:
+				# Non-FLY: climb up + climb down = height * 2
+				total_penalty += height_inches * 2.0
+
+	return total_penalty
+
+# Helper to convert a path point (Vector2 or Array) to Vector2
+static func _path_point_to_vector2(point) -> Vector2:
+	if point is Vector2:
+		return point
+	elif point is Array and point.size() >= 2:
+		return Vector2(point[0], point[1])
+	return Vector2.ZERO
+
+## T3-9: Get the effective engagement range between two positions considering barricade terrain.
+## Returns 2" if a barricade terrain feature lies between the two positions, 1" otherwise.
+## Uses board terrain_features data when available, falls back to TerrainManager autoload.
+static func _get_effective_engagement_range_rules(pos1: Vector2, pos2: Vector2, board: Dictionary) -> float:
+	const STANDARD_ER = 1.0
+	const BARRICADE_ER = 2.0
+
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty():
+		# Fall back to TerrainManager autoload
+		var terrain_manager = _get_terrain_manager_node()
+		if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+			return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+		return STANDARD_ER
+
+	# Check if any barricade terrain lies between the two positions
+	for terrain in terrain_features:
+		if terrain.get("type", "") != "barricade":
+			continue
+
+		var polygon = terrain.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+
+		# Check if the line between pos1 and pos2 crosses this barricade
+		for i in range(polygon.size()):
+			var edge_start = polygon[i]
+			var edge_end = polygon[(i + 1) % polygon.size()]
+			if Geometry2D.segment_intersects_segment(pos1, pos2, edge_start, edge_end) != null:
+				print("[RulesEngine] T3-9: Barricade '%s' between models — engagement range is 2\"" % terrain.get("id", "unknown"))
+				return BARRICADE_ER
+
+	return STANDARD_ER
+
+## Helper to get TerrainManager node from static context.
+static func _get_terrain_manager_node():
+	var tree = Engine.get_main_loop()
+	if tree and tree.has_method("get_root"):
+		var root = tree.get_root()
+		if root:
+			return root.get_node_or_null("TerrainManager")
+	return null
+
 # Validate engagement range constraints for charge
 static func _validate_engagement_range_constraints_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
 	const ENGAGEMENT_RANGE_INCHES = 1.0
@@ -4048,7 +4509,9 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 					if target_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, 1.0):
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var effective_er = _get_effective_engagement_range_rules(final_pos, target_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, target_model, effective_er):
 						unit_in_er_of_target = true
 						break
 
@@ -4085,10 +4548,70 @@ static func _validate_engagement_range_constraints_rules(unit_id: String, per_mo
 					if enemy_pos == null:
 						continue
 
-					if Measurement.is_in_engagement_range_shape_aware(model_at_final, enemy_model, 1.0):
+					# T3-9: Use barricade-aware engagement range for non-target check too
+					var effective_er = _get_effective_engagement_range_rules(final_pos, enemy_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model_at_final, enemy_model, effective_er):
 						var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
 						errors.append("Cannot end within engagement range of non-target unit: " + enemy_name)
 						break
+
+	return {"valid": errors.is_empty(), "errors": errors}
+
+# T3-8: Validate each model ends closer to at least one charge target than it started.
+# 10e core rule: Each model making a charge move must end that move closer to
+# at least one of the charge target units.
+static func _validate_charge_direction_constraint_rules(unit_id: String, per_model_paths: Dictionary, target_ids: Array, board: Dictionary) -> Dictionary:
+	var errors = []
+	var all_units = board.get("units", {})
+	var unit = all_units.get(unit_id, {})
+	if unit.is_empty():
+		return {"valid": true, "errors": []}
+
+	for model_id in per_model_paths:
+		var path = per_model_paths[model_id]
+		if not (path is Array and path.size() > 0):
+			continue
+
+		var model = _get_model_in_unit_rules(unit, model_id)
+		if model.is_empty():
+			continue
+
+		var start_pos = _get_model_position_rules(model)
+		if start_pos == null or start_pos == Vector2.ZERO:
+			continue
+
+		var final_pos = Vector2(path[-1][0], path[-1][1])
+
+		# Check if model ends closer to at least one target model in any target unit
+		var ends_closer_to_any_target = false
+
+		for target_id in target_ids:
+			var target_unit = all_units.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position_rules(target_model)
+				if target_pos == null:
+					continue
+
+				var start_distance = start_pos.distance_to(target_pos)
+				var final_distance = final_pos.distance_to(target_pos)
+
+				if final_distance < start_distance:
+					ends_closer_to_any_target = true
+					break
+
+			if ends_closer_to_any_target:
+				break
+
+		if not ends_closer_to_any_target:
+			var err = "Model %s must end its charge move closer to at least one charge target" % model_id
+			errors.append(err)
+			print("RulesEngine: Direction constraint - %s" % err)
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
@@ -4419,6 +4942,7 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 		if not model.get("alive", true):
 			continue
 
+		var model_pos = _get_model_position(model)
 		var in_er = false
 		var in_base_contact = false
 		for other_unit_id in all_units:
@@ -4434,8 +4958,12 @@ static func get_eligible_melee_model_indices(attacker_unit: Dictionary, board: D
 					in_base_contact = true
 					in_er = true  # Base contact implies ER
 					break
-				elif Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
-					in_er = true
+				else:
+					# T3-9: Use barricade-aware engagement range (2" through barricades)
+					var enemy_pos = _get_model_position(enemy_model)
+					var effective_er = _get_effective_engagement_range_rules(model_pos, enemy_pos, board)
+					if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, effective_er):
+						in_er = true
 			if in_base_contact:
 				break  # Found base contact (best result), stop checking other units
 			# Don't break for in_er alone — keep checking other units for base contact
@@ -4506,7 +5034,18 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 		result.dice.append_array(assignment_result.dice)
 		if assignment_result.log_text:
 			result.log_text += assignment_result.log_text + "\n"
-	
+
+		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		var weapon_id = assignment.get("weapon", "")
+		if is_hazardous_weapon(weapon_id, board):
+			var models_that_fought = assignment.get("models", []).size()
+			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
+			if hazardous_result.hazardous_triggered:
+				result.diffs.append_array(hazardous_result.diffs)
+			result.dice.append_array(hazardous_result.dice)
+			if hazardous_result.log_text:
+				result.log_text += hazardous_result.log_text + "\n"
+
 	return result
 
 # Resolve a single melee assignment (models with weapon -> target)
@@ -4602,9 +5141,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
 	var sustained_data = get_sustained_hits_value(weapon_id, board)
 	var weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
-	var is_torrent = is_torrent_weapon(weapon_id, board)
-	# PRECISION: Check both weapon keyword and effect-granted flag on attacker
-	var weapon_has_precision = has_precision(weapon_id, board) or has_effect_precision_melee(attacker_unit)
+	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
+	# PRECISION: Check both weapon keyword and stratagem flag on attacker
+	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -4651,9 +5190,39 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# Build melee hit modifiers using the HitModifier system
+		var melee_hit_modifiers = HitModifier.NONE
+
+		# Get hit modifiers from assignment
+		if assignment.has("modifiers") and assignment.modifiers.has("hit"):
+			var hit_mods = assignment.modifiers.hit
+			if hit_mods.get("reroll_ones", false):
+				melee_hit_modifiers |= HitModifier.REROLL_ONES
+			if hit_mods.get("reroll_failed", false):
+				melee_hit_modifiers |= HitModifier.REROLL_FAILED
+
+		# OATH OF MOMENT (T3-10): Check if attacker benefits from Oath for melee hit rerolls
+		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
+		if melee_oath_reroll_hits:
+			melee_hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to hit against %s" % target_name)
+
+		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			var unmodified_roll = roll
+
+			# Apply hit modifiers (re-rolls first, using HitModifier system)
+			var modifier_result = apply_hit_modifiers(roll, melee_hit_modifiers, rng, ws)
+			roll = modifier_result.modified_roll
+
+			# Track re-rolls for dice log
+			if modifier_result.rerolled:
+				melee_hit_reroll_data.append({
+					"original": modifier_result.original_roll,
+					"rerolled_to": modifier_result.reroll_value
+				})
+				unmodified_roll = modifier_result.reroll_value  # Use new roll for crit check
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
@@ -4718,6 +5287,8 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		if wound_mods.get("reroll_failed", false):
+			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 		if wound_mods.get("plus_one", false):
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
 		if wound_mods.get("minus_one", false):
@@ -4725,6 +5296,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if melee_weapon_has_twin_linked:
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+
+	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
+		melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to wound against %s" % target_name)
 
 	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
@@ -4916,17 +5492,24 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		return result
 
 	# ===== PHASE 7: DAMAGE APPLICATION =====
-	# Roll variable damage per unsaved wound (D3, D6, etc.)
+	# T2-11: Devastating Wounds mortal wound spillover — separate DW from regular damage
+	# Per 10e rules: Devastating Wounds create mortal wounds that spill over between models.
+	# Regular failed-save damage does NOT spill over (excess damage lost when model dies).
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
-	var regular_damage = 0
 	var damage_roll_log = []
+
+	# Roll variable damage per regular failed save
+	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
-		regular_damage += dmg_result.value
+		regular_wound_damages.append(dmg_result.value)
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
+	var regular_damage = 0
+	for d in regular_wound_damages:
+		regular_damage += d
 
-	# Devastating wounds also use per-wound variable damage
+	# Roll variable damage per devastating wound (mortal wounds that spill over)
 	devastating_damage = 0
 	for _i in range(devastating_wound_count):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -4936,31 +5519,63 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	var total_damage = regular_damage + devastating_damage
 
-	# FEEL NO PAIN: Roll FNP for total damage before applying
+	# FEEL NO PAIN: Roll FNP separately for devastating wounds and regular damage
 	var fnp_value = get_unit_fnp(target_unit)
-	var actual_damage = total_damage
+	var actual_dw_damage = devastating_damage
+	var actual_regular_damage = regular_damage
+	var total_fnp_prevented = 0
 
 	if fnp_value > 0:
-		var fnp_result = roll_feel_no_pain(total_damage, fnp_value, rng)
-		actual_damage = fnp_result.wounds_remaining
-		result.dice.append({
-			"context": "feel_no_pain",
-			"threshold": str(fnp_value) + "+",
-			"rolls_raw": fnp_result.rolls,
-			"fnp_value": fnp_value,
-			"wounds_prevented": fnp_result.wounds_prevented,
-			"wounds_remaining": fnp_result.wounds_remaining,
-			"total_wounds": total_damage
-		})
-		print("RulesEngine: Melee FNP %d+ — %d/%d damage prevented" % [fnp_value, fnp_result.wounds_prevented, total_damage])
+		# T2-11: FNP for devastating wound mortal wounds
+		if devastating_damage > 0:
+			var fnp_dw = roll_feel_no_pain(devastating_damage, fnp_value, rng)
+			actual_dw_damage = fnp_dw.wounds_remaining
+			total_fnp_prevented += fnp_dw.wounds_prevented
+			result.dice.append({
+				"context": "feel_no_pain",
+				"source": "devastating_wounds",
+				"threshold": str(fnp_value) + "+",
+				"rolls_raw": fnp_dw.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_dw.wounds_prevented,
+				"wounds_remaining": fnp_dw.wounds_remaining,
+				"total_wounds": devastating_damage
+			})
+			print("RulesEngine: Melee DW FNP %d+ — %d/%d mortal wound damage prevented" % [fnp_value, fnp_dw.wounds_prevented, devastating_damage])
+
+		# FNP for regular failed save damage
+		if regular_damage > 0:
+			var fnp_reg = roll_feel_no_pain(regular_damage, fnp_value, rng)
+			actual_regular_damage = fnp_reg.wounds_remaining
+			total_fnp_prevented += fnp_reg.wounds_prevented
+			# Recalculate per-wound damages after FNP (distribute FNP prevention across wounds)
+			regular_wound_damages = _distribute_fnp_across_wounds(regular_wound_damages, fnp_reg.wounds_prevented)
+			result.dice.append({
+				"context": "feel_no_pain",
+				"source": "failed_saves",
+				"threshold": str(fnp_value) + "+",
+				"rolls_raw": fnp_reg.rolls,
+				"fnp_value": fnp_value,
+				"wounds_prevented": fnp_reg.wounds_prevented,
+				"wounds_remaining": fnp_reg.wounds_remaining,
+				"total_wounds": regular_damage
+			})
+			print("RulesEngine: Melee regular FNP %d+ — %d/%d damage prevented" % [fnp_value, fnp_reg.wounds_prevented, regular_damage])
+
+		if total_fnp_prevented > 0:
+			print("RulesEngine: Melee FNP total — %d/%d damage prevented" % [total_fnp_prevented, total_damage])
+
+	var actual_damage = actual_dw_damage + actual_regular_damage
 
 	if actual_damage == 0:
 		result.log_text = "Melee: %s (%s) → %s: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [attacker_name, weapon_name, target_name, total_attacks, hits, wounds_caused, total_unsaved]
 		return result
 
 	# Apply damage to target unit
+	# T2-11: Devastating wounds (mortal wounds) applied first with spillover,
+	# then regular failed-save damage applied per-wound WITHOUT spillover
 	var target_models = target_unit.get("models", [])
-	var damage_result: Dictionary
+	var damage_result: Dictionary = {"diffs": [], "casualties": 0, "damage_applied": 0}
 	var precision_wounds_allocated = 0
 
 	# PRECISION: Wounds from critical hits can be allocated to CHARACTER models first
@@ -4976,7 +5591,6 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			if total_unsaved > 0 and actual_damage > 0:
 				precision_damage = maxi(1, int(round(float(actual_damage) * float(precision_unsaved) / float(total_unsaved))))
 			precision_damage = mini(precision_damage, actual_damage)
-			var regular_pool_damage = actual_damage - precision_damage
 
 			# Apply precision damage to CHARACTER models first
 			if precision_damage > 0:
@@ -4984,27 +5598,61 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				result.diffs.append_array(precision_result.diffs)
 				precision_wounds_allocated = precision_result.get("damage_applied", 0)
 				print("RulesEngine: PRECISION — allocated %d damage to CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
-				damage_result = precision_result
+				damage_result["casualties"] += precision_result.get("casualties", 0)
+				damage_result["damage_applied"] += precision_result.get("damage_applied", 0)
 
-			# Apply remaining damage normally
-			if regular_pool_damage > 0:
-				var regular_result = _apply_damage_to_unit_pool(target_id, regular_pool_damage, target_models, board)
-				result.diffs.append_array(regular_result.diffs)
-				# Merge casualty counts
-				if damage_result.is_empty():
-					damage_result = regular_result
-				else:
-					damage_result["casualties"] = damage_result.get("casualties", 0) + regular_result.get("casualties", 0)
+			# Remaining damage split: DW mortal wounds (spillover) + regular (no spillover)
+			var remaining_after_precision = actual_damage - precision_damage
+			# Proportional split of remaining between DW and regular
+			var remaining_dw = 0
+			var remaining_regular_wounds = []
+			if remaining_after_precision > 0 and actual_damage > 0:
+				remaining_dw = mini(actual_dw_damage, remaining_after_precision)
+				var remaining_reg = remaining_after_precision - remaining_dw
+				# Build per-wound damages for remaining regular wounds
+				remaining_regular_wounds = _trim_wound_damages_to_total(regular_wound_damages, remaining_reg)
 
-			if damage_result.is_empty():
-				damage_result = {"diffs": [], "casualties": 0, "damage_applied": 0}
+			# Apply devastating wound mortal wounds with spillover
+			if remaining_dw > 0:
+				var dw_result = _apply_damage_to_unit_pool(target_id, remaining_dw, target_models, board)
+				result.diffs.append_array(dw_result.diffs)
+				damage_result["casualties"] += dw_result.get("casualties", 0)
+				damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+				print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [remaining_dw, dw_result.casualties])
+
+			# Apply regular wounds per-wound without spillover
+			if not remaining_regular_wounds.is_empty():
+				var reg_result = _apply_damage_per_wound_no_spillover(target_id, remaining_regular_wounds, target_models, board)
+				result.diffs.append_array(reg_result.diffs)
+				damage_result["casualties"] += reg_result.get("casualties", 0)
+				damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 		else:
-			# No CHARACTER models in target, apply damage normally
-			damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
-			result.diffs.append_array(damage_result.diffs)
+			# No CHARACTER models in target — apply DW then regular separately
+			if actual_dw_damage > 0:
+				var dw_result = _apply_damage_to_unit_pool(target_id, actual_dw_damage, target_models, board)
+				result.diffs.append_array(dw_result.diffs)
+				damage_result["casualties"] += dw_result.get("casualties", 0)
+				damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+				print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [actual_dw_damage, dw_result.casualties])
+			if actual_regular_damage > 0:
+				var reg_result = _apply_damage_per_wound_no_spillover(target_id, regular_wound_damages, target_models, board)
+				result.diffs.append_array(reg_result.diffs)
+				damage_result["casualties"] += reg_result.get("casualties", 0)
+				damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 	else:
-		damage_result = _apply_damage_to_unit_pool(target_id, actual_damage, target_models, board)
-		result.diffs.append_array(damage_result.diffs)
+		# No precision — T2-11: Apply devastating wounds (mortal wounds) with spillover first
+		if actual_dw_damage > 0:
+			var dw_result = _apply_damage_to_unit_pool(target_id, actual_dw_damage, target_models, board)
+			result.diffs.append_array(dw_result.diffs)
+			damage_result["casualties"] += dw_result.get("casualties", 0)
+			damage_result["damage_applied"] += dw_result.get("damage_applied", 0)
+			print("RulesEngine: T2-11 Melee DW mortal wounds — %d damage with spillover (%d casualties)" % [actual_dw_damage, dw_result.casualties])
+		# Then apply regular failed-save damage per-wound WITHOUT spillover
+		if actual_regular_damage > 0:
+			var reg_result = _apply_damage_per_wound_no_spillover(target_id, regular_wound_damages, target_models, board)
+			result.diffs.append_array(reg_result.diffs)
+			damage_result["casualties"] += reg_result.get("casualties", 0)
+			damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 
 	# ===== BUILD LOG TEXT =====
 	var log_parts = []
@@ -5035,21 +5683,36 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 # Get fight priority for unit
 static func get_fight_priority(unit: Dictionary) -> int:
-	# Check if unit charged this turn
-	if unit.get("flags", {}).get("charged_this_turn", false):
-		return 0  # FIGHTS_FIRST
-	
+	var flags = unit.get("flags", {})
+
+	# Determine Fights First status
+	# Charged units get Fights First — but Heroic Intervention units do NOT
+	var has_fights_first = false
+	if flags.get("charged_this_turn", false) and not flags.get("heroic_intervention", false):
+		has_fights_first = true
+
 	# Check for Fights First ability
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		if "fights_first" in str(ability).to_lower():
-			return 0  # FIGHTS_FIRST
-	
-	# Check for Fights Last debuff
-	var status_effects = unit.get("status_effects", {})
-	if status_effects.get("fights_last", false):
+	if not has_fights_first:
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			if "fights_first" in str(ability).to_lower():
+				has_fights_first = true
+				break
+
+	# Determine Fights Last status
+	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
+
+	# Per 10e Rules Commentary: If a unit has both Fights First and Fights Last,
+	# they cancel out and the unit fights in the Remaining Combats step (NORMAL).
+	if has_fights_first and has_fights_last:
+		return 1  # NORMAL (cancellation)
+
+	if has_fights_first:
+		return 0  # FIGHTS_FIRST
+
+	if has_fights_last:
 		return 2  # FIGHTS_LAST
-	
+
 	return 1  # NORMAL
 
 # Check if two model dicts are in engagement range (shape-aware)
@@ -5183,13 +5846,15 @@ static func prepare_save_resolution(
 	weapon_profile: Dictionary,
 	board: Dictionary,
 	devastating_wounds_data: Dictionary = {},
-	melta_data: Dictionary = {}
+	melta_data: Dictionary = {},
+	precision_data: Dictionary = {}
 ) -> Dictionary:
 	"""
 	Prepares all data needed for interactive save resolution.
 	Returns save requirements without auto-resolving.
 	DEVASTATING WOUNDS: Includes devastating_wounds count for unsaveable damage.
 	MELTA X (T1-1): Includes melta bonus data for damage increase at half range.
+	PRECISION (T3-4): Includes precision data for CHARACTER model targeting.
 	"""
 	var units = board.get("units", {})
 	var target_unit = units.get(target_unit_id, {})
@@ -5217,6 +5882,19 @@ static func prepare_save_resolution(
 			if "ignores cover" in special_rules:
 				weapon_ignores_cover = true
 
+	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire for automatic cover
+	var weapon_is_indirect_fire = false
+	if not weapon_ignores_cover:
+		var if_keywords = weapon_profile.get("keywords", [])
+		for if_kw in if_keywords:
+			if if_kw.to_upper() == "INDIRECT FIRE":
+				weapon_is_indirect_fire = true
+				break
+		if not weapon_is_indirect_fire:
+			var if_special = weapon_profile.get("special_rules", "").to_lower()
+			if "indirect fire" in if_special:
+				weapon_is_indirect_fire = true
+
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, shooter_unit_id, board)
 
@@ -5233,10 +5911,15 @@ static func prepare_save_resolution(
 	var model_save_profiles = []
 	for model_info in allocation_info.models:
 		var model = model_info.model
-		# Cover: from terrain OR from effects (unless weapon ignores cover)
+		# Cover: from terrain OR from stratagem (unless weapon ignores cover)
+		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
 		var has_cover = false
 		if not weapon_ignores_cover:
-			has_cover = _check_model_has_cover(model, shooter_unit_id, board) or effect_cover
+			if weapon_is_indirect_fire:
+				has_cover = true
+				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)")
+			else:
+				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
 
 		# Invulnerable save: use best of model's native invuln and effect-granted invuln
 		var model_invuln = model.get("invuln", 0)
@@ -5250,6 +5933,7 @@ static func prepare_save_resolution(
 			"model_id": model_info.model_id,
 			"model_index": model_info.model_index,
 			"is_wounded": model_info.is_wounded,
+			"is_character": model_info.get("is_character", false),  # PRECISION (T3-4): Track character models
 			"current_wounds": model.get("current_wounds", model.get("wounds", 1)),
 			"max_wounds": model.get("wounds", 1),
 			"has_cover": has_cover,
@@ -5295,10 +5979,19 @@ static func prepare_save_resolution(
 		"devastating_damage": devastating_damage,  # Fixed estimate; actual DW damage rolled at application time
 		# IGNORES COVER: Flag for UI display
 		"ignores_cover": weapon_ignores_cover,
+		# INDIRECT FIRE (T2-4): Flag for UI display
+		"indirect_fire": weapon_is_indirect_fire,
 		# MELTA X (T1-1): Bonus damage at half range
 		"melta_bonus": melta_bonus,
 		"melta_models_in_half_range": melta_models_in_half_range,
-		"melta_total_models": melta_total_models
+		"melta_total_models": melta_total_models,
+		# PRECISION (T3-4): Character targeting data
+		"has_precision": precision_data.get("has_precision", false),
+		"precision_wounds": precision_data.get("precision_wounds", 0),
+		"precision_critical_hits": precision_data.get("critical_hits", 0),
+		# Character model IDs for precision targeting
+		"character_model_ids": allocation_info.character_model_ids,
+		"bodyguard_alive": allocation_info.bodyguard_alive
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)
@@ -5430,7 +6123,8 @@ static func apply_save_damage(
 	# FEEL NO PAIN: Check if target unit has FNP
 	var fnp_value = get_unit_fnp(target_unit)
 
-	# DEVASTATING WOUNDS (PRP-012): Apply devastating damage first (unsaveable)
+	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
+	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
 	var devastating_wound_count = save_data.get("devastating_wounds", 0)
 	var dw_damage = 0
@@ -5623,6 +6317,100 @@ static func _apply_damage_to_unit_pool(target_unit_id: String, total_damage: int
 			models[target_model_index]["alive"] = false
 
 	return result
+
+# T2-11: Apply damage per-wound WITHOUT spillover (for regular failed saves in melee)
+# Each wound's damage is applied to one model; excess damage beyond that model's HP is LOST.
+# This matches 10e rules where normal attack damage does not spill over between models.
+static func _apply_damage_per_wound_no_spillover(target_unit_id: String, wound_damages: Array, models: Array, board: Dictionary) -> Dictionary:
+	"""Apply per-wound damage without spillover. Each wound targets an allocated model;
+	if the model dies, excess damage from that wound is lost (does not carry to next model).
+	Next wound targets next alive model."""
+	var result_ns = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	for wound_dmg in wound_damages:
+		if wound_dmg <= 0:
+			continue
+
+		# Find next model to allocate this wound to (wounded first, then any alive)
+		var target_idx = _find_allocation_target_model(models)
+		if target_idx < 0:
+			break  # No alive models left
+
+		var model = models[target_idx]
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		# Damage is CAPPED at model's remaining wounds — NO spillover
+		var damage_to_apply = mini(wound_dmg, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+
+		result_ns.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_idx],
+			"value": new_wounds
+		})
+
+		result_ns.damage_applied += damage_to_apply
+		models[target_idx]["current_wounds"] = new_wounds
+
+		if new_wounds == 0:
+			result_ns.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [target_unit_id, target_idx],
+				"value": false
+			})
+			result_ns.casualties += 1
+			models[target_idx]["alive"] = false
+			# Excess damage from this wound is LOST (no spillover)
+			var excess = wound_dmg - damage_to_apply
+			if excess > 0:
+				print("RulesEngine: T2-11 — %d excess damage lost (no spillover for regular wounds)" % excess)
+
+	return result_ns
+
+# T2-11: Distribute FNP prevention across per-wound damage values
+# Reduces wound damages from last to first, removing prevented damage
+static func _distribute_fnp_across_wounds(wound_damages: Array, wounds_prevented: int) -> Array:
+	"""Reduce per-wound damage values by distributing FNP prevention.
+	Removes prevented damage starting from the last wounds (least impactful)."""
+	var result_arr = wound_damages.duplicate()
+	var remaining_prevention = wounds_prevented
+
+	# Remove prevented damage from end of array (last wounds prevented first)
+	var i = result_arr.size() - 1
+	while remaining_prevention > 0 and i >= 0:
+		if result_arr[i] <= remaining_prevention:
+			remaining_prevention -= result_arr[i]
+			result_arr[i] = 0
+		else:
+			result_arr[i] -= remaining_prevention
+			remaining_prevention = 0
+		i -= 1
+
+	# Filter out zero-damage wounds
+	return result_arr.filter(func(d): return d > 0)
+
+# T2-11: Trim wound damage array to match a target total
+static func _trim_wound_damages_to_total(wound_damages: Array, target_total: int) -> Array:
+	"""Return a subset of wound_damages whose sum equals target_total.
+	Takes wounds from the front, trimming the last wound if needed."""
+	if target_total <= 0:
+		return []
+	var result_arr = []
+	var running_total = 0
+	for d in wound_damages:
+		if running_total >= target_total:
+			break
+		var needed = target_total - running_total
+		if d <= needed:
+			result_arr.append(d)
+			running_total += d
+		else:
+			result_arr.append(needed)
+			running_total = target_total
+	return result_arr
 
 # PRECISION: Apply damage specifically to CHARACTER models in the target unit
 static func _apply_damage_to_character_models(target_unit_id: String, total_damage: int, models: Array, character_indices: Array, board: Dictionary) -> Dictionary:

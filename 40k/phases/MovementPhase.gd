@@ -16,6 +16,7 @@ signal movement_mode_locked(unit_id: String, mode: String)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array)
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
+signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -28,6 +29,12 @@ var _reroll_pending_unit_id: String = ""
 var _reroll_pending_data: Dictionary = {}  # Stores original roll info
 var _awaiting_overwatch_decision: bool = false
 var _overwatch_moved_unit_id: String = ""  # The unit that just moved (potential target)
+
+# Fire Overwatch state tracking (T3-11)
+var _awaiting_fire_overwatch: bool = false
+var _fire_overwatch_player: int = 0           # Defending player being offered Overwatch
+var _fire_overwatch_enemy_unit_id: String = "" # The enemy unit that triggered the opportunity
+var _fire_overwatch_eligible_units: Array = [] # Units eligible for Overwatch
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
@@ -59,6 +66,10 @@ func _on_phase_enter() -> void:
 	_reroll_pending_data = {}
 	_awaiting_overwatch_decision = false
 	_overwatch_moved_unit_id = ""
+	_awaiting_fire_overwatch = false
+	_fire_overwatch_player = 0
+	_fire_overwatch_enemy_unit_id = ""
+	_fire_overwatch_eligible_units = []
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -143,13 +154,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 				return {"valid": false, "errors": ["Not awaiting a Command Re-roll decision"]}
 			return {"valid": true}
 		"USE_FIRE_OVERWATCH":
-			if not _awaiting_overwatch_decision:
-				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_use_fire_overwatch(action)
 		"DECLINE_FIRE_OVERWATCH":
-			if not _awaiting_overwatch_decision:
-				return {"valid": false, "errors": ["Not awaiting a Fire Overwatch decision"]}
-			return {"valid": true, "errors": []}
+			return _validate_decline_fire_overwatch(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -303,9 +310,13 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model has no current position"]}
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
-	if distance_inches > move_data.move_cap_inches:
-		return {"valid": false, "errors": ["Move exceeds cap: %.1f\" > %.1f\"" % [distance_inches, move_data.move_cap_inches]]}
-	
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
+	var effective_distance = distance_inches + terrain_penalty
+	if effective_distance > move_data.move_cap_inches:
+		return {"valid": false, "errors": ["Move exceeds cap: %.1f\" > %.1f\"" % [effective_distance, move_data.move_cap_inches]]}
+
 	# Check engagement range restrictions
 	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
 	if not er_check.valid:
@@ -375,7 +386,11 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 
 	# Calculate total distance from original position to destination
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	log_phase_message("  Distance calculation: %.2f inches" % total_distance_for_model)
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
+	total_distance_for_model += terrain_penalty
+	log_phase_message("  Distance calculation: %.2f inches (terrain penalty: %.2f\")" % [total_distance_for_model, terrain_penalty])
 
 	# Check if this specific model's distance exceeds cap (with floating-point tolerance)
 	if total_distance_for_model > move_data.move_cap_inches + MOVEMENT_CAP_EPSILON:
@@ -566,6 +581,7 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Summary: %d moved, %d not moved" % [moved_count, unacted_count])
 
+	# Check local active_moves for uncommitted staged/model moves
 	for unit_id in active_moves:
 		var move_data = active_moves[unit_id]
 		# Check if unit has been marked as moved in GameState (synced across network)
@@ -575,9 +591,10 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 		log_phase_message("Checking active_move for unit %s (%s)" % [unit_id, unit_name])
 		log_phase_message("  - flags.moved: %s" % str(has_moved))
+		log_phase_message("  - flags.movement_active: %s" % str(unit.get("flags", {}).get("movement_active", false)))
 		log_phase_message("  - staged_moves: %d" % move_data.get("staged_moves", []).size())
 		log_phase_message("  - model_moves: %d" % move_data.get("model_moves", []).size())
-		log_phase_message("  - completed flag: %s" % str(move_data.get("completed", false)))
+		log_phase_message("  - completed flag (local): %s" % str(move_data.get("completed", false)))
 
 		# If not marked as moved in GameState, check if move was actually started
 		if not has_moved:
@@ -589,6 +606,16 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 
 			# Unit has staged or committed moves that haven't been confirmed
 			log_phase_message("  → BLOCKING: Unit has uncommitted moves!")
+			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
+			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
+
+	# Also check synced GameState for any units with movement_active but not moved (T2-12)
+	# This catches cases where the client's active_moves dict is out of sync with the host
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("flags", {}).get("movement_active", false) and not unit.get("flags", {}).get("moved", false):
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("  → BLOCKING (via GameState): Unit %s (%s) has movement_active=true but moved=false" % [unit_id, unit_name])
 			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
 			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
 
@@ -628,6 +655,11 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	])
 
@@ -734,6 +766,11 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": total_move
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	], "", {"dice": [{"context": "advance", "n": 1, "rolls": [advance_roll]}]})
 
@@ -783,47 +820,172 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	print("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
 	return _resolve_advance_roll(unit_id, old_data.get("advance_roll", 0))
 
-func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
-	"""Process USE_FIRE_OVERWATCH: defending player fires at the unit that just moved."""
-	var shooter_unit_id = action.get("payload", {}).get("shooter_unit_id", "")
-	var target_unit_id = _overwatch_moved_unit_id
+# ============================================================================
+# FIRE OVERWATCH (T3-11)
+# ============================================================================
 
+func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", _fire_overwatch_player)
+
+	if not _awaiting_fire_overwatch and not _awaiting_overwatch_decision:
+		errors.append("Not awaiting Fire Overwatch decision")
+		return {"valid": false, "errors": errors}
+
+	if unit_id.is_empty():
+		errors.append("No unit specified for Fire Overwatch")
+		return {"valid": false, "errors": errors}
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.is_fire_overwatch_available(player)
+		if not check.available:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is eligible
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	# Check unit is not battle-shocked
+	var flags = unit.get("flags", {})
+	if flags.get("battle_shocked", false):
+		errors.append("Battle-shocked units cannot use Stratagems")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_fire_overwatch(action: Dictionary) -> Dictionary:
+	if not _awaiting_fire_overwatch and not _awaiting_overwatch_decision:
+		return {"valid": false, "errors": ["Not awaiting Fire Overwatch decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", _fire_overwatch_player)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var enemy_unit_id = _fire_overwatch_enemy_unit_id
+	if enemy_unit_id.is_empty():
+		enemy_unit_id = _overwatch_moved_unit_id
+	var enemy_unit_name = get_unit(enemy_unit_id).get("meta", {}).get("name", enemy_unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "fire_overwatch", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Fire Overwatch: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at moving %s!" % [player, unit_name, enemy_unit_name])
+	print("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
+
+	# Resolve Overwatch shooting using RulesEngine
+	var ow_shooting_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+
+	# Clear Overwatch state
+	_awaiting_fire_overwatch = false
+	_fire_overwatch_player = 0
+	_fire_overwatch_enemy_unit_id = ""
+	_fire_overwatch_eligible_units = []
 	_awaiting_overwatch_decision = false
 	_overwatch_moved_unit_id = ""
 
-	if shooter_unit_id == "" or target_unit_id == "":
-		return create_result(false, [], "Missing shooter or target unit for overwatch")
+	emit_signal("overwatch_result", unit_id, enemy_unit_id, ow_shooting_result)
 
-	var current_player = get_current_player()
-	var defending_player = 2 if current_player == 1 else 1
-
-	# Execute the overwatch via StratagemManager
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if not strat_manager:
-		return create_result(false, [], "StratagemManager not found")
-
-	var snapshot = GameState.create_snapshot()
-	var ow_result = strat_manager.execute_fire_overwatch(defending_player, shooter_unit_id, target_unit_id, snapshot)
-
-	if not ow_result.success:
-		print("MovementPhase: Fire Overwatch failed: %s" % ow_result.get("error", ""))
-		return create_result(true, [])  # Continue movement even if overwatch fails
-
-	log_phase_message(ow_result.get("message", "Fire Overwatch executed"))
-	emit_signal("overwatch_result", shooter_unit_id, target_unit_id, ow_result.get("shooting_result", {}))
-
-	# Overwatch diffs are applied internally by StratagemManager, return empty changes
-	return create_result(true, [], "", {
-		"overwatch_result": ow_result.get("shooting_result", {}),
-		"overwatch_message": ow_result.get("message", "")
-	})
+	var result = create_result(true, ow_shooting_result.get("diffs", []))
+	result["fire_overwatch_used"] = true
+	result["fire_overwatch_unit_id"] = unit_id
+	result["fire_overwatch_target_id"] = enemy_unit_id
+	result["fire_overwatch_shooting_result"] = ow_shooting_result
+	if ow_shooting_result.has("dice"):
+		result["dice"] = ow_shooting_result.dice
+	if ow_shooting_result.has("log_text"):
+		result["log_text"] = ow_shooting_result.log_text
+	return result
 
 func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
-	"""Process DECLINE_FIRE_OVERWATCH: defending player declines overwatch."""
+	var player = action.get("player", _fire_overwatch_player)
+	log_phase_message("Player %d declined FIRE OVERWATCH" % player)
+	print("MovementPhase: Fire Overwatch DECLINED by Player %d" % player)
+
+	# Clear Overwatch state
+	_awaiting_fire_overwatch = false
+	_fire_overwatch_player = 0
+	_fire_overwatch_enemy_unit_id = ""
+	_fire_overwatch_eligible_units = []
 	_awaiting_overwatch_decision = false
 	_overwatch_moved_unit_id = ""
-	print("MovementPhase: Fire Overwatch DECLINED")
+
 	return create_result(true, [])
+
+func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
+	"""
+	Resolve Overwatch shooting. Uses the normal shooting resolution but forces
+	all hit rolls to only succeed on unmodified 6s (per 10e Overwatch rules).
+	"""
+	var shooting_unit = get_unit(shooting_unit_id)
+	var target_unit = get_unit(target_unit_id)
+
+	if shooting_unit.is_empty() or target_unit.is_empty():
+		return {"diffs": [], "dice": [], "log_text": "Overwatch: Invalid units"}
+
+	# Build weapon assignments from all ranged weapons
+	var assignments = []
+	var weapons = shooting_unit.get("meta", {}).get("weapons", [])
+	var alive_model_ids = []
+	for model in shooting_unit.get("models", []):
+		if model.get("alive", true):
+			alive_model_ids.append(model.get("id", ""))
+
+	for weapon in weapons:
+		var weapon_type = weapon.get("type", "").to_lower()
+		var weapon_range = weapon.get("range", "")
+		var is_melee = weapon_type == "melee" or weapon_range == "Melee"
+		if is_melee:
+			continue
+
+		# All alive models fire their ranged weapons
+		assignments.append({
+			"weapon_id": weapon.get("id", weapon.get("name", "")),
+			"target_unit_id": target_unit_id,
+			"model_ids": alive_model_ids,
+			"overwatch": true,  # Flag for RulesEngine to use hit_on: 6
+		})
+
+	if assignments.is_empty():
+		log_phase_message("Overwatch: %s has no ranged weapons to fire" % shooting_unit.get("meta", {}).get("name", shooting_unit_id))
+		return {"diffs": [], "dice": [], "log_text": "No ranged weapons available for Overwatch"}
+
+	# Build the shooting action for RulesEngine
+	var shoot_action = {
+		"actor_unit_id": shooting_unit_id,
+		"payload": {
+			"assignments": assignments,
+			"overwatch": true,  # Global overwatch flag
+		}
+	}
+
+	# Use RulesEngine.resolve_shoot for full resolution
+	var board = game_state_snapshot
+	var rng = RulesEngine.RNGService.new()
+	var shoot_result = RulesEngine.resolve_shoot(shoot_action, board, rng)
+
+	log_phase_message("FIRE OVERWATCH result: %s fired at %s — %s" % [
+		shooting_unit.get("meta", {}).get("name", shooting_unit_id),
+		target_unit.get("meta", {}).get("name", target_unit_id),
+		shoot_result.get("log_text", "no hits")
+	])
+
+	return shoot_result
+
 
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -861,6 +1023,11 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	])
 
@@ -937,7 +1104,11 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Calculate total distance from original position
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
+	total_distance_for_model += terrain_penalty
+
 	# Remove any existing staged move for this model to prevent duplicates
 	var moves_to_remove = []
 	for i in range(move_data.staged_moves.size()):
@@ -1027,9 +1198,35 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	move_data.staged_moves.clear()
 	move_data.model_distances.clear()  # Clear per-model distances
 	move_data.original_positions.clear()
-	
+
+	# Clear movement_active flag (synced across network)
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.movement_active" % unit_id
+	})
+	# Also clear move_cap_inches since the move is being reset
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.move_cap_inches" % unit_id
+	})
+	# Clear fell_back flag if it was set during BEGIN_FALL_BACK
+	if move_data.mode == "FALL_BACK":
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.fell_back" % unit_id
+		})
+	# Clear advanced flag if it was set during BEGIN_ADVANCE
+	if move_data.mode == "ADVANCE":
+		changes.append({
+			"op": "remove",
+			"path": "units.%s.flags.advanced" % unit_id
+		})
+
+	# Remove from local tracking
+	active_moves.erase(unit_id)
+
 	emit_signal("unit_move_reset", unit_id)
-	
+
 	return create_result(true, changes)
 
 func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
@@ -1100,6 +1297,12 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		"op": "remove",
 		"path": "units.%s.flags.move_cap_inches" % unit_id
 	})
+
+	# Clear movement_active flag (synced across network)
+	changes.append({
+		"op": "remove",
+		"path": "units.%s.flags.movement_active" % unit_id
+	})
 	
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
@@ -1146,23 +1349,55 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if not unit.get("disembarked_this_phase", false):
 		call_deferred("_check_embark_opportunity", unit_id)
 
-	# Check for Fire Overwatch opportunity for the defending player
-	var current_player = get_current_player()
-	var defending_player = 2 if current_player == 1 else 1
+	# T3-11: Check for Fire Overwatch opportunity for the defending player
+	# Per 10e rules: The defending player may use Fire Overwatch (1CP) when an enemy
+	# unit starts or ends a Normal, Advance, or Fall Back move within 24" of an eligible unit
+	var moving_owner = int(unit.get("owner", 0))
+	var defending_player = 2 if moving_owner == 1 else 1
+
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
 		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
 		if ow_check.available:
-			var snapshot = GameState.create_snapshot()
-			var ow_eligible = strat_manager.get_overwatch_eligible_units(defending_player, unit_id, snapshot)
+			# Build a temporary snapshot with the new positions applied
+			var temp_snapshot = game_state_snapshot.duplicate(true)
+			for change in changes:
+				if change.get("op", "") == "set":
+					var path_parts = change.path.split(".")
+					if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+						var u_id = path_parts[1]
+						var m_idx = int(path_parts[3])
+						var field = path_parts[4] if path_parts.size() > 4 else ""
+						if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+							var models = temp_snapshot.units[u_id].get("models", [])
+							if m_idx < models.size():
+								models[m_idx]["position"] = change.value
+
+			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+				defending_player, unit_id, temp_snapshot
+			)
+
 			if not ow_eligible.is_empty():
+				# Fire Overwatch is available! Pause and offer it to the defender
+				_awaiting_fire_overwatch = true
 				_awaiting_overwatch_decision = true
 				_overwatch_moved_unit_id = unit_id
-				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units)" % [defending_player, ow_eligible.size()])
+				_fire_overwatch_player = defending_player
+				_fire_overwatch_enemy_unit_id = unit_id
+				_fire_overwatch_eligible_units = ow_eligible
+				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against moving %s" % [defending_player, ow_eligible.size(), unit_name])
+				print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+
+				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
 				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
-				var ow_result = create_result(true, changes, "", {"dice": additional_dice})
-				ow_result["awaiting_overwatch"] = true
-				return ow_result
+
+				var result = create_result(true, changes, "", {"dice": additional_dice})
+				result["trigger_fire_overwatch"] = true
+				result["awaiting_overwatch"] = true
+				result["fire_overwatch_player"] = defending_player
+				result["fire_overwatch_eligible_units"] = ow_eligible
+				result["fire_overwatch_enemy_unit_id"] = unit_id
+				return result
 
 	return create_result(true, changes, "", {"dice": additional_dice})
 
@@ -1444,10 +1679,24 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("=== PROCESSING END_MOVEMENT ===")
+
+	# Clean up any stale movement_active flags (safety net for T2-12)
+	var changes = []
+	var current_player = get_current_player()
+	var all_units = get_units_for_player(current_player)
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("flags", {}).get("movement_active", false):
+			log_phase_message("Cleaning up stale movement_active flag for unit %s" % unit_id)
+			changes.append({
+				"op": "remove",
+				"path": "units.%s.flags.movement_active" % unit_id
+			})
+
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
 	emit_signal("phase_completed")
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
-	return create_result(true, [])
+	return create_result(true, changes)
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -1556,6 +1805,16 @@ func _is_unit_engaged(unit_id: String) -> bool:
 	
 	return false
 
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
+	if not is_inside_tree():
+		return ENGAGEMENT_RANGE_INCHES
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+	return ENGAGEMENT_RANGE_INCHES
+
 func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Vector2) -> bool:
 	var model = _get_model_in_unit(unit_id, model_id)
 
@@ -1578,7 +1837,9 @@ func _is_position_in_engagement_range(unit_id: String, model_id: String, pos: Ve
 				continue
 			var enemy_pos = _get_model_position(enemy_model)
 			if enemy_pos:
-				if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, ENGAGEMENT_RANGE_INCHES):
+				# T3-9: Use barricade-aware engagement range (2" through barricades)
+				var effective_er = _get_effective_engagement_range(pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(model_at_pos, enemy_model, effective_er):
 					return true
 
 	return false
@@ -1601,6 +1862,19 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	var unit = units.get(unit_id, {})
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	return "FLY" in keywords
+
+func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
+	# Calculate terrain elevation penalty for movement.
+	# FLY units ignore terrain elevation entirely (return 0).
+	# Non-FLY units must count vertical distance (climb up + down) for terrain >2".
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
+		return 0.0
+	var has_fly = _unit_has_fly_keyword(unit_id)
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
+	if penalty > 0.0:
+		log_phase_message("  Terrain elevation penalty: %.1f\" (FLY=%s)" % [penalty, has_fly])
+	return penalty
 
 func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
 	# Check if a movement path crosses any enemy model bases using shape-aware overlap.
@@ -1878,8 +2152,10 @@ func get_available_actions() -> Array:
 			})
 	
 	# Add active move actions (skip completed moves)
+	# Use synced GameState flags.moved to determine completion for multiplayer compatibility
 	for unit_id in active_moves:
-		if active_moves[unit_id].get("completed", false):
+		var unit_check = get_unit(unit_id)
+		if unit_check.get("flags", {}).get("moved", false):
 			continue
 		actions.append({
 			"type": "CONFIRM_UNIT_MOVE",
@@ -1899,11 +2175,12 @@ func get_available_actions() -> Array:
 			})
 	
 	# Add End Movement Phase action if no incomplete moves
-	# Check using synced GameState to ensure multiplayer compatibility
+	# Check using synced GameState flags for multiplayer compatibility (T2-12 fix)
 	var has_incomplete_moves = false
 	log_phase_message("[get_available_actions] Checking if END_MOVEMENT should be available...")
-	log_phase_message("[get_available_actions] Active moves: %s" % str(active_moves.keys()))
+	log_phase_message("[get_available_actions] Active moves (local): %s" % str(active_moves.keys()))
 
+	# Check local active_moves against synced GameState
 	for unit_id in active_moves:
 		var unit = get_unit(unit_id)
 		var has_moved = unit.get("flags", {}).get("moved", false)
@@ -1913,6 +2190,18 @@ func get_available_actions() -> Array:
 			has_incomplete_moves = true
 			log_phase_message("[get_available_actions]   → This unit has incomplete moves!")
 			break
+
+	# Also check GameState for any units with movement_active flag set
+	# This catches cases where the client's active_moves is out of sync (T2-12)
+	if not has_incomplete_moves:
+		var all_units = get_units_for_player(current_player)
+		for unit_id in all_units:
+			var unit = all_units[unit_id]
+			if unit.get("flags", {}).get("movement_active", false) and not unit.get("flags", {}).get("moved", false):
+				has_incomplete_moves = true
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				log_phase_message("[get_available_actions]   → GameState flags show %s (%s) has active movement!" % [unit_id, unit_name])
+				break
 
 	if not has_incomplete_moves:
 		log_phase_message("[get_available_actions] ✓ Adding END_MOVEMENT action")
@@ -1941,6 +2230,25 @@ func get_active_move_data(unit_id: String) -> Dictionary:
 		return active_moves[unit_id]
 	return {}
 
+func _check_active_moves_sync() -> void:
+	# T2-12: Debug consistency check between local active_moves and synced GameState
+	# Call this periodically or after action processing to detect desync
+	for unit_id in active_moves:
+		var unit = get_unit(unit_id)
+		var local_completed = active_moves[unit_id].get("completed", false)
+		var synced_moved = unit.get("flags", {}).get("moved", false)
+		var synced_active = unit.get("flags", {}).get("movement_active", false)
+
+		# If local says completed but GameState says not moved, we have a desync
+		if local_completed and not synced_moved:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("WARNING: MULTIPLAYER DESYNC DETECTED for %s (%s) - local completed=%s, GameState moved=%s" % [unit_id, unit_name, local_completed, synced_moved])
+
+		# If local has active move but GameState doesn't show movement_active
+		if not local_completed and not synced_active and not synced_moved:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			log_phase_message("WARNING: MULTIPLAYER DESYNC DETECTED for %s (%s) - local has active move but GameState movement_active=%s" % [unit_id, unit_name, synced_active])
+
 # GROUP MOVEMENT VALIDATION FUNCTIONS
 
 func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_id: String) -> Dictionary:
@@ -1962,6 +2270,9 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 
 		# Calculate individual distance
 		var total_distance = Measurement.distance_inches(original_pos, new_pos)
+		# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+		# FLY units ignore terrain elevation entirely (penalty = 0)
+		total_distance += _get_movement_terrain_penalty(original_pos, new_pos, unit_id)
 		group_validation.individual_distances[model_id] = total_distance
 
 		# Validate against movement cap (with floating-point tolerance)
@@ -2037,6 +2348,9 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	# Check distance limit
 	var original_pos = move_data.original_positions.get(model_id, _get_model_position(model))
 	var total_distance = Measurement.distance_inches(original_pos, dest_pos)
+	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
+	# FLY units ignore terrain elevation entirely (penalty = 0)
+	total_distance += _get_movement_terrain_penalty(original_pos, dest_pos, unit_id)
 
 	if total_distance > move_data.move_cap_inches:
 		return false
@@ -2380,7 +2694,15 @@ func _model_in_engagement_range(model_data: Dictionary, owner: int) -> bool:
 			if not model.alive or model.position == null:
 				continue
 
-			if Measurement.is_in_engagement_range_shape_aware(model_data, model, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var model_pos = model_data.get("position", Vector2.ZERO)
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+			var enemy_pos = model.get("position", Vector2.ZERO)
+			if enemy_pos is Dictionary:
+				enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+			var effective_er = _get_effective_engagement_range(model_pos, enemy_pos)
+			if Measurement.is_in_engagement_range_shape_aware(model_data, model, effective_er):
 				return true
 
 	return false
@@ -2515,6 +2837,11 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
 			"value": move_inches
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
 		}
 	]
 
@@ -2527,6 +2854,7 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 	if not local_unit.has("flags"):
 		local_unit["flags"] = {}
 	local_unit.flags["move_cap_inches"] = move_inches
+	local_unit.flags["movement_active"] = true
 
 	log_phase_message("Active moves successfully set up for %s. Total active moves: %s" % [unit_id, active_moves.keys()])
 

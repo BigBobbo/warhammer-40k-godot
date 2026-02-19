@@ -120,7 +120,7 @@ func test_execute_action_with_invalid_action():
 
 func test_execute_action_with_valid_action():
 	if not Engine.has_singleton("PhaseManager"):
-		skip_test("PhaseManager autoload not available in test environment")
+		pending("PhaseManager autoload not available in test environment")
 		return
 
 	# Create a mock phase that returns successful processing
@@ -147,7 +147,7 @@ func test_execute_action_with_valid_action():
 
 func test_execute_action_with_phase_completion():
 	if not Engine.has_singleton("PhaseManager"):
-		skip_test("PhaseManager autoload not available in test environment")
+		pending("PhaseManager autoload not available in test environment")
 		return
 
 	# Create a mock phase that completes after the action
@@ -177,7 +177,7 @@ func test_should_complete_phase_default():
 # Test utility methods
 func test_get_current_player():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	var player = test_base_phase.get_current_player()
@@ -250,7 +250,7 @@ func test_get_deployment_zone_no_snapshot():
 # Test helper methods
 func test_create_action():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	test_base_phase.enter_phase(test_snapshot)
@@ -268,7 +268,7 @@ func test_create_action():
 
 func test_create_action_no_parameters():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	test_base_phase.enter_phase(test_snapshot)

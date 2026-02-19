@@ -1288,6 +1288,12 @@ func _on_counter_offensive_declined(player: int) -> void:
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	"""Show pile-in dialog and enable interactive movement"""
+	# Skip dialog for AI players - they submit PILE_IN actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping pile-in dialog for AI player %d" % current_fighter_owner)
+		return
+
 	var dialog_script = load("res://dialogs/PileInDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load PileInDialog.gd")
@@ -1342,6 +1348,12 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	print("[FightController] Attack assignment required for ", unit_id)
 	print("[FightController] Eligible targets: ", targets.keys())
 
+	# Skip dialog for AI players - they submit ASSIGN_ATTACKS actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping dialog for AI player %d" % current_fighter_owner)
+		return
+
 	# Wait for previous dialog to close
 	await get_tree().create_timer(0.3).timeout
 
@@ -1361,10 +1373,16 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	dialog.popup_centered()
 
 func _on_attacks_confirmed(assignments: Array) -> void:
-	"""Submit attack assignments and trigger resolution"""
+	"""Submit attack assignments and trigger resolution via a single batched action.
+	T3-12: Previously sent individual actions with fixed 50ms/100ms delays between them,
+	which caused race conditions in multiplayer when network latency exceeded the delays.
+	Now bundles all sub-actions into a single BATCH_FIGHT_ACTIONS that is processed atomically."""
 	print("[FightController] Attacks confirmed, processing %d assignments" % assignments.size())
 
-	# First, send individual ASSIGN_ATTACKS actions to populate pending_attacks
+	# Build all sub-actions for the batch
+	var sub_actions: Array = []
+
+	# 1. ASSIGN_ATTACKS for each weapon assignment
 	for assignment in assignments:
 		var assign_action = {
 			"type": "ASSIGN_ATTACKS",
@@ -1374,31 +1392,38 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 			"attacking_models": assignment.get("models", []),
 			"player": current_fighter_owner
 		}
-		print("[FightController] Sending ASSIGN_ATTACKS: ", assign_action)
-		emit_signal("fight_action_requested", assign_action)
-		# Small delay to ensure actions process in order
-		await get_tree().create_timer(0.05).timeout
+		print("[FightController] Batching ASSIGN_ATTACKS: ", assign_action)
+		sub_actions.append(assign_action)
 
-	# Now confirm the attacks
-	var confirm_action = {
+	# 2. CONFIRM_AND_RESOLVE_ATTACKS
+	sub_actions.append({
 		"type": "CONFIRM_AND_RESOLVE_ATTACKS",
 		"player": current_fighter_owner
-	}
-	print("[FightController] Sending CONFIRM_AND_RESOLVE_ATTACKS")
-	emit_signal("fight_action_requested", confirm_action)
+	})
 
-	# Then trigger dice rolling
-	var roll_action = {
+	# 3. ROLL_DICE
+	sub_actions.append({
 		"type": "ROLL_DICE",
 		"player": current_fighter_owner
+	})
+
+	# Send as a single atomic action — no delays needed
+	var batch_action = {
+		"type": "BATCH_FIGHT_ACTIONS",
+		"sub_actions": sub_actions,
+		"player": current_fighter_owner
 	}
-	# Delay slightly to let confirmation process
-	await get_tree().create_timer(0.1).timeout
-	print("[FightController] Sending ROLL_DICE")
-	emit_signal("fight_action_requested", roll_action)
+	print("[FightController] Sending BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
+	emit_signal("fight_action_requested", batch_action)
 
 func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	"""Show consolidate dialog and enable interactive movement"""
+	# Skip dialog for AI players - they submit CONSOLIDATE actions directly
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
+		print("[FightController] Skipping consolidate dialog for AI player %d" % current_fighter_owner)
+		return
+
 	var dialog_script = load("res://dialogs/ConsolidateDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load ConsolidateDialog.gd")

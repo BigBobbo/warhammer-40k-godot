@@ -40,6 +40,7 @@ var confirmed_attacks: Array = []
 var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
+var units_that_piled_in: Dictionary = {}  # unit_id -> true, tracks which units have already piled in
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
@@ -58,6 +59,7 @@ enum FightPriority {
 enum Subphase {
 	FIGHTS_FIRST,
 	REMAINING_COMBATS,
+	FIGHTS_LAST,
 	COMPLETE
 }
 
@@ -82,6 +84,7 @@ func _on_phase_enter() -> void:
 	resolution_state.clear()
 	dice_log.clear()
 	units_that_fought.clear()
+	units_that_piled_in.clear()
 	awaiting_counter_offensive = false
 	counter_offensive_player = 0
 	counter_offensive_unit_id = ""
@@ -149,6 +152,8 @@ func _initialize_fight_sequence() -> void:
 	log_phase_message("  Fights First P2: %s" % str(fights_first_sequence["2"]))
 	log_phase_message("  Normal P1: %s" % str(normal_sequence["1"]))
 	log_phase_message("  Normal P2: %s" % str(normal_sequence["2"]))
+	log_phase_message("  Fights Last P1: %s" % str(fights_last_sequence["1"]))
+	log_phase_message("  Fights Last P2: %s" % str(fights_last_sequence["2"]))
 	log_phase_message("  Current subphase: %s, Selecting Player: %d (defending)" % [Subphase.keys()[current_subphase], current_selecting_player])
 	log_phase_message("===================================")
 
@@ -237,6 +242,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": true}
 		"END_FIGHT":
 			return _validate_end_fight(action)
+		"BATCH_FIGHT_ACTIONS":
+			return _validate_batch_fight_actions(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -272,6 +279,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_counter_offensive(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
+		"BATCH_FIGHT_ACTIONS":
+			return _process_batch_fight_actions(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -594,8 +603,15 @@ func _can_unit_maintain_engagement_after_movement(unit: Dictionary, movements: D
 				if not enemy_model.get("alive", true):
 					continue
 
-				# Check engagement range (1") using shape-aware edge-to-edge
-				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, 1.0):
+				# T3-9: Check engagement range using barricade-aware distance
+				var our_pos = our_model.get("position", Vector2.ZERO)
+				if our_pos is Dictionary:
+					our_pos = Vector2(our_pos.get("x", 0), our_pos.get("y", 0))
+				var enemy_pos = enemy_model.get("position", Vector2.ZERO)
+				if enemy_pos is Dictionary:
+					enemy_pos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+				var effective_er = _get_effective_engagement_range(our_pos, enemy_pos)
+				if Measurement.is_in_engagement_range_shape_aware(our_model, enemy_model, effective_er):
 					return true
 
 	return false
@@ -902,6 +918,7 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 		})
 
 	emit_signal("pile_in_preview", unit_id, movements)
+	units_that_piled_in[unit_id] = true
 	log_phase_message("Unit %s piled in" % unit_id)
 
 	# After pile-in, request attack assignment
@@ -939,12 +956,16 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
 	pending_attacks.clear()
-	
+
+	# T3-3: Auto-inject Extra Attacks weapons if not already assigned
+	# This is a safety net for AI/auto-resolve paths that bypass the dialog
+	_auto_inject_extra_attacks_weapons()
+
 	emit_signal("fighting_begun", active_fighter_id)
-	
+
 	# Show mathhammer predictions before rolling
 	_show_mathhammer_predictions()
-	
+
 	log_phase_message("Attack assignments confirmed for %s - ready to roll dice!" % active_fighter_id)
 	return create_result(true, [])
 
@@ -1019,31 +1040,230 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 
 	return final_result
 
+# T3-12: Batch fight actions to avoid multiplayer race conditions
+# Instead of sending individual ASSIGN_ATTACKS + CONFIRM + ROLL_DICE with fixed delays,
+# the controller sends a single BATCH_FIGHT_ACTIONS that is processed atomically.
+func _validate_batch_fight_actions(action: Dictionary) -> Dictionary:
+	var sub_actions = action.get("sub_actions", [])
+	if sub_actions.is_empty():
+		return {"valid": false, "errors": ["BATCH_FIGHT_ACTIONS requires non-empty sub_actions array"]}
+
+	# Validate each sub-action individually
+	for i in range(sub_actions.size()):
+		var sub = sub_actions[i]
+		# Copy player/timestamp from parent action if not present on sub-action
+		if not sub.has("player"):
+			sub["player"] = action.get("player", 0)
+		if not sub.has("timestamp"):
+			sub["timestamp"] = action.get("timestamp", 0)
+		var sub_result = validate_action(sub)
+		if not sub_result.get("valid", false):
+			# For ASSIGN_ATTACKS, validate only the first one before processing
+			# (subsequent ones depend on state changes from earlier actions)
+			# So we only validate the first sub-action strictly
+			if i == 0:
+				return {"valid": false, "errors": sub_result.get("errors", ["Sub-action %d failed validation" % i])}
+			else:
+				# Skip validation for later sub-actions since state will change
+				# as earlier actions are processed
+				break
+
+	return {"valid": true}
+
+func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
+	var sub_actions = action.get("sub_actions", [])
+	var all_changes = []
+	var last_result = {}
+
+	print("[FightPhase] Processing BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size())
+
+	for i in range(sub_actions.size()):
+		var sub = sub_actions[i]
+		# Copy player/timestamp from parent action if not present
+		if not sub.has("player"):
+			sub["player"] = action.get("player", 0)
+		if not sub.has("timestamp"):
+			sub["timestamp"] = action.get("timestamp", 0)
+
+		print("[FightPhase] Batch sub-action %d: %s" % [i, sub.get("type", "")])
+		var result = process_action(sub)
+
+		if not result.get("success", false):
+			push_error("[FightPhase] Batch sub-action %d (%s) failed: %s" % [i, sub.get("type", ""), result.get("log_text", "unknown error")])
+			return result
+
+		# Accumulate state changes from all sub-actions
+		if result.has("changes"):
+			all_changes.append_array(result.get("changes", []))
+
+		last_result = result
+
+	# Return the last result (ROLL_DICE result) with all accumulated changes
+	# This preserves metadata like trigger_consolidate, dice, save_data_list
+	if not all_changes.is_empty():
+		last_result["changes"] = all_changes
+
+	print("[FightPhase] BATCH_FIGHT_ACTIONS completed successfully")
+	return last_result
+
+# T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
+# Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
+# This ensures AI/auto-resolve paths also correctly include Extra Attacks.
+func _auto_inject_extra_attacks_weapons() -> void:
+	if active_fighter_id.is_empty():
+		return
+
+	var unit = get_unit(active_fighter_id)
+	if unit.is_empty():
+		return
+
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+
+	# Find Extra Attacks melee weapons
+	var ea_weapons = []
+	for weapon in weapons_data:
+		if weapon.get("type", "").to_lower() == "melee":
+			if RulesEngine.weapon_data_has_extra_attacks(weapon):
+				ea_weapons.append(weapon)
+
+	if ea_weapons.is_empty():
+		return
+
+	# Check which EA weapons are already assigned
+	var assigned_weapon_ids = {}
+	for attack in confirmed_attacks:
+		assigned_weapon_ids[attack.get("weapon", "")] = true
+
+	# Determine default target: use first confirmed attack's target, or first known target
+	var default_target = ""
+	if not confirmed_attacks.is_empty():
+		default_target = confirmed_attacks[0].get("target", "")
+
+	for weapon in ea_weapons:
+		var weapon_name = weapon.get("name", "Unknown")
+		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+
+		if assigned_weapon_ids.has(weapon_id):
+			print("[FightPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
+			continue
+
+		if default_target.is_empty():
+			print("[FightPhase] T3-3: No target available for Extra Attacks weapon '%s'" % weapon_name)
+			continue
+
+		confirmed_attacks.append({
+			"attacker": active_fighter_id,
+			"weapon": weapon_id,
+			"target": default_target
+		})
+		print("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target])
+
+	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_fighter_id)
+
 func _show_mathhammer_predictions() -> void:
 	# Use mathhammer to calculate expected results before rolling
-	if not confirmed_attacks.is_empty():
-		# Build config for mathhammer simulation
-		var attacker_unit = get_unit(active_fighter_id)
-		var defender_units = {}
-		
-		# Collect all target units
-		for attack in confirmed_attacks:
-			var target_id = attack.get("target", "")
-			if target_id != "" and not defender_units.has(target_id):
-				defender_units[target_id] = get_unit(target_id)
-		
-		# For now, show basic prediction text
-		# TODO: Integrate full mathhammer simulation for melee
-		var prediction_text = "Expected: Calculating melee predictions for %s vs %d targets..." % [
-			attacker_unit.get("meta", {}).get("name", active_fighter_id),
-			defender_units.size()
-		]
-		
-		# Display predictions via dice_rolled signal (like shooting phase)
-		emit_signal("dice_rolled", {
-			"context": "mathhammer_prediction", 
-			"message": prediction_text
-		})
+	if confirmed_attacks.is_empty():
+		return
+
+	var attacker_unit = get_unit(active_fighter_id)
+	var attacker_name = attacker_unit.get("meta", {}).get("name", active_fighter_id)
+	var attacker_models = attacker_unit.get("models", [])
+
+	# Group confirmed attacks by target for per-target simulations
+	var attacks_by_target: Dictionary = {}
+	for attack in confirmed_attacks:
+		var target_id = attack.get("target", "")
+		if target_id == "":
+			continue
+		if not attacks_by_target.has(target_id):
+			attacks_by_target[target_id] = []
+		attacks_by_target[target_id].append(attack)
+
+	var prediction_lines = ["[b]Mathhammer Melee Predictions:[/b]"]
+
+	for target_id in attacks_by_target:
+		var target_attacks = attacks_by_target[target_id]
+		var target_unit = get_unit(target_id)
+		var target_name = target_unit.get("meta", {}).get("name", target_id)
+
+		# Build attacker weapon configs from confirmed attacks for this target
+		var weapons = []
+		for attack in target_attacks:
+			var weapon_id = attack.get("weapon", "")
+			var attacking_models = attack.get("models", [])
+
+			# Build model_ids list from attacking models
+			var model_ids = []
+			if not attacking_models.is_empty():
+				model_ids = attacking_models
+			else:
+				# Default to all alive models
+				for i in range(attacker_models.size()):
+					if attacker_models[i].get("alive", true):
+						model_ids.append(str(i))
+
+			# Get weapon profile to determine attack count
+			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot)
+			var base_attacks = weapon_profile.get("attacks", 1)
+
+			weapons.append({
+				"weapon_id": weapon_id,
+				"model_ids": model_ids,
+				"attacks": base_attacks
+			})
+
+		var attacker_config = {
+			"unit_id": active_fighter_id,
+			"weapons": weapons
+		}
+
+		# Check if attacker has charged this turn (for Lance bonus)
+		var rule_toggles = {}
+		var flags = attacker_unit.get("flags", {})
+		if flags.get("charged_this_turn", false):
+			rule_toggles["lance_charged"] = true
+
+		# Build mathhammer simulation config
+		var config = {
+			"trials": 1000,  # Reduced for real-time predictions
+			"attackers": [attacker_config],
+			"defender": {"unit_id": target_id},
+			"rule_toggles": rule_toggles,
+			"phase": "fight",
+			"seed": randi()
+		}
+
+		# Run simulation
+		var result = Mathhammer.simulate_combat(config)
+		var avg_damage = result.get_average_damage()
+		var kill_prob = result.kill_probability * 100.0
+
+		# Build weapon breakdown text
+		var weapon_texts = []
+		for attack in target_attacks:
+			var w_id = attack.get("weapon", "")
+			var w_profile = RulesEngine.get_weapon_profile(w_id, game_state_snapshot)
+			var w_name = w_profile.get("name", w_id)
+			weapon_texts.append(w_name)
+
+		prediction_lines.append(
+			"%s (%s) -> %s: ~%.1f wounds, %.0f%% kill" % [
+				attacker_name,
+				", ".join(weapon_texts),
+				target_name,
+				avg_damage,
+				kill_prob
+			]
+		)
+
+	var prediction_text = "\n".join(prediction_lines)
+	print("[FightPhase] Mathhammer prediction: %s" % prediction_text)
+
+	# Display predictions via dice_rolled signal (like shooting phase)
+	emit_signal("dice_rolled", {
+		"context": "mathhammer_prediction",
+		"message": prediction_text
+	})
 
 func _process_consolidate(action: Dictionary) -> Dictionary:
 	var changes = []
@@ -1072,6 +1292,14 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	# Legacy support - update old index
 	current_fight_index += 1
 
+	# T2-6: After consolidation, scan for newly eligible units.
+	# Per 10e rules: "After an enemy unit has finished its Consolidation move,
+	# if previously ineligible units are now eligible to Fight — these units can
+	# then be selected to fight."
+	# We must check using post-consolidation positions since the game_state_snapshot
+	# hasn't been updated yet (diffs are applied after process_action returns).
+	var newly_eligible = _scan_newly_eligible_units_after_consolidation(unit_id, movements)
+
 	# Determine which player just fought and which is the opponent
 	var fought_unit = get_unit(unit_id)
 	var fought_unit_owner = int(fought_unit.get("owner", 0))
@@ -1097,6 +1325,8 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 		result["trigger_counter_offensive"] = true
 		result["counter_offensive_player"] = opponent_player
 		result["counter_offensive_eligible_units"] = co_eligible
+		if not newly_eligible.is_empty():
+			result["newly_eligible_units"] = newly_eligible
 		return result
 
 	# No Counter-Offensive available — proceed with normal fight selection
@@ -1114,6 +1344,8 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	var result = create_result(true, changes)
 	result["trigger_fight_selection"] = true
 	result["fight_selection_data"] = dialog_data
+	if not newly_eligible.is_empty():
+		result["newly_eligible_units"] = newly_eligible
 
 	return result
 
@@ -1135,26 +1367,48 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_heroic_intervention(action: Dictionary) -> Dictionary:
-	# Placeholder for heroic intervention
-	log_phase_message("Heroic intervention not yet implemented")
-	return create_result(false, [], "Heroic intervention not implemented")
+	# Heroic Intervention is now handled in ChargePhase.gd (after enemy charge move).
+	# This action type in FightPhase is kept for backwards compatibility but redirects
+	# to an informative error since the stratagem window occurs during the Charge phase.
+	log_phase_message("Heroic Intervention is handled during the Charge phase, not the Fight phase")
+	return create_result(false, [], "Heroic Intervention is handled during the Charge phase (after an enemy unit ends a Charge move)")
 
 # Helper methods
 func _get_fight_priority(unit: Dictionary) -> int:
-	# Check if unit charged this turn
-	if unit.get("flags", {}).get("charged_this_turn", false):
-		return FightPriority.FIGHTS_FIRST
-	
+	var flags = unit.get("flags", {})
+
+	# Determine Fights First status
+	# Charged units get Fights First — but Heroic Intervention units do NOT
+	# Per 10e: "That unit is not eligible to fight in the Fights First step of the following
+	# Fight phase." Heroic Intervention sets charged_this_turn but also heroic_intervention flag.
+	var has_fights_first = false
+	if flags.get("charged_this_turn", false) and not flags.get("heroic_intervention", false):
+		has_fights_first = true
+
 	# Check for Fights First ability
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		if "fights_first" in str(ability).to_lower():
-			return FightPriority.FIGHTS_FIRST
-	
-	# Check for Fights Last debuff
-	if unit.get("status_effects", {}).get("fights_last", false):
+	if not has_fights_first:
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			if "fights_first" in str(ability).to_lower():
+				has_fights_first = true
+				break
+
+	# Determine Fights Last status
+	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
+
+	# Per 10e Rules Commentary: If a unit has both Fights First and Fights Last,
+	# they cancel out and the unit fights in the Remaining Combats step (NORMAL).
+	if has_fights_first and has_fights_last:
+		var unit_name = unit.get("meta", {}).get("name", "Unknown")
+		log_phase_message("Unit %s has both Fights First and Fights Last — cancellation applies, fighting in Remaining Combats" % unit_name)
+		return FightPriority.NORMAL
+
+	if has_fights_first:
+		return FightPriority.FIGHTS_FIRST
+
+	if has_fights_last:
 		return FightPriority.FIGHTS_LAST
-	
+
 	return FightPriority.NORMAL
 
 func _get_defending_player() -> int:
@@ -1182,6 +1436,7 @@ func _build_fight_selection_dialog_data_internal() -> Dictionary:
 		"eligible_units": eligible_units,
 		"fights_first_units": fights_first_sequence,
 		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"fights_last_units": fights_last_sequence,
 		"units_that_fought": units_that_fought
 	}
 
@@ -1226,6 +1481,7 @@ func _build_fight_selection_dialog_data() -> Dictionary:
 		"eligible_units": eligible_units,
 		"fights_first_units": fights_first_sequence,
 		"remaining_units": normal_sequence,  # PRP calls normal_sequence "remaining_units"
+		"fights_last_units": fights_last_sequence,
 		"units_that_fought": units_that_fought
 	}
 
@@ -1244,7 +1500,16 @@ func _get_eligible_units_for_selection() -> Dictionary:
 	"""Get units eligible for selection by current player in current subphase"""
 	var eligible = {}
 	var player_key = str(current_selecting_player)
-	var source_list = fights_first_sequence if current_subphase == Subphase.FIGHTS_FIRST else normal_sequence
+	var source_list: Dictionary
+	match current_subphase:
+		Subphase.FIGHTS_FIRST:
+			source_list = fights_first_sequence
+		Subphase.REMAINING_COMBATS:
+			source_list = normal_sequence
+		Subphase.FIGHTS_LAST:
+			source_list = fights_last_sequence
+		_:
+			return eligible
 
 	for unit_id in source_list.get(player_key, []):
 		if unit_id not in units_that_fought:
@@ -1265,7 +1530,7 @@ func _switch_selecting_player() -> void:
 	log_phase_message("Selection SWITCHED: Player %d → Player %d" % [old_player, current_selecting_player])
 
 func _transition_subphase() -> Dictionary:
-	"""Transition from Fights First to Remaining Combats or complete phase.
+	"""Transition from Fights First → Remaining Combats → Fights Last → Complete.
 	Returns dialog data for the new subphase if there are units to fight, empty dict otherwise."""
 	if current_subphase == Subphase.FIGHTS_FIRST:
 		log_phase_message("Fights First complete. Starting Remaining Combats.")
@@ -1276,16 +1541,31 @@ func _transition_subphase() -> Dictionary:
 
 		# Check if there are any remaining combats
 		if normal_sequence["1"].is_empty() and normal_sequence["2"].is_empty():
-			log_phase_message("No remaining combats. All eligible units have fought.")
-			log_phase_message("Waiting for player to click 'End Fight Phase' button.")
-			# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
-			return {}
+			log_phase_message("No remaining combats. Checking for Fights Last units.")
+			# Fall through to transition to FIGHTS_LAST
+			return _transition_subphase()
 		else:
 			# Build and return dialog data for new subphase WITHOUT calling _emit_fight_selection_required
 			# The caller will handle emitting the signal
 			return _build_fight_selection_dialog_data_internal()
+	elif current_subphase == Subphase.REMAINING_COMBATS:
+		log_phase_message("Remaining Combats complete. Starting Fights Last.")
+		emit_signal("subphase_transition", "REMAINING_COMBATS", "FIGHTS_LAST")
+
+		current_subphase = Subphase.FIGHTS_LAST
+		current_selecting_player = _get_defending_player()  # Reset to defender
+
+		# Check if there are any Fights Last units
+		if fights_last_sequence["1"].is_empty() and fights_last_sequence["2"].is_empty():
+			log_phase_message("No Fights Last units. All eligible units have fought.")
+			log_phase_message("Waiting for player to click 'End Fight Phase' button.")
+			# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
+			return {}
+		else:
+			log_phase_message("Fights Last units found - P1: %s, P2: %s" % [str(fights_last_sequence["1"]), str(fights_last_sequence["2"])])
+			return _build_fight_selection_dialog_data_internal()
 	else:
-		# Remaining Combats complete - all eligible units have fought
+		# Fights Last complete - all eligible units have fought
 		log_phase_message("All eligible units have fought in Fight Phase.")
 		log_phase_message("Waiting for player to click 'End Fight Phase' button.")
 		# DO NOT auto-emit phase_completed - wait for explicit END_FIGHT action
@@ -1566,12 +1846,14 @@ func get_available_actions() -> Array:
 	# If active fighter is selected, show simple control actions
 	if active_fighter_id != "":
 		if pending_attacks.is_empty():
-			actions.append({
-				"type": "PILE_IN",
-				"unit_id": active_fighter_id,
-				"description": "Pile in with %s" % active_fighter_id
-			})
-			
+			# Only offer pile-in if the unit hasn't already piled in
+			if not units_that_piled_in.get(active_fighter_id, false):
+				actions.append({
+					"type": "PILE_IN",
+					"unit_id": active_fighter_id,
+					"description": "Pile in with %s" % active_fighter_id
+				})
+
 			# Action to assign attacks (weapon/target selection handled by UI)
 			actions.append({
 				"type": "ASSIGN_ATTACKS_UI",
@@ -1676,6 +1958,16 @@ func _is_unit_in_combat(unit: Dictionary) -> bool:
 	
 	return false
 
+## T3-9: Get the effective engagement range between two model positions,
+## accounting for barricade terrain (2" instead of 1" if barricade is between them).
+func _get_effective_engagement_range(pos1: Vector2, pos2: Vector2) -> float:
+	if not is_inside_tree():
+		return 1.0
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if terrain_manager and terrain_manager.has_method("get_engagement_range_for_positions"):
+		return terrain_manager.get_engagement_range_for_positions(pos1, pos2)
+	return 1.0
+
 func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	# Check if any model from unit1 is within 1" of any model from unit2
 	# Uses shape-aware distance to correctly handle non-circular bases (oval, rectangular)
@@ -1708,9 +2000,9 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 			if pos2 == Vector2.ZERO:
 				continue
 
-			# Use shape-aware engagement range check for correct handling of
-			# non-circular bases (oval, rectangular) - consistent with ChargePhase
-			if Measurement.is_in_engagement_range_shape_aware(model1, model2, 1.0):
+			# T3-9: Use barricade-aware engagement range (2" through barricades)
+			var effective_er = _get_effective_engagement_range(pos1, pos2)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
 				var distance_inches = Measurement.model_to_model_distance_inches(model1, model2)
 				log_phase_message("Units %s and %s are within engagement range! (%.2f\")" % [unit1_name, unit2_name, distance_inches])
 				return true
@@ -1729,6 +2021,145 @@ func _find_enemies_in_engagement_range(unit: Dictionary) -> Array:
 			enemies.append(other_unit_id)
 
 	return enemies
+
+func _scan_newly_eligible_units_after_consolidation(consolidating_unit_id: String, movements: Dictionary) -> Array:
+	"""T2-6: After consolidation, check if any previously ineligible units are now
+	eligible to fight (newly in engagement range). Per 10e rules, these units can
+	then be selected to fight in the current phase.
+
+	Since game_state_snapshot hasn't been updated with the consolidation positions yet
+	(diffs are applied after process_action returns), we build a temporary view of
+	positions with the consolidation moves applied."""
+
+	var newly_eligible = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	# Build a set of all unit IDs already in any fight sequence
+	var already_in_sequence = {}
+	for player_key in ["1", "2"]:
+		for uid in fights_first_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+		for uid in normal_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+		for uid in fights_last_sequence.get(player_key, []):
+			already_in_sequence[uid] = true
+
+	# Build a temporary copy of the consolidating unit with updated positions
+	var consolidating_unit = all_units.get(consolidating_unit_id, {})
+	if consolidating_unit.is_empty():
+		return newly_eligible
+
+	var temp_consolidating_unit = consolidating_unit.duplicate(true)
+	var temp_models = temp_consolidating_unit.get("models", [])
+	for model_id in movements:
+		var idx = int(model_id)
+		if idx < temp_models.size():
+			var new_pos = movements[model_id]
+			temp_models[idx]["position"] = {"x": new_pos.x, "y": new_pos.y}
+
+	var consolidating_owner = consolidating_unit.get("owner", 0)
+
+	# Check every unit NOT already in a fight sequence
+	for check_unit_id in all_units:
+		if check_unit_id in already_in_sequence:
+			continue
+		if check_unit_id in units_that_fought:
+			continue
+
+		var check_unit = all_units[check_unit_id]
+		var check_owner = check_unit.get("owner", 0)
+
+		# Check if any models are alive
+		var has_alive = false
+		for model in check_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check if this unit is now in engagement range with any enemy
+		# We need to consider the consolidated unit's new positions
+		var is_now_eligible = false
+
+		# If the check_unit is an enemy of the consolidating unit,
+		# check against the updated positions
+		if check_owner != consolidating_owner:
+			if _units_in_engagement_range_with_override(check_unit, temp_consolidating_unit):
+				is_now_eligible = true
+
+		# Also check against all other units (not affected by consolidation) at their current positions
+		if not is_now_eligible:
+			for other_unit_id in all_units:
+				if other_unit_id == check_unit_id:
+					continue
+				var other_unit = all_units[other_unit_id]
+				if other_unit.get("owner", 0) == check_owner:
+					continue  # Same team
+
+				# For the consolidating unit, use updated positions
+				if other_unit_id == consolidating_unit_id:
+					continue  # Already checked above with override
+
+				if _units_in_engagement_range(check_unit, other_unit):
+					is_now_eligible = true
+					break
+
+		if is_now_eligible:
+			# This unit was NOT previously in any fight sequence but IS now in engagement range
+			var check_name = check_unit.get("meta", {}).get("name", check_unit_id)
+			var owner_key = str(int(check_owner))
+
+			# Add to normal_sequence (Remaining Combats) since they became eligible mid-phase
+			if owner_key in normal_sequence:
+				normal_sequence[owner_key].append(check_unit_id)
+				newly_eligible.append(check_unit_id)
+				log_phase_message("[T2-6] NEW FIGHT ELIGIBLE: %s (player %s) is now in engagement range after consolidation by %s — added to Remaining Combats" % [
+					check_name, owner_key, consolidating_unit_id
+				])
+
+			# Also update legacy fight_sequence for compatibility
+			fight_sequence.append(check_unit_id)
+
+	if newly_eligible.size() > 0:
+		log_phase_message("[T2-6] %d unit(s) became newly eligible to fight after consolidation" % newly_eligible.size())
+		emit_signal("fight_sequence_updated", fight_sequence)
+	else:
+		log_phase_message("[T2-6] No new units became eligible to fight after consolidation")
+
+	return newly_eligible
+
+func _units_in_engagement_range_with_override(unit1: Dictionary, unit2_override: Dictionary) -> bool:
+	"""Check engagement range using a unit with overridden model positions.
+	Used for checking engagement after consolidation before game state is updated."""
+	var models1 = unit1.get("models", [])
+	var models2 = unit2_override.get("models", [])
+
+	for model1 in models1:
+		if not model1.get("alive", true):
+			continue
+		var pos1_data = model1.get("position", {})
+		if pos1_data == null:
+			continue
+		var pos1 = Vector2(pos1_data.get("x", 0), pos1_data.get("y", 0)) if pos1_data is Dictionary else pos1_data
+		if pos1 == Vector2.ZERO:
+			continue
+
+		for model2 in models2:
+			if not model2.get("alive", true):
+				continue
+			var pos2_data = model2.get("position", {})
+			if pos2_data == null:
+				continue
+			var pos2 = Vector2(pos2_data.get("x", 0), pos2_data.get("y", 0)) if pos2_data is Dictionary else pos2_data
+			if pos2 == Vector2.ZERO:
+				continue
+
+			# T3-9: Use barricade-aware engagement range
+			var effective_er = _get_effective_engagement_range(pos1, pos2)
+			if Measurement.is_in_engagement_range_shape_aware(model1, model2, effective_er):
+				return true
+	return false
 
 func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) -> Dictionary:
 	var errors = []
@@ -1789,36 +2220,12 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-# Legacy method compatibility 
+# Legacy method compatibility — Heroic Intervention is now fully implemented in ChargePhase.gd
+# This validator is kept for the HEROIC_INTERVENTION action type routing in FightPhase
 func _validate_heroic_intervention_action(action: Dictionary) -> Dictionary:
-	var errors = []
-	
-	var required_fields = ["unit_id", "new_positions"]
-	for field in required_fields:
-		if not action.has(field):
-			errors.append("Missing required field: " + field)
-	
-	if errors.size() > 0:
-		return {"valid": false, "errors": errors}
-	
-	var unit_id = action.unit_id
-	var unit = get_unit(unit_id)
-	
-	if unit.is_empty():
-		errors.append("Unit not found: " + unit_id)
-		return {"valid": false, "errors": errors}
-	
-	# Check if unit is a character
-	var keywords = unit.get("meta", {}).get("keywords", [])
-	if not "CHARACTER" in keywords:
-		errors.append("Only characters can perform heroic interventions")
-	
-	# TODO: Add heroic intervention specific validation
-	# - Check 6" range from enemy units
-	# - Check that character is not already in combat
-	# - Check timing (at start of fight phase)
-	
-	return {"valid": errors.size() == 0, "errors": errors}
+	# Heroic Intervention is now handled in ChargePhase.gd after enemy charge moves.
+	# This action type should no longer be used from the Fight phase.
+	return {"valid": false, "errors": ["Heroic Intervention is now handled during the Charge phase (use USE_HEROIC_INTERVENTION during Charge phase)"]}
 
 func _validate_use_epic_challenge(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -2021,22 +2428,29 @@ func get_eligible_fighters_for_player(player: int) -> Dictionary:
 	var result = {
 		"fights_first": [],
 		"normal": [],
+		"fights_last": [],
 		"current_subphase": current_subphase,
 		"active_player": current_selecting_player == player
 	}
-	
+
 	# Get Fights First units that haven't fought
 	if player_key in fights_first_sequence:
 		for unit_id in fights_first_sequence[player_key]:
 			if unit_id not in units_that_fought:
 				result["fights_first"].append(unit_id)
-	
+
 	# Get Normal units that haven't fought
 	if player_key in normal_sequence:
 		for unit_id in normal_sequence[player_key]:
 			if unit_id not in units_that_fought:
 				result["normal"].append(unit_id)
-	
+
+	# Get Fights Last units that haven't fought
+	if player_key in fights_last_sequence:
+		for unit_id in fights_last_sequence[player_key]:
+			if unit_id not in units_that_fought:
+				result["fights_last"].append(unit_id)
+
 	return result
 
 func advance_to_next_fighter() -> void:
@@ -2083,7 +2497,7 @@ func advance_to_next_fighter() -> void:
 		for unit_id in normal_sequence[other_player_key]:
 			if unit_id not in units_that_fought:
 				other_player_remaining += 1
-				
+
 		# Check if we should switch players
 		if other_player_remaining > 0:
 			# Alternate to other player
@@ -2093,8 +2507,43 @@ func advance_to_next_fighter() -> void:
 			# Stay with current player
 			log_phase_message("Continuing with player %d for Normal fights" % current_selecting_player)
 		else:
+			# Transition to Fights Last subphase
+			log_phase_message("All Remaining Combats units have fought, moving to Fights Last subphase")
+			current_subphase = Subphase.FIGHTS_LAST
+			emit_signal("subphase_transition", "REMAINING_COMBATS", "FIGHTS_LAST")
+			current_selecting_player = _get_defending_player()  # Reset to defender
+			# Start with whoever has units
+			var has_p1 = false
+			var has_p2 = false
+			for unit_id in fights_last_sequence.get("1", []):
+				if unit_id not in units_that_fought:
+					has_p1 = true
+					break
+			for unit_id in fights_last_sequence.get("2", []):
+				if unit_id not in units_that_fought:
+					has_p2 = true
+					break
+			if not has_p1 and not has_p2:
+				log_phase_message("No Fights Last units to process")
+
+	elif current_subphase == Subphase.FIGHTS_LAST:
+		for unit_id in fights_last_sequence[current_player_key]:
+			if unit_id not in units_that_fought:
+				current_player_remaining += 1
+		for unit_id in fights_last_sequence[other_player_key]:
+			if unit_id not in units_that_fought:
+				other_player_remaining += 1
+
+		# Check if we should switch players
+		if other_player_remaining > 0:
+			# Alternate to other player
+			current_selecting_player = other_player
+			log_phase_message("Switching to player %d for Fights Last" % other_player)
+		elif current_player_remaining > 0:
+			# Stay with current player
+			log_phase_message("Continuing with player %d for Fights Last" % current_selecting_player)
+		else:
 			# All units have fought
-			log_phase_message("All units have fought")
-			# Could transition to FIGHTS_LAST if we implement it
-	
+			log_phase_message("All units have fought (including Fights Last)")
+
 	emit_signal("fight_sequence_updated")

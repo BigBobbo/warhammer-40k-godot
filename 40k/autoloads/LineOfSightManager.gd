@@ -140,8 +140,9 @@ func _create_point_target(position: Vector2) -> Dictionary:
 		"current_wounds": 1
 	}
 
-func check_los(from: Vector2, to: Vector2) -> bool:
+func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	# Check if line of sight is blocked by terrain
+	# T3-19: Now handles all terrain heights, not just tall
 	var terrain_features = []
 
 	# Get terrain from TerrainManager
@@ -150,8 +151,10 @@ func check_los(from: Vector2, to: Vector2) -> bool:
 
 	# Check each terrain piece
 	for terrain in terrain_features:
-		# Only tall terrain blocks LoS completely
-		if terrain.get("height_category", "") != "tall":
+		var height_cat = terrain.get("height_category", "")
+
+		# Low terrain never blocks LoS
+		if height_cat == "low":
 			continue
 
 		var polygon = terrain.get("polygon", PackedVector2Array())
@@ -159,11 +162,24 @@ func check_los(from: Vector2, to: Vector2) -> bool:
 			continue
 
 		# Check if the line intersects the terrain polygon
-		if _segment_intersects_polygon(from, to, polygon):
-			# Check if both points are outside the terrain
-			# (models inside terrain can see out and be seen)
-			if not _point_in_polygon(from, polygon) and not _point_in_polygon(to, polygon):
-				return false  # LoS blocked
+		if not _segment_intersects_polygon(from, to, polygon):
+			continue
+
+		# Check if both points are outside the terrain
+		# (models inside terrain can see out and be seen)
+		if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+			continue
+
+		if height_cat == "tall":
+			return false  # Tall terrain blocks LoS for all models
+
+		if height_cat == "medium":
+			# T3-19: Medium terrain blocks LoS only if both models are shorter than terrain
+			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain)
+			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
+			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
+			if shooter_height < terrain_height and target_height < terrain_height:
+				return false  # Both models shorter than medium terrain — LoS blocked
 
 	return true  # Clear line of sight
 

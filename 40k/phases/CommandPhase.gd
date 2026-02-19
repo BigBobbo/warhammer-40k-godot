@@ -67,6 +67,11 @@ func _on_phase_enter() -> void:
 			for card in drawn:
 				print("  - %s" % card["name"])
 
+	# Step 6: Initialize faction abilities (Oath of Moment, etc.)
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.on_command_phase_start(current_player)
+
 	if _units_needing_test.size() == 0:
 		print("CommandPhase: No units need battle-shock tests")
 	else:
@@ -242,6 +247,23 @@ func get_available_actions() -> Array:
 						"player": current_player
 					})
 
+	# Faction ability actions (Oath of Moment target selection)
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
+		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
+		var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
+
+		if eligible_targets.size() > 0:
+			for target_info in eligible_targets:
+				var is_current = (target_info.unit_id == current_oath_target)
+				actions.append({
+					"type": "SELECT_OATH_TARGET",
+					"target_unit_id": target_info.unit_id,
+					"description": "Oath of Moment: %s%s" % [target_info.unit_name, " (current)" if is_current else ""],
+					"player": current_player,
+					"is_current_target": is_current
+				})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -279,6 +301,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_voluntary_discard(action)
 		"USE_NEW_ORDERS":
 			errors = _validate_use_new_orders(action)
+		"SELECT_OATH_TARGET":
+			errors = _validate_select_oath_target(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -338,6 +362,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_voluntary_discard(action)
 		"USE_NEW_ORDERS":
 			return _handle_use_new_orders(action)
+		"SELECT_OATH_TARGET":
+			return _handle_select_oath_target(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -626,6 +652,74 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 	}
 
 # ============================================================================
+# FACTION ABILITIES — OATH OF MOMENT
+# ============================================================================
+
+func _validate_select_oath_target(action: Dictionary) -> Array:
+	var errors = []
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	if target_unit_id == "":
+		errors.append("Missing target_unit_id for Oath of Moment")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.player_has_ability(current_player, "Oath of Moment"):
+		errors.append("Player %d does not have Oath of Moment" % current_player)
+		return errors
+
+	# Target must be an enemy unit
+	var target = GameState.state.get("units", {}).get(target_unit_id, {})
+	if target.is_empty():
+		errors.append("Target unit not found: %s" % target_unit_id)
+		return errors
+
+	if target.get("owner", 0) == current_player:
+		errors.append("Cannot target own unit with Oath of Moment")
+
+	# Target must have alive models
+	var has_alive = false
+	for model in target.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		errors.append("Target unit is destroyed")
+
+	return errors
+
+func _handle_select_oath_target(action: Dictionary) -> Dictionary:
+	var target_unit_id = action.get("target_unit_id", "")
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.set_oath_of_moment_target(current_player, target_unit_id)
+
+	if result.success:
+		log_phase_message("OATH OF MOMENT: Player %d marks %s for destruction" % [
+			current_player, result.get("target_name", target_unit_id)])
+
+		# Log to phase log
+		var log_entry = {
+			"type": "SELECT_OATH_TARGET",
+			"player": current_player,
+			"target_unit_id": target_unit_id,
+			"target_name": result.get("target_name", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
 # VOLUNTARY DISCARD & NEW ORDERS
 # ============================================================================
 
@@ -897,6 +991,11 @@ func _handle_end_command() -> Dictionary:
 
 	if auto_resolved.size() > 0:
 		print("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size())
+
+	# Auto-resolve faction abilities (Oath of Moment target selection)
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.on_command_phase_end(current_player)
 
 	# Warn about pending secondary mission interactions
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")

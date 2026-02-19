@@ -119,6 +119,7 @@ func _load_layout_from_json(layout_name: String) -> bool:
 		var height_str = piece_data.get("height", "tall")
 		var rotation_deg = piece_data.get("rotation", 0.0)
 		var piece_id = piece_data.get("id", "terrain")
+		var piece_type = piece_data.get("type", "ruins")
 
 		# Convert inches to pixels
 		var position_px = Vector2(pos_inches[0] * px_per_inch, pos_inches[1] * px_per_inch)
@@ -126,7 +127,7 @@ func _load_layout_from_json(layout_name: String) -> bool:
 
 		var height_cat = _parse_height_category(height_str)
 
-		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg)
+		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type)
 
 		# Process walls from JSON (local coordinates -> absolute world coordinates)
 		var json_walls = piece_data.get("walls", [])
@@ -208,7 +209,7 @@ func _setup_layout_2() -> void:
 	# Add walls to terrain pieces based on layout diagram
 	_add_sample_walls_to_terrain()
 
-func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0) -> void:
+func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins") -> void:
 	# Create polygon from position and size (rectangle)
 	var half_size = size * 0.5
 
@@ -245,7 +246,7 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 
 	var terrain_piece = {
 		"id": id,
-		"type": "ruins",
+		"type": terrain_type,
 		"polygon": polygon,
 		"height_category": height_name,
 		"position": position,
@@ -259,6 +260,29 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 	}
 
 	terrain_features.append(terrain_piece)
+
+## T3-9: Standard engagement range (1") and barricade engagement range (2")
+const STANDARD_ENGAGEMENT_RANGE_INCHES: float = 1.0
+const BARRICADE_ENGAGEMENT_RANGE_INCHES: float = 2.0
+
+## T3-9: Check if a barricade terrain feature lies between two positions.
+## Returns true if the line from pos1 to pos2 crosses a barricade terrain piece.
+func is_barricade_between(pos1: Vector2, pos2: Vector2) -> bool:
+	for terrain in terrain_features:
+		if terrain.get("type", "") != "barricade":
+			continue
+		if check_line_intersects_terrain(pos1, pos2, terrain):
+			print("[TerrainManager] Barricade '%s' detected between positions" % terrain.get("id", "unknown"))
+			return true
+	return false
+
+## T3-9: Get the effective engagement range between two model positions.
+## Returns 2" if a barricade lies between them, 1" otherwise.
+## Per 10e rules: engagement range through barricades is 2" instead of the standard 1".
+func get_engagement_range_for_positions(pos1: Vector2, pos2: Vector2) -> float:
+	if is_barricade_between(pos1, pos2):
+		return BARRICADE_ENGAGEMENT_RANGE_INCHES
+	return STANDARD_ENGAGEMENT_RANGE_INCHES
 
 func get_terrain_at_position(pos: Vector2) -> Dictionary:
 	for terrain in terrain_features:
@@ -293,6 +317,140 @@ func can_unit_move_through_terrain(unit_keywords: Array, terrain_piece: Dictiona
 			return true
 
 	return false
+
+## Returns the height in inches for a terrain height category.
+## LOW (<2") = 1.5", MEDIUM (2-5") = 3.5", TALL (>5") = 6.0"
+func get_height_inches(terrain_piece: Dictionary) -> float:
+	var height_cat = terrain_piece.get("height_category", "tall")
+	match height_cat:
+		"low":
+			return 1.5  # Representative height for <2" terrain
+		"medium":
+			return 3.5  # Representative height for 2-5" terrain
+		"tall":
+			return 6.0  # Representative height for >5" terrain
+		_:
+			return 6.0  # Default to tall
+
+## Calculate the vertical distance penalty for a charge path crossing terrain.
+## Per 10e rules: terrain 2" or less can be moved over freely.
+## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
+## against the charge roll.
+## FLY units measure diagonally instead of vertically, which is more efficient.
+##
+## Returns the extra distance in inches that must be added to the path distance.
+func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+	var total_penalty: float = 0.0
+
+	for terrain in terrain_features:
+		# Check if the movement path crosses this terrain piece
+		if not check_line_intersects_terrain(from_pos, to_pos, terrain):
+			continue
+
+		var height_inches = get_height_inches(terrain)
+
+		# Terrain 2" or less: no penalty (can move over freely)
+		if height_inches <= 2.0:
+			continue
+
+		if has_fly:
+			# FLY units measure diagonally through the air
+			# The diagonal distance through a terrain piece of height h
+			# is sqrt(horizontal_cross^2 + h^2) - horizontal_cross
+			# This is less than the vertical climb (up + down = 2*h)
+			# For simplicity, we use the diagonal penalty: sqrt(h^2 + cross^2) - cross
+			# where cross is the horizontal distance through the terrain
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
+			var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+			var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+			var fly_penalty = diagonal - cross_distance_inches
+			total_penalty += fly_penalty
+			print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
+				terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
+		else:
+			# Non-FLY units must climb up and back down: penalty = height * 2
+			# (climb up one side, climb down the other)
+			total_penalty += height_inches * 2.0
+			print("[TerrainManager] Terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+				terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+
+	return total_penalty
+
+## Calculate the vertical distance penalty for a movement path crossing terrain.
+## Per 10e rules: terrain 2" or less can be moved over freely.
+## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
+## against the unit's movement allowance.
+## FLY units ignore terrain elevation entirely during movement — penalty is always 0.
+##
+## Returns the extra distance in inches that must be added to the movement distance.
+func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+	# FLY units ignore terrain elevation entirely during movement
+	if has_fly:
+		print("[TerrainManager] FLY unit ignores terrain elevation during movement")
+		return 0.0
+
+	var total_penalty: float = 0.0
+
+	for terrain in terrain_features:
+		# Check if the movement path crosses this terrain piece
+		if not check_line_intersects_terrain(from_pos, to_pos, terrain):
+			continue
+
+		var height_inches = get_height_inches(terrain)
+
+		# Terrain 2" or less: no penalty (can move over freely)
+		if height_inches <= 2.0:
+			continue
+
+		# Non-FLY units must climb up and back down: penalty = height * 2
+		# (climb up one side, climb down the other)
+		total_penalty += height_inches * 2.0
+		print("[TerrainManager] Movement terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+			terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+
+	return total_penalty
+
+## Calculate the horizontal distance a path travels through a terrain polygon.
+func _get_terrain_crossing_distance(from_pos: Vector2, to_pos: Vector2, polygon: PackedVector2Array) -> float:
+	if polygon.is_empty():
+		return 0.0
+
+	# Find intersection points of the line with the polygon edges
+	var intersections: Array[Vector2] = []
+	for i in range(polygon.size()):
+		var edge_start = polygon[i]
+		var edge_end = polygon[(i + 1) % polygon.size()]
+		var result = Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end)
+		if result != null:
+			intersections.append(result)
+
+	if intersections.size() >= 2:
+		# Distance between the two intersection points (entry and exit)
+		return intersections[0].distance_to(intersections[1])
+	elif intersections.size() == 1:
+		# Path starts or ends inside the terrain — use distance from intersection to whichever end is inside
+		if is_point_in_polygon(from_pos, polygon):
+			return from_pos.distance_to(intersections[0])
+		elif is_point_in_polygon(to_pos, polygon):
+			return to_pos.distance_to(intersections[0])
+		return 0.0
+	else:
+		# Both points might be inside the terrain or no intersection
+		if is_point_in_polygon(from_pos, polygon) and is_point_in_polygon(to_pos, polygon):
+			return from_pos.distance_to(to_pos)
+		return 0.0
+
+## Get all terrain pieces that a path segment crosses which are taller than 2".
+func get_tall_terrain_on_path(from_pos: Vector2, to_pos: Vector2) -> Array:
+	var results = []
+	for terrain in terrain_features:
+		var height_inches = get_height_inches(terrain)
+		if height_inches <= 2.0:
+			continue
+		if check_line_intersects_terrain(from_pos, to_pos, terrain):
+			results.append(terrain)
+	return results
 
 func set_terrain_visibility(visible: bool) -> void:
 	terrain_visible = visible
@@ -515,6 +673,7 @@ func load_terrain_from_save(save_data: Array) -> void:
 			"tall":
 				height_cat = HeightCategory.TALL
 
-		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation)
+		var saved_type = terrain_data.get("type", "ruins")
+		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type)
 
 	emit_signal("terrain_loaded", terrain_features)

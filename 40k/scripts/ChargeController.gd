@@ -468,6 +468,7 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.overwatch_opportunity.is_connected(_on_overwatch_opportunity):
 			current_phase.overwatch_opportunity.connect(_on_overwatch_opportunity)
 
+
 	if current_phase.has_signal("heroic_intervention_opportunity"):
 		if not current_phase.heroic_intervention_opportunity.is_connected(_on_heroic_intervention_opportunity):
 			current_phase.heroic_intervention_opportunity.connect(_on_heroic_intervention_opportunity)
@@ -816,6 +817,10 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 	if unit.is_empty():
 		return false
 
+	# T2-8: Check FLY keyword for terrain penalty calculation
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
 	# Check each model in the charging unit
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
@@ -844,8 +849,12 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
 				var distance_to_close = distance_inches - 1.0  # 1" engagement range
 
+				# T2-8: Add terrain penalty for straight-line path
+				var terrain_penalty = _calculate_terrain_penalty_for_path(model_pos, target_pos)
+				var effective_distance = distance_to_close + terrain_penalty
+
 				# Check if this model could reach engagement range with the rolled distance
-				if distance_to_close <= rolled_distance:
+				if effective_distance <= rolled_distance:
 					print("Charge successful: Model can reach engagement range with roll of ", rolled_distance)
 					return true
 
@@ -1074,14 +1083,16 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		else:
 			ghost_visual.modulate = Color(1, 0, 0, 0.7)  # Red for invalid
 
-	# Calculate distance moved for display
+	# Calculate distance moved for display (including terrain penalty - T2-8)
 	var original_pos = dragging_model.get("original_position")
 	if original_pos:
 		var distance_moved_px = original_pos.distance_to(world_pos)
 		var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
+		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, world_pos)
+		var effective_distance = distance_moved_inches + terrain_penalty
 
-		# Update distance display with preview
-		_update_charge_distance_display_with_preview(distance_moved_inches, is_valid)
+		# Update distance display with preview (show effective distance including terrain)
+		_update_charge_distance_display_with_preview(effective_distance, is_valid)
 
 func _end_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1285,14 +1296,23 @@ func _update_model_position_in_gamestate(unit_id: String, model_id: String, new_
 	print("ERROR: Could not find model ", model_id, " in unit ", unit_id)
 
 func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
-	# Check 1: Movement distance
+	# Check 1: Movement distance (including terrain penalty - T2-8)
 	var old_pos = _get_model_position(model)
 	if old_pos == null:
 		return false
 
 	var distance_moved = Measurement.px_to_inches(old_pos.distance_to(new_pos))
-	if distance_moved > charge_distance:
-		print("Movement too far: ", distance_moved, " > ", charge_distance)
+
+	# T2-8: Add terrain vertical distance penalty
+	var terrain_penalty = _calculate_terrain_penalty_for_path(old_pos, new_pos)
+	var effective_distance = distance_moved + terrain_penalty
+
+	if effective_distance > charge_distance:
+		if terrain_penalty > 0.0:
+			print("Movement too far with terrain: %.1f\" + %.1f\" terrain = %.1f\" > %d\"" % [
+				distance_moved, terrain_penalty, effective_distance, charge_distance])
+		else:
+			print("Movement too far: ", distance_moved, " > ", charge_distance)
 		return false
 
 	# Check 2: Model overlap detection
@@ -1300,9 +1320,31 @@ func _validate_charge_position(model: Dictionary, new_pos: Vector2) -> bool:
 		print("Position would overlap with another model")
 		return false
 
-	# Check 3: For individual model validation during drag, we're more lenient
-	# We only require that the model is moving toward an enemy (not strict engagement)
-	# The full unit validation will happen when confirming the charge
+	# Check 3 (T3-8): Each model must end closer to at least one charge target
+	var charge_targets = selected_targets
+	if charge_targets.is_empty() and current_phase:
+		charge_targets = _get_charge_targets_from_phase(active_unit_id)
+	if not charge_targets.is_empty():
+		var ends_closer = false
+		for target_id in charge_targets:
+			var target_unit = GameState.get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var target_pos = _get_model_position(target_model)
+				if target_pos == null or target_pos == Vector2.ZERO:
+					continue
+				if new_pos.distance_to(target_pos) < old_pos.distance_to(target_pos):
+					ends_closer = true
+					break
+			if ends_closer:
+				break
+		if not ends_closer:
+			print("T3-8: Model must end charge move closer to at least one charge target")
+			return false
+
 	print("DEBUG: Model position validation passed for individual drag")
 
 	return true
@@ -2067,6 +2109,23 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
 
 	return false
 
+## T2-8: Calculate terrain vertical distance penalty for a straight-line path.
+## Uses TerrainManager to check if the path crosses terrain >2" high.
+## FLY units get diagonal measurement (shorter penalty).
+func _calculate_terrain_penalty_for_path(from_pos: Vector2, to_pos: Vector2) -> float:
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager:
+		return 0.0
+
+	# Check if the charging unit has FLY keyword
+	var has_fly = false
+	if active_unit_id != "":
+		var unit = GameState.get_unit(active_unit_id)
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		has_fly = "FLY" in keywords
+
+	return terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+
 func _rotate_dragging_model(angle: float) -> void:
 	if not dragging_model:
 		return
@@ -2261,50 +2320,54 @@ func _on_fire_overwatch_declined(player: int) -> void:
 		"actor_unit_id": "",
 	})
 
-# ===================================================
-# HEROIC INTERVENTION HANDLING
-# ===================================================
+# ============================================================================
+# HEROIC INTERVENTION HANDLERS
+# ============================================================================
 
-func _on_heroic_intervention_opportunity(charging_unit_id: String, defending_player: int, eligible_units: Array) -> void:
+func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, charging_unit_id: String) -> void:
 	"""Handle Heroic Intervention opportunity — show dialog to the defending player."""
 	print("╔═══════════════════════════════════════════════════════════════")
 	print("║ ChargeController: HEROIC INTERVENTION OPPORTUNITY")
-	print("║ Charging unit: %s (defending player %d)" % [charging_unit_id, defending_player])
+	print("║ Defending player: %d" % player)
+	print("║ Charging enemy unit: %s" % charging_unit_id)
 	print("║ Eligible units: %d" % eligible_units.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
 	if eligible_units.is_empty():
-		_on_heroic_intervention_declined(defending_player)
+		_on_heroic_intervention_declined(player)
 		return
 
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d! (2 CP)[/color]\n" % player)
+
+	# Load and show the dialog
 	var dialog_script = load("res://dialogs/HeroicInterventionDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load HeroicInterventionDialog.gd")
-		_on_heroic_intervention_declined(defending_player)
+		_on_heroic_intervention_declined(player)
 		return
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
-	dialog.setup(defending_player, charging_unit_id, eligible_units)
+	dialog.setup(player, charging_unit_id, eligible_units)
 	dialog.heroic_intervention_used.connect(_on_heroic_intervention_used)
 	dialog.heroic_intervention_declined.connect(_on_heroic_intervention_declined)
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
-
-	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION available for Player %d![/color]\n" % defending_player)
+	print("ChargeController: Heroic Intervention dialog shown for player %d" % player)
 
 func _on_heroic_intervention_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Heroic Intervention."""
-	print("ChargeController: Heroic Intervention USED by %s" % unit_id)
+	print("ChargeController: Heroic Intervention USED: player %d selects %s" % [player, unit_id])
+
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION! Player %d counter-charges with %s[/color]\n" % [player, unit_id])
+		var unit_name = GameState.get_unit(unit_id).get("meta", {}).get("name", unit_id)
+		dice_log_display.append_text("[color=gold]HEROIC INTERVENTION used — %s will counter-charge![/color]\n" % unit_name)
+
 	emit_signal("charge_action_requested", {
 		"type": "USE_HEROIC_INTERVENTION",
-		"actor_unit_id": unit_id,
-		"payload": {
-			"unit_id": unit_id
-		}
+		"unit_id": unit_id,
+		"player": player,
 	})
 
 func _on_heroic_intervention_declined(player: int) -> void:
@@ -2314,5 +2377,5 @@ func _on_heroic_intervention_declined(player: int) -> void:
 		dice_log_display.append_text("[color=gray]Heroic Intervention declined.[/color]\n")
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_HEROIC_INTERVENTION",
-		"actor_unit_id": "",
+		"player": player,
 	})

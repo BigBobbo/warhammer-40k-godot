@@ -55,6 +55,7 @@ ToastManager="*res://autoloads/ToastManager.gd"
 AIPlayer="*res://autoloads/AIPlayer.gd"
 GameEventLog="*res://autoloads/GameEventLog.gd"
 SecondaryMissionManager="*res://autoloads/SecondaryMissionManager.gd"
+FactionAbilityManager="*res://autoloads/FactionAbilityManager.gd"
 
 [display]
 

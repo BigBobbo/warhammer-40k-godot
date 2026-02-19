@@ -26,6 +26,17 @@ var defender_selector: OptionButton
 var weapon_selection_panel: VBoxContainer
 var run_simulation_button: Button
 var trials_spinbox: SpinBox
+var phase_toggle: OptionButton  # Shooting/Melee phase selector
+
+# Defender stats override controls
+var defender_override_checkbox: CheckBox
+var defender_override_panel: VBoxContainer
+var override_toughness_spinbox: SpinBox
+var override_save_spinbox: SpinBox
+var override_wounds_spinbox: SpinBox
+var override_invuln_spinbox: SpinBox
+var override_fnp_spinbox: SpinBox
+var override_model_count_spinbox: SpinBox
 
 # Results display elements
 var results_label: RichTextLabel
@@ -41,22 +52,31 @@ var selected_attackers: Dictionary = {}  # unit_id -> selected state
 var rule_toggles: Dictionary = {}
 var tween: Tween
 
+# Background thread for simulation (T3-25)
+var _simulation_thread: Thread = null
+
 # Signals
 signal simulation_requested(config: Dictionary)
 signal unit_selection_changed(attacker_id: String, defender_id: String)
 
 func _ready() -> void:
 	print("MathhhammerUI: Initializing...")
-	
+
 	_setup_ui_structure()
 	_setup_controls()
 	_connect_signals()
 	_populate_unit_selectors()
 	_populate_rule_toggles()
-	
+
 	# Start collapsed following UnitStatsPanel pattern
 	is_collapsed = true
 	set_collapsed(false)  # Start expanded to show functionality
+
+func _exit_tree() -> void:
+	# Clean up background simulation thread on node removal (T3-25)
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhhammerUI: Waiting for simulation thread to finish before exit...")
+		_simulation_thread.wait_to_finish()
 
 func _setup_ui_structure() -> void:
 	# Create the main UI structure programmatically if nodes don't exist
@@ -106,15 +126,30 @@ func _create_content_sections() -> void:
 	unit_selector.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	unit_selector.add_theme_constant_override("separation", 8)
 	content_container.add_child(unit_selector)
-	
+
 	# Add some spacing between sections
 	var section_spacer1 = Control.new()
 	section_spacer1.custom_minimum_size.y = 20
-	
+
 	var selector_label = Label.new()
 	selector_label.text = "Unit Selection"
 	selector_label.add_theme_font_size_override("font_size", 16)
 	unit_selector.add_child(selector_label)
+
+	# Phase selector (Shooting/Melee)
+	var phase_hbox = HBoxContainer.new()
+	unit_selector.add_child(phase_hbox)
+	var phase_label = Label.new()
+	phase_label.text = "Phase:"
+	phase_label.custom_minimum_size.x = 80
+	phase_hbox.add_child(phase_label)
+	phase_toggle = OptionButton.new()
+	phase_toggle.add_item("Shooting")
+	phase_toggle.set_item_metadata(0, "shooting")
+	phase_toggle.add_item("Melee")
+	phase_toggle.set_item_metadata(1, "fight")
+	phase_toggle.selected = 0
+	phase_hbox.add_child(phase_toggle)
 	
 	# Multiple attacker selection with checkboxes
 	var attacker_label = Label.new()
@@ -137,10 +172,29 @@ func _create_content_sections() -> void:
 	defender_selector = OptionButton.new()
 	defender_hbox.add_child(defender_selector)
 	
+	# Defender Stats Override Section
+	var override_separator = HSeparator.new()
+	unit_selector.add_child(override_separator)
+
+	defender_override_checkbox = CheckBox.new()
+	defender_override_checkbox.text = "Custom Defender Stats"
+	defender_override_checkbox.tooltip_text = "Override defender T/Sv/W/Invuln/FNP with custom values"
+	defender_override_checkbox.add_theme_font_size_override("font_size", 13)
+	unit_selector.add_child(defender_override_checkbox)
+	defender_override_checkbox.toggled.connect(_on_defender_override_toggled)
+
+	defender_override_panel = VBoxContainer.new()
+	defender_override_panel.name = "DefenderOverridePanel"
+	defender_override_panel.add_theme_constant_override("separation", 4)
+	defender_override_panel.visible = false  # Hidden until checkbox is toggled
+	unit_selector.add_child(defender_override_panel)
+
+	_create_defender_override_fields()
+
 	# Weapon Selection Section
 	var weapon_separator = HSeparator.new()
 	unit_selector.add_child(weapon_separator)
-	
+
 	var weapon_label = Label.new()
 	weapon_label.text = "Weapon Selection"
 	weapon_label.add_theme_font_size_override("font_size", 14)
@@ -264,9 +318,12 @@ func _connect_signals() -> void:
 	
 	if attacker_selector:
 		attacker_selector.item_selected.connect(_on_attacker_selection_changed)
-	
+
 	if defender_selector:
 		defender_selector.item_selected.connect(_on_unit_selection_changed)
+
+	if phase_toggle:
+		phase_toggle.item_selected.connect(_on_phase_changed)
 
 func _on_toggle_pressed() -> void:
 	set_collapsed(!is_collapsed)
@@ -383,27 +440,63 @@ func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 	return false
 
 func _populate_rule_toggles() -> void:
-	# Create common rule toggles
+	# Create common rule toggles with phase applicability
+	# phase: "both" = always visible, "shooting" = shooting only, "melee" = melee only
 	var common_rules = [
-		{"id": "lethal_hits", "name": "Lethal Hits", "description": "6s to hit automatically wound"},
-		{"id": "sustained_hits", "name": "Sustained Hits", "description": "6s to hit generate extra hits"},
-		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll failed wound rolls"},
-		{"id": "devastating_wounds", "name": "Devastating Wounds", "description": "6s to wound become mortal wounds"},
-		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus"},
-		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls"},
-		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls"},
-		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "Double attacks at close range"}
+		{"id": "lethal_hits", "name": "Lethal Hits", "description": "6s to hit automatically wound", "phase": "both"},
+		{"id": "sustained_hits", "name": "Sustained Hits", "description": "6s to hit generate extra hits", "phase": "both"},
+		{"id": "twin_linked", "name": "Twin-linked", "description": "Re-roll all failed wound rolls (weapon keyword)", "phase": "both"},
+		{"id": "devastating_wounds", "name": "Devastating Wounds", "description": "6s to wound become mortal wounds", "phase": "both"},
+		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus", "phase": "shooting"},
+		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls", "phase": "both"},
+		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls", "phase": "both"},
+		{"id": "torrent", "name": "Torrent", "description": "Auto-hit (no hit roll, no critical hits)", "phase": "shooting"},
+		{"id": "reroll_hits_ones", "name": "Re-roll 1s to Hit", "description": "Re-roll hit rolls of 1 (e.g. Oath of Moment)", "phase": "both"},
+		{"id": "reroll_hits_failed", "name": "Re-roll All Failed Hits", "description": "Re-roll all failed hit rolls", "phase": "both"},
+		{"id": "reroll_wounds_ones", "name": "Re-roll 1s to Wound", "description": "Re-roll wound rolls of 1", "phase": "both"},
+		{"id": "reroll_wounds_failed", "name": "Re-roll All Failed Wounds", "description": "Re-roll all failed wound rolls (e.g. Twin-linked ability)", "phase": "both"},
+		{"id": "rapid_fire", "name": "Rapid Fire Range", "description": "+X attacks at half range (per model)", "phase": "shooting"},
+		{"id": "lance_charged", "name": "Charged (Lance +1 Wound)", "description": "Unit charged this turn - Lance weapons get +1 to wound", "phase": "melee"},
+		{"id": "invuln_6", "name": "Invulnerable Save 6+", "description": "Defender has 6+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_5", "name": "Invulnerable Save 5+", "description": "Defender has 5+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_4", "name": "Invulnerable Save 4+", "description": "Defender has 4+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_3", "name": "Invulnerable Save 3+", "description": "Defender has 3+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "invuln_2", "name": "Invulnerable Save 2+", "description": "Defender has 2+ invulnerable save (ignores AP)", "phase": "both"},
+		{"id": "anti_infantry_4", "name": "Anti-Infantry 4+", "description": "Critical wounds on 4+ vs INFANTRY targets", "phase": "both"},
+		{"id": "anti_vehicle_4", "name": "Anti-Vehicle 4+", "description": "Critical wounds on 4+ vs VEHICLE targets", "phase": "both"},
+		{"id": "anti_monster_4", "name": "Anti-Monster 4+", "description": "Critical wounds on 4+ vs MONSTER targets", "phase": "both"},
+		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+", "phase": "both"},
+		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+", "phase": "both"},
+		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"}
 	]
-	
+
 	for rule in common_rules:
 		var checkbox = CheckBox.new()
 		checkbox.text = rule.name
 		checkbox.tooltip_text = rule.description
+		checkbox.set_meta("rule_phase", rule.get("phase", "both"))
 		rule_toggles_panel.add_child(checkbox)
-		
+
 		# Connect signal with rule ID
 		checkbox.toggled.connect(_on_rule_toggled.bind(rule.id))
 		rule_toggles[rule.id] = false
+
+	# Apply initial phase visibility
+	_update_rule_toggles_for_phase()
+
+func _update_rule_toggles_for_phase() -> void:
+	var selected_phase = _get_selected_phase()
+	var is_melee = selected_phase == "fight"
+
+	for child in rule_toggles_panel.get_children():
+		if child is CheckBox and child.has_meta("rule_phase"):
+			var rule_phase = child.get_meta("rule_phase")
+			if rule_phase == "both":
+				child.visible = true
+			elif rule_phase == "shooting":
+				child.visible = not is_melee
+			elif rule_phase == "melee":
+				child.visible = is_melee
 
 func _update_weapon_selection() -> void:
 	# Clear existing weapon selection
@@ -429,11 +522,16 @@ func _update_weapon_selection() -> void:
 		weapon_selection_panel.add_child(no_selection_label)
 		return
 	
+	# Determine which weapon types to show based on selected phase
+	var selected_phase = _get_selected_phase()
+	var show_ranged = selected_phase == "shooting"
+	var show_melee = selected_phase == "fight"
+
 	# Create weapon entries with attack count spinboxes
 	for unit_id in selected_attackers:
 		if selected_attackers[unit_id] <= 0:
 			continue
-			
+
 		var unit = GameState.get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
 		var unit_weapons = unit.get("meta", {}).get("weapons", [])
@@ -447,15 +545,22 @@ func _update_weapon_selection() -> void:
 		
 		for i in range(unit_weapons.size()):
 			var weapon = unit_weapons[i]
+			var weapon_type = weapon.get("type", "Unknown")
+
+			# Filter weapons by selected phase
+			if show_ranged and weapon_type.to_lower() != "ranged":
+				continue
+			if show_melee and weapon_type.to_lower() != "melee":
+				continue
+
 			var weapon_name = weapon.get("name", "Weapon %d" % (i + 1))
 			var weapon_key = "%s_weapon_%d" % [unit_id, i]
-			
+
 			# Create weapon row container
 			var weapon_row = HBoxContainer.new()
 			weapon_selection_panel.add_child(weapon_row)
 			
 			# Weapon label with stats
-			var weapon_type = weapon.get("type", "Unknown")
 			var weapon_stats = ""
 			
 			if weapon_type == "Ranged":
@@ -528,6 +633,19 @@ func _on_rule_toggled(rule_id: String, active: bool) -> void:
 	rule_toggles[rule_id] = active
 	print("MathhhammerUI: Rule toggle changed - %s: %s" % [rule_id, active])
 
+func _get_selected_phase() -> String:
+	if phase_toggle and phase_toggle.selected >= 0:
+		return phase_toggle.get_item_metadata(phase_toggle.selected)
+	return "shooting"
+
+func _on_phase_changed(_index: int) -> void:
+	var phase = _get_selected_phase()
+	print("MathhhammerUI: Phase changed to: %s" % phase)
+	# Refresh weapon selection to show only relevant weapons for the phase
+	_update_weapon_selection()
+	# Update rule toggles visibility based on phase
+	_update_rule_toggles_for_phase()
+
 func _on_attacker_attack_count_changed(value: float, unit_id: String) -> void:
 	selected_attackers[unit_id] = int(value)
 	print("MathhhammerUI: Attacker attack count changed - %s: %d" % [unit_id, int(value)])
@@ -546,14 +664,112 @@ func _on_attacker_selection_changed(_index: int) -> void:
 func _on_unit_selection_changed(_index: int) -> void:
 	var attacker_id = ""
 	var defender_id = ""
-	
+
 	if attacker_selector.selected >= 0:
 		attacker_id = attacker_selector.get_item_metadata(attacker_selector.selected)
-	
+
 	if defender_selector.selected >= 0:
 		defender_id = defender_selector.get_item_metadata(defender_selector.selected)
-	
+
+	# Auto-populate override fields with selected defender's actual stats
+	_populate_override_from_defender(defender_id)
+
 	emit_signal("unit_selection_changed", attacker_id, defender_id)
+
+func _create_defender_override_fields() -> void:
+	# Helper to create a labeled spinbox row
+	var fields = [
+		{"label": "Toughness (T):", "min": 1, "max": 14, "default": 4, "field": "toughness"},
+		{"label": "Armor Save (Sv):", "min": 2, "max": 7, "default": 3, "field": "save"},
+		{"label": "Wounds (W):", "min": 1, "max": 30, "default": 1, "field": "wounds"},
+		{"label": "Models:", "min": 1, "max": 30, "default": 1, "field": "model_count"},
+		{"label": "Invuln Save:", "min": 0, "max": 6, "default": 0, "field": "invuln"},
+		{"label": "Feel No Pain:", "min": 0, "max": 6, "default": 0, "field": "fnp"},
+	]
+
+	for field_def in fields:
+		var row = HBoxContainer.new()
+		var label = Label.new()
+		label.text = field_def.label
+		label.custom_minimum_size.x = 120
+		label.add_theme_font_size_override("font_size", 12)
+		row.add_child(label)
+
+		var spinbox = SpinBox.new()
+		spinbox.min_value = field_def.min
+		spinbox.max_value = field_def.max
+		spinbox.value = field_def.default
+		spinbox.step = 1
+		spinbox.custom_minimum_size.x = 80
+		spinbox.add_theme_font_size_override("font_size", 11)
+		row.add_child(spinbox)
+
+		# Add hint for 0 = none fields
+		if field_def.field == "invuln" or field_def.field == "fnp":
+			var hint = Label.new()
+			hint.text = " (0 = none)"
+			hint.add_theme_font_size_override("font_size", 10)
+			hint.add_theme_color_override("font_color", Color.GRAY)
+			row.add_child(hint)
+
+		defender_override_panel.add_child(row)
+
+		# Store references to spinboxes
+		match field_def.field:
+			"toughness":
+				override_toughness_spinbox = spinbox
+			"save":
+				override_save_spinbox = spinbox
+			"wounds":
+				override_wounds_spinbox = spinbox
+			"model_count":
+				override_model_count_spinbox = spinbox
+			"invuln":
+				override_invuln_spinbox = spinbox
+			"fnp":
+				override_fnp_spinbox = spinbox
+
+	# Add note about overrides
+	var note = Label.new()
+	note.text = "Overrides replace defender's unit stats for simulation"
+	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_color_override("font_color", Color.GRAY)
+	defender_override_panel.add_child(note)
+
+func _on_defender_override_toggled(enabled: bool) -> void:
+	print("MathhhammerUI: Defender override toggled: %s" % enabled)
+	defender_override_panel.visible = enabled
+	# Auto-populate from selected defender when enabling
+	if enabled and defender_selector.selected >= 0:
+		var defender_id = defender_selector.get_item_metadata(defender_selector.selected)
+		_populate_override_from_defender(defender_id)
+
+func _populate_override_from_defender(defender_id: String) -> void:
+	if defender_id == "" or not GameState:
+		return
+	var unit = GameState.get_unit(defender_id)
+	if unit.is_empty():
+		return
+	var stats = unit.get("meta", {}).get("stats", {})
+	var models = unit.get("models", [])
+
+	if override_toughness_spinbox:
+		override_toughness_spinbox.value = stats.get("toughness", 4)
+	if override_save_spinbox:
+		override_save_spinbox.value = stats.get("save", 3)
+	if override_wounds_spinbox and not models.is_empty():
+		override_wounds_spinbox.value = models[0].get("wounds", 1)
+	if override_model_count_spinbox:
+		override_model_count_spinbox.value = models.size()
+	if override_invuln_spinbox and not models.is_empty():
+		override_invuln_spinbox.value = models[0].get("invuln", 0)
+	if override_fnp_spinbox:
+		override_fnp_spinbox.value = stats.get("fnp", 0)
+
+	print("MathhhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
+		defender_id, int(override_toughness_spinbox.value), int(override_save_spinbox.value),
+		int(override_wounds_spinbox.value), int(override_model_count_spinbox.value),
+		int(override_invuln_spinbox.value), int(override_fnp_spinbox.value)])
 
 func _on_run_simulation_pressed() -> void:
 	var defender_id = ""
@@ -613,7 +829,7 @@ func _on_run_simulation_pressed() -> void:
 		"attackers": attackers,
 		"defender": _build_defender_config(defender_id),
 		"rule_toggles": rule_toggles.duplicate(),
-		"phase": "shooting"
+		"phase": _get_selected_phase()
 	}
 	
 	# Validate configuration
@@ -666,25 +882,62 @@ func _build_attacker_config(unit_id: String) -> Dictionary:
 	}
 
 func _build_defender_config(unit_id: String) -> Dictionary:
-	return {
+	var config = {
 		"unit_id": unit_id
 	}
 
+	# Include custom defender stat overrides if enabled
+	if defender_override_checkbox and defender_override_checkbox.button_pressed:
+		config["overrides"] = {
+			"toughness": int(override_toughness_spinbox.value),
+			"save": int(override_save_spinbox.value),
+			"wounds": int(override_wounds_spinbox.value),
+			"model_count": int(override_model_count_spinbox.value),
+			"invuln": int(override_invuln_spinbox.value),
+			"fnp": int(override_fnp_spinbox.value),
+		}
+		print("MathhhammerUI: Defender config with overrides: %s" % str(config))
+
+	return config
+
 func _run_simulation_async(config: Dictionary) -> void:
+	# Clean up any previous thread before starting a new one
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhhammerUI: Waiting for previous simulation thread to finish...")
+		_simulation_thread.wait_to_finish()
+
 	run_simulation_button.disabled = true
 	run_simulation_button.text = "Running..."
-	
-	# Run simulation (this might need to be async for large simulations)
-	print("MathhhammerUI: About to run simulation...")
+
+	# Run simulation on a background thread to avoid freezing the UI (T3-25)
+	print("MathhhammerUI: Starting simulation on background thread...")
+	_simulation_thread = Thread.new()
+	_simulation_thread.start(_simulation_thread_func.bind(config))
+
+func _simulation_thread_func(config: Dictionary) -> void:
+	# This runs on a background thread — no UI access allowed here
+	print("MathhhammerUI: Background thread started, running simulation...")
 	var result = Mathhammer.simulate_combat(config)
+	print("MathhhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
+	# Defer UI update back to the main thread
+	call_deferred("_on_simulation_completed", result)
+
+func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
+	# This runs on the main thread via call_deferred — safe to update UI
+	print("MathhhammerUI: Simulation completed callback on main thread")
+
+	# Join the background thread to clean up resources
+	if _simulation_thread != null and _simulation_thread.is_started():
+		_simulation_thread.wait_to_finish()
+		print("MathhhammerUI: Background thread joined successfully")
+
 	current_simulation_result = result
-	print("MathhhammerUI: Simulation complete, result type: %s" % typeof(result))
-	
+
 	# Update UI with results
 	print("MathhhammerUI: About to display results...")
 	_display_simulation_results(result)
 	print("MathhhammerUI: Results display completed")
-	
+
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
 
@@ -840,12 +1093,13 @@ func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.Simul
 	print("MathhhammerUI: parent child_count before: %d" % parent.get_child_count())
 	parent.add_child(stats_panel)
 	print("MathhhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count())
-	
+
+	var stats_content = stats_panel.get_meta("content_vbox")
 	var stats_grid = GridContainer.new()
 	stats_grid.columns = 2
 	stats_grid.add_theme_constant_override("h_separation", 20)
 	stats_grid.add_theme_constant_override("v_separation", 8)
-	stats_panel.add_child(stats_grid)
+	stats_content.add_child(stats_grid)
 	
 	# Add key statistics
 	add_stat_row(stats_grid, "Trials Run:", "%d" % result.trials_run)
@@ -861,7 +1115,8 @@ func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.Si
 	
 	var weapon_panel = create_styled_panel("Weapon Breakdown", Color(0.5, 0.2, 0.2, 0.8))
 	parent.add_child(weapon_panel)
-	
+	var weapon_content = weapon_panel.get_meta("content_vbox")
+
 	# Aggregate weapon stats
 	var weapon_totals = {}
 	for trial in result.detailed_trials:
@@ -896,18 +1151,19 @@ func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.Si
 		
 		# Create weapon subsection
 		var weapon_section = create_weapon_section(weapon_count, stats.weapon_name, stats, hit_rate, wound_rate, unsaved_rate, avg_damage_per_trial, result.trials_run)
-		weapon_panel.add_child(weapon_section)
+		weapon_content.add_child(weapon_section)
 
 func _create_damage_distribution_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
 	var dist_panel = create_styled_panel("Damage Distribution", Color(0.2, 0.5, 0.2, 0.8))
 	parent.add_child(dist_panel)
-	
+	var dist_content = dist_panel.get_meta("content_vbox")
+
 	var stats = result.statistical_summary
 	var dist_grid = GridContainer.new()
 	dist_grid.columns = 2
 	dist_grid.add_theme_constant_override("h_separation", 20)
 	dist_grid.add_theme_constant_override("v_separation", 6)
-	dist_panel.add_child(dist_grid)
+	dist_content.add_child(dist_grid)
 	
 	add_stat_row(dist_grid, "25th Percentile:", "%d wounds" % stats.get("percentile_25", 0))
 	add_stat_row(dist_grid, "75th Percentile:", "%d wounds" % stats.get("percentile_75", 0))
@@ -919,7 +1175,7 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	var panel_container = VBoxContainer.new()
 	panel_container.add_theme_constant_override("separation", 8)
 	print("MathhhammerUI: Created panel_container: %s" % str(panel_container != null))
-	
+
 	# Add background
 	var style_box = StyleBoxFlat.new()
 	style_box.bg_color = bg_color
@@ -931,31 +1187,27 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	style_box.content_margin_right = 12
 	style_box.content_margin_top = 8
 	style_box.content_margin_bottom = 8
-	
+
 	var panel_bg = PanelContainer.new()
 	panel_bg.add_theme_stylebox_override("panel", style_box)
 	panel_container.add_child(panel_bg)
-	
+
 	var content_vbox = VBoxContainer.new()
 	content_vbox.add_theme_constant_override("separation", 6)
 	panel_bg.add_child(content_vbox)
-	
+
 	# Title
 	var title_label = Label.new()
 	title_label.text = title
 	title_label.add_theme_font_size_override("font_size", 14)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	content_vbox.add_child(title_label)
-	
-	print("MathhhammerUI: create_styled_panel returning content_vbox: %s" % str(content_vbox != null))
-	print("MathhhammerUI: content_vbox type: %s" % content_vbox.get_class() if content_vbox else "null")
-	print("MathhhammerUI: content_vbox.get_parent(): %s" % str(content_vbox.get_parent()))
-	# Remove content_vbox from its parent so it can be reparented
-	if content_vbox.get_parent():
-		print("MathhhammerUI: Removing content_vbox from its current parent")
-		content_vbox.get_parent().remove_child(content_vbox)
-		print("MathhhammerUI: content_vbox.get_parent() after removal: %s" % str(content_vbox.get_parent()))
-	return content_vbox
+
+	# Store content_vbox reference so callers can add children inside the styled panel
+	panel_container.set_meta("content_vbox", content_vbox)
+
+	print("MathhhammerUI: create_styled_panel returning panel_container with content_vbox inside")
+	return panel_container
 
 func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
 	print("MathhhammerUI: _populate_breakdown_panel called")

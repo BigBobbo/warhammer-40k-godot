@@ -193,8 +193,8 @@ func test_adaptive_grid_size() -> void:
 
 func test_los_manager_input_handling() -> void:
 	# Test that LineOfSightManager responds to input
-	skip("Requires scene tree and input simulation")
+	pending("Requires scene tree and input simulation")
 
 func test_los_visual_rendering() -> void:
 	# Test that LineOfSightVisual renders correctly
-	skip("Requires scene tree and rendering context")
+	pending("Requires scene tree and rendering context")

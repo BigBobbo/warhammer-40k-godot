@@ -97,7 +97,7 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"DECLARE_CHARGE":
 			return process_declare_charge(action)
-		"CHARGE_ROLL":
+		"ROLL_CHARGE", "CHARGE_ROLL":
 			return process_roll_charge(action)
 		"APPLY_CHARGE_MOVE":
 			return _delegate_to_current_phase(action)
@@ -107,6 +107,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"END_CHARGE":
 			return process_end_charge(action)
+		"USE_HEROIC_INTERVENTION":
+			return _delegate_to_current_phase(action)
+		"DECLINE_HEROIC_INTERVENTION":
+			return _delegate_to_current_phase(action)
+		"HEROIC_INTERVENTION_CHARGE_ROLL":
+			return _delegate_to_current_phase(action)
+		"APPLY_HEROIC_INTERVENTION_MOVE":
+			return _delegate_to_current_phase(action)
 
 		# Fight actions (modern phase-based system)
 		"SELECT_FIGHTER":
@@ -129,6 +137,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"END_FIGHT":
 			return process_end_fight(action)
+
+		# Roll-off actions
+		"ROLL_FOR_FIRST_TURN":
+			return _delegate_to_current_phase(action)
+		"CHOOSE_TURN_ORDER":
+			return _delegate_to_current_phase(action)
 
 		# Command actions
 		"USE_STRATAGEM":
@@ -699,7 +713,11 @@ func _get_next_phase(current: int) -> int:
 	This mirrors PhaseManager._get_next_phase() logic.
 	"""
 	match current:
+		GameStateData.Phase.FORMATIONS:
+			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.ROLL_OFF
+		GameStateData.Phase.ROLL_OFF:
 			return GameStateData.Phase.COMMAND
 		GameStateData.Phase.COMMAND:
 			return GameStateData.Phase.MOVEMENT

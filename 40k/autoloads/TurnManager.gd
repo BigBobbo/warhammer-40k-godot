@@ -22,6 +22,13 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 	match completed_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			emit_signal("deployment_phase_complete")
+		GameStateData.Phase.SCOUT:
+			# Scout phase complete - roll-off phase will determine who goes first
+			print("TurnManager: Scout phase complete, advancing to Roll-Off phase")
+		GameStateData.Phase.ROLL_OFF:
+			# Roll-off phase complete - active player was set by the roll-off choice
+			var first_turn_player = GameState.state.get("meta", {}).get("first_turn_player", 1)
+			print("TurnManager: Roll-off complete, Player %d takes the first turn" % first_turn_player)
 		GameStateData.Phase.SCORING:
 			# Scoring phase handles player switching and battle round advancement
 			# Check if battle round was advanced during scoring phase
@@ -46,6 +53,9 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	match new_phase:
+		GameStateData.Phase.FORMATIONS:
+			# Formations phase starts with Player 1
+			_set_active_player(1)
 		GameStateData.Phase.DEPLOYMENT:
 			_handle_deployment_phase_start()
 

@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-ginclude=test_stealth_ability"]
+ARGS: ["--check-only"]

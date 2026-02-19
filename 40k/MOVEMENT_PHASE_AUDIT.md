@@ -90,10 +90,10 @@ The shared `_check_models_coherency()` helper (`MovementPhase.gd:408`) implement
 - Desperate Escape skip for FLY units — `_process_desperate_escape()` returns early
 - Normal Move/Advance path validation: FLY units are exempt from path-through-enemy checks via `_unit_has_fly_keyword()` (see 2.5)
 
-**Remaining work (not yet implemented):**
-- FLY units should ignore terrain elevation during movement
+**~~Remaining work (not yet implemented):~~**
+- ~~FLY units should ignore terrain elevation during movement~~ **DONE** — Terrain elevation penalties added to all movement distance calculations via `TerrainManager.calculate_movement_terrain_penalty()`. FLY units return 0 penalty (ignore terrain height entirely). Non-FLY units are penalized height*2 for terrain >2".
 
-**Resolution:** Added FLY keyword check at the top of `_process_desperate_escape()` in `MovementPhase.gd:1055-1063`. If the unit has "FLY" in its keywords, the function logs the skip and returns immediately with no casualties. Path-through-enemy exemption added in 2.5 fix.
+**Resolution:** Added FLY keyword check at the top of `_process_desperate_escape()` in `MovementPhase.gd:1055-1063`. If the unit has "FLY" in its keywords, the function logs the skip and returns immediately with no casualties. Path-through-enemy exemption added in 2.5 fix. Terrain elevation penalty added via `_get_movement_terrain_penalty()` helper in MovementPhase.gd and `calculate_movement_terrain_penalty()` in TerrainManager.gd.
 
 **Commit:** `e4364af` — "Skip Desperate Escape tests for FLY and TITANIC units"
 

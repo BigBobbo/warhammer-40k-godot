@@ -79,7 +79,7 @@ func test_register_phase_classes():
 func test_transition_to_phase():
 	# Mock the GameState calls since we can't easily replace the autoload in tests
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	test_phase_manager.transition_to_phase(GameStateData.Phase.MOVEMENT)
@@ -119,7 +119,7 @@ func test_get_next_phase():
 
 func test_advance_to_next_phase():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# This method relies on get_current_phase which needs GameState
@@ -128,7 +128,7 @@ func test_advance_to_next_phase():
 # Test signal handling
 func test_on_phase_completed():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# Test the signal handler method exists and is callable
@@ -140,7 +140,7 @@ func test_on_phase_completed():
 
 func test_on_phase_action_taken():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment") 
+		pending("GameState autoload not available in test environment") 
 		return
 	
 	var test_action = {"type": "test", "unit_id": "test_unit"}
@@ -152,7 +152,7 @@ func test_on_phase_action_taken():
 # Test state management utilities
 func test_get_game_state_snapshot():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	var snapshot = test_phase_manager.get_game_state_snapshot()
@@ -161,7 +161,7 @@ func test_get_game_state_snapshot():
 
 func test_apply_state_changes():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	var changes = [
@@ -175,7 +175,7 @@ func test_apply_state_changes():
 # Test individual state change operations
 func test_apply_single_change_set():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	var change = {"op": "set", "path": "meta.turn_number", "value": 10}
@@ -192,7 +192,7 @@ func test_apply_single_change_unknown_op():
 # Test path parsing for state changes
 func test_set_state_value_simple_path():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# Test that method exists
@@ -200,7 +200,7 @@ func test_set_state_value_simple_path():
 
 func test_add_to_state_array():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# Test that method exists
@@ -208,7 +208,7 @@ func test_add_to_state_array():
 
 func test_remove_from_state_array():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# Test that method exists
@@ -257,7 +257,7 @@ func test_ready_initialization():
 # Integration-style tests (limited without full scene setup)
 func test_phase_instance_lifecycle():
 	if not Engine.has_singleton("GameState"):
-		skip_test("GameState autoload not available in test environment")
+		pending("GameState autoload not available in test environment")
 		return
 	
 	# Test the basic lifecycle: transition should create instance

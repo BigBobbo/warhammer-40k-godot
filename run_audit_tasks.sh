@@ -18,6 +18,7 @@
 #   --tier N             Only run tasks from tier N (1-6)
 #   --max-tasks N        Stop after processing N tasks
 #   --skip ID[,ID,...]   Skip specific task IDs (comma-separated)
+#   --skip-failed        Skip tasks that previously failed (from state file)
 #   --resume             Resume from last incomplete task in state file
 #   --list               List all open tasks and exit
 #   --no-merge           Skip merging to main (leave on feature branch)
@@ -44,6 +45,7 @@ START_FROM=""
 TIER_FILTER=""
 MAX_TASKS=0
 SKIP_IDS=""
+SKIP_FAILED=false
 RESUME=false
 LIST_ONLY=false
 NO_MERGE=false
@@ -100,6 +102,7 @@ parse_args() {
             --tier)         TIER_FILTER="$2"; shift ;;
             --max-tasks)    MAX_TASKS="$2"; shift ;;
             --skip)         SKIP_IDS="$2"; shift ;;
+            --skip-failed)  SKIP_FAILED=true ;;
             --resume)       RESUME=true ;;
             --list)         LIST_ONLY=true ;;
             --no-merge)     NO_MERGE=true ;;
@@ -140,6 +143,29 @@ was_task_completed() {
         return 1
     fi
     grep -q "^${task_id}|success|" "$STATE_FILE" 2>/dev/null
+}
+
+# Returns comma-separated list of task IDs that have failed/merge_failed but no success
+get_failed_task_ids() {
+    if [[ ! -f "$STATE_FILE" ]]; then
+        echo ""
+        return
+    fi
+    # Get all task IDs that failed or merge_failed
+    local failed_ids
+    failed_ids=$(grep -E '\|(failed|merge_failed)\|' "$STATE_FILE" 2>/dev/null | cut -d'|' -f1 | sort -u)
+    # Exclude any that also have a success entry
+    local result=""
+    for tid in $failed_ids; do
+        if ! grep -q "^${tid}|success|" "$STATE_FILE" 2>/dev/null; then
+            if [[ -n "$result" ]]; then
+                result="${result},${tid}"
+            else
+                result="$tid"
+            fi
+        fi
+    done
+    echo "$result"
 }
 
 # ─── Task Parsing ────────────────────────────────────────────────────────────
@@ -360,9 +386,12 @@ run_claude() {
     ) &
     local claude_pid=$!
 
-    # Poll until completion or timeout
+    # Poll until completion or timeout, printing progress updates
     local elapsed=0
     local poll_interval=5
+    local status_interval=30  # print status every 30s
+    local last_status=0
+    local last_log_size=0
     while kill -0 "$claude_pid" 2>/dev/null; do
         if [[ "$elapsed" -ge "$TASK_TIMEOUT" ]]; then
             log_err "TIMEOUT: Claude session exceeded ${TASK_TIMEOUT}s — killing process tree"
@@ -374,6 +403,45 @@ run_claude() {
             rm -f "$prompt_file"
             return 1
         fi
+
+        # Print progress update every status_interval seconds
+        if [[ $((elapsed - last_status)) -ge "$status_interval" && "$elapsed" -gt 0 ]]; then
+            local mins=$((elapsed / 60))
+            local secs=$((elapsed % 60))
+            local remaining=$(( (TASK_TIMEOUT - elapsed) / 60 ))
+            local cur_log_size=0
+            if [[ -f "$log_file" ]]; then
+                cur_log_size=$(wc -c < "$log_file" 2>/dev/null | tr -d ' ')
+            fi
+
+            # Count child processes (godot tests, etc.)
+            local child_count
+            child_count=$(pgrep -P "$claude_pid" 2>/dev/null | wc -l | tr -d ' ')
+
+            # Build status line
+            local activity=""
+            if [[ "$cur_log_size" -gt "$last_log_size" ]]; then
+                activity="output growing"
+            elif [[ "$child_count" -gt 0 ]]; then
+                # Check if any godot tests are running
+                local godot_test
+                godot_test=$(pgrep -lf "godot.*--headless" 2>/dev/null | grep -oE 'test_[a-z_]+' | tail -1 || true)
+                if [[ -n "$godot_test" ]]; then
+                    activity="running ${godot_test}"
+                else
+                    activity="${child_count} subprocess(es) active"
+                fi
+            else
+                activity="waiting for output"
+            fi
+
+            printf "  ${CYAN}⏳ [%dm%02ds elapsed, %dm remaining] %s${NC}\n" \
+                "$mins" "$secs" "$remaining" "$activity"
+
+            last_log_size="$cur_log_size"
+            last_status="$elapsed"
+        fi
+
         sleep "$poll_interval"
         elapsed=$((elapsed + poll_interval))
     done
@@ -527,6 +595,22 @@ main() {
     local tasks_filtered=""
     local found_start=false
     [[ -z "$START_FROM" ]] && found_start=true
+
+    # If --skip-failed, merge failed task IDs into SKIP_IDS
+    if [[ "$SKIP_FAILED" == true ]]; then
+        local failed_ids
+        failed_ids=$(get_failed_task_ids)
+        if [[ -n "$failed_ids" ]]; then
+            if [[ -n "$SKIP_IDS" ]]; then
+                SKIP_IDS="${SKIP_IDS},${failed_ids}"
+            else
+                SKIP_IDS="$failed_ids"
+            fi
+            log "Skipping previously failed tasks: ${failed_ids}"
+        else
+            log "No previously failed tasks to skip"
+        fi
+    fi
 
     # If --resume, find where we left off
     if [[ "$RESUME" == true ]]; then

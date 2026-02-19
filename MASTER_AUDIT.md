@@ -63,6 +63,41 @@ These items were previously open in the audit files and have now been verified a
 | T1-7: Base-to-base contact enforcement in charge — B2B validation with tolerance | Charge | CHARGE_PHASE_AUDIT.md §2.4 |
 | T1-6: Base-to-base contact enforcement in pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.3 |
 | T2-1: Stealth ability — -1 to hit for ranged attacks | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-2: Lone Operative — 12" targeting restriction | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-3: Hazardous weapon keyword — mortal wounds on roll of 1 | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-4: Indirect Fire weapon keyword — LoS skip, -1 to hit, 1-3 auto-fail, cover | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T2-6: Consolidation into new enemies triggers new fights | Fight | FIGHT_PHASE_AUDIT.md §2.4 |
+| T2-8: Terrain interaction during charges — vertical distance penalty + FLY diagonal | Charge | CHARGE_PHASE_AUDIT.md §2.6 |
+| T2-10: Cover determination supports all terrain types (ruins, woods, craters, obstacles, barricades) | Shooting | SHOOTING_PHASE_AUDIT.md §2.9 |
+| T2-11: Devastating Wounds — mortal wound spillover verified and melee path fixed | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.10 |
+| T2-12: active_moves dictionary synced via GameState flags for multiplayer | Movement | MOVEMENT_PHASE_AUDIT.md §3.1 |
+| T2-15: [MH-RULE-10] FNP toggle integration with simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T2-16: [MH-RULE-12] No melee combat support in Mathhammer | Mathhammer/Fight | MASTER_AUDIT.md §MATHHAMMER |
+| T3-1: Fights Last subphase not processed | Fight | FIGHT_PHASE_AUDIT.md §2.6 |
+| T3-2: Fights First + Fights Last cancellation | Fight | FIGHT_PHASE_AUDIT.md §2.7 |
+| T3-5: Scout moves — pre-game Scout phase with validation | Pre-game | DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8 |
+| T3-8: Charge move direction constraint — each model must end closer to a target | Charge | CHARGE_PHASE_AUDIT.md §2.9 |
+| T3-9: Barricade engagement range (2" instead of 1") | Charge/Fight | CHARGE_PHASE_AUDIT.md §2.8 |
+| T3-10: Faction abilities (Oath of Moment, etc.) | Command | AUDIT_COMMAND_PHASE.md §2.4 |
+| T2-5: Pistol mutual exclusivity — cannot fire both Pistol and non-Pistol weapons | Shooting | SHOOTING_PHASE_AUDIT.md §2.11 |
+| T2-7: Heroic Intervention — 2CP stratagem for counter-charging during opponent's charge phase | Fight/Charge | FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2 |
+| T2-9: AIRCRAFT restriction — not checked in charge | Charge | CHARGE_PHASE_AUDIT.md §2.7 |
+| T2-13: [MH-BUG-3] Anti-keyword modifier uses wrong mechanic — critical wound threshold override | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T2-14: [MH-RULE-9] Invulnerable save toggle/override for Mathhammer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-3: Extra Attacks weapon ability — auto-include in assignments | Fight/Shooting | FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4 |
+| T3-4: Precision weapon keyword — allocate wounds to Characters | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 3 |
+| T3-6: Pre-battle formations declaration | Deployment | DEPLOYMENT_AUDIT.md §1 |
+| T3-7: Determine first turn roll-off — RollOffPhase with D6 roll, tie re-rolls, winner choice | Post-deployment | DEPLOYMENT_AUDIT.md §6 |
+| T3-11: Overwatch integration into charge/movement phases — reaction windows + shooting resolution | Charge/Movement | CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10 |
+| T3-12: Multiplayer race condition in fight dialog sequencing — atomic batch action | Fight | FIGHT_PHASE_AUDIT.md §3.3 |
+| T3-18: FLY units ignore terrain elevation during movement | Movement | MOVEMENT_PHASE_AUDIT.md §2.3 |
+| T3-19: Terrain height handling in LoS — medium/low terrain height-aware blocking | Shooting (LoS) | MASTER_AUDIT.md §Tier 3 |
+| T3-20: Rapid Fire toggle adds +X instead of doubling | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-21: Torrent weapons (auto-hit) toggle in Mathhammer simulation | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-22: Blast attack bonus auto-calculated from defender model count | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-23: Full re-roll support for hits and wounds (re-roll 1s, re-roll all failed) | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-25: Simulation runs on background thread to avoid freezing UI | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T3-26: Styled panel background is empty (visual bug) — content_vbox kept inside PanelContainer | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -89,9 +124,9 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 |----|----------|-------|-----------|
 | MH-BUG-1 | ~~**CRITICAL**~~ **DONE** | ~~`_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed.~~ Fixed: computes wound deltas from diffs with double-count prevention. | `Mathhammer.gd:239-254` |
 | MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
-| MH-BUG-3 | **HIGH** | Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold. | `MathhhammerRuleModifiers.gd:77-83,296-299` |
+| MH-BUG-3 | ~~**HIGH**~~ **DONE** | ~~Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold.~~ Fixed: Anti-keyword rules now include threshold parameter, inject text into weapon special_rules so RulesEngine's existing critical wound threshold logic picks it up. UI toggles added. | `MathhhammerRuleModifiers.gd`, `Mathhammer.gd`, `MathhhammerUI.gd` |
 | MH-BUG-4 | **MEDIUM** | Rapid Fire toggle doubles all attacks (`attacks * 2`) but 10e Rapid Fire X adds only +X attacks, not double. Rapid Fire 1 on a 2-attack weapon = 3 attacks, not 4. | `Mathhammer.gd:188-189` |
-| MH-BUG-5 | **MEDIUM** | `create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background. | `MathhhammerUI.gd:953-958` |
+| MH-BUG-5 | ~~**MEDIUM**~~ **DONE** | ~~`create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background.~~ Fixed: function now returns `panel_container` with full node tree intact; callers use `get_meta("content_vbox")` to add content inside the styled background. | `MathhhammerUI.gd:1162-1202` |
 | MH-BUG-6 | **LOW** | Class name typo — triple 'h': `MathhhammerUI`, `MathhhammerResults`, `MathhhammerRuleModifiers`. Inconsistent with `Mathhammer.gd` (double 'h'). | All Mathhammer files |
 
 ### Missing Rules / Modifiers (not in simulation toggle system)
@@ -107,7 +142,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-RULE-7 | Half Damage | Halve incoming damage (round up) | LOW |
 | MH-RULE-8 | Stealth | Always has Benefit of Cover | LOW — see T2-1 |
 | MH-RULE-9 | Invulnerable Save toggle | UI needs invuln save override input for defender | HIGH |
-| MH-RULE-10 | FNP toggle integration | FNP exists in RulesEngine but Mathhammer toggles don't pass threshold to RulesEngine board state | HIGH |
+| MH-RULE-10 | ~~FNP toggle integration~~ **DONE** | ~~FNP exists in RulesEngine but Mathhammer toggles don't pass threshold to RulesEngine board state~~ Fixed: FNP toggles added to UI and propagated to trial board state | ~~HIGH~~ |
 | MH-RULE-11 | Blast | +1 attack per 5 defender models — Mathhammer UI doesn't auto-calculate from defender model count | MEDIUM |
 | MH-RULE-12 | Melee support | Mathhammer only supports shooting phase; no WS input, no Lance/charge conditions | HIGH |
 | MH-RULE-13 | Re-roll wound rolls (generic) | Only re-roll hit 1s exists; no re-roll wounds, re-roll all failed hits/wounds | MEDIUM |
@@ -242,110 +277,125 @@ These affect gameplay balance and tactical options significantly.
 - **Files:** `RulesEngine.gd` — hit modifier section in `_resolve_assignment_until_wounds()` (~lines 591-601)
 - **Resolution:** Added `has_stealth_ability()` static function to detect Stealth in unit abilities (string or dict format, case-insensitive). Updated both `_resolve_assignment_until_wounds()` and `_resolve_assignment()` hit modifier sections to apply -1 to hit when target has Stealth ability (in addition to existing Smokescreen stratagem check). Stealth correctly only applies to ranged attacks, not melee.
 
-### T2-2. Lone Operative — 12" targeting restriction
+### T2-2. Lone Operative — 12" targeting restriction — **DONE**
 - **Phase:** Shooting
 - **Rule:** Lone Operative units can only be targeted from within 12" unless attached
 - **Impact:** Key survivability rule for standalone characters
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd` — `get_eligible_targets()`, `validate_shoot()`
+- **Resolution:** Added `has_lone_operative()` static function to detect the Lone Operative ability (string or dict format, case-insensitive). Updated `get_eligible_targets()` to skip Lone Operative targets beyond 12" (unless the unit has attached characters, meaning it's leading a squad). Updated `validate_shoot()` with matching validation error. Distance check uses existing `_get_min_distance_to_target_rules()` for shape-aware edge-to-edge measurement.
 
-### T2-3. Hazardous weapon keyword — mortal wounds on roll of 1
+### T2-3. Hazardous weapon keyword — mortal wounds on roll of 1 — **DONE**
 - **Phase:** Shooting
 - **Rule:** After attacking, roll D6 per Hazardous weapon; on 1, bearer takes 3 MW
 - **Impact:** Affects all plasma weapons (common across many armies)
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd`, `ShootingPhase.gd` — post-attack resolution
+- **Resolution:** Added `is_hazardous_weapon()` to detect HAZARDOUS keyword from both `keywords` array and `special_rules` string (case-insensitive). Added `resolve_hazardous_check()` which rolls D6 per model that fired; on 1, CHARACTER/VEHICLE/MONSTER takes 3 mortal wounds via `apply_mortal_wounds()`, other models are slain. Integrated into `resolve_shoot()` (auto-resolve), `resolve_shoot_until_wounds()` (interactive path with deferred post-save resolution), and `resolve_melee_attacks()` (fight phase). ShootingPhase.gd handles hazardous checks in all code paths: miss path, AI path, interactive post-save path, and sequential weapon resolution. Test weapons (`hazardous_plasma`, `hazardous_rapid_fire`) and comprehensive unit tests added.
 
-### T2-4. Indirect Fire weapon keyword
+### T2-4. Indirect Fire weapon keyword — **DONE**
 - **Phase:** Shooting
 - **Rule:** Can shoot without LoS; -1 to hit, unmodified 1-3 always fail, target gains cover
 - **Impact:** Key for artillery units
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 2
 - **Files:** `RulesEngine.gd` — `validate_shoot()`, `get_eligible_targets()`, hit roll logic, cover
+- **Resolution:** Added `has_indirect_fire()` checker function. Modified `_check_target_visibility()` to skip LoS check (range-only) for Indirect Fire weapons. Applied -1 hit modifier and unmodified 1-3 auto-fail in both `_resolve_assignment_until_wounds()` and `_resolve_assignment()`. Granted automatic Benefit of Cover in both auto-resolve and interactive (`prepare_save_resolution`) save paths. Ignores Cover correctly overrides Indirect Fire cover. Added indirect_mortar and indirect_basic test weapon profiles and 17 unit tests.
 
-### T2-5. Pistol mutual exclusivity
+### T2-5. Pistol mutual exclusivity — **DONE**
 - **Phase:** Shooting
 - **Rule:** Cannot fire both Pistol and non-Pistol weapons on same model
 - **Impact:** Rules violation allowing extra firepower
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.11
 - **Files:** `ShootingPhase.gd` — `_validate_assign_target()` (~lines 180-211)
+- **Resolution:** Added pistol mutual exclusivity validation in both `RulesEngine.validate_shoot()` (cross-assignment check after individual validation) and `ShootingPhase._validate_assign_target()` (early check against pending assignments). Per 10e rules, a unit must choose to fire either its Pistol weapons or its non-Pistol weapons — never both. MONSTER and VEHICLE units are exempt. Added 6 unit tests covering: rejection of mixed assignments, pistol-only allowed, non-pistol-only allowed, MONSTER/VEHICLE exemption, and multiple-pistols allowed.
 
-### T2-6. Consolidation into new enemies doesn't trigger new fights
+### T2-6. Consolidation into new enemies doesn't trigger new fights — **DONE**
 - **Phase:** Fight
 - **Rule:** After consolidation, newly eligible enemy units can fight back
 - **Impact:** Removes major tactical risk of aggressive consolidation
 - **Source:** FIGHT_PHASE_AUDIT.md §2.4
 - **Files:** `FightPhase.gd` — `_process_consolidate()`, fight sequence rebuild
+- **Resolution:** Added `_scan_newly_eligible_units_after_consolidation()` which runs after every consolidation move. Uses post-consolidation positions (via temporary override) to check all units not already in a fight sequence. Newly eligible units are added to `normal_sequence` (Remaining Combats). Added `_units_in_engagement_range_with_override()` helper for checking engagement with updated positions before game state snapshot refresh. 14 test cases (26 assertions) cover: new enemies added, no false positives, already-in-sequence/already-fought/dead exclusion, multi-enemy, correct player assignment, both player directions, and edge cases.
 
-### T2-7. Heroic Intervention — not implemented
+### T2-7. Heroic Intervention — not implemented — **DONE**
 - **Phase:** Fight/Charge
 - **Rule:** 2CP stratagem allowing CHARACTER within 6" to counter-charge
 - **Impact:** Key defensive option missing for non-active player
 - **Source:** FIGHT_PHASE_AUDIT.md §2.5, CHARGE_PHASE_AUDIT.md §2.2
 - **Files:** `FightPhase.gd:1020-1023` (stub), StratagemManager integration
+- **Resolution:** Full Heroic Intervention implementation verified across all layers: StratagemManager (2CP definition, eligibility validation within 6", VEHICLE/WALKER/battle-shocked checks), ChargePhase (trigger after successful charge, USE/DECLINE/CHARGE_ROLL/APPLY_MOVE action processing, auto 2D6 roll, heroic_intervention flag), FightPhase (HI units excluded from Fights First), HeroicInterventionDialog (UI), ChargeController (signal/dialog integration), GameManager (action routing), and NetworkManager (multiplayer signal re-emission for HI actions added). 37 tests pass.
 
-### T2-8. Terrain interaction during charges — not implemented
+### T2-8. Terrain interaction during charges — **DONE**
 - **Phase:** Charge
 - **Rule:** Charging over terrain >2" costs vertical distance against charge roll; FLY allows diagonal
 - **Impact:** Charges through terrain have no distance penalty
 - **Source:** CHARGE_PHASE_AUDIT.md §2.6
-- **Files:** `ChargePhase.gd`, `ChargeController.gd`
+- **Files:** `ChargePhase.gd`, `ChargeController.gd`, `TerrainManager.gd`, `RulesEngine.gd`
+- **Resolution:** Added terrain vertical distance penalty system. TerrainManager now provides `calculate_charge_terrain_penalty()` which checks path segments against terrain features. Terrain >2" adds climb up + climb down distance for non-FLY units, and diagonal measurement for FLY units. Integrated into ChargePhase path validation, ChargeController drag validation, and RulesEngine charge path validation. 14 unit tests verify all scenarios.
 
-### T2-9. AIRCRAFT restriction — not checked in charge
+### T2-9. AIRCRAFT restriction — not checked in charge — **DONE**
 - **Phase:** Charge
 - **Rule:** AIRCRAFT cannot charge; only FLY units can charge AIRCRAFT
 - **Impact:** Invalid charges allowed
 - **Source:** CHARGE_PHASE_AUDIT.md §2.7
-- **Files:** `ChargePhase.gd` — `_can_unit_charge()`, `_validate_declare_charge()`
+- **Files:** `ChargePhase.gd` — `_can_unit_charge()`, `_validate_declare_charge()`, `_get_eligible_targets_for_unit()`; `RulesEngine.gd` — `eligible_to_charge()`, `charge_targets_within_12()`
+- **Resolution:** Added AIRCRAFT keyword check to `_can_unit_charge()` in ChargePhase.gd (blocking AIRCRAFT units from charging). Added FLY-only restriction for charging AIRCRAFT targets in `_validate_declare_charge()`, `_get_eligible_targets_for_unit()` (ChargePhase.gd), and `charge_targets_within_12()` (RulesEngine.gd). RulesEngine `eligible_to_charge()` already had the AIRCRAFT-cannot-charge check. 7 unit tests verify all scenarios.
 
-### T2-10. Cover determination limited to ruins only
+### T2-10. Cover determination limited to ruins only — **DONE**
 - **Phase:** Shooting
 - **Rule:** Cover can be granted by ruins, area terrain, obstacles, woods, craters, barricades
 - **Impact:** Non-ruins terrain gives no cover
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.9
 - **Files:** `RulesEngine.gd` — `check_benefit_of_cover()` (~lines 1440-1461)
+- **Resolution:** Extended `check_benefit_of_cover()` to support all cover-granting terrain types per 10e rules. Ruins/obstacles/barricades grant cover when target is within OR behind terrain. Area terrain (woods, craters, forest) grants cover only when target is within. Updated `TerrainManager._add_terrain_piece()` and JSON loader to support arbitrary terrain types. 19 new tests in `test_cover_terrain_types.gd`.
 
-### T2-11. Devastating Wounds — mortal wound spillover needs verification
+### T2-11. Devastating Wounds — mortal wound spillover needs verification — **DONE**
 - **Phase:** Shooting/Fight
 - **Rule:** Devastating Wounds create mortal wounds that spill over and are allocated after normal attacks
 - **Impact:** Edge cases around spillover and FNP interaction
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.10
 - **Files:** `RulesEngine.gd` — devastating wound handling (~lines 3776-3790)
+- **Resolution:** Restructured melee damage application to properly separate devastating wound damage (mortal wounds with spillover via `_apply_damage_to_unit_pool`) from regular failed-save damage (per-wound, no spillover via new `_apply_damage_per_wound_no_spillover`). FNP now rolled separately for each damage category. Added helper functions `_distribute_fnp_across_wounds` and `_trim_wound_damages_to_total`. Ranged path already correct. 23 tests in `test_devastating_wounds.gd` including spillover verification.
 
-### T2-12. active_moves dictionary not synced in multiplayer
+### T2-12. active_moves dictionary not synced in multiplayer — **DONE**
 - **Phase:** Movement
 - **Rule:** Movement state must be consistent between host and client
 - **Impact:** Potential silent desync leading to illegal moves or stuck state
 - **Source:** MOVEMENT_PHASE_AUDIT.md §3.1
 - **Files:** `MovementPhase.gd:20`, `NetworkManager`
+- **Resolution:** Added synced `flags.movement_active` GameState flag that mirrors the local `active_moves` lifecycle. Flag set on BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, BEGIN_FALL_BACK; cleared on CONFIRM_UNIT_MOVE and RESET_UNIT_MOVE. Updated `get_available_actions()` and `_validate_end_movement()` to check GameState flags (not local `active_moves.completed`). END_MOVEMENT now cleans up stale flags. Added `_check_active_moves_sync()` debug consistency checker. 33 tests in `test_active_moves_sync.gd`.
 
-### T2-13. [MH-BUG-3] Anti-keyword modifier uses wrong mechanic
+### T2-13. [MH-BUG-3] Anti-keyword modifier uses wrong mechanic — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Anti-[KEYWORD] X+ lowers the critical wound threshold (e.g., Anti-Vehicle 4+ = crits on wound rolls of 4+). It is NOT a wound re-roll.
 - **Impact:** Simulation doesn't correctly model Anti-keyword; one of the most impactful offensive abilities in 10e
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd:77-83,296-299` — needs threshold parameter and crit wound threshold override
+- **Resolution:** Rewrote Anti-keyword rule definitions with threshold parameter (e.g., Anti-Infantry 4+, Anti-Vehicle 4+, Anti-Monster 4+). Changed `_apply_anti_keyword()` from setting `anti_keywords` (re-roll mechanic) to storing anti-keyword entries with keyword+threshold. Mathhammer now injects anti-keyword text (e.g., "Anti-Infantry 4+") into weapon `special_rules` in the trial board state, so RulesEngine's existing `get_anti_keyword_data()` / `get_critical_wound_threshold()` correctly lowers the critical wound threshold. Added UI toggles in MathhhammerUI.gd.
 
-### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override
+### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Defender invulnerable save is a core defensive stat that determines whether AP is relevant
 - **Impact:** Cannot model matchups involving invulnerable saves — a fundamental part of 40k combat math
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd` — needs defender stat override panel; `Mathhammer.gd` — needs to pass invuln to trial board state
+- **Resolution:** Added invulnerable save 2+/3+/4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` with `_get_invuln_from_toggles()` to apply the selected invuln value to each defender model's `invuln` property, which RulesEngine already reads via `model.get("invuln", 0)` during save resolution. Only overrides if the toggle value is better (lower) than any existing model invuln.
 
-### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation
+### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Feel No Pain is a per-wound save that dramatically reduces effective damage
 - **Impact:** FNP exists in RulesEngine but the Mathhammer toggle values are not propagated to the trial board state's unit stats
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd:109-121`, `Mathhammer.gd:204-229` — `_create_trial_board_state()` needs to apply FNP from toggles
+- **Resolution:** Added FNP 4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` to accept `rule_toggles` and apply FNP threshold to the defender unit's `meta.stats.fnp`, which RulesEngine already reads via `get_unit_fnp()` during damage resolution.
 
-### T2-16. [MH-RULE-12] No melee combat support in Mathhammer
+### T2-16. [MH-RULE-12] No melee combat support in Mathhammer — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Melee uses the same attack sequence as shooting (WS instead of BS) with additional modifiers (Lance, charged condition)
 - **Impact:** All community mathhammer tools support melee. Missing melee means Fight phase has no statistical preview.
 - **Source:** MATHHAMMER_AUDIT, code TODO at `FightPhase.gd:947`
 - **Files:** `Mathhammer.gd` — hardcoded to "shooting" phase; `MathhhammerUI.gd` — needs shooting/melee toggle
+- **Resolution:** Added melee combat support to Mathhammer simulation engine. `Mathhammer.gd` now branches on phase parameter to call `resolve_melee_attacks()` for fight/melee phase with proper engagement range positioning. `MathhhammerUI.gd` gains a Shooting/Melee phase selector that filters weapons by type and shows phase-specific rule toggles (Lance/Charged). `FightPhase.gd` placeholder replaced with full Mathhammer simulation providing per-target damage predictions.
 
 ---
 
@@ -353,89 +403,101 @@ These affect gameplay balance and tactical options significantly.
 
 These are real rules gaps but affect niche situations or have workarounds.
 
-### T3-1. Fights Last subphase not processed
+### T3-1. Fights Last subphase not processed — **DONE**
 - **Phase:** Fight
 - **Rule:** Units with Fights Last fight after Remaining Combats
 - **Impact:** Fights Last units placed in sequence but never activated
 - **Source:** FIGHT_PHASE_AUDIT.md §2.6
 - **Files:** `FightPhase.gd` — Subphase enum (add FIGHTS_LAST), `_transition_subphase()`
+- **Resolution:** Added `FIGHTS_LAST` to the `Subphase` enum. Updated `_transition_subphase()` to progress FIGHTS_FIRST → REMAINING_COMBATS → FIGHTS_LAST → COMPLETE. Updated `_get_eligible_units_for_selection()`, `advance_to_next_fighter()`, `get_eligible_fighters_for_player()`, and dialog data builders to handle the new subphase. Updated `FightSelectionDialog.gd` to display Fights Last units.
 
-### T3-2. Fights First + Fights Last cancellation
+### T3-2. Fights First + Fights Last cancellation — **DONE**
 - **Phase:** Fight
 - **Rule:** If both apply, unit fights in Remaining Combats (normal)
 - **Impact:** Incorrect fight order
 - **Source:** FIGHT_PHASE_AUDIT.md §2.7
 - **Files:** `FightPhase.gd` — `_get_fight_priority()` (~lines 1026-1041)
+- **Resolution:** Refactored `_get_fight_priority()` in both `FightPhase.gd` and `RulesEngine.gd` to collect Fights First and Fights Last conditions independently before returning a priority. When both apply, they cancel out and the unit returns NORMAL (Remaining Combats). Added debug logging for cancellation events.
 
-### T3-3. Extra Attacks weapon ability
+### T3-3. Extra Attacks weapon ability — **DONE**
 - **Phase:** Fight/Shooting
 - **Rule:** Extra Attacks weapons are used IN ADDITION to normal weapon, not as alternative
 - **Impact:** Players may miss using or misuse these weapons
 - **Source:** FIGHT_PHASE_AUDIT.md §2.8, SHOOTING_PHASE_AUDIT.md §Tier 4
 - **Files:** `AttackAssignmentDialog.gd`, `ShootingPhase.gd` — weapon assignment logic
+- **Resolution:** Added `has_extra_attacks()` and `weapon_data_has_extra_attacks()` detection functions to RulesEngine.gd. Updated AttackAssignmentDialog.gd to separate Extra Attacks weapons from regular weapons in the UI — they are shown as mandatory additions and auto-included in assignments when confirmed. Added `_auto_inject_extra_attacks_weapons()` safety net in FightPhase.gd for AI/auto-resolve paths. Added parallel `_auto_inject_extra_attacks_weapons_shooting()` in ShootingPhase.gd for ranged Extra Attacks weapons. Validation prevents using Extra Attacks weapons as the only weapon choice. Added 12 unit tests.
 
-### T3-4. Precision weapon keyword — allocate wounds to Characters
+### T3-4. Precision weapon keyword — allocate wounds to Characters — **DONE**
 - **Phase:** Shooting/Fight
 - **Rule:** Critical wounds from Precision weapons can be allocated to attached Characters
 - **Impact:** Important for character sniping
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 3
 - **Files:** `RulesEngine.gd` — wound allocation (~lines 3648-3718), `WoundAllocationOverlay.gd`
+- **Resolution:** Extended `prepare_save_resolution()` with precision_data parameter. Precision wounds (capped by critical_hits count) can now be allocated to CHARACTER models even when bodyguard is alive. Updated `WoundAllocationOverlay.gd` with precision-aware model selection, PRECISION_TARGET highlight type (orange), and precision wound tracking. Updated auto-resolve path in `ShootingPhase.gd` to allocate precision wounds to character models first. Added `test_precision_keyword.gd` with 8 unit tests.
 
-### T3-5. Scout moves — not implemented
+### T3-5. Scout moves — **DONE**
 - **Phase:** Pre-game (between Deployment and Turn 1)
 - **Rule:** Units with Scout X" can move X" after deployment, ending >9" from enemies
 - **Impact:** Many army builds depend on early positioning
 - **Source:** DEPLOYMENT_AUDIT.md §5, MOVEMENT_PHASE_AUDIT.md §2.8
 - **Files:** New pre-game phase needed
+- **Resolution:** Added SCOUT phase to Phase enum between DEPLOYMENT and COMMAND. Created ScoutPhase.gd with full movement validation (distance cap, >9" from enemies, board bounds, model overlap). Added unit_has_scout/get_scout_distance helpers to GameState.gd. Registered in PhaseManager with auto-skip when no Scout units. Added Scout 6" ability to Space Marines Infiltrator Squad. AI skips Scout moves. 27 dedicated tests pass.
 
-### T3-6. Pre-battle formations declaration
+### T3-6. Pre-battle formations declaration — **DONE**
 - **Phase:** Deployment
 - **Rule:** Before deployment, players secretly declare leader attachments, transport embarkations, and reserves
 - **Impact:** Seeing opponent deployment before declaring formations is a strategic advantage
 - **Source:** DEPLOYMENT_AUDIT.md §1
 - **Files:** New pre-deployment configuration screen
+- **Resolution:** Added FORMATIONS to Phase enum (before DEPLOYMENT). Created FormationsPhase.gd with full declaration/validation/confirmation flow for leader attachments, transport embarkations, and reserves. Added FormationsDeclarationDialog.gd UI with sections for each declaration type. Added GameState helpers (get_characters_for_player, get_transports_for_player, get_eligible_bodyguards_for_character, formations_declared, etc.). Integrated into PhaseManager, Main.gd, TurnManager, and GameManager phase flows. Phase auto-skips when no declarations possible. 28 dedicated tests pass.
 
-### T3-7. Determine first turn roll-off
+### T3-7. Determine first turn roll-off — **DONE**
 - **Phase:** Post-deployment
 - **Rule:** Players roll off; winner chooses first or second turn
 - **Impact:** Going first vs second is a major strategic decision
 - **Source:** DEPLOYMENT_AUDIT.md §6
 - **Files:** `TurnManager.gd` — currently hardcoded
+- **Resolution:** Added `ROLL_OFF` phase to the Phase enum (between SCOUT and COMMAND). Created `RollOffPhase.gd` implementing D6 roll-off with tie re-rolls and winner's choice of first/second turn. Phase flow is now SCOUT → ROLL_OFF → COMMAND. Roll-off results and first-turn-player stored in game state meta. Active player set based on winner's choice. Attacker/Defender labels in UI now dynamically computed from roll-off result. 77 tests pass including 20 new roll-off-specific tests.
 
-### T3-8. Charge move direction constraint
+### T3-8. Charge move direction constraint — **DONE**
 - **Phase:** Charge
 - **Rule:** Each model must end charge move closer to at least one charge target
 - **Impact:** Models can be placed suboptimally without enforcement
 - **Source:** CHARGE_PHASE_AUDIT.md §2.9
 - **Files:** `ChargeController.gd:1265-1286`, `ChargePhase.gd`
+- **Resolution:** Added `_validate_charge_direction_constraint()` in ChargePhase.gd (server-side), direction check in `_validate_charge_position()` in ChargeController.gd (client-side drag validation), and `_validate_charge_direction_constraint_rules()` in RulesEngine.gd (auto-resolve path). New `FAIL_DIRECTION` error category with player-facing tooltip. All three paths consistently enforce that each model must end its charge move closer (center-to-center) to at least one model in any declared target unit.
 
-### T3-9. Barricade engagement range (2" instead of 1")
+### T3-9. Barricade engagement range (2" instead of 1") — **DONE**
 - **Phase:** Charge/Fight
 - **Rule:** Engagement range through barricades is 2"
 - **Impact:** Charges across barricades are incorrectly strict
 - **Source:** CHARGE_PHASE_AUDIT.md §2.8
 - **Files:** No barricade terrain type exists
+- **Resolution:** Added barricade-aware engagement range system. TerrainManager now provides `is_barricade_between()` and `get_engagement_range_for_positions()` which return 2" when a barricade terrain feature lies between two model positions, 1" otherwise. Updated all engagement range checks across ChargePhase.gd (charge validation, roll sufficiency, pre-charge ER check), RulesEngine.gd (static charge validation, fight eligibility, shooting ER checks), FightPhase.gd (unit engagement range, consolidation), and MovementPhase.gd (engagement range at position). 12 new tests in `test_barricade_engagement_range.gd`.
 
-### T3-10. Faction abilities (Oath of Moment, etc.)
+### T3-10. Faction abilities (Oath of Moment, etc.) — **DONE**
 - **Phase:** Command
 - **Rule:** Many factions have Command Phase abilities (re-rolls, sticky objectives, etc.)
 - **Impact:** Faction identity missing
 - **Source:** AUDIT_COMMAND_PHASE.md §2.4
 - **Files:** New ability trigger system, army JSON data already has text descriptions
+- **Resolution:** Created `FactionAbilityManager.gd` autoload that detects faction abilities from army JSON data and manages Oath of Moment target selection. Added `SELECT_OATH_TARGET` action to CommandPhase with validation and processing. Integrated reroll-1s for both hit and wound rolls into all three RulesEngine resolution paths (interactive shooting, auto-resolve shooting, melee) when ADEPTUS ASTARTES units attack the oath target. Added UI section in CommandController for target selection with current-target display. Auto-selects first enemy unit if player forgets. Extensible design for future faction abilities. 32 unit tests in `test_faction_abilities.gd`.
 
-### T3-11. Overwatch integration into charge/movement phases
+### T3-11. Overwatch integration into charge/movement phases — **DONE**
 - **Phase:** Charge/Movement
 - **Rule:** Overwatch can be triggered during charge and movement phases by the defending player
 - **Impact:** Stratagem defined but reaction window not integrated into charge/movement flows
 - **Source:** CHARGE_PHASE_AUDIT.md §2.1, MOVEMENT_PHASE_AUDIT.md §2.10
 - **Files:** `ChargePhase.gd`, `MovementPhase.gd`, `StratagemManager.gd`
+- **Resolution:** Added `is_fire_overwatch_available()` and `get_fire_overwatch_eligible_units()` to StratagemManager with 24" range check, ranged weapon check, engagement range exclusion, and battle-shock exclusion. Integrated reaction windows into ChargePhase (after DECLARE_CHARGE, before charge roll) and MovementPhase (after CONFIRM_UNIT_MOVE). Both phases emit `fire_overwatch_opportunity` signal and support `USE_FIRE_OVERWATCH`/`DECLINE_FIRE_OVERWATCH` actions following the established Heroic Intervention pattern. Added overwatch flag to RulesEngine `_resolve_assignment` and `_resolve_assignment_until_wounds` that forces BS=7 so only unmodified 6s hit. CP deduction and once-per-turn restriction enforced via existing StratagemManager infrastructure.
 
-### T3-12. Multiplayer race condition in fight dialog sequencing
+### T3-12. Multiplayer race condition in fight dialog sequencing — **DONE**
 - **Phase:** Fight
 - **Rule:** Actions must arrive in order
 - **Impact:** Fixed 50ms delays between actions may be insufficient on slow connections
 - **Source:** FIGHT_PHASE_AUDIT.md §3.3
 - **Files:** `FightController.gd:1357-1392`
+- **Resolution:** Replaced sequential individual actions (ASSIGN_ATTACKS × N + CONFIRM + ROLL_DICE) with fixed timing delays with a single atomic BATCH_FIGHT_ACTIONS composite action processed by FightPhase. Eliminates race condition by sending one action over the network instead of multiple actions with 50ms/100ms delays.
 
 ### T3-13. Fight selection dialog sync for remote player
 - **Phase:** Fight
@@ -472,47 +534,53 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
 - **Files:** `RulesEngine.gd` — `_resolve_assignment()` vs `_resolve_assignment_until_wounds()`
 
-### T3-18. FLY units should ignore terrain elevation during movement
+### T3-18. FLY units should ignore terrain elevation during movement — **DONE**
 - **Phase:** Movement
 - **Rule:** FLY keyword allows ignoring vertical distance
 - **Impact:** FLY units taxed by terrain height incorrectly
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.3 (remaining work)
 - **Files:** `MovementPhase.gd`, `TerrainManager.gd`
+- **Resolution:** Added `calculate_movement_terrain_penalty()` to TerrainManager.gd — FLY units return 0 penalty (ignore terrain elevation entirely), non-FLY units pay height*2 for terrain >2". Added `_get_movement_terrain_penalty()` helper in MovementPhase.gd, integrated into all movement distance calculations: `_validate_set_model_dest`, `_validate_stage_model_move`, `_process_stage_model_move`, `_process_group_movement`, and `_validate_individual_move_internal`. Tests in `test_fly_movement_terrain.gd`.
 
-### T3-19. Terrain height handling in LoS — only "tall" terrain handled
+### T3-19. Terrain height handling in LoS — only "tall" terrain handled — **DONE**
 - **Phase:** Shooting (LoS)
 - **Rule:** Medium/low terrain should be handled based on model height
 - **Impact:** LoS calculations may be incorrect for non-tall terrain
 - **Source:** Code TODO in `LineOfSightCalculator.gd:79`
 - **Files:** `LineOfSightCalculator.gd`
+- **Resolution:** Implemented height-aware LoS blocking across all four LoS systems (LineOfSightCalculator, EnhancedLineOfSight, LineOfSightManager, RulesEngine legacy path). Low terrain (<2") never blocks LoS. Tall terrain (>5") always blocks LoS (Obscuring). Medium terrain (2-5") blocks LoS only when both shooter and target are shorter than the terrain — MONSTER/VEHICLE/TITANIC models (5"+) can see and be seen over medium terrain. Added `get_model_height_inches()` helper that detects height from model keywords. 31 unit tests in `test_terrain_height_los.gd`.
 
-### T3-20. [MH-BUG-4] Rapid Fire toggle doubles attacks instead of adding X
+### T3-20. [MH-BUG-4] Rapid Fire toggle doubles attacks instead of adding X — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Rapid Fire X adds +X attacks at half range (e.g., Rapid Fire 1 on 2A weapon = 3 attacks, not 4)
 - **Impact:** Overstates Rapid Fire weapon output by ~33% for RF1 weapons
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd:188-189` — `attacks_override` should add RF value, not multiply by 2
+- **Resolution:** Changed `attacks_override` from `base_attacks * 2` to `base_attacks + rf_value * model_count`, using `RulesEngine.get_rapid_fire_value()` to look up the weapon's actual RF X value. Fixed misleading "Double attacks" descriptions in MathhhammerUI and MathhhammerRuleModifiers.
 
-### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles
+### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Torrent weapons automatically hit — no hit roll made, no critical hits possible
 - **Impact:** Torrent is a common ability (flamers, etc.) that changes the math significantly
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerRuleModifiers.gd` — needs Torrent toggle that bypasses hit rolls
+- **Resolution:** Added Torrent toggle to MathhhammerRuleModifiers (rule definition + conflict with hit modifiers), MathhhammerUI (shooting-phase checkbox), and Mathhammer.gd (passes `torrent` flag through weapon assignment). Extended RulesEngine to accept `assignment.get("torrent", false)` override on all 3 combat paths (interactive shoot, auto-resolve shoot, melee). Also fixed missing `auto_hit` dice context tracking in trial stats extraction.
 
-### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count
+### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Blast weapons get +1 attack per 5 models in target unit; minimum 3 attacks vs 6+ model units
 - **Impact:** Mathhammer has defender unit data available but doesn't auto-adjust Blast weapon attacks
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd` — `_build_shoot_action()` should check Blast keyword and adjust
+- **Resolution:** Added Blast keyword auto-calculation to `_build_shoot_action()` in Mathhammer.gd. Uses existing `RulesEngine.is_blast_weapon()`, `calculate_blast_bonus()`, and `calculate_blast_minimum()` to adjust `attacks_override` based on defender model count in the trial board. Bonus stacks with Rapid Fire.
 
-### T3-23. [MH-RULE-13] No wound re-roll support (only hit re-roll 1s exists)
+### T3-23. [MH-RULE-13] No wound re-roll support (only hit re-roll 1s exists) — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Many abilities grant re-roll all failed wounds, re-roll wound rolls of 1, re-roll all failed hits
 - **Impact:** Re-rolls are one of the most impactful modifiers; only partial support exists
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `RulesEngine.gd` — only `REROLL_ONES` hit modifier exists (line 342); needs WoundModifier with re-rolls
+- **Resolution:** Added `HitModifier.REROLL_FAILED` (value 8) to the enum and updated `apply_hit_modifiers()` with a `hit_threshold` parameter. Wired up `reroll_failed` flag reading in all three combat paths (resolve_shoot, auto_resolve_shoot, resolve_melee_attacks). Refactored melee hit re-rolls to use the HitModifier system. Added 4 new Mathhammer UI toggles: Re-roll 1s to Hit, Re-roll All Failed Hits, Re-roll 1s to Wound, Re-roll All Failed Wounds. Both Mathhammer `_build_shoot_action` and `_build_melee_action` now pass hit/wound re-roll modifiers from rule toggles to RulesEngine assignments.
 
 ### T3-24. [MH-FEAT-6] No defender stats override panel
 - **Phase:** Mathhammer
@@ -521,19 +589,21 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd` — needs custom defender input fields alongside the unit dropdown
 
-### T3-25. [MH-FEAT-11] Simulation blocks main thread
+### T3-25. [MH-FEAT-11] Simulation blocks main thread — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** 10,000 Monte Carlo trials should run on a background thread to avoid freezing the UI
 - **Impact:** UI is unresponsive during simulation; at 100K trials this could freeze the browser tab
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd:673-689` — `_run_simulation_async()` is not actually async
+- **Resolution:** Refactored `_run_simulation_async()` to use Godot's `Thread` class. Simulation now runs on a background thread via `_simulation_thread_func()`, with UI updates deferred to the main thread via `call_deferred("_on_simulation_completed")`. Thread is properly joined on completion and cleaned up in `_exit_tree()`.
 
-### T3-26. [MH-BUG-5] Styled panel background is empty (visual bug)
+### T3-26. [MH-BUG-5] Styled panel background is empty (visual bug) — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** `create_styled_panel()` removes `content_vbox` from its parent PanelContainer before returning it
 - **Impact:** The colored background panels in results display are empty shells; content appears outside them
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhhammerUI.gd:953-958` — should not remove child from parent; return the panel_container and add children to the nested content_vbox
+- **Resolution:** Removed the code that detached `content_vbox` from `panel_bg`. Function now returns `panel_container` (with the full node tree intact) and stores `content_vbox` reference via `set_meta()`. All three callers updated to add children to the content area via `get_meta("content_vbox")`, so content renders inside the styled background.
 
 ---
 
@@ -739,9 +809,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | ~~`MoralePhase.gd`~~ | ~~339-343~~ | ~~Implement morale modifiers (keywords, characters, conditions)~~ | ~~T1-4~~ **DONE** |
 | ~~`MoralePhase.gd`~~ | ~~357-359~~ | ~~Add helper methods for morale mechanics~~ | ~~T1-4~~ **DONE** |
 | `FightPhase.gd` | 947 | Integrate full mathhammer simulation for melee | T5-UX14 |
-| `FightPhase.gd` | 1022-1023 | Heroic intervention not yet implemented | T2-7 |
-| `FightPhase.gd` | 1635-1637 | Add heroic intervention specific validation | T2-7 |
-| `LineOfSightCalculator.gd` | 79 | Handle medium/low terrain based on model height | T3-19 |
+| ~~`FightPhase.gd`~~ | ~~1022-1023~~ | ~~Heroic intervention not yet implemented~~ | ~~T2-7~~ **DONE** |
+| ~~`FightPhase.gd`~~ | ~~1635-1637~~ | ~~Add heroic intervention specific validation~~ | ~~T2-7~~ **DONE** |
+| ~~`LineOfSightCalculator.gd`~~ | ~~79~~ | ~~Handle medium/low terrain based on model height~~ | ~~T3-19~~ **DONE** |
 | `MathhhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
 | `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
@@ -753,7 +823,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
 | `Mathhammer.gd` | 232-240 | ~~`_extract_damage_from_result()` broken — counts kills as 1 damage~~ **DONE** | T1-9 |
 | `MathhhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
-| `MathhhammerRuleModifiers.gd` | 77-83 | Anti-keyword uses re-roll instead of crit threshold | T2-13 |
+| `MathhhammerRuleModifiers.gd` | 77-83 | ~~Anti-keyword uses re-roll instead of crit threshold~~ **DONE** | T2-13 |
 | `MathhhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
 | `Mathhammer.gd` | 188-189 | Rapid Fire doubles attacks instead of adding X | T3-20 |
 
@@ -764,14 +834,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Category | Done | Open | Total |
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
-| Tier 2 — High Rules | 1 | 15 | 16 |
-| Tier 3 — Medium Rules | 0 | 26 | 26 |
+| Tier 2 — High Rules | 15 | 1 | 16 |
+| Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 0 | 20 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **11** | **117** | **128** |
-| **Recently Completed** | **41** | — | **41** |
-| *Mathhammer items (subset)* | *2* | *29* | *31* |
+| **Total Open** | **41** | **87** | **128** |
+| **Recently Completed** | **68** | — | **68** |
+| *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---
 

@@ -49,7 +49,7 @@ func _on_phase_completed(completed_phase: GameStateData.Phase):
 # Test complete game turn cycle
 func test_complete_turn_cycle():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	var expected_phases = [
@@ -76,7 +76,7 @@ func test_complete_turn_cycle():
 
 func test_phase_transition_state_persistence():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Start in deployment
@@ -99,7 +99,7 @@ func test_phase_transition_state_persistence():
 
 func test_invalid_phase_transition():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Try to transition to invalid phase (implementation dependent)
@@ -113,7 +113,7 @@ func test_invalid_phase_transition():
 
 func test_phase_completion_triggers_next():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Start in deployment
@@ -132,27 +132,28 @@ func test_phase_completion_triggers_next():
 
 func test_phase_specific_actions_only_available_in_correct_phase():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
-	
+
+	# Define movement action at function scope
+	var movement_action = {
+		"type": "BEGIN_NORMAL_MOVE",
+		"actor_unit_id": "test_unit_1"
+	}
+
 	# Test movement actions only work in movement phase
 	phase_manager.transition_to_phase(GameStateData.Phase.MOVEMENT)
 	await get_tree().process_frame
-	
+
 	var movement_phase = phase_manager.get_current_phase_instance()
 	if movement_phase:
-		var movement_action = {
-			"type": "BEGIN_NORMAL_MOVE",
-			"actor_unit_id": "test_unit_1"
-		}
-		
 		var validation = movement_phase.validate_action(movement_action)
 		assert_not_null(validation, "Movement phase should validate movement actions")
-	
+
 	# Switch to shooting phase
 	phase_manager.transition_to_phase(GameStateData.Phase.SHOOTING)
 	await get_tree().process_frame
-	
+
 	var shooting_phase = phase_manager.get_current_phase_instance()
 	if shooting_phase:
 		# Movement action should be invalid in shooting phase
@@ -162,7 +163,7 @@ func test_phase_specific_actions_only_available_in_correct_phase():
 
 func test_phase_log_history():
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	# Add actions to phase log
@@ -185,7 +186,7 @@ func test_phase_log_history():
 
 func test_turn_advancement():
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	var initial_turn = game_state.get_turn_number()
@@ -213,7 +214,7 @@ func test_turn_advancement():
 
 func test_player_alternation():
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	var initial_player = game_state.get_active_player()
@@ -245,7 +246,7 @@ func test_player_alternation():
 
 func test_phase_state_cleanup():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Start in movement phase
@@ -267,7 +268,7 @@ func test_phase_state_cleanup():
 
 func test_phase_action_validation_integration():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Test that PhaseManager validates actions correctly
@@ -285,7 +286,7 @@ func test_phase_action_validation_integration():
 
 func test_signal_propagation():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	var phase_changed_received = false
@@ -313,7 +314,7 @@ func test_signal_propagation():
 
 func test_concurrent_action_handling():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Test handling multiple actions in same frame
@@ -338,7 +339,7 @@ func test_concurrent_action_handling():
 
 func test_error_recovery():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Test recovery from invalid state
@@ -357,7 +358,7 @@ func test_error_recovery():
 
 func test_memory_cleanup():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	var initial_child_count = get_child_count()
@@ -382,7 +383,7 @@ func test_memory_cleanup():
 
 func test_rapid_phase_transitions():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Test rapid transitions don't cause issues
@@ -404,7 +405,7 @@ func test_rapid_phase_transitions():
 
 func test_state_synchronization():
 	if not phase_manager or not game_state:
-		skip_test("PhaseManager or GameState not available")
+		pending("PhaseManager or GameState not available")
 		return
 	
 	# Test that PhaseManager and GameState stay synchronized
@@ -419,7 +420,7 @@ func test_state_synchronization():
 # Test edge cases
 func test_phase_transition_during_action():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Start action in one phase
@@ -438,7 +439,7 @@ func test_phase_transition_during_action():
 
 func test_null_phase_handling():
 	if not phase_manager:
-		skip_test("PhaseManager not available")
+		pending("PhaseManager not available")
 		return
 	
 	# Test handling of null/undefined phases

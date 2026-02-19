@@ -2,13 +2,14 @@ extends AcceptDialog
 
 # HeroicInterventionDialog - UI for Heroic Intervention stratagem during opponent's charge
 #
-# HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 1 CP)
+# HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 2 CP)
 # WHEN: Your opponent's Charge phase, just after an enemy unit ends a Charge move.
-# TARGET: One unit from your army that is within 6" of that enemy unit and that
-#         would be eligible to declare a charge (excluding VEHICLE units unless WALKER).
-# EFFECT: Your unit can declare a charge that targets only that enemy unit, then
-#         make a Charge move.
-# RESTRICTION: Once per phase. No charge bonus (+1 to hit).
+# TARGET: One unit from your army within 6" of that enemy unit and not within
+#         Engagement Range of any enemy units.
+# EFFECT: Your unit declares a charge targeting only that enemy unit, then makes
+#         a charge roll. It cannot be selected to fight in the Fights First step.
+# RESTRICTION: Cannot select a VEHICLE unit unless it has the WALKER keyword.
+#              Once per phase.
 #
 # Shows eligible units with "Use" buttons and a "Decline" button.
 
@@ -18,11 +19,15 @@ signal heroic_intervention_declined(player: int)
 var player: int = 0
 var charging_unit_id: String = ""  # The enemy unit that just charged
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String }
+var charging_unit_name: String = ""
 
 func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -> void:
 	player = p_player
 	charging_unit_id = p_charging_unit_id
 	eligible_units = p_eligible_units
+	# Derive the display name from the charging unit
+	var charging_unit = GameState.get_unit(charging_unit_id)
+	charging_unit_name = charging_unit.get("meta", {}).get("name", charging_unit_id)
 
 	title = "Heroic Intervention Available - Player %d" % player
 
@@ -33,7 +38,7 @@ func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(520, 320)
+	main_container.custom_minimum_size = Vector2(520, 350)
 
 	# Header
 	var header = Label.new()
@@ -56,7 +61,7 @@ func _build_ui() -> void:
 	# CP info
 	var cp_label = Label.new()
 	var current_cp = StratagemManager.get_player_cp(player)
-	cp_label.text = "Cost: 1 CP (You have %d CP)" % current_cp
+	cp_label.text = "Cost: 2 CP (You have %d CP)" % current_cp
 	cp_label.add_theme_font_size_override("font_size", 14)
 	cp_label.add_theme_color_override("font_color", Color.CYAN)
 	cp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -64,21 +69,27 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
-	# Charging unit info
-	var charging_unit = GameState.get_unit(charging_unit_id)
-	var charging_name = charging_unit.get("meta", {}).get("name", charging_unit_id)
+	# Charging unit info (red highlight from remote PR)
 	var target_label = Label.new()
-	target_label.text = "Enemy unit that charged: %s" % charging_name
+	target_label.text = "Enemy unit that charged: %s" % charging_unit_name
 	target_label.add_theme_font_size_override("font_size", 14)
 	target_label.add_theme_color_override("font_color", Color.RED)
 	target_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(target_label)
 
+	# Trigger description
+	var trigger_label = Label.new()
+	trigger_label.text = "%s has just completed a charge move. You may counter-charge with one of your eligible units." % charging_unit_name
+	trigger_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	trigger_label.add_theme_font_size_override("font_size", 13)
+	main_container.add_child(trigger_label)
+
 	# Effect description
 	var effect_label = Label.new()
-	effect_label.text = "Select one of your units to counter-charge the enemy. Your unit will roll 2D6 for charge distance and attempt to reach engagement range. Note: No charge bonus (+1 to hit) is granted."
+	effect_label.text = "Your unit will declare a charge targeting only that enemy unit and make a 2D6 charge roll. Note: The unit does NOT gain Fights First."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	effect_label.add_theme_font_size_override("font_size", 13)
+	effect_label.add_theme_font_size_override("font_size", 12)
+	effect_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	main_container.add_child(effect_label)
 
 	main_container.add_child(HSeparator.new())
@@ -104,7 +115,7 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		var use_button = Button.new()
-		use_button.text = "Counter-Charge (1 CP)"
+		use_button.text = "Counter-Charge (2 CP)"
 		use_button.custom_minimum_size = Vector2(170, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))
 		unit_container.add_child(use_button)

@@ -120,8 +120,8 @@ func test_dice_rolls_contain_proper_data():
 	
 	# Verify dice rolls are valid (1-6)
 	for roll in hit_result.rolls_raw:
-		assert_ge(roll, 1, "Dice roll should be at least 1")
-		assert_le(roll, 6, "Dice roll should be at most 6")
+		assert_gte(roll, 1, "Dice roll should be at least 1")
+		assert_lte(roll, 6, "Dice roll should be at most 6")
 	
 	# Verify successes calculation
 	var target_value = int(hit_result.threshold.replace("+", ""))

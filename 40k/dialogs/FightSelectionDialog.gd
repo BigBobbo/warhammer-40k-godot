@@ -53,6 +53,8 @@ func _build_ui() -> void:
 	# Show all units organized by subphase
 	_add_subphase_units(units_container, "FIGHTS_FIRST", dialog_data.fights_first_units)
 	_add_subphase_units(units_container, "REMAINING_COMBATS", dialog_data.remaining_units)
+	if dialog_data.has("fights_last_units"):
+		_add_subphase_units(units_container, "FIGHTS_LAST", dialog_data.fights_last_units)
 
 	scroll.add_child(units_container)
 	main_container.add_child(scroll)
@@ -63,7 +65,11 @@ func _build_ui() -> void:
 
 	# Check if other player has units remaining
 	var other_player_key = str(other_player)
-	var current_source = dialog_data.fights_first_units if dialog_data.current_subphase == "FIGHTS_FIRST" else dialog_data.remaining_units
+	var current_source = dialog_data.fights_first_units
+	if dialog_data.current_subphase == "REMAINING_COMBATS":
+		current_source = dialog_data.remaining_units
+	elif dialog_data.current_subphase == "FIGHTS_LAST" and dialog_data.has("fights_last_units"):
+		current_source = dialog_data.fights_last_units
 	var other_player_has_units = false
 	for unit_id in current_source.get(other_player_key, []):
 		if unit_id not in dialog_data.units_that_fought:

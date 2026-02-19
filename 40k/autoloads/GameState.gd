@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { DEPLOYMENT, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+enum Phase { FORMATIONS, DEPLOYMENT, SCOUT, ROLL_OFF, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
@@ -24,7 +24,7 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 			"turn_number": 1,
 			"battle_round": 1,  # Track battle rounds (1-5 in standard 40K)
 			"active_player": 1,  # Player 1 should start
-			"phase": Phase.DEPLOYMENT,
+			"phase": Phase.FORMATIONS,
 			"deployment_type": deployment_type,  # Track which deployment is in use
 			"created_at": Time.get_unix_time_from_system(),
 			"version": "1.0.0"
@@ -285,6 +285,101 @@ func get_deployment_zone_for_player(player: int) -> Dictionary:
 			return zone
 	return {}
 
+# Pre-Battle Formations Helpers
+func get_characters_for_player(player: int) -> Array:
+	"""Get all CHARACTER units with Leader ability for a player."""
+	var characters = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "CHARACTER" not in keywords:
+			continue
+		var leader_data = unit.get("meta", {}).get("leader_data", {})
+		var can_lead = leader_data.get("can_lead", [])
+		if can_lead.is_empty():
+			continue
+		characters.append(unit_id)
+	return characters
+
+func get_transports_for_player(player: int) -> Array:
+	"""Get all transport units for a player."""
+	var transports = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		if unit.has("transport_data"):
+			transports.append(unit_id)
+	return transports
+
+func get_eligible_bodyguards_for_character(character_id: String) -> Array:
+	"""Get all units a CHARACTER can lead based on keyword matching."""
+	var character = get_unit(character_id)
+	if character.is_empty():
+		return []
+	var leader_data = character.get("meta", {}).get("leader_data", {})
+	var can_lead = leader_data.get("can_lead", [])
+	if can_lead.is_empty():
+		return []
+	var char_owner = character.get("owner", 0)
+	var eligible = []
+	for unit_id in state["units"]:
+		if unit_id == character_id:
+			continue
+		var unit = state["units"][unit_id]
+		if unit.get("owner", 0) != char_owner:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		# Bodyguard must not be a CHARACTER
+		if "CHARACTER" in keywords:
+			continue
+		# Must have a matching keyword
+		var has_match = false
+		for lead_kw in can_lead:
+			if lead_kw in keywords:
+				has_match = true
+				break
+		if has_match:
+			eligible.append(unit_id)
+	return eligible
+
+func formations_declared() -> bool:
+	"""Check if formations have been declared (pre-battle step completed)."""
+	return state.get("meta", {}).get("formations_declared", false)
+
+func get_leader_attachments_for_player(player: int) -> Dictionary:
+	"""Get leader attachment declarations for a player from formations data."""
+	var formations = state.get("meta", {}).get("formations", {})
+	var player_data = formations.get(str(player), {})
+	return player_data.get("leader_attachments", {})
+
+func get_reserves_declarations_for_player(player: int) -> Array:
+	"""Get reserves declarations for a player from formations data."""
+	var formations = state.get("meta", {}).get("formations", {})
+	var player_data = formations.get(str(player), {})
+	return player_data.get("reserves", [])
+
+func is_unit_pre_declared_attached(unit_id: String) -> bool:
+	"""Check if a unit was declared as attached during formations phase."""
+	var formations = state.get("meta", {}).get("formations", {})
+	for player_key in formations:
+		var player_data = formations[player_key]
+		if player_data.get("leader_attachments", {}).has(unit_id):
+			return true
+	return false
+
+func is_unit_pre_declared_in_reserves(unit_id: String) -> bool:
+	"""Check if a unit was declared as in reserves during formations phase."""
+	var formations = state.get("meta", {}).get("formations", {})
+	for player_key in formations:
+		var player_data = formations[player_key]
+		for entry in player_data.get("reserves", []):
+			if entry.get("unit_id", "") == unit_id:
+				return true
+	return false
+
 # Character Attachment Helpers
 func is_character(unit_id: String) -> bool:
 	var unit = get_unit(unit_id)
@@ -332,6 +427,66 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 
 func unit_has_infiltrators(unit_id: String) -> bool:
 	return unit_has_ability(unit_id, "Infiltrators")
+
+func unit_has_scout(unit_id: String) -> bool:
+	"""Check if a unit has the Scout ability (any variant like 'Scout 6\"')"""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = ""
+		if ability is String:
+			name = ability
+		elif ability is Dictionary:
+			name = ability.get("name", "")
+		if name.to_lower().begins_with("scout"):
+			return true
+	return false
+
+func get_scout_distance(unit_id: String) -> float:
+	"""Get the Scout move distance in inches for a unit. Returns 0.0 if unit has no Scout ability."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return 0.0
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = ""
+		var value = 0
+		if ability is String:
+			name = ability
+		elif ability is Dictionary:
+			name = ability.get("name", "")
+			value = ability.get("value", 0)
+		if name.to_lower().begins_with("scout"):
+			# If value is explicitly set, use it
+			if value > 0:
+				return float(value)
+			# Try to parse distance from name, e.g. "Scout 6\"" or "Scout 6"
+			var regex = RegEx.new()
+			regex.compile("(?i)scout\\s+(\\d+)")
+			var result = regex.search(name)
+			if result:
+				return float(result.get_string(1))
+			# Default Scout distance is 6"
+			return 6.0
+	return 0.0
+
+func get_scout_units_for_player(player: int) -> Array:
+	"""Get all deployed units with the Scout ability for a given player."""
+	var scout_units = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		# Only deployed units can make Scout moves (not reserves, not embarked)
+		if unit.get("status", 0) != UnitStatus.DEPLOYED:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit_has_scout(unit_id):
+			scout_units.append(unit_id)
+	return scout_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:
 	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""
