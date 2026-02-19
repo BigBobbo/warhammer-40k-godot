@@ -1,7 +1,7 @@
 extends RefCounted
-class_name MathhhammerResults
+class_name MathhammerResults
 
-# MathhhammerResults - Advanced statistical analysis and results processing
+# MathhammerResults - Advanced statistical analysis and results processing
 # Provides comprehensive analysis of Mathhammer simulation results
 # Includes distribution analysis, confidence intervals, and efficiency metrics
 

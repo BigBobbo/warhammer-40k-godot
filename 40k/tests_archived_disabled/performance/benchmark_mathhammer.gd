@@ -325,7 +325,7 @@ func _benchmark_statistical_analysis() -> bool:
 	
 	# Time additional statistical analysis
 	start_time = Time.get_ticks_msec()
-	var analysis = MathhhammerResults.analyze_results(result, config)
+	var analysis = MathhammerResults.analyze_results(result, config)
 	var analysis_time = Time.get_ticks_msec() - start_time
 	
 	print("Simulation time: %d ms" % simulation_time)

@@ -1123,13 +1123,13 @@ func _create_display_unit_callback(panel: PanelContainer) -> Callable:
 		print("Unit data display updated")
 
 func _setup_mathhammer_ui() -> void:
-	# Create MathhhammerUI and add it to the left HUD
+	# Create MathhammerUI and add it to the left HUD
 	print("Setting up Mathhammer UI...")
 	
-	# Create the MathhhammerUI instance using preload
-	var MathhhammerUIClass = preload("res://scripts/MathhhammerUI.gd")
-	mathhammer_ui = MathhhammerUIClass.new()
-	mathhammer_ui.name = "MathhhammerUI"
+	# Create the MathhammerUI instance using preload
+	var MathhammerUIClass = preload("res://scripts/MathhammerUI.gd")
+	mathhammer_ui = MathhammerUIClass.new()
+	mathhammer_ui.name = "MathhammerUI"
 	
 	if mathhammer_ui:
 		# Add to the left HUD VBox container 
@@ -1144,7 +1144,7 @@ func _setup_mathhammer_ui() -> void:
 		
 		print("Mathhammer UI successfully integrated into left side of main UI")
 	else:
-		print("ERROR: Failed to create MathhhammerUI instance!")
+		print("ERROR: Failed to create MathhammerUI instance!")
 
 func _setup_measuring_tape() -> void:
 	print("Setting up measuring tape visual...")

@@ -1,10 +1,10 @@
 extends PanelContainer
-class_name MathhhammerUI
+class_name MathhammerUI
 
 # Preload the Mathhammer class
 const Mathhammer = preload("res://scripts/Mathhammer.gd")
 
-# MathhhammerUI - Statistical analysis panel for Warhammer 40k combat calculations
+# MathhammerUI - Statistical analysis panel for Warhammer 40k combat calculations
 # Follows UnitStatsPanel patterns for consistent UI integration
 # Provides Monte Carlo simulation interface and results visualization
 
@@ -60,7 +60,7 @@ signal simulation_requested(config: Dictionary)
 signal unit_selection_changed(attacker_id: String, defender_id: String)
 
 func _ready() -> void:
-	print("MathhhammerUI: Initializing...")
+	print("MathhammerUI: Initializing...")
 
 	_setup_ui_structure()
 	_setup_controls()
@@ -75,7 +75,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	# Clean up background simulation thread on node removal (T3-25)
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhhammerUI: Waiting for simulation thread to finish before exit...")
+		print("MathhammerUI: Waiting for simulation thread to finish before exit...")
 		_simulation_thread.wait_to_finish()
 
 func _setup_ui_structure() -> void:
@@ -631,11 +631,11 @@ func _update_weapon_selection() -> void:
 func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 	if selected_weapons.has(weapon_key):
 		selected_weapons[weapon_key]["attack_count"] = int(value)
-		print("MathhhammerUI: Weapon attack count changed - %s: %d" % [weapon_key, int(value)])
+		print("MathhammerUI: Weapon attack count changed - %s: %d" % [weapon_key, int(value)])
 
 func _on_rule_toggled(rule_id: String, active: bool) -> void:
 	rule_toggles[rule_id] = active
-	print("MathhhammerUI: Rule toggle changed - %s: %s" % [rule_id, active])
+	print("MathhammerUI: Rule toggle changed - %s: %s" % [rule_id, active])
 
 func _get_selected_phase() -> String:
 	if phase_toggle and phase_toggle.selected >= 0:
@@ -644,7 +644,7 @@ func _get_selected_phase() -> String:
 
 func _on_phase_changed(_index: int) -> void:
 	var phase = _get_selected_phase()
-	print("MathhhammerUI: Phase changed to: %s" % phase)
+	print("MathhammerUI: Phase changed to: %s" % phase)
 	# Refresh weapon selection to show only relevant weapons for the phase
 	_update_weapon_selection()
 	# Update rule toggles visibility based on phase
@@ -652,13 +652,13 @@ func _on_phase_changed(_index: int) -> void:
 
 func _on_attacker_attack_count_changed(value: float, unit_id: String) -> void:
 	selected_attackers[unit_id] = int(value)
-	print("MathhhammerUI: Attacker attack count changed - %s: %d" % [unit_id, int(value)])
+	print("MathhammerUI: Attacker attack count changed - %s: %d" % [unit_id, int(value)])
 	_update_weapon_selection()
 
 func _on_attacker_toggled(unit_id: String, enabled: bool) -> void:
 	# Legacy function for compatibility
 	selected_attackers[unit_id] = 1 if enabled else 0
-	print("MathhhammerUI: Attacker toggled - %s: %s" % [unit_id, enabled])
+	print("MathhammerUI: Attacker toggled - %s: %s" % [unit_id, enabled])
 	_update_weapon_selection()
 
 func _on_attacker_selection_changed(_index: int) -> void:
@@ -741,7 +741,7 @@ func _create_defender_override_fields() -> void:
 	defender_override_panel.add_child(note)
 
 func _on_defender_override_toggled(enabled: bool) -> void:
-	print("MathhhammerUI: Defender override toggled: %s" % enabled)
+	print("MathhammerUI: Defender override toggled: %s" % enabled)
 	defender_override_panel.visible = enabled
 	# Auto-populate from selected defender when enabling
 	if enabled and defender_selector.selected >= 0:
@@ -770,7 +770,7 @@ func _populate_override_from_defender(defender_id: String) -> void:
 	if override_fnp_spinbox:
 		override_fnp_spinbox.value = stats.get("fnp", 0)
 
-	print("MathhhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
+	print("MathhammerUI: Populated override fields from %s — T:%d Sv:%d+ W:%d Models:%d Invuln:%d FNP:%d" % [
 		defender_id, int(override_toughness_spinbox.value), int(override_save_spinbox.value),
 		int(override_wounds_spinbox.value), int(override_model_count_spinbox.value),
 		int(override_invuln_spinbox.value), int(override_fnp_spinbox.value)])
@@ -816,7 +816,7 @@ func _on_run_simulation_pressed() -> void:
 	var attackers = []
 	for unit_id in selected_attacker_ids:
 		var unit_attack_count = selected_attackers.get(unit_id, 0)
-		print("MathhhammerUI: Unit %s is making %d attacks" % [unit_id, unit_attack_count])
+		print("MathhammerUI: Unit %s is making %d attacks" % [unit_id, unit_attack_count])
 		
 		# Add the unit multiple times based on attack count
 		for i in range(unit_attack_count):
@@ -843,7 +843,7 @@ func _on_run_simulation_pressed() -> void:
 		return
 	
 	# Run simulation
-	print("MathhhammerUI: Running simulation with config: ", config)
+	print("MathhammerUI: Running simulation with config: ", config)
 	_run_simulation_async(config)
 
 func _build_attacker_config(unit_id: String) -> Dictionary:
@@ -872,7 +872,7 @@ func _build_attacker_config(unit_id: String) -> Dictionary:
 			weapon_id = weapon_id.replace("-", "_")
 			weapon_id = weapon_id.replace("'", "")
 			
-			print("MathhhammerUI: Using weapon '%s' with ID '%s' for %d attacks" % [weapon_name, weapon_id, weapon_data.get("attack_count", 1)])
+			print("MathhammerUI: Using weapon '%s' with ID '%s' for %d attacks" % [weapon_name, weapon_id, weapon_data.get("attack_count", 1)])
 			
 			weapons.append({
 				"weapon_id": weapon_id,
@@ -900,95 +900,95 @@ func _build_defender_config(unit_id: String) -> Dictionary:
 			"invuln": int(override_invuln_spinbox.value),
 			"fnp": int(override_fnp_spinbox.value),
 		}
-		print("MathhhammerUI: Defender config with overrides: %s" % str(config))
+		print("MathhammerUI: Defender config with overrides: %s" % str(config))
 
 	return config
 
 func _run_simulation_async(config: Dictionary) -> void:
 	# Clean up any previous thread before starting a new one
 	if _simulation_thread != null and _simulation_thread.is_started():
-		print("MathhhammerUI: Waiting for previous simulation thread to finish...")
+		print("MathhammerUI: Waiting for previous simulation thread to finish...")
 		_simulation_thread.wait_to_finish()
 
 	run_simulation_button.disabled = true
 	run_simulation_button.text = "Running..."
 
 	# Run simulation on a background thread to avoid freezing the UI (T3-25)
-	print("MathhhammerUI: Starting simulation on background thread...")
+	print("MathhammerUI: Starting simulation on background thread...")
 	_simulation_thread = Thread.new()
 	_simulation_thread.start(_simulation_thread_func.bind(config))
 
 func _simulation_thread_func(config: Dictionary) -> void:
 	# This runs on a background thread — no UI access allowed here
-	print("MathhhammerUI: Background thread started, running simulation...")
+	print("MathhammerUI: Background thread started, running simulation...")
 	var result = Mathhammer.simulate_combat(config)
-	print("MathhhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
+	print("MathhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
 	# Defer UI update back to the main thread
 	call_deferred("_on_simulation_completed", result)
 
 func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 	# This runs on the main thread via call_deferred — safe to update UI
-	print("MathhhammerUI: Simulation completed callback on main thread")
+	print("MathhammerUI: Simulation completed callback on main thread")
 
 	# Join the background thread to clean up resources
 	if _simulation_thread != null and _simulation_thread.is_started():
 		_simulation_thread.wait_to_finish()
-		print("MathhhammerUI: Background thread joined successfully")
+		print("MathhammerUI: Background thread joined successfully")
 
 	current_simulation_result = result
 
 	# Update UI with results
-	print("MathhhammerUI: About to display results...")
+	print("MathhammerUI: About to display results...")
 	_display_simulation_results(result)
-	print("MathhhammerUI: Results display completed")
+	print("MathhammerUI: Results display completed")
 
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
 
 func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
-	print("MathhhammerUI: _display_simulation_results called")
+	print("MathhammerUI: _display_simulation_results called")
 	if not result:
-		print("MathhhammerUI: No result data provided")
+		print("MathhammerUI: No result data provided")
 		return
 	
-	print("MathhhammerUI: Result has %d trials, %d detailed trials" % [result.trials_run, result.detailed_trials.size()])
+	print("MathhammerUI: Result has %d trials, %d detailed trials" % [result.trials_run, result.detailed_trials.size()])
 	
 	# Debug panel states BEFORE clearing
-	print("MathhhammerUI: Debugging panel states BEFORE...")
-	print("MathhhammerUI: summary_panel exists: %s" % str(summary_panel != null))
-	print("MathhhammerUI: breakdown_panel exists: %s" % str(breakdown_panel != null))
+	print("MathhammerUI: Debugging panel states BEFORE...")
+	print("MathhammerUI: summary_panel exists: %s" % str(summary_panel != null))
+	print("MathhammerUI: breakdown_panel exists: %s" % str(breakdown_panel != null))
 	if summary_panel:
-		print("MathhhammerUI: summary_panel visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
+		print("MathhammerUI: summary_panel visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
 	if breakdown_panel:
-		print("MathhhammerUI: breakdown_panel visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
+		print("MathhammerUI: breakdown_panel visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
 	
 	# Clear existing results first, but don't hide the original label yet
 	_clear_results_display()
-	print("MathhhammerUI: Cleared existing results")
+	print("MathhammerUI: Cleared existing results")
 	
 	# Debug panel states AFTER clearing
-	print("MathhhammerUI: Debugging panel states AFTER clearing...")
+	print("MathhammerUI: Debugging panel states AFTER clearing...")
 	if summary_panel:
-		print("MathhhammerUI: summary_panel after clear - visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
+		print("MathhammerUI: summary_panel after clear - visible: %s, child_count: %d" % [summary_panel.visible, summary_panel.get_child_count()])
 	if breakdown_panel:
-		print("MathhhammerUI: breakdown_panel after clear - visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
+		print("MathhammerUI: breakdown_panel after clear - visible: %s, child_count: %d" % [breakdown_panel.visible, breakdown_panel.get_child_count()])
 	
 	# Create comprehensive results display
 	_create_detailed_results_display(result)
-	print("MathhhammerUI: Created detailed results display")
+	print("MathhammerUI: Created detailed results display")
 	
 	# Debug final states
-	print("MathhhammerUI: Final debugging...")
+	print("MathhammerUI: Final debugging...")
 	if summary_panel:
-		print("MathhhammerUI: summary_panel final child_count: %d" % summary_panel.get_child_count())
+		print("MathhammerUI: summary_panel final child_count: %d" % summary_panel.get_child_count())
 		for i in range(summary_panel.get_child_count()):
 			var child = summary_panel.get_child(i)
-			print("MathhhammerUI: summary_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
+			print("MathhammerUI: summary_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
 	if breakdown_panel:
-		print("MathhhammerUI: breakdown_panel final child_count: %d" % breakdown_panel.get_child_count())
+		print("MathhammerUI: breakdown_panel final child_count: %d" % breakdown_panel.get_child_count())
 		for i in range(breakdown_panel.get_child_count()):
 			var child = breakdown_panel.get_child(i)
-			print("MathhhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
+			print("MathhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
 
 func _draw_simple_histogram(result: Mathhammer.SimulationResult) -> void:
 	# For now, create a simple text-based histogram
@@ -1018,13 +1018,13 @@ func _draw_simple_histogram(result: Mathhammer.SimulationResult) -> void:
 	histogram_label.text = histogram_text
 
 func _clear_results_display() -> void:
-	print("MathhhammerUI: Clearing results display")
+	print("MathhammerUI: Clearing results display")
 	# Clear all children from results panels except the titles
 	if summary_panel:
-		print("MathhhammerUI: Summary panel has %d children" % summary_panel.get_child_count())
+		print("MathhammerUI: Summary panel has %d children" % summary_panel.get_child_count())
 		for child in summary_panel.get_children():
 			if child.name.begins_with("Results") or child.name == "InitialResultsLabel":
-				print("MathhhammerUI: Removing child: %s" % child.name)
+				print("MathhammerUI: Removing child: %s" % child.name)
 				child.queue_free()
 	
 	if distribution_panel:
@@ -1035,20 +1035,20 @@ func _clear_results_display() -> void:
 	# Also hide/clear the breakdown_text placeholder
 	if breakdown_text and is_instance_valid(breakdown_text):
 		breakdown_text.visible = false
-		print("MathhhammerUI: Hidden breakdown_text placeholder")
+		print("MathhammerUI: Hidden breakdown_text placeholder")
 	
 	# Clear any existing detailed breakdowns from breakdown_panel
 	if breakdown_panel:
-		print("MathhhammerUI: Breakdown panel has %d children" % breakdown_panel.get_child_count())
+		print("MathhammerUI: Breakdown panel has %d children" % breakdown_panel.get_child_count())
 		for child in breakdown_panel.get_children():
 			if child.name.begins_with("DetailedBreakdown") or child == breakdown_text:
-				print("MathhhammerUI: Removing breakdown child: %s" % child.name)
+				print("MathhammerUI: Removing breakdown child: %s" % child.name)
 				child.queue_free()
 	
-	print("MathhhammerUI: Finished clearing results display")
+	print("MathhammerUI: Finished clearing results display")
 
 func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> void:
-	print("MathhhammerUI: Creating detailed results display")
+	print("MathhammerUI: Creating detailed results display")
 	# Create main results scroll container
 	var results_scroll = ScrollContainer.new()
 	results_scroll.name = "ResultsScroll"
@@ -1056,47 +1056,47 @@ func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> vo
 	results_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	
 	if not summary_panel:
-		print("MathhhammerUI: ERROR - summary_panel is null!")
+		print("MathhammerUI: ERROR - summary_panel is null!")
 		return
 		
 	summary_panel.add_child(results_scroll)
-	print("MathhhammerUI: Added results_scroll to summary_panel")
+	print("MathhammerUI: Added results_scroll to summary_panel")
 	
 	var results_vbox = VBoxContainer.new()
 	results_vbox.name = "ResultsVBox"
 	results_vbox.add_theme_constant_override("separation", 15)
 	results_scroll.add_child(results_vbox)
-	print("MathhhammerUI: Created results_vbox")
+	print("MathhammerUI: Created results_vbox")
 	
 	# Overall Statistics Panel
 	_create_overall_stats_panel(results_vbox, result)
-	print("MathhhammerUI: Created overall stats panel")
+	print("MathhammerUI: Created overall stats panel")
 	
 	# Weapon Breakdown Panel
 	_create_weapon_breakdown_panel(results_vbox, result)
-	print("MathhhammerUI: Created weapon breakdown panel")
+	print("MathhammerUI: Created weapon breakdown panel")
 	
 	# Damage Distribution Panel
 	_create_damage_distribution_panel(results_vbox, result)
-	print("MathhhammerUI: Created damage distribution panel")
+	print("MathhammerUI: Created damage distribution panel")
 	
 	# Also add the weapon breakdown to the separate breakdown_panel
 	_populate_breakdown_panel(result)
-	print("MathhhammerUI: Populated breakdown panel")
+	print("MathhammerUI: Populated breakdown panel")
 
 func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
-	print("MathhhammerUI: Creating overall stats panel")
+	print("MathhammerUI: Creating overall stats panel")
 	var stats_panel = create_styled_panel("Overall Statistics", Color(0.2, 0.3, 0.5, 0.8))
 	if not stats_panel:
-		print("MathhhammerUI: ERROR - failed to create stats_panel!")
+		print("MathhammerUI: ERROR - failed to create stats_panel!")
 		return
-	print("MathhhammerUI: About to add stats_panel to parent")
-	print("MathhhammerUI: stats_panel valid: %s" % str(stats_panel != null))
-	print("MathhhammerUI: parent valid: %s" % str(parent != null))
-	print("MathhhammerUI: parent type: %s" % parent.get_class() if parent else "null")
-	print("MathhhammerUI: parent child_count before: %d" % parent.get_child_count())
+	print("MathhammerUI: About to add stats_panel to parent")
+	print("MathhammerUI: stats_panel valid: %s" % str(stats_panel != null))
+	print("MathhammerUI: parent valid: %s" % str(parent != null))
+	print("MathhammerUI: parent type: %s" % parent.get_class() if parent else "null")
+	print("MathhammerUI: parent child_count before: %d" % parent.get_child_count())
 	parent.add_child(stats_panel)
-	print("MathhhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count())
+	print("MathhammerUI: Added stats_panel to parent, parent child_count after: %d" % parent.get_child_count())
 
 	var stats_content = stats_panel.get_meta("content_vbox")
 	var stats_grid = GridContainer.new()
@@ -1175,10 +1175,10 @@ func _create_damage_distribution_panel(parent: VBoxContainer, result: Mathhammer
 	add_stat_row(dist_grid, "Maximum Damage:", "%d wounds" % stats.get("max_damage", 0))
 
 func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
-	print("MathhhammerUI: create_styled_panel called for title: %s" % title)
+	print("MathhammerUI: create_styled_panel called for title: %s" % title)
 	var panel_container = VBoxContainer.new()
 	panel_container.add_theme_constant_override("separation", 8)
-	print("MathhhammerUI: Created panel_container: %s" % str(panel_container != null))
+	print("MathhammerUI: Created panel_container: %s" % str(panel_container != null))
 
 	# Add background
 	var style_box = StyleBoxFlat.new()
@@ -1210,20 +1210,20 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	# Store content_vbox reference so callers can add children inside the styled panel
 	panel_container.set_meta("content_vbox", content_vbox)
 
-	print("MathhhammerUI: create_styled_panel returning panel_container with content_vbox inside")
+	print("MathhammerUI: create_styled_panel returning panel_container with content_vbox inside")
 	return panel_container
 
 func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
-	print("MathhhammerUI: _populate_breakdown_panel called")
+	print("MathhammerUI: _populate_breakdown_panel called")
 	if not breakdown_panel:
-		print("MathhhammerUI: ERROR - No breakdown_panel found")
+		print("MathhammerUI: ERROR - No breakdown_panel found")
 		return
 	
-	print("MathhhammerUI: breakdown_panel exists, current child_count: %d" % breakdown_panel.get_child_count())
+	print("MathhammerUI: breakdown_panel exists, current child_count: %d" % breakdown_panel.get_child_count())
 	
 	# Clear the breakdown_text placeholder if it still exists
 	if breakdown_text and is_instance_valid(breakdown_text):
-		print("MathhhammerUI: Removing old breakdown_text placeholder")
+		print("MathhammerUI: Removing old breakdown_text placeholder")
 		breakdown_text.queue_free()
 		breakdown_text = null
 	
@@ -1232,33 +1232,33 @@ func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
 	breakdown_scroll.name = "DetailedBreakdownScroll"
 	breakdown_scroll.custom_minimum_size = Vector2(350, 300)
 	breakdown_scroll.visible = true
-	print("MathhhammerUI: Created breakdown scroll container")
+	print("MathhammerUI: Created breakdown scroll container")
 	breakdown_panel.add_child(breakdown_scroll)
-	print("MathhhammerUI: Added scroll container to breakdown_panel")
+	print("MathhammerUI: Added scroll container to breakdown_panel")
 	
 	var breakdown_vbox = VBoxContainer.new()
 	breakdown_vbox.name = "BreakdownVBox"
 	breakdown_vbox.add_theme_constant_override("separation", 10)
 	breakdown_vbox.visible = true
 	breakdown_scroll.add_child(breakdown_vbox)
-	print("MathhhammerUI: Created and added breakdown vbox")
+	print("MathhammerUI: Created and added breakdown vbox")
 	
 	# Overall Stats Section
-	print("MathhhammerUI: Adding overall stats section to breakdown")
+	print("MathhammerUI: Adding overall stats section to breakdown")
 	_create_overall_stats_panel(breakdown_vbox, result)
 	
 	# Weapon Breakdown Section
-	print("MathhhammerUI: Adding weapon breakdown section to breakdown")
+	print("MathhammerUI: Adding weapon breakdown section to breakdown")
 	_create_weapon_breakdown_panel(breakdown_vbox, result)
 	
 	# Damage Distribution Section
-	print("MathhhammerUI: Adding damage distribution section to breakdown")
+	print("MathhammerUI: Adding damage distribution section to breakdown")
 	_create_damage_distribution_panel(breakdown_vbox, result)
 	
-	print("MathhhammerUI: breakdown_panel final child_count after population: %d" % breakdown_panel.get_child_count())
-	print("MathhhammerUI: breakdown_scroll child_count: %d" % breakdown_scroll.get_child_count())
-	print("MathhhammerUI: breakdown_vbox child_count: %d" % breakdown_vbox.get_child_count())
-	print("MathhhammerUI: Added detailed breakdown to breakdown_panel")
+	print("MathhammerUI: breakdown_panel final child_count after population: %d" % breakdown_panel.get_child_count())
+	print("MathhammerUI: breakdown_scroll child_count: %d" % breakdown_scroll.get_child_count())
+	print("MathhammerUI: breakdown_vbox child_count: %d" % breakdown_vbox.get_child_count())
+	print("MathhammerUI: Added detailed breakdown to breakdown_panel")
 
 func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictionary, hit_rate: float, wound_rate: float, unsaved_rate: float, avg_dmg: float, trials: int) -> VBoxContainer:
 	var weapon_vbox = VBoxContainer.new()
@@ -1306,6 +1306,6 @@ func add_stat_row(grid: GridContainer, label_text: String, value_text: String, v
 	grid.add_child(value)
 
 func _show_error(message: String) -> void:
-	print("MathhhammerUI Error: ", message)
+	print("MathhammerUI Error: ", message)
 	if results_label:
 		results_label.text = "[color=red][b]Error:[/b] " + message + "[/color]"
