@@ -160,6 +160,14 @@ func process_action(action: Dictionary) -> Dictionary:
 		"END_MORALE":
 			return process_end_morale(action)
 
+		# Formations actions
+		"DECLARE_LEADER_ATTACHMENT", "DECLARE_TRANSPORT_EMBARKATION", "DECLARE_RESERVES":
+			return _delegate_to_current_phase(action)
+		"UNDECLARE_LEADER_ATTACHMENT", "UNDECLARE_TRANSPORT_EMBARKATION", "UNDECLARE_RESERVES":
+			return _delegate_to_current_phase(action)
+		"CONFIRM_FORMATIONS", "END_FORMATIONS":
+			return _delegate_to_current_phase(action)
+
 		# Debug actions
 		"DEBUG_MOVE":
 			return process_debug_move(action)
