@@ -96,3 +96,39 @@
 - Newly eligible units are properly detected after consolidation moves (T2-6 rule still works)
 - Human player consolidation drag-and-drop still works correctly (no regression)
 - No infinite loops during fight phase
+
+## AI Fall-Back Model Positioning Implementation
+
+**Task:** Implement fall-back model positioning -- compute valid fall-back destinations away from enemy engagement range (MOV-6)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_compute_fall_back_destinations()`, `_get_engaging_enemy_centroid()`, `_pick_fall_back_target()`, `_build_fall_back_directions()`, `_try_fall_back_positions()`, `_resolve_fall_back_position()`; updated `_decide_engaged_unit()` to include `_ai_model_destinations` with computed positions
+- `40k/autoloads/AIPlayer.gd` - Extended `_execute_next_action()` to handle `BEGIN_FALL_BACK` and `BEGIN_ADVANCE` with `_ai_model_destinations` (not just `BEGIN_NORMAL_MOVE`)
+- `40k/tests/unit/test_ai_fall_back_positioning.gd` - New test file for AI fall-back positioning logic
+
+**Tests to run:**
+- Run `test_ai_fall_back_positioning.gd` via `godot --headless --script tests/unit/test_ai_fall_back_positioning.gd`
+  - Tests fall-back computes non-empty destinations for engaged units
+  - Tests all destinations are outside engagement range of all enemies
+  - Tests all destinations are within the unit's movement cap
+  - Tests the `_decide_movement()` decision includes `_ai_model_destinations` when falling back
+  - Tests retreat direction prefers friendly objectives
+  - Tests multi-model fall-back (all 5 models get destinations)
+  - Tests fall-back stays within board bounds near edges
+  - Tests `_get_engaging_enemy_centroid()` correctly identifies engaging enemies
+  - Tests `_build_fall_back_directions()` generates 12 directions
+  - Tests surrounded unit gracefully handles no valid path
+- Run existing `test_ai_movement_decisions.gd` to confirm no regressions
+- Run an AI vs AI game and observe that AI units now physically move when falling back
+- Run a Human vs AI game and verify AI models reposition away from your engaged units
+
+**What to look for:**
+- AI models physically move to new positions when falling back (not just setting the fell_back flag)
+- All fall-back destinations end outside engagement range of all enemy models
+- Models stay within their M" movement cap
+- Models don't overlap with other models (friendly or enemy)
+- Models stay within the board boundaries
+- AI prefers retreating toward friendly or uncontrolled objectives
+- When completely surrounded and unable to escape, AI remains stationary instead of getting stuck
+- The MovementPhase validation accepts the AI's computed fall-back positions
+- Human player fall-back still works correctly (no regression from AIPlayer.gd changes)
+- No infinite loops during movement phase

@@ -4,9 +4,9 @@
 
 ## P0 — Critical (AI plays incorrectly without these)
 
-- [ ] Implement AI charge declarations — evaluate charge feasibility (distance, probability), declare charges against optimal targets, compute model positions post-charge (AI-GAP-1, CHARGE-1 through CHARGE-3)
-- [ ] Implement pile-in movement — move models up to 3" toward nearest enemy during fight phase (AI-GAP-2, FIGHT-1)
-- [ ] Implement consolidation movement — move models up to 3" toward nearest enemy or objective after fighting (AI-GAP-2, FIGHT-2)
+- [x] Implement AI charge declarations — evaluate charge feasibility (distance, probability), declare charges against optimal targets, compute model positions post-charge (AI-GAP-1, CHARGE-1 through CHARGE-3)
+- [x] Implement pile-in movement — move models up to 3" toward nearest enemy during fight phase (AI-GAP-2, FIGHT-1)
+- [x] Implement consolidation movement — move models up to 3" toward nearest enemy or objective after fighting (AI-GAP-2, FIGHT-2)
 - [ ] Implement fall-back model positioning — compute valid fall-back destinations away from enemy engagement range (MOV-6)
 
 ## P1 — High (AI plays very poorly without these)

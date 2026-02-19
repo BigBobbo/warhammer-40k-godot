@@ -811,12 +811,27 @@ static func _decide_engaged_unit(
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
 		var reason = "not on objective" if not on_objective else "losing OC war"
-		print("AIDecisionMaker: %s falling back (%s)" % [unit_name, reason])
-		return {
-			"type": "BEGIN_FALL_BACK",
-			"actor_unit_id": unit_id,
-			"_ai_description": "%s falls back (%s)" % [unit_name, reason]
-		}
+		# Compute fall-back destinations for all models (MOV-6)
+		var fall_back_destinations = _compute_fall_back_destinations(
+			unit, unit_id, snapshot, enemies, objectives, player
+		)
+		if not fall_back_destinations.is_empty():
+			print("AIDecisionMaker: %s falling back with %d model destinations (%s)" % [unit_name, fall_back_destinations.size(), reason])
+			return {
+				"type": "BEGIN_FALL_BACK",
+				"actor_unit_id": unit_id,
+				"_ai_model_destinations": fall_back_destinations,
+				"_ai_description": "%s falls back (%s)" % [unit_name, reason]
+			}
+		else:
+			# Could not compute valid fall-back positions — remain stationary
+			print("AIDecisionMaker: %s cannot find valid fall-back positions, remaining stationary" % unit_name)
+			if "REMAIN_STATIONARY" in move_types:
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s remains stationary (no valid fall-back path)" % unit_name
+				}
 
 	if "REMAIN_STATIONARY" in move_types:
 		return {
@@ -826,6 +841,295 @@ static func _decide_engaged_unit(
 		}
 
 	return {}
+
+# =============================================================================
+# FALL-BACK MODEL POSITIONING (MOV-6)
+# =============================================================================
+
+static func _compute_fall_back_destinations(
+	unit: Dictionary, unit_id: String, snapshot: Dictionary,
+	enemies: Dictionary, objectives: Array, player: int
+) -> Dictionary:
+	"""Compute valid fall-back destinations for all models in an engaged unit.
+	Each model must end:
+	  1. Outside engagement range of ALL enemy models
+	  2. Within its movement cap (M inches)
+	  3. Not overlapping other models (friendly or enemy)
+	  4. Within board bounds
+	The AI picks a retreat direction: toward the nearest friendly objective or,
+	failing that, directly away from the centroid of engaging enemies."""
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {}
+
+	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var move_px = move_inches * PIXELS_PER_INCH
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return {}
+
+	# Identify engaging enemy models and their centroid
+	var engaging_enemy_centroid = _get_engaging_enemy_centroid(unit, unit_id, enemies)
+
+	# Pick a retreat target: nearest uncontested friendly objective, or away from enemies
+	var retreat_target = _pick_fall_back_target(centroid, engaging_enemy_centroid, objectives, enemies, player, snapshot)
+
+	# Calculate retreat direction
+	var retreat_direction: Vector2
+	if retreat_target != Vector2.INF:
+		retreat_direction = (retreat_target - centroid).normalized()
+	else:
+		# Fall back directly away from enemies
+		if engaging_enemy_centroid != Vector2.INF:
+			retreat_direction = (centroid - engaging_enemy_centroid).normalized()
+		else:
+			# Fallback: move toward own deployment zone (toward board edge)
+			retreat_direction = Vector2(0, -1) if player == 1 else Vector2(0, 1)
+
+	# Get deployed model positions for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var first_model = alive_models[0] if alive_models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+
+	# Build original positions map
+	var original_positions = {}
+	for model in alive_models:
+		var mid = model.get("id", "")
+		if mid != "":
+			original_positions[mid] = _get_model_position(model)
+
+	# Get terrain features for blocking checks
+	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+
+	# Try the primary retreat direction first, then try alternate angles
+	var directions_to_try = _build_fall_back_directions(retreat_direction)
+
+	for direction in directions_to_try:
+		# Try full move, then progressively shorter
+		var fractions = [1.0, 0.75, 0.5, 0.25]
+		for fraction in fractions:
+			var move_vector = direction * move_px * fraction
+			var destinations = _try_fall_back_positions(
+				alive_models, move_vector, enemies, unit,
+				deployed_models, base_mm, base_type, base_dimensions,
+				original_positions, move_px, terrain_features, unit_keywords
+			)
+			if not destinations.is_empty():
+				if fraction < 1.0:
+					print("AIDecisionMaker: Fall-back using %.0f%% move in direction (%.1f, %.1f)" % [fraction * 100, direction.x, direction.y])
+				return destinations
+
+	# All directions failed
+	print("AIDecisionMaker: Could not find valid fall-back destinations for %s" % unit_id)
+	return {}
+
+static func _get_engaging_enemy_centroid(unit: Dictionary, unit_id: String, enemies: Dictionary) -> Vector2:
+	"""Find the centroid of all enemy models currently within engagement range of this unit."""
+	var engaging_positions = []
+	var alive_models = _get_alive_models_with_positions(unit)
+	var own_models_data = unit.get("models", [])
+	var own_base_mm = own_models_data[0].get("base_mm", 32) if own_models_data.size() > 0 else 32
+	var own_radius_px = (own_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		for enemy_model in enemy.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+			var enemy_pos = _get_model_position(enemy_model)
+			if enemy_pos == Vector2.INF:
+				continue
+			var enemy_base_mm = enemy_model.get("base_mm", 32)
+			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+			var er_threshold = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+
+			# Check if this enemy model is within ER of any of our models
+			for own_model in alive_models:
+				var own_pos = _get_model_position(own_model)
+				if own_pos == Vector2.INF:
+					continue
+				if own_pos.distance_to(enemy_pos) < er_threshold:
+					engaging_positions.append(enemy_pos)
+					break  # Only count this enemy model once
+
+	if engaging_positions.is_empty():
+		return Vector2.INF
+
+	var sum_val = Vector2.ZERO
+	for pos in engaging_positions:
+		sum_val += pos
+	return sum_val / engaging_positions.size()
+
+static func _pick_fall_back_target(
+	centroid: Vector2, enemy_centroid: Vector2,
+	objectives: Array, enemies: Dictionary, player: int,
+	snapshot: Dictionary
+) -> Vector2:
+	"""Pick the best retreat target for a falling-back unit.
+	Priority: nearest friendly-controlled or uncontrolled objective that is
+	away from the engaging enemy. If none found, returns Vector2.INF (caller
+	will default to moving directly away from enemies)."""
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var best_target = Vector2.INF
+	var best_score = -INF
+
+	for obj_pos in objectives:
+		# Skip objectives that are closer to the engaging enemy than to us
+		if enemy_centroid != Vector2.INF:
+			var enemy_dist_to_obj = enemy_centroid.distance_to(obj_pos)
+			var our_dist_to_obj = centroid.distance_to(obj_pos)
+			# Only consider objectives that are roughly "behind" us relative to the enemy
+			if enemy_dist_to_obj < our_dist_to_obj * 0.7:
+				continue
+
+		var dist_to_obj = centroid.distance_to(obj_pos)
+		# Prefer closer objectives
+		var score = -dist_to_obj
+
+		# Prefer objectives we already control
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+		if friendly_oc > enemy_oc:
+			score += 200.0  # Strongly prefer friendly-controlled objectives
+		elif friendly_oc == 0 and enemy_oc == 0:
+			score += 100.0  # Uncontrolled objectives are next best
+
+		if score > best_score:
+			best_score = score
+			best_target = obj_pos
+
+	return best_target
+
+static func _build_fall_back_directions(primary_direction: Vector2) -> Array:
+	"""Build an array of retreat directions to try, starting with the primary
+	and branching out to alternates at +/-30, +/-60, +/-90, +/-120, +/-150, and 180 degrees."""
+	var directions = [primary_direction]
+	var angles = [
+		deg_to_rad(30), deg_to_rad(-30),
+		deg_to_rad(60), deg_to_rad(-60),
+		deg_to_rad(90), deg_to_rad(-90),
+		deg_to_rad(120), deg_to_rad(-120),
+		deg_to_rad(150), deg_to_rad(-150),
+		deg_to_rad(180)
+	]
+	for angle in angles:
+		directions.append(primary_direction.rotated(angle))
+	return directions
+
+static func _try_fall_back_positions(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary, move_cap_px: float,
+	terrain_features: Array, unit_keywords: Array
+) -> Dictionary:
+	"""Try moving all models by move_vector for a fall-back. Unlike normal movement,
+	fall-back REQUIRES that every model ends OUTSIDE engagement range of all enemies.
+	Returns model_id -> [x, y] destinations, or empty dict if any model cannot be placed."""
+	var destinations = {}
+	var placed_models: Array = []
+
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.INF:
+			continue
+		var dest = model_pos + move_vector
+
+		# Clamp to board bounds with margin
+		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check movement cap
+		var orig_pos = original_positions.get(model_id, model_pos)
+		if orig_pos.distance_to(dest) > move_cap_px + 1.0:  # +1 tolerance
+			return {}
+
+		# CRITICAL: Fall-back models MUST end outside engagement range
+		if _is_position_near_enemy(dest, enemies, unit):
+			# Try small offsets perpendicular to the move direction to escape ER
+			var resolved = _resolve_fall_back_position(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				deployed_models + placed_models, enemies, unit,
+				orig_pos, move_cap_px
+			)
+			if resolved == Vector2.INF:
+				return {}  # Cannot escape ER with this direction
+			dest = resolved
+
+		# Check terrain blocking
+		if _path_blocked_by_terrain(model_pos, dest, unit_keywords, terrain_features):
+			return {}
+
+		# Check overlap with deployed models and already-placed models
+		var all_obstacles = deployed_models + placed_models
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			var resolved = _resolve_fall_back_position(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				all_obstacles, enemies, unit, orig_pos, move_cap_px
+			)
+			if resolved == Vector2.INF:
+				return {}
+			dest = resolved
+
+		destinations[model_id] = [dest.x, dest.y]
+		placed_models.append({
+			"position": dest,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	return destinations
+
+static func _resolve_fall_back_position(
+	dest: Vector2, move_vector: Vector2, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	obstacles: Array, enemies: Dictionary, unit: Dictionary,
+	original_pos: Vector2, move_cap_px: float
+) -> Vector2:
+	"""Try perpendicular and diagonal offsets to find a valid fall-back position
+	that is outside engagement range and doesn't collide with other models."""
+	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
+	if perp == Vector2.ZERO:
+		# move_vector is zero, try cardinal directions
+		perp = Vector2(1, 0)
+	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	# Try wider range of offsets for fall-back (more aggressive positioning)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0]
+
+	for multiplier in offsets:
+		var offset = perp * base_radius * multiplier
+		var candidate = dest + offset
+
+		# Check board bounds
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			continue
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			continue
+
+		# Check movement cap
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			if original_pos.distance_to(candidate) > move_cap_px + 1.0:
+				continue
+
+		# Must be outside engagement range
+		if _is_position_near_enemy(candidate, enemies, unit):
+			continue
+
+		# Must not collide with other models
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+			continue
+
+		return candidate
+
+	return Vector2.INF  # No valid position found
 
 # =============================================================================
 # ADVANCE DECISION LOGIC (Task 3 + Task 6)
