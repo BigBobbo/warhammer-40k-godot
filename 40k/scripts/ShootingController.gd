@@ -2457,7 +2457,18 @@ func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is ShootingPhase:
 		return
 
-	# Only handle input if we have an active shooter and eligible targets
+	# In multiplayer, block keyboard shortcuts if it's not your turn
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
+		return
+
+	# T5-UX12: Keyboard shortcuts for shooting phase
+	if event is InputEventKey and event.pressed and not event.echo:
+		if _handle_shooting_keyboard_shortcut(event):
+			get_viewport().set_input_as_handled()
+			return
+
+	# Only handle mouse input if we have an active shooter and eligible targets
 	if active_shooter_id == "" or eligible_targets.is_empty():
 		return
 
@@ -2472,7 +2483,7 @@ func _input(event: InputEvent) -> void:
 		else:
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_click(mouse_pos)
-	
+
 	# Handle hovering for LoS preview
 	elif event is InputEventMouseMotion:
 		# Get the board root which contains the units
@@ -2483,6 +2494,147 @@ func _input(event: InputEvent) -> void:
 		else:
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_hover(mouse_pos)
+
+# T5-UX12: Handle keyboard shortcuts for shooting phase actions
+# Returns true if a shortcut was handled, false otherwise
+func _handle_shooting_keyboard_shortcut(event: InputEventKey) -> bool:
+	match event.keycode:
+		KEY_SPACE, KEY_ENTER:
+			# Confirm targets — only when we have assignments
+			if active_shooter_id != "" and not weapon_assignments.is_empty():
+				print("T5-UX12: Keyboard shortcut — Confirm Targets (Space/Enter)")
+				_on_confirm_pressed()
+				return true
+
+		KEY_ESCAPE:
+			# Deselect current shooter / cancel assignments
+			if active_shooter_id != "":
+				print("T5-UX12: Keyboard shortcut — Deselect Shooter (Escape)")
+				_keyboard_deselect_shooter()
+				return true
+
+		KEY_TAB:
+			# Cycle through eligible units that haven't shot yet
+			print("T5-UX12: Keyboard shortcut — Cycle Units (Tab)")
+			_keyboard_cycle_units(event.shift_pressed)
+			return true
+
+		KEY_N:
+			# Skip current unit (mark as shot without shooting)
+			if active_shooter_id != "":
+				print("T5-UX12: Keyboard shortcut — Skip Unit (N)")
+				_keyboard_skip_unit()
+				return true
+
+		KEY_E:
+			# End shooting phase
+			print("T5-UX12: Keyboard shortcut — End Phase (E)")
+			_on_end_phase_pressed()
+			return true
+
+	return false
+
+# T5-UX12: Deselect the current shooter and clear assignments
+func _keyboard_deselect_shooter() -> void:
+	# Clear assignments first
+	if not weapon_assignments.is_empty():
+		_on_clear_pressed()
+
+	# Reset shooter state
+	var prev_shooter = active_shooter_id
+	active_shooter_id = ""
+	eligible_targets.clear()
+	weapon_assignments.clear()
+	assignment_history.clear()
+	selected_weapon_id = ""
+	last_assigned_target_id = ""
+
+	# Clear visuals
+	_clear_visuals()
+	_refresh_weapon_tree()
+
+	# Hide damage preview
+	if damage_preview_panel:
+		damage_preview_panel.visible = false
+
+	# Hide modifier panel
+	if modifier_panel:
+		modifier_panel.visible = false
+
+	# Refresh unit list to remove [ACTIVE] marker
+	_refresh_unit_list()
+
+	if dice_log_display:
+		dice_log_display.append_text("[color=gray]Deselected shooter (Esc)[/color]\n")
+
+	print("T5-UX12: Deselected shooter %s" % prev_shooter)
+
+# T5-UX12: Cycle through eligible shooter units with Tab (Shift+Tab for reverse)
+func _keyboard_cycle_units(reverse: bool) -> void:
+	if not unit_selector or not current_phase:
+		return
+
+	# Build list of eligible (un-shot) unit indices
+	var eligible_indices: Array = []
+	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
+
+	for i in range(unit_selector.get_item_count()):
+		var unit_id = unit_selector.get_item_metadata(i)
+		if unit_id and unit_id not in units_shot:
+			eligible_indices.append(i)
+
+	if eligible_indices.is_empty():
+		if dice_log_display:
+			dice_log_display.append_text("[color=gray]No eligible units to cycle through[/color]\n")
+		return
+
+	# Find current active shooter index in the eligible list
+	var current_eligible_idx: int = -1
+	for ei in range(eligible_indices.size()):
+		var unit_id = unit_selector.get_item_metadata(eligible_indices[ei])
+		if unit_id == active_shooter_id:
+			current_eligible_idx = ei
+			break
+
+	# Calculate next index
+	var next_eligible_idx: int
+	if reverse:
+		next_eligible_idx = (current_eligible_idx - 1) if current_eligible_idx > 0 else eligible_indices.size() - 1
+	else:
+		next_eligible_idx = (current_eligible_idx + 1) % eligible_indices.size()
+
+	var next_list_idx = eligible_indices[next_eligible_idx]
+	var next_unit_id = unit_selector.get_item_metadata(next_list_idx)
+
+	if next_unit_id and next_unit_id != active_shooter_id:
+		# Select in the list UI
+		unit_selector.select(next_list_idx)
+		# Trigger the same selection flow as clicking
+		_on_unit_selected(next_list_idx)
+		print("T5-UX12: Cycled to unit %s (index %d)" % [next_unit_id, next_list_idx])
+
+# T5-UX12: Skip the current active unit
+func _keyboard_skip_unit() -> void:
+	if active_shooter_id == "":
+		return
+
+	var unit_id = active_shooter_id
+	emit_signal("shoot_action_requested", {
+		"type": "SKIP_UNIT",
+		"actor_unit_id": unit_id
+	})
+
+	# Clear local state
+	active_shooter_id = ""
+	eligible_targets.clear()
+	weapon_assignments.clear()
+	assignment_history.clear()
+	_clear_visuals()
+	_refresh_weapon_tree()
+	_refresh_unit_list()
+
+	if dice_log_display:
+		dice_log_display.append_text("[color=orange]Skipped unit (N)[/color]\n")
 
 func _handle_board_click(position: Vector2) -> void:
 	# First check if we have a weapon selected
