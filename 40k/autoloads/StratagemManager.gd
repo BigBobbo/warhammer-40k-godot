@@ -671,53 +671,18 @@ func _clear_expired_effects(expiry_type: String) -> void:
 # STRATAGEM EFFECT APPLICATION
 # ============================================================================
 
-func _apply_stratagem_effects(stratagem_id: String, target_unit_id: String, strat: Dictionary) -> Array:
+func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, strat: Dictionary) -> Array:
 	"""
-	Apply stratagem effects to unit flags in game state.
+	Apply stratagem effects to unit flags in game state using EffectPrimitives.
 	Returns an array of diffs that set the appropriate flags.
 	These flags are read by RulesEngine during combat resolution.
 	"""
-	var diffs = []
+	var effects = strat.get("effects", [])
+	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
-	match stratagem_id:
-		"go_to_ground":
-			# GO TO GROUND: Grant 6+ invulnerable save and Benefit of Cover
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.stratagem_invuln" % target_unit_id,
-				"value": 6
-			})
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.stratagem_cover" % target_unit_id,
-				"value": true
-			})
-			print("StratagemManager: Applied GO TO GROUND effects to %s (6+ invuln + cover)" % target_unit_id)
-
-		"smokescreen":
-			# SMOKESCREEN: Grant Benefit of Cover and Stealth (-1 to hit)
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.stratagem_cover" % target_unit_id,
-				"value": true
-			})
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.stratagem_stealth" % target_unit_id,
-				"value": true
-			})
-			print("StratagemManager: Applied SMOKESCREEN effects to %s (cover + stealth)" % target_unit_id)
-
-		"epic_challenge":
-			# EPIC CHALLENGE: Grant PRECISION to all melee attacks made by the unit
-			# The stratagem targets a CHARACTER model, but the flag is set on the unit
-			# so RulesEngine can check it during melee resolution.
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.stratagem_precision_melee" % target_unit_id,
-				"value": true
-			})
-			print("StratagemManager: Applied EPIC CHALLENGE effects to %s (PRECISION on melee)" % target_unit_id)
+	if not diffs.is_empty():
+		var flag_names = EffectPrimitivesData.get_flag_names_for_effects(effects)
+		print("StratagemManager: Applied %s effects to %s (flags: %s)" % [strat.name, target_unit_id, str(flag_names)])
 
 	return diffs
 
@@ -728,19 +693,11 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 		return
 
 	var flags = unit.get("flags", {})
+	var strat = stratagems.get(stratagem_id, {})
+	var effects = strat.get("effects", [])
 
-	match stratagem_id:
-		"go_to_ground":
-			flags.erase("stratagem_invuln")
-			flags.erase("stratagem_cover")
-			print("StratagemManager: Cleared GO TO GROUND flags from %s" % unit_id)
-		"smokescreen":
-			flags.erase("stratagem_cover")
-			flags.erase("stratagem_stealth")
-			print("StratagemManager: Cleared SMOKESCREEN flags from %s" % unit_id)
-		"epic_challenge":
-			flags.erase("stratagem_precision_melee")
-			print("StratagemManager: Cleared EPIC CHALLENGE flags from %s" % unit_id)
+	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
+	print("StratagemManager: Cleared %s flags from %s" % [stratagem_id, unit_id])
 
 func get_grenade_eligible_units(player: int) -> Array:
 	"""

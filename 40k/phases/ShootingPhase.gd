@@ -1917,21 +1917,13 @@ func _clear_phase_flags() -> void:
 			unit.flags.erase("has_shot")
 
 func _clear_stratagem_phase_flags() -> void:
-	"""Clear stratagem-granted flags from all units at end of shooting phase."""
+	"""Clear effect-granted flags from all units at end of shooting phase."""
 	var units = game_state_snapshot.get("units", {})
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.has("flags"):
 			var flags = unit.flags
-			if flags.has("stratagem_invuln"):
-				flags.erase("stratagem_invuln")
-				print("ShootingPhase: Cleared stratagem_invuln from %s" % unit_id)
-			if flags.has("stratagem_cover"):
-				flags.erase("stratagem_cover")
-				print("ShootingPhase: Cleared stratagem_cover from %s" % unit_id)
-			if flags.has("stratagem_stealth"):
-				flags.erase("stratagem_stealth")
-				print("ShootingPhase: Cleared stratagem_stealth from %s" % unit_id)
+			EffectPrimitivesData.clear_all_effect_flags(flags)
 	# Also tell StratagemManager to clear its phase-scoped effects
 	StratagemManager.on_phase_end(GameStateData.Phase.SHOOTING)
 
