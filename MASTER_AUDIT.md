@@ -107,6 +107,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-10: Mission selection variety — 9 primary missions from Chapter Approved 2025-26 | Pre-game | DEPLOYMENT_AUDIT.md §8 |
 | T4-11: Fortification deployment — cannot place in reserves, must deploy on table | Deployment | DEPLOYMENT_AUDIT.md §9 |
 | T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
+| T4-14: Weapon ID collision for similar weapon names — type-aware IDs | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 
 ---
 
@@ -682,9 +683,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.13
 - **Files:** `RulesEngine.gd` — `_resolve_assignment()` (~line 1129)
 
-### T4-14. Weapon ID collision for similar weapon names
+### T4-14. Weapon ID collision for similar weapon names — **DONE**
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Additional Issues
+- **Resolution:** Added weapon type suffix (_ranged/_melee) to `_generate_weapon_id()` to prevent collisions between ranged/melee variants of the same weapon name (e.g., "Guardian spear"). Consolidated all inline weapon ID generation to use the central function. Added backwards-compatible matching in `get_weapon_profile()` (typed ID, legacy ID, and exact name).
 
 ### T4-15. Single weapon result dialog has hardcoded zeros
 - **Phase:** Shooting
@@ -854,11 +856,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 9 | 11 | 20 |
+| Tier 4 — Low/Niche | 10 | 10 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **50** | **78** | **128** |
-| **Recently Completed** | **77** | — | **77** |
+| **Total Open** | **51** | **77** | **128** |
+| **Recently Completed** | **78** | — | **78** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---

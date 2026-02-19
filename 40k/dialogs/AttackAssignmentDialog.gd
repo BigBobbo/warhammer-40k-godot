@@ -117,8 +117,8 @@ func _build_ui() -> void:
 	for i in range(regular_melee_weapons.size()):
 		var weapon = regular_melee_weapons[i]
 		var weapon_name = weapon.get("name", "Unknown")
-		# Generate weapon ID from name (same format as RulesEngine)
-		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+		# Generate weapon ID from name using RulesEngine to prevent collisions
+		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s)" % [
 			weapon_name,
@@ -233,7 +233,7 @@ func _on_confirmed() -> void:
 		var ea_target_id = _get_extra_attacks_target_id()
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
-			var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+			var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 			assignments.append({
 				"attacker": unit_id,
 				"weapon": weapon_id,

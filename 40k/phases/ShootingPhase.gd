@@ -1622,7 +1622,7 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 
 	for weapon in ea_weapons:
 		var weapon_name = weapon.get("name", "Unknown")
-		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
 			print("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
