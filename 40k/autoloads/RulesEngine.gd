@@ -1203,6 +1203,24 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: OATH OF MOMENT — re-roll 1s to hit against %s" % target_unit_id)
 
+		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
+		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: Effect +1 to hit applied for %s" % actor_unit_id)
+		if EffectPrimitivesData.has_effect_minus_one_hit(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Effect -1 to hit applied for %s" % actor_unit_id)
+		var reroll_hits_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
+		if reroll_hits_scope == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: Effect re-roll 1s to hit applied for %s" % actor_unit_id)
+		elif reroll_hits_scope == "failed":
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: Effect re-roll failed hits applied for %s" % actor_unit_id)
+		elif reroll_hits_scope == "all":
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
+
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
@@ -1352,6 +1370,24 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT — re-roll 1s to wound against %s" % target_unit_id)
+
+	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
+	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: Effect +1 to wound applied for %s" % actor_unit_id)
+	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
+		wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Effect -1 to wound applied for %s" % actor_unit_id)
+	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
+	if reroll_wounds_scope == "ones":
+		wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: Effect re-roll 1s to wound applied for %s" % actor_unit_id)
+	elif reroll_wounds_scope == "failed":
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: Effect re-roll failed wounds applied for %s" % actor_unit_id)
+	elif reroll_wounds_scope == "all":
+		wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: Effect re-roll all wounds applied for %s" % actor_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
 	if is_lance_weapon(weapon_id, board):
@@ -1720,6 +1756,21 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to hit against %s" % target_unit_id)
 
+		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
+		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: Effect +1 to hit (auto-resolve) applied for %s" % actor_unit_id)
+		if EffectPrimitivesData.has_effect_minus_one_hit(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Effect -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
+		var reroll_hits_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
+		if reroll_hits_scope_ar == "ones":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: Effect re-roll 1s to hit (auto-resolve) applied for %s" % actor_unit_id)
+		elif reroll_hits_scope_ar == "failed" or reroll_hits_scope_ar == "all":
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
+
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
@@ -1867,6 +1918,21 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to wound against %s" % target_unit_id)
+
+	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
+	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: Effect +1 to wound (auto-resolve) applied for %s" % actor_unit_id)
+	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
+		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Effect -1 to wound (auto-resolve) applied for %s" % actor_unit_id)
+	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
+	if reroll_wounds_scope_ar == "ones":
+		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: Effect re-roll 1s to wound (auto-resolve) applied for %s" % actor_unit_id)
+	elif reroll_wounds_scope_ar == "failed" or reroll_wounds_scope_ar == "all":
+		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: Effect re-roll wounds (auto-resolve) applied for %s" % actor_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
@@ -5207,6 +5273,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			melee_hit_modifiers |= HitModifier.REROLL_ONES
 			print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to hit against %s" % target_name)
 
+		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker (melee)
+		if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
+			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			print("RulesEngine: Effect +1 to hit (melee) applied for %s" % attacker_unit_id)
+		if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
+			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Effect -1 to hit (melee) applied for %s" % attacker_unit_id)
+		var melee_reroll_hits_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
+		if melee_reroll_hits_scope == "ones":
+			melee_hit_modifiers |= HitModifier.REROLL_ONES
+			print("RulesEngine: Effect re-roll 1s to hit (melee) applied for %s" % attacker_unit_id)
+		elif melee_reroll_hits_scope == "failed" or melee_reroll_hits_scope == "all":
+			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_unit_id)
+
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
@@ -5301,6 +5382,21 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
 		print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to wound against %s" % target_name)
+
+	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
+	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: Effect +1 to wound (melee) applied for %s" % attacker_unit_id)
+	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
+		melee_wound_modifiers |= WoundModifier.MINUS_ONE
+		print("RulesEngine: Effect -1 to wound (melee) applied for %s" % attacker_unit_id)
+	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
+	if melee_reroll_wounds_scope == "ones":
+		melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		print("RulesEngine: Effect re-roll 1s to wound (melee) applied for %s" % attacker_unit_id)
+	elif melee_reroll_wounds_scope == "failed" or melee_reroll_wounds_scope == "all":
+		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_unit_id)
 
 	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
@@ -6493,10 +6589,18 @@ static func _find_allocation_target_model(models: Array) -> int:
 
 # FEEL NO PAIN: Get FNP value for a unit (0 = no FNP)
 static func get_unit_fnp(unit: Dictionary) -> int:
-	"""Returns FNP value (e.g. 5 for 5+), or 0 if unit has no FNP"""
-	var fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
-	if fnp > 0:
-		return fnp
+	"""Returns FNP value (e.g. 5 for 5+), or 0 if unit has no FNP.
+	Checks both base stats and effect-granted FNP, using the better (lower) value."""
+	var base_fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
+	var effect_fnp = EffectPrimitivesData.get_effect_fnp(unit)
+
+	# Use the better (lower) FNP if both exist, otherwise whichever is non-zero
+	if base_fnp > 0 and effect_fnp > 0:
+		return min(base_fnp, effect_fnp)
+	elif effect_fnp > 0:
+		return effect_fnp
+	elif base_fnp > 0:
+		return base_fnp
 	return 0
 
 # FEEL NO PAIN: Roll FNP dice for wounds about to be lost

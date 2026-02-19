@@ -89,11 +89,22 @@ func _on_phase_enter() -> void:
 	counter_offensive_player = 0
 	counter_offensive_unit_id = ""
 
+	# Apply unit ability effects (leader abilities, always-on abilities)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_start(GameStateData.Phase.FIGHT)
+
 	_initialize_fight_sequence()
 	_check_for_combats()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
+
+	# Clear unit ability effect flags
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_end(GameStateData.Phase.FIGHT)
+
 	# Clear any temporary fight data
 	for unit_id in units_that_fought:
 		_clear_unit_fight_state(unit_id)

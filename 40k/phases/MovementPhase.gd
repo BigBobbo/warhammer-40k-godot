@@ -78,10 +78,21 @@ func _on_phase_enter() -> void:
 	# Movement phase continues with the current active player
 	# Player switching only happens during scoring phase transitions
 
+	# Apply unit ability eligibility effects (fall_back_and_charge, etc.)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_movement_phase_start()
+
 	_initialize_movement()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Movement Phase")
+
+	# Clear unit ability eligibility flags
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_movement_phase_end()
+
 	# Disconnect from TransportManager
 	if TransportManager and TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
 		TransportManager.disembark_completed.disconnect(_on_transport_manager_disembark_completed)
