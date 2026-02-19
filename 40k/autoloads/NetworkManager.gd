@@ -1160,12 +1160,15 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			elif not phase.has_signal("next_weapon_confirmation_required"):
 				print("NetworkManager: ⚠️ Phase doesn't have next_weapon_confirmation_required signal!")
 
-	# Handle dice_rolled signal - re-emit dice data so attacker sees updates
-	# This happens when actions contain dice data (hits, wounds, etc.)
+	# T5-MP5: Handle dice_rolled signal - re-emit dice data so remote player sees dice log updates
+	# This includes hit rolls, wound rolls, save rolls, resolution_start, and weapon_progress blocks
 	print("NetworkManager:   Checking for dice data...")
 	var dice_data = result.get("dice", [])
 	if not dice_data.is_empty() and phase.has_signal("dice_rolled"):
-		print("NetworkManager: ✅ Client re-emitting dice_rolled signals for %d dice blocks" % dice_data.size())
+		var contexts = []
+		for db in dice_data:
+			contexts.append(db.get("context", "unknown"))
+		print("NetworkManager: ✅ T5-MP5 Client re-emitting dice_rolled signals for %d dice blocks (contexts: %s)" % [dice_data.size(), str(contexts)])
 		for dice_block in dice_data:
 			phase.emit_signal("dice_rolled", dice_block)
 

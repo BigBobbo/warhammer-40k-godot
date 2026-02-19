@@ -1325,8 +1325,14 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
 
-	# Check if this is a weapon progress message (sequential resolution)
+	# T5-MP5: Handle resolution_start context — show header message in dice log
 	var context = dice_data.get("context", "Roll")
+	if context == "resolution_start":
+		var message = dice_data.get("message", "Beginning attack resolution...")
+		dice_log_display.append_text("[b][color=white]--- %s ---[/color][/b]\n" % message)
+		return
+
+	# Check if this is a weapon progress message (sequential resolution)
 	if context == "weapon_progress":
 		var message = dice_data.get("message", "")
 		var current_index = dice_data.get("current_index", 0)

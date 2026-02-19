@@ -597,8 +597,9 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 	return initial_result
 
 func _process_resolve_shooting(action: Dictionary) -> Dictionary:
-	# Emit signal to indicate resolution is starting
-	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning attack resolution..."})
+	# T5-MP5: Build resolution_start block and emit locally + include in result for remote sync
+	var resolution_start_block = {"context": "resolution_start", "message": "Beginning attack resolution..."}
+	emit_signal("dice_rolled", resolution_start_block)
 
 	# Build full shoot action for RulesEngine
 	var shoot_action = {
@@ -620,8 +621,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	var one_shot_diffs = result.get("one_shot_diffs", [])
 
 	# Record hit/wound dice rolls
-	var dice_data = result.get("dice", [])
-	for dice_block in dice_data:
+	# T5-MP5: Prepend resolution_start block so remote player sees it in broadcast
+	var dice_data = [resolution_start_block] + result.get("dice", [])
+	for dice_block in result.get("dice", []):
 		dice_log.append(dice_block)
 		emit_signal("dice_rolled", dice_block)
 
@@ -1306,13 +1308,14 @@ func _resolve_next_weapon() -> Dictionary:
 
 	print("ShootingPhase: Resolving weapon %d of %d: %s" % [current_index + 1, weapon_order.size(), weapon_id])
 
-	# Emit progress signal
-	emit_signal("dice_rolled", {
+	# T5-MP5: Build weapon_progress block and emit locally + include in result for remote sync
+	var weapon_progress_block = {
 		"context": "weapon_progress",
 		"message": "Resolving weapon %d of %d" % [current_index + 1, weapon_order.size()],
 		"current_index": current_index,
 		"total_weapons": weapon_order.size()
-	})
+	}
+	emit_signal("dice_rolled", weapon_progress_block)
 
 	# Build shoot action for this single weapon
 	var shoot_action = {
@@ -1340,9 +1343,10 @@ func _resolve_next_weapon() -> Dictionary:
 	pending_one_shot_diffs.append_array(seq_one_shot_diffs)
 
 	# Record dice rolls
-	var dice_data = result.get("dice", [])
-	print("ShootingPhase: Dice blocks returned: %d" % dice_data.size())
-	for dice_block in dice_data:
+	# T5-MP5: Prepend weapon_progress block so remote player sees it in broadcast
+	var dice_data = [weapon_progress_block] + result.get("dice", [])
+	print("ShootingPhase: Dice blocks returned: %d (including weapon_progress)" % dice_data.size())
+	for dice_block in result.get("dice", []):
 		dice_log.append(dice_block)
 		emit_signal("dice_rolled", dice_block)
 
