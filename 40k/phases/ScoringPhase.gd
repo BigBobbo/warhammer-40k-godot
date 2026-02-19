@@ -16,6 +16,12 @@ func _on_phase_enter() -> void:
 	print("ScoringPhase: Entering scoring phase for player ", current_player)
 	print("ScoringPhase: Current battle round ", GameState.get_battle_round())
 
+	# Update objective control before scoring (ensures secondary missions
+	# that depend on objective control have accurate data)
+	if MissionManager:
+		MissionManager.check_all_objectives()
+		print("ScoringPhase: Updated objective control for scoring")
+
 	# Score secondary missions for the active player
 	_secondary_results.clear()
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")

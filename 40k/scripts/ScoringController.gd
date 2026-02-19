@@ -141,6 +141,11 @@ func _setup_right_panel() -> void:
 
 	scoring_panel.add_child(HSeparator.new())
 
+	# Objective Control display
+	_build_objective_control_section(scoring_panel, current_player)
+
+	scoring_panel.add_child(HSeparator.new())
+
 	# Secondary Missions display
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
@@ -193,6 +198,62 @@ func _setup_right_panel() -> void:
 		instruction_label.text = "Player %d, you may:\n- Discard a secondary mission (gain 1 CP)\n- End your turn" % current_player
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
+
+func _build_objective_control_section(panel: VBoxContainer, _current_player: int) -> void:
+	var obj_title = Label.new()
+	obj_title.text = "Objective Control"
+	obj_title.add_theme_font_size_override("font_size", 14)
+	panel.add_child(obj_title)
+
+	var objectives = GameState.state.board.get("objectives", [])
+	var control_state = MissionManager.objective_control_state
+
+	if objectives.size() == 0:
+		var no_obj = Label.new()
+		no_obj.text = "  No objectives on the board"
+		panel.add_child(no_obj)
+		return
+
+	var p1_controlled = 0
+	var p2_controlled = 0
+	var contested = 0
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "unknown")
+		var zone = obj.get("zone", "unknown")
+		var controller = control_state.get(obj_id, 0)
+
+		var controller_text = "Contested"
+		if controller == 1:
+			controller_text = "Player 1"
+			p1_controlled += 1
+		elif controller == 2:
+			controller_text = "Player 2"
+			p2_controlled += 1
+		else:
+			contested += 1
+
+		var zone_text = ""
+		match zone:
+			"player1": zone_text = "P1 Zone"
+			"player2": zone_text = "P2 Zone"
+			"no_mans_land": zone_text = "NML"
+			_: zone_text = zone
+
+		var obj_label = Label.new()
+		obj_label.text = "  %s [%s]: %s" % [obj_id, zone_text, controller_text]
+		panel.add_child(obj_label)
+
+	# Summary line
+	var summary = Label.new()
+	summary.text = "\n  P1: %d | P2: %d | Contested: %d" % [p1_controlled, p2_controlled, contested]
+	panel.add_child(summary)
+
+	# Show current mission scoring info
+	var mission_name = MissionManager.get_current_mission_name()
+	var mission_info = Label.new()
+	mission_info.text = "  Mission: %s" % mission_name
+	panel.add_child(mission_info)
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
