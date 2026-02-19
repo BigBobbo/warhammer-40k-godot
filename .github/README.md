@@ -7,8 +7,8 @@ This directory contains GitHub Actions workflows for automated testing, building
 ### 1. `test-suite.yml` - Main Testing Pipeline
 
 **Triggers:**
-- Push to `main` or `develop` branches
-- Pull requests to `main`
+- Push to any branch (tests run on every commit)
+- Pull requests to `main` or `develop`
 - Manual dispatch
 
 **Jobs:**
@@ -21,9 +21,8 @@ This directory contains GitHub Actions workflows for automated testing, building
 
 **Test Categories:**
 - Unit Tests (`tests/unit/`)
-- Phase Tests (`tests/phases/`)
-- UI Tests (`tests/ui/`)
 - Integration Tests (`tests/integration/`)
+- Network Tests (`tests/network/`)
 
 ### 2. `release-build.yml` - Release Pipeline
 
@@ -102,11 +101,11 @@ Tests are automatically executed in headless mode with:
 ### Test Structure
 ```
 40k/tests/
-├── unit/           # Unit tests for autoloads and core classes
-├── phases/         # Tests for all 6 game phases
-├── ui/             # UI interaction and mouse tests
-├── integration/    # Cross-system integration tests
-└── helpers/        # Test helper classes and data factories
+├── unit/              # Unit tests for autoloads and core classes
+├── integration/       # Cross-system integration tests
+├── network/           # Multiplayer and network tests
+├── helpers/           # Test helper classes and data factories
+└── disabled_tests/    # Tests temporarily disabled due to issues
 ```
 
 ## 🎯 Quality Gates
