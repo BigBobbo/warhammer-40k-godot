@@ -2259,7 +2259,7 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		if not game_state_snapshot.units[unit_id].has("flags"):
 			game_state_snapshot.units[unit_id]["flags"] = {}
-		game_state_snapshot.units[unit_id].flags["stratagem_precision_melee"] = true
+		game_state_snapshot.units[unit_id].flags[EffectPrimitivesData.FLAG_PRECISION_MELEE] = true
 
 	# Proceed to pile-in now that the stratagem has been handled
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)

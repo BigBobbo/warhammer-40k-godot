@@ -212,7 +212,7 @@ func test_can_use_smokescreen_on_smoke_unit():
 # ==========================================
 
 func test_go_to_ground_sets_invuln_flag():
-	"""Using Go to Ground should set stratagem_invuln flag on the target unit."""
+	"""Using Go to Ground should set effect_invuln flag on the target unit."""
 	_setup_shooting_scenario()
 
 	var result = StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -220,8 +220,8 @@ func test_go_to_ground_sets_invuln_flag():
 
 	var unit = GameState.get_unit("U_DEFENDER_INF")
 	var flags = unit.get("flags", {})
-	assert_eq(flags.get("stratagem_invuln", 0), 6, "Should have 6+ invuln flag")
-	assert_true(flags.get("stratagem_cover", false), "Should have cover flag")
+	assert_eq(flags.get("effect_invuln", 0), 6, "Should have 6+ invuln flag")
+	assert_true(flags.get("effect_cover", false), "Should have cover flag")
 
 func test_go_to_ground_deducts_cp():
 	"""Using Go to Ground should deduct 1 CP."""
@@ -231,7 +231,7 @@ func test_go_to_ground_deducts_cp():
 	assert_eq(GameState.state.players["2"]["cp"], 4, "CP should be deducted from 5 to 4")
 
 func test_smokescreen_sets_cover_and_stealth_flags():
-	"""Using Smokescreen should set stratagem_cover and stratagem_stealth flags."""
+	"""Using Smokescreen should set effect_cover and effect_stealth flags."""
 	_setup_shooting_scenario()
 
 	var result = StratagemManager.use_stratagem(2, "smokescreen", "U_DEFENDER_SMOKE")
@@ -239,8 +239,8 @@ func test_smokescreen_sets_cover_and_stealth_flags():
 
 	var unit = GameState.get_unit("U_DEFENDER_SMOKE")
 	var flags = unit.get("flags", {})
-	assert_true(flags.get("stratagem_cover", false), "Should have cover flag")
-	assert_true(flags.get("stratagem_stealth", false), "Should have stealth flag")
+	assert_true(flags.get("effect_cover", false), "Should have cover flag")
+	assert_true(flags.get("effect_stealth", false), "Should have stealth flag")
 
 func test_smokescreen_deducts_cp():
 	"""Using Smokescreen should deduct 1 CP."""
@@ -372,17 +372,17 @@ func test_cover_with_ap():
 
 func test_stealth_applies_minus_one_to_hit():
 	"""Stealth from Smokescreen should cause -1 to hit modifier in RulesEngine."""
-	# This test verifies that the stratagem_stealth flag on a unit
+	# This test verifies that the effect_stealth flag on a unit
 	# results in HitModifier.MINUS_ONE being applied during hit resolution.
 	# We test this by checking the hit modifier logic directly.
 
-	# Create a target unit with stratagem_stealth flag
+	# Create a target unit with effect_stealth flag
 	var target_unit = _create_unit("U_TARGET", 5, 2, ["INFANTRY", "SMOKE"])
-	target_unit.flags["stratagem_stealth"] = true
+	target_unit.flags["effect_stealth"] = true
 
-	# The flag check in RulesEngine reads target_unit.get("flags", {}).get("stratagem_stealth", false)
+	# The flag check in RulesEngine reads target_unit.get("flags", {}).get("effect_stealth", false)
 	var flags = target_unit.get("flags", {})
-	assert_true(flags.get("stratagem_stealth", false), "Stealth flag should be set")
+	assert_true(flags.get("effect_stealth", false), "Stealth flag should be set")
 
 
 # ==========================================
@@ -407,8 +407,8 @@ func test_effects_cleared_on_phase_end():
 	# Unit flags should also be cleared
 	var unit = GameState.get_unit("U_DEFENDER_INF")
 	var flags = unit.get("flags", {})
-	assert_false(flags.has("stratagem_invuln"), "Invuln flag should be cleared")
-	assert_false(flags.has("stratagem_cover"), "Cover flag should be cleared")
+	assert_false(flags.has("effect_invuln"), "Invuln flag should be cleared")
+	assert_false(flags.has("effect_cover"), "Cover flag should be cleared")
 
 func test_smokescreen_effects_cleared_on_phase_end():
 	"""Smokescreen effects should be cleared when the phase ends."""
@@ -427,8 +427,8 @@ func test_smokescreen_effects_cleared_on_phase_end():
 
 	var unit = GameState.get_unit("U_DEFENDER_SMOKE")
 	var flags = unit.get("flags", {})
-	assert_false(flags.has("stratagem_cover"), "Cover flag should be cleared")
-	assert_false(flags.has("stratagem_stealth"), "Stealth flag should be cleared")
+	assert_false(flags.has("effect_cover"), "Cover flag should be cleared")
+	assert_false(flags.has("effect_stealth"), "Stealth flag should be cleared")
 
 
 # ==========================================
@@ -608,8 +608,8 @@ func test_go_to_ground_does_not_affect_other_units():
 
 	# Check that the other defender unit does NOT have the flags
 	var smoke_unit = GameState.get_unit("U_DEFENDER_SMOKE")
-	assert_false(smoke_unit.get("flags", {}).get("stratagem_invuln", false), "Other unit should not have invuln flag")
-	assert_false(smoke_unit.get("flags", {}).get("stratagem_cover", false), "Other unit should not have cover flag")
+	assert_false(smoke_unit.get("flags", {}).get("effect_invuln", false), "Other unit should not have invuln flag")
+	assert_false(smoke_unit.get("flags", {}).get("effect_cover", false), "Other unit should not have cover flag")
 
 func test_reset_clears_all_stratagem_tracking():
 	"""reset_for_new_game should clear all stratagem usage and active effects."""

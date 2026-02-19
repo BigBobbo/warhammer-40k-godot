@@ -507,7 +507,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 5 | Command Re-roll | Universal re-roll (any dice, any phase) | **COMPLETED** |
 | 6 | Counter-Offensive | Fight order manipulation | **COMPLETED** |
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | **COMPLETED** |
-| 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | Pending |
+| 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | **COMPLETED** |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
 | 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
 
@@ -704,3 +704,39 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 3. Both Movement and Charge phases can trigger the same stratagem (Fire Overwatch) with the same dialog
 4. Heroic Intervention can inject a counter-charge into the charge flow by reusing existing charge infrastructure
 5. The `_is_within_range()` helper using `Measurement.model_to_model_distance_inches()` correctly handles variable unit ranges
+
+### Step 8: Extract Effect Primitives Library — Implementation Notes
+
+**What was implemented:**
+- `EffectPrimitivesData` (`class_name` global class): A data-driven effect library that defines, applies, queries, and clears game effects. Provides the shared foundation for both stratagems (Steps 1-7) and future unit abilities (Step 10).
+
+**Implementation approach**: Extract the hardcoded per-stratagem effect application and cleanup logic from StratagemManager into a generic, data-driven system. Rename unit flags from `stratagem_*` to `effect_*` to support both stratagem and ability sources. Update all consumers (RulesEngine, phases, tests) to use the new flag names and query helpers.
+
+**Files created:**
+- `40k/autoloads/EffectPrimitives.gd` — The core effect primitives library with `class_name EffectPrimitivesData`. Contains: effect type string constants (30+ types covering defensive, offensive, modifier, keyword grant, instant, and eligibility effects), flag name constants (`effect_*` naming convention), `_EFFECT_FLAG_MAP` mapping effect types to unit flag descriptors, `apply_effects()` to generate state diffs for persistent effects, `clear_effects()` to remove flags from units, `get_flag_names_for_effects()` for bulk cleanup, `clear_all_effect_flags()` for comprehensive phase-end cleanup, 20+ query helpers (`has_effect_invuln()`, `get_effect_invuln()`, `has_effect_cover()`, `has_effect_stealth()`, `has_effect_precision_melee()`, etc.) for RulesEngine integration, and effect classification (`is_instant_effect()`, `is_persistent_effect()`).
+- `40k/tests/unit/test_effect_primitives.gd` — Comprehensive test suite (60+ tests) covering: effect type constant verification, `apply_effects()` for all persistent types (invuln, cover, stealth, FNP, hit/wound modifiers, AP/damage modifiers, crit thresholds, keyword grants, precision with scope), `apply_effects()` returning empty for instant effects, `grant_keyword` mapping (PRECISION, LETHAL HITS, SUSTAINED HITS, DEVASTATING WOUNDS, IGNORES COVER), `grant_precision` scope handling (melee/ranged/all), `clear_effects()` for all patterns, `clear_all_effect_flags()`, query helpers, `get_flag_names_for_effects()`, effect classification, integration with actual stratagem definitions (Go to Ground, Smokescreen, Epic Challenge, Grenade, Command Re-roll, Counter-Offensive, Fire Overwatch), and round-trip apply-then-clear verification.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Replaced `_apply_stratagem_effects()` match statement with generic `EffectPrimitivesData.apply_effects()` call that reads effect definitions from stratagem data. Replaced `_clear_stratagem_flags()` match statement with `EffectPrimitivesData.clear_effects()` that reads the stratagem's effects array to determine which flags to clear. Eliminates the need to add new cases when new stratagems are added.
+- `40k/autoloads/RulesEngine.gd` — Updated 6 locations across 3 resolution paths (interactive save, auto-resolve save, prepare_save_resolution) to use `EffectPrimitivesData.has_effect_cover()` / `EffectPrimitivesData.get_effect_invuln()` instead of direct `stratagem_cover` / `stratagem_invuln` flag access. Updated 2 stealth check locations to use `EffectPrimitivesData.has_effect_stealth()`. Renamed `has_stratagem_precision_melee()` to `has_effect_precision_melee()` (delegating to `EffectPrimitivesData.has_effect_precision_melee()`), with legacy alias preserved. Updated melee PRECISION call site to use new function name.
+- `40k/phases/ShootingPhase.gd` — Replaced `_clear_stratagem_phase_flags()` hardcoded flag erasure (3 specific flag names) with `EffectPrimitivesData.clear_all_effect_flags(flags)` which removes all `effect_*` prefixed flags generically.
+- `40k/phases/FightPhase.gd` — Updated Epic Challenge snapshot flag from hardcoded `"stratagem_precision_melee"` string to `EffectPrimitivesData.FLAG_PRECISION_MELEE` constant.
+- `40k/tests/unit/test_go_to_ground_smokescreen.gd` — Updated all flag references from `stratagem_invuln`/`stratagem_cover`/`stratagem_stealth` to `effect_invuln`/`effect_cover`/`effect_stealth`.
+- `40k/tests/unit/test_epic_challenge.gd` — Updated all flag references from `stratagem_precision_melee` to `effect_precision_melee`, and function references from `has_stratagem_precision_melee` to `has_effect_precision_melee`.
+- `40k/tests/unit/test_stealth_ability.gd` — Updated comment reference from `stratagem_stealth` to `effect_stealth`.
+
+**Architecture decisions:**
+- **String-based effect types over GDScript enums**: Effect types are string constants (e.g., `"grant_invuln"`) rather than integer enums. This matches the existing stratagem data format (effects are defined as dictionaries with `"type"` strings) and avoids the need to convert between enum values and data-file strings. String constants provide the same typo-prevention benefit as enums while being directly usable in JSON/dictionary data.
+- **Generic flag naming (`effect_*`) over source-specific naming (`stratagem_*`)**: Flags are named `effect_invuln` rather than `stratagem_invuln` because abilities (Step 10) will use the same flags. A unit with invuln from a stratagem and invuln from an ability should be indistinguishable to RulesEngine — both are "an effect that grants invuln."
+- **Persistent vs. instant effect classification**: Effects are divided into persistent (set flags, cleared at phase/turn end) and instant (executed immediately, no flags). This mirrors the existing implementation where Go to Ground sets flags but Grenade resolves immediately. The classification is explicit via `_INSTANT_EFFECTS` array.
+- **`_EFFECT_FLAG_MAP` data table**: The mapping from effect types to flag descriptors is a single declarative const dictionary, making it trivial to add new effect types — just add one line to the map. Flag descriptors support both static values (`"value": true`) and dynamic values (`"value_from": "value"` to read from the effect definition dictionary).
+- **Query helpers delegate to flag checks**: Rather than having RulesEngine access flags directly, it calls `EffectPrimitivesData.has_effect_cover(unit)` etc. This centralizes the flag naming convention in one place and makes it easy to change flag names or add fallback logic in the future.
+- **Legacy alias for backward compatibility**: `RulesEngine.has_stratagem_precision_melee()` is preserved as an alias to `has_effect_precision_melee()` to avoid breaking any external references.
+
+**What this proved:**
+1. The hardcoded per-stratagem match statements in StratagemManager can be fully replaced with data-driven effect application using the effects array already present in stratagem definitions
+2. All existing stratagem effects (Go to Ground, Smokescreen, Epic Challenge) map cleanly to the effect primitives system with no behavioral changes
+3. The `effect_*` flag naming convention works identically to the old `stratagem_*` flags — RulesEngine just reads different flag names via helper functions
+4. Instant effects (Grenade, Command Re-roll, Counter-Offensive, Fire Overwatch, Heroic Intervention, Insane Bravery) correctly produce no persistent flags
+5. New effect types (weapon keywords, stat modifiers, eligibility flags) can be added by just adding entries to `_EFFECT_FLAG_MAP` — no code changes needed
+6. The system is ready for Step 9 (faction stratagems) and Step 10 (unit abilities) to reuse the same effect primitives
