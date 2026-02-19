@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-UX11: Unit base preview on hover in deployment (tooltip with base size, model count, special deployment rules) | Deployment | DEPLOYMENT_AUDIT.md §QoL 7 |
 | T5-UX10: Auto-zoom to deployment zone (smooth camera pan/zoom to active player's zone on phase entry and turn switch) | Deployment | DEPLOYMENT_AUDIT.md §QoL 5 |
 | T5-UX8: Deployment summary before ending phase (summary dialog with deployed units, transports, characters, reserves) | Deployment | DEPLOYMENT_AUDIT.md §QoL 8 |
 | T5-UX7: End fight phase confirmation dialog (warning with unfought units list before ending fight phase) | Fight | fight_phase_audit_report.md §3.6 |
@@ -787,7 +788,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-UX9. Undo last model placement (per-model) in deployment (DEPLOYMENT_AUDIT.md §QoL 4)
 - T5-UX10. Auto-zoom to deployment zone (DEPLOYMENT_AUDIT.md §QoL 5) — **DONE**
   - **Resolution:** Added `focus_on_deployment_zone(player)` to Main.gd with smooth tween animation. Auto-zooms to active player's deployment zone on phase entry and on deployment turn switch. Calculates bounding box of zone polygon and fits camera with 20% padding margin.
-- T5-UX11. Unit base preview on hover in deployment (DEPLOYMENT_AUDIT.md §QoL 7)
+- T5-UX11. Unit base preview on hover in deployment (DEPLOYMENT_AUDIT.md §QoL 7) — **DONE**
+  - **Resolution:** Added hover tooltip on UnitListPanel during deployment phase. When hovering over a unit in the list, a styled tooltip appears showing unit name, model count, base size/type, and special deployment rules (Deep Strike, Infiltrators, Fortification, CHARACTER, Transport capacity). Uses gui_input signal with get_item_at_position for hover detection, positioned to the left of the unit list.
 - T5-UX12. Keyboard shortcuts for shooting phase (SHOOTING_PHASE_AUDIT.md §Tier 4)
 - T5-UX13. Score objectives — not implemented (Code TODO in `ScoringController.gd:148`)
 - T5-UX14. Mathhammer melee simulation integration (Code TODO in `FightPhase.gd:947`)
@@ -903,10 +905,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 16 | 35 | 51 |
+| Tier 5 — QoL/Visual | 17 | 34 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **74** | **54** | **128** |
-| **Recently Completed** | **97** | — | **97** |
+| **Total Open** | **75** | **53** | **128** |
+| **Recently Completed** | **98** | — | **98** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
