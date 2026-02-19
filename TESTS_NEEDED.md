@@ -191,3 +191,34 @@
 - Focus fire plan is properly reset between shooting phases
 - No infinite loops during shooting phase
 - No regressions in AI shooting for single-target scenarios
+
+## AI Weapon-Target Efficiency Matching Implementation
+
+**Task:** Implement weapon-target efficiency matching -- match anti-tank to vehicles, anti-infantry to hordes, avoid wasting multi-damage on single-wound models (AI-TACTIC-5, SHOOT-2)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added weapon role classification (`_classify_weapon_role`), target type classification (`_classify_target_type`), efficiency multiplier calculation (`_calculate_efficiency_multiplier`), damage parsing (`_parse_average_damage`), anti-keyword matching, and display helpers; integrated efficiency multiplier into `_estimate_weapon_damage` and `_score_shooting_target`; added efficiency-aware logging to focus fire plan
+- `40k/tests/unit/test_ai_weapon_efficiency.gd` - New test file for weapon-target efficiency matching
+
+**Tests to run:**
+- Run `test_ai_weapon_efficiency.gd` via `godot --headless --script tests/unit/test_ai_weapon_efficiency.gd`
+  - Tests weapon role classification (lascannon as anti-tank, bolt rifle as anti-infantry, heavy bolter as general purpose, anti-keyword weapons, torrent, high-attacks)
+  - Tests target type classification (VEHICLE, MONSTER, horde, elite, high-toughness without keyword, various squad sizes)
+  - Tests damage string parsing (fixed, D3, D6, D3+1, D6+1)
+  - Tests efficiency multiplier calculation (anti-tank vs vehicle, anti-tank vs horde, anti-infantry vs horde, anti-infantry vs vehicle, general purpose, multi-damage penalties, anti-keyword bonus)
+  - Tests integration with _estimate_weapon_damage (lascannon prefers vehicle, bolt rifle prefers infantry)
+  - Tests focus fire plan assigns lascannon to vehicle target not horde target
+  - Tests display name helpers
+- Run `test_ai_focus_fire.gd` to confirm no regressions in focus fire system
+- Run `test_ai_weapon_range_scoring.gd` to confirm no regressions in range scoring
+- Run an AI vs AI game and observe weapon-target matching in the console logs (look for "[Anti-Tank]", "[Anti-Infantry]", "[General]" role labels and efficiency multipliers)
+- Run a Human vs AI game and verify the AI directs heavy weapons at vehicles and small arms at infantry
+
+**What to look for:**
+- Lascannons, missile launchers, and other S7+ AP-2+ D3+ weapons are classified as Anti-Tank and preferentially target VEHICLE/MONSTER units
+- Bolt rifles, shootas, sluggas, and other S4-5 D1 weapons are classified as Anti-Infantry and preferentially target HORDE units
+- Weapons with "anti-vehicle" or "anti-monster" special rules are always classified as Anti-Tank
+- Weapons with "anti-infantry" special rules are always classified as Anti-Infantry
+- Multi-damage weapons (D3+) are penalized when targeting 1-wound models to avoid wasted damage
+- Anti-keyword bonuses apply when weapon special rules match target keywords (e.g. anti-infantry vs INFANTRY)
+- Console logs show efficiency multipliers for each weapon-target assignment in the focus fire plan
+- No regressions in existing AI shooting behavior for scenarios without vehicles/hordes

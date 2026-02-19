@@ -242,10 +242,12 @@ func test_estimate_weapon_damage_basic():
 
 	var dmg = AIDecisionMaker._estimate_weapon_damage(weapon, snapshot.units["target"], snapshot, snapshot.units["shooter"])
 	_assert(dmg > 0.0, "Basic weapon damage estimate is positive (got %.3f)" % dmg)
-	# 2 attacks * (4/6 hit) * (3/6 wound) * (1 - 2/6 save) * 1 damage * 1 model = ~0.593
+	# 2 attacks * (4/6 hit) * (3/6 wound) * (1 - 2/6 save) * 1 damage * 1 model = ~0.333 raw
 	# With AP-1: save is 3+1=4+, so save probability = 3/6 = 0.5, p_unsaved = 0.5
 	# 2 * 4/6 * 3/6 * 0.5 * 1 = 0.333
-	_assert_approx(dmg, 0.333, 0.05, "Expected ~0.33 damage for bolt rifle vs T4/3+ (AP-1)")
+	# Bolt rifle = ANTI_INFANTRY, Target (5x 2W) = ELITE, efficiency = GOOD_MATCH (1.15)
+	# 0.333 * 1.15 = ~0.383
+	_assert_approx(dmg, 0.383, 0.06, "Expected ~0.38 damage for bolt rifle vs T4/3+ (AP-1) with efficiency")
 
 func test_estimate_weapon_damage_out_of_range():
 	var snapshot = _create_test_snapshot()

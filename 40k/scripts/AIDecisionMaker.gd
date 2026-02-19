@@ -26,6 +26,28 @@ const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirec
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
 const LOW_HEALTH_BONUS: float = 1.5  # Bonus for targets below half health
 
+# Weapon-target efficiency matching constants
+# Weapon role classification thresholds
+const ANTI_TANK_STRENGTH_THRESHOLD: int = 7     # S7+ suggests anti-tank
+const ANTI_TANK_AP_THRESHOLD: int = 2            # AP-2+ suggests anti-tank
+const ANTI_TANK_DAMAGE_THRESHOLD: float = 3.0    # D3+ suggests anti-tank
+const ANTI_INFANTRY_DAMAGE_THRESHOLD: float = 1.0 # D1 is anti-infantry
+const ANTI_INFANTRY_STRENGTH_CAP: int = 5        # S5 or below is anti-infantry oriented
+
+# Efficiency multipliers for weapon-target matching
+const EFFICIENCY_PERFECT_MATCH: float = 1.4      # Anti-tank vs vehicle, anti-infantry vs horde
+const EFFICIENCY_GOOD_MATCH: float = 1.15        # Decent but not ideal pairing
+const EFFICIENCY_NEUTRAL: float = 1.0            # No bonus or penalty
+const EFFICIENCY_POOR_MATCH: float = 0.6         # Anti-infantry vs vehicle, etc.
+const EFFICIENCY_TERRIBLE_MATCH: float = 0.35    # Total waste (e.g. lascannon vs grots)
+
+# Damage waste penalty: multi-damage on single-wound models
+const DAMAGE_WASTE_PENALTY_HEAVY: float = 0.4    # D3+ weapon vs 1W models
+const DAMAGE_WASTE_PENALTY_MODERATE: float = 0.7  # D2 weapon vs 1W models
+
+# Anti-keyword special rule bonus
+const ANTI_KEYWORD_BONUS: float = 1.5            # Weapon has anti-X matching target type
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -2135,7 +2157,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			"model_ids": _get_alive_model_ids(weapon_entry["unit"])
 		})
 
-	# Log focus fire summary
+	# Log focus fire summary with efficiency info
 	for enemy_id in allocated_damage:
 		var alloc = allocated_damage[enemy_id]
 		if alloc > 0:
@@ -2143,8 +2165,23 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var enemy = enemies[enemy_id]
 			var ename = enemy.get("meta", {}).get("name", enemy_id)
 			var kill_pct = (alloc / threshold * 100.0) if threshold > 0 else 0.0
-			print("AIDecisionMaker: Focus fire -> %s: %.1f expected damage vs %.1f HP (%.0f%% kill)" % [
-				ename, alloc, threshold, kill_pct])
+			var target_type_name = _target_type_name(_classify_target_type(enemy))
+			print("AIDecisionMaker: Focus fire -> %s [%s]: %.1f eff-adjusted dmg vs %.1f HP (%.0f%% kill)" % [
+				ename, target_type_name, alloc, threshold, kill_pct])
+
+	# Log weapon role assignments for debugging
+	for wi in range(all_weapons.size()):
+		var target_id = weapon_target[wi]
+		if target_id == "":
+			continue
+		var weapon_entry = all_weapons[wi]
+		var w = weapon_entry["weapon"]
+		var wname = w.get("name", "?")
+		var role_name = _weapon_role_name(_classify_weapon_role(w))
+		var target = enemies.get(target_id, {})
+		var tname = target.get("meta", {}).get("name", target_id)
+		var eff = _calculate_efficiency_multiplier(w, target)
+		print("AIDecisionMaker:   %s [%s] -> %s (efficiency: %.2f)" % [wname, role_name, tname, eff])
 
 	return plan
 
@@ -2269,7 +2306,11 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	if model_count < 1:
 		model_count = 1
 
-	return attacks * p_hit * p_wound * p_unsaved * damage * model_count
+	var raw_damage = attacks * p_hit * p_wound * p_unsaved * damage * model_count
+
+	# Apply weapon-target efficiency multiplier to guide weapon allocation
+	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
+	return raw_damage * efficiency
 
 static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: Array, enemies: Dictionary, snapshot: Dictionary) -> Array:
 	"""
@@ -4008,4 +4049,273 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	if "CHARACTER" in keywords:
 		expected_damage *= 1.2
 
+	# Apply weapon-target efficiency multiplier
+	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
+	expected_damage *= efficiency
+
 	return expected_damage
+
+# =============================================================================
+# WEAPON-TARGET EFFICIENCY MATCHING
+# =============================================================================
+
+enum WeaponRole { ANTI_TANK, ANTI_INFANTRY, GENERAL_PURPOSE }
+enum TargetType { VEHICLE_MONSTER, ELITE, HORDE }
+
+static func _classify_weapon_role(weapon: Dictionary) -> int:
+	"""
+	Classify a weapon as anti-tank, anti-infantry, or general purpose based on
+	its strength, AP, damage, and special rules.
+	"""
+	var strength_str = weapon.get("strength", "4")
+	var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+	var ap_str = weapon.get("ap", "0")
+	var ap = 0
+	if ap_str.begins_with("-"):
+		var ap_num = ap_str.substr(1)
+		ap = int(ap_num) if ap_num.is_valid_int() else 0
+	else:
+		ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+	var damage_str = weapon.get("damage", "1")
+	# Handle variable damage like "D6", "D3+1", "D6+1"
+	var damage = _parse_average_damage(damage_str)
+
+	var special_rules = weapon.get("special_rules", "").to_lower()
+
+	# Check for anti-keyword special rules first — they are the strongest indicator
+	if _has_anti_vehicle_rule(special_rules):
+		return WeaponRole.ANTI_TANK
+	if _has_anti_infantry_rule(special_rules):
+		return WeaponRole.ANTI_INFANTRY
+
+	# Score weapon characteristics for anti-tank role
+	var anti_tank_score = 0
+	if strength >= ANTI_TANK_STRENGTH_THRESHOLD:
+		anti_tank_score += 2
+	if ap >= ANTI_TANK_AP_THRESHOLD:
+		anti_tank_score += 1
+	if damage >= ANTI_TANK_DAMAGE_THRESHOLD:
+		anti_tank_score += 2
+
+	# Score weapon characteristics for anti-infantry role
+	var anti_infantry_score = 0
+	if strength <= ANTI_INFANTRY_STRENGTH_CAP:
+		anti_infantry_score += 1
+	if damage <= ANTI_INFANTRY_DAMAGE_THRESHOLD:
+		anti_infantry_score += 2
+	if ap <= 1:
+		anti_infantry_score += 1
+
+	# Check attacks count: high attacks with low damage is anti-infantry
+	var attacks_str = weapon.get("attacks", "1")
+	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	if attacks >= 4 and damage <= 1.5:
+		anti_infantry_score += 1
+
+	# Blast weapons lean anti-infantry (more attacks vs larger units)
+	if "blast" in special_rules:
+		anti_infantry_score += 1
+
+	# Torrent weapons are inherently anti-infantry (auto-hit, usually S4-5 D1)
+	if "torrent" in special_rules:
+		anti_infantry_score += 1
+
+	# Classify based on scores
+	if anti_tank_score >= 3:
+		return WeaponRole.ANTI_TANK
+	if anti_infantry_score >= 3:
+		return WeaponRole.ANTI_INFANTRY
+
+	return WeaponRole.GENERAL_PURPOSE
+
+static func _classify_target_type(target_unit: Dictionary) -> int:
+	"""
+	Classify a target unit as vehicle/monster, elite, or horde based on
+	keywords, wounds per model, and model count.
+	"""
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+	var stats = target_unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var toughness = int(stats.get("toughness", 4))
+	var alive_models = _get_alive_models(target_unit)
+	var model_count = alive_models.size()
+
+	# VEHICLE or MONSTER keyword is the strongest indicator
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "VEHICLE" or kw_upper == "MONSTER":
+			return TargetType.VEHICLE_MONSTER
+
+	# High toughness + high wounds without explicit keyword (e.g. some big characters)
+	if toughness >= 8 and wounds_per_model >= 8:
+		return TargetType.VEHICLE_MONSTER
+
+	# Horde: many models with low wounds
+	if model_count >= 5 and wounds_per_model <= 1:
+		return TargetType.HORDE
+
+	# Large infantry squads with 2W are still horde-like
+	if model_count >= 8 and wounds_per_model <= 2:
+		return TargetType.HORDE
+
+	# Elite: fewer, tougher models (multi-wound infantry, small squads)
+	if wounds_per_model >= 2:
+		return TargetType.ELITE
+
+	# Default: small infantry squads — treat as horde-adjacent
+	return TargetType.HORDE
+
+static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Dictionary) -> float:
+	"""
+	Calculate an efficiency multiplier for matching a weapon to a target.
+	Considers weapon role vs target type, damage waste on low-wound models,
+	and anti-keyword special rules.
+	"""
+	var weapon_role = _classify_weapon_role(weapon)
+	var target_type = _classify_target_type(target_unit)
+	var multiplier = EFFICIENCY_NEUTRAL
+
+	# --- Role-based matching ---
+	match weapon_role:
+		WeaponRole.ANTI_TANK:
+			match target_type:
+				TargetType.VEHICLE_MONSTER:
+					multiplier = EFFICIENCY_PERFECT_MATCH
+				TargetType.ELITE:
+					multiplier = EFFICIENCY_GOOD_MATCH
+				TargetType.HORDE:
+					multiplier = EFFICIENCY_POOR_MATCH
+		WeaponRole.ANTI_INFANTRY:
+			match target_type:
+				TargetType.HORDE:
+					multiplier = EFFICIENCY_PERFECT_MATCH
+				TargetType.ELITE:
+					multiplier = EFFICIENCY_GOOD_MATCH
+				TargetType.VEHICLE_MONSTER:
+					multiplier = EFFICIENCY_POOR_MATCH
+		WeaponRole.GENERAL_PURPOSE:
+			multiplier = EFFICIENCY_NEUTRAL
+
+	# --- Damage waste penalty: multi-damage on single-wound models ---
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	var damage_str = weapon.get("damage", "1")
+	var avg_damage = _parse_average_damage(damage_str)
+
+	if wounds_per_model <= 1 and avg_damage >= 3.0:
+		# Heavy overkill: D3+ damage on 1W models wastes 2+ damage per hit
+		multiplier *= DAMAGE_WASTE_PENALTY_HEAVY
+	elif wounds_per_model <= 1 and avg_damage >= 2.0:
+		# Moderate overkill: D2 on 1W models wastes 1 damage per hit
+		multiplier *= DAMAGE_WASTE_PENALTY_MODERATE
+	elif wounds_per_model > 1 and wounds_per_model < avg_damage:
+		# Partial waste: e.g. D3 damage on 2W models (1 wasted per kill)
+		var waste_ratio = wounds_per_model / avg_damage
+		# Scale the penalty: closer to 1.0 means less waste
+		multiplier *= lerp(0.85, 1.0, waste_ratio)
+
+	# --- Anti-keyword bonus ---
+	var special_rules = weapon.get("special_rules", "").to_lower()
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+
+	if _weapon_anti_keyword_matches_target(special_rules, keywords):
+		multiplier *= ANTI_KEYWORD_BONUS
+
+	return multiplier
+
+static func _get_target_wounds_per_model(target_unit: Dictionary) -> int:
+	"""Get the wounds characteristic of models in the target unit."""
+	var stats = target_unit.get("meta", {}).get("stats", {})
+	return int(stats.get("wounds", 1))
+
+static func _parse_average_damage(damage_str: String) -> float:
+	"""
+	Parse a damage string and return the average expected damage.
+	Handles: "1", "2", "D3", "D6", "D3+1", "D6+1", "2D6", etc.
+	"""
+	if damage_str.is_valid_float():
+		return float(damage_str)
+	if damage_str.is_valid_int():
+		return float(damage_str)
+
+	var lower = damage_str.to_lower().strip_edges()
+
+	# Handle "D3+N" or "D6+N" patterns
+	var plus_parts = lower.split("+")
+	var base_damage = 0.0
+	var bonus = 0.0
+
+	if plus_parts.size() >= 2:
+		var bonus_str = plus_parts[1].strip_edges()
+		bonus = float(bonus_str) if bonus_str.is_valid_float() else 0.0
+
+	var base_str = plus_parts[0].strip_edges()
+
+	# Handle "2D6", "2D3" etc.
+	var multiplier_val = 1.0
+	if base_str.find("d") > 0:
+		var d_parts = base_str.split("d")
+		if d_parts.size() == 2:
+			var mult_str = d_parts[0].strip_edges()
+			multiplier_val = float(mult_str) if mult_str.is_valid_float() else 1.0
+			var die_str = d_parts[1].strip_edges()
+			if die_str == "3":
+				base_damage = 2.0  # Average of D3 = 2
+			elif die_str == "6":
+				base_damage = 3.5  # Average of D6 = 3.5
+			else:
+				base_damage = (float(die_str) + 1.0) / 2.0 if die_str.is_valid_float() else 1.0
+	elif base_str == "d3":
+		base_damage = 2.0
+	elif base_str == "d6":
+		base_damage = 3.5
+	else:
+		base_damage = float(base_str) if base_str.is_valid_float() else 1.0
+
+	return base_damage * multiplier_val + bonus
+
+static func _has_anti_vehicle_rule(special_rules: String) -> bool:
+	"""Check if weapon special rules contain anti-vehicle or anti-monster."""
+	return "anti-vehicle" in special_rules or "anti-monster" in special_rules
+
+static func _has_anti_infantry_rule(special_rules: String) -> bool:
+	"""Check if weapon special rules contain anti-infantry."""
+	return "anti-infantry" in special_rules
+
+static func _weapon_anti_keyword_matches_target(special_rules: String, target_keywords: Array) -> bool:
+	"""
+	Check if a weapon's anti-X keyword matches a target's keywords.
+	e.g. anti-infantry 4+ matches INFANTRY targets, anti-vehicle 4+ matches VEHICLE targets.
+	"""
+	for kw in target_keywords:
+		var kw_lower = kw.to_lower()
+		# Check for "anti-<keyword>" in special rules
+		var anti_pattern = "anti-" + kw_lower
+		if anti_pattern in special_rules:
+			return true
+	return false
+
+static func _weapon_role_name(role: int) -> String:
+	"""Return a human-readable name for a weapon role."""
+	match role:
+		WeaponRole.ANTI_TANK:
+			return "Anti-Tank"
+		WeaponRole.ANTI_INFANTRY:
+			return "Anti-Infantry"
+		WeaponRole.GENERAL_PURPOSE:
+			return "General"
+		_:
+			return "Unknown"
+
+static func _target_type_name(target_type: int) -> String:
+	"""Return a human-readable name for a target type."""
+	match target_type:
+		TargetType.VEHICLE_MONSTER:
+			return "Vehicle/Monster"
+		TargetType.ELITE:
+			return "Elite"
+		TargetType.HORDE:
+			return "Horde"
+		_:
+			return "Unknown"
