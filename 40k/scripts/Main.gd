@@ -2565,10 +2565,65 @@ func focus_on_player2_zone() -> void:
 		for point in zone2:
 			center += point
 		center /= zone2.size()
-		
+
 		view_offset = center - get_viewport().get_visible_rect().size / 2
 		view_zoom = 0.8
 		print("Focused view on Player 2 zone at: ", center)
+
+# T5-UX10: Auto-zoom to deployment zone — smoothly pan and zoom camera to active player's zone
+var _auto_zoom_tween: Tween = null
+
+func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
+	var zone = BoardState.get_deployment_zone_for_player(player)
+	if zone.size() == 0:
+		print("T5-UX10: No deployment zone found for player %d" % player)
+		return
+
+	# Calculate bounding box of the zone polygon
+	var min_pt = Vector2(INF, INF)
+	var max_pt = Vector2(-INF, -INF)
+	for point in zone:
+		min_pt.x = min(min_pt.x, point.x)
+		min_pt.y = min(min_pt.y, point.y)
+		max_pt.x = max(max_pt.x, point.x)
+		max_pt.y = max(max_pt.y, point.y)
+
+	var zone_center = (min_pt + max_pt) / 2.0
+	var zone_size = max_pt - min_pt
+
+	# Calculate zoom to fit the zone with some padding (20% margin)
+	var viewport_size = get_viewport().get_visible_rect().size
+	var padding = 1.2
+	var zoom_x = viewport_size.x / (zone_size.x * padding) if zone_size.x > 0 else 1.0
+	var zoom_y = viewport_size.y / (zone_size.y * padding) if zone_size.y > 0 else 1.0
+	var target_zoom = min(zoom_x, zoom_y)
+	target_zoom = clamp(target_zoom, 0.3, 1.5)
+
+	# Calculate offset so the zone center appears at viewport center
+	var target_offset = zone_center - viewport_size / (2.0 * target_zoom)
+
+	print("T5-UX10: Focusing on Player %d deployment zone — center: %s, zoom: %.2f" % [player, zone_center, target_zoom])
+
+	if animate:
+		# Kill any existing auto-zoom tween
+		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
+			_auto_zoom_tween.kill()
+
+		_auto_zoom_tween = create_tween()
+		_auto_zoom_tween.set_parallel(true)
+		_auto_zoom_tween.set_ease(Tween.EASE_OUT)
+		_auto_zoom_tween.set_trans(Tween.TRANS_CUBIC)
+		_auto_zoom_tween.tween_property(self, "view_zoom", target_zoom, 0.6)
+		_auto_zoom_tween.tween_property(self, "view_offset", target_offset, 0.6)
+		# Call update_view_transform each frame during the tween via a method tween
+		_auto_zoom_tween.tween_method(_tween_update_view, 0.0, 1.0, 0.6)
+	else:
+		view_zoom = target_zoom
+		view_offset = target_offset
+		update_view_transform()
+
+func _tween_update_view(_progress: float) -> void:
+	update_view_transform()
 
 func refresh_unit_list() -> void:
 	# Update the new bottom panel unit lists (always visible for comparison)
@@ -3122,6 +3177,10 @@ func _on_deployment_side_changed(player: int) -> void:
 	refresh_unit_list()
 	update_ui()
 	update_deployment_zone_visibility()
+
+	# T5-UX10: Auto-zoom to the new active player's deployment zone on turn switch
+	print("T5-UX10: Deployment side changed to Player %d — auto-zooming" % player)
+	focus_on_deployment_zone(player)
 
 	# T5-MP6: Show toast notification when deployment turn switches in multiplayer
 	var network_manager = get_node_or_null("/root/NetworkManager")
@@ -4003,7 +4062,13 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		return
 
 	update_ui_for_phase()
-	
+
+	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		var active_player = GameState.get_active_player()
+		print("T5-UX10: Deployment phase entered — auto-zooming to Player %d zone" % active_player)
+		focus_on_deployment_zone(active_player)
+
 	# Debug: Check what units are available
 	if current_phase == GameStateData.Phase.MOVEMENT:
 		# Need to wait a frame for the phase to set the active player
