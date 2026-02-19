@@ -12,6 +12,7 @@ var target_list: ItemList = null
 var assignments_display: RichTextLabel = null
 var extra_attacks_weapons: Array = []  # T3-3: Track Extra Attacks weapons for auto-inclusion
 var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extra Attacks weapons
+var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	print("[AttackAssignmentDialog] Setup called for unit: ", fighter_id)
@@ -147,11 +148,24 @@ func _build_ui() -> void:
 		target_list.set_item_metadata(target_list.item_count - 1, target_id)
 	container.add_child(target_list)
 
+	# Button container for assignment actions
+	var button_container = HBoxContainer.new()
+	button_container.name = "ButtonContainer"
+
 	# Assign button
 	var assign_button = Button.new()
 	assign_button.text = "Add Assignment"
 	assign_button.pressed.connect(_on_assign_pressed)
-	container.add_child(assign_button)
+	button_container.add_child(assign_button)
+
+	# T5-UX5: "All to Target" button — assigns all unassigned weapons to the selected target
+	all_to_target_button = Button.new()
+	all_to_target_button.text = "All to Target"
+	all_to_target_button.tooltip_text = "Assign all unassigned weapons to the selected target"
+	all_to_target_button.pressed.connect(_on_all_to_target_pressed)
+	button_container.add_child(all_to_target_button)
+
+	container.add_child(button_container)
 
 	# Current assignments display
 	var assignments_label = Label.new()
@@ -198,6 +212,45 @@ func _on_assign_pressed() -> void:
 
 	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
 	_update_assignments_display()
+
+# T5-UX5: Assign all unassigned weapons to the selected target
+func _on_all_to_target_pressed() -> void:
+	print("[AttackAssignmentDialog] T5-UX5: 'All to Target' button pressed")
+
+	if not weapon_list or not target_list:
+		push_error("Weapon or target list not initialized")
+		return
+
+	var target_idx = target_list.get_selected_items()
+	if target_idx.is_empty():
+		push_warning("Select a target first")
+		print("[AttackAssignmentDialog] T5-UX5: No target selected")
+		return
+
+	var target_id = target_list.get_item_metadata(target_idx[0])
+	var assigned_weapon_ids = _get_assigned_weapon_ids()
+	var newly_assigned = 0
+
+	for i in range(weapon_list.item_count):
+		var weapon_id = weapon_list.get_item_metadata(i)
+		if weapon_id and weapon_id not in assigned_weapon_ids:
+			assignments.append({
+				"attacker": unit_id,
+				"weapon": weapon_id,
+				"target": target_id
+			})
+			newly_assigned += 1
+			print("[AttackAssignmentDialog] T5-UX5: Assigned weapon '%s' → '%s'" % [weapon_id, target_id])
+
+	print("[AttackAssignmentDialog] T5-UX5: Assigned %d weapons to target '%s'. Total assignments: %d" % [newly_assigned, target_id, assignments.size()])
+	_update_assignments_display()
+
+# T5-UX5: Get set of weapon IDs that are already assigned
+func _get_assigned_weapon_ids() -> Dictionary:
+	var assigned = {}
+	for assignment in assignments:
+		assigned[assignment.get("weapon", "")] = true
+	return assigned
 
 func _update_assignments_display() -> void:
 	if not assignments_display:

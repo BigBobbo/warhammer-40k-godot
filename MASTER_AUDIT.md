@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-UX5: "All to Target" button in fight attack assignment dialog (one-click assign all weapons to selected target) | Fight | fight_phase_audit_report.md §3.1 |
 | T5-UX4: "Undo Last Assignment" button in weapon assignment (undo stack, per-weapon clear, UI feedback) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX2: Auto-select weapon for single-weapon units (auto-select in tree, skip manual weapon click) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX1: Expected damage preview when hovering weapons (analytical preview panel with hit/wound/save pipeline) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
@@ -771,7 +772,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-UX3. "Shoot All Remaining" button (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX4. "Undo Last Assignment" button in weapon assignment (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Added "Undo Last" button in ShootingController between "Clear All" and "Confirm Targets". Maintains an `assignment_history` stack that tracks weapon assignments in order. Undo pops the most recent assignment, clears it from local state and the phase's pending_assignments via `CLEAR_ASSIGNMENT` action, resets the weapon tree row text, and updates the "Apply to All" button state. History is cleared on new shooter selection, clear all, and shooting resolution.
-- T5-UX5. "All to Target" button in fight attack assignment dialog (fight_phase_audit_report.md §3.1)
+- T5-UX5. "All to Target" button in fight attack assignment dialog (fight_phase_audit_report.md §3.1) — **DONE**
+  - **Resolution:** Added "All to Target" button in AttackAssignmentDialog next to "Add Assignment". When clicked, assigns all unassigned regular melee weapons to the currently selected target, skipping any already-assigned weapons. Provides a one-click shortcut for the common case of directing all attacks at a single enemy unit.
 - T5-UX6. Show weapon stats in target assignment UI (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX7. End fight phase confirmation dialog (fight_phase_audit_report.md §3.6)
 - T5-UX8. Deployment summary before ending phase (DEPLOYMENT_AUDIT.md §QoL 8)
@@ -893,10 +895,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 11 | 40 | 51 |
+| Tier 5 — QoL/Visual | 12 | 39 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **69** | **59** | **128** |
-| **Recently Completed** | **93** | — | **93** |
+| **Total Open** | **70** | **58** | **128** |
+| **Recently Completed** | **94** | — | **94** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
