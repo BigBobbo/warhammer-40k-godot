@@ -381,6 +381,15 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 						model["invuln"] = invuln_value
 				print("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id])
 
+			# HALF DAMAGE (T4-17): Apply half-damage defensive ability from rule toggle
+			if rule_toggles.get("half_damage", false):
+				if not fresh_defender.has("meta"):
+					fresh_defender["meta"] = {}
+				if not fresh_defender["meta"].has("stats"):
+					fresh_defender["meta"]["stats"] = {}
+				fresh_defender["meta"]["stats"]["half_damage"] = true
+				print("Mathhammer: Applied Half Damage to defender %s" % defender_unit_id)
+
 			trial_board.units[defender_unit_id] = fresh_defender
 
 	# ANTI-[KEYWORD] X+ (T2-13): Inject anti-keyword text into attacker weapon special_rules

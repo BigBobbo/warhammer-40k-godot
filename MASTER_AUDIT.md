@@ -110,6 +110,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-14: Weapon ID collision for similar weapon names — type-aware IDs | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-15: Single weapon result dialog has hardcoded zeros — stored hit/wound data in resolution_state | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-16: [MH-RULE-6] Conversion X+ — expanded crit hit range at 12"+ distance | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T4-17: [MH-RULE-7] Half Damage — halve incoming damage (round up) defensive ability | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -151,7 +152,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-RULE-4 | Hazardous | D6 per weapon after attacking; 1 = 3MW to bearer | MEDIUM — see T2-3 |
 | MH-RULE-5 | Torrent | Auto-hit (no hit roll) | MEDIUM |
 | MH-RULE-6 | ~~Conversion X+~~ **DONE** | ~~Expanded crit hit range at 12"+~~ Implemented: `get_critical_hit_threshold()` with distance check + Mathhammer toggle | ~~LOW~~ |
-| MH-RULE-7 | Half Damage | Halve incoming damage (round up) | LOW |
+| MH-RULE-7 | ~~Half Damage~~ **DONE** | ~~Halve incoming damage (round up)~~ Implemented: `apply_half_damage()` with round-up + Mathhammer toggle | ~~LOW~~ |
 | MH-RULE-8 | Stealth | Always has Benefit of Cover | LOW — see T2-1 |
 | MH-RULE-9 | Invulnerable Save toggle | UI needs invuln save override input for defender | HIGH |
 | MH-RULE-10 | ~~FNP toggle integration~~ **DONE** | ~~FNP exists in RulesEngine but Mathhammer toggles don't pass threshold to RulesEngine board state~~ Fixed: FNP toggles added to UI and propagated to trial board state | ~~HIGH~~ |
@@ -701,9 +702,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** MATHHAMMER_AUDIT
 - **Resolution:** Implemented Conversion X+ weapon ability across all shooting resolution paths (interactive, auto-resolve) and Mathhammer simulation. Added `get_conversion_threshold()`, `has_conversion()`, `get_critical_hit_threshold()` to RulesEngine.gd. Modified hit roll logic to use dynamic `critical_hit_threshold` (default 6, lowered to X when Conversion X+ is present and target is 12"+ away). Added "Conversion 4+" and "Conversion 5+" toggles to MathhhammerUI, with model placement at 13" distance for simulation. Rule text injection into weapon special_rules follows the same pattern as Anti-keyword.
 
-### T4-17. [MH-RULE-7] Half Damage defensive ability
+### T4-17. [MH-RULE-7] Half Damage defensive ability — **DONE**
 - **Phase:** Mathhammer
 - **Source:** MATHHAMMER_AUDIT
+- **Resolution:** Added `get_unit_half_damage()` and `apply_half_damage()` helpers to RulesEngine. Applied half-damage (round up) to all damage paths: `apply_save_damage` (regular + devastating), melee `_resolve_melee_assignment` (regular + devastating), Overwatch, and auto-resolve. Added "Half Damage" toggle to MathhhammerUI and registered rule in MathhhammerRuleModifiers. Mathhammer propagates toggle to trial board via `meta.stats.half_damage`. 15 unit tests (all passing).
 
 ### T4-18. [MH-RULE-14] Save modifier cap not enforced in mathhammer toggles
 - **Phase:** Mathhammer
@@ -860,12 +862,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 12 | 8 | 20 |
+| Tier 4 — Low/Niche | 13 | 7 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **53** | **75** | **128** |
-| **Recently Completed** | **80** | — | **80** |
-| *Mathhammer items (subset)* | *11* | *20* | *31* |
+| **Total Open** | **54** | **74** | **128** |
+| **Recently Completed** | **81** | — | **81** |
+| *Mathhammer items (subset)* | *12* | *19* | *31* |
 
 ---
 

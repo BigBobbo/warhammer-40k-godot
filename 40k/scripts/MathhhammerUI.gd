@@ -469,7 +469,8 @@ func _populate_rule_toggles() -> void:
 		{"id": "conversion_5", "name": "Conversion 5+", "description": "Critical hits on 5+ (assumes 12\"+ range to target)", "phase": "shooting"},
 		{"id": "feel_no_pain_6", "name": "Feel No Pain 6+", "description": "Defender ignores wounds on 6+", "phase": "both"},
 		{"id": "feel_no_pain_5", "name": "Feel No Pain 5+", "description": "Defender ignores wounds on 5+", "phase": "both"},
-		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"}
+		{"id": "feel_no_pain_4", "name": "Feel No Pain 4+", "description": "Defender ignores wounds on 4+", "phase": "both"},
+		{"id": "half_damage", "name": "Half Damage", "description": "Halve incoming damage (round up) — e.g. Leman Russ, Vehicles with certain abilities", "phase": "both"}
 	]
 
 	for rule in common_rules:
