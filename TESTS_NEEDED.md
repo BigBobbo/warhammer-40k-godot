@@ -30,3 +30,35 @@
 - Reaction decisions (Command Re-roll, Fire Overwatch, Heroic Intervention, Tank Shock) are properly declined
 - No infinite loops during charge phase
 - Human player charge flow still works correctly (no regression from ChargePhase changes)
+
+## AI Pile-In Movement Implementation
+
+**Task:** Implement pile-in movement -- move models up to 3" toward nearest enemy during fight phase (AI-GAP-2, FIGHT-1)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Replaced pile-in hold-position stub with `_compute_pile_in_action()` and `_compute_pile_in_movements()` that compute per-model movements toward nearest enemy; added `_find_model_index_in_unit()` helper
+- `40k/tests/unit/test_ai_pile_in.gd` - New test file for AI pile-in logic
+
+**Tests to run:**
+- Run `test_ai_pile_in.gd` via `godot --headless --script tests/unit/test_ai_pile_in.gd`
+  - Tests model moves toward nearby enemy
+  - Tests model in base contact holds position (T4-5 rule)
+  - Tests 3" movement limit is respected
+  - Tests empty movements when no enemies exist
+  - Tests PILE_IN action is returned from `_decide_fight()` with computed movements
+  - Tests dead models are skipped
+  - Tests multiple models all move toward enemy
+  - Tests model index mapping (string keys match array indices)
+  - Tests `_find_model_index_in_unit()` helper
+  - Tests far model clamps movement to exactly 3"
+- Run an AI vs AI game and observe that AI units now pile in toward enemies instead of holding position
+- Run a Human vs AI game and verify the AI models move toward your units during pile-in
+
+**What to look for:**
+- AI models move up to 3" toward the closest enemy model during pile-in
+- Models already in base-to-base contact do not move
+- Movement is clamped to 3" even when enemies are further away
+- Models do not collide with each other or other deployed models
+- AIRCRAFT enemies are ignored unless the pile-in unit has FLY keyword
+- The FightPhase validation accepts the AI's computed movements (no validation errors)
+- Human player pile-in drag-and-drop still works correctly (no regression)
+- No infinite loops during fight phase

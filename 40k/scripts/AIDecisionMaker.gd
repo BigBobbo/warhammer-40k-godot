@@ -2252,17 +2252,11 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	# Step 3: If pile-in or assign attacks available, handle them
 	if action_types.has("ASSIGN_ATTACKS_UI") or action_types.has("PILE_IN"):
 		# We need to assign attacks for the active fighter
-		# First pile in (empty movements = skip pile in)
+		# First pile in — compute movements toward nearest enemy (up to 3")
 		if action_types.has("PILE_IN"):
 			var a = action_types["PILE_IN"][0]
 			var uid = a.get("unit_id", "")
-			return {
-				"type": "PILE_IN",
-				"unit_id": uid,
-				"actor_unit_id": uid,
-				"movements": {},
-				"_ai_description": "Pile in (hold position)"
-			}
+			return _compute_pile_in_action(snapshot, uid, player)
 
 		# Then assign attacks
 		if action_types.has("ASSIGN_ATTACKS_UI"):
@@ -2343,6 +2337,298 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		"weapon_id": weapon_id,
 		"_ai_description": "Assign melee attacks"
 	}
+
+# =============================================================================
+# PILE-IN MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
+	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
+	closest enemy model (edge-to-edge). Models already in base contact stay put.
+	Returns a PILE_IN action dict with the movements dictionary."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {
+			"type": "PILE_IN",
+			"unit_id": unit_id,
+			"actor_unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "Pile in (unit not found)"
+		}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+
+	var description = ""
+	if movements.is_empty():
+		description = "%s pile in (all models holding position)" % unit_name
+	else:
+		description = "%s piles in toward enemy (%d models moved)" % [unit_name, movements.size()]
+
+	print("AIDecisionMaker: %s" % description)
+
+	return {
+		"type": "PILE_IN",
+		"unit_id": unit_id,
+		"actor_unit_id": unit_id,
+		"movements": movements,
+		"_ai_description": description
+	}
+
+static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+	"""Compute per-model pile-in destinations. Returns {model_id_string: Vector2} for models
+	that should move. Models that stay put are omitted.
+
+	Pile-in rules (10th edition):
+	- Each model may move up to 3"
+	- Each model must end closer to the closest enemy model than it started
+	- Models already in base-to-base contact with an enemy cannot move
+	- After pile-in, unit must still be in engagement range of at least one enemy
+	- Unit coherency must be maintained
+	- If a model CAN reach base-to-base contact within 3", it SHOULD"""
+
+	var movements = {}
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return movements
+
+	var unit_owner = int(unit.get("owner", player))
+
+	# Gather all enemy model info for distance calculations
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+	var enemy_models_info = []  # Array of {position: Vector2, base_radius_px: float, base_mm: int}
+	for other_unit_id in snapshot.get("units", {}):
+		var other_unit = snapshot.units[other_unit_id]
+		if int(other_unit.get("owner", 0)) == unit_owner:
+			continue  # Skip friendly
+		# Skip undeployed / in reserves
+		var other_status = other_unit.get("status", 0)
+		if other_status == GameStateData.UnitStatus.UNDEPLOYED or other_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		# Skip AIRCRAFT unless our unit has FLY (T4-4 rule)
+		var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in other_keywords and not has_fly:
+			continue
+		for em in other_unit.get("models", []):
+			if not em.get("alive", true):
+				continue
+			var ep = _get_model_position(em)
+			if ep == Vector2.INF:
+				continue
+			var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
+			enemy_models_info.append({
+				"position": ep,
+				"base_radius_px": ebr,
+				"base_mm": em.get("base_mm", 32),
+			})
+
+	if enemy_models_info.is_empty():
+		print("AIDecisionMaker: Pile-in for %s — no enemy models found" % unit_id)
+		return movements
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.25")
+
+	# Track placed positions to avoid intra-unit collisions
+	var placed_positions = []
+
+	# Sort models by distance to nearest enemy (furthest first so they trail behind)
+	var model_entries = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+
+		# Find closest enemy model (edge-to-edge)
+		var closest_enemy_dist_px = INF
+		var closest_enemy_pos = Vector2.INF
+		var closest_enemy_radius = 0.0
+		for ei in enemy_models_info:
+			var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+			if edge_dist < closest_enemy_dist_px:
+				closest_enemy_dist_px = edge_dist
+				closest_enemy_pos = ei.position
+				closest_enemy_radius = ei.base_radius_px
+
+		model_entries.append({
+			"model": model,
+			"id": mid,
+			"pos": mpos,
+			"base_radius_px": mbr,
+			"closest_enemy_dist_px": closest_enemy_dist_px,
+			"closest_enemy_pos": closest_enemy_pos,
+			"closest_enemy_radius": closest_enemy_radius,
+		})
+
+	# Sort: models closest to enemies first (they get priority placement)
+	model_entries.sort_custom(func(a, b): return a.closest_enemy_dist_px < b.closest_enemy_dist_px)
+
+	for entry in model_entries:
+		var mid = entry.id
+		var start_pos = entry.pos
+		var my_radius = entry.base_radius_px
+		var closest_enemy_pos = entry.closest_enemy_pos
+		var closest_enemy_radius = entry.closest_enemy_radius
+		var closest_enemy_dist_px = entry.closest_enemy_dist_px
+		var model = entry.model
+		var base_mm = model.get("base_mm", 32)
+		var base_type = model.get("base_type", "circular")
+		var base_dimensions = model.get("base_dimensions", {})
+
+		if closest_enemy_pos == Vector2.INF:
+			# No enemy found for this model - skip
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Check if model is already in base contact with nearest enemy
+		if closest_enemy_dist_px <= base_contact_threshold_px:
+			# Model is in base contact — do not move (T4-5)
+			print("AIDecisionMaker: Pile-in model %s already in base contact (dist=%.1fpx), holding" % [mid, closest_enemy_dist_px])
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Calculate direction toward closest enemy
+		var direction = (closest_enemy_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			direction = Vector2.RIGHT
+
+		# Calculate ideal destination: base-to-base contact with closest enemy
+		# Center-to-center distance for base contact = my_radius + enemy_radius
+		var b2b_center_dist = my_radius + closest_enemy_radius
+		var current_center_dist = start_pos.distance_to(closest_enemy_pos)
+		var desired_move_dist_px = current_center_dist - b2b_center_dist
+
+		# Clamp to 3" pile-in limit
+		var actual_move_dist_px = clampf(desired_move_dist_px, 0.0, pile_in_range_px)
+
+		# If the model barely needs to move (sub-pixel), skip it
+		if actual_move_dist_px < 1.0:
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var candidate_pos = start_pos + direction * actual_move_dist_px
+
+		# Clamp to board bounds
+		candidate_pos.x = clampf(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check collision with deployed models + already placed models from this unit
+		var all_obstacles = deployed_models + placed_positions
+		if _position_collides_with_deployed(candidate_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+			# Try to find a nearby collision-free position still closer to the enemy
+			var found_alt = false
+			var step = my_radius * 2.0 + 4.0
+			for ring in range(1, 5):
+				var ring_radius = step * ring * 0.4
+				var points_in_ring = maxi(8, ring * 6)
+				for p_idx in range(points_in_ring):
+					var angle = (2.0 * PI * p_idx) / points_in_ring
+					var test_pos = Vector2(
+						candidate_pos.x + cos(angle) * ring_radius,
+						candidate_pos.y + sin(angle) * ring_radius
+					)
+					# Check move budget
+					if start_pos.distance_to(test_pos) > pile_in_range_px:
+						continue
+					# Must be closer to enemy than start
+					if test_pos.distance_to(closest_enemy_pos) >= start_pos.distance_to(closest_enemy_pos):
+						continue
+					# Clamp to board
+					test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+					# Check collision
+					if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+						candidate_pos = test_pos
+						found_alt = true
+						break
+				if found_alt:
+					break
+
+			if not found_alt:
+				# Cannot find collision-free position — hold position
+				print("AIDecisionMaker: Pile-in model %s collision — holding position" % mid)
+				placed_positions.append({
+					"position": start_pos,
+					"base_mm": base_mm,
+					"base_type": base_type,
+					"base_dimensions": base_dimensions,
+				})
+				continue
+
+		# Verify the model ends closer to the closest enemy than it started
+		var new_dist_to_enemy = candidate_pos.distance_to(closest_enemy_pos)
+		var old_dist_to_enemy = start_pos.distance_to(closest_enemy_pos)
+		if new_dist_to_enemy >= old_dist_to_enemy:
+			# Movement doesn't bring us closer — skip (validation would reject)
+			print("AIDecisionMaker: Pile-in model %s would not end closer to enemy, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Record the movement
+		# FightPhase expects model_id as string index into the models array
+		# We need to find the index of this model in the unit's models array
+		var model_index = _find_model_index_in_unit(unit, mid)
+		if model_index == -1:
+			print("AIDecisionMaker: Pile-in model %s index not found, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var move_inches = start_pos.distance_to(candidate_pos) / PIXELS_PER_INCH
+		print("AIDecisionMaker: Pile-in model %s (idx %d) moves %.1f\" toward enemy" % [mid, model_index, move_inches])
+
+		movements[str(model_index)] = candidate_pos
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions,
+		})
+
+	return movements
+
+static func _find_model_index_in_unit(unit: Dictionary, model_id: String) -> int:
+	"""Find the index of a model in a unit's models array by its id field."""
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		if models[i].get("id", "") == model_id:
+			return i
+	# Fallback: try matching as string index
+	if model_id.is_valid_int():
+		var idx = int(model_id)
+		if idx >= 0 and idx < models.size():
+			return idx
+	return -1
 
 # =============================================================================
 # SCORING PHASE
