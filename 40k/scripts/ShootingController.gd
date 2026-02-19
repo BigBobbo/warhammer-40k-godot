@@ -18,6 +18,7 @@ var eligible_targets: Dictionary = {}  # target_unit_id -> target_data
 var selected_target_id: String = ""
 var weapon_assignments: Dictionary = {}  # weapon_id -> target_unit_id
 var weapon_modifiers: Dictionary = {}  # weapon_id -> {hit: {reroll_ones: bool, plus_one: bool, minus_one: bool}}
+var assignment_history: Array = []  # T5-UX4: Stack of weapon_ids in assignment order for undo
 var selected_weapon_id: String = ""  # Currently selected weapon for modifier display
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
@@ -47,6 +48,7 @@ var weapon_tree: Tree
 var target_basket: ItemList
 var confirm_button: Button
 var clear_button: Button
+var undo_button: Button  # T5-UX4: Undo last weapon assignment
 var dice_log_display: RichTextLabel
 var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
@@ -366,7 +368,15 @@ func _setup_right_panel() -> void:
 	clear_button.text = "Clear All"
 	clear_button.pressed.connect(_on_clear_pressed)
 	button_container.add_child(clear_button)
-	
+
+	# T5-UX4: Undo last assignment button
+	undo_button = Button.new()
+	undo_button.text = "Undo Last"
+	undo_button.pressed.connect(_on_undo_last_pressed)
+	undo_button.tooltip_text = "Remove the most recent weapon assignment"
+	undo_button.disabled = true
+	button_container.add_child(undo_button)
+
 	confirm_button = Button.new()
 	confirm_button.text = "Confirm Targets"
 	confirm_button.pressed.connect(_on_confirm_pressed)
@@ -1326,6 +1336,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	print("ShootingController: Unit selected for shooting: ", unit_id)
 	active_shooter_id = unit_id
 	weapon_assignments.clear()
+	assignment_history.clear()  # T5-UX4: Clear undo history for new shooter
 
 	# NEW: Hide auto-target button when selecting new shooter
 	if auto_target_button_container:
@@ -1408,6 +1419,7 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	active_shooter_id = ""
 	eligible_targets.clear()
 	weapon_assignments.clear()
+	assignment_history.clear()  # T5-UX4: Clear undo history
 	_refresh_weapon_tree()
 	# Clear LoS visualization after shooting
 	if los_debug_visual:
@@ -2305,11 +2317,59 @@ func _on_clear_pressed() -> void:
 		"type": "CLEAR_ALL_ASSIGNMENTS"
 	})
 	weapon_assignments.clear()
+	assignment_history.clear()  # T5-UX4: Clear undo history
 
 	# NEW: Hide auto-target button when clearing assignments
 	if auto_target_button_container:
 		auto_target_button_container.visible = false
 	last_assigned_target_id = ""
+
+	_update_ui_state()
+
+# T5-UX4: Undo the most recent weapon assignment
+func _on_undo_last_pressed() -> void:
+	if assignment_history.is_empty():
+		return
+
+	# Pop the most recent weapon_id from the history
+	var weapon_id = assignment_history.pop_back()
+
+	print("T5-UX4: Undoing last assignment for weapon: ", weapon_id)
+
+	# Remove from local tracking
+	weapon_assignments.erase(weapon_id)
+
+	# Tell the phase to clear this assignment
+	emit_signal("shoot_action_requested", {
+		"type": "CLEAR_ASSIGNMENT",
+		"payload": {"weapon_id": weapon_id}
+	})
+
+	# Update weapon tree to clear the target text for this weapon
+	if weapon_tree:
+		var root = weapon_tree.get_root()
+		if root:
+			var child = root.get_first_child()
+			while child:
+				if child.get_metadata(0) == weapon_id:
+					child.set_text(1, "[Click enemy to assign]")
+					child.clear_custom_bg_color(1)
+					break
+				child = child.get_next()
+
+	# Update last_assigned_target_id from the remaining history
+	if not assignment_history.is_empty():
+		var prev_weapon = assignment_history.back()
+		last_assigned_target_id = weapon_assignments.get(prev_weapon, "")
+	else:
+		last_assigned_target_id = ""
+		if auto_target_button_container:
+			auto_target_button_container.visible = false
+
+	# Show feedback
+	if dice_log_display:
+		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+		dice_log_display.append_text("[color=orange]↩ Undid assignment for %s[/color]\n" % weapon_name)
 
 	_update_ui_state()
 
@@ -2338,6 +2398,8 @@ func _update_ui_state() -> void:
 		confirm_button.disabled = weapon_assignments.is_empty()
 	if clear_button:
 		clear_button.disabled = weapon_assignments.is_empty()
+	if undo_button:
+		undo_button.disabled = assignment_history.is_empty()
 
 	# Update target basket
 	if target_basket:
@@ -2481,6 +2543,10 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	# Assign target
 	weapon_assignments[weapon_id] = target_id
 
+	# T5-UX4: Track assignment in history for undo (remove if re-assigned, then push)
+	assignment_history.erase(weapon_id)
+	assignment_history.push_back(weapon_id)
+
 	print("║ Assignment stored in weapon_assignments dictionary")
 	print("║ Current weapon_assignments state:")
 	for wpn_id in weapon_assignments:
@@ -2618,6 +2684,10 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	# Mark as assigned
 	weapon_assignments[weapon_id] = target_id
 
+	# T5-UX4: Track assignment in history for undo
+	assignment_history.erase(weapon_id)
+	assignment_history.push_back(weapon_id)
+
 	# Get model IDs for this weapon
 	var model_ids = []
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
@@ -2696,6 +2766,10 @@ func _on_apply_to_all_pressed() -> void:
 
 			# Assign target
 			weapon_assignments[weapon_id] = last_assigned_target_id
+
+			# T5-UX4: Track in assignment history for undo
+			assignment_history.erase(weapon_id)
+			assignment_history.push_back(weapon_id)
 
 			# Update UI for this weapon
 			child.set_text(1, target_name)
