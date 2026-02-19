@@ -23,6 +23,8 @@ signal overwatch_opportunity(charging_unit_id: String, defending_player: int, el
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal heroic_intervention_opportunity(player: int, eligible_units: Array, charging_unit_id: String)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
+signal tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_targets: Array)
+signal tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -51,6 +53,11 @@ var heroic_intervention_player: int = 0  # Defending player being offered HI
 var heroic_intervention_charging_unit_id: String = ""  # The enemy unit that just charged
 var heroic_intervention_unit_id: String = ""  # Unit selected for HI (set on USE)
 var heroic_intervention_pending_charge: Dictionary = {}  # Pending charge data for HI unit
+
+# Tank Shock state tracking
+var awaiting_tank_shock: bool = false  # True when waiting for Tank Shock response
+var tank_shock_vehicle_unit_id: String = ""  # The VEHICLE unit that just charged
+var tank_shock_pending_changes: Array = []  # Charge move changes to return after Tank Shock resolves
 
 # Failure category constants for structured error reporting
 const FAIL_INSUFFICIENT_ROLL = "INSUFFICIENT_ROLL"
@@ -99,6 +106,9 @@ func _on_phase_enter() -> void:
 	heroic_intervention_charging_unit_id = ""
 	heroic_intervention_unit_id = ""
 	heroic_intervention_pending_charge = {}
+	awaiting_tank_shock = false
+	tank_shock_vehicle_unit_id = ""
+	tank_shock_pending_changes = []
 
 	# Apply unit ability effects for charge phase
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -167,6 +177,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_heroic_intervention_charge_roll(action)
 		"APPLY_HEROIC_INTERVENTION_MOVE":
 			return _validate_apply_heroic_intervention_move(action)
+		"USE_TANK_SHOCK":
+			return _validate_use_tank_shock(action)
+		"DECLINE_TANK_SHOCK":
+			return _validate_decline_tank_shock(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -204,6 +218,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_heroic_intervention_charge_roll(action)
 		"APPLY_HEROIC_INTERVENTION_MOVE":
 			return _process_apply_heroic_intervention_move(action)
+		"USE_TANK_SHOCK":
+			return _process_use_tank_shock(action)
+		"DECLINE_TANK_SHOCK":
+			return _process_decline_tank_shock(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -733,6 +751,116 @@ func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
 	print("ChargePhase: Heroic Intervention DECLINED")
 	return create_result(true, [])
 
+# ============================================================================
+# TANK SHOCK HANDLERS
+# ============================================================================
+
+func _validate_use_tank_shock(action: Dictionary) -> Dictionary:
+	"""Validate USE_TANK_SHOCK action."""
+	if not awaiting_tank_shock:
+		return {"valid": false, "errors": ["Not awaiting a Tank Shock decision"]}
+	var target_unit_id = action.get("payload", {}).get("target_unit_id", "")
+	if target_unit_id == "":
+		return {"valid": false, "errors": ["Missing target_unit_id for Tank Shock"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_tank_shock(action: Dictionary) -> Dictionary:
+	"""Validate DECLINE_TANK_SHOCK action."""
+	if not awaiting_tank_shock:
+		return {"valid": false, "errors": ["Not awaiting a Tank Shock decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_tank_shock(action: Dictionary) -> Dictionary:
+	"""Process USE_TANK_SHOCK: charging player rams an enemy unit."""
+	var target_unit_id = action.get("payload", {}).get("target_unit_id", "")
+	var vehicle_unit_id = tank_shock_vehicle_unit_id
+	var pending_changes = tank_shock_pending_changes
+
+	awaiting_tank_shock = false
+	tank_shock_vehicle_unit_id = ""
+	tank_shock_pending_changes = []
+
+	if vehicle_unit_id == "" or target_unit_id == "":
+		return create_result(false, [], "Missing vehicle or target unit for Tank Shock")
+
+	var current_player = get_current_player()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
+
+	var ts_result = strat_manager.execute_tank_shock(current_player, vehicle_unit_id, target_unit_id)
+
+	if not ts_result.success:
+		print("ChargePhase: Tank Shock failed: %s" % ts_result.get("error", ""))
+		return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
+
+	log_phase_message(ts_result.get("message", "Tank Shock executed"))
+	emit_signal("tank_shock_result", vehicle_unit_id, target_unit_id, ts_result)
+
+	# After Tank Shock resolves, check Heroic Intervention
+	return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
+
+func _process_decline_tank_shock(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_TANK_SHOCK: charging player declines Tank Shock."""
+	var vehicle_unit_id = tank_shock_vehicle_unit_id
+	var pending_changes = tank_shock_pending_changes
+
+	awaiting_tank_shock = false
+	tank_shock_vehicle_unit_id = ""
+	tank_shock_pending_changes = []
+
+	print("ChargePhase: Tank Shock DECLINED")
+
+	# Still need to check Heroic Intervention
+	return _check_heroic_intervention_after_tank_shock(vehicle_unit_id, pending_changes)
+
+func _check_heroic_intervention_after_tank_shock(vehicle_unit_id: String, pending_changes: Array) -> Dictionary:
+	"""After Tank Shock resolves (or is declined), check Heroic Intervention for the defender."""
+	var charging_unit = get_unit(vehicle_unit_id)
+	var charging_owner = int(charging_unit.get("owner", 0))
+	var defending_player = 2 if charging_owner == 1 else 1
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
+		if hi_check.available:
+			# Build a temporary snapshot with the charge move applied
+			var temp_snapshot = game_state_snapshot.duplicate(true)
+			for change in pending_changes:
+				if change.get("op", "") == "set":
+					var path_parts = change.path.split(".")
+					if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+						var u_id = path_parts[1]
+						var m_idx = int(path_parts[3])
+						var field = path_parts[4] if path_parts.size() > 4 else ""
+						if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+							var models = temp_snapshot.units[u_id].get("models", [])
+							if m_idx < models.size():
+								models[m_idx]["position"] = change.value
+
+			var hi_eligible = strat_manager.get_heroic_intervention_eligible_units(
+				defending_player, vehicle_unit_id, temp_snapshot
+			)
+
+			if not hi_eligible.is_empty():
+				awaiting_heroic_intervention = true
+				heroic_intervention_player = defending_player
+				heroic_intervention_charging_unit_id = vehicle_unit_id
+				log_phase_message("HEROIC INTERVENTION available for Player %d (%d eligible units)" % [defending_player, hi_eligible.size()])
+
+				emit_signal("heroic_intervention_opportunity", defending_player, hi_eligible, vehicle_unit_id)
+
+				var result = create_result(true, [])
+				result["trigger_heroic_intervention"] = true
+				result["awaiting_heroic_intervention"] = true
+				result["heroic_intervention_player"] = defending_player
+				result["heroic_intervention_eligible_units"] = hi_eligible
+				result["heroic_intervention_charging_unit_id"] = vehicle_unit_id
+				return result
+
+	return create_result(true, [])
+
 func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var payload = action.get("payload", {})
@@ -850,13 +978,69 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
 
-	# Check if Heroic Intervention is available for the defending player
-	# Per 10e rules: "just after an enemy unit ends a Charge move"
+	# Check if Tank Shock is available for the charging player
+	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
 	var charging_unit = get_unit(unit_id)
 	var charging_owner = int(charging_unit.get("owner", 0))
 	var defending_player = 2 if charging_owner == 1 else 1
 
 	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		# Tank Shock: active player's VEHICLE just completed a charge
+		var ts_check = strat_manager.is_tank_shock_available(charging_owner)
+		if ts_check.available:
+			# Check if the charging unit is a VEHICLE
+			var keywords = charging_unit.get("meta", {}).get("keywords", [])
+			var is_vehicle = false
+			for kw in keywords:
+				if kw.to_upper() == "VEHICLE":
+					is_vehicle = true
+					break
+
+			if is_vehicle:
+				# Build a temporary snapshot with the charge move applied
+				# so engagement range checks use the post-move positions
+				var temp_snapshot = game_state_snapshot.duplicate(true)
+				for change in changes:
+					if change.get("op", "") == "set":
+						var path_parts = change.path.split(".")
+						if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+							var u_id = path_parts[1]
+							var m_idx = int(path_parts[3])
+							var field = path_parts[4] if path_parts.size() > 4 else ""
+							if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+								var models = temp_snapshot.units[u_id].get("models", [])
+								if m_idx < models.size():
+									models[m_idx]["position"] = change.value
+
+				var ts_targets = strat_manager.get_tank_shock_eligible_targets(unit_id, temp_snapshot)
+				if not ts_targets.is_empty():
+					# Tank Shock is available! Pause and offer it to the charging player
+					awaiting_tank_shock = true
+					tank_shock_vehicle_unit_id = unit_id
+					tank_shock_pending_changes = changes
+					var vehicle_name = charging_unit.get("meta", {}).get("name", unit_id)
+					log_phase_message("TANK SHOCK available for Player %d — %s (T%d, %d eligible targets)" % [
+						charging_owner, vehicle_name,
+						int(charging_unit.get("meta", {}).get("toughness", 4)),
+						ts_targets.size()
+					])
+					print("ChargePhase: Tank Shock opportunity — Player %d, vehicle %s, %d eligible targets" % [
+						charging_owner, vehicle_name, ts_targets.size()
+					])
+
+					emit_signal("tank_shock_opportunity", charging_owner, unit_id, ts_targets)
+
+					var result = create_result(true, changes)
+					result["trigger_tank_shock"] = true
+					result["awaiting_tank_shock"] = true
+					result["tank_shock_player"] = charging_owner
+					result["tank_shock_vehicle_unit_id"] = unit_id
+					result["tank_shock_eligible_targets"] = ts_targets
+					return result
+
+	# Check if Heroic Intervention is available for the defending player
+	# Per 10e rules: "just after an enemy unit ends a Charge move"
 	if strat_manager:
 		var hi_check = strat_manager.is_heroic_intervention_available(defending_player)
 		if hi_check.available:

@@ -510,6 +510,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | **COMPLETED** |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | **COMPLETED** |
 | 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | **COMPLETED** |
+| 11 | Tank Shock | Active-player mortal wounds in Charge phase (toughness-based dice) | **COMPLETED** |
 
 ---
 
@@ -822,3 +823,35 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 4. Attack type filtering ensures melee-only abilities don't leak into shooting resolution
 5. The system handles multiple leaders on one unit (e.g., Warboss + Painboy both granting different effects)
 6. RulesEngine's existing modifier system (HitModifier/WoundModifier enums) integrates cleanly with effect flags
+
+### Step 11: Tank Shock — Implementation Notes
+
+**What was implemented:**
+- TANK SHOCK (Core – Strategic Ploy Stratagem, 1 CP): During your Charge phase, just after a VEHICLE unit ends a Charge move, select one enemy unit within Engagement Range. Roll a number of D6 equal to the Vehicle's Toughness (max 6). For each 5+, the enemy unit suffers 1 mortal wound. Once per phase.
+
+**Implementation approach**: Active-player stratagem triggered after a successful charge move. When a VEHICLE unit completes a charge, the active player is offered Tank Shock before the defending player is offered Heroic Intervention. Single-step target selection (pick which enemy in Engagement Range to ram), then dice roll with mortal wound application reusing `RulesEngine.apply_mortal_wounds()`.
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Added `is_tank_shock_available(player)` for quick availability check. Added `get_tank_shock_eligible_targets(vehicle_unit_id, game_state_snapshot)` to find enemy units within Engagement Range (1") using `_units_in_engagement_range()`. Added `execute_tank_shock(player, vehicle_unit_id, target_unit_id)` handling full flow: CP deduction, usage tracking, D6 roll (count = min(toughness, 6)), 5+ threshold counting, mortal wound application, active effect tracking.
+- `40k/phases/ChargePhase.gd` — Added `tank_shock_opportunity` and `tank_shock_result` signals. Added `awaiting_tank_shock`, `tank_shock_vehicle_unit_id`, `tank_shock_pending_changes` state variables. Modified `_process_apply_charge_move()` to check Tank Shock availability before Heroic Intervention after a successful charge: verifies VEHICLE keyword, builds temp snapshot with post-move positions, finds eligible targets. Added `USE_TANK_SHOCK` and `DECLINE_TANK_SHOCK` action types with full validation and processing. Added `_check_heroic_intervention_after_tank_shock()` to chain into Heroic Intervention check after Tank Shock resolves.
+- `40k/scripts/ChargeController.gd` — Connected `tank_shock_opportunity` and `tank_shock_result` signals in `set_phase()`. Added `_on_tank_shock_opportunity()` to show TankShockDialog, `_on_tank_shock_used()` and `_on_tank_shock_declined()` to route actions. Added `_on_tank_shock_result()` to show TankShockResultDialog with dice roll results.
+
+**Files created:**
+- `40k/dialogs/TankShockDialog.gd` — AcceptDialog-based UI showing stratagem info (1 CP cost, vehicle name and Toughness, dice count), scrollable list of eligible enemy units within Engagement Range with per-unit "Tank Shock (1 CP)" buttons, and a "Decline" button.
+- `40k/dialogs/TankShockResultDialog.gd` — AcceptDialog showing vehicle ramming target, D6 roll results with color-coded dice (green for 5+ successes, red for misses), mortal wound count, and casualty count.
+- `40k/tests/unit/test_tank_shock.gd` — Comprehensive test suite covering: stratagem definition (name, cost, timing, effects, restriction, target conditions), validation (CP checks, battle-shocked exclusion, availability), target eligibility (Engagement Range, enemy-only, alive-only, model count), execution (CP deduction, success result, correct dice count based on Toughness, dice capped at 6, 5+ threshold, once-per-phase, usage recording, active effect tracking), mortal wound application (single-wound kills, multi-wound carry-over), edge cases (exactly 1 CP, no persistent flags, valid dice range, various toughness values, both players can use separately).
+
+**Architecture decisions:**
+- **Post-charge-move trigger, before Heroic Intervention**: Tank Shock inserts between the charge resolution and the Heroic Intervention check in `_process_apply_charge_move()`. This matches the 10e timing: "just after a VEHICLE unit ends a Charge move" — the active player acts first (Tank Shock), then the defending player responds (Heroic Intervention).
+- **Temp snapshot for engagement range checks**: Since the charge move changes haven't been applied to `game_state_snapshot` yet at the point of the check, a temporary snapshot is built with the position changes applied. This ensures engagement range calculations use the post-charge positions.
+- **Chained stratagem flow**: After Tank Shock resolves (or is declined), `_check_heroic_intervention_after_tank_shock()` runs the same Heroic Intervention logic that was previously at the end of `_process_apply_charge_move()`. This avoids code duplication while maintaining the correct ordering.
+- **Instant effect (no persistent flags)**: Like GRENADE, Tank Shock has no persistent effect on game state — mortal wounds are applied immediately. No unit flags needed. Active effect tracking is still recorded for usage restriction enforcement.
+- **Toughness-based dice count**: The number of dice rolled equals `min(toughness, 6)`, reading from `unit.meta.toughness`. This is different from GRENADE's fixed 6D6.
+- **Reuses mortal wound pipeline**: `RulesEngine.apply_mortal_wounds()` handles damage allocation, FNP interaction, and casualty tracking — no new resolution code needed.
+
+**What this proved:**
+1. Active-player stratagems can chain before reactive stratagems at the same timing point (Tank Shock → Heroic Intervention)
+2. The post-charge-move trigger point works for active-player stratagems, not just reactive defender stratagems
+3. Toughness-based variable dice counts work alongside fixed dice counts (GRENADE's 6D6)
+4. The same `RulesEngine.apply_mortal_wounds()` pipeline handles both GRENADE and Tank Shock
+5. The signal→dialog→action pattern generalizes cleanly to active-player Charge phase stratagems

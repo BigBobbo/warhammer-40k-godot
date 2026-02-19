@@ -473,6 +473,14 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.heroic_intervention_opportunity.is_connected(_on_heroic_intervention_opportunity):
 			current_phase.heroic_intervention_opportunity.connect(_on_heroic_intervention_opportunity)
 
+	if current_phase.has_signal("tank_shock_opportunity"):
+		if not current_phase.tank_shock_opportunity.is_connected(_on_tank_shock_opportunity):
+			current_phase.tank_shock_opportunity.connect(_on_tank_shock_opportunity)
+
+	if current_phase.has_signal("tank_shock_result"):
+		if not current_phase.tank_shock_result.is_connected(_on_tank_shock_result):
+			current_phase.tank_shock_result.connect(_on_tank_shock_result)
+
 	# Refresh UI with current phase data
 	_refresh_ui()
 
@@ -2379,3 +2387,97 @@ func _on_heroic_intervention_declined(player: int) -> void:
 		"type": "DECLINE_HEROIC_INTERVENTION",
 		"player": player,
 	})
+
+# ============================================================================
+# TANK SHOCK HANDLERS
+# ============================================================================
+
+func _on_tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_targets: Array) -> void:
+	"""Handle Tank Shock opportunity — show dialog to the charging player."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ChargeController: TANK SHOCK OPPORTUNITY")
+	print("║ Player: %d" % player)
+	print("║ Vehicle: %s" % vehicle_unit_id)
+	print("║ Eligible targets: %d" % eligible_targets.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	if eligible_targets.is_empty():
+		_on_tank_shock_declined(player)
+		return
+
+	if is_instance_valid(dice_log_display):
+		var vehicle_unit = GameState.get_unit(vehicle_unit_id)
+		var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
+		var toughness = int(vehicle_unit.get("meta", {}).get("toughness", 4))
+		dice_log_display.append_text("[color=orange_red]TANK SHOCK available for %s (T%d, 1 CP)![/color]\n" % [vehicle_name, toughness])
+
+	# Load and show the dialog
+	var dialog_script = load("res://dialogs/TankShockDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load TankShockDialog.gd")
+		_on_tank_shock_declined(player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(player, vehicle_unit_id, eligible_targets)
+	dialog.tank_shock_used.connect(_on_tank_shock_used)
+	dialog.tank_shock_declined.connect(_on_tank_shock_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("ChargeController: Tank Shock dialog shown for player %d" % player)
+
+func _on_tank_shock_used(target_unit_id: String, player: int) -> void:
+	"""Handle player choosing to use Tank Shock."""
+	print("ChargeController: Tank Shock USED targeting %s" % target_unit_id)
+	if is_instance_valid(dice_log_display):
+		var target_unit = GameState.get_unit(target_unit_id)
+		var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+		dice_log_display.append_text("[color=orange_red]TANK SHOCK! Ramming %s![/color]\n" % target_name)
+	emit_signal("charge_action_requested", {
+		"type": "USE_TANK_SHOCK",
+		"actor_unit_id": "",
+		"payload": {
+			"target_unit_id": target_unit_id
+		}
+	})
+
+func _on_tank_shock_declined(player: int) -> void:
+	"""Handle player declining Tank Shock."""
+	print("ChargeController: Tank Shock DECLINED by player %d" % player)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Tank Shock declined.[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "DECLINE_TANK_SHOCK",
+		"actor_unit_id": "",
+	})
+
+func _on_tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result: Dictionary) -> void:
+	"""Handle Tank Shock result — show result dialog."""
+	print("ChargeController: Tank Shock result received — %d mortal wounds" % result.get("mortal_wounds", 0))
+
+	if is_instance_valid(dice_log_display):
+		var rolls = result.get("dice_rolls", [])
+		var mw = result.get("mortal_wounds", 0)
+		var dice_count = result.get("dice_count", 0)
+		dice_log_display.append_text("[color=orange_red]Rolled %dD6: %s — %d mortal wound(s)[/color]\n" % [dice_count, str(rolls), mw])
+
+	# Show result dialog
+	var dialog_script = load("res://dialogs/TankShockResultDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load TankShockResultDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup({
+		"dice_rolls": result.get("dice_rolls", []),
+		"mortal_wounds": result.get("mortal_wounds", 0),
+		"casualties": result.get("casualties", 0),
+		"toughness": result.get("toughness", 0),
+		"dice_count": result.get("dice_count", 0),
+		"vehicle_unit_id": vehicle_unit_id,
+		"target_unit_id": target_unit_id,
+	})
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()

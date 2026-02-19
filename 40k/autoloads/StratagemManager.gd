@@ -1190,6 +1190,187 @@ func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 
 	return false
 
+func is_tank_shock_available(player: int) -> Dictionary:
+	"""
+	Check if Tank Shock stratagem is available for a player.
+	Returns { available: bool, reason: String }
+	"""
+	var validation = can_use_stratagem(player, "tank_shock")
+	if not validation.can_use:
+		return {"available": false, "reason": validation.reason}
+	return {"available": true, "reason": ""}
+
+func get_tank_shock_eligible_targets(vehicle_unit_id: String, game_state_snapshot: Dictionary) -> Array:
+	"""
+	Get enemy units within Engagement Range (1") of a VEHICLE unit that just charged.
+	Returns array of { unit_id: String, unit_name: String, model_count: int }
+	"""
+	var eligible = []
+	var vehicle_unit = game_state_snapshot.get("units", {}).get(vehicle_unit_id, {})
+	if vehicle_unit.is_empty():
+		return eligible
+
+	var vehicle_owner = int(vehicle_unit.get("owner", 0))
+	var all_units = game_state_snapshot.get("units", {})
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		# Must be an enemy unit
+		if int(unit.get("owner", 0)) == vehicle_owner:
+			continue
+
+		# Must have alive models
+		var alive_count = 0
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				alive_count += 1
+		if alive_count == 0:
+			continue
+
+		# Must be within Engagement Range (1") of the vehicle
+		if _units_in_engagement_range(vehicle_unit, unit):
+			eligible.append({
+				"unit_id": unit_id,
+				"unit_name": unit.get("meta", {}).get("name", unit_id),
+				"model_count": alive_count
+			})
+
+	return eligible
+
+func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: String) -> Dictionary:
+	"""
+	Execute the TANK SHOCK stratagem: roll D6 equal to Vehicle's Toughness (max 6),
+	each 5+ deals 1 mortal wound to the target enemy unit.
+	Handles CP deduction, usage tracking, dice rolling, and mortal wound application.
+	Returns { success: bool, diffs: Array, dice_rolls: Array, mortal_wounds: int,
+	          casualties: int, toughness: int, dice_count: int, message: String }
+	"""
+	# Validate
+	var validation = can_use_stratagem(player, "tank_shock", vehicle_unit_id)
+	if not validation.can_use:
+		return {"success": false, "error": validation.reason, "diffs": [], "dice_rolls": [], "mortal_wounds": 0, "casualties": 0, "toughness": 0, "dice_count": 0}
+
+	var strat = stratagems["tank_shock"]
+	var diffs = []
+
+	# Get vehicle toughness
+	var vehicle_unit = GameState.get_unit(vehicle_unit_id)
+	var toughness = int(vehicle_unit.get("meta", {}).get("toughness", 4))
+	var dice_count = mini(toughness, 6)  # Max 6 dice
+
+	# Deduct CP
+	var current_cp = _get_player_cp(player)
+	var new_cp = current_cp - strat.cp_cost
+	diffs.append({
+		"op": "set",
+		"path": "players.%s.cp" % str(player),
+		"value": new_cp
+	})
+
+	# Record usage
+	var usage_record = {
+		"stratagem_id": "tank_shock",
+		"player": player,
+		"target_unit_id": vehicle_unit_id,
+		"turn": GameState.get_battle_round(),
+		"phase": GameState.get_current_phase(),
+		"timestamp": Time.get_unix_time_from_system()
+	}
+	_usage_history[str(player)].append(usage_record)
+
+	# Apply CP diff
+	_safe_apply_state_changes(diffs)
+
+	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
+	print("StratagemManager: Player %d used TANK SHOCK with %s (T%d, %dD6) targeting %s (cost %d CP, %d -> %d)" % [
+		player, vehicle_name, toughness, dice_count, target_unit_id, strat.cp_cost, current_cp, new_cp
+	])
+
+	# Log to phase log
+	GameState.add_action_to_phase_log({
+		"type": "STRATAGEM_USED",
+		"stratagem_id": "tank_shock",
+		"stratagem_name": strat.name,
+		"player": player,
+		"target_unit_id": vehicle_unit_id,
+		"enemy_target_unit_id": target_unit_id,
+		"cp_cost": strat.cp_cost,
+		"turn": GameState.get_battle_round()
+	})
+
+	# Roll D6 equal to Toughness (max 6)
+	var rng = RulesEngine.RNGService.new()
+	var rolls = rng.roll_d6(dice_count)
+
+	# Count successes (5+)
+	var mortal_wounds = 0
+	for roll in rolls:
+		if roll >= 5:
+			mortal_wounds += 1
+
+	print("StratagemManager: TANK SHOCK rolled %dD6 %s — %d mortal wound(s)" % [dice_count, str(rolls), mortal_wounds])
+
+	# Apply mortal wounds to the enemy target
+	var mw_diffs = []
+	var casualties = 0
+	if mortal_wounds > 0:
+		var board = GameState.create_snapshot()
+		var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+		mw_diffs = mw_result.get("diffs", [])
+		casualties = mw_result.get("casualties", 0)
+
+		if not mw_diffs.is_empty():
+			_safe_apply_state_changes(mw_diffs)
+			diffs.append_array(mw_diffs)
+
+		print("StratagemManager: TANK SHOCK applied %d mortal wounds to %s (%d casualties)" % [mortal_wounds, target_unit_id, casualties])
+
+	# Track active effect (no persistent flags needed — instant effect)
+	add_active_effect({
+		"stratagem_id": "tank_shock",
+		"player": player,
+		"target_unit_id": vehicle_unit_id,
+		"effects": strat.effects,
+		"expires": "end_of_phase",
+		"applied_turn": GameState.get_battle_round(),
+		"applied_phase": GameState.get_current_phase()
+	})
+
+	# Emit signal
+	emit_signal("stratagem_used", player, "tank_shock", vehicle_unit_id)
+
+	# Log mortal wound results to phase log
+	var target_unit = GameState.get_unit(target_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	GameState.add_action_to_phase_log({
+		"type": "TANK_SHOCK_RESULT",
+		"player": player,
+		"vehicle_unit_id": vehicle_unit_id,
+		"vehicle_unit_name": vehicle_name,
+		"target_unit_id": target_unit_id,
+		"target_unit_name": target_name,
+		"toughness": toughness,
+		"dice_count": dice_count,
+		"rolls": rolls,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties
+	})
+
+	return {
+		"success": true,
+		"diffs": diffs,
+		"dice_rolls": rolls,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties,
+		"toughness": toughness,
+		"dice_count": dice_count,
+		"message": "%s used TANK SHOCK on %s: rolled %dD6 (T%d) %s — %d mortal wound(s), %d casualt%s" % [
+			vehicle_name, target_name, dice_count, toughness, str(rolls), mortal_wounds, casualties,
+			"y" if casualties == 1 else "ies"
+		]
+	}
+
 func is_fire_overwatch_available(player: int) -> Dictionary:
 	"""
 	Check if Fire Overwatch stratagem is available for a player.
