@@ -1249,6 +1249,20 @@ static func _get_max_weapon_range(unit: Dictionary) -> float:
 				max_range = max(max_range, float(int(range_str)))
 	return max_range
 
+static func _get_weapon_range_inches(weapon: Dictionary) -> float:
+	"""Parse a weapon's range field and return the range in inches. Returns 0.0 for melee or invalid."""
+	var range_str = str(weapon.get("range", "0"))
+	if range_str.to_lower() == "melee":
+		return 0.0
+	# Handle strings like "24", "36", "12" etc.
+	# Also strip trailing quote mark if present (e.g. '24"')
+	range_str = range_str.replace("\"", "").strip_edges()
+	if range_str.is_valid_float():
+		return float(range_str)
+	elif range_str.is_valid_int():
+		return float(int(range_str))
+	return 0.0
+
 static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
 	var best = Vector2.INF
 	var best_dist = INF
@@ -1831,12 +1845,12 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				if all_fired:
 					continue
 
-			# Score each enemy target
+			# Score each enemy target (includes weapon range check)
 			var best_target_id = ""
 			var best_score = -1.0
 			for enemy_id in enemies:
 				var enemy = enemies[enemy_id]
-				var score = _score_shooting_target(weapon, enemy, snapshot)
+				var score = _score_shooting_target(weapon, enemy, snapshot, unit)
 				if score > best_score:
 					best_score = score
 					best_target_id = enemy_id
@@ -3516,7 +3530,14 @@ static func _save_probability(save_val: int, ap: int) -> float:
 		return 1.0
 	return (7.0 - modified_save) / 6.0
 
-static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary) -> float:
+static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
+	# --- Range check: score 0 for out-of-range targets ---
+	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
+		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		if dist_inches > weapon_range_inches:
+			return 0.0
+
 	var attacks_str = weapon.get("attacks", "1")
 	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
 

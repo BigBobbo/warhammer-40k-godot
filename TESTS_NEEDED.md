@@ -132,3 +132,31 @@
 - The MovementPhase validation accepts the AI's computed fall-back positions
 - Human player fall-back still works correctly (no regression from AIPlayer.gd changes)
 - No infinite loops during movement phase
+
+## AI Weapon Range Checking in Target Scoring
+
+**Task:** Add weapon range checking to target scoring -- score 0 for out-of-range targets (AI-GAP-5, SHOOT-4)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_get_weapon_range_inches()` helper; modified `_score_shooting_target()` to accept shooter_unit and return 0 for out-of-range targets; updated call site in `_decide_shooting()`
+- `40k/tests/unit/test_ai_weapon_range_scoring.gd` - New test file for weapon range scoring logic
+
+**Tests to run:**
+- Run `test_ai_weapon_range_scoring.gd` via `godot --headless --script tests/unit/test_ai_weapon_range_scoring.gd`
+  - Tests `_get_weapon_range_inches()` parsing for standard ranges, melee, zero, and invalid strings
+  - Tests `_score_shooting_target()` returns 0 for out-of-range targets
+  - Tests `_score_shooting_target()` returns positive score for in-range targets
+  - Tests scoring at exact weapon range boundary
+  - Tests backward compatibility (no shooter_unit provided skips range check)
+  - Tests different weapon ranges (pistol vs lascannon) at same distance
+  - Tests `_decide_shooting()` skips unit when all targets are out of range
+  - Tests `_decide_shooting()` produces SHOOT action when target is in range
+- Run an AI vs AI game and observe that AI units no longer attempt to shoot at targets beyond weapon range
+- Run a Human vs AI game and verify the AI shooting decisions are more tactically sound
+
+**What to look for:**
+- AI no longer tries to shoot targets that are clearly out of range
+- AI correctly identifies in-range targets and assigns weapons to them
+- Short-range weapons (e.g., bolt pistol 12") do not get assigned to far targets while long-range weapons (e.g., lascannon 48") still do
+- When all enemy units are out of range, the AI skips the shooter unit instead of producing an invalid SHOOT action
+- The SHOOT actions produced by AI are accepted by the ShootingPhase validation (no "out of range" errors)
+- No regressions in AI shooting for units that have targets in range
