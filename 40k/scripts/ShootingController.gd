@@ -51,6 +51,9 @@ var dice_log_display: RichTextLabel
 var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
 var grenade_button: Button  # GRENADE stratagem button
+var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
+var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
+var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
 
 # Modifier UI elements (Phase 1 MVP)
 var modifier_panel: VBoxContainer
@@ -373,7 +376,18 @@ func _setup_right_panel() -> void:
 	button_container.add_child(confirm_button)
 	
 	shooting_panel.add_child(button_container)
-	
+
+	# T5-UX3: "Shoot All Remaining" button
+	shooting_panel.add_child(HSeparator.new())
+	shoot_all_remaining_button = Button.new()
+	shoot_all_remaining_button.name = "ShootAllRemainingButton"
+	shoot_all_remaining_button.text = "Shoot All Remaining"
+	shoot_all_remaining_button.custom_minimum_size = Vector2(230, 35)
+	shoot_all_remaining_button.pressed.connect(_on_shoot_all_remaining_pressed)
+	shoot_all_remaining_button.tooltip_text = "Auto-shoot all remaining eligible units at their nearest targets"
+	shooting_panel.add_child(shoot_all_remaining_button)
+	_update_shoot_all_remaining_button()
+
 	# Dice log
 	shooting_panel.add_child(HSeparator.new())
 	
@@ -566,6 +580,9 @@ func _refresh_unit_list() -> void:
 		if should_auto_select:
 			unit_selector.select(0)
 			_on_unit_selected(0)
+
+	# T5-UX3: Update shoot all remaining button when unit list refreshes
+	_update_shoot_all_remaining_button()
 
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
@@ -2328,6 +2345,236 @@ func _on_end_phase_pressed() -> void:
 	emit_signal("shoot_action_requested", {
 		"type": "END_SHOOTING"
 	})
+
+# =============================================================================
+# T5-UX3: "Shoot All Remaining" — auto-shoot all eligible units at nearest targets
+# =============================================================================
+
+func _on_shoot_all_remaining_pressed() -> void:
+	"""Show confirmation dialog listing remaining units and their auto-assigned targets."""
+	if not current_phase or not current_phase is ShootingPhase:
+		return
+
+	var plan = _build_auto_shoot_plan()
+	if plan.is_empty():
+		if dice_log_display:
+			dice_log_display.append_text("[color=gray]No remaining units with valid targets.[/color]\n")
+		return
+
+	# Build confirmation text
+	var text = "Auto-shoot the following units at their nearest targets?\n\n"
+	for entry in plan:
+		var unit_name = entry.get("unit_name", "Unknown")
+		var target_names = entry.get("target_names", [])
+		var weapon_count = entry.get("weapon_count", 0)
+		text += "  %s (%d weapon(s)) → %s\n" % [unit_name, weapon_count, ", ".join(target_names)]
+
+	text += "\nAll weapons will be assigned to the nearest eligible target."
+
+	var dialog = ConfirmationDialog.new()
+	dialog.dialog_text = text
+	dialog.title = "Shoot All Remaining"
+	dialog.ok_button_text = "Shoot All"
+	dialog.min_size = Vector2(450, 300)
+	dialog.confirmed.connect(func():
+		_execute_auto_shoot(plan)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _build_auto_shoot_plan() -> Array:
+	"""Build a plan of SHOOT actions for all remaining eligible units.
+	Returns [{unit_id, unit_name, assignments, target_names, weapon_count}]."""
+	var plan = []
+	var snapshot = GameState.create_snapshot()
+	var current_player = current_phase.get_current_player()
+	var units = current_phase.get_units_for_player(current_player)
+	var units_shot = current_phase.get_units_that_shot()
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not current_phase._can_unit_shoot(unit) or unit_id in units_shot:
+			continue
+		# Skip the currently active shooter (user is already working on it)
+		if unit_id == active_shooter_id and not weapon_assignments.is_empty():
+			continue
+
+		var eligible = RulesEngine.get_eligible_targets(unit_id, snapshot)
+		if eligible.is_empty():
+			continue
+
+		# Find nearest target (by minimum model-to-model distance)
+		var nearest_target_id = _find_nearest_target(unit_id, eligible, snapshot)
+		if nearest_target_id == "":
+			continue
+
+		# Build weapon assignments: all ranged weapons → nearest target
+		var unit_weapons = RulesEngine.get_unit_weapons(unit_id, snapshot)
+		var assigned_weapon_ids = []
+		var model_ids = []
+		var assignments = []
+
+		for model_id in unit_weapons:
+			if model_id not in model_ids:
+				model_ids.append(model_id)
+			for weapon_id in unit_weapons[model_id]:
+				if weapon_id not in assigned_weapon_ids:
+					assigned_weapon_ids.append(weapon_id)
+
+		for weapon_id in assigned_weapon_ids:
+			# Only assign if weapon is in the eligible weapons list for this target
+			var target_weapons = eligible[nearest_target_id].get("weapons_in_range", [])
+			if weapon_id in target_weapons:
+				assignments.append({
+					"weapon_id": weapon_id,
+					"target_unit_id": nearest_target_id,
+					"model_ids": model_ids
+				})
+
+		if assignments.is_empty():
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var target_name = eligible[nearest_target_id].get("unit_name", nearest_target_id)
+
+		plan.append({
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"assignments": assignments,
+			"target_names": [target_name],
+			"weapon_count": assignments.size()
+		})
+
+	return plan
+
+func _find_nearest_target(unit_id: String, eligible_targets: Dictionary, snapshot: Dictionary) -> String:
+	"""Find the nearest eligible target by model-to-model distance."""
+	var units = snapshot.get("units", {})
+	var shooter_unit = units.get(unit_id, {})
+	if shooter_unit.is_empty():
+		return ""
+
+	var best_target_id = ""
+	var best_distance = INF
+
+	for target_id in eligible_targets:
+		var target_unit = units.get(target_id, {})
+		if target_unit.is_empty():
+			continue
+
+		# Calculate minimum model-to-model distance
+		for shooter_model in shooter_unit.get("models", []):
+			if not shooter_model.get("alive", true):
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(shooter_model, target_model)
+				if dist < best_distance:
+					best_distance = dist
+					best_target_id = target_id
+
+	return best_target_id
+
+func _execute_auto_shoot(plan: Array) -> void:
+	"""Execute the auto-shoot plan by dispatching SHOOT actions sequentially."""
+	if plan.is_empty():
+		return
+
+	print("T5-UX3: Starting auto-shoot for %d units" % plan.size())
+
+	# Build the queue of SHOOT actions
+	_auto_shoot_queue.clear()
+	for entry in plan:
+		_auto_shoot_queue.append({
+			"type": "SHOOT",
+			"actor_unit_id": entry.get("unit_id", ""),
+			"payload": {
+				"assignments": entry.get("assignments", [])
+			}
+		})
+
+	_auto_shoot_in_progress = true
+
+	# Disable the button during auto-shoot
+	if shoot_all_remaining_button:
+		shoot_all_remaining_button.disabled = true
+		shoot_all_remaining_button.text = "Auto-shooting..."
+
+	if dice_log_display:
+		dice_log_display.append_text("[b][color=yellow]Auto-shooting %d remaining unit(s)...[/color][/b]\n" % plan.size())
+
+	# Start dispatching
+	_dispatch_next_auto_shoot()
+
+func _dispatch_next_auto_shoot() -> void:
+	"""Dispatch the next SHOOT action in the auto-shoot queue."""
+	if _auto_shoot_queue.is_empty():
+		_finish_auto_shoot()
+		return
+
+	var action = _auto_shoot_queue.pop_front()
+	var unit_id = action.get("actor_unit_id", "")
+	var unit_name = ""
+	if current_phase:
+		var unit = current_phase.get_unit(unit_id)
+		unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	print("T5-UX3: Auto-shooting unit %s (%s), %d remaining in queue" % [unit_id, unit_name, _auto_shoot_queue.size()])
+
+	if dice_log_display:
+		dice_log_display.append_text("[color=cyan]Auto-shoot: %s[/color]\n" % unit_name)
+
+	# Clear active shooter state before dispatching (so SHOOT atomic path starts fresh)
+	active_shooter_id = ""
+	weapon_assignments.clear()
+
+	emit_signal("shoot_action_requested", action)
+
+	# Use a short timer to let the action process before dispatching the next one
+	# This gives the phase time to resolve hits/wounds/saves atomically
+	var timer = get_tree().create_timer(0.3)
+	timer.timeout.connect(_dispatch_next_auto_shoot)
+
+func _finish_auto_shoot() -> void:
+	"""Clean up after auto-shoot sequence completes."""
+	_auto_shoot_in_progress = false
+	_auto_shoot_queue.clear()
+
+	print("T5-UX3: Auto-shoot sequence complete")
+
+	if dice_log_display:
+		dice_log_display.append_text("[b][color=green]Auto-shoot complete![/color][/b]\n")
+
+	# Restore button state
+	_update_shoot_all_remaining_button()
+
+	# Refresh the unit list to show updated shot status
+	_refresh_unit_list()
+
+func _update_shoot_all_remaining_button() -> void:
+	"""Update the Shoot All Remaining button visibility and state."""
+	if not shoot_all_remaining_button:
+		return
+
+	if _auto_shoot_in_progress:
+		shoot_all_remaining_button.disabled = true
+		shoot_all_remaining_button.text = "Auto-shooting..."
+		return
+
+	shoot_all_remaining_button.text = "Shoot All Remaining"
+	shoot_all_remaining_button.disabled = false
+
+	# Only show when in shooting phase with a valid phase reference
+	if not current_phase or not current_phase is ShootingPhase:
+		shoot_all_remaining_button.visible = false
+		return
+
+	shoot_all_remaining_button.visible = true
 
 func _update_ui_state() -> void:
 	print("╔═══════════════════════════════════════════════════════════════")
