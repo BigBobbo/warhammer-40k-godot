@@ -331,3 +331,44 @@
 - Leader bonus detection correctly reads the UnitAbilityManager ABILITY_EFFECTS lookup table
 - Description-based fallback correctly detects "fall back and charge/shoot" from ability descriptions
 - No regressions in existing AI movement, shooting, charge, or fight decisions
+
+## AI Stratagem Usage Implementation (AI-GAP-3)
+
+**Task:** Implement basic stratagem usage -- Grenade, Fire Overwatch, Go to Ground, Command Re-roll, Smokescreen
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added stratagem evaluation section: `evaluate_grenade_usage()`, `_estimate_unit_ranged_strength()`, `_score_grenade_target()` for Grenade heuristics; `evaluate_reactive_stratagem()`, `_score_defensive_stratagem_target()` for Go to Ground/Smokescreen; `evaluate_fire_overwatch()`, `_decline_fire_overwatch()`, `_count_unit_ranged_shots()`, `_estimate_unit_value()` for Fire Overwatch; `evaluate_command_reroll_charge()`, `evaluate_command_reroll_battleshock()`, `evaluate_command_reroll_advance()` for Command Re-roll; `_get_player_cp_from_snapshot()` helper; added `_grenade_evaluated` static flag; updated `_decide_shooting()` to check Grenade before shooting; updated `_decide_charge()` to evaluate Fire Overwatch and Command Re-roll instead of always declining; updated `_decide_command()` to defer to signal handler for reroll context
+- `40k/autoloads/AIPlayer.gd` - Added reactive stratagem signal handling: `_connect_phase_stratagem_signals()`, `_disconnect_phase_stratagem_signals()` for phase signal lifecycle; `_on_reactive_stratagem_opportunity()` for Go to Ground/Smokescreen during opponent's shooting; `_on_movement_fire_overwatch_opportunity()` for Fire Overwatch during opponent's movement; `_on_charge_overwatch_opportunity()` for Fire Overwatch during opponent's charge; `_on_command_reroll_opportunity()` for Command Re-roll after any dice roll; `_submit_reactive_action()`, `_execute_reactive_action_deferred()` for deferred action submission
+- `40k/tests/unit/test_ai_stratagem_evaluation.gd` - New test file for AI stratagem evaluation heuristics
+
+**Tests to run:**
+- Run `test_ai_stratagem_evaluation.gd` via `godot --headless --script tests/unit/test_ai_stratagem_evaluation.gd`
+  - Tests grenade target scoring (1W models, multi-wound, characters, dead units)
+  - Tests ranged strength estimation (no weapons, basic, multi-weapon)
+  - Tests defensive stratagem scoring (Go to Ground without invuln, with invuln, Smokescreen, dead units)
+  - Tests Fire Overwatch evaluation (high-volume shooter, low CP decline)
+  - Tests Command Re-roll evaluation (charge failed close, succeeded, impossible, advance low/moderate, battle-shock high/low leadership)
+  - Tests reactive stratagem integration (Go to Ground on infantry, decline for dead units)
+  - Tests helper functions (get_player_cp_from_snapshot)
+- Run `test_ai_charge_decisions.gd` to confirm no regressions in charge decisions (now evaluates Fire Overwatch instead of always declining)
+- Run an AI vs AI game and observe:
+  - AI uses Grenade stratagem during shooting when units with GRENADES keyword are near enemies
+  - AI uses Go to Ground / Smokescreen when defending units are targeted by opponent
+  - AI uses Fire Overwatch when opponent moves units near high-volume shooters
+  - AI uses Command Re-roll on failed charge rolls that are close to succeeding
+  - CP is correctly deducted for stratagem usage
+- Run a Human vs AI game and verify:
+  - AI responds to your shooting with Go to Ground / Smokescreen when appropriate
+  - AI fires overwatch at your units when you move near their high-volume shooters
+  - AI rerolls charge dice that narrowly missed
+  - AI does not waste CP on low-probability rerolls
+
+**What to look for:**
+- GRENADE: AI uses Grenade when a unit has weak ranged weapons but GRENADES keyword and an enemy is within 8". Prefers targets with 1W models.
+- FIRE OVERWATCH: AI fires overwatch with highest-volume shooter when enemy is valuable and CP >= 2. Does not use overwatch with 1-2 shot units.
+- GO TO GROUND: AI uses on INFANTRY targets without existing invuln saves. Factors in save quality, model count, and unit value.
+- SMOKESCREEN: AI uses on SMOKE keyword units (stealth -1 to hit is very strong). Prioritized over Go to Ground.
+- COMMAND RE-ROLL: AI rerolls failed charges within 2 of the target (good odds). Rerolls failed battle-shock with high leadership. Rerolls advance rolls of 1. Does not reroll when CP is very low or odds are poor.
+- No infinite loops from signal-based reactive action submission
+- No double-actions from race conditions between signal handlers and _evaluate_and_act
+- CP is correctly tracked across all stratagem uses
+- All reactive stratagem actions are validated and processed correctly by the phase system

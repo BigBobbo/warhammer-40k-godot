@@ -259,20 +259,17 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 
 static func _decide_command(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# Handle pending Command Re-roll decisions first
+	# Note: The AIPlayer signal handler (_on_command_reroll_opportunity) handles this
+	# with full roll context. This is a fallback in case available_actions still shows
+	# the reroll options (e.g., if the signal handler hasn't fired yet).
 	for action in available_actions:
-		if action.get("type") == "USE_COMMAND_REROLL":
-			# AI heuristic: use reroll if the roll was within 3 of the leadership value
-			# (i.e. a reroll has a reasonable chance of passing)
-			return {
-				"type": "USE_COMMAND_REROLL",
-				"_ai_description": "Command Re-roll (battle-shock)"
-			}
-	for action in available_actions:
-		if action.get("type") == "DECLINE_COMMAND_REROLL":
-			# Fallback: if USE_COMMAND_REROLL wasn't in the list, decline
+		if action.get("type") == "USE_COMMAND_REROLL" or action.get("type") == "DECLINE_COMMAND_REROLL":
+			# Fallback: decline the reroll (signal handler with context should have acted)
+			var uid = action.get("actor_unit_id", action.get("unit_id", ""))
 			return {
 				"type": "DECLINE_COMMAND_REROLL",
-				"_ai_description": "Decline re-roll"
+				"actor_unit_id": uid,
+				"_ai_description": "Decline Command Re-roll (command phase fallback)"
 			}
 
 	# Take any pending battle-shock tests
@@ -2481,17 +2478,54 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 
 	# --- Step 0: Handle reaction decisions first ---
 
-	# Command Re-roll: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_COMMAND_REROLL"):
+	# Command Re-roll: Evaluate whether to reroll failed charge rolls
+	# Note: ChargePhase puts USE/DECLINE in available actions. However, we lack the
+	# roll context (rolled distance, required distance) here. The AIPlayer signal
+	# handler (_on_command_reroll_opportunity) handles this with full context.
+	# As a fallback if the signal didn't fire, decline here.
+	if action_types.has("USE_COMMAND_REROLL") or action_types.has("DECLINE_COMMAND_REROLL"):
+		# Default fallback: decline (signal handler should have already acted)
+		var unit_id = ""
+		if action_types.has("USE_COMMAND_REROLL"):
+			unit_id = action_types["USE_COMMAND_REROLL"][0].get("actor_unit_id", "")
+		elif action_types.has("DECLINE_COMMAND_REROLL"):
+			unit_id = action_types["DECLINE_COMMAND_REROLL"][0].get("actor_unit_id", "")
 		return {
 			"type": "DECLINE_COMMAND_REROLL",
-			"_ai_description": "Decline Command Re-roll (charge)"
+			"actor_unit_id": unit_id,
+			"_ai_description": "Decline Command Re-roll (charge fallback)"
 		}
 
-	# Fire Overwatch: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_FIRE_OVERWATCH"):
+	# Fire Overwatch: Evaluate whether to fire overwatch during opponent's charge
+	if action_types.has("USE_FIRE_OVERWATCH") or action_types.has("DECLINE_FIRE_OVERWATCH"):
+		var ow_actions = action_types.get("USE_FIRE_OVERWATCH", [])
+		if not ow_actions.is_empty():
+			# Build eligible units list from available actions
+			var eligible_units = []
+			var enemy_unit_id = ""
+			var ow_player = player
+			for ow_a in ow_actions:
+				eligible_units.append({
+					"unit_id": ow_a.get("actor_unit_id", ""),
+					"unit_name": ow_a.get("description", "")
+				})
+				if enemy_unit_id == "":
+					enemy_unit_id = ow_a.get("enemy_unit_id", "")
+				if ow_a.has("player"):
+					ow_player = ow_a.player
+
+			var ow_decision = evaluate_fire_overwatch(ow_player, eligible_units, enemy_unit_id, snapshot)
+			if ow_decision.get("type", "") == "USE_FIRE_OVERWATCH":
+				ow_decision["player"] = ow_player
+				return ow_decision
+
+		# Decline overwatch
+		var decline_player = player
+		if action_types.has("DECLINE_FIRE_OVERWATCH"):
+			decline_player = action_types["DECLINE_FIRE_OVERWATCH"][0].get("player", player)
 		return {
 			"type": "DECLINE_FIRE_OVERWATCH",
+			"player": decline_player,
 			"_ai_description": "Decline Fire Overwatch"
 		}
 
