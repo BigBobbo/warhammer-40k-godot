@@ -391,16 +391,19 @@ func _process_complete_unit_charge(action: Dictionary) -> Dictionary:
 func _process_declare_charge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var target_ids = action.get("payload", {}).get("target_unit_ids", [])
-	
+
 	# Store charge declaration
 	pending_charges[unit_id] = {
 		"targets": target_ids,
 		"declared_at": Time.get_unix_time_from_system()
 	}
-	
+
+	# Track the currently charging unit (may not have been set via SELECT_CHARGE_UNIT)
+	current_charging_unit = unit_id
+
 	# Get eligible targets for UI
 	var eligible_targets = _get_eligible_targets_for_unit(unit_id)
-	
+
 	emit_signal("unit_selected_for_charge", unit_id)
 	emit_signal("targets_declared", unit_id, target_ids)
 	emit_signal("charge_targets_available", unit_id, eligible_targets)
@@ -1671,12 +1674,76 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
+	# --- Reaction states: these block normal charge actions until resolved ---
+
+	# Command Re-roll decision pending
+	if awaiting_reroll_decision and reroll_pending_unit_id != "":
+		actions.append({
+			"type": "USE_COMMAND_REROLL",
+			"actor_unit_id": reroll_pending_unit_id,
+			"description": "Use Command Re-roll on charge dice"
+		})
+		actions.append({
+			"type": "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": reroll_pending_unit_id,
+			"description": "Decline Command Re-roll"
+		})
+		return actions  # Block other actions until resolved
+
+	# Fire Overwatch decision pending (defending player)
+	if awaiting_fire_overwatch:
+		for ow_unit_id in fire_overwatch_eligible_units:
+			actions.append({
+				"type": "USE_FIRE_OVERWATCH",
+				"actor_unit_id": ow_unit_id,
+				"enemy_unit_id": fire_overwatch_enemy_unit_id,
+				"player": fire_overwatch_player,
+				"description": "Fire Overwatch with %s" % ow_unit_id
+			})
+		actions.append({
+			"type": "DECLINE_FIRE_OVERWATCH",
+			"player": fire_overwatch_player,
+			"description": "Decline Fire Overwatch"
+		})
+		return actions  # Block other actions until resolved
+
+	# Heroic Intervention decision pending (defending player)
+	if awaiting_heroic_intervention:
+		actions.append({
+			"type": "USE_HEROIC_INTERVENTION",
+			"player": heroic_intervention_player,
+			"charging_unit_id": heroic_intervention_charging_unit_id,
+			"description": "Use Heroic Intervention"
+		})
+		actions.append({
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"player": heroic_intervention_player,
+			"description": "Decline Heroic Intervention"
+		})
+		return actions  # Block other actions until resolved
+
+	# Tank Shock decision pending (charging player)
+	if awaiting_tank_shock and tank_shock_vehicle_unit_id != "":
+		actions.append({
+			"type": "USE_TANK_SHOCK",
+			"actor_unit_id": tank_shock_vehicle_unit_id,
+			"description": "Use Tank Shock"
+		})
+		actions.append({
+			"type": "DECLINE_TANK_SHOCK",
+			"actor_unit_id": tank_shock_vehicle_unit_id,
+			"description": "Decline Tank Shock"
+		})
+		return actions  # Block other actions until resolved
+
+	# --- Normal charge actions ---
+
 	# Units that can declare charges
 	for unit_id in units:
 		var unit = units[unit_id]
 		if _can_unit_charge(unit) and unit_id not in completed_charges:
-			
+
 			# If no charge declared, can declare charge
 			if not pending_charges.has(unit_id):
 				var eligible_targets = _get_eligible_targets_for_unit(unit_id)
@@ -1687,14 +1754,14 @@ func get_available_actions() -> Array:
 						"payload": {"target_unit_ids": [target_id]},
 						"description": "Declare charge: %s -> %s" % [unit.get("meta", {}).get("name", unit_id), eligible_targets[target_id].name]
 					})
-				
+
 				# Skip charge option
 				actions.append({
 					"type": "SKIP_CHARGE",
 					"actor_unit_id": unit_id,
 					"description": "Skip charge for " + unit.get("meta", {}).get("name", unit_id)
 				})
-			
+
 			# If charge declared but no roll made, can roll
 			elif pending_charges.has(unit_id) and not pending_charges[unit_id].has("distance"):
 				actions.append({
@@ -1702,15 +1769,34 @@ func get_available_actions() -> Array:
 					"actor_unit_id": unit_id,
 					"description": "Roll 2D6 for charge distance"
 				})
-			
-			# If roll made, can apply movement (handled by UI typically)
-	
+
+			# If roll made and successful, can apply movement or complete
+			elif pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
+				var charge_data = pending_charges[unit_id]
+				var rolled_distance = charge_data.distance
+				actions.append({
+					"type": "APPLY_CHARGE_MOVE",
+					"actor_unit_id": unit_id,
+					"rolled_distance": rolled_distance,
+					"target_ids": charge_data.get("targets", []),
+					"description": "Apply charge movement for " + unit.get("meta", {}).get("name", unit_id)
+				})
+
+	# Check for units that need COMPLETE_UNIT_CHARGE
+	# (units in units_that_charged but not in completed_charges, with current_charging_unit set)
+	if current_charging_unit != null and current_charging_unit in units_that_charged and current_charging_unit not in completed_charges:
+		actions.append({
+			"type": "COMPLETE_UNIT_CHARGE",
+			"actor_unit_id": current_charging_unit,
+			"description": "Complete charge for " + units.get(current_charging_unit, {}).get("meta", {}).get("name", str(current_charging_unit))
+		})
+
 	# Always can end phase
 	actions.append({
 		"type": "END_CHARGE",
 		"description": "End Charge Phase"
 	})
-	
+
 	return actions
 
 func _should_complete_phase() -> bool:

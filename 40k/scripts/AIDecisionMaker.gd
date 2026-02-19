@@ -16,6 +16,38 @@ const OBJECTIVE_RANGE_PX: float = 120.0  # 3 inches - objective control range in
 const OBJECTIVE_CONTROL_RANGE_PX: float = 151.5  # 3.79" (3" + 20mm marker radius) in pixels
 const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
 
+# Focus fire plan cache — built once per shooting phase, consumed per-unit
+# Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
+static var _focus_fire_plan: Dictionary = {}
+static var _focus_fire_plan_built: bool = false
+
+# Focus fire tuning constants
+const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
+const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
+const LOW_HEALTH_BONUS: float = 1.5  # Bonus for targets below half health
+
+# Weapon-target efficiency matching constants
+# Weapon role classification thresholds
+const ANTI_TANK_STRENGTH_THRESHOLD: int = 7     # S7+ suggests anti-tank
+const ANTI_TANK_AP_THRESHOLD: int = 2            # AP-2+ suggests anti-tank
+const ANTI_TANK_DAMAGE_THRESHOLD: float = 3.0    # D3+ suggests anti-tank
+const ANTI_INFANTRY_DAMAGE_THRESHOLD: float = 1.0 # D1 is anti-infantry
+const ANTI_INFANTRY_STRENGTH_CAP: int = 5        # S5 or below is anti-infantry oriented
+
+# Efficiency multipliers for weapon-target matching
+const EFFICIENCY_PERFECT_MATCH: float = 1.4      # Anti-tank vs vehicle, anti-infantry vs horde
+const EFFICIENCY_GOOD_MATCH: float = 1.15        # Decent but not ideal pairing
+const EFFICIENCY_NEUTRAL: float = 1.0            # No bonus or penalty
+const EFFICIENCY_POOR_MATCH: float = 0.6         # Anti-infantry vs vehicle, etc.
+const EFFICIENCY_TERRIBLE_MATCH: float = 0.35    # Total waste (e.g. lascannon vs grots)
+
+# Damage waste penalty: multi-damage on single-wound models
+const DAMAGE_WASTE_PENALTY_HEAVY: float = 0.4    # D3+ weapon vs 1W models
+const DAMAGE_WASTE_PENALTY_MODERATE: float = 0.7  # D2 weapon vs 1W models
+
+# Anti-keyword special rule bonus
+const ANTI_KEYWORD_BONUS: float = 1.5            # Weapon has anti-X matching target type
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -34,6 +66,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions" % [phase, player, available_actions.size()])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
+
+	# Reset focus fire plan cache when not in shooting phase
+	if phase != GameStateData.Phase.SHOOTING:
+		if _focus_fire_plan_built:
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -811,12 +849,27 @@ static func _decide_engaged_unit(
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
 		var reason = "not on objective" if not on_objective else "losing OC war"
-		print("AIDecisionMaker: %s falling back (%s)" % [unit_name, reason])
-		return {
-			"type": "BEGIN_FALL_BACK",
-			"actor_unit_id": unit_id,
-			"_ai_description": "%s falls back (%s)" % [unit_name, reason]
-		}
+		# Compute fall-back destinations for all models (MOV-6)
+		var fall_back_destinations = _compute_fall_back_destinations(
+			unit, unit_id, snapshot, enemies, objectives, player
+		)
+		if not fall_back_destinations.is_empty():
+			print("AIDecisionMaker: %s falling back with %d model destinations (%s)" % [unit_name, fall_back_destinations.size(), reason])
+			return {
+				"type": "BEGIN_FALL_BACK",
+				"actor_unit_id": unit_id,
+				"_ai_model_destinations": fall_back_destinations,
+				"_ai_description": "%s falls back (%s)" % [unit_name, reason]
+			}
+		else:
+			# Could not compute valid fall-back positions — remain stationary
+			print("AIDecisionMaker: %s cannot find valid fall-back positions, remaining stationary" % unit_name)
+			if "REMAIN_STATIONARY" in move_types:
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s remains stationary (no valid fall-back path)" % unit_name
+				}
 
 	if "REMAIN_STATIONARY" in move_types:
 		return {
@@ -826,6 +879,295 @@ static func _decide_engaged_unit(
 		}
 
 	return {}
+
+# =============================================================================
+# FALL-BACK MODEL POSITIONING (MOV-6)
+# =============================================================================
+
+static func _compute_fall_back_destinations(
+	unit: Dictionary, unit_id: String, snapshot: Dictionary,
+	enemies: Dictionary, objectives: Array, player: int
+) -> Dictionary:
+	"""Compute valid fall-back destinations for all models in an engaged unit.
+	Each model must end:
+	  1. Outside engagement range of ALL enemy models
+	  2. Within its movement cap (M inches)
+	  3. Not overlapping other models (friendly or enemy)
+	  4. Within board bounds
+	The AI picks a retreat direction: toward the nearest friendly objective or,
+	failing that, directly away from the centroid of engaging enemies."""
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {}
+
+	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var move_px = move_inches * PIXELS_PER_INCH
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return {}
+
+	# Identify engaging enemy models and their centroid
+	var engaging_enemy_centroid = _get_engaging_enemy_centroid(unit, unit_id, enemies)
+
+	# Pick a retreat target: nearest uncontested friendly objective, or away from enemies
+	var retreat_target = _pick_fall_back_target(centroid, engaging_enemy_centroid, objectives, enemies, player, snapshot)
+
+	# Calculate retreat direction
+	var retreat_direction: Vector2
+	if retreat_target != Vector2.INF:
+		retreat_direction = (retreat_target - centroid).normalized()
+	else:
+		# Fall back directly away from enemies
+		if engaging_enemy_centroid != Vector2.INF:
+			retreat_direction = (centroid - engaging_enemy_centroid).normalized()
+		else:
+			# Fallback: move toward own deployment zone (toward board edge)
+			retreat_direction = Vector2(0, -1) if player == 1 else Vector2(0, 1)
+
+	# Get deployed model positions for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var first_model = alive_models[0] if alive_models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+
+	# Build original positions map
+	var original_positions = {}
+	for model in alive_models:
+		var mid = model.get("id", "")
+		if mid != "":
+			original_positions[mid] = _get_model_position(model)
+
+	# Get terrain features for blocking checks
+	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+
+	# Try the primary retreat direction first, then try alternate angles
+	var directions_to_try = _build_fall_back_directions(retreat_direction)
+
+	for direction in directions_to_try:
+		# Try full move, then progressively shorter
+		var fractions = [1.0, 0.75, 0.5, 0.25]
+		for fraction in fractions:
+			var move_vector = direction * move_px * fraction
+			var destinations = _try_fall_back_positions(
+				alive_models, move_vector, enemies, unit,
+				deployed_models, base_mm, base_type, base_dimensions,
+				original_positions, move_px, terrain_features, unit_keywords
+			)
+			if not destinations.is_empty():
+				if fraction < 1.0:
+					print("AIDecisionMaker: Fall-back using %.0f%% move in direction (%.1f, %.1f)" % [fraction * 100, direction.x, direction.y])
+				return destinations
+
+	# All directions failed
+	print("AIDecisionMaker: Could not find valid fall-back destinations for %s" % unit_id)
+	return {}
+
+static func _get_engaging_enemy_centroid(unit: Dictionary, unit_id: String, enemies: Dictionary) -> Vector2:
+	"""Find the centroid of all enemy models currently within engagement range of this unit."""
+	var engaging_positions = []
+	var alive_models = _get_alive_models_with_positions(unit)
+	var own_models_data = unit.get("models", [])
+	var own_base_mm = own_models_data[0].get("base_mm", 32) if own_models_data.size() > 0 else 32
+	var own_radius_px = (own_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		for enemy_model in enemy.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+			var enemy_pos = _get_model_position(enemy_model)
+			if enemy_pos == Vector2.INF:
+				continue
+			var enemy_base_mm = enemy_model.get("base_mm", 32)
+			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+			var er_threshold = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+
+			# Check if this enemy model is within ER of any of our models
+			for own_model in alive_models:
+				var own_pos = _get_model_position(own_model)
+				if own_pos == Vector2.INF:
+					continue
+				if own_pos.distance_to(enemy_pos) < er_threshold:
+					engaging_positions.append(enemy_pos)
+					break  # Only count this enemy model once
+
+	if engaging_positions.is_empty():
+		return Vector2.INF
+
+	var sum_val = Vector2.ZERO
+	for pos in engaging_positions:
+		sum_val += pos
+	return sum_val / engaging_positions.size()
+
+static func _pick_fall_back_target(
+	centroid: Vector2, enemy_centroid: Vector2,
+	objectives: Array, enemies: Dictionary, player: int,
+	snapshot: Dictionary
+) -> Vector2:
+	"""Pick the best retreat target for a falling-back unit.
+	Priority: nearest friendly-controlled or uncontrolled objective that is
+	away from the engaging enemy. If none found, returns Vector2.INF (caller
+	will default to moving directly away from enemies)."""
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var best_target = Vector2.INF
+	var best_score = -INF
+
+	for obj_pos in objectives:
+		# Skip objectives that are closer to the engaging enemy than to us
+		if enemy_centroid != Vector2.INF:
+			var enemy_dist_to_obj = enemy_centroid.distance_to(obj_pos)
+			var our_dist_to_obj = centroid.distance_to(obj_pos)
+			# Only consider objectives that are roughly "behind" us relative to the enemy
+			if enemy_dist_to_obj < our_dist_to_obj * 0.7:
+				continue
+
+		var dist_to_obj = centroid.distance_to(obj_pos)
+		# Prefer closer objectives
+		var score = -dist_to_obj
+
+		# Prefer objectives we already control
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+		if friendly_oc > enemy_oc:
+			score += 200.0  # Strongly prefer friendly-controlled objectives
+		elif friendly_oc == 0 and enemy_oc == 0:
+			score += 100.0  # Uncontrolled objectives are next best
+
+		if score > best_score:
+			best_score = score
+			best_target = obj_pos
+
+	return best_target
+
+static func _build_fall_back_directions(primary_direction: Vector2) -> Array:
+	"""Build an array of retreat directions to try, starting with the primary
+	and branching out to alternates at +/-30, +/-60, +/-90, +/-120, +/-150, and 180 degrees."""
+	var directions = [primary_direction]
+	var angles = [
+		deg_to_rad(30), deg_to_rad(-30),
+		deg_to_rad(60), deg_to_rad(-60),
+		deg_to_rad(90), deg_to_rad(-90),
+		deg_to_rad(120), deg_to_rad(-120),
+		deg_to_rad(150), deg_to_rad(-150),
+		deg_to_rad(180)
+	]
+	for angle in angles:
+		directions.append(primary_direction.rotated(angle))
+	return directions
+
+static func _try_fall_back_positions(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary, move_cap_px: float,
+	terrain_features: Array, unit_keywords: Array
+) -> Dictionary:
+	"""Try moving all models by move_vector for a fall-back. Unlike normal movement,
+	fall-back REQUIRES that every model ends OUTSIDE engagement range of all enemies.
+	Returns model_id -> [x, y] destinations, or empty dict if any model cannot be placed."""
+	var destinations = {}
+	var placed_models: Array = []
+
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.INF:
+			continue
+		var dest = model_pos + move_vector
+
+		# Clamp to board bounds with margin
+		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check movement cap
+		var orig_pos = original_positions.get(model_id, model_pos)
+		if orig_pos.distance_to(dest) > move_cap_px + 1.0:  # +1 tolerance
+			return {}
+
+		# CRITICAL: Fall-back models MUST end outside engagement range
+		if _is_position_near_enemy(dest, enemies, unit):
+			# Try small offsets perpendicular to the move direction to escape ER
+			var resolved = _resolve_fall_back_position(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				deployed_models + placed_models, enemies, unit,
+				orig_pos, move_cap_px
+			)
+			if resolved == Vector2.INF:
+				return {}  # Cannot escape ER with this direction
+			dest = resolved
+
+		# Check terrain blocking
+		if _path_blocked_by_terrain(model_pos, dest, unit_keywords, terrain_features):
+			return {}
+
+		# Check overlap with deployed models and already-placed models
+		var all_obstacles = deployed_models + placed_models
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			var resolved = _resolve_fall_back_position(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				all_obstacles, enemies, unit, orig_pos, move_cap_px
+			)
+			if resolved == Vector2.INF:
+				return {}
+			dest = resolved
+
+		destinations[model_id] = [dest.x, dest.y]
+		placed_models.append({
+			"position": dest,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	return destinations
+
+static func _resolve_fall_back_position(
+	dest: Vector2, move_vector: Vector2, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	obstacles: Array, enemies: Dictionary, unit: Dictionary,
+	original_pos: Vector2, move_cap_px: float
+) -> Vector2:
+	"""Try perpendicular and diagonal offsets to find a valid fall-back position
+	that is outside engagement range and doesn't collide with other models."""
+	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
+	if perp == Vector2.ZERO:
+		# move_vector is zero, try cardinal directions
+		perp = Vector2(1, 0)
+	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	# Try wider range of offsets for fall-back (more aggressive positioning)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0]
+
+	for multiplier in offsets:
+		var offset = perp * base_radius * multiplier
+		var candidate = dest + offset
+
+		# Check board bounds
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			continue
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			continue
+
+		# Check movement cap
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			if original_pos.distance_to(candidate) > move_cap_px + 1.0:
+				continue
+
+		# Must be outside engagement range
+		if _is_position_near_enemy(candidate, enemies, unit):
+			continue
+
+		# Must not collide with other models
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+			continue
+
+		return candidate
+
+	return Vector2.INF  # No valid position found
 
 # =============================================================================
 # ADVANCE DECISION LOGIC (Task 3 + Task 6)
@@ -944,6 +1286,20 @@ static func _get_max_weapon_range(unit: Dictionary) -> float:
 			elif range_str.is_valid_int():
 				max_range = max(max_range, float(int(range_str)))
 	return max_range
+
+static func _get_weapon_range_inches(weapon: Dictionary) -> float:
+	"""Parse a weapon's range field and return the range in inches. Returns 0.0 for melee or invalid."""
+	var range_str = str(weapon.get("range", "0"))
+	if range_str.to_lower() == "melee":
+		return 0.0
+	# Handle strings like "24", "36", "12" etc.
+	# Also strip trailing quote mark if present (e.g. '24"')
+	range_str = range_str.replace("\"", "").strip_edges()
+	if range_str.is_valid_float():
+		return float(range_str)
+	elif range_str.is_valid_int():
+		return float(int(range_str))
+	return 0.0
 
 static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
 	var best = Vector2.INF
@@ -1409,13 +1765,15 @@ static func _resolve_movement_collision(
 	return Vector2.INF  # No valid offset found
 
 static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_unit_id: String) -> Array:
-	# Returns deployed model positions for all units except the specified one
+	# Returns model positions for all on-board units except the specified one
+	# Includes DEPLOYED, MOVED, SHOT, CHARGED statuses (any unit physically on the board)
 	var deployed = []
 	for uid in snapshot.get("units", {}):
 		if uid == exclude_unit_id:
 			continue
 		var u = snapshot.units[uid]
-		if u.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		var status = u.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 		for model in u.get("models", []):
 			if not model.get("alive", true):
@@ -1477,14 +1835,57 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
-		var shooter_action = action_types["SELECT_SHOOTER"][0]
-		var unit_id = shooter_action.get("actor_unit_id", shooter_action.get("unit_id", ""))
+		# Build focus fire plan if not already built for this shooting phase.
+		# The plan coordinates weapon assignments across ALL shooting units to
+		# concentrate fire on kill thresholds rather than spreading damage.
+		if not _focus_fire_plan_built:
+			var shooter_unit_ids = []
+			for sa in action_types["SELECT_SHOOTER"]:
+				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+				if sid != "":
+					shooter_unit_ids.append(sid)
+			_focus_fire_plan = _build_focus_fire_plan(snapshot, shooter_unit_ids, player)
+			_focus_fire_plan_built = true
+			print("AIDecisionMaker: Built focus fire plan for %d units, %d target assignments" % [
+				shooter_unit_ids.size(), _focus_fire_plan.size()])
+			for ff_uid in _focus_fire_plan:
+				var ff_unit = snapshot.get("units", {}).get(ff_uid, {})
+				var ff_name = ff_unit.get("meta", {}).get("name", ff_uid)
+				var ff_assignments = _focus_fire_plan[ff_uid]
+				var ff_targets = {}
+				for ff_a in ff_assignments:
+					var ff_tid = ff_a.get("target_unit_id", "")
+					if not ff_targets.has(ff_tid):
+						ff_targets[ff_tid] = 0
+					ff_targets[ff_tid] += 1
+				for ff_tid in ff_targets:
+					var ff_target = snapshot.get("units", {}).get(ff_tid, {})
+					var ff_tname = ff_target.get("meta", {}).get("name", ff_tid)
+					print("  Focus fire: %s -> %s (%d weapon(s))" % [ff_name, ff_tname, ff_targets[ff_tid]])
 
-		if unit_id == "":
+		# Pick the first available shooter that has a plan
+		var selected_unit_id = ""
+		for sa in action_types["SELECT_SHOOTER"]:
+			var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+			if sid != "" and _focus_fire_plan.has(sid):
+				selected_unit_id = sid
+				break
+
+		# If no unit has a plan, try first available shooter with fallback scoring
+		if selected_unit_id == "":
+			for sa in action_types["SELECT_SHOOTER"]:
+				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+				if sid != "":
+					selected_unit_id = sid
+					break
+
+		if selected_unit_id == "":
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
 
-		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit = snapshot.get("units", {}).get(selected_unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", selected_unit_id)
 
 		# Get weapons for this unit
 		var weapons = unit.get("meta", {}).get("weapons", [])
@@ -1494,25 +1895,110 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				ranged_weapons.append(w)
 
 		if ranged_weapons.is_empty():
-			# No ranged weapons, skip this unit
+			# Remove from plan and skip
+			_focus_fire_plan.erase(selected_unit_id)
 			return {
 				"type": "SKIP_UNIT",
-				"actor_unit_id": unit_id,
+				"actor_unit_id": selected_unit_id,
 				"_ai_description": "Skipped %s — no ranged weapons" % unit_name
 			}
 
-		# Find the best target for each weapon
 		var enemies = _get_enemy_units(snapshot, player)
 		if enemies.is_empty():
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (no targets)"}
 
-		# Build assignments: assign all ranged weapons to best target
+		# Use focus fire plan assignments if available for this unit
 		var assignments = []
-		for weapon in ranged_weapons:
-			var weapon_name = weapon.get("name", "")
-			var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
+		if _focus_fire_plan.has(selected_unit_id):
+			assignments = _focus_fire_plan[selected_unit_id]
+			_focus_fire_plan.erase(selected_unit_id)
+			# Filter out assignments targeting units that may have been destroyed by earlier shooters
+			var valid_assignments = []
+			for a in assignments:
+				var tid = a.get("target_unit_id", "")
+				if enemies.has(tid):
+					valid_assignments.append(a)
+				else:
+					print("AIDecisionMaker: Dropping assignment for destroyed target %s" % tid)
+			assignments = valid_assignments
+			# If all plan targets were destroyed, fall back to greedy scoring
+			if assignments.is_empty() and not enemies.is_empty():
+				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+				print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
+			else:
+				print("AIDecisionMaker: Using focus fire plan for %s (%d assignments)" % [unit_name, assignments.size()])
+		else:
+			# Fallback: per-weapon greedy scoring (same as old behavior)
+			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
-			# ONE SHOT (T4-2): Skip one-shot weapons that have been fired
+		if assignments.is_empty():
+			return {
+				"type": "SKIP_UNIT",
+				"actor_unit_id": selected_unit_id,
+				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
+			}
+
+		# Build target summary for description
+		var target_names = []
+		for assignment in assignments:
+			var tid = assignment.get("target_unit_id", "")
+			var target = snapshot.get("units", {}).get(tid, {})
+			var tname = target.get("meta", {}).get("name", tid)
+			if tname not in target_names:
+				target_names.append(tname)
+		var target_summary = ", ".join(target_names)
+		return {
+			"type": "SHOOT",
+			"actor_unit_id": selected_unit_id,
+			"payload": {
+				"assignments": assignments
+			},
+			"_ai_description": "%s shoots at %s (%d weapon(s), focus fire)" % [unit_name, target_summary, assignments.size()]
+		}
+
+	# No shooters left, end phase — reset plan cache
+	_focus_fire_plan_built = false
+	_focus_fire_plan.clear()
+	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
+
+# =============================================================================
+# FOCUS FIRE PLAN BUILDER
+# =============================================================================
+
+static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array, player: int) -> Dictionary:
+	"""
+	Build a coordinated shooting plan across all shooting units.
+	Returns {unit_id: [{weapon_id, target_unit_id, model_ids}]} mapping.
+
+	Algorithm:
+	1. Calculate kill threshold (total remaining wounds) for each enemy
+	2. For each weapon on each shooter, estimate expected damage against each enemy
+	3. Score each enemy by: can we kill it? threat level? expected damage efficiency?
+	4. Greedily allocate weapons to targets, prioritizing kill thresholds
+	5. Redirect excess damage to secondary targets
+	"""
+	var enemies = _get_enemy_units(snapshot, player)
+	if enemies.is_empty():
+		return {}
+
+	# --- Step 1: Build weapon inventory across all shooters ---
+	# Each entry: {unit_id, weapon, weapon_id, unit}
+	var all_weapons = []
+	for unit_id in shooter_unit_ids:
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+		var weapons = unit.get("meta", {}).get("weapons", [])
+		for w in weapons:
+			if w.get("type", "").to_lower() != "ranged":
+				continue
+			var weapon_name = w.get("name", "")
+			var weapon_id = _generate_weapon_id(weapon_name, w.get("type", ""))
+
+			# ONE SHOT: Skip one-shot weapons that have been fully fired
 			if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
 				var all_fired = true
 				var models = unit.get("models", [])
@@ -1525,51 +2011,349 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				if all_fired:
 					continue
 
-			# Score each enemy target
-			var best_target_id = ""
-			var best_score = -1.0
-			for enemy_id in enemies:
-				var enemy = enemies[enemy_id]
-				var score = _score_shooting_target(weapon, enemy, snapshot)
-				if score > best_score:
-					best_score = score
-					best_target_id = enemy_id
+			all_weapons.append({
+				"unit_id": unit_id,
+				"weapon": w,
+				"weapon_id": weapon_id,
+				"unit": unit
+			})
 
-			if best_target_id != "" and best_score > 0:
-				assignments.append({
-					"weapon_id": weapon_id,
-					"target_unit_id": best_target_id,
-					"model_ids": []
-				})
+	if all_weapons.is_empty():
+		return {}
 
-		if assignments.is_empty():
-			return {
-				"type": "SKIP_UNIT",
-				"actor_unit_id": unit_id,
-				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
-			}
+	# --- Step 2: Calculate kill thresholds and expected damage matrix ---
+	# kill_threshold[enemy_id] = total remaining wounds across all alive models
+	var kill_thresholds = {}
+	# target_value[enemy_id] = priority score for killing this target
+	var target_values = {}
 
-		# Use the SHOOT action for a complete shooting sequence
-		# Build target summary
-		var target_names = []
-		for assignment in assignments:
-			var tid = assignment.get("target_unit_id", "")
-			var target = snapshot.get("units", {}).get(tid, {})
-			var tname = target.get("meta", {}).get("name", tid)
-			if tname not in target_names:
-				target_names.append(tname)
-		var target_summary = ", ".join(target_names)
-		return {
-			"type": "SHOOT",
-			"actor_unit_id": unit_id,
-			"payload": {
-				"assignments": assignments
-			},
-			"_ai_description": "%s shoots at %s (%d weapon(s))" % [unit_name, target_summary, assignments.size()]
-		}
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		kill_thresholds[enemy_id] = _calculate_kill_threshold(enemy)
+		target_values[enemy_id] = _calculate_target_value(enemy, snapshot, player)
 
-	# No shooters left, end phase
-	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
+	# damage_matrix[weapon_index][enemy_id] = expected damage
+	var damage_matrix = []
+	for wi in range(all_weapons.size()):
+		var weapon_entry = all_weapons[wi]
+		var weapon = weapon_entry["weapon"]
+		var shooter_unit = weapon_entry["unit"]
+		var dmg_row = {}
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var dmg = _estimate_weapon_damage(weapon, enemy, snapshot, shooter_unit)
+			dmg_row[enemy_id] = dmg
+		damage_matrix.append(dmg_row)
+
+	# --- Step 3: Greedy allocation ---
+	# Track how much expected damage is already allocated to each target
+	var allocated_damage = {}
+	for enemy_id in enemies:
+		allocated_damage[enemy_id] = 0.0
+
+	# Track which weapon has been assigned: weapon_assignments[wi] = target_id or ""
+	var weapon_target = []
+	for wi in range(all_weapons.size()):
+		weapon_target.append("")
+
+	# Sort targets by value (highest first) for prioritized allocation
+	var sorted_targets = enemies.keys()
+	sorted_targets.sort_custom(func(a, b): return target_values.get(a, 0) > target_values.get(b, 0))
+
+	# Pass 1: For each high-value target, assign enough weapons to reach kill threshold
+	for enemy_id in sorted_targets:
+		var threshold = kill_thresholds[enemy_id]
+		if threshold <= 0:
+			continue
+
+		# Gather weapons that can damage this target, sorted by efficiency
+		var candidates = []  # [{weapon_index, damage, efficiency}]
+		for wi in range(all_weapons.size()):
+			if weapon_target[wi] != "":
+				continue  # Already assigned
+			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+			if dmg <= 0:
+				continue  # Can't hit this target (out of range, etc.)
+			candidates.append({"wi": wi, "damage": dmg})
+
+		if candidates.is_empty():
+			continue
+
+		# Sort by damage descending (assign most effective weapons first)
+		candidates.sort_custom(func(a, b): return a["damage"] > b["damage"])
+
+		# Calculate total potential damage against this target
+		var total_potential = 0.0
+		for c in candidates:
+			total_potential += c["damage"]
+
+		# Only focus fire if we can plausibly kill the target (within overkill tolerance)
+		# or if the target is already below half health
+		var alive_count = _get_alive_models(enemies[enemy_id]).size()
+		var total_count = enemies[enemy_id].get("models", []).size()
+		var below_half = total_count > 0 and alive_count * 2 < total_count
+
+		var can_kill = total_potential >= threshold * 0.6  # At least 60% chance concept
+		if not can_kill and not below_half:
+			continue  # Not worth focusing on — spread fire will happen in pass 2
+
+		# Assign weapons until we reach kill threshold (with overkill tolerance)
+		var target_budget = threshold * OVERKILL_TOLERANCE
+		for c in candidates:
+			if allocated_damage[enemy_id] >= target_budget:
+				break  # Enough damage allocated
+			var wi = c["wi"]
+			weapon_target[wi] = enemy_id
+			allocated_damage[enemy_id] += c["damage"]
+
+	# Pass 2: Assign remaining unassigned weapons to their best individual targets
+	for wi in range(all_weapons.size()):
+		if weapon_target[wi] != "":
+			continue  # Already assigned in pass 1
+
+		var weapon_entry = all_weapons[wi]
+		var best_target_id = ""
+		var best_score = -1.0
+
+		for enemy_id in enemies:
+			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+			if dmg <= 0:
+				continue
+
+			# Score: base damage * target value, with bonus if this helps reach a kill threshold
+			var score = dmg * target_values.get(enemy_id, 1.0)
+
+			# Bonus: if adding this weapon helps reach the kill threshold
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			var current_alloc = allocated_damage.get(enemy_id, 0)
+			if threshold > 0 and current_alloc < threshold and current_alloc + dmg >= threshold * 0.6:
+				score *= KILL_BONUS_MULTIPLIER
+
+			# Slight penalty for massive overkill
+			if threshold > 0 and current_alloc >= threshold * OVERKILL_TOLERANCE:
+				score *= 0.5
+
+			if score > best_score:
+				best_score = score
+				best_target_id = enemy_id
+
+		if best_target_id != "":
+			weapon_target[wi] = best_target_id
+			allocated_damage[best_target_id] += damage_matrix[wi].get(best_target_id, 0.0)
+
+	# --- Step 4: Build per-unit assignment dictionaries ---
+	var plan = {}
+	for wi in range(all_weapons.size()):
+		var target_id = weapon_target[wi]
+		if target_id == "":
+			continue
+		var weapon_entry = all_weapons[wi]
+		var uid = weapon_entry["unit_id"]
+		if not plan.has(uid):
+			plan[uid] = []
+		plan[uid].append({
+			"weapon_id": weapon_entry["weapon_id"],
+			"target_unit_id": target_id,
+			"model_ids": _get_alive_model_ids(weapon_entry["unit"])
+		})
+
+	# Log focus fire summary with efficiency info
+	for enemy_id in allocated_damage:
+		var alloc = allocated_damage[enemy_id]
+		if alloc > 0:
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			var enemy = enemies[enemy_id]
+			var ename = enemy.get("meta", {}).get("name", enemy_id)
+			var kill_pct = (alloc / threshold * 100.0) if threshold > 0 else 0.0
+			var target_type_name = _target_type_name(_classify_target_type(enemy))
+			print("AIDecisionMaker: Focus fire -> %s [%s]: %.1f eff-adjusted dmg vs %.1f HP (%.0f%% kill)" % [
+				ename, target_type_name, alloc, threshold, kill_pct])
+
+	# Log weapon role assignments for debugging
+	for wi in range(all_weapons.size()):
+		var target_id = weapon_target[wi]
+		if target_id == "":
+			continue
+		var weapon_entry = all_weapons[wi]
+		var w = weapon_entry["weapon"]
+		var wname = w.get("name", "?")
+		var role_name = _weapon_role_name(_classify_weapon_role(w))
+		var target = enemies.get(target_id, {})
+		var tname = target.get("meta", {}).get("name", target_id)
+		var eff = _calculate_efficiency_multiplier(w, target)
+		print("AIDecisionMaker:   %s [%s] -> %s (efficiency: %.2f)" % [wname, role_name, tname, eff])
+
+	return plan
+
+static func _calculate_kill_threshold(unit: Dictionary) -> float:
+	"""Calculate total remaining wounds across all alive models in a unit."""
+	var total = 0.0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total += float(model.get("current_wounds", model.get("wounds", 1)))
+	return total
+
+static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""
+	Calculate a priority value for killing this target.
+	Higher value = more important to kill.
+	Considers: threat level, objective proximity, keywords, health status.
+	"""
+	var value = 1.0
+
+	var meta = target_unit.get("meta", {})
+	var stats = meta.get("stats", {})
+	var keywords = meta.get("keywords", [])
+
+	# Threat from ranged weapons (units that can shoot back are higher priority)
+	var weapons = meta.get("weapons", [])
+	var ranged_threat = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() == "ranged":
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var dmg_str = w.get("damage", "1")
+			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
+			ranged_threat += attacks * dmg
+	value += ranged_threat * 0.1
+
+	# Melee threat (units that can charge and deal damage)
+	var melee_threat = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() == "melee":
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var dmg_str = w.get("damage", "1")
+			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
+			melee_threat += attacks * dmg
+	value += melee_threat * 0.05
+
+	# Character bonus (leaders provide buffs, losing them hurts more)
+	if "CHARACTER" in keywords:
+		value *= 1.3
+
+	# Vehicle/Monster bonus (high-threat, high-wound targets)
+	if "VEHICLE" in keywords or "MONSTER" in keywords:
+		value *= 1.2
+
+	# Below half health bonus (finish off wounded units)
+	var alive_count = _get_alive_models(target_unit).size()
+	var total_count = target_unit.get("models", []).size()
+	if total_count > 0 and alive_count * 2 < total_count:
+		value *= LOW_HEALTH_BONUS
+
+	# Objective proximity bonus (units near objectives are higher priority)
+	var unit_centroid = _get_unit_centroid(target_unit)
+	if unit_centroid != Vector2.INF:
+		var objectives = _get_objectives(snapshot)
+		for obj_pos in objectives:
+			var dist = unit_centroid.distance_to(obj_pos)
+			if dist < OBJECTIVE_CONTROL_RANGE_PX:
+				value *= 1.4  # On an objective
+				break
+			elif dist < OBJECTIVE_CONTROL_RANGE_PX * 2:
+				value *= 1.15  # Near an objective
+
+	# Objective Control value (high OC units on objectives are very important)
+	var oc = int(stats.get("oc", 0))
+	if oc >= 2:
+		value += float(oc) * 0.2
+
+	return value
+
+static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary) -> float:
+	"""
+	Estimate expected damage of a weapon against a target.
+	Similar to _score_shooting_target but returns raw expected damage without bonuses,
+	and checks range.
+	"""
+	# Range check
+	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
+		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		if dist_inches > weapon_range_inches:
+			return 0.0
+
+	var attacks_str = weapon.get("attacks", "1")
+	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+
+	var bs_str = weapon.get("ballistic_skill", "4")
+	var bs = int(bs_str) if bs_str.is_valid_int() else 4
+
+	var strength_str = weapon.get("strength", "4")
+	var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+	var ap_str = weapon.get("ap", "0")
+	var ap = 0
+	if ap_str.begins_with("-"):
+		var ap_num = ap_str.substr(1)
+		ap = int(ap_num) if ap_num.is_valid_int() else 0
+	else:
+		ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+	var damage_str = weapon.get("damage", "1")
+	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
+	var target_invuln = _get_target_invulnerable_save(target_unit)
+
+	var p_hit = _hit_probability(bs)
+	var p_wound = _wound_probability(strength, toughness)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+	# Scale by number of alive models that carry this weapon
+	var model_count = _get_alive_models(shooter_unit).size()
+	if model_count < 1:
+		model_count = 1
+
+	var raw_damage = attacks * p_hit * p_wound * p_unsaved * damage * model_count
+
+	# Apply weapon-target efficiency multiplier to guide weapon allocation
+	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
+	return raw_damage * efficiency
+
+static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: Array, enemies: Dictionary, snapshot: Dictionary) -> Array:
+	"""
+	Fallback per-weapon greedy scoring (original behavior).
+	Used when a unit is not in the focus fire plan.
+	"""
+	var assignments = []
+	for weapon in ranged_weapons:
+		var weapon_name = weapon.get("name", "")
+		var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
+
+		# ONE SHOT: Skip one-shot weapons that have been fired
+		if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
+			var all_fired = true
+			var models = unit.get("models", [])
+			for model in models:
+				if model.get("alive", true):
+					var model_id = model.get("id", "")
+					if not RulesEngine.has_fired_one_shot(unit, model_id, weapon_id):
+						all_fired = false
+						break
+			if all_fired:
+				continue
+
+		# Score each enemy target (includes weapon range check)
+		var best_target_id = ""
+		var best_score = -1.0
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
+			if score > best_score:
+				best_score = score
+				best_target_id = enemy_id
+
+		if best_target_id != "" and best_score > 0:
+			assignments.append({
+				"weapon_id": weapon_id,
+				"target_unit_id": best_target_id,
+				"model_ids": _get_alive_model_ids(unit)
+			})
+
+	return assignments
 
 # =============================================================================
 # CHARGE PHASE
@@ -1583,21 +2367,75 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			action_types[t] = []
 		action_types[t].append(a)
 
-	# Step 1: If charge roll is needed, roll
+	# --- Step 0: Handle reaction decisions first ---
+
+	# Command Re-roll: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_COMMAND_REROLL"):
+		return {
+			"type": "DECLINE_COMMAND_REROLL",
+			"_ai_description": "Decline Command Re-roll (charge)"
+		}
+
+	# Fire Overwatch: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_FIRE_OVERWATCH"):
+		return {
+			"type": "DECLINE_FIRE_OVERWATCH",
+			"_ai_description": "Decline Fire Overwatch"
+		}
+
+	# Heroic Intervention: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_HEROIC_INTERVENTION"):
+		return {
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"_ai_description": "Decline Heroic Intervention"
+		}
+
+	# Tank Shock: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_TANK_SHOCK"):
+		return {
+			"type": "DECLINE_TANK_SHOCK",
+			"_ai_description": "Decline Tank Shock"
+		}
+
+	# --- Step 1: Complete any pending charge ---
+	if action_types.has("COMPLETE_UNIT_CHARGE"):
+		var a = action_types["COMPLETE_UNIT_CHARGE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		return {
+			"type": "COMPLETE_UNIT_CHARGE",
+			"actor_unit_id": uid,
+			"_ai_description": "Complete charge for %s" % unit_name
+		}
+
+	# --- Step 2: Apply charge movement if a roll was successful ---
+	if action_types.has("APPLY_CHARGE_MOVE"):
+		var a = action_types["APPLY_CHARGE_MOVE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var rolled_distance = a.get("rolled_distance", 0)
+		var target_ids = a.get("target_ids", [])
+		return _compute_charge_move(snapshot, uid, rolled_distance, target_ids, player)
+
+	# --- Step 3: If charge roll is needed, roll ---
 	if action_types.has("CHARGE_ROLL"):
 		var a = action_types["CHARGE_ROLL"][0]
 		var uid = a.get("actor_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
 		return {
 			"type": "CHARGE_ROLL",
 			"actor_unit_id": uid,
-			"_ai_description": "Charge roll"
+			"_ai_description": "Charge roll for %s" % unit_name
 		}
 
-	# Step 2: If we can declare charges, evaluate
+	# --- Step 4: Evaluate and declare charges ---
 	if action_types.has("DECLARE_CHARGE"):
-		# For initial implementation, skip all charges since APPLY_CHARGE_MOVE
-		# requires complex model positioning that needs geometric validation.
-		# Instead, skip each chargeable unit.
+		var best_charge = _evaluate_best_charge(snapshot, available_actions, player)
+		if not best_charge.is_empty():
+			return best_charge
+
+		# No good charge found — skip remaining chargeable units one at a time
 		if action_types.has("SKIP_CHARGE"):
 			var a = action_types["SKIP_CHARGE"][0]
 			var uid = a.get("actor_unit_id", "")
@@ -1606,11 +2444,573 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			return {
 				"type": "SKIP_CHARGE",
 				"actor_unit_id": uid,
-				"_ai_description": "Skipped charge for %s (not implemented)" % unit_name
+				"_ai_description": "Skipped charge for %s (no good target)" % unit_name
 			}
 
-	# Step 3: End charge phase
+	# --- Step 5: End charge phase ---
 	return {"type": "END_CHARGE", "_ai_description": "End Charge Phase"}
+
+# =============================================================================
+# CHARGE EVALUATION
+# =============================================================================
+
+static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	"""Evaluate all possible charge declarations and return the best one, or {} if none worth taking."""
+	var enemies = _get_enemy_units(snapshot, player)
+
+	# Collect unique charger unit IDs from DECLARE_CHARGE actions
+	var charger_targets = {}  # unit_id -> [{target_id, distance_inches, action}]
+	for a in available_actions:
+		if a.get("type") != "DECLARE_CHARGE":
+			continue
+		var uid = a.get("actor_unit_id", "")
+		var target_ids = a.get("payload", {}).get("target_unit_ids", [])
+		if uid == "" or target_ids.is_empty():
+			continue
+
+		if not charger_targets.has(uid):
+			charger_targets[uid] = []
+
+		var target_id = target_ids[0]
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		if unit.is_empty() or target_unit.is_empty():
+			continue
+
+		# Calculate closest model distance to target
+		var min_dist = _get_closest_model_distance_inches(unit, target_unit)
+
+		charger_targets[uid].append({
+			"target_id": target_id,
+			"distance_inches": min_dist,
+			"action": a,
+		})
+
+	if charger_targets.is_empty():
+		return {}
+
+	# Score each (charger, target) pair
+	var best_score = -INF
+	var best_action = {}
+	var best_description = ""
+
+	for uid in charger_targets:
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_keywords = unit.get("meta", {}).get("keywords", [])
+		var has_melee = _unit_has_melee_weapons(unit)
+
+		# Units without melee weapons should generally not charge (except for objective play)
+		var melee_bonus = 1.0 if has_melee else 0.3
+
+		for target_info in charger_targets[uid]:
+			var target_id = target_info.target_id
+			var dist = target_info.distance_inches
+			var target_unit = enemies.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+			var target_name = target_unit.get("meta", {}).get("name", target_id)
+
+			# Calculate charge probability (2D6 must meet or exceed distance - ER)
+			var charge_distance_needed = max(0.0, dist - 1.0)  # minus 1" engagement range
+			var charge_prob = _charge_success_probability(charge_distance_needed)
+
+			# Skip charges with very low probability
+			if charge_prob < 0.08:  # Less than ~8% chance (need 11+ on 2d6)
+				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\")" % [
+					unit_name, target_name, charge_prob * 100.0, charge_distance_needed])
+				continue
+
+			# Score the charge target
+			var target_score = _score_charge_target(unit, target_unit, snapshot, player)
+
+			# Apply charge probability as a multiplier
+			var score = target_score * charge_prob * melee_bonus
+
+			# Bonus for short charges (high reliability)
+			if charge_distance_needed <= 6.0:
+				score *= 1.2
+			if charge_distance_needed <= 3.0:
+				score *= 1.3
+
+			# Bonus for charging onto objectives
+			var target_centroid = _get_unit_centroid(target_unit)
+			var objectives = _get_objectives(snapshot)
+			for obj_pos in objectives:
+				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					score *= 1.5  # Target is on an objective
+					break
+
+			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, final=%.1f" % [
+				unit_name, target_name, dist, charge_prob * 100.0, target_score, score])
+
+			if score > best_score:
+				best_score = score
+				best_action = target_info.action
+				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away)" % [
+					unit_name, target_name, charge_prob * 100.0, dist]
+
+	# Minimum threshold to declare a charge
+	if best_score < 1.0:
+		print("AIDecisionMaker: No charge worth declaring (best score: %.1f)" % best_score)
+		return {}
+
+	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
+	var result = best_action.duplicate()
+	result["_ai_description"] = best_description
+	return result
+
+static func _charge_success_probability(distance_needed: float) -> float:
+	"""Calculate the probability that 2D6 >= distance_needed.
+	Returns value between 0.0 and 1.0."""
+	# 2D6 ranges from 2 to 12
+	# We need the roll to be >= ceil(distance_needed)
+	var needed = ceili(distance_needed)
+
+	if needed <= 2:
+		return 1.0  # Always succeeds (2D6 minimum is 2)
+	if needed > 12:
+		return 0.0  # Impossible
+
+	# Count outcomes where sum >= needed out of 36 total outcomes
+	var success_count = 0
+	for d1 in range(1, 7):
+		for d2 in range(1, 7):
+			if d1 + d2 >= needed:
+				success_count += 1
+
+	return float(success_count) / 36.0
+
+static func _score_charge_target(charger: Dictionary, target: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Score a potential charge target based on expected melee damage, target value, and tactical factors."""
+	var score = 0.0
+
+	# --- Expected melee damage ---
+	var melee_damage = _estimate_melee_damage(charger, target)
+	score += melee_damage * 2.0  # Weight melee damage highly
+
+	# --- Target value factors ---
+	var target_keywords = target.get("meta", {}).get("keywords", [])
+	var target_wounds = int(target.get("meta", {}).get("stats", {}).get("wounds", 1))
+	var alive_models = _get_alive_models(target).size()
+	var total_models = target.get("models", []).size()
+
+	# Bonus for targets below half strength (easier to finish off)
+	if total_models > 0 and alive_models * 2 < total_models:
+		score += 3.0
+
+	# Bonus for CHARACTER targets
+	if "CHARACTER" in target_keywords:
+		score += 2.0
+
+	# Penalty for very tough targets we can't damage effectively
+	if melee_damage < 1.0:
+		score -= 3.0
+
+	# Bonus for engaging dangerous ranged units (stops them from shooting)
+	var target_has_ranged = _unit_has_ranged_weapons(target)
+	if target_has_ranged:
+		var max_range = _get_max_weapon_range(target)
+		if max_range >= 24.0:
+			score += 2.0  # Good to tie up long-range shooters
+
+	# Bonus for targeting units with low toughness (likely kill)
+	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
+	if target_toughness <= 3:
+		score += 1.0
+
+	return max(0.0, score)
+
+static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -> float:
+	"""Estimate expected damage from a melee attack using the attacker's best melee weapon."""
+	var weapons = attacker.get("meta", {}).get("weapons", [])
+	var best_damage = 0.0
+	var alive_attackers = _get_alive_models(attacker).size()
+
+	var target_toughness = int(defender.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var target_save = int(defender.get("meta", {}).get("stats", {}).get("save", 4))
+	var target_invuln = _get_target_invulnerable_save(defender)
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "melee":
+			continue
+
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+
+		var ws_str = w.get("weapon_skill", w.get("ballistic_skill", "4"))
+		var ws = int(ws_str) if ws_str.is_valid_int() else 4
+
+		var strength_str = w.get("strength", "4")
+		var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+		var ap_str = w.get("ap", "0")
+		var ap = 0
+		if ap_str.begins_with("-"):
+			var ap_num = ap_str.substr(1)
+			ap = int(ap_num) if ap_num.is_valid_int() else 0
+		else:
+			ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+		var damage_str = w.get("damage", "1")
+		var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+		var p_hit = _hit_probability(ws)
+		var p_wound = _wound_probability(strength, target_toughness)
+		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+		# Total expected damage for entire unit with this weapon
+		var weapon_damage = attacks * alive_attackers * p_hit * p_wound * p_unsaved * damage
+		best_damage = max(best_damage, weapon_damage)
+
+	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
+	if best_damage == 0.0 and alive_attackers > 0:
+		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var p_hit = _hit_probability(4)  # WS4+ default
+		var p_wound = _wound_probability(charger_strength, target_toughness)
+		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
+		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
+
+	return best_damage
+
+static func _unit_has_melee_weapons(unit: Dictionary) -> bool:
+	"""Check if a unit has any melee weapons (besides default close combat weapon)."""
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for w in weapons:
+		if w.get("type", "").to_lower() == "melee":
+			return true
+	return false
+
+static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dictionary) -> float:
+	"""Get the minimum edge-to-edge distance in inches between any two models of two units.
+	Uses pixel-based position calculation since Measurement autoload may not be available statically."""
+	var min_dist_px = INF
+	for model_a in unit_a.get("models", []):
+		if not model_a.get("alive", true):
+			continue
+		var pos_a = _get_model_position(model_a)
+		if pos_a == Vector2.INF:
+			continue
+		var base_a_mm = model_a.get("base_mm", 32)
+		var base_a_radius_px = _model_bounding_radius_px(base_a_mm, model_a.get("base_type", "circular"), model_a.get("base_dimensions", {}))
+
+		for model_b in unit_b.get("models", []):
+			if not model_b.get("alive", true):
+				continue
+			var pos_b = _get_model_position(model_b)
+			if pos_b == Vector2.INF:
+				continue
+			var base_b_mm = model_b.get("base_mm", 32)
+			var base_b_radius_px = _model_bounding_radius_px(base_b_mm, model_b.get("base_type", "circular"), model_b.get("base_dimensions", {}))
+
+			# Edge-to-edge distance in pixels
+			var center_dist = pos_a.distance_to(pos_b)
+			var edge_dist_px = center_dist - base_a_radius_px - base_b_radius_px
+			min_dist_px = min(min_dist_px, edge_dist_px)
+
+	if min_dist_px == INF:
+		return INF
+	return max(0.0, min_dist_px) / PIXELS_PER_INCH
+
+# =============================================================================
+# CHARGE MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_distance: int, target_ids: Array, player: int) -> Dictionary:
+	"""Compute model positions for a charge move. Each model must:
+	1. Move at most rolled_distance inches
+	2. End closer to at least one charge target than it started
+	3. At least one model must end within engagement range (1") of each declared target
+	4. No model may end within engagement range of a non-target enemy
+	5. Unit coherency must be maintained
+	6. No model overlaps
+	Returns an APPLY_CHARGE_MOVE action dict with per_model_paths, or a SKIP_CHARGE fallback."""
+
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge (unit not found)"}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no alive models)" % unit_name}
+
+	# Gather target model positions (closest model per target)
+	var target_positions = []  # Array of Vector2 (closest target model to charger centroid)
+	var charger_centroid = _get_unit_centroid(unit)
+	for target_id in target_ids:
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		if target_unit.is_empty():
+			continue
+		var closest_pos = Vector2.INF
+		var closest_dist = INF
+		for tm in target_unit.get("models", []):
+			if not tm.get("alive", true):
+				continue
+			var tp = _get_model_position(tm)
+			if tp == Vector2.INF:
+				continue
+			var d = charger_centroid.distance_to(tp)
+			if d < closest_dist:
+				closest_dist = d
+				closest_pos = tp
+		if closest_pos != Vector2.INF:
+			target_positions.append(closest_pos)
+
+	if target_positions.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no target positions)" % unit_name}
+
+	# Primary target: the first (typically only) target
+	var primary_target_pos = target_positions[0]
+
+	# Get all non-target enemy model positions to avoid ending in their engagement range
+	var non_target_enemies = []  # Array of {position: Vector2, base_radius_px: float}
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if u.get("owner", 0) == player:
+			continue  # Skip friendly
+		if uid in target_ids:
+			continue  # Skip declared targets
+		var u_status = u.get("status", 0)
+		if u_status == GameStateData.UnitStatus.UNDEPLOYED or u_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		for m in u.get("models", []):
+			if not m.get("alive", true):
+				continue
+			var mp = _get_model_position(m)
+			if mp == Vector2.INF:
+				continue
+			var br = _model_bounding_radius_px(m.get("base_mm", 32), m.get("base_type", "circular"), m.get("base_dimensions", {}))
+			non_target_enemies.append({"position": mp, "base_radius_px": br})
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	# Get target model info for engagement range checking
+	var target_model_info = []  # Array of {position, base_radius_px} for all target models
+	for target_id in target_ids:
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		for tm in target_unit.get("models", []):
+			if not tm.get("alive", true):
+				continue
+			var tp = _get_model_position(tm)
+			if tp == Vector2.INF:
+				continue
+			var br = _model_bounding_radius_px(tm.get("base_mm", 32), tm.get("base_type", "circular"), tm.get("base_dimensions", {}))
+			target_model_info.append({"position": tp, "base_radius_px": br, "target_id": target_id})
+
+	var move_budget_px = rolled_distance * PIXELS_PER_INCH
+	var first_model = alive_models[0]
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+	var my_base_radius_px = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+
+	# --- Compute destinations for each model ---
+	# Strategy: move each model toward the primary target, stopping at engagement range
+	# The lead model should get into base-to-base or just within engagement range
+	# Remaining models maintain coherency and follow
+
+	var per_model_paths = {}
+	var placed_positions = []  # Track placed positions for intra-unit overlap avoidance
+
+	# Sort models by distance to primary target (closest first)
+	var model_distances = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		var dist = mpos.distance_to(primary_target_pos)
+		model_distances.append({"model": model, "id": mid, "pos": mpos, "dist": dist})
+	model_distances.sort_custom(func(a, b): return a.dist < b.dist)
+
+	var engagement_range_px = ENGAGEMENT_RANGE_PX  # 1" = 40px
+	var any_model_in_er = {}  # target_id -> bool (track if we've gotten a model in ER per target)
+	for tid in target_ids:
+		any_model_in_er[tid] = false
+
+	for md in model_distances:
+		var model = md.model
+		var mid = md.id
+		var start_pos = md.pos
+		var start_dist_to_target = md.dist
+
+		# Direction toward primary target
+		var direction = (primary_target_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			direction = Vector2.RIGHT
+
+		# Calculate ideal destination: close to target within engagement range
+		# Edge-to-edge engagement range: center distance = ER + my_radius + target_radius
+		var closest_target_model = _find_closest_target_model_info(start_pos, target_model_info)
+		var target_base_radius = closest_target_model.base_radius_px if not closest_target_model.is_empty() else 20.0
+		var ideal_center_dist = engagement_range_px + my_base_radius_px + target_base_radius - 2.0  # Slight buffer inside ER
+		var target_for_model = closest_target_model.position if not closest_target_model.is_empty() else primary_target_pos
+
+		var dir_to_target = (target_for_model - start_pos).normalized()
+		if dir_to_target == Vector2.ZERO:
+			dir_to_target = Vector2.RIGHT
+
+		var target_center_dist = start_pos.distance_to(target_for_model)
+		var desired_move_dist = target_center_dist - ideal_center_dist
+		# Clamp to move budget
+		var actual_move_dist = clamp(desired_move_dist, 0.0, move_budget_px)
+
+		var candidate_pos = start_pos + dir_to_target * actual_move_dist
+
+		# Clamp to board bounds
+		candidate_pos.x = clamp(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clamp(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check constraints and adjust
+		candidate_pos = _adjust_charge_position(
+			candidate_pos, start_pos, move_budget_px, my_base_radius_px,
+			target_model_info, non_target_enemies, deployed_models,
+			placed_positions, base_mm, base_type, base_dimensions
+		)
+
+		# Verify the model ends closer to at least one target than it started
+		var ends_closer = false
+		for tp_info in target_model_info:
+			var original_dist = start_pos.distance_to(tp_info.position)
+			var new_dist = candidate_pos.distance_to(tp_info.position)
+			if new_dist < original_dist:
+				ends_closer = true
+				break
+
+		if not ends_closer and start_pos.distance_to(candidate_pos) > 1.0:
+			# Fallback: don't move this model (stay in place is valid if it was already close)
+			candidate_pos = start_pos
+
+		# Track which targets have a model in engagement range
+		for tp_info in target_model_info:
+			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - my_base_radius_px - tp_info.base_radius_px
+			if edge_dist_px <= engagement_range_px:
+				any_model_in_er[tp_info.target_id] = true
+
+		# Record the path (start -> end)
+		per_model_paths[mid] = [
+			[start_pos.x, start_pos.y],
+			[candidate_pos.x, candidate_pos.y]
+		]
+
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	# Verify we achieved engagement range with all targets
+	var all_targets_reached = true
+	for tid in target_ids:
+		if not any_model_in_er.get(tid, false):
+			all_targets_reached = false
+			print("AIDecisionMaker: Charge move for %s failed to reach target %s engagement range" % [unit_name, tid])
+			break
+
+	if not all_targets_reached:
+		# Cannot construct a valid charge move — this shouldn't happen if the roll was sufficient
+		# but may occur due to geometry constraints. The phase will handle the failure.
+		print("AIDecisionMaker: Submitting charge move anyway — phase will validate and handle failure")
+
+	var target_names = []
+	for tid in target_ids:
+		var t = snapshot.get("units", {}).get(tid, {})
+		target_names.append(t.get("meta", {}).get("name", tid))
+
+	return {
+		"type": "APPLY_CHARGE_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"per_model_paths": per_model_paths,
+			"per_model_rotations": {},
+		},
+		"_ai_description": "%s charges into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
+	}
+
+static func _find_closest_target_model_info(pos: Vector2, target_model_info: Array) -> Dictionary:
+	"""Find the closest target model info dict to a given position."""
+	var closest = {}
+	var closest_dist = INF
+	for info in target_model_info:
+		var d = pos.distance_to(info.position)
+		if d < closest_dist:
+			closest_dist = d
+			closest = info
+	return closest
+
+static func _adjust_charge_position(
+	candidate: Vector2, start_pos: Vector2, move_budget_px: float,
+	my_base_radius_px: float, target_model_info: Array,
+	non_target_enemies: Array, deployed_models: Array,
+	placed_positions: Array, base_mm: int, base_type: String,
+	base_dimensions: Dictionary
+) -> Vector2:
+	"""Adjust a candidate charge position to satisfy constraints:
+	- Must not exceed move budget from start
+	- Must not overlap with deployed models or already-placed models
+	- Must not end in engagement range of non-target enemies
+	Returns the adjusted position."""
+
+	var pos = candidate
+
+	# 1. Ensure within move budget
+	var move_dist = start_pos.distance_to(pos)
+	if move_dist > move_budget_px:
+		var dir = (pos - start_pos).normalized()
+		pos = start_pos + dir * move_budget_px
+
+	# 2. Check for non-target enemy engagement range violation
+	var er_px = ENGAGEMENT_RANGE_PX
+	for nte in non_target_enemies:
+		var edge_dist = pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
+		if edge_dist <= er_px:
+			# Push away from non-target enemy
+			var push_dir = (pos - nte.position).normalized()
+			if push_dir == Vector2.ZERO:
+				push_dir = Vector2.RIGHT
+			var needed_dist = my_base_radius_px + nte.base_radius_px + er_px + 5.0  # 5px safety margin
+			pos = nte.position + push_dir * needed_dist
+
+			# Re-check move budget after push
+			move_dist = start_pos.distance_to(pos)
+			if move_dist > move_budget_px:
+				var dir = (pos - start_pos).normalized()
+				pos = start_pos + dir * move_budget_px
+
+	# 3. Check for overlap with deployed models
+	var all_obstacles = deployed_models + placed_positions
+	if _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		# Spiral search for nearest free position
+		var step = my_base_radius_px * 2.0 + 8.0
+		for ring in range(1, 6):
+			var ring_radius = step * ring * 0.5
+			var points_in_ring = maxi(8, ring * 6)
+			for p_idx in range(points_in_ring):
+				var angle = (2.0 * PI * p_idx) / points_in_ring
+				var test_pos = Vector2(
+					pos.x + cos(angle) * ring_radius,
+					pos.y + sin(angle) * ring_radius
+				)
+				# Check move budget
+				if start_pos.distance_to(test_pos) > move_budget_px:
+					continue
+				# Check board bounds
+				test_pos.x = clamp(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+				test_pos.y = clamp(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+				# Check no collision
+				if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+					# Check no non-target ER violation
+					var nte_ok = true
+					for nte in non_target_enemies:
+						var edge_dist = test_pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
+						if edge_dist <= er_px:
+							nte_ok = false
+							break
+					if nte_ok:
+						return test_pos
+
+	return pos
 
 # =============================================================================
 # FIGHT PHASE
@@ -1635,17 +3035,11 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	# Step 3: If pile-in or assign attacks available, handle them
 	if action_types.has("ASSIGN_ATTACKS_UI") or action_types.has("PILE_IN"):
 		# We need to assign attacks for the active fighter
-		# First pile in (empty movements = skip pile in)
+		# First pile in — compute movements toward nearest enemy (up to 3")
 		if action_types.has("PILE_IN"):
 			var a = action_types["PILE_IN"][0]
 			var uid = a.get("unit_id", "")
-			return {
-				"type": "PILE_IN",
-				"unit_id": uid,
-				"actor_unit_id": uid,
-				"movements": {},
-				"_ai_description": "Pile in (hold position)"
-			}
+			return _compute_pile_in_action(snapshot, uid, player)
 
 		# Then assign attacks
 		if action_types.has("ASSIGN_ATTACKS_UI"):
@@ -1669,12 +3063,7 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	if action_types.has("CONSOLIDATE"):
 		var a = action_types["CONSOLIDATE"][0]
 		var uid = a.get("unit_id", "")
-		return {
-			"type": "CONSOLIDATE",
-			"unit_id": uid,
-			"movements": {},
-			"_ai_description": "Consolidate (hold position)"
-		}
+		return _compute_consolidate_action(snapshot, uid, player)
 
 	# Step 6: End fight phase
 	if action_types.has("END_FIGHT"):
@@ -1728,6 +3117,580 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	}
 
 # =============================================================================
+# PILE-IN MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
+	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
+	closest enemy model (edge-to-edge). Models already in base contact stay put.
+	Returns a PILE_IN action dict with the movements dictionary."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {
+			"type": "PILE_IN",
+			"unit_id": unit_id,
+			"actor_unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "Pile in (unit not found)"
+		}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+
+	var description = ""
+	if movements.is_empty():
+		description = "%s pile in (all models holding position)" % unit_name
+	else:
+		description = "%s piles in toward enemy (%d models moved)" % [unit_name, movements.size()]
+
+	print("AIDecisionMaker: %s" % description)
+
+	return {
+		"type": "PILE_IN",
+		"unit_id": unit_id,
+		"actor_unit_id": unit_id,
+		"movements": movements,
+		"_ai_description": description
+	}
+
+static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+	"""Compute per-model pile-in destinations. Returns {model_id_string: Vector2} for models
+	that should move. Models that stay put are omitted.
+
+	Pile-in rules (10th edition):
+	- Each model may move up to 3"
+	- Each model must end closer to the closest enemy model than it started
+	- Models already in base-to-base contact with an enemy cannot move
+	- After pile-in, unit must still be in engagement range of at least one enemy
+	- Unit coherency must be maintained
+	- If a model CAN reach base-to-base contact within 3", it SHOULD"""
+
+	var movements = {}
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return movements
+
+	var unit_owner = int(unit.get("owner", player))
+
+	# Gather all enemy model info for distance calculations
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+	var enemy_models_info = []  # Array of {position: Vector2, base_radius_px: float, base_mm: int}
+	for other_unit_id in snapshot.get("units", {}):
+		var other_unit = snapshot.units[other_unit_id]
+		if int(other_unit.get("owner", 0)) == unit_owner:
+			continue  # Skip friendly
+		# Skip undeployed / in reserves
+		var other_status = other_unit.get("status", 0)
+		if other_status == GameStateData.UnitStatus.UNDEPLOYED or other_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		# Skip AIRCRAFT unless our unit has FLY (T4-4 rule)
+		var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in other_keywords and not has_fly:
+			continue
+		for em in other_unit.get("models", []):
+			if not em.get("alive", true):
+				continue
+			var ep = _get_model_position(em)
+			if ep == Vector2.INF:
+				continue
+			var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
+			enemy_models_info.append({
+				"position": ep,
+				"base_radius_px": ebr,
+				"base_mm": em.get("base_mm", 32),
+			})
+
+	if enemy_models_info.is_empty():
+		print("AIDecisionMaker: Pile-in for %s — no enemy models found" % unit_id)
+		return movements
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.25")
+
+	# Track placed positions to avoid intra-unit collisions
+	var placed_positions = []
+
+	# Sort models by distance to nearest enemy (furthest first so they trail behind)
+	var model_entries = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+
+		# Find closest enemy model (edge-to-edge)
+		var closest_enemy_dist_px = INF
+		var closest_enemy_pos = Vector2.INF
+		var closest_enemy_radius = 0.0
+		for ei in enemy_models_info:
+			var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+			if edge_dist < closest_enemy_dist_px:
+				closest_enemy_dist_px = edge_dist
+				closest_enemy_pos = ei.position
+				closest_enemy_radius = ei.base_radius_px
+
+		model_entries.append({
+			"model": model,
+			"id": mid,
+			"pos": mpos,
+			"base_radius_px": mbr,
+			"closest_enemy_dist_px": closest_enemy_dist_px,
+			"closest_enemy_pos": closest_enemy_pos,
+			"closest_enemy_radius": closest_enemy_radius,
+		})
+
+	# Sort: models closest to enemies first (they get priority placement)
+	model_entries.sort_custom(func(a, b): return a.closest_enemy_dist_px < b.closest_enemy_dist_px)
+
+	for entry in model_entries:
+		var mid = entry.id
+		var start_pos = entry.pos
+		var my_radius = entry.base_radius_px
+		var closest_enemy_pos = entry.closest_enemy_pos
+		var closest_enemy_radius = entry.closest_enemy_radius
+		var closest_enemy_dist_px = entry.closest_enemy_dist_px
+		var model = entry.model
+		var base_mm = model.get("base_mm", 32)
+		var base_type = model.get("base_type", "circular")
+		var base_dimensions = model.get("base_dimensions", {})
+
+		if closest_enemy_pos == Vector2.INF:
+			# No enemy found for this model - skip
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Check if model is already in base contact with nearest enemy
+		if closest_enemy_dist_px <= base_contact_threshold_px:
+			# Model is in base contact — do not move (T4-5)
+			print("AIDecisionMaker: Pile-in model %s already in base contact (dist=%.1fpx), holding" % [mid, closest_enemy_dist_px])
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Calculate direction toward closest enemy
+		var direction = (closest_enemy_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			direction = Vector2.RIGHT
+
+		# Calculate ideal destination: base-to-base contact with closest enemy
+		# Center-to-center distance for base contact = my_radius + enemy_radius
+		var b2b_center_dist = my_radius + closest_enemy_radius
+		var current_center_dist = start_pos.distance_to(closest_enemy_pos)
+		var desired_move_dist_px = current_center_dist - b2b_center_dist
+
+		# Clamp to 3" pile-in limit
+		var actual_move_dist_px = clampf(desired_move_dist_px, 0.0, pile_in_range_px)
+
+		# If the model barely needs to move (sub-pixel), skip it
+		if actual_move_dist_px < 1.0:
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var candidate_pos = start_pos + direction * actual_move_dist_px
+
+		# Clamp to board bounds
+		candidate_pos.x = clampf(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check collision with deployed models + already placed models from this unit
+		var all_obstacles = deployed_models + placed_positions
+		if _position_collides_with_deployed(candidate_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+			# Try to find a nearby collision-free position still closer to the enemy
+			var found_alt = false
+			var step = my_radius * 2.0 + 4.0
+			for ring in range(1, 5):
+				var ring_radius = step * ring * 0.4
+				var points_in_ring = maxi(8, ring * 6)
+				for p_idx in range(points_in_ring):
+					var angle = (2.0 * PI * p_idx) / points_in_ring
+					var test_pos = Vector2(
+						candidate_pos.x + cos(angle) * ring_radius,
+						candidate_pos.y + sin(angle) * ring_radius
+					)
+					# Check move budget
+					if start_pos.distance_to(test_pos) > pile_in_range_px:
+						continue
+					# Must be closer to enemy than start
+					if test_pos.distance_to(closest_enemy_pos) >= start_pos.distance_to(closest_enemy_pos):
+						continue
+					# Clamp to board
+					test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+					# Check collision
+					if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+						candidate_pos = test_pos
+						found_alt = true
+						break
+				if found_alt:
+					break
+
+			if not found_alt:
+				# Cannot find collision-free position — hold position
+				print("AIDecisionMaker: Pile-in model %s collision — holding position" % mid)
+				placed_positions.append({
+					"position": start_pos,
+					"base_mm": base_mm,
+					"base_type": base_type,
+					"base_dimensions": base_dimensions,
+				})
+				continue
+
+		# Verify the model ends closer to the closest enemy than it started
+		var new_dist_to_enemy = candidate_pos.distance_to(closest_enemy_pos)
+		var old_dist_to_enemy = start_pos.distance_to(closest_enemy_pos)
+		if new_dist_to_enemy >= old_dist_to_enemy:
+			# Movement doesn't bring us closer — skip (validation would reject)
+			print("AIDecisionMaker: Pile-in model %s would not end closer to enemy, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Record the movement
+		# FightPhase expects model_id as string index into the models array
+		# We need to find the index of this model in the unit's models array
+		var model_index = _find_model_index_in_unit(unit, mid)
+		if model_index == -1:
+			print("AIDecisionMaker: Pile-in model %s index not found, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var move_inches = start_pos.distance_to(candidate_pos) / PIXELS_PER_INCH
+		print("AIDecisionMaker: Pile-in model %s (idx %d) moves %.1f\" toward enemy" % [mid, model_index, move_inches])
+
+		movements[str(model_index)] = candidate_pos
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions,
+		})
+
+	return movements
+
+static func _find_model_index_in_unit(unit: Dictionary, model_id: String) -> int:
+	"""Find the index of a model in a unit's models array by its id field."""
+	var models = unit.get("models", [])
+	for i in range(models.size()):
+		if models[i].get("id", "") == model_id:
+			return i
+	# Fallback: try matching as string index
+	if model_id.is_valid_int():
+		var idx = int(model_id)
+		if idx >= 0 and idx < models.size():
+			return idx
+	return -1
+
+# =============================================================================
+# CONSOLIDATION MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
+	"""Compute consolidation movements for a unit after fighting.
+	Consolidation has two modes:
+	- ENGAGEMENT: If any enemy is within 4" (3" move + 1" engagement range),
+	  move each model up to 3" toward closest enemy (same rules as pile-in).
+	- OBJECTIVE: If no enemy reachable, move each model up to 3" toward
+	  the closest objective marker.
+	Returns a CONSOLIDATE action dict with the movements dictionary."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {
+			"type": "CONSOLIDATE",
+			"unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "Consolidate (unit not found)"
+		}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# T4-4: Aircraft cannot Consolidate
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in unit_keywords:
+		print("AIDecisionMaker: %s is AIRCRAFT — skipping consolidation" % unit_name)
+		return {
+			"type": "CONSOLIDATE",
+			"unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "%s skips consolidation (AIRCRAFT)" % unit_name
+		}
+
+	# Determine consolidation mode: engagement or objective
+	var mode = _determine_ai_consolidate_mode(snapshot, unit, player)
+	var movements = {}
+
+	if mode == "ENGAGEMENT":
+		# Reuse pile-in logic — consolidation in engagement mode follows the same
+		# rules: each model moves up to 3" toward the closest enemy model
+		movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+	elif mode == "OBJECTIVE":
+		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player)
+
+	var description = ""
+	if movements.is_empty():
+		description = "%s consolidates (all models holding position)" % unit_name
+	else:
+		var mode_label = "toward enemy" if mode == "ENGAGEMENT" else "toward objective"
+		description = "%s consolidates %s (%d models moved)" % [unit_name, mode_label, movements.size()]
+
+	print("AIDecisionMaker: %s" % description)
+
+	return {
+		"type": "CONSOLIDATE",
+		"unit_id": unit_id,
+		"movements": movements,
+		"_ai_description": description
+	}
+
+static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionary, player: int) -> String:
+	"""Determine whether the AI should consolidate toward enemies (ENGAGEMENT) or
+	toward the nearest objective (OBJECTIVE).
+	- ENGAGEMENT: at least one alive enemy model is within 4" (3" move + 1" ER)
+	  of at least one alive friendly model in this unit.
+	- OBJECTIVE: no enemy is reachable but an objective exists.
+	- NONE: neither target is available."""
+	var unit_owner = int(unit.get("owner", player))
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	var engagement_check_range_px = 4.0 * PIXELS_PER_INCH  # 3" move + 1" ER
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return "NONE"
+
+	# Check if any enemy model is within 4" of any of our models (edge-to-edge)
+	for model in alive_models:
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+
+		for other_unit_id in snapshot.get("units", {}):
+			var other_unit = snapshot.units[other_unit_id]
+			if int(other_unit.get("owner", 0)) == unit_owner:
+				continue  # Skip friendly
+			var other_status = other_unit.get("status", 0)
+			if other_status == GameStateData.UnitStatus.UNDEPLOYED or other_status == GameStateData.UnitStatus.IN_RESERVES:
+				continue
+			var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+			if "AIRCRAFT" in other_keywords and not has_fly:
+				continue
+			for em in other_unit.get("models", []):
+				if not em.get("alive", true):
+					continue
+				var ep = _get_model_position(em)
+				if ep == Vector2.INF:
+					continue
+				var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
+				var edge_dist_px = mpos.distance_to(ep) - mbr - ebr
+				if edge_dist_px <= engagement_check_range_px:
+					return "ENGAGEMENT"
+
+	# No enemy reachable — check for objectives
+	var objectives = _get_objectives(snapshot)
+	if not objectives.is_empty():
+		return "OBJECTIVE"
+
+	return "NONE"
+
+static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+	"""Compute per-model consolidation destinations when moving toward the closest
+	objective (fallback mode when no enemy is within engagement reach).
+	Returns {model_id_string: Vector2} for models that should move."""
+	var movements = {}
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return movements
+
+	var objectives = _get_objectives(snapshot)
+	if objectives.is_empty():
+		print("AIDecisionMaker: Consolidate (objective) for %s — no objectives found" % unit_id)
+		return movements
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	var consolidate_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+
+	# Track placed positions to avoid intra-unit collisions
+	var placed_positions = []
+
+	# Find the closest objective to the unit centroid to use as a consistent target
+	var centroid = _get_unit_centroid(unit)
+	var target_obj_pos = _nearest_objective_pos(centroid, objectives)
+	if target_obj_pos == Vector2.INF:
+		return movements
+
+	# Sort models by distance to target objective (furthest first — they benefit most from movement)
+	var model_entries = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var dist_to_obj = mpos.distance_to(target_obj_pos)
+		model_entries.append({
+			"model": model,
+			"id": mid,
+			"pos": mpos,
+			"dist_to_obj": dist_to_obj,
+		})
+
+	# Sort: models closest to objective first (they get priority placement near objective)
+	model_entries.sort_custom(func(a, b): return a.dist_to_obj < b.dist_to_obj)
+
+	for entry in model_entries:
+		var mid = entry.id
+		var start_pos = entry.pos
+		var model = entry.model
+		var base_mm = model.get("base_mm", 32)
+		var base_type = model.get("base_type", "circular")
+		var base_dimensions = model.get("base_dimensions", {})
+		var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+
+		# Calculate direction toward the target objective
+		var direction = (target_obj_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			# Already exactly on the objective — hold position
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Calculate how far we want to move (up to 3", toward objective)
+		var dist_to_target = start_pos.distance_to(target_obj_pos)
+		var desired_move_px = minf(dist_to_target, consolidate_range_px)
+
+		# If the model barely needs to move (sub-pixel), skip it
+		if desired_move_px < 1.0:
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var candidate_pos = start_pos + direction * desired_move_px
+
+		# Clamp to board bounds
+		candidate_pos.x = clampf(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check collision with deployed models + already placed models from this unit
+		var all_obstacles = deployed_models + placed_positions
+		if _position_collides_with_deployed(candidate_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+			# Try to find a nearby collision-free position still closer to objective
+			var found_alt = false
+			var step = my_radius * 2.0 + 4.0
+			for ring in range(1, 5):
+				var ring_radius = step * ring * 0.4
+				var points_in_ring = maxi(8, ring * 6)
+				for p_idx in range(points_in_ring):
+					var angle = (2.0 * PI * p_idx) / points_in_ring
+					var test_pos = Vector2(
+						candidate_pos.x + cos(angle) * ring_radius,
+						candidate_pos.y + sin(angle) * ring_radius
+					)
+					# Check move budget
+					if start_pos.distance_to(test_pos) > consolidate_range_px:
+						continue
+					# Must be closer to objective than start
+					if test_pos.distance_to(target_obj_pos) >= start_pos.distance_to(target_obj_pos):
+						continue
+					# Clamp to board
+					test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+					# Check collision
+					if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+						candidate_pos = test_pos
+						found_alt = true
+						break
+				if found_alt:
+					break
+
+			if not found_alt:
+				# Cannot find collision-free position — hold position
+				print("AIDecisionMaker: Consolidate model %s collision — holding position" % mid)
+				placed_positions.append({
+					"position": start_pos,
+					"base_mm": base_mm,
+					"base_type": base_type,
+					"base_dimensions": base_dimensions,
+				})
+				continue
+
+		# Verify the model ends closer to the objective than it started
+		var new_dist_to_obj = candidate_pos.distance_to(target_obj_pos)
+		var old_dist_to_obj = start_pos.distance_to(target_obj_pos)
+		if new_dist_to_obj >= old_dist_to_obj:
+			# Movement doesn't bring us closer — skip
+			print("AIDecisionMaker: Consolidate model %s would not end closer to objective, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Record the movement
+		var model_index = _find_model_index_in_unit(unit, mid)
+		if model_index == -1:
+			print("AIDecisionMaker: Consolidate model %s index not found, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var move_inches = start_pos.distance_to(candidate_pos) / PIXELS_PER_INCH
+		print("AIDecisionMaker: Consolidate model %s (idx %d) moves %.1f\" toward objective" % [mid, model_index, move_inches])
+
+		movements[str(model_index)] = candidate_pos
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions,
+		})
+
+	return movements
+
+# =============================================================================
 # SCORING PHASE
 # =============================================================================
 
@@ -1759,6 +3722,14 @@ static func _get_alive_models_with_positions(unit: Dictionary) -> Array:
 		if model.get("alive", true) and model.get("position", null) != null:
 			alive.append(model)
 	return alive
+
+static func _get_alive_model_ids(unit: Dictionary) -> Array:
+	"""Return an array of model IDs for all alive models in the unit."""
+	var ids = []
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			ids.append(model.get("id", ""))
+	return ids
 
 static func _get_unit_centroid(unit: Dictionary) -> Vector2:
 	var alive = _get_alive_models_with_positions(unit)
@@ -2024,15 +3995,58 @@ static func _hit_probability(skill: int) -> float:
 		return 0.0
 	return (7.0 - skill) / 6.0
 
-static func _save_probability(save_val: int, ap: int) -> float:
+static func _save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
 	var modified_save = save_val + abs(ap)
+	# If the target has an invulnerable save, use whichever is better (lower)
+	# Invulnerable saves ignore AP, so they are compared against the AP-modified armour save
+	if invuln > 0 and invuln < modified_save:
+		modified_save = invuln
 	if modified_save >= 7:
 		return 0.0
 	if modified_save <= 1:
 		return 1.0
 	return (7.0 - modified_save) / 6.0
 
-static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary) -> float:
+static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
+	"""Get the best (lowest) invulnerable save for a target unit.
+	Checks model-level invuln, unit-level meta.stats.invuln, and effect-granted invuln."""
+	var best_invuln: int = 0
+
+	# Check first alive model for native invulnerable save
+	var models = target_unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			var model_invuln = model.get("invuln", 0)
+			if typeof(model_invuln) == TYPE_STRING:
+				model_invuln = int(model_invuln) if model_invuln.is_valid_int() else 0
+			if model_invuln > 0:
+				best_invuln = model_invuln
+			break
+
+	# Check unit-level invuln in meta stats (fallback if models don't have it)
+	if best_invuln == 0:
+		var stats_invuln = target_unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+		if typeof(stats_invuln) == TYPE_STRING:
+			stats_invuln = int(stats_invuln) if stats_invuln.is_valid_int() else 0
+		if stats_invuln > 0:
+			best_invuln = stats_invuln
+
+	# Check effect-granted invulnerable save (e.g. Go to Ground stratagem)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	if effect_invuln > 0:
+		if best_invuln == 0 or effect_invuln < best_invuln:
+			best_invuln = effect_invuln
+
+	return best_invuln
+
+static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
+	# --- Range check: score 0 for out-of-range targets ---
+	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
+		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		if dist_inches > weapon_range_inches:
+			return 0.0
+
 	var attacks_str = weapon.get("attacks", "1")
 	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
 
@@ -2055,10 +4069,11 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
+	var target_invuln = _get_target_invulnerable_save(target_unit)
 
 	var p_hit = _hit_probability(bs)
 	var p_wound = _wound_probability(strength, toughness)
-	var p_unsaved = 1.0 - _save_probability(target_save, ap)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
 
@@ -2073,4 +4088,273 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	if "CHARACTER" in keywords:
 		expected_damage *= 1.2
 
+	# Apply weapon-target efficiency multiplier
+	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
+	expected_damage *= efficiency
+
 	return expected_damage
+
+# =============================================================================
+# WEAPON-TARGET EFFICIENCY MATCHING
+# =============================================================================
+
+enum WeaponRole { ANTI_TANK, ANTI_INFANTRY, GENERAL_PURPOSE }
+enum TargetType { VEHICLE_MONSTER, ELITE, HORDE }
+
+static func _classify_weapon_role(weapon: Dictionary) -> int:
+	"""
+	Classify a weapon as anti-tank, anti-infantry, or general purpose based on
+	its strength, AP, damage, and special rules.
+	"""
+	var strength_str = weapon.get("strength", "4")
+	var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+	var ap_str = weapon.get("ap", "0")
+	var ap = 0
+	if ap_str.begins_with("-"):
+		var ap_num = ap_str.substr(1)
+		ap = int(ap_num) if ap_num.is_valid_int() else 0
+	else:
+		ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+	var damage_str = weapon.get("damage", "1")
+	# Handle variable damage like "D6", "D3+1", "D6+1"
+	var damage = _parse_average_damage(damage_str)
+
+	var special_rules = weapon.get("special_rules", "").to_lower()
+
+	# Check for anti-keyword special rules first — they are the strongest indicator
+	if _has_anti_vehicle_rule(special_rules):
+		return WeaponRole.ANTI_TANK
+	if _has_anti_infantry_rule(special_rules):
+		return WeaponRole.ANTI_INFANTRY
+
+	# Score weapon characteristics for anti-tank role
+	var anti_tank_score = 0
+	if strength >= ANTI_TANK_STRENGTH_THRESHOLD:
+		anti_tank_score += 2
+	if ap >= ANTI_TANK_AP_THRESHOLD:
+		anti_tank_score += 1
+	if damage >= ANTI_TANK_DAMAGE_THRESHOLD:
+		anti_tank_score += 2
+
+	# Score weapon characteristics for anti-infantry role
+	var anti_infantry_score = 0
+	if strength <= ANTI_INFANTRY_STRENGTH_CAP:
+		anti_infantry_score += 1
+	if damage <= ANTI_INFANTRY_DAMAGE_THRESHOLD:
+		anti_infantry_score += 2
+	if ap <= 1:
+		anti_infantry_score += 1
+
+	# Check attacks count: high attacks with low damage is anti-infantry
+	var attacks_str = weapon.get("attacks", "1")
+	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+	if attacks >= 4 and damage <= 1.5:
+		anti_infantry_score += 1
+
+	# Blast weapons lean anti-infantry (more attacks vs larger units)
+	if "blast" in special_rules:
+		anti_infantry_score += 1
+
+	# Torrent weapons are inherently anti-infantry (auto-hit, usually S4-5 D1)
+	if "torrent" in special_rules:
+		anti_infantry_score += 1
+
+	# Classify based on scores
+	if anti_tank_score >= 3:
+		return WeaponRole.ANTI_TANK
+	if anti_infantry_score >= 3:
+		return WeaponRole.ANTI_INFANTRY
+
+	return WeaponRole.GENERAL_PURPOSE
+
+static func _classify_target_type(target_unit: Dictionary) -> int:
+	"""
+	Classify a target unit as vehicle/monster, elite, or horde based on
+	keywords, wounds per model, and model count.
+	"""
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+	var stats = target_unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var toughness = int(stats.get("toughness", 4))
+	var alive_models = _get_alive_models(target_unit)
+	var model_count = alive_models.size()
+
+	# VEHICLE or MONSTER keyword is the strongest indicator
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "VEHICLE" or kw_upper == "MONSTER":
+			return TargetType.VEHICLE_MONSTER
+
+	# High toughness + high wounds without explicit keyword (e.g. some big characters)
+	if toughness >= 8 and wounds_per_model >= 8:
+		return TargetType.VEHICLE_MONSTER
+
+	# Horde: many models with low wounds
+	if model_count >= 5 and wounds_per_model <= 1:
+		return TargetType.HORDE
+
+	# Large infantry squads with 2W are still horde-like
+	if model_count >= 8 and wounds_per_model <= 2:
+		return TargetType.HORDE
+
+	# Elite: fewer, tougher models (multi-wound infantry, small squads)
+	if wounds_per_model >= 2:
+		return TargetType.ELITE
+
+	# Default: small infantry squads — treat as horde-adjacent
+	return TargetType.HORDE
+
+static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Dictionary) -> float:
+	"""
+	Calculate an efficiency multiplier for matching a weapon to a target.
+	Considers weapon role vs target type, damage waste on low-wound models,
+	and anti-keyword special rules.
+	"""
+	var weapon_role = _classify_weapon_role(weapon)
+	var target_type = _classify_target_type(target_unit)
+	var multiplier = EFFICIENCY_NEUTRAL
+
+	# --- Role-based matching ---
+	match weapon_role:
+		WeaponRole.ANTI_TANK:
+			match target_type:
+				TargetType.VEHICLE_MONSTER:
+					multiplier = EFFICIENCY_PERFECT_MATCH
+				TargetType.ELITE:
+					multiplier = EFFICIENCY_GOOD_MATCH
+				TargetType.HORDE:
+					multiplier = EFFICIENCY_POOR_MATCH
+		WeaponRole.ANTI_INFANTRY:
+			match target_type:
+				TargetType.HORDE:
+					multiplier = EFFICIENCY_PERFECT_MATCH
+				TargetType.ELITE:
+					multiplier = EFFICIENCY_GOOD_MATCH
+				TargetType.VEHICLE_MONSTER:
+					multiplier = EFFICIENCY_POOR_MATCH
+		WeaponRole.GENERAL_PURPOSE:
+			multiplier = EFFICIENCY_NEUTRAL
+
+	# --- Damage waste penalty: multi-damage on single-wound models ---
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	var damage_str = weapon.get("damage", "1")
+	var avg_damage = _parse_average_damage(damage_str)
+
+	if wounds_per_model <= 1 and avg_damage >= 3.0:
+		# Heavy overkill: D3+ damage on 1W models wastes 2+ damage per hit
+		multiplier *= DAMAGE_WASTE_PENALTY_HEAVY
+	elif wounds_per_model <= 1 and avg_damage >= 2.0:
+		# Moderate overkill: D2 on 1W models wastes 1 damage per hit
+		multiplier *= DAMAGE_WASTE_PENALTY_MODERATE
+	elif wounds_per_model > 1 and wounds_per_model < avg_damage:
+		# Partial waste: e.g. D3 damage on 2W models (1 wasted per kill)
+		var waste_ratio = wounds_per_model / avg_damage
+		# Scale the penalty: closer to 1.0 means less waste
+		multiplier *= lerp(0.85, 1.0, waste_ratio)
+
+	# --- Anti-keyword bonus ---
+	var special_rules = weapon.get("special_rules", "").to_lower()
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+
+	if _weapon_anti_keyword_matches_target(special_rules, keywords):
+		multiplier *= ANTI_KEYWORD_BONUS
+
+	return multiplier
+
+static func _get_target_wounds_per_model(target_unit: Dictionary) -> int:
+	"""Get the wounds characteristic of models in the target unit."""
+	var stats = target_unit.get("meta", {}).get("stats", {})
+	return int(stats.get("wounds", 1))
+
+static func _parse_average_damage(damage_str: String) -> float:
+	"""
+	Parse a damage string and return the average expected damage.
+	Handles: "1", "2", "D3", "D6", "D3+1", "D6+1", "2D6", etc.
+	"""
+	if damage_str.is_valid_float():
+		return float(damage_str)
+	if damage_str.is_valid_int():
+		return float(damage_str)
+
+	var lower = damage_str.to_lower().strip_edges()
+
+	# Handle "D3+N" or "D6+N" patterns
+	var plus_parts = lower.split("+")
+	var base_damage = 0.0
+	var bonus = 0.0
+
+	if plus_parts.size() >= 2:
+		var bonus_str = plus_parts[1].strip_edges()
+		bonus = float(bonus_str) if bonus_str.is_valid_float() else 0.0
+
+	var base_str = plus_parts[0].strip_edges()
+
+	# Handle "2D6", "2D3" etc.
+	var multiplier_val = 1.0
+	if base_str.find("d") > 0:
+		var d_parts = base_str.split("d")
+		if d_parts.size() == 2:
+			var mult_str = d_parts[0].strip_edges()
+			multiplier_val = float(mult_str) if mult_str.is_valid_float() else 1.0
+			var die_str = d_parts[1].strip_edges()
+			if die_str == "3":
+				base_damage = 2.0  # Average of D3 = 2
+			elif die_str == "6":
+				base_damage = 3.5  # Average of D6 = 3.5
+			else:
+				base_damage = (float(die_str) + 1.0) / 2.0 if die_str.is_valid_float() else 1.0
+	elif base_str == "d3":
+		base_damage = 2.0
+	elif base_str == "d6":
+		base_damage = 3.5
+	else:
+		base_damage = float(base_str) if base_str.is_valid_float() else 1.0
+
+	return base_damage * multiplier_val + bonus
+
+static func _has_anti_vehicle_rule(special_rules: String) -> bool:
+	"""Check if weapon special rules contain anti-vehicle or anti-monster."""
+	return "anti-vehicle" in special_rules or "anti-monster" in special_rules
+
+static func _has_anti_infantry_rule(special_rules: String) -> bool:
+	"""Check if weapon special rules contain anti-infantry."""
+	return "anti-infantry" in special_rules
+
+static func _weapon_anti_keyword_matches_target(special_rules: String, target_keywords: Array) -> bool:
+	"""
+	Check if a weapon's anti-X keyword matches a target's keywords.
+	e.g. anti-infantry 4+ matches INFANTRY targets, anti-vehicle 4+ matches VEHICLE targets.
+	"""
+	for kw in target_keywords:
+		var kw_lower = kw.to_lower()
+		# Check for "anti-<keyword>" in special rules
+		var anti_pattern = "anti-" + kw_lower
+		if anti_pattern in special_rules:
+			return true
+	return false
+
+static func _weapon_role_name(role: int) -> String:
+	"""Return a human-readable name for a weapon role."""
+	match role:
+		WeaponRole.ANTI_TANK:
+			return "Anti-Tank"
+		WeaponRole.ANTI_INFANTRY:
+			return "Anti-Infantry"
+		WeaponRole.GENERAL_PURPOSE:
+			return "General"
+		_:
+			return "Unknown"
+
+static func _target_type_name(target_type: int) -> String:
+	"""Return a human-readable name for a target type."""
+	match target_type:
+		TargetType.VEHICLE_MONSTER:
+			return "Vehicle/Monster"
+		TargetType.ELITE:
+			return "Elite"
+		TargetType.HORDE:
+			return "Horde"
+		_:
+			return "Unknown"

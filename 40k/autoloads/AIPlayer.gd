@@ -252,8 +252,8 @@ func _execute_next_action(player: int) -> void:
 				print("AIPlayer: Emitting ai_unit_deployed for %s (player %d)" % [deployed_unit_id, player])
 				emit_signal("ai_unit_deployed", player, deployed_unit_id)
 
-		# Handle multi-step movement: BEGIN_NORMAL_MOVE with pre-computed destinations
-		elif decision.get("type") == "BEGIN_NORMAL_MOVE" and decision.has("_ai_model_destinations"):
+		# Handle multi-step movement: BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, or BEGIN_FALL_BACK with pre-computed destinations
+		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
 			_execute_ai_movement(player, decision)
 
 # --- AI Movement execution ---
