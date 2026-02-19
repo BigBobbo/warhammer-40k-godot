@@ -51,8 +51,8 @@ const DETERMINISTIC_ACTIONS: Array[String] = [
 	"DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT",
 	# Strategic Reserves / Deep Strike
 	"PLACE_IN_RESERVES", "PLACE_REINFORCEMENT",
-	# Movement (BEGIN_ADVANCE excluded — it rolls a D6 for advance distance)
-	"BEGIN_NORMAL_MOVE", "BEGIN_FALL_BACK",
+	# Movement (BEGIN_ADVANCE included — T5-MP9: seed embedded in action for deterministic roll)
+	"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
 	"SET_MODEL_DEST", "STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE",
 	"RESET_UNIT_MOVE", "REMAIN_STATIONARY",
 	"DISEMBARK_UNIT", "DISEMBARK_AND_MOVE",
@@ -780,6 +780,15 @@ func submit_action(action: Dictionary) -> void:
 		print("NetworkManager: Single-player mode - applying directly")
 		game_manager.apply_action(action)
 		return
+
+	# T5-MP9: Embed RNG seed in BEGIN_ADVANCE actions for deterministic optimistic execution.
+	# Both client (optimistic) and host (authoritative) read the same seed from the action,
+	# producing identical D6 advance rolls without a round-trip.
+	if action.get("type") == "BEGIN_ADVANCE" and not action.get("payload", {}).has("rng_seed"):
+		if not action.has("payload"):
+			action["payload"] = {}
+		action["payload"]["rng_seed"] = randi()
+		print("NetworkManager: T5-MP9: Embedded rng_seed=%d in BEGIN_ADVANCE action" % action["payload"]["rng_seed"])
 
 	# Web relay mode - use WebSocketRelay for transport
 	if web_relay_mode:
