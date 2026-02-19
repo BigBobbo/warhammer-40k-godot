@@ -2711,10 +2711,18 @@ func _on_deployment_complete() -> void:
 var formations_dialog: Node = null
 
 func _setup_formations_phase() -> void:
-	"""Set up the Formations phase — show the declaration dialog for the active player."""
+	"""Set up the Formations phase — show the declaration dialog for the local player."""
 	print("Main: Setting up Formations phase")
-	var active_player = GameState.get_active_player()
-	_show_formations_dialog(active_player)
+	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
+	if is_multiplayer:
+		# In multiplayer, each client shows their own player's dialog
+		var local_player = NetworkManager.get_local_player()
+		print("Main: Multiplayer mode — showing formations dialog for local player %d" % local_player)
+		_show_formations_dialog(local_player)
+	else:
+		# Single player / hotseat — show for active player (starts with player 1)
+		var active_player = GameState.get_active_player()
+		_show_formations_dialog(active_player)
 
 func _show_formations_dialog(player: int) -> void:
 	"""Show the formations declaration dialog for a player."""
@@ -2733,76 +2741,82 @@ func _show_formations_dialog(player: int) -> void:
 	print("Main: Showed formations dialog for Player %d" % player)
 
 func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> void:
-	"""Handle formations dialog confirmation — apply declarations through the phase."""
+	"""Handle formations dialog confirmation — apply declarations through the network-aware action system."""
 	print("Main: Player %d confirmed formations: %s" % [player, str(formations)])
 
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	if not phase_instance:
-		print("Main: ERROR - No phase instance for formations confirmation")
-		return
-
-	# Apply leader attachments
+	# Submit leader attachments
 	for char_id in formations.get("leader_attachments", {}):
 		var bg_id = formations["leader_attachments"][char_id]
-		var action = {
+		NetworkIntegration.route_action({
 			"type": "DECLARE_LEADER_ATTACHMENT",
 			"character_id": char_id,
 			"bodyguard_id": bg_id,
 			"player": player
-		}
-		phase_instance.execute_action(action)
+		})
 
-	# Apply transport embarkations
+	# Submit transport embarkations
 	for transport_id in formations.get("transport_embarkations", {}):
 		var unit_ids = formations["transport_embarkations"][transport_id]
 		if unit_ids.size() > 0:
-			var action = {
+			NetworkIntegration.route_action({
 				"type": "DECLARE_TRANSPORT_EMBARKATION",
 				"transport_id": transport_id,
 				"unit_ids": unit_ids,
 				"player": player
-			}
-			phase_instance.execute_action(action)
+			})
 
-	# Apply reserves declarations
+	# Submit reserves declarations
 	for entry in formations.get("reserves", []):
-		var action = {
+		NetworkIntegration.route_action({
 			"type": "DECLARE_RESERVES",
 			"unit_id": entry["unit_id"],
 			"reserve_type": entry["reserve_type"],
 			"player": player
-		}
-		phase_instance.execute_action(action)
+		})
 
 	# Confirm this player's formations
-	phase_instance.execute_action({
+	NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
 		"player": player
 	})
 
-	# Check if we need to show the dialog for the other player
-	var other_player = 3 - player
-	if not phase_instance.players_confirmed.get(other_player, false):
-		# Show dialog for the other player
-		print("Main: Showing formations dialog for Player %d" % other_player)
-		_show_formations_dialog(other_player)
+	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
+	if is_multiplayer:
+		# In multiplayer, each player confirms on their own client.
+		# The phase will auto-complete when both players have confirmed.
+		print("Main: Player %d confirmed formations (multiplayer) — waiting for other player" % player)
 	else:
-		# Both players confirmed — the phase will auto-complete via _apply_formations
-		print("Main: Both players confirmed formations — phase completing")
+		# Single player / hotseat — show dialog for the other player
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		var other_player = 3 - player
+		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
+			print("Main: Showing formations dialog for Player %d" % other_player)
+			_show_formations_dialog(other_player)
+		else:
+			print("Main: Both players confirmed formations — phase completing")
 
 func _on_formations_confirm_pressed() -> void:
 	"""Handle the phase action button press during formations phase."""
 	print("Main: Formations confirm button pressed")
-	# If no dialog is showing, just confirm empty formations for current player
-	var active_player = GameState.get_active_player()
-	var phase_instance = PhaseManager.get_current_phase_instance()
-	if phase_instance and not phase_instance.players_confirmed.get(active_player, false):
-		phase_instance.execute_action({
-			"type": "CONFIRM_FORMATIONS",
-			"player": active_player
-		})
-		var other_player = 3 - active_player
-		if not phase_instance.players_confirmed.get(other_player, false):
+	# Determine which player to confirm for
+	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
+	var confirming_player: int
+	if is_multiplayer:
+		confirming_player = NetworkManager.get_local_player()
+	else:
+		confirming_player = GameState.get_active_player()
+
+	# Submit confirm through the network-aware action system
+	NetworkIntegration.route_action({
+		"type": "CONFIRM_FORMATIONS",
+		"player": confirming_player
+	})
+
+	if not is_multiplayer:
+		# Single player / hotseat — show dialog for the other player if needed
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		var other_player = 3 - confirming_player
+		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
 			_show_formations_dialog(other_player)
 
 func _on_end_deployment_pressed() -> void:

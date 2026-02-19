@@ -45,8 +45,19 @@ func _on_phase_enter() -> void:
 
 	if not p1_has_options and not p2_has_options:
 		log_phase_message("No formations to declare for either player, skipping phase")
-		# Store empty formations and mark as declared
-		_store_formations_in_state()
+		# Store empty formations and mark as declared directly via PhaseManager
+		if get_parent() and get_parent().has_method("apply_state_changes"):
+			var empty_formations = {}
+			for p in [1, 2]:
+				empty_formations[str(p)] = player_formations.get(p, {
+					"leader_attachments": {},
+					"transport_embarkations": {},
+					"reserves": []
+				})
+			get_parent().apply_state_changes([
+				{"op": "set", "path": "meta.formations", "value": empty_formations},
+				{"op": "set", "path": "meta.formations_declared", "value": true}
+			])
 		call_deferred("_complete_phase")
 		return
 
@@ -470,19 +481,28 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Player %d confirmed their battle formations" % player)
 
+	var changes = []
+
 	# If first player confirmed, switch to second player
 	if player == current_declaring_player:
 		var other_player = 3 - current_declaring_player
 		if not players_confirmed.get(other_player, false):
 			current_declaring_player = other_player
-			GameState.set_active_player(other_player)
-			game_state_snapshot = GameState.create_snapshot()
+			# Include active_player switch in diffs for network sync
+			changes.append({
+				"op": "set",
+				"path": "meta.active_player",
+				"value": other_player
+			})
 			log_phase_message("Switching to Player %d for declarations" % other_player)
-		# If both confirmed, apply formations
-		elif players_confirmed.get(1, false) and players_confirmed.get(2, false):
-			_apply_formations()
 
-	return create_result(true, [])
+	# If both confirmed, build and return all formation changes
+	# (execute_action will apply them and _should_complete_phase triggers phase completion)
+	if players_confirmed.get(1, false) and players_confirmed.get(2, false):
+		log_phase_message("Both players confirmed — building formation changes")
+		changes.append_array(_build_formation_changes())
+
+	return create_result(true, changes)
 
 func _process_end_formations(action: Dictionary) -> Dictionary:
 	log_phase_message("Formations phase ending")
@@ -539,16 +559,16 @@ func _get_declared_reserves_points(player: int) -> int:
 		total += unit.get("meta", {}).get("points", 0)
 	return total
 
-func _apply_formations() -> void:
-	"""Apply all declared formations to the game state and transition to deployment."""
-	log_phase_message("Both players confirmed — applying formations to game state")
-
+func _build_formation_changes() -> Array:
+	"""Build all formation state changes for both players.
+	Returns the changes array so it can be included in the action result
+	and synced through the normal network mechanism."""
 	var changes = []
 
 	for player in [1, 2]:
 		var formations = player_formations[player]
 
-		# Apply leader attachments
+		# Leader attachments
 		for character_id in formations["leader_attachments"]:
 			var bodyguard_id = formations["leader_attachments"][character_id]
 			# Set attached_to on character
@@ -557,9 +577,6 @@ func _apply_formations() -> void:
 				"path": "units.%s.attached_to" % character_id,
 				"value": bodyguard_id
 			})
-			# Set status to DEPLOYED (will be deployed with bodyguard)
-			# Actually, keep UNDEPLOYED — they get deployed when their bodyguard is deployed
-			# The deployment phase will handle placing them
 
 			# Update bodyguard's attachment_data
 			var bodyguard = get_unit(bodyguard_id)
@@ -575,11 +592,10 @@ func _apply_formations() -> void:
 			var bg_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
 			log_phase_message("Applied: %s attached to %s" % [char_name, bg_name])
 
-		# Apply transport embarkations
+		# Transport embarkations
 		for transport_id in formations["transport_embarkations"]:
 			var unit_ids = formations["transport_embarkations"][transport_id]
 			for unit_id in unit_ids:
-				# Set embarked_in on unit
 				changes.append({
 					"op": "set",
 					"path": "units.%s.embarked_in" % unit_id,
@@ -598,7 +614,7 @@ func _apply_formations() -> void:
 			var transport_name = get_unit(transport_id).get("meta", {}).get("name", transport_id)
 			log_phase_message("Applied: %d units embarked in %s" % [unit_ids.size(), transport_name])
 
-		# Apply reserves declarations
+		# Reserves declarations
 		for entry in formations["reserves"]:
 			var unit_id = entry["unit_id"]
 			var reserve_type = entry["reserve_type"]
@@ -617,23 +633,7 @@ func _apply_formations() -> void:
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
 			log_phase_message("Applied: %s placed in %s" % [unit_name, type_label])
 
-	# Store the formations declarations in meta for reference
-	_store_formations_in_state()
-
-	# Apply all changes through PhaseManager
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes(changes)
-
-	# Update local snapshot
-	game_state_snapshot = GameState.create_snapshot()
-
-	log_phase_message("All formations applied successfully")
-
-	# Phase complete - transition to deployment
-	emit_signal("phase_completed")
-
-func _store_formations_in_state() -> void:
-	"""Store formations data in GameState meta for later reference."""
+	# Store formations declarations in meta for reference
 	var formations_data = {}
 	for player in [1, 2]:
 		formations_data[str(player)] = player_formations.get(player, {
@@ -641,21 +641,19 @@ func _store_formations_in_state() -> void:
 			"transport_embarkations": {},
 			"reserves": []
 		})
+	changes.append({
+		"op": "set",
+		"path": "meta.formations",
+		"value": formations_data
+	})
+	changes.append({
+		"op": "set",
+		"path": "meta.formations_declared",
+		"value": true
+	})
 
-	# Store via PhaseManager changes
-	if get_parent() and get_parent().has_method("apply_state_changes"):
-		get_parent().apply_state_changes([
-			{
-				"op": "set",
-				"path": "meta.formations",
-				"value": formations_data
-			},
-			{
-				"op": "set",
-				"path": "meta.formations_declared",
-				"value": true
-			}
-		])
+	log_phase_message("All formations changes built successfully (%d diffs)" % changes.size())
+	return changes
 
 func get_available_actions() -> Array:
 	var actions = []
