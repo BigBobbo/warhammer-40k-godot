@@ -470,8 +470,24 @@ func _handle_relayed_action(action: Dictionary) -> void:
 	if result.success:
 		_update_phase_snapshot()
 
-		# T5-MP1: Animate remote player's pile-in/consolidate movements on host
+		# T5-MP3: Show remote player's shooting target assignments on host
 		var relayed_action_type = action.get("type", "")
+		if relayed_action_type == "ASSIGN_TARGET":
+			var shooter_id = action.get("actor_unit_id", "")
+			var target_unit_id = action.get("payload", {}).get("target_unit_id", "")
+			var weapon_id = action.get("payload", {}).get("weapon_id", "")
+			if shooter_id != "" and target_unit_id != "":
+				print("NetworkManager: T5-MP3: Host (relay) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
+				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
+					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
+		elif relayed_action_type == "CLEAR_ASSIGNMENT" or relayed_action_type == "CLEAR_ALL_ASSIGNMENTS":
+			print("NetworkManager: T5-MP3: Host (relay) clearing remote player's assignment visuals")
+			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
+				shooting_controller.clear_remote_target_assignments()
+
+		# T5-MP1: Animate remote player's pile-in/consolidate movements on host
 		if relayed_action_type == "PILE_IN" or relayed_action_type == "CONSOLIDATE":
 			var move_unit_id = action.get("unit_id", "")
 			var move_movements = action.get("movements", {})
@@ -820,9 +836,26 @@ func _send_action_to_host(action: Dictionary) -> void:
 		# Update phase snapshot so next validation sees the changes
 		_update_phase_snapshot()
 
+		# T5-MP3: When host processes a remote client's shooting actions,
+		# show target assignment visuals on the host's screen
+		var client_action_type = action.get("type", "")
+		if client_action_type == "ASSIGN_TARGET":
+			var shooter_id = action.get("actor_unit_id", "")
+			var target_unit_id = action.get("payload", {}).get("target_unit_id", "")
+			var weapon_id = action.get("payload", {}).get("weapon_id", "")
+			if shooter_id != "" and target_unit_id != "":
+				print("NetworkManager: T5-MP3: Host (ENet) showing remote player's ASSIGN_TARGET visual — %s → %s" % [shooter_id, target_unit_id])
+				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
+					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
+		elif client_action_type == "CLEAR_ASSIGNMENT" or client_action_type == "CLEAR_ALL_ASSIGNMENTS":
+			print("NetworkManager: T5-MP3: Host (ENet) clearing remote player's assignment visuals")
+			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
+				shooting_controller.clear_remote_target_assignments()
+
 		# T5-MP1: When host processes a remote client's PILE_IN/CONSOLIDATE,
 		# animate the model tokens on the host's screen too
-		var client_action_type = action.get("type", "")
 		if client_action_type == "PILE_IN" or client_action_type == "CONSOLIDATE":
 			var move_unit_id = action.get("unit_id", "")
 			var move_movements = action.get("movements", {})
@@ -910,6 +943,48 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					var eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
 					print("NetworkManager: Client emitting targets_available with %d targets" % eligible_targets.size())
 					phase.emit_signal("targets_available", unit_id, eligible_targets)
+
+	# ====================================================================
+	# T5-MP3: Remote player visual feedback for shooting actions
+	# ====================================================================
+
+	# Handle ASSIGN_TARGET — draw LoS line on remote player's ShootingController
+	if action_type == "ASSIGN_TARGET":
+		if phase.has_signal("unit_selected_for_shooting"):
+			var shooter_id = action_data.get("actor_unit_id", "")
+			var target_unit_id = action_data.get("payload", {}).get("target_unit_id", "")
+			var weapon_id = action_data.get("payload", {}).get("weapon_id", "")
+			if shooter_id != "" and target_unit_id != "":
+				print("NetworkManager: T5-MP3: Remote ASSIGN_TARGET visual — %s targeting %s with %s" % [shooter_id, target_unit_id, weapon_id])
+				# Update the ShootingController on the remote player to show LoS line
+				var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+				if shooting_controller and shooting_controller.has_method("show_remote_target_assignment"):
+					shooting_controller.show_remote_target_assignment(shooter_id, target_unit_id, weapon_id)
+
+	# Handle CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS — clear LoS lines on remote
+	if action_type == "CLEAR_ASSIGNMENT" or action_type == "CLEAR_ALL_ASSIGNMENTS":
+		var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+		if shooting_controller and shooting_controller.has_method("clear_remote_target_assignments"):
+			print("NetworkManager: T5-MP3: Remote %s — clearing assignment visuals" % action_type)
+			shooting_controller.clear_remote_target_assignments()
+
+	# Handle CONFIRM_TARGETS — re-emit shooting_begun on remote to show shooting lines
+	if action_type == "CONFIRM_TARGETS":
+		if phase.has_signal("shooting_begun"):
+			var shooter_id = ""
+			if "active_shooter_id" in phase:
+				shooter_id = phase.active_shooter_id
+			if shooter_id != "":
+				print("NetworkManager: T5-MP3: Remote CONFIRM_TARGETS — emitting shooting_begun for %s" % shooter_id)
+				phase.emit_signal("shooting_begun", shooter_id)
+
+	# Handle COMPLETE_SHOOTING_FOR_UNIT — re-emit shooting_resolved on remote to clear visuals
+	if action_type == "COMPLETE_SHOOTING_FOR_UNIT":
+		if phase.has_signal("shooting_resolved"):
+			var unit_id = action_data.get("actor_unit_id", "")
+			if unit_id != "":
+				print("NetworkManager: T5-MP3: Remote COMPLETE_SHOOTING_FOR_UNIT — emitting shooting_resolved for %s" % unit_id)
+				phase.emit_signal("shooting_resolved", unit_id, "", {"casualties": 0})
 
 	# Handle shooting phase weapon_order_required signal
 	# This happens when CONFIRM_TARGETS detects multiple weapon types

@@ -186,13 +186,15 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 **Impact:** The defending player watches passively as their units are shot. In the tabletop game, the defender has several reaction opportunities (Overwatch, Go to Ground for Infantry, Smokescreen for SMOKE keyword units).
 
-### 3.2 MEDIUM: Remote Player Visual Feedback for Shooting Actions
+### 3.2 MEDIUM: Remote Player Visual Feedback for Shooting Actions — **DONE**
 
-**Current state:** When the active player selects a shooter, assigns targets, and resolves attacks, the remote player sees state changes and dice results. However, the visual feedback (range circles, LoS lines, target highlights) is created by `ShootingController` which only runs for the active player.
-
-**Impact:** The remote player may not fully understand what's happening — they don't see which unit is targeting which, the range check visuals, or the LoS debug visualization. They see dice results and casualties but miss the targeting context.
-
-**Suggestion:** Broadcast "SELECT_SHOOTER" and "ASSIGN_TARGET" visual hints to the remote player so they can see what's being targeted. The `ShootingController` could listen for remote actions and create simplified visual overlays.
+**Resolution:** Implemented in T5-MP3. Added remote player visual feedback for all shooting actions in both NetworkManager.gd and ShootingController.gd:
+- ASSIGN_TARGET: Draws orange shooting lines with weapon name labels from shooter to target on the remote player's board
+- CLEAR_ASSIGNMENT / CLEAR_ALL_ASSIGNMENTS: Clears shooting line visuals on remote
+- CONFIRM_TARGETS: Re-emits `shooting_begun` signal so remote player sees shooting lines and dice log context
+- COMPLETE_SHOOTING_FOR_UNIT: Re-emits `shooting_resolved` signal so remote player's visuals are properly cleaned up
+- Covers both ENet RPC and WebSocket relay transport modes
+- Covers both host→client and client→host directions (host seeing client's actions and vice versa)
 
 ### 3.3 MEDIUM: Save Dialog Timing for Defender on Remote Client
 
