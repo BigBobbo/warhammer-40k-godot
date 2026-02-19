@@ -6,53 +6,70 @@ color: purple
 permissionMode: acceptEdits
 ---
 
-Find and implement the next incomplete task from the project task list.
+Find and implement a task from the project task list.
 
 ## Workflow
 
-1. **Extract the task** - Run:
+### 1. Determine the task
 
-   ```bash
-   python .claude/scripts/task_get.py .llm/todo.md
-   ```
+Check if your launch prompt contains a `<task-override>` block. This is used when running in parallel mode.
 
-2. **Implement the task**
-   - Think hard about the plan before coding
-   - Focus ONLY on this specific task
-   - Ignore TODO/TASK comments in source code - they are not your concern
-   - Work through the implementation methodically
-   - Run appropriate tests and validation
+- **If `<task-override>` is present:** Use the task description from that block. The task text (first line after the checkbox) will also be available in a `<task-key>` block — you'll need this for marking the task complete.
+- **If no `<task-override>`:** Extract the next task from the file:
+  ```bash
+  python .claude/scripts/task_get.py .llm/todo.md
+  ```
 
-3. **Handle tests that cannot be run in this environment**
+### 2. Implement the task
 
-   Godot tests cannot be launched in this headless/remote environment. This is a known limitation. If the task involves writing or running Godot tests:
-   - Still **write the test code** as part of your implementation
-   - Do NOT fail or block the task just because you cannot execute the tests
-   - Instead, append an entry to `TESTS_NEEDED.md` in the project root describing what needs to be verified locally
+- Think hard about the plan before coding
+- Focus ONLY on this specific task
+- Ignore TODO/TASK comments in source code - they are not your concern
+- Work through the implementation methodically
+- Run appropriate tests and validation
 
-   **Format for `TESTS_NEEDED.md`** (create the file if it doesn't exist, append if it does):
+### 3. Handle tests that cannot be run in this environment
 
-   ```markdown
-   ## <Short description of what was implemented>
+Godot tests cannot be launched in this headless/remote environment. This is a known limitation. If the task involves writing or running Godot tests:
+- Still **write the test code** as part of your implementation
+- Do NOT fail or block the task just because you cannot execute the tests
+- Instead, append an entry to `TESTS_NEEDED.md` in the project root describing what needs to be verified locally
 
-   **Task:** <the original task description, condensed to one line>
-   **Files changed:** <list of files you created or modified>
-   **Tests to run:**
-   - <test file path and how to run it, e.g. "Run `test_deployment_phase.gd` via the Godot test runner">
-   - <what each test verifies>
+**Format for `TESTS_NEEDED.md`** (create the file if it doesn't exist, append if it does):
 
-   **What to look for:**
-   - <specific things the user should verify pass>
-   - <any edge cases or scenarios covered>
-   ```
+```markdown
+## <Short description of what was implemented>
 
-   This ensures the user can run the tests locally later.
+**Task:** <the original task description, condensed to one line>
+**Files changed:** <list of files you created or modified>
+**Tests to run:**
+- <test file path and how to run it, e.g. "Run `test_deployment_phase.gd` via the Godot test runner">
+- <what each test verifies>
 
-4. **Verify and commit**
-   - Verify the build/tests pass if applicable (skip Godot test execution — it is sufficient to have written the tests and logged them to `TESTS_NEEDED.md`)
-   - Stage and commit your changes to git with a clear commit message describing what was done
+**What to look for:**
+- <specific things the user should verify pass>
+- <any edge cases or scenarios covered>
+```
 
-5. **Mark the task complete** - Run:
-   ```bash
-   python .claude/scripts/task_complete.py .llm/todo.md
-   ```
+This ensures the user can run the tests locally later.
+
+### 4. Verify and commit
+
+- Verify the build/tests pass if applicable (skip Godot test execution — it is sufficient to have written the tests and logged them to `TESTS_NEEDED.md`)
+- Stage and commit your changes to git with a clear commit message describing what was done
+
+### 5. Mark the task complete
+
+**If you received a `<task-key>` block** (parallel mode), use the specific completion script:
+```bash
+python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>"
+```
+
+**Otherwise** (sequential mode), use the standard script:
+```bash
+python .claude/scripts/task_complete.py .llm/todo.md
+```
+
+If the task cannot be completed, mark it as blocked instead:
+- Parallel mode: `python .claude/scripts/task_complete_specific.py .llm/todo.md --task "<task-key text>" --blocked`
+- Sequential mode: `python .claude/scripts/task_complete.py .llm/todo.md --blocked`
