@@ -12,7 +12,7 @@ var network_manager
 
 func before_each():
 	# Ensure autoloads are loaded
-	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+	AutoloadHelper.verify_autoloads_available()
 
 	# Get NetworkManager reference
 	if Engine.has_singleton("NetworkManager"):

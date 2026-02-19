@@ -6,10 +6,11 @@ extends BaseUITest
 
 func before_each():
 	super.before_each()
-	# Initialize game with test data
+	# Initialize game with test data via AutoloadHelper (autoloads are scene tree
+	# nodes, not Engine singletons — Engine.get_singleton() won't find them)
 	var test_state = TestDataFactory.create_test_game_state()
-	if Engine.has_singleton("GameState"):
-		var game_state = Engine.get_singleton("GameState")
+	var game_state = AutoloadHelper.get_game_state()
+	if game_state and game_state.has_method("load_from_snapshot"):
 		game_state.load_from_snapshot(test_state)
 
 func test_complete_deployment_phase():
@@ -348,8 +349,8 @@ func test_complete_turn_sequence():
 		await wait_for_ui_update()
 
 	# Verify we completed a full turn
-	if Engine.has_singleton("TurnManager"):
-		var turn_manager = Engine.get_singleton("TurnManager")
+	var turn_manager = AutoloadHelper.get_autoload("TurnManager")
+	if turn_manager and turn_manager.has_method("get_current_turn"):
 		var current_turn = turn_manager.get_current_turn()
 		# Turn should have advanced or player should have switched
 		assert_true(true, "Completed full turn sequence")

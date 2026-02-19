@@ -36,3 +36,4 @@ server/persistence.db
 # Audit task runner
 .audit_runner_state
 .audit_logs/
+.audit_runner_stop

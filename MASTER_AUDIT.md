@@ -112,6 +112,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-16: [MH-RULE-6] Conversion X+ — expanded crit hit range at 12"+ distance | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-18: [MH-RULE-14] Save modifier cap — +1/-1 save roll toggles with cap enforcement | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-19: [MH-BUG-6] Triple 'h' typo in Mathhammer class names — renamed to MathhammerUI/Results/RuleModifiers | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T6-1: Fix broken test compilation errors — BaseUITest created, autoload resolution fixed | Testing | TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md |
 
 ---
 
@@ -795,11 +796,12 @@ These are real rules gaps but affect niche situations or have workarounds.
 
 These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and affect development velocity.
 
-### T6-1. Fix broken test compilation errors
+### T6-1. Fix broken test compilation errors — **DONE**
 - BaseUITest method signature mismatch (`assert_unit_card_visible` — 1 param vs 2)
 - Missing assertion methods (`assert_has`, `assert_does_not_have`)
 - GameState autoload resolution in headless tests
 - **Source:** TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md
+- **Resolution:** Created missing `BaseUITest.gd` with correct 2-param `assert_unit_card_visible(visible, message)` signature, `assert_has`/`assert_does_not_have` collection assertions, and full UI testing helpers (scene loading, button clicks, model tokens, drag, phase transitions). Fixed `ensure_autoloads_loaded(get_tree())` parameter mismatch in BasePhaseTest.gd and test_multiplayer_gameplay.gd to use `verify_autoloads_available()`. Fixed `Engine.has_singleton`/`get_singleton` GameState access in test_full_gameplay_sequence.gd to use `AutoloadHelper.get_game_state()` (autoloads are scene tree nodes, not Engine singletons).
 
 ### T6-2. Validate all existing tests and document status
 - ~300 tests across 52 files, many with ⚠️ Unknown status
@@ -866,9 +868,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
-| Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **55** | **73** | **128** |
-| **Recently Completed** | **82** | — | **82** |
+| Tier 6 — Testing | 1 | 4 | 5 |
+| **Total Open** | **56** | **72** | **128** |
+| **Recently Completed** | **83** | — | **83** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
