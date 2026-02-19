@@ -294,3 +294,40 @@
 - Devastating Wounds weapons score higher especially against well-armoured targets (bypasses saves on 6s to wound)
 - Combined keywords stack correctly (e.g. anti-infantry + devastating wounds + rapid fire)
 - No regressions in existing AI shooting behavior, focus fire, or weapon-target efficiency
+
+## AI Unit Ability Awareness Implementation (AI-GAP-4)
+
+**Task:** Implement unit ability awareness -- read abilities, factor leader bonuses, detect "Fall Back and X" abilities
+**Files changed:**
+- `40k/scripts/AIAbilityAnalyzer.gd` - New static utility class for AI ability awareness: reads unit abilities, detects leader bonuses (+1 hit, reroll hits/wounds, FNP, cover, Fall Back and X, Advance and X), computes offensive/defensive multipliers for scoring
+- `40k/scripts/AIDecisionMaker.gd` - Integrated AIAbilityAnalyzer into movement (Fall Back and X awareness in `_decide_engaged_unit`, Advance and X in `_should_unit_advance`), shooting (`_score_shooting_target` and `_estimate_weapon_damage` now factor in target FNP and Stealth, shooter leader bonuses), charge (`_score_charge_target` uses melee leader multiplier and target defensive multiplier, `_evaluate_best_charge` factors in melee leader bonuses), and melee (`_estimate_melee_damage` factors in target FNP)
+- `40k/tests/unit/test_ai_ability_awareness.gd` - New test file for AI ability awareness
+
+**Tests to run:**
+- Run `test_ai_ability_awareness.gd` via `godot --headless --script tests/unit/test_ai_ability_awareness.gd`
+  - Tests ability parsing (string format, dict format, mixed format, Core skipping)
+  - Tests unit_has_ability and unit_has_ability_containing
+  - Tests leader bonus detection (no leader, +1 hit melee, reroll hits ranged, FNP from leader, cover from leader, multiple effects)
+  - Tests Fall Back and X detection (from leader abilities, from effect flags, from description-based fallback)
+  - Tests Advance and X detection (from leader, from flags)
+  - Tests defensive ability detection (FNP from stats, flags, best-of-both; Stealth from abilities and flags; Lone Operative detection and protection)
+  - Tests offensive/defensive multiplier computation
+  - Tests comprehensive unit ability profile
+  - Tests AIDecisionMaker integration (shooting score reduced by target FNP and Stealth, melee damage reduced by target FNP, charge score boosted by melee leader bonuses)
+- Run `test_ai_invulnerable_save_scoring.gd` to confirm no regressions
+- Run `test_ai_weapon_keyword_scoring.gd` to confirm no regressions
+- Run `test_ai_weapon_efficiency.gd` to confirm no regressions
+- Run `test_ai_focus_fire.gd` to confirm no regressions
+- Run an AI vs AI game and observe that AI now considers abilities in tactical decisions
+
+**What to look for:**
+- AI units with Fall Back and Charge abilities fall back more aggressively (even from objectives) knowing they can charge back in
+- AI units with Fall Back and Shoot abilities fall back when engaged, recognizing they can still contribute via shooting
+- AI units with Advance and Shoot/Charge abilities advance more eagerly since there is no penalty
+- AI shooting scores are lower against targets with FNP (reflecting reduced effective damage)
+- AI shooting scores are lower against targets with Stealth (reflecting -1 to hit penalty)
+- AI charge evaluations are higher for units with melee leader bonuses (+1 hit, reroll hits)
+- AI charge evaluations are lower against targets with high defensive multipliers (FNP, cover from leaders)
+- Leader bonus detection correctly reads the UnitAbilityManager ABILITY_EFFECTS lookup table
+- Description-based fallback correctly detects "fall back and charge/shoot" from ability descriptions
+- No regressions in existing AI movement, shooting, charge, or fight decisions

@@ -22,6 +22,9 @@ const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
 static var _focus_fire_plan: Dictionary = {}
 static var _focus_fire_plan_built: bool = false
 
+# Grenade stratagem evaluation — checked once per shooting phase
+static var _grenade_evaluated: bool = false
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -75,11 +78,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
 
-	# Reset focus fire plan cache when not in shooting phase
+	# Reset focus fire plan cache and grenade flag when not in shooting phase
 	if phase != GameStateData.Phase.SHOOTING:
 		if _focus_fire_plan_built:
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
+		_grenade_evaluated = false
 
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -1895,6 +1899,21 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# Step 4: Confirm targets if pending
 	if action_types.has("CONFIRM_TARGETS"):
 		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets"}
+
+	# Step 4.5: Consider GRENADE stratagem before regular shooting
+	# Evaluate once per shooting phase — if worthwhile, use it before regular shooting
+	if action_types.has("SELECT_SHOOTER") and not _grenade_evaluated:
+		_grenade_evaluated = true
+		var grenade_eval = evaluate_grenade_usage(snapshot, player)
+		if grenade_eval.get("should_use", false):
+			print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
+			return {
+				"type": "USE_GRENADE_STRATAGEM",
+				"grenade_unit_id": grenade_eval.grenade_unit_id,
+				"target_unit_id": grenade_eval.target_unit_id,
+				"player": player,
+				"_ai_description": grenade_eval.description
+			}
 
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
@@ -4715,3 +4734,511 @@ static func _target_type_name(target_type: int) -> String:
 			return "Horde"
 		_:
 			return "Unknown"
+
+# =============================================================================
+# STRATAGEM EVALUATION — AI heuristics for when to use stratagems
+# =============================================================================
+
+# --- GRENADE STRATAGEM ---
+
+static func evaluate_grenade_usage(snapshot: Dictionary, player: int) -> Dictionary:
+	"""
+	Evaluate whether the AI should use the GRENADE stratagem this shooting phase.
+	Returns { should_use: bool, grenade_unit_id: String, target_unit_id: String,
+	          description: String } or { should_use: false }.
+
+	Heuristic: Use Grenade when we have a GRENADES unit whose ranged weapons are
+	weak (few shots, low damage) or that has no ranged weapons, AND there is an
+	enemy within 8" that would take meaningful damage from 6D6 at 4+ (avg 3 MW).
+	Prefer targets with many wounded low-wound models (mortal wounds bypass saves).
+	"""
+	var strat_manager_node = Engine.get_main_loop().root.get_node_or_null("/root/StratagemManager")
+	if not strat_manager_node:
+		return {"should_use": false}
+
+	var eligible_units = strat_manager_node.get_grenade_eligible_units(player)
+	if eligible_units.is_empty():
+		return {"should_use": false}
+
+	var best_score: float = 0.0
+	var best_grenade_unit_id: String = ""
+	var best_target_unit_id: String = ""
+	var best_grenade_unit_name: String = ""
+	var best_target_unit_name: String = ""
+
+	for entry in eligible_units:
+		var grenade_unit_id: String = entry.unit_id
+		var grenade_unit = snapshot.get("units", {}).get(grenade_unit_id, {})
+		if grenade_unit.is_empty():
+			continue
+
+		# Check if this unit has strong ranged weapons — if so, shooting normally is better
+		var ranged_weapon_strength = _estimate_unit_ranged_strength(grenade_unit)
+
+		# Get eligible grenade targets (within 8")
+		var targets = RulesEngine.get_grenade_eligible_targets(grenade_unit_id, snapshot)
+		if targets.is_empty():
+			continue
+
+		for target_info in targets:
+			var target_unit_id: String = target_info.unit_id
+			var target_unit = snapshot.get("units", {}).get(target_unit_id, {})
+			if target_unit.is_empty():
+				continue
+
+			# Score the grenade target: mortal wounds bypass saves, so low-wound models
+			# and wounded models are ideal. Average 3 MW from 6D6 at 4+.
+			var target_score = _score_grenade_target(target_unit)
+
+			# Reduce score if the unit has strong ranged weapons (shooting normally is better)
+			# Grenade expected value: ~3 mortal wounds (no saves)
+			# If ranged weapons do more expected damage, prefer shooting
+			if ranged_weapon_strength > 4.0:
+				target_score *= 0.3  # Strong ranged unit — prefer shooting
+			elif ranged_weapon_strength > 2.0:
+				target_score *= 0.7  # Moderate ranged unit — slight preference for shooting
+
+			if target_score > best_score:
+				best_score = target_score
+				best_grenade_unit_id = grenade_unit_id
+				best_target_unit_id = target_unit_id
+				best_grenade_unit_name = entry.get("unit_name", grenade_unit_id)
+				best_target_unit_name = target_info.get("unit_name", target_unit_id)
+
+	# Use grenade if the score is above a meaningful threshold
+	# 3 MW is expected value; score of 2.0+ means decent value
+	if best_score >= 2.0 and best_grenade_unit_id != "" and best_target_unit_id != "":
+		return {
+			"should_use": true,
+			"grenade_unit_id": best_grenade_unit_id,
+			"target_unit_id": best_target_unit_id,
+			"description": "%s throws GRENADE at %s" % [best_grenade_unit_name, best_target_unit_name]
+		}
+
+	return {"should_use": false}
+
+static func _estimate_unit_ranged_strength(unit: Dictionary) -> float:
+	"""
+	Estimate the ranged weapon strength of a unit based on expected wounds output.
+	Returns a rough score: 0 = no ranged weapons, higher = more damage output.
+	"""
+	var total_expected = 0.0
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var alive_models = _get_alive_models(unit)
+	var model_count = alive_models.size()
+	if model_count == 0:
+		return 0.0
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var damage_str = w.get("damage", "1")
+		var avg_damage = _parse_average_damage(damage_str)
+		var bs_str = w.get("bs", "4+")
+		var bs = int(bs_str.replace("+", "")) if "+" in bs_str else 4
+		var hit_prob = max(0.0, (7.0 - bs) / 6.0)
+		# Rough wound probability (assume average target T4, moderate save)
+		var wound_prob = 0.5
+		var save_prob = 0.5  # Assume 50% saves get through
+		total_expected += attacks * hit_prob * wound_prob * save_prob * avg_damage * model_count
+
+	return total_expected
+
+static func _score_grenade_target(target_unit: Dictionary) -> float:
+	"""
+	Score a target for GRENADE usage. Mortal wounds bypass saves, so the key
+	factors are: remaining wounds (can we kill models?), model count (more models =
+	more value from removing them), and unit value (characters/elites are higher value).
+	"""
+	var alive = _get_alive_models(target_unit)
+	var alive_count = alive.size()
+	if alive_count == 0:
+		return 0.0
+
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	var avg_mortal_wounds = 3.0  # Expected from 6D6 at 4+
+
+	# Base score: how many models can we expect to kill?
+	if wounds_per_model <= 0:
+		wounds_per_model = 1
+	var expected_kills = avg_mortal_wounds / float(wounds_per_model)
+
+	# Wounded models are more vulnerable — check if any models are below full wounds
+	var total_remaining_wounds = 0.0
+	for model in alive:
+		var max_wounds = wounds_per_model
+		var current_wounds = model.get("wounds", max_wounds)
+		total_remaining_wounds += current_wounds
+
+	# Score based on proportion of total wounds we'd remove
+	var wound_proportion = avg_mortal_wounds / max(total_remaining_wounds, 1.0)
+	var base_score = wound_proportion * 5.0  # Scale: 5.0 if we'd remove all wounds
+
+	# Bonus for being able to finish off models (mortal wounds on 1W models = guaranteed kills)
+	if wounds_per_model == 1:
+		base_score += 1.0  # 3 expected kills on 1W models
+
+	# Bonus for small elite units (killing 1-2 of 3 models is more impactful)
+	if alive_count <= 3 and wounds_per_model >= 3:
+		base_score += 1.0
+
+	# Bonus for characters/high-value units
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if kw.to_upper() == "CHARACTER":
+			base_score += 1.5
+			break
+
+	return base_score
+
+# --- GO TO GROUND / SMOKESCREEN (Reactive — during opponent's shooting) ---
+
+static func evaluate_reactive_stratagem(defending_player: int, available_stratagems: Array, target_unit_ids: Array, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use a reactive stratagem (Go to Ground or Smokescreen)
+	when being shot at. Returns the action dictionary to submit, or empty dict to decline.
+
+	Heuristic:
+	- Use Go to Ground on valuable INFANTRY targets without existing invuln saves
+	- Use Smokescreen on SMOKE units being targeted (always beneficial: cover + stealth)
+	- Prefer Smokescreen over Go to Ground (stealth is -1 to hit, stronger)
+	- Skip if the unit is cheap/expendable (not worth 1 CP)
+	"""
+	var best_stratagem_id: String = ""
+	var best_target_unit_id: String = ""
+	var best_score: float = 0.0
+
+	for strat_entry in available_stratagems:
+		var strat = strat_entry.get("stratagem", {})
+		var eligible_units = strat_entry.get("eligible_units", [])
+		var strat_id = strat.get("id", "")
+
+		for unit_id in eligible_units:
+			var unit = snapshot.get("units", {}).get(unit_id, {})
+			if unit.is_empty():
+				continue
+
+			var score = _score_defensive_stratagem_target(unit, strat_id)
+			if score > best_score:
+				best_score = score
+				best_stratagem_id = strat_id
+				best_target_unit_id = unit_id
+
+	# Use the stratagem if the score is meaningful (unit is worth protecting)
+	if best_score >= 1.5 and best_stratagem_id != "" and best_target_unit_id != "":
+		var strat_name = ""
+		for strat_entry in available_stratagems:
+			if strat_entry.get("stratagem", {}).get("id", "") == best_stratagem_id:
+				strat_name = strat_entry.stratagem.get("name", best_stratagem_id)
+				break
+		var unit_name = snapshot.get("units", {}).get(best_target_unit_id, {}).get("meta", {}).get("name", best_target_unit_id)
+		return {
+			"type": "USE_REACTIVE_STRATAGEM",
+			"stratagem_id": best_stratagem_id,
+			"target_unit_id": best_target_unit_id,
+			"player": defending_player,
+			"_ai_description": "AI uses %s on %s" % [strat_name, unit_name]
+		}
+
+	return {
+		"type": "DECLINE_REACTIVE_STRATAGEM",
+		"player": defending_player,
+		"_ai_description": "AI declines reactive stratagems"
+	}
+
+static func _score_defensive_stratagem_target(unit: Dictionary, stratagem_id: String) -> float:
+	"""
+	Score how much a unit benefits from a defensive stratagem.
+	Higher score = more worth spending 1 CP on.
+	"""
+	var alive = _get_alive_models(unit)
+	var alive_count = alive.size()
+	if alive_count == 0:
+		return 0.0
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var stats = unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var save = int(stats.get("save", 4))
+	var base_score = 0.0
+
+	# Check existing invulnerable save
+	var existing_invuln = 0
+	for model in alive:
+		var model_invuln = model.get("invuln", 0)
+		if typeof(model_invuln) == TYPE_STRING:
+			model_invuln = int(model_invuln) if model_invuln.is_valid_int() else 0
+		if model_invuln > 0:
+			existing_invuln = model_invuln
+		break
+	if existing_invuln == 0:
+		existing_invuln = int(stats.get("invuln", 0))
+
+	match stratagem_id:
+		"go_to_ground":
+			# Go to Ground grants 6+ invuln + cover
+			# More valuable when: no existing invuln, poor save, many models, high value
+			if existing_invuln > 0 and existing_invuln <= 5:
+				# Already has a decent invuln — 6+ invuln won't help much
+				base_score += 0.5
+			else:
+				# No invuln or 6+ — this helps
+				base_score += 1.5
+
+			# Cover improves save by 1 (if not already in cover)
+			if not unit.get("flags", {}).get("in_cover", false):
+				if save >= 5:  # Poor save benefits more from cover
+					base_score += 1.0
+				else:
+					base_score += 0.5
+
+		"smokescreen":
+			# Smokescreen grants cover + stealth (-1 to hit)
+			# Stealth is always strong — it reduces incoming damage by ~17-33%
+			base_score += 2.0
+
+			# Cover on top of stealth is extra value
+			if not unit.get("flags", {}).get("in_cover", false):
+				base_score += 0.5
+
+	# Scale by unit value
+	# Multi-wound models are more valuable per CP
+	base_score *= (1.0 + 0.1 * float(wounds_per_model * alive_count))
+
+	# Bonus for CHARACTER units (high value)
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "CHARACTER":
+			base_score += 1.0
+		if kw_upper == "LEADER":
+			base_score += 0.5
+
+	# Penalty for single-model units with many wounds already lost
+	if alive_count == 1 and wounds_per_model > 1:
+		var current_wounds = alive[0].get("wounds", wounds_per_model)
+		if current_wounds <= 1:
+			base_score *= 0.3  # Nearly dead — not worth saving
+
+	return base_score
+
+# --- FIRE OVERWATCH (Reactive — during opponent's movement/charge) ---
+
+static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array, enemy_unit_id: String, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Fire Overwatch against a moving/charging enemy.
+	Returns the action dictionary to submit, or empty dict to decline.
+
+	Heuristic: Fire Overwatch hits only on unmodified 6s (16.7% hit rate).
+	Use when:
+	- The unit has many high-volume ranged weapons (more dice = more 6s)
+	- The enemy is a high-value target (character, expensive unit)
+	- The CP cost is affordable (1 CP, once per turn)
+	Avoid when:
+	- The unit only has 1-2 shots (very unlikely to do anything)
+	- CP reserves are low (< 3 CP, save for other stratagems)
+	"""
+	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+
+	# Don't use overwatch if CP is low — save for more reliable stratagems
+	if player_cp < 2:
+		return _decline_fire_overwatch(defending_player)
+
+	var enemy_unit = snapshot.get("units", {}).get(enemy_unit_id, {})
+	if enemy_unit.is_empty():
+		return _decline_fire_overwatch(defending_player)
+
+	# Evaluate enemy threat level
+	var enemy_value = _estimate_unit_value(enemy_unit)
+
+	var best_unit_id: String = ""
+	var best_unit_name: String = ""
+	var best_expected_hits: float = 0.0
+
+	for entry in eligible_units:
+		var unit_id: String = ""
+		var unit_name: String = ""
+		if entry is Dictionary:
+			unit_id = entry.get("unit_id", "")
+			unit_name = entry.get("unit_name", unit_id)
+		elif entry is String:
+			unit_id = entry
+			unit_name = entry
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		# Count total ranged shots (overwatch hits on 6s only)
+		var total_shots = _count_unit_ranged_shots(unit)
+		var expected_hits = total_shots / 6.0  # 1/6 chance per shot
+
+		if expected_hits > best_expected_hits:
+			best_expected_hits = expected_hits
+			best_unit_id = unit_id
+			best_unit_name = unit_name
+
+	# Use overwatch if we expect at least ~1 hit and enemy is valuable
+	# Threshold: at least 0.5 expected hits (3+ total shots) AND enemy worth shooting at
+	if best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != "":
+		var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+		return {
+			"type": "USE_FIRE_OVERWATCH",
+			"unit_id": best_unit_id,
+			"player": defending_player,
+			"_ai_description": "AI fires overwatch with %s at %s (%.1f expected hits)" % [best_unit_name, enemy_name, best_expected_hits]
+		}
+
+	return _decline_fire_overwatch(defending_player)
+
+static func _decline_fire_overwatch(player: int) -> Dictionary:
+	return {
+		"type": "DECLINE_FIRE_OVERWATCH",
+		"player": player,
+		"_ai_description": "AI declines Fire Overwatch"
+	}
+
+static func _count_unit_ranged_shots(unit: Dictionary) -> float:
+	"""Count total expected ranged attacks for a unit (all alive models * all ranged weapons)."""
+	var total = 0.0
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var alive = _get_alive_models(unit)
+	var model_count = alive.size()
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = 0.0
+		if attacks_str.is_valid_float():
+			attacks = float(attacks_str)
+		elif attacks_str.is_valid_int():
+			attacks = float(attacks_str)
+		elif "d" in attacks_str.to_lower():
+			# Variable attacks: use average
+			attacks = _parse_average_damage(attacks_str)
+		else:
+			attacks = 1.0
+		total += attacks * model_count
+
+	return total
+
+static func _estimate_unit_value(unit: Dictionary) -> float:
+	"""
+	Estimate the tactical value of a unit for stratagem decisions.
+	Returns a rough score: higher = more valuable.
+	"""
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var stats = unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var alive = _get_alive_models(unit)
+	var alive_count = alive.size()
+	var value = float(alive_count) * float(wounds_per_model) * 0.5
+
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "CHARACTER":
+			value += 3.0
+		elif kw_upper == "VEHICLE":
+			value += 2.0
+		elif kw_upper == "MONSTER":
+			value += 2.0
+
+	return value
+
+# --- COMMAND RE-ROLL (Reactive — after any dice roll) ---
+
+static func evaluate_command_reroll_charge(player: int, rolled_distance: int, required_distance: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll a charge roll.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if the charge FAILED and:
+	- The gap between rolled and required is small (reroll has reasonable chance)
+	- The charging unit is important (character, elite unit)
+	"""
+	if rolled_distance >= required_distance:
+		return false  # Charge already succeeded — no need to reroll
+
+	var gap = required_distance - rolled_distance
+	# Probability of rolling required on 2D6:
+	# 2D6 average = 7, so if we need 7+ the chance is ~58.3%
+	# Need 8+ = ~41.7%, 9+ = ~27.8%, 10+ = ~16.7%, 11+ = ~8.3%, 12 = ~2.8%
+	# Don't reroll if we need 11+ (too unlikely)
+	if required_distance > 10:
+		return false
+
+	# If the roll was close to required (within 2), always reroll
+	if gap <= 2 and required_distance <= 9:
+		return true
+
+	# If the roll was terrible (e.g. rolled 3 on 2D6, needed 7), reroll
+	if rolled_distance <= 4 and required_distance <= 9:
+		return true
+
+	# For moderate gaps, check CP affordability
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+	if player_cp >= 3 and required_distance <= 9:
+		return true  # We can afford it, take the shot
+
+	return false
+
+static func evaluate_command_reroll_battleshock(player: int, roll: int, leadership: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll a failed battle-shock test.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if:
+	- The unit needs the test to pass (e.g. holding an objective)
+	- The gap between roll and leadership is small
+	"""
+	if roll <= leadership:
+		return false  # Already passed
+
+	var gap = roll - leadership
+	# Re-rolling 2D6: if we need to roll <= leadership, higher leadership = more likely
+	# Leadership 6: need 6 or less = 41.7% on 2D6
+	# Leadership 7: need 7 or less = 58.3%
+	# Leadership 8: need 8 or less = 72.2%
+
+	# Always reroll if leadership is 7+ (good chance of passing)
+	if leadership >= 7:
+		return true
+
+	# Reroll if the gap is small (within 2)
+	if gap <= 2:
+		return true
+
+	# If leadership is very low (5 or less), don't waste CP
+	if leadership <= 5:
+		return false
+
+	return true
+
+static func evaluate_command_reroll_advance(player: int, advance_roll: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll an advance roll.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if the roll is very low (1 or 2) since advancing
+	is usually done when the extra distance matters.
+	"""
+	# Only reroll very low advance rolls — a 1 is the worst possible
+	if advance_roll <= 1:
+		return true
+	if advance_roll <= 2:
+		# Check if CP is plentiful
+		var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+		if player_cp >= 3:
+			return true
+
+	return false
+
+# --- HELPER: Get player CP from snapshot ---
+
+static func _get_player_cp_from_snapshot(snapshot: Dictionary, player: int) -> int:
+	"""Get a player's CP from the game state snapshot."""
+	var players = snapshot.get("players", {})
+	var player_data = players.get(str(player), players.get(player, {}))
+	return int(player_data.get("cp", 0))
