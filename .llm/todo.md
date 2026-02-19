@@ -7,11 +7,11 @@
 - [x] Implement AI charge declarations — evaluate charge feasibility (distance, probability), declare charges against optimal targets, compute model positions post-charge (AI-GAP-1, CHARGE-1 through CHARGE-3)
 - [x] Implement pile-in movement — move models up to 3" toward nearest enemy during fight phase (AI-GAP-2, FIGHT-1)
 - [x] Implement consolidation movement — move models up to 3" toward nearest enemy or objective after fighting (AI-GAP-2, FIGHT-2)
-- [ ] Implement fall-back model positioning — compute valid fall-back destinations away from enemy engagement range (MOV-6)
+- [x] Implement fall-back model positioning — compute valid fall-back destinations away from enemy engagement range (MOV-6)
 
 ## P1 — High (AI plays very poorly without these)
 
-- [ ] Add weapon range checking to target scoring — score 0 for out-of-range targets (AI-GAP-5, SHOOT-4)
+- [x] Add weapon range checking to target scoring — score 0 for out-of-range targets (AI-GAP-5, SHOOT-4)
 - [ ] Implement focus fire system — coordinate weapon assignments across all shooting units to concentrate on kill thresholds (AI-TACTIC-2, SHOOT-1)
 - [ ] Implement weapon-target efficiency matching — match anti-tank to vehicles, anti-infantry to hordes, avoid wasting multi-damage on single-wound models (AI-TACTIC-5, SHOOT-2)
 - [ ] Add invulnerable save to target scoring — use min(modified_save, invuln) in shooting target evaluation (AI-GAP-6, SHOOT-3)

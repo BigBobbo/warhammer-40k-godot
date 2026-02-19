@@ -160,3 +160,34 @@
 - When all enemy units are out of range, the AI skips the shooter unit instead of producing an invalid SHOOT action
 - The SHOOT actions produced by AI are accepted by the ShootingPhase validation (no "out of range" errors)
 - No regressions in AI shooting for units that have targets in range
+
+## AI Focus Fire System Implementation
+
+**Task:** Implement focus fire system -- coordinate weapon assignments across all shooting units to concentrate on kill thresholds (AI-TACTIC-2, SHOOT-1)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added focus fire plan builder (`_build_focus_fire_plan`, `_calculate_kill_threshold`, `_calculate_target_value`, `_estimate_weapon_damage`); modified `_decide_shooting()` to build and use coordinated plan across all shooting units; added `_get_alive_model_ids()` helper; added `_build_unit_assignments_fallback()` for graceful degradation; fixed model_ids population (was previously empty, causing 0 attacks)
+- `40k/tests/unit/test_ai_focus_fire.gd` - New test file for focus fire system
+
+**Tests to run:**
+- Run `test_ai_focus_fire.gd` via `godot --headless --script tests/unit/test_ai_focus_fire.gd`
+  - Tests kill threshold calculation (single model, multi-model, wounded models)
+  - Tests target value scoring (CHARACTER bonus, VEHICLE bonus, below-half-health bonus)
+  - Tests expected damage estimation (basic, out-of-range, model count scaling)
+  - Tests focus fire plan building (single unit, concentration on killable targets, excess redirection)
+  - Tests _decide_shooting integration (uses plan, populates model_ids)
+  - Tests plan reset on phase change
+  - Tests fallback assignment with model_ids population
+  - Tests _get_alive_model_ids helper
+- Run `test_ai_weapon_range_scoring.gd` to confirm no regressions in range checking
+- Run an AI vs AI game and observe that AI units now concentrate fire on targets they can kill
+- Run a Human vs AI game and verify the AI focuses fire more effectively
+
+**What to look for:**
+- AI concentrates fire from multiple weapons on targets it can kill (below kill threshold)
+- AI redirects excess damage to secondary targets instead of overkilling a single weak unit
+- CHARACTERs, VEHICLEs, and wounded units receive higher targeting priority
+- model_ids are now properly populated in SHOOT actions (critical fix: was empty before, causing 0 attacks)
+- All SHOOT actions produced by AI are accepted by the ShootingPhase (no validation errors)
+- Focus fire plan is properly reset between shooting phases
+- No infinite loops during shooting phase
+- No regressions in AI shooting for single-target scenarios

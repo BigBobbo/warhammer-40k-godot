@@ -16,6 +16,16 @@ const OBJECTIVE_RANGE_PX: float = 120.0  # 3 inches - objective control range in
 const OBJECTIVE_CONTROL_RANGE_PX: float = 151.5  # 3.79" (3" + 20mm marker radius) in pixels
 const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
 
+# Focus fire plan cache — built once per shooting phase, consumed per-unit
+# Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
+static var _focus_fire_plan: Dictionary = {}
+static var _focus_fire_plan_built: bool = false
+
+# Focus fire tuning constants
+const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
+const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
+const LOW_HEALTH_BONUS: float = 1.5  # Bonus for targets below half health
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -34,6 +44,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions" % [phase, player, available_actions.size()])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
+
+	# Reset focus fire plan cache when not in shooting phase
+	if phase != GameStateData.Phase.SHOOTING:
+		if _focus_fire_plan_built:
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -1797,14 +1813,57 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
-		var shooter_action = action_types["SELECT_SHOOTER"][0]
-		var unit_id = shooter_action.get("actor_unit_id", shooter_action.get("unit_id", ""))
+		# Build focus fire plan if not already built for this shooting phase.
+		# The plan coordinates weapon assignments across ALL shooting units to
+		# concentrate fire on kill thresholds rather than spreading damage.
+		if not _focus_fire_plan_built:
+			var shooter_unit_ids = []
+			for sa in action_types["SELECT_SHOOTER"]:
+				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+				if sid != "":
+					shooter_unit_ids.append(sid)
+			_focus_fire_plan = _build_focus_fire_plan(snapshot, shooter_unit_ids, player)
+			_focus_fire_plan_built = true
+			print("AIDecisionMaker: Built focus fire plan for %d units, %d target assignments" % [
+				shooter_unit_ids.size(), _focus_fire_plan.size()])
+			for ff_uid in _focus_fire_plan:
+				var ff_unit = snapshot.get("units", {}).get(ff_uid, {})
+				var ff_name = ff_unit.get("meta", {}).get("name", ff_uid)
+				var ff_assignments = _focus_fire_plan[ff_uid]
+				var ff_targets = {}
+				for ff_a in ff_assignments:
+					var ff_tid = ff_a.get("target_unit_id", "")
+					if not ff_targets.has(ff_tid):
+						ff_targets[ff_tid] = 0
+					ff_targets[ff_tid] += 1
+				for ff_tid in ff_targets:
+					var ff_target = snapshot.get("units", {}).get(ff_tid, {})
+					var ff_tname = ff_target.get("meta", {}).get("name", ff_tid)
+					print("  Focus fire: %s -> %s (%d weapon(s))" % [ff_name, ff_tname, ff_targets[ff_tid]])
 
-		if unit_id == "":
+		# Pick the first available shooter that has a plan
+		var selected_unit_id = ""
+		for sa in action_types["SELECT_SHOOTER"]:
+			var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+			if sid != "" and _focus_fire_plan.has(sid):
+				selected_unit_id = sid
+				break
+
+		# If no unit has a plan, try first available shooter with fallback scoring
+		if selected_unit_id == "":
+			for sa in action_types["SELECT_SHOOTER"]:
+				var sid = sa.get("actor_unit_id", sa.get("unit_id", ""))
+				if sid != "":
+					selected_unit_id = sid
+					break
+
+		if selected_unit_id == "":
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
 
-		var unit = snapshot.get("units", {}).get(unit_id, {})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var unit = snapshot.get("units", {}).get(selected_unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", selected_unit_id)
 
 		# Get weapons for this unit
 		var weapons = unit.get("meta", {}).get("weapons", [])
@@ -1814,25 +1873,110 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				ranged_weapons.append(w)
 
 		if ranged_weapons.is_empty():
-			# No ranged weapons, skip this unit
+			# Remove from plan and skip
+			_focus_fire_plan.erase(selected_unit_id)
 			return {
 				"type": "SKIP_UNIT",
-				"actor_unit_id": unit_id,
+				"actor_unit_id": selected_unit_id,
 				"_ai_description": "Skipped %s — no ranged weapons" % unit_name
 			}
 
-		# Find the best target for each weapon
 		var enemies = _get_enemy_units(snapshot, player)
 		if enemies.is_empty():
+			_focus_fire_plan_built = false
+			_focus_fire_plan.clear()
 			return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (no targets)"}
 
-		# Build assignments: assign all ranged weapons to best target
+		# Use focus fire plan assignments if available for this unit
 		var assignments = []
-		for weapon in ranged_weapons:
-			var weapon_name = weapon.get("name", "")
-			var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
+		if _focus_fire_plan.has(selected_unit_id):
+			assignments = _focus_fire_plan[selected_unit_id]
+			_focus_fire_plan.erase(selected_unit_id)
+			# Filter out assignments targeting units that may have been destroyed by earlier shooters
+			var valid_assignments = []
+			for a in assignments:
+				var tid = a.get("target_unit_id", "")
+				if enemies.has(tid):
+					valid_assignments.append(a)
+				else:
+					print("AIDecisionMaker: Dropping assignment for destroyed target %s" % tid)
+			assignments = valid_assignments
+			# If all plan targets were destroyed, fall back to greedy scoring
+			if assignments.is_empty() and not enemies.is_empty():
+				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+				print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
+			else:
+				print("AIDecisionMaker: Using focus fire plan for %s (%d assignments)" % [unit_name, assignments.size()])
+		else:
+			# Fallback: per-weapon greedy scoring (same as old behavior)
+			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, enemies, snapshot)
+			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
-			# ONE SHOT (T4-2): Skip one-shot weapons that have been fired
+		if assignments.is_empty():
+			return {
+				"type": "SKIP_UNIT",
+				"actor_unit_id": selected_unit_id,
+				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
+			}
+
+		# Build target summary for description
+		var target_names = []
+		for assignment in assignments:
+			var tid = assignment.get("target_unit_id", "")
+			var target = snapshot.get("units", {}).get(tid, {})
+			var tname = target.get("meta", {}).get("name", tid)
+			if tname not in target_names:
+				target_names.append(tname)
+		var target_summary = ", ".join(target_names)
+		return {
+			"type": "SHOOT",
+			"actor_unit_id": selected_unit_id,
+			"payload": {
+				"assignments": assignments
+			},
+			"_ai_description": "%s shoots at %s (%d weapon(s), focus fire)" % [unit_name, target_summary, assignments.size()]
+		}
+
+	# No shooters left, end phase — reset plan cache
+	_focus_fire_plan_built = false
+	_focus_fire_plan.clear()
+	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
+
+# =============================================================================
+# FOCUS FIRE PLAN BUILDER
+# =============================================================================
+
+static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array, player: int) -> Dictionary:
+	"""
+	Build a coordinated shooting plan across all shooting units.
+	Returns {unit_id: [{weapon_id, target_unit_id, model_ids}]} mapping.
+
+	Algorithm:
+	1. Calculate kill threshold (total remaining wounds) for each enemy
+	2. For each weapon on each shooter, estimate expected damage against each enemy
+	3. Score each enemy by: can we kill it? threat level? expected damage efficiency?
+	4. Greedily allocate weapons to targets, prioritizing kill thresholds
+	5. Redirect excess damage to secondary targets
+	"""
+	var enemies = _get_enemy_units(snapshot, player)
+	if enemies.is_empty():
+		return {}
+
+	# --- Step 1: Build weapon inventory across all shooters ---
+	# Each entry: {unit_id, weapon, weapon_id, unit}
+	var all_weapons = []
+	for unit_id in shooter_unit_ids:
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+		var weapons = unit.get("meta", {}).get("weapons", [])
+		for w in weapons:
+			if w.get("type", "").to_lower() != "ranged":
+				continue
+			var weapon_name = w.get("name", "")
+			var weapon_id = _generate_weapon_id(weapon_name, w.get("type", ""))
+
+			# ONE SHOT: Skip one-shot weapons that have been fully fired
 			if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
 				var all_fired = true
 				var models = unit.get("models", [])
@@ -1845,51 +1989,329 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				if all_fired:
 					continue
 
-			# Score each enemy target (includes weapon range check)
-			var best_target_id = ""
-			var best_score = -1.0
-			for enemy_id in enemies:
-				var enemy = enemies[enemy_id]
-				var score = _score_shooting_target(weapon, enemy, snapshot, unit)
-				if score > best_score:
-					best_score = score
-					best_target_id = enemy_id
+			all_weapons.append({
+				"unit_id": unit_id,
+				"weapon": w,
+				"weapon_id": weapon_id,
+				"unit": unit
+			})
 
-			if best_target_id != "" and best_score > 0:
-				assignments.append({
-					"weapon_id": weapon_id,
-					"target_unit_id": best_target_id,
-					"model_ids": []
-				})
+	if all_weapons.is_empty():
+		return {}
 
-		if assignments.is_empty():
-			return {
-				"type": "SKIP_UNIT",
-				"actor_unit_id": unit_id,
-				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
-			}
+	# --- Step 2: Calculate kill thresholds and expected damage matrix ---
+	# kill_threshold[enemy_id] = total remaining wounds across all alive models
+	var kill_thresholds = {}
+	# target_value[enemy_id] = priority score for killing this target
+	var target_values = {}
 
-		# Use the SHOOT action for a complete shooting sequence
-		# Build target summary
-		var target_names = []
-		for assignment in assignments:
-			var tid = assignment.get("target_unit_id", "")
-			var target = snapshot.get("units", {}).get(tid, {})
-			var tname = target.get("meta", {}).get("name", tid)
-			if tname not in target_names:
-				target_names.append(tname)
-		var target_summary = ", ".join(target_names)
-		return {
-			"type": "SHOOT",
-			"actor_unit_id": unit_id,
-			"payload": {
-				"assignments": assignments
-			},
-			"_ai_description": "%s shoots at %s (%d weapon(s))" % [unit_name, target_summary, assignments.size()]
-		}
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		kill_thresholds[enemy_id] = _calculate_kill_threshold(enemy)
+		target_values[enemy_id] = _calculate_target_value(enemy, snapshot, player)
 
-	# No shooters left, end phase
-	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
+	# damage_matrix[weapon_index][enemy_id] = expected damage
+	var damage_matrix = []
+	for wi in range(all_weapons.size()):
+		var weapon_entry = all_weapons[wi]
+		var weapon = weapon_entry["weapon"]
+		var shooter_unit = weapon_entry["unit"]
+		var dmg_row = {}
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var dmg = _estimate_weapon_damage(weapon, enemy, snapshot, shooter_unit)
+			dmg_row[enemy_id] = dmg
+		damage_matrix.append(dmg_row)
+
+	# --- Step 3: Greedy allocation ---
+	# Track how much expected damage is already allocated to each target
+	var allocated_damage = {}
+	for enemy_id in enemies:
+		allocated_damage[enemy_id] = 0.0
+
+	# Track which weapon has been assigned: weapon_assignments[wi] = target_id or ""
+	var weapon_target = []
+	for wi in range(all_weapons.size()):
+		weapon_target.append("")
+
+	# Sort targets by value (highest first) for prioritized allocation
+	var sorted_targets = enemies.keys()
+	sorted_targets.sort_custom(func(a, b): return target_values.get(a, 0) > target_values.get(b, 0))
+
+	# Pass 1: For each high-value target, assign enough weapons to reach kill threshold
+	for enemy_id in sorted_targets:
+		var threshold = kill_thresholds[enemy_id]
+		if threshold <= 0:
+			continue
+
+		# Gather weapons that can damage this target, sorted by efficiency
+		var candidates = []  # [{weapon_index, damage, efficiency}]
+		for wi in range(all_weapons.size()):
+			if weapon_target[wi] != "":
+				continue  # Already assigned
+			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+			if dmg <= 0:
+				continue  # Can't hit this target (out of range, etc.)
+			candidates.append({"wi": wi, "damage": dmg})
+
+		if candidates.is_empty():
+			continue
+
+		# Sort by damage descending (assign most effective weapons first)
+		candidates.sort_custom(func(a, b): return a["damage"] > b["damage"])
+
+		# Calculate total potential damage against this target
+		var total_potential = 0.0
+		for c in candidates:
+			total_potential += c["damage"]
+
+		# Only focus fire if we can plausibly kill the target (within overkill tolerance)
+		# or if the target is already below half health
+		var alive_count = _get_alive_models(enemies[enemy_id]).size()
+		var total_count = enemies[enemy_id].get("models", []).size()
+		var below_half = total_count > 0 and alive_count * 2 < total_count
+
+		var can_kill = total_potential >= threshold * 0.6  # At least 60% chance concept
+		if not can_kill and not below_half:
+			continue  # Not worth focusing on — spread fire will happen in pass 2
+
+		# Assign weapons until we reach kill threshold (with overkill tolerance)
+		var target_budget = threshold * OVERKILL_TOLERANCE
+		for c in candidates:
+			if allocated_damage[enemy_id] >= target_budget:
+				break  # Enough damage allocated
+			var wi = c["wi"]
+			weapon_target[wi] = enemy_id
+			allocated_damage[enemy_id] += c["damage"]
+
+	# Pass 2: Assign remaining unassigned weapons to their best individual targets
+	for wi in range(all_weapons.size()):
+		if weapon_target[wi] != "":
+			continue  # Already assigned in pass 1
+
+		var weapon_entry = all_weapons[wi]
+		var best_target_id = ""
+		var best_score = -1.0
+
+		for enemy_id in enemies:
+			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+			if dmg <= 0:
+				continue
+
+			# Score: base damage * target value, with bonus if this helps reach a kill threshold
+			var score = dmg * target_values.get(enemy_id, 1.0)
+
+			# Bonus: if adding this weapon helps reach the kill threshold
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			var current_alloc = allocated_damage.get(enemy_id, 0)
+			if threshold > 0 and current_alloc < threshold and current_alloc + dmg >= threshold * 0.6:
+				score *= KILL_BONUS_MULTIPLIER
+
+			# Slight penalty for massive overkill
+			if threshold > 0 and current_alloc >= threshold * OVERKILL_TOLERANCE:
+				score *= 0.5
+
+			if score > best_score:
+				best_score = score
+				best_target_id = enemy_id
+
+		if best_target_id != "":
+			weapon_target[wi] = best_target_id
+			allocated_damage[best_target_id] += damage_matrix[wi].get(best_target_id, 0.0)
+
+	# --- Step 4: Build per-unit assignment dictionaries ---
+	var plan = {}
+	for wi in range(all_weapons.size()):
+		var target_id = weapon_target[wi]
+		if target_id == "":
+			continue
+		var weapon_entry = all_weapons[wi]
+		var uid = weapon_entry["unit_id"]
+		if not plan.has(uid):
+			plan[uid] = []
+		plan[uid].append({
+			"weapon_id": weapon_entry["weapon_id"],
+			"target_unit_id": target_id,
+			"model_ids": _get_alive_model_ids(weapon_entry["unit"])
+		})
+
+	# Log focus fire summary
+	for enemy_id in allocated_damage:
+		var alloc = allocated_damage[enemy_id]
+		if alloc > 0:
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			var enemy = enemies[enemy_id]
+			var ename = enemy.get("meta", {}).get("name", enemy_id)
+			var kill_pct = (alloc / threshold * 100.0) if threshold > 0 else 0.0
+			print("AIDecisionMaker: Focus fire -> %s: %.1f expected damage vs %.1f HP (%.0f%% kill)" % [
+				ename, alloc, threshold, kill_pct])
+
+	return plan
+
+static func _calculate_kill_threshold(unit: Dictionary) -> float:
+	"""Calculate total remaining wounds across all alive models in a unit."""
+	var total = 0.0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total += float(model.get("current_wounds", model.get("wounds", 1)))
+	return total
+
+static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""
+	Calculate a priority value for killing this target.
+	Higher value = more important to kill.
+	Considers: threat level, objective proximity, keywords, health status.
+	"""
+	var value = 1.0
+
+	var meta = target_unit.get("meta", {})
+	var stats = meta.get("stats", {})
+	var keywords = meta.get("keywords", [])
+
+	# Threat from ranged weapons (units that can shoot back are higher priority)
+	var weapons = meta.get("weapons", [])
+	var ranged_threat = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() == "ranged":
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var dmg_str = w.get("damage", "1")
+			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
+			ranged_threat += attacks * dmg
+	value += ranged_threat * 0.1
+
+	# Melee threat (units that can charge and deal damage)
+	var melee_threat = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() == "melee":
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var dmg_str = w.get("damage", "1")
+			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
+			melee_threat += attacks * dmg
+	value += melee_threat * 0.05
+
+	# Character bonus (leaders provide buffs, losing them hurts more)
+	if "CHARACTER" in keywords:
+		value *= 1.3
+
+	# Vehicle/Monster bonus (high-threat, high-wound targets)
+	if "VEHICLE" in keywords or "MONSTER" in keywords:
+		value *= 1.2
+
+	# Below half health bonus (finish off wounded units)
+	var alive_count = _get_alive_models(target_unit).size()
+	var total_count = target_unit.get("models", []).size()
+	if total_count > 0 and alive_count * 2 < total_count:
+		value *= LOW_HEALTH_BONUS
+
+	# Objective proximity bonus (units near objectives are higher priority)
+	var unit_centroid = _get_unit_centroid(target_unit)
+	if unit_centroid != Vector2.INF:
+		var objectives = _get_objectives(snapshot)
+		for obj_pos in objectives:
+			var dist = unit_centroid.distance_to(obj_pos)
+			if dist < OBJECTIVE_CONTROL_RANGE_PX:
+				value *= 1.4  # On an objective
+				break
+			elif dist < OBJECTIVE_CONTROL_RANGE_PX * 2:
+				value *= 1.15  # Near an objective
+
+	# Objective Control value (high OC units on objectives are very important)
+	var oc = int(stats.get("oc", 0))
+	if oc >= 2:
+		value += float(oc) * 0.2
+
+	return value
+
+static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary) -> float:
+	"""
+	Estimate expected damage of a weapon against a target.
+	Similar to _score_shooting_target but returns raw expected damage without bonuses,
+	and checks range.
+	"""
+	# Range check
+	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
+		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		if dist_inches > weapon_range_inches:
+			return 0.0
+
+	var attacks_str = weapon.get("attacks", "1")
+	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+
+	var bs_str = weapon.get("ballistic_skill", "4")
+	var bs = int(bs_str) if bs_str.is_valid_int() else 4
+
+	var strength_str = weapon.get("strength", "4")
+	var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+	var ap_str = weapon.get("ap", "0")
+	var ap = 0
+	if ap_str.begins_with("-"):
+		var ap_num = ap_str.substr(1)
+		ap = int(ap_num) if ap_num.is_valid_int() else 0
+	else:
+		ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+	var damage_str = weapon.get("damage", "1")
+	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
+
+	var p_hit = _hit_probability(bs)
+	var p_wound = _wound_probability(strength, toughness)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap)
+
+	# Scale by number of alive models that carry this weapon
+	var model_count = _get_alive_models(shooter_unit).size()
+	if model_count < 1:
+		model_count = 1
+
+	return attacks * p_hit * p_wound * p_unsaved * damage * model_count
+
+static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: Array, enemies: Dictionary, snapshot: Dictionary) -> Array:
+	"""
+	Fallback per-weapon greedy scoring (original behavior).
+	Used when a unit is not in the focus fire plan.
+	"""
+	var assignments = []
+	for weapon in ranged_weapons:
+		var weapon_name = weapon.get("name", "")
+		var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
+
+		# ONE SHOT: Skip one-shot weapons that have been fired
+		if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
+			var all_fired = true
+			var models = unit.get("models", [])
+			for model in models:
+				if model.get("alive", true):
+					var model_id = model.get("id", "")
+					if not RulesEngine.has_fired_one_shot(unit, model_id, weapon_id):
+						all_fired = false
+						break
+			if all_fired:
+				continue
+
+		# Score each enemy target (includes weapon range check)
+		var best_target_id = ""
+		var best_score = -1.0
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
+			if score > best_score:
+				best_score = score
+				best_target_id = enemy_id
+
+		if best_target_id != "" and best_score > 0:
+			assignments.append({
+				"weapon_id": weapon_id,
+				"target_unit_id": best_target_id,
+				"model_ids": _get_alive_model_ids(unit)
+			})
+
+	return assignments
 
 # =============================================================================
 # CHARGE PHASE
@@ -3257,6 +3679,14 @@ static func _get_alive_models_with_positions(unit: Dictionary) -> Array:
 		if model.get("alive", true) and model.get("position", null) != null:
 			alive.append(model)
 	return alive
+
+static func _get_alive_model_ids(unit: Dictionary) -> Array:
+	"""Return an array of model IDs for all alive models in the unit."""
+	var ids = []
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			ids.append(model.get("id", ""))
+	return ids
 
 static func _get_unit_centroid(unit: Dictionary) -> Vector2:
 	var alive = _get_alive_models_with_positions(unit)
