@@ -7,6 +7,48 @@ class_name NetworkIntegration
 ## routing them through NetworkManager if multiplayer is active, or executing
 ## them locally for single-player games.
 
+# Helper to reliably find an autoload node by name.
+# Engine.get_main_loop().root.get_node_or_null() can fail in web (WASM) exports,
+# so we try multiple strategies.
+static func _find_autoload(autoload_name: String):
+	var main_loop = Engine.get_main_loop()
+	if main_loop == null:
+		print("[NetworkIntegration] WARNING: Engine.get_main_loop() returned null")
+		return null
+
+	if not (main_loop is SceneTree):
+		print("[NetworkIntegration] WARNING: MainLoop is not a SceneTree (type: %s)" % main_loop.get_class())
+		return null
+
+	var scene_tree: SceneTree = main_loop as SceneTree
+	if scene_tree.root == null:
+		print("[NetworkIntegration] WARNING: SceneTree.root is null")
+		return null
+
+	# Strategy 1: absolute path (standard approach)
+	var node = scene_tree.root.get_node_or_null("/root/" + autoload_name)
+	if node:
+		return node
+
+	# Strategy 2: relative path from root (child lookup)
+	node = scene_tree.root.get_node_or_null(autoload_name)
+	if node:
+		print("[NetworkIntegration] Found %s via relative path (absolute path failed)" % autoload_name)
+		return node
+
+	# Strategy 3: iterate children of root
+	for child in scene_tree.root.get_children():
+		if child.name == autoload_name:
+			print("[NetworkIntegration] Found %s via child iteration (path lookups failed)" % autoload_name)
+			return child
+
+	# Debug: log what's in the tree so we can diagnose further
+	var child_names = []
+	for child in scene_tree.root.get_children():
+		child_names.append(child.name)
+	print("[NetworkIntegration] Could not find '%s'. Root children: %s" % [autoload_name, str(child_names)])
+	return null
+
 # Route an action through the appropriate channel (network or local)
 static func route_action(action: Dictionary) -> Dictionary:
 	"""
@@ -41,7 +83,7 @@ static func route_action(action: Dictionary) -> Dictionary:
 		return {"success": false, "error": "Action missing 'type' field"}
 
 	# Get NetworkManager reference (used for both player ID and routing)
-	var network_manager = Engine.get_main_loop().root.get_node_or_null("/root/NetworkManager")
+	var network_manager = _find_autoload("NetworkManager")
 
 	# Add player and timestamp if not present
 	if not action.has("player"):
@@ -73,7 +115,7 @@ static func route_action(action: Dictionary) -> Dictionary:
 	else:
 		# Single-player mode - execute through phase directly
 		print("[NetworkIntegration] Executing action locally: ", action.get("type"))
-		var phase_manager = Engine.get_main_loop().root.get_node_or_null("/root/PhaseManager")
+		var phase_manager = _find_autoload("PhaseManager")
 
 		if not phase_manager:
 			push_error("[NetworkIntegration] PhaseManager not found")
@@ -89,7 +131,7 @@ static func route_action(action: Dictionary) -> Dictionary:
 
 # Check if multiplayer mode is active
 static func is_multiplayer_active() -> bool:
-	var network_manager = Engine.get_main_loop().root.get_node_or_null("/root/NetworkManager")
+	var network_manager = _find_autoload("NetworkManager")
 	return network_manager != null and network_manager.is_networked()
 
 # Get current player (for action construction)
