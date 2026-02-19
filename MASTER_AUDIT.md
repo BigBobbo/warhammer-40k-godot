@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP6: "Waiting for Opponent" state in deployment (overlay banner, timer countdown, zone pulse, toast notifications) | Deployment | DEPLOYMENT_AUDIT.md §QoL 3 |
 | T5-MP3: Remote player visual feedback for shooting actions (shooting lines, target highlights, weapon labels for ASSIGN_TARGET/CONFIRM_TARGETS/COMPLETE_SHOOTING) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP2: Pile-in/consolidate validation feedback on client (pre-confirm gate + server rejection toast + re-request) | Fight | FIGHT_PHASE_AUDIT.md §3.5 |
 | T5-MP1: Pile-in/consolidate drag movement synced visually to remote player | Fight | FIGHT_PHASE_AUDIT.md §3.6 |
@@ -749,7 +750,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added defender→attacker acknowledgment handshake (`save_dialog_ack`), attacker-side "Waiting for defender" UI feedback, 8s ack timeout with automatic save data retry (`save_data_retry`), 10s processing flag safety reset, and APPLY_SAVES state cleanup. Covers both WebSocket relay and ENet RPC transport modes.
 - T5-MP5. Dice log visibility sync to remote player (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Included `resolution_start` and `weapon_progress` dice blocks in broadcast results so remote players see the same dice log content as the local player. Added proper `resolution_start` context handler in ShootingController for header display. Enhanced NetworkManager dice sync logging with context details. Works across both ENet RPC and WebSocket relay modes.
-- T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3)
+- T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3) — **DONE**
+  - **Resolution:** Added prominent centered overlay banner with "Waiting for Player X (Role) to deploy..." text, live turn timer countdown, pulse animations on both overlay and opponent's deployment zone, and toast notifications on deployment turn switches. Overlay managed via `_setup_waiting_for_opponent_overlay()`, `_update_waiting_for_opponent_overlay()`, and `_hide_waiting_overlay()` in Main.gd.
 - T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`)
 - T5-MP8. Phase timeout for AFK players (AUDIT_COMMAND_PHASE.md §P3)
 - T5-MP9. BEGIN_ADVANCE latency in multiplayer (MOVEMENT_PHASE_AUDIT.md §3.3)
@@ -881,9 +883,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 5 | 46 | 51 |
+| Tier 5 — QoL/Visual | 6 | 45 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **63** | **65** | **128** |
+| **Total Open** | **64** | **64** | **128** |
 | **Recently Completed** | **89** | — | **89** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
