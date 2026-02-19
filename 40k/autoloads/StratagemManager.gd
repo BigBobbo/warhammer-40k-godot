@@ -32,9 +32,25 @@ var _usage_history: Dictionary = {
 #               "effects": Array, "expires": String, "applied_turn": int, "applied_phase": int }
 var active_effects: Array = []
 
+# Faction stratagem tracking: which faction stratagem IDs belong to each player
+# { "1": ["faction_sm_gladius_storm_of_fire", ...], "2": ["faction_ork_war_horde_unbridled_carnage", ...] }
+var _player_faction_stratagems: Dictionary = {
+	"1": [],
+	"2": []
+}
+
+# Faction stratagem loader instance
+var _faction_loader: FactionStratagemLoaderData = null
+
 func _ready() -> void:
 	_load_core_stratagems()
-	print("StratagemManager: Loaded %d stratagems" % stratagems.size())
+	_init_faction_loader()
+	print("StratagemManager: Loaded %d core stratagems" % stratagems.size())
+
+func _init_faction_loader() -> void:
+	"""Initialize the faction stratagem loader and load faction code mappings."""
+	_faction_loader = FactionStratagemLoaderData.new()
+	_faction_loader.load_faction_codes()
 
 # ============================================================================
 # STRATAGEM DEFINITIONS
@@ -383,6 +399,98 @@ func _load_core_stratagems() -> void:
 	}
 
 # ============================================================================
+# FACTION STRATAGEM LOADING
+# ============================================================================
+
+func load_faction_stratagems_for_player(player: int) -> void:
+	"""
+	Load faction stratagems for a player based on their army's faction and detachment.
+	Called after armies are loaded into GameState.
+	"""
+	if _faction_loader == null:
+		_init_faction_loader()
+
+	var faction_data = GameState.state.get("factions", {}).get(str(player), {})
+	var faction_name = faction_data.get("name", "")
+	var detachment_name = faction_data.get("detachment", "")
+
+	if faction_name == "" or faction_name == "Unknown":
+		print("StratagemManager: No faction data for player %d, skipping faction stratagems" % player)
+		return
+
+	print("StratagemManager: Loading faction stratagems for player %d — %s / %s" % [player, faction_name, detachment_name])
+
+	var faction_strats = _faction_loader.load_faction_stratagems(faction_name, detachment_name)
+
+	# Clear any previously loaded faction stratagems for this player
+	_clear_player_faction_stratagems(player)
+
+	# Add faction stratagems to the main stratagems dictionary
+	var loaded_count = 0
+	var implemented_count = 0
+	for strat in faction_strats:
+		var strat_id = strat.get("id", "")
+		if strat_id == "":
+			continue
+
+		stratagems[strat_id] = strat
+		_player_faction_stratagems[str(player)].append(strat_id)
+		loaded_count += 1
+		if strat.get("implemented", false):
+			implemented_count += 1
+
+	print("StratagemManager: Loaded %d faction stratagems for player %d (%d mechanically implemented)" % [loaded_count, player, implemented_count])
+
+func load_all_faction_stratagems() -> void:
+	"""Load faction stratagems for both players. Call after armies are loaded."""
+	load_faction_stratagems_for_player(1)
+	load_faction_stratagems_for_player(2)
+
+func _clear_player_faction_stratagems(player: int) -> void:
+	"""Remove previously loaded faction stratagems for a player."""
+	var player_key = str(player)
+	if _player_faction_stratagems.has(player_key):
+		for strat_id in _player_faction_stratagems[player_key]:
+			stratagems.erase(strat_id)
+		_player_faction_stratagems[player_key] = []
+
+func is_faction_stratagem(stratagem_id: String) -> bool:
+	"""Check if a stratagem is a faction-specific stratagem (not Core)."""
+	return stratagem_id.begins_with("faction_")
+
+func get_stratagem_owner(stratagem_id: String) -> int:
+	"""
+	Get which player owns a faction stratagem. Returns 0 if it's a Core stratagem
+	(available to both) or if the stratagem is unknown.
+	"""
+	if not is_faction_stratagem(stratagem_id):
+		return 0  # Core stratagems are available to all
+
+	for player_key in _player_faction_stratagems:
+		if stratagem_id in _player_faction_stratagems[player_key]:
+			return int(player_key)
+
+	return 0
+
+func get_faction_stratagems_for_player(player: int) -> Array:
+	"""Get all faction stratagem definitions loaded for a player."""
+	var result: Array = []
+	var player_key = str(player)
+	if _player_faction_stratagems.has(player_key):
+		for strat_id in _player_faction_stratagems[player_key]:
+			if stratagems.has(strat_id):
+				result.append(stratagems[strat_id])
+	return result
+
+func get_implemented_faction_stratagems_for_player(player: int) -> Array:
+	"""Get only mechanically implemented faction stratagems for a player."""
+	var result: Array = []
+	for strat in get_faction_stratagems_for_player(player):
+		if strat.get("implemented", false):
+			result.append(strat)
+	return result
+
+# ============================================================================
 # VALIDATION
 # ============================================================================
 
@@ -395,6 +503,15 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		return {"can_use": false, "reason": "Unknown stratagem: %s" % stratagem_id}
 
 	var strat = stratagems[stratagem_id]
+
+	# Check player ownership for faction stratagems
+	if is_faction_stratagem(stratagem_id):
+		var owner = get_stratagem_owner(stratagem_id)
+		if owner != 0 and owner != player:
+			return {"can_use": false, "reason": "This stratagem belongs to player %d" % owner}
+		# Check if stratagem is mechanically implemented
+		if not strat.get("implemented", false):
+			return {"can_use": false, "reason": "%s is not yet mechanically implemented" % strat.name}
 
 	# Check CP
 	var player_cp = _get_player_cp(player)
@@ -1292,6 +1409,8 @@ func _unit_within_distance_of_unit(unit1: Dictionary, unit2: Dictionary, distanc
 func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
 	"""
 	Get reactive stratagems available to the defending player during opponent's shooting.
+	Checks both Core stratagems (Go to Ground, Smokescreen) and faction stratagems
+	that trigger on after_target_selected during opponent's shooting phase.
 	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
 	"""
 	var results = []
@@ -1344,6 +1463,155 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 			results.append({
 				"stratagem": stratagems["smokescreen"],
 				"eligible_units": smoke_eligible_units
+			})
+
+	# Check faction stratagems that trigger on after_target_selected in shooting phase
+	results.append_array(_get_faction_reactive_stratagems(defending_player, target_unit_ids, "after_target_selected", "shooting"))
+
+	return results
+
+func _get_faction_reactive_stratagems(defending_player: int, target_unit_ids: Array, trigger: String, phase: String) -> Array:
+	"""
+	Get faction stratagems that trigger reactively when target units are attacked.
+	Checks each faction stratagem's target conditions against the target units.
+	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
+	"""
+	var results: Array = []
+
+	for strat_id in _player_faction_stratagems.get(str(defending_player), []):
+		if not stratagems.has(strat_id):
+			continue
+		var strat = stratagems[strat_id]
+
+		# Must be implemented
+		if not strat.get("implemented", false):
+			continue
+
+		# Must match trigger
+		if strat.timing.get("trigger", "") != trigger:
+			continue
+
+		# Must be usable on opponent's turn
+		if strat.timing.get("turn", "") != "opponent" and strat.timing.get("turn", "") != "either":
+			continue
+
+		# Must match phase (or be "any" or compound)
+		var strat_phase = strat.timing.get("phase", "")
+		if strat_phase != "any" and strat_phase != phase:
+			if "_or_" in strat_phase:
+				if phase not in strat_phase.split("_or_"):
+					continue
+			else:
+				continue
+
+		# Can we use this stratagem at all? (CP, restrictions)
+		var validation = can_use_stratagem(defending_player, strat_id)
+		if not validation.can_use:
+			continue
+
+		# Check which target units match this stratagem's target conditions
+		var eligible_units: Array = []
+		var target_conditions = strat.get("target", {})
+		var context = {"is_target_of_attack": true}
+
+		for unit_id in target_unit_ids:
+			var unit = GameState.get_unit(unit_id)
+			if unit.is_empty():
+				continue
+			if unit.get("owner", 0) != defending_player:
+				continue
+
+			if FactionStratagemLoaderData.unit_matches_target(unit, target_conditions, context):
+				eligible_units.append(unit_id)
+
+		if not eligible_units.is_empty():
+			results.append({
+				"stratagem": strat,
+				"eligible_units": eligible_units
+			})
+
+	return results
+
+func get_reactive_stratagems_for_fight(defending_player: int, target_unit_ids: Array) -> Array:
+	"""
+	Get reactive stratagems available to the defending player during fight phase.
+	Checks both Core stratagems and faction stratagems that trigger on
+	after_target_selected during fight phase.
+	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
+	"""
+	var results = []
+
+	# Check faction stratagems that trigger on after_target_selected in fight phase
+	results.append_array(_get_faction_reactive_stratagems(defending_player, target_unit_ids, "after_target_selected", "fight"))
+
+	# Also check for shooting_or_fight phase stratagems
+	results.append_array(_get_faction_reactive_stratagems(defending_player, target_unit_ids, "after_target_selected", "shooting_or_fight"))
+
+	return results
+
+func get_proactive_stratagems_for_phase(player: int, phase: String, available_units: Array) -> Array:
+	"""
+	Get proactive faction stratagems a player can use during their active phase.
+	Checks for stratagems like STORM OF FIRE (your shooting phase, shooter_selected)
+	or UNBRIDLED CARNAGE (fight phase, fighter_selected).
+	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
+	"""
+	var results: Array = []
+	var trigger = ""
+
+	match phase:
+		"shooting":
+			trigger = "shooter_selected"
+		"fight":
+			trigger = "fighter_selected"
+		_:
+			return results
+
+	for strat_id in _player_faction_stratagems.get(str(player), []):
+		if not stratagems.has(strat_id):
+			continue
+		var strat = stratagems[strat_id]
+
+		if not strat.get("implemented", false):
+			continue
+
+		if strat.timing.get("trigger", "") != trigger:
+			continue
+
+		# Must be usable on your turn
+		if strat.timing.get("turn", "") != "your" and strat.timing.get("turn", "") != "either":
+			continue
+
+		# Must match phase
+		var strat_phase = strat.timing.get("phase", "")
+		if strat_phase != "any" and strat_phase != phase:
+			if "_or_" in strat_phase:
+				if phase not in strat_phase.split("_or_"):
+					continue
+			else:
+				continue
+
+		var validation = can_use_stratagem(player, strat_id)
+		if not validation.can_use:
+			continue
+
+		# Check which units match target conditions
+		var eligible_units: Array = []
+		var target_conditions = strat.get("target", {})
+
+		for unit_id in available_units:
+			var unit = GameState.get_unit(unit_id)
+			if unit.is_empty():
+				continue
+			if unit.get("owner", 0) != player:
+				continue
+			if FactionStratagemLoaderData.unit_matches_target(unit, target_conditions):
+				eligible_units.append(unit_id)
+
+		if not eligible_units.is_empty():
+			results.append({
+				"stratagem": strat,
+				"eligible_units": eligible_units
 			})
 
 	return results
@@ -1482,4 +1750,7 @@ func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
 	_usage_history = {"1": [], "2": []}
 	active_effects.clear()
+	# Clear faction stratagems (they'll be reloaded when armies are set up)
+	_clear_player_faction_stratagems(1)
+	_clear_player_faction_stratagems(2)
 	print("StratagemManager: Reset for new game")

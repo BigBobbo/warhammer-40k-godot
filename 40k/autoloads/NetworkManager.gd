@@ -497,6 +497,23 @@ func _handle_relayed_result(result: Dictionary) -> void:
 
 	print("NetworkManager: Client finished applying relayed result")
 
+func _broadcast_result_from_phase_manager(result: Dictionary) -> void:
+	"""Broadcast a phase-manager-generated result (e.g. auto phase advance) to clients."""
+	if not is_host():
+		return
+
+	print("NetworkManager: Broadcasting phase manager result: ", result.get("action_type", "UNKNOWN"))
+
+	if web_relay_mode:
+		_send_via_relay({
+			"msg_type": "action_result",
+			"result": result
+		})
+	else:
+		# ENet mode - use RPC
+		if multiplayer and multiplayer.has_multiplayer_peer():
+			_broadcast_result.rpc(result)
+
 func _send_via_relay(data: Dictionary) -> void:
 	"""Send data to the other player via WebSocketRelay."""
 	if not web_relay:
@@ -1442,6 +1459,15 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"EMBARK_UNITS_DEPLOYMENT",
 		"PLACE_IN_RESERVES",  # Part of deployment alternation flow
 		"APPLY_SAVES",  # Reactive action - defender responds during attacker's turn
+		# Formations actions - both players declare simultaneously
+		"DECLARE_LEADER_ATTACHMENT",
+		"DECLARE_TRANSPORT_EMBARKATION",
+		"DECLARE_RESERVES",
+		"UNDECLARE_LEADER_ATTACHMENT",
+		"UNDECLARE_TRANSPORT_EMBARKATION",
+		"UNDECLARE_RESERVES",
+		"CONFIRM_FORMATIONS",
+		"END_FORMATIONS",
 		# Fight Phase actions - players alternate during active player's turn
 		"SELECT_FIGHTER",
 		"SELECT_MELEE_WEAPON",
@@ -1470,12 +1496,12 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		#   - Once a player selects a unit, ALL subsequent actions for that activation occur during opponent's turn
 
 		# Still validate player authority (that the peer is who they claim to be)
-		if action_type == "APPLY_SAVES":
+		if action.has("player"):
 			var claimed_player = action.get("player", -1)
 			var peer_player = peer_to_player_map.get(peer_id, -1)
-			print("NetworkManager: APPLY_SAVES authority check - claimed=%d, peer=%d" % [claimed_player, peer_player])
+			print("NetworkManager: Exempt action '%s' authority check - claimed=%d, peer=%d" % [action_type, claimed_player, peer_player])
 			if claimed_player != peer_player:
-				print("NetworkManager: VALIDATION FAILED - player mismatch for APPLY_SAVES")
+				print("NetworkManager: VALIDATION FAILED - player mismatch for %s" % action_type)
 				return {"valid": false, "reason": "Player ID mismatch (claimed=%d, expected=%d)" % [claimed_player, peer_player]}
 	else:
 		# Layer 2: Authority validation (only for player-specific actions)

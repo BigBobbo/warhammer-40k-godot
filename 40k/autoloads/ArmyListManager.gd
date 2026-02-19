@@ -250,7 +250,12 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 			GameState.state["factions"] = {}
 		GameState.state["factions"][str(player)] = army_data.faction
 		print("Set faction for player ", player, ": ", army_data.faction.get("name", "Unknown"))
-	
+
+	# Load faction stratagems for this player
+	var stratagem_manager = get_node_or_null("/root/StratagemManager")
+	if stratagem_manager:
+		stratagem_manager.load_faction_stratagems_for_player(player)
+
 	print("Army applied successfully. Total units in game: ", all_units.size())
 
 func get_available_armies() -> Array:
