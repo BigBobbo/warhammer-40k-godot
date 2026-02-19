@@ -415,6 +415,15 @@ func _on_web_relay_message(data: Dictionary) -> void:
 					game_state.emit_signal("state_changed")
 				emit_signal("game_started")
 
+		"drag_preview":
+			# T5-MP1: Real-time drag preview from remote player during pile-in/consolidate
+			var dp_unit_id = data.get("unit_id", "")
+			var dp_model_id = data.get("model_id", "")
+			var dp_pos_x = data.get("pos_x", 0.0)
+			var dp_pos_y = data.get("pos_y", 0.0)
+			if dp_unit_id != "" and dp_model_id != "":
+				_apply_drag_preview(dp_unit_id, dp_model_id, dp_pos_x, dp_pos_y)
+
 		"loaded_state":
 			# Host loaded a saved game mid-session — sync state and refresh UI
 			reset_optimistic_state()
@@ -460,6 +469,15 @@ func _handle_relayed_action(action: Dictionary) -> void:
 
 	if result.success:
 		_update_phase_snapshot()
+
+		# T5-MP1: Animate remote player's pile-in/consolidate movements on host
+		var relayed_action_type = action.get("type", "")
+		if relayed_action_type == "PILE_IN" or relayed_action_type == "CONSOLIDATE":
+			var move_unit_id = action.get("unit_id", "")
+			var move_movements = action.get("movements", {})
+			if move_unit_id != "" and not move_movements.is_empty():
+				print("NetworkManager: T5-MP1: Host (relay) animating remote player's %s movements (unit: %s)" % [relayed_action_type, move_unit_id])
+				_animate_fight_movement_tokens(move_unit_id, move_movements)
 
 		# Broadcast result to guest via relay
 		print("NetworkManager: Broadcasting result via relay")
@@ -801,6 +819,16 @@ func _send_action_to_host(action: Dictionary) -> void:
 	if result.success:
 		# Update phase snapshot so next validation sees the changes
 		_update_phase_snapshot()
+
+		# T5-MP1: When host processes a remote client's PILE_IN/CONSOLIDATE,
+		# animate the model tokens on the host's screen too
+		var client_action_type = action.get("type", "")
+		if client_action_type == "PILE_IN" or client_action_type == "CONSOLIDATE":
+			var move_unit_id = action.get("unit_id", "")
+			var move_movements = action.get("movements", {})
+			if move_unit_id != "" and not move_movements.is_empty():
+				print("NetworkManager: T5-MP1: Host animating remote player's %s movements (unit: %s)" % [client_action_type, move_unit_id])
+				_animate_fight_movement_tokens(move_unit_id, move_movements)
 
 		# Broadcast the result to all clients (but not back to host since it already applied)
 		print("NetworkManager: Host broadcasting client action result to all clients")
@@ -1257,6 +1285,19 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					})
 
 	# ====================================================================
+	# FIGHT PHASE - Pile-In/Consolidate visual sync (T5-MP1)
+	# ====================================================================
+
+	# Handle PILE_IN visual updates — animate models to new positions for remote player
+	# Without this, models appear to teleport to final positions on the remote client
+	if action_type == "PILE_IN" or action_type == "CONSOLIDATE":
+		var unit_id = action_data.get("unit_id", "")
+		var movements = action_data.get("movements", {})
+		if unit_id != "" and not movements.is_empty():
+			print("NetworkManager: T5-MP1: Animating %s model movements for remote player (unit: %s, %d models)" % [action_type, unit_id, movements.size()])
+			_animate_fight_movement_tokens(unit_id, movements)
+
+	# ====================================================================
 	# RAPID INGRESS - Signal re-emission for multiplayer sync (T4-7)
 	# ====================================================================
 
@@ -1271,6 +1312,101 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			phase.emit_signal("rapid_ingress_opportunity", ri_player, ri_eligible)
 
 	print("NetworkManager: _emit_client_visual_updates END")
+
+# ============================================================================
+# T5-MP1: PILE-IN/CONSOLIDATE VISUAL SYNC
+# ============================================================================
+
+func _animate_fight_movement_tokens(unit_id: String, movements: Dictionary) -> void:
+	"""Animate model tokens from current visual position to new positions.
+	T5-MP1: Called when PILE_IN or CONSOLIDATE results are received on the remote client
+	to provide smooth visual feedback instead of models teleporting."""
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		print("NetworkManager: T5-MP1: Cannot animate - TokenLayer not found")
+		return
+
+	# Get unit data to map model indices to model IDs
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		print("NetworkManager: T5-MP1: Cannot animate - unit %s not found" % unit_id)
+		return
+
+	var models = unit.get("models", [])
+
+	for model_key in movements:
+		var new_pos_data = movements[model_key]
+
+		# Handle both Vector2 and dict formats (dict when coming through relay JSON)
+		var target_pos: Vector2
+		if new_pos_data is Vector2:
+			target_pos = new_pos_data
+		elif new_pos_data is Dictionary:
+			target_pos = Vector2(new_pos_data.get("x", 0), new_pos_data.get("y", 0))
+		elif new_pos_data is Array and new_pos_data.size() >= 2:
+			target_pos = Vector2(new_pos_data[0], new_pos_data[1])
+		else:
+			print("NetworkManager: T5-MP1: Skipping model %s - unrecognized position format" % model_key)
+			continue
+
+		# Model key is array index (e.g., "0", "1") - map to model ID
+		var model_id = ""
+		var model_index = int(model_key) if str(model_key).is_valid_int() else -1
+		if model_index >= 0 and model_index < models.size():
+			model_id = models[model_index].get("id", "m%d" % (model_index + 1))
+		else:
+			model_id = str(model_key)
+
+		# Find the token in TokenLayer and animate it
+		for token in token_layer.get_children():
+			if token.has_meta("unit_id") and token.has_meta("model_id"):
+				if token.get_meta("unit_id") == unit_id and token.get_meta("model_id") == model_id:
+					print("NetworkManager: T5-MP1: Animating token %s/%s from %s to %s" % [unit_id, model_id, token.position, target_pos])
+					var tween = create_tween()
+					tween.tween_property(token, "position", target_pos, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+					break
+
+func send_drag_preview(unit_id: String, model_id: String, position: Vector2) -> void:
+	"""T5-MP1: Send a drag position preview to the remote player during pile-in/consolidate.
+	Called by FightController at throttled intervals during model drag."""
+	if not is_networked():
+		return
+
+	if web_relay_mode:
+		_send_via_relay({
+			"msg_type": "drag_preview",
+			"unit_id": unit_id,
+			"model_id": model_id,
+			"pos_x": position.x,
+			"pos_y": position.y
+		})
+	else:
+		# ENet mode - use RPC
+		if multiplayer and multiplayer.has_multiplayer_peer():
+			if is_host():
+				# Host sends to all clients
+				_receive_drag_preview.rpc(unit_id, model_id, position.x, position.y)
+			else:
+				# Client sends to host
+				_receive_drag_preview.rpc_id(1, unit_id, model_id, position.x, position.y)
+
+@rpc("any_peer", "call_remote", "unreliable")
+func _receive_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_y: float) -> void:
+	"""T5-MP1: Receive a drag position preview from the remote player."""
+	_apply_drag_preview(unit_id, model_id, pos_x, pos_y)
+
+func _apply_drag_preview(unit_id: String, model_id: String, pos_x: float, pos_y: float) -> void:
+	"""T5-MP1: Apply a drag preview by moving the token directly (no tween for real-time feel)."""
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	var target_pos = Vector2(pos_x, pos_y)
+	for token in token_layer.get_children():
+		if token.has_meta("unit_id") and token.has_meta("model_id"):
+			if token.get_meta("unit_id") == unit_id and token.get_meta("model_id") == model_id:
+				token.position = target_pos
+				return
 
 # ============================================================================
 # OPTIMISTIC EXECUTION - Rollback and Reset

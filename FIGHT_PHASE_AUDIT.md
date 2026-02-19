@@ -242,13 +242,15 @@ The workaround in `FightController.set_phase()` (lines 345-350) re-triggers the 
 
 ---
 
-### 3.6 LOW: Pile-In/Consolidate Drag Movement Not Synced Visually
+### 3.6 LOW: Pile-In/Consolidate Drag Movement Not Synced Visually — **DONE**
 
 **Current State:** During pile-in and consolidation, the active player drags model tokens around the battlefield. The remote player does not see this movement in real-time — they only see the final positions after the PILE_IN or CONSOLIDATE action is confirmed.
 
 **Impact:** The remote player has no visual feedback of what the opponent is doing during pile-in/consolidation. Models appear to teleport to new positions.
 
 **Recommendation:** Consider sending position update messages during drag (even at reduced frequency) to show the remote player what's happening, or at minimum animate models moving from old to new positions when the final action arrives.
+
+**Resolution:** Implemented both approaches: (1) Real-time throttled drag previews sent every 100ms during pile-in/consolidate drag via both ENet RPC (unreliable) and WebSocket relay. (2) Smooth tween animation (0.4s ease-out) on PILE_IN/CONSOLIDATE action confirmation for remote player. Also handles host-side visual sync when processing remote client's pile-in/consolidate actions.
 
 ---
 
@@ -454,7 +456,7 @@ The earlier audit at `40k/PRPs/fight_phase_audit_report.md` reported several iss
 | 2.2 GameManager action registration | CRITICAL | **RESOLVED** | |
 | 2.3 Race condition in dialog sequencing | MEDIUM | **STILL OPEN** | See §3.3 above |
 | 2.4 Initial dialog sync for client | MEDIUM | **STILL OPEN** | See §3.4 above |
-| 2.5 Drag movement not synced visually | LOW | **STILL OPEN** | See §3.6 above |
+| 2.5 Drag movement not synced visually | LOW | **DONE** | See §3.6 above |
 
 ---
 
@@ -478,7 +480,7 @@ The earlier audit at `40k/PRPs/fight_phase_audit_report.md` reported several iss
 | 3.3 | Race condition in dialog sequencing | MEDIUM | Multiplayer | Open |
 | 3.4 | Initial dialog sync for client | MEDIUM | Multiplayer | Workaround |
 | 3.5 | Pile-in/consolidate validation feedback missing | MEDIUM | Multiplayer | Open |
-| 3.6 | Drag movement not synced visually | LOW | Multiplayer | Open |
+| 3.6 | Drag movement not synced visually | LOW | Multiplayer | **DONE** |
 | 4.1 | Attack assignment dialog UX | - | QoL | Suggested |
 | 4.2 | Movement feedback improvements | - | QoL | Suggested |
 | 4.3 | Fight sequence visibility in multiplayer | - | QoL | Suggested |

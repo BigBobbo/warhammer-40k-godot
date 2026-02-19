@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP1: Pile-in/consolidate drag movement synced visually to remote player | Fight | FIGHT_PHASE_AUDIT.md §3.6 |
 | CP Generation (1 CP per command phase) | Command | AUDIT_COMMAND_PHASE.md |
 | CP Display in UI | Command | AUDIT_COMMAND_PHASE.md |
 | Battle-shock tests (below-half-strength, 2D6 vs Ld, flag apply/clear) | Command | AUDIT_COMMAND_PHASE.md |
@@ -734,7 +735,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 ## TIER 5 — Quality of Life & UX Improvements
 
 ### Multiplayer UX
-- T5-MP1. Pile-in/consolidate drag movement not synced visually to remote player (FIGHT_PHASE_AUDIT.md §3.6)
+- T5-MP1. Pile-in/consolidate drag movement not synced visually to remote player (FIGHT_PHASE_AUDIT.md §3.6) — **DONE**
+  - **Resolution:** Added real-time throttled drag previews during pile-in/consolidate (sent every 100ms to remote player) and smooth tween animations on PILE_IN/CONSOLIDATE action confirmation. Covers both ENet and WebSocket relay transport modes. Remote player now sees models moving during drag and smooth transitions on confirmation instead of teleportation.
 - T5-MP2. Pile-in/consolidate validation feedback missing on client (FIGHT_PHASE_AUDIT.md §3.5)
 - T5-MP3. Remote player visual feedback for shooting actions (SHOOTING_PHASE_AUDIT.md §Tier 3)
 - T5-MP4. Save dialog timing reliability for defender on remote client (SHOOTING_PHASE_AUDIT.md §Additional)
@@ -871,9 +873,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 0 | 51 | 51 |
+| Tier 5 — QoL/Visual | 1 | 50 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **58** | **70** | **128** |
+| **Total Open** | **59** | **69** | **128** |
 | **Recently Completed** | **85** | — | **85** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 

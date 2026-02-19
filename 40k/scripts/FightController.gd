@@ -39,6 +39,10 @@ var range_visual: Node2D
 var target_highlights: Node2D
 var hud_right: Control
 
+# T5-MP1: Drag preview sync throttle
+var _last_drag_preview_time: float = 0.0
+const DRAG_PREVIEW_INTERVAL_MS: float = 100.0  # Send preview at most every 100ms
+
 # Pile-in visual indicators
 var pile_in_visuals: Node2D = null  # Container for all pile-in visuals
 var range_circles: Dictionary = {}  # model_id -> Node2D (circle showing 3" range)
@@ -1974,6 +1978,14 @@ func _update_model_drag_pile_in(mouse_pos: Vector2) -> void:
 
 	# Update visual indicators
 	_update_pile_in_visuals()
+
+	# T5-MP1: Send throttled drag preview to remote player
+	var now_ms = Time.get_ticks_msec()
+	if now_ms - _last_drag_preview_time >= DRAG_PREVIEW_INTERVAL_MS:
+		_last_drag_preview_time = now_ms
+		var network_manager = get_node_or_null("/root/NetworkManager")
+		if network_manager and network_manager.is_networked():
+			network_manager.send_drag_preview(pile_in_unit_id, drag_model_id, new_pos)
 
 	# Update dialog with current movements if possible
 	if pile_in_dialog_ref and pile_in_dialog_ref.has_method("update_movements"):
