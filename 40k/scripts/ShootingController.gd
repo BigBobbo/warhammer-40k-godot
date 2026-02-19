@@ -24,6 +24,14 @@ var current_save_context: Dictionary = {}  # Track what we're showing dialog for
 var active_allocation_overlay: WoundAllocationOverlay = null  # Track active overlay instance
 var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
 
+# T5-MP4: Save dialog timing reliability
+var _save_processing_timeout_timer: Timer = null  # Safety timer to reset processing_saves_signal
+var _awaiting_remote_saves: bool = false  # True on attacker side while waiting for defender saves
+var _pending_save_data_for_retry: Array = []  # Cached save data for potential retry
+var _save_ack_received: bool = false  # Whether defender acknowledged receiving save dialog
+const SAVE_PROCESSING_TIMEOUT_SEC: float = 10.0  # Max time for processing_saves_signal to stay true
+const SAVE_ACK_TIMEOUT_SEC: float = 8.0  # Time to wait for defender acknowledgment before retry
+
 # UI References
 var board_view: Node2D
 var los_visual: Line2D
@@ -69,6 +77,11 @@ func _ready() -> void:
 	set_process_unhandled_input(true)  # Keep both for safety
 	_setup_ui_references()
 	_create_shooting_visuals()
+	# T5-MP4: Setup save processing timeout timer
+	_save_processing_timeout_timer = Timer.new()
+	_save_processing_timeout_timer.one_shot = true
+	_save_processing_timeout_timer.timeout.connect(_on_save_processing_timeout)
+	add_child(_save_processing_timeout_timer)
 	print("ShootingController ready")
 
 func _exit_tree() -> void:
@@ -1627,6 +1640,18 @@ func _on_saves_required(save_data_list: Array) -> void:
 		print("║ ")
 		print("║ ❌ NOT SHOWING DIALOG - Not the defending player")
 		print("║ This client is the attacker, not the defender")
+		# T5-MP4: Attacker-side — show "Waiting for defender" feedback and start ack timeout
+		if NetworkManager.is_networked():
+			_awaiting_remote_saves = true
+			_save_ack_received = false
+			_pending_save_data_for_retry = save_data_list.duplicate(true)
+			print("║ T5-MP4: Attacker waiting for defender to make saves")
+			print("║ T5-MP4: Starting ack timeout (%.0fs)" % SAVE_ACK_TIMEOUT_SEC)
+			_show_waiting_for_saves_feedback(target, weapon)
+			# Start ack timeout timer — if defender doesn't ack, we'll log a warning
+			if _save_processing_timeout_timer:
+				_save_processing_timeout_timer.wait_time = SAVE_ACK_TIMEOUT_SEC
+				_save_processing_timeout_timer.start()
 		print("╚═══════════════════════════════════════════════════════════════")
 		processing_saves_signal = false
 		return
@@ -1683,6 +1708,9 @@ func _on_saves_required(save_data_list: Array) -> void:
 
 		active_allocation_overlay = null  # Clear reference
 		processing_saves_signal = false  # Reset flag to allow next allocation
+		# T5-MP4: Stop safety timer and clear retry state
+		if _save_processing_timeout_timer:
+			_save_processing_timeout_timer.stop()
 		set_process_input(true)
 		set_process_unhandled_input(true)
 	)
@@ -1699,12 +1727,23 @@ func _on_saves_required(save_data_list: Array) -> void:
 	main.add_child(overlay)
 	print("║ Added overlay to Main scene tree")
 
+	# T5-MP4: Start safety timer to reset processing_saves_signal if something goes wrong
+	if _save_processing_timeout_timer:
+		_save_processing_timeout_timer.wait_time = SAVE_PROCESSING_TIMEOUT_SEC
+		_save_processing_timeout_timer.start()
+		print("║ T5-MP4: Started save processing safety timer (%.0fs)" % SAVE_PROCESSING_TIMEOUT_SEC)
+
 	# Wait one frame to ensure _ready() has been called
 	await get_tree().process_frame
 
 	# Setup with save data
 	overlay.setup(save_data, defender_player)
 	print("║ Overlay setup complete")
+
+	# T5-MP4: Send acknowledgment to attacker that save dialog is now showing
+	if NetworkManager.is_networked():
+		print("║ T5-MP4: Sending save_dialog_ack to attacker")
+		NetworkManager.send_save_dialog_ack(target_unit_id, weapon)
 	print("╚═══════════════════════════════════════════════════════════════")
 
 func _on_weapon_order_required(assignments: Array) -> void:
@@ -2713,3 +2752,107 @@ func _on_grenade_result_acknowledged() -> void:
 	print("ShootingController: Grenade result acknowledged, refreshing UI")
 	_refresh_unit_list()
 	_update_grenade_button_visibility()
+
+# ====================================================================
+# T5-MP4: Save dialog timing reliability helpers
+# ====================================================================
+
+func _show_waiting_for_saves_feedback(target_id: String, weapon_name: String) -> void:
+	"""Show attacker-side feedback while waiting for defender to make saves."""
+	var target_unit = GameState.get_unit(target_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_id) if not target_unit.is_empty() else target_id
+
+	# Update status label via Main
+	var main = get_node_or_null("/root/Main")
+	if main and "status_label" in main and main.status_label:
+		main.status_label.text = "Waiting for defender to make saves (%s vs %s)..." % [weapon_name, target_name]
+
+	# Also show a toast notification
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast("Waiting for defender to resolve saves...", Color.YELLOW, 4.0)
+
+	print("T5-MP4: Showing 'Waiting for defender' feedback — weapon=%s, target=%s" % [weapon_name, target_name])
+
+func _on_save_processing_timeout() -> void:
+	"""Safety timeout — reset processing_saves_signal if it got stuck, or handle ack timeout."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ T5-MP4: SAVE PROCESSING TIMEOUT FIRED")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ processing_saves_signal: ", processing_saves_signal)
+	print("║ _awaiting_remote_saves: ", _awaiting_remote_saves)
+	print("║ _save_ack_received: ", _save_ack_received)
+
+	if _awaiting_remote_saves and not _save_ack_received:
+		# Attacker side: defender didn't acknowledge — try re-sending save data
+		print("║ Attacker: No ack from defender — attempting retry via NetworkManager")
+		print("╚═══════════════════════════════════════════════════════════════")
+		_retry_save_data_broadcast()
+		return
+
+	if processing_saves_signal:
+		# Defender side: processing_saves_signal got stuck — reset it
+		print("║ SAFETY RESET: processing_saves_signal was stuck — resetting to false")
+		print("║ This allows future saves_required signals to be processed")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_saves_signal = false
+		# Re-enable input in case it was disabled
+		set_process_input(true)
+		set_process_unhandled_input(true)
+	else:
+		print("║ No action needed — processing_saves_signal already false")
+		print("╚═══════════════════════════════════════════════════════════════")
+
+func _retry_save_data_broadcast() -> void:
+	"""Re-broadcast save data to defender if ack was not received."""
+	if _pending_save_data_for_retry.is_empty():
+		print("T5-MP4: No pending save data to retry")
+		return
+
+	print("T5-MP4: Retrying save data broadcast (%d entries)" % _pending_save_data_for_retry.size())
+
+	# Ask NetworkManager to re-send the save data via relay
+	NetworkManager.retry_save_data_broadcast(_pending_save_data_for_retry)
+
+	# Show updated feedback
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast("Retrying save data to defender...", Color.ORANGE, 3.0)
+
+	# Don't retry indefinitely — clear after one retry attempt
+	_pending_save_data_for_retry.clear()
+
+func on_save_dialog_acknowledged(target_unit_id: String, weapon_name: String) -> void:
+	"""Called by NetworkManager when defender acknowledges receiving the save dialog."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ T5-MP4: SAVE DIALOG ACKNOWLEDGED BY DEFENDER")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ Target: ", target_unit_id)
+	print("║ Weapon: ", weapon_name)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	_save_ack_received = true
+	_awaiting_remote_saves = false
+	_pending_save_data_for_retry.clear()
+
+	# Stop the ack timeout timer
+	if _save_processing_timeout_timer:
+		_save_processing_timeout_timer.stop()
+
+	# Update attacker feedback
+	var target_unit = GameState.get_unit(target_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id) if not target_unit.is_empty() else target_unit_id
+
+	var main = get_node_or_null("/root/Main")
+	if main and "status_label" in main and main.status_label:
+		main.status_label.text = "Defender is making saves (%s vs %s)..." % [weapon_name, target_name]
+
+func clear_awaiting_saves_state() -> void:
+	"""Clear the waiting-for-saves state (called when APPLY_SAVES result arrives)."""
+	if _awaiting_remote_saves:
+		print("T5-MP4: Clearing awaiting remote saves state")
+	_awaiting_remote_saves = false
+	_save_ack_received = false
+	_pending_save_data_for_retry.clear()
+	if _save_processing_timeout_timer:
+		_save_processing_timeout_timer.stop()

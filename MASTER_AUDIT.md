@@ -58,6 +58,7 @@ These items were previously open in the audit files and have now been verified a
 | T6-4: Multiplayer test infrastructure (sync, latency, disconnect tests) | Testing | MASTER_AUDIT.md §Tier 6 |
 | [MH-BUG-2] Twin-linked re-rolls wounds not hits | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T1-3: Wound roll modifier system (+1/-1 cap) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Tier 2 |
+| T5-MP4: Save dialog timing reliability for defender on remote client (ack/retry/timeout) | Shooting | SHOOTING_PHASE_AUDIT.md §3.3 |
 | T1-1: Melta X weapon keyword — bonus damage at half range | Shooting | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-2: Twin-linked weapon keyword — re-roll wound rolls | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.3 |
 | T1-4: Morale Phase 10e overhaul — replaced 9e stub with proper bookkeeping phase | Morale | MASTER_AUDIT.md §Tier 1 |
@@ -743,7 +744,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added client-side validation gate in PileInDialog and ConsolidateDialog `_on_confirmed()` — dialog now blocks confirmation when movements are invalid, shows error in status label and toast. Added server-side rejection feedback in Main.gd: failed PILE_IN/CONSOLIDATE actions show toast error and re-request the movement dialog so the player can retry.
 - T5-MP3. Remote player visual feedback for shooting actions (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
   - **Resolution:** Added remote player visual feedback for all shooting actions: ASSIGN_TARGET draws orange shooting lines and weapon labels from shooter to target, CLEAR_ASSIGNMENT clears them, CONFIRM_TARGETS re-emits shooting_begun to draw shooting lines, COMPLETE_SHOOTING_FOR_UNIT re-emits shooting_resolved to clear visuals. Covers both ENet and WebSocket relay transport modes, and both host→client and client→host directions.
-- T5-MP4. Save dialog timing reliability for defender on remote client (SHOOTING_PHASE_AUDIT.md §Additional)
+- T5-MP4. Save dialog timing reliability for defender on remote client (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
+  - **Resolution:** Added defender→attacker acknowledgment handshake (`save_dialog_ack`), attacker-side "Waiting for defender" UI feedback, 8s ack timeout with automatic save data retry (`save_data_retry`), 10s processing flag safety reset, and APPLY_SAVES state cleanup. Covers both WebSocket relay and ENet RPC transport modes.
 - T5-MP5. Dice log visibility sync to remote player (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3)
 - T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`)
@@ -877,10 +879,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 3 | 48 | 51 |
+| Tier 5 — QoL/Visual | 4 | 47 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **61** | **67** | **128** |
-| **Recently Completed** | **87** | — | **87** |
+| **Total Open** | **62** | **66** | **128** |
+| **Recently Completed** | **88** | — | **88** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

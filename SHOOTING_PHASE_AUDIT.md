@@ -196,11 +196,19 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 - Covers both ENet RPC and WebSocket relay transport modes
 - Covers both host→client and client→host directions (host seeing client's actions and vice versa)
 
-### 3.3 MEDIUM: Save Dialog Timing for Defender on Remote Client
+### 3.3 MEDIUM: Save Dialog Timing for Defender on Remote Client — **DONE**
 
 **Current state:** The `saves_required` signal triggers the wound allocation overlay. In multiplayer, the save data is broadcast as part of the action result (`save_data_list` in the result payload). The remote client (defender) should receive this and show their own overlay.
 
 **Potential issue:** If the save data broadcast is delayed or lost, the defender may not see the save dialog. The code has defensive logging (`ShootingPhase.gd:601-619`), but there is no explicit retry or confirmation mechanism for the defender acknowledging save results.
+
+- **Resolution:** Implemented save dialog timing reliability (T5-MP4). Added:
+  - Defender→attacker acknowledgment: when defender receives and displays the save dialog, sends a `save_dialog_ack` message via relay/RPC
+  - Attacker-side "Waiting for defender..." feedback via status label and toast while saves are pending
+  - Acknowledgment timeout (8s): if defender doesn't ack, attacker automatically retries the save data broadcast via `save_data_retry` message
+  - Processing flag safety timer (10s): resets stuck `processing_saves_signal` flag to prevent permanent lockout
+  - State cleanup: `clear_awaiting_saves_state()` called when APPLY_SAVES result arrives
+  - Covers both WebSocket relay and ENet RPC transport modes
 
 ### 3.4 LOW: Dice Log Not Visible to Remote Player in Real-Time
 
