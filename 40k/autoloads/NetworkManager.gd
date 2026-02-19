@@ -415,6 +415,22 @@ func _on_web_relay_message(data: Dictionary) -> void:
 					game_state.emit_signal("state_changed")
 				emit_signal("game_started")
 
+		"save_dialog_ack":
+			# T5-MP4: Defender acknowledged receiving the save dialog
+			var ack_target = data.get("target_unit_id", "")
+			var ack_weapon = data.get("weapon_name", "")
+			print("NetworkManager: T5-MP4: Received save_dialog_ack — target=%s, weapon=%s" % [ack_target, ack_weapon])
+			var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+			if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
+				shooting_controller.on_save_dialog_acknowledged(ack_target, ack_weapon)
+
+		"save_data_retry":
+			# T5-MP4: Attacker is retrying save data broadcast — re-emit saves_required
+			var retry_save_data = data.get("save_data_list", [])
+			print("NetworkManager: T5-MP4: Received save_data_retry with %d entries" % retry_save_data.size())
+			if not retry_save_data.is_empty():
+				_handle_save_data_retry(retry_save_data)
+
 		"drag_preview":
 			# T5-MP1: Real-time drag preview from remote player during pile-in/consolidate
 			var dp_unit_id = data.get("unit_id", "")
@@ -609,6 +625,98 @@ func send_initial_state_via_relay() -> void:
 		"msg_type": "initial_state",
 		"snapshot": snapshot
 	})
+
+# ====================================================================
+# T5-MP4: Save dialog timing reliability
+# ====================================================================
+
+func send_save_dialog_ack(target_unit_id: String, weapon_name: String) -> void:
+	"""Send acknowledgment that the save dialog is showing on this client."""
+	if not is_networked():
+		return
+
+	print("NetworkManager: T5-MP4: Sending save_dialog_ack — target=%s, weapon=%s" % [target_unit_id, weapon_name])
+
+	if web_relay_mode:
+		_send_via_relay({
+			"msg_type": "save_dialog_ack",
+			"target_unit_id": target_unit_id,
+			"weapon_name": weapon_name
+		})
+	elif multiplayer and multiplayer.has_multiplayer_peer():
+		# ENet mode — send to all peers (host or client)
+		_receive_save_dialog_ack.rpc(target_unit_id, weapon_name)
+
+func retry_save_data_broadcast(save_data_list: Array) -> void:
+	"""Re-broadcast save data to the other player for retry."""
+	if not is_networked():
+		return
+
+	print("NetworkManager: T5-MP4: Retrying save data broadcast (%d entries)" % save_data_list.size())
+
+	if web_relay_mode:
+		_send_via_relay({
+			"msg_type": "save_data_retry",
+			"save_data_list": save_data_list
+		})
+	elif multiplayer and multiplayer.has_multiplayer_peer():
+		# ENet mode — broadcast to all peers
+		_receive_save_data_retry.rpc(save_data_list)
+
+@rpc("any_peer", "reliable")
+func _receive_save_dialog_ack(target_unit_id: String, weapon_name: String) -> void:
+	"""RPC handler for save dialog acknowledgment (ENet mode)."""
+	print("NetworkManager: T5-MP4: Received save_dialog_ack via RPC — target=%s, weapon=%s" % [target_unit_id, weapon_name])
+	var shooting_controller = get_node_or_null("/root/Main/ShootingController")
+	if shooting_controller and shooting_controller.has_method("on_save_dialog_acknowledged"):
+		shooting_controller.on_save_dialog_acknowledged(target_unit_id, weapon_name)
+
+@rpc("any_peer", "reliable")
+func _receive_save_data_retry(save_data_list: Array) -> void:
+	"""RPC handler for save data retry (ENet mode)."""
+	print("NetworkManager: T5-MP4: Received save_data_retry via RPC (%d entries)" % save_data_list.size())
+	_handle_save_data_retry(save_data_list)
+
+func _handle_save_data_retry(save_data_list: Array) -> void:
+	"""Process a retry of save data — re-emit saves_required on the defender's client."""
+	if save_data_list.is_empty():
+		print("NetworkManager: T5-MP4: Empty retry save data — ignoring")
+		return
+
+	# Check if this client is the defender
+	var first_save_data = save_data_list[0]
+	var target_unit_id = first_save_data.get("target_unit_id", "")
+	if target_unit_id == "":
+		print("NetworkManager: T5-MP4: No target_unit_id in retry data — ignoring")
+		return
+
+	var target_unit = GameState.get_unit(target_unit_id)
+	var defender_player = target_unit.get("owner", -1)
+	var local_player = get_local_player()
+
+	if local_player != defender_player:
+		print("NetworkManager: T5-MP4: Retry received but local=%d is not defender=%d — ignoring" % [local_player, defender_player])
+		return
+
+	# Re-emit saves_required on the current phase
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not phase_manager_ref or not phase_manager_ref.current_phase_instance:
+		print("NetworkManager: T5-MP4: No phase instance for retry — ignoring")
+		return
+
+	var phase = phase_manager_ref.current_phase_instance
+	if phase.has_signal("saves_required"):
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ T5-MP4: RETRY — RE-EMITTING saves_required")
+		print("║ Timestamp: ", Time.get_ticks_msec())
+		print("║ Save data list size: ", save_data_list.size())
+		print("╚═══════════════════════════════════════════════════════════════")
+		phase.emit_signal("saves_required", save_data_list)
+
+		# Also store pending_save_data
+		if "pending_save_data" in phase:
+			phase.pending_save_data = save_data_list
 
 func disconnect_network() -> void:
 	if multiplayer.multiplayer_peer:
@@ -1005,6 +1113,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					"assignments": confirmed_assignments
 				}
 				print("NetworkManager: ✅ Client updated resolution_state")
+
+	# T5-MP4: Clear attacker's waiting-for-saves state when APPLY_SAVES result arrives
+	if action_type == "APPLY_SAVES":
+		var sc = get_node_or_null("/root/Main/ShootingController")
+		if sc and sc.has_method("clear_awaiting_saves_state"):
+			print("NetworkManager: T5-MP4: Clearing attacker's awaiting saves state (APPLY_SAVES received)")
+			sc.clear_awaiting_saves_state()
 
 	# Handle next_weapon_confirmation_required signal for sequential mode
 	# This happens when APPLY_SAVES completes OR when RESOLVE_WEAPON_SEQUENCE has no wounds (miss) OR when CONTINUE_SEQUENCE needs next weapon
