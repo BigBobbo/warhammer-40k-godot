@@ -1,7 +1,7 @@
 extends RefCounted
-class_name MathhhammerRuleModifiers
+class_name MathhammerRuleModifiers
 
-# MathhhammerRuleModifiers - Rule modifier system for Mathhammer simulations
+# MathhammerRuleModifiers - Rule modifier system for Mathhammer simulations
 # Handles special rules and combat modifiers for accurate statistical analysis
 # Integrates with existing RulesEngine while adding simulation-specific rule application
 

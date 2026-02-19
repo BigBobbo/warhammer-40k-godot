@@ -276,21 +276,21 @@ global_script_class_25={
 }
 global_script_class_26={
 "base": "RefCounted",
-"class": "MathhhammerResults",
+"class": "MathhammerResults",
 "language": "GDScript",
-"path": "res://scripts/MathhhammerResults.gd"
+"path": "res://scripts/MathhammerResults.gd"
 }
 global_script_class_27={
 "base": "RefCounted",
-"class": "MathhhammerRuleModifiers",
+"class": "MathhammerRuleModifiers",
 "language": "GDScript",
-"path": "res://scripts/MathhhammerRuleModifiers.gd"
+"path": "res://scripts/MathhammerRuleModifiers.gd"
 }
 global_script_class_28={
 "base": "PanelContainer",
-"class": "MathhhammerUI",
+"class": "MathhammerUI",
 "language": "GDScript",
-"path": "res://scripts/MathhhammerUI.gd"
+"path": "res://scripts/MathhammerUI.gd"
 }
 global_script_class_29={
 "base": "ENetMultiplayerPeer",

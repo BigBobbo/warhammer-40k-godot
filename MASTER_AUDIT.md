@@ -111,17 +111,18 @@ These items were previously open in the audit files and have now been verified a
 | T4-15: Single weapon result dialog has hardcoded zeros — stored hit/wound data in resolution_state | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-16: [MH-RULE-6] Conversion X+ — expanded crit hit range at 12"+ distance | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-18: [MH-RULE-14] Save modifier cap — +1/-1 save roll toggles with cap enforcement | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T4-19: [MH-BUG-6] Triple 'h' typo in Mathhammer class names — renamed to MathhammerUI/Results/RuleModifiers | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
 ## MATHHAMMER MODULE AUDIT
 
 > **Audit date:** 2026-02-16
-> **Files audited:** `Mathhammer.gd`, `MathhhammerUI.gd`, `MathhhammerResults.gd`, `MathhhammerRuleModifiers.gd`, `RulesEngine.gd` (combat resolution paths)
+> **Files audited:** `Mathhammer.gd`, `MathhammerUI.gd`, `MathhammerResults.gd`, `MathhammerRuleModifiers.gd`, `RulesEngine.gd` (combat resolution paths)
 > **Compared against:** Warhammer 40k 10th Edition Core Rules (wahapedia.ru), UnitCrunch, Adept Roll, Tactical Cogitator, open-source mathhammer tools (Stathammer, cogpunk/mathhammer, daed/mathhammer)
 
 ### Architecture Overview
-The Mathhammer module uses Monte Carlo simulation (10,000 trials default) that delegates to the existing `RulesEngine.resolve_shoot()` for each trial. This is a solid approach — it guarantees consistency with actual gameplay resolution and naturally handles complex rule interactions. The `MathhhammerResults.gd` provides advanced statistical analysis (confidence intervals, skewness, kurtosis, entropy) which exceeds what most community tools offer.
+The Mathhammer module uses Monte Carlo simulation (10,000 trials default) that delegates to the existing `RulesEngine.resolve_shoot()` for each trial. This is a solid approach — it guarantees consistency with actual gameplay resolution and naturally handles complex rule interactions. The `MathhammerResults.gd` provides advanced statistical analysis (confidence intervals, skewness, kurtosis, entropy) which exceeds what most community tools offer.
 
 ### Key Strengths
 - Monte Carlo approach reusing the real RulesEngine — ensures simulation matches gameplay
@@ -136,11 +137,11 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | ID | Severity | Issue | File:Line |
 |----|----------|-------|-----------|
 | MH-BUG-1 | ~~**CRITICAL**~~ **DONE** | ~~`_extract_damage_from_result()` only counts model kills as 1 damage each — ignores actual wound deltas. A lascannon dealing 6 damage to a 12W vehicle counts as 0 damage if not killed.~~ Fixed: computes wound deltas from diffs with double-count prevention. | `Mathhammer.gd:239-254` |
-| MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
-| MH-BUG-3 | ~~**HIGH**~~ **DONE** | ~~Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold.~~ Fixed: Anti-keyword rules now include threshold parameter, inject text into weapon special_rules so RulesEngine's existing critical wound threshold logic picks it up. UI toggles added. | `MathhhammerRuleModifiers.gd`, `Mathhammer.gd`, `MathhhammerUI.gd` |
+| MH-BUG-2 | ~~**HIGH**~~ **DONE** | ~~Twin-linked toggle described as "Re-roll failed hits" but 10e Twin-linked re-rolls **wound** rolls, not hit rolls. The `_apply_twin_linked()` sets `reroll_hits` flag.~~ Fixed: moved to WOUND_MODIFIER, sets `reroll_wounds`, wound re-roll logic added to RulesEngine. | `MathhammerRuleModifiers.gd`, `RulesEngine.gd`, `Mathhammer.gd` |
+| MH-BUG-3 | ~~**HIGH**~~ **DONE** | ~~Anti-keyword toggles described as "Re-roll wounds vs KEYWORD" but 10e Anti-X lowers the **critical wound threshold** (e.g., Anti-Vehicle 4+ means crits on 4+ to wound). Implementation sets `anti_keywords` without a threshold.~~ Fixed: Anti-keyword rules now include threshold parameter, inject text into weapon special_rules so RulesEngine's existing critical wound threshold logic picks it up. UI toggles added. | `MathhammerRuleModifiers.gd`, `Mathhammer.gd`, `MathhammerUI.gd` |
 | MH-BUG-4 | **MEDIUM** | Rapid Fire toggle doubles all attacks (`attacks * 2`) but 10e Rapid Fire X adds only +X attacks, not double. Rapid Fire 1 on a 2-attack weapon = 3 attacks, not 4. | `Mathhammer.gd:188-189` |
-| MH-BUG-5 | ~~**MEDIUM**~~ **DONE** | ~~`create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background.~~ Fixed: function now returns `panel_container` with full node tree intact; callers use `get_meta("content_vbox")` to add content inside the styled background. | `MathhhammerUI.gd:1162-1202` |
-| MH-BUG-6 | **LOW** | Class name typo — triple 'h': `MathhhammerUI`, `MathhhammerResults`, `MathhhammerRuleModifiers`. Inconsistent with `Mathhammer.gd` (double 'h'). | All Mathhammer files |
+| MH-BUG-5 | ~~**MEDIUM**~~ **DONE** | ~~`create_styled_panel()` removes `content_vbox` from its parent (lines 954-957), making the styled panel's PanelContainer an empty visual shell. Children added to the returned VBox appear outside the styled background.~~ Fixed: function now returns `panel_container` with full node tree intact; callers use `get_meta("content_vbox")` to add content inside the styled background. | `MathhammerUI.gd:1162-1202` |
+| MH-BUG-6 | ~~**LOW**~~ **DONE** | ~~Class name typo — triple 'h': `MathhammerUI`, `MathhammerResults`, `MathhammerRuleModifiers`. Inconsistent with `Mathhammer.gd` (double 'h').~~ Fixed: renamed all three files and updated all class_name declarations, references, and project.godot paths to use double-h (`MathhammerUI`, `MathhammerResults`, `MathhammerRuleModifiers`). | All Mathhammer files |
 
 ### Missing Rules / Modifiers (not in simulation toggle system)
 
@@ -184,7 +185,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-UI-1 | Histogram display is a TODO placeholder — `_draw_simple_histogram()` creates text-based bars but is never called from the main display path | HIGH — see T5-V15 |
 | MH-UI-2 | Hardcoded 800px min height + 400x600 scroll container — doesn't adapt to screen size or browser viewport | MEDIUM |
 | MH-UI-3 | No loading indicator during simulation — 10,000 trials blocks the main thread; UI shows "Running..." text only | MEDIUM |
-| MH-UI-4 | ~70 debug print statements in `MathhhammerUI.gd` — excessive logging in the UI layer (per project rules, keep debug logs but these are mostly state-debugging noise) | LOW |
+| MH-UI-4 | ~70 debug print statements in `MathhammerUI.gd` — excessive logging in the UI layer (per project rules, keep debug logs but these are mostly state-debugging noise) | LOW |
 | MH-UI-5 | OptionButton for defender but spinbox rows for attackers — inconsistent selection paradigms | LOW |
 | MH-UI-6 | No color coding for good/bad results (e.g., green for high kill prob, red for low efficiency) | LOW |
 | MH-UI-7 | Results are duplicated — `_create_detailed_results_display()` adds to `summary_panel`, then `_populate_breakdown_panel()` adds identical stats to `breakdown_panel` | MEDIUM |
@@ -273,7 +274,7 @@ These items cause incorrect game outcomes. They should be fixed before any compe
 - **Rule:** 10e Twin-linked re-rolls all failed **wound** rolls, not hit rolls
 - **Impact:** ~~Simulation applies wrong re-roll, inflating hit rates while ignoring wound re-rolls~~ Fixed
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd`, `MathhhammerUI.gd`, `RulesEngine.gd`, `Mathhammer.gd`
+- **Files:** `MathhammerRuleModifiers.gd`, `MathhammerUI.gd`, `RulesEngine.gd`, `Mathhammer.gd`
 - **Resolution:** Fixed `_apply_twin_linked()` to set `reroll_wounds` instead of `reroll_hits`. Moved twin-linked from HIT_MODIFIER to WOUND_MODIFIER category. Added `has_twin_linked()` keyword detection and wound re-roll logic to all three RulesEngine wound roll paths (interactive, auto-resolve, melee). Wired twin-linked toggle through Mathhammer simulation pipeline to RulesEngine assignments.
 
 ---
@@ -383,32 +384,32 @@ These affect gameplay balance and tactical options significantly.
 - **Rule:** Anti-[KEYWORD] X+ lowers the critical wound threshold (e.g., Anti-Vehicle 4+ = crits on wound rolls of 4+). It is NOT a wound re-roll.
 - **Impact:** Simulation doesn't correctly model Anti-keyword; one of the most impactful offensive abilities in 10e
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd:77-83,296-299` — needs threshold parameter and crit wound threshold override
-- **Resolution:** Rewrote Anti-keyword rule definitions with threshold parameter (e.g., Anti-Infantry 4+, Anti-Vehicle 4+, Anti-Monster 4+). Changed `_apply_anti_keyword()` from setting `anti_keywords` (re-roll mechanic) to storing anti-keyword entries with keyword+threshold. Mathhammer now injects anti-keyword text (e.g., "Anti-Infantry 4+") into weapon `special_rules` in the trial board state, so RulesEngine's existing `get_anti_keyword_data()` / `get_critical_wound_threshold()` correctly lowers the critical wound threshold. Added UI toggles in MathhhammerUI.gd.
+- **Files:** `MathhammerRuleModifiers.gd:77-83,296-299` — needs threshold parameter and crit wound threshold override
+- **Resolution:** Rewrote Anti-keyword rule definitions with threshold parameter (e.g., Anti-Infantry 4+, Anti-Vehicle 4+, Anti-Monster 4+). Changed `_apply_anti_keyword()` from setting `anti_keywords` (re-roll mechanic) to storing anti-keyword entries with keyword+threshold. Mathhammer now injects anti-keyword text (e.g., "Anti-Infantry 4+") into weapon `special_rules` in the trial board state, so RulesEngine's existing `get_anti_keyword_data()` / `get_critical_wound_threshold()` correctly lowers the critical wound threshold. Added UI toggles in MathhammerUI.gd.
 
 ### T2-14. [MH-RULE-9] Mathhammer has no invulnerable save toggle/override — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Defender invulnerable save is a core defensive stat that determines whether AP is relevant
 - **Impact:** Cannot model matchups involving invulnerable saves — a fundamental part of 40k combat math
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerUI.gd` — needs defender stat override panel; `Mathhammer.gd` — needs to pass invuln to trial board state
-- **Resolution:** Added invulnerable save 2+/3+/4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` with `_get_invuln_from_toggles()` to apply the selected invuln value to each defender model's `invuln` property, which RulesEngine already reads via `model.get("invuln", 0)` during save resolution. Only overrides if the toggle value is better (lower) than any existing model invuln.
+- **Files:** `MathhammerUI.gd` — needs defender stat override panel; `Mathhammer.gd` — needs to pass invuln to trial board state
+- **Resolution:** Added invulnerable save 2+/3+/4+/5+/6+ toggles to MathhammerUI rule toggle list. Updated `_create_trial_board_state()` with `_get_invuln_from_toggles()` to apply the selected invuln value to each defender model's `invuln` property, which RulesEngine already reads via `model.get("invuln", 0)` during save resolution. Only overrides if the toggle value is better (lower) than any existing model invuln.
 
 ### T2-15. [MH-RULE-10] FNP toggle doesn't integrate with simulation — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Feel No Pain is a per-wound save that dramatically reduces effective damage
 - **Impact:** FNP exists in RulesEngine but the Mathhammer toggle values are not propagated to the trial board state's unit stats
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd:109-121`, `Mathhammer.gd:204-229` — `_create_trial_board_state()` needs to apply FNP from toggles
-- **Resolution:** Added FNP 4+/5+/6+ toggles to MathhhammerUI rule toggle list. Updated `_create_trial_board_state()` to accept `rule_toggles` and apply FNP threshold to the defender unit's `meta.stats.fnp`, which RulesEngine already reads via `get_unit_fnp()` during damage resolution.
+- **Files:** `MathhammerRuleModifiers.gd:109-121`, `Mathhammer.gd:204-229` — `_create_trial_board_state()` needs to apply FNP from toggles
+- **Resolution:** Added FNP 4+/5+/6+ toggles to MathhammerUI rule toggle list. Updated `_create_trial_board_state()` to accept `rule_toggles` and apply FNP threshold to the defender unit's `meta.stats.fnp`, which RulesEngine already reads via `get_unit_fnp()` during damage resolution.
 
 ### T2-16. [MH-RULE-12] No melee combat support in Mathhammer — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Melee uses the same attack sequence as shooting (WS instead of BS) with additional modifiers (Lance, charged condition)
 - **Impact:** All community mathhammer tools support melee. Missing melee means Fight phase has no statistical preview.
 - **Source:** MATHHAMMER_AUDIT, code TODO at `FightPhase.gd:947`
-- **Files:** `Mathhammer.gd` — hardcoded to "shooting" phase; `MathhhammerUI.gd` — needs shooting/melee toggle
-- **Resolution:** Added melee combat support to Mathhammer simulation engine. `Mathhammer.gd` now branches on phase parameter to call `resolve_melee_attacks()` for fight/melee phase with proper engagement range positioning. `MathhhammerUI.gd` gains a Shooting/Melee phase selector that filters weapons by type and shows phase-specific rule toggles (Lance/Charged). `FightPhase.gd` placeholder replaced with full Mathhammer simulation providing per-target damage predictions.
+- **Files:** `Mathhammer.gd` — hardcoded to "shooting" phase; `MathhammerUI.gd` — needs shooting/melee toggle
+- **Resolution:** Added melee combat support to Mathhammer simulation engine. `Mathhammer.gd` now branches on phase parameter to call `resolve_melee_attacks()` for fight/melee phase with proper engagement range positioning. `MathhammerUI.gd` gains a Shooting/Melee phase selector that filters weapons by type and shows phase-specific rule toggles (Lance/Charged). `FightPhase.gd` placeholder replaced with full Mathhammer simulation providing per-target damage predictions.
 
 ---
 
@@ -569,15 +570,15 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Impact:** Overstates Rapid Fire weapon output by ~33% for RF1 weapons
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `Mathhammer.gd:188-189` — `attacks_override` should add RF value, not multiply by 2
-- **Resolution:** Changed `attacks_override` from `base_attacks * 2` to `base_attacks + rf_value * model_count`, using `RulesEngine.get_rapid_fire_value()` to look up the weapon's actual RF X value. Fixed misleading "Double attacks" descriptions in MathhhammerUI and MathhhammerRuleModifiers.
+- **Resolution:** Changed `attacks_override` from `base_attacks * 2` to `base_attacks + rf_value * model_count`, using `RulesEngine.get_rapid_fire_value()` to look up the weapon's actual RF X value. Fixed misleading "Double attacks" descriptions in MathhammerUI and MathhammerRuleModifiers.
 
 ### T3-21. [MH-RULE-5] Torrent weapons (auto-hit) not in simulation toggles — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Torrent weapons automatically hit — no hit roll made, no critical hits possible
 - **Impact:** Torrent is a common ability (flamers, etc.) that changes the math significantly
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd` — needs Torrent toggle that bypasses hit rolls
-- **Resolution:** Added Torrent toggle to MathhhammerRuleModifiers (rule definition + conflict with hit modifiers), MathhhammerUI (shooting-phase checkbox), and Mathhammer.gd (passes `torrent` flag through weapon assignment). Extended RulesEngine to accept `assignment.get("torrent", false)` override on all 3 combat paths (interactive shoot, auto-resolve shoot, melee). Also fixed missing `auto_hit` dice context tracking in trial stats extraction.
+- **Files:** `MathhammerRuleModifiers.gd` — needs Torrent toggle that bypasses hit rolls
+- **Resolution:** Added Torrent toggle to MathhammerRuleModifiers (rule definition + conflict with hit modifiers), MathhammerUI (shooting-phase checkbox), and Mathhammer.gd (passes `torrent` flag through weapon assignment). Extended RulesEngine to accept `assignment.get("torrent", false)` override on all 3 combat paths (interactive shoot, auto-resolve shoot, melee). Also fixed missing `auto_hit` dice context tracking in trial stats extraction.
 
 ### T3-22. [MH-RULE-11] Blast attack bonus not auto-calculated from defender model count — **DONE**
 - **Phase:** Mathhammer
@@ -600,14 +601,14 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Rule:** Users should be able to override or input custom defender T/Sv/W/Invuln/FNP
 - **Impact:** Cannot model hypothetical matchups or units not in the game state
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerUI.gd` — needs custom defender input fields alongside the unit dropdown
+- **Files:** `MathhammerUI.gd` — needs custom defender input fields alongside the unit dropdown
 
 ### T3-25. [MH-FEAT-11] Simulation blocks main thread — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** 10,000 Monte Carlo trials should run on a background thread to avoid freezing the UI
 - **Impact:** UI is unresponsive during simulation; at 100K trials this could freeze the browser tab
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerUI.gd:673-689` — `_run_simulation_async()` is not actually async
+- **Files:** `MathhammerUI.gd:673-689` — `_run_simulation_async()` is not actually async
 - **Resolution:** Refactored `_run_simulation_async()` to use Godot's `Thread` class. Simulation now runs on a background thread via `_simulation_thread_func()`, with UI updates deferred to the main thread via `call_deferred("_on_simulation_completed")`. Thread is properly joined on completion and cleaned up in `_exit_tree()`.
 
 ### T3-26. [MH-BUG-5] Styled panel background is empty (visual bug) — **DONE**
@@ -615,7 +616,7 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Rule:** `create_styled_panel()` removes `content_vbox` from its parent PanelContainer before returning it
 - **Impact:** The colored background panels in results display are empty shells; content appears outside them
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerUI.gd:953-958` — should not remove child from parent; return the panel_container and add children to the nested content_vbox
+- **Files:** `MathhammerUI.gd:953-958` — should not remove child from parent; return the panel_container and add children to the nested content_vbox
 - **Resolution:** Removed the code that detached `content_vbox` from `panel_bg`. Function now returns `panel_container` (with the full node tree intact) and stores `content_vbox` reference via `set_meta()`. All three callers updated to add children to the content area via `get_meta("content_vbox")`, so content renders inside the styled background.
 
 ---
@@ -700,7 +701,7 @@ These are real rules gaps but affect niche situations or have workarounds.
 ### T4-16. [MH-RULE-6] Conversion X+ (expanded crit range at distance) — **DONE**
 - **Phase:** Mathhammer
 - **Source:** MATHHAMMER_AUDIT
-- **Resolution:** Implemented Conversion X+ weapon ability across all shooting resolution paths (interactive, auto-resolve) and Mathhammer simulation. Added `get_conversion_threshold()`, `has_conversion()`, `get_critical_hit_threshold()` to RulesEngine.gd. Modified hit roll logic to use dynamic `critical_hit_threshold` (default 6, lowered to X when Conversion X+ is present and target is 12"+ away). Added "Conversion 4+" and "Conversion 5+" toggles to MathhhammerUI, with model placement at 13" distance for simulation. Rule text injection into weapon special_rules follows the same pattern as Anti-keyword.
+- **Resolution:** Implemented Conversion X+ weapon ability across all shooting resolution paths (interactive, auto-resolve) and Mathhammer simulation. Added `get_conversion_threshold()`, `has_conversion()`, `get_critical_hit_threshold()` to RulesEngine.gd. Modified hit roll logic to use dynamic `critical_hit_threshold` (default 6, lowered to X when Conversion X+ is present and target is 12"+ away). Added "Conversion 4+" and "Conversion 5+" toggles to MathhammerUI, with model placement at 13" distance for simulation. Rule text injection into weapon special_rules follows the same pattern as Anti-keyword.
 
 ### T4-17. [MH-RULE-7] Half Damage defensive ability
 - **Phase:** Mathhammer
@@ -710,19 +711,20 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Phase:** Mathhammer
 - **Rule:** Saves can be worsened by more than -1 (AP stacks) but cannot be improved by more than +1
 - **Source:** MATHHAMMER_AUDIT
-- **Resolution:** Added +1/-1 to Save toggles in MathhhammerUI with mutual conflict. Registered save_plus_1/save_minus_1 in MathhhammerRuleModifiers. Save modifier stored on defender flags in trial board and applied (clamped ±1 per 10e) in RulesEngine shooting, melee, and overwatch save resolution. AP stacking remains unlimited.
+- **Resolution:** Added +1/-1 to Save toggles in MathhammerUI with mutual conflict. Registered save_plus_1/save_minus_1 in MathhammerRuleModifiers. Save modifier stored on defender flags in trial board and applied (clamped ±1 per 10e) in RulesEngine shooting, melee, and overwatch save resolution. AP stacking remains unlimited.
 
-### T4-19. [MH-BUG-6] Triple 'h' typo in Mathhammer class names
+### T4-19. [MH-BUG-6] Triple 'h' typo in Mathhammer class names — **DONE**
 - **Phase:** Mathhammer
-- **Impact:** `MathhhammerUI`, `MathhhammerResults`, `MathhhammerRuleModifiers` should be `MathhammerUI`, etc.
+- **Impact:** `MathhammerUI`, `MathhammerResults`, `MathhammerRuleModifiers` should be `MathhammerUI`, etc.
 - **Source:** MATHHAMMER_AUDIT
+- **Resolution:** Renamed all three files (`MathhammerUI.gd`, `MathhammerResults.gd`, `MathhammerRuleModifiers.gd`) to use double-h (`MathhammerUI.gd`, etc.). Updated `class_name` declarations, all print/comment references, `project.godot` class registrations and paths, `Main.gd` preload path, and benchmark test reference.
 - **Files:** All `Mathhammer*.gd` files, `project.godot` autoload references
 
 ### T4-20. [MH-FEAT-9] Auto-detect weapon abilities from unit datasheet
 - **Phase:** Mathhammer
 - **Impact:** Weapon keywords (Lethal Hits, Sustained Hits, etc.) exist in unit data but aren't auto-enabled as toggles
 - **Source:** MATHHAMMER_AUDIT
-- **Files:** `MathhhammerRuleModifiers.gd:134-180` — `extract_unit_rules()` exists but isn't connected to UI
+- **Files:** `MathhammerRuleModifiers.gd:134-180` — `extract_unit_rules()` exists but isn't connected to UI
 
 ---
 
@@ -785,7 +787,7 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-V12. Damage application visualization (floating numbers, flash) (fight_phase_audit_report.md §4.5)
 - T5-V13. Engaged units board indicator (crossed swords) (fight_phase_audit_report.md §3.5)
 - T5-V14. Deployment zone edge highlighting (DEPLOYMENT_AUDIT.md §QoL 6)
-- T5-V15. Mathhammer visual histogram (Code TODO in `MathhhammerUI.gd:738`) — see also T5-MH1
+- T5-V15. Mathhammer visual histogram (Code TODO in `MathhammerUI.gd:738`) — see also T5-MH1
 
 ---
 
@@ -838,7 +840,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | ~~`FightPhase.gd`~~ | ~~1022-1023~~ | ~~Heroic intervention not yet implemented~~ | ~~T2-7~~ **DONE** |
 | ~~`FightPhase.gd`~~ | ~~1635-1637~~ | ~~Add heroic intervention specific validation~~ | ~~T2-7~~ **DONE** |
 | ~~`LineOfSightCalculator.gd`~~ | ~~79~~ | ~~Handle medium/low terrain based on model height~~ | ~~T3-19~~ **DONE** |
-| `MathhhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
+| `MathhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
 | `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
 | `test_multiplayer_deployment.gd` | 368 | Implement collision detection test with turn handling | T6-4 |
@@ -848,9 +850,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | `test_multiplayer_deployment.gd` | 574 | Extract unit model positions from game state | T6-4 |
 | `MultiplayerIntegrationTest.gd` | 469 | Fix LogMonitor for peer connection tracking | T6-4 |
 | `Mathhammer.gd` | 232-240 | ~~`_extract_damage_from_result()` broken — counts kills as 1 damage~~ **DONE** | T1-9 |
-| `MathhhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
-| `MathhhammerRuleModifiers.gd` | 77-83 | ~~Anti-keyword uses re-roll instead of crit threshold~~ **DONE** | T2-13 |
-| `MathhhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
+| `MathhammerRuleModifiers.gd` | 58-59 | ~~Twin-linked re-rolls hits instead of wounds~~ **DONE** | T1-10 |
+| `MathhammerRuleModifiers.gd` | 77-83 | ~~Anti-keyword uses re-roll instead of crit threshold~~ **DONE** | T2-13 |
+| `MathhammerUI.gd` | 953-958 | `create_styled_panel()` removes content_vbox from parent | T3-26 |
 | `Mathhammer.gd` | 188-189 | Rapid Fire doubles attacks instead of adding X | T3-20 |
 
 ---
@@ -862,12 +864,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 13 | 7 | 20 |
+| Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **54** | **74** | **128** |
-| **Recently Completed** | **81** | — | **81** |
-| *Mathhammer items (subset)* | *12* | *19* | *31* |
+| **Total Open** | **55** | **73** | **128** |
+| **Recently Completed** | **82** | — | **82** |
+| *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
 
