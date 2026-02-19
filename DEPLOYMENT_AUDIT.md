@@ -322,7 +322,7 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | Infiltrators | **Medium** | Medium | Rules | **DONE** |
 | Auto-zoom to deployment zone | **Medium** | Low | QoL | Open |
 | Per-model undo | **Medium** | Low | QoL | Open |
-| Deployment summary before ending | **Medium** | Low | QoL | Open |
+| Deployment summary before ending | **Medium** | Low | QoL | **Done** |
 | Coherency distance display | **Medium** | Low | QoL | Open |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | Open |
 | Scout Moves | **Medium** | Medium | Rules | Open |

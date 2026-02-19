@@ -3266,6 +3266,13 @@ func _on_end_deployment_pressed() -> void:
 
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
+			# T5-UX8: Show deployment summary dialog before ending phase
+			var deploy_phase_instance = PhaseManager.get_current_phase_instance()
+			if deploy_phase_instance and deploy_phase_instance.has_method("get_deployment_summary"):
+				var summary = deploy_phase_instance.get_deployment_summary()
+				print("Main: T5-UX8: Showing deployment summary dialog")
+				_show_deployment_summary_dialog(summary, active_player)
+				return
 			print("Main: Ending deployment phase via action system...")
 			DebugLogger.info("Ending deployment phase", {})
 			action = {"type": "END_DEPLOYMENT", "player": active_player}
@@ -4567,6 +4574,40 @@ func _on_end_fight_confirmed(active_player: int) -> void:
 func _on_end_fight_cancelled() -> void:
 	"""T5-UX7: Player cancelled ending fight phase"""
 	print("Main: T5-UX7: Player cancelled end fight phase, returning to fight")
+
+func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player: int) -> void:
+	"""T5-UX8: Show deployment summary dialog before ending deployment phase"""
+	var dialog_script = load("res://dialogs/DeploymentSummaryDialog.gd")
+	if not dialog_script:
+		push_error("Main: T5-UX8: Failed to load DeploymentSummaryDialog.gd")
+		# Fall through and end phase anyway
+		var action = {"type": "END_DEPLOYMENT", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(deployment_data)
+	dialog.deployment_confirmed.connect(_on_deployment_confirmed.bind(active_player))
+	dialog.deployment_cancelled.connect(_on_deployment_cancelled)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: T5-UX8: Deployment summary dialog shown")
+
+func _on_deployment_confirmed(active_player: int) -> void:
+	"""T5-UX8: Player confirmed ending deployment phase"""
+	print("Main: T5-UX8: Player confirmed end deployment phase")
+	var action = {"type": "END_DEPLOYMENT", "player": active_player}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: T5-UX8: Failed to end deployment phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: T5-UX8: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_deployment_cancelled() -> void:
+	"""T5-UX8: Player cancelled ending deployment phase"""
+	print("Main: T5-UX8: Player cancelled end deployment phase, returning to deployment")
 
 func _re_request_fight_movement(action: Dictionary, movement_type: String) -> void:
 	"""T5-MP2: Re-emit pile_in_required or consolidate_required so the dialog reopens after server rejection"""

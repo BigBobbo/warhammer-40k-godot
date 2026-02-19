@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-UX8: Deployment summary before ending phase (summary dialog with deployed units, transports, characters, reserves) | Deployment | DEPLOYMENT_AUDIT.md §QoL 8 |
 | T5-UX7: End fight phase confirmation dialog (warning with unfought units list before ending fight phase) | Fight | fight_phase_audit_report.md §3.6 |
 | T5-UX6: Show weapon stats in target assignment UI (compact stat sub-line: Range, A, BS, S, AP, D beneath each weapon) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX5: "All to Target" button in fight attack assignment dialog (one-click assign all weapons to selected target) | Fight | fight_phase_audit_report.md §3.1 |
@@ -780,7 +781,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added compact weapon stat sub-line beneath each weapon in the shooting phase weapon tree. Each weapon now shows Range, Attacks, BS, Strength, AP, and Damage (e.g., "24" A:2 BS:3+ S:4 AP:-1 D:1") in a muted gold color. Stats child items also trigger the damage preview on hover. Disabled weapons have grayed-out stats.
 - T5-UX7. End fight phase confirmation dialog (fight_phase_audit_report.md §3.6) — **DONE**
   - **Resolution:** Added EndFightConfirmationDialog.gd that shows when the player tries to end the Fight phase while eligible units haven't fought. Lists unfought units by player and subphase with a warning message. Added get_unfought_eligible_units() to FightPhase.gd and intercept logic in Main.gd. If no unfought units remain, the phase ends immediately without a dialog.
-- T5-UX8. Deployment summary before ending phase (DEPLOYMENT_AUDIT.md §QoL 8)
+- T5-UX8. Deployment summary before ending phase (DEPLOYMENT_AUDIT.md §QoL 8) — **DONE**
+  - **Resolution:** Added DeploymentSummaryDialog.gd that shows a full deployment summary when the player clicks End Deployment. Lists deployed units per player with positions, units in transports, attached characters, and units in reserves. Added get_deployment_summary() to DeploymentPhase.gd and intercept logic in Main.gd. Requires explicit "Confirm and Start Game" or "Go Back" before proceeding.
 - T5-UX9. Undo last model placement (per-model) in deployment (DEPLOYMENT_AUDIT.md §QoL 4)
 - T5-UX10. Auto-zoom to deployment zone (DEPLOYMENT_AUDIT.md §QoL 5)
 - T5-UX11. Unit base preview on hover in deployment (DEPLOYMENT_AUDIT.md §QoL 7)
@@ -899,10 +901,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 14 | 37 | 51 |
+| Tier 5 — QoL/Visual | 15 | 36 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **72** | **56** | **128** |
-| **Recently Completed** | **96** | — | **96** |
+| **Total Open** | **73** | **55** | **128** |
+| **Recently Completed** | **97** | — | **97** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
