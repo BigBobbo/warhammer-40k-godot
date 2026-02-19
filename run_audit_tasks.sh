@@ -29,6 +29,9 @@
 ###############################################################################
 set -euo pipefail
 
+# Prevent git from opening an interactive editor for merge commits
+export GIT_MERGE_AUTOEDIT=no
+
 # ─── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
@@ -252,7 +255,7 @@ create_feature_branch() {
 
     # Make sure we're on main and up to date
     git -C "$PROJECT_DIR" checkout "$MAIN_BRANCH" 2>/dev/null
-    git -C "$PROJECT_DIR" pull origin "$MAIN_BRANCH" 2>/dev/null || true
+    git -C "$PROJECT_DIR" pull --no-edit origin "$MAIN_BRANCH" 2>/dev/null || true
 
     # If the branch already exists (stale from a previous failed run), delete it
     # so we get a clean start from main

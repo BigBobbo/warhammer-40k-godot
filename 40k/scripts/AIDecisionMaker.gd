@@ -6,6 +6,7 @@ extends RefCounted
 # All methods are static for use without instantiation.
 
 # --- Constants ---
+const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const PIXELS_PER_INCH: float = 40.0
 const ENGAGEMENT_RANGE_PX: float = 40.0  # 1 inch
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
@@ -20,6 +21,9 @@ const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
 static var _focus_fire_plan_built: bool = false
+
+# Grenade stratagem evaluation — checked once per shooting phase
+static var _grenade_evaluated: bool = false
 
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
@@ -48,6 +52,13 @@ const DAMAGE_WASTE_PENALTY_MODERATE: float = 0.7  # D2 weapon vs 1W models
 # Anti-keyword special rule bonus
 const ANTI_KEYWORD_BONUS: float = 1.5            # Weapon has anti-X matching target type
 
+# Weapon keyword scoring constants (SHOOT-5)
+# Critical hit probability on a d6 (unmodified 6)
+const CRIT_PROBABILITY: float = 1.0 / 6.0
+# Rapid Fire / Melta: probability of being within half range when we know target is in range.
+# Conservative estimate — assume 50% chance we're at half range unless we can measure.
+const HALF_RANGE_FALLBACK_PROB: float = 0.5
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -58,6 +69,16 @@ const WEIGHT_ALREADY_HELD_OBJ: float = -8.0
 const WEIGHT_SCORING_URGENCY: float = 3.0
 const WEIGHT_OC_EFFICIENCY: float = 2.0
 
+# Threat range awareness constants (AI-TACTIC-4, MOV-2)
+# Charge threat = enemy M + 12" charge + 1" engagement range
+# Shooting threat = max weapon range of the enemy unit
+# Penalty weights for moving into threat zones
+const THREAT_CHARGE_PENALTY: float = 3.0    # Penalty for moving into charge threat range
+const THREAT_SHOOTING_PENALTY: float = 1.0  # Lighter penalty for moving into shooting range (often unavoidable)
+const THREAT_FRAGILE_BONUS: float = 1.5     # Extra penalty multiplier for fragile/high-value units in danger
+const THREAT_MELEE_UNIT_IGNORE: float = 0.3 # Melee-focused units care less about being in charge range
+const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat range for safety
+
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
@@ -67,11 +88,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
 
-	# Reset focus fire plan cache when not in shooting phase
+	# Reset focus fire plan cache and grenade flag when not in shooting phase
 	if phase != GameStateData.Phase.SHOOTING:
 		if _focus_fire_plan_built:
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
+		_grenade_evaluated = false
 
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -224,17 +246,84 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 # =============================================================================
 
 static func _decide_scout(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	# AI strategy: Skip all scout moves for now (simple fallback)
-	# Future improvement: move scouts toward nearest objective
+	# AI strategy: Move scout units toward the nearest uncontrolled objective,
+	# maintaining >9" from all enemy models. If no valid move exists, skip.
+
+	# Step 1: If CONFIRM_SCOUT_MOVE is available, confirm it
+	# (safety fallback — normally AIPlayer handles confirm after staging)
 	for action in available_actions:
-		if action.get("type") == "SKIP_SCOUT_MOVE":
+		if action.get("type") == "CONFIRM_SCOUT_MOVE":
+			var uid = action.get("unit_id", "")
 			return {
-				"type": "SKIP_SCOUT_MOVE",
-				"unit_id": action.get("unit_id", ""),
-				"_ai_description": "Skip Scout move for %s" % action.get("unit_id", "")
+				"type": "CONFIRM_SCOUT_MOVE",
+				"unit_id": uid,
+				"_ai_description": "Confirm Scout move for %s" % uid
 			}
 
-	# If all scouts handled, end phase
+	# Step 2: Find a BEGIN_SCOUT_MOVE action and compute destinations
+	for action in available_actions:
+		if action.get("type") == "BEGIN_SCOUT_MOVE":
+			var unit_id = action.get("unit_id", "")
+			var unit = snapshot.get("units", {}).get(unit_id, {})
+			if unit.is_empty():
+				continue
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var scout_distance = _get_scout_distance_from_unit(unit)
+			if scout_distance <= 0.0:
+				scout_distance = 6.0  # Default scout distance
+
+			# Find the best objective to move toward
+			var objectives = _get_objectives(snapshot)
+			var enemies = _get_enemy_units(snapshot, player)
+			var friendly_units = _get_units_for_player(snapshot, player)
+			var target_pos = _find_best_scout_objective(unit, objectives, enemies, friendly_units, player, snapshot)
+
+			if target_pos == Vector2.INF:
+				print("AIDecisionMaker: No valid scout objective found for %s, skipping" % unit_name)
+				return {
+					"type": "SKIP_SCOUT_MOVE",
+					"unit_id": unit_id,
+					"_ai_description": "Skip Scout move for %s (no reachable objective)" % unit_name
+				}
+
+			# Compute model destinations toward the target
+			var model_destinations = _compute_scout_movement(
+				unit, unit_id, target_pos, scout_distance, snapshot, enemies
+			)
+
+			if model_destinations.is_empty():
+				print("AIDecisionMaker: Could not compute valid scout destinations for %s, skipping" % unit_name)
+				return {
+					"type": "SKIP_SCOUT_MOVE",
+					"unit_id": unit_id,
+					"_ai_description": "Skip Scout move for %s (no valid path)" % unit_name
+				}
+
+			var centroid = _get_unit_centroid(unit)
+			var dist_to_obj = centroid.distance_to(target_pos) / PIXELS_PER_INCH if centroid != Vector2.INF else 0.0
+
+			print("AIDecisionMaker: %s scouting toward objective (%.1f\" away, Scout %d\")" % [
+				unit_name, dist_to_obj, int(scout_distance)])
+
+			return {
+				"type": "BEGIN_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"_ai_scout_destinations": model_destinations,
+				"_ai_description": "%s scouts toward nearest objective (%.1f\" away)" % [unit_name, dist_to_obj]
+			}
+
+	# Step 3: If only SKIP actions remain (no BEGIN), skip remaining units
+	for action in available_actions:
+		if action.get("type") == "SKIP_SCOUT_MOVE":
+			var uid = action.get("unit_id", "")
+			return {
+				"type": "SKIP_SCOUT_MOVE",
+				"unit_id": uid,
+				"_ai_description": "Skip Scout move for %s" % uid
+			}
+
+	# Step 4: If all scouts handled, end phase
 	for action in available_actions:
 		if action.get("type") == "END_SCOUT_PHASE":
 			return {"type": "END_SCOUT_PHASE", "_ai_description": "End Scout Phase"}
@@ -242,25 +331,294 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 	return {}
 
 # =============================================================================
+# SCOUT PHASE HELPERS
+# =============================================================================
+
+static func _get_scout_distance_from_unit(unit: Dictionary) -> float:
+	"""Extract scout move distance in inches from unit abilities."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var aname = ""
+		var avalue = 0
+		if ability is String:
+			aname = ability
+		elif ability is Dictionary:
+			aname = ability.get("name", "")
+			avalue = ability.get("value", 0)
+		if aname.to_lower().begins_with("scout"):
+			if avalue > 0:
+				return float(avalue)
+			# Try to parse distance from name, e.g. "Scout 6\"" or "Scout 6"
+			var regex = RegEx.new()
+			regex.compile("(?i)scout\\s+(\\d+)")
+			var result = regex.search(aname)
+			if result:
+				return float(result.get_string(1))
+			return 6.0
+	return 0.0
+
+static func _find_best_scout_objective(
+	unit: Dictionary, objectives: Array, enemies: Dictionary,
+	friendly_units: Dictionary, player: int, snapshot: Dictionary
+) -> Vector2:
+	"""Find the best objective for a scout unit to move toward.
+	Prioritizes: uncontrolled > contested > enemy-weak objectives, with distance as tiebreaker.
+	Avoids objectives that are already well-held by friendlies."""
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF or objectives.is_empty():
+		return Vector2.INF
+
+	var obj_data = snapshot.get("board", {}).get("objectives", [])
+
+	var best_pos = Vector2.INF
+	var best_score = -INF
+
+	for i in range(objectives.size()):
+		var obj_pos = objectives[i]
+
+		# Classify the objective
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+		var dist = centroid.distance_to(obj_pos)
+		var dist_inches = dist / PIXELS_PER_INCH
+
+		# Determine zone
+		var obj_zone = "no_mans_land"
+		if i < obj_data.size():
+			obj_zone = obj_data[i].get("zone", "no_mans_land")
+
+		var is_home = (player == 1 and obj_zone == "player1") or (player == 2 and obj_zone == "player2")
+		var is_enemy_home = (player == 1 and obj_zone == "player2") or (player == 2 and obj_zone == "player1")
+
+		# Score this objective for scouting
+		var score = 0.0
+
+		# Uncontrolled objectives are highest priority for scouts
+		if friendly_oc == 0 and enemy_oc == 0:
+			score += 10.0
+		# Objectives not yet secured by friendlies
+		elif friendly_oc == 0 and enemy_oc > 0:
+			score += 7.0  # Enemy holds it, scout can get there first
+		elif friendly_oc > 0 and friendly_oc <= enemy_oc:
+			score += 5.0  # Contested, reinforce
+		elif friendly_oc > enemy_oc and friendly_oc > 0:
+			score -= 5.0  # Already held, lower priority
+
+		# Prefer no-man's-land objectives (center of the board)
+		if obj_zone == "no_mans_land":
+			score += 3.0
+		# Home objectives are less valuable to scout toward (already nearby)
+		if is_home:
+			score -= 4.0
+		# Don't rush enemy home objectives with scouts
+		if is_enemy_home:
+			score -= 2.0
+
+		# Closer objectives score better (within scout range is ideal)
+		score -= dist_inches * 0.3
+
+		if score > best_score:
+			best_score = score
+			best_pos = obj_pos
+
+	return best_pos
+
+static func _compute_scout_movement(
+	unit: Dictionary, unit_id: String, target_pos: Vector2,
+	scout_distance_inches: float, snapshot: Dictionary, enemies: Dictionary
+) -> Dictionary:
+	"""Compute model destinations for a scout move toward target_pos.
+	Respects: scout distance limit, >9\" from all enemy models, board bounds, model overlap."""
+	if target_pos == Vector2.INF:
+		return {}
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {}
+
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return {}
+
+	# Calculate movement vector toward target
+	var direction = (target_pos - centroid).normalized()
+	var move_px = scout_distance_inches * PIXELS_PER_INCH
+	var dist_to_target = centroid.distance_to(target_pos)
+	var actual_move_px = min(move_px, dist_to_target)
+	var move_vector = direction * actual_move_px
+
+	# Get deployed models for overlap checking
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var first_model = alive_models[0] if alive_models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+
+	# Build original positions map
+	var original_positions = {}
+	for model in alive_models:
+		var mid = model.get("id", "")
+		if mid != "":
+			original_positions[mid] = _get_model_position(model)
+
+	# Try the full move first, then progressively shorter moves
+	var fractions_to_try = [1.0, 0.75, 0.5, 0.25]
+	for fraction in fractions_to_try:
+		var try_vector = move_vector * fraction
+		var destinations = _try_scout_move_with_checks(
+			alive_models, try_vector, enemies, unit, deployed_models,
+			base_mm, base_type, base_dimensions, original_positions, move_px
+		)
+		if not destinations.is_empty():
+			if fraction < 1.0:
+				print("AIDecisionMaker: Scout using %.0f%% move to satisfy constraints" % (fraction * 100))
+			return destinations
+
+	# All fractions failed
+	return {}
+
+static func _try_scout_move_with_checks(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary = {}, move_cap_px: float = 0.0
+) -> Dictionary:
+	"""Try moving all models by move_vector, checking the >9\" enemy distance rule
+	and model overlap. Returns model_id -> [x, y] destinations, or empty dict if invalid."""
+	const SCOUT_ENEMY_DIST_INCHES: float = 9.0
+	var destinations = {}
+	var placed_models: Array = []
+
+	var own_models = unit.get("models", [])
+	var own_base_mm = own_models[0].get("base_mm", 32) if own_models.size() > 0 else 32
+	var own_radius_inches = (own_base_mm / 2.0) / 25.4
+
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.INF:
+			continue
+		var dest = model_pos + move_vector
+
+		# Clamp to board bounds with margin
+		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check movement distance does not exceed scout distance
+		if move_cap_px > 0.0:
+			var orig_pos = original_positions.get(model_id, model_pos)
+			if orig_pos.distance_to(dest) > move_cap_px + 1.0:  # Small tolerance
+				return {}
+
+		# Check >9" from all enemy models (edge-to-edge)
+		if _is_position_too_close_to_enemies_scout(dest, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES):
+			return {}
+
+		# Check overlap with deployed models and already-placed models
+		var all_obstacles = deployed_models + placed_models
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			# Try small perpendicular offsets to avoid the collision
+			var orig_pos = original_positions.get(model_id, model_pos)
+			var resolved_dest = _resolve_scout_collision(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				all_obstacles, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES,
+				orig_pos, move_cap_px
+			)
+			if resolved_dest == Vector2.INF:
+				return {}
+			dest = resolved_dest
+
+		destinations[model_id] = [dest.x, dest.y]
+		placed_models.append({
+			"position": dest,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	return destinations
+
+static func _is_position_too_close_to_enemies_scout(
+	pos: Vector2, enemies: Dictionary,
+	own_radius_inches: float, min_distance_inches: float
+) -> bool:
+	"""Check if a position is within min_distance_inches (edge-to-edge) of any enemy model.
+	Used for scout moves where the minimum distance is 9\"."""
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		for model in enemy.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var enemy_pos = _get_model_position(model)
+			if enemy_pos == Vector2.INF:
+				continue
+			var enemy_base_mm = model.get("base_mm", 32)
+			var enemy_radius_inches = (enemy_base_mm / 2.0) / 25.4
+			var dist_px = pos.distance_to(enemy_pos)
+			var dist_inches = dist_px / PIXELS_PER_INCH
+			var edge_dist = dist_inches - own_radius_inches - enemy_radius_inches
+			if edge_dist < min_distance_inches:
+				return true
+	return false
+
+static func _resolve_scout_collision(
+	dest: Vector2, move_vector: Vector2, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	obstacles: Array, enemies: Dictionary,
+	own_radius_inches: float, min_enemy_dist_inches: float,
+	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0
+) -> Vector2:
+	"""Try perpendicular offsets to avoid collision while satisfying scout >9\" rule."""
+	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
+	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+
+	for multiplier in offsets:
+		var offset = perp * base_radius * multiplier
+		var candidate = dest + offset
+
+		# Check board bounds
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			continue
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			continue
+
+		# Check movement cap
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			if original_pos.distance_to(candidate) > move_cap_px + 1.0:
+				continue
+
+		# Check model overlap
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+			continue
+
+		# Check >9" from enemies
+		if _is_position_too_close_to_enemies_scout(candidate, enemies, own_radius_inches, min_enemy_dist_inches):
+			continue
+
+		return candidate
+
+	return Vector2.INF
+
+# =============================================================================
 # COMMAND PHASE
 # =============================================================================
 
 static func _decide_command(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# Handle pending Command Re-roll decisions first
+	# Note: The AIPlayer signal handler (_on_command_reroll_opportunity) handles this
+	# with full roll context. This is a fallback in case available_actions still shows
+	# the reroll options (e.g., if the signal handler hasn't fired yet).
 	for action in available_actions:
-		if action.get("type") == "USE_COMMAND_REROLL":
-			# AI heuristic: use reroll if the roll was within 3 of the leadership value
-			# (i.e. a reroll has a reasonable chance of passing)
-			return {
-				"type": "USE_COMMAND_REROLL",
-				"_ai_description": "Command Re-roll (battle-shock)"
-			}
-	for action in available_actions:
-		if action.get("type") == "DECLINE_COMMAND_REROLL":
-			# Fallback: if USE_COMMAND_REROLL wasn't in the list, decline
+		if action.get("type") == "USE_COMMAND_REROLL" or action.get("type") == "DECLINE_COMMAND_REROLL":
+			# Fallback: decline the reroll (signal handler with context should have acted)
+			var uid = action.get("actor_unit_id", action.get("unit_id", ""))
 			return {
 				"type": "DECLINE_COMMAND_REROLL",
-				"_ai_description": "Decline re-roll"
+				"actor_unit_id": uid,
+				"_ai_description": "Decline Command Re-roll (command phase fallback)"
 			}
 
 	# Take any pending battle-shock tests
@@ -333,15 +691,26 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 	var battle_round = snapshot.get("battle_round", 1)
 
 	# =========================================================================
+	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
+	# =========================================================================
+	var threat_data = _calculate_enemy_threat_data(enemies)
+	if not threat_data.is_empty():
+		print("AIDecisionMaker: Calculated threat data for %d enemy units" % threat_data.size())
+		for td in threat_data:
+			print("  Enemy %s: charge_threat=%.1f\", shoot_threat=%.1f\", value=%.1f" % [
+				td.unit_id, td.charge_threat_px / PIXELS_PER_INCH,
+				td.shoot_threat_px / PIXELS_PER_INCH, td.unit_value])
+
+	# =========================================================================
 	# PHASE 1: GLOBAL OBJECTIVE EVALUATION
 	# =========================================================================
 	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
 
 	# =========================================================================
-	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT
+	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT (with threat awareness)
 	# =========================================================================
 	var assignments = _assign_units_to_objectives(
-		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round
+		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
 	)
 
 	# =========================================================================
@@ -402,7 +771,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var advance_move = move_inches + 2.0  # Average advance roll
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, advance_move, snapshot, enemies
+				unit, unit_id, target_pos, advance_move, snapshot, enemies,
+				0.0, threat_data, objectives
 			)
 			if not model_destinations.is_empty():
 				var reason = assignment.get("reason", "needs extra distance")
@@ -433,8 +803,56 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						"_ai_description": "%s holds %s (%.1f\" away)" % [unit_name, assigned_obj_id, dist_inches]
 					}
 
+			# --- AI-TACTIC-4: Threat-aware hold check ---
+			# Ranged units currently safe from charge threat should avoid moving
+			# into charge range if the objective is far away and they have targets to shoot
+			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types:
+				var has_ranged_for_threat = _unit_has_ranged_weapons(unit)
+				var is_melee_unit = _unit_has_melee_weapons(unit) and not has_ranged_for_threat
+				if has_ranged_for_threat and not is_melee_unit:
+					var current_threat_eval = _evaluate_position_threat(centroid, threat_data, unit)
+					# Estimate where we'd end up
+					var move_dir = (target_pos - centroid).normalized() if centroid.distance_to(target_pos) > 1.0 else Vector2.ZERO
+					var est_dest = centroid + move_dir * min(move_inches * PIXELS_PER_INCH, centroid.distance_to(target_pos))
+					var dest_threat_eval = _evaluate_position_threat(est_dest, threat_data, unit)
+					# If we're currently safe from charges but would move into charge range,
+					# and we have shooting targets, consider staying put
+					if current_threat_eval.charge_threat < 0.5 and dest_threat_eval.charge_threat >= 2.0:
+						var max_wr = _get_max_weapon_range(unit)
+						var has_shoot_targets = false
+						for eid in enemies:
+							var ec = _get_unit_centroid(enemies[eid])
+							if ec != Vector2.INF and centroid.distance_to(ec) <= max_wr * PIXELS_PER_INCH:
+								has_shoot_targets = true
+								break
+						if has_shoot_targets:
+							print("AIDecisionMaker: %s avoiding charge danger — staying to shoot (charge threat would increase from %.1f to %.1f)" % [
+								unit_name, current_threat_eval.charge_threat, dest_threat_eval.charge_threat])
+							return {
+								"type": "REMAIN_STATIONARY",
+								"actor_unit_id": unit_id,
+								"_ai_description": "%s holds position (avoiding charge threat, has shooting targets)" % unit_name
+							}
+
+			# --- MOV-1: Shooting range consideration ---
+			# If the unit has ranged weapons and enemies in range, check if moving
+			# would take it out of weapon range. Prefer holding for shooting if objective
+			# is far away and we'd lose all targets.
+			var has_ranged_weapons = _unit_has_ranged_weapons(unit)
+			var max_weapon_range_inches = _get_max_weapon_range(unit) if has_ranged_weapons else 0.0
+			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
+				if _should_hold_for_shooting(unit, centroid, target_pos, max_weapon_range_inches, enemies, move_inches, assignment):
+					var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range_inches, enemies)
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s holds position for shooting (%d targets in %.0f\" range, obj %s too far)" % [
+							unit_name, enemies_in_range.size(), max_weapon_range_inches, assigned_obj_id]
+					}
+
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, move_inches, snapshot, enemies
+				unit, unit_id, target_pos, move_inches, snapshot, enemies,
+				max_weapon_range_inches, threat_data, objectives
 			)
 
 			if not model_destinations.is_empty():
@@ -569,7 +987,7 @@ static func _evaluate_all_objectives(
 static func _assign_units_to_objectives(
 	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
 	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
-	player: int, battle_round: int
+	player: int, battle_round: int, threat_data: Array = []
 ) -> Dictionary:
 	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
 	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
@@ -642,6 +1060,25 @@ static func _assign_units_to_objectives(
 			# Unit suitability: units with shooting should consider range to enemies
 			if has_ranged and eval.enemy_nearby > 0:
 				score += 1.0  # Shooting units valuable where enemies are
+
+			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
+			# Penalize assignments that route units into enemy threat zones
+			if not threat_data.is_empty() and not already_on_obj:
+				# Estimate where the unit would end up after moving toward this objective
+				var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
+				var move_px_cap = move_inches * PIXELS_PER_INCH
+				var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
+
+				var dest_threat = _evaluate_position_threat(estimated_dest, threat_data, unit)
+				var current_threat = _evaluate_position_threat(centroid, threat_data, unit)
+
+				# Penalize moving INTO more danger than we're currently in
+				var threat_increase = dest_threat.total_threat - current_threat.total_threat
+				if threat_increase > 0.5:
+					score -= threat_increase
+					# Extra charge threat penalty: being chargeable is worse than being shot at
+					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
+						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5
 
 			# Determine recommended action
 			var action = "move"
@@ -817,6 +1254,11 @@ static func _decide_engaged_unit(
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	var friendly_units = _get_units_for_player(snapshot, player)
 
+	# --- Pre-check Fall Back and X abilities (AI-GAP-4) ---
+	var all_units = snapshot.get("units", {})
+	var fb_and_charge = AIAbilityAnalyzerData.can_fall_back_and_charge(unit_id, unit, all_units)
+	var fb_and_shoot = AIAbilityAnalyzerData.can_fall_back_and_shoot(unit_id, unit, all_units)
+
 	if on_objective:
 		# Check if our OC at this objective would be reduced by falling back
 		var friendly_oc_here = _get_oc_at_position(
@@ -827,28 +1269,57 @@ static func _decide_engaged_unit(
 		)
 
 		# If we're winning the OC war or tied, stay and hold
+		# Exception: if the unit has Fall Back and Charge, falling back may be
+		# tactically better (can charge back in, potentially killing the enemy)
 		if friendly_oc_here >= enemy_oc_here and "REMAIN_STATIONARY" in move_types:
-			print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
-			return {
-				"type": "REMAIN_STATIONARY",
-				"actor_unit_id": unit_id,
-				"_ai_description": "%s holds %s while engaged (OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
-			}
+			if fb_and_charge:
+				print("AIDecisionMaker: %s engaged on %s, winning OC (%d vs %d) but has Fall Back and Charge — may fall back to re-engage" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+			else:
+				print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s holds %s while engaged (OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
+				}
 
 		# If we're losing OC but falling back would lose the objective entirely
 		var oc_without_us = friendly_oc_here - unit_oc
 		if oc_without_us <= 0 and "REMAIN_STATIONARY" in move_types:
-			# We're the only one holding it — stay even if losing OC war
-			print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
-			return {
-				"type": "REMAIN_STATIONARY",
-				"actor_unit_id": unit_id,
-				"_ai_description": "%s stays on %s (only holder, OC: %d)" % [unit_name, obj_id_held, unit_oc]
-			}
+			if fb_and_charge:
+				# With Fall Back and Charge we can charge back onto the objective
+				print("AIDecisionMaker: %s engaged on %s, only holder but has Fall Back and Charge — will fall back to re-engage" % [unit_name, obj_id_held])
+			else:
+				# We're the only one holding it — stay even if losing OC war
+				print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s stays on %s (only holder, OC: %d)" % [unit_name, obj_id_held, unit_oc]
+				}
+
+	# --- Ability-aware fall back decision (AI-GAP-4) ---
+	var has_fb_ability = fb_and_charge or fb_and_shoot
+
+	if has_fb_ability:
+		var ability_text = []
+		if fb_and_charge:
+			ability_text.append("charge")
+		if fb_and_shoot:
+			ability_text.append("shoot")
+		var ability_summary = " + ".join(ability_text)
+		print("AIDecisionMaker: %s has Fall Back and %s — fall back is more attractive" % [unit_name, ability_summary])
 
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
-		var reason = "not on objective" if not on_objective else "losing OC war"
+		var base_reason = "not on objective" if not on_objective else "losing OC war"
+
+		# If the unit has Fall Back and X, enrich the reason
+		var reason = base_reason
+		if fb_and_charge:
+			reason = "%s, can charge back (Fall Back and Charge)" % base_reason
+		elif fb_and_shoot:
+			reason = "%s, can still shoot (Fall Back and Shoot)" % base_reason
+
 		# Compute fall-back destinations for all models (MOV-6)
 		var fall_back_destinations = _compute_fall_back_destinations(
 			unit, unit_id, snapshot, enemies, objectives, player
@@ -1188,6 +1659,28 @@ static func _should_unit_advance(
 	if not can_reach_advance:
 		return false  # Can't reach even with advance
 
+	# --- AI-GAP-4: Check for Advance and X abilities ---
+	# If the unit can advance and still shoot/charge, advancing has no downside
+	var unit_id = unit.get("id", "")
+	# Note: we check flags directly since leader bonuses should already be applied
+	# by UnitAbilityManager during the movement phase
+	var adv_and_shoot = unit.get("flags", {}).get("effect_advance_and_shoot", false)
+	var adv_and_charge = unit.get("flags", {}).get("effect_advance_and_charge", false)
+
+	# Also check via description-based detection for broader coverage
+	if not adv_and_shoot:
+		adv_and_shoot = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot")
+	if not adv_and_charge:
+		adv_and_charge = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+
+	if adv_and_shoot:
+		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % unit.get("meta", {}).get("name", unit_id))
+		return true  # No downside to advancing
+
+	if adv_and_charge:
+		print("AIDecisionMaker: %s has Advance and Charge — advancing allows charge" % unit.get("meta", {}).get("name", unit_id))
+		return true  # Can still charge after advancing
+
 	# Units without ranged weapons should always advance
 	if not has_ranged:
 		return true
@@ -1301,6 +1794,151 @@ static func _get_weapon_range_inches(weapon: Dictionary) -> float:
 		return float(int(range_str))
 	return 0.0
 
+# =============================================================================
+# SHOOTING RANGE CONSIDERATION FOR MOVEMENT (MOV-1)
+# =============================================================================
+
+static func _get_enemies_in_weapon_range(centroid: Vector2, max_weapon_range: float, enemies: Dictionary) -> Array:
+	"""Return array of {enemy_id, enemy_centroid, distance_inches} for enemies within weapon range."""
+	var in_range = []
+	if max_weapon_range <= 0.0:
+		return in_range
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var enemy_centroid = _get_unit_centroid(enemy)
+		if enemy_centroid == Vector2.INF:
+			continue
+		var dist = centroid.distance_to(enemy_centroid)
+		if dist <= range_px:
+			in_range.append({
+				"enemy_id": enemy_id,
+				"enemy_centroid": enemy_centroid,
+				"distance_inches": dist / PIXELS_PER_INCH
+			})
+	return in_range
+
+static func _clamp_move_for_weapon_range(
+	centroid: Vector2, move_vector: Vector2, max_weapon_range: float,
+	enemies: Dictionary, unit_name: String
+) -> Vector2:
+	"""
+	Clamp a movement vector so the unit stays within weapon range of the nearest
+	enemy it can currently shoot. Returns the (possibly shortened) move vector.
+	If no clamping is needed, returns the original vector.
+	"""
+	if max_weapon_range <= 0.0:
+		return move_vector  # No ranged weapons, no constraint
+
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+	var proposed_pos = centroid + move_vector
+
+	# Find all enemies currently in range
+	var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
+	if enemies_in_range.is_empty():
+		return move_vector  # No enemies in range currently, move freely
+
+	# Check if the proposed destination keeps at least one current target in range
+	var keeps_any_target = false
+	for entry in enemies_in_range:
+		if proposed_pos.distance_to(entry.enemy_centroid) <= range_px:
+			keeps_any_target = true
+			break
+
+	if keeps_any_target:
+		return move_vector  # Movement is fine, at least one target stays in range
+
+	# The move would lose all current targets. Clamp the movement.
+	# Find the nearest enemy that is currently in range
+	var nearest_enemy_pos = Vector2.INF
+	var nearest_dist = INF
+	for entry in enemies_in_range:
+		var d = centroid.distance_to(entry.enemy_centroid)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest_enemy_pos = entry.enemy_centroid
+
+	if nearest_enemy_pos == Vector2.INF:
+		return move_vector  # Shouldn't happen, but safety fallback
+
+	# Binary search for the maximum fraction of the move that keeps us in range
+	var low = 0.0
+	var high = 1.0
+	var best_fraction = 0.0
+
+	for _i in range(8):  # 8 iterations gives ~0.4% precision
+		var mid = (low + high) / 2.0
+		var test_pos = centroid + move_vector * mid
+		if test_pos.distance_to(nearest_enemy_pos) <= range_px:
+			best_fraction = mid
+			low = mid
+		else:
+			high = mid
+
+	if best_fraction <= 0.05:
+		# Can barely move at all without losing range — stay put
+		print("AIDecisionMaker: %s would lose all shooting targets — clamping to zero movement" % unit_name)
+		return Vector2.ZERO
+
+	var clamped = move_vector * best_fraction
+	print("AIDecisionMaker: %s movement clamped to %.0f%% to stay within %.0f\" weapon range of nearest enemy" % [
+		unit_name, best_fraction * 100.0, max_weapon_range])
+	return clamped
+
+static func _should_hold_for_shooting(
+	unit: Dictionary, centroid: Vector2, target_pos: Vector2,
+	max_weapon_range: float, enemies: Dictionary, move_inches: float,
+	assignment: Dictionary
+) -> bool:
+	"""
+	Determine if a ranged unit should remain stationary to maintain shooting
+	rather than moving toward a distant objective. Returns true if the unit
+	should hold for shooting.
+	"""
+	if max_weapon_range <= 0.0:
+		return false  # No ranged weapons
+
+	# Check if there are enemies currently in weapon range
+	var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
+	if enemies_in_range.is_empty():
+		return false  # No targets to shoot, move freely
+
+	# If the objective is close enough to reach this turn, move toward it
+	# (being on the objective is usually more important than one turn of shooting)
+	var dist_to_obj = centroid.distance_to(target_pos) if target_pos != Vector2.INF else INF
+	var dist_to_obj_inches = dist_to_obj / PIXELS_PER_INCH
+	if dist_to_obj_inches <= move_inches:
+		return false  # Can reach objective this turn, do it
+
+	# If the objective is high-priority (contested, uncontrolled, or needs OC),
+	# and we can reach it in 2 turns, don't hold just for shooting
+	var obj_priority = assignment.get("score", 0.0)
+	var turns_to_reach = max(1.0, ceil(dist_to_obj_inches / move_inches)) if move_inches > 0 else 99.0
+	if obj_priority >= 10.0 and turns_to_reach <= 2:
+		return false  # High priority objective close enough, keep moving
+
+	# Check if moving toward the objective would take us out of range of all targets
+	var direction = (target_pos - centroid).normalized() if target_pos != Vector2.INF else Vector2.ZERO
+	var move_vector = direction * move_inches * PIXELS_PER_INCH
+	var proposed_pos = centroid + move_vector
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+
+	var keeps_any_target = false
+	for entry in enemies_in_range:
+		if proposed_pos.distance_to(entry.enemy_centroid) <= range_px:
+			keeps_any_target = true
+			break
+
+	if keeps_any_target:
+		return false  # Moving keeps targets in range, go ahead
+
+	# Moving would lose all targets and objective isn't reachable this turn
+	# Prefer staying and shooting
+	print("AIDecisionMaker: %s has %d enemies in weapon range (max %.0f\") — holding for shooting rather than moving to distant objective (%.1f\" away, %d turns)" % [
+		unit.get("meta", {}).get("name", "unit"), enemies_in_range.size(), max_weapon_range,
+		dist_to_obj_inches, int(turns_to_reach)])
+	return true
+
 static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
 	var best = Vector2.INF
 	var best_dist = INF
@@ -1369,7 +2007,8 @@ static func _find_best_remaining_objective(
 
 static func _compute_movement_toward_target(
 	unit: Dictionary, unit_id: String, target_pos: Vector2,
-	move_inches: float, snapshot: Dictionary, enemies: Dictionary
+	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
+	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
 ) -> Dictionary:
 	# Generalized version of _compute_movement_toward_objective that takes a specific target position
 	if target_pos == Vector2.INF:
@@ -1402,6 +2041,25 @@ static func _compute_movement_toward_target(
 	if final_move_vector == Vector2.ZERO:
 		print("AIDecisionMaker: All movement paths blocked by terrain")
 		return {}
+
+	# --- MOV-1: Clamp movement to maintain weapon range on current targets ---
+	if max_weapon_range > 0.0:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		final_move_vector = _clamp_move_for_weapon_range(
+			centroid, final_move_vector, max_weapon_range, enemies, unit_name
+		)
+		if final_move_vector == Vector2.ZERO:
+			# Movement was clamped to zero — no valid move that keeps targets in range
+			return {}
+
+	# --- AI-TACTIC-4: Threat-aware position adjustment ---
+	# If the destination would place us in a significantly more dangerous position,
+	# try to find a safer alternative that still makes progress
+	if not threat_data.is_empty():
+		var desired_dest = centroid + final_move_vector
+		var safer_dest = _find_safer_position(centroid, desired_dest, move_px, threat_data, unit, objectives)
+		if safer_dest != desired_dest:
+			final_move_vector = safer_dest - centroid
 
 	# Get all deployed model positions (excluding this unit's own models) for overlap checking
 	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
@@ -1831,6 +2489,21 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	# Step 4: Confirm targets if pending
 	if action_types.has("CONFIRM_TARGETS"):
 		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets"}
+
+	# Step 4.5: Consider GRENADE stratagem before regular shooting
+	# Evaluate once per shooting phase — if worthwhile, use it before regular shooting
+	if action_types.has("SELECT_SHOOTER") and not _grenade_evaluated:
+		_grenade_evaluated = true
+		var grenade_eval = evaluate_grenade_usage(snapshot, player)
+		if grenade_eval.get("should_use", false):
+			print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
+			return {
+				"type": "USE_GRENADE_STRATAGEM",
+				"grenade_unit_id": grenade_eval.grenade_unit_id,
+				"target_unit_id": grenade_eval.target_unit_id,
+				"player": player,
+				"_ai_description": grenade_eval.description
+			}
 
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
@@ -2265,12 +2938,13 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	"""
 	Estimate expected damage of a weapon against a target.
 	Similar to _score_shooting_target but returns raw expected damage without bonuses,
-	and checks range.
+	and checks range. Includes weapon keyword modifiers (SHOOT-5).
 	"""
 	# Range check
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
@@ -2302,12 +2976,40 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var p_wound = _wound_probability(strength, toughness)
 	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
+	# --- Apply weapon keyword modifiers (SHOOT-5) ---
+	var kw_mods = _apply_weapon_keyword_modifiers(
+		weapon, target_unit,
+		attacks, p_hit, p_wound, p_unsaved, damage,
+		strength, toughness, target_save, ap, target_invuln,
+		dist_inches, weapon_range_inches
+	)
+	attacks = kw_mods["attacks"]
+	p_hit = kw_mods["p_hit"]
+	p_wound = kw_mods["p_wound"]
+	p_unsaved = kw_mods["p_unsaved"]
+	damage = kw_mods["damage"]
+
 	# Scale by number of alive models that carry this weapon
 	var model_count = _get_alive_models(shooter_unit).size()
 	if model_count < 1:
 		model_count = 1
 
 	var raw_damage = attacks * p_hit * p_wound * p_unsaved * damage * model_count
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate damage estimates ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(target_unit)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		raw_damage *= fnp_multiplier
+
+	# --- AI-GAP-4: Factor in shooter's leader ability bonuses ---
+	if not shooter_unit.is_empty():
+		var shooter_id = shooter_unit.get("id", "")
+		if shooter_id != "":
+			var all_units_for_bonus = snapshot.get("units", {})
+			var offensive_mult = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(shooter_id, shooter_unit, all_units_for_bonus)
+			if offensive_mult > 1.0:
+				raw_damage *= offensive_mult
 
 	# Apply weapon-target efficiency multiplier to guide weapon allocation
 	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
@@ -2369,17 +3071,54 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 
 	# --- Step 0: Handle reaction decisions first ---
 
-	# Command Re-roll: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_COMMAND_REROLL"):
+	# Command Re-roll: Evaluate whether to reroll failed charge rolls
+	# Note: ChargePhase puts USE/DECLINE in available actions. However, we lack the
+	# roll context (rolled distance, required distance) here. The AIPlayer signal
+	# handler (_on_command_reroll_opportunity) handles this with full context.
+	# As a fallback if the signal didn't fire, decline here.
+	if action_types.has("USE_COMMAND_REROLL") or action_types.has("DECLINE_COMMAND_REROLL"):
+		# Default fallback: decline (signal handler should have already acted)
+		var unit_id = ""
+		if action_types.has("USE_COMMAND_REROLL"):
+			unit_id = action_types["USE_COMMAND_REROLL"][0].get("actor_unit_id", "")
+		elif action_types.has("DECLINE_COMMAND_REROLL"):
+			unit_id = action_types["DECLINE_COMMAND_REROLL"][0].get("actor_unit_id", "")
 		return {
 			"type": "DECLINE_COMMAND_REROLL",
-			"_ai_description": "Decline Command Re-roll (charge)"
+			"actor_unit_id": unit_id,
+			"_ai_description": "Decline Command Re-roll (charge fallback)"
 		}
 
-	# Fire Overwatch: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_FIRE_OVERWATCH"):
+	# Fire Overwatch: Evaluate whether to fire overwatch during opponent's charge
+	if action_types.has("USE_FIRE_OVERWATCH") or action_types.has("DECLINE_FIRE_OVERWATCH"):
+		var ow_actions = action_types.get("USE_FIRE_OVERWATCH", [])
+		if not ow_actions.is_empty():
+			# Build eligible units list from available actions
+			var eligible_units = []
+			var enemy_unit_id = ""
+			var ow_player = player
+			for ow_a in ow_actions:
+				eligible_units.append({
+					"unit_id": ow_a.get("actor_unit_id", ""),
+					"unit_name": ow_a.get("description", "")
+				})
+				if enemy_unit_id == "":
+					enemy_unit_id = ow_a.get("enemy_unit_id", "")
+				if ow_a.has("player"):
+					ow_player = ow_a.player
+
+			var ow_decision = evaluate_fire_overwatch(ow_player, eligible_units, enemy_unit_id, snapshot)
+			if ow_decision.get("type", "") == "USE_FIRE_OVERWATCH":
+				ow_decision["player"] = ow_player
+				return ow_decision
+
+		# Decline overwatch
+		var decline_player = player
+		if action_types.has("DECLINE_FIRE_OVERWATCH"):
+			decline_player = action_types["DECLINE_FIRE_OVERWATCH"][0].get("player", player)
 		return {
 			"type": "DECLINE_FIRE_OVERWATCH",
+			"player": decline_player,
 			"_ai_description": "Decline Fire Overwatch"
 		}
 
@@ -2503,6 +3242,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		# Units without melee weapons should generally not charge (except for objective play)
 		var melee_bonus = 1.0 if has_melee else 0.3
 
+		# --- AI-GAP-4: Check if charger has melee ability bonuses ---
+		var all_units_charge = snapshot.get("units", {})
+		var charger_melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(uid, unit, all_units_charge)
+		if charger_melee_mult > 1.0:
+			melee_bonus *= charger_melee_mult
+			print("AIDecisionMaker: %s has melee leader bonuses (mult=%.2f)" % [unit_name, charger_melee_mult])
+
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
 			var dist = target_info.distance_inches
@@ -2619,6 +3365,23 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	if target_toughness <= 3:
 		score += 1.0
 
+	# --- AI-GAP-4: Factor in charger's melee leader bonuses ---
+	var charger_id = charger.get("id", "")
+	if charger_id != "":
+		var all_units = snapshot.get("units", {})
+		var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(charger_id, charger, all_units)
+		if melee_mult > 1.0:
+			score *= melee_mult
+
+	# --- AI-GAP-4: Factor in target's defensive abilities ---
+	var target_id_for_def = target.get("id", "")
+	if target_id_for_def != "":
+		var all_units_def = snapshot.get("units", {})
+		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id_for_def, target, all_units_def)
+		if def_mult > 1.0:
+			# Higher defensive multiplier = harder to kill = lower score
+			score /= def_mult
+
 	return max(0.0, score)
 
 static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -> float:
@@ -2670,6 +3433,12 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 		var p_wound = _wound_probability(charger_strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
 		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate melee damage estimates ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(defender)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		best_damage *= fnp_multiplier
 
 	return best_damage
 
@@ -4039,11 +4808,221 @@ static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
 
 	return best_invuln
 
+# =============================================================================
+# WEAPON KEYWORD AWARENESS (SHOOT-5)
+# =============================================================================
+# Adjusts expected damage calculation to account for weapon special rules:
+# Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained Hits,
+# Lethal Hits, and Devastating Wounds.
+# Returns a Dictionary with adjusted values:
+#   {attacks, p_hit, p_wound, p_unsaved, damage}
+
+static func _apply_weapon_keyword_modifiers(
+	weapon: Dictionary, target_unit: Dictionary,
+	base_attacks: float, base_p_hit: float, base_p_wound: float,
+	base_p_unsaved: float, base_damage: float,
+	strength: int, toughness: int,
+	target_save: int, ap: int, target_invuln: int,
+	dist_inches: float, weapon_range_inches: float
+) -> Dictionary:
+	"""
+	Apply weapon keyword modifiers to the base expected-damage components.
+	All adjustments are applied as mathematical expectation modifiers
+	so the AI can compare weapons fairly.
+	"""
+	var attacks = base_attacks
+	var p_hit = base_p_hit
+	var p_wound = base_p_wound
+	var p_unsaved = base_p_unsaved
+	var damage = base_damage
+	var special_rules = weapon.get("special_rules", "").to_lower()
+
+	# --- TORRENT: auto-hit, p_hit = 1.0 ---
+	if "torrent" in special_rules:
+		p_hit = 1.0
+
+	# --- BLAST: bonus attacks vs large units ---
+	if "blast" in special_rules:
+		var alive_models = _get_alive_models(target_unit).size()
+		if alive_models >= 11:
+			attacks += 2.0
+		elif alive_models >= 6:
+			attacks += 1.0
+		# Blast also enforces minimum 3 attacks vs 6+ model units
+		if alive_models >= 6 and attacks < 3.0:
+			attacks = 3.0
+
+	# --- RAPID FIRE X: bonus attacks at half range ---
+	var rapid_fire_val = _parse_rapid_fire_value(special_rules)
+	if rapid_fire_val > 0:
+		var at_half_range = _is_within_half_range(dist_inches, weapon_range_inches)
+		if at_half_range == 1:
+			# Definitely within half range
+			attacks += float(rapid_fire_val)
+		elif at_half_range == -1:
+			# Definitely not within half range — no bonus
+			pass
+		else:
+			# Unknown distance — use expected value (probability-weighted)
+			attacks += float(rapid_fire_val) * HALF_RANGE_FALLBACK_PROB
+
+	# --- MELTA X: bonus damage at half range ---
+	var melta_val = _parse_melta_value(special_rules)
+	if melta_val > 0:
+		var at_half_range = _is_within_half_range(dist_inches, weapon_range_inches)
+		if at_half_range == 1:
+			damage += float(melta_val)
+		elif at_half_range == -1:
+			pass
+		else:
+			damage += float(melta_val) * HALF_RANGE_FALLBACK_PROB
+
+	# --- ANTI-KEYWORD X+: improved wound probability vs matching targets ---
+	var anti_data = _parse_anti_keyword_data(special_rules)
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	for entry in anti_data:
+		var anti_kw = entry["keyword"]  # e.g. "INFANTRY"
+		var threshold = entry["threshold"]  # e.g. 4
+		for tkw in target_keywords:
+			if tkw.to_upper() == anti_kw:
+				# Anti-keyword: critical wounds on threshold+ instead of just 6+
+				# The wound probability becomes: normal wounds on non-crit + auto-wound on anti-crit
+				# p_wound_anti = (1 - p_crit_anti) * base_p_wound + p_crit_anti * 1.0
+				# where p_crit_anti = (7 - threshold) / 6
+				var p_crit_anti = (7.0 - threshold) / 6.0
+				var new_p_wound = (1.0 - p_crit_anti) * p_wound + p_crit_anti
+				if new_p_wound > p_wound:
+					p_wound = new_p_wound
+				break  # Only apply the best matching anti-keyword
+
+	# --- SUSTAINED HITS X: extra hits on critical hit rolls (6s) ---
+	var sustained_val = _parse_sustained_hits_value(special_rules)
+	if sustained_val > 0.0:
+		# On a critical hit (1/6 chance per hit roll), gain sustained_val extra hits.
+		# Expected extra hits per attack = CRIT_PROBABILITY * sustained_val
+		# These extra hits still need to wound and get past saves.
+		# Effective attack multiplier: attacks * (1 + CRIT_PROBABILITY * sustained_val * p_hit_share)
+		# But since these are additional hits (not attacks), and p_hit is already factored:
+		# Total effective hits = attacks * p_hit + attacks * CRIT_PROBABILITY * sustained_val
+		# (critical hits are a subset of p_hit, but they generate EXTRA hits)
+		# Simplification: multiply attacks by (1 + CRIT_PROBABILITY * sustained_val / p_hit) if p_hit > 0
+		# More precisely: effective_hits = attacks * p_hit * (1 + CRIT_PROBABILITY / p_hit * sustained_val)
+		#               = attacks * (p_hit + CRIT_PROBABILITY * sustained_val)
+		# We model this as an attack multiplier so it flows through the rest of the pipeline.
+		if p_hit > 0:
+			var hit_multiplier = (p_hit + CRIT_PROBABILITY * sustained_val) / p_hit
+			attacks *= hit_multiplier
+
+	# --- LETHAL HITS: critical hits (6s) auto-wound ---
+	if "lethal hits" in special_rules:
+		# On a 6 to hit, the attack auto-wounds (skips wound roll).
+		# Expected contribution from lethal hits per attack:
+		#   CRIT_PROBABILITY * p_unsaved * damage (they auto-wound, so p_wound=1 for these)
+		# Non-lethal hits contribute:
+		#   (p_hit - CRIT_PROBABILITY) * p_wound * p_unsaved * damage
+		# Total expected damage per attack:
+		#   CRIT_PROBABILITY * 1.0 * p_unsaved * damage + (p_hit - CRIT_PROBABILITY) * p_wound * p_unsaved * damage
+		# = p_unsaved * damage * (CRIT_PROBABILITY + (p_hit - CRIT_PROBABILITY) * p_wound)
+		# We model this by adjusting p_wound to an effective value:
+		if p_hit > 0:
+			var effective_p_wound = (CRIT_PROBABILITY + (p_hit - CRIT_PROBABILITY) * p_wound) / p_hit
+			p_wound = effective_p_wound
+
+	# --- DEVASTATING WOUNDS: critical wounds (6s) bypass saves ---
+	if "devastating wounds" in special_rules:
+		# On an unmodified 6 to wound, the attack bypasses saves entirely (mortal wound).
+		# Expected contribution from devastating wounds per wound:
+		#   CRIT_PROBABILITY * 1.0 * damage (p_unsaved = 1.0 for these)
+		# Non-devastating wounds contribute:
+		#   (p_wound - CRIT_PROBABILITY) * p_unsaved * damage
+		# Total = damage * (CRIT_PROBABILITY + (p_wound - CRIT_PROBABILITY) * p_unsaved)
+		# Model by adjusting p_unsaved to an effective value:
+		if p_wound > 0:
+			var effective_p_unsaved = (CRIT_PROBABILITY + (p_wound - CRIT_PROBABILITY) * p_unsaved) / p_wound
+			p_unsaved = effective_p_unsaved
+
+	return {
+		"attacks": attacks,
+		"p_hit": p_hit,
+		"p_wound": p_wound,
+		"p_unsaved": p_unsaved,
+		"damage": damage
+	}
+
+static func _is_within_half_range(dist_inches: float, weapon_range_inches: float) -> int:
+	"""
+	Determine if a target is within half range of a weapon.
+	Returns: 1 = definitely within half range, -1 = definitely not, 0 = unknown.
+	"""
+	if dist_inches <= 0.0 or weapon_range_inches <= 0.0:
+		return 0  # Can't determine — use fallback
+	var half_range = weapon_range_inches / 2.0
+	if dist_inches <= half_range:
+		return 1
+	else:
+		return -1
+
+static func _parse_rapid_fire_value(special_rules_lower: String) -> int:
+	"""Parse 'rapid fire X' from lowercased special_rules string. Returns 0 if not found."""
+	var regex = RegEx.new()
+	regex.compile("rapid\\s*fire\\s*(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		return result.get_string(1).to_int()
+	return 0
+
+static func _parse_melta_value(special_rules_lower: String) -> int:
+	"""Parse 'melta X' from lowercased special_rules string. Returns 0 if not found."""
+	var regex = RegEx.new()
+	regex.compile("melta\\s*(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		return result.get_string(1).to_int()
+	return 0
+
+static func _parse_anti_keyword_data(special_rules_lower: String) -> Array:
+	"""Parse 'anti-X Y+' patterns from lowercased special_rules string.
+	Returns Array of {keyword: String (UPPERCASE), threshold: int}."""
+	var results = []
+	var regex = RegEx.new()
+	regex.compile("anti-(\\w+)\\s+(\\d+)\\+?")
+	var matches = regex.search_all(special_rules_lower)
+	for m in matches:
+		results.append({
+			"keyword": m.get_string(1).to_upper(),
+			"threshold": m.get_string(2).to_int()
+		})
+	return results
+
+static func _parse_sustained_hits_value(special_rules_lower: String) -> float:
+	"""Parse 'sustained hits X' or 'sustained hits dX' from lowercased special_rules string.
+	Returns the expected number of bonus hits per critical (0 if not found).
+	For 'sustained hits D3', returns average of D3 = 2.0.
+	For 'sustained hits D6', returns average of D6 = 3.5."""
+	var regex = RegEx.new()
+	regex.compile("sustained\\s*hits\\s*(d?)(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		var is_dice = result.get_string(1) == "d"
+		var val = result.get_string(2).to_int()
+		if is_dice:
+			# Average of dX = (X+1)/2
+			if val == 3:
+				return 2.0
+			elif val == 6:
+				return 3.5
+			else:
+				return (float(val) + 1.0) / 2.0
+		else:
+			return float(val)
+	return 0.0
+
 static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
 	# --- Range check: score 0 for out-of-range targets ---
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
@@ -4075,7 +5054,31 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var p_wound = _wound_probability(strength, toughness)
 	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
+	# --- Apply weapon keyword modifiers (SHOOT-5) ---
+	var kw_mods = _apply_weapon_keyword_modifiers(
+		weapon, target_unit,
+		attacks, p_hit, p_wound, p_unsaved, damage,
+		strength, toughness, target_save, ap, target_invuln,
+		dist_inches, weapon_range_inches
+	)
+	attacks = kw_mods["attacks"]
+	p_hit = kw_mods["p_hit"]
+	p_wound = kw_mods["p_wound"]
+	p_unsaved = kw_mods["p_unsaved"]
+	damage = kw_mods["damage"]
+
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate scoring ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(target_unit)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		expected_damage *= fnp_multiplier
+
+	# --- AI-GAP-4: Factor in target Stealth for ranged hit penalty ---
+	if AIAbilityAnalyzerData.has_stealth(target_unit):
+		# Stealth imposes -1 to hit for ranged attacks; approximate as ~15% reduction
+		expected_damage *= 0.85
 
 	# Bonus: target below half strength (finish it off)
 	var alive_count = _get_alive_models(target_unit).size()
@@ -4358,3 +5361,742 @@ static func _target_type_name(target_type: int) -> String:
 			return "Horde"
 		_:
 			return "Unknown"
+
+# =============================================================================
+# STRATAGEM EVALUATION — AI heuristics for when to use stratagems
+# =============================================================================
+
+# --- GRENADE STRATAGEM ---
+
+static func evaluate_grenade_usage(snapshot: Dictionary, player: int) -> Dictionary:
+	"""
+	Evaluate whether the AI should use the GRENADE stratagem this shooting phase.
+	Returns { should_use: bool, grenade_unit_id: String, target_unit_id: String,
+	          description: String } or { should_use: false }.
+
+	Heuristic: Use Grenade when we have a GRENADES unit whose ranged weapons are
+	weak (few shots, low damage) or that has no ranged weapons, AND there is an
+	enemy within 8" that would take meaningful damage from 6D6 at 4+ (avg 3 MW).
+	Prefer targets with many wounded low-wound models (mortal wounds bypass saves).
+	"""
+	var strat_manager_node = Engine.get_main_loop().root.get_node_or_null("/root/StratagemManager")
+	if not strat_manager_node:
+		return {"should_use": false}
+
+	var eligible_units = strat_manager_node.get_grenade_eligible_units(player)
+	if eligible_units.is_empty():
+		return {"should_use": false}
+
+	var best_score: float = 0.0
+	var best_grenade_unit_id: String = ""
+	var best_target_unit_id: String = ""
+	var best_grenade_unit_name: String = ""
+	var best_target_unit_name: String = ""
+
+	for entry in eligible_units:
+		var grenade_unit_id: String = entry.unit_id
+		var grenade_unit = snapshot.get("units", {}).get(grenade_unit_id, {})
+		if grenade_unit.is_empty():
+			continue
+
+		# Check if this unit has strong ranged weapons — if so, shooting normally is better
+		var ranged_weapon_strength = _estimate_unit_ranged_strength(grenade_unit)
+
+		# Get eligible grenade targets (within 8")
+		var targets = RulesEngine.get_grenade_eligible_targets(grenade_unit_id, snapshot)
+		if targets.is_empty():
+			continue
+
+		for target_info in targets:
+			var target_unit_id: String = target_info.unit_id
+			var target_unit = snapshot.get("units", {}).get(target_unit_id, {})
+			if target_unit.is_empty():
+				continue
+
+			# Score the grenade target: mortal wounds bypass saves, so low-wound models
+			# and wounded models are ideal. Average 3 MW from 6D6 at 4+.
+			var target_score = _score_grenade_target(target_unit)
+
+			# Reduce score if the unit has strong ranged weapons (shooting normally is better)
+			# Grenade expected value: ~3 mortal wounds (no saves)
+			# If ranged weapons do more expected damage, prefer shooting
+			if ranged_weapon_strength > 4.0:
+				target_score *= 0.3  # Strong ranged unit — prefer shooting
+			elif ranged_weapon_strength > 2.0:
+				target_score *= 0.7  # Moderate ranged unit — slight preference for shooting
+
+			if target_score > best_score:
+				best_score = target_score
+				best_grenade_unit_id = grenade_unit_id
+				best_target_unit_id = target_unit_id
+				best_grenade_unit_name = entry.get("unit_name", grenade_unit_id)
+				best_target_unit_name = target_info.get("unit_name", target_unit_id)
+
+	# Use grenade if the score is above a meaningful threshold
+	# 3 MW is expected value; score of 2.0+ means decent value
+	if best_score >= 2.0 and best_grenade_unit_id != "" and best_target_unit_id != "":
+		return {
+			"should_use": true,
+			"grenade_unit_id": best_grenade_unit_id,
+			"target_unit_id": best_target_unit_id,
+			"description": "%s throws GRENADE at %s" % [best_grenade_unit_name, best_target_unit_name]
+		}
+
+	return {"should_use": false}
+
+static func _estimate_unit_ranged_strength(unit: Dictionary) -> float:
+	"""
+	Estimate the ranged weapon strength of a unit based on expected wounds output.
+	Returns a rough score: 0 = no ranged weapons, higher = more damage output.
+	"""
+	var total_expected = 0.0
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var alive_models = _get_alive_models(unit)
+	var model_count = alive_models.size()
+	if model_count == 0:
+		return 0.0
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var damage_str = w.get("damage", "1")
+		var avg_damage = _parse_average_damage(damage_str)
+		var bs_str = w.get("bs", "4+")
+		var bs = int(bs_str.replace("+", "")) if "+" in bs_str else 4
+		var hit_prob = max(0.0, (7.0 - bs) / 6.0)
+		# Rough wound probability (assume average target T4, moderate save)
+		var wound_prob = 0.5
+		var save_prob = 0.5  # Assume 50% saves get through
+		total_expected += attacks * hit_prob * wound_prob * save_prob * avg_damage * model_count
+
+	return total_expected
+
+static func _score_grenade_target(target_unit: Dictionary) -> float:
+	"""
+	Score a target for GRENADE usage. Mortal wounds bypass saves, so the key
+	factors are: remaining wounds (can we kill models?), model count (more models =
+	more value from removing them), and unit value (characters/elites are higher value).
+	"""
+	var alive = _get_alive_models(target_unit)
+	var alive_count = alive.size()
+	if alive_count == 0:
+		return 0.0
+
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	var avg_mortal_wounds = 3.0  # Expected from 6D6 at 4+
+
+	# Base score: how many models can we expect to kill?
+	if wounds_per_model <= 0:
+		wounds_per_model = 1
+	var expected_kills = avg_mortal_wounds / float(wounds_per_model)
+
+	# Wounded models are more vulnerable — check if any models are below full wounds
+	var total_remaining_wounds = 0.0
+	for model in alive:
+		var max_wounds = wounds_per_model
+		var current_wounds = model.get("wounds", max_wounds)
+		total_remaining_wounds += current_wounds
+
+	# Score based on proportion of total wounds we'd remove
+	var wound_proportion = avg_mortal_wounds / max(total_remaining_wounds, 1.0)
+	var base_score = wound_proportion * 5.0  # Scale: 5.0 if we'd remove all wounds
+
+	# Bonus for being able to finish off models (mortal wounds on 1W models = guaranteed kills)
+	if wounds_per_model == 1:
+		base_score += 1.0  # 3 expected kills on 1W models
+
+	# Bonus for small elite units (killing 1-2 of 3 models is more impactful)
+	if alive_count <= 3 and wounds_per_model >= 3:
+		base_score += 1.0
+
+	# Bonus for characters/high-value units
+	var keywords = target_unit.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if kw.to_upper() == "CHARACTER":
+			base_score += 1.5
+			break
+
+	return base_score
+
+# --- GO TO GROUND / SMOKESCREEN (Reactive — during opponent's shooting) ---
+
+static func evaluate_reactive_stratagem(defending_player: int, available_stratagems: Array, target_unit_ids: Array, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use a reactive stratagem (Go to Ground or Smokescreen)
+	when being shot at. Returns the action dictionary to submit, or empty dict to decline.
+
+	Heuristic:
+	- Use Go to Ground on valuable INFANTRY targets without existing invuln saves
+	- Use Smokescreen on SMOKE units being targeted (always beneficial: cover + stealth)
+	- Prefer Smokescreen over Go to Ground (stealth is -1 to hit, stronger)
+	- Skip if the unit is cheap/expendable (not worth 1 CP)
+	"""
+	var best_stratagem_id: String = ""
+	var best_target_unit_id: String = ""
+	var best_score: float = 0.0
+
+	for strat_entry in available_stratagems:
+		var strat = strat_entry.get("stratagem", {})
+		var eligible_units = strat_entry.get("eligible_units", [])
+		var strat_id = strat.get("id", "")
+
+		for unit_id in eligible_units:
+			var unit = snapshot.get("units", {}).get(unit_id, {})
+			if unit.is_empty():
+				continue
+
+			var score = _score_defensive_stratagem_target(unit, strat_id)
+			if score > best_score:
+				best_score = score
+				best_stratagem_id = strat_id
+				best_target_unit_id = unit_id
+
+	# Use the stratagem if the score is meaningful (unit is worth protecting)
+	if best_score >= 1.5 and best_stratagem_id != "" and best_target_unit_id != "":
+		var strat_name = ""
+		for strat_entry in available_stratagems:
+			if strat_entry.get("stratagem", {}).get("id", "") == best_stratagem_id:
+				strat_name = strat_entry.stratagem.get("name", best_stratagem_id)
+				break
+		var unit_name = snapshot.get("units", {}).get(best_target_unit_id, {}).get("meta", {}).get("name", best_target_unit_id)
+		return {
+			"type": "USE_REACTIVE_STRATAGEM",
+			"stratagem_id": best_stratagem_id,
+			"target_unit_id": best_target_unit_id,
+			"player": defending_player,
+			"_ai_description": "AI uses %s on %s" % [strat_name, unit_name]
+		}
+
+	return {
+		"type": "DECLINE_REACTIVE_STRATAGEM",
+		"player": defending_player,
+		"_ai_description": "AI declines reactive stratagems"
+	}
+
+static func _score_defensive_stratagem_target(unit: Dictionary, stratagem_id: String) -> float:
+	"""
+	Score how much a unit benefits from a defensive stratagem.
+	Higher score = more worth spending 1 CP on.
+	"""
+	var alive = _get_alive_models(unit)
+	var alive_count = alive.size()
+	if alive_count == 0:
+		return 0.0
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var stats = unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var save = int(stats.get("save", 4))
+	var base_score = 0.0
+
+	# Check existing invulnerable save
+	var existing_invuln = 0
+	for model in alive:
+		var model_invuln = model.get("invuln", 0)
+		if typeof(model_invuln) == TYPE_STRING:
+			model_invuln = int(model_invuln) if model_invuln.is_valid_int() else 0
+		if model_invuln > 0:
+			existing_invuln = model_invuln
+		break
+	if existing_invuln == 0:
+		existing_invuln = int(stats.get("invuln", 0))
+
+	match stratagem_id:
+		"go_to_ground":
+			# Go to Ground grants 6+ invuln + cover
+			# More valuable when: no existing invuln, poor save, many models, high value
+			if existing_invuln > 0 and existing_invuln <= 5:
+				# Already has a decent invuln — 6+ invuln won't help much
+				base_score += 0.5
+			else:
+				# No invuln or 6+ — this helps
+				base_score += 1.5
+
+			# Cover improves save by 1 (if not already in cover)
+			if not unit.get("flags", {}).get("in_cover", false):
+				if save >= 5:  # Poor save benefits more from cover
+					base_score += 1.0
+				else:
+					base_score += 0.5
+
+		"smokescreen":
+			# Smokescreen grants cover + stealth (-1 to hit)
+			# Stealth is always strong — it reduces incoming damage by ~17-33%
+			base_score += 2.0
+
+			# Cover on top of stealth is extra value
+			if not unit.get("flags", {}).get("in_cover", false):
+				base_score += 0.5
+
+	# Scale by unit value
+	# Multi-wound models are more valuable per CP
+	base_score *= (1.0 + 0.1 * float(wounds_per_model * alive_count))
+
+	# Bonus for CHARACTER units (high value)
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "CHARACTER":
+			base_score += 1.0
+		if kw_upper == "LEADER":
+			base_score += 0.5
+
+	# Penalty for single-model units with many wounds already lost
+	if alive_count == 1 and wounds_per_model > 1:
+		var current_wounds = alive[0].get("wounds", wounds_per_model)
+		if current_wounds <= 1:
+			base_score *= 0.3  # Nearly dead — not worth saving
+
+	return base_score
+
+# --- FIRE OVERWATCH (Reactive — during opponent's movement/charge) ---
+
+static func evaluate_fire_overwatch(defending_player: int, eligible_units: Array, enemy_unit_id: String, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Fire Overwatch against a moving/charging enemy.
+	Returns the action dictionary to submit, or empty dict to decline.
+
+	Heuristic: Fire Overwatch hits only on unmodified 6s (16.7% hit rate).
+	Use when:
+	- The unit has many high-volume ranged weapons (more dice = more 6s)
+	- The enemy is a high-value target (character, expensive unit)
+	- The CP cost is affordable (1 CP, once per turn)
+	Avoid when:
+	- The unit only has 1-2 shots (very unlikely to do anything)
+	- CP reserves are low (< 3 CP, save for other stratagems)
+	"""
+	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+
+	# Don't use overwatch if CP is low — save for more reliable stratagems
+	if player_cp < 2:
+		return _decline_fire_overwatch(defending_player)
+
+	var enemy_unit = snapshot.get("units", {}).get(enemy_unit_id, {})
+	if enemy_unit.is_empty():
+		return _decline_fire_overwatch(defending_player)
+
+	# Evaluate enemy threat level
+	var enemy_value = _estimate_unit_value(enemy_unit)
+
+	var best_unit_id: String = ""
+	var best_unit_name: String = ""
+	var best_expected_hits: float = 0.0
+
+	for entry in eligible_units:
+		var unit_id: String = ""
+		var unit_name: String = ""
+		if entry is Dictionary:
+			unit_id = entry.get("unit_id", "")
+			unit_name = entry.get("unit_name", unit_id)
+		elif entry is String:
+			unit_id = entry
+			unit_name = entry
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		# Count total ranged shots (overwatch hits on 6s only)
+		var total_shots = _count_unit_ranged_shots(unit)
+		var expected_hits = total_shots / 6.0  # 1/6 chance per shot
+
+		if expected_hits > best_expected_hits:
+			best_expected_hits = expected_hits
+			best_unit_id = unit_id
+			best_unit_name = unit_name
+
+	# Use overwatch if we expect at least ~1 hit and enemy is valuable
+	# Threshold: at least 0.5 expected hits (3+ total shots) AND enemy worth shooting at
+	if best_expected_hits >= 0.5 and enemy_value >= 2.0 and best_unit_id != "":
+		var enemy_name = enemy_unit.get("meta", {}).get("name", enemy_unit_id)
+		return {
+			"type": "USE_FIRE_OVERWATCH",
+			"unit_id": best_unit_id,
+			"player": defending_player,
+			"_ai_description": "AI fires overwatch with %s at %s (%.1f expected hits)" % [best_unit_name, enemy_name, best_expected_hits]
+		}
+
+	return _decline_fire_overwatch(defending_player)
+
+static func _decline_fire_overwatch(player: int) -> Dictionary:
+	return {
+		"type": "DECLINE_FIRE_OVERWATCH",
+		"player": player,
+		"_ai_description": "AI declines Fire Overwatch"
+	}
+
+static func _count_unit_ranged_shots(unit: Dictionary) -> float:
+	"""Count total expected ranged attacks for a unit (all alive models * all ranged weapons)."""
+	var total = 0.0
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var alive = _get_alive_models(unit)
+	var model_count = alive.size()
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = 0.0
+		if attacks_str.is_valid_float():
+			attacks = float(attacks_str)
+		elif attacks_str.is_valid_int():
+			attacks = float(attacks_str)
+		elif "d" in attacks_str.to_lower():
+			# Variable attacks: use average
+			attacks = _parse_average_damage(attacks_str)
+		else:
+			attacks = 1.0
+		total += attacks * model_count
+
+	return total
+
+static func _estimate_unit_value(unit: Dictionary) -> float:
+	"""
+	Estimate the tactical value of a unit for stratagem decisions.
+	Returns a rough score: higher = more valuable.
+	"""
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var stats = unit.get("meta", {}).get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var alive = _get_alive_models(unit)
+	var alive_count = alive.size()
+	var value = float(alive_count) * float(wounds_per_model) * 0.5
+
+	for kw in keywords:
+		var kw_upper = kw.to_upper()
+		if kw_upper == "CHARACTER":
+			value += 3.0
+		elif kw_upper == "VEHICLE":
+			value += 2.0
+		elif kw_upper == "MONSTER":
+			value += 2.0
+
+	return value
+
+# --- COMMAND RE-ROLL (Reactive — after any dice roll) ---
+
+static func evaluate_command_reroll_charge(player: int, rolled_distance: int, required_distance: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll a charge roll.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if the charge FAILED and:
+	- The gap between rolled and required is small (reroll has reasonable chance)
+	- The charging unit is important (character, elite unit)
+	"""
+	if rolled_distance >= required_distance:
+		return false  # Charge already succeeded — no need to reroll
+
+	var gap = required_distance - rolled_distance
+	# Probability of rolling required on 2D6:
+	# 2D6 average = 7, so if we need 7+ the chance is ~58.3%
+	# Need 8+ = ~41.7%, 9+ = ~27.8%, 10+ = ~16.7%, 11+ = ~8.3%, 12 = ~2.8%
+	# Don't reroll if we need 11+ (too unlikely)
+	if required_distance > 10:
+		return false
+
+	# If the roll was close to required (within 2), always reroll
+	if gap <= 2 and required_distance <= 9:
+		return true
+
+	# If the roll was terrible (e.g. rolled 3 on 2D6, needed 7), reroll
+	if rolled_distance <= 4 and required_distance <= 9:
+		return true
+
+	# For moderate gaps, check CP affordability
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+	if player_cp >= 3 and required_distance <= 9:
+		return true  # We can afford it, take the shot
+
+	return false
+
+static func evaluate_command_reroll_battleshock(player: int, roll: int, leadership: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll a failed battle-shock test.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if:
+	- The unit needs the test to pass (e.g. holding an objective)
+	- The gap between roll and leadership is small
+	"""
+	if roll <= leadership:
+		return false  # Already passed
+
+	var gap = roll - leadership
+	# Re-rolling 2D6: if we need to roll <= leadership, higher leadership = more likely
+	# Leadership 6: need 6 or less = 41.7% on 2D6
+	# Leadership 7: need 7 or less = 58.3%
+	# Leadership 8: need 8 or less = 72.2%
+
+	# Always reroll if leadership is 7+ (good chance of passing)
+	if leadership >= 7:
+		return true
+
+	# Reroll if the gap is small (within 2)
+	if gap <= 2:
+		return true
+
+	# If leadership is very low (5 or less), don't waste CP
+	if leadership <= 5:
+		return false
+
+	return true
+
+static func evaluate_command_reroll_advance(player: int, advance_roll: int, snapshot: Dictionary) -> bool:
+	"""
+	Evaluate whether the AI should re-roll an advance roll.
+	Returns true if the re-roll is worthwhile.
+
+	Heuristic: Re-roll if the roll is very low (1 or 2) since advancing
+	is usually done when the extra distance matters.
+	"""
+	# Only reroll very low advance rolls — a 1 is the worst possible
+	if advance_roll <= 1:
+		return true
+	if advance_roll <= 2:
+		# Check if CP is plentiful
+		var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+		if player_cp >= 3:
+			return true
+
+	return false
+
+# --- HELPER: Get player CP from snapshot ---
+
+static func _get_player_cp_from_snapshot(snapshot: Dictionary, player: int) -> int:
+	"""Get a player's CP from the game state snapshot."""
+	var players = snapshot.get("players", {})
+	var player_data = players.get(str(player), players.get(player, {}))
+	return int(player_data.get("cp", 0))
+
+# =============================================================================
+# ENEMY THREAT RANGE AWARENESS (AI-TACTIC-4, MOV-2)
+# =============================================================================
+# Calculates charge threat zones and shooting ranges for enemy units,
+# allowing the AI to avoid moving into danger when not tactically necessary.
+
+static func _calculate_enemy_threat_data(enemies: Dictionary) -> Array:
+	"""Build an array of threat data for each enemy unit.
+	Each entry: {unit_id, centroid, charge_threat_px, shoot_threat_px, has_melee, has_ranged, unit_value}
+	charge_threat_px = (enemy M + 12" charge + 1" ER) in pixels
+	shoot_threat_px = max ranged weapon range in pixels"""
+	var threat_data = []
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var ecentroid = _get_unit_centroid(enemy)
+		if ecentroid == Vector2.INF:
+			continue
+		var enemy_stats = enemy.get("meta", {}).get("stats", {})
+		var enemy_move = float(enemy_stats.get("move", 6))
+		var has_melee = _unit_has_melee_weapons(enemy)
+		var has_ranged = _unit_has_ranged_weapons(enemy)
+		var max_shoot_range = _get_max_weapon_range(enemy)  # in inches
+
+		# Charge threat range = Movement + 12" max charge + 1" engagement range
+		# This represents the maximum distance this unit could reach with a move + charge
+		var charge_threat_inches = enemy_move + 12.0 + 1.0
+		var charge_threat_px = charge_threat_inches * PIXELS_PER_INCH
+
+		# Shooting threat range = max weapon range
+		var shoot_threat_px = max_shoot_range * PIXELS_PER_INCH
+
+		# Estimate unit value/lethality for weighting the threat
+		var unit_value = _estimate_enemy_threat_level(enemy)
+
+		threat_data.append({
+			"unit_id": enemy_id,
+			"centroid": ecentroid,
+			"charge_threat_px": charge_threat_px,
+			"shoot_threat_px": shoot_threat_px,
+			"has_melee": has_melee,
+			"has_ranged": has_ranged,
+			"unit_value": unit_value
+		})
+	return threat_data
+
+static func _estimate_enemy_threat_level(enemy: Dictionary) -> float:
+	"""Estimate how dangerous an enemy unit is (0.0 to 3.0 scale).
+	Used to weight threat zones — more dangerous enemies create scarier zones."""
+	var value = 1.0
+	var keywords = enemy.get("meta", {}).get("keywords", [])
+	var stats = enemy.get("meta", {}).get("stats", {})
+
+	# More alive models = more dangerous
+	var alive_count = 0
+	for model in enemy.get("models", []):
+		if model.get("alive", true):
+			alive_count += 1
+	if alive_count >= 10:
+		value += 0.5
+	elif alive_count <= 2:
+		value -= 0.2
+
+	# High toughness / wounds suggests elite unit
+	var toughness = int(stats.get("toughness", 4))
+	var wounds = int(stats.get("wounds", 1))
+	if toughness >= 8 or wounds >= 8:
+		value += 0.5  # Heavy hitters (vehicles, monsters)
+	if wounds >= 4:
+		value += 0.3
+
+	# Characters and leader-attached units are more threatening
+	if "CHARACTER" in keywords or "VEHICLE" in keywords or "MONSTER" in keywords:
+		value += 0.3
+
+	return clampf(value, 0.3, 3.0)
+
+static func _evaluate_position_threat(
+	pos: Vector2, threat_data: Array, own_unit: Dictionary
+) -> Dictionary:
+	"""Evaluate the threat level at a specific position from all enemy units.
+	Returns {charge_threat: float, shoot_threat: float, total_threat: float, threats: Array}
+	Higher values = more dangerous position."""
+	var charge_threat = 0.0
+	var shoot_threat = 0.0
+	var threats = []  # Details of which enemies threaten this position
+	var is_melee_focused = _unit_has_melee_weapons(own_unit) and not _unit_has_ranged_weapons(own_unit)
+
+	for td in threat_data:
+		var dist = pos.distance_to(td.centroid)
+
+		# Check charge threat zone (enemy could move + charge to reach here)
+		if td.has_melee and dist < td.charge_threat_px:
+			# How deep into the charge threat zone are we? (0.0 = edge, 1.0 = right on top)
+			var depth = 1.0 - (dist / td.charge_threat_px)
+			var charge_penalty = depth * td.unit_value * THREAT_CHARGE_PENALTY
+			# Melee units care less about being charged (they want to fight)
+			if is_melee_focused:
+				charge_penalty *= THREAT_MELEE_UNIT_IGNORE
+			charge_threat += charge_penalty
+			threats.append({
+				"enemy_id": td.unit_id,
+				"type": "charge",
+				"distance_inches": dist / PIXELS_PER_INCH,
+				"threat_range_inches": td.charge_threat_px / PIXELS_PER_INCH,
+				"penalty": charge_penalty
+			})
+
+		# Check shooting threat zone
+		if td.has_ranged and td.shoot_threat_px > 0 and dist < td.shoot_threat_px:
+			var depth = 1.0 - (dist / td.shoot_threat_px)
+			var shoot_penalty = depth * td.unit_value * THREAT_SHOOTING_PENALTY
+			shoot_threat += shoot_penalty
+			threats.append({
+				"enemy_id": td.unit_id,
+				"type": "shooting",
+				"distance_inches": dist / PIXELS_PER_INCH,
+				"threat_range_inches": td.shoot_threat_px / PIXELS_PER_INCH,
+				"penalty": shoot_penalty
+			})
+
+	var total_threat = charge_threat + shoot_threat
+
+	# Fragile units (low toughness, few wounds) get extra penalty in danger
+	var own_stats = own_unit.get("meta", {}).get("stats", {})
+	var own_toughness = int(own_stats.get("toughness", 4))
+	var own_wounds = int(own_stats.get("wounds", 1))
+	if own_toughness <= 3 or own_wounds <= 1:
+		total_threat *= THREAT_FRAGILE_BONUS
+
+	return {
+		"charge_threat": charge_threat,
+		"shoot_threat": shoot_threat,
+		"total_threat": total_threat,
+		"threats": threats
+	}
+
+static func _is_position_in_charge_threat(pos: Vector2, threat_data: Array) -> bool:
+	"""Quick check: is this position within any enemy's charge threat range?"""
+	for td in threat_data:
+		if not td.has_melee:
+			continue
+		var dist = pos.distance_to(td.centroid)
+		if dist < td.charge_threat_px:
+			return true
+	return false
+
+static func _find_safer_position(
+	current_pos: Vector2, desired_pos: Vector2, move_px: float,
+	threat_data: Array, own_unit: Dictionary, objectives: Array
+) -> Vector2:
+	"""Given a desired movement destination, try to find a nearby position that
+	reduces threat exposure while still making progress toward the objective.
+	Returns the adjusted position, or desired_pos if no safer alternative exists."""
+	var desired_threat = _evaluate_position_threat(desired_pos, threat_data, own_unit)
+	var current_threat = _evaluate_position_threat(current_pos, threat_data, own_unit)
+
+	# If the desired position is not significantly more dangerous, keep it
+	if desired_threat.total_threat <= 0.5 or desired_threat.total_threat <= current_threat.total_threat:
+		return desired_pos
+
+	# Only try to find safer positions if the threat increase is meaningful
+	if desired_threat.total_threat - current_threat.total_threat < 1.0:
+		return desired_pos
+
+	# Try positions along the same general direction but offset to reduce threat
+	var move_dir = (desired_pos - current_pos)
+	var move_dist = move_dir.length()
+	if move_dist < 1.0:
+		return desired_pos
+	move_dir = move_dir.normalized()
+
+	var best_pos = desired_pos
+	var best_score = -INF
+
+	# Score = progress toward target - threat penalty
+	# We want to still move forward but choose a less threatened position
+	var perp = Vector2(-move_dir.y, move_dir.x)
+
+	# Try: original, slightly left/right, shorter move, shorter + offset
+	var candidates = [desired_pos]
+
+	# Lateral offsets (dodge sideways)
+	for offset_mult in [1.0, -1.0, 2.0, -2.0]:
+		var offset = perp * (PIXELS_PER_INCH * 2.0) * offset_mult
+		var candidate = desired_pos + offset
+		candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate.y = clamp(candidate.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+		if current_pos.distance_to(candidate) <= move_px:
+			candidates.append(candidate)
+
+	# Shorter moves (stop just outside charge threat)
+	for fraction in [0.75, 0.5]:
+		var shorter = current_pos + move_dir * move_dist * fraction
+		shorter.x = clamp(shorter.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		shorter.y = clamp(shorter.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+		candidates.append(shorter)
+		# Also try shorter + lateral offset
+		for offset_mult in [1.0, -1.0]:
+			var offset = perp * (PIXELS_PER_INCH * 2.0) * offset_mult
+			var combo = shorter + offset
+			combo.x = clamp(combo.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+			combo.y = clamp(combo.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+			if current_pos.distance_to(combo) <= move_px:
+				candidates.append(combo)
+
+	# Find nearest objective for progress scoring
+	var target_obj = _nearest_objective_pos(desired_pos, objectives)
+
+	for candidate in candidates:
+		var cand_threat = _evaluate_position_threat(candidate, threat_data, own_unit)
+		# Progress = how much closer to the target objective compared to current position
+		var progress = 0.0
+		if target_obj != Vector2.INF:
+			var current_dist_to_obj = current_pos.distance_to(target_obj)
+			var cand_dist_to_obj = candidate.distance_to(target_obj)
+			progress = (current_dist_to_obj - cand_dist_to_obj) / PIXELS_PER_INCH  # Inches gained toward objective
+		# Score: progress matters, but reducing threat also matters
+		var score = progress * 1.5 - cand_threat.total_threat
+		if score > best_score:
+			best_score = score
+			best_pos = candidate
+
+	if best_pos != desired_pos:
+		print("AIDecisionMaker: Threat-adjusted position from (%.0f, %.0f) to (%.0f, %.0f) — threat %.1f -> %.1f" % [
+			desired_pos.x, desired_pos.y, best_pos.x, best_pos.y,
+			desired_threat.total_threat,
+			_evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
+		])
+
+	return best_pos
