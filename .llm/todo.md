@@ -12,8 +12,8 @@
 ## P1 — High (AI plays very poorly without these)
 
 - [x] Add weapon range checking to target scoring — score 0 for out-of-range targets (AI-GAP-5, SHOOT-4)
-- [ ] Implement focus fire system — coordinate weapon assignments across all shooting units to concentrate on kill thresholds (AI-TACTIC-2, SHOOT-1)
-- [ ] Implement weapon-target efficiency matching — match anti-tank to vehicles, anti-infantry to hordes, avoid wasting multi-damage on single-wound models (AI-TACTIC-5, SHOOT-2)
+- [x] Implement focus fire system — coordinate weapon assignments across all shooting units to concentrate on kill thresholds (AI-TACTIC-2, SHOOT-1)
+- [x] Implement weapon-target efficiency matching — match anti-tank to vehicles, anti-infantry to hordes, avoid wasting multi-damage on single-wound models (AI-TACTIC-5, SHOOT-2)
 - [ ] Add invulnerable save to target scoring — use min(modified_save, invuln) in shooting target evaluation (AI-GAP-6, SHOOT-3)
 - [ ] Add weapon keyword awareness to target scoring — Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained/Lethal/Devastating Wounds (SHOOT-5)
 - [ ] Implement basic stratagem usage — start with Grenade, Fire Overwatch, Go to Ground, Command Re-roll, Smokescreen (AI-GAP-3)

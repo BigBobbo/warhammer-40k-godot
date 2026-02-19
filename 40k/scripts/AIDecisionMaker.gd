@@ -2296,10 +2296,11 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
+	var target_invuln = _get_target_invulnerable_save(target_unit)
 
 	var p_hit = _hit_probability(bs)
 	var p_wound = _wound_probability(strength, toughness)
-	var p_unsaved = 1.0 - _save_probability(target_save, ap)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
 	# Scale by number of alive models that carry this weapon
 	var model_count = _get_alive_models(shooter_unit).size()
@@ -2628,6 +2629,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 
 	var target_toughness = int(defender.get("meta", {}).get("stats", {}).get("toughness", 4))
 	var target_save = int(defender.get("meta", {}).get("stats", {}).get("save", 4))
+	var target_invuln = _get_target_invulnerable_save(defender)
 
 	for w in weapons:
 		if w.get("type", "").to_lower() != "melee":
@@ -2655,7 +2657,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
-		var p_unsaved = 1.0 - _save_probability(target_save, ap)
+		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
 		# Total expected damage for entire unit with this weapon
 		var weapon_damage = attacks * alive_attackers * p_hit * p_wound * p_unsaved * damage
@@ -2666,7 +2668,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("toughness", 4))
 		var p_hit = _hit_probability(4)  # WS4+ default
 		var p_wound = _wound_probability(charger_strength, target_toughness)
-		var p_unsaved = 1.0 - _save_probability(target_save, 0)
+		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
 		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
 
 	return best_damage
@@ -3993,13 +3995,49 @@ static func _hit_probability(skill: int) -> float:
 		return 0.0
 	return (7.0 - skill) / 6.0
 
-static func _save_probability(save_val: int, ap: int) -> float:
+static func _save_probability(save_val: int, ap: int, invuln: int = 0) -> float:
 	var modified_save = save_val + abs(ap)
+	# If the target has an invulnerable save, use whichever is better (lower)
+	# Invulnerable saves ignore AP, so they are compared against the AP-modified armour save
+	if invuln > 0 and invuln < modified_save:
+		modified_save = invuln
 	if modified_save >= 7:
 		return 0.0
 	if modified_save <= 1:
 		return 1.0
 	return (7.0 - modified_save) / 6.0
+
+static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
+	"""Get the best (lowest) invulnerable save for a target unit.
+	Checks model-level invuln, unit-level meta.stats.invuln, and effect-granted invuln."""
+	var best_invuln: int = 0
+
+	# Check first alive model for native invulnerable save
+	var models = target_unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			var model_invuln = model.get("invuln", 0)
+			if typeof(model_invuln) == TYPE_STRING:
+				model_invuln = int(model_invuln) if model_invuln.is_valid_int() else 0
+			if model_invuln > 0:
+				best_invuln = model_invuln
+			break
+
+	# Check unit-level invuln in meta stats (fallback if models don't have it)
+	if best_invuln == 0:
+		var stats_invuln = target_unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+		if typeof(stats_invuln) == TYPE_STRING:
+			stats_invuln = int(stats_invuln) if stats_invuln.is_valid_int() else 0
+		if stats_invuln > 0:
+			best_invuln = stats_invuln
+
+	# Check effect-granted invulnerable save (e.g. Go to Ground stratagem)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	if effect_invuln > 0:
+		if best_invuln == 0 or effect_invuln < best_invuln:
+			best_invuln = effect_invuln
+
+	return best_invuln
 
 static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
 	# --- Range check: score 0 for out-of-range targets ---
@@ -4031,10 +4069,11 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
+	var target_invuln = _get_target_invulnerable_save(target_unit)
 
 	var p_hit = _hit_probability(bs)
 	var p_wound = _wound_probability(strength, toughness)
-	var p_unsaved = 1.0 - _save_probability(target_save, ap)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
 

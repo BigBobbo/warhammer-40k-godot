@@ -222,3 +222,37 @@
 - Anti-keyword bonuses apply when weapon special rules match target keywords (e.g. anti-infantry vs INFANTRY)
 - Console logs show efficiency multipliers for each weapon-target assignment in the focus fire plan
 - No regressions in existing AI shooting behavior for scenarios without vehicles/hordes
+
+## AI Invulnerable Save Integration in Target Scoring
+
+**Task:** Add invulnerable save to target scoring -- use min(modified_save, invuln) in shooting target evaluation (AI-GAP-6, SHOOT-3)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_get_target_invulnerable_save()` helper to extract best invuln from model, meta stats, and effect flags; updated `_save_probability()` to accept optional invuln parameter; updated `_score_shooting_target()`, `_estimate_weapon_damage()`, and `_estimate_melee_damage()` to pass invuln through
+- `40k/tests/unit/test_ai_invulnerable_save_scoring.gd` - New test file for AI invulnerable save scoring logic
+
+**Tests to run:**
+- Run `test_ai_invulnerable_save_scoring.gd` via `godot --headless --script tests/unit/test_ai_invulnerable_save_scoring.gd`
+  - Tests `_save_probability` with no invuln (unchanged behavior)
+  - Tests `_save_probability` when invuln is better than AP-modified armour save
+  - Tests `_save_probability` when armour is better than invuln
+  - Tests `_save_probability` when invuln rescues from AP-wiped armour
+  - Tests `_save_probability` with invuln=0 matches no-invuln behavior
+  - Tests `_get_target_invulnerable_save` reads from model, meta stats, effect flags
+  - Tests `_get_target_invulnerable_save` picks best (lowest) invuln across sources
+  - Tests `_get_target_invulnerable_save` handles string-type invuln values
+  - Tests `_score_shooting_target` produces lower scores for invuln-protected targets
+  - Tests `_score_shooting_target` unchanged when invuln is worse than armour
+  - Tests `_estimate_melee_damage` accounts for invuln saves
+  - Tests `_estimate_weapon_damage` accounts for invuln saves
+- Run `test_ai_weapon_range_scoring.gd` to confirm no regressions
+- Run `test_ai_weapon_efficiency.gd` to confirm no regressions
+- Run `test_ai_focus_fire.gd` to confirm no regressions
+- Run an AI vs AI game and observe that the AI now correctly evaluates damage against invuln-protected targets
+
+**What to look for:**
+- AI correctly reduces expected damage estimates against targets with invulnerable saves
+- High-AP weapons still score well against targets without invuln, but score lower against invuln-protected targets
+- Low-AP weapons are unaffected by invuln saves (since armour save is better anyway)
+- Invulnerable saves from all three sources are detected: model-level, unit-level meta stats, and effect-granted (Go to Ground)
+- Effect-granted invuln (e.g., 4++ from a stratagem) overrides worse native invuln (e.g., 6++)
+- No regressions in existing AI shooting, melee, or charge evaluation
