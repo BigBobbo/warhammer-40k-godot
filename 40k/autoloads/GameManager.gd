@@ -6,6 +6,14 @@ signal action_logged(log_text: String)
 
 var action_history: Array = []
 
+# Cached reference to PhaseManager (get_node_or_null fails in web exports)
+var _phase_manager_ref: Node = null
+
+func _get_phase_manager() -> Node:
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	return _phase_manager_ref
+
 func apply_action(action: Dictionary) -> Dictionary:
 	var result = process_action(action)
 	if result["success"]:
@@ -681,7 +689,7 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 	Delegates an action to the current phase for execution.
 	This is used for actions that modify phase-local state (like active_moves in MovementPhase).
 	"""
-	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	var phase_mgr = _get_phase_manager()
 	if not phase_mgr:
 		push_error("GameManager: PhaseManager not available for action delegation")
 		return {"success": false, "error": "PhaseManager not available"}
@@ -704,7 +712,7 @@ func _trigger_phase_completion() -> void:
 	This is used by "end phase" actions (END_COMMAND, END_MOVEMENT, etc.) to
 	advance to the next phase in multiplayer mode.
 	"""
-	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	var phase_mgr = _get_phase_manager()
 	if phase_mgr:
 		var current_phase_instance = phase_mgr.get_current_phase_instance()
 		if current_phase_instance and current_phase_instance.has_signal("phase_completed"):
