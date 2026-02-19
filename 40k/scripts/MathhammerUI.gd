@@ -50,6 +50,7 @@ var available_units: Dictionary = {}
 var selected_weapons: Dictionary = {}  # weapon_id -> {unit_id, attack_count, weapon_data}
 var selected_attackers: Dictionary = {}  # unit_id -> selected state
 var rule_toggles: Dictionary = {}
+var auto_detected_rules: Dictionary = {}  # Tracks which rules were auto-detected from weapon/unit data
 var tween: Tween
 
 # Background thread for simulation (T3-25)
@@ -479,6 +480,7 @@ func _populate_rule_toggles() -> void:
 		checkbox.text = rule.name
 		checkbox.tooltip_text = rule.description
 		checkbox.set_meta("rule_phase", rule.get("phase", "both"))
+		checkbox.set_meta("rule_id", rule.id)
 		rule_toggles_panel.add_child(checkbox)
 
 		# Connect signal with rule ID
@@ -628,6 +630,129 @@ func _update_weapon_selection() -> void:
 				"weapon_index": i
 			}
 
+	# Auto-detect weapon abilities from selected weapons and attacker units
+	_auto_detect_weapon_rules()
+
+func _auto_detect_weapon_rules() -> void:
+	# Auto-detect weapon abilities from selected weapons' special_rules
+	# and auto-enable the corresponding rule toggles in the UI
+
+	# First, clear previously auto-detected attacker rules (uncheck them)
+	var attacker_rule_prefixes_to_keep = ["invuln_", "feel_no_pain_"]
+	for rule_id in auto_detected_rules.keys():
+		if auto_detected_rules[rule_id]:
+			# Don't clear defender-side rules here (handled by _auto_detect_defender_rules)
+			var is_defender_rule = false
+			for prefix in attacker_rule_prefixes_to_keep:
+				if rule_id.begins_with(prefix):
+					is_defender_rule = true
+					break
+			if not is_defender_rule:
+				_set_rule_toggle(rule_id, false, false)
+				auto_detected_rules.erase(rule_id)
+
+	# Collect all special_rules from selected weapons
+	var detected_rule_ids = {}
+	for weapon_key in selected_weapons:
+		var weapon_info = selected_weapons[weapon_key]
+		if weapon_info.get("attack_count", 0) <= 0:
+			continue
+		var weapon_data = weapon_info.get("weapon_data", {})
+		var special_rules = weapon_data.get("special_rules", "")
+		if special_rules != "":
+			var parsed_rules = MathhammerRuleModifiers._parse_weapon_special_rules(special_rules)
+			for rule_id in parsed_rules:
+				detected_rule_ids[rule_id] = true
+
+	# Also extract unit-level abilities from selected attacker units
+	for unit_id in selected_attackers:
+		if selected_attackers[unit_id] <= 0:
+			continue
+		if not GameState:
+			continue
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		# Faction-specific rules
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "ORKS" in keywords:
+			detected_rule_ids["waaagh_active"] = true
+
+	# Auto-enable detected rules
+	if not detected_rule_ids.is_empty():
+		var detected_names = []
+		for rule_id in detected_rule_ids:
+			auto_detected_rules[rule_id] = true
+			_set_rule_toggle(rule_id, true, true)
+			detected_names.append(rule_id)
+		print("MathhammerUI: Auto-detected weapon rules: %s" % str(detected_names))
+	else:
+		print("MathhammerUI: No weapon rules auto-detected from selected weapons")
+
+func _auto_detect_defender_rules(defender_id: String) -> void:
+	# Auto-detect defender abilities (invuln saves, FNP) from defender unit data
+	if defender_id == "" or not GameState:
+		return
+
+	var unit = GameState.get_unit(defender_id)
+	if unit.is_empty():
+		return
+
+	# Clear previously auto-detected defender rules
+	var defender_rule_prefixes = ["invuln_", "feel_no_pain_"]
+	for rule_id in auto_detected_rules.keys():
+		var is_defender_rule = false
+		for prefix in defender_rule_prefixes:
+			if rule_id.begins_with(prefix):
+				is_defender_rule = true
+				break
+		if is_defender_rule and auto_detected_rules[rule_id]:
+			_set_rule_toggle(rule_id, false, false)
+			auto_detected_rules.erase(rule_id)
+
+	# Check model data for invulnerable saves
+	var models = unit.get("models", [])
+	if not models.is_empty():
+		var invuln = models[0].get("invuln", 0)
+		if typeof(invuln) == TYPE_STRING and invuln.is_valid_int():
+			invuln = int(invuln)
+		if invuln > 0 and invuln <= 6:
+			var invuln_rule_id = "invuln_%d" % invuln
+			if rule_toggles.has(invuln_rule_id):
+				auto_detected_rules[invuln_rule_id] = true
+				_set_rule_toggle(invuln_rule_id, true, true)
+				print("MathhammerUI: Auto-detected defender invuln save: %s" % invuln_rule_id)
+
+	# Check abilities for Feel No Pain
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_rules = MathhammerRuleModifiers._parse_ability_rules(ability)
+		for rule_id in ability_rules:
+			if rule_id.begins_with("feel_no_pain_"):
+				auto_detected_rules[rule_id] = true
+				_set_rule_toggle(rule_id, true, true)
+				print("MathhammerUI: Auto-detected defender ability: %s" % rule_id)
+
+func _set_rule_toggle(rule_id: String, enabled: bool, is_auto: bool) -> void:
+	# Set a rule toggle checkbox and update the rule_toggles dictionary
+	rule_toggles[rule_id] = enabled
+
+	# Find and update the corresponding checkbox in the UI using rule_id metadata
+	for child in rule_toggles_panel.get_children():
+		if child is CheckBox and child.has_meta("rule_id") and child.get_meta("rule_id") == rule_id:
+			# Block signals temporarily to avoid triggering _on_rule_toggled
+			child.set_block_signals(true)
+			child.button_pressed = enabled
+			child.set_block_signals(false)
+			# Update tooltip to indicate auto-detection
+			if is_auto and enabled:
+				var base_tooltip = child.tooltip_text
+				if not base_tooltip.ends_with("[Auto-detected]"):
+					child.tooltip_text = base_tooltip + " [Auto-detected]"
+			elif not enabled:
+				child.tooltip_text = child.tooltip_text.replace(" [Auto-detected]", "")
+			break
+
 func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 	if selected_weapons.has(weapon_key):
 		selected_weapons[weapon_key]["attack_count"] = int(value)
@@ -635,7 +760,15 @@ func _on_weapon_attack_count_changed(value: float, weapon_key: String) -> void:
 
 func _on_rule_toggled(rule_id: String, active: bool) -> void:
 	rule_toggles[rule_id] = active
-	print("MathhammerUI: Rule toggle changed - %s: %s" % [rule_id, active])
+	# If user manually toggles a rule, clear its auto-detected status
+	if auto_detected_rules.has(rule_id):
+		auto_detected_rules.erase(rule_id)
+		# Clean up tooltip using rule_id metadata
+		for child in rule_toggles_panel.get_children():
+			if child is CheckBox and child.has_meta("rule_id") and child.get_meta("rule_id") == rule_id:
+				child.tooltip_text = child.tooltip_text.replace(" [Auto-detected]", "")
+				break
+	print("MathhammerUI: Rule toggle changed - %s: %s (manual)" % [rule_id, active])
 
 func _get_selected_phase() -> String:
 	if phase_toggle and phase_toggle.selected >= 0:
@@ -677,6 +810,9 @@ func _on_unit_selection_changed(_index: int) -> void:
 
 	# Auto-populate override fields with selected defender's actual stats
 	_populate_override_from_defender(defender_id)
+
+	# Auto-detect defender abilities (invuln saves, FNP)
+	_auto_detect_defender_rules(defender_id)
 
 	emit_signal("unit_selection_changed", attacker_id, defender_id)
 

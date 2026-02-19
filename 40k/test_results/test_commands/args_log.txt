@@ -1,1 +1,1 @@
-ARGS: ["--run-tests"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=res://tests/unit/test_scout_moves.gd", "-glog=1", "-gexit"]
