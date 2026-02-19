@@ -1126,32 +1126,101 @@ func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
 			var child = breakdown_panel.get_child(i)
 			print("MathhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
 
-func _draw_simple_histogram(result: Mathhammer.SimulationResult) -> void:
-	# For now, create a simple text-based histogram
-	# TODO: Implement custom drawing for visual histogram
-	
-	var histogram_text = "[b]Damage Distribution[/b]\n"
+func _create_histogram_bars(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
+	# Visual graphical histogram — replaces old text-based _draw_simple_histogram (T5-MH1)
+	if result.damage_distribution.is_empty() or result.trials_run == 0:
+		return
+
+	print("MathhammerUI: Creating visual histogram with %d damage values" % result.damage_distribution.size())
+
+	# Sort damage keys numerically
 	var sorted_damages = result.damage_distribution.keys()
 	sorted_damages.sort_custom(func(a, b): return int(a) < int(b))
-	
+
+	# Calculate percentages and find max for scaling
+	var max_percentage := 0.0
+	var bar_data := []
 	for damage_key in sorted_damages:
 		var count = result.damage_distribution[damage_key]
-		var percentage = (float(count) / result.trials_run) * 100
-		var bar_length = int(percentage / 2)  # Scale for display
-		var bar = "■".repeat(bar_length)
-		
-		histogram_text += "%s damage: %s %.1f%%\n" % [damage_key, bar, percentage]
-	
-	# Create a label for histogram if it doesn't exist
-	var histogram_label = histogram_display.get_node_or_null("HistogramLabel")
-	if not histogram_label:
-		histogram_label = RichTextLabel.new()
-		histogram_label.name = "HistogramLabel"
-		histogram_label.bbcode_enabled = true
-		histogram_label.custom_minimum_size = Vector2(350, 150)
-		histogram_display.add_child(histogram_label)
-	
-	histogram_label.text = histogram_text
+		var pct = (float(count) / result.trials_run) * 100.0
+		bar_data.append({"damage": damage_key, "percentage": pct})
+		if pct > max_percentage:
+			max_percentage = pct
+
+	# If too many values, filter out very low probabilities to keep chart readable
+	var max_bars := 25
+	if bar_data.size() > max_bars:
+		var filtered = bar_data.filter(func(d): return d.percentage >= 0.5)
+		if filtered.size() > max_bars:
+			filtered.sort_custom(func(a, b): return a.percentage > b.percentage)
+			filtered = filtered.slice(0, max_bars)
+			filtered.sort_custom(func(a, b): return int(a.damage) < int(b.damage))
+		if not filtered.is_empty():
+			bar_data = filtered
+
+	# Create the histogram container
+	var chart_container = VBoxContainer.new()
+	chart_container.add_theme_constant_override("separation", 2)
+	parent.add_child(chart_container)
+
+	# Chart subtitle
+	var chart_title = Label.new()
+	chart_title.text = "Probability by Damage"
+	chart_title.add_theme_font_size_override("font_size", 11)
+	chart_title.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	chart_container.add_child(chart_title)
+
+	# Max bar width in pixels
+	var max_bar_width := 200.0
+
+	for entry in bar_data:
+		var bar_row = HBoxContainer.new()
+		bar_row.add_theme_constant_override("separation", 4)
+		chart_container.add_child(bar_row)
+
+		# Damage value label (right-aligned, fixed width)
+		var dmg_label = Label.new()
+		dmg_label.text = str(entry.damage)
+		dmg_label.custom_minimum_size.x = 30
+		dmg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		dmg_label.add_theme_font_size_override("font_size", 9)
+		dmg_label.add_theme_color_override("font_color", Color.WHITE)
+		bar_row.add_child(dmg_label)
+
+		# Graphical bar (ColorRect with proportional width)
+		var bar_width = (entry.percentage / max_percentage) * max_bar_width if max_percentage > 0 else 0.0
+		bar_width = max(bar_width, 2.0)  # Minimum visible width
+
+		var bar = ColorRect.new()
+		bar.custom_minimum_size = Vector2(bar_width, 14)
+		bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		bar.color = _get_histogram_bar_color(entry.percentage, max_percentage)
+		bar_row.add_child(bar)
+
+		# Percentage label
+		var pct_label = Label.new()
+		pct_label.text = "%.1f%%" % entry.percentage
+		pct_label.custom_minimum_size.x = 45
+		pct_label.add_theme_font_size_override("font_size", 9)
+		pct_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+		bar_row.add_child(pct_label)
+
+	# Separator before percentile stats
+	var sep = HSeparator.new()
+	chart_container.add_child(sep)
+
+	print("MathhammerUI: Visual histogram created with %d bars" % bar_data.size())
+
+func _get_histogram_bar_color(percentage: float, max_percentage: float) -> Color:
+	# Color gradient: Red (low probability) -> Yellow (medium) -> Green (high probability)
+	var ratio = percentage / max_percentage if max_percentage > 0 else 0.0
+	var red = Color(0.9, 0.25, 0.2)
+	var yellow = Color(0.95, 0.8, 0.2)
+	var green = Color(0.3, 0.75, 0.3)
+	if ratio < 0.5:
+		return red.lerp(yellow, ratio * 2.0)
+	else:
+		return yellow.lerp(green, (ratio - 0.5) * 2.0)
 
 func _clear_results_display() -> void:
 	print("MathhammerUI: Clearing results display")
@@ -1298,13 +1367,17 @@ func _create_damage_distribution_panel(parent: VBoxContainer, result: Mathhammer
 	parent.add_child(dist_panel)
 	var dist_content = dist_panel.get_meta("content_vbox")
 
+	# Visual histogram bars (T5-MH1: graphical bars replace text bars)
+	_create_histogram_bars(dist_content, result)
+
+	# Percentile summary statistics
 	var stats = result.statistical_summary
 	var dist_grid = GridContainer.new()
 	dist_grid.columns = 2
 	dist_grid.add_theme_constant_override("h_separation", 20)
 	dist_grid.add_theme_constant_override("v_separation", 6)
 	dist_content.add_child(dist_grid)
-	
+
 	add_stat_row(dist_grid, "25th Percentile:", "%d wounds" % stats.get("percentile_25", 0))
 	add_stat_row(dist_grid, "75th Percentile:", "%d wounds" % stats.get("percentile_75", 0))
 	add_stat_row(dist_grid, "95th Percentile:", "%d wounds" % stats.get("percentile_95", 0))
