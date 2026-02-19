@@ -290,11 +290,13 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 
 **Suggestion:** After all units have shot, show a summary panel with total hits/wounds/casualties per target unit, before ending the phase. This gives both players a clear picture of the phase's outcome.
 
-### 5.6 MEDIUM: "Undo Last Assignment" Button
+### 5.6 MEDIUM: "Undo Last Assignment" Button — **DONE**
 
 **Current:** The clear button removes all assignments. There's no way to undo just the last one.
 
 **Suggestion:** Add an "Undo Last" button that removes the most recent weapon assignment while keeping previous ones.
+
+**Resolution:** Implemented "Undo Last" button in ShootingController with assignment history stack. Button appears between "Clear All" and "Confirm Targets". Removes only the most recent weapon assignment while preserving earlier ones.
 
 ### 5.7 LOW: Keyboard Shortcuts for Common Actions
 
