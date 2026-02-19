@@ -585,6 +585,17 @@ main() {
     command -v claude >/dev/null 2>&1 || die "Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code"
     command -v git >/dev/null 2>&1 || die "git not found"
 
+    # Prevent macOS from sleeping while the runner is active.
+    # -d = prevent display sleep, -i = prevent idle sleep, -s = prevent system sleep
+    if command -v caffeinate >/dev/null 2>&1; then
+        caffeinate -dis -w $$ &
+        CAFFEINATE_PID=$!
+        trap 'kill $CAFFEINATE_PID 2>/dev/null || true' EXIT
+        log "Sleep prevention active (caffeinate PID: ${CAFFEINATE_PID})"
+    else
+        log_warn "caffeinate not found — laptop may sleep during long runs"
+    fi
+
     echo ""
     echo -e "${BOLD}╔═══════════════════════════════════════════════════════╗${NC}"
     echo -e "${BOLD}║     MASTER AUDIT TASK RUNNER — Claude Code           ║${NC}"
