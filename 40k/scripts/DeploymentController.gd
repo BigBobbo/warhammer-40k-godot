@@ -99,6 +99,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_model_repositioning(event.position)
 			return
 
+	# Handle Ctrl+Z for per-model undo during deployment
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_Z and event.ctrl_pressed:
+			if undo_last_model():
+				get_viewport().set_input_as_handled()
+			return
+
 	# Handle rotation controls during deployment
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_Q:
@@ -333,7 +340,56 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		_clear_formation_ghosts()
 		_remove_ghost()
 
-func undo() -> void:
+func undo_last_model() -> bool:
+	"""Undo only the most recently placed model. Returns true if a model was undone, false if nothing to undo."""
+	if not is_placing():
+		return false
+
+	# Find the last placed model by scanning backwards from model_idx
+	var last_placed_idx = -1
+	for i in range(model_idx - 1, -1, -1):
+		if temp_positions[i] != null:
+			last_placed_idx = i
+			break
+
+	if last_placed_idx == -1:
+		print("[DeploymentController] undo_last_model: No placed models to undo")
+		return false
+
+	print("[DeploymentController] undo_last_model: Undoing model at index %d" % last_placed_idx)
+
+	# Clear the position and rotation for this model
+	temp_positions[last_placed_idx] = null
+	temp_rotations[last_placed_idx] = 0.0
+
+	# Remove the corresponding preview token
+	var token_name = "Token_%s_%d" % [unit_id, last_placed_idx]
+	for i in range(placed_tokens.size() - 1, -1, -1):
+		var token = placed_tokens[i]
+		if is_instance_valid(token) and token.name == token_name:
+			token.queue_free()
+			placed_tokens.remove_at(i)
+			break
+
+	# Set model_idx back to this model so the ghost appears for it
+	model_idx = last_placed_idx
+
+	# Recreate ghost for the model we just undid
+	if formation_mode == "SINGLE":
+		_remove_ghost()
+		_create_ghost()
+	else:
+		_clear_formation_ghosts()
+		var remaining = _get_unplaced_model_indices()
+		if not remaining.is_empty():
+			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+	_check_coherency_warning()
+	emit_signal("models_placed_changed")
+	return true
+
+func reset_unit() -> void:
+	"""Reset the entire unit — clears all placed models and cancels deployment."""
 	_clear_previews()
 	temp_positions.fill(null)
 	temp_rotations.fill(0.0)  # Reset rotations to default
@@ -357,6 +413,10 @@ func undo() -> void:
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()
 	emit_signal("coherency_warning_changed", false, "")
+
+func undo() -> void:
+	"""Legacy undo — calls reset_unit() for backward compatibility."""
+	reset_unit()
 
 func confirm() -> void:
 	# Enforce unit coherency before allowing deployment

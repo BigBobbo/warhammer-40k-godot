@@ -2980,8 +2980,8 @@ func update_unit_card_buttons() -> void:
 						models_label.text = "Models: %d/%d" % [placed, total]
 						
 						# Show buttons based on deployment progress
-						undo_button.visible = placed > 0
-						reset_button.visible = false  # No reset in deployment
+						undo_button.visible = placed > 0  # Per-model undo
+						reset_button.visible = placed > 0  # Full-unit reset
 						confirm_button.visible = placed == total
 					else:
 						# No active deployment, hide buttons
@@ -3049,10 +3049,13 @@ func _on_undo_pressed() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
-				deployment_controller.undo()
-				unit_card.visible = false
-				unit_list.visible = true
-				update_ui()
+				# Per-model undo: remove only the last placed model
+				var undone = deployment_controller.undo_last_model()
+				if undone:
+					update_ui()
+				else:
+					# Nothing left to undo — no-op (unit stays selected)
+					pass
 		GameStateData.Phase.MOVEMENT:
 			if movement_controller and movement_controller.active_unit_id != "":
 				print("Undo button pressed for unit: ", movement_controller.active_unit_id)
@@ -3065,6 +3068,13 @@ func _on_undo_pressed() -> void:
 
 func _on_reset_pressed() -> void:
 	match current_phase:
+		GameStateData.Phase.DEPLOYMENT:
+			if deployment_controller:
+				# Full-unit reset: clears all placed models and cancels deployment
+				deployment_controller.reset_unit()
+				unit_card.visible = false
+				unit_list.visible = true
+				update_ui()
 		GameStateData.Phase.MOVEMENT:
 			if movement_controller and movement_controller.active_unit_id != "":
 				print("Reset button pressed for unit: ", movement_controller.active_unit_id)
