@@ -12,7 +12,7 @@ var test_state: Dictionary
 
 func before_each():
 	# Ensure autoloads available
-	AutoloadHelper.ensure_autoloads_loaded(get_tree())
+	AutoloadHelper.verify_autoloads_available()
 
 	test_state = TestDataFactory.create_test_game_state()
 	setup_phase_instance()
