@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-UX2: Auto-select weapon for single-weapon units (auto-select in tree, skip manual weapon click) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX1: Expected damage preview when hovering weapons (analytical preview panel with hit/wound/save pipeline) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP9: BEGIN_ADVANCE latency in multiplayer (seed-embedded deterministic optimistic execution) | Movement | MOVEMENT_PHASE_AUDIT.md §3.3 |
 | T5-MP8: Phase timeout for AFK players (auto-end phase, game over after consecutive timeouts, timer HUD, waiting overlay for all phases, toast warnings) | All Phases | AUDIT_COMMAND_PHASE.md §P3 |
@@ -764,7 +765,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 ### Gameplay UX
 - T5-UX1. Expected damage preview when hovering weapons (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
   - **Resolution:** Added analytical expected damage preview panel in ShootingController. When hovering or selecting a weapon in the weapon tree, a compact preview shows expected hits, wounds, unsaved wounds, damage, and models killed against the assigned (or first eligible) target. Calculation uses 10e wound threshold rules, AP/invuln saves, and weapon stats. UI panel uses WH-themed styling with BBCode rich text.
-- T5-UX2. Auto-select weapon for single-weapon units (SHOOTING_PHASE_AUDIT.md §Additional)
+- T5-UX2. Auto-select weapon for single-weapon units (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
+  - **Resolution:** Added `_try_auto_select_single_weapon()` in ShootingController. When a unit has only one usable weapon type (accounting for Pistol/Assault restrictions), it is auto-selected in the weapon tree so the player can directly click an enemy unit to assign a target without first selecting the weapon. Works alongside existing single-target auto-assign for fully automatic handling of simple shooting scenarios.
 - T5-UX3. "Shoot All Remaining" button (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX4. "Undo Last Assignment" button in weapon assignment (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX5. "All to Target" button in fight attack assignment dialog (fight_phase_audit_report.md §3.1)
@@ -889,10 +891,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 9 | 42 | 51 |
+| Tier 5 — QoL/Visual | 10 | 41 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **67** | **61** | **128** |
-| **Recently Completed** | **91** | — | **91** |
+| **Total Open** | **68** | **60** | **128** |
+| **Recently Completed** | **92** | — | **92** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

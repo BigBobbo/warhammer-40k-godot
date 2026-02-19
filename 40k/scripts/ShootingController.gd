@@ -718,6 +718,66 @@ func _refresh_weapon_tree() -> void:
 				# REMOVED: Icon button that was making rows too tall
 				# Users can select weapon, then click enemy unit to assign target
 
+	# T5-UX2: Auto-select weapon for single-weapon units
+	# If only one weapon type is usable (not disabled), auto-select it in the tree
+	# so the player can directly click on enemy units without selecting the weapon first
+	_try_auto_select_single_weapon()
+
+func _try_auto_select_single_weapon() -> void:
+	"""T5-UX2: If unit has only one usable weapon type, auto-select it in the weapon tree.
+	This skips the manual weapon selection step for single-weapon units, letting the player
+	click directly on an enemy to assign the target."""
+	if not weapon_tree:
+		return
+
+	var root = weapon_tree.get_root()
+	if not root:
+		return
+
+	# Count usable (selectable) weapon items that don't already have a target assigned
+	var usable_items: Array = []
+	var child = root.get_first_child()
+	while child:
+		var weapon_id = child.get_metadata(0)
+		if weapon_id and child.is_selectable(0):
+			usable_items.append(child)
+		child = child.get_next()
+
+	# Only auto-select if exactly one usable weapon type exists
+	if usable_items.size() != 1:
+		return
+
+	var single_weapon_item = usable_items[0]
+	var weapon_id = single_weapon_item.get_metadata(0)
+
+	# Don't auto-select if the weapon is already assigned to a target (auto-target handled it)
+	if weapon_assignments.has(weapon_id):
+		return
+
+	# Auto-select this weapon in the tree
+	single_weapon_item.select(0)
+	selected_weapon_id = weapon_id
+
+	# Visual feedback - highlight the auto-selected weapon
+	single_weapon_item.set_custom_bg_color(0, Color(0.2, 0.4, 0.2, 0.5))
+	single_weapon_item.set_text(1, "[Click enemy to assign]")
+
+	# Show modifier panel for this weapon
+	if modifier_panel and modifier_label:
+		modifier_panel.visible = true
+		modifier_label.visible = true
+		_load_modifiers_for_weapon(weapon_id)
+
+	# T5-UX1: Show damage preview for auto-selected weapon
+	_update_damage_preview(weapon_id)
+
+	# Show feedback in dice log
+	if dice_log_display:
+		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+		dice_log_display.append_text("[color=cyan]Auto-selected %s (only weapon) — click an enemy unit to assign target[/color]\n" % weapon_name)
+
+	print("ShootingController: T5-UX2 Auto-selected single weapon: %s" % weapon_id)
+
 func _highlight_targets() -> void:
 	_clear_target_highlights()
 	
