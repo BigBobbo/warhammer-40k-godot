@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-UX1: Expected damage preview when hovering weapons (analytical preview panel with hit/wound/save pipeline) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP9: BEGIN_ADVANCE latency in multiplayer (seed-embedded deterministic optimistic execution) | Movement | MOVEMENT_PHASE_AUDIT.md §3.3 |
 | T5-MP8: Phase timeout for AFK players (auto-end phase, game over after consecutive timeouts, timer HUD, waiting overlay for all phases, toast warnings) | All Phases | AUDIT_COMMAND_PHASE.md §P3 |
 | T5-MP6: "Waiting for Opponent" state in deployment (overlay banner, timer countdown, zone pulse, toast notifications) | Deployment | DEPLOYMENT_AUDIT.md §QoL 3 |
@@ -184,7 +185,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-FEAT-5 | Swap attacker/defender button | Adept Roll | LOW |
 | MH-FEAT-6 | Defender stats input (custom T/Sv/W/Invuln/FNP override) | All community tools | HIGH |
 | MH-FEAT-7 | Variable damage notation display (show D6, D3+3 in UI) | UnitCrunch, MathHammer8th | LOW |
-| MH-FEAT-8 | Quick-run on hover (expected damage preview) | UnitCrunch | LOW — see T5-UX1 |
+| MH-FEAT-8 | Quick-run on hover (expected damage preview) | UnitCrunch | LOW — **DONE** (T5-UX1) |
 | MH-FEAT-9 | Auto-detect weapon abilities from datasheet | UnitCrunch (import), Adept Roll (screenshot) | MEDIUM |
 | MH-FEAT-10 | Multi-target comparison matrix | Cogitator40k | LOW |
 | MH-FEAT-11 | Simulation runs on background thread (async) | Standard practice | MEDIUM |
@@ -761,7 +762,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added `BEGIN_ADVANCE` to `DETERMINISTIC_ACTIONS` for optimistic client-side execution. An RNG seed is now embedded in the action payload by `NetworkManager.submit_action()` before processing. Both the optimistic client and authoritative host read the same seed from the action, producing identical D6 advance rolls without a round-trip. `MovementPhase._process_begin_advance()` reads the seed from the payload first, falling back to host generation for backwards compatibility.
 
 ### Gameplay UX
-- T5-UX1. Expected damage preview when hovering weapons (SHOOTING_PHASE_AUDIT.md §Tier 3)
+- T5-UX1. Expected damage preview when hovering weapons (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
+  - **Resolution:** Added analytical expected damage preview panel in ShootingController. When hovering or selecting a weapon in the weapon tree, a compact preview shows expected hits, wounds, unsaved wounds, damage, and models killed against the assigned (or first eligible) target. Calculation uses 10e wound threshold rules, AP/invuln saves, and weapon stats. UI panel uses WH-themed styling with BBCode rich text.
 - T5-UX2. Auto-select weapon for single-weapon units (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX3. "Shoot All Remaining" button (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-UX4. "Undo Last Assignment" button in weapon assignment (SHOOTING_PHASE_AUDIT.md §Additional)
@@ -887,9 +889,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 8 | 43 | 51 |
+| Tier 5 — QoL/Visual | 9 | 42 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **66** | **62** | **128** |
+| **Total Open** | **67** | **61** | **128** |
 | **Recently Completed** | **91** | — | **91** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 

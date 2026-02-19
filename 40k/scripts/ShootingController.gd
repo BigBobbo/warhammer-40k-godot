@@ -63,6 +63,13 @@ var minus_one_checkbox: CheckBox
 var shooting_lines_container: Node2D  # Container for shooter-to-target visual lines
 var remote_assignment_lines: Array = []  # Track remote assignment Line2D nodes
 
+# T5-UX1: Expected damage preview when hovering weapons
+var damage_preview_panel: PanelContainer
+var damage_preview_label: RichTextLabel
+var _hovered_weapon_id: String = ""  # Track which weapon is being hovered
+var _last_preview_weapon_id: String = ""  # Cache to avoid redundant recalculation
+var _last_preview_target_id: String = ""  # Cache target for recalculation check
+
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
@@ -272,7 +279,31 @@ func _setup_right_panel() -> void:
 	weapon_tree.hide_root = true
 	weapon_tree.item_selected.connect(_on_weapon_tree_item_selected)
 	weapon_tree.button_clicked.connect(_on_weapon_tree_button_clicked)
+	# T5-UX1: Connect gui_input for hover detection and mouse_exited for cleanup
+	weapon_tree.gui_input.connect(_on_weapon_tree_gui_input)
+	weapon_tree.mouse_exited.connect(_on_weapon_tree_mouse_exited)
 	shooting_panel.add_child(weapon_tree)
+
+	# T5-UX1: Expected damage preview panel (shown on weapon hover/select)
+	damage_preview_panel = PanelContainer.new()
+	damage_preview_panel.name = "DamagePreviewPanel"
+	damage_preview_panel.custom_minimum_size = Vector2(230, 0)
+	damage_preview_panel.visible = false  # Hidden until a weapon is hovered
+	var preview_style = StyleBoxFlat.new()
+	preview_style.bg_color = Color(0.12, 0.12, 0.15, 0.95)
+	preview_style.border_color = Color(0.833, 0.588, 0.376, 0.6)  # WH_GOLD with alpha
+	preview_style.set_border_width_all(1)
+	preview_style.set_content_margin_all(6)
+	preview_style.set_corner_radius_all(3)
+	damage_preview_panel.add_theme_stylebox_override("panel", preview_style)
+	damage_preview_label = RichTextLabel.new()
+	damage_preview_label.bbcode_enabled = true
+	damage_preview_label.fit_content = true
+	damage_preview_label.scroll_active = false
+	damage_preview_label.custom_minimum_size = Vector2(218, 0)
+	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
+	damage_preview_panel.add_child(damage_preview_label)
+	shooting_panel.add_child(damage_preview_panel)
 
 	shooting_panel.add_child(HSeparator.new())
 
@@ -541,6 +572,9 @@ func _refresh_weapon_tree() -> void:
 		return
 
 	weapon_tree.clear()
+	# T5-UX1: Hide damage preview when weapon tree is refreshed
+	_hide_damage_preview()
+	_hovered_weapon_id = ""
 	var root = weapon_tree.create_item()
 
 	# PISTOL RULES: Check if unit is in engagement range
@@ -2182,6 +2216,9 @@ func _on_weapon_tree_item_selected() -> void:
 			modifier_label.visible = true
 			_load_modifiers_for_weapon(weapon_id)
 
+		# T5-UX1: Update damage preview for selected weapon
+		_update_damage_preview(weapon_id)
+
 		# Show a message to the user
 		if dice_log_display:
 			var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
@@ -2438,6 +2475,10 @@ func _select_target_for_current_weapon(target_id: String) -> void:
 	if dice_log_display:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=green]✓ Assigned %s to target %s[/color]\n" % [weapon_name, target_name])
+
+	# T5-UX1: Refresh damage preview with newly assigned target
+	_last_preview_target_id = ""  # Force recalculation
+	_update_damage_preview(weapon_id)
 
 	_update_ui_state()
 
@@ -2862,3 +2903,197 @@ func clear_awaiting_saves_state() -> void:
 	_pending_save_data_for_retry.clear()
 	if _save_processing_timeout_timer:
 		_save_processing_timeout_timer.stop()
+
+# ==========================================
+# T5-UX1: EXPECTED DAMAGE PREVIEW SYSTEM
+# ==========================================
+
+func _on_weapon_tree_mouse_exited() -> void:
+	"""Clear hover state when mouse leaves the weapon tree"""
+	if _hovered_weapon_id != "" and selected_weapon_id == "":
+		_hovered_weapon_id = ""
+		_hide_damage_preview()
+
+func _on_weapon_tree_gui_input(event: InputEvent) -> void:
+	"""Detect mouse hover over weapon tree items for damage preview"""
+	if not event is InputEventMouseMotion:
+		return
+	if not weapon_tree or active_shooter_id == "":
+		return
+
+	var item = weapon_tree.get_item_at_position(event.position)
+	if item:
+		var weapon_id = item.get_metadata(0)
+		if weapon_id and weapon_id != _hovered_weapon_id:
+			_hovered_weapon_id = weapon_id
+			_update_damage_preview(weapon_id)
+	else:
+		# Mouse moved off all items — keep preview showing if a weapon is selected
+		if _hovered_weapon_id != "" and selected_weapon_id == "":
+			_hovered_weapon_id = ""
+			_hide_damage_preview()
+
+func _update_damage_preview(weapon_id: String) -> void:
+	"""Calculate and display expected damage preview for a weapon"""
+	if not damage_preview_panel or not damage_preview_label:
+		return
+
+	# Determine target: use assigned target, or first eligible target
+	var target_id = ""
+	if weapon_assignments.has(weapon_id):
+		target_id = weapon_assignments[weapon_id]
+	elif not eligible_targets.is_empty():
+		target_id = eligible_targets.keys()[0]
+
+	if target_id == "":
+		_hide_damage_preview()
+		return
+
+	# Skip recalculation if same weapon + target combo
+	if weapon_id == _last_preview_weapon_id and target_id == _last_preview_target_id:
+		damage_preview_panel.visible = true
+		return
+
+	_last_preview_weapon_id = weapon_id
+	_last_preview_target_id = target_id
+
+	# Get weapon profile
+	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+	if weapon_profile.is_empty():
+		_hide_damage_preview()
+		return
+
+	# Get target unit data
+	var target_unit = GameState.get_unit(target_id)
+	if target_unit.is_empty():
+		_hide_damage_preview()
+		return
+
+	var target_name = target_unit.get("meta", {}).get("name", target_id)
+	var target_stats = target_unit.get("meta", {}).get("stats", {})
+	var toughness = target_stats.get("toughness", 4)
+	var save_stat = target_stats.get("save", 4)
+
+	# Get number of models with this weapon
+	var model_count = 0
+	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+	for model_id in unit_weapons:
+		if weapon_id in unit_weapons[model_id]:
+			model_count += 1
+
+	# Weapon stats
+	var attacks_per_model = weapon_profile.get("attacks", 1)
+	var total_attacks = attacks_per_model * model_count
+	var strength = weapon_profile.get("strength", 4)
+	var ap = weapon_profile.get("ap", 0)
+	var damage_per_wound = weapon_profile.get("damage", 1)
+	var bs = weapon_profile.get("bs", 4)
+	var is_torrent = RulesEngine.is_torrent_weapon(weapon_id)
+
+	# Check for invulnerable save on target models
+	var invuln = 0
+	var target_models = target_unit.get("models", [])
+	for model in target_models:
+		if model.get("alive", true):
+			invuln = model.get("invuln", 0)
+			break  # Use first alive model's invuln
+
+	# Calculate hit probability
+	var hit_prob = 0.0
+	if is_torrent:
+		hit_prob = 1.0
+	else:
+		hit_prob = max(0.0, (7.0 - bs) / 6.0)
+
+	# Calculate wound probability (S vs T)
+	var wound_prob = _calc_wound_probability(strength, toughness)
+
+	# Calculate save probability (considering AP and invuln)
+	var modified_save = save_stat + abs(ap)  # AP makes save worse (higher number)
+	var best_save = modified_save
+	if invuln > 0 and invuln < best_save:
+		best_save = invuln  # Invuln is unaffected by AP
+
+	var save_prob = 0.0
+	if best_save <= 6:
+		save_prob = max(0.0, (7.0 - best_save) / 6.0)
+
+	var unsaved_prob = 1.0 - save_prob
+
+	# Calculate expected values
+	var expected_hits = total_attacks * hit_prob
+	var expected_wounds = expected_hits * wound_prob
+	var expected_unsaved = expected_wounds * unsaved_prob
+	var expected_damage = expected_unsaved * damage_per_wound
+
+	# Calculate expected models killed
+	var wounds_per_model = target_stats.get("wounds", 1)
+	var alive_models = RulesEngine.count_alive_models(target_unit)
+	var expected_models_killed = 0.0
+	if wounds_per_model > 0:
+		expected_models_killed = min(expected_damage / wounds_per_model, alive_models)
+
+	# Build preview BBCode text
+	var preview_text = ""
+	preview_text += "[color=#D49761]── Expected vs %s ──[/color]\n" % target_name
+	preview_text += "[color=#B0B0B0]T%d | Sv%d+" % [toughness, save_stat]
+	if invuln > 0:
+		preview_text += " | Inv%d+" % invuln
+	preview_text += "[/color]\n"
+
+	# Pipeline: Attacks → Hits → Wounds → Unsaved → Damage
+	preview_text += "[color=#EBE1C7]Atk: %d[/color]" % total_attacks
+	preview_text += " → [color=#88CC88]Hit: %.1f[/color]" % expected_hits
+	preview_text += " → [color=#CCCC88]Wnd: %.1f[/color]\n" % expected_wounds
+	preview_text += "[color=#CC8888]Unsaved: %.1f[/color]" % expected_unsaved
+	preview_text += " → [color=#FF8866]Dmg: %.1f[/color]\n" % expected_damage
+
+	# Models killed estimate
+	if expected_models_killed >= 0.1:
+		preview_text += "[color=#D49761]~%.1f models killed[/color]" % expected_models_killed
+	else:
+		preview_text += "[color=#888888]<0.1 models killed[/color]"
+
+	# Show hit/wound/save percentages on a compact line
+	var wound_display = _wound_threshold_display(strength, toughness)
+	preview_text += "\n[color=#666666]Hit:%d+ Wnd:%s Sv:%d+[/color]" % [bs, wound_display, best_save if best_save <= 6 else 7]
+
+	damage_preview_label.text = ""
+	damage_preview_label.append_text(preview_text)
+	damage_preview_panel.visible = true
+
+	print("T5-UX1: Damage preview — %s vs %s: %.1f avg dmg, ~%.1f kills" % [
+		weapon_profile.get("name", weapon_id), target_name, expected_damage, expected_models_killed])
+
+func _hide_damage_preview() -> void:
+	"""Hide the damage preview panel"""
+	if damage_preview_panel:
+		damage_preview_panel.visible = false
+	_last_preview_weapon_id = ""
+	_last_preview_target_id = ""
+
+func _calc_wound_probability(strength: int, toughness: int) -> float:
+	"""Calculate wound probability based on Strength vs Toughness (10e rules)"""
+	if strength >= toughness * 2:
+		return 5.0 / 6.0  # 2+
+	elif strength > toughness:
+		return 4.0 / 6.0  # 3+
+	elif strength == toughness:
+		return 3.0 / 6.0  # 4+
+	elif strength * 2 <= toughness:
+		return 1.0 / 6.0  # 6+
+	else:
+		return 2.0 / 6.0  # 5+
+
+func _wound_threshold_display(strength: int, toughness: int) -> String:
+	"""Return the wound threshold as a display string (e.g., '3+')"""
+	if strength >= toughness * 2:
+		return "2+"
+	elif strength > toughness:
+		return "3+"
+	elif strength == toughness:
+		return "4+"
+	elif strength * 2 <= toughness:
+		return "6+"
+	else:
+		return "5+"
