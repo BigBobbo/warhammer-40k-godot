@@ -134,9 +134,18 @@ static func _register_situational_modifiers() -> void:
 	var rule = RuleDefinition.new("rapid_fire", "Rapid Fire Range", "+X attacks at half range (per model)", RuleCategory.SITUATIONAL)
 	rule.apply_function = _apply_rapid_fire
 	RULE_REGISTRY[rule.id] = rule
-	
+
 	rule = RuleDefinition.new("waaagh_active", "Waaagh! Active", "Ork faction ability active", RuleCategory.SITUATIONAL)
 	rule.apply_function = _apply_waaagh
+	RULE_REGISTRY[rule.id] = rule
+
+	rule = RuleDefinition.new("conversion_4", "Conversion 4+", "Critical hits on 4+ at 12\"+ range (expanded crit range)", RuleCategory.SITUATIONAL)
+	rule.apply_function = _apply_conversion.bind(4)
+	RULE_REGISTRY[rule.id] = rule
+
+	rule = RuleDefinition.new("conversion_5", "Conversion 5+", "Critical hits on 5+ at 12\"+ range (expanded crit range)", RuleCategory.SITUATIONAL)
+	rule.conflicts_with = ["conversion_4"]
+	rule.apply_function = _apply_conversion.bind(5)
 	RULE_REGISTRY[rule.id] = rule
 
 # Extract available rules from unit data
@@ -204,7 +213,8 @@ static func _parse_weapon_special_rules(special_rules: String) -> Array:
 		"anti-monster": "anti_monster_4",
 		"ignores cover": "ignores_cover",
 		"rapid fire": "rapid_fire",
-		"torrent": "torrent"
+		"torrent": "torrent",
+		"conversion": "conversion_4"
 	}
 	
 	for rule_text in rule_mappings:
@@ -351,6 +361,12 @@ static func _apply_waaagh(config: Dictionary) -> void:
 	# Waaagh!: Ork faction ability bonuses
 	config["modifiers"] = config.get("modifiers", {})
 	config.modifiers["waaagh_active"] = true
+
+static func _apply_conversion(threshold: int, config: Dictionary) -> void:
+	# Conversion X+: At 12"+ range, critical hits on X+ instead of only 6
+	# Injected into weapon special_rules so RulesEngine picks it up
+	config["modifiers"] = config.get("modifiers", {})
+	config.modifiers["conversion_threshold"] = threshold
 
 # Get rule definition by ID
 static func get_rule_definition(rule_id: String) -> RuleDefinition:

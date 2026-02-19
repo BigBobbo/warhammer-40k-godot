@@ -1215,6 +1215,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
+	# CONVERSION X+ (T4-16): Check if weapon has Conversion ability
+	# Expands critical hit range when firing at targets 12"+ away
+	var critical_hit_threshold = get_critical_hit_threshold(weapon_id, actor_unit, target_unit, model_ids, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var is_overwatch = assignment.get("overwatch", false)
@@ -1227,7 +1231,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
 
 	var hits = 0
-	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
+	var critical_hits = 0  # Unmodified rolls >= critical_hit_threshold (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
@@ -1350,14 +1354,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll == 6 or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
+				if unmodified_roll >= critical_hit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -1393,6 +1398,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
 			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# CONVERSION X+ (T4-16)
+			"conversion_active": critical_hit_threshold < 6,
+			"critical_hit_threshold": critical_hit_threshold,
 			# SUSTAINED HITS (PRP-011)
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_value": sustained_data.value,
@@ -1734,6 +1742,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
+	# CONVERSION X+ (T4-16): Check if weapon has Conversion ability (auto-resolve path)
+	var critical_hit_threshold = get_critical_hit_threshold(weapon_id, actor_unit, target_unit, model_ids, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var is_overwatch = assignment.get("overwatch", false)
@@ -1869,14 +1880,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll == 6 or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
+				if unmodified_roll >= critical_hit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -1912,6 +1924,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
 			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# CONVERSION X+ (T4-16)
+			"conversion_active": critical_hit_threshold < 6,
+			"critical_hit_threshold": critical_hit_threshold,
 			# SUSTAINED HITS (PRP-011)
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_value": sustained_data.value,
@@ -3758,6 +3773,90 @@ static func get_critical_wound_threshold(weapon_id: String, target_unit: Diction
 			lowest_threshold = min(lowest_threshold, anti.threshold)
 
 	return lowest_threshold
+
+# ==========================================
+# CONVERSION X+ (T4-16)
+# ==========================================
+
+# Get Conversion threshold from a weapon's special_rules or keywords
+# Returns 0 if weapon does not have Conversion, or the threshold value (e.g. 4 for "Conversion 4+")
+# Conversion X+: When firing at a target 12"+ away, critical hits on X+ instead of only 6
+static func get_conversion_threshold(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+
+	# Check special_rules string for "Conversion X+" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	var result = _parse_conversion_from_string(special_rules)
+	if result > 0:
+		return result
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		result = _parse_conversion_from_string(keyword.to_lower())
+		if result > 0:
+			return result
+
+	return 0
+
+# Parse "conversion X+" from a string — returns the threshold (e.g. 4) or 0 if not found
+static func _parse_conversion_from_string(text: String) -> int:
+	var regex = RegEx.new()
+	regex.compile("conversion\\s+(\\d+)\\+?")
+	var match = regex.search(text)
+	if match:
+		return match.get_string(1).to_int()
+	return 0
+
+# Check if a weapon has the Conversion ability
+static func has_conversion(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_conversion_threshold(weapon_id, board) > 0
+
+# Get the critical hit threshold for a weapon, considering Conversion and distance
+# Returns 6 normally, or lower if Conversion applies at distance
+# Parameters:
+#   weapon_id: The weapon to check
+#   actor_unit: The attacking unit
+#   target_unit: The target unit
+#   model_ids: The model IDs of attacking models
+#   board: The board state
+# For Conversion X+: if ANY attacking model is 12"+ from the closest target model,
+# the critical hit threshold is lowered to X for all attacks (conservative approach)
+static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array, board: Dictionary) -> int:
+	var conversion_threshold = get_conversion_threshold(weapon_id, board)
+	if conversion_threshold <= 0:
+		return 6  # Default: only 6s are critical hits
+
+	# Check distance: Conversion only applies at 12"+ from target
+	# Use the closest attacking model's distance to the closest target model
+	var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
+	if min_distance_inches >= 12.0:
+		print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
+		return conversion_threshold
+	else:
+		print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
+		return 6  # Too close, normal crit threshold
+
+# Get the minimum distance (in inches) from any attacking model to the closest target model
+static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array) -> float:
+	var min_distance = INF
+
+	for model_id in model_ids:
+		var model = _get_model_by_id(actor_unit, model_id)
+		if not model or not model.get("alive", true):
+			continue
+
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			var edge_distance_px = Measurement.model_to_model_distance_px(model, target_model)
+			var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+			min_distance = min(min_distance, edge_distance_inches)
+
+	return min_distance
 
 # ==========================================
 # BLAST KEYWORD (PRP-013)
