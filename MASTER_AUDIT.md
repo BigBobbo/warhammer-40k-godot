@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP9: BEGIN_ADVANCE latency in multiplayer (seed-embedded deterministic optimistic execution) | Movement | MOVEMENT_PHASE_AUDIT.md §3.3 |
 | T5-MP8: Phase timeout for AFK players (auto-end phase, game over after consecutive timeouts, timer HUD, waiting overlay for all phases, toast warnings) | All Phases | AUDIT_COMMAND_PHASE.md §P3 |
 | T5-MP6: "Waiting for Opponent" state in deployment (overlay banner, timer countdown, zone pulse, toast notifications) | Deployment | DEPLOYMENT_AUDIT.md §QoL 3 |
 | T5-MP3: Remote player visual feedback for shooting actions (shooting lines, target highlights, weapon labels for ASSIGN_TARGET/CONFIRM_TARGETS/COMPLETE_SHOOTING) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
@@ -756,7 +757,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`)
 - T5-MP8. Phase timeout for AFK players (AUDIT_COMMAND_PHASE.md §P3) — **DONE**
   - **Resolution:** Implemented configurable phase timeout system for AFK players in multiplayer. NetworkManager now auto-ends the current phase on first timeout (90s), then triggers game over after 2 consecutive timeouts. Timer resets on any player action via PhaseManager.phase_action_taken signal. Added phase timer HUD countdown in top bar (color-coded green/yellow/red), extended "Waiting for Opponent" overlay to all phases (not just deployment), and added toast warnings at 30s/15s/10s/5s thresholds. Both active player and waiting opponent see timer state.
-- T5-MP9. BEGIN_ADVANCE latency in multiplayer (MOVEMENT_PHASE_AUDIT.md §3.3)
+- T5-MP9. BEGIN_ADVANCE latency in multiplayer (MOVEMENT_PHASE_AUDIT.md §3.3) — **DONE**
+  - **Resolution:** Added `BEGIN_ADVANCE` to `DETERMINISTIC_ACTIONS` for optimistic client-side execution. An RNG seed is now embedded in the action payload by `NetworkManager.submit_action()` before processing. Both the optimistic client and authoritative host read the same seed from the action, producing identical D6 advance rolls without a round-trip. `MovementPhase._process_begin_advance()` reads the seed from the payload first, falling back to host generation for backwards compatibility.
 
 ### Gameplay UX
 - T5-UX1. Expected damage preview when hovering weapons (SHOOTING_PHASE_AUDIT.md §Tier 3)
@@ -885,10 +887,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 7 | 44 | 51 |
+| Tier 5 — QoL/Visual | 8 | 43 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **65** | **63** | **128** |
-| **Recently Completed** | **90** | — | **90** |
+| **Total Open** | **66** | **62** | **128** |
+| **Recently Completed** | **91** | — | **91** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

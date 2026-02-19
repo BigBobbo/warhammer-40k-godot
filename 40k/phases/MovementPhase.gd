@@ -703,11 +703,15 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var move_inches = get_unit_movement(unit)
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
-	var rng_seed = -1
-	if has_node("/root/NetworkManager"):
-		var net_mgr = get_node("/root/NetworkManager")
-		if net_mgr.is_networked() and net_mgr.is_host():
-			rng_seed = net_mgr.get_next_rng_seed()
+	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
+	# so both optimistic client and authoritative host produce the same roll.
+	var rng_seed = action.get("payload", {}).get("rng_seed", -1)
+	if rng_seed == -1:
+		# Fallback: if no seed in payload (e.g. single-player), check host generation
+		if has_node("/root/NetworkManager"):
+			var net_mgr = get_node("/root/NetworkManager")
+			if net_mgr.is_networked() and net_mgr.is_host():
+				rng_seed = net_mgr.get_next_rng_seed()
 
 	var rng_service = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng_service.roll_d6(1)
