@@ -11,6 +11,7 @@ signal connection_failed(reason: String)
 signal game_started()
 signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
 signal game_code_received(code: String)  # Emitted when server assigns a game code
+signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -68,9 +69,15 @@ var _optimistic_sequence: int = 0
 var _pending_optimistic_actions: Array[Dictionary] = []
 # Each entry: { "seq": int, "action_type": String, "reverse_diffs": Array }
 
-# Turn timer (Phase 3)
+# Turn timer (Phase 3) — T5-MP8: Phase timeout for AFK players
 var turn_timer: Timer = null
 const TURN_TIMEOUT_SECONDS: float = 90.0
+const MAX_CONSECUTIVE_TIMEOUTS: int = 2  # Game over after this many consecutive phase timeouts
+var consecutive_timeout_count: int = 0
+var _last_warning_threshold: int = -1
+const TURN_TIMEOUT_WARNING_THRESHOLDS: Array[int] = [30, 15, 10, 5]
+signal turn_timer_warning(seconds_remaining: int)
+signal phase_auto_ended(phase_name: String)  # Emitted when a phase is auto-ended due to timeout
 
 # RNG determinism (Phase 4)
 var rng_seed_counter: int = 0
@@ -110,7 +117,31 @@ func _ready() -> void:
 	# Initialize RNG session ID
 	game_session_id = str(Time.get_unix_time_from_system())
 
+	# T5-MP8: Defer PhaseManager connection since it may not be available at startup
+	call_deferred("_connect_phase_manager_timer_signals")
+
 	print("NetworkManager: Initialized (platform: %s)" % ("web" if _is_web_platform() else "desktop"))
+
+func _connect_phase_manager_timer_signals() -> void:
+	# T5-MP8: Deferred connection to PhaseManager (not available at _ready time)
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if phase_manager_ref and phase_manager_ref.has_signal("phase_action_taken"):
+		if not phase_manager_ref.phase_action_taken.is_connected(_on_player_action_for_timer):
+			phase_manager_ref.phase_action_taken.connect(_on_player_action_for_timer)
+			print("NetworkManager: Connected to PhaseManager.phase_action_taken for timer reset (T5-MP8)")
+
+func _process(_delta: float) -> void:
+	# T5-MP8: Check turn timer warning thresholds
+	if not turn_timer or turn_timer.is_stopped():
+		return
+	var time_left = int(turn_timer.time_left)
+	for threshold in TURN_TIMEOUT_WARNING_THRESHOLDS:
+		if time_left <= threshold and _last_warning_threshold != threshold:
+			_last_warning_threshold = threshold
+			turn_timer_warning.emit(threshold)
+			print("NetworkManager: Turn timer warning - %ds remaining" % threshold)
+			break
 
 # ============================================================================
 # PHASE 1: CORE SYNC - Connection and State Synchronization
@@ -1898,27 +1929,103 @@ func start_turn_timer() -> void:
 	if not is_networked() or not is_host():
 		return
 
+	_last_warning_threshold = -1
 	turn_timer.start(TURN_TIMEOUT_SECONDS)
-	print("NetworkManager: Turn timer started - ", TURN_TIMEOUT_SECONDS, " seconds")
+	print("NetworkManager: Turn timer started - %ds (consecutive timeouts: %d)" % [int(TURN_TIMEOUT_SECONDS), consecutive_timeout_count])
 
 func stop_turn_timer() -> void:
 	if turn_timer:
 		turn_timer.stop()
 
+func reset_turn_timer_on_activity() -> void:
+	"""T5-MP8: Reset the turn timer when the active player takes an action."""
+	if not is_networked() or not is_host():
+		return
+	if turn_timer and not turn_timer.is_stopped():
+		_last_warning_threshold = -1
+		turn_timer.start(TURN_TIMEOUT_SECONDS)
+		# Player is active — reset consecutive timeout count
+		consecutive_timeout_count = 0
+
+func _on_player_action_for_timer(_action: Dictionary) -> void:
+	"""T5-MP8: Reset timer when player takes an action (connected to PhaseManager.phase_action_taken)."""
+	reset_turn_timer_on_activity()
+
 func _on_turn_timeout() -> void:
 	if not is_host():
 		return
 
-	print("NetworkManager: Turn timeout!")
+	consecutive_timeout_count += 1
 	var current_player = game_state.get_active_player()
-	var winner = 3 - current_player  # Other player wins (1->2, 2->1)
+	var current_phase = game_state.get_current_phase()
+	var phase_name = GameStateData.Phase.keys()[current_phase] if current_phase < GameStateData.Phase.size() else "UNKNOWN"
+	print("NetworkManager: Turn timeout! Player %d in %s phase (consecutive: %d/%d)" % [current_player, phase_name, consecutive_timeout_count, MAX_CONSECUTIVE_TIMEOUTS])
 
-	_broadcast_game_over.rpc(winner, "turn_timeout")
+	if consecutive_timeout_count >= MAX_CONSECUTIVE_TIMEOUTS:
+		# Player has been AFK for multiple consecutive phases — game over
+		var winner = 3 - current_player  # Other player wins (1->2, 2->1)
+		print("NetworkManager: %d consecutive timeouts — ending game" % consecutive_timeout_count)
+		_broadcast_game_over.rpc(winner, "turn_timeout")
+	else:
+		# First timeout — auto-end the current phase gracefully
+		print("NetworkManager: Auto-ending %s phase due to timeout" % phase_name)
+		_auto_end_current_phase()
 
-@rpc("authority", "call_remote", "reliable")
+func _auto_end_current_phase() -> void:
+	"""T5-MP8: Automatically end the current phase when timer expires."""
+	if not phase_manager_ref or not game_state:
+		return
+
+	var current_phase = game_state.get_current_phase()
+	var phase_name = GameStateData.Phase.keys()[current_phase] if current_phase < GameStateData.Phase.size() else "UNKNOWN"
+	var end_action_type = _get_end_action_for_phase(current_phase)
+
+	# Emit signal so UI can show notification
+	phase_auto_ended.emit(phase_name)
+
+	if end_action_type == "":
+		# Unknown phase — force advance through PhaseManager
+		print("NetworkManager: No end action for phase %s — forcing advance" % phase_name)
+		phase_manager_ref.advance_to_next_phase()
+		return
+
+	# Submit the auto-end action through the normal pipeline (host-side)
+	var action = {
+		"type": end_action_type,
+		"player": game_state.get_active_player(),
+		"auto_timeout": true
+	}
+	print("NetworkManager: Auto-submitting %s for AFK timeout" % end_action_type)
+	submit_action(action)
+
+func _get_end_action_for_phase(phase: GameStateData.Phase) -> String:
+	"""T5-MP8: Map each phase to its end-phase action type."""
+	match phase:
+		GameStateData.Phase.COMMAND: return "END_COMMAND"
+		GameStateData.Phase.DEPLOYMENT: return "END_DEPLOYMENT"
+		GameStateData.Phase.MOVEMENT: return "END_MOVEMENT"
+		GameStateData.Phase.SHOOTING: return "END_SHOOTING"
+		GameStateData.Phase.CHARGE: return "END_CHARGE"
+		GameStateData.Phase.FIGHT: return "END_FIGHT"
+		GameStateData.Phase.SCORING: return "END_SCORING"
+		GameStateData.Phase.MORALE: return "END_MORALE"
+		_: return ""
+
+func get_turn_time_remaining() -> float:
+	"""T5-MP8: Get seconds remaining on the turn timer. Returns -1 if timer is not running."""
+	if not turn_timer or turn_timer.is_stopped():
+		return -1.0
+	return turn_timer.time_left
+
+@rpc("authority", "call_local", "reliable")
 func _broadcast_game_over(winner: int, reason: String) -> void:
 	print("NetworkManager: Game over! Winner: Player %d (%s)" % [winner, reason])
-	# TODO: Show game over UI with winner and reason
+	# Stop the turn timer
+	stop_turn_timer()
+	# Mark game as ended in PhaseManager if available
+	if phase_manager_ref:
+		phase_manager_ref.game_ended = true
+	game_over.emit(winner, reason)
 
 # Hook into phase changes to restart timer
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
@@ -1986,14 +2093,19 @@ func _on_peer_connected(peer_id: int) -> void:
 func _on_peer_disconnected(peer_id: int) -> void:
 	print("NetworkManager: Peer disconnected - ", peer_id)
 
+	var disconnected_player = peer_to_player_map.get(peer_id, 0)
 	if peer_to_player_map.has(peer_id):
 		peer_to_player_map.erase(peer_id)
 
 	emit_signal("peer_disconnected", peer_id)
 
-	# MVP: End game on disconnect
-	push_error("Player disconnected - game ending")
-	get_tree().quit()
+	# End game on disconnect — the remaining player wins
+	print("NetworkManager: Player disconnected - ending game")
+	stop_turn_timer()
+	if phase_manager_ref:
+		phase_manager_ref.game_ended = true
+	var winner = 3 - disconnected_player if disconnected_player > 0 else 0
+	game_over.emit(winner, "disconnect")
 
 func _on_connection_failed() -> void:
 	print("NetworkManager: Connection failed")
