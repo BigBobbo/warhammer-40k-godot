@@ -812,6 +812,120 @@ func _all_units_deployed() -> bool:
 
 	return true
 
+func get_deployment_summary() -> Dictionary:
+	"""T5-UX8: Build a summary of deployment state for the confirmation dialog"""
+	var units = GameState.state.get("units", {})
+	var player1_units = []
+	var player2_units = []
+	var embarked_units = []
+	var attached_units = []
+	var reserves_units = []
+	var warnings = []
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		var owner = unit.get("owner", 0)
+		var status = unit.get("status", 0)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var embarked_in = unit.get("embarked_in", null)
+		var attached_to = unit.get("attached_to", null)
+
+		# Embarked units
+		if embarked_in != null:
+			var transport = units.get(embarked_in, {})
+			var transport_name = transport.get("meta", {}).get("name", embarked_in)
+			embarked_units.append({
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"owner": owner,
+				"display_text": "P%d - %s (in %s)" % [owner, unit_name, transport_name]
+			})
+			continue
+
+		# Attached characters
+		if attached_to != null:
+			var bodyguard = units.get(attached_to, {})
+			var bodyguard_name = bodyguard.get("meta", {}).get("name", attached_to)
+			attached_units.append({
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"owner": owner,
+				"display_text": "P%d - %s (attached to %s)" % [owner, unit_name, bodyguard_name]
+			})
+			continue
+
+		# Reserves
+		if status == GameStateData.UnitStatus.IN_RESERVES:
+			reserves_units.append({
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"owner": owner,
+				"display_text": "P%d - %s" % [owner, unit_name]
+			})
+			continue
+
+		# Deployed units - get position from first alive model
+		if status == GameStateData.UnitStatus.DEPLOYED:
+			var pos_text = ""
+			var models = unit.get("models", [])
+			for model in models:
+				if model.get("alive", true):
+					var pos = model.get("position", null)
+					if pos != null:
+						var x = pos.get("x", pos.x if pos is Vector2 else 0)
+						var y = pos.get("y", pos.y if pos is Vector2 else 0)
+						pos_text = " at (%.0f, %.0f)" % [x, y]
+					break
+
+			var unit_info = {
+				"unit_id": unit_id,
+				"unit_name": unit_name,
+				"owner": owner,
+				"display_text": "%s%s" % [unit_name, pos_text]
+			}
+
+			if owner == 1:
+				player1_units.append(unit_info)
+			elif owner == 2:
+				player2_units.append(unit_info)
+
+	# Check for attached characters on units
+	for unit_id in units:
+		var unit = units[unit_id]
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_chars = attachment_data.get("attached_characters", [])
+		if attached_chars.size() > 0:
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			for char_id in attached_chars:
+				# Only add if not already captured via attached_to
+				var already_listed = false
+				for att in attached_units:
+					if att.unit_id == char_id:
+						already_listed = true
+						break
+				if not already_listed:
+					var char_unit = units.get(char_id, {})
+					var char_name = char_unit.get("meta", {}).get("name", char_id)
+					attached_units.append({
+						"unit_id": char_id,
+						"unit_name": char_name,
+						"owner": unit.get("owner", 0),
+						"display_text": "P%d - %s (attached to %s)" % [unit.get("owner", 0), char_name, unit_name]
+					})
+
+	# Sort by name for consistent display
+	player1_units.sort_custom(func(a, b): return a.unit_name < b.unit_name)
+	player2_units.sort_custom(func(a, b): return a.unit_name < b.unit_name)
+
+	return {
+		"player1_units": player1_units,
+		"player2_units": player2_units,
+		"embarked_units": embarked_units,
+		"attached_units": attached_units,
+		"reserves_units": reserves_units,
+		"warnings": warnings
+	}
+
 # Player switching is now handled by TurnManager via the action_taken signal
 # Transport embark dialog is now handled by DeploymentController BEFORE deployment
 
