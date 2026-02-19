@@ -381,7 +381,21 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 						model["invuln"] = invuln_value
 				print("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id])
 
-			trial_board.units[defender_unit_id] = fresh_defender
+			# Apply save roll modifier from rule toggles to defender flags (T4-18)
+			# Per 10e: save roll modifiers are capped at +1/-1 (AP stacks are unlimited)
+			var save_modifier = 0
+			if rule_toggles.get("save_plus_1", false):
+				save_modifier += 1
+			if rule_toggles.get("save_minus_1", false):
+				save_modifier -= 1
+			save_modifier = clamp(save_modifier, -1, 1)
+			if save_modifier != 0:
+				if not fresh_defender.has("flags"):
+					fresh_defender["flags"] = {}
+				fresh_defender["flags"]["save_modifier"] = save_modifier
+				print("Mathhammer: Applied save modifier %+d to defender %s (capped at +1/-1 per 10e)" % [save_modifier, defender_unit_id])
+
+		trial_board.units[defender_unit_id] = fresh_defender
 
 	# ANTI-[KEYWORD] X+ (T2-13): Inject anti-keyword text into attacker weapon special_rules
 	# so RulesEngine's get_anti_keyword_data() / get_critical_wound_threshold() picks it up.

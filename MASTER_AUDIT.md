@@ -110,6 +110,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-14: Weapon ID collision for similar weapon names — type-aware IDs | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-15: Single weapon result dialog has hardcoded zeros — stored hit/wound data in resolution_state | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-16: [MH-RULE-6] Conversion X+ — expanded crit hit range at 12"+ distance | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
+| T4-18: [MH-RULE-14] Save modifier cap — +1/-1 save roll toggles with cap enforcement | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -158,7 +159,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-RULE-11 | Blast | +1 attack per 5 defender models — Mathhammer UI doesn't auto-calculate from defender model count | MEDIUM |
 | MH-RULE-12 | Melee support | Mathhammer only supports shooting phase; no WS input, no Lance/charge conditions | HIGH |
 | MH-RULE-13 | Re-roll wound rolls (generic) | Only re-roll hit 1s exists; no re-roll wounds, re-roll all failed hits/wounds | MEDIUM |
-| MH-RULE-14 | Save modifier cap | Saves can be worsened by more than -1 (AP stacks fully) but cannot be improved by more than +1 | LOW |
+| MH-RULE-14 | ~~Save modifier cap~~ **DONE** | ~~Saves can be worsened by more than -1 (AP stacks fully) but cannot be improved by more than +1~~ Added ±1 save roll toggles with cap enforcement in all save resolution paths | ~~LOW~~ |
 
 ### Missing Features vs Community Tools
 
@@ -705,10 +706,11 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Phase:** Mathhammer
 - **Source:** MATHHAMMER_AUDIT
 
-### T4-18. [MH-RULE-14] Save modifier cap not enforced in mathhammer toggles
+### T4-18. [MH-RULE-14] Save modifier cap not enforced in mathhammer toggles — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Saves can be worsened by more than -1 (AP stacks) but cannot be improved by more than +1
 - **Source:** MATHHAMMER_AUDIT
+- **Resolution:** Added +1/-1 to Save toggles in MathhhammerUI with mutual conflict. Registered save_plus_1/save_minus_1 in MathhhammerRuleModifiers. Save modifier stored on defender flags in trial board and applied (clamped ±1 per 10e) in RulesEngine shooting, melee, and overwatch save resolution. AP stacking remains unlimited.
 
 ### T4-19. [MH-BUG-6] Triple 'h' typo in Mathhammer class names
 - **Phase:** Mathhammer
@@ -860,12 +862,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 12 | 8 | 20 |
+| Tier 4 — Low/Niche | 13 | 7 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **53** | **75** | **128** |
-| **Recently Completed** | **80** | — | **80** |
-| *Mathhammer items (subset)* | *11* | *20* | *31* |
+| **Total Open** | **54** | **74** | **128** |
+| **Recently Completed** | **81** | — | **81** |
+| *Mathhammer items (subset)* | *12* | *19* | *31* |
 
 ---
 

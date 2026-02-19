@@ -107,10 +107,20 @@ static func _register_save_modifiers() -> void:
 	rule.conflicts_with = ["cover"]
 	rule.apply_function = _apply_ignores_cover
 	RULE_REGISTRY[rule.id] = rule
-	
+
 	rule = RuleDefinition.new("cover", "Target in Cover", "Target gains cover save bonus", RuleCategory.SAVE_MODIFIER)
 	rule.conflicts_with = ["ignores_cover"]
 	rule.apply_function = _apply_cover_bonus
+	RULE_REGISTRY[rule.id] = rule
+
+	rule = RuleDefinition.new("save_plus_1", "+1 to Save", "Add 1 to save rolls (capped at +1 per 10e)", RuleCategory.SAVE_MODIFIER)
+	rule.conflicts_with = ["save_minus_1"]
+	rule.apply_function = _apply_save_modifier.bind(1)
+	RULE_REGISTRY[rule.id] = rule
+
+	rule = RuleDefinition.new("save_minus_1", "-1 to Save", "Subtract 1 from save rolls (capped at -1 per 10e)", RuleCategory.SAVE_MODIFIER)
+	rule.conflicts_with = ["save_plus_1"]
+	rule.apply_function = _apply_save_modifier.bind(-1)
 	RULE_REGISTRY[rule.id] = rule
 
 # Register damage modifiers
@@ -346,6 +356,11 @@ static func _apply_cover_bonus(config: Dictionary) -> void:
 	# Cover: Target gets cover save bonus
 	config["modifiers"] = config.get("modifiers", {})
 	config.modifiers["has_cover"] = true
+
+static func _apply_save_modifier(modifier: int, config: Dictionary) -> void:
+	# Generic save roll modifier (capped at +1/-1 per 10e rules)
+	config["modifiers"] = config.get("modifiers", {})
+	config.modifiers["save_modifier"] = clamp(config.modifiers.get("save_modifier", 0) + modifier, -1, 1)
 
 static func _apply_feel_no_pain(threshold: int, config: Dictionary) -> void:
 	# Feel No Pain: Ignore wounds on dice roll

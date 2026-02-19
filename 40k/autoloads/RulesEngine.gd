@@ -1065,14 +1065,19 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
+		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+		var ow_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		ow_save_modifier = clamp(ow_save_modifier, -1, 1)
+
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
 		if save_roll > 1:
+			var ow_effective_roll = save_roll + ow_save_modifier
 			if save_result.use_invuln:
-				saved = save_roll >= save_result.inv
+				saved = ow_effective_roll >= save_result.inv
 			else:
-				saved = save_roll >= save_result.armour
+				saved = ow_effective_roll >= save_result.armour
 
 		if not saved:
 			# Roll damage
@@ -2187,23 +2192,29 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Calculate save needed
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, auto_model_invuln)
-		
+
+		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+		var save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		save_modifier = clamp(save_modifier, -1, 1)
+
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
 
 		# 10e rules: Unmodified save roll of 1 always fails
 		if save_roll > 1:
+			var effective_save_roll = save_roll + save_modifier
 			if save_result.use_invuln:
-				saved = save_roll >= save_result.inv
+				saved = effective_save_roll >= save_result.inv
 			else:
-				saved = save_roll >= save_result.armour
-		
+				saved = effective_save_roll >= save_result.armour
+
 		result.dice.append({
 			"context": "save",
 			"sv": str(base_save) + "+",
 			"ap": ap,
 			"cover": "+1 (capped)" if has_cover and not save_result.use_invuln else "none",
+			"save_modifier": save_modifier,
 			"rolls_raw": [save_roll],
 			"fails": 0 if saved else 1
 		})
@@ -5879,6 +5890,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var save_rolls = []
 	var save_threshold = 7  # Default: impossible to save
 
+	# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+	var melee_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+	melee_save_modifier = clamp(melee_save_modifier, -1, 1)
+
 	if wounds_needing_saves > 0:
 		# Calculate save needed using proper invulnerable save logic
 		# In melee, no cover applies (cover is for ranged attacks)
@@ -5899,7 +5914,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		save_rolls = rng.roll_d6(wounds_needing_saves)
 		for roll in save_rolls:
 			# 10e rules: Unmodified save roll of 1 always fails
-			if roll > 1 and roll >= save_threshold:
+			if roll > 1 and (roll + melee_save_modifier) >= save_threshold:
 				successful_saves += 1
 
 		failed_saves = wounds_needing_saves - successful_saves
@@ -5914,6 +5929,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"successes": successful_saves,
 		"failed": failed_saves,
 		"ap": ap,
+		"save_modifier": melee_save_modifier,
 		"original_save": base_save,
 		"using_invuln": save_threshold != (base_save + ap) and save_threshold < 7,
 		# Devastating Wounds tracking
