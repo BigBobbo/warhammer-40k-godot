@@ -107,6 +107,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-10: Mission selection variety — 9 primary missions from Chapter Approved 2025-26 | Pre-game | DEPLOYMENT_AUDIT.md §8 |
 | T4-11: Fortification deployment — cannot place in reserves, must deploy on table | Deployment | DEPLOYMENT_AUDIT.md §9 |
 | T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
+| T4-13: Unmodified save roll of 1 always fails (auto-resolve path) | Shooting | SHOOTING_PHASE_AUDIT.md §2.13 |
 
 ---
 
@@ -677,10 +678,11 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Depends on:** T1-3 (wound modifier system)
 - **Resolution:** Verified that the `unmodified_roll == 1` auto-fail check already exists in all 6 wound roll code paths: interactive shooting (with/without Lethal Hits), auto-resolve shooting (with/without Lethal Hits), and fight phase (with/without Lethal Hits). Added `test_wound_roll_auto_fail.gd` with 13 tests covering the rule.
 
-### T4-13. Unmodified save roll of 1 always fails (auto-resolve path)
+### T4-13. Unmodified save roll of 1 always fails (auto-resolve path) — **DONE**
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §2.13
 - **Files:** `RulesEngine.gd` — `_resolve_assignment()` (~line 1129)
+- **Resolution:** Verified that the `save_roll > 1` auto-fail check already exists in all 3 save roll code paths: auto-resolve shooting, overwatch, and melee fight phase. Added consistent "10e rules" comment and debug logging to the overwatch and auto-resolve paths. Added `test_save_roll_auto_fail.gd` with 17 tests (15 unit + 2 integration) covering the rule.
 
 ### T4-14. Weapon ID collision for similar weapon names
 - **Phase:** Shooting
@@ -854,11 +856,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 9 | 11 | 20 |
+| Tier 4 — Low/Niche | 10 | 10 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **50** | **78** | **128** |
-| **Recently Completed** | **77** | — | **77** |
+| **Total Open** | **51** | **77** | **128** |
+| **Recently Completed** | **78** | — | **78** |
 | *Mathhammer items (subset)* | *10* | *21* | *31* |
 
 ---

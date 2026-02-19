@@ -1068,11 +1068,14 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
+		# 10e rules: Unmodified save roll of 1 always fails
 		if save_roll > 1:
 			if save_result.use_invuln:
 				saved = save_roll >= save_result.inv
 			else:
 				saved = save_roll >= save_result.armour
+		else:
+			print("RulesEngine: [overwatch] Save roll natural 1 — auto-fail (unmodified 1 always fails)")
 
 		if not saved:
 			# Roll damage
@@ -2185,7 +2188,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				saved = save_roll >= save_result.inv
 			else:
 				saved = save_roll >= save_result.armour
-		
+		else:
+			print("RulesEngine: [auto-resolve] Save roll natural 1 — auto-fail (unmodified 1 always fails)")
+
 		result.dice.append({
 			"context": "save",
 			"sv": str(base_save) + "+",
