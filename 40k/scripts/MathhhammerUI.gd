@@ -450,6 +450,8 @@ func _populate_rule_toggles() -> void:
 		{"id": "cover", "name": "Target in Cover", "description": "Defender has cover bonus", "phase": "shooting"},
 		{"id": "hit_plus_1", "name": "+1 to Hit", "description": "Bonus to hit rolls", "phase": "both"},
 		{"id": "wound_plus_1", "name": "+1 to Wound", "description": "Bonus to wound rolls", "phase": "both"},
+		{"id": "save_plus_1", "name": "+1 to Save", "description": "Defender gets +1 to save rolls (capped at +1 per 10e rules)", "phase": "both"},
+		{"id": "save_minus_1", "name": "-1 to Save", "description": "Defender gets -1 to save rolls (capped at -1 per 10e rules)", "phase": "both"},
 		{"id": "torrent", "name": "Torrent", "description": "Auto-hit (no hit roll, no critical hits)", "phase": "shooting"},
 		{"id": "reroll_hits_ones", "name": "Re-roll 1s to Hit", "description": "Re-roll hit rolls of 1 (e.g. Oath of Moment)", "phase": "both"},
 		{"id": "reroll_hits_failed", "name": "Re-roll All Failed Hits", "description": "Re-roll all failed hit rolls", "phase": "both"},

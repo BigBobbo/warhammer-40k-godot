@@ -34,6 +34,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
 AUDIT_FILE="$PROJECT_DIR/MASTER_AUDIT.md"
 STATE_FILE="$PROJECT_DIR/.audit_runner_state"
+STOP_FILE="$PROJECT_DIR/.audit_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
 MAIN_BRANCH="main"
 CLAUDE_MODEL="sonnet"
@@ -484,14 +485,22 @@ run_claude() {
 run_single_task() {
     local task_id="$1"
     local task_title="$2"
+    local current_num="${3:-0}"
+    local total_num="${4:-0}"
     CURRENT_TASK_ID="$task_id"
 
     local tier
     tier=$(get_tier "$task_id")
 
+    local progress=""
+    if [[ "$total_num" -gt 0 ]]; then
+        local remaining=$((total_num - current_num + 1))
+        progress=" [${current_num}/${total_num} — ${remaining} remaining]"
+    fi
+
     echo ""
     echo -e "${BOLD}═══════════════════════════════════════════════════════${NC}"
-    log_task "TASK ${task_id} (Tier ${tier})"
+    log_task "TASK ${task_id} (Tier ${tier})${progress}"
     echo -e "  ${task_title}"
     echo -e "${BOLD}═══════════════════════════════════════════════════════${NC}"
 
@@ -716,12 +725,18 @@ main() {
     while IFS=$'\t' read -r -u 3 task_id task_title; do
         [[ -z "$task_id" ]] && continue
 
+        if [[ -f "$STOP_FILE" ]]; then
+            log_warn "Stop file detected (${STOP_FILE}) — exiting after previous task"
+            rm -f "$STOP_FILE"
+            break
+        fi
+
         if [[ "$MAX_TASKS" -gt 0 && "$processed" -ge "$MAX_TASKS" ]]; then
             log "Reached --max-tasks limit (${MAX_TASKS})"
             break
         fi
 
-        run_single_task "$task_id" "$task_title" || {
+        run_single_task "$task_id" "$task_title" "$((processed + 1))" "$task_count" || {
             log_warn "Task ${task_id} failed — continuing to next task"
         }
 

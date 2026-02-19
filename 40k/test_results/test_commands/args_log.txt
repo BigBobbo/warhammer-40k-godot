@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--run-tests"]
