@@ -1,9 +1,7 @@
 {
   "dirs": [
     "res://tests/unit",
-    "res://tests/phases",
     "res://tests/integration",
-    "res://tests/ui",
     "res://tests/network"
   ],
   "should_maximize": false,

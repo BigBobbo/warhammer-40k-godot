@@ -10,33 +10,36 @@ on:
         required: true
         default: '1.0.0'
 
+env:
+  GODOT_VERSION: "4.4.1"
+
 jobs:
   test-before-release:
     runs-on: ubuntu-latest
     name: Pre-Release Testing
-    
+    timeout-minutes: 15
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
-    
+
     - name: Setup Godot
-      uses: chickensoft-games/setup-godot@v1
+      uses: chickensoft-games/setup-godot@v2
       with:
-        version: 4.4.0
+        version: ${{ env.GODOT_VERSION }}
         use-dotnet: false
-        include-templates: true
-    
+
     - name: Import project
       run: |
         cd 40k
-        godot --headless --import
-    
+        timeout 120 godot --headless --import || true
+
     - name: Run full test suite
       run: |
         cd 40k
-        godot --headless --script addons/gut/gut_cmdln.gd -gdir=res://tests -glog=1 -gjunit_xml_file=release_test_results.xml
+        timeout 300 godot --headless --script addons/gut/gut_cmdln.gd -glog=1 -gjunit_xml_file=release_test_results.xml -gexit
     
     - name: Validate test results
       run: |
@@ -57,26 +60,26 @@ jobs:
     needs: test-before-release
     strategy:
       matrix:
-        platform: 
+        platform:
           - { name: "Linux", template: "Linux/X11", file: "40k-game.x86_64" }
           - { name: "Windows", template: "Windows Desktop", file: "40k-game.exe" }
           - { name: "macOS", template: "macOS", file: "40k-game.app" }
-    
+
     runs-on: ubuntu-latest
     name: Build ${{ matrix.platform.name }}
-    
+    timeout-minutes: 15
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         lfs: true
-    
+
     - name: Setup Godot
-      uses: chickensoft-games/setup-godot@v1
+      uses: chickensoft-games/setup-godot@v2
       with:
-        version: 4.4.0
+        version: ${{ env.GODOT_VERSION }}
         use-dotnet: false
-        include-templates: true
     
     - name: Import project
       run: |
@@ -99,7 +102,7 @@ jobs:
         fi
     
     - name: Upload build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-${{ matrix.platform.name }}
         path: |
@@ -112,7 +115,7 @@ jobs:
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: builds
     

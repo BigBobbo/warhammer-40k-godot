@@ -114,6 +114,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-18: [MH-RULE-14] Save modifier cap — +1/-1 save roll toggles with cap enforcement | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-19: [MH-BUG-6] Triple 'h' typo in Mathhammer class names — renamed to MathhammerUI/Results/RuleModifiers | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T6-1: Fix broken test compilation errors — BaseUITest created, autoload resolution fixed | Testing | TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md |
+| T6-5: CI/CD integration — all-branch triggers, correct test dirs, action version updates, timeouts | Testing | MASTER_AUDIT.md §Tier 6 |
 
 ---
 
@@ -822,9 +823,10 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Source:** PRPs/gh_issue_93_testing-audit.md, code TODOs
 - **Resolution:** Created `test_multiplayer_network.gd` with 11 tests covering state synchronization (3 tests), latency/jitter/packet-loss simulation (4 tests), and disconnect handling (4 tests). Added `simulate_client_disconnect()`, `simulate_host_disconnect()`, `verify_instance_alive()`, `assert_game_states_match()`, and `get_action_round_trip_time_ms()` helpers to `MultiplayerIntegrationTest.gd`. Completed collision detection test and resolved TODO stubs in `test_multiplayer_deployment.gd`. Documented LogMonitor limitation (connection verified via command simulation instead).
 
-### T6-5. CI/CD integration
+### T6-5. CI/CD integration — **DONE**
 - Tests not run automatically on commits
 - **Source:** PRPs/gh_issue_93_testing-audit.md
+- **Resolution:** Fixed test-suite.yml to trigger on all branch pushes (not just main/develop), corrected test directories to match actual structure (removed non-existent phases/ui dirs, added network tests), updated all workflow action versions (setup-godot@v2, upload-artifact@v4), added timeouts to prevent hanging, fixed .gutconfig.json, and updated CI/CD README documentation.
 
 ---
 
@@ -870,9 +872,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
-| Tier 6 — Testing | 2 | 3 | 5 |
-| **Total Open** | **57** | **71** | **128** |
-| **Recently Completed** | **84** | — | **84** |
+| Tier 6 — Testing | 3 | 2 | 5 |
+| **Total Open** | **58** | **70** | **128** |
+| **Recently Completed** | **85** | — | **85** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

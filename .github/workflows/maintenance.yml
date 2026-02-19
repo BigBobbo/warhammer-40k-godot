@@ -112,9 +112,9 @@ jobs:
         lfs: true
     
     - name: Setup Godot
-      uses: chickensoft-games/setup-godot@v1
+      uses: chickensoft-games/setup-godot@v2
       with:
-        version: 4.4.0
+        version: 4.4.1
         use-dotnet: false
         include-templates: true
     
@@ -254,9 +254,9 @@ jobs:
         lfs: true
     
     - name: Setup Godot
-      uses: chickensoft-games/setup-godot@v1
+      uses: chickensoft-games/setup-godot@v2
       with:
-        version: 4.4.0
+        version: 4.4.1
         use-dotnet: false
         include-templates: true
     
@@ -292,7 +292,7 @@ jobs:
         fi
     
     - name: Upload performance baseline
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-baseline
         path: 40k/performance_baseline.txt
