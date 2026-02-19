@@ -402,3 +402,44 @@
 - The movement clamping uses binary search to find the maximum safe move distance
 - Advance movements are not affected (advance decision already considers weapon range separately)
 - No regressions in existing movement tests (objective evaluation, hold/move, engaged units, advance decisions)
+
+## AI Enemy Threat Range Awareness (AI-TACTIC-4, MOV-2)
+
+**Task:** Add enemy threat range awareness -- calculate charge threat zones and shooting ranges, avoid moving into danger
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added threat range constants (`THREAT_CHARGE_PENALTY`, `THREAT_SHOOTING_PENALTY`, `THREAT_FRAGILE_BONUS`, `THREAT_MELEE_UNIT_IGNORE`, `THREAT_SAFE_MARGIN_INCHES`); added `_calculate_enemy_threat_data()` to build threat profiles for all enemy units; added `_estimate_enemy_threat_level()` to rate enemy danger; added `_evaluate_position_threat()` to score any position for charge/shooting threat; added `_is_position_in_charge_threat()` quick check; added `_find_safer_position()` to find threat-reduced movement alternatives; integrated threat scoring into `_assign_units_to_objectives()` to penalize dangerous assignments; added threat-aware hold check for ranged units in `_select_movement_action()` to prevent moving from safe positions into charge danger; integrated `_find_safer_position()` into `_compute_movement_toward_target()` to adjust destinations away from threats
+- `40k/tests/unit/test_ai_threat_range_awareness.gd` - New test file for AI threat range awareness
+
+**Tests to run:**
+- Run `test_ai_threat_range_awareness.gd` via `godot --headless --script tests/unit/test_ai_threat_range_awareness.gd`
+  - Tests `_calculate_enemy_threat_data` correctly computes charge threat (M + 12 + 1 inches), shooting threat (max weapon range), and unit metadata (has_melee, has_ranged)
+  - Tests charge threat range calculation for M6 unit = 19" = 760px
+  - Tests shooting threat range for 24" weapons = 960px
+  - Tests units without melee/ranged weapons have correct flags
+  - Tests `_estimate_enemy_threat_level` for basic units, vehicles (higher), and hordes (higher)
+  - Tests `_evaluate_position_threat` returns 0 for positions outside all threat ranges
+  - Tests `_evaluate_position_threat` returns positive charge threat for positions in charge zone
+  - Tests `_evaluate_position_threat` returns positive shoot threat for positions in shooting zone
+  - Tests fragile units (T3/1W) get higher threat penalties than tough units at same position
+  - Tests melee-focused units get reduced charge threat penalties (they want to fight)
+  - Tests `_is_position_in_charge_threat` quick check at various distances
+  - Tests `_find_safer_position` returns desired position when no threats exist
+  - Tests `_find_safer_position` finds positions with reduced threat when possible
+  - Tests threat-aware assignment scoring penalizes objectives that route through danger
+  - Tests ranged unit avoids moving from safe position into charge danger zone
+- Run `test_ai_movement_decisions.gd` to confirm no regressions in movement decisions
+- Run an AI vs AI game and observe that AI ranged units avoid walking into enemy charge range when they have targets to shoot
+- Run a Human vs AI game and verify the AI positions units more cautiously against melee threats
+
+**What to look for:**
+- AI ranged units that are currently safe from charge threats (outside M+12+1" range) prefer holding position if moving toward an objective would enter charge range, and they have shooting targets available
+- AI units moving toward objectives try to find positions that reduce threat exposure while still making progress (lateral offsets, shorter moves)
+- Charge threat penalty is stronger than shooting threat penalty (being charged is worse than being shot at)
+- Melee-focused units (no ranged weapons, only melee) do not shy away from charge threat zones
+- Fragile units (low T, low W) are more cautious about entering danger than tough units
+- Unit-to-objective assignment scoring penalizes routes that increase threat level, potentially redirecting units to safer objectives
+- VEHICLE and MONSTER enemies generate higher threat zones due to higher threat level
+- The threat calculation correctly uses enemy M stat (not a fixed value) for charge threat range
+- Movement adjustments do not prevent units from capturing critical objectives (progress is still weighted)
+- No infinite loops or stalling during movement phase
+- No regressions in existing movement decisions, objective evaluation, or fall-back behavior

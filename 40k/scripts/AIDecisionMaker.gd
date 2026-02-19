@@ -246,22 +246,361 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 # =============================================================================
 
 static func _decide_scout(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	# AI strategy: Skip all scout moves for now (simple fallback)
-	# Future improvement: move scouts toward nearest objective
+	# AI strategy: Move scout units toward the nearest uncontrolled objective,
+	# maintaining >9" from all enemy models. If no valid move exists, skip.
+
+	# Step 1: If CONFIRM_SCOUT_MOVE is available, confirm it
+	# (safety fallback — normally AIPlayer handles confirm after staging)
 	for action in available_actions:
-		if action.get("type") == "SKIP_SCOUT_MOVE":
+		if action.get("type") == "CONFIRM_SCOUT_MOVE":
+			var uid = action.get("unit_id", "")
 			return {
-				"type": "SKIP_SCOUT_MOVE",
-				"unit_id": action.get("unit_id", ""),
-				"_ai_description": "Skip Scout move for %s" % action.get("unit_id", "")
+				"type": "CONFIRM_SCOUT_MOVE",
+				"unit_id": uid,
+				"_ai_description": "Confirm Scout move for %s" % uid
 			}
 
-	# If all scouts handled, end phase
+	# Step 2: Find a BEGIN_SCOUT_MOVE action and compute destinations
+	for action in available_actions:
+		if action.get("type") == "BEGIN_SCOUT_MOVE":
+			var unit_id = action.get("unit_id", "")
+			var unit = snapshot.get("units", {}).get(unit_id, {})
+			if unit.is_empty():
+				continue
+
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var scout_distance = _get_scout_distance_from_unit(unit)
+			if scout_distance <= 0.0:
+				scout_distance = 6.0  # Default scout distance
+
+			# Find the best objective to move toward
+			var objectives = _get_objectives(snapshot)
+			var enemies = _get_enemy_units(snapshot, player)
+			var friendly_units = _get_units_for_player(snapshot, player)
+			var target_pos = _find_best_scout_objective(unit, objectives, enemies, friendly_units, player, snapshot)
+
+			if target_pos == Vector2.INF:
+				print("AIDecisionMaker: No valid scout objective found for %s, skipping" % unit_name)
+				return {
+					"type": "SKIP_SCOUT_MOVE",
+					"unit_id": unit_id,
+					"_ai_description": "Skip Scout move for %s (no reachable objective)" % unit_name
+				}
+
+			# Compute model destinations toward the target
+			var model_destinations = _compute_scout_movement(
+				unit, unit_id, target_pos, scout_distance, snapshot, enemies
+			)
+
+			if model_destinations.is_empty():
+				print("AIDecisionMaker: Could not compute valid scout destinations for %s, skipping" % unit_name)
+				return {
+					"type": "SKIP_SCOUT_MOVE",
+					"unit_id": unit_id,
+					"_ai_description": "Skip Scout move for %s (no valid path)" % unit_name
+				}
+
+			var centroid = _get_unit_centroid(unit)
+			var dist_to_obj = centroid.distance_to(target_pos) / PIXELS_PER_INCH if centroid != Vector2.INF else 0.0
+
+			print("AIDecisionMaker: %s scouting toward objective (%.1f\" away, Scout %d\")" % [
+				unit_name, dist_to_obj, int(scout_distance)])
+
+			return {
+				"type": "BEGIN_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"_ai_scout_destinations": model_destinations,
+				"_ai_description": "%s scouts toward nearest objective (%.1f\" away)" % [unit_name, dist_to_obj]
+			}
+
+	# Step 3: If only SKIP actions remain (no BEGIN), skip remaining units
+	for action in available_actions:
+		if action.get("type") == "SKIP_SCOUT_MOVE":
+			var uid = action.get("unit_id", "")
+			return {
+				"type": "SKIP_SCOUT_MOVE",
+				"unit_id": uid,
+				"_ai_description": "Skip Scout move for %s" % uid
+			}
+
+	# Step 4: If all scouts handled, end phase
 	for action in available_actions:
 		if action.get("type") == "END_SCOUT_PHASE":
 			return {"type": "END_SCOUT_PHASE", "_ai_description": "End Scout Phase"}
 
 	return {}
+
+# =============================================================================
+# SCOUT PHASE HELPERS
+# =============================================================================
+
+static func _get_scout_distance_from_unit(unit: Dictionary) -> float:
+	"""Extract scout move distance in inches from unit abilities."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var aname = ""
+		var avalue = 0
+		if ability is String:
+			aname = ability
+		elif ability is Dictionary:
+			aname = ability.get("name", "")
+			avalue = ability.get("value", 0)
+		if aname.to_lower().begins_with("scout"):
+			if avalue > 0:
+				return float(avalue)
+			# Try to parse distance from name, e.g. "Scout 6\"" or "Scout 6"
+			var regex = RegEx.new()
+			regex.compile("(?i)scout\\s+(\\d+)")
+			var result = regex.search(aname)
+			if result:
+				return float(result.get_string(1))
+			return 6.0
+	return 0.0
+
+static func _find_best_scout_objective(
+	unit: Dictionary, objectives: Array, enemies: Dictionary,
+	friendly_units: Dictionary, player: int, snapshot: Dictionary
+) -> Vector2:
+	"""Find the best objective for a scout unit to move toward.
+	Prioritizes: uncontrolled > contested > enemy-weak objectives, with distance as tiebreaker.
+	Avoids objectives that are already well-held by friendlies."""
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF or objectives.is_empty():
+		return Vector2.INF
+
+	var obj_data = snapshot.get("board", {}).get("objectives", [])
+
+	var best_pos = Vector2.INF
+	var best_score = -INF
+
+	for i in range(objectives.size()):
+		var obj_pos = objectives[i]
+
+		# Classify the objective
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemies, player, false)
+		var dist = centroid.distance_to(obj_pos)
+		var dist_inches = dist / PIXELS_PER_INCH
+
+		# Determine zone
+		var obj_zone = "no_mans_land"
+		if i < obj_data.size():
+			obj_zone = obj_data[i].get("zone", "no_mans_land")
+
+		var is_home = (player == 1 and obj_zone == "player1") or (player == 2 and obj_zone == "player2")
+		var is_enemy_home = (player == 1 and obj_zone == "player2") or (player == 2 and obj_zone == "player1")
+
+		# Score this objective for scouting
+		var score = 0.0
+
+		# Uncontrolled objectives are highest priority for scouts
+		if friendly_oc == 0 and enemy_oc == 0:
+			score += 10.0
+		# Objectives not yet secured by friendlies
+		elif friendly_oc == 0 and enemy_oc > 0:
+			score += 7.0  # Enemy holds it, scout can get there first
+		elif friendly_oc > 0 and friendly_oc <= enemy_oc:
+			score += 5.0  # Contested, reinforce
+		elif friendly_oc > enemy_oc and friendly_oc > 0:
+			score -= 5.0  # Already held, lower priority
+
+		# Prefer no-man's-land objectives (center of the board)
+		if obj_zone == "no_mans_land":
+			score += 3.0
+		# Home objectives are less valuable to scout toward (already nearby)
+		if is_home:
+			score -= 4.0
+		# Don't rush enemy home objectives with scouts
+		if is_enemy_home:
+			score -= 2.0
+
+		# Closer objectives score better (within scout range is ideal)
+		score -= dist_inches * 0.3
+
+		if score > best_score:
+			best_score = score
+			best_pos = obj_pos
+
+	return best_pos
+
+static func _compute_scout_movement(
+	unit: Dictionary, unit_id: String, target_pos: Vector2,
+	scout_distance_inches: float, snapshot: Dictionary, enemies: Dictionary
+) -> Dictionary:
+	"""Compute model destinations for a scout move toward target_pos.
+	Respects: scout distance limit, >9\" from all enemy models, board bounds, model overlap."""
+	if target_pos == Vector2.INF:
+		return {}
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {}
+
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return {}
+
+	# Calculate movement vector toward target
+	var direction = (target_pos - centroid).normalized()
+	var move_px = scout_distance_inches * PIXELS_PER_INCH
+	var dist_to_target = centroid.distance_to(target_pos)
+	var actual_move_px = min(move_px, dist_to_target)
+	var move_vector = direction * actual_move_px
+
+	# Get deployed models for overlap checking
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	var first_model = alive_models[0] if alive_models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+
+	# Build original positions map
+	var original_positions = {}
+	for model in alive_models:
+		var mid = model.get("id", "")
+		if mid != "":
+			original_positions[mid] = _get_model_position(model)
+
+	# Try the full move first, then progressively shorter moves
+	var fractions_to_try = [1.0, 0.75, 0.5, 0.25]
+	for fraction in fractions_to_try:
+		var try_vector = move_vector * fraction
+		var destinations = _try_scout_move_with_checks(
+			alive_models, try_vector, enemies, unit, deployed_models,
+			base_mm, base_type, base_dimensions, original_positions, move_px
+		)
+		if not destinations.is_empty():
+			if fraction < 1.0:
+				print("AIDecisionMaker: Scout using %.0f%% move to satisfy constraints" % (fraction * 100))
+			return destinations
+
+	# All fractions failed
+	return {}
+
+static func _try_scout_move_with_checks(
+	alive_models: Array, move_vector: Vector2, enemies: Dictionary,
+	unit: Dictionary, deployed_models: Array, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	original_positions: Dictionary = {}, move_cap_px: float = 0.0
+) -> Dictionary:
+	"""Try moving all models by move_vector, checking the >9\" enemy distance rule
+	and model overlap. Returns model_id -> [x, y] destinations, or empty dict if invalid."""
+	const SCOUT_ENEMY_DIST_INCHES: float = 9.0
+	var destinations = {}
+	var placed_models: Array = []
+
+	var own_models = unit.get("models", [])
+	var own_base_mm = own_models[0].get("base_mm", 32) if own_models.size() > 0 else 32
+	var own_radius_inches = (own_base_mm / 2.0) / 25.4
+
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == "":
+			continue
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.INF:
+			continue
+		var dest = model_pos + move_vector
+
+		# Clamp to board bounds with margin
+		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check movement distance does not exceed scout distance
+		if move_cap_px > 0.0:
+			var orig_pos = original_positions.get(model_id, model_pos)
+			if orig_pos.distance_to(dest) > move_cap_px + 1.0:  # Small tolerance
+				return {}
+
+		# Check >9" from all enemy models (edge-to-edge)
+		if _is_position_too_close_to_enemies_scout(dest, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES):
+			return {}
+
+		# Check overlap with deployed models and already-placed models
+		var all_obstacles = deployed_models + placed_models
+		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			# Try small perpendicular offsets to avoid the collision
+			var orig_pos = original_positions.get(model_id, model_pos)
+			var resolved_dest = _resolve_scout_collision(
+				dest, move_vector, base_mm, base_type, base_dimensions,
+				all_obstacles, enemies, own_radius_inches, SCOUT_ENEMY_DIST_INCHES,
+				orig_pos, move_cap_px
+			)
+			if resolved_dest == Vector2.INF:
+				return {}
+			dest = resolved_dest
+
+		destinations[model_id] = [dest.x, dest.y]
+		placed_models.append({
+			"position": dest,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	return destinations
+
+static func _is_position_too_close_to_enemies_scout(
+	pos: Vector2, enemies: Dictionary,
+	own_radius_inches: float, min_distance_inches: float
+) -> bool:
+	"""Check if a position is within min_distance_inches (edge-to-edge) of any enemy model.
+	Used for scout moves where the minimum distance is 9\"."""
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		for model in enemy.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var enemy_pos = _get_model_position(model)
+			if enemy_pos == Vector2.INF:
+				continue
+			var enemy_base_mm = model.get("base_mm", 32)
+			var enemy_radius_inches = (enemy_base_mm / 2.0) / 25.4
+			var dist_px = pos.distance_to(enemy_pos)
+			var dist_inches = dist_px / PIXELS_PER_INCH
+			var edge_dist = dist_inches - own_radius_inches - enemy_radius_inches
+			if edge_dist < min_distance_inches:
+				return true
+	return false
+
+static func _resolve_scout_collision(
+	dest: Vector2, move_vector: Vector2, base_mm: int,
+	base_type: String, base_dimensions: Dictionary,
+	obstacles: Array, enemies: Dictionary,
+	own_radius_inches: float, min_enemy_dist_inches: float,
+	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0
+) -> Vector2:
+	"""Try perpendicular offsets to avoid collision while satisfying scout >9\" rule."""
+	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
+	var base_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
+
+	for multiplier in offsets:
+		var offset = perp * base_radius * multiplier
+		var candidate = dest + offset
+
+		# Check board bounds
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			continue
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			continue
+
+		# Check movement cap
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			if original_pos.distance_to(candidate) > move_cap_px + 1.0:
+				continue
+
+		# Check model overlap
+		if _position_collides_with_deployed(candidate, base_mm, obstacles, 4.0, base_type, base_dimensions):
+			continue
+
+		# Check >9" from enemies
+		if _is_position_too_close_to_enemies_scout(candidate, enemies, own_radius_inches, min_enemy_dist_inches):
+			continue
+
+		return candidate
+
+	return Vector2.INF
 
 # =============================================================================
 # COMMAND PHASE
