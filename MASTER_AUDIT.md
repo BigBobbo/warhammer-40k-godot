@@ -109,6 +109,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
 | T4-14: Weapon ID collision for similar weapon names — type-aware IDs | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T4-15: Single weapon result dialog has hardcoded zeros — stored hit/wound data in resolution_state | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
+| T4-16: [MH-RULE-6] Conversion X+ — expanded crit hit range at 12"+ distance | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 
 ---
 
@@ -149,7 +150,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-RULE-3 | Indirect Fire | -1 to hit, unmod 1-3 fail, target gains cover | MEDIUM — see T2-4 |
 | MH-RULE-4 | Hazardous | D6 per weapon after attacking; 1 = 3MW to bearer | MEDIUM — see T2-3 |
 | MH-RULE-5 | Torrent | Auto-hit (no hit roll) | MEDIUM |
-| MH-RULE-6 | Conversion X+ | Expanded crit hit range at 12"+ | LOW |
+| MH-RULE-6 | ~~Conversion X+~~ **DONE** | ~~Expanded crit hit range at 12"+~~ Implemented: `get_critical_hit_threshold()` with distance check + Mathhammer toggle | ~~LOW~~ |
 | MH-RULE-7 | Half Damage | Halve incoming damage (round up) | LOW |
 | MH-RULE-8 | Stealth | Always has Benefit of Cover | LOW — see T2-1 |
 | MH-RULE-9 | Invulnerable Save toggle | UI needs invuln save override input for defender | HIGH |
@@ -695,9 +696,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `ShootingPhase.gd:1796-1807`
 - **Resolution:** Stored hit/wound/dice data in `resolution_state` during `_process_resolve_shooting` (single weapon path), then retrieved it in both the miss path and `_process_apply_saves` single weapon result builder. Replaced hardcoded zeros for `hits`, `total_attacks`, and empty `dice_rolls` with actual values from the resolution. Also added `hit_data` and `wound_data` fields for consistency with the sequential weapon path.
 
-### T4-16. [MH-RULE-6] Conversion X+ (expanded crit range at distance)
+### T4-16. [MH-RULE-6] Conversion X+ (expanded crit range at distance) — **DONE**
 - **Phase:** Mathhammer
 - **Source:** MATHHAMMER_AUDIT
+- **Resolution:** Implemented Conversion X+ weapon ability across all shooting resolution paths (interactive, auto-resolve) and Mathhammer simulation. Added `get_conversion_threshold()`, `has_conversion()`, `get_critical_hit_threshold()` to RulesEngine.gd. Modified hit roll logic to use dynamic `critical_hit_threshold` (default 6, lowered to X when Conversion X+ is present and target is 12"+ away). Added "Conversion 4+" and "Conversion 5+" toggles to MathhhammerUI, with model placement at 13" distance for simulation. Rule text injection into weapon special_rules follows the same pattern as Anti-keyword.
 
 ### T4-17. [MH-RULE-7] Half Damage defensive ability
 - **Phase:** Mathhammer
@@ -858,12 +860,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
-| Tier 4 — Low/Niche | 11 | 9 | 20 |
+| Tier 4 — Low/Niche | 12 | 8 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
 | Tier 6 — Testing | 0 | 5 | 5 |
-| **Total Open** | **52** | **76** | **128** |
-| **Recently Completed** | **79** | — | **79** |
-| *Mathhammer items (subset)* | *10* | *21* | *31* |
+| **Total Open** | **53** | **75** | **128** |
+| **Recently Completed** | **80** | — | **80** |
+| *Mathhammer items (subset)* | *11* | *20* | *31* |
 
 ---
 
