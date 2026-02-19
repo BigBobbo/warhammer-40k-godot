@@ -1,0 +1,32 @@
+# Tests Needing Local Verification
+
+## AI Charge Declarations Implementation
+
+**Task:** Implement AI charge declarations -- evaluate charge feasibility (distance, probability), declare charges against optimal targets, compute model positions post-charge (AI-GAP-1, CHARGE-1 through CHARGE-3)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added charge evaluation, target scoring, move computation
+- `40k/phases/ChargePhase.gd` - Extended `get_available_actions()` with reaction states and APPLY_CHARGE_MOVE; set `current_charging_unit` in DECLARE_CHARGE processing
+- `40k/tests/unit/test_ai_charge_decisions.gd` - New test file for AI charge logic
+
+**Tests to run:**
+- Run `test_ai_charge_decisions.gd` via `godot --headless --script tests/unit/test_ai_charge_decisions.gd`
+  - Tests charge probability calculations (guaranteed, impossible, edges)
+  - Tests charge target evaluation (close target, far target, preference)
+  - Tests charge roll, complete, and reaction decline actions
+  - Tests melee damage estimation
+  - Tests charge target scoring
+  - Tests melee weapon detection
+  - Tests closest model distance calculation
+  - Tests charge move computation (model positioning)
+- Run an AI vs AI game and observe that AI units now declare and attempt charges instead of always skipping
+- Run a Human vs AI game and verify the AI charges your units in the charge phase
+
+**What to look for:**
+- AI declares charges against nearby enemy units with good probability
+- AI skips charges when targets are too far or when there are no melee weapons
+- Charge rolls proceed correctly after declaration
+- After successful charge roll, models move into engagement range of targets
+- COMPLETE_UNIT_CHARGE is sent to clean up after charge move
+- Reaction decisions (Command Re-roll, Fire Overwatch, Heroic Intervention, Tank Shock) are properly declined
+- No infinite loops during charge phase
+- Human player charge flow still works correctly (no regression from ChargePhase changes)

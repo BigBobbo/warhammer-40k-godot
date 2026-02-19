@@ -1409,13 +1409,15 @@ static func _resolve_movement_collision(
 	return Vector2.INF  # No valid offset found
 
 static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_unit_id: String) -> Array:
-	# Returns deployed model positions for all units except the specified one
+	# Returns model positions for all on-board units except the specified one
+	# Includes DEPLOYED, MOVED, SHOT, CHARGED statuses (any unit physically on the board)
 	var deployed = []
 	for uid in snapshot.get("units", {}):
 		if uid == exclude_unit_id:
 			continue
 		var u = snapshot.units[uid]
-		if u.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		var status = u.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
 			continue
 		for model in u.get("models", []):
 			if not model.get("alive", true):
@@ -1583,21 +1585,75 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			action_types[t] = []
 		action_types[t].append(a)
 
-	# Step 1: If charge roll is needed, roll
+	# --- Step 0: Handle reaction decisions first ---
+
+	# Command Re-roll: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_COMMAND_REROLL"):
+		return {
+			"type": "DECLINE_COMMAND_REROLL",
+			"_ai_description": "Decline Command Re-roll (charge)"
+		}
+
+	# Fire Overwatch: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_FIRE_OVERWATCH"):
+		return {
+			"type": "DECLINE_FIRE_OVERWATCH",
+			"_ai_description": "Decline Fire Overwatch"
+		}
+
+	# Heroic Intervention: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_HEROIC_INTERVENTION"):
+		return {
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"_ai_description": "Decline Heroic Intervention"
+		}
+
+	# Tank Shock: always decline for now (stratagem usage is a separate task)
+	if action_types.has("DECLINE_TANK_SHOCK"):
+		return {
+			"type": "DECLINE_TANK_SHOCK",
+			"_ai_description": "Decline Tank Shock"
+		}
+
+	# --- Step 1: Complete any pending charge ---
+	if action_types.has("COMPLETE_UNIT_CHARGE"):
+		var a = action_types["COMPLETE_UNIT_CHARGE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		return {
+			"type": "COMPLETE_UNIT_CHARGE",
+			"actor_unit_id": uid,
+			"_ai_description": "Complete charge for %s" % unit_name
+		}
+
+	# --- Step 2: Apply charge movement if a roll was successful ---
+	if action_types.has("APPLY_CHARGE_MOVE"):
+		var a = action_types["APPLY_CHARGE_MOVE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var rolled_distance = a.get("rolled_distance", 0)
+		var target_ids = a.get("target_ids", [])
+		return _compute_charge_move(snapshot, uid, rolled_distance, target_ids, player)
+
+	# --- Step 3: If charge roll is needed, roll ---
 	if action_types.has("CHARGE_ROLL"):
 		var a = action_types["CHARGE_ROLL"][0]
 		var uid = a.get("actor_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
 		return {
 			"type": "CHARGE_ROLL",
 			"actor_unit_id": uid,
-			"_ai_description": "Charge roll"
+			"_ai_description": "Charge roll for %s" % unit_name
 		}
 
-	# Step 2: If we can declare charges, evaluate
+	# --- Step 4: Evaluate and declare charges ---
 	if action_types.has("DECLARE_CHARGE"):
-		# For initial implementation, skip all charges since APPLY_CHARGE_MOVE
-		# requires complex model positioning that needs geometric validation.
-		# Instead, skip each chargeable unit.
+		var best_charge = _evaluate_best_charge(snapshot, available_actions, player)
+		if not best_charge.is_empty():
+			return best_charge
+
+		# No good charge found — skip remaining chargeable units one at a time
 		if action_types.has("SKIP_CHARGE"):
 			var a = action_types["SKIP_CHARGE"][0]
 			var uid = a.get("actor_unit_id", "")
@@ -1606,11 +1662,572 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			return {
 				"type": "SKIP_CHARGE",
 				"actor_unit_id": uid,
-				"_ai_description": "Skipped charge for %s (not implemented)" % unit_name
+				"_ai_description": "Skipped charge for %s (no good target)" % unit_name
 			}
 
-	# Step 3: End charge phase
+	# --- Step 5: End charge phase ---
 	return {"type": "END_CHARGE", "_ai_description": "End Charge Phase"}
+
+# =============================================================================
+# CHARGE EVALUATION
+# =============================================================================
+
+static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	"""Evaluate all possible charge declarations and return the best one, or {} if none worth taking."""
+	var enemies = _get_enemy_units(snapshot, player)
+
+	# Collect unique charger unit IDs from DECLARE_CHARGE actions
+	var charger_targets = {}  # unit_id -> [{target_id, distance_inches, action}]
+	for a in available_actions:
+		if a.get("type") != "DECLARE_CHARGE":
+			continue
+		var uid = a.get("actor_unit_id", "")
+		var target_ids = a.get("payload", {}).get("target_unit_ids", [])
+		if uid == "" or target_ids.is_empty():
+			continue
+
+		if not charger_targets.has(uid):
+			charger_targets[uid] = []
+
+		var target_id = target_ids[0]
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		if unit.is_empty() or target_unit.is_empty():
+			continue
+
+		# Calculate closest model distance to target
+		var min_dist = _get_closest_model_distance_inches(unit, target_unit)
+
+		charger_targets[uid].append({
+			"target_id": target_id,
+			"distance_inches": min_dist,
+			"action": a,
+		})
+
+	if charger_targets.is_empty():
+		return {}
+
+	# Score each (charger, target) pair
+	var best_score = -INF
+	var best_action = {}
+	var best_description = ""
+
+	for uid in charger_targets:
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		var unit_keywords = unit.get("meta", {}).get("keywords", [])
+		var has_melee = _unit_has_melee_weapons(unit)
+
+		# Units without melee weapons should generally not charge (except for objective play)
+		var melee_bonus = 1.0 if has_melee else 0.3
+
+		for target_info in charger_targets[uid]:
+			var target_id = target_info.target_id
+			var dist = target_info.distance_inches
+			var target_unit = enemies.get(target_id, {})
+			if target_unit.is_empty():
+				continue
+			var target_name = target_unit.get("meta", {}).get("name", target_id)
+
+			# Calculate charge probability (2D6 must meet or exceed distance - ER)
+			var charge_distance_needed = max(0.0, dist - 1.0)  # minus 1" engagement range
+			var charge_prob = _charge_success_probability(charge_distance_needed)
+
+			# Skip charges with very low probability
+			if charge_prob < 0.08:  # Less than ~8% chance (need 11+ on 2d6)
+				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\")" % [
+					unit_name, target_name, charge_prob * 100.0, charge_distance_needed])
+				continue
+
+			# Score the charge target
+			var target_score = _score_charge_target(unit, target_unit, snapshot, player)
+
+			# Apply charge probability as a multiplier
+			var score = target_score * charge_prob * melee_bonus
+
+			# Bonus for short charges (high reliability)
+			if charge_distance_needed <= 6.0:
+				score *= 1.2
+			if charge_distance_needed <= 3.0:
+				score *= 1.3
+
+			# Bonus for charging onto objectives
+			var target_centroid = _get_unit_centroid(target_unit)
+			var objectives = _get_objectives(snapshot)
+			for obj_pos in objectives:
+				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					score *= 1.5  # Target is on an objective
+					break
+
+			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, final=%.1f" % [
+				unit_name, target_name, dist, charge_prob * 100.0, target_score, score])
+
+			if score > best_score:
+				best_score = score
+				best_action = target_info.action
+				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away)" % [
+					unit_name, target_name, charge_prob * 100.0, dist]
+
+	# Minimum threshold to declare a charge
+	if best_score < 1.0:
+		print("AIDecisionMaker: No charge worth declaring (best score: %.1f)" % best_score)
+		return {}
+
+	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
+	var result = best_action.duplicate()
+	result["_ai_description"] = best_description
+	return result
+
+static func _charge_success_probability(distance_needed: float) -> float:
+	"""Calculate the probability that 2D6 >= distance_needed.
+	Returns value between 0.0 and 1.0."""
+	# 2D6 ranges from 2 to 12
+	# We need the roll to be >= ceil(distance_needed)
+	var needed = ceili(distance_needed)
+
+	if needed <= 2:
+		return 1.0  # Always succeeds (2D6 minimum is 2)
+	if needed > 12:
+		return 0.0  # Impossible
+
+	# Count outcomes where sum >= needed out of 36 total outcomes
+	var success_count = 0
+	for d1 in range(1, 7):
+		for d2 in range(1, 7):
+			if d1 + d2 >= needed:
+				success_count += 1
+
+	return float(success_count) / 36.0
+
+static func _score_charge_target(charger: Dictionary, target: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Score a potential charge target based on expected melee damage, target value, and tactical factors."""
+	var score = 0.0
+
+	# --- Expected melee damage ---
+	var melee_damage = _estimate_melee_damage(charger, target)
+	score += melee_damage * 2.0  # Weight melee damage highly
+
+	# --- Target value factors ---
+	var target_keywords = target.get("meta", {}).get("keywords", [])
+	var target_wounds = int(target.get("meta", {}).get("stats", {}).get("wounds", 1))
+	var alive_models = _get_alive_models(target).size()
+	var total_models = target.get("models", []).size()
+
+	# Bonus for targets below half strength (easier to finish off)
+	if total_models > 0 and alive_models * 2 < total_models:
+		score += 3.0
+
+	# Bonus for CHARACTER targets
+	if "CHARACTER" in target_keywords:
+		score += 2.0
+
+	# Penalty for very tough targets we can't damage effectively
+	if melee_damage < 1.0:
+		score -= 3.0
+
+	# Bonus for engaging dangerous ranged units (stops them from shooting)
+	var target_has_ranged = _unit_has_ranged_weapons(target)
+	if target_has_ranged:
+		var max_range = _get_max_weapon_range(target)
+		if max_range >= 24.0:
+			score += 2.0  # Good to tie up long-range shooters
+
+	# Bonus for targeting units with low toughness (likely kill)
+	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
+	if target_toughness <= 3:
+		score += 1.0
+
+	return max(0.0, score)
+
+static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -> float:
+	"""Estimate expected damage from a melee attack using the attacker's best melee weapon."""
+	var weapons = attacker.get("meta", {}).get("weapons", [])
+	var best_damage = 0.0
+	var alive_attackers = _get_alive_models(attacker).size()
+
+	var target_toughness = int(defender.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var target_save = int(defender.get("meta", {}).get("stats", {}).get("save", 4))
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "melee":
+			continue
+
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+
+		var ws_str = w.get("weapon_skill", w.get("ballistic_skill", "4"))
+		var ws = int(ws_str) if ws_str.is_valid_int() else 4
+
+		var strength_str = w.get("strength", "4")
+		var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+		var ap_str = w.get("ap", "0")
+		var ap = 0
+		if ap_str.begins_with("-"):
+			var ap_num = ap_str.substr(1)
+			ap = int(ap_num) if ap_num.is_valid_int() else 0
+		else:
+			ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+		var damage_str = w.get("damage", "1")
+		var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+		var p_hit = _hit_probability(ws)
+		var p_wound = _wound_probability(strength, target_toughness)
+		var p_unsaved = 1.0 - _save_probability(target_save, ap)
+
+		# Total expected damage for entire unit with this weapon
+		var weapon_damage = attacks * alive_attackers * p_hit * p_wound * p_unsaved * damage
+		best_damage = max(best_damage, weapon_damage)
+
+	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
+	if best_damage == 0.0 and alive_attackers > 0:
+		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var p_hit = _hit_probability(4)  # WS4+ default
+		var p_wound = _wound_probability(charger_strength, target_toughness)
+		var p_unsaved = 1.0 - _save_probability(target_save, 0)
+		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
+
+	return best_damage
+
+static func _unit_has_melee_weapons(unit: Dictionary) -> bool:
+	"""Check if a unit has any melee weapons (besides default close combat weapon)."""
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for w in weapons:
+		if w.get("type", "").to_lower() == "melee":
+			return true
+	return false
+
+static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dictionary) -> float:
+	"""Get the minimum edge-to-edge distance in inches between any two models of two units.
+	Uses pixel-based position calculation since Measurement autoload may not be available statically."""
+	var min_dist_px = INF
+	for model_a in unit_a.get("models", []):
+		if not model_a.get("alive", true):
+			continue
+		var pos_a = _get_model_position(model_a)
+		if pos_a == Vector2.INF:
+			continue
+		var base_a_mm = model_a.get("base_mm", 32)
+		var base_a_radius_px = _model_bounding_radius_px(base_a_mm, model_a.get("base_type", "circular"), model_a.get("base_dimensions", {}))
+
+		for model_b in unit_b.get("models", []):
+			if not model_b.get("alive", true):
+				continue
+			var pos_b = _get_model_position(model_b)
+			if pos_b == Vector2.INF:
+				continue
+			var base_b_mm = model_b.get("base_mm", 32)
+			var base_b_radius_px = _model_bounding_radius_px(base_b_mm, model_b.get("base_type", "circular"), model_b.get("base_dimensions", {}))
+
+			# Edge-to-edge distance in pixels
+			var center_dist = pos_a.distance_to(pos_b)
+			var edge_dist_px = center_dist - base_a_radius_px - base_b_radius_px
+			min_dist_px = min(min_dist_px, edge_dist_px)
+
+	if min_dist_px == INF:
+		return INF
+	return max(0.0, min_dist_px) / PIXELS_PER_INCH
+
+# =============================================================================
+# CHARGE MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_distance: int, target_ids: Array, player: int) -> Dictionary:
+	"""Compute model positions for a charge move. Each model must:
+	1. Move at most rolled_distance inches
+	2. End closer to at least one charge target than it started
+	3. At least one model must end within engagement range (1") of each declared target
+	4. No model may end within engagement range of a non-target enemy
+	5. Unit coherency must be maintained
+	6. No model overlaps
+	Returns an APPLY_CHARGE_MOVE action dict with per_model_paths, or a SKIP_CHARGE fallback."""
+
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge (unit not found)"}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no alive models)" % unit_name}
+
+	# Gather target model positions (closest model per target)
+	var target_positions = []  # Array of Vector2 (closest target model to charger centroid)
+	var charger_centroid = _get_unit_centroid(unit)
+	for target_id in target_ids:
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		if target_unit.is_empty():
+			continue
+		var closest_pos = Vector2.INF
+		var closest_dist = INF
+		for tm in target_unit.get("models", []):
+			if not tm.get("alive", true):
+				continue
+			var tp = _get_model_position(tm)
+			if tp == Vector2.INF:
+				continue
+			var d = charger_centroid.distance_to(tp)
+			if d < closest_dist:
+				closest_dist = d
+				closest_pos = tp
+		if closest_pos != Vector2.INF:
+			target_positions.append(closest_pos)
+
+	if target_positions.is_empty():
+		return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id, "_ai_description": "Skip charge for %s (no target positions)" % unit_name}
+
+	# Primary target: the first (typically only) target
+	var primary_target_pos = target_positions[0]
+
+	# Get all non-target enemy model positions to avoid ending in their engagement range
+	var non_target_enemies = []  # Array of {position: Vector2, base_radius_px: float}
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if u.get("owner", 0) == player:
+			continue  # Skip friendly
+		if uid in target_ids:
+			continue  # Skip declared targets
+		var u_status = u.get("status", 0)
+		if u_status == GameStateData.UnitStatus.UNDEPLOYED or u_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		for m in u.get("models", []):
+			if not m.get("alive", true):
+				continue
+			var mp = _get_model_position(m)
+			if mp == Vector2.INF:
+				continue
+			var br = _model_bounding_radius_px(m.get("base_mm", 32), m.get("base_type", "circular"), m.get("base_dimensions", {}))
+			non_target_enemies.append({"position": mp, "base_radius_px": br})
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	# Get target model info for engagement range checking
+	var target_model_info = []  # Array of {position, base_radius_px} for all target models
+	for target_id in target_ids:
+		var target_unit = snapshot.get("units", {}).get(target_id, {})
+		for tm in target_unit.get("models", []):
+			if not tm.get("alive", true):
+				continue
+			var tp = _get_model_position(tm)
+			if tp == Vector2.INF:
+				continue
+			var br = _model_bounding_radius_px(tm.get("base_mm", 32), tm.get("base_type", "circular"), tm.get("base_dimensions", {}))
+			target_model_info.append({"position": tp, "base_radius_px": br, "target_id": target_id})
+
+	var move_budget_px = rolled_distance * PIXELS_PER_INCH
+	var first_model = alive_models[0]
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+	var my_base_radius_px = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+
+	# --- Compute destinations for each model ---
+	# Strategy: move each model toward the primary target, stopping at engagement range
+	# The lead model should get into base-to-base or just within engagement range
+	# Remaining models maintain coherency and follow
+
+	var per_model_paths = {}
+	var placed_positions = []  # Track placed positions for intra-unit overlap avoidance
+
+	# Sort models by distance to primary target (closest first)
+	var model_distances = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		var dist = mpos.distance_to(primary_target_pos)
+		model_distances.append({"model": model, "id": mid, "pos": mpos, "dist": dist})
+	model_distances.sort_custom(func(a, b): return a.dist < b.dist)
+
+	var engagement_range_px = ENGAGEMENT_RANGE_PX  # 1" = 40px
+	var any_model_in_er = {}  # target_id -> bool (track if we've gotten a model in ER per target)
+	for tid in target_ids:
+		any_model_in_er[tid] = false
+
+	for md in model_distances:
+		var model = md.model
+		var mid = md.id
+		var start_pos = md.pos
+		var start_dist_to_target = md.dist
+
+		# Direction toward primary target
+		var direction = (primary_target_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			direction = Vector2.RIGHT
+
+		# Calculate ideal destination: close to target within engagement range
+		# Edge-to-edge engagement range: center distance = ER + my_radius + target_radius
+		var closest_target_model = _find_closest_target_model_info(start_pos, target_model_info)
+		var target_base_radius = closest_target_model.base_radius_px if not closest_target_model.is_empty() else 20.0
+		var ideal_center_dist = engagement_range_px + my_base_radius_px + target_base_radius - 2.0  # Slight buffer inside ER
+		var target_for_model = closest_target_model.position if not closest_target_model.is_empty() else primary_target_pos
+
+		var dir_to_target = (target_for_model - start_pos).normalized()
+		if dir_to_target == Vector2.ZERO:
+			dir_to_target = Vector2.RIGHT
+
+		var target_center_dist = start_pos.distance_to(target_for_model)
+		var desired_move_dist = target_center_dist - ideal_center_dist
+		# Clamp to move budget
+		var actual_move_dist = clamp(desired_move_dist, 0.0, move_budget_px)
+
+		var candidate_pos = start_pos + dir_to_target * actual_move_dist
+
+		# Clamp to board bounds
+		candidate_pos.x = clamp(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clamp(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check constraints and adjust
+		candidate_pos = _adjust_charge_position(
+			candidate_pos, start_pos, move_budget_px, my_base_radius_px,
+			target_model_info, non_target_enemies, deployed_models,
+			placed_positions, base_mm, base_type, base_dimensions
+		)
+
+		# Verify the model ends closer to at least one target than it started
+		var ends_closer = false
+		for tp_info in target_model_info:
+			var original_dist = start_pos.distance_to(tp_info.position)
+			var new_dist = candidate_pos.distance_to(tp_info.position)
+			if new_dist < original_dist:
+				ends_closer = true
+				break
+
+		if not ends_closer and start_pos.distance_to(candidate_pos) > 1.0:
+			# Fallback: don't move this model (stay in place is valid if it was already close)
+			candidate_pos = start_pos
+
+		# Track which targets have a model in engagement range
+		for tp_info in target_model_info:
+			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - my_base_radius_px - tp_info.base_radius_px
+			if edge_dist_px <= engagement_range_px:
+				any_model_in_er[tp_info.target_id] = true
+
+		# Record the path (start -> end)
+		per_model_paths[mid] = [
+			[start_pos.x, start_pos.y],
+			[candidate_pos.x, candidate_pos.y]
+		]
+
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions
+		})
+
+	# Verify we achieved engagement range with all targets
+	var all_targets_reached = true
+	for tid in target_ids:
+		if not any_model_in_er.get(tid, false):
+			all_targets_reached = false
+			print("AIDecisionMaker: Charge move for %s failed to reach target %s engagement range" % [unit_name, tid])
+			break
+
+	if not all_targets_reached:
+		# Cannot construct a valid charge move — this shouldn't happen if the roll was sufficient
+		# but may occur due to geometry constraints. The phase will handle the failure.
+		print("AIDecisionMaker: Submitting charge move anyway — phase will validate and handle failure")
+
+	var target_names = []
+	for tid in target_ids:
+		var t = snapshot.get("units", {}).get(tid, {})
+		target_names.append(t.get("meta", {}).get("name", tid))
+
+	return {
+		"type": "APPLY_CHARGE_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"per_model_paths": per_model_paths,
+			"per_model_rotations": {},
+		},
+		"_ai_description": "%s charges into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
+	}
+
+static func _find_closest_target_model_info(pos: Vector2, target_model_info: Array) -> Dictionary:
+	"""Find the closest target model info dict to a given position."""
+	var closest = {}
+	var closest_dist = INF
+	for info in target_model_info:
+		var d = pos.distance_to(info.position)
+		if d < closest_dist:
+			closest_dist = d
+			closest = info
+	return closest
+
+static func _adjust_charge_position(
+	candidate: Vector2, start_pos: Vector2, move_budget_px: float,
+	my_base_radius_px: float, target_model_info: Array,
+	non_target_enemies: Array, deployed_models: Array,
+	placed_positions: Array, base_mm: int, base_type: String,
+	base_dimensions: Dictionary
+) -> Vector2:
+	"""Adjust a candidate charge position to satisfy constraints:
+	- Must not exceed move budget from start
+	- Must not overlap with deployed models or already-placed models
+	- Must not end in engagement range of non-target enemies
+	Returns the adjusted position."""
+
+	var pos = candidate
+
+	# 1. Ensure within move budget
+	var move_dist = start_pos.distance_to(pos)
+	if move_dist > move_budget_px:
+		var dir = (pos - start_pos).normalized()
+		pos = start_pos + dir * move_budget_px
+
+	# 2. Check for non-target enemy engagement range violation
+	var er_px = ENGAGEMENT_RANGE_PX
+	for nte in non_target_enemies:
+		var edge_dist = pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
+		if edge_dist <= er_px:
+			# Push away from non-target enemy
+			var push_dir = (pos - nte.position).normalized()
+			if push_dir == Vector2.ZERO:
+				push_dir = Vector2.RIGHT
+			var needed_dist = my_base_radius_px + nte.base_radius_px + er_px + 5.0  # 5px safety margin
+			pos = nte.position + push_dir * needed_dist
+
+			# Re-check move budget after push
+			move_dist = start_pos.distance_to(pos)
+			if move_dist > move_budget_px:
+				var dir = (pos - start_pos).normalized()
+				pos = start_pos + dir * move_budget_px
+
+	# 3. Check for overlap with deployed models
+	var all_obstacles = deployed_models + placed_positions
+	if _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+		# Spiral search for nearest free position
+		var step = my_base_radius_px * 2.0 + 8.0
+		for ring in range(1, 6):
+			var ring_radius = step * ring * 0.5
+			var points_in_ring = maxi(8, ring * 6)
+			for p_idx in range(points_in_ring):
+				var angle = (2.0 * PI * p_idx) / points_in_ring
+				var test_pos = Vector2(
+					pos.x + cos(angle) * ring_radius,
+					pos.y + sin(angle) * ring_radius
+				)
+				# Check move budget
+				if start_pos.distance_to(test_pos) > move_budget_px:
+					continue
+				# Check board bounds
+				test_pos.x = clamp(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+				test_pos.y = clamp(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+				# Check no collision
+				if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+					# Check no non-target ER violation
+					var nte_ok = true
+					for nte in non_target_enemies:
+						var edge_dist = test_pos.distance_to(nte.position) - my_base_radius_px - nte.base_radius_px
+						if edge_dist <= er_px:
+							nte_ok = false
+							break
+					if nte_ok:
+						return test_pos
+
+	return pos
 
 # =============================================================================
 # FIGHT PHASE
