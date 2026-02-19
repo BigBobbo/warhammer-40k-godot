@@ -62,3 +62,37 @@
 - The FightPhase validation accepts the AI's computed movements (no validation errors)
 - Human player pile-in drag-and-drop still works correctly (no regression)
 - No infinite loops during fight phase
+
+## AI Consolidation Movement Implementation
+
+**Task:** Implement consolidation movement -- move models up to 3" toward nearest enemy or objective after fighting (AI-GAP-2, FIGHT-2)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Replaced consolidation hold-position stub with `_compute_consolidate_action()`, `_determine_ai_consolidate_mode()`, and `_compute_consolidate_movements_objective()`; engagement mode reuses existing `_compute_pile_in_movements()`
+- `40k/tests/unit/test_ai_consolidation.gd` - New test file for AI consolidation logic
+
+**Tests to run:**
+- Run `test_ai_consolidation.gd` via `godot --headless --script tests/unit/test_ai_consolidation.gd`
+  - Tests consolidation mode detection (ENGAGEMENT when enemy within 4", OBJECTIVE when enemy far but objectives exist, NONE when neither)
+  - Tests engagement mode moves models toward closest enemy (reuses pile-in logic)
+  - Tests objective mode moves models toward closest objective marker
+  - Tests 3" movement limit is respected in both modes
+  - Tests AIRCRAFT units skip consolidation
+  - Tests models in base contact hold position during engagement-mode consolidation
+  - Tests empty movements when no enemies and no objectives
+  - Tests CONSOLIDATE action is returned from `_decide_fight()` with computed movements
+  - Tests dead models are skipped
+  - Tests multiple models all move toward objective
+- Run an AI vs AI game and observe that AI units now consolidate toward enemies or objectives after fighting
+- Run a Human vs AI game and verify the AI models move after fighting instead of always holding position
+
+**What to look for:**
+- AI models move up to 3" toward the closest enemy model when in engagement reach (within 4")
+- When no enemy is reachable, AI models move up to 3" toward the closest objective marker
+- Models already in base-to-base contact do not move (engagement mode)
+- Movement is clamped to 3" in both modes
+- AIRCRAFT units produce empty movements (T4-4 rule)
+- Models do not collide with each other or other deployed models
+- The FightPhase validation accepts the AI's computed movements (no validation errors in either mode)
+- Newly eligible units are properly detected after consolidation moves (T2-6 rule still works)
+- Human player consolidation drag-and-drop still works correctly (no regression)
+- No infinite loops during fight phase

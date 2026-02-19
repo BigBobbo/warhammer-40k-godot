@@ -2280,12 +2280,7 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	if action_types.has("CONSOLIDATE"):
 		var a = action_types["CONSOLIDATE"][0]
 		var uid = a.get("unit_id", "")
-		return {
-			"type": "CONSOLIDATE",
-			"unit_id": uid,
-			"movements": {},
-			"_ai_description": "Consolidate (hold position)"
-		}
+		return _compute_consolidate_action(snapshot, uid, player)
 
 	# Step 6: End fight phase
 	if action_types.has("END_FIGHT"):
@@ -2629,6 +2624,288 @@ static func _find_model_index_in_unit(unit: Dictionary, model_id: String) -> int
 		if idx >= 0 and idx < models.size():
 			return idx
 	return -1
+
+# =============================================================================
+# CONSOLIDATION MOVEMENT COMPUTATION
+# =============================================================================
+
+static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
+	"""Compute consolidation movements for a unit after fighting.
+	Consolidation has two modes:
+	- ENGAGEMENT: If any enemy is within 4" (3" move + 1" engagement range),
+	  move each model up to 3" toward closest enemy (same rules as pile-in).
+	- OBJECTIVE: If no enemy reachable, move each model up to 3" toward
+	  the closest objective marker.
+	Returns a CONSOLIDATE action dict with the movements dictionary."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {
+			"type": "CONSOLIDATE",
+			"unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "Consolidate (unit not found)"
+		}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# T4-4: Aircraft cannot Consolidate
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in unit_keywords:
+		print("AIDecisionMaker: %s is AIRCRAFT — skipping consolidation" % unit_name)
+		return {
+			"type": "CONSOLIDATE",
+			"unit_id": unit_id,
+			"movements": {},
+			"_ai_description": "%s skips consolidation (AIRCRAFT)" % unit_name
+		}
+
+	# Determine consolidation mode: engagement or objective
+	var mode = _determine_ai_consolidate_mode(snapshot, unit, player)
+	var movements = {}
+
+	if mode == "ENGAGEMENT":
+		# Reuse pile-in logic — consolidation in engagement mode follows the same
+		# rules: each model moves up to 3" toward the closest enemy model
+		movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+	elif mode == "OBJECTIVE":
+		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player)
+
+	var description = ""
+	if movements.is_empty():
+		description = "%s consolidates (all models holding position)" % unit_name
+	else:
+		var mode_label = "toward enemy" if mode == "ENGAGEMENT" else "toward objective"
+		description = "%s consolidates %s (%d models moved)" % [unit_name, mode_label, movements.size()]
+
+	print("AIDecisionMaker: %s" % description)
+
+	return {
+		"type": "CONSOLIDATE",
+		"unit_id": unit_id,
+		"movements": movements,
+		"_ai_description": description
+	}
+
+static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionary, player: int) -> String:
+	"""Determine whether the AI should consolidate toward enemies (ENGAGEMENT) or
+	toward the nearest objective (OBJECTIVE).
+	- ENGAGEMENT: at least one alive enemy model is within 4" (3" move + 1" ER)
+	  of at least one alive friendly model in this unit.
+	- OBJECTIVE: no enemy is reachable but an objective exists.
+	- NONE: neither target is available."""
+	var unit_owner = int(unit.get("owner", player))
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	var engagement_check_range_px = 4.0 * PIXELS_PER_INCH  # 3" move + 1" ER
+
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return "NONE"
+
+	# Check if any enemy model is within 4" of any of our models (edge-to-edge)
+	for model in alive_models:
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+
+		for other_unit_id in snapshot.get("units", {}):
+			var other_unit = snapshot.units[other_unit_id]
+			if int(other_unit.get("owner", 0)) == unit_owner:
+				continue  # Skip friendly
+			var other_status = other_unit.get("status", 0)
+			if other_status == GameStateData.UnitStatus.UNDEPLOYED or other_status == GameStateData.UnitStatus.IN_RESERVES:
+				continue
+			var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+			if "AIRCRAFT" in other_keywords and not has_fly:
+				continue
+			for em in other_unit.get("models", []):
+				if not em.get("alive", true):
+					continue
+				var ep = _get_model_position(em)
+				if ep == Vector2.INF:
+					continue
+				var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
+				var edge_dist_px = mpos.distance_to(ep) - mbr - ebr
+				if edge_dist_px <= engagement_check_range_px:
+					return "ENGAGEMENT"
+
+	# No enemy reachable — check for objectives
+	var objectives = _get_objectives(snapshot)
+	if not objectives.is_empty():
+		return "OBJECTIVE"
+
+	return "NONE"
+
+static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+	"""Compute per-model consolidation destinations when moving toward the closest
+	objective (fallback mode when no enemy is within engagement reach).
+	Returns {model_id_string: Vector2} for models that should move."""
+	var movements = {}
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return movements
+
+	var objectives = _get_objectives(snapshot)
+	if objectives.is_empty():
+		print("AIDecisionMaker: Consolidate (objective) for %s — no objectives found" % unit_id)
+		return movements
+
+	# Get deployed models for collision checking (excluding this unit)
+	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+
+	var consolidate_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+
+	# Track placed positions to avoid intra-unit collisions
+	var placed_positions = []
+
+	# Find the closest objective to the unit centroid to use as a consistent target
+	var centroid = _get_unit_centroid(unit)
+	var target_obj_pos = _nearest_objective_pos(centroid, objectives)
+	if target_obj_pos == Vector2.INF:
+		return movements
+
+	# Sort models by distance to target objective (furthest first — they benefit most from movement)
+	var model_entries = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var dist_to_obj = mpos.distance_to(target_obj_pos)
+		model_entries.append({
+			"model": model,
+			"id": mid,
+			"pos": mpos,
+			"dist_to_obj": dist_to_obj,
+		})
+
+	# Sort: models closest to objective first (they get priority placement near objective)
+	model_entries.sort_custom(func(a, b): return a.dist_to_obj < b.dist_to_obj)
+
+	for entry in model_entries:
+		var mid = entry.id
+		var start_pos = entry.pos
+		var model = entry.model
+		var base_mm = model.get("base_mm", 32)
+		var base_type = model.get("base_type", "circular")
+		var base_dimensions = model.get("base_dimensions", {})
+		var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+
+		# Calculate direction toward the target objective
+		var direction = (target_obj_pos - start_pos).normalized()
+		if direction == Vector2.ZERO:
+			# Already exactly on the objective — hold position
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Calculate how far we want to move (up to 3", toward objective)
+		var dist_to_target = start_pos.distance_to(target_obj_pos)
+		var desired_move_px = minf(dist_to_target, consolidate_range_px)
+
+		# If the model barely needs to move (sub-pixel), skip it
+		if desired_move_px < 1.0:
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var candidate_pos = start_pos + direction * desired_move_px
+
+		# Clamp to board bounds
+		candidate_pos.x = clampf(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check collision with deployed models + already placed models from this unit
+		var all_obstacles = deployed_models + placed_positions
+		if _position_collides_with_deployed(candidate_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+			# Try to find a nearby collision-free position still closer to objective
+			var found_alt = false
+			var step = my_radius * 2.0 + 4.0
+			for ring in range(1, 5):
+				var ring_radius = step * ring * 0.4
+				var points_in_ring = maxi(8, ring * 6)
+				for p_idx in range(points_in_ring):
+					var angle = (2.0 * PI * p_idx) / points_in_ring
+					var test_pos = Vector2(
+						candidate_pos.x + cos(angle) * ring_radius,
+						candidate_pos.y + sin(angle) * ring_radius
+					)
+					# Check move budget
+					if start_pos.distance_to(test_pos) > consolidate_range_px:
+						continue
+					# Must be closer to objective than start
+					if test_pos.distance_to(target_obj_pos) >= start_pos.distance_to(target_obj_pos):
+						continue
+					# Clamp to board
+					test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+					# Check collision
+					if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+						candidate_pos = test_pos
+						found_alt = true
+						break
+				if found_alt:
+					break
+
+			if not found_alt:
+				# Cannot find collision-free position — hold position
+				print("AIDecisionMaker: Consolidate model %s collision — holding position" % mid)
+				placed_positions.append({
+					"position": start_pos,
+					"base_mm": base_mm,
+					"base_type": base_type,
+					"base_dimensions": base_dimensions,
+				})
+				continue
+
+		# Verify the model ends closer to the objective than it started
+		var new_dist_to_obj = candidate_pos.distance_to(target_obj_pos)
+		var old_dist_to_obj = start_pos.distance_to(target_obj_pos)
+		if new_dist_to_obj >= old_dist_to_obj:
+			# Movement doesn't bring us closer — skip
+			print("AIDecisionMaker: Consolidate model %s would not end closer to objective, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		# Record the movement
+		var model_index = _find_model_index_in_unit(unit, mid)
+		if model_index == -1:
+			print("AIDecisionMaker: Consolidate model %s index not found, skipping" % mid)
+			placed_positions.append({
+				"position": start_pos,
+				"base_mm": base_mm,
+				"base_type": base_type,
+				"base_dimensions": base_dimensions,
+			})
+			continue
+
+		var move_inches = start_pos.distance_to(candidate_pos) / PIXELS_PER_INCH
+		print("AIDecisionMaker: Consolidate model %s (idx %d) moves %.1f\" toward objective" % [mid, model_index, move_inches])
+
+		movements[str(model_index)] = candidate_pos
+		placed_positions.append({
+			"position": candidate_pos,
+			"base_mm": base_mm,
+			"base_type": base_type,
+			"base_dimensions": base_dimensions,
+		})
+
+	return movements
 
 # =============================================================================
 # SCORING PHASE
