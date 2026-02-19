@@ -4,6 +4,10 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 # AIPlayer - Autoload controller for AI opponents
 # Monitors game signals and submits actions through NetworkIntegration.route_action()
 # when the active player is configured as AI.
+#
+# Handles both active-turn decisions (via _evaluate_and_act) and reactive stratagem
+# decisions (via phase signal connections) for stratagems like Fire Overwatch,
+# Go to Ground, Smokescreen, and Command Re-roll.
 
 # Configuration
 var ai_players: Dictionary = {}  # player_id (int) -> true/false (is AI)
@@ -20,6 +24,10 @@ const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
 
 # Cached reference to PhaseManager (get_node_or_null fails in web exports)
 var _phase_manager_ref: Node = null
+
+# Track connected phase signals for cleanup on phase transition
+var _connected_phase_signals: Array = []  # [{signal_name, callable}]
+var _current_phase_ref = null  # Reference to the currently connected phase instance
 
 # Signals for UI
 signal ai_turn_started(player: int)
@@ -101,6 +109,10 @@ func _on_phase_changed(_new_phase) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
 	_current_phase_actions = 0  # Reset safety counter on phase change
+
+	# Connect to reactive stratagem signals on the new phase instance
+	_connect_phase_stratagem_signals()
+
 	_request_evaluation()
 
 func _on_result_applied(_result: Dictionary) -> void:
@@ -115,6 +127,239 @@ func _on_phase_action_taken(_action: Dictionary) -> void:
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
 	DebugLogger.info("AIPlayer._on_phase_action_taken - scheduling evaluation", {"action_type": _action.get("type", "?"), "enabled": enabled})
+	_request_evaluation()
+
+# =============================================================================
+# REACTIVE STRATAGEM SIGNAL HANDLING
+# =============================================================================
+
+func _connect_phase_stratagem_signals() -> void:
+	"""
+	Connect to stratagem-related signals on the current phase instance.
+	This allows the AI to respond to reactive stratagem opportunities that
+	fire during the opponent's turn (e.g., Fire Overwatch, Go to Ground).
+	"""
+	# Disconnect any previously connected signals
+	_disconnect_phase_stratagem_signals()
+
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref:
+		return
+
+	var phase = _phase_manager_ref.current_phase_instance
+	if not phase:
+		return
+
+	_current_phase_ref = phase
+
+	# --- ShootingPhase signals ---
+	if phase.has_signal("reactive_stratagem_opportunity"):
+		var callable = Callable(self, "_on_reactive_stratagem_opportunity")
+		phase.reactive_stratagem_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "reactive_stratagem_opportunity", "callable": callable})
+		print("AIPlayer: Connected to ShootingPhase.reactive_stratagem_opportunity")
+
+	# --- MovementPhase signals ---
+	if phase.has_signal("fire_overwatch_opportunity"):
+		var callable = Callable(self, "_on_movement_fire_overwatch_opportunity")
+		phase.fire_overwatch_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "fire_overwatch_opportunity", "callable": callable})
+		print("AIPlayer: Connected to MovementPhase.fire_overwatch_opportunity")
+
+	if phase.has_signal("command_reroll_opportunity"):
+		var callable = Callable(self, "_on_command_reroll_opportunity")
+		phase.command_reroll_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "command_reroll_opportunity", "callable": callable})
+		print("AIPlayer: Connected to phase.command_reroll_opportunity")
+
+	# --- ChargePhase signals ---
+	# Note: ChargePhase overwatch and reroll actions are exposed via get_available_actions()
+	# so they are handled by _decide_charge() in AIDecisionMaker. But the charge phase also
+	# emits signals, so we connect for the reroll context data.
+	if phase.has_signal("overwatch_opportunity"):
+		var callable = Callable(self, "_on_charge_overwatch_opportunity")
+		phase.overwatch_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "overwatch_opportunity", "callable": callable})
+		print("AIPlayer: Connected to ChargePhase.overwatch_opportunity")
+
+func _disconnect_phase_stratagem_signals() -> void:
+	"""Disconnect all previously connected phase stratagem signals."""
+	if _current_phase_ref and is_instance_valid(_current_phase_ref):
+		for entry in _connected_phase_signals:
+			var signal_name = entry.get("signal_name", "")
+			var callable = entry.get("callable", Callable())
+			if _current_phase_ref.has_signal(signal_name) and _current_phase_ref.is_connected(signal_name, callable):
+				_current_phase_ref.disconnect(signal_name, callable)
+	_connected_phase_signals.clear()
+	_current_phase_ref = null
+
+# --- Reactive Stratagem: Go to Ground / Smokescreen (ShootingPhase) ---
+
+func _on_reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array) -> void:
+	"""
+	Called when the ShootingPhase offers reactive stratagems (Go to Ground / Smokescreen)
+	to the defending player. If the defender is AI, evaluate and submit a decision.
+	"""
+	if not is_ai_player(defending_player):
+		return  # Not our AI — let human handle it
+
+	print("AIPlayer: Reactive stratagem opportunity for AI player %d (stratagems: %d, targets: %d)" % [
+		defending_player, available_stratagems.size(), target_unit_ids.size()])
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_reactive_stratagem(
+		defending_player, available_stratagems, target_unit_ids, snapshot
+	)
+
+	if decision.is_empty():
+		decision = {
+			"type": "DECLINE_REACTIVE_STRATAGEM",
+			"player": defending_player,
+			"_ai_description": "AI declines reactive stratagems"
+		}
+
+	decision["player"] = defending_player
+	_submit_reactive_action(defending_player, decision)
+
+# --- Reactive Stratagem: Fire Overwatch (MovementPhase) ---
+
+func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_units: Array, enemy_unit_id: String) -> void:
+	"""
+	Called when the MovementPhase offers Fire Overwatch to the defending player
+	after an enemy unit moves. If the defender is AI, evaluate and submit.
+	"""
+	if not is_ai_player(defending_player):
+		return
+
+	print("AIPlayer: Fire Overwatch opportunity for AI player %d (%d eligible units) against %s" % [
+		defending_player, eligible_units.size(), enemy_unit_id])
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_fire_overwatch(
+		defending_player, eligible_units, enemy_unit_id, snapshot
+	)
+
+	decision["player"] = defending_player
+	_submit_reactive_action(defending_player, decision)
+
+# --- Reactive Stratagem: Fire Overwatch (ChargePhase — via overwatch_opportunity) ---
+
+func _on_charge_overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array) -> void:
+	"""
+	Called when the ChargePhase offers Fire Overwatch to the defending player
+	after a charge declaration. If the defender is AI, evaluate and submit.
+	Note: ChargePhase also includes these in get_available_actions(), so the AI's
+	_decide_charge handles them. This signal handler provides backup and context.
+	"""
+	if not is_ai_player(defending_player):
+		return
+
+	# ChargePhase includes USE/DECLINE_FIRE_OVERWATCH in get_available_actions()
+	# which the AI's _decide_charge will handle via the normal evaluation loop.
+	# Just trigger a re-evaluation to ensure the AI acts promptly.
+	print("AIPlayer: Charge phase overwatch opportunity for AI player %d against %s" % [defending_player, moved_unit_id])
+	_request_evaluation()
+
+# --- Reactive Stratagem: Command Re-roll (any phase) ---
+
+func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""
+	Called when a phase offers Command Re-roll to a player after a dice roll.
+	If the player is AI, evaluate based on the roll context and submit.
+	"""
+	if not is_ai_player(player):
+		return
+
+	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s)" % [
+		player, unit_id, roll_context.get("roll_type", "unknown")])
+
+	var snapshot = GameState.create_snapshot()
+	var should_reroll = false
+
+	var roll_type = roll_context.get("roll_type", "")
+	match roll_type:
+		"charge_roll":
+			var total = roll_context.get("total", 0)
+			var min_distance = roll_context.get("min_distance", 99.0)
+			var needed = max(0.0, min_distance - 1.0)  # Subtract engagement range (1")
+			should_reroll = AIDecisionMaker.evaluate_command_reroll_charge(
+				player, total, int(ceil(needed)), snapshot
+			)
+			print("AIPlayer: Charge reroll evaluation — rolled %d, need %d, reroll: %s" % [total, int(ceil(needed)), str(should_reroll)])
+
+		"advance_roll":
+			var total = roll_context.get("total", 0)
+			should_reroll = AIDecisionMaker.evaluate_command_reroll_advance(player, total, snapshot)
+			print("AIPlayer: Advance reroll evaluation — rolled %d, reroll: %s" % [total, str(should_reroll)])
+
+		"battle_shock_test":
+			var total = roll_context.get("total", 0)
+			var leadership = roll_context.get("leadership", 6)
+			should_reroll = AIDecisionMaker.evaluate_command_reroll_battleshock(player, total, leadership, snapshot)
+			print("AIPlayer: Battle-shock reroll evaluation — rolled %d, leadership %d, reroll: %s" % [total, leadership, str(should_reroll)])
+
+		_:
+			# Unknown roll type — decline
+			print("AIPlayer: Unknown reroll type '%s' — declining" % roll_type)
+
+	var decision: Dictionary
+	if should_reroll:
+		decision = {
+			"type": "USE_COMMAND_REROLL",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI uses Command Re-roll on %s" % roll_type
+		}
+	else:
+		decision = {
+			"type": "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI declines Command Re-roll on %s" % roll_type
+		}
+
+	_submit_reactive_action(player, decision)
+
+# --- Submit reactive action ---
+
+func _submit_reactive_action(player: int, decision: Dictionary) -> void:
+	"""
+	Submit an AI reactive stratagem action. Uses call_deferred to avoid
+	acting during signal emission (which could cause re-entrancy issues).
+	"""
+	call_deferred("_execute_reactive_action_deferred", player, decision)
+
+func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> void:
+	"""Execute a reactive stratagem action after the current call stack completes."""
+	if not enabled or PhaseManager.game_ended:
+		return
+
+	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
+	_action_log.append({
+		"phase": GameState.get_current_phase(),
+		"action_type": decision.get("type", ""),
+		"description": description,
+		"player": player
+	})
+	emit_signal("ai_action_taken", player, decision, description)
+
+	print("AIPlayer: Reactive stratagem — Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
+
+	_current_phase_actions += 1
+	var result = NetworkIntegration.route_action(decision)
+
+	if result == null:
+		push_error("AIPlayer: Reactive action route_action returned null: %s" % decision.get("type", "?"))
+		return
+
+	if not result.get("success", false):
+		var error_msg = result.get("error", result.get("errors", "Unknown error"))
+		push_error("AIPlayer: Reactive action failed: %s - Error: %s" % [decision.get("type", "?"), error_msg])
+	else:
+		print("AIPlayer: Reactive stratagem action succeeded: %s" % decision.get("type", "?"))
+
+	# After reactive action, trigger re-evaluation for next action
 	_request_evaluation()
 
 # --- Core AI loop ---
@@ -256,6 +501,10 @@ func _execute_next_action(player: int) -> void:
 		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
 			_execute_ai_movement(player, decision)
 
+		# Handle multi-step scout movement: BEGIN_SCOUT_MOVE with pre-computed destinations
+		elif decision.get("type") == "BEGIN_SCOUT_MOVE" and decision.has("_ai_scout_destinations"):
+			_execute_ai_scout_movement(player, decision)
+
 # --- AI Movement execution ---
 
 func _execute_ai_movement(player: int, decision: Dictionary) -> void:
@@ -356,6 +605,91 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			"actor_unit_id": unit_id,
 			"player": player,
 			"_ai_description": "%s remains stationary (move failed: %s)" % [unit_name, reason]
+		})
+
+# --- AI Scout Movement execution ---
+
+func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
+	var unit_id = decision.get("unit_id", "")
+	var destinations = decision.get("_ai_scout_destinations", {})
+	var description = decision.get("_ai_description", "AI scout movement")
+	var unit_name = _get_unit_name(unit_id)
+
+	if unit_id == "" or destinations.is_empty():
+		print("AIPlayer: AI scout movement called with no unit or destinations")
+		return
+
+	print("AIPlayer: Executing AI scout movement for %s — staging %d models" % [unit_id, destinations.size()])
+
+	# Stage each model's destination using SET_SCOUT_MODEL_DEST
+	var staged_count = 0
+	var failed_count = 0
+	var failure_reasons = []
+
+	for model_id in destinations:
+		var dest = destinations[model_id]
+		var stage_action = {
+			"type": "SET_SCOUT_MODEL_DEST",
+			"unit_id": unit_id,
+			"model_id": model_id,
+			"player": player,
+			"destination": {"x": dest[0], "y": dest[1]}
+		}
+
+		_current_phase_actions += 1
+		var stage_result = NetworkIntegration.route_action(stage_action)
+
+		if stage_result != null and stage_result.get("success", false):
+			staged_count += 1
+			print("AIPlayer: Staged scout model %s to (%.0f, %.0f)" % [model_id, dest[0], dest[1]])
+		else:
+			failed_count += 1
+			var errors = stage_result.get("errors", []) if stage_result != null else []
+			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
+			failure_reasons.append(error_msg)
+			print("AIPlayer: Failed to stage scout model %s: %s" % [model_id, error_msg])
+
+	# Confirm the scout move (even if some models failed — partial moves are valid)
+	if staged_count > 0:
+		var confirm_action = {
+			"type": "CONFIRM_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": player
+		}
+
+		_current_phase_actions += 1
+		var confirm_result = NetworkIntegration.route_action(confirm_action)
+
+		if confirm_result != null and confirm_result.get("success", false):
+			print("AIPlayer: Confirmed scout movement for %s (%d/%d models staged)" % [
+				unit_id, staged_count, staged_count + failed_count])
+			_action_log.append({
+				"phase": GameState.get_current_phase(),
+				"action_type": "CONFIRM_SCOUT_MOVE",
+				"description": "%s (moved %d models)" % [description, staged_count],
+				"player": player
+			})
+		else:
+			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
+			push_error("AIPlayer: Failed to confirm scout movement for %s: %s" % [unit_id, error_msg])
+			# Fall back to skipping the scout move
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "SKIP_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"player": player,
+				"_ai_description": "%s scout move skipped (confirm failed: %s)" % [unit_name, error_msg]
+			})
+	else:
+		# No models could be staged — skip the scout move
+		var reason = failure_reasons[0] if failure_reasons.size() > 0 else "unknown"
+		print("AIPlayer: No scout models staged for %s, skipping" % unit_id)
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "SKIP_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": player,
+			"_ai_description": "%s scout move skipped (staging failed: %s)" % [unit_name, reason]
 		})
 
 # --- Helpers ---

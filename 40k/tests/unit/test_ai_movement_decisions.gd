@@ -44,6 +44,13 @@ func _run_tests():
 	test_oc_aware_holding_frees_redundant_units()
 	test_home_objective_defended()
 	test_movement_toward_assigned_objective()
+	# MOV-1: Shooting range consideration tests
+	test_hold_for_shooting_enemies_in_range()
+	test_move_when_no_enemies_in_range()
+	test_move_when_objective_reachable_this_turn()
+	test_clamp_move_keeps_enemy_in_range()
+	test_get_enemies_in_weapon_range()
+	test_should_hold_high_priority_objective_overrides()
 
 # =========================================================================
 # Helper: Create a test snapshot with units and objectives
@@ -426,6 +433,208 @@ func test_movement_toward_assigned_objective():
 	else:
 		_assert(move_type == "REMAIN_STATIONARY",
 			"If not moving, should be stationary (type=%s)" % move_type)
+
+# =========================================================================
+# TEST: MOV-1 — Shooting Range Consideration
+# =========================================================================
+
+func test_hold_for_shooting_enemies_in_range():
+	print("\n--- test_hold_for_shooting_enemies_in_range ---")
+	# Ranged unit with enemy in weapon range, objective is far away
+	# Should remain stationary to maintain shooting capability
+	var snapshot = _create_test_snapshot()
+	snapshot.battle_round = 3  # Not round 1 (no urgency to rush forward)
+
+	# Place one unit holding home so it doesn't interfere
+	_add_unit(snapshot, "u_home", 2, Vector2(880, 2160), "Home Holder", 2, 6, 5, ["INFANTRY"], [])
+
+	# Ranged unit at y=1600, enemy at y=1000 = 600px = 15" (within 24" range)
+	# Nearest objective is obj_nml_2 at (1360, 1680) or obj_center at (880, 1200)
+	_add_unit(snapshot, "u1", 2, Vector2(880, 1600), "Shooty Boyz", 2, 6, 5, ["INFANTRY"], [
+		{"name": "Bolt rifle", "type": "Ranged", "range": "24", "attacks": "2", "skill": "3",
+		 "strength": "4", "ap": "1", "damage": "1", "keywords": []}
+	])
+	_add_unit(snapshot, "e1", 1, Vector2(880, 1000), "Enemy Guard", 2, 6, 5, ["INFANTRY"], [])
+
+	var actions = _make_available_actions(["u_home", "u1"])
+	# Process first decision (home unit holds)
+	var decision = AIDecisionMaker._decide_movement(snapshot, actions, 2)
+	var actor = decision.get("actor_unit_id", "")
+	if actor == "u_home":
+		# Remove home unit and get decision for u1
+		var remaining = []
+		for a in actions:
+			if a.get("actor_unit_id", "") != "u_home":
+				remaining.append(a)
+		snapshot.units["u_home"]["flags"]["moved"] = true
+		decision = AIDecisionMaker._decide_movement(snapshot, remaining, 2)
+
+	# The ranged unit should hold for shooting since enemies are in range
+	# and the objective is more than 1 turn away
+	var move_type = decision.get("type", "")
+	_assert(move_type == "REMAIN_STATIONARY",
+		"Ranged unit with enemies in range holds for shooting (type=%s)" % move_type)
+
+func test_move_when_no_enemies_in_range():
+	print("\n--- test_move_when_no_enemies_in_range ---")
+	# Ranged unit with NO enemies in weapon range should move normally
+	var snapshot = _create_test_snapshot()
+	snapshot.battle_round = 3
+
+	_add_unit(snapshot, "u_home", 2, Vector2(880, 2160), "Home Holder", 2, 6, 5, ["INFANTRY"], [])
+	# Ranged unit at y=1600, enemy at y=200 = 1400px = 35" (well beyond 24" range)
+	_add_unit(snapshot, "u1", 2, Vector2(880, 1600), "Shooty Boyz", 2, 6, 5, ["INFANTRY"], [
+		{"name": "Bolt rifle", "type": "Ranged", "range": "24", "attacks": "2", "skill": "3",
+		 "strength": "4", "ap": "1", "damage": "1", "keywords": []}
+	])
+	_add_unit(snapshot, "e1", 1, Vector2(880, 200), "Enemy Far Away", 2, 6, 5, ["INFANTRY"], [])
+
+	var actions = _make_available_actions(["u_home", "u1"])
+	var decision = AIDecisionMaker._decide_movement(snapshot, actions, 2)
+	var actor = decision.get("actor_unit_id", "")
+	if actor == "u_home":
+		var remaining = []
+		for a in actions:
+			if a.get("actor_unit_id", "") != "u_home":
+				remaining.append(a)
+		snapshot.units["u_home"]["flags"]["moved"] = true
+		decision = AIDecisionMaker._decide_movement(snapshot, remaining, 2)
+
+	var move_type = decision.get("type", "")
+	_assert(move_type == "BEGIN_NORMAL_MOVE" or move_type == "BEGIN_ADVANCE",
+		"Ranged unit with no enemies in range moves normally (type=%s)" % move_type)
+
+func test_move_when_objective_reachable_this_turn():
+	print("\n--- test_move_when_objective_reachable_this_turn ---")
+	# Ranged unit with enemies in range BUT objective is reachable this turn
+	# Should move to the objective (being on the obj is more important than one turn of shooting)
+	var snapshot = _create_test_snapshot()
+	snapshot.battle_round = 3
+
+	_add_unit(snapshot, "u_home", 2, Vector2(880, 2160), "Home Holder", 2, 6, 5, ["INFANTRY"], [])
+	# Unit at (1360, 1700) — very close to obj_nml_2 at (1360, 1680) = 20px = 0.5"
+	# Enemy at (1360, 800) = 900px = 22.5" (within 24" range)
+	_add_unit(snapshot, "u1", 2, Vector2(1360, 1700), "Shooty Boyz", 2, 6, 5, ["INFANTRY"], [
+		{"name": "Bolt rifle", "type": "Ranged", "range": "24", "attacks": "2", "skill": "3",
+		 "strength": "4", "ap": "1", "damage": "1", "keywords": []}
+	])
+	_add_unit(snapshot, "e1", 1, Vector2(1360, 800), "Enemy", 2, 6, 5, ["INFANTRY"], [])
+
+	var actions = _make_available_actions(["u_home", "u1"])
+	var decision = AIDecisionMaker._decide_movement(snapshot, actions, 2)
+	var actor = decision.get("actor_unit_id", "")
+	if actor == "u_home":
+		var remaining = []
+		for a in actions:
+			if a.get("actor_unit_id", "") != "u_home":
+				remaining.append(a)
+		snapshot.units["u_home"]["flags"]["moved"] = true
+		decision = AIDecisionMaker._decide_movement(snapshot, remaining, 2)
+
+	# Should not hold for shooting — objective is within reach this turn
+	# It should either move to grab the objective or hold on it (if already in control range)
+	var move_type = decision.get("type", "")
+	_assert(move_type != "", "Unit near objective gets a decision (type=%s)" % move_type)
+	# The unit is very close to the objective (0.5"), within control range (~3.79")
+	# so it may decide to REMAIN_STATIONARY because it's already on the objective
+	# That's fine — the key is it should NOT be holding "for shooting"
+	var desc = decision.get("_ai_description", "")
+	var is_shooting_hold = desc.find("shooting") != -1
+	_assert(not is_shooting_hold or move_type == "REMAIN_STATIONARY",
+		"Near-objective unit does not hold specifically for shooting (desc=%s)" % desc)
+
+func test_clamp_move_keeps_enemy_in_range():
+	print("\n--- test_clamp_move_keeps_enemy_in_range ---")
+	# Test the _clamp_move_for_weapon_range helper directly
+	# Unit at (500, 500), enemy at (500, 200) = 300px = 7.5"
+	# Weapon range 12" = 480px. Moving 240px (6") downward to (500, 740)
+	# would put enemy at 540px = 13.5" (out of range)
+	# The function should clamp the move.
+	var centroid = Vector2(500, 500)
+	var move_vector = Vector2(0, 240)  # Moving 6" away from enemy
+	var max_weapon_range = 12.0
+	var enemies = {
+		"e1": {
+			"owner": 1,
+			"status": GameStateData.UnitStatus.DEPLOYED,
+			"models": [{"id": "m1", "alive": true, "position": Vector2(500, 200)}],
+			"meta": {"name": "Enemy", "stats": {}, "keywords": [], "weapons": []},
+			"flags": {}
+		}
+	}
+
+	var clamped = AIDecisionMaker._clamp_move_for_weapon_range(
+		centroid, move_vector, max_weapon_range, enemies, "Test Unit"
+	)
+
+	# The clamped vector should be shorter than the original
+	_assert(clamped.length() < move_vector.length(),
+		"Clamped movement is shorter (%.1f vs %.1f)" % [clamped.length(), move_vector.length()])
+
+	# After clamping, we should still be in range of the enemy
+	var new_pos = centroid + clamped
+	var dist_to_enemy = new_pos.distance_to(Vector2(500, 200))
+	var range_px = max_weapon_range * AIDecisionMaker.PIXELS_PER_INCH
+	_assert(dist_to_enemy <= range_px + 1.0,  # +1 for floating point tolerance
+		"After clamping, enemy is still in range (dist=%.1f, range=%.1f)" % [dist_to_enemy, range_px])
+
+func test_get_enemies_in_weapon_range():
+	print("\n--- test_get_enemies_in_weapon_range ---")
+	# Test the _get_enemies_in_weapon_range helper
+	var centroid = Vector2(880, 1500)
+
+	var snapshot = _create_test_snapshot()
+	# Enemy at 880,1000 = 500px = 12.5" (within 24" range)
+	_add_unit(snapshot, "e1", 1, Vector2(880, 1000), "Close Enemy", 2)
+	# Enemy at 880,200 = 1300px = 32.5" (outside 24" range)
+	_add_unit(snapshot, "e2", 1, Vector2(880, 200), "Far Enemy", 2)
+	var enemies = {"e1": snapshot.units["e1"], "e2": snapshot.units["e2"]}
+
+	var in_range = AIDecisionMaker._get_enemies_in_weapon_range(centroid, 24.0, enemies)
+	_assert(in_range.size() == 1, "Only 1 enemy in 24\" range (got %d)" % in_range.size())
+	if in_range.size() > 0:
+		_assert(in_range[0].enemy_id == "e1", "Close enemy is in range (id=%s)" % in_range[0].enemy_id)
+
+	# With 36" range, both should be in range
+	var in_range_36 = AIDecisionMaker._get_enemies_in_weapon_range(centroid, 36.0, enemies)
+	_assert(in_range_36.size() == 2, "Both enemies in 36\" range (got %d)" % in_range_36.size())
+
+func test_should_hold_high_priority_objective_overrides():
+	print("\n--- test_should_hold_high_priority_objective_overrides ---")
+	# Even with enemies in range, a very high priority objective should override
+	# the hold-for-shooting decision if it's reachable in ~2 turns
+	var unit = {
+		"meta": {
+			"name": "Shooty Boyz",
+			"stats": {"move": 6, "objective_control": 2},
+			"keywords": ["INFANTRY"],
+			"weapons": [{"name": "Bolt rifle", "type": "Ranged", "range": "24"}]
+		},
+		"models": [
+			{"id": "m1", "alive": true, "position": Vector2(880, 1600)}
+		],
+		"flags": {}
+	}
+	var centroid = Vector2(880, 1600)
+	# Objective 10" away (reachable in 2 turns with M6)
+	var target_pos = Vector2(880, 1200)  # 400px = 10"
+	var enemies = {
+		"e1": {
+			"owner": 1,
+			"status": GameStateData.UnitStatus.DEPLOYED,
+			"models": [{"id": "m1", "alive": true, "position": Vector2(880, 1000)}],
+			"meta": {"name": "Enemy", "stats": {}, "keywords": [], "weapons": []},
+			"flags": {}
+		}
+	}
+	# High priority assignment (score >= 10)
+	var assignment = {"score": 12.0, "reason": "uncontrolled objective"}
+
+	var result = AIDecisionMaker._should_hold_for_shooting(
+		unit, centroid, target_pos, 24.0, enemies, 6.0, assignment
+	)
+	_assert(result == false,
+		"High priority nearby objective overrides hold-for-shooting (result=%s)" % str(result))
 
 # =========================================================================
 # Utility

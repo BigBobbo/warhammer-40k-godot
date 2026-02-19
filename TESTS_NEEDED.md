@@ -256,3 +256,229 @@
 - Invulnerable saves from all three sources are detected: model-level, unit-level meta stats, and effect-granted (Go to Ground)
 - Effect-granted invuln (e.g., 4++ from a stratagem) overrides worse native invuln (e.g., 6++)
 - No regressions in existing AI shooting, melee, or charge evaluation
+
+## AI Weapon Keyword Awareness in Target Scoring (SHOOT-5)
+
+**Task:** Add weapon keyword awareness to target scoring -- Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained/Lethal/Devastating Wounds (SHOOT-5)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_apply_weapon_keyword_modifiers()` central function, keyword parsing helpers (`_parse_rapid_fire_value`, `_parse_melta_value`, `_parse_anti_keyword_data`, `_parse_sustained_hits_value`, `_is_within_half_range`); integrated into `_score_shooting_target()` and `_estimate_weapon_damage()`; added `CRIT_PROBABILITY` and `HALF_RANGE_FALLBACK_PROB` constants
+- `40k/tests/unit/test_ai_weapon_keyword_scoring.gd` - New test file for weapon keyword-aware scoring
+
+**Tests to run:**
+- Run `test_ai_weapon_keyword_scoring.gd` via `godot --headless --script tests/unit/test_ai_weapon_keyword_scoring.gd`
+  - Tests parsing helpers (rapid fire, melta, anti-keyword, sustained hits, half-range detection)
+  - Tests Torrent sets p_hit to 1.0 and scores higher than equivalent non-torrent weapon
+  - Tests Blast adds bonus attacks vs large units (6-10: +1, 11+: +2), enforces minimum 3, prefers large units
+  - Tests Rapid Fire bonus at half range, no bonus beyond half range, fallback probability-weighted bonus
+  - Tests Melta bonus damage at half range, no bonus beyond half range
+  - Tests Anti-keyword improves wound probability vs matching targets, no effect vs non-matching
+  - Tests Sustained Hits increases expected damage
+  - Tests Lethal Hits increases expected damage
+  - Tests Devastating Wounds increases expected damage vs well-armoured targets
+  - Tests combined keywords (anti-infantry + devastating wounds, blast + torrent, rapid fire + sustained hits)
+  - Tests integration with `_score_shooting_target()` and `_estimate_weapon_damage()`
+- Run `test_ai_weapon_efficiency.gd` to confirm no regressions in weapon-target efficiency matching
+- Run `test_ai_weapon_range_scoring.gd` to confirm no regressions in range scoring
+- Run `test_ai_focus_fire.gd` to confirm no regressions in focus fire system
+- Run `test_ai_invulnerable_save_scoring.gd` to confirm no regressions in invuln scoring
+- Run an AI vs AI game and observe that AI weapon targeting now reflects keyword-aware damage estimates
+
+**What to look for:**
+- Torrent weapons (e.g. flamers) are valued much higher since they auto-hit (p_hit = 1.0 vs normal BS roll)
+- Blast weapons are preferred against large units (6+ models) due to bonus attacks
+- Rapid Fire weapons get bonus attacks when targets are within half range
+- Melta weapons get bonus damage when targets are within half range
+- Anti-keyword weapons (e.g. anti-infantry 4+) score higher against matching targets due to improved wound probability
+- Sustained Hits weapons generate higher expected damage from bonus hits on critical rolls
+- Lethal Hits weapons score higher especially against tough targets (bypasses wound roll on 6s)
+- Devastating Wounds weapons score higher especially against well-armoured targets (bypasses saves on 6s to wound)
+- Combined keywords stack correctly (e.g. anti-infantry + devastating wounds + rapid fire)
+- No regressions in existing AI shooting behavior, focus fire, or weapon-target efficiency
+
+## AI Unit Ability Awareness Implementation (AI-GAP-4)
+
+**Task:** Implement unit ability awareness -- read abilities, factor leader bonuses, detect "Fall Back and X" abilities
+**Files changed:**
+- `40k/scripts/AIAbilityAnalyzer.gd` - New static utility class for AI ability awareness: reads unit abilities, detects leader bonuses (+1 hit, reroll hits/wounds, FNP, cover, Fall Back and X, Advance and X), computes offensive/defensive multipliers for scoring
+- `40k/scripts/AIDecisionMaker.gd` - Integrated AIAbilityAnalyzer into movement (Fall Back and X awareness in `_decide_engaged_unit`, Advance and X in `_should_unit_advance`), shooting (`_score_shooting_target` and `_estimate_weapon_damage` now factor in target FNP and Stealth, shooter leader bonuses), charge (`_score_charge_target` uses melee leader multiplier and target defensive multiplier, `_evaluate_best_charge` factors in melee leader bonuses), and melee (`_estimate_melee_damage` factors in target FNP)
+- `40k/tests/unit/test_ai_ability_awareness.gd` - New test file for AI ability awareness
+
+**Tests to run:**
+- Run `test_ai_ability_awareness.gd` via `godot --headless --script tests/unit/test_ai_ability_awareness.gd`
+  - Tests ability parsing (string format, dict format, mixed format, Core skipping)
+  - Tests unit_has_ability and unit_has_ability_containing
+  - Tests leader bonus detection (no leader, +1 hit melee, reroll hits ranged, FNP from leader, cover from leader, multiple effects)
+  - Tests Fall Back and X detection (from leader abilities, from effect flags, from description-based fallback)
+  - Tests Advance and X detection (from leader, from flags)
+  - Tests defensive ability detection (FNP from stats, flags, best-of-both; Stealth from abilities and flags; Lone Operative detection and protection)
+  - Tests offensive/defensive multiplier computation
+  - Tests comprehensive unit ability profile
+  - Tests AIDecisionMaker integration (shooting score reduced by target FNP and Stealth, melee damage reduced by target FNP, charge score boosted by melee leader bonuses)
+- Run `test_ai_invulnerable_save_scoring.gd` to confirm no regressions
+- Run `test_ai_weapon_keyword_scoring.gd` to confirm no regressions
+- Run `test_ai_weapon_efficiency.gd` to confirm no regressions
+- Run `test_ai_focus_fire.gd` to confirm no regressions
+- Run an AI vs AI game and observe that AI now considers abilities in tactical decisions
+
+**What to look for:**
+- AI units with Fall Back and Charge abilities fall back more aggressively (even from objectives) knowing they can charge back in
+- AI units with Fall Back and Shoot abilities fall back when engaged, recognizing they can still contribute via shooting
+- AI units with Advance and Shoot/Charge abilities advance more eagerly since there is no penalty
+- AI shooting scores are lower against targets with FNP (reflecting reduced effective damage)
+- AI shooting scores are lower against targets with Stealth (reflecting -1 to hit penalty)
+- AI charge evaluations are higher for units with melee leader bonuses (+1 hit, reroll hits)
+- AI charge evaluations are lower against targets with high defensive multipliers (FNP, cover from leaders)
+- Leader bonus detection correctly reads the UnitAbilityManager ABILITY_EFFECTS lookup table
+- Description-based fallback correctly detects "fall back and charge/shoot" from ability descriptions
+- No regressions in existing AI movement, shooting, charge, or fight decisions
+
+## AI Stratagem Usage Implementation (AI-GAP-3)
+
+**Task:** Implement basic stratagem usage -- Grenade, Fire Overwatch, Go to Ground, Command Re-roll, Smokescreen
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added stratagem evaluation section: `evaluate_grenade_usage()`, `_estimate_unit_ranged_strength()`, `_score_grenade_target()` for Grenade heuristics; `evaluate_reactive_stratagem()`, `_score_defensive_stratagem_target()` for Go to Ground/Smokescreen; `evaluate_fire_overwatch()`, `_decline_fire_overwatch()`, `_count_unit_ranged_shots()`, `_estimate_unit_value()` for Fire Overwatch; `evaluate_command_reroll_charge()`, `evaluate_command_reroll_battleshock()`, `evaluate_command_reroll_advance()` for Command Re-roll; `_get_player_cp_from_snapshot()` helper; added `_grenade_evaluated` static flag; updated `_decide_shooting()` to check Grenade before shooting; updated `_decide_charge()` to evaluate Fire Overwatch and Command Re-roll instead of always declining; updated `_decide_command()` to defer to signal handler for reroll context
+- `40k/autoloads/AIPlayer.gd` - Added reactive stratagem signal handling: `_connect_phase_stratagem_signals()`, `_disconnect_phase_stratagem_signals()` for phase signal lifecycle; `_on_reactive_stratagem_opportunity()` for Go to Ground/Smokescreen during opponent's shooting; `_on_movement_fire_overwatch_opportunity()` for Fire Overwatch during opponent's movement; `_on_charge_overwatch_opportunity()` for Fire Overwatch during opponent's charge; `_on_command_reroll_opportunity()` for Command Re-roll after any dice roll; `_submit_reactive_action()`, `_execute_reactive_action_deferred()` for deferred action submission
+- `40k/tests/unit/test_ai_stratagem_evaluation.gd` - New test file for AI stratagem evaluation heuristics
+
+**Tests to run:**
+- Run `test_ai_stratagem_evaluation.gd` via `godot --headless --script tests/unit/test_ai_stratagem_evaluation.gd`
+  - Tests grenade target scoring (1W models, multi-wound, characters, dead units)
+  - Tests ranged strength estimation (no weapons, basic, multi-weapon)
+  - Tests defensive stratagem scoring (Go to Ground without invuln, with invuln, Smokescreen, dead units)
+  - Tests Fire Overwatch evaluation (high-volume shooter, low CP decline)
+  - Tests Command Re-roll evaluation (charge failed close, succeeded, impossible, advance low/moderate, battle-shock high/low leadership)
+  - Tests reactive stratagem integration (Go to Ground on infantry, decline for dead units)
+  - Tests helper functions (get_player_cp_from_snapshot)
+- Run `test_ai_charge_decisions.gd` to confirm no regressions in charge decisions (now evaluates Fire Overwatch instead of always declining)
+- Run an AI vs AI game and observe:
+  - AI uses Grenade stratagem during shooting when units with GRENADES keyword are near enemies
+  - AI uses Go to Ground / Smokescreen when defending units are targeted by opponent
+  - AI uses Fire Overwatch when opponent moves units near high-volume shooters
+  - AI uses Command Re-roll on failed charge rolls that are close to succeeding
+  - CP is correctly deducted for stratagem usage
+- Run a Human vs AI game and verify:
+  - AI responds to your shooting with Go to Ground / Smokescreen when appropriate
+  - AI fires overwatch at your units when you move near their high-volume shooters
+  - AI rerolls charge dice that narrowly missed
+  - AI does not waste CP on low-probability rerolls
+
+**What to look for:**
+- GRENADE: AI uses Grenade when a unit has weak ranged weapons but GRENADES keyword and an enemy is within 8". Prefers targets with 1W models.
+- FIRE OVERWATCH: AI fires overwatch with highest-volume shooter when enemy is valuable and CP >= 2. Does not use overwatch with 1-2 shot units.
+- GO TO GROUND: AI uses on INFANTRY targets without existing invuln saves. Factors in save quality, model count, and unit value.
+- SMOKESCREEN: AI uses on SMOKE keyword units (stealth -1 to hit is very strong). Prioritized over Go to Ground.
+- COMMAND RE-ROLL: AI rerolls failed charges within 2 of the target (good odds). Rerolls failed battle-shock with high leadership. Rerolls advance rolls of 1. Does not reroll when CP is very low or odds are poor.
+- No infinite loops from signal-based reactive action submission
+- No double-actions from race conditions between signal handlers and _evaluate_and_act
+- CP is correctly tracked across all stratagem uses
+- All reactive stratagem actions are validated and processed correctly by the phase system
+
+## AI Shooting Range Consideration in Movement (MOV-1)
+
+**Task:** Add shooting range consideration to movement -- don't move units out of their weapon range (MOV-1)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_get_enemies_in_weapon_range()`, `_clamp_move_for_weapon_range()`, and `_should_hold_for_shooting()` helpers in new MOV-1 section; modified `_select_movement_action()` to check if ranged units should hold position for shooting before moving; modified `_compute_movement_toward_target()` to accept optional `max_weapon_range` parameter and clamp movement to maintain weapon range on current targets
+- `40k/tests/unit/test_ai_movement_decisions.gd` - Added 6 new test cases for MOV-1: hold-for-shooting with enemies in range, move when no enemies in range, move when objective reachable this turn, clamp-move keeps enemy in range, get-enemies-in-weapon-range helper, high-priority objective overrides hold-for-shooting
+
+**Tests to run:**
+- Run `test_ai_movement_decisions.gd` via `godot --headless --script tests/unit/test_ai_movement_decisions.gd`
+  - Tests ranged unit with enemies in weapon range holds position for shooting when objective is far
+  - Tests ranged unit with NO enemies in range moves normally toward objectives
+  - Tests ranged unit moves to objective when objective is reachable this turn (even with enemies in range)
+  - Tests `_clamp_move_for_weapon_range()` shortens movement to keep nearest enemy in range
+  - Tests `_get_enemies_in_weapon_range()` correctly filters enemies by distance
+  - Tests high-priority nearby objective overrides the hold-for-shooting decision
+  - Tests all existing movement tests still pass (no regressions)
+- Run an AI vs AI game and observe that ranged units do not move away from enemies they can shoot at
+- Run a Human vs AI game and verify the AI maintains shooting positions when appropriate
+
+**What to look for:**
+- Ranged units with enemies in weapon range stay stationary when their assigned objective is far away
+- Ranged units still move toward objectives that are reachable this turn (objective capture > one turn of shooting)
+- High-priority objectives (score >= 10, within 2 turns) override the hold-for-shooting behavior
+- When a unit does move toward an objective, the movement is clamped so it stays within weapon range of the nearest enemy it can currently shoot
+- Units without ranged weapons are completely unaffected by this change
+- Units with ranged weapons but no enemies in range move normally
+- The movement clamping uses binary search to find the maximum safe move distance
+- Advance movements are not affected (advance decision already considers weapon range separately)
+- No regressions in existing movement tests (objective evaluation, hold/move, engaged units, advance decisions)
+
+## AI Scout Move Execution (SCOUT-1, SCOUT-2)
+
+**Task:** Implement scout move execution -- move scout units toward nearest uncontrolled objective (SCOUT-1, SCOUT-2)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Replaced scout skip stub `_decide_scout()` with full implementation that finds the best uncontrolled objective and computes model destinations; added `_get_scout_distance_from_unit()`, `_find_best_scout_objective()`, `_compute_scout_movement()`, `_try_scout_move_with_checks()`, `_is_position_too_close_to_enemies_scout()`, `_resolve_scout_collision()` helpers
+- `40k/autoloads/AIPlayer.gd` - Added `_execute_ai_scout_movement()` handler for multi-step scout movement (BEGIN_SCOUT_MOVE -> SET_SCOUT_MODEL_DEST -> CONFIRM_SCOUT_MOVE); added dispatch in `_execute_next_action()` for `BEGIN_SCOUT_MOVE` with `_ai_scout_destinations`
+- `40k/tests/unit/test_ai_scout_decisions.gd` - New test file for AI scout movement decisions
+
+**Tests to run:**
+- Run `test_ai_scout_decisions.gd` via `godot --headless --script tests/unit/test_ai_scout_decisions.gd`
+  - Tests `_decide_scout` returns BEGIN_SCOUT_MOVE with pre-computed model destinations
+  - Tests scout moves toward nearest uncontrolled no-man's-land objective
+  - Tests scout skips when no objectives exist
+  - Tests scout skips or uses reduced fraction when enemy blocks full move (>9" rule)
+  - Tests scout prefers uncontrolled objectives over already-held ones
+  - Tests scout prefers closer uncontrolled objectives
+  - Tests END_SCOUT_PHASE returned when all scouts done
+  - Tests CONFIRM_SCOUT_MOVE fallback
+  - Tests `_get_scout_distance_from_unit()` with dict ability, string ability, and non-scout
+  - Tests `_find_best_scout_objective()` prefers no-man's-land, avoids home objectives
+  - Tests `_compute_scout_movement()` basic movement, distance limit, board bounds
+  - Tests `_is_position_too_close_to_enemies_scout()` at various distances around 9" threshold
+  - Tests fractional movement reduction when full move is blocked by enemy proximity
+- Run existing `test_scout_moves.gd` (via GUT test runner) to confirm no regressions in ScoutPhase validation
+- Run an AI vs AI game and observe AI units now execute scout moves toward objectives instead of skipping
+
+**What to look for:**
+- AI scout units move toward the nearest uncontrolled no-man's-land objective
+- Scout movement respects the unit's Scout X" distance limit
+- All model destinations end >9" from all enemy models (edge-to-edge)
+- Scout units prefer uncontrolled objectives over already-held ones
+- Scout units prefer no-man's-land objectives over home objectives
+- When full move would violate the 9" rule, a shorter fractional move is used
+- When no valid move exists, the scout move is skipped gracefully
+- Multi-step flow works: BEGIN_SCOUT_MOVE -> SET_SCOUT_MODEL_DEST per model -> CONFIRM_SCOUT_MOVE
+- If staging fails, the scout move is skipped (not stuck in an infinite loop)
+- No regressions in human player scout move functionality
+- No infinite loops during scout phase
+
+## AI Enemy Threat Range Awareness (AI-TACTIC-4, MOV-2)
+
+**Task:** Add enemy threat range awareness -- calculate charge threat zones and shooting ranges, avoid moving into danger
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added threat range constants (`THREAT_CHARGE_PENALTY`, `THREAT_SHOOTING_PENALTY`, `THREAT_FRAGILE_BONUS`, `THREAT_MELEE_UNIT_IGNORE`, `THREAT_SAFE_MARGIN_INCHES`); added `_calculate_enemy_threat_data()` to build threat profiles for all enemy units; added `_estimate_enemy_threat_level()` to rate enemy danger; added `_evaluate_position_threat()` to score any position for charge/shooting threat; added `_is_position_in_charge_threat()` quick check; added `_find_safer_position()` to find threat-reduced movement alternatives; integrated threat scoring into `_assign_units_to_objectives()` to penalize dangerous assignments; added threat-aware hold check for ranged units in `_select_movement_action()` to prevent moving from safe positions into charge danger; integrated `_find_safer_position()` into `_compute_movement_toward_target()` to adjust destinations away from threats
+- `40k/tests/unit/test_ai_threat_range_awareness.gd` - New test file for AI threat range awareness
+
+**Tests to run:**
+- Run `test_ai_threat_range_awareness.gd` via `godot --headless --script tests/unit/test_ai_threat_range_awareness.gd`
+  - Tests `_calculate_enemy_threat_data` correctly computes charge threat (M + 12 + 1 inches), shooting threat (max weapon range), and unit metadata (has_melee, has_ranged)
+  - Tests charge threat range calculation for M6 unit = 19" = 760px
+  - Tests shooting threat range for 24" weapons = 960px
+  - Tests units without melee/ranged weapons have correct flags
+  - Tests `_estimate_enemy_threat_level` for basic units, vehicles (higher), and hordes (higher)
+  - Tests `_evaluate_position_threat` returns 0 for positions outside all threat ranges
+  - Tests `_evaluate_position_threat` returns positive charge threat for positions in charge zone
+  - Tests `_evaluate_position_threat` returns positive shoot threat for positions in shooting zone
+  - Tests fragile units (T3/1W) get higher threat penalties than tough units at same position
+  - Tests melee-focused units get reduced charge threat penalties (they want to fight)
+  - Tests `_is_position_in_charge_threat` quick check at various distances
+  - Tests `_find_safer_position` returns desired position when no threats exist
+  - Tests `_find_safer_position` finds positions with reduced threat when possible
+  - Tests threat-aware assignment scoring penalizes objectives that route through danger
+  - Tests ranged unit avoids moving from safe position into charge danger zone
+- Run `test_ai_movement_decisions.gd` to confirm no regressions in movement decisions
+- Run an AI vs AI game and observe that AI ranged units avoid walking into enemy charge range when they have targets to shoot
+- Run a Human vs AI game and verify the AI positions units more cautiously against melee threats
+
+**What to look for:**
+- AI ranged units that are currently safe from charge threats (outside M+12+1" range) prefer holding position if moving toward an objective would enter charge range, and they have shooting targets available
+- AI units moving toward objectives try to find positions that reduce threat exposure while still making progress (lateral offsets, shorter moves)
+- Charge threat penalty is stronger than shooting threat penalty (being charged is worse than being shot at)
+- Melee-focused units (no ranged weapons, only melee) do not shy away from charge threat zones
+- Fragile units (low T, low W) are more cautious about entering danger than tough units
+- Unit-to-objective assignment scoring penalizes routes that increase threat level, potentially redirecting units to safer objectives
+- VEHICLE and MONSTER enemies generate higher threat zones due to higher threat level
+- The threat calculation correctly uses enemy M stat (not a fixed value) for charge threat range
+- Movement adjustments do not prevent units from capturing critical objectives (progress is still weighted)
+- No infinite loops or stalling during movement phase
+- No regressions in existing movement decisions, objective evaluation, or fall-back behavior
