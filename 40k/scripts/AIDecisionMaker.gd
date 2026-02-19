@@ -69,6 +69,16 @@ const WEIGHT_ALREADY_HELD_OBJ: float = -8.0
 const WEIGHT_SCORING_URGENCY: float = 3.0
 const WEIGHT_OC_EFFICIENCY: float = 2.0
 
+# Threat range awareness constants (AI-TACTIC-4, MOV-2)
+# Charge threat = enemy M + 12" charge + 1" engagement range
+# Shooting threat = max weapon range of the enemy unit
+# Penalty weights for moving into threat zones
+const THREAT_CHARGE_PENALTY: float = 3.0    # Penalty for moving into charge threat range
+const THREAT_SHOOTING_PENALTY: float = 1.0  # Lighter penalty for moving into shooting range (often unavoidable)
+const THREAT_FRAGILE_BONUS: float = 1.5     # Extra penalty multiplier for fragile/high-value units in danger
+const THREAT_MELEE_UNIT_IGNORE: float = 0.3 # Melee-focused units care less about being in charge range
+const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat range for safety
+
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
@@ -342,15 +352,26 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 	var battle_round = snapshot.get("battle_round", 1)
 
 	# =========================================================================
+	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
+	# =========================================================================
+	var threat_data = _calculate_enemy_threat_data(enemies)
+	if not threat_data.is_empty():
+		print("AIDecisionMaker: Calculated threat data for %d enemy units" % threat_data.size())
+		for td in threat_data:
+			print("  Enemy %s: charge_threat=%.1f\", shoot_threat=%.1f\", value=%.1f" % [
+				td.unit_id, td.charge_threat_px / PIXELS_PER_INCH,
+				td.shoot_threat_px / PIXELS_PER_INCH, td.unit_value])
+
+	# =========================================================================
 	# PHASE 1: GLOBAL OBJECTIVE EVALUATION
 	# =========================================================================
 	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
 
 	# =========================================================================
-	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT
+	# PHASE 2: UNIT-TO-OBJECTIVE ASSIGNMENT (with threat awareness)
 	# =========================================================================
 	var assignments = _assign_units_to_objectives(
-		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round
+		snapshot, movable_units, obj_evaluations, objectives, enemies, friendly_units, player, battle_round, threat_data
 	)
 
 	# =========================================================================
@@ -411,7 +432,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var advance_move = move_inches + 2.0  # Average advance roll
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(_get_unit_centroid(unit), objectives)
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, advance_move, snapshot, enemies
+				unit, unit_id, target_pos, advance_move, snapshot, enemies,
+				0.0, threat_data, objectives
 			)
 			if not model_destinations.is_empty():
 				var reason = assignment.get("reason", "needs extra distance")
@@ -442,8 +464,56 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						"_ai_description": "%s holds %s (%.1f\" away)" % [unit_name, assigned_obj_id, dist_inches]
 					}
 
+			# --- AI-TACTIC-4: Threat-aware hold check ---
+			# Ranged units currently safe from charge threat should avoid moving
+			# into charge range if the objective is far away and they have targets to shoot
+			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types:
+				var has_ranged_for_threat = _unit_has_ranged_weapons(unit)
+				var is_melee_unit = _unit_has_melee_weapons(unit) and not has_ranged_for_threat
+				if has_ranged_for_threat and not is_melee_unit:
+					var current_threat_eval = _evaluate_position_threat(centroid, threat_data, unit)
+					# Estimate where we'd end up
+					var move_dir = (target_pos - centroid).normalized() if centroid.distance_to(target_pos) > 1.0 else Vector2.ZERO
+					var est_dest = centroid + move_dir * min(move_inches * PIXELS_PER_INCH, centroid.distance_to(target_pos))
+					var dest_threat_eval = _evaluate_position_threat(est_dest, threat_data, unit)
+					# If we're currently safe from charges but would move into charge range,
+					# and we have shooting targets, consider staying put
+					if current_threat_eval.charge_threat < 0.5 and dest_threat_eval.charge_threat >= 2.0:
+						var max_wr = _get_max_weapon_range(unit)
+						var has_shoot_targets = false
+						for eid in enemies:
+							var ec = _get_unit_centroid(enemies[eid])
+							if ec != Vector2.INF and centroid.distance_to(ec) <= max_wr * PIXELS_PER_INCH:
+								has_shoot_targets = true
+								break
+						if has_shoot_targets:
+							print("AIDecisionMaker: %s avoiding charge danger — staying to shoot (charge threat would increase from %.1f to %.1f)" % [
+								unit_name, current_threat_eval.charge_threat, dest_threat_eval.charge_threat])
+							return {
+								"type": "REMAIN_STATIONARY",
+								"actor_unit_id": unit_id,
+								"_ai_description": "%s holds position (avoiding charge threat, has shooting targets)" % unit_name
+							}
+
+			# --- MOV-1: Shooting range consideration ---
+			# If the unit has ranged weapons and enemies in range, check if moving
+			# would take it out of weapon range. Prefer holding for shooting if objective
+			# is far away and we'd lose all targets.
+			var has_ranged_weapons = _unit_has_ranged_weapons(unit)
+			var max_weapon_range_inches = _get_max_weapon_range(unit) if has_ranged_weapons else 0.0
+			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
+				if _should_hold_for_shooting(unit, centroid, target_pos, max_weapon_range_inches, enemies, move_inches, assignment):
+					var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range_inches, enemies)
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s holds position for shooting (%d targets in %.0f\" range, obj %s too far)" % [
+							unit_name, enemies_in_range.size(), max_weapon_range_inches, assigned_obj_id]
+					}
+
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, move_inches, snapshot, enemies
+				unit, unit_id, target_pos, move_inches, snapshot, enemies,
+				max_weapon_range_inches, threat_data, objectives
 			)
 
 			if not model_destinations.is_empty():
@@ -578,7 +648,7 @@ static func _evaluate_all_objectives(
 static func _assign_units_to_objectives(
 	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
 	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
-	player: int, battle_round: int
+	player: int, battle_round: int, threat_data: Array = []
 ) -> Dictionary:
 	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
 	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
@@ -651,6 +721,25 @@ static func _assign_units_to_objectives(
 			# Unit suitability: units with shooting should consider range to enemies
 			if has_ranged and eval.enemy_nearby > 0:
 				score += 1.0  # Shooting units valuable where enemies are
+
+			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
+			# Penalize assignments that route units into enemy threat zones
+			if not threat_data.is_empty() and not already_on_obj:
+				# Estimate where the unit would end up after moving toward this objective
+				var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
+				var move_px_cap = move_inches * PIXELS_PER_INCH
+				var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
+
+				var dest_threat = _evaluate_position_threat(estimated_dest, threat_data, unit)
+				var current_threat = _evaluate_position_threat(centroid, threat_data, unit)
+
+				# Penalize moving INTO more danger than we're currently in
+				var threat_increase = dest_threat.total_threat - current_threat.total_threat
+				if threat_increase > 0.5:
+					score -= threat_increase
+					# Extra charge threat penalty: being chargeable is worse than being shot at
+					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
+						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5
 
 			# Determine recommended action
 			var action = "move"
@@ -1366,6 +1455,151 @@ static func _get_weapon_range_inches(weapon: Dictionary) -> float:
 		return float(int(range_str))
 	return 0.0
 
+# =============================================================================
+# SHOOTING RANGE CONSIDERATION FOR MOVEMENT (MOV-1)
+# =============================================================================
+
+static func _get_enemies_in_weapon_range(centroid: Vector2, max_weapon_range: float, enemies: Dictionary) -> Array:
+	"""Return array of {enemy_id, enemy_centroid, distance_inches} for enemies within weapon range."""
+	var in_range = []
+	if max_weapon_range <= 0.0:
+		return in_range
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var enemy_centroid = _get_unit_centroid(enemy)
+		if enemy_centroid == Vector2.INF:
+			continue
+		var dist = centroid.distance_to(enemy_centroid)
+		if dist <= range_px:
+			in_range.append({
+				"enemy_id": enemy_id,
+				"enemy_centroid": enemy_centroid,
+				"distance_inches": dist / PIXELS_PER_INCH
+			})
+	return in_range
+
+static func _clamp_move_for_weapon_range(
+	centroid: Vector2, move_vector: Vector2, max_weapon_range: float,
+	enemies: Dictionary, unit_name: String
+) -> Vector2:
+	"""
+	Clamp a movement vector so the unit stays within weapon range of the nearest
+	enemy it can currently shoot. Returns the (possibly shortened) move vector.
+	If no clamping is needed, returns the original vector.
+	"""
+	if max_weapon_range <= 0.0:
+		return move_vector  # No ranged weapons, no constraint
+
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+	var proposed_pos = centroid + move_vector
+
+	# Find all enemies currently in range
+	var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
+	if enemies_in_range.is_empty():
+		return move_vector  # No enemies in range currently, move freely
+
+	# Check if the proposed destination keeps at least one current target in range
+	var keeps_any_target = false
+	for entry in enemies_in_range:
+		if proposed_pos.distance_to(entry.enemy_centroid) <= range_px:
+			keeps_any_target = true
+			break
+
+	if keeps_any_target:
+		return move_vector  # Movement is fine, at least one target stays in range
+
+	# The move would lose all current targets. Clamp the movement.
+	# Find the nearest enemy that is currently in range
+	var nearest_enemy_pos = Vector2.INF
+	var nearest_dist = INF
+	for entry in enemies_in_range:
+		var d = centroid.distance_to(entry.enemy_centroid)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest_enemy_pos = entry.enemy_centroid
+
+	if nearest_enemy_pos == Vector2.INF:
+		return move_vector  # Shouldn't happen, but safety fallback
+
+	# Binary search for the maximum fraction of the move that keeps us in range
+	var low = 0.0
+	var high = 1.0
+	var best_fraction = 0.0
+
+	for _i in range(8):  # 8 iterations gives ~0.4% precision
+		var mid = (low + high) / 2.0
+		var test_pos = centroid + move_vector * mid
+		if test_pos.distance_to(nearest_enemy_pos) <= range_px:
+			best_fraction = mid
+			low = mid
+		else:
+			high = mid
+
+	if best_fraction <= 0.05:
+		# Can barely move at all without losing range — stay put
+		print("AIDecisionMaker: %s would lose all shooting targets — clamping to zero movement" % unit_name)
+		return Vector2.ZERO
+
+	var clamped = move_vector * best_fraction
+	print("AIDecisionMaker: %s movement clamped to %.0f%% to stay within %.0f\" weapon range of nearest enemy" % [
+		unit_name, best_fraction * 100.0, max_weapon_range])
+	return clamped
+
+static func _should_hold_for_shooting(
+	unit: Dictionary, centroid: Vector2, target_pos: Vector2,
+	max_weapon_range: float, enemies: Dictionary, move_inches: float,
+	assignment: Dictionary
+) -> bool:
+	"""
+	Determine if a ranged unit should remain stationary to maintain shooting
+	rather than moving toward a distant objective. Returns true if the unit
+	should hold for shooting.
+	"""
+	if max_weapon_range <= 0.0:
+		return false  # No ranged weapons
+
+	# Check if there are enemies currently in weapon range
+	var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
+	if enemies_in_range.is_empty():
+		return false  # No targets to shoot, move freely
+
+	# If the objective is close enough to reach this turn, move toward it
+	# (being on the objective is usually more important than one turn of shooting)
+	var dist_to_obj = centroid.distance_to(target_pos) if target_pos != Vector2.INF else INF
+	var dist_to_obj_inches = dist_to_obj / PIXELS_PER_INCH
+	if dist_to_obj_inches <= move_inches:
+		return false  # Can reach objective this turn, do it
+
+	# If the objective is high-priority (contested, uncontrolled, or needs OC),
+	# and we can reach it in 2 turns, don't hold just for shooting
+	var obj_priority = assignment.get("score", 0.0)
+	var turns_to_reach = max(1.0, ceil(dist_to_obj_inches / move_inches)) if move_inches > 0 else 99.0
+	if obj_priority >= 10.0 and turns_to_reach <= 2:
+		return false  # High priority objective close enough, keep moving
+
+	# Check if moving toward the objective would take us out of range of all targets
+	var direction = (target_pos - centroid).normalized() if target_pos != Vector2.INF else Vector2.ZERO
+	var move_vector = direction * move_inches * PIXELS_PER_INCH
+	var proposed_pos = centroid + move_vector
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+
+	var keeps_any_target = false
+	for entry in enemies_in_range:
+		if proposed_pos.distance_to(entry.enemy_centroid) <= range_px:
+			keeps_any_target = true
+			break
+
+	if keeps_any_target:
+		return false  # Moving keeps targets in range, go ahead
+
+	# Moving would lose all targets and objective isn't reachable this turn
+	# Prefer staying and shooting
+	print("AIDecisionMaker: %s has %d enemies in weapon range (max %.0f\") — holding for shooting rather than moving to distant objective (%.1f\" away, %d turns)" % [
+		unit.get("meta", {}).get("name", "unit"), enemies_in_range.size(), max_weapon_range,
+		dist_to_obj_inches, int(turns_to_reach)])
+	return true
+
 static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
 	var best = Vector2.INF
 	var best_dist = INF
@@ -1434,7 +1668,8 @@ static func _find_best_remaining_objective(
 
 static func _compute_movement_toward_target(
 	unit: Dictionary, unit_id: String, target_pos: Vector2,
-	move_inches: float, snapshot: Dictionary, enemies: Dictionary
+	move_inches: float, snapshot: Dictionary, enemies: Dictionary,
+	max_weapon_range: float = 0.0, threat_data: Array = [], objectives: Array = []
 ) -> Dictionary:
 	# Generalized version of _compute_movement_toward_objective that takes a specific target position
 	if target_pos == Vector2.INF:
@@ -1467,6 +1702,25 @@ static func _compute_movement_toward_target(
 	if final_move_vector == Vector2.ZERO:
 		print("AIDecisionMaker: All movement paths blocked by terrain")
 		return {}
+
+	# --- MOV-1: Clamp movement to maintain weapon range on current targets ---
+	if max_weapon_range > 0.0:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		final_move_vector = _clamp_move_for_weapon_range(
+			centroid, final_move_vector, max_weapon_range, enemies, unit_name
+		)
+		if final_move_vector == Vector2.ZERO:
+			# Movement was clamped to zero — no valid move that keeps targets in range
+			return {}
+
+	# --- AI-TACTIC-4: Threat-aware position adjustment ---
+	# If the destination would place us in a significantly more dangerous position,
+	# try to find a safer alternative that still makes progress
+	if not threat_data.is_empty():
+		var desired_dest = centroid + final_move_vector
+		var safer_dest = _find_safer_position(centroid, desired_dest, move_px, threat_data, unit, objectives)
+		if safer_dest != desired_dest:
+			final_move_vector = safer_dest - centroid
 
 	# Get all deployed model positions (excluding this unit's own models) for overlap checking
 	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
@@ -5276,3 +5530,234 @@ static func _get_player_cp_from_snapshot(snapshot: Dictionary, player: int) -> i
 	var players = snapshot.get("players", {})
 	var player_data = players.get(str(player), players.get(player, {}))
 	return int(player_data.get("cp", 0))
+
+# =============================================================================
+# ENEMY THREAT RANGE AWARENESS (AI-TACTIC-4, MOV-2)
+# =============================================================================
+# Calculates charge threat zones and shooting ranges for enemy units,
+# allowing the AI to avoid moving into danger when not tactically necessary.
+
+static func _calculate_enemy_threat_data(enemies: Dictionary) -> Array:
+	"""Build an array of threat data for each enemy unit.
+	Each entry: {unit_id, centroid, charge_threat_px, shoot_threat_px, has_melee, has_ranged, unit_value}
+	charge_threat_px = (enemy M + 12" charge + 1" ER) in pixels
+	shoot_threat_px = max ranged weapon range in pixels"""
+	var threat_data = []
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var ecentroid = _get_unit_centroid(enemy)
+		if ecentroid == Vector2.INF:
+			continue
+		var enemy_stats = enemy.get("meta", {}).get("stats", {})
+		var enemy_move = float(enemy_stats.get("move", 6))
+		var has_melee = _unit_has_melee_weapons(enemy)
+		var has_ranged = _unit_has_ranged_weapons(enemy)
+		var max_shoot_range = _get_max_weapon_range(enemy)  # in inches
+
+		# Charge threat range = Movement + 12" max charge + 1" engagement range
+		# This represents the maximum distance this unit could reach with a move + charge
+		var charge_threat_inches = enemy_move + 12.0 + 1.0
+		var charge_threat_px = charge_threat_inches * PIXELS_PER_INCH
+
+		# Shooting threat range = max weapon range
+		var shoot_threat_px = max_shoot_range * PIXELS_PER_INCH
+
+		# Estimate unit value/lethality for weighting the threat
+		var unit_value = _estimate_enemy_threat_level(enemy)
+
+		threat_data.append({
+			"unit_id": enemy_id,
+			"centroid": ecentroid,
+			"charge_threat_px": charge_threat_px,
+			"shoot_threat_px": shoot_threat_px,
+			"has_melee": has_melee,
+			"has_ranged": has_ranged,
+			"unit_value": unit_value
+		})
+	return threat_data
+
+static func _estimate_enemy_threat_level(enemy: Dictionary) -> float:
+	"""Estimate how dangerous an enemy unit is (0.0 to 3.0 scale).
+	Used to weight threat zones — more dangerous enemies create scarier zones."""
+	var value = 1.0
+	var keywords = enemy.get("meta", {}).get("keywords", [])
+	var stats = enemy.get("meta", {}).get("stats", {})
+
+	# More alive models = more dangerous
+	var alive_count = 0
+	for model in enemy.get("models", []):
+		if model.get("alive", true):
+			alive_count += 1
+	if alive_count >= 10:
+		value += 0.5
+	elif alive_count <= 2:
+		value -= 0.2
+
+	# High toughness / wounds suggests elite unit
+	var toughness = int(stats.get("toughness", 4))
+	var wounds = int(stats.get("wounds", 1))
+	if toughness >= 8 or wounds >= 8:
+		value += 0.5  # Heavy hitters (vehicles, monsters)
+	if wounds >= 4:
+		value += 0.3
+
+	# Characters and leader-attached units are more threatening
+	if "CHARACTER" in keywords or "VEHICLE" in keywords or "MONSTER" in keywords:
+		value += 0.3
+
+	return clampf(value, 0.3, 3.0)
+
+static func _evaluate_position_threat(
+	pos: Vector2, threat_data: Array, own_unit: Dictionary
+) -> Dictionary:
+	"""Evaluate the threat level at a specific position from all enemy units.
+	Returns {charge_threat: float, shoot_threat: float, total_threat: float, threats: Array}
+	Higher values = more dangerous position."""
+	var charge_threat = 0.0
+	var shoot_threat = 0.0
+	var threats = []  # Details of which enemies threaten this position
+	var is_melee_focused = _unit_has_melee_weapons(own_unit) and not _unit_has_ranged_weapons(own_unit)
+
+	for td in threat_data:
+		var dist = pos.distance_to(td.centroid)
+
+		# Check charge threat zone (enemy could move + charge to reach here)
+		if td.has_melee and dist < td.charge_threat_px:
+			# How deep into the charge threat zone are we? (0.0 = edge, 1.0 = right on top)
+			var depth = 1.0 - (dist / td.charge_threat_px)
+			var charge_penalty = depth * td.unit_value * THREAT_CHARGE_PENALTY
+			# Melee units care less about being charged (they want to fight)
+			if is_melee_focused:
+				charge_penalty *= THREAT_MELEE_UNIT_IGNORE
+			charge_threat += charge_penalty
+			threats.append({
+				"enemy_id": td.unit_id,
+				"type": "charge",
+				"distance_inches": dist / PIXELS_PER_INCH,
+				"threat_range_inches": td.charge_threat_px / PIXELS_PER_INCH,
+				"penalty": charge_penalty
+			})
+
+		# Check shooting threat zone
+		if td.has_ranged and td.shoot_threat_px > 0 and dist < td.shoot_threat_px:
+			var depth = 1.0 - (dist / td.shoot_threat_px)
+			var shoot_penalty = depth * td.unit_value * THREAT_SHOOTING_PENALTY
+			shoot_threat += shoot_penalty
+			threats.append({
+				"enemy_id": td.unit_id,
+				"type": "shooting",
+				"distance_inches": dist / PIXELS_PER_INCH,
+				"threat_range_inches": td.shoot_threat_px / PIXELS_PER_INCH,
+				"penalty": shoot_penalty
+			})
+
+	var total_threat = charge_threat + shoot_threat
+
+	# Fragile units (low toughness, few wounds) get extra penalty in danger
+	var own_stats = own_unit.get("meta", {}).get("stats", {})
+	var own_toughness = int(own_stats.get("toughness", 4))
+	var own_wounds = int(own_stats.get("wounds", 1))
+	if own_toughness <= 3 or own_wounds <= 1:
+		total_threat *= THREAT_FRAGILE_BONUS
+
+	return {
+		"charge_threat": charge_threat,
+		"shoot_threat": shoot_threat,
+		"total_threat": total_threat,
+		"threats": threats
+	}
+
+static func _is_position_in_charge_threat(pos: Vector2, threat_data: Array) -> bool:
+	"""Quick check: is this position within any enemy's charge threat range?"""
+	for td in threat_data:
+		if not td.has_melee:
+			continue
+		var dist = pos.distance_to(td.centroid)
+		if dist < td.charge_threat_px:
+			return true
+	return false
+
+static func _find_safer_position(
+	current_pos: Vector2, desired_pos: Vector2, move_px: float,
+	threat_data: Array, own_unit: Dictionary, objectives: Array
+) -> Vector2:
+	"""Given a desired movement destination, try to find a nearby position that
+	reduces threat exposure while still making progress toward the objective.
+	Returns the adjusted position, or desired_pos if no safer alternative exists."""
+	var desired_threat = _evaluate_position_threat(desired_pos, threat_data, own_unit)
+	var current_threat = _evaluate_position_threat(current_pos, threat_data, own_unit)
+
+	# If the desired position is not significantly more dangerous, keep it
+	if desired_threat.total_threat <= 0.5 or desired_threat.total_threat <= current_threat.total_threat:
+		return desired_pos
+
+	# Only try to find safer positions if the threat increase is meaningful
+	if desired_threat.total_threat - current_threat.total_threat < 1.0:
+		return desired_pos
+
+	# Try positions along the same general direction but offset to reduce threat
+	var move_dir = (desired_pos - current_pos)
+	var move_dist = move_dir.length()
+	if move_dist < 1.0:
+		return desired_pos
+	move_dir = move_dir.normalized()
+
+	var best_pos = desired_pos
+	var best_score = -INF
+
+	# Score = progress toward target - threat penalty
+	# We want to still move forward but choose a less threatened position
+	var perp = Vector2(-move_dir.y, move_dir.x)
+
+	# Try: original, slightly left/right, shorter move, shorter + offset
+	var candidates = [desired_pos]
+
+	# Lateral offsets (dodge sideways)
+	for offset_mult in [1.0, -1.0, 2.0, -2.0]:
+		var offset = perp * (PIXELS_PER_INCH * 2.0) * offset_mult
+		var candidate = desired_pos + offset
+		candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate.y = clamp(candidate.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+		if current_pos.distance_to(candidate) <= move_px:
+			candidates.append(candidate)
+
+	# Shorter moves (stop just outside charge threat)
+	for fraction in [0.75, 0.5]:
+		var shorter = current_pos + move_dir * move_dist * fraction
+		shorter.x = clamp(shorter.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		shorter.y = clamp(shorter.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+		candidates.append(shorter)
+		# Also try shorter + lateral offset
+		for offset_mult in [1.0, -1.0]:
+			var offset = perp * (PIXELS_PER_INCH * 2.0) * offset_mult
+			var combo = shorter + offset
+			combo.x = clamp(combo.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+			combo.y = clamp(combo.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+			if current_pos.distance_to(combo) <= move_px:
+				candidates.append(combo)
+
+	# Find nearest objective for progress scoring
+	var target_obj = _nearest_objective_pos(desired_pos, objectives)
+
+	for candidate in candidates:
+		var cand_threat = _evaluate_position_threat(candidate, threat_data, own_unit)
+		# Progress = how much closer to the target objective compared to current position
+		var progress = 0.0
+		if target_obj != Vector2.INF:
+			var current_dist_to_obj = current_pos.distance_to(target_obj)
+			var cand_dist_to_obj = candidate.distance_to(target_obj)
+			progress = (current_dist_to_obj - cand_dist_to_obj) / PIXELS_PER_INCH  # Inches gained toward objective
+		# Score: progress matters, but reducing threat also matters
+		var score = progress * 1.5 - cand_threat.total_threat
+		if score > best_score:
+			best_score = score
+			best_pos = candidate
+
+	if best_pos != desired_pos:
+		print("AIDecisionMaker: Threat-adjusted position from (%.0f, %.0f) to (%.0f, %.0f) — threat %.1f -> %.1f" % [
+			desired_pos.x, desired_pos.y, best_pos.x, best_pos.y,
+			desired_threat.total_threat,
+			_evaluate_position_threat(best_pos, threat_data, own_unit).total_threat
+		])
+
+	return best_pos

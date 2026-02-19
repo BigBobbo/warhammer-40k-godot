@@ -372,3 +372,33 @@
 - No double-actions from race conditions between signal handlers and _evaluate_and_act
 - CP is correctly tracked across all stratagem uses
 - All reactive stratagem actions are validated and processed correctly by the phase system
+
+## AI Shooting Range Consideration in Movement (MOV-1)
+
+**Task:** Add shooting range consideration to movement -- don't move units out of their weapon range (MOV-1)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_get_enemies_in_weapon_range()`, `_clamp_move_for_weapon_range()`, and `_should_hold_for_shooting()` helpers in new MOV-1 section; modified `_select_movement_action()` to check if ranged units should hold position for shooting before moving; modified `_compute_movement_toward_target()` to accept optional `max_weapon_range` parameter and clamp movement to maintain weapon range on current targets
+- `40k/tests/unit/test_ai_movement_decisions.gd` - Added 6 new test cases for MOV-1: hold-for-shooting with enemies in range, move when no enemies in range, move when objective reachable this turn, clamp-move keeps enemy in range, get-enemies-in-weapon-range helper, high-priority objective overrides hold-for-shooting
+
+**Tests to run:**
+- Run `test_ai_movement_decisions.gd` via `godot --headless --script tests/unit/test_ai_movement_decisions.gd`
+  - Tests ranged unit with enemies in weapon range holds position for shooting when objective is far
+  - Tests ranged unit with NO enemies in range moves normally toward objectives
+  - Tests ranged unit moves to objective when objective is reachable this turn (even with enemies in range)
+  - Tests `_clamp_move_for_weapon_range()` shortens movement to keep nearest enemy in range
+  - Tests `_get_enemies_in_weapon_range()` correctly filters enemies by distance
+  - Tests high-priority nearby objective overrides the hold-for-shooting decision
+  - Tests all existing movement tests still pass (no regressions)
+- Run an AI vs AI game and observe that ranged units do not move away from enemies they can shoot at
+- Run a Human vs AI game and verify the AI maintains shooting positions when appropriate
+
+**What to look for:**
+- Ranged units with enemies in weapon range stay stationary when their assigned objective is far away
+- Ranged units still move toward objectives that are reachable this turn (objective capture > one turn of shooting)
+- High-priority objectives (score >= 10, within 2 turns) override the hold-for-shooting behavior
+- When a unit does move toward an objective, the movement is clamped so it stays within weapon range of the nearest enemy it can currently shoot
+- Units without ranged weapons are completely unaffected by this change
+- Units with ranged weapons but no enemies in range move normally
+- The movement clamping uses binary search to find the maximum safe move distance
+- Advance movements are not affected (advance decision already considers weapon range separately)
+- No regressions in existing movement tests (objective evaluation, hold/move, engaged units, advance decisions)
