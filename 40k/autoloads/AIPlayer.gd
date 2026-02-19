@@ -501,6 +501,10 @@ func _execute_next_action(player: int) -> void:
 		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
 			_execute_ai_movement(player, decision)
 
+		# Handle multi-step scout movement: BEGIN_SCOUT_MOVE with pre-computed destinations
+		elif decision.get("type") == "BEGIN_SCOUT_MOVE" and decision.has("_ai_scout_destinations"):
+			_execute_ai_scout_movement(player, decision)
+
 # --- AI Movement execution ---
 
 func _execute_ai_movement(player: int, decision: Dictionary) -> void:
@@ -601,6 +605,91 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 			"actor_unit_id": unit_id,
 			"player": player,
 			"_ai_description": "%s remains stationary (move failed: %s)" % [unit_name, reason]
+		})
+
+# --- AI Scout Movement execution ---
+
+func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
+	var unit_id = decision.get("unit_id", "")
+	var destinations = decision.get("_ai_scout_destinations", {})
+	var description = decision.get("_ai_description", "AI scout movement")
+	var unit_name = _get_unit_name(unit_id)
+
+	if unit_id == "" or destinations.is_empty():
+		print("AIPlayer: AI scout movement called with no unit or destinations")
+		return
+
+	print("AIPlayer: Executing AI scout movement for %s — staging %d models" % [unit_id, destinations.size()])
+
+	# Stage each model's destination using SET_SCOUT_MODEL_DEST
+	var staged_count = 0
+	var failed_count = 0
+	var failure_reasons = []
+
+	for model_id in destinations:
+		var dest = destinations[model_id]
+		var stage_action = {
+			"type": "SET_SCOUT_MODEL_DEST",
+			"unit_id": unit_id,
+			"model_id": model_id,
+			"player": player,
+			"destination": {"x": dest[0], "y": dest[1]}
+		}
+
+		_current_phase_actions += 1
+		var stage_result = NetworkIntegration.route_action(stage_action)
+
+		if stage_result != null and stage_result.get("success", false):
+			staged_count += 1
+			print("AIPlayer: Staged scout model %s to (%.0f, %.0f)" % [model_id, dest[0], dest[1]])
+		else:
+			failed_count += 1
+			var errors = stage_result.get("errors", []) if stage_result != null else []
+			var error_msg = errors[0] if errors is Array and errors.size() > 0 else str(stage_result.get("error", "unknown")) if stage_result != null else "null result"
+			failure_reasons.append(error_msg)
+			print("AIPlayer: Failed to stage scout model %s: %s" % [model_id, error_msg])
+
+	# Confirm the scout move (even if some models failed — partial moves are valid)
+	if staged_count > 0:
+		var confirm_action = {
+			"type": "CONFIRM_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": player
+		}
+
+		_current_phase_actions += 1
+		var confirm_result = NetworkIntegration.route_action(confirm_action)
+
+		if confirm_result != null and confirm_result.get("success", false):
+			print("AIPlayer: Confirmed scout movement for %s (%d/%d models staged)" % [
+				unit_id, staged_count, staged_count + failed_count])
+			_action_log.append({
+				"phase": GameState.get_current_phase(),
+				"action_type": "CONFIRM_SCOUT_MOVE",
+				"description": "%s (moved %d models)" % [description, staged_count],
+				"player": player
+			})
+		else:
+			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
+			push_error("AIPlayer: Failed to confirm scout movement for %s: %s" % [unit_id, error_msg])
+			# Fall back to skipping the scout move
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "SKIP_SCOUT_MOVE",
+				"unit_id": unit_id,
+				"player": player,
+				"_ai_description": "%s scout move skipped (confirm failed: %s)" % [unit_name, error_msg]
+			})
+	else:
+		# No models could be staged — skip the scout move
+		var reason = failure_reasons[0] if failure_reasons.size() > 0 else "unknown"
+		print("AIPlayer: No scout models staged for %s, skipping" % unit_id)
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "SKIP_SCOUT_MOVE",
+			"unit_id": unit_id,
+			"player": player,
+			"_ai_description": "%s scout move skipped (staging failed: %s)" % [unit_name, reason]
 		})
 
 # --- Helpers ---

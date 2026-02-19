@@ -403,6 +403,45 @@
 - Advance movements are not affected (advance decision already considers weapon range separately)
 - No regressions in existing movement tests (objective evaluation, hold/move, engaged units, advance decisions)
 
+## AI Scout Move Execution (SCOUT-1, SCOUT-2)
+
+**Task:** Implement scout move execution -- move scout units toward nearest uncontrolled objective (SCOUT-1, SCOUT-2)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Replaced scout skip stub `_decide_scout()` with full implementation that finds the best uncontrolled objective and computes model destinations; added `_get_scout_distance_from_unit()`, `_find_best_scout_objective()`, `_compute_scout_movement()`, `_try_scout_move_with_checks()`, `_is_position_too_close_to_enemies_scout()`, `_resolve_scout_collision()` helpers
+- `40k/autoloads/AIPlayer.gd` - Added `_execute_ai_scout_movement()` handler for multi-step scout movement (BEGIN_SCOUT_MOVE -> SET_SCOUT_MODEL_DEST -> CONFIRM_SCOUT_MOVE); added dispatch in `_execute_next_action()` for `BEGIN_SCOUT_MOVE` with `_ai_scout_destinations`
+- `40k/tests/unit/test_ai_scout_decisions.gd` - New test file for AI scout movement decisions
+
+**Tests to run:**
+- Run `test_ai_scout_decisions.gd` via `godot --headless --script tests/unit/test_ai_scout_decisions.gd`
+  - Tests `_decide_scout` returns BEGIN_SCOUT_MOVE with pre-computed model destinations
+  - Tests scout moves toward nearest uncontrolled no-man's-land objective
+  - Tests scout skips when no objectives exist
+  - Tests scout skips or uses reduced fraction when enemy blocks full move (>9" rule)
+  - Tests scout prefers uncontrolled objectives over already-held ones
+  - Tests scout prefers closer uncontrolled objectives
+  - Tests END_SCOUT_PHASE returned when all scouts done
+  - Tests CONFIRM_SCOUT_MOVE fallback
+  - Tests `_get_scout_distance_from_unit()` with dict ability, string ability, and non-scout
+  - Tests `_find_best_scout_objective()` prefers no-man's-land, avoids home objectives
+  - Tests `_compute_scout_movement()` basic movement, distance limit, board bounds
+  - Tests `_is_position_too_close_to_enemies_scout()` at various distances around 9" threshold
+  - Tests fractional movement reduction when full move is blocked by enemy proximity
+- Run existing `test_scout_moves.gd` (via GUT test runner) to confirm no regressions in ScoutPhase validation
+- Run an AI vs AI game and observe AI units now execute scout moves toward objectives instead of skipping
+
+**What to look for:**
+- AI scout units move toward the nearest uncontrolled no-man's-land objective
+- Scout movement respects the unit's Scout X" distance limit
+- All model destinations end >9" from all enemy models (edge-to-edge)
+- Scout units prefer uncontrolled objectives over already-held ones
+- Scout units prefer no-man's-land objectives over home objectives
+- When full move would violate the 9" rule, a shorter fractional move is used
+- When no valid move exists, the scout move is skipped gracefully
+- Multi-step flow works: BEGIN_SCOUT_MOVE -> SET_SCOUT_MODEL_DEST per model -> CONFIRM_SCOUT_MOVE
+- If staging fails, the scout move is skipped (not stuck in an infinite loop)
+- No regressions in human player scout move functionality
+- No infinite loops during scout phase
+
 ## AI Enemy Threat Range Awareness (AI-TACTIC-4, MOV-2)
 
 **Task:** Add enemy threat range awareness -- calculate charge threat zones and shooting ranges, avoid moving into danger
