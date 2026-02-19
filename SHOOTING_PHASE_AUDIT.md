@@ -214,6 +214,13 @@ The following weapon keywords exist in 10th edition rules but have **no implemen
 
 **Current state:** The `dice_rolled` signal emits dice blocks locally. The remote player receives the dice results through action result broadcasts, but the real-time dice roll animation/display may not be synchronized.
 
+- **Resolution:** Implemented in T5-MP5. The root cause was that `resolution_start` and `weapon_progress` informational dice blocks were emitted locally via signal but not included in broadcast results, so the remote player's dice log missed these context headers. Fixed by:
+  - Including `resolution_start` block in the `dice` array returned by `_process_resolve_shooting()` so it's broadcast to remote
+  - Including `weapon_progress` block in the `dice` array returned by `_resolve_next_weapon()` for sequential weapon resolution
+  - Adding proper `resolution_start` context handler in `ShootingController._on_dice_rolled()` (was previously falling through to generic roll display)
+  - Enhanced NetworkManager dice sync logging to show which contexts are being re-emitted
+  - Works across both ENet RPC and WebSocket relay transport modes
+
 ---
 
 ## 4. Code Quality & Architecture Issues
