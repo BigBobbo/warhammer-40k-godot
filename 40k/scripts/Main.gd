@@ -70,6 +70,11 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 
+# Deployment unit hover preview (T5-UX11)
+var _hovered_deploy_unit_id: String = ""
+var _deploy_hover_tooltip: PanelContainer = null
+var _deploy_hover_tooltip_label: RichTextLabel = null
+
 # Game Event Log UI elements
 var game_log_panel: PanelContainer
 var game_log_label: RichTextLabel
@@ -227,6 +232,9 @@ func _ready() -> void:
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
+
+	# Setup deployment hover tooltip (T5-UX11)
+	_setup_deploy_hover_tooltip()
 
 	# Setup Game Event Log panel
 	_setup_game_log_panel()
@@ -2304,6 +2312,8 @@ func setup_scoring_controller() -> void:
 
 func connect_signals() -> void:
 	unit_list.item_selected.connect(_on_unit_selected)
+	unit_list.gui_input.connect(_on_unit_list_gui_input)
+	unit_list.mouse_exited.connect(_on_unit_list_mouse_exited)
 	undo_button.pressed.connect(_on_undo_pressed)
 	reset_button.pressed.connect(_on_reset_pressed)
 	confirm_button.pressed.connect(_on_confirm_pressed)
@@ -2859,7 +2869,187 @@ func update_ui() -> void:
 				status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
 			phase_action_button.disabled = false
 
+# ═══════════════════════════════════════════════════════
+# T5-UX11: DEPLOYMENT UNIT HOVER PREVIEW
+# ═══════════════════════════════════════════════════════
+
+func _setup_deploy_hover_tooltip() -> void:
+	"""Create the tooltip panel for showing unit base info on hover in the deployment list."""
+	_deploy_hover_tooltip = PanelContainer.new()
+	_deploy_hover_tooltip.name = "DeployHoverTooltip"
+	_deploy_hover_tooltip.visible = false
+	_deploy_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deploy_hover_tooltip.z_index = 100
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.07, 0.05, 0.95)
+	style.border_color = WhiteDwarfTheme.WH_GOLD
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(8)
+	_deploy_hover_tooltip.add_theme_stylebox_override("panel", style)
+
+	_deploy_hover_tooltip_label = RichTextLabel.new()
+	_deploy_hover_tooltip_label.name = "TooltipLabel"
+	_deploy_hover_tooltip_label.bbcode_enabled = true
+	_deploy_hover_tooltip_label.fit_content = true
+	_deploy_hover_tooltip_label.scroll_active = false
+	_deploy_hover_tooltip_label.custom_minimum_size = Vector2(220, 0)
+	_deploy_hover_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deploy_hover_tooltip_label.add_theme_color_override("default_color", WhiteDwarfTheme.WH_PARCHMENT)
+	_deploy_hover_tooltip_label.add_theme_font_size_override("normal_font_size", 12)
+	_deploy_hover_tooltip.add_child(_deploy_hover_tooltip_label)
+
+	# Add to HUD_Right so it layers on top of the unit list
+	var hud_right = get_node_or_null("HUD_Right")
+	if hud_right:
+		hud_right.add_child(_deploy_hover_tooltip)
+	else:
+		add_child(_deploy_hover_tooltip)
+
+	print("[T5-UX11] Deploy hover tooltip created")
+
+func _on_unit_list_gui_input(event: InputEvent) -> void:
+	"""Detect mouse hover over deployment unit list items for base preview."""
+	if not event is InputEventMouseMotion:
+		return
+	if current_phase != GameStateData.Phase.DEPLOYMENT:
+		return
+	if deployment_controller and deployment_controller.is_placing():
+		_hide_deploy_hover_tooltip()
+		return
+
+	# ItemList.get_item_at_position() returns the index at given local position
+	var index = unit_list.get_item_at_position(event.position, true)
+	if index >= 0 and not unit_list.is_item_disabled(index):
+		var unit_id = unit_list.get_item_metadata(index)
+		if unit_id and unit_id is String and unit_id != "":
+			if unit_id != _hovered_deploy_unit_id:
+				_hovered_deploy_unit_id = unit_id
+				_show_deploy_hover_tooltip(unit_id, index)
+			return
+
+	# No valid item under cursor
+	if _hovered_deploy_unit_id != "":
+		_hovered_deploy_unit_id = ""
+		_hide_deploy_hover_tooltip()
+
+func _on_unit_list_mouse_exited() -> void:
+	"""Clear hover state when mouse leaves the unit list."""
+	if _hovered_deploy_unit_id != "":
+		_hovered_deploy_unit_id = ""
+		_hide_deploy_hover_tooltip()
+
+func _show_deploy_hover_tooltip(unit_id: String, item_index: int) -> void:
+	"""Build and display the base preview tooltip for the hovered unit."""
+	if not _deploy_hover_tooltip or not _deploy_hover_tooltip_label:
+		return
+
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		_hide_deploy_hover_tooltip()
+		return
+
+	var unit_name = unit_data.get("meta", {}).get("name", unit_id)
+	var models = unit_data.get("models", [])
+	var model_count = models.size()
+	var keywords = unit_data.get("meta", {}).get("keywords", [])
+
+	# Get base size info from the first model (representative)
+	var base_info = ""
+	if models.size() > 0:
+		var first_model = models[0]
+		var base_mm = first_model.get("base_mm", 0)
+		var base_type = first_model.get("base_type", "circular")
+
+		if base_type == "circular":
+			base_info = "%dmm round" % base_mm
+		elif base_type == "oval":
+			var dims = first_model.get("base_dimensions", {})
+			var length = dims.get("length", base_mm)
+			var width = dims.get("width", base_mm)
+			base_info = "%dx%dmm oval" % [length, width]
+		elif base_type == "rectangular":
+			var dims = first_model.get("base_dimensions", {})
+			var length = dims.get("length", base_mm)
+			var width = dims.get("width", base_mm)
+			base_info = "%dx%dmm rectangular" % [length, width]
+		else:
+			base_info = "%dmm" % base_mm
+
+	# Build tooltip BBCode text
+	var bbcode = "[b][color=#D49761]%s[/color][/b]\n" % unit_name
+	bbcode += "[color=#EBE1C7]Models:[/color] %d\n" % model_count
+	if base_info != "":
+		bbcode += "[color=#EBE1C7]Base:[/color] %s\n" % base_info
+
+	# Special deployment rules
+	var special_rules = []
+	if GameState.unit_is_fortification(unit_id):
+		special_rules.append("[color=#9A1115]FORTIFICATION[/color] — must deploy")
+	if GameState.unit_has_deep_strike(unit_id):
+		special_rules.append("[color=#6A9BD2]Deep Strike[/color] available")
+	if GameState.unit_has_infiltrators(unit_id):
+		special_rules.append("[color=#6AD26A]Infiltrators[/color] — deploy anywhere >9\"")
+	if "CHARACTER" in keywords:
+		special_rules.append("[color=#D49761]CHARACTER[/color] — can lead units")
+	if unit_data.has("transport_data"):
+		var capacity = unit_data.get("transport_data", {}).get("capacity", 0)
+		if capacity > 0:
+			special_rules.append("[color=#D49761]TRANSPORT[/color] — %d capacity" % capacity)
+
+	if special_rules.size() > 0:
+		bbcode += "\n"
+		for rule in special_rules:
+			bbcode += rule + "\n"
+
+	_deploy_hover_tooltip_label.text = bbcode
+
+	# Position tooltip to the left of the unit list
+	_deploy_hover_tooltip.visible = true
+	# Wait a frame for the label to resize, then position
+	await get_tree().process_frame
+	if _hovered_deploy_unit_id == unit_id:
+		_position_deploy_hover_tooltip(item_index)
+
+func _position_deploy_hover_tooltip(item_index: int) -> void:
+	"""Position the tooltip to the left of the unit list panel."""
+	if not _deploy_hover_tooltip or not _deploy_hover_tooltip.visible:
+		return
+
+	# Get the unit list's global rect
+	var list_rect = unit_list.get_global_rect()
+	var tooltip_size = _deploy_hover_tooltip.size
+
+	# Position to the left of the unit list, vertically aligned with the item
+	var item_rect = unit_list.get_item_rect(item_index)
+	var y_pos = list_rect.position.y + item_rect.position.y
+	var x_pos = list_rect.position.x - tooltip_size.x - 8
+
+	# Clamp to screen bounds
+	var viewport_size = get_viewport().get_visible_rect().size
+	y_pos = clamp(y_pos, 4, viewport_size.y - tooltip_size.y - 4)
+	if x_pos < 4:
+		# Not enough room to the left, position below the list item instead
+		x_pos = list_rect.position.x
+		y_pos = list_rect.position.y + item_rect.position.y + item_rect.size.y + 4
+
+	_deploy_hover_tooltip.global_position = Vector2(x_pos, y_pos)
+
+func _hide_deploy_hover_tooltip() -> void:
+	"""Hide the deployment hover tooltip."""
+	if _deploy_hover_tooltip:
+		_deploy_hover_tooltip.visible = false
+
+# ═══════════════════════════════════════════════════════
+# END T5-UX11
+# ═══════════════════════════════════════════════════════
+
 func _on_unit_selected(index: int) -> void:
+	# Hide hover tooltip when a unit is selected for deployment
+	_hide_deploy_hover_tooltip()
+	_hovered_deploy_unit_id = ""
+
 	if deployment_controller and deployment_controller.is_placing():
 		return
 
@@ -4051,6 +4241,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	current_phase = new_phase
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
+
+	# Hide deployment hover tooltip on phase change (T5-UX11)
+	_hide_deploy_hover_tooltip()
+	_hovered_deploy_unit_id = ""
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
