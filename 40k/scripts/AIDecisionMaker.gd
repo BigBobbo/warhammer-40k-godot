@@ -36,6 +36,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		print("  Available: %s" % a.get("type", "?"))
 
 	match phase:
+		GameStateData.Phase.FORMATIONS:
+			return _decide_formations(snapshot, available_actions, player)
 		GameStateData.Phase.DEPLOYMENT:
 			return _decide_deployment(snapshot, available_actions, player)
 		GameStateData.Phase.SCOUT:
@@ -59,6 +61,22 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 				if t.begins_with("END_"):
 					return {"type": t, "_ai_description": "End phase (fallback)"}
 			return {}
+
+# =============================================================================
+# FORMATIONS PHASE
+# =============================================================================
+
+static func _decide_formations(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# AI strategy: confirm formations immediately (no leader attachments, transports, or reserves for now)
+	# Future improvement: evaluate leader attachments, transport embarkations, and reserve declarations
+	for action in available_actions:
+		if action.get("type") == "CONFIRM_FORMATIONS":
+			return {
+				"type": "CONFIRM_FORMATIONS",
+				"player": player,
+				"_ai_description": "AI confirms battle formations"
+			}
+	return {}
 
 # =============================================================================
 # DEPLOYMENT PHASE
