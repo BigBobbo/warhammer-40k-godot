@@ -4145,6 +4145,14 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.CHARGE:
 			action = {"type": "END_CHARGE", "player": active_player}
 		GameStateData.Phase.FIGHT:
+			# T5-UX7: Check for unfought units and show confirmation dialog
+			var fight_phase_instance = PhaseManager.get_current_phase_instance()
+			if fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
+				var unfought = fight_phase_instance.get_unfought_eligible_units()
+				if unfought.size() > 0:
+					print("Main: T5-UX7: %d unfought units remain, showing confirmation dialog" % unfought.size())
+					_show_end_fight_confirmation_dialog(unfought, active_player)
+					return
 			action = {"type": "END_FIGHT", "player": active_player}
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
@@ -4525,6 +4533,40 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 				ToastManager.show_error("Fight action failed: %s" % error_msg)
 	else:
 		print("Main: Unexpected result from fight action")
+
+func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: int) -> void:
+	"""T5-UX7: Show confirmation dialog before ending fight phase with unfought units"""
+	var dialog_script = load("res://dialogs/EndFightConfirmationDialog.gd")
+	if not dialog_script:
+		push_error("Main: T5-UX7: Failed to load EndFightConfirmationDialog.gd")
+		# Fall through and end phase anyway
+		var action = {"type": "END_FIGHT", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unfought_units)
+	dialog.end_fight_confirmed.connect(_on_end_fight_confirmed.bind(active_player))
+	dialog.end_fight_cancelled.connect(_on_end_fight_cancelled)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: T5-UX7: End fight confirmation dialog shown")
+
+func _on_end_fight_confirmed(active_player: int) -> void:
+	"""T5-UX7: Player confirmed ending fight phase despite unfought units"""
+	print("Main: T5-UX7: Player confirmed end fight phase")
+	var action = {"type": "END_FIGHT", "player": active_player}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: T5-UX7: Failed to end fight phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: T5-UX7: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_end_fight_cancelled() -> void:
+	"""T5-UX7: Player cancelled ending fight phase"""
+	print("Main: T5-UX7: Player cancelled end fight phase, returning to fight")
 
 func _re_request_fight_movement(action: Dictionary, movement_type: String) -> void:
 	"""T5-MP2: Re-emit pile_in_required or consolidate_required so the dialog reopens after server rejection"""

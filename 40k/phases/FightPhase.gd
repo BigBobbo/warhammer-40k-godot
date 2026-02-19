@@ -2563,6 +2563,28 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 	emit_signal("phase_completed")
 	return create_result(true, [])
 
+func get_unfought_eligible_units() -> Array:
+	"""Return array of {unit_id, unit_name, player, subphase} for units that haven't fought yet.
+	Used by the end-fight-phase confirmation dialog (T5-UX7)."""
+	var unfought = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for player_key in ["1", "2"]:
+		for unit_id in fights_first_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
+				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Fights First"})
+		for unit_id in normal_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
+				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Remaining Combats"})
+		for unit_id in fights_last_sequence.get(player_key, []):
+			if unit_id not in units_that_fought:
+				var unit_name = all_units.get(unit_id, {}).get("meta", {}).get("name", unit_id)
+				unfought.append({"unit_id": unit_id, "unit_name": unit_name, "player": int(player_key), "subphase": "Fights Last"})
+
+	return unfought
+
 # State access methods
 func get_current_fight_state() -> Dictionary:
 	"""Return current fight state for UI restoration and external access"""
