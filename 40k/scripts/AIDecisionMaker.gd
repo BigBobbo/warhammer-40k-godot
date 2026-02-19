@@ -6,6 +6,7 @@ extends RefCounted
 # All methods are static for use without instantiation.
 
 # --- Constants ---
+const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const PIXELS_PER_INCH: float = 40.0
 const ENGAGEMENT_RANGE_PX: float = 40.0  # 1 inch
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
@@ -47,6 +48,13 @@ const DAMAGE_WASTE_PENALTY_MODERATE: float = 0.7  # D2 weapon vs 1W models
 
 # Anti-keyword special rule bonus
 const ANTI_KEYWORD_BONUS: float = 1.5            # Weapon has anti-X matching target type
+
+# Weapon keyword scoring constants (SHOOT-5)
+# Critical hit probability on a d6 (unmodified 6)
+const CRIT_PROBABILITY: float = 1.0 / 6.0
+# Rapid Fire / Melta: probability of being within half range when we know target is in range.
+# Conservative estimate — assume 50% chance we're at half range unless we can measure.
+const HALF_RANGE_FALLBACK_PROB: float = 0.5
 
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
@@ -817,6 +825,11 @@ static func _decide_engaged_unit(
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	var friendly_units = _get_units_for_player(snapshot, player)
 
+	# --- Pre-check Fall Back and X abilities (AI-GAP-4) ---
+	var all_units = snapshot.get("units", {})
+	var fb_and_charge = AIAbilityAnalyzerData.can_fall_back_and_charge(unit_id, unit, all_units)
+	var fb_and_shoot = AIAbilityAnalyzerData.can_fall_back_and_shoot(unit_id, unit, all_units)
+
 	if on_objective:
 		# Check if our OC at this objective would be reduced by falling back
 		var friendly_oc_here = _get_oc_at_position(
@@ -827,28 +840,57 @@ static func _decide_engaged_unit(
 		)
 
 		# If we're winning the OC war or tied, stay and hold
+		# Exception: if the unit has Fall Back and Charge, falling back may be
+		# tactically better (can charge back in, potentially killing the enemy)
 		if friendly_oc_here >= enemy_oc_here and "REMAIN_STATIONARY" in move_types:
-			print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
-			return {
-				"type": "REMAIN_STATIONARY",
-				"actor_unit_id": unit_id,
-				"_ai_description": "%s holds %s while engaged (OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
-			}
+			if fb_and_charge:
+				print("AIDecisionMaker: %s engaged on %s, winning OC (%d vs %d) but has Fall Back and Charge — may fall back to re-engage" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+			else:
+				print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s holds %s while engaged (OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
+				}
 
 		# If we're losing OC but falling back would lose the objective entirely
 		var oc_without_us = friendly_oc_here - unit_oc
 		if oc_without_us <= 0 and "REMAIN_STATIONARY" in move_types:
-			# We're the only one holding it — stay even if losing OC war
-			print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
-			return {
-				"type": "REMAIN_STATIONARY",
-				"actor_unit_id": unit_id,
-				"_ai_description": "%s stays on %s (only holder, OC: %d)" % [unit_name, obj_id_held, unit_oc]
-			}
+			if fb_and_charge:
+				# With Fall Back and Charge we can charge back onto the objective
+				print("AIDecisionMaker: %s engaged on %s, only holder but has Fall Back and Charge — will fall back to re-engage" % [unit_name, obj_id_held])
+			else:
+				# We're the only one holding it — stay even if losing OC war
+				print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s stays on %s (only holder, OC: %d)" % [unit_name, obj_id_held, unit_oc]
+				}
+
+	# --- Ability-aware fall back decision (AI-GAP-4) ---
+	var has_fb_ability = fb_and_charge or fb_and_shoot
+
+	if has_fb_ability:
+		var ability_text = []
+		if fb_and_charge:
+			ability_text.append("charge")
+		if fb_and_shoot:
+			ability_text.append("shoot")
+		var ability_summary = " + ".join(ability_text)
+		print("AIDecisionMaker: %s has Fall Back and %s — fall back is more attractive" % [unit_name, ability_summary])
 
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
-		var reason = "not on objective" if not on_objective else "losing OC war"
+		var base_reason = "not on objective" if not on_objective else "losing OC war"
+
+		# If the unit has Fall Back and X, enrich the reason
+		var reason = base_reason
+		if fb_and_charge:
+			reason = "%s, can charge back (Fall Back and Charge)" % base_reason
+		elif fb_and_shoot:
+			reason = "%s, can still shoot (Fall Back and Shoot)" % base_reason
+
 		# Compute fall-back destinations for all models (MOV-6)
 		var fall_back_destinations = _compute_fall_back_destinations(
 			unit, unit_id, snapshot, enemies, objectives, player
@@ -1187,6 +1229,28 @@ static func _should_unit_advance(
 
 	if not can_reach_advance:
 		return false  # Can't reach even with advance
+
+	# --- AI-GAP-4: Check for Advance and X abilities ---
+	# If the unit can advance and still shoot/charge, advancing has no downside
+	var unit_id = unit.get("id", "")
+	# Note: we check flags directly since leader bonuses should already be applied
+	# by UnitAbilityManager during the movement phase
+	var adv_and_shoot = unit.get("flags", {}).get("effect_advance_and_shoot", false)
+	var adv_and_charge = unit.get("flags", {}).get("effect_advance_and_charge", false)
+
+	# Also check via description-based detection for broader coverage
+	if not adv_and_shoot:
+		adv_and_shoot = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "shoot")
+	if not adv_and_charge:
+		adv_and_charge = AIAbilityAnalyzerData.unit_has_ability_containing(unit, "advance") and AIAbilityAnalyzerData.unit_has_ability_containing(unit, "charge")
+
+	if adv_and_shoot:
+		print("AIDecisionMaker: %s has Advance and Shoot — advancing has no shooting penalty" % unit.get("meta", {}).get("name", unit_id))
+		return true  # No downside to advancing
+
+	if adv_and_charge:
+		print("AIDecisionMaker: %s has Advance and Charge — advancing allows charge" % unit.get("meta", {}).get("name", unit_id))
+		return true  # Can still charge after advancing
 
 	# Units without ranged weapons should always advance
 	if not has_ranged:
@@ -2265,12 +2329,13 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	"""
 	Estimate expected damage of a weapon against a target.
 	Similar to _score_shooting_target but returns raw expected damage without bonuses,
-	and checks range.
+	and checks range. Includes weapon keyword modifiers (SHOOT-5).
 	"""
 	# Range check
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
@@ -2302,12 +2367,40 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var p_wound = _wound_probability(strength, toughness)
 	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
+	# --- Apply weapon keyword modifiers (SHOOT-5) ---
+	var kw_mods = _apply_weapon_keyword_modifiers(
+		weapon, target_unit,
+		attacks, p_hit, p_wound, p_unsaved, damage,
+		strength, toughness, target_save, ap, target_invuln,
+		dist_inches, weapon_range_inches
+	)
+	attacks = kw_mods["attacks"]
+	p_hit = kw_mods["p_hit"]
+	p_wound = kw_mods["p_wound"]
+	p_unsaved = kw_mods["p_unsaved"]
+	damage = kw_mods["damage"]
+
 	# Scale by number of alive models that carry this weapon
 	var model_count = _get_alive_models(shooter_unit).size()
 	if model_count < 1:
 		model_count = 1
 
 	var raw_damage = attacks * p_hit * p_wound * p_unsaved * damage * model_count
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate damage estimates ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(target_unit)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		raw_damage *= fnp_multiplier
+
+	# --- AI-GAP-4: Factor in shooter's leader ability bonuses ---
+	if not shooter_unit.is_empty():
+		var shooter_id = shooter_unit.get("id", "")
+		if shooter_id != "":
+			var all_units_for_bonus = snapshot.get("units", {})
+			var offensive_mult = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(shooter_id, shooter_unit, all_units_for_bonus)
+			if offensive_mult > 1.0:
+				raw_damage *= offensive_mult
 
 	# Apply weapon-target efficiency multiplier to guide weapon allocation
 	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
@@ -2503,6 +2596,13 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		# Units without melee weapons should generally not charge (except for objective play)
 		var melee_bonus = 1.0 if has_melee else 0.3
 
+		# --- AI-GAP-4: Check if charger has melee ability bonuses ---
+		var all_units_charge = snapshot.get("units", {})
+		var charger_melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(uid, unit, all_units_charge)
+		if charger_melee_mult > 1.0:
+			melee_bonus *= charger_melee_mult
+			print("AIDecisionMaker: %s has melee leader bonuses (mult=%.2f)" % [unit_name, charger_melee_mult])
+
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
 			var dist = target_info.distance_inches
@@ -2619,6 +2719,23 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	if target_toughness <= 3:
 		score += 1.0
 
+	# --- AI-GAP-4: Factor in charger's melee leader bonuses ---
+	var charger_id = charger.get("id", "")
+	if charger_id != "":
+		var all_units = snapshot.get("units", {})
+		var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(charger_id, charger, all_units)
+		if melee_mult > 1.0:
+			score *= melee_mult
+
+	# --- AI-GAP-4: Factor in target's defensive abilities ---
+	var target_id_for_def = target.get("id", "")
+	if target_id_for_def != "":
+		var all_units_def = snapshot.get("units", {})
+		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id_for_def, target, all_units_def)
+		if def_mult > 1.0:
+			# Higher defensive multiplier = harder to kill = lower score
+			score /= def_mult
+
 	return max(0.0, score)
 
 static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -> float:
@@ -2670,6 +2787,12 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 		var p_wound = _wound_probability(charger_strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
 		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate melee damage estimates ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(defender)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		best_damage *= fnp_multiplier
 
 	return best_damage
 
@@ -4039,11 +4162,221 @@ static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
 
 	return best_invuln
 
+# =============================================================================
+# WEAPON KEYWORD AWARENESS (SHOOT-5)
+# =============================================================================
+# Adjusts expected damage calculation to account for weapon special rules:
+# Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained Hits,
+# Lethal Hits, and Devastating Wounds.
+# Returns a Dictionary with adjusted values:
+#   {attacks, p_hit, p_wound, p_unsaved, damage}
+
+static func _apply_weapon_keyword_modifiers(
+	weapon: Dictionary, target_unit: Dictionary,
+	base_attacks: float, base_p_hit: float, base_p_wound: float,
+	base_p_unsaved: float, base_damage: float,
+	strength: int, toughness: int,
+	target_save: int, ap: int, target_invuln: int,
+	dist_inches: float, weapon_range_inches: float
+) -> Dictionary:
+	"""
+	Apply weapon keyword modifiers to the base expected-damage components.
+	All adjustments are applied as mathematical expectation modifiers
+	so the AI can compare weapons fairly.
+	"""
+	var attacks = base_attacks
+	var p_hit = base_p_hit
+	var p_wound = base_p_wound
+	var p_unsaved = base_p_unsaved
+	var damage = base_damage
+	var special_rules = weapon.get("special_rules", "").to_lower()
+
+	# --- TORRENT: auto-hit, p_hit = 1.0 ---
+	if "torrent" in special_rules:
+		p_hit = 1.0
+
+	# --- BLAST: bonus attacks vs large units ---
+	if "blast" in special_rules:
+		var alive_models = _get_alive_models(target_unit).size()
+		if alive_models >= 11:
+			attacks += 2.0
+		elif alive_models >= 6:
+			attacks += 1.0
+		# Blast also enforces minimum 3 attacks vs 6+ model units
+		if alive_models >= 6 and attacks < 3.0:
+			attacks = 3.0
+
+	# --- RAPID FIRE X: bonus attacks at half range ---
+	var rapid_fire_val = _parse_rapid_fire_value(special_rules)
+	if rapid_fire_val > 0:
+		var at_half_range = _is_within_half_range(dist_inches, weapon_range_inches)
+		if at_half_range == 1:
+			# Definitely within half range
+			attacks += float(rapid_fire_val)
+		elif at_half_range == -1:
+			# Definitely not within half range — no bonus
+			pass
+		else:
+			# Unknown distance — use expected value (probability-weighted)
+			attacks += float(rapid_fire_val) * HALF_RANGE_FALLBACK_PROB
+
+	# --- MELTA X: bonus damage at half range ---
+	var melta_val = _parse_melta_value(special_rules)
+	if melta_val > 0:
+		var at_half_range = _is_within_half_range(dist_inches, weapon_range_inches)
+		if at_half_range == 1:
+			damage += float(melta_val)
+		elif at_half_range == -1:
+			pass
+		else:
+			damage += float(melta_val) * HALF_RANGE_FALLBACK_PROB
+
+	# --- ANTI-KEYWORD X+: improved wound probability vs matching targets ---
+	var anti_data = _parse_anti_keyword_data(special_rules)
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	for entry in anti_data:
+		var anti_kw = entry["keyword"]  # e.g. "INFANTRY"
+		var threshold = entry["threshold"]  # e.g. 4
+		for tkw in target_keywords:
+			if tkw.to_upper() == anti_kw:
+				# Anti-keyword: critical wounds on threshold+ instead of just 6+
+				# The wound probability becomes: normal wounds on non-crit + auto-wound on anti-crit
+				# p_wound_anti = (1 - p_crit_anti) * base_p_wound + p_crit_anti * 1.0
+				# where p_crit_anti = (7 - threshold) / 6
+				var p_crit_anti = (7.0 - threshold) / 6.0
+				var new_p_wound = (1.0 - p_crit_anti) * p_wound + p_crit_anti
+				if new_p_wound > p_wound:
+					p_wound = new_p_wound
+				break  # Only apply the best matching anti-keyword
+
+	# --- SUSTAINED HITS X: extra hits on critical hit rolls (6s) ---
+	var sustained_val = _parse_sustained_hits_value(special_rules)
+	if sustained_val > 0.0:
+		# On a critical hit (1/6 chance per hit roll), gain sustained_val extra hits.
+		# Expected extra hits per attack = CRIT_PROBABILITY * sustained_val
+		# These extra hits still need to wound and get past saves.
+		# Effective attack multiplier: attacks * (1 + CRIT_PROBABILITY * sustained_val * p_hit_share)
+		# But since these are additional hits (not attacks), and p_hit is already factored:
+		# Total effective hits = attacks * p_hit + attacks * CRIT_PROBABILITY * sustained_val
+		# (critical hits are a subset of p_hit, but they generate EXTRA hits)
+		# Simplification: multiply attacks by (1 + CRIT_PROBABILITY * sustained_val / p_hit) if p_hit > 0
+		# More precisely: effective_hits = attacks * p_hit * (1 + CRIT_PROBABILITY / p_hit * sustained_val)
+		#               = attacks * (p_hit + CRIT_PROBABILITY * sustained_val)
+		# We model this as an attack multiplier so it flows through the rest of the pipeline.
+		if p_hit > 0:
+			var hit_multiplier = (p_hit + CRIT_PROBABILITY * sustained_val) / p_hit
+			attacks *= hit_multiplier
+
+	# --- LETHAL HITS: critical hits (6s) auto-wound ---
+	if "lethal hits" in special_rules:
+		# On a 6 to hit, the attack auto-wounds (skips wound roll).
+		# Expected contribution from lethal hits per attack:
+		#   CRIT_PROBABILITY * p_unsaved * damage (they auto-wound, so p_wound=1 for these)
+		# Non-lethal hits contribute:
+		#   (p_hit - CRIT_PROBABILITY) * p_wound * p_unsaved * damage
+		# Total expected damage per attack:
+		#   CRIT_PROBABILITY * 1.0 * p_unsaved * damage + (p_hit - CRIT_PROBABILITY) * p_wound * p_unsaved * damage
+		# = p_unsaved * damage * (CRIT_PROBABILITY + (p_hit - CRIT_PROBABILITY) * p_wound)
+		# We model this by adjusting p_wound to an effective value:
+		if p_hit > 0:
+			var effective_p_wound = (CRIT_PROBABILITY + (p_hit - CRIT_PROBABILITY) * p_wound) / p_hit
+			p_wound = effective_p_wound
+
+	# --- DEVASTATING WOUNDS: critical wounds (6s) bypass saves ---
+	if "devastating wounds" in special_rules:
+		# On an unmodified 6 to wound, the attack bypasses saves entirely (mortal wound).
+		# Expected contribution from devastating wounds per wound:
+		#   CRIT_PROBABILITY * 1.0 * damage (p_unsaved = 1.0 for these)
+		# Non-devastating wounds contribute:
+		#   (p_wound - CRIT_PROBABILITY) * p_unsaved * damage
+		# Total = damage * (CRIT_PROBABILITY + (p_wound - CRIT_PROBABILITY) * p_unsaved)
+		# Model by adjusting p_unsaved to an effective value:
+		if p_wound > 0:
+			var effective_p_unsaved = (CRIT_PROBABILITY + (p_wound - CRIT_PROBABILITY) * p_unsaved) / p_wound
+			p_unsaved = effective_p_unsaved
+
+	return {
+		"attacks": attacks,
+		"p_hit": p_hit,
+		"p_wound": p_wound,
+		"p_unsaved": p_unsaved,
+		"damage": damage
+	}
+
+static func _is_within_half_range(dist_inches: float, weapon_range_inches: float) -> int:
+	"""
+	Determine if a target is within half range of a weapon.
+	Returns: 1 = definitely within half range, -1 = definitely not, 0 = unknown.
+	"""
+	if dist_inches <= 0.0 or weapon_range_inches <= 0.0:
+		return 0  # Can't determine — use fallback
+	var half_range = weapon_range_inches / 2.0
+	if dist_inches <= half_range:
+		return 1
+	else:
+		return -1
+
+static func _parse_rapid_fire_value(special_rules_lower: String) -> int:
+	"""Parse 'rapid fire X' from lowercased special_rules string. Returns 0 if not found."""
+	var regex = RegEx.new()
+	regex.compile("rapid\\s*fire\\s*(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		return result.get_string(1).to_int()
+	return 0
+
+static func _parse_melta_value(special_rules_lower: String) -> int:
+	"""Parse 'melta X' from lowercased special_rules string. Returns 0 if not found."""
+	var regex = RegEx.new()
+	regex.compile("melta\\s*(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		return result.get_string(1).to_int()
+	return 0
+
+static func _parse_anti_keyword_data(special_rules_lower: String) -> Array:
+	"""Parse 'anti-X Y+' patterns from lowercased special_rules string.
+	Returns Array of {keyword: String (UPPERCASE), threshold: int}."""
+	var results = []
+	var regex = RegEx.new()
+	regex.compile("anti-(\\w+)\\s+(\\d+)\\+?")
+	var matches = regex.search_all(special_rules_lower)
+	for m in matches:
+		results.append({
+			"keyword": m.get_string(1).to_upper(),
+			"threshold": m.get_string(2).to_int()
+		})
+	return results
+
+static func _parse_sustained_hits_value(special_rules_lower: String) -> float:
+	"""Parse 'sustained hits X' or 'sustained hits dX' from lowercased special_rules string.
+	Returns the expected number of bonus hits per critical (0 if not found).
+	For 'sustained hits D3', returns average of D3 = 2.0.
+	For 'sustained hits D6', returns average of D6 = 3.5."""
+	var regex = RegEx.new()
+	regex.compile("sustained\\s*hits\\s*(d?)(\\d+)")
+	var result = regex.search(special_rules_lower)
+	if result:
+		var is_dice = result.get_string(1) == "d"
+		var val = result.get_string(2).to_int()
+		if is_dice:
+			# Average of dX = (X+1)/2
+			if val == 3:
+				return 2.0
+			elif val == 6:
+				return 3.5
+			else:
+				return (float(val) + 1.0) / 2.0
+		else:
+			return float(val)
+	return 0.0
+
 static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary = {}) -> float:
 	# --- Range check: score 0 for out-of-range targets ---
 	var weapon_range_inches = _get_weapon_range_inches(weapon)
+	var dist_inches: float = -1.0  # -1 means unknown distance
 	if weapon_range_inches > 0.0 and not shooter_unit.is_empty():
-		var dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
+		dist_inches = _get_closest_model_distance_inches(shooter_unit, target_unit)
 		if dist_inches > weapon_range_inches:
 			return 0.0
 
@@ -4075,7 +4408,31 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var p_wound = _wound_probability(strength, toughness)
 	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
 
+	# --- Apply weapon keyword modifiers (SHOOT-5) ---
+	var kw_mods = _apply_weapon_keyword_modifiers(
+		weapon, target_unit,
+		attacks, p_hit, p_wound, p_unsaved, damage,
+		strength, toughness, target_save, ap, target_invuln,
+		dist_inches, weapon_range_inches
+	)
+	attacks = kw_mods["attacks"]
+	p_hit = kw_mods["p_hit"]
+	p_wound = kw_mods["p_wound"]
+	p_unsaved = kw_mods["p_unsaved"]
+	damage = kw_mods["damage"]
+
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
+
+	# --- AI-GAP-4: Factor in target FNP for more accurate scoring ---
+	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(target_unit)
+	if target_fnp > 0:
+		var fnp_multiplier = AIAbilityAnalyzerData.get_fnp_damage_multiplier(target_fnp)
+		expected_damage *= fnp_multiplier
+
+	# --- AI-GAP-4: Factor in target Stealth for ranged hit penalty ---
+	if AIAbilityAnalyzerData.has_stealth(target_unit):
+		# Stealth imposes -1 to hit for ranged attacks; approximate as ~15% reduction
+		expected_damage *= 0.85
 
 	# Bonus: target below half strength (finish it off)
 	var alive_count = _get_alive_models(target_unit).size()

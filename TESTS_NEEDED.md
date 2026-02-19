@@ -256,3 +256,41 @@
 - Invulnerable saves from all three sources are detected: model-level, unit-level meta stats, and effect-granted (Go to Ground)
 - Effect-granted invuln (e.g., 4++ from a stratagem) overrides worse native invuln (e.g., 6++)
 - No regressions in existing AI shooting, melee, or charge evaluation
+
+## AI Weapon Keyword Awareness in Target Scoring (SHOOT-5)
+
+**Task:** Add weapon keyword awareness to target scoring -- Blast, Rapid Fire, Melta, Anti-keyword, Torrent, Sustained/Lethal/Devastating Wounds (SHOOT-5)
+**Files changed:**
+- `40k/scripts/AIDecisionMaker.gd` - Added `_apply_weapon_keyword_modifiers()` central function, keyword parsing helpers (`_parse_rapid_fire_value`, `_parse_melta_value`, `_parse_anti_keyword_data`, `_parse_sustained_hits_value`, `_is_within_half_range`); integrated into `_score_shooting_target()` and `_estimate_weapon_damage()`; added `CRIT_PROBABILITY` and `HALF_RANGE_FALLBACK_PROB` constants
+- `40k/tests/unit/test_ai_weapon_keyword_scoring.gd` - New test file for weapon keyword-aware scoring
+
+**Tests to run:**
+- Run `test_ai_weapon_keyword_scoring.gd` via `godot --headless --script tests/unit/test_ai_weapon_keyword_scoring.gd`
+  - Tests parsing helpers (rapid fire, melta, anti-keyword, sustained hits, half-range detection)
+  - Tests Torrent sets p_hit to 1.0 and scores higher than equivalent non-torrent weapon
+  - Tests Blast adds bonus attacks vs large units (6-10: +1, 11+: +2), enforces minimum 3, prefers large units
+  - Tests Rapid Fire bonus at half range, no bonus beyond half range, fallback probability-weighted bonus
+  - Tests Melta bonus damage at half range, no bonus beyond half range
+  - Tests Anti-keyword improves wound probability vs matching targets, no effect vs non-matching
+  - Tests Sustained Hits increases expected damage
+  - Tests Lethal Hits increases expected damage
+  - Tests Devastating Wounds increases expected damage vs well-armoured targets
+  - Tests combined keywords (anti-infantry + devastating wounds, blast + torrent, rapid fire + sustained hits)
+  - Tests integration with `_score_shooting_target()` and `_estimate_weapon_damage()`
+- Run `test_ai_weapon_efficiency.gd` to confirm no regressions in weapon-target efficiency matching
+- Run `test_ai_weapon_range_scoring.gd` to confirm no regressions in range scoring
+- Run `test_ai_focus_fire.gd` to confirm no regressions in focus fire system
+- Run `test_ai_invulnerable_save_scoring.gd` to confirm no regressions in invuln scoring
+- Run an AI vs AI game and observe that AI weapon targeting now reflects keyword-aware damage estimates
+
+**What to look for:**
+- Torrent weapons (e.g. flamers) are valued much higher since they auto-hit (p_hit = 1.0 vs normal BS roll)
+- Blast weapons are preferred against large units (6+ models) due to bonus attacks
+- Rapid Fire weapons get bonus attacks when targets are within half range
+- Melta weapons get bonus damage when targets are within half range
+- Anti-keyword weapons (e.g. anti-infantry 4+) score higher against matching targets due to improved wound probability
+- Sustained Hits weapons generate higher expected damage from bonus hits on critical rolls
+- Lethal Hits weapons score higher especially against tough targets (bypasses wound roll on 6s)
+- Devastating Wounds weapons score higher especially against well-armoured targets (bypasses saves on 6s to wound)
+- Combined keywords stack correctly (e.g. anti-infantry + devastating wounds + rapid fire)
+- No regressions in existing AI shooting behavior, focus fire, or weapon-target efficiency
