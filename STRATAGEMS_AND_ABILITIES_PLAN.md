@@ -509,7 +509,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | **COMPLETED** |
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | **COMPLETED** |
 | 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | **COMPLETED** |
-| 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
+| 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | **COMPLETED** |
 
 ---
 
@@ -777,3 +777,48 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 4. The per-player ownership model integrates cleanly with existing validation and reactive flows
 5. The `implemented` flag approach allows incremental coverage without blocking gameplay
 6. The system is ready for the UI to display faction stratagems alongside core ones
+
+### Step 10: Unit Abilities — Implementation Notes
+
+**What was implemented:**
+- `UnitAbilityManager` autoload (`40k/autoloads/UnitAbilityManager.gd`): A data-driven unit ability system that bridges ability descriptions stored in `meta.abilities` to the EffectPrimitives flag system used by RulesEngine during combat resolution.
+
+**Implementation approach**: Create a lookup table (`ABILITY_EFFECTS`) mapping ability names to EffectPrimitives effect definitions. At the start of combat-relevant phases (Shooting, Fight, Charge), scan all units, detect abilities that have effect definitions, and apply their effect flags. At phase end, clear the flags. RulesEngine reads the same `effect_*` flags regardless of whether they came from a stratagem or an ability.
+
+**Key files changed/created:**
+- `40k/autoloads/UnitAbilityManager.gd` — New autoload. Contains ABILITY_EFFECTS lookup table with 18 ability definitions (13 implemented), phase lifecycle hooks (on_phase_start/on_phase_end), leader ability application, always-on ability application, eligibility effect application, query helpers, static query helpers, and save/load support.
+- `40k/autoloads/EffectPrimitives.gd` — Added 4 new query helpers: `has_effect_fall_back_and_shoot()`, `has_effect_fall_back_and_charge()`, `has_effect_advance_and_charge()`, `has_effect_advance_and_shoot()`.
+- `40k/autoloads/RulesEngine.gd` — Added effect flag checks for `plus_one_hit`, `minus_one_hit`, `reroll_hits`, `plus_one_wound`, `minus_one_wound`, `reroll_wounds` in all three combat resolution paths (normal shooting, auto-resolve shooting, melee). Updated `get_unit_fnp()` to check both base stats and effect-granted FNP, using the better (lower) value.
+- `40k/phases/ShootingPhase.gd` — Added UnitAbilityManager on_phase_start/on_phase_end hooks.
+- `40k/phases/FightPhase.gd` — Added UnitAbilityManager on_phase_start/on_phase_end hooks.
+- `40k/phases/ChargePhase.gd` — Added UnitAbilityManager on_phase_start/on_phase_end hooks.
+- `40k/phases/MovementPhase.gd` — Added UnitAbilityManager on_movement_phase_start/on_movement_phase_end hooks for eligibility effects.
+- `40k/project.godot` — Registered UnitAbilityManager as autoload.
+- `40k/tests/unit/test_unit_ability_manager.gd` — Comprehensive test suite with 25+ test cases covering lookup table correctness, leader ability application, phase-specific filtering, always-on abilities, phase lifecycle, query helpers, multiple leaders, dual effects, eligibility effects, save/load, and RulesEngine FNP integration.
+
+**Ability categories supported:**
+
+| Category | Condition | Target | Examples |
+|----------|-----------|--------|----------|
+| Leader (melee) | while_leading | led_unit | Might is Right (+1 hit), Prophet (+1 hit +1 wound) |
+| Leader (ranged) | while_leading | led_unit | More Dakka (reroll 1s hit), Flashiest Gitz (reroll all hits) |
+| Leader (defensive) | while_leading | led_unit | Red Skull Kommandos (cover), Dok's Toolz/Mad Dok (FNP 5+) |
+| Leader (eligibility) | while_leading | led_unit | One Scalpel Short (fall_back_and_charge) |
+| Always-on | always | unit | Stand Vigil (reroll 1s wound), Ramshackle (FNP 6+) |
+| Conditional | waaagh_active | model | Da Biggest and da Best, Dead Brutal (not yet implemented) |
+
+**Architecture decisions:**
+- **Lookup table over NLP parsing**: Abilities are mapped by name, not by parsing description text. This is robust and explicit — each mapping is hand-verified against the rules. New abilities are added by adding one dictionary entry.
+- **Phase-scoped flag application**: Ability flags are applied at phase start and cleared at phase end, matching the stratagem lifecycle. This avoids stale flags and ensures flags are refreshed each phase (e.g., if a leader dies mid-phase, the flags from the previous application remain until phase end).
+- **Attack type filtering**: Melee abilities (Might is Right) only apply during Fight phase; ranged abilities (More Dakka) only apply during Shooting phase. This prevents melee bonuses from affecting ranged attacks and vice versa.
+- **Leader attachment integration**: Uses the existing `attachment_data.attached_characters` relationship set up by FormationsPhase. Checks that leader models are alive before granting abilities.
+- **Same flag namespace as stratagems**: A unit gets `effect_plus_one_hit` whether it comes from a stratagem or Might is Right. This means RulesEngine doesn't need separate code paths — it just reads flags. The 40k rules naturally handle stacking: hit modifiers cap at +1/-1, so having both sources still results in +1.
+- **Implemented flag for incremental coverage**: Abilities with complex or non-mappable effects (Da Biggest and da Best, Waaagh! stat modifications, weapon-specific changes) are defined in the table but marked `implemented: false`. This documents what exists and what still needs work.
+
+**What this proved:**
+1. The EffectPrimitives system designed in Step 8 works identically for abilities and stratagems — no new effect types were needed
+2. Leader ability → bodyguard unit effect application works through the existing attachment_data relationship
+3. Phase-scoped flag application correctly handles the "apply at start, clear at end" lifecycle
+4. Attack type filtering ensures melee-only abilities don't leak into shooting resolution
+5. The system handles multiple leaders on one unit (e.g., Warboss + Painboy both granting different effects)
+6. RulesEngine's existing modifier system (HitModifier/WoundModifier enums) integrates cleanly with effect flags

@@ -100,10 +100,21 @@ func _on_phase_enter() -> void:
 	heroic_intervention_unit_id = ""
 	heroic_intervention_pending_charge = {}
 
+	# Apply unit ability effects for charge phase
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_start(GameStateData.Phase.CHARGE)
+
 	_initialize_charge()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Charge Phase")
+
+	# Clear unit ability effect flags
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_end(GameStateData.Phase.CHARGE)
+
 	# Clear charge flags
 	_clear_phase_flags()
 

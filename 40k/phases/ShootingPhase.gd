@@ -46,6 +46,11 @@ func _on_phase_enter() -> void:
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
 
+	# Apply unit ability effects (leader abilities, always-on abilities)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
+
 	_initialize_shooting()
 
 func _on_phase_exit() -> void:
@@ -60,6 +65,11 @@ func _on_phase_exit() -> void:
 
 	# Clear shooting flags
 	_clear_phase_flags()
+
+	# Clear unit ability effect flags
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.on_phase_end(GameStateData.Phase.SHOOTING)
 
 	# Clear stratagem flags (Go to Ground, Smokescreen effects expire at end of phase)
 	_clear_stratagem_phase_flags()

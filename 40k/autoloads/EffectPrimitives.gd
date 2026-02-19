@@ -480,6 +480,22 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 	"""Get the effect-granted critical hit threshold (0 if none, e.g., 5 means 5+)."""
 	return unit.get("flags", {}).get(FLAG_CRIT_HIT_ON, 0)
 
+static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted fall back and shoot eligibility."""
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false)
+
+static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted fall back and charge eligibility."""
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false)
+
+static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted advance and charge eligibility."""
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false)
+
+static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
+	"""Check if a unit has effect-granted advance and shoot eligibility."""
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false)
+
 static func has_any_effect_flag(unit: Dictionary) -> bool:
 	"""Check if a unit has any effect flags set."""
 	var flags = unit.get("flags", {})
