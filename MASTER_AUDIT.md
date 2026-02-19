@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP8: Phase timeout for AFK players (auto-end phase, game over after consecutive timeouts, timer HUD, waiting overlay for all phases, toast warnings) | All Phases | AUDIT_COMMAND_PHASE.md §P3 |
 | T5-MP6: "Waiting for Opponent" state in deployment (overlay banner, timer countdown, zone pulse, toast notifications) | Deployment | DEPLOYMENT_AUDIT.md §QoL 3 |
 | T5-MP3: Remote player visual feedback for shooting actions (shooting lines, target highlights, weapon labels for ASSIGN_TARGET/CONFIRM_TARGETS/COMPLETE_SHOOTING) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP2: Pile-in/consolidate validation feedback on client (pre-confirm gate + server rejection toast + re-request) | Fight | FIGHT_PHASE_AUDIT.md §3.5 |
@@ -753,7 +754,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3) — **DONE**
   - **Resolution:** Added prominent centered overlay banner with "Waiting for Player X (Role) to deploy..." text, live turn timer countdown, pulse animations on both overlay and opponent's deployment zone, and toast notifications on deployment turn switches. Overlay managed via `_setup_waiting_for_opponent_overlay()`, `_update_waiting_for_opponent_overlay()`, and `_hide_waiting_overlay()` in Main.gd.
 - T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`)
-- T5-MP8. Phase timeout for AFK players (AUDIT_COMMAND_PHASE.md §P3)
+- T5-MP8. Phase timeout for AFK players (AUDIT_COMMAND_PHASE.md §P3) — **DONE**
+  - **Resolution:** Implemented configurable phase timeout system for AFK players in multiplayer. NetworkManager now auto-ends the current phase on first timeout (90s), then triggers game over after 2 consecutive timeouts. Timer resets on any player action via PhaseManager.phase_action_taken signal. Added phase timer HUD countdown in top bar (color-coded green/yellow/red), extended "Waiting for Opponent" overlay to all phases (not just deployment), and added toast warnings at 30s/15s/10s/5s thresholds. Both active player and waiting opponent see timer state.
 - T5-MP9. BEGIN_ADVANCE latency in multiplayer (MOVEMENT_PHASE_AUDIT.md §3.3)
 
 ### Gameplay UX
@@ -883,10 +885,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 6 | 45 | 51 |
+| Tier 5 — QoL/Visual | 7 | 44 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **64** | **64** | **128** |
-| **Recently Completed** | **89** | — | **89** |
+| **Total Open** | **65** | **63** | **128** |
+| **Recently Completed** | **90** | — | **90** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

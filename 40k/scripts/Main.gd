@@ -30,6 +30,7 @@ var left_panel_toggle_button: Button
 var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
+var game_over_dialog: AcceptDialog = null
 var deployment_controller: Node
 var coherency_banner: PanelContainer = null
 var command_controller: Node
@@ -53,12 +54,16 @@ var p2_progress_bar: ProgressBar
 var p1_progress_label: Label
 var p2_progress_label: Label
 
-# "Waiting for Opponent" deployment overlay (T5-MP6)
+# "Waiting for Opponent" overlay — T5-MP6 (deployment) + T5-MP8 (all phases)
 var waiting_overlay: PanelContainer = null
 var waiting_overlay_label: Label = null
 var waiting_overlay_timer_label: Label = null
 var _waiting_overlay_pulse_tween: Tween = null
 var _opponent_zone_pulse_tween: Tween = null
+
+# T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
+var phase_timer_label: Label = null
+var _phase_timer_last_warning: int = -1
 
 # Strategic Reserves / Deep Strike UI elements
 var reserves_button: Button = null
@@ -214,8 +219,11 @@ func _ready() -> void:
 	# Setup deployment progress indicator
 	_setup_deployment_progress_indicator()
 
-	# Setup "Waiting for Opponent" overlay for multiplayer deployment (T5-MP6)
+	# Setup "Waiting for Opponent" overlay for multiplayer (T5-MP6 + T5-MP8)
 	_setup_waiting_for_opponent_overlay()
+
+	# T5-MP8: Setup phase timer HUD for multiplayer
+	_setup_phase_timer_hud()
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
@@ -498,15 +506,14 @@ func _setup_waiting_for_opponent_overlay() -> void:
 	print("Main: Waiting-for-opponent overlay created (T5-MP6)")
 
 func _update_waiting_for_opponent_overlay() -> void:
-	# T5-MP6: Show/hide the waiting overlay and update timer display
+	# T5-MP6 + T5-MP8: Show/hide the waiting overlay for ALL phases in multiplayer
 	if not waiting_overlay:
 		return
 
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	var is_multiplayer = network_manager and network_manager.is_networked()
-	var is_deployment = current_phase == GameStateData.Phase.DEPLOYMENT
 
-	if not is_multiplayer or not is_deployment:
+	if not is_multiplayer:
 		_hide_waiting_overlay()
 		return
 
@@ -515,24 +522,37 @@ func _update_waiting_for_opponent_overlay() -> void:
 		_hide_waiting_overlay()
 		return
 
-	# It's opponent's turn — show the overlay
+	# It's opponent's turn — show the overlay with phase-appropriate text
 	var active_player = GameState.get_active_player()
 	var local_player = network_manager.get_local_player()
-	var opponent_role = "Defender" if active_player == 1 else "Attacker"
-	waiting_overlay_label.text = "Waiting for Player %d (%s) to deploy..." % [active_player, opponent_role]
+	var phase_name = _get_phase_label_text(current_phase)
+
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		var opponent_role = "Defender" if active_player == 1 else "Attacker"
+		waiting_overlay_label.text = "Waiting for Player %d (%s) to deploy..." % [active_player, opponent_role]
+	else:
+		waiting_overlay_label.text = "Waiting for Player %d — %s" % [active_player, phase_name]
 
 	# Update turn timer countdown if available
-	if network_manager.turn_timer and not network_manager.turn_timer.is_stopped():
-		var time_left = int(network_manager.turn_timer.time_left)
-		waiting_overlay_timer_label.text = "Turn timer: %ds remaining" % time_left
+	var time_left = network_manager.get_turn_time_remaining()
+	if time_left >= 0:
+		var seconds = int(time_left)
+		waiting_overlay_timer_label.text = "Turn timer: %d:%02d remaining" % [seconds / 60, seconds % 60]
 		waiting_overlay_timer_label.visible = true
+		# Color-code the timer text
+		if seconds <= 15:
+			waiting_overlay_timer_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		elif seconds <= 30:
+			waiting_overlay_timer_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		else:
+			waiting_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	else:
 		waiting_overlay_timer_label.visible = false
 
 	if not waiting_overlay.visible:
 		waiting_overlay.visible = true
 		_start_waiting_overlay_pulse()
-		print("Main: Showing waiting-for-opponent overlay (Player %d deploying, you are Player %d)" % [active_player, local_player])
+		print("Main: Showing waiting-for-opponent overlay (Player %d in %s, you are Player %d)" % [active_player, phase_name, local_player])
 
 func _hide_waiting_overlay() -> void:
 	if waiting_overlay and waiting_overlay.visible:
@@ -548,8 +568,9 @@ func _start_waiting_overlay_pulse() -> void:
 	_waiting_overlay_pulse_tween.tween_property(waiting_overlay, "modulate", Color(1, 1, 1, 0.7), 1.2).set_trans(Tween.TRANS_SINE)
 	_waiting_overlay_pulse_tween.tween_property(waiting_overlay, "modulate", Color(1, 1, 1, 1.0), 1.2).set_trans(Tween.TRANS_SINE)
 
-	# Also pulse the opponent's deployment zone
-	_start_opponent_zone_pulse()
+	# Also pulse the opponent's deployment zone (only during deployment)
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		_start_opponent_zone_pulse()
 
 func _stop_waiting_overlay_pulse() -> void:
 	if _waiting_overlay_pulse_tween:
@@ -586,6 +607,91 @@ func _stop_opponent_zone_pulse() -> void:
 	# Restore zone modulates via the normal visibility function
 	if current_phase == GameStateData.Phase.DEPLOYMENT:
 		update_deployment_zone_visibility()
+
+func _setup_phase_timer_hud() -> void:
+	# T5-MP8: Create a phase timer label in the top HUD bar for multiplayer games
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var is_multiplayer = network_manager and network_manager.is_networked()
+	if not is_multiplayer:
+		return
+
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_container:
+		print("Main: HUD_Bottom/HBoxContainer not found for phase timer")
+		return
+
+	phase_timer_label = Label.new()
+	phase_timer_label.name = "PhaseTimerLabel"
+	phase_timer_label.text = ""
+	phase_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	phase_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	phase_timer_label.add_theme_font_size_override("font_size", 14)
+	phase_timer_label.custom_minimum_size = Vector2(100, 0)
+	phase_timer_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	phase_timer_label.visible = true
+
+	# Insert before the phase action button (last element)
+	var button_idx = phase_action_button.get_index()
+	hud_container.add_child(phase_timer_label)
+	hud_container.move_child(phase_timer_label, button_idx)
+	print("Main: Phase timer HUD label created (T5-MP8)")
+
+func _update_phase_timer_hud() -> void:
+	# T5-MP8: Update the phase timer display in the HUD bar
+	if not phase_timer_label:
+		return
+
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if not network_manager or not network_manager.is_networked():
+		phase_timer_label.visible = false
+		return
+
+	var time_left = network_manager.get_turn_time_remaining()
+	if time_left < 0:
+		phase_timer_label.visible = false
+		return
+
+	var seconds = int(time_left)
+	phase_timer_label.text = "%d:%02d" % [seconds / 60, seconds % 60]
+	phase_timer_label.visible = true
+
+	# Color-code: green > 30s, yellow 15-30s, red < 15s
+	if seconds <= 15:
+		phase_timer_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	elif seconds <= 30:
+		phase_timer_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	else:
+		phase_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+
+func _on_turn_timer_warning(seconds_remaining: int) -> void:
+	# T5-MP8: Show toast warning when turn timer is running low
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if not network_manager:
+		return
+
+	var is_my_turn = network_manager.is_local_player_turn()
+
+	if is_my_turn:
+		if seconds_remaining <= 10:
+			_show_toast("WARNING: %ds remaining!" % seconds_remaining, 2.0)
+		elif seconds_remaining <= 30:
+			_show_toast("Turn timer: %ds remaining" % seconds_remaining, 2.0)
+	print("Main: Turn timer warning - %ds remaining (my_turn=%s)" % [seconds_remaining, is_my_turn])
+
+func _on_phase_auto_ended(phase_name: String) -> void:
+	# T5-MP8: Notify both players when a phase is auto-ended due to AFK timeout
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if not network_manager:
+		return
+
+	var active_player = GameState.get_active_player()
+	var is_my_turn = network_manager.is_local_player_turn()
+
+	if is_my_turn:
+		_show_toast("Phase auto-ended due to timeout!", 3.0)
+	else:
+		_show_toast("Player %d's %s phase timed out" % [active_player, phase_name.to_lower()], 3.0)
+	print("Main: Phase auto-ended - %s (active_player=%d, my_turn=%s)" % [phase_name, active_player, is_my_turn])
 
 func _setup_reserves_button() -> void:
 	# Create "Place in Reserves" button in the HUD_Right panel, below the unit list
@@ -2236,6 +2342,16 @@ func connect_signals() -> void:
 		if not NetworkManager.game_started.is_connected(_on_network_game_started):
 			NetworkManager.game_started.connect(_on_network_game_started)
 			print("Main: Connected to NetworkManager.game_started signal")
+		if not NetworkManager.game_over.is_connected(_on_network_game_over):
+			NetworkManager.game_over.connect(_on_network_game_over)
+			print("Main: Connected to NetworkManager.game_over signal")
+		# T5-MP8: Connect phase timeout signals
+		if NetworkManager.has_signal("turn_timer_warning") and not NetworkManager.turn_timer_warning.is_connected(_on_turn_timer_warning):
+			NetworkManager.turn_timer_warning.connect(_on_turn_timer_warning)
+			print("Main: Connected to NetworkManager.turn_timer_warning signal")
+		if NetworkManager.has_signal("phase_auto_ended") and not NetworkManager.phase_auto_ended.is_connected(_on_phase_auto_ended):
+			NetworkManager.phase_auto_ended.connect(_on_phase_auto_ended)
+			print("Main: Connected to NetworkManager.phase_auto_ended signal")
 	
 
 func _input(event: InputEvent) -> void:
@@ -2406,15 +2522,25 @@ func _process(delta: float) -> void:
 	if view_changed:
 		update_view_transform()
 
-	# T5-MP6: Update waiting overlay timer countdown (throttled to ~1/sec)
+	# T5-MP8: Update phase timer HUD and waiting overlay timer (runs every frame, labels only change on integer second)
+	_update_phase_timer_hud()
 	if waiting_overlay and waiting_overlay.visible and waiting_overlay_timer_label:
 		var network_manager = get_node_or_null("/root/NetworkManager")
-		if network_manager and network_manager.turn_timer and not network_manager.turn_timer.is_stopped():
-			var time_left = int(network_manager.turn_timer.time_left)
-			waiting_overlay_timer_label.text = "Turn timer: %ds remaining" % time_left
-			waiting_overlay_timer_label.visible = true
-		else:
-			waiting_overlay_timer_label.visible = false
+		if network_manager:
+			var time_left = network_manager.get_turn_time_remaining()
+			if time_left >= 0:
+				var seconds = int(time_left)
+				waiting_overlay_timer_label.text = "Turn timer: %d:%02d remaining" % [seconds / 60, seconds % 60]
+				waiting_overlay_timer_label.visible = true
+				# Color-code the timer text
+				if seconds <= 15:
+					waiting_overlay_timer_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+				elif seconds <= 30:
+					waiting_overlay_timer_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+				else:
+					waiting_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+			else:
+				waiting_overlay_timer_label.visible = false
 
 func reset_camera() -> void:
 	camera.position = Vector2(
@@ -3894,6 +4020,54 @@ func _on_phase_completed(phase: GameStateData.Phase) -> void:
 		print("Main: Game ended, stopping replay recording")
 		ReplayManager.stop_recording()
 
+	# Show game over UI when game ends after 5 rounds
+	if PhaseManager.game_ended and phase == GameStateData.Phase.SCORING:
+		# Determine winner by VP
+		var winner = _determine_vp_winner()
+		_show_game_over_dialog(winner, "rounds_complete")
+
+func _on_network_game_over(winner: int, reason: String) -> void:
+	print("Main: Network game over - Winner: Player %d, Reason: %s" % [winner, reason])
+	_show_game_over_dialog(winner, reason)
+
+func _show_game_over_dialog(winner: int, reason: String) -> void:
+	# Clean up any existing dialog
+	if game_over_dialog and is_instance_valid(game_over_dialog):
+		game_over_dialog.queue_free()
+		game_over_dialog = null
+
+	var dialog_script = preload("res://scripts/GameOverDialog.gd")
+	game_over_dialog = AcceptDialog.new()
+	game_over_dialog.set_script(dialog_script)
+	add_child(game_over_dialog)
+
+	# Determine local player number for networked games
+	var local_player_num = 0
+	if NetworkManager and NetworkManager.is_networked():
+		local_player_num = NetworkManager.get_local_player()
+
+	game_over_dialog.setup(winner, reason, local_player_num)
+	game_over_dialog.return_to_menu_requested.connect(_on_game_over_return_to_menu)
+	game_over_dialog.popup_centered()
+	print("Main: Showed game over dialog - Winner: Player %d, Reason: %s" % [winner, reason])
+
+func _determine_vp_winner() -> int:
+	if not MissionManager:
+		return 0
+	var vp_summary = MissionManager.get_vp_summary()
+	var p1_total = vp_summary["player1"]["total"]
+	var p2_total = vp_summary["player2"]["total"]
+	if p1_total > p2_total:
+		return 1
+	elif p2_total > p1_total:
+		return 2
+	else:
+		return 0  # Draw
+
+func _on_game_over_return_to_menu() -> void:
+	print("Main: Returning to main menu from game over")
+	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.FORMATIONS: return "Declare Battle Formations"
@@ -4063,11 +4237,8 @@ func update_ui_for_phase() -> void:
 		if current_phase == GameStateData.Phase.DEPLOYMENT:
 			_update_deployment_progress()
 
-	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6)
-	if current_phase == GameStateData.Phase.DEPLOYMENT:
-		_update_waiting_for_opponent_overlay()
-	else:
-		_hide_waiting_overlay()
+	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6 + T5-MP8)
+	_update_waiting_for_opponent_overlay()
 
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
