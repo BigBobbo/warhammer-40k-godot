@@ -51,12 +51,18 @@ var reroll_ones_checkbox: CheckBox
 var plus_one_checkbox: CheckBox
 var minus_one_checkbox: CheckBox
 
+# T5-MP3: Remote player visual feedback
+var shooting_lines_container: Node2D  # Container for shooter-to-target visual lines
+var remote_assignment_lines: Array = []  # Track remote assignment Line2D nodes
+
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
 const HIGHLIGHT_COLOR_INELIGIBLE = Color.GRAY
 const HIGHLIGHT_COLOR_SELECTED = Color.YELLOW
 const LOS_LINE_COLOR = Color.RED
 const LOS_LINE_WIDTH = 2.0
+const SHOOTING_LINE_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange for shooting lines
+const SHOOTING_LINE_WIDTH = 3.0
 
 func _ready() -> void:
 	set_process_input(true)
@@ -78,6 +84,11 @@ func _exit_tree() -> void:
 	if los_debug_visual and is_instance_valid(los_debug_visual):
 		los_debug_visual.clear_all_debug_visuals()
 		los_debug_visual.queue_free()
+
+	# T5-MP3: Clean up shooting lines container
+	if shooting_lines_container and is_instance_valid(shooting_lines_container):
+		shooting_lines_container.queue_free()
+	remote_assignment_lines.clear()
 
 	# Clean up UI containers
 	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
@@ -139,6 +150,11 @@ func _create_shooting_visuals() -> void:
 	target_highlights = Node2D.new()
 	target_highlights.name = "ShootingTargetHighlights"
 	board_root.add_child(target_highlights)
+
+	# T5-MP3: Create container for shooter-to-target visual lines (remote player feedback)
+	shooting_lines_container = Node2D.new()
+	shooting_lines_container.name = "ShootingLinesContainer"
+	board_root.add_child(shooting_lines_container)
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -379,6 +395,12 @@ func set_phase(phase: BasePhase) -> void:
 			phase.weapon_order_required.disconnect(_on_weapon_order_required)
 			print("║ Disconnected existing weapon_order_required connection")
 		phase.weapon_order_required.connect(_on_weapon_order_required)
+
+		# T5-MP3: Connect shooting_begun for remote player visual feedback
+		if phase.shooting_begun.is_connected(_on_shooting_begun):
+			phase.shooting_begun.disconnect(_on_shooting_begun)
+			print("║ Disconnected existing shooting_begun connection")
+		phase.shooting_begun.connect(_on_shooting_begun)
 
 		if phase.next_weapon_confirmation_required.is_connected(_on_next_weapon_confirmation_required):
 			phase.next_weapon_confirmation_required.disconnect(_on_next_weapon_confirmation_required)
@@ -809,7 +831,93 @@ func _clear_visuals() -> void:
 		if los_debug_visual.has_method("clear_all_debug_visuals"):
 			los_debug_visual.clear_all_debug_visuals()
 
+	# T5-MP3: Clear shooting lines (remote player feedback)
+	_clear_shooting_lines()
+
 	print("ShootingController: All visuals cleared")
+
+# ==========================================
+# T5-MP3: Remote Player Visual Feedback
+# ==========================================
+
+func show_remote_target_assignment(shooter_id: String, target_unit_id: String, weapon_id: String) -> void:
+	"""Called by NetworkManager when the remote active player assigns a weapon to a target.
+	Draws a shooting line from the shooter to the target so the remote player can see
+	what's being targeted. T5-MP3."""
+	if not current_phase:
+		return
+
+	print("ShootingController: T5-MP3 show_remote_target_assignment — %s → %s (weapon: %s)" % [shooter_id, target_unit_id, weapon_id])
+
+	var shooter_unit = current_phase.get_unit(shooter_id)
+	var target_unit = current_phase.get_unit(target_unit_id)
+	if shooter_unit.is_empty() or target_unit.is_empty():
+		return
+
+	# Find closest model positions between shooter and target
+	var from_pos = Vector2.ZERO
+	var to_pos = Vector2.ZERO
+	var min_distance = INF
+
+	for from_model in shooter_unit.get("models", []):
+		if not from_model.get("alive", true):
+			continue
+		var f_pos = _get_model_position(from_model)
+		for to_model in target_unit.get("models", []):
+			if not to_model.get("alive", true):
+				continue
+			var t_pos = _get_model_position(to_model)
+			var dist = f_pos.distance_to(t_pos)
+			if dist < min_distance:
+				min_distance = dist
+				from_pos = f_pos
+				to_pos = t_pos
+
+	if from_pos == Vector2.ZERO or to_pos == Vector2.ZERO:
+		return
+
+	# Create a shooting line from shooter to target
+	var line = Line2D.new()
+	line.width = SHOOTING_LINE_WIDTH
+	line.default_color = SHOOTING_LINE_COLOR
+	line.add_point(from_pos)
+	line.add_point(to_pos)
+	line.name = "ShootingLine_%s_%s" % [shooter_id.substr(0, 8), target_unit_id.substr(0, 8)]
+
+	if shooting_lines_container and is_instance_valid(shooting_lines_container):
+		shooting_lines_container.add_child(line)
+		remote_assignment_lines.append(line)
+
+	# Also highlight the target unit if not already highlighted
+	_create_target_highlight(target_unit_id, HIGHLIGHT_COLOR_SELECTED)
+
+	# Show weapon name label at midpoint
+	var mid_point = (from_pos + to_pos) / 2
+	var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
+	var label = Label.new()
+	label.text = weapon_name
+	label.position = mid_point + Vector2(0, -15)
+	label.add_theme_color_override("font_color", SHOOTING_LINE_COLOR)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.add_theme_font_size_override("font_size", 12)
+	if shooting_lines_container and is_instance_valid(shooting_lines_container):
+		shooting_lines_container.add_child(label)
+
+func clear_remote_target_assignments() -> void:
+	"""Clear all remote target assignment visuals. Called when the remote active player
+	clears their weapon assignments. T5-MP3."""
+	print("ShootingController: T5-MP3 clear_remote_target_assignments")
+	_clear_shooting_lines()
+	_clear_target_highlights()
+
+func _clear_shooting_lines() -> void:
+	"""Clear all shooting line visuals from the container. T5-MP3."""
+	if shooting_lines_container and is_instance_valid(shooting_lines_container):
+		for child in shooting_lines_container.get_children():
+			child.queue_free()
+	remote_assignment_lines.clear()
 
 func _show_range_indicators() -> void:
 	_clear_range_indicators()
@@ -1148,6 +1256,43 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 		print("ShootingController: Visualizing LoS to ", targets.size(), " targets")
 		for target_id in targets:
 			_visualize_los_to_target(unit_id, target_id)
+
+func _on_shooting_begun(unit_id: String) -> void:
+	"""T5-MP3: Handle shooting_begun signal. For the remote player, this draws shooting
+	lines from the active shooter to all confirmed targets, providing visual context
+	for what's being resolved."""
+	print("ShootingController: T5-MP3 _on_shooting_begun for %s" % unit_id)
+
+	# Only draw shooting lines on the remote (non-active) player's screen
+	# The active player already has their weapon tree and target highlights
+	if not NetworkManager.is_networked():
+		return
+
+	var local_player = NetworkManager.get_local_player()
+	var active_player = current_phase.get_current_player() if current_phase else -1
+	if local_player == active_player:
+		# Active player already has all the visual feedback
+		return
+
+	print("ShootingController: T5-MP3 Remote player — drawing shooting lines for confirmed targets")
+
+	# Draw lines from shooter to each confirmed target
+	if current_phase and "confirmed_assignments" in current_phase:
+		var seen_targets = {}
+		for assignment in current_phase.confirmed_assignments:
+			var target_unit_id = assignment.get("target_unit_id", "")
+			var weapon_id = assignment.get("weapon_id", "")
+			if target_unit_id != "" and not seen_targets.has(target_unit_id):
+				seen_targets[target_unit_id] = true
+				show_remote_target_assignment(unit_id, target_unit_id, weapon_id)
+
+	# Show feedback in dice log on remote player
+	if dice_log_display:
+		var shooter_name = ""
+		if current_phase:
+			var shooter = current_phase.get_unit(unit_id)
+			shooter_name = shooter.get("meta", {}).get("name", unit_id)
+		dice_log_display.append_text("[color=orange]%s is shooting...[/color]\n" % shooter_name)
 
 func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
 	print("ShootingController: Shooting resolved for ", shooter_id, " -> ", target_id)

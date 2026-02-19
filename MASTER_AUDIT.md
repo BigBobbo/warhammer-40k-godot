@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP3: Remote player visual feedback for shooting actions (shooting lines, target highlights, weapon labels for ASSIGN_TARGET/CONFIRM_TARGETS/COMPLETE_SHOOTING) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP2: Pile-in/consolidate validation feedback on client (pre-confirm gate + server rejection toast + re-request) | Fight | FIGHT_PHASE_AUDIT.md §3.5 |
 | T5-MP1: Pile-in/consolidate drag movement synced visually to remote player | Fight | FIGHT_PHASE_AUDIT.md §3.6 |
 | CP Generation (1 CP per command phase) | Command | AUDIT_COMMAND_PHASE.md |
@@ -740,7 +741,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added real-time throttled drag previews during pile-in/consolidate (sent every 100ms to remote player) and smooth tween animations on PILE_IN/CONSOLIDATE action confirmation. Covers both ENet and WebSocket relay transport modes. Remote player now sees models moving during drag and smooth transitions on confirmation instead of teleportation.
 - T5-MP2. Pile-in/consolidate validation feedback missing on client (FIGHT_PHASE_AUDIT.md §3.5) — **DONE**
   - **Resolution:** Added client-side validation gate in PileInDialog and ConsolidateDialog `_on_confirmed()` — dialog now blocks confirmation when movements are invalid, shows error in status label and toast. Added server-side rejection feedback in Main.gd: failed PILE_IN/CONSOLIDATE actions show toast error and re-request the movement dialog so the player can retry.
-- T5-MP3. Remote player visual feedback for shooting actions (SHOOTING_PHASE_AUDIT.md §Tier 3)
+- T5-MP3. Remote player visual feedback for shooting actions (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
+  - **Resolution:** Added remote player visual feedback for all shooting actions: ASSIGN_TARGET draws orange shooting lines and weapon labels from shooter to target, CLEAR_ASSIGNMENT clears them, CONFIRM_TARGETS re-emits shooting_begun to draw shooting lines, COMPLETE_SHOOTING_FOR_UNIT re-emits shooting_resolved to clear visuals. Covers both ENet and WebSocket relay transport modes, and both host→client and client→host directions.
 - T5-MP4. Save dialog timing reliability for defender on remote client (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-MP5. Dice log visibility sync to remote player (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3)
@@ -875,10 +877,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 2 | 49 | 51 |
+| Tier 5 — QoL/Visual | 3 | 48 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **60** | **68** | **128** |
-| **Recently Completed** | **86** | — | **86** |
+| **Total Open** | **61** | **67** | **128** |
+| **Recently Completed** | **87** | — | **87** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---
