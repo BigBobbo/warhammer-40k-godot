@@ -1492,7 +1492,7 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		var assignments = []
 		for weapon in ranged_weapons:
 			var weapon_name = weapon.get("name", "")
-			var weapon_id = _generate_weapon_id(weapon_name)
+			var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 			# ONE SHOT (T4-2): Skip one-shot weapons that have been fired
 			if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
@@ -1680,7 +1680,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	# Default to close combat weapon
 	var weapon_id = "close_combat_weapon"
 	if melee_weapon:
-		weapon_id = _generate_weapon_id(melee_weapon.get("name", "Close combat weapon"))
+		weapon_id = _generate_weapon_id(melee_weapon.get("name", "Close combat weapon"), melee_weapon.get("type", "Melee"))
 
 	# Find an enemy unit in engagement range
 	var enemies = _get_enemy_units(snapshot, player)
@@ -1972,12 +1972,15 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 
 	return resolved
 
-static func _generate_weapon_id(weapon_name: String) -> String:
+static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	var weapon_id = weapon_name.to_lower()
 	weapon_id = weapon_id.replace(" ", "_")
 	weapon_id = weapon_id.replace("-", "_")
 	weapon_id = weapon_id.replace("–", "_")
 	weapon_id = weapon_id.replace("'", "")
+	# Append weapon type suffix to prevent collisions between ranged/melee variants
+	if weapon_type != "":
+		weapon_id += "_" + weapon_type.to_lower()
 	return weapon_id
 
 # =============================================================================

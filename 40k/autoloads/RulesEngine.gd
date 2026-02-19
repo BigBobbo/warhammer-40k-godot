@@ -2914,7 +2914,7 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	var unique_weapon_ids = []
 	for weapon in weapons:
 		if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
-			var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+			var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 			if weapon_id not in unique_weapon_ids:
 				unique_weapon_ids.append(weapon_id)
 
@@ -2935,7 +2935,7 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 		var char_unique_weapon_ids = []
 		for weapon in char_weapons:
 			if weapon.get("type", "") == "Ranged":
-				var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+				var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 				if weapon_id not in char_unique_weapon_ids:
 					char_unique_weapon_ids.append(weapon_id)
 
@@ -2951,13 +2951,18 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	return result
 
 # Helper function to generate consistent weapon IDs from names
-static func _generate_weapon_id(weapon_name: String) -> String:
+# Includes weapon_type to avoid collisions between ranged/melee variants with the same name
+# (e.g., "Guardian spear" exists as both Ranged and Melee on Custodes units)
+static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	# Convert weapon name to consistent ID format
 	var weapon_id = weapon_name.to_lower()
 	weapon_id = weapon_id.replace(" ", "_")
 	weapon_id = weapon_id.replace("-", "_")
 	weapon_id = weapon_id.replace("–", "_")  # Handle em dash
 	weapon_id = weapon_id.replace("'", "")
+	# Append weapon type suffix to prevent collisions between ranged/melee variants
+	if weapon_type != "":
+		weapon_id += "_" + weapon_type.to_lower()
 	return weapon_id
 
 # Get weapon profile
@@ -2982,13 +2987,15 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 	for unit_id in units:
 		var unit = units[unit_id]
 		var weapons = unit.get("meta", {}).get("weapons", [])
-		
+
 		for weapon in weapons:
 			var weapon_name = weapon.get("name", "")
-			var generated_id = _generate_weapon_id(weapon_name)
-			
-			
-			if generated_id == weapon_id:
+			var w_type = weapon.get("type", "")
+			# Try type-aware ID first (new format), then name-only (legacy), then exact name match
+			var generated_id_typed = _generate_weapon_id(weapon_name, w_type)
+			var generated_id_legacy = _generate_weapon_id(weapon_name)
+
+			if generated_id_typed == weapon_id or generated_id_legacy == weapon_id or weapon_name == weapon_id:
 				# Convert weapon format to profile format expected by UI
 				# Convert string values to appropriate types where needed
 				var weapon_range = weapon.get("range", "0")
