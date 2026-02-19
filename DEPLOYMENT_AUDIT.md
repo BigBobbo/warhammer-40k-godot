@@ -137,10 +137,8 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 ### 2. Deployment Progress Indicator — RESOLVED
 **Status**: **Fixed.** `Main._setup_deployment_progress_indicator()` (`40k/scripts/Main.gd:182`) creates a styled progress bar panel showing "Player 1 (Defender): X/Y units deployed" and "Player 2 (Attacker): X/Y units deployed". Uses `WhiteDwarfTheme` styling with player-colored progress bars. Updates via `_update_deployment_progress()` which reads `GameState.get_deployment_progress()`. Visible only during the deployment phase (`Main.gd:3097-3100`).
 
-### 3. "Waiting for Opponent" State in Multiplayer
-**Issue**: When it's the opponent's turn to deploy in multiplayer, the local player sees "Waiting for Player X to deploy..." in the unit list (`Main.gd:1784`), but this is a passive text item in the right panel. There is no prominent overlay or activity indicator.
-
-**Recommendation**: Show a prominent "Waiting for [Opponent Faction] to deploy..." overlay or banner. Optionally, show a subtle animation on the opponent's deployment zone to indicate activity. Consider showing a timer or activity indicator tied to the 90-second turn timeout (`NetworkManager.TURN_TIMEOUT_SECONDS = 90.0`).
+### 3. "Waiting for Opponent" State in Multiplayer — RESOLVED
+**Status**: **Fixed.** `Main._setup_waiting_for_opponent_overlay()` creates a prominent centered banner overlay ("Waiting for Player X (Role) to deploy...") with WhiteDwarfTheme styling, shown only during multiplayer deployment when it's the opponent's turn. Includes: (1) live turn timer countdown tied to `NetworkManager.TURN_TIMEOUT_SECONDS`, (2) pulse animation on the overlay and opponent's deployment zone to indicate activity, (3) toast notifications via `ToastManager` when deployment turns switch. The overlay is managed by `_update_waiting_for_opponent_overlay()` called from `update_ui()` and `update_ui_for_phase()`, with cleanup via `_hide_waiting_overlay()`.
 
 ### 4. Undo Last Model Placement
 **Issue**: The current undo (`DeploymentController.undo()` at line 315) resets the entire unit — all placed models are cleared and `temp_positions` is refilled with `null`. There's no way to undo just the last model placement.

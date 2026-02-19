@@ -53,6 +53,13 @@ var p2_progress_bar: ProgressBar
 var p1_progress_label: Label
 var p2_progress_label: Label
 
+# "Waiting for Opponent" deployment overlay (T5-MP6)
+var waiting_overlay: PanelContainer = null
+var waiting_overlay_label: Label = null
+var waiting_overlay_timer_label: Label = null
+var _waiting_overlay_pulse_tween: Tween = null
+var _opponent_zone_pulse_tween: Tween = null
+
 # Strategic Reserves / Deep Strike UI elements
 var reserves_button: Button = null
 var reinforcements_button: Button = null
@@ -206,6 +213,9 @@ func _ready() -> void:
 
 	# Setup deployment progress indicator
 	_setup_deployment_progress_indicator()
+
+	# Setup "Waiting for Opponent" overlay for multiplayer deployment (T5-MP6)
+	_setup_waiting_for_opponent_overlay()
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
@@ -435,6 +445,147 @@ func _update_deployment_progress() -> void:
 		p2_progress_bar.value = 0
 
 	print("Main: Deployment progress updated - P1: %d/%d, P2: %d/%d" % [p1_progress.deployed, p1_progress.total, p2_progress.deployed, p2_progress.total])
+
+func _setup_waiting_for_opponent_overlay() -> void:
+	# T5-MP6: Create a prominent "Waiting for Opponent" overlay for multiplayer deployment
+	# This overlay is shown when it's the opponent's turn to deploy, providing clear visual
+	# feedback instead of just a passive text item in the right panel.
+	waiting_overlay = PanelContainer.new()
+	waiting_overlay.name = "WaitingForOpponentOverlay"
+	# Center the overlay horizontally, position it in the upper-middle area of the screen
+	waiting_overlay.anchor_left = 0.25
+	waiting_overlay.anchor_right = 0.75
+	waiting_overlay.anchor_top = 0.0
+	waiting_overlay.anchor_bottom = 0.0
+	waiting_overlay.offset_top = 170.0  # Below deployment progress bar (100-160)
+	waiting_overlay.offset_bottom = 250.0
+	waiting_overlay.visible = false
+	waiting_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Apply a distinct banner style — dark background with gold border
+	var banner_style = StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.12, 0.08, 0.05, 0.95)
+	banner_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	banner_style.set_border_width_all(2)
+	banner_style.border_width_top = 3
+	banner_style.border_width_bottom = 3
+	banner_style.set_corner_radius_all(6)
+	banner_style.set_content_margin_all(8)
+	waiting_overlay.add_theme_stylebox_override("panel", banner_style)
+
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 4)
+	waiting_overlay.add_child(vbox)
+
+	# Main waiting text
+	waiting_overlay_label = Label.new()
+	waiting_overlay_label.text = "Waiting for opponent to deploy..."
+	waiting_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	waiting_overlay_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	waiting_overlay_label.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(waiting_overlay_label)
+
+	# Timer countdown label
+	waiting_overlay_timer_label = Label.new()
+	waiting_overlay_timer_label.text = ""
+	waiting_overlay_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	waiting_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	waiting_overlay_timer_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(waiting_overlay_timer_label)
+
+	add_child(waiting_overlay)
+	print("Main: Waiting-for-opponent overlay created (T5-MP6)")
+
+func _update_waiting_for_opponent_overlay() -> void:
+	# T5-MP6: Show/hide the waiting overlay and update timer display
+	if not waiting_overlay:
+		return
+
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var is_multiplayer = network_manager and network_manager.is_networked()
+	var is_deployment = current_phase == GameStateData.Phase.DEPLOYMENT
+
+	if not is_multiplayer or not is_deployment:
+		_hide_waiting_overlay()
+		return
+
+	var is_my_turn = network_manager.is_local_player_turn()
+	if is_my_turn:
+		_hide_waiting_overlay()
+		return
+
+	# It's opponent's turn — show the overlay
+	var active_player = GameState.get_active_player()
+	var local_player = network_manager.get_local_player()
+	var opponent_role = "Defender" if active_player == 1 else "Attacker"
+	waiting_overlay_label.text = "Waiting for Player %d (%s) to deploy..." % [active_player, opponent_role]
+
+	# Update turn timer countdown if available
+	if network_manager.turn_timer and not network_manager.turn_timer.is_stopped():
+		var time_left = int(network_manager.turn_timer.time_left)
+		waiting_overlay_timer_label.text = "Turn timer: %ds remaining" % time_left
+		waiting_overlay_timer_label.visible = true
+	else:
+		waiting_overlay_timer_label.visible = false
+
+	if not waiting_overlay.visible:
+		waiting_overlay.visible = true
+		_start_waiting_overlay_pulse()
+		print("Main: Showing waiting-for-opponent overlay (Player %d deploying, you are Player %d)" % [active_player, local_player])
+
+func _hide_waiting_overlay() -> void:
+	if waiting_overlay and waiting_overlay.visible:
+		waiting_overlay.visible = false
+		_stop_waiting_overlay_pulse()
+		_stop_opponent_zone_pulse()
+
+func _start_waiting_overlay_pulse() -> void:
+	# Subtle pulse animation on the overlay border to indicate activity
+	if _waiting_overlay_pulse_tween:
+		_waiting_overlay_pulse_tween.kill()
+	_waiting_overlay_pulse_tween = create_tween().set_loops()
+	_waiting_overlay_pulse_tween.tween_property(waiting_overlay, "modulate", Color(1, 1, 1, 0.7), 1.2).set_trans(Tween.TRANS_SINE)
+	_waiting_overlay_pulse_tween.tween_property(waiting_overlay, "modulate", Color(1, 1, 1, 1.0), 1.2).set_trans(Tween.TRANS_SINE)
+
+	# Also pulse the opponent's deployment zone
+	_start_opponent_zone_pulse()
+
+func _stop_waiting_overlay_pulse() -> void:
+	if _waiting_overlay_pulse_tween:
+		_waiting_overlay_pulse_tween.kill()
+		_waiting_overlay_pulse_tween = null
+	if waiting_overlay:
+		waiting_overlay.modulate = Color(1, 1, 1, 1)
+
+func _start_opponent_zone_pulse() -> void:
+	# Subtle pulse animation on the opponent's deployment zone to show activity
+	var active_player = GameState.get_active_player()
+	var zone = p1_zone if active_player == 1 else p2_zone
+	if not zone:
+		return
+
+	if _opponent_zone_pulse_tween:
+		_opponent_zone_pulse_tween.kill()
+
+	# Store the base modulate so we pulse around it
+	var base_alpha = zone.modulate.a
+	var bright_color = zone.modulate
+	bright_color.a = min(base_alpha + 0.25, 1.0)
+	var dim_color = zone.modulate
+	dim_color.a = max(base_alpha - 0.1, 0.15)
+
+	_opponent_zone_pulse_tween = create_tween().set_loops()
+	_opponent_zone_pulse_tween.tween_property(zone, "modulate:a", bright_color.a, 1.0).set_trans(Tween.TRANS_SINE)
+	_opponent_zone_pulse_tween.tween_property(zone, "modulate:a", dim_color.a, 1.0).set_trans(Tween.TRANS_SINE)
+
+func _stop_opponent_zone_pulse() -> void:
+	if _opponent_zone_pulse_tween:
+		_opponent_zone_pulse_tween.kill()
+		_opponent_zone_pulse_tween = null
+	# Restore zone modulates via the normal visibility function
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		update_deployment_zone_visibility()
 
 func _setup_reserves_button() -> void:
 	# Create "Place in Reserves" button in the HUD_Right panel, below the unit list
@@ -2255,6 +2406,16 @@ func _process(delta: float) -> void:
 	if view_changed:
 		update_view_transform()
 
+	# T5-MP6: Update waiting overlay timer countdown (throttled to ~1/sec)
+	if waiting_overlay and waiting_overlay.visible and waiting_overlay_timer_label:
+		var network_manager = get_node_or_null("/root/NetworkManager")
+		if network_manager and network_manager.turn_timer and not network_manager.turn_timer.is_stopped():
+			var time_left = int(network_manager.turn_timer.time_left)
+			waiting_overlay_timer_label.text = "Turn timer: %ds remaining" % time_left
+			waiting_overlay_timer_label.visible = true
+		else:
+			waiting_overlay_timer_label.visible = false
+
 func reset_camera() -> void:
 	camera.position = Vector2(
 		SettingsService.get_board_width_px() / 2,
@@ -2450,6 +2611,9 @@ func update_ui() -> void:
 
 			# Update deployment progress indicator
 			_update_deployment_progress()
+
+			# Update waiting-for-opponent overlay (T5-MP6)
+			_update_waiting_for_opponent_overlay()
 
 			# Show reserves button during deployment phase
 			if reserves_button:
@@ -2832,6 +2996,18 @@ func _on_deployment_side_changed(player: int) -> void:
 	refresh_unit_list()
 	update_ui()
 	update_deployment_zone_visibility()
+
+	# T5-MP6: Show toast notification when deployment turn switches in multiplayer
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked():
+		var is_my_turn = network_manager.is_local_player_turn()
+		if is_my_turn:
+			ToastManager.show_toast("Your turn to deploy!", Color(0.2, 0.8, 0.2), 3.0)
+			print("Main: Toast — your turn to deploy (Player %d)" % player)
+		else:
+			var opponent_role = "Defender" if player == 1 else "Attacker"
+			ToastManager.show_toast("Waiting for Player %d (%s) to deploy..." % [player, opponent_role], _WhiteDwarfTheme.WH_GOLD, 3.0)
+			print("Main: Toast — waiting for opponent (Player %d) to deploy" % player)
 
 func _on_deployment_complete() -> void:
 	status_label.text = "Deployment complete!"
@@ -3886,6 +4062,12 @@ func update_ui_for_phase() -> void:
 		deployment_progress_container.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
 		if current_phase == GameStateData.Phase.DEPLOYMENT:
 			_update_deployment_progress()
+
+	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6)
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		_update_waiting_for_opponent_overlay()
+	else:
+		_hide_waiting_overlay()
 
 	# Phase-specific UI configurations (zones, panels, etc.)
 	match current_phase:
