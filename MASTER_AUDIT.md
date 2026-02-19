@@ -113,6 +113,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-18: [MH-RULE-14] Save modifier cap — +1/-1 save roll toggles with cap enforcement | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T4-19: [MH-BUG-6] Triple 'h' typo in Mathhammer class names — renamed to MathhammerUI/Results/RuleModifiers | Mathhammer | MASTER_AUDIT.md §MATHHAMMER |
 | T6-1: Fix broken test compilation errors — BaseUITest created, autoload resolution fixed | Testing | TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md |
+| T6-2: Validate all existing tests and document status — 1234 tests validated, 6 compile fixes, 1 runtime fix | Testing | TESTING_AUDIT_SUMMARY.md, TEST_VALIDATION_REPORT.md |
 
 ---
 
@@ -803,10 +804,11 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Source:** TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md
 - **Resolution:** Created missing `BaseUITest.gd` with correct 2-param `assert_unit_card_visible(visible, message)` signature, `assert_has`/`assert_does_not_have` collection assertions, and full UI testing helpers (scene loading, button clicks, model tokens, drag, phase transitions). Fixed `ensure_autoloads_loaded(get_tree())` parameter mismatch in BasePhaseTest.gd and test_multiplayer_gameplay.gd to use `verify_autoloads_available()`. Fixed `Engine.has_singleton`/`get_singleton` GameState access in test_full_gameplay_sequence.gd to use `AutoloadHelper.get_game_state()` (autoloads are scene tree nodes, not Engine singletons).
 
-### T6-2. Validate all existing tests and document status
+### T6-2. Validate all existing tests and document status — **DONE**
 - ~300 tests across 52 files, many with ⚠️ Unknown status
 - 8 fight phase test failures need investigation
 - **Source:** TESTING_AUDIT_SUMMARY.md
+- **Resolution:** Ran all 1234 tests across 65 scripts (unit, integration, network). Fixed 6 compilation errors blocking execution (RulesEngine undeclared vars, ChargePhase duplicate functions, Mathhammer scope error, test RNGService qualification). Fixed EffectPrimitives Array/String comparison crash (resolved 37 failures). Final results: 1147 passing (93%), 50 failing (documented root causes), 37 risky/pending. Fight phase test failures traced to: ChargePhase compilation cascade, EffectPrimitives type error, and 2 disabled tests using incompatible singleton patterns. Identified save calculation sign bug (`_calculate_save_needed` treats negative AP as improvement). Full report in `40k/TEST_VALIDATION_REPORT.md`.
 
 ### T6-3. Add E2E workflow tests
 - No full deployment → movement → shooting → fight test
@@ -868,9 +870,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 0 | 51 | 51 |
-| Tier 6 — Testing | 1 | 4 | 5 |
-| **Total Open** | **56** | **72** | **128** |
-| **Recently Completed** | **83** | — | **83** |
+| Tier 6 — Testing | 2 | 3 | 5 |
+| **Total Open** | **57** | **71** | **128** |
+| **Recently Completed** | **84** | — | **84** |
 | *Mathhammer items (subset)* | *13* | *18* | *31* |
 
 ---

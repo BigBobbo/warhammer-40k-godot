@@ -395,7 +395,7 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 				fresh_defender["flags"]["save_modifier"] = save_modifier
 				print("Mathhammer: Applied save modifier %+d to defender %s (capped at +1/-1 per 10e)" % [save_modifier, defender_unit_id])
 
-		trial_board.units[defender_unit_id] = fresh_defender
+			trial_board.units[defender_unit_id] = fresh_defender
 
 	# ANTI-[KEYWORD] X+ (T2-13): Inject anti-keyword text into attacker weapon special_rules
 	# so RulesEngine's get_anti_keyword_data() / get_critical_wound_threshold() picks it up.

@@ -334,14 +334,14 @@ func test_melee_invulnerable_save_used_when_better():
 
 func test_roll_variable_characteristic_fixed():
 	"""Test that fixed values are returned as-is"""
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = rules_engine.roll_variable_characteristic("4", rng)
 	assert_eq(result.value, 4, "Fixed value '4' should return 4")
 	assert_false(result.rolled, "Fixed value should not be marked as rolled")
 
 func test_roll_variable_characteristic_d6():
 	"""Test that D6 rolls return a value between 1 and 6"""
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = rules_engine.roll_variable_characteristic("D6", rng)
 	assert_true(result.value >= 1 and result.value <= 6, "D6 should return 1-6, got %d" % result.value)
 	assert_true(result.rolled, "D6 should be marked as rolled")
@@ -349,21 +349,21 @@ func test_roll_variable_characteristic_d6():
 
 func test_roll_variable_characteristic_d3():
 	"""Test that D3 rolls return a value between 1 and 3"""
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = rules_engine.roll_variable_characteristic("D3", rng)
 	assert_true(result.value >= 1 and result.value <= 3, "D3 should return 1-3, got %d" % result.value)
 	assert_true(result.rolled, "D3 should be marked as rolled")
 
 func test_roll_variable_characteristic_d6_plus():
 	"""Test that D6+2 rolls return a value between 3 and 8"""
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = rules_engine.roll_variable_characteristic("D6+2", rng)
 	assert_true(result.value >= 3 and result.value <= 8, "D6+2 should return 3-8, got %d" % result.value)
 	assert_true(result.rolled, "D6+2 should be marked as rolled")
 
 func test_roll_variable_characteristic_d3_plus():
 	"""Test that D3+3 rolls return a value between 4 and 6"""
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = rules_engine.roll_variable_characteristic("D3+3", rng)
 	assert_true(result.value >= 4 and result.value <= 6, "D3+3 should return 4-6, got %d" % result.value)
 	assert_true(result.rolled, "D3+3 should be marked as rolled")

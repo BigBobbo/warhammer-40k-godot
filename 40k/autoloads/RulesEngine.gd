@@ -5724,17 +5724,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker (melee)
 		if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
-			print("RulesEngine: Effect +1 to hit (melee) applied for %s" % attacker_unit_id)
+			print("RulesEngine: Effect +1 to hit (melee) applied for %s" % attacker_id)
 		if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
-			print("RulesEngine: Effect -1 to hit (melee) applied for %s" % attacker_unit_id)
+			print("RulesEngine: Effect -1 to hit (melee) applied for %s" % attacker_id)
 		var melee_reroll_hits_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
 		if melee_reroll_hits_scope == "ones":
 			melee_hit_modifiers |= HitModifier.REROLL_ONES
-			print("RulesEngine: Effect re-roll 1s to hit (melee) applied for %s" % attacker_unit_id)
+			print("RulesEngine: Effect re-roll 1s to hit (melee) applied for %s" % attacker_id)
 		elif melee_reroll_hits_scope == "failed" or melee_reroll_hits_scope == "all":
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
-			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_unit_id)
+			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
@@ -5834,17 +5834,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
-		print("RulesEngine: Effect +1 to wound (melee) applied for %s" % attacker_unit_id)
+		print("RulesEngine: Effect +1 to wound (melee) applied for %s" % attacker_id)
 	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
-		print("RulesEngine: Effect -1 to wound (melee) applied for %s" % attacker_unit_id)
+		print("RulesEngine: Effect -1 to wound (melee) applied for %s" % attacker_id)
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
-		print("RulesEngine: Effect re-roll 1s to wound (melee) applied for %s" % attacker_unit_id)
+		print("RulesEngine: Effect re-roll 1s to wound (melee) applied for %s" % attacker_id)
 	elif melee_reroll_wounds_scope == "failed" or melee_reroll_wounds_scope == "all":
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
-		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_unit_id)
+		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_id)
 
 	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
@@ -6468,7 +6468,7 @@ static func prepare_save_resolution(
 				has_cover = true
 				print("RulesEngine: [INDIRECT FIRE] Target gains Benefit of Cover (interactive)")
 			else:
-				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or stratagem_cover
+				has_cover = _check_model_has_cover(model, shooter_unit_id, board) or effect_cover
 
 		# Invulnerable save: use best of model's native invuln and effect-granted invuln
 		var model_invuln = model.get("invuln", 0)
