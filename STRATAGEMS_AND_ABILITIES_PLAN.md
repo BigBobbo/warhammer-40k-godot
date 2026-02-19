@@ -508,7 +508,7 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 | 6 | Counter-Offensive | Fight order manipulation | **COMPLETED** |
 | 7 | Fire Overwatch + Heroic Intervention | Cross-phase actions (shooting/charging during opponent's turn) | **COMPLETED** |
 | 8 | Extract effect primitives library | Refactor hardcoded patterns into reusable data-driven effects | **COMPLETED** |
-| 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | Pending |
+| 9 | Faction stratagems via data | Load and apply faction stratagems from CSV | **COMPLETED** |
 | 10 | Unit abilities | Reuse effect primitives for datasheet/faction abilities | Pending |
 
 ---
@@ -740,3 +740,40 @@ Recommended implementation sequence. Each step proves a new capability in the pi
 4. Instant effects (Grenade, Command Re-roll, Counter-Offensive, Fire Overwatch, Heroic Intervention, Insane Bravery) correctly produce no persistent flags
 5. New effect types (weapon keywords, stat modifiers, eligibility flags) can be added by just adding entries to `_EFFECT_FLAG_MAP` — no code changes needed
 6. The system is ready for Step 9 (faction stratagems) and Step 10 (unit abilities) to reuse the same effect primitives
+
+### Task 9: Faction Stratagems via Data (COMPLETED)
+
+**Implementation approach**: CSV data pipeline that parses Wahapedia stratagem data, maps faction names to codes, filters by player's detachment, and maps effect descriptions to EffectPrimitives via pattern matching. Integrated into StratagemManager with per-player ownership tracking.
+
+**Files created:**
+- `40k/data/Stratagems.csv` — Wahapedia stratagem data (all factions, pipe-delimited)
+- `40k/data/Factions.csv` — Faction name-to-code mapping
+- `40k/data/Detachments.csv` — Detachment definitions per faction
+- `40k/autoloads/FactionStratagemLoader.gd` — CSV parser, faction code lookup, description parser (HTML stripping, WHEN/TARGET/EFFECT extraction), effect text → EffectPrimitives mapper, target condition parser, unit matching logic
+- `40k/tests/unit/test_faction_stratagems.gd` — 50+ tests covering CSV parsing, faction lookup, description parsing, timing inference, target matching, effect mapping on real stratagems, restriction parsing, ID generation, implemented flag detection
+
+**Files modified:**
+- `40k/autoloads/StratagemManager.gd` — Added `_faction_loader` instance, `_player_faction_stratagems` ownership tracking, `load_faction_stratagems_for_player()` to parse CSV and register stratagems, `is_faction_stratagem()` / `get_stratagem_owner()` for ownership checking, player ownership validation in `can_use_stratagem()`, generalized `get_reactive_stratagems_for_shooting()` to include faction stratagems via `_get_faction_reactive_stratagems()`, added `get_reactive_stratagems_for_fight()` and `get_proactive_stratagems_for_phase()` for fight/shooting phase faction stratagems, updated `reset_for_new_game()` to clear faction stratagems
+- `40k/autoloads/ArmyListManager.gd` — Added automatic faction stratagem loading when armies are applied to game state via `apply_army_to_game_state()`
+
+**Key design decisions:**
+- **CSV data copied into Godot project's `data/` directory**: The CSV files from `server/tools/wahapedia_csv/` are copied to `40k/data/` so they're accessible at `res://data/` paths within the Godot project at runtime.
+- **Runtime CSV parsing over pre-processed JSON**: Chose to parse CSV directly in GDScript rather than pre-processing to JSON. This avoids a build step and keeps the data pipeline simple. The CSV parsing (~1400 rows) happens once at game startup and is fast enough.
+- **Pattern-based effect mapping**: Effect descriptions are mapped to EffectPrimitives via regex and string matching patterns. Common patterns like "worsen the Armour Penetration by 1" → `worsen_ap`, "subtract 1 from the Wound roll" → `minus_one_wound`, "[IGNORES COVER] ability" → `grant_ignores_cover` are handled. Stratagems with complex/unique effects (fight-on-death, out-of-sequence movement, etc.) are loaded with their data but marked `implemented: false`.
+- **`implemented` flag on each stratagem**: Each faction stratagem has an `implemented` boolean. Only stratagems whose effects map to existing EffectPrimitives are marked `true`. The game only allows using implemented stratagems. This lets us ship partial coverage and incrementally add more effect types.
+- **Per-player ownership model**: Faction stratagems are owned by the player whose army matches the faction/detachment. Core stratagems remain available to both players. Ownership is checked in `can_use_stratagem()` and filtered in `get_available_stratagems_for_trigger()`.
+- **Automatic loading via ArmyListManager**: When `apply_army_to_game_state()` is called, it automatically triggers `StratagemManager.load_faction_stratagems_for_player()`. This ensures faction stratagems are always loaded after armies are set.
+- **Generalized reactive flow**: `get_reactive_stratagems_for_shooting()` now checks faction stratagems alongside core ones (Go to Ground, Smokescreen). The new `_get_faction_reactive_stratagems()` helper matches target units against faction stratagem conditions using `FactionStratagemLoaderData.unit_matches_target()`.
+
+**Effect mapping coverage for default detachments:**
+- Shield Host (Adeptus Custodes): MULTIPOTENTIALITY (fall_back_and_shoot + fall_back_and_charge) ✅, ARCANE GENETIC ALCHEMY (grant_fnp 4+) ✅, UNWAVERING SENTINELS (minus_one_hit) ✅, ARCHEOTECH MUNITIONS (grant_lethal_hits / grant_sustained_hits) ✅
+- Gladius Task Force (Space Marines): STORM OF FIRE (grant_ignores_cover) ✅, ARMOUR OF CONTEMPT (worsen_ap) ✅, HONOUR THE CHAPTER (grant_lance) ✅
+- War Horde (Orks): UNBRIDLED CARNAGE (crit_hit_on 5) ✅, 'ARD AS NAILS (minus_one_wound) ✅, ERE WE GO (custom: unmapped) ❌
+
+**What this proved:**
+1. The CSV data from Wahapedia can be loaded and parsed at runtime in GDScript efficiently
+2. HTML descriptions can be stripped and structured into WHEN/TARGET/EFFECT components reliably
+3. A significant subset of faction stratagems (~40-60% depending on detachment) map cleanly to existing EffectPrimitives with no new effect types needed
+4. The per-player ownership model integrates cleanly with existing validation and reactive flows
+5. The `implemented` flag approach allows incremental coverage without blocking gameplay
+6. The system is ready for the UI to display faction stratagems alongside core ones

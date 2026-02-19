@@ -1,8 +1,8 @@
 {
     "faction": {
-      "name": "Unknown",
+      "name": "Orks",
       "points": 2000,
-      "detachment": "",
+      "detachment": "War Horde",
       "player_name": "",
       "team_name": ""
     },
