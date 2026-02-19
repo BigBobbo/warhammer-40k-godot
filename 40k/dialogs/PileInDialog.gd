@@ -135,12 +135,21 @@ func _on_skip_pressed() -> void:
 	queue_free()
 
 func _on_confirmed() -> void:
-	"""Confirm pile-in movements - let FightPhase handle final validation"""
+	"""Confirm pile-in movements - validate before submitting"""
 	print("[PileInDialog] Confirm button pressed")
 	print("[PileInDialog] Current movements: ", model_movements)
 
-	# Don't validate here - let FightPhase do it when processing the action
-	# This avoids issues with active_fighter_id timing
+	# T5-MP2: Validate movements before confirming to give client-side feedback
+	if not model_movements.is_empty():
+		var validation = _validate_movements()
+		if not validation.valid:
+			var error_text = validation.errors[0] if validation.errors.size() > 0 else "Invalid movement"
+			print("[PileInDialog] T5-MP2: Blocking confirm — validation failed: ", error_text)
+			status_label.text = "✗ Cannot confirm: %s" % error_text
+			status_label.add_theme_color_override("font_color", Color.RED)
+			ToastManager.show_error("Pile-in rejected: %s" % error_text)
+			return  # Don't dismiss — let the player fix the movement
+
 	print("[PileInDialog] Emitting pile_in_confirmed signal")
 	hide()
 	emit_signal("pile_in_confirmed", model_movements)

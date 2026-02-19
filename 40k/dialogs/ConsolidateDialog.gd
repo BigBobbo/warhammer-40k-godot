@@ -160,12 +160,21 @@ func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 	return not enemies.is_empty()
 
 func _on_confirmed() -> void:
-	"""Confirm consolidate movements - let FightPhase handle final validation"""
+	"""Confirm consolidate movements - validate before submitting"""
 	print("[ConsolidateDialog] Confirm button pressed")
 	print("[ConsolidateDialog] Current movements: ", model_movements)
 
-	# Don't validate here - let FightPhase do it when processing the action
-	# This avoids issues with active_fighter_id timing
+	# T5-MP2: Validate movements before confirming to give client-side feedback
+	if not model_movements.is_empty():
+		var validation = _validate_movements()
+		if not validation.valid:
+			var error_text = validation.errors[0] if validation.errors.size() > 0 else "Invalid movement"
+			print("[ConsolidateDialog] T5-MP2: Blocking confirm — validation failed: ", error_text)
+			status_label.text = "✗ Cannot confirm: %s" % error_text
+			status_label.add_theme_color_override("font_color", Color.RED)
+			ToastManager.show_error("Consolidate rejected: %s" % error_text)
+			return  # Don't dismiss — let the player fix the movement
+
 	print("[ConsolidateDialog] Emitting consolidate_confirmed signal")
 	hide()
 	emit_signal("consolidate_confirmed", model_movements)

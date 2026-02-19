@@ -4156,9 +4156,44 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 				# Update UI after successful action
 				update_after_fight_action()
 		else:
-			print("Main: Fight action failed: ", result.get("error", "Unknown error"))
+			var error_msg = result.get("error", "Unknown error")
+			print("Main: Fight action failed: ", error_msg)
+			# T5-MP2: Show toast feedback to the player when server validation rejects
+			var action_type = action.get("type", "")
+			if action_type == "PILE_IN":
+				ToastManager.show_error("Pile-in rejected: %s" % error_msg)
+				# Re-request pile-in so player can try again
+				_re_request_fight_movement(action, "pile_in")
+			elif action_type == "CONSOLIDATE":
+				ToastManager.show_error("Consolidate rejected: %s" % error_msg)
+				# Re-request consolidate so player can try again
+				_re_request_fight_movement(action, "consolidate")
+			else:
+				ToastManager.show_error("Fight action failed: %s" % error_msg)
 	else:
 		print("Main: Unexpected result from fight action")
+
+func _re_request_fight_movement(action: Dictionary, movement_type: String) -> void:
+	"""T5-MP2: Re-emit pile_in_required or consolidate_required so the dialog reopens after server rejection"""
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if not phase_instance:
+		print("Main: T5-MP2: Cannot re-request %s — no phase instance" % movement_type)
+		return
+
+	var unit_id = action.get("unit_id", "")
+	if unit_id.is_empty():
+		print("Main: T5-MP2: Cannot re-request %s — no unit_id in action" % movement_type)
+		return
+
+	# Small delay to let previous dialog fully close before showing a new one
+	await get_tree().create_timer(0.3).timeout
+
+	if movement_type == "pile_in" and phase_instance.has_signal("pile_in_required"):
+		print("Main: T5-MP2: Re-requesting pile-in for %s" % unit_id)
+		phase_instance.emit_signal("pile_in_required", unit_id, 3.0)
+	elif movement_type == "consolidate" and phase_instance.has_signal("consolidate_required"):
+		print("Main: T5-MP2: Re-requesting consolidate for %s" % unit_id)
+		phase_instance.emit_signal("consolidate_required", unit_id, 3.0)
 
 func _on_fight_ui_update_requested() -> void:
 	# Update UI when FightController requests it
