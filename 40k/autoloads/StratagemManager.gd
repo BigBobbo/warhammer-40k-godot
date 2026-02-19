@@ -565,6 +565,26 @@ func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictiona
 # USAGE / EXECUTION
 # ============================================================================
 
+func _safe_apply_state_changes(diffs: Array) -> void:
+	"""Apply state changes via PhaseManager if available, otherwise apply directly."""
+	if PhaseManager != null:
+		PhaseManager.apply_state_changes(diffs)
+	else:
+		# Fallback: apply diffs directly to GameState (for tests where PhaseManager isn't loaded)
+		for diff in diffs:
+			if diff.get("op", "") == "set":
+				var parts = diff.path.split(".")
+				var current = GameState.state
+				for i in range(parts.size() - 1):
+					var part = parts[i]
+					if current is Dictionary:
+						if not current.has(part):
+							current[part] = {}
+						current = current[part]
+				var final_key = parts[-1]
+				if current is Dictionary:
+					current[final_key] = diff.value
+
 func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "", context: Dictionary = {}) -> Dictionary:
 	"""
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
@@ -599,7 +619,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	_usage_history[str(player)].append(usage_record)
 
 	# Apply the CP diff immediately
-	PhaseManager.apply_state_changes(diffs)
+	_safe_apply_state_changes(diffs)
 
 	print("StratagemManager: Player %d used %s on %s (cost %d CP, %d -> %d)" % [
 		player, strat.name, target_unit_id if target_unit_id != "" else "N/A",
@@ -620,7 +640,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Apply stratagem-specific effects to game state (unit flags for RulesEngine)
 	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat)
 	if not effect_diffs.is_empty():
-		PhaseManager.apply_state_changes(effect_diffs)
+		_safe_apply_state_changes(effect_diffs)
 		diffs.append_array(effect_diffs)
 
 	# Track active effect for duration management
@@ -896,7 +916,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 	_usage_history[str(player)].append(usage_record)
 
 	# Apply CP diff
-	PhaseManager.apply_state_changes(diffs)
+	_safe_apply_state_changes(diffs)
 
 	print("StratagemManager: Player %d used GRENADE with %s targeting %s (cost %d CP, %d -> %d)" % [
 		player, grenade_unit_id, target_unit_id, strat.cp_cost, current_cp, new_cp
@@ -936,7 +956,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		casualties = mw_result.get("casualties", 0)
 
 		if not mw_diffs.is_empty():
-			PhaseManager.apply_state_changes(mw_diffs)
+			_safe_apply_state_changes(mw_diffs)
 			diffs.append_array(mw_diffs)
 
 		print("StratagemManager: GRENADE applied %d mortal wounds to %s (%d casualties)" % [mortal_wounds, target_unit_id, casualties])
@@ -947,7 +967,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		"path": "units.%s.flags.has_shot" % grenade_unit_id,
 		"value": true
 	}
-	PhaseManager.apply_state_changes([shot_diff])
+	_safe_apply_state_changes([shot_diff])
 	diffs.append(shot_diff)
 
 	# Track active effect (no persistent flags needed for grenade - it's instant)
@@ -1597,68 +1617,12 @@ func get_proactive_stratagems_for_phase(player: int, phase: String, available_un
 	return results
 
 # ============================================================================
-# FIRE OVERWATCH
+# FIRE OVERWATCH — Execution
 # ============================================================================
 
-func is_fire_overwatch_available(player: int) -> Dictionary:
-	"""
-	Check if Fire Overwatch stratagem is available for a player.
-	Returns { available: bool, reason: String }
-	"""
-	var validation = can_use_stratagem(player, "fire_overwatch")
-	if not validation.can_use:
-		return {"available": false, "reason": validation.reason}
-	return {"available": true, "reason": ""}
-
+# Alias for backward-compatibility with tests that use the shorter name
 func get_overwatch_eligible_units(player: int, enemy_unit_id: String, game_state_snapshot: Dictionary) -> Array:
-	"""
-	Get units eligible for Fire Overwatch for a given player against an enemy unit.
-	Requirements: owned by player, within 24" of the enemy unit, eligible to shoot
-	(not battle-shocked, has alive models, not already shot, not in engagement range
-	unless PISTOL weapons available).
-	Returns array of { unit_id: String, unit_name: String }
-	"""
-	var eligible = []
-
-	# Check if the stratagem can be used at all (CP, restrictions)
-	var validation = can_use_stratagem(player, "fire_overwatch")
-	if not validation.can_use:
-		return eligible
-
-	var all_units = game_state_snapshot.get("units", {})
-	var enemy_unit = all_units.get(enemy_unit_id, {})
-	if enemy_unit.is_empty():
-		return eligible
-
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
-			continue
-
-		# Must be within 24" of the enemy unit
-		if not _is_within_range(unit, enemy_unit, 24.0):
-			continue
-
-		eligible.append({
-			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
-		})
-
-	return eligible
+	return get_fire_overwatch_eligible_units(player, enemy_unit_id, game_state_snapshot)
 
 func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id: String, game_state_snapshot: Dictionary) -> Dictionary:
 	"""
@@ -1690,7 +1654,7 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 	# Apply the diffs from shooting
 	var shooting_diffs = shooting_result.get("diffs", [])
 	if not shooting_diffs.is_empty():
-		PhaseManager.apply_state_changes(shooting_diffs)
+		_safe_apply_state_changes(shooting_diffs)
 
 	# Log the overwatch to phase log
 	GameState.add_action_to_phase_log({
@@ -1720,85 +1684,6 @@ func execute_fire_overwatch(player: int, shooter_unit_id: String, target_unit_id
 			"y" if shooting_result.get("total_casualties", 0) == 1 else "ies"
 		]
 	}
-
-# ============================================================================
-# HEROIC INTERVENTION
-# ============================================================================
-
-func is_heroic_intervention_available(player: int) -> Dictionary:
-	"""
-	Check if Heroic Intervention stratagem is available for a player.
-	Returns { available: bool, reason: String }
-	"""
-	var validation = can_use_stratagem(player, "heroic_intervention")
-	if not validation.can_use:
-		return {"available": false, "reason": validation.reason}
-	return {"available": true, "reason": ""}
-
-func get_heroic_intervention_eligible_units(player: int, charging_unit_id: String, game_state_snapshot: Dictionary) -> Array:
-	"""
-	Get units eligible for Heroic Intervention for a given player.
-	Requirements: owned by player, within 6" of the charging enemy unit,
-	has alive models, not battle-shocked, not a VEHICLE (unless WALKER).
-	Returns array of { unit_id: String, unit_name: String }
-	"""
-	var eligible = []
-
-	# Check if the stratagem can be used at all (CP, restrictions)
-	var validation = can_use_stratagem(player, "heroic_intervention")
-	if not validation.can_use:
-		return eligible
-
-	var all_units = game_state_snapshot.get("units", {})
-	var charging_unit = all_units.get(charging_unit_id, {})
-	if charging_unit.is_empty():
-		return eligible
-
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-
-		# Must have alive models
-		var has_alive = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
-			continue
-
-		# Cannot be a VEHICLE unless it is a WALKER
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_vehicle = false
-		var is_walker = false
-		for kw in keywords:
-			if kw.to_upper() == "VEHICLE":
-				is_vehicle = true
-			if kw.to_upper() == "WALKER":
-				is_walker = true
-		if is_vehicle and not is_walker:
-			continue
-
-		# Must not already be in engagement range (already engaged units can't declare charges)
-		if _is_unit_in_engagement_range(unit, all_units, player):
-			continue
-
-		# Must be within 6" of the charging enemy unit
-		if not _is_within_range(unit, charging_unit, 6.0):
-			continue
-
-		eligible.append({
-			"unit_id": unit_id,
-			"unit_name": unit.get("meta", {}).get("name", unit_id)
-		})
-
-	return eligible
 
 func _is_within_range(unit1: Dictionary, unit2: Dictionary, range_inches: float) -> bool:
 	"""Check if any alive model from unit1 is within range_inches of any alive model from unit2."""

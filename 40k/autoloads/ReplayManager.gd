@@ -82,6 +82,9 @@ const PHASE_NAMES = {
 const REPLAY_VERSION = "1.0.0"
 const REPLAY_DIR = "user://replays/"
 
+# Cached reference to PhaseManager (get_node_or_null fails in web exports)
+var _phase_manager_ref: Node = null
+
 # ============================================================================
 # Initialization
 # ============================================================================
@@ -334,7 +337,9 @@ func _on_phase_completed_for_recording(phase: GameStateData.Phase) -> void:
 	"""Auto-stop recording when the game ends, and save incrementally after each turn."""
 	if not is_recording:
 		return
-	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	var phase_manager = _phase_manager_ref
 	if phase_manager and phase_manager.game_ended:
 		print("ReplayManager: Game ended detected, auto-stopping recording")
 		stop_recording()

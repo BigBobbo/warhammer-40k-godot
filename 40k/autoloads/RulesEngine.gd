@@ -391,6 +391,79 @@ const WEAPON_PROFILES = {
 		"ap": 2,
 		"damage": 1,
 		"keywords": ["HAZARDOUS", "RAPID FIRE 1"]  # Hazardous + Rapid Fire combo
+	},
+	# LANCE WEAPONS (T4-1) — +1 to wound if bearer's unit made a charge move this turn
+	# TEST WEAPON: Basic Lance melee weapon (e.g., Shining Spears laser lance)
+	"lance_melee": {
+		"name": "Lance Melee (Test)",
+		"range": 0,
+		"attacks": 3,
+		"bs": 4,
+		"ws": 3,
+		"strength": 6,
+		"ap": 2,
+		"damage": 2,
+		"type": "melee",
+		"keywords": ["LANCE"]  # +1 to wound on charge
+	},
+	# TEST WEAPON: Lance + Lethal Hits combo
+	"lance_lethal": {
+		"name": "Lance + Lethal (Test)",
+		"range": 0,
+		"attacks": 4,
+		"bs": 4,
+		"ws": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"type": "melee",
+		"keywords": ["LANCE", "LETHAL HITS"]  # +1 to wound on charge + auto-wound on crit hits
+	},
+	# TEST WEAPON: Lance ranged weapon (Lance applies to ranged too per rules)
+	"lance_ranged": {
+		"name": "Lance Ranged (Test)",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 6,
+		"ap": 2,
+		"damage": 2,
+		"type": "ranged",
+		"keywords": ["LANCE"]  # +1 to wound on charge (ranged Lance)
+	},
+	# ONE SHOT WEAPONS (T4-2) — Weapon can only be fired once per battle
+	# TEST WEAPON: Basic One Shot missile (e.g., Hunter-killer missile)
+	"one_shot_missile": {
+		"name": "Hunter-killer Missile (Test)",
+		"range": 48,
+		"attacks": 1,
+		"bs": 3,
+		"strength": 14,
+		"ap": 3,
+		"damage": 6,
+		"keywords": ["ONE SHOT"]  # Can only fire once per battle
+	},
+	# TEST WEAPON: One Shot + Blast combo
+	"one_shot_blast": {
+		"name": "One Shot Blast (Test)",
+		"range": 36,
+		"attacks": 3,
+		"bs": 3,
+		"strength": 8,
+		"ap": 2,
+		"damage": 2,
+		"keywords": ["ONE SHOT", "BLAST"]  # One Shot + Blast combo
+	},
+	# TEST WEAPON: One Shot with fixed stats for predictable testing
+	"one_shot_test": {
+		"name": "One Shot Test Weapon",
+		"range": 24,
+		"attacks": 2,
+		"bs": 3,
+		"strength": 5,
+		"ap": 1,
+		"damage": 1,
+		"keywords": ["ONE SHOT"]  # Simple One Shot for testing
 	}
 }
 
@@ -601,6 +674,17 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 			if hazardous_result.log_text:
 				result.log_text += hazardous_result.log_text + "\n"
 
+		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
+		if is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				var one_shot_diffs = mark_one_shot_fired_diffs(actor_unit_id, actor_unit, model_id, weapon_id)
+				result.diffs.append_array(one_shot_diffs)
+				# Apply diffs to local board so subsequent assignments see updated state
+				for d in one_shot_diffs:
+					_apply_diff_to_board(board, d)
+			print("RulesEngine: [ONE SHOT] Marked weapon '%s' as fired for %d model(s)" % [weapon_id, model_ids.size()])
+
 	return result
 
 # Shooting resolution that stops before saves (for interactive save system)
@@ -656,6 +740,19 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 				"weapon_id": weapon_id,
 				"models_that_fired": assignment.get("model_ids", []).size()
 			})
+
+		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
+		if is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				var one_shot_diffs = mark_one_shot_fired_diffs(actor_unit_id, actor_unit, model_id, weapon_id)
+				if not result.has("one_shot_diffs"):
+					result["one_shot_diffs"] = []
+				result["one_shot_diffs"].append_array(one_shot_diffs)
+				# Apply diffs to local board so subsequent assignments see updated state
+				for d in one_shot_diffs:
+					_apply_diff_to_board(board, d)
+			print("RulesEngine: [ONE SHOT] Marked weapon '%s' as fired for %d model(s) (interactive path)" % [weapon_id, model_ids.size()])
 
 	# HAZARDOUS (T2-3): Store hazardous weapon data in result for ShootingPhase to process after saves
 	if not hazardous_weapons.is_empty():
@@ -968,14 +1065,19 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
+		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+		var ow_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		ow_save_modifier = clamp(ow_save_modifier, -1, 1)
+
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
 		if save_roll > 1:
+			var ow_effective_roll = save_roll + ow_save_modifier
 			if save_result.use_invuln:
-				saved = save_roll >= save_result.inv
+				saved = ow_effective_roll >= save_result.inv
 			else:
-				saved = save_roll >= save_result.armour
+				saved = ow_effective_roll >= save_result.armour
 
 		if not saved:
 			# Roll damage
@@ -1118,6 +1220,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
+	# CONVERSION X+ (T4-16): Check if weapon has Conversion ability
+	# Expands critical hit range when firing at targets 12"+ away
+	var critical_hit_threshold = get_critical_hit_threshold(weapon_id, actor_unit, target_unit, model_ids, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var is_overwatch = assignment.get("overwatch", false)
@@ -1130,7 +1236,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		print("RulesEngine: [OVERWATCH] Forcing BS=7 — only unmodified 6s will hit")
 
 	var hits = 0
-	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
+	var critical_hits = 0  # Unmodified rolls >= critical_hit_threshold (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
 	var hit_modifiers = HitModifier.NONE
 	var heavy_bonus_applied = false
@@ -1270,14 +1376,15 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll == 6 or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
+				if unmodified_roll >= critical_hit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -1313,6 +1420,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
 			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# CONVERSION X+ (T4-16)
+			"conversion_active": critical_hit_threshold < 6,
+			"critical_hit_threshold": critical_hit_threshold,
 			# SUSTAINED HITS (PRP-011)
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_value": sustained_data.value,
@@ -1389,7 +1499,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		wound_modifiers |= WoundModifier.REROLL_FAILED
 		print("RulesEngine: Effect re-roll all wounds applied for %s" % actor_unit_id)
 
-	# LANCE: +1 to wound if unit charged this turn (future: T4-1 will set this flag)
+	# LANCE (T4-1): +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
@@ -1672,6 +1782,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
+	# CONVERSION X+ (T4-16): Check if weapon has Conversion ability (auto-resolve path)
+	var critical_hit_threshold = get_critical_hit_threshold(weapon_id, actor_unit, target_unit, model_ids, board)
+
 	# Variables that need to be declared for both paths
 	var bs = weapon_profile.get("bs", 4)
 	var is_overwatch = assignment.get("overwatch", false)
@@ -1821,14 +1934,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			# INDIRECT FIRE (T2-4): Unmodified 1-3 always miss for Indirect Fire weapons
+			# CONVERSION X+ (T4-16): Critical hits on unmodified X+ at 12"+ distance
 			if unmodified_roll == 1:
 				pass  # Auto-miss regardless of modifiers
 			elif is_indirect_fire and unmodified_roll <= 3:
 				pass  # INDIRECT FIRE: Unmodified 1-3 always fail
-			elif unmodified_roll == 6 or final_roll >= bs:
+			elif unmodified_roll >= critical_hit_threshold or final_roll >= bs:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= critical_hit_threshold (6 normally, or X+ with Conversion)
+				if unmodified_roll >= critical_hit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -1864,6 +1978,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
 			"lethal_hits_weapon": weapon_has_lethal_hits,
+			# CONVERSION X+ (T4-16)
+			"conversion_active": critical_hit_threshold < 6,
+			"critical_hit_threshold": critical_hit_threshold,
 			# SUSTAINED HITS (PRP-011)
 			"sustained_hits_weapon": sustained_data.value > 0,
 			"sustained_hits_value": sustained_data.value,
@@ -1934,7 +2051,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
 		print("RulesEngine: Effect re-roll wounds (auto-resolve) applied for %s" % actor_unit_id)
 
-	# LANCE: +1 to wound if unit charged this turn
+	# LANCE (T4-1): +1 to wound if unit charged this turn
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
@@ -2141,23 +2258,29 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Calculate save needed
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, auto_model_invuln)
-		
+
+		# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+		var save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+		save_modifier = clamp(save_modifier, -1, 1)
+
 		# Roll save
 		var save_roll = rng.roll_d6(1)[0]
 		var saved = false
 
 		# 10e rules: Unmodified save roll of 1 always fails
 		if save_roll > 1:
+			var effective_save_roll = save_roll + save_modifier
 			if save_result.use_invuln:
-				saved = save_roll >= save_result.inv
+				saved = effective_save_roll >= save_result.inv
 			else:
-				saved = save_roll >= save_result.armour
-		
+				saved = effective_save_roll >= save_result.armour
+
 		result.dice.append({
 			"context": "save",
 			"sv": str(base_save) + "+",
 			"ap": ap,
 			"cover": "+1 (capped)" if has_cover and not save_result.use_invuln else "none",
+			"save_modifier": save_modifier,
 			"rolls_raw": [save_roll],
 			"fails": 0 if saved else 1
 		})
@@ -2330,6 +2453,15 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					var visibility_result = _check_target_visibility(actor_unit_id, target_unit_id, weapon_id, board)
 					if not visibility_result.visible:
 						errors.append(visibility_result.reason)
+
+		# ONE SHOT (T4-2): Check if any model has already fired this one-shot weapon
+		if weapon_id != "" and is_one_shot_weapon(weapon_id, board):
+			var model_ids = assignment.get("model_ids", [])
+			for model_id in model_ids:
+				if has_fired_one_shot(actor_unit, model_id, weapon_id):
+					var wp = get_weapon_profile(weapon_id, board)
+					var wp_name = wp.get("name", weapon_id)
+					errors.append("One Shot weapon '%s' has already been fired by model '%s' this battle" % [wp_name, model_id])
 
 	# PISTOL MUTUAL EXCLUSIVITY (T2-5): A model cannot fire both Pistol and non-Pistol
 	# weapons in the same shooting activation. Exception: MONSTER/VEHICLE models.
@@ -2872,7 +3004,7 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	var unique_weapon_ids = []
 	for weapon in weapons:
 		if weapon.get("type", "") == "Ranged":  # Only include ranged weapons for shooting
-			var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+			var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 			if weapon_id not in unique_weapon_ids:
 				unique_weapon_ids.append(weapon_id)
 
@@ -2893,7 +3025,7 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 		var char_unique_weapon_ids = []
 		for weapon in char_weapons:
 			if weapon.get("type", "") == "Ranged":
-				var weapon_id = _generate_weapon_id(weapon.get("name", ""))
+				var weapon_id = _generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
 				if weapon_id not in char_unique_weapon_ids:
 					char_unique_weapon_ids.append(weapon_id)
 
@@ -2909,13 +3041,18 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 	return result
 
 # Helper function to generate consistent weapon IDs from names
-static func _generate_weapon_id(weapon_name: String) -> String:
+# Includes weapon_type to avoid collisions between ranged/melee variants with the same name
+# (e.g., "Guardian spear" exists as both Ranged and Melee on Custodes units)
+static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	# Convert weapon name to consistent ID format
 	var weapon_id = weapon_name.to_lower()
 	weapon_id = weapon_id.replace(" ", "_")
 	weapon_id = weapon_id.replace("-", "_")
 	weapon_id = weapon_id.replace("–", "_")  # Handle em dash
 	weapon_id = weapon_id.replace("'", "")
+	# Append weapon type suffix to prevent collisions between ranged/melee variants
+	if weapon_type != "":
+		weapon_id += "_" + weapon_type.to_lower()
 	return weapon_id
 
 # Get weapon profile
@@ -2940,13 +3077,15 @@ static func get_weapon_profile(weapon_id: String, board: Dictionary = {}) -> Dic
 	for unit_id in units:
 		var unit = units[unit_id]
 		var weapons = unit.get("meta", {}).get("weapons", [])
-		
+
 		for weapon in weapons:
 			var weapon_name = weapon.get("name", "")
-			var generated_id = _generate_weapon_id(weapon_name)
-			
-			
-			if generated_id == weapon_id:
+			var w_type = weapon.get("type", "")
+			# Try type-aware ID first (new format), then name-only (legacy), then exact name match
+			var generated_id_typed = _generate_weapon_id(weapon_name, w_type)
+			var generated_id_legacy = _generate_weapon_id(weapon_name)
+
+			if generated_id_typed == weapon_id or generated_id_legacy == weapon_id or weapon_name == weapon_id:
 				# Convert weapon format to profile format expected by UI
 				# Convert string values to appropriate types where needed
 				var weapon_range = weapon.get("range", "0")
@@ -3142,10 +3281,98 @@ static func get_unit_heavy_weapons(unit_id: String, board: Dictionary = {}) -> D
 	return result
 
 # ==========================================
-# LANCE WEAPON KEYWORD (T1-3)
+# ONE SHOT WEAPON KEYWORD (T4-2)
+# ==========================================
+# One Shot: Weapons with this ability can only be fired once per entire battle.
+# After firing, the weapon is permanently unavailable for the rest of the game.
+# Tracked per model — each model gets one use of its one-shot weapon.
+# Detection checks both keywords array and special_rules string (case-insensitive).
+
+# Check if a weapon has the One Shot keyword
+static func is_one_shot_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return false
+
+	# Check special_rules string for "One Shot" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "one shot" in special_rules:
+		return true
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		if keyword.to_upper() == "ONE SHOT":
+			return true
+	return false
+
+# Check if a specific model has already fired a one-shot weapon this battle
+static func has_fired_one_shot(unit: Dictionary, model_id: String, weapon_id: String) -> bool:
+	var fired = unit.get("flags", {}).get("one_shot_fired", {})
+	var model_fired = fired.get(model_id, [])
+	return weapon_id in model_fired
+
+# Generate diffs to mark a one-shot weapon as fired for a specific model
+static func mark_one_shot_fired_diffs(unit_id: String, unit: Dictionary, model_id: String, weapon_id: String) -> Array:
+	var diffs = []
+	var flags = unit.get("flags", {})
+	var one_shot_fired = flags.get("one_shot_fired", {})
+
+	if not one_shot_fired.has(model_id):
+		# First one-shot weapon fired by this model — create the model entry
+		var new_model_entry = [weapon_id]
+		var new_one_shot = one_shot_fired.duplicate(true)
+		new_one_shot[model_id] = new_model_entry
+		diffs.append({
+			"op": "set",
+			"path": "units.%s.flags.one_shot_fired" % unit_id,
+			"value": new_one_shot
+		})
+	else:
+		# Model already has some one-shot weapons fired — append this one
+		var existing = one_shot_fired[model_id].duplicate()
+		if weapon_id not in existing:
+			existing.append(weapon_id)
+			var new_one_shot = one_shot_fired.duplicate(true)
+			new_one_shot[model_id] = existing
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.one_shot_fired" % unit_id,
+				"value": new_one_shot
+			})
+
+	return diffs
+
+# Filter out one-shot weapons that have already been fired for a unit
+# Returns a new weapons dict with fired one-shot weapons removed per model
+static func filter_fired_one_shot_weapons(unit_id: String, unit_weapons_dict: Dictionary, board: Dictionary = {}) -> Dictionary:
+	var units = {}
+	if not board.is_empty():
+		units = board.get("units", {})
+	else:
+		units = GameState.state.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return unit_weapons_dict
+
+	var result = {}
+	for model_id in unit_weapons_dict:
+		var weapons = unit_weapons_dict[model_id]
+		var filtered = []
+		for weapon_id in weapons:
+			if is_one_shot_weapon(weapon_id, board) and has_fired_one_shot(unit, model_id, weapon_id):
+				print("RulesEngine: [ONE SHOT] Filtering out fired weapon '%s' for model '%s'" % [weapon_id, model_id])
+				continue
+			filtered.append(weapon_id)
+		result[model_id] = filtered
+	return result
+
+# ==========================================
+# LANCE WEAPON KEYWORD (T4-1)
 # ==========================================
 # Lance: +1 to wound rolls if the bearer's unit made a charge move this turn
 # This modifier is subject to the +1/-1 wound modifier cap
+# Detection checks both keywords array and special_rules string (case-insensitive)
 
 # Check if a weapon has the Lance keyword
 static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
@@ -3153,6 +3380,12 @@ static func is_lance_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	if profile.is_empty():
 		return false
 
+	# Check special_rules string for "Lance" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	if "lance" in special_rules:
+		return true
+
+	# Check keywords array
 	var keywords = profile.get("keywords", [])
 	for keyword in keywords:
 		if keyword.to_upper() == "LANCE":
@@ -3619,6 +3852,90 @@ static func get_critical_wound_threshold(weapon_id: String, target_unit: Diction
 			lowest_threshold = min(lowest_threshold, anti.threshold)
 
 	return lowest_threshold
+
+# ==========================================
+# CONVERSION X+ (T4-16)
+# ==========================================
+
+# Get Conversion threshold from a weapon's special_rules or keywords
+# Returns 0 if weapon does not have Conversion, or the threshold value (e.g. 4 for "Conversion 4+")
+# Conversion X+: When firing at a target 12"+ away, critical hits on X+ instead of only 6
+static func get_conversion_threshold(weapon_id: String, board: Dictionary = {}) -> int:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return 0
+
+	# Check special_rules string for "Conversion X+" (case-insensitive)
+	var special_rules = profile.get("special_rules", "").to_lower()
+	var result = _parse_conversion_from_string(special_rules)
+	if result > 0:
+		return result
+
+	# Check keywords array
+	var keywords = profile.get("keywords", [])
+	for keyword in keywords:
+		result = _parse_conversion_from_string(keyword.to_lower())
+		if result > 0:
+			return result
+
+	return 0
+
+# Parse "conversion X+" from a string — returns the threshold (e.g. 4) or 0 if not found
+static func _parse_conversion_from_string(text: String) -> int:
+	var regex = RegEx.new()
+	regex.compile("conversion\\s+(\\d+)\\+?")
+	var match = regex.search(text)
+	if match:
+		return match.get_string(1).to_int()
+	return 0
+
+# Check if a weapon has the Conversion ability
+static func has_conversion(weapon_id: String, board: Dictionary = {}) -> bool:
+	return get_conversion_threshold(weapon_id, board) > 0
+
+# Get the critical hit threshold for a weapon, considering Conversion and distance
+# Returns 6 normally, or lower if Conversion applies at distance
+# Parameters:
+#   weapon_id: The weapon to check
+#   actor_unit: The attacking unit
+#   target_unit: The target unit
+#   model_ids: The model IDs of attacking models
+#   board: The board state
+# For Conversion X+: if ANY attacking model is 12"+ from the closest target model,
+# the critical hit threshold is lowered to X for all attacks (conservative approach)
+static func get_critical_hit_threshold(weapon_id: String, actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array, board: Dictionary) -> int:
+	var conversion_threshold = get_conversion_threshold(weapon_id, board)
+	if conversion_threshold <= 0:
+		return 6  # Default: only 6s are critical hits
+
+	# Check distance: Conversion only applies at 12"+ from target
+	# Use the closest attacking model's distance to the closest target model
+	var min_distance_inches = _get_min_distance_to_target(actor_unit, target_unit, model_ids)
+	if min_distance_inches >= 12.0:
+		print("RulesEngine: CONVERSION %d+ active — closest model is %.1f\" from target (>= 12\")" % [conversion_threshold, min_distance_inches])
+		return conversion_threshold
+	else:
+		print("RulesEngine: CONVERSION %d+ NOT active — closest model is %.1f\" from target (< 12\")" % [conversion_threshold, min_distance_inches])
+		return 6  # Too close, normal crit threshold
+
+# Get the minimum distance (in inches) from any attacking model to the closest target model
+static func _get_min_distance_to_target(actor_unit: Dictionary, target_unit: Dictionary, model_ids: Array) -> float:
+	var min_distance = INF
+
+	for model_id in model_ids:
+		var model = _get_model_by_id(actor_unit, model_id)
+		if not model or not model.get("alive", true):
+			continue
+
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+
+			var edge_distance_px = Measurement.model_to_model_distance_px(model, target_model)
+			var edge_distance_inches = Measurement.px_to_inches(edge_distance_px)
+			min_distance = min(min_distance, edge_distance_inches)
+
+	return min_distance
 
 # ==========================================
 # BLAST KEYWORD (PRP-013)
@@ -4983,6 +5300,137 @@ static func validate_weapon_special_rules(special_rules: String) -> Dictionary:
 	
 	return result
 
+# ==========================================
+# FIGHT PHASE HELPERS — T4-4: Aircraft restrictions
+# ==========================================
+
+# T4-4: Check if a unit is eligible to fight in the fight phase.
+# Aircraft can only fight if they have FLY opponents in engagement range.
+static func is_eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_is_aircraft = "AIRCRAFT" in unit_keywords
+
+	# Check if any alive models
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return false
+
+	# Check engagement range with valid opponents
+	for other_id in units:
+		var other_unit = units.get(other_id, {})
+		if other_unit.get("owner", 0) == unit_owner:
+			continue
+
+		var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+		# Aircraft can only fight FLY units
+		if unit_is_aircraft and "FLY" not in other_keywords:
+			continue
+		# Non-FLY units ignore Aircraft
+		if "AIRCRAFT" in other_keywords and "FLY" not in unit_keywords:
+			continue
+
+		# Check if any enemy models are alive
+		var enemy_alive = false
+		for em in other_unit.get("models", []):
+			if em.get("alive", true):
+				enemy_alive = true
+				break
+		if not enemy_alive:
+			continue
+
+		# Check engagement range
+		if _are_units_in_engagement_range_rules(unit, other_unit, board):
+			return true
+
+	return false
+
+# T4-4: Get eligible melee targets for a unit, respecting Aircraft restrictions.
+# Aircraft can only target FLY units; non-FLY units cannot target Aircraft.
+static func fight_targets_in_engagement(unit_id: String, board: Dictionary) -> Dictionary:
+	var eligible = {}
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return eligible
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_is_aircraft = "AIRCRAFT" in unit_keywords
+	var unit_has_fly = "FLY" in unit_keywords
+
+	for target_id in units:
+		var target_unit = units.get(target_id, {})
+		if target_unit.get("owner", 0) == unit_owner:
+			continue
+
+		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+
+		# T4-4: Aircraft can only fight against units that can Fly
+		if unit_is_aircraft and "FLY" not in target_keywords:
+			continue
+		# T4-4: Non-FLY units cannot target Aircraft
+		if "AIRCRAFT" in target_keywords and not unit_has_fly:
+			continue
+
+		# Check alive models
+		var target_alive = false
+		for tm in target_unit.get("models", []):
+			if tm.get("alive", true):
+				target_alive = true
+				break
+		if not target_alive:
+			continue
+
+		# Check engagement range
+		if _are_units_in_engagement_range_rules(unit, target_unit, board):
+			eligible[target_id] = {
+				"name": target_unit.get("meta", {}).get("name", target_id),
+			}
+
+	return eligible
+
+# T4-4: Check if an Aircraft unit can pile in (it cannot).
+static func can_unit_pile_in(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "AIRCRAFT" not in keywords
+
+# T4-4: Check if an Aircraft unit can consolidate (it cannot).
+static func can_unit_consolidate(unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	return "AIRCRAFT" not in keywords
+
+# Helper: Check if two units are within engagement range (1") using model positions
+static func _are_units_in_engagement_range_rules(unit1: Dictionary, unit2: Dictionary, board: Dictionary) -> bool:
+	var models1 = unit1.get("models", [])
+	var models2 = unit2.get("models", [])
+	for m1 in models1:
+		if not m1.get("alive", true):
+			continue
+		for m2 in models2:
+			if not m2.get("alive", true):
+				continue
+			if Measurement.is_in_engagement_range_shape_aware(m1, m2):
+				return true
+	return false
+
 # ===== MELEE COMBAT FUNCTIONS =====
 
 # Per 10e rules: A model can make melee attacks if, after pile-in, it is:
@@ -5398,7 +5846,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_unit_id)
 
-	# LANCE: +1 to wound if unit charged this turn (melee Lance weapons)
+	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons)
 	if is_lance_weapon(weapon_id, board):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
@@ -5538,6 +5986,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var save_rolls = []
 	var save_threshold = 7  # Default: impossible to save
 
+	# T4-18: Read save roll modifier from target unit flags (capped at +1/-1 per 10e)
+	var melee_save_modifier = target_unit.get("flags", {}).get("save_modifier", 0)
+	melee_save_modifier = clamp(melee_save_modifier, -1, 1)
+
 	if wounds_needing_saves > 0:
 		# Calculate save needed using proper invulnerable save logic
 		# In melee, no cover applies (cover is for ranged attacks)
@@ -5558,7 +6010,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		save_rolls = rng.roll_d6(wounds_needing_saves)
 		for roll in save_rolls:
 			# 10e rules: Unmodified save roll of 1 always fails
-			if roll > 1 and roll >= save_threshold:
+			if roll > 1 and (roll + melee_save_modifier) >= save_threshold:
 				successful_saves += 1
 
 		failed_saves = wounds_needing_saves - successful_saves
@@ -5573,6 +6025,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		"successes": successful_saves,
 		"failed": failed_saves,
 		"ap": ap,
+		"save_modifier": melee_save_modifier,
 		"original_save": base_save,
 		"using_invuln": save_threshold != (base_save + ap) and save_threshold < 7,
 		# Devastating Wounds tracking

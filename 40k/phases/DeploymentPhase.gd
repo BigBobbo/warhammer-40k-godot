@@ -258,6 +258,11 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 		errors.append("Unit does not belong to active player")
 		return {"valid": false, "errors": errors}
 
+	# Fortification units cannot be placed in any reserves (must deploy on the table)
+	if GameState.unit_is_fortification(unit_id):
+		errors.append("Fortification units cannot be placed in reserves — they must be deployed on the battlefield")
+		return {"valid": false, "errors": errors}
+
 	# Deep Strike validation: unit must have the Deep Strike ability
 	if reserve_type == "deep_strike":
 		if not GameState.unit_has_deep_strike(unit_id):
@@ -712,22 +717,24 @@ func get_available_actions() -> Array:
 		})
 
 		# Units can be placed in reserves (strategic reserves or deep strike)
+		# Exception: Fortification units must be deployed on the table
 		var unit = get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		if GameState.unit_has_deep_strike(unit_id):
-			actions.append({
-				"type": "PLACE_IN_RESERVES",
-				"unit_id": unit_id,
-				"reserve_type": "deep_strike",
-				"description": "Deep Strike %s" % unit_name
-			})
-		else:
-			actions.append({
-				"type": "PLACE_IN_RESERVES",
-				"unit_id": unit_id,
-				"reserve_type": "strategic_reserves",
-				"description": "Strategic Reserves %s" % unit_name
-			})
+		if not GameState.unit_is_fortification(unit_id):
+			if GameState.unit_has_deep_strike(unit_id):
+				actions.append({
+					"type": "PLACE_IN_RESERVES",
+					"unit_id": unit_id,
+					"reserve_type": "deep_strike",
+					"description": "Deep Strike %s" % unit_name
+				})
+			else:
+				actions.append({
+					"type": "PLACE_IN_RESERVES",
+					"unit_id": unit_id,
+					"reserve_type": "strategic_reserves",
+					"description": "Strategic Reserves %s" % unit_name
+				})
 
 	# Check if player can be switched
 	if not _has_undeployed_units(current_player):

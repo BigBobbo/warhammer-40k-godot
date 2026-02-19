@@ -28,6 +28,7 @@ var dice_log: Array = []
 var units_that_shot: Array = []  # Track which units have completed shooting
 var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
+var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 
 func _init():
@@ -42,6 +43,7 @@ func _on_phase_enter() -> void:
 	dice_log.clear()
 	units_that_shot.clear()
 	pending_hazardous_weapons.clear()
+	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -103,6 +105,18 @@ func _check_kill_diffs(changes: Array) -> void:
 
 	for unit_id in unit_ids_to_check:
 		SecondaryMissionManager.check_and_report_unit_destroyed(unit_id)
+		# Track kills for primary mission scoring (Purge the Foe)
+		if MissionManager:
+			var unit = GameState.state.get("units", {}).get(unit_id, {})
+			if not unit.is_empty():
+				var all_dead = true
+				for model in unit.get("models", []):
+					if model.get("alive", true):
+						all_dead = false
+						break
+				if all_dead:
+					var destroyed_by = get_current_player()
+					MissionManager.record_unit_destroyed(destroyed_by)
 
 func _initialize_shooting() -> void:
 	var current_player = get_current_player()
@@ -602,6 +616,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	if not result.success:
 		return create_result(false, [], result.get("log_text", "Shooting failed"))
 
+	# ONE SHOT (T4-2): Collect one-shot diffs from result (weapon marked as fired immediately)
+	var one_shot_diffs = result.get("one_shot_diffs", [])
+
 	# Record hit/wound dice rolls
 	var dice_data = result.get("dice", [])
 	for dice_block in dice_data:
@@ -609,6 +626,33 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		emit_signal("dice_rolled", dice_block)
 
 	log_phase_message(result.get("log_text", "Attack rolls complete"))
+
+	# Extract hit/wound data from dice blocks and store in resolution_state
+	# so _process_apply_saves can build accurate last_weapon_result (T4-15)
+	var hit_data = {}
+	var wound_data = {}
+	for dice_block in dice_data:
+		var context = dice_block.get("context", "")
+		if context == "hit_roll":
+			hit_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"rerolls": dice_block.get("rerolls", []),
+				"threshold": dice_block.get("threshold", "")
+			}
+		elif context == "wound_roll":
+			wound_data = {
+				"rolls": dice_block.get("rolls_raw", []),
+				"modified_rolls": dice_block.get("rolls_modified", []),
+				"successes": dice_block.get("successes", 0),
+				"total": dice_block.get("rolls_raw", []).size(),
+				"threshold": dice_block.get("threshold", "")
+			}
+	resolution_state.last_weapon_dice_data = dice_data
+	resolution_state.last_weapon_hit_data = hit_data
+	resolution_state.last_weapon_wound_data = wound_data
 
 	# Check if any saves are needed
 	var save_data_list = result.get("save_data_list", [])
@@ -662,14 +706,11 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 				var target_unit_id = assignment.get("target_unit_id", "")
 				var target_unit = get_unit(target_unit_id)
 
-				# Extract hit data from dice_data
-				var hits = 0
-				var total_attacks = 0
-				for dice_block in dice_data:
-					if dice_block.get("context", "") == "hit_roll":
-						hits = dice_block.get("successes", 0)
-						total_attacks = dice_block.get("rolls_raw", []).size()
-						break
+				# T4-15: Retrieve hit/wound data from resolution_state (stored earlier in this function)
+				var miss_hit_data = resolution_state.get("last_weapon_hit_data", {})
+				var miss_wound_data = resolution_state.get("last_weapon_wound_data", {})
+				var hits = miss_hit_data.get("successes", 0)
+				var total_attacks = miss_hit_data.get("total", 0)
 
 				last_weapon_result = {
 					"weapon_id": weapon_id,
@@ -681,7 +722,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					"saves_failed": 0,
 					"casualties": 0,
 					"total_attacks": total_attacks,
-					"dice_rolls": dice_data
+					"dice_rolls": dice_data,
+					"hit_data": miss_hit_data,
+					"wound_data": miss_wound_data
 				}
 
 				print("║ last_weapon_result built:")
@@ -699,7 +742,10 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 			# Return with pause indicator - completion will happen when user clicks "Complete Shooting"
 			# IMPORTANT: Do NOT mark has_shot yet - that happens when user confirms
-			return create_result(true, haz_diffs_on_miss, "Single weapon missed - awaiting confirmation", {
+			# ONE SHOT (T4-2): Include one-shot diffs even on miss
+			var miss_one_shot_changes = haz_diffs_on_miss.duplicate()
+			miss_one_shot_changes.append_array(one_shot_diffs)
+			return create_result(true, miss_one_shot_changes, "Single weapon missed - awaiting confirmation", {
 				"sequential_pause": true,
 				"remaining_weapons": [],
 				"last_weapon_result": last_weapon_result,
@@ -718,6 +764,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		}]
 		# HAZARDOUS (T2-3): Include hazardous diffs in changes
 		changes.append_array(haz_diffs_on_miss)
+		# ONE SHOT (T4-2): Include one-shot diffs in changes
+		changes.append_array(one_shot_diffs)
 
 		units_that_shot.append(active_shooter_id)
 		active_shooter_id = ""
@@ -734,6 +782,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 
 	# HAZARDOUS (T2-3): Store hazardous weapon data for post-save resolution
 	pending_hazardous_weapons = result.get("hazardous_weapons", [])
+
+	# ONE SHOT (T4-2): Store one-shot diffs for inclusion in saves result
+	pending_one_shot_diffs = one_shot_diffs
 
 	# LOGGING: Track saves_required emission
 	var timestamp = Time.get_ticks_msec()
@@ -896,6 +947,12 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 			all_dice.append_array(haz_result.dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+
+	# ONE SHOT (T4-2): Include one-shot diffs in AI path
+	var ai_one_shot_diffs = result.get("one_shot_diffs", [])
+	if not ai_one_shot_diffs.is_empty():
+		all_changes.append_array(ai_one_shot_diffs)
+		print("║ AI SHOOT: ONE SHOT — included %d one-shot diffs" % ai_one_shot_diffs.size())
 
 	# Step 5: Build comprehensive attack summary for game event log
 	var actor_name = game_state_snapshot.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
@@ -1277,6 +1334,11 @@ func _resolve_next_weapon() -> Dictionary:
 		print("========================================")
 		return create_result(false, [], result.get("log_text", "Weapon resolution failed"))
 
+	# ONE SHOT (T4-2): Collect one-shot diffs from result (weapon marked as fired immediately)
+	var seq_one_shot_diffs = result.get("one_shot_diffs", [])
+	# Store for inclusion in subsequent results
+	pending_one_shot_diffs.append_array(seq_one_shot_diffs)
+
 	# Record dice rolls
 	var dice_data = result.get("dice", [])
 	print("ShootingPhase: Dice blocks returned: %d" % dice_data.size())
@@ -1386,9 +1448,14 @@ func _resolve_next_weapon() -> Dictionary:
 		emit_signal("next_weapon_confirmation_required", remaining_weapons, resolution_state.current_index, last_weapon_result)
 
 		# Return success with pause indicator for multiplayer sync
+		# ONE SHOT (T4-2): Include one-shot diffs in the result
+		var seq_miss_changes = []
+		if not pending_one_shot_diffs.is_empty():
+			seq_miss_changes.append_array(pending_one_shot_diffs)
+			pending_one_shot_diffs.clear()
 		print("ShootingPhase: Returning result with sequential_pause indicator")
 		print("========================================")
-		return create_result(true, [], "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
+		return create_result(true, seq_miss_changes, "Weapon %d complete (0 hits) - awaiting confirmation" % (current_index + 1), {
 			"sequential_pause": true,
 			"current_weapon_index": resolution_state.current_index,
 			"total_weapons": weapon_order.size(),
@@ -1591,7 +1658,7 @@ func _auto_inject_extra_attacks_weapons_shooting() -> void:
 
 	for weapon in ea_weapons:
 		var weapon_name = weapon.get("name", "Unknown")
-		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("–", "_").replace("'", "")
+		var weapon_id = RulesEngine._generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		if assigned_weapon_ids.has(weapon_id):
 			print("[ShootingPhase] T3-3: Extra Attacks weapon '%s' already assigned, skipping" % weapon_name)
@@ -2417,6 +2484,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				log_phase_message(haz_result.log_text)
 		pending_hazardous_weapons.clear()
 
+	# ONE SHOT (T4-2): Include one-shot diffs in save result changes
+	if not pending_one_shot_diffs.is_empty():
+		all_diffs.append_array(pending_one_shot_diffs)
+		pending_one_shot_diffs.clear()
+
 	# Build combined save log text for game event log
 	var save_log_text = ", ".join(save_log_parts)
 
@@ -2590,20 +2662,30 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		for save_result in save_results_list:
 			saves_failed += save_result.get("saves_failed", 0)
 
+		# T4-15: Retrieve hit/wound data from resolution_state (stored during _process_resolve_shooting)
+		var sw_dice_data = resolution_state.get("last_weapon_dice_data", [])
+		var sw_hit_data = resolution_state.get("last_weapon_hit_data", {})
+		var sw_wound_data = resolution_state.get("last_weapon_wound_data", {})
+		var sw_hits = sw_hit_data.get("successes", 0)
+		var sw_total_attacks = sw_hit_data.get("total", 0)
+
 		print("║   saves_failed: ", saves_failed)
 		print("║   casualties: ", total_casualties)
+		print("║   hits: ", sw_hits, " / ", sw_total_attacks)
 
 		last_weapon_result = {
 			"weapon_id": weapon_id,
 			"weapon_name": weapon_profile.get("name", weapon_id),
 			"target_unit_id": target_unit_id,
 			"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
-			"hits": 0,  # We don't have this data easily accessible in single weapon mode
+			"hits": sw_hits,
 			"wounds": pending_save_data.size() if not pending_save_data.is_empty() else 0,
 			"saves_failed": saves_failed,
 			"casualties": total_casualties,
-			"total_attacks": 0,  # We don't have this data easily accessible
-			"dice_rolls": []
+			"total_attacks": sw_total_attacks,
+			"dice_rolls": sw_dice_data,
+			"hit_data": sw_hit_data,
+			"wound_data": sw_wound_data
 		}
 		print("║ ✓ last_weapon_result built successfully!")
 	else:

@@ -18,6 +18,9 @@ var _needs_evaluation: bool = false
 var _eval_timer: float = 0.0
 const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
 
+# Cached reference to PhaseManager (get_node_or_null fails in web exports)
+var _phase_manager_ref: Node = null
+
 # Signals for UI
 signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
@@ -34,7 +37,8 @@ func _ready() -> void:
 		push_warning("AIPlayer: GameManager not found at startup")
 
 	if has_node("/root/PhaseManager"):
-		var phase_manager = get_node("/root/PhaseManager")
+		_phase_manager_ref = get_node("/root/PhaseManager")
+		var phase_manager = _phase_manager_ref
 		phase_manager.phase_changed.connect(_on_phase_changed)
 		# phase_action_taken fires after every action in single-player mode,
 		# which is critical because NetworkIntegration.route_action bypasses
@@ -129,7 +133,10 @@ func _evaluate_and_act() -> void:
 		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
 		return  # Not AI's turn
 
-	var phase_manager = get_node_or_null("/root/PhaseManager")
+	# Use cached reference - get_node_or_null("/root/PhaseManager") fails in web exports
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	var phase_manager = _phase_manager_ref
 	if not phase_manager:
 		DebugLogger.info("AIPlayer._evaluate_and_act - no PhaseManager", {})
 		return

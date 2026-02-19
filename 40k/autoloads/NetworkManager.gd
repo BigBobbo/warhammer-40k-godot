@@ -34,6 +34,9 @@ var current_game_code: String = ""
 # Reference to TransportFactory autoload
 var transport_factory: Node = null
 
+# Reference to PhaseManager autoload (cached to avoid web export lookup issues)
+var phase_manager_ref: Node = null
+
 # Web Relay mode - uses WebSocketRelay for transport instead of Godot RPCs
 var web_relay: Node = null
 var web_relay_mode: bool = false
@@ -82,6 +85,7 @@ func _ready() -> void:
 	game_manager = get_node_or_null("/root/GameManager")
 	game_state = get_node_or_null("/root/GameState")
 	transport_factory = get_node_or_null("/root/TransportFactory")
+	phase_manager_ref = get_node_or_null("/root/PhaseManager")
 
 	if not game_manager:
 		push_warning("NetworkManager: GameManager not available at startup")
@@ -89,6 +93,8 @@ func _ready() -> void:
 		push_warning("NetworkManager: GameState not available at startup")
 	if not transport_factory:
 		push_warning("NetworkManager: TransportFactory not available at startup")
+	if not phase_manager_ref:
+		push_warning("NetworkManager: PhaseManager not available at startup")
 
 	# Connect to multiplayer signals
 	multiplayer.peer_connected.connect(_on_peer_connected)
@@ -836,11 +842,13 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	var action_data = result.get("action_data", {})
 	print("NetworkManager:   action_type = ", action_type)
 
-	# Get current phase instance
-	var phase_manager = get_node_or_null("/root/PhaseManager")
-	if not phase_manager:
+	# Get current phase instance (use cached reference - get_node_or_null fails in web exports)
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not phase_manager_ref:
 		print("NetworkManager:   ERROR - PhaseManager not found!")
 		return
+	var phase_manager = phase_manager_ref
 	if not phase_manager.current_phase_instance:
 		print("NetworkManager:   ERROR - No current_phase_instance!")
 		return
@@ -1248,6 +1256,20 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 						"heroic_intervention": true,
 					})
 
+	# ====================================================================
+	# RAPID INGRESS - Signal re-emission for multiplayer sync (T4-7)
+	# ====================================================================
+
+	# Handle trigger_rapid_ingress flag from END_MOVEMENT result
+	# When host processes END_MOVEMENT that triggers Rapid Ingress, the result includes
+	# metadata for the non-active player's Rapid Ingress opportunity dialog
+	if result.get("trigger_rapid_ingress", false):
+		var ri_player = result.get("rapid_ingress_player", 0)
+		var ri_eligible = result.get("rapid_ingress_eligible_units", [])
+		if ri_player > 0 and not ri_eligible.is_empty() and phase.has_signal("rapid_ingress_opportunity"):
+			print("NetworkManager: Client re-emitting rapid_ingress_opportunity for player %d (%d eligible units)" % [ri_player, ri_eligible.size()])
+			phase.emit_signal("rapid_ingress_opportunity", ri_player, ri_eligible)
+
 	print("NetworkManager: _emit_client_visual_updates END")
 
 # ============================================================================
@@ -1507,7 +1529,10 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 			return {"valid": false, "reason": "Not your turn"}
 
 	# Layer 4: Game rules validation (delegate to phase)
-	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	# Use cached reference - get_node_or_null("/root/PhaseManager") fails in web exports
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	var phase_mgr = phase_manager_ref
 	print("NetworkManager: phase_mgr = ", phase_mgr)
 	if not phase_mgr:
 		push_warning("NetworkManager: PhaseManager not available for validation")
@@ -1652,7 +1677,10 @@ func _on_connection_failed() -> void:
 
 func _update_phase_snapshot() -> void:
 	"""Update the current phase's snapshot after applying state changes"""
-	var phase_manager = get_node_or_null("/root/PhaseManager")
+	# Use cached reference - get_node_or_null("/root/PhaseManager") fails in web exports
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	var phase_manager = phase_manager_ref
 	if not phase_manager:
 		return
 

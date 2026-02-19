@@ -383,14 +383,14 @@ These are lower priority but the architecture should support them. A `MissionRul
 4. ~~Wire deployment selection through to game initialization~~
 5. ~~Test each deployment zone renders correctly~~
 
-### Phase 2: Mission Infrastructure — NOT STARTED
-1. Create mission data registry
-2. Refactor `MissionManager.gd` to support multiple missions
-3. Implement `Scorched Earth` (moderate complexity - adds burn mechanic)
-4. Implement `Purge the Foe` (moderate - tracks kills and comparisons)
-5. Implement `Supply Drop` (moderate - objective removal)
-6. Update `MainMenu.gd` with mission options
-7. Wire mission selection through to MissionManager
+### Phase 2: Mission Infrastructure — PARTIAL (framework done, complex mechanics pending)
+1. ~~Create mission data registry~~ DONE — `MissionData.gd` with 9 missions
+2. ~~Refactor `MissionManager.gd` to support multiple missions~~ DONE — scoring dispatch
+3. Implement `Scorched Earth` burn mechanic (falls back to hold scoring)
+4. ~~Implement `Purge the Foe`~~ DONE — kill tracking + comparative scoring
+5. ~~Implement `Supply Drop`~~ DONE — NML-only scoring + objective removal
+6. ~~Update `MainMenu.gd` with mission options~~ DONE — all 9 missions in dropdown
+7. ~~Wire mission selection through to MissionManager~~ DONE
 
 ### Phase 3: Terrain Layouts — COMPLETE
 1. ~~Design data-driven terrain loading (JSON or extended GDScript)~~

@@ -381,7 +381,21 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 						model["invuln"] = invuln_value
 				print("Mathhammer: Applied invulnerable save %d+ to defender %s" % [invuln_value, defender_unit_id])
 
-			trial_board.units[defender_unit_id] = fresh_defender
+			# Apply save roll modifier from rule toggles to defender flags (T4-18)
+			# Per 10e: save roll modifiers are capped at +1/-1 (AP stacks are unlimited)
+			var save_modifier = 0
+			if rule_toggles.get("save_plus_1", false):
+				save_modifier += 1
+			if rule_toggles.get("save_minus_1", false):
+				save_modifier -= 1
+			save_modifier = clamp(save_modifier, -1, 1)
+			if save_modifier != 0:
+				if not fresh_defender.has("flags"):
+					fresh_defender["flags"] = {}
+				fresh_defender["flags"]["save_modifier"] = save_modifier
+				print("Mathhammer: Applied save modifier %+d to defender %s (capped at +1/-1 per 10e)" % [save_modifier, defender_unit_id])
+
+		trial_board.units[defender_unit_id] = fresh_defender
 
 	# ANTI-[KEYWORD] X+ (T2-13): Inject anti-keyword text into attacker weapon special_rules
 	# so RulesEngine's get_anti_keyword_data() / get_critical_wound_threshold() picks it up.
@@ -404,18 +418,42 @@ static func _create_trial_board_state(attackers: Array, defender: Dictionary, ru
 					weapon["special_rules"] = existing_rules
 				print("Mathhammer: Injected anti-keyword rules [%s] into attacker %s weapons" % [", ".join(anti_keyword_texts), unit_id])
 
+	# CONVERSION X+ (T4-16): Inject conversion text into attacker weapon special_rules
+	# and place models at 12"+ distance so RulesEngine's get_critical_hit_threshold() activates.
+	# Conversion expands the critical hit range (e.g., Conversion 4+ = crits on hit rolls of 4+).
+	var conversion_threshold = _get_conversion_threshold_from_toggles(rule_toggles)
+	if conversion_threshold > 0:
+		var conversion_text = "Conversion %d+" % conversion_threshold
+		for attacker_config in attackers:
+			var unit_id = attacker_config.get("unit_id", "")
+			if trial_board.units.has(unit_id):
+				var unit = trial_board.units[unit_id]
+				var weapons = unit.get("meta", {}).get("weapons", [])
+				for weapon in weapons:
+					var existing_rules = weapon.get("special_rules", "")
+					if conversion_text.to_lower() not in existing_rules.to_lower():
+						if existing_rules != "":
+							existing_rules += ", "
+						existing_rules += conversion_text
+					weapon["special_rules"] = existing_rules
+				print("Mathhammer: Injected Conversion %d+ into attacker %s weapons" % [conversion_threshold, unit_id])
+		# Place models at 12"+ apart so Conversion activates
+		_place_models_at_conversion_range(trial_board, attackers, defender)
+
+	# Apply charged_this_turn flag if lance toggle is active (both shooting and melee)
+	# Per 10e: Lance +1 to wound applies to any attack with a Lance weapon if bearer charged
+	if rule_toggles.get("lance_charged", false):
+		for attacker_config in attackers:
+			var unit_id = attacker_config.get("unit_id", "")
+			if trial_board.units.has(unit_id):
+				if not trial_board.units[unit_id].has("flags"):
+					trial_board.units[unit_id]["flags"] = {}
+				trial_board.units[unit_id]["flags"]["charged_this_turn"] = true
+
 	# For melee simulations, ensure all models have positions within engagement range
 	# so the eligibility check in resolve_melee_attacks passes
 	if phase == "fight" or phase == "melee":
 		_place_models_in_engagement_range(trial_board, attackers, defender)
-		# Apply charged_this_turn flag if lance toggle is active
-		if rule_toggles.get("lance_charged", false):
-			for attacker_config in attackers:
-				var unit_id = attacker_config.get("unit_id", "")
-				if trial_board.units.has(unit_id):
-					if not trial_board.units[unit_id].has("flags"):
-						trial_board.units[unit_id]["flags"] = {}
-					trial_board.units[unit_id]["flags"]["charged_this_turn"] = true
 
 	return trial_board
 
@@ -477,6 +515,38 @@ static func _get_anti_keyword_texts_from_toggles(rule_toggles: Dictionary) -> Ar
 	if rule_toggles.get("anti_monster_4", false):
 		texts.append("Anti-Monster 4+")
 	return texts
+
+# Extract Conversion threshold from active rule toggles (T4-16)
+# Returns the threshold (e.g. 4 for "Conversion 4+") or 0 if not active
+static func _get_conversion_threshold_from_toggles(rule_toggles: Dictionary) -> int:
+	if rule_toggles.get("conversion_4", false):
+		return 4
+	if rule_toggles.get("conversion_5", false):
+		return 5
+	return 0
+
+# Place attacker models at 12"+ distance from defender for Conversion simulation (T4-16)
+# Conversion only activates when firing at targets 12"+ away
+# Positions are in pixels (PX_PER_INCH = 40.0)
+static func _place_models_at_conversion_range(trial_board: Dictionary, attackers: Array, defender: Dictionary) -> void:
+	var defender_unit_id = defender.get("unit_id", "")
+	var defender_unit = trial_board.units.get(defender_unit_id, {})
+	var defender_models = defender_unit.get("models", [])
+
+	# Place defender models at origin (in pixels)
+	for i in range(defender_models.size()):
+		defender_models[i]["position"] = {"x": float(i) * 20.0, "y": 0.0}
+
+	# Place attacker models 13" away in pixels (safely above the 12" threshold)
+	# 13" * 40 px/inch = 520 px
+	var conversion_distance_px = 13.0 * 40.0  # Measurement.PX_PER_INCH = 40.0
+	for attacker_config in attackers:
+		var unit_id = attacker_config.get("unit_id", "")
+		var attacker_unit = trial_board.units.get(unit_id, {})
+		var attacker_models = attacker_unit.get("models", [])
+		for i in range(attacker_models.size()):
+			attacker_models[i]["position"] = {"x": float(i) * 20.0, "y": conversion_distance_px}
+	print("Mathhammer: Placed models at 13\" (520px) apart for Conversion range activation")
 
 # Apply custom defender stat overrides to the defender unit
 # Modifies toughness, save, wounds, model count based on user input

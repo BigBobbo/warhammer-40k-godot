@@ -516,6 +516,10 @@ func _refresh_weapon_tree() -> void:
 
 	# Get unit weapons from RulesEngine
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+
+	# ONE SHOT (T4-2): Filter out already-fired one-shot weapons
+	unit_weapons = RulesEngine.filter_fired_one_shot_weapons(active_shooter_id, unit_weapons)
+
 	var weapon_counts = {}
 
 	# Count weapons by type
@@ -539,6 +543,7 @@ func _refresh_weapon_tree() -> void:
 		# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
 		# BLAST (PRP-013): Check if weapon has Blast
 		# TORRENT (PRP-014): Check if weapon has Torrent (auto-hit)
+		# ONE SHOT (T4-2): Check if weapon is One Shot
 		var is_pistol = RulesEngine.is_pistol_weapon(weapon_id)
 		var is_assault = RulesEngine.is_assault_weapon(weapon_id)
 		var is_heavy = RulesEngine.is_heavy_weapon(weapon_id)
@@ -548,6 +553,7 @@ func _refresh_weapon_tree() -> void:
 		var has_devastating_wounds = RulesEngine.has_devastating_wounds(weapon_id)
 		var is_blast = RulesEngine.is_blast_weapon(weapon_id)
 		var is_torrent = RulesEngine.is_torrent_weapon(weapon_id)
+		var is_one_shot = RulesEngine.is_one_shot_weapon(weapon_id)
 		var weapon_name = weapon_profile.get("name", weapon_id)
 
 		# Build display name with keyword indicators
@@ -555,6 +561,8 @@ func _refresh_weapon_tree() -> void:
 		var indicators = []
 		if is_torrent:
 			indicators.append("T")  # Torrent indicator (PRP-014) - first because it's most impactful
+		if is_one_shot:
+			indicators.append("1")  # One Shot indicator (T4-2)
 		if is_pistol:
 			indicators.append("P")
 		if is_assault:

@@ -17,6 +17,7 @@ signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Di
 signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array)
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
+signal rapid_ingress_opportunity(player: int, eligible_units: Array)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -35,6 +36,12 @@ var _awaiting_fire_overwatch: bool = false
 var _fire_overwatch_player: int = 0           # Defending player being offered Overwatch
 var _fire_overwatch_enemy_unit_id: String = "" # The enemy unit that triggered the opportunity
 var _fire_overwatch_eligible_units: Array = [] # Units eligible for Overwatch
+
+# Rapid Ingress state tracking (T4-7)
+var _awaiting_rapid_ingress: bool = false
+var _rapid_ingress_player: int = 0             # Non-active player being offered Rapid Ingress
+var _rapid_ingress_eligible_units: Array = []  # Reserve units eligible for Rapid Ingress
+var _rapid_ingress_unit_id: String = ""        # The unit chosen for Rapid Ingress placement
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
@@ -70,6 +77,10 @@ func _on_phase_enter() -> void:
 	_fire_overwatch_player = 0
 	_fire_overwatch_enemy_unit_id = ""
 	_fire_overwatch_eligible_units = []
+	_awaiting_rapid_ingress = false
+	_rapid_ingress_player = 0
+	_rapid_ingress_eligible_units = []
+	_rapid_ingress_unit_id = ""
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -168,6 +179,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_fire_overwatch(action)
 		"DECLINE_FIRE_OVERWATCH":
 			return _validate_decline_fire_overwatch(action)
+		"USE_RAPID_INGRESS":
+			return _validate_use_rapid_ingress(action)
+		"DECLINE_RAPID_INGRESS":
+			return _validate_decline_rapid_ingress(action)
+		"PLACE_RAPID_INGRESS_REINFORCEMENT":
+			return _validate_place_rapid_ingress_reinforcement(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -218,6 +235,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_fire_overwatch(action)
 		"DECLINE_FIRE_OVERWATCH":
 			return _process_decline_fire_overwatch(action)
+		"USE_RAPID_INGRESS":
+			return _process_use_rapid_ingress(action)
+		"DECLINE_RAPID_INGRESS":
+			return _process_decline_rapid_ingress(action)
+		"PLACE_RAPID_INGRESS_REINFORCEMENT":
+			return _process_place_rapid_ingress_reinforcement(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -936,6 +959,306 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	_overwatch_moved_unit_id = ""
 
 	return create_result(true, [])
+
+# ============================================================================
+# RAPID INGRESS STRATAGEM (T4-7)
+# ============================================================================
+
+func _get_rapid_ingress_eligible_units(player: int) -> Array:
+	"""Get reserve units eligible for Rapid Ingress for the given player.
+	Returns array of { unit_id: String, unit_name: String, reserve_type: String }."""
+	var eligible = []
+	var battle_round = GameState.get_battle_round()
+
+	var reserves = GameState.get_reserves_for_player(player)
+	for unit_id in reserves:
+		var unit = get_unit(unit_id)
+		if unit.is_empty():
+			continue
+
+		var reserve_type = unit.get("reserve_type", "strategic_reserves")
+
+		# Rapid Ingress restriction: cannot arrive in a battle round the unit
+		# normally wouldn't be able to. Strategic reserves & deep strike both
+		# require battle round >= 2, which we already check before calling this.
+		# (Special rules allowing Round 1 arrival are not yet implemented.)
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		eligible.append({
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"reserve_type": reserve_type
+		})
+
+	return eligible
+
+func _validate_use_rapid_ingress(action: Dictionary) -> Dictionary:
+	var errors = []
+
+	if not _awaiting_rapid_ingress:
+		errors.append("Not awaiting Rapid Ingress decision")
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.get("unit_id", "")
+	if unit_id.is_empty():
+		errors.append("No unit specified for Rapid Ingress")
+		return {"valid": false, "errors": errors}
+
+	var player = action.get("player", _rapid_ingress_player)
+
+	# Validate through StratagemManager
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var check = strat_manager.can_use_stratagem(player, "rapid_ingress")
+		if not check.can_use:
+			errors.append(check.reason)
+			return {"valid": false, "errors": errors}
+
+	# Validate the unit is in reserves and belongs to the player
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if int(unit.get("owner", 0)) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+		errors.append("Unit is not in reserves")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
+func _validate_decline_rapid_ingress(action: Dictionary) -> Dictionary:
+	if not _awaiting_rapid_ingress:
+		return {"valid": false, "errors": ["Not awaiting Rapid Ingress decision"]}
+	return {"valid": true, "errors": []}
+
+func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionary:
+	"""Validate placing a reserve unit via Rapid Ingress.
+	Same rules as normal reinforcement placement but for the non-active player."""
+	var errors = []
+
+	if _rapid_ingress_unit_id.is_empty():
+		errors.append("No Rapid Ingress unit selected — use USE_RAPID_INGRESS first")
+		return {"valid": false, "errors": errors}
+
+	var required_fields = ["unit_id", "model_positions"]
+	for field in required_fields:
+		if not action.has(field):
+			errors.append("Missing required field: " + field)
+
+	if errors.size() > 0:
+		return {"valid": false, "errors": errors}
+
+	var unit_id = action.unit_id
+	if unit_id != _rapid_ingress_unit_id:
+		errors.append("Unit %s is not the selected Rapid Ingress unit (%s)" % [unit_id, _rapid_ingress_unit_id])
+		return {"valid": false, "errors": errors}
+
+	var model_positions = action.model_positions
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	if unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+		errors.append("Unit is not in reserves: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	# The player performing Rapid Ingress is the non-active (defending) player
+	var player = _rapid_ingress_player
+	if unit.get("owner", 0) != player:
+		errors.append("Unit does not belong to player %d" % player)
+		return {"valid": false, "errors": errors}
+
+	var battle_round = GameState.get_battle_round()
+	if battle_round < 2:
+		errors.append("Reserves cannot arrive until Battle Round 2 (currently Round %d)" % battle_round)
+		return {"valid": false, "errors": errors}
+
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+
+	# Validate model positions — same rules as normal reinforcement placement
+	if model_positions is Array:
+		var board_width = GameState.state.board.size.width
+		var board_height = GameState.state.board.size.height
+		var px_per_inch = 40.0
+
+		for i in range(model_positions.size()):
+			var pos = model_positions[i]
+			if pos == null:
+				continue
+
+			var pos_inches_x = pos.x / px_per_inch
+			var pos_inches_y = pos.y / px_per_inch
+
+			# Must be on the board
+			if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
+				errors.append("Model %d: position is off the board" % i)
+				continue
+
+			# Must be >9" from all enemy models (edge-to-edge)
+			var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
+			var model_base_mm = model_data.get("base_mm", 32)
+			var model_radius_inches = (model_base_mm / 2.0) / 25.4
+
+			# For Rapid Ingress, "enemies" are the active player's models
+			# get_enemy_model_positions(player) returns models NOT belonging to player
+			var enemy_positions = GameState.get_enemy_model_positions(player)
+			for enemy in enemy_positions:
+				var enemy_pos_px = Vector2(enemy.x, enemy.y)
+				var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(enemy_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+				if edge_dist < 9.0:
+					errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
+					break
+
+			# Strategic Reserves: must be within 6" of a battlefield edge
+			if reserve_type == "strategic_reserves":
+				var dist_to_left = pos_inches_x
+				var dist_to_right = board_width - pos_inches_x
+				var dist_to_top = pos_inches_y
+				var dist_to_bottom = board_height - pos_inches_y
+				var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
+
+				if min_edge_dist > 6.0:
+					errors.append("Model %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [i, min_edge_dist])
+
+				# Turn 2: cannot be in opponent's deployment zone
+				if battle_round == 2:
+					# For Rapid Ingress, "opponent" is the active player
+					var opponent = get_current_player()
+					var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
+					var zone_poly = opponent_zone.get("poly", [])
+					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
+						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+
+	# Check unit coherency
+	if errors.is_empty():
+		var final_models = []
+		var unit_models = unit.get("models", [])
+		for i in range(model_positions.size()):
+			if model_positions[i] == null:
+				continue
+			if i >= unit_models.size():
+				break
+			if not unit_models[i].get("alive", true):
+				continue
+			var model_at_pos = unit_models[i].duplicate()
+			model_at_pos["position"] = model_positions[i]
+			final_models.append(model_at_pos)
+
+		var coherency_result = _check_models_coherency(final_models)
+		if not coherency_result.valid:
+			errors.append_array(coherency_result.errors)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _process_use_rapid_ingress(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", _rapid_ingress_player)
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Use the stratagem via StratagemManager (deducts CP, records usage)
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		var strat_result = strat_manager.use_stratagem(player, "rapid_ingress", unit_id)
+		if not strat_result.success:
+			return create_result(false, [], "Failed to use Rapid Ingress: %s" % strat_result.get("error", "unknown"))
+
+	log_phase_message("Player %d uses RAPID INGRESS — %s selected to arrive from reserves!" % [player, unit_name])
+	print("MovementPhase: Rapid Ingress activated — %s (Player %d) arriving from reserves" % [unit_name, player])
+
+	# Mark the selected unit for placement — the player still needs to choose positions
+	_rapid_ingress_unit_id = unit_id
+
+	# Clear the awaiting state for the selection step (now awaiting placement)
+	_awaiting_rapid_ingress = false
+	_rapid_ingress_eligible_units = []
+
+	var result = create_result(true, [])
+	result["rapid_ingress_used"] = true
+	result["rapid_ingress_unit_id"] = unit_id
+	result["rapid_ingress_player"] = player
+	return result
+
+func _process_decline_rapid_ingress(action: Dictionary) -> Dictionary:
+	var player = action.get("player", _rapid_ingress_player)
+	log_phase_message("Player %d declined RAPID INGRESS" % player)
+	print("MovementPhase: Rapid Ingress DECLINED by Player %d" % player)
+
+	# Clear Rapid Ingress state
+	_awaiting_rapid_ingress = false
+	_rapid_ingress_player = 0
+	_rapid_ingress_eligible_units = []
+	_rapid_ingress_unit_id = ""
+
+	# Now actually end the movement phase
+	log_phase_message("Ending Movement Phase (after Rapid Ingress declined) - emitting phase_completed signal")
+	emit_signal("phase_completed")
+	log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress decline) ===")
+	return create_result(true, [])
+
+func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionary:
+	"""Process placing a reserve unit via Rapid Ingress onto the battlefield."""
+	var unit_id = action.unit_id
+	var model_positions = action.model_positions
+	var model_rotations = action.get("model_rotations", [])
+	var player = _rapid_ingress_player
+	var changes = []
+
+	# Update model positions
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos != null:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [unit_id, i],
+				"value": {"x": pos.x, "y": pos.y}
+			})
+			if i < model_rotations.size() and model_rotations[i] != null:
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.rotation" % [unit_id, i],
+					"value": model_rotations[i]
+				})
+
+	# Update unit status from IN_RESERVES to DEPLOYED
+	changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.DEPLOYED
+	})
+
+	# Apply changes through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(changes)
+
+	# Update local snapshot
+	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+		game_state_snapshot.units[unit_id]["status"] = GameStateData.UnitStatus.DEPLOYED
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var reserve_type = unit.get("reserve_type", "strategic_reserves")
+	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+	log_phase_message("Rapid Ingress reinforcement arrived: %s via %s (Player %d)" % [unit_name, type_label, player])
+
+	# Clear Rapid Ingress state
+	_rapid_ingress_unit_id = ""
+	_rapid_ingress_player = 0
+
+	# Now actually end the movement phase
+	log_phase_message("Ending Movement Phase (after Rapid Ingress placement) - emitting phase_completed signal")
+	emit_signal("phase_completed")
+	log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress) ===")
+	return create_result(true, changes)
 
 func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int) -> Dictionary:
 	"""
@@ -1703,6 +2026,35 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				"op": "remove",
 				"path": "units.%s.flags.movement_active" % unit_id
 			})
+
+	# T4-7: Check for Rapid Ingress opportunity for the non-active player
+	# Rapid Ingress is used at the END of the opponent's Movement phase to bring
+	# in a Reserves unit as if it were the Reinforcements step.
+	var defending_player = 2 if current_player == 1 else 1
+	var battle_round = GameState.get_battle_round()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager and battle_round >= 2:
+		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
+		if strat_check.can_use:
+			# Check if defending player has any units in reserves
+			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
+			if not ri_eligible.is_empty():
+				# Rapid Ingress is available! Pause and offer it to the defender
+				_awaiting_rapid_ingress = true
+				_rapid_ingress_player = defending_player
+				_rapid_ingress_eligible_units = ri_eligible
+				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
+				print("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()])
+
+				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
+
+				var result = create_result(true, changes)
+				result["trigger_rapid_ingress"] = true
+				result["awaiting_rapid_ingress"] = true
+				result["rapid_ingress_player"] = defending_player
+				result["rapid_ingress_eligible_units"] = ri_eligible
+				return result
 
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
 	emit_signal("phase_completed")
