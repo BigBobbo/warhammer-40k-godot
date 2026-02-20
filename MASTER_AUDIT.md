@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH13: Shooting/Melee phase toggle — OptionButton filtering weapons/rules by phase, simulation routing, phase label in results, no-weapons hint | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH12: Multi-target comparison matrix — Compare Targets button with multi-defender selection, per-target comparison cards, priority/efficiency rankings | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH11: Show dice notation (D6, D3+3) in weapon stats display — added A: field and raw dice notation for attacks, strength, damage | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH10: "Clear Results" / "Reset" button — disabled-by-default button that clears results, histogram, and restores placeholder text | Mathhammer | MATHHAMMER_AUDIT |
@@ -825,7 +826,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added attacks (A:) to weapon stats bracket and now display raw dice notation for attacks, strength, and damage fields (e.g., `[A:D6+3 BS:5+ S:D6+6 AP:-3 D:D6]`). Attacks label next to spinbox shows `(base: D6+3)` hint when attacks use dice notation.
 - T5-MH12. [MH-FEAT-10] Multi-target comparison matrix — run same attacker against multiple defenders (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added "Compare Targets" button and multi-defender selection panel with checkboxes. Users toggle "Select Multiple Defenders" to reveal unit checkboxes, select 2+ defenders, then press "Compare Targets". Runs same attacker config against each defender independently on a background thread with progress updates. Displays per-target comparison cards showing defender profile (T/Sv/W/Models/Invuln/FNP), avg damage, kill probability, expected survivors, damage efficiency, and wound/unsaved rates with color-coded best values. Includes target priority ranking (by avg damage with gold/silver/bronze) and efficiency ranking (least overkill). Per-defender cumulative probability tables in breakdown panel.
-- T5-MH13. Shooting/Melee phase toggle in Mathhammer UI (MATHHAMMER_AUDIT)
+- T5-MH13. Shooting/Melee phase toggle in Mathhammer UI (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Phase toggle OptionButton (Shooting/Melee) filters weapon list to show only ranged or melee weapons respectively, hides shooting-only rule toggles (Cover, Torrent, Rapid Fire, Conversion) in melee mode, routes simulation to correct RulesEngine method (resolve_shoot vs resolve_melee_attacks), and displays phase context in all result views. Added "no weapons" hint when a unit lacks weapons for the selected phase, phase label in Overall Statistics and comparison headers, and _unit_has_melee_weapons helper.
 
 ### Visual Polish
 - T5-V1. Animated dice roll visualization (SHOOTING_PHASE_AUDIT.md §Tier 3)
@@ -923,9 +925,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 26 | 25 | 51 |
+| Tier 5 — QoL/Visual | 27 | 24 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **84** | **44** | **128** |
+| **Total Open** | **85** | **43** | **128** |
 | **Recently Completed** | **107** | — | **107** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
