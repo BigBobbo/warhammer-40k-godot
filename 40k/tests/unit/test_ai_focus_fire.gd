@@ -378,7 +378,7 @@ func test_decide_shooting_uses_focus_fire_plan():
 
 	var decision = AIDecisionMaker._decide_shooting(snapshot, available, 2)
 	_assert(decision.get("type", "") == "SHOOT", "AI produces SHOOT action with focus fire (got type: %s)" % decision.get("type", ""))
-	_assert("focus fire" in decision.get("_ai_description", "").to_lower(), "Description mentions focus fire")
+	_assert("expected" in decision.get("_ai_description", "").to_lower() and "dmg" in decision.get("_ai_description", "").to_lower(), "Description includes expected damage reasoning")
 
 	# Verify the plan was built
 	_assert(AIDecisionMaker._focus_fire_plan_built, "Focus fire plan was built")

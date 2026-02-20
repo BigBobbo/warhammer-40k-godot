@@ -439,6 +439,12 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 	})
 	emit_signal("ai_action_taken", player, decision, description)
 
+	# T7-37: Route key reactive decisions through GameEventLog with enhanced reasoning
+	var reactive_type = decision.get("type", "")
+	if reactive_type in ["USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH",
+			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK"]:
+		_log_ai_event(player, description)
+
 	print("AIPlayer: Reactive stratagem — Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
 
 	_current_phase_actions += 1
@@ -543,6 +549,13 @@ func _execute_next_action(player: int) -> void:
 		"player": player
 	})
 	emit_signal("ai_action_taken", player, decision, description)
+
+	# T7-37: Route key tactical decisions through GameEventLog with enhanced reasoning
+	var action_type = decision.get("type", "")
+	if action_type in ["SHOOT", "DECLARE_CHARGE", "ASSIGN_ATTACKS", "SELECT_FIGHTER",
+			"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE",
+			"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM"]:
+		_log_ai_event(player, description)
 
 	print("AIPlayer: Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
 
