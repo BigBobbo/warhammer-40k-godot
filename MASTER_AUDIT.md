@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-18 (2026-02-20): AI terrain-aware deployment — Added `_classify_deployment_role()`, `_score_terrain_for_role()`, `_find_terrain_aware_position()` to `_decide_deployment()`. Units classified by role (character/fragile_shooter/durable_shooter/melee/general) and positioned near beneficial terrain (LoS blockers for characters, cover for fragile shooters, front-edge LoS blockers for melee). 20/20 tests pass. | Deployment/AI | AI_AUDIT.md §DEPLOY-1 |
 | T7-17 (2026-02-20): AI leader attachment in formations — Replaced stub `_decide_formations()` with synergy-based leader attachment. `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` simulate each pairing using AIAbilityAnalyzer multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses). Scales by model count and points. 16/16 tests pass. | Formations/AI | AI_AUDIT.md §AI-GAP-8, FORM-1 |
 | T7-16 (2026-02-20): AI reserves deployment — Added `_decide_reserves_arrival()` for AI reserve unit deployment from Round 2+. Scores units by urgency, computes valid positions (strategic reserves: within 6" of edge; deep strike: near objectives). Enforces 9" enemy distance (edge-to-edge), Turn 2 opponent zone restriction. Updated AIPlayer.gd for reinforcement visuals. | Movement/AI | AI_AUDIT.md §MOV-8 |
 | T7-15 (2026-02-20): AI screening and deep strike denial — Wired `_compute_screen_position()` into Pass 3 of unit assignment. Added `_get_enemy_reserves()`, `_is_screening_candidate()`, `_calculate_denial_positions()` for 9" deep strike denial zones. Cheap units prioritized for screening duty, spaced 18" apart. Added "screen" action handling in movement execution. | Movement/AI | AI_AUDIT.md §AI-TACTIC-3, MOV-4 |
@@ -1093,12 +1094,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** `_decide_formations()` immediately confirms without evaluating leader-bodyguard pairings. Attach leaders based on ability synergies ("while leading" bonuses like re-rolls, FNP, +1 to hit).
 - **Resolution:** Replaced stub `_decide_formations()` with synergy-based leader attachment. Added `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` which simulate each character-bodyguard pairing using `AIAbilityAnalyzer` multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses like fall-back-and-charge). Scoring scales by model count and point value. AI attaches all leaders optimally, then confirms. 16/16 tests pass.
 
-### T7-18. AI terrain-aware deployment
+### T7-18. AI terrain-aware deployment — **DONE**
 - **Phase:** Deployment
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §DEPLOY-1
 - **Files:** `AIDecisionMaker.gd` — `_decide_deployment()`
 - **Details:** Units placed without regard to cover or LoS-blocking terrain. Position shooting units behind LoS blockers, use cover positions for fragile units.
+- **Resolution:** Added terrain-aware deployment to `_decide_deployment()`. New `_classify_deployment_role()` categorizes units as character/fragile_shooter/durable_shooter/melee/general based on keywords, weapons, and stats. New `_score_terrain_for_role()` evaluates terrain pieces (LoS blockers, cover) for each role. New `_find_terrain_aware_position()` generates candidate positions around terrain features in the deployment zone and scores them by terrain value, objective proximity, depth preference, and drift from baseline. Characters hide behind LoS blockers (tall ruins), fragile shooters seek cover and LoS blocking, melee units deploy near front-edge LoS blockers for charge lanes. Falls back to column-based layout when no useful terrain exists. 20/20 tests pass.
 
 ### T7-19. AI turn summary panel
 - **Phase:** UI
@@ -1434,9 +1436,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 14 | 44 | 58 |
-| **Total** | **113** | **73** | **186** |
-| **Recently Completed** | **132** | — | **132** |
+| Tier 7 — AI Player | 15 | 43 | 58 |
+| **Total** | **114** | **72** | **186** |
+| **Recently Completed** | **133** | — | **133** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

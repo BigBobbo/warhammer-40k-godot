@@ -290,6 +290,11 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# Calculate deployment zone bounds
 	var zone_bounds = _get_deployment_zone_bounds(snapshot, player)
 
+	# T7-18: Classify unit role for terrain-aware deployment
+	var unit_role = _classify_deployment_role(unit)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("AIDecisionMaker: Deploying %s (role=%s)" % [unit_name, unit_role])
+
 	# Find best position near an objective
 	var objectives = _get_objectives(snapshot)
 	var zone_center = Vector2(
@@ -297,7 +302,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		(zone_bounds.min_y + zone_bounds.max_y) / 2.0
 	)
 
-	var best_pos = zone_center
+	var objective_pos = zone_center
 	var best_dist = INF
 	for obj_pos in objectives:
 		var clamped = Vector2(
@@ -307,7 +312,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		var dist = clamped.distance_to(obj_pos)
 		if dist < best_dist:
 			best_dist = dist
-			best_pos = clamped
+			objective_pos = clamped
 
 	# Spread units across the zone using column-based distribution
 	var my_units = _get_units_for_player(snapshot, player)
@@ -331,17 +336,26 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	var depth_offset = depth_row * depth_step
 
 	# Player 1 deploys top (low Y), Player 2 deploys bottom (high Y)
+	var is_top_zone = zone_bounds.min_y < BOARD_HEIGHT_PX / 2.0
 	var deploy_y: float
-	if zone_bounds.min_y < BOARD_HEIGHT_PX / 2.0:
+	if is_top_zone:
 		# Top zone - front edge is max_y (closer to center)
 		deploy_y = zone_bounds.max_y - 80.0 - depth_offset
 	else:
 		# Bottom zone - front edge is min_y (closer to center)
 		deploy_y = zone_bounds.min_y + 80.0 + depth_offset
 
-	# Blend column position with objective-proximity position
-	best_pos.x = col_center_x * 0.7 + best_pos.x * 0.3
-	best_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+	# Blend column position with objective-proximity position (baseline position)
+	var baseline_pos = Vector2.ZERO
+	baseline_pos.x = col_center_x * 0.7 + objective_pos.x * 0.3
+	baseline_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+	# T7-18: Terrain-aware position adjustment
+	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
+	var best_pos = _find_terrain_aware_position(
+		baseline_pos, unit_role, terrain_features, zone_bounds,
+		is_top_zone, objectives, snapshot, player
+	)
 
 	# Generate formation positions
 	var models = unit.get("models", [])
@@ -359,14 +373,249 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	for i in range(models.size()):
 		rotations.append(0.0)
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	return {
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
 		"model_positions": positions,
 		"model_rotations": rotations,
-		"_ai_description": "Deployed %s" % unit_name
+		"_ai_description": "Deployed %s (%s)" % [unit_name, unit_role]
 	}
+
+# T7-18: Unit role classification for terrain-aware deployment
+# Returns one of: "fragile_shooter", "durable_shooter", "melee", "character", "general"
+static func _classify_deployment_role(unit: Dictionary) -> String:
+	var meta = unit.get("meta", {})
+	var keywords = meta.get("keywords", [])
+	var stats = meta.get("stats", {})
+	var upper_keywords = []
+	for kw in keywords:
+		upper_keywords.append(str(kw).to_upper())
+
+	# Characters should hide behind LoS blockers
+	if "CHARACTER" in upper_keywords:
+		return "character"
+
+	var has_ranged = _unit_has_ranged_weapons(unit)
+	var has_melee = _unit_has_melee_weapons(unit)
+
+	# Pure melee units deploy forward
+	if has_melee and not has_ranged:
+		return "melee"
+
+	# Evaluate fragility: low toughness + low save + low wounds = fragile
+	var toughness = int(stats.get("toughness", 4))
+	var save = int(stats.get("save", 4))
+	var wounds = int(stats.get("wounds", 1))
+
+	# Fragile shooting units: T3-4 with 4+/5+/6+ save and low wounds
+	if has_ranged:
+		var is_fragile = (toughness <= 4 and save >= 4 and wounds <= 2)
+		# Also treat low-toughness multi-wound units as fragile (e.g. T3 W2)
+		if toughness <= 3 and wounds <= 2:
+			is_fragile = true
+		if is_fragile:
+			return "fragile_shooter"
+		return "durable_shooter"
+
+	# Melee-leaning units with both weapons: deploy aggressively
+	if has_melee:
+		return "melee"
+
+	return "general"
+
+# T7-18: Score a terrain piece's value for a specific deployment role
+# Returns 0.0 if terrain is irrelevant, positive values for beneficial terrain
+static func _score_terrain_for_role(terrain: Dictionary, role: String, pos_near_terrain: Vector2,
+		zone_bounds: Dictionary, is_top_zone: bool) -> float:
+	var terrain_type = terrain.get("type", "")
+	var height_cat = terrain.get("height_category", "")
+	var score = 0.0
+
+	# LoS-blocking terrain (tall/medium ruins, tall woods)
+	var blocks_los = (height_cat == "tall") or (height_cat == "medium" and terrain_type == "ruins")
+
+	# Cover-granting terrain
+	var grants_cover = terrain_type in ["ruins", "obstacle", "barricade", "woods", "crater", "forest"]
+
+	match role:
+		"character":
+			# Characters strongly prefer LoS blockers — hide behind tall terrain
+			if blocks_los:
+				score += 5.0
+			if grants_cover:
+				score += 2.0
+		"fragile_shooter":
+			# Fragile shooters want cover and ideally LoS blockers nearby
+			# They want to be *next to* LoS blockers (not behind them from their own targets)
+			# but behind them from the enemy's perspective
+			if blocks_los:
+				score += 3.5
+			if grants_cover:
+				score += 3.0
+		"durable_shooter":
+			# Durable shooters benefit from cover but don't need to hide as much
+			if grants_cover:
+				score += 2.5
+			if blocks_los:
+				score += 1.0
+		"melee":
+			# Melee units want LoS blockers to advance behind (block enemy shooting)
+			# They prefer terrain near the front edge of the deployment zone
+			if blocks_los:
+				score += 4.0
+			if grants_cover:
+				score += 1.5
+			# Bonus for terrain closer to the front edge (closer to the enemy)
+			var front_y = zone_bounds.max_y if is_top_zone else zone_bounds.min_y
+			var dist_from_front = abs(pos_near_terrain.y - front_y)
+			var zone_height = abs(zone_bounds.max_y - zone_bounds.min_y)
+			if zone_height > 0:
+				score += 2.0 * (1.0 - clamp(dist_from_front / zone_height, 0.0, 1.0))
+		"general":
+			# General units get moderate benefit from any terrain
+			if grants_cover:
+				score += 2.0
+			if blocks_los:
+				score += 1.5
+
+	# Impassable terrain has no deployment value
+	if terrain_type == "impassable":
+		return 0.0
+
+	return score
+
+# T7-18: Find the best terrain-aware position for a unit given its role
+# Evaluates terrain features near the deployment zone and adjusts the baseline
+# position toward beneficial terrain
+static func _find_terrain_aware_position(
+	baseline_pos: Vector2, role: String, terrain_features: Array,
+	zone_bounds: Dictionary, is_top_zone: bool, objectives: Array,
+	snapshot: Dictionary, player: int
+) -> Vector2:
+	if terrain_features.is_empty():
+		print("AIDecisionMaker: No terrain features, using baseline position")
+		return baseline_pos
+
+	# Determine the front edge of the deployment zone (facing the enemy)
+	var front_y = zone_bounds.max_y if is_top_zone else zone_bounds.min_y
+	var back_y = zone_bounds.min_y if is_top_zone else zone_bounds.max_y
+
+	# Collect candidate positions near terrain features within/near the deployment zone
+	var candidates = []
+	var zone_margin = 120.0  # 3" tolerance for terrain just outside the zone
+
+	for terrain in terrain_features:
+		var terrain_pos = Vector2.ZERO
+		var raw_pos = terrain.get("position", null)
+		if raw_pos is Vector2:
+			terrain_pos = raw_pos
+		elif raw_pos is Dictionary:
+			terrain_pos = Vector2(float(raw_pos.get("x", 0)), float(raw_pos.get("y", 0)))
+		else:
+			# Fallback: compute centroid from polygon
+			var polygon = terrain.get("polygon", PackedVector2Array())
+			if polygon.size() >= 3:
+				var centroid = Vector2.ZERO
+				for pt in polygon:
+					centroid += pt
+				terrain_pos = centroid / polygon.size()
+			else:
+				continue
+
+		# Check if terrain is within or near the deployment zone
+		var in_zone_x = terrain_pos.x >= zone_bounds.min_x - zone_margin and terrain_pos.x <= zone_bounds.max_x + zone_margin
+		var in_zone_y = terrain_pos.y >= zone_bounds.min_y - zone_margin and terrain_pos.y <= zone_bounds.max_y + zone_margin
+		if not in_zone_x or not in_zone_y:
+			continue
+
+		# Calculate candidate positions around this terrain piece
+		# Place the unit adjacent to terrain, not inside it (except for area terrain like woods)
+		var terrain_size = Vector2.ZERO
+		var raw_size = terrain.get("size", null)
+		if raw_size is Vector2:
+			terrain_size = raw_size
+		elif raw_size is Dictionary:
+			terrain_size = Vector2(float(raw_size.get("x", 100)), float(raw_size.get("y", 100)))
+		else:
+			terrain_size = Vector2(100, 100)
+
+		var terrain_type = terrain.get("type", "")
+		var is_area_terrain = terrain_type in ["woods", "crater", "forest"]
+		var offset_dist = max(terrain_size.x, terrain_size.y) / 2.0 + 60.0  # Adjacent offset
+
+		# Generate candidate positions around the terrain
+		var candidate_offsets = []
+		if is_area_terrain:
+			# Area terrain: deploy within it for cover
+			candidate_offsets.append(Vector2.ZERO)
+		# For all terrain: positions on the side facing away from the enemy
+		if is_top_zone:
+			# Enemy is below — "behind" terrain means above it (lower Y)
+			candidate_offsets.append(Vector2(0, -offset_dist))  # Behind (away from enemy)
+			candidate_offsets.append(Vector2(-offset_dist * 0.7, -offset_dist * 0.7))
+			candidate_offsets.append(Vector2(offset_dist * 0.7, -offset_dist * 0.7))
+		else:
+			# Enemy is above — "behind" terrain means below it (higher Y)
+			candidate_offsets.append(Vector2(0, offset_dist))  # Behind (away from enemy)
+			candidate_offsets.append(Vector2(-offset_dist * 0.7, offset_dist * 0.7))
+			candidate_offsets.append(Vector2(offset_dist * 0.7, offset_dist * 0.7))
+		# Also try flanking positions
+		candidate_offsets.append(Vector2(-offset_dist, 0))
+		candidate_offsets.append(Vector2(offset_dist, 0))
+
+		for offset in candidate_offsets:
+			var candidate_pos = terrain_pos + offset
+			# Clamp to deployment zone
+			candidate_pos.x = clamp(candidate_pos.x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+			candidate_pos.y = clamp(candidate_pos.y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+			var terrain_score = _score_terrain_for_role(terrain, role, candidate_pos, zone_bounds, is_top_zone)
+			if terrain_score <= 0.0:
+				continue
+
+			# Penalize distance from baseline position (don't drift too far from column layout)
+			var drift_dist = candidate_pos.distance_to(baseline_pos)
+			var drift_penalty = drift_dist / 400.0  # Lose ~1 point per 400px drift
+
+			# Bonus for proximity to objectives
+			var obj_bonus = 0.0
+			for obj_pos in objectives:
+				var obj_dist = candidate_pos.distance_to(obj_pos)
+				if obj_dist < 400.0:  # 10 inches
+					obj_bonus += 1.0 * (1.0 - obj_dist / 400.0)
+
+			# Role-specific depth preference
+			var depth_bonus = 0.0
+			if role == "melee":
+				# Melee units prefer being near the front edge
+				var dist_from_front = abs(candidate_pos.y - front_y)
+				depth_bonus = 1.5 * (1.0 - clamp(dist_from_front / (abs(front_y - back_y) + 1.0), 0.0, 1.0))
+			elif role == "character" or role == "fragile_shooter":
+				# Fragile units prefer being near the back edge
+				var dist_from_back = abs(candidate_pos.y - back_y)
+				depth_bonus = 1.0 * (1.0 - clamp(dist_from_back / (abs(front_y - back_y) + 1.0), 0.0, 1.0))
+
+			var total_score = terrain_score + obj_bonus + depth_bonus - drift_penalty
+			candidates.append({"pos": candidate_pos, "score": total_score, "terrain_type": terrain.get("type", ""), "height": terrain.get("height_category", "")})
+
+	# If no good terrain candidates, fall back to baseline
+	if candidates.is_empty():
+		print("AIDecisionMaker: No terrain candidates for %s role, using baseline" % role)
+		return baseline_pos
+
+	# Sort by score descending and pick the best
+	candidates.sort_custom(func(a, b): return a.score > b.score)
+	var best = candidates[0]
+
+	# Only use terrain position if it's meaningfully better than baseline
+	if best.score < 1.0:
+		print("AIDecisionMaker: Best terrain score %.2f too low for %s, using baseline" % [best.score, role])
+		return baseline_pos
+
+	print("AIDecisionMaker: T7-18 terrain-aware deploy: %s -> %s terrain (%s), score=%.2f, pos=(%.0f,%.0f)" % [
+		role, best.terrain_type, best.height, best.score, best.pos.x, best.pos.y
+	])
+	return best.pos
 
 # =============================================================================
 # SCOUT PHASE
