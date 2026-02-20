@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V2: Shooting line animation and tracer effects — ShootingLineVisual.gd with muzzle flash, traveling tracer, impact flash, animated line draw for local/remote players | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T5-V1: Animated dice roll visualization — DiceRollVisual.gd with cycling animation, color-coded dice (gold 6s, red 1s, green success, gray fail), integrated into Shooting/Fight/Charge controllers | Shooting/Fight/Charge | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MH13: Shooting/Melee phase toggle — OptionButton filtering weapons/rules by phase, simulation routing, phase label in results, no-weapons hint | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH12: Multi-target comparison matrix — Compare Targets button with multi-defender selection, per-target comparison cards, priority/efficiency rankings | Mathhammer | MATHHAMMER_AUDIT |
@@ -833,7 +834,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 ### Visual Polish
 - T5-V1. Animated dice roll visualization (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
   - **Resolution:** Created `DiceRollVisual.gd` — a reusable animated 2D dice display Control. Each die shows a cycling animation before settling on its final value. Color-coded: gold for critical hits (6s), red for natural 1s, green for successes, gray for failures. Integrated into ShootingController, FightController, and ChargeController via the `dice_rolled` signal. Appears above the text dice log in each phase's right panel.
-- T5-V2. Shooting line animation and tracer effects (SHOOTING_PHASE_AUDIT.md §Tier 4)
+- T5-V2. Shooting line animation and tracer effects (SHOOTING_PHASE_AUDIT.md §Tier 4) — **DONE**
+  - **Resolution:** Created `ShootingLineVisual.gd` — animated shooting line with muzzle flash, traveling tracer pulse, and impact flash effects. Line extends from shooter to target with configurable timing. Integrated into `ShootingController.gd` for both local player (animated tracer on shooting_begun) and remote player (static line on target assignment). Replaces old plain Line2D shooting lines with the animated visual. Auto-fades after hold duration; cleaned up on shooting_resolved.
 - T5-V3. Phase transition animation banners (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V4. Target unit damage feedback (flash + death animation) (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V5. Range circle visualization for weapons (SHOOTING_PHASE_AUDIT.md §Additional)
@@ -927,10 +929,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 28 | 23 | 51 |
+| Tier 5 — QoL/Visual | 29 | 22 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **86** | **42** | **128** |
-| **Recently Completed** | **108** | — | **108** |
+| **Total Open** | **87** | **41** | **128** |
+| **Recently Completed** | **109** | — | **109** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---

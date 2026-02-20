@@ -319,11 +319,20 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 
 **Suggestion:** Add animated dice roll visualization — show 3D dice or 2D dice sprites rolling and landing. Highlight critical hits (6s) in gold, misses (1s) in red. This is one of the most impactful visual improvements for engagement, especially in multiplayer where both players watch the rolls.
 
-### 6.2 HIGH: Shooting Line Visual from Attacker to Target
+### 6.2 HIGH: Shooting Line Visual from Attacker to Target — **DONE**
 
 **Current:** An LoS line exists (`los_visual` in `ShootingController.gd:29`) but it appears to be used primarily for LoS debugging. No persistent visual line shows which unit is shooting at which target during resolution.
 
 **Suggestion:** During attack resolution, draw a clear animated line or arrow from the shooting unit to its target. Add a brief muzzle flash or tracer effect. Remove after resolution completes. This gives both players (especially the remote observer) clear visual feedback on what's happening.
+
+**Resolution:** Implemented in T5-V2. Created `ShootingLineVisual.gd` — an animated Node2D that draws a shooting line from attacker to target with visual effects:
+- **Line draw animation** (0.25s): Line extends from shooter to target position
+- **Muzzle flash**: Bright yellow flash at shooter position fading during line draw
+- **Tracer pulse** (0.35s): A bright yellow-white projectile travels along the line with outer glow
+- **Impact flash**: Orange-red flash at target when tracer arrives
+- **Weapon label**: Centered label with weapon name shown after line fully drawn
+- **Auto-fade**: Line holds for 3s then fades out over 0.8s
+- Integrated into `ShootingController._on_shooting_begun()` for local player (animated) and remote player (static line via `show_remote_target_assignment`). Replaces old plain Line2D with the animated visual. Cleaned up on `shooting_resolved`.
 
 ### 6.3 MEDIUM: Target Unit Damage Feedback
 
@@ -402,7 +411,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 20. **LANCE, ONE SHOT, EXTRA ATTACKS** — niche keywords
 21. **Go to Ground / Smokescreen stratagems** — needs stratagem system
 22. **Phase summary panel** — QoL
-23. **Shooting line animations** — visual polish
+23. ~~**Shooting line animations**~~ — DONE (T5-V2)
 24. **Keyboard shortcuts** — accessibility
 
 ---
