@@ -17,6 +17,13 @@ const OBJECTIVE_RANGE_PX: float = 120.0  # 3 inches - objective control range in
 const OBJECTIVE_CONTROL_RANGE_PX: float = 151.5  # 3.79" (3" + 20mm marker radius) in pixels
 const BASE_MARGIN_PX: float = 30.0       # Safety margin from board edges
 
+# Late-bound reference to RulesEngine autoload (avoids compile-time dependency)
+static func _rules_engine():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("RulesEngine")
+	return null
+
 # Focus fire plan cache — built once per shooting phase, consumed per-unit
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
@@ -2672,13 +2679,14 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var weapon_id = _generate_weapon_id(weapon_name, w.get("type", ""))
 
 			# ONE SHOT: Skip one-shot weapons that have been fully fired
-			if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
+			var _re1 = _rules_engine()
+			if _re1 and _re1.is_one_shot_weapon(weapon_id, snapshot):
 				var all_fired = true
 				var models = unit.get("models", [])
 				for model in models:
 					if model.get("alive", true):
 						var model_id = model.get("id", "")
-						if not RulesEngine.has_fired_one_shot(unit, model_id, weapon_id):
+						if not _re1.has_fired_one_shot(unit, model_id, weapon_id):
 							all_fired = false
 							break
 				if all_fired:
@@ -3026,13 +3034,14 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 		var weapon_id = _generate_weapon_id(weapon_name, weapon.get("type", ""))
 
 		# ONE SHOT: Skip one-shot weapons that have been fired
-		if RulesEngine.is_one_shot_weapon(weapon_id, snapshot):
+		var _re2 = _rules_engine()
+		if _re2 and _re2.is_one_shot_weapon(weapon_id, snapshot):
 			var all_fired = true
 			var models = unit.get("models", [])
 			for model in models:
 				if model.get("alive", true):
 					var model_id = model.get("id", "")
-					if not RulesEngine.has_fired_one_shot(unit, model_id, weapon_id):
+					if not _re2.has_fired_one_shot(unit, model_id, weapon_id):
 						all_fired = false
 						break
 			if all_fired:
@@ -3174,17 +3183,17 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		if not best_charge.is_empty():
 			return best_charge
 
-		# No good charge found — skip remaining chargeable units one at a time
-		if action_types.has("SKIP_CHARGE"):
-			var a = action_types["SKIP_CHARGE"][0]
-			var uid = a.get("actor_unit_id", "")
-			var unit = snapshot.get("units", {}).get(uid, {})
-			var unit_name = unit.get("meta", {}).get("name", uid)
-			return {
-				"type": "SKIP_CHARGE",
-				"actor_unit_id": uid,
-				"_ai_description": "Skipped charge for %s (no good target)" % unit_name
-			}
+	# No good charge found (or no targets) — skip remaining chargeable units one at a time
+	if action_types.has("SKIP_CHARGE"):
+		var a = action_types["SKIP_CHARGE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var unit = snapshot.get("units", {}).get(uid, {})
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		return {
+			"type": "SKIP_CHARGE",
+			"actor_unit_id": uid,
+			"_ai_description": "Skipped charge for %s (no good target)" % unit_name
+		}
 
 	# --- Step 5: End charge phase ---
 	return {"type": "END_CHARGE", "_ai_description": "End Charge Phase"}
@@ -5403,7 +5412,10 @@ static func evaluate_grenade_usage(snapshot: Dictionary, player: int) -> Diction
 		var ranged_weapon_strength = _estimate_unit_ranged_strength(grenade_unit)
 
 		# Get eligible grenade targets (within 8")
-		var targets = RulesEngine.get_grenade_eligible_targets(grenade_unit_id, snapshot)
+		var _re3 = _rules_engine()
+		if not _re3:
+			continue
+		var targets = _re3.get_grenade_eligible_targets(grenade_unit_id, snapshot)
 		if targets.is_empty():
 			continue
 

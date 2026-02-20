@@ -1,7 +1,7 @@
 # Master Audit — All Phases Combined & Prioritized
 
-> **Generated:** 2026-02-16 | **Updated:** 2026-02-16 (Mathhammer Audit)
-> **Source audits:** AUDIT_COMMAND_PHASE.md, MOVEMENT_PHASE_AUDIT.md, DEPLOYMENT_AUDIT.md, SHOOTING_PHASE_AUDIT.md, CHARGE_PHASE_AUDIT.md, FIGHT_PHASE_AUDIT.md, TERRAIN_LAYOUTS_AUDIT.md, TESTING_AUDIT_SUMMARY.md, **MATHHAMMER_AUDIT** (inline below), plus TODO comments found in code.
+> **Generated:** 2026-02-16 | **Updated:** 2026-02-20 (AI Player Audit)
+> **Source audits:** AUDIT_COMMAND_PHASE.md, MOVEMENT_PHASE_AUDIT.md, DEPLOYMENT_AUDIT.md, SHOOTING_PHASE_AUDIT.md, CHARGE_PHASE_AUDIT.md, FIGHT_PHASE_AUDIT.md, TERRAIN_LAYOUTS_AUDIT.md, TESTING_AUDIT_SUMMARY.md, **MATHHAMMER_AUDIT** (inline below), **AI_AUDIT.md**, plus TODO comments found in code.
 >
 > Items are grouped into priority tiers based on impact to gameplay correctness, then by phase. Each item links back to its source audit.
 
@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-1 (2026-02-20): AI charge declarations — Full charge decision system: `_evaluate_best_charge()` with 2D6 probability, melee damage estimation, target scoring, objective bonuses, leader ability multipliers. `_compute_charge_move()` for B2B positioning and coherency. Fixed RulesEngine autoload dependency and SKIP_CHARGE handling. 36 tests pass. | Charge/AI | AI_AUDIT.md §AI-GAP-1, CHARGE-1–3 |
 | T5-V15 (2026-02-20): Mathhammer visual histogram — Replaced text-based histogram with graphical ColorRect bar chart; vertical bars (<=20 values) or horizontal bars (>20), color-coded by damage vs mean, auto-bucketing for wide ranges, percentage labels, legend | Mathhammer | MATHHAMMER_AUDIT, Code TODO |
 | T5-MH1 (2026-02-20): Visual histogram / probability distribution chart — Implemented via T5-V15 | Mathhammer | MATHHAMMER_AUDIT |
 | T5-V14 (2026-02-20): Deployment zone edge highlighting — Animated dashed border with marching ants, multi-layer pulsing glow on inner edges, corner markers, zone depth labels; inner/outer edge detection for board-boundary vs no-man's-land edges | Deployment | DEPLOYMENT_AUDIT.md §QoL 6 |
@@ -937,6 +938,433 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 
 ---
 
+## TIER 7 — AI Player Intelligence
+
+> **Source:** AI_AUDIT.md | **Primary files:** `AIPlayer.gd`, `AIDecisionMaker.gd`
+> The AI player system provides a functional single-player experience but has major gaps: charges are completely skipped, pile-in/consolidation never moves models, no stratagem usage, no ability awareness, and no competitive tactical reasoning. These tasks address all identified AI gaps from the AI Player Audit.
+
+### P0 — Critical: AI Plays Incorrectly Without These
+
+### T7-1. AI charge declarations — charges are completely skipped — **DONE**
+- **Phase:** Charge
+- **Priority:** CRITICAL
+- **Source:** AI_AUDIT.md §AI-GAP-1, CHARGE-1 through CHARGE-3
+- **Files:** `AIDecisionMaker.gd` — `_decide_charge()`
+- **Details:** `_decide_charge()` always returns SKIP_CHARGE. Implement charge feasibility check (distance ≤12"), 2D6 probability assessment, target evaluation, model positioning post-charge with B2B contact and coherency.
+- **Resolution:** Full charge decision system implemented: `_evaluate_best_charge()` scores all (charger, target) pairs using distance feasibility (≤12"), 2D6 probability math (`_charge_success_probability()`), melee damage estimation, target value scoring, objective bonuses, and leader ability multipliers. `_compute_charge_move()` positions models with B2B contact and coherency. Fixed RulesEngine autoload dependency for test compilation; fixed SKIP_CHARGE handling for units with no eligible targets. 36/36 tests pass.
+
+### T7-2. AI pile-in movement — models never move during fight
+- **Phase:** Fight
+- **Priority:** CRITICAL
+- **Source:** AI_AUDIT.md §AI-GAP-2, FIGHT-1
+- **Files:** `AIDecisionMaker.gd` — `_decide_fight()`
+- **Details:** `_decide_fight()` sends empty `movements: {}` for PILE_IN actions. Implement 3" pile-in toward nearest enemy model, skip models already in B2B contact, maintain unit coherency.
+
+### T7-3. AI consolidation movement — models never consolidate
+- **Phase:** Fight
+- **Priority:** CRITICAL
+- **Source:** AI_AUDIT.md §AI-GAP-2, FIGHT-2
+- **Files:** `AIDecisionMaker.gd` — `_decide_fight()`
+- **Details:** Consolidation movements always empty. Implement 3" consolidation prioritizing: moving onto objectives, tagging new enemy units, wrapping enemies to prevent fall-back, maintaining coherency.
+
+### T7-4. AI fall-back model positioning — fall-back doesn't move models
+- **Phase:** Movement
+- **Priority:** CRITICAL
+- **Source:** AI_AUDIT.md §MOV-6
+- **Files:** `AIDecisionMaker.gd` — movement decision path
+- **Details:** Fall-back path destinations not computed. Implement valid fall-back positioning that moves models away from enemy engagement range.
+
+### P1 — High: AI Plays Very Poorly Without These
+
+### T7-5. AI weapon range check in target scoring
+- **Phase:** Shooting
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-GAP-5, SHOOT-4
+- **Files:** `AIDecisionMaker.gd` — `_score_shooting_target()`
+- **Details:** Target scoring doesn't check weapon range. AI wastes turns on out-of-range shots then falls back to SKIP_UNIT. Score 0 for targets beyond weapon range.
+
+### T7-6. AI focus fire coordination across units
+- **Phase:** Shooting
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-TACTIC-2, SHOOT-1
+- **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
+- **Details:** Each weapon independently picks best target, spreading fire across many units. Implement kill-threshold targeting: calculate total expected damage vs each target across ALL weapons, allocate to meet kill thresholds before moving to secondary targets.
+
+### T7-7. AI weapon-target efficiency matching
+- **Phase:** Shooting
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-TACTIC-5, SHOOT-2
+- **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
+- **Details:** All weapons on a unit fire at same target. Match anti-tank to vehicles, anti-infantry to hordes. Penalize multi-damage weapons on single-wound models. Each weapon gets its own optimal target.
+
+### T7-8. AI invulnerable save consideration in target scoring
+- **Phase:** Shooting
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-GAP-6, SHOOT-3
+- **Files:** `AIDecisionMaker.gd` — `_save_probability()`
+- **Details:** Only basic save used in scoring. Use `min(modified_save, invuln)` to avoid wasting high-AP weapons on invuln-protected targets.
+
+### T7-9. AI weapon keyword awareness in target scoring
+- **Phase:** Shooting
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §SHOOT-5
+- **Files:** `AIDecisionMaker.gd` — `_score_shooting_target()`
+- **Details:** Weapon keywords not factored into expected damage: Blast (+1A per 5 models), Rapid Fire (+X at half range), Melta (+X damage at half range), Anti-keyword (lower crit wound threshold), Torrent (100% hit), Sustained/Lethal/Devastating Hits.
+
+### T7-10. AI basic stratagem usage
+- **Phase:** All
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-GAP-3
+- **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`, `StratagemManager.gd`
+- **Details:** AI never spends CP (except auto Command Re-roll on battle-shock). Implement staged stratagem usage: Grenade (shooting), Fire Overwatch (opponent's charge), Go to Ground/Smokescreen (defensive), intelligent Command Re-roll triggers (failed charges, critical saves).
+
+### T7-11. AI unit ability awareness
+- **Phase:** All
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-GAP-4
+- **Files:** `AIDecisionMaker.gd`, `UnitAbilityManager.gd`
+- **Details:** AI ignores all unit abilities. Factor leader attachment bonuses into unit value, detect "Fall Back and X" abilities, protect Lone Operatives (>12" from enemies), leverage Deadly Demise on doomed vehicles, select Oath of Moment targets intelligently.
+
+### T7-12. AI scout move execution
+- **Phase:** Scout
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §SCOUT-1, SCOUT-2
+- **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`
+- **Details:** All scout moves are skipped entirely. Move scouts toward nearest uncontrolled objective while maintaining >9" from enemies.
+
+### T7-13. AI enemy threat range awareness
+- **Phase:** Movement
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-TACTIC-4, MOV-2
+- **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
+- **Details:** No pre-measurement of enemy threat ranges before moving. Calculate all enemy threat ranges (movement + charge for melee, weapon ranges for shooting), add threat penalty for destinations within 12" of dangerous melee enemies.
+
+### T7-14. AI shooting range consideration in movement
+- **Phase:** Movement
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §MOV-1
+- **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
+- **Details:** May move units out of their weapon range toward objectives. Consider weapon ranges when scoring movement destinations to maintain firing positions.
+
+### T7-15. AI screening and deep strike denial
+- **Phase:** Movement
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-TACTIC-3, MOV-4
+- **Files:** `AIDecisionMaker.gd` — `_compute_screen_position()` (exists but never called)
+- **Details:** `_compute_screen_position()` exists but is disconnected from any decision path. Wire into pass 3 of unit assignment. Space cheap units 18" apart to create deep strike denial bubbles. Identify enemy units in reserves and calculate 9" denial zones.
+
+### T7-16. AI reserves deployment
+- **Phase:** Movement
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §MOV-8
+- **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
+- **Details:** Units in reserves never brought onto the board from Round 2+. Implement reserves arrival logic with 9" enemy distance check and board edge placement rules.
+
+### T7-17. AI leader attachment in formations
+- **Phase:** Formations
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §AI-GAP-8, FORM-1
+- **Files:** `AIDecisionMaker.gd` — `_decide_formations()`
+- **Details:** `_decide_formations()` immediately confirms without evaluating leader-bodyguard pairings. Attach leaders based on ability synergies ("while leading" bonuses like re-rolls, FNP, +1 to hit).
+
+### T7-18. AI terrain-aware deployment
+- **Phase:** Deployment
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §DEPLOY-1
+- **Files:** `AIDecisionMaker.gd` — `_decide_deployment()`
+- **Details:** Units placed without regard to cover or LoS-blocking terrain. Position shooting units behind LoS blockers, use cover positions for fragile units.
+
+### T7-19. AI turn summary panel
+- **Phase:** UI
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §QoL-1
+- **Files:** `AIPlayer.gd` (signals exist: `ai_action_taken`, `ai_turn_ended`, `_action_log`), new UI scene
+- **Details:** AI actions logged to console only. Create turn summary panel consuming existing signals to show units moved, shooting results, charge results, fight results after each AI turn.
+
+### T7-20. AI thinking indicator
+- **Phase:** UI
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §QoL-2
+- **Files:** `AIPlayer.gd`, new UI component
+- **Details:** No visual feedback during AI processing — game appears frozen for 50ms between actions. Show "AI is thinking..." indicator with spinner or pulsing animation during AI evaluation.
+
+### T7-21. AI movement path visualization
+- **Phase:** UI
+- **Priority:** HIGH
+- **Source:** AI_AUDIT.md §VIS-1
+- **Files:** `AIPlayer.gd`, `GhostVisual.gd`
+- **Details:** AI units teleport to destinations with no movement path shown. Draw brief movement trail (dotted line or arrow) from origin to destination during AI movement, fade after 1-2 seconds.
+
+### P2 — Medium: AI Competence & Feel Improvements
+
+### T7-22. AI target priority framework
+- **Phase:** Shooting
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-TACTIC-1
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** No macro-level threat assessment. Implement two-level priority: macro (rank enemies by threat level, damage output, objective presence, ability value) and micro (allocate weapons to maximize total expected value, not just per-weapon damage).
+
+### T7-23. AI multi-phase planning
+- **Phase:** All
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-TACTIC-6
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Each phase decided independently. Movement should consider shooting lanes and charge angles; shooting should not target units planned for charge; charge should prefer locking dangerous shooting units in combat. Expand existing round-1 urgency scoring approach.
+
+### T7-24. AI trade and tempo awareness
+- **Phase:** All
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-TACTIC-7
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** No tracking of unit points values. Use `unit.meta.points` for points-per-wound calculations. Adjust aggression based on VP score differential and turn count.
+
+### T7-25. AI secondary mission awareness
+- **Phase:** Command/Movement/Scoring
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-TACTIC-8, SCORE-1
+- **Files:** `AIDecisionMaker.gd`, `SecondaryMissionManager.gd`
+- **Details:** `_decide_scoring()` immediately ends the scoring phase. Evaluate active secondary missions in command phase, factor secondary conditions into movement positioning, discard unachievable secondaries for +1 CP.
+
+### T7-26. AI Heavy weapon stationary bonus
+- **Phase:** Movement
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §MOV-3
+- **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
+- **Details:** Heavy weapon bonus not considered when deciding to move. Prefer remaining stationary when Heavy bonus (+1 to hit) is significant vs. the objective benefit of moving.
+
+### T7-27. AI engaged unit survival assessment
+- **Phase:** Movement
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §MOV-9
+- **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
+- **Details:** Doesn't estimate fight-phase damage before hold/fall-back decision. Calculate expected melee damage to the unit to inform whether to hold position or fall back.
+
+### T7-28. AI multi-weapon melee optimization
+- **Phase:** Fight
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-GAP-7, FIGHT-3
+- **Files:** `AIDecisionMaker.gd` — `_assign_fight_attacks()`
+- **Details:** Only first melee weapon used — `_assign_fight_attacks()` picks first melee weapon found. Evaluate all melee profiles per target, account for Extra Attacks weapons, pick damage-maximizing weapon combination.
+
+### T7-29. AI fight target optimization
+- **Phase:** Fight
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §FIGHT-4
+- **Files:** `AIDecisionMaker.gd` — `_decide_fight()`
+- **Details:** Melee target selection is nearest-distance only, not damage-optimal. Score targets by expected damage output and strategic value.
+
+### T7-30. AI range-band optimization
+- **Phase:** Shooting/Movement
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §SHOOT-6
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** No half-range bonus awareness. Position for Rapid Fire extra shots at half range. Prioritize Melta bonus damage at half range.
+
+### T7-31. AI cover consideration in target scoring
+- **Phase:** Shooting
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §SHOOT-7
+- **Files:** `AIDecisionMaker.gd` — `_score_shooting_target()`
+- **Details:** Benefit of Cover not factored into target scoring. Penalize targets with cover (+1 to save) in expected damage calculation.
+
+### T7-32. AI Counter-Offensive stratagem usage
+- **Phase:** Fight
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §FIGHT-5
+- **Depends on:** T4-3 (Counter-Offensive implementation — DONE)
+- **Files:** `AIDecisionMaker.gd`, `StratagemManager.gd`
+- **Details:** AI never uses Counter-Offensive (2CP). Use when AI's high-value melee unit is at risk after enemy fights.
+
+### T7-33. AI transport usage
+- **Phase:** Formations/Movement
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §FORM-2, MOV-7
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Transports never used. Embark small/fast units in formations for deployment efficiency, disembark during movement when beneficial for objective control or shooting.
+
+### T7-34. AI reserves declarations
+- **Phase:** Formations
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §FORM-3
+- **Files:** `AIDecisionMaker.gd` — `_decide_formations()`
+- **Details:** No reserves declaration — all units deployed on table unless deployment fails. Put appropriate units in Strategic Reserves or Deep Strike based on army composition and mission.
+
+### T7-35. AI Rapid Ingress stratagem usage
+- **Phase:** Movement
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §AI-GAP-3 Phase 3
+- **Depends on:** T4-7 (Rapid Ingress implementation — DONE)
+- **Files:** `AIDecisionMaker.gd`, `StratagemManager.gd`
+- **Details:** AI never uses Rapid Ingress to arrive from reserves at end of opponent's movement phase.
+
+### T7-36. AI speed controls
+- **Phase:** UI/Settings
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §QoL-3
+- **Files:** `AIPlayer.gd`
+- **Details:** `AI_ACTION_DELAY` hardcoded to 50ms. Add speed slider in settings: Fast (0ms), Normal (200ms), Slow (500ms), Step-by-step (pause after each action).
+
+### T7-37. AI decision explanations
+- **Phase:** UI
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §QoL-4
+- **Files:** `AIDecisionMaker.gd`, `GameEventLog.gd`
+- **Details:** `_ai_description` strings are terse. Route key decisions through `GameEventLog.add_ai_entry()` with enhanced reasoning (e.g., "Lascannon shoots at Battlewagon — expected 4.2 damage, 67% kill probability").
+
+### T7-38. AI shooting target line visualization
+- **Phase:** UI
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §VIS-2
+- **Files:** `AIPlayer.gd`, `ShootingLineVisual.gd`
+- **Details:** No visual connection between shooter and target during AI shooting. Draw brief targeting line (red) from shooting unit to target, show hit/wound results as floating text near target.
+
+### T7-39. AI objective control flash on change
+- **Phase:** UI
+- **Priority:** MEDIUM
+- **Source:** AI_AUDIT.md §VIS-4
+- **Files:** New visual component
+- **Details:** Objective control changes during AI movement not highlighted. Flash objective markers when control state changes (green flash on AI capture, red on loss).
+
+### P3 — Low: Polish & Competitive-Level Play
+
+### T7-40. AI difficulty levels
+- **Phase:** Settings
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §QoL-5
+- **Files:** `AIPlayer.gd`, `AIDecisionMaker.gd`
+- **Details:** Single difficulty level. Implement Easy (random valid actions), Normal (current + Tier 7 P0/P1 fixes), Hard (full tactics + stratagems), Competitive (look-ahead planning + optimal stratagem timing).
+
+### T7-41. AI army-specific strategies
+- **Phase:** All
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §QoL-6
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Identical heuristics regardless of army. Detect archetype based on weapon/keyword distribution: melee-focused (aggressive advance, early charges), shooting-focused (castle, maintain range), balanced, elite (protect key models).
+
+### T7-42. AI move blocking
+- **Phase:** Movement
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §AI-TACTIC-9
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** No movement corridor blocking. Identify key corridors between enemy units and objectives, position expendable units to block them.
+
+### T7-43. AI late-game strategy pivot
+- **Phase:** All
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §AI-TACTIC-10
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Same strategy throughout the game. Implement turn-based modifier: Rounds 1-2 aggressive positioning, Round 3 balance, Rounds 4-5 prioritize objective control and survival over kills.
+
+### T7-44. AI counter-deployment
+- **Phase:** Deployment
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §DEPLOY-2
+- **Files:** `AIDecisionMaker.gd` — `_decide_deployment()`
+- **Details:** Doesn't react to opponent's deployment. Adjust unit placement based on where opponent has deployed.
+
+### T7-45. AI faction ability activation
+- **Phase:** Command
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §CMD-3
+- **Files:** `AIDecisionMaker.gd` — `_decide_command()`
+- **Details:** No faction ability activation. Select Oath of Moment target based on focus-fire plan, declare Waaagh! at optimal timing (Orks).
+
+### T7-46. AI fight order optimization
+- **Phase:** Fight
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §FIGHT-6
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** No consideration of which unit to activate first in fight phase for best overall outcomes.
+
+### T7-47. AI secondary mission discard logic
+- **Phase:** Scoring
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §SCORE-2
+- **Files:** `AIDecisionMaker.gd` — `_decide_scoring()`
+- **Details:** Never discards unachievable secondary missions for +1 CP.
+
+### T7-48. AI Pistol usage in engagement range
+- **Phase:** Shooting
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §SHOOT-9
+- **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
+- **Details:** Doesn't fire Pistols when units are in engagement range.
+
+### T7-49. AI counter-play to opponent defensive stratagems
+- **Phase:** Shooting
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §SHOOT-10
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Doesn't penalize targets with active defensive buffs (Smokescreen, Go to Ground) in target scoring.
+
+### T7-50. AI multi-target charge declarations
+- **Phase:** Charge
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §CHARGE-4
+- **Depends on:** T7-1 (basic charge implementation)
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Declare charges against multiple nearby enemies when beneficial.
+
+### T7-51. AI overwatch risk assessment for charges
+- **Phase:** Charge
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §CHARGE-5
+- **Depends on:** T7-1 (basic charge implementation)
+- **Files:** `AIDecisionMaker.gd`
+- **Details:** Weigh charge benefit vs. expected overwatch damage before declaring charges.
+
+### T7-52. AI unit highlighting during actions
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §VIS-5
+- **Files:** New visual component
+- **Details:** No visual distinction for which unit the AI is currently acting with. Add glow/highlight ring (blue=move, red=shoot, orange=charge).
+
+### T7-53. AI floating damage numbers
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §VIS-6
+- **Files:** `DamageFeedbackVisual.gd`
+- **Details:** Show floating damage numbers above targets during AI combat and kill notifications on unit destruction.
+
+### T7-54. AI action log overlay
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §VIS-7
+- **Files:** New UI component
+- **Details:** Small scrolling text overlay in corner showing real-time AI actions as they happen.
+
+### T7-55. AI vs AI spectator mode improvements
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §QoL-7
+- **Files:** `AIPlayer.gd`
+- **Details:** AI vs AI flies by with no ability to follow. Auto-slow action delay and show turn summaries for both players in spectator mode.
+
+### T7-56. AI turn replay
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §QoL-8
+- **Files:** `AIPlayer.gd`, `ReplayManager.gd`
+- **Details:** No way to review AI actions after turn passes. Store full action log per turn and provide replay panel accessible from game menu.
+
+### T7-57. AI post-game performance summary
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §QoL-9
+- **Files:** New UI component
+- **Details:** No post-game AI analysis. Show total VP scored, units lost vs units killed, objectives held per turn, CP spent, key moments.
+
+### T7-58. AI charge arrow visualization
+- **Phase:** UI
+- **Priority:** LOW
+- **Source:** AI_AUDIT.md §VIS-3
+- **Depends on:** T7-1 (basic charge implementation)
+- **Files:** New visual component
+- **Details:** Draw charge declaration arrows (orange/yellow) from charger to target, show charge roll result prominently.
+
+---
+
 ## Code TODOs Not Covered by Audit Files
 
 The following TODOs were found in code but were not tracked in any existing audit document. They have been assigned to the most relevant tier above:
@@ -980,8 +1408,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **100** | **28** | **128** |
-| **Recently Completed** | **120** | — | **120** |
+| Tier 7 — AI Player | 1 | 57 | 58 |
+| **Total** | **101** | **85** | **186** |
+| **Recently Completed** | **121** | — | **121** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
@@ -1004,3 +1433,4 @@ The following TODOs were found in code but were not tracked in any existing audi
 | IMPLEMENTATION_VALIDATION.md | Movement (multi-model) | `/home/user/warhammer-40k-godot/IMPLEMENTATION_VALIDATION.md` |
 | DEPLOYMENT_FIX_STATUS.md | Deployment (debug) | `/home/user/warhammer-40k-godot/DEPLOYMENT_FIX_STATUS.md` |
 | MASTER_AUDIT.md §MATHHAMMER | Mathhammer (inline) | `/home/user/warhammer-40k-godot/MASTER_AUDIT.md` — §MATHHAMMER MODULE AUDIT |
+| AI_AUDIT.md | AI Player | `AI_AUDIT.md` |
