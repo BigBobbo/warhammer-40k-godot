@@ -96,6 +96,21 @@ const SCREEN_CHEAP_UNIT_POINTS: int = 100           # Units at or below this poi
 const SCREEN_SCORE_BASE: float = 8.0                # Base score for a screening assignment (comparable to objective priority)
 const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
 
+# T7-22: AI target priority framework constants
+# Macro-level target value weights
+const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
+const MACRO_RANGED_OUTPUT_WEIGHT: float = 0.15   # Per-expected-damage for ranged output
+const MACRO_MELEE_OUTPUT_WEIGHT: float = 0.10    # Per-expected-damage for melee output
+const MACRO_ABILITY_VALUE_WEIGHT: float = 0.5    # Bonus per ability multiplier above 1.0
+const MACRO_SURVIVABILITY_DISCOUNT: float = 0.15 # Discount per defensive multiplier above 1.0 (harder to kill = less efficient to shoot)
+const MACRO_OC_ON_OBJECTIVE_WEIGHT: float = 0.5  # Per-OC when unit is on an objective
+const MACRO_OC_NEAR_OBJECTIVE_WEIGHT: float = 0.2 # Per-OC when unit is near an objective
+const MACRO_LEADER_BUFF_BONUS: float = 1.5       # Multiplier for leaders providing buffs to attached units
+# Micro-level weapon allocation constants
+const MICRO_MARGINAL_KILL_BONUS: float = 2.5     # Bonus multiplier when assignment pushes total past kill threshold
+const MICRO_OVERKILL_DECAY: float = 0.3          # Value multiplier for damage beyond kill threshold
+const MICRO_MODEL_KILL_VALUE: float = 0.4        # Fractional value per model killed (vs full wipe value of 1.0)
+
 # =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
@@ -3842,15 +3857,21 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 
 static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array, player: int) -> Dictionary:
 	"""
-	Build a coordinated shooting plan across all shooting units.
+	T7-22: Build a coordinated shooting plan using two-level priority framework.
 	Returns {unit_id: [{weapon_id, target_unit_id, model_ids}]} mapping.
+
+	Two-level priority:
+	  Macro: Rank enemies by _calculate_target_value (threat level, damage output,
+	         objective presence, ability value, points cost).
+	  Micro: Iterative marginal value allocation maximizes total expected value
+	         across all weapon-target assignments, not just per-weapon damage.
 
 	Algorithm:
 	1. Calculate kill threshold (total remaining wounds) for each enemy
-	2. For each weapon on each shooter, estimate expected damage against each enemy
-	3. Score each enemy by: can we kill it? threat level? expected damage efficiency?
-	4. Greedily allocate weapons to targets, prioritizing kill thresholds
-	5. Redirect excess damage to secondary targets
+	2. Compute macro-level target values for all enemies
+	3. Build damage matrix (weapon × target expected damage)
+	4. Iteratively assign weapons to targets by highest marginal expected value,
+	   considering kill thresholds, opportunity cost, and overkill penalties
 	"""
 	var enemies = _get_enemy_units(snapshot, player)
 	if enemies.is_empty():
@@ -3918,7 +3939,11 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			dmg_row[enemy_id] = dmg
 		damage_matrix.append(dmg_row)
 
-	# --- Step 3: Greedy allocation (T7-6 enhanced) ---
+	# --- Step 3: Marginal value weapon allocation (T7-22 enhanced) ---
+	# Instead of greedy per-target allocation, use iterative marginal value
+	# optimization that considers opportunity cost across all targets.
+	# Each iteration picks the weapon-target pair with highest marginal value.
+
 	# Track how much expected damage is already allocated to each target
 	var allocated_damage = {}
 	for enemy_id in enemies:
@@ -3929,198 +3954,61 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	for wi in range(all_weapons.size()):
 		weapon_target.append("")
 
-	# T7-6: Sort targets by value-per-threshold (efficiency of kill).
-	# Targets that give the best value for the least damage required should be
-	# prioritised — killing a cheap 2HP target first frees weapons for others.
-	var sorted_targets = enemies.keys()
-	sorted_targets.sort_custom(func(a, b):
-		var thresh_a = kill_thresholds.get(a, 1.0)
-		var thresh_b = kill_thresholds.get(b, 1.0)
-		var ratio_a = target_values.get(a, 0) / maxf(thresh_a, 0.1)
-		var ratio_b = target_values.get(b, 0) / maxf(thresh_b, 0.1)
-		# Break ties with raw value (higher value first)
-		if absf(ratio_a - ratio_b) < 0.001:
-			return target_values.get(a, 0) > target_values.get(b, 0)
-		return ratio_a > ratio_b
-	)
-
 	# T7-6: Calculate model-level kill thresholds (wounds to kill N models)
-	# Used for partial kill assessment when we can't wipe the whole unit
 	var model_wounds_map = {}  # enemy_id -> wounds per model
 	for enemy_id in enemies:
 		model_wounds_map[enemy_id] = float(_get_target_wounds_per_model(enemies[enemy_id]))
 
-	# Pass 1: For each high-value target, assign enough weapons to reach kill threshold
-	for enemy_id in sorted_targets:
-		var threshold = kill_thresholds[enemy_id]
-		if threshold <= 0:
-			continue
+	# T7-22: Build efficiency cache for all weapon-target pairs
+	var efficiency_cache = {}  # "wi:enemy_id" -> float
+	for wi in range(all_weapons.size()):
+		for enemy_id in enemies:
+			var cache_key = "%d:%s" % [wi, enemy_id]
+			efficiency_cache[cache_key] = _calculate_efficiency_multiplier(all_weapons[wi]["weapon"], enemies[enemy_id])
 
-		# Gather weapons that can damage this target, with efficiency info
-		var candidates = []  # [{weapon_index, damage, efficiency}]
+	# T7-22: Iterative marginal value allocation.
+	# Each iteration: for every unassigned weapon, compute marginal value for
+	# every target, pick the highest, assign it, and update allocated damage.
+	# This naturally handles opportunity cost — a weapon goes where it adds
+	# the most value considering what's already been allocated.
+	var unassigned_count = all_weapons.size()
+	var max_iterations = all_weapons.size()  # Safety bound
+	var iteration = 0
+
+	while unassigned_count > 0 and iteration < max_iterations:
+		iteration += 1
+		var best_wi = -1
+		var best_enemy_id = ""
+		var best_marginal_value = 0.0
+
 		for wi in range(all_weapons.size()):
 			if weapon_target[wi] != "":
 				continue  # Already assigned
-			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
-			if dmg <= 0:
-				continue  # Can't hit this target (out of range, etc.)
-			var eff = _calculate_efficiency_multiplier(all_weapons[wi]["weapon"], enemies[enemy_id])
-			candidates.append({"wi": wi, "damage": dmg, "efficiency": eff})
-
-		if candidates.is_empty():
-			continue
-
-		# Sort by damage descending (assign most effective weapons first)
-		candidates.sort_custom(func(a, b): return a["damage"] > b["damage"])
-
-		# Calculate total potential damage against this target
-		var total_potential = 0.0
-		for c in candidates:
-			total_potential += c["damage"]
-
-		# T7-6: Also compute well-matched damage (efficiency >= neutral) for
-		# partial kill assessment. Don't drag poorly-matched weapons into partial kills.
-		var well_matched_potential = 0.0
-		var well_matched_candidates = []
-		for c in candidates:
-			if c["efficiency"] >= EFFICIENCY_NEUTRAL:
-				well_matched_potential += c["damage"]
-				well_matched_candidates.append(c)
-
-		var alive_count = _get_alive_models(enemies[enemy_id]).size()
-		var total_count = enemies[enemy_id].get("models", []).size()
-		var below_half = total_count > 0 and alive_count * 2 < total_count
-
-		# T7-6: Enhanced kill assessment with model-level partial kills.
-		# For full wipe assessment, use all weapons. For partial kills, only count
-		# well-matched weapons to avoid misallocating (e.g. lascannon vs hordes).
-		var can_wipe = total_potential >= threshold * 0.6
-		var wpm = model_wounds_map.get(enemy_id, 1.0)
-		var matched_model_kills = floorf(well_matched_potential / maxf(wpm, 0.1)) if wpm > 0 else 0.0
-		var worth_partial_kill = alive_count > 1 and matched_model_kills >= 1.0
-
-		if not can_wipe and not below_half and not worth_partial_kill:
-			continue  # Not worth focusing on — will be handled in pass 2
-
-		# Determine target budget and which weapons to draw from:
-		# - If we can wipe or below half: use ALL weapons up to kill threshold
-		# - If partial kill: only use well-matched weapons
-		var target_budget: float
-		var assign_candidates: Array
-		if can_wipe or below_half:
-			target_budget = threshold * OVERKILL_TOLERANCE
-			assign_candidates = candidates
-		else:
-			# Partial kill: use only well-matched weapons
-			var target_model_kills = min(matched_model_kills, float(alive_count))
-			target_budget = target_model_kills * wpm * OVERKILL_TOLERANCE
-			target_budget = min(target_budget, threshold * OVERKILL_TOLERANCE)
-			assign_candidates = well_matched_candidates
-
-		for c in assign_candidates:
-			if allocated_damage[enemy_id] >= target_budget:
-				break  # Enough damage allocated
-			# T7-6: Once we've passed the actual kill threshold, don't pull in
-			# poorly-matched weapons — let them find better targets in Pass 2.
-			if allocated_damage[enemy_id] >= threshold and c["efficiency"] < EFFICIENCY_NEUTRAL:
-				continue
-			var wi = c["wi"]
-			weapon_target[wi] = enemy_id
-			allocated_damage[enemy_id] += c["damage"]
-
-	# Pass 2: Coordinated secondary target allocation (T7-6 enhanced).
-	# Instead of assigning each remaining weapon independently, group remaining
-	# weapons to reach kill thresholds on secondary targets too.
-	var remaining_weapons = []  # indices of unassigned weapons
-	for wi in range(all_weapons.size()):
-		if weapon_target[wi] == "":
-			remaining_weapons.append(wi)
-
-	if not remaining_weapons.is_empty():
-		# Build secondary targets: enemies that still have remaining health after Pass 1
-		var secondary_targets = []
-		for enemy_id in sorted_targets:
-			var threshold = kill_thresholds.get(enemy_id, 0)
-			if threshold <= 0:
-				continue
-			# How much more damage needed to reach the kill threshold?
-			var remaining_hp = threshold - allocated_damage.get(enemy_id, 0.0)
-			if remaining_hp <= 0:
-				continue  # Already allocated enough
-			secondary_targets.append(enemy_id)
-
-		# For each secondary target, try to coordinate remaining weapons
-		for enemy_id in secondary_targets:
-			if remaining_weapons.is_empty():
-				break
-
-			var threshold = kill_thresholds.get(enemy_id, 0)
-			var remaining_hp = threshold - allocated_damage.get(enemy_id, 0.0)
-			var wpm = model_wounds_map.get(enemy_id, 1.0)
-
-			# Gather remaining weapons that can damage this target
-			var sec_candidates = []
-			for wi in remaining_weapons:
-				var dmg = damage_matrix[wi].get(enemy_id, 0.0)
-				if dmg > 0:
-					sec_candidates.append({"wi": wi, "damage": dmg})
-
-			if sec_candidates.is_empty():
-				continue
-
-			sec_candidates.sort_custom(func(a, b): return a["damage"] > b["damage"])
-
-			# Calculate if remaining weapons can reach a meaningful kill count
-			var sec_total = 0.0
-			for c in sec_candidates:
-				sec_total += c["damage"]
-
-			var can_contribute_kill = sec_total >= wpm  # Can kill at least 1 model
-			if not can_contribute_kill:
-				continue  # Not enough remaining firepower to kill even 1 model
-
-			# Allocate remaining weapons to this secondary target
-			var sec_budget = min(remaining_hp, threshold) * OVERKILL_TOLERANCE
-			for c in sec_candidates:
-				if allocated_damage.get(enemy_id, 0.0) >= threshold * OVERKILL_TOLERANCE:
-					break
-				if allocated_damage.get(enemy_id, 0.0) - (threshold - remaining_hp) >= sec_budget:
-					break
-				var wi = c["wi"]
-				weapon_target[wi] = enemy_id
-				allocated_damage[enemy_id] += c["damage"]
-				remaining_weapons.erase(wi)
-
-		# Pass 2b: Any still-unassigned weapons get their best individual target
-		for wi in remaining_weapons:
-			var best_target_id = ""
-			var best_score = -1.0
 
 			for enemy_id in enemies:
 				var dmg = damage_matrix[wi].get(enemy_id, 0.0)
-				if dmg <= 0:
-					continue
+				if dmg <= 0.0:
+					continue  # Can't hit this target
 
-				# Score: base damage * target value, with bonus if approaching kill threshold
-				var score = dmg * target_values.get(enemy_id, 1.0)
+				var marginal_value = _calculate_marginal_value(
+					dmg, enemy_id, target_values, kill_thresholds,
+					allocated_damage, model_wounds_map,
+					efficiency_cache.get("%d:%s" % [wi, enemy_id], 1.0),
+					enemies
+				)
 
-				# Bonus: if adding this weapon helps reach the kill threshold
-				var threshold = kill_thresholds.get(enemy_id, 0)
-				var current_alloc = allocated_damage.get(enemy_id, 0)
-				if threshold > 0 and current_alloc < threshold and current_alloc + dmg >= threshold * 0.6:
-					score *= KILL_BONUS_MULTIPLIER
+				if marginal_value > best_marginal_value:
+					best_marginal_value = marginal_value
+					best_wi = wi
+					best_enemy_id = enemy_id
 
-				# Penalty for massive overkill — redirect to less-saturated targets
-				if threshold > 0 and current_alloc >= threshold * OVERKILL_TOLERANCE:
-					score *= 0.3
+		if best_wi < 0 or best_enemy_id == "":
+			break  # No profitable assignments remaining
 
-				if score > best_score:
-					best_score = score
-					best_target_id = enemy_id
-
-			if best_target_id != "":
-				weapon_target[wi] = best_target_id
-				allocated_damage[best_target_id] += damage_matrix[wi].get(best_target_id, 0.0)
+		# Assign this weapon to the best target
+		weapon_target[best_wi] = best_enemy_id
+		allocated_damage[best_enemy_id] += damage_matrix[best_wi].get(best_enemy_id, 0.0)
+		unassigned_count -= 1
 
 	# --- Step 4: Build per-unit assignment dictionaries ---
 	var plan = {}
@@ -4138,6 +4026,20 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			"model_ids": _get_alive_model_ids(weapon_entry["unit"])
 		})
 
+	# T7-22: Log macro-level target priority ranking
+	var ranked_targets = enemies.keys()
+	ranked_targets.sort_custom(func(a, b): return target_values.get(a, 0) > target_values.get(b, 0))
+	print("AIDecisionMaker: T7-22 Macro target priority ranking:")
+	for enemy_id in ranked_targets:
+		var enemy = enemies[enemy_id]
+		var ename = enemy.get("meta", {}).get("name", enemy_id)
+		var tval = target_values.get(enemy_id, 0.0)
+		var threshold = kill_thresholds.get(enemy_id, 0)
+		var target_type_name = _target_type_name(_classify_target_type(enemy))
+		var pts = int(enemy.get("meta", {}).get("points", 0))
+		print("  #%d %s [%s, %dpts]: priority=%.2f, HP=%.0f" % [
+			ranked_targets.find(enemy_id) + 1, ename, target_type_name, pts, tval, threshold])
+
 	# Log focus fire summary with efficiency info
 	for enemy_id in allocated_damage:
 		var alloc = allocated_damage[enemy_id]
@@ -4147,7 +4049,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var ename = enemy.get("meta", {}).get("name", enemy_id)
 			var kill_pct = (alloc / threshold * 100.0) if threshold > 0 else 0.0
 			var target_type_name = _target_type_name(_classify_target_type(enemy))
-			print("AIDecisionMaker: Focus fire -> %s [%s]: %.1f eff-adjusted dmg vs %.1f HP (%.0f%% kill)" % [
+			print("AIDecisionMaker: Focus fire -> %s [%s]: %.1f eff-adjusted dmg vs %.1f HP (%.0f%% kill, marginal alloc)" % [
 				ename, target_type_name, alloc, threshold, kill_pct])
 
 	# Log weapon role assignments for debugging
@@ -4176,71 +4078,227 @@ static func _calculate_kill_threshold(unit: Dictionary) -> float:
 
 static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""
-	Calculate a priority value for killing this target.
-	Higher value = more important to kill.
-	Considers: threat level, objective proximity, keywords, health status.
+	T7-22: Macro-level target priority assessment.
+	Calculate a strategic priority value for killing this target.
+	Higher value = more important to remove from the game.
+
+	Factors:
+	- Points cost (expensive units are higher value targets)
+	- Expected damage output (ranged + melee with hit/wound probability)
+	- Objective presence and Objective Control value
+	- Ability value (leader buffs, offensive/defensive multipliers)
+	- Keywords (CHARACTER, VEHICLE, MONSTER)
+	- Health status (finish off wounded units)
 	"""
 	var value = 1.0
 
 	var meta = target_unit.get("meta", {})
 	var stats = meta.get("stats", {})
 	var keywords = meta.get("keywords", [])
+	var unit_id = target_unit.get("id", "")
+	var all_units = snapshot.get("units", {})
 
-	# Threat from ranged weapons (units that can shoot back are higher priority)
+	# --- Points cost: expensive units are strategically more valuable to remove ---
+	var points = int(meta.get("points", 0))
+	if points > 0:
+		value += float(points) * MACRO_POINTS_WEIGHT
+
+	# --- Expected damage output: compute actual expected damage, not just raw attacks*damage ---
+	# Use a "typical" target (T4, Sv3+) as baseline to estimate how threatening this unit is
 	var weapons = meta.get("weapons", [])
-	var ranged_threat = 0.0
-	for w in weapons:
-		if w.get("type", "").to_lower() == "ranged":
-			var attacks_str = w.get("attacks", "1")
-			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
-			var dmg_str = w.get("damage", "1")
-			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
-			ranged_threat += attacks * dmg
-	value += ranged_threat * 0.1
+	var alive_count = _get_alive_models(target_unit).size()
+	var model_multiplier = maxf(float(alive_count), 1.0)
 
-	# Melee threat (units that can charge and deal damage)
-	var melee_threat = 0.0
+	# Ranged damage output (probability-weighted)
+	var ranged_output = 0.0
 	for w in weapons:
-		if w.get("type", "").to_lower() == "melee":
-			var attacks_str = w.get("attacks", "1")
-			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
-			var dmg_str = w.get("damage", "1")
-			var dmg = float(dmg_str) if dmg_str.is_valid_float() else 1.0
-			melee_threat += attacks * dmg
-	value += melee_threat * 0.05
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
+		var bs_str = w.get("ballistic_skill", "4")
+		var bs = int(bs_str) if bs_str.is_valid_int() else 4
+		var s_str = w.get("strength", "4")
+		var s = int(s_str) if s_str.is_valid_int() else 4
+		var ap_str = w.get("ap", "0")
+		var w_ap = 0
+		if ap_str.begins_with("-"):
+			var ap_num = ap_str.substr(1)
+			w_ap = int(ap_num) if ap_num.is_valid_int() else 0
+		else:
+			w_ap = int(ap_str) if ap_str.is_valid_int() else 0
+		var dmg = _parse_average_damage(w.get("damage", "1"))
+		# Expected damage vs T4 Sv3+ baseline
+		var p_hit = _hit_probability(bs)
+		var p_wound = _wound_probability(s, 4)
+		var p_unsaved = 1.0 - _save_probability(3, w_ap)
+		ranged_output += attacks * p_hit * p_wound * p_unsaved * dmg
+	# Scale by model count (each model fires)
+	ranged_output *= model_multiplier
+	value += ranged_output * MACRO_RANGED_OUTPUT_WEIGHT
 
-	# Character bonus (leaders provide buffs, losing them hurts more)
+	# Melee damage output (probability-weighted)
+	var melee_output = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() != "melee":
+			continue
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
+		var ws_str = w.get("weapon_skill", w.get("ballistic_skill", "4"))
+		var ws = int(ws_str) if ws_str.is_valid_int() else 4
+		var s_str = w.get("strength", "4")
+		var s = int(s_str) if s_str.is_valid_int() else 4
+		var ap_str = w.get("ap", "0")
+		var w_ap = 0
+		if ap_str.begins_with("-"):
+			var ap_num = ap_str.substr(1)
+			w_ap = int(ap_num) if ap_num.is_valid_int() else 0
+		else:
+			w_ap = int(ap_str) if ap_str.is_valid_int() else 0
+		var dmg = _parse_average_damage(w.get("damage", "1"))
+		# Expected damage vs T4 Sv3+ baseline
+		var p_hit = _hit_probability(ws)
+		var p_wound = _wound_probability(s, 4)
+		var p_unsaved = 1.0 - _save_probability(3, w_ap)
+		melee_output += attacks * p_hit * p_wound * p_unsaved * dmg
+	melee_output *= model_multiplier
+	value += melee_output * MACRO_MELEE_OUTPUT_WEIGHT
+
+	# --- Ability value: leaders providing buffs are high-priority targets ---
+	# Offensive multiplier indicates how much this unit's abilities boost its damage
+	var offensive_mult = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(unit_id, target_unit, all_units)
+	if offensive_mult > 1.0:
+		value += (offensive_mult - 1.0) * MACRO_ABILITY_VALUE_WEIGHT
+
+	# Defensive multiplier: units with strong defensive abilities (FNP, Stealth)
+	# are harder to kill but also more dangerous if left alive
+	var defensive_mult = AIAbilityAnalyzerData.get_defensive_multiplier(unit_id, target_unit, all_units)
+	if defensive_mult > 1.0:
+		# Slight discount — harder to kill means less efficient to shoot,
+		# but still valuable to remove. Net effect is mild.
+		value -= (defensive_mult - 1.0) * MACRO_SURVIVABILITY_DISCOUNT
+
+	# --- Character bonus: leaders providing buffs are strategically critical ---
 	if "CHARACTER" in keywords:
-		value *= 1.3
+		# Check if this character is attached (providing buffs to a bodyguard)
+		var attached_to = target_unit.get("attached_to", null)
+		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+		if attached_to != null or not attached_chars.is_empty():
+			value *= MACRO_LEADER_BUFF_BONUS  # Leader actively buffing = very high priority
+		else:
+			value *= 1.3  # Standalone character still valuable
 
-	# Vehicle/Monster bonus (high-threat, high-wound targets)
+	# --- Vehicle/Monster bonus (high-threat, high-wound targets) ---
 	if "VEHICLE" in keywords or "MONSTER" in keywords:
 		value *= 1.2
 
-	# Below half health bonus (finish off wounded units)
-	var alive_count = _get_alive_models(target_unit).size()
+	# --- Below half health bonus (finish off wounded units — easy VP) ---
 	var total_count = target_unit.get("models", []).size()
 	if total_count > 0 and alive_count * 2 < total_count:
 		value *= LOW_HEALTH_BONUS
 
-	# Objective proximity bonus (units near objectives are higher priority)
+	# --- Objective presence: units on/near objectives are strategically critical ---
 	var unit_centroid = _get_unit_centroid(target_unit)
+	var oc = int(stats.get("oc", 0))
 	if unit_centroid != Vector2.INF:
 		var objectives = _get_objectives(snapshot)
+		var on_objective = false
+		var near_objective = false
 		for obj_pos in objectives:
 			var dist = unit_centroid.distance_to(obj_pos)
 			if dist < OBJECTIVE_CONTROL_RANGE_PX:
-				value *= 1.4  # On an objective
+				on_objective = true
 				break
 			elif dist < OBJECTIVE_CONTROL_RANGE_PX * 2:
-				value *= 1.15  # Near an objective
+				near_objective = true
 
-	# Objective Control value (high OC units on objectives are very important)
-	var oc = int(stats.get("oc", 0))
-	if oc >= 2:
-		value += float(oc) * 0.2
+		if on_objective:
+			value *= 1.4
+			# OC value matters much more when actually on an objective
+			if oc >= 1:
+				value += float(oc) * MACRO_OC_ON_OBJECTIVE_WEIGHT
+		elif near_objective:
+			value *= 1.15
+			if oc >= 1:
+				value += float(oc) * MACRO_OC_NEAR_OBJECTIVE_WEIGHT
 
 	return value
+
+static func _calculate_marginal_value(
+	weapon_damage: float, enemy_id: String,
+	target_values: Dictionary, kill_thresholds: Dictionary,
+	allocated_damage: Dictionary, model_wounds_map: Dictionary,
+	efficiency: float, enemies: Dictionary
+) -> float:
+	"""
+	T7-22: Micro-level marginal value calculation for weapon-target assignment.
+	Returns the marginal expected value of assigning this weapon to this target,
+	considering current allocations, kill thresholds, and opportunity cost.
+
+	The value function has three regions:
+	1. Below kill threshold: damage contributes to potential kills -> full value
+	2. At kill threshold boundary: damage enables a kill -> bonus value
+	3. Above kill threshold: overkill -> heavily discounted value
+	"""
+	var target_value = target_values.get(enemy_id, 1.0)
+	var threshold = kill_thresholds.get(enemy_id, 1.0)
+	var current_alloc = allocated_damage.get(enemy_id, 0.0)
+	var wpm = model_wounds_map.get(enemy_id, 1.0)
+
+	if threshold <= 0.0:
+		return 0.0
+
+	# Calculate how much of this weapon's damage is "useful" (contributes to kills)
+	var useful_damage = 0.0
+	var overkill_damage = 0.0
+	var new_total = current_alloc + weapon_damage
+
+	if current_alloc >= threshold * OVERKILL_TOLERANCE:
+		# Already massively overkilling — all damage is waste
+		overkill_damage = weapon_damage
+	elif new_total <= threshold:
+		# All damage contributes toward the kill threshold
+		useful_damage = weapon_damage
+	else:
+		# Partially useful, partially overkill
+		useful_damage = maxf(threshold - current_alloc, 0.0)
+		overkill_damage = weapon_damage - useful_damage
+
+	# Base marginal value: useful damage × target value
+	var marginal = useful_damage * target_value
+
+	# T7-22: Kill threshold crossing bonus.
+	# If this weapon pushes us past a meaningful kill boundary, add a bonus.
+	# Killing models is much more valuable than spreading chip damage.
+	if wpm > 0.0:
+		# Count model kills before and after this assignment
+		var models_killed_before = floorf(current_alloc / wpm)
+		var models_killed_after = floorf(minf(new_total, threshold) / wpm)
+		var new_model_kills = models_killed_after - models_killed_before
+
+		if new_model_kills >= 1.0:
+			# Each new model killed adds fractional value
+			marginal += new_model_kills * wpm * target_value * MICRO_MODEL_KILL_VALUE
+
+		# Full wipe bonus: if we cross the total kill threshold
+		if current_alloc < threshold and new_total >= threshold * 0.7:
+			marginal *= MICRO_MARGINAL_KILL_BONUS
+
+	# Overkill: heavily discount damage beyond the threshold
+	marginal += overkill_damage * target_value * MICRO_OVERKILL_DECAY
+
+	# Factor in weapon-target efficiency (anti-tank vs vehicle = bonus)
+	marginal *= efficiency
+
+	# Below-half-health bonus: wounded units are easier to finish
+	var enemy = enemies.get(enemy_id, {})
+	if not enemy.is_empty():
+		var alive_count = _get_alive_models(enemy).size()
+		var total_count = enemy.get("models", []).size()
+		if total_count > 0 and alive_count * 2 < total_count:
+			marginal *= LOW_HEALTH_BONUS
+
+	return marginal
 
 static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary, snapshot: Dictionary, shooter_unit: Dictionary) -> float:
 	"""
