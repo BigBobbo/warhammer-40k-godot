@@ -1362,13 +1362,22 @@ func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.Simul
 	stats_grid.add_theme_constant_override("v_separation", 8)
 	stats_content.add_child(stats_grid)
 	
-	# Add key statistics
+	# Add key statistics with color-coded results (T5-MH8)
 	add_stat_row(stats_grid, "Trials Run:", "%d" % result.trials_run)
 	add_stat_row(stats_grid, "Average Damage:", "%.2f wounds" % result.get_average_damage(), Color.YELLOW)
 	add_stat_row(stats_grid, "Median Damage:", "%d wounds" % result.get_damage_percentile(0.5))
-	add_stat_row(stats_grid, "Kill Probability:", "%.1f%%" % (result.kill_probability * 100), Color.RED)
+	add_stat_row(stats_grid, "Kill Probability:", "%.1f%%" % (result.kill_probability * 100), _get_kill_probability_color(result.kill_probability))
 	add_stat_row(stats_grid, "Expected Survivors:", "%.2f models" % result.expected_survivors, Color.GREEN)
-	add_stat_row(stats_grid, "Damage Efficiency:", "%.1f%%" % (result.damage_efficiency * 100), Color.CYAN)
+	add_stat_row(stats_grid, "Damage Efficiency:", "%.1f%%" % (result.damage_efficiency * 100), _get_efficiency_color(result.damage_efficiency))
+
+	# Compute and display average overkill (T5-MH8)
+	var avg_overkill = 0.0
+	for trial in result.detailed_trials:
+		avg_overkill += trial.get("overkill", 0)
+	avg_overkill = avg_overkill / result.trials_run if result.trials_run > 0 else 0.0
+	if avg_overkill > 0.0:
+		# Use average damage as the denominator for overkill severity
+		add_stat_row(stats_grid, "Avg Overkill:", "%.2f wounds" % avg_overkill, _get_overkill_color(avg_overkill, result.get_average_damage()))
 
 func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
 	if result.detailed_trials.is_empty():
@@ -1670,12 +1679,52 @@ func add_stat_row(grid: GridContainer, label_text: String, value_text: String, v
 	label.add_theme_font_size_override("font_size", 10)
 	label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	grid.add_child(label)
-	
+
 	var value = Label.new()
 	value.text = value_text
 	value.add_theme_font_size_override("font_size", 10)
 	value.add_theme_color_override("font_color", value_color)
 	grid.add_child(value)
+
+# === T5-MH8: Color-coding helpers for result metrics ===
+
+## Returns a color for kill probability: green for high, yellow for medium, red for low
+func _get_kill_probability_color(kill_prob: float) -> Color:
+	if kill_prob >= 0.75:
+		return Color(0.4, 1.0, 0.4)  # Green — high kill probability
+	elif kill_prob >= 0.50:
+		return Color(0.7, 1.0, 0.3)  # Yellow-green
+	elif kill_prob >= 0.25:
+		return Color(1.0, 0.9, 0.3)  # Yellow
+	elif kill_prob >= 0.10:
+		return Color(1.0, 0.6, 0.3)  # Orange
+	else:
+		return Color(1.0, 0.4, 0.4)  # Red — low kill probability
+
+## Returns a color for damage efficiency: green for high, yellow for medium, red for low
+func _get_efficiency_color(efficiency: float) -> Color:
+	if efficiency >= 0.85:
+		return Color(0.4, 1.0, 0.4)  # Green — efficient, little wasted damage
+	elif efficiency >= 0.60:
+		return Color(0.7, 1.0, 0.3)  # Yellow-green
+	elif efficiency >= 0.40:
+		return Color(1.0, 0.9, 0.3)  # Yellow — moderate waste
+	else:
+		return Color(1.0, 0.4, 0.4)  # Red — low efficiency, lots of wasted damage
+
+## Returns a color for overkill: yellow/orange for significant overkill, white for minimal
+func _get_overkill_color(avg_overkill: float, total_wounds: float) -> Color:
+	if total_wounds <= 0:
+		return Color.WHITE
+	var overkill_ratio = avg_overkill / total_wounds
+	if overkill_ratio >= 1.0:
+		return Color(1.0, 0.6, 0.3)  # Orange — extreme overkill (>= 100% of target wounds wasted)
+	elif overkill_ratio >= 0.5:
+		return Color(1.0, 0.9, 0.3)  # Yellow — significant overkill
+	elif overkill_ratio >= 0.2:
+		return Color(1.0, 1.0, 0.5)  # Light yellow — moderate overkill
+	else:
+		return Color.WHITE  # Minimal overkill, no warning needed
 
 # === T5-MH3: Multi-weapon side-by-side comparison ===
 
@@ -1913,10 +1962,22 @@ func _display_comparison_results(results: Array) -> void:
 		add_stat_row(grid, "Avg Damage:", "%.2f wounds" % ws.avg_damage,
 			Color.YELLOW if is_best_damage else Color.WHITE)
 		add_stat_row(grid, "Median Damage:", "%d wounds" % ws.median_damage)
+		# T5-MH8: Color-code kill probability and efficiency
 		add_stat_row(grid, "Kill Probability:", "%.1f%%" % (ws.kill_probability * 100),
-			Color.RED if ws.kill_probability >= best_kill_prob and best_kill_prob > 0 else Color.WHITE)
+			_get_kill_probability_color(ws.kill_probability))
 		add_stat_row(grid, "Expected Survivors:", "%.2f models" % ws.expected_survivors, Color.GREEN)
-		add_stat_row(grid, "Damage Efficiency:", "%.1f%%" % (ws.damage_efficiency * 100), Color.CYAN)
+		add_stat_row(grid, "Damage Efficiency:", "%.1f%%" % (ws.damage_efficiency * 100),
+			_get_efficiency_color(ws.damage_efficiency))
+		# T5-MH8: Show overkill in comparison cards
+		var comp_avg_overkill = 0.0
+		var comp_result = ws.result as Mathhammer.SimulationResult
+		for trial in comp_result.detailed_trials:
+			comp_avg_overkill += trial.get("overkill", 0)
+		comp_avg_overkill = comp_avg_overkill / comp_result.trials_run if comp_result.trials_run > 0 else 0.0
+		if comp_avg_overkill > 0.0:
+			add_stat_row(grid, "Avg Overkill:", "%.2f wounds" % comp_avg_overkill,
+				_get_overkill_color(comp_avg_overkill, ws.avg_damage))
+
 		add_stat_row(grid, "Hit Rate:", "%.1f%%" % ws.hit_rate)
 		add_stat_row(grid, "Wound Rate:", "%.1f%%" % ws.wound_rate)
 		add_stat_row(grid, "Unsaved Rate:", "%.1f%%" % ws.unsaved_rate)
