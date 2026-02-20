@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-34 (2026-02-20): AI reserves declarations — Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI scores units for reserves by type (Deep Strike melee 8.0, DS short-range 5.0, strategic reserves melee/fast 4.0+). Excludes CHARACTER leaders, FORTIFICATION, embarked units. Penalizes VEHICLE/MONSTER ranged and long-range shooters. Respects 25% pts cap, 50% unit cap, 2.0 score threshold. | Formations/AI | AI_AUDIT.md §FORM-3 |
 | T7-33 (2026-02-20): AI transport usage — Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for formations phase (FORM-2), plus `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for movement phase (MOV-7). AI scores units for embarkation by fragility/speed/weapons, disembarks based on objective proximity/shooting/charge opportunities/transport safety. | Formations/Movement/AI | AI_AUDIT.md §FORM-2, MOV-7 |
 | T7-32 (2026-02-20): AI Counter-Offensive stratagem usage — Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic (unit value, melee capability, keywords, wound status, engagement risk). Connected signal in AIPlayer.gd, added AI skip in FightController.gd. | Fight/AI | AI_AUDIT.md §FIGHT-5 |
 | T7-31 (2026-02-20): AI cover consideration in target scoring — Added `_target_has_benefit_of_cover()`, `_check_position_has_terrain_cover()`, `_weapon_ignores_cover()` helpers. Both `_score_shooting_target()` and `_estimate_weapon_damage()` now apply cover as +1 to armour save (min 2+), respecting Ignores Cover weapons and invuln save interaction. 24/24 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-7 |
@@ -1232,12 +1233,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Transports never used. Embark small/fast units in formations for deployment efficiency, disembark during movement when beneficial for objective control or shooting.
 - **Resolution:** Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for FORM-2: AI scores units for transport embarkation based on fragility (T/Sv/W), model count, weapon range, movement speed, OC, and points value, then greedily fills transports during formations phase. Added `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for MOV-7: AI evaluates disembarking based on objective proximity, shooting/charge opportunities, battle round, and transport safety; computes valid positions within 3" of transport edge avoiding engagement range and overlaps.
 
-### T7-34. AI reserves declarations
+### T7-34. AI reserves declarations — **DONE**
 - **Phase:** Formations
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §FORM-3
 - **Files:** `AIDecisionMaker.gd` — `_decide_formations()`
 - **Details:** No reserves declaration — all units deployed on table unless deployment fails. Put appropriate units in Strategic Reserves or Deep Strike based on army composition and mission.
+- **Resolution:** Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI now parses DECLARE_RESERVES actions during formations phase (after leader attachments and transport embarkations). Scores units by reserve suitability: Deep Strike melee units highest priority (8.0), followed by DS short-range shooters (5.0), strategic reserves melee/fast units (4.0+speed). Exclusions for CHARACTER leaders, FORTIFICATION, embarked units. Universal modifiers penalize VEHICLE/MONSTER ranged, long-range shooters, cheap screens. Respects 25% points cap and 50% unit cap. Score threshold of 2.0 prevents marginal reserves.
 
 ### T7-35. AI Rapid Ingress stratagem usage
 - **Phase:** Movement
@@ -1458,9 +1460,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 26 | 32 | 58 |
-| **Total** | **125** | **61** | **186** |
-| **Recently Completed** | **144** | — | **144** |
+| Tier 7 — AI Player | 27 | 31 | 58 |
+| **Total** | **126** | **60** | **186** |
+| **Recently Completed** | **145** | — | **145** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
