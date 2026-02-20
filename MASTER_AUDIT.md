@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-7 (2026-02-20): AI weapon-target efficiency matching — Re-enabled damage waste penalty for multi-damage weapons vs 1W models (D3+ → 0.4×, D2 → 0.7×). Combined with role matching, lascannon vs grots = 0.24× efficiency. Added fallback logging. 40/40 tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-5, SHOOT-2 |
 | T7-6 (2026-02-20): AI focus fire coordination across units — Enhanced `_build_focus_fire_plan()` with wound overflow cap, value-per-threshold sorting, model-level partial kills with efficiency filtering, coordinated secondary target allocation. 41/41 focus fire tests pass, 37/37 efficiency tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-2, SHOOT-1 |
 | T7-5 (2026-02-20): AI weapon range check in target scoring — `_score_shooting_target()` returns 0 for out-of-range targets using `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`. 15/15 range scoring tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-5, SHOOT-4 |
 | T7-4 (2026-02-20): AI fall-back model positioning — Fixed `_pick_fall_back_target()` directional scoring (skip near-objectives, prefer away-from-enemy direction), zero-direction safety fallback in `_compute_fall_back_destinations()`. 15/15 fall-back tests pass. | Movement/AI | AI_AUDIT.md §MOV-6 |
@@ -1000,12 +1001,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Each weapon independently picks best target, spreading fire across many units. Implement kill-threshold targeting: calculate total expected damage vs each target across ALL weapons, allocate to meet kill thresholds before moving to secondary targets.
 - **Resolution:** Enhanced `_build_focus_fire_plan()` with: (1) wound overflow cap in `_estimate_weapon_damage()` and `_score_shooting_target()` — damage capped at model wounds for accurate kill-threshold math; (2) value-per-threshold priority sorting to allocate kills efficiently; (3) model-level partial kill assessment — focuses fire even when can't wipe a unit, using efficiency-filtered weapon selection; (4) coordinated Pass 2 secondary target allocation instead of independent spreading; (5) poorly-matched weapons skipped once kill threshold met. Removed redundant damage waste penalty from `_calculate_efficiency_multiplier()`. 41/41 focus fire tests pass, 37/37 weapon efficiency tests pass.
 
-### T7-7. AI weapon-target efficiency matching
+### T7-7. AI weapon-target efficiency matching — **DONE**
 - **Phase:** Shooting
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-TACTIC-5, SHOOT-2
 - **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
 - **Details:** All weapons on a unit fire at same target. Match anti-tank to vehicles, anti-infantry to hordes. Penalize multi-damage weapons on single-wound models. Each weapon gets its own optimal target.
+- **Resolution:** Re-enabled damage waste penalty in `_calculate_efficiency_multiplier()` for multi-damage weapons vs single-wound models: D3+ gets HEAVY penalty (0.4×), D2 gets MODERATE penalty (0.7×). Combined with existing role-based matching (anti-tank vs horde = 0.6×), a lascannon vs 1W grots now scores 0.24× efficiency. Added efficiency logging to fallback assignment path. Per-weapon target assignment and role matching were already functional from T7-5/T7-6. 40/40 weapon efficiency tests pass.
 
 ### T7-8. AI invulnerable save consideration in target scoring
 - **Phase:** Shooting
@@ -1418,9 +1420,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 6 | 52 | 58 |
-| **Total** | **105** | **81** | **186** |
-| **Recently Completed** | **125** | — | **125** |
+| Tier 7 — AI Player | 7 | 51 | 58 |
+| **Total** | **106** | **80** | **186** |
+| **Recently Completed** | **126** | — | **126** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

@@ -78,6 +78,10 @@ func _run_tests():
 	test_efficiency_d2_on_1w_models_moderate_penalty()
 	test_efficiency_anti_keyword_bonus()
 
+	# T7-7: Damage waste penalty specifics
+	test_d1_weapon_no_waste_penalty()
+	test_waste_penalty_not_applied_to_multi_wound_targets()
+
 	# Integration: estimate_weapon_damage includes efficiency
 	test_lascannon_prefers_vehicle_over_grots()
 	test_bolt_rifle_prefers_infantry_over_vehicle()
@@ -359,31 +363,33 @@ func test_efficiency_general_purpose_is_neutral():
 
 func test_efficiency_multi_damage_on_1w_models_penalized():
 	# D6+1 damage (avg 4.5) on 1W models — heavy waste
-	# T7-6: Damage waste is now handled by wound overflow cap in _estimate_weapon_damage()
-	# rather than an efficiency multiplier penalty. The role-based mismatch still applies:
-	# ANTI_TANK vs HORDE = EFFICIENCY_POOR_MATCH (0.6)
+	# T7-7: ANTI_TANK vs HORDE = POOR_MATCH (0.6) × DAMAGE_WASTE_PENALTY_HEAVY (0.4) = 0.24
+	# Both role mismatch AND damage waste penalty apply together
 	var lascannon = _make_ranged_weapon_str_damage("Lascannon", 3, 12, 3, "D6+1", "1")
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "grots", 2, Vector2(0, 0), "Gretchin", 10, ["INFANTRY"], [], 2, 7, 1)
 	var eff = AIDecisionMaker._calculate_efficiency_multiplier(lascannon, snapshot.units["grots"])
-	_assert(eff < 1.0, "Lascannon vs 1W horde has role-based penalty (got %.2f)" % eff)
+	# Role penalty (0.6) × Heavy waste penalty (0.4) = 0.24
+	_assert(eff < 0.3, "Lascannon vs 1W horde has combined role + waste penalty (got %.2f, expect ~0.24)" % eff)
 
 func test_efficiency_d2_on_1w_models_moderate_penalty():
 	# D2 weapon on 1W models — moderate waste
-	# T7-6: Damage waste is now handled by wound overflow cap in _estimate_weapon_damage().
-	# Autocannon (S7 AP-1 D2) is classified as GENERAL_PURPOSE (not enough traits for
-	# anti-tank or anti-infantry). GP vs HORDE = neutral (1.0), but wound overflow cap
-	# in the damage estimate limits effective damage to 1 per hit instead of 2.
+	# T7-7: Autocannon (S7 AP-1 D2) is GENERAL_PURPOSE. GP vs HORDE = neutral (1.0),
+	# but damage waste penalty for D2 vs 1W = DAMAGE_WASTE_PENALTY_MODERATE (0.7).
+	# Total efficiency = 1.0 × 0.7 = 0.7
 	var autocannon = _make_ranged_weapon("Autocannon", 4, 7, 1, 2, 2, 48)
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "grots", 2, Vector2(0, 0), "Gretchin", 10, ["INFANTRY"], [], 2, 7, 1)
-	# Verify that the wound overflow cap handles damage waste in the estimate instead
+
+	# Verify efficiency multiplier includes waste penalty
+	var eff = AIDecisionMaker._calculate_efficiency_multiplier(autocannon, snapshot.units["grots"])
+	_assert_approx(eff, 0.7, 0.01, "D2 GENERAL_PURPOSE vs 1W horde: efficiency = 1.0 × 0.7 waste penalty")
+
+	# Also verify wound overflow cap still works in damage estimate
 	_add_unit(snapshot, "shooter", 1, Vector2(0, 200), "Shooter", 1, ["INFANTRY"], [autocannon])
 	var dmg_vs_1w = AIDecisionMaker._estimate_weapon_damage(autocannon, snapshot.units["grots"], snapshot, snapshot.units["shooter"])
-	# Without wound cap: 2 * 3/6(hit) * 5/6(wound) * 1.0(unsaved) * 2(D) * 1(models) = 1.667
-	# With wound cap:    2 * 3/6(hit) * 5/6(wound) * 1.0(unsaved) * 1(capped) * 1(models) = 0.833
-	# The wound overflow cap halves the estimate — verify it's below the uncapped value
-	_assert(dmg_vs_1w < 1.0, "D2 weapon vs 1W target has reduced damage from wound overflow cap (got %.3f, uncapped would be ~1.67)" % dmg_vs_1w)
+	# Wound overflow caps D2 to 1 per hit, then efficiency 0.7 further reduces
+	_assert(dmg_vs_1w < 1.0, "D2 weapon vs 1W target has reduced damage from wound overflow cap + waste penalty (got %.3f)" % dmg_vs_1w)
 
 func test_efficiency_anti_keyword_bonus():
 	# Kombi-weapon with anti-infantry 4+ vs INFANTRY target
@@ -392,6 +398,30 @@ func test_efficiency_anti_keyword_bonus():
 	_add_unit(snapshot, "infantry", 2, Vector2(0, 0), "Marines", 5, ["INFANTRY"], [], 4, 3, 2)
 	var eff = AIDecisionMaker._calculate_efficiency_multiplier(kombi, snapshot.units["infantry"])
 	_assert(eff > 1.0, "Weapon with matching anti-keyword gets bonus (got %.2f)" % eff)
+
+# =========================================================================
+# Tests: T7-7 damage waste penalty specifics
+# =========================================================================
+
+func test_d1_weapon_no_waste_penalty():
+	# Bolt rifle (D1) vs 1W horde — no waste, should be unpenalized
+	var bolt_rifle = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "horde", 2, Vector2(0, 0), "Boyz", 10, ["INFANTRY"], [], 5, 5, 1)
+	var eff = AIDecisionMaker._calculate_efficiency_multiplier(bolt_rifle, snapshot.units["horde"])
+	# ANTI_INFANTRY vs HORDE = PERFECT_MATCH (1.4), D1 means no waste penalty
+	_assert_approx(eff, AIDecisionMaker.EFFICIENCY_PERFECT_MATCH, 0.01,
+		"D1 weapon vs 1W horde: no waste penalty, pure role bonus (got %.2f)" % eff)
+
+func test_waste_penalty_not_applied_to_multi_wound_targets():
+	# D6+1 damage weapon (avg 4.5) vs 3W targets — no waste penalty (target has multiple wounds)
+	var lascannon = _make_ranged_weapon_str_damage("Lascannon", 3, 12, 3, "D6+1", "1")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "terminators", 2, Vector2(0, 0), "Terminators", 5, ["INFANTRY"], [], 5, 2, 3)
+	var eff = AIDecisionMaker._calculate_efficiency_multiplier(lascannon, snapshot.units["terminators"])
+	# ANTI_TANK vs ELITE = GOOD_MATCH (1.15), no waste penalty since WPM = 3
+	_assert_approx(eff, AIDecisionMaker.EFFICIENCY_GOOD_MATCH, 0.01,
+		"D6+1 weapon vs 3W targets: no waste penalty (got %.2f)" % eff)
 
 # =========================================================================
 # Tests: Integration with _estimate_weapon_damage
@@ -428,21 +458,23 @@ func test_bolt_rifle_prefers_infantry_over_vehicle():
 
 func test_multi_damage_waste_penalty_in_estimate():
 	var snapshot = _create_test_snapshot()
-	# D3 damage weapon (avg 2)
-	var d3_weapon = _make_ranged_weapon_str_damage("Plasma gun", 3, 7, 2, "2", "1", 24)
+	# D2 damage weapon — classified as ANTI_TANK (S7 >= 7: +2, AP-2 >= 2: +1 = score 3)
+	var d2_weapon = _make_ranged_weapon_str_damage("Plasma gun", 3, 7, 2, "2", "1", 24)
 
-	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [d3_weapon])
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [d2_weapon])
 	_add_unit(snapshot, "1w_target", 2, Vector2(400, 0), "1W Guys", 10, ["INFANTRY"], [], 4, 5, 1)
 	_add_unit(snapshot, "2w_target", 2, Vector2(400, 200), "2W Guys", 5, ["INFANTRY"], [], 4, 3, 2)
 
-	var dmg_vs_1w = AIDecisionMaker._estimate_weapon_damage(d3_weapon, snapshot.units["1w_target"], snapshot, snapshot.units["shooter"])
-	var dmg_vs_2w = AIDecisionMaker._estimate_weapon_damage(d3_weapon, snapshot.units["2w_target"], snapshot, snapshot.units["shooter"])
+	var dmg_vs_1w = AIDecisionMaker._estimate_weapon_damage(d2_weapon, snapshot.units["1w_target"], snapshot, snapshot.units["shooter"])
+	var dmg_vs_2w = AIDecisionMaker._estimate_weapon_damage(d2_weapon, snapshot.units["2w_target"], snapshot, snapshot.units["shooter"])
 
-	# D2 on 1W targets should be penalized vs D2 on 2W targets
-	# (even though raw damage calc may differ due to toughness/save)
-	print("  Info: D2 weapon vs 1W = %.3f, vs 2W = %.3f" % [dmg_vs_1w, dmg_vs_2w])
-	# The 1W target has worse save (5+) so raw damage is higher, but efficiency penalty should counteract
-	_assert(true, "D2 weapon damage waste info logged for manual verification")
+	# T7-7: D2 on 1W targets gets both wound overflow cap AND waste penalty.
+	# vs 1W: ANTI_TANK vs HORDE (0.6) × waste moderate (0.7) = 0.42 efficiency
+	# vs 2W: ANTI_TANK vs ELITE (1.15) × no waste = 1.15 efficiency
+	# Despite 1W target having worse save, the penalties should make 2W target preferred
+	print("  Info: D2 weapon vs 1W = %.3f (eff 0.42), vs 2W = %.3f (eff 1.15)" % [dmg_vs_1w, dmg_vs_2w])
+	_assert(dmg_vs_2w > dmg_vs_1w,
+		"D2 weapon prefers 2W target (%.3f) over 1W target (%.3f) due to waste penalty" % [dmg_vs_2w, dmg_vs_1w])
 
 # =========================================================================
 # Tests: Integration with focus fire plan
