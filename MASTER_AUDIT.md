@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-17 (2026-02-20): AI leader attachment in formations — Replaced stub `_decide_formations()` with synergy-based leader attachment. `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` simulate each pairing using AIAbilityAnalyzer multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses). Scales by model count and points. 16/16 tests pass. | Formations/AI | AI_AUDIT.md §AI-GAP-8, FORM-1 |
 | T7-16 (2026-02-20): AI reserves deployment — Added `_decide_reserves_arrival()` for AI reserve unit deployment from Round 2+. Scores units by urgency, computes valid positions (strategic reserves: within 6" of edge; deep strike: near objectives). Enforces 9" enemy distance (edge-to-edge), Turn 2 opponent zone restriction. Updated AIPlayer.gd for reinforcement visuals. | Movement/AI | AI_AUDIT.md §MOV-8 |
 | T7-15 (2026-02-20): AI screening and deep strike denial — Wired `_compute_screen_position()` into Pass 3 of unit assignment. Added `_get_enemy_reserves()`, `_is_screening_candidate()`, `_calculate_denial_positions()` for 9" deep strike denial zones. Cheap units prioritized for screening duty, spaced 18" apart. Added "screen" action handling in movement execution. | Movement/AI | AI_AUDIT.md §AI-TACTIC-3, MOV-4 |
 | T7-13 (2026-02-20): AI enemy threat range awareness — Enemy threat ranges (charge M+12"+1", shooting max range) calculated pre-movement. Added 12" close melee proximity penalty, melee weapon quality in threat estimation, threat-aware assignment scoring/position adjustment. 34/35 tests pass (1 pre-existing). | Movement/AI | AI_AUDIT.md §AI-TACTIC-4, MOV-2 |
@@ -1084,12 +1085,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Units in reserves never brought onto the board from Round 2+. Implement reserves arrival logic with 9" enemy distance check and board edge placement rules.
 - **Resolution:** Added `_decide_reserves_arrival()` to handle AI reserve unit deployment from Round 2+. The AI now checks for PLACE_REINFORCEMENT available actions before normal movement, scores units by deployment urgency (points value, round urgency, contested objectives), and computes valid placement positions. Strategic reserves are placed within 6" of board edges (with Turn 2 opponent zone restriction), deep strike units are placed near objectives. All placements enforce the 9" enemy distance rule (edge-to-edge). Updated AIPlayer.gd to emit `ai_unit_deployed` signal for reinforcement visuals.
 
-### T7-17. AI leader attachment in formations
+### T7-17. AI leader attachment in formations — **DONE**
 - **Phase:** Formations
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-GAP-8, FORM-1
 - **Files:** `AIDecisionMaker.gd` — `_decide_formations()`
 - **Details:** `_decide_formations()` immediately confirms without evaluating leader-bodyguard pairings. Attach leaders based on ability synergies ("while leading" bonuses like re-rolls, FNP, +1 to hit).
+- **Resolution:** Replaced stub `_decide_formations()` with synergy-based leader attachment. Added `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` which simulate each character-bodyguard pairing using `AIAbilityAnalyzer` multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses like fall-back-and-charge). Scoring scales by model count and point value. AI attaches all leaders optimally, then confirms. 16/16 tests pass.
 
 ### T7-18. AI terrain-aware deployment
 - **Phase:** Deployment
@@ -1432,9 +1434,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 13 | 45 | 58 |
-| **Total** | **112** | **74** | **186** |
-| **Recently Completed** | **131** | — | **131** |
+| Tier 7 — AI Player | 14 | 44 | 58 |
+| **Total** | **113** | **73** | **186** |
+| **Recently Completed** | **132** | — | **132** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

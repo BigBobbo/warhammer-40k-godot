@@ -144,16 +144,126 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 # =============================================================================
 
 static func _decide_formations(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	# AI strategy: confirm formations immediately (no leader attachments, transports, or reserves for now)
-	# Future improvement: evaluate leader attachments, transport embarkations, and reserve declarations
+	# AI strategy: Evaluate leader-bodyguard pairings based on ability synergies
+	# ("while leading" bonuses like re-rolls, FNP, +1 to hit) and attach optimally.
+	# Leaders always benefit from the Bodyguard rule (can't be targeted while bodyguard lives),
+	# so attach all leaders, but prioritize pairings with the best synergy.
+
+	var attachment_actions = []
+	var has_confirm = false
+
 	for action in available_actions:
-		if action.get("type") == "CONFIRM_FORMATIONS":
-			return {
-				"type": "CONFIRM_FORMATIONS",
-				"player": player,
-				"_ai_description": "AI confirms battle formations"
-			}
+		match action.get("type", ""):
+			"DECLARE_LEADER_ATTACHMENT":
+				attachment_actions.append(action)
+			"CONFIRM_FORMATIONS":
+				has_confirm = true
+
+	# If there are attachment options, evaluate and pick the best one
+	if not attachment_actions.is_empty():
+		var best = _evaluate_best_leader_attachment(snapshot, attachment_actions, player)
+		if not best.is_empty():
+			return best
+
+	# No more attachments to make — confirm formations
+	if has_confirm:
+		return {
+			"type": "CONFIRM_FORMATIONS",
+			"player": player,
+			"_ai_description": "AI confirms battle formations (all leader attachments done)"
+		}
 	return {}
+
+static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_actions: Array, player: int) -> Dictionary:
+	"""Score all available leader-bodyguard pairings and return the best one.
+	Uses AIAbilityAnalyzer to compute offensive/defensive multipliers from
+	the leader's 'while leading' abilities applied to each potential bodyguard."""
+	var all_units = snapshot.get("units", {})
+	var best_score = -1.0
+	var best_action = {}
+
+	for action in attachment_actions:
+		var char_id = action.get("character_id", "")
+		var bg_id = action.get("bodyguard_id", "")
+		var score = _score_leader_bodyguard_pairing(char_id, bg_id, all_units)
+
+		if score > best_score:
+			best_score = score
+			best_action = action
+
+	if best_action.is_empty():
+		return {}
+
+	var char_name = all_units.get(best_action.get("character_id", ""), {}).get("meta", {}).get("name", "unknown")
+	var bg_name = all_units.get(best_action.get("bodyguard_id", ""), {}).get("meta", {}).get("name", "unknown")
+	best_action["_ai_description"] = "AI attaches %s to %s (synergy: %.2f)" % [char_name, bg_name, best_score]
+	print("AIDecisionMaker: Leader attachment - %s -> %s (score=%.2f)" % [char_name, bg_name, best_score])
+	return best_action
+
+static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_units: Dictionary) -> float:
+	"""Score a potential leader-bodyguard pairing by simulating the attachment
+	and computing ability multipliers. Higher score = better synergy.
+
+	Scoring factors:
+	- Offensive ranged multiplier (from +hit, reroll hits/wounds for ranged)
+	- Offensive melee multiplier (from +hit, reroll hits/wounds for melee)
+	- Defensive multiplier (from FNP, cover, etc.)
+	- Bodyguard model count (more models = more benefit from offensive buffs)
+	- Bodyguard point value (higher value unit = more worth protecting/buffing)
+	- Tactical bonuses (fall back and charge/shoot, advance and charge)"""
+	var bg_unit = all_units.get(bg_id, {})
+	var char_unit = all_units.get(char_id, {})
+	if bg_unit.is_empty() or char_unit.is_empty():
+		return 0.0
+
+	# Simulate the attachment: create a copy of the bodyguard with this character attached
+	var simulated_bg = bg_unit.duplicate()
+	simulated_bg["attachment_data"] = {"attached_characters": [char_id]}
+
+	# Compute multipliers with simulated attachment
+	var off_ranged = AIAbilityAnalyzerData.get_offensive_multiplier_ranged(bg_id, simulated_bg, all_units)
+	var off_melee = AIAbilityAnalyzerData.get_offensive_multiplier_melee(bg_id, simulated_bg, all_units)
+	var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(bg_id, simulated_bg, all_units)
+
+	# Check tactical bonuses from leader
+	var bonuses = AIAbilityAnalyzerData.get_leader_bonuses(bg_id, simulated_bg, all_units)
+	var tactical_bonus = 0.0
+	if bonuses.get("fall_back_and_charge", false):
+		tactical_bonus += 0.15
+	if bonuses.get("fall_back_and_shoot", false):
+		tactical_bonus += 0.10
+	if bonuses.get("advance_and_charge", false):
+		tactical_bonus += 0.15
+	if bonuses.get("advance_and_shoot", false):
+		tactical_bonus += 0.10
+
+	# Count alive models in the bodyguard (more models = more benefit from buffs)
+	var model_count = 0
+	for model in bg_unit.get("models", []):
+		if model.get("alive", true):
+			model_count += 1
+
+	# Base synergy: average of offensive and defensive improvements
+	# Each multiplier is >= 1.0; combined synergy captures total buff value
+	var synergy = (off_ranged + off_melee + def_mult) / 3.0 + tactical_bonus
+
+	# Scale by model count: more models benefit more from per-model buffs
+	# (e.g., +1 to hit applies to every model's attacks)
+	var model_scale = 1.0 + (model_count - 1) * 0.05  # 5% bonus per extra model
+
+	# Scale by point value: buffing expensive units is more impactful
+	var points = bg_unit.get("meta", {}).get("points", 100)
+	var points_scale = 1.0 + (points - 50.0) / 400.0  # Normalized around typical costs
+
+	var score = synergy * model_scale * points_scale
+
+	print("AIDecisionMaker: Score %s -> %s: off_r=%.2f off_m=%.2f def=%.2f tac=%.2f models=%d pts=%d => %.2f" % [
+		char_unit.get("meta", {}).get("name", char_id),
+		bg_unit.get("meta", {}).get("name", bg_id),
+		off_ranged, off_melee, def_mult, tactical_bonus, model_count, points, score
+	])
+
+	return score
 
 # =============================================================================
 # DEPLOYMENT PHASE
