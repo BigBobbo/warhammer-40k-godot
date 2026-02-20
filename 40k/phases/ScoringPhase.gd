@@ -153,7 +153,7 @@ func _create_flag_reset_changes(player: int) -> Array:
 	var flags_to_reset = [
 		"moved", "advanced", "fell_back", "remained_stationary",
 		"cannot_shoot", "cannot_charge", "cannot_move",
-		"has_shot", "charged_this_turn", "fights_first",
+		"has_shot", "has_fought", "charged_this_turn", "fights_first",
 		"has_been_charged", "move_cap_inches"
 	]
 

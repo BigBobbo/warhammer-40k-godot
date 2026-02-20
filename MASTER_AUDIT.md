@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V11 (2026-02-19): Unit tokens "has fought" indicator — Added fought overlay (dimmed opacity + checkmark) to TokenVisual/TokenDrawUtils; fixed has_fought flag reset in ScoringPhase | Fight | fight_phase_audit_report.md §4.4 |
 | T5-V10: Fight phase state banner — FightPhaseStateBanner.gd with persistent subphase/player/units-remaining display, distinct color schemes per subphase, animated transition overlay, FightController signal integration | Fight | fight_phase_audit_report.md §4.3 |
 | T5-V9: Engagement range pulsing animation — EngagementRangeVisual.gd with sine-wave pulsing on engagement range circles and target highlights, replacing static inline scripts in FightController.gd | Fight | fight_phase_audit_report.md §4.2 |
 | T5-V8: Pile-in/consolidate movement arrows and distance labels — PileInMovementVisual.gd with directional arrows, animated dashed movement paths, and distance labels replacing plain Line2D direction lines | Fight | fight_phase_audit_report.md §4.1 |
@@ -860,7 +861,7 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Created `EngagementRangeVisual.gd` — a dedicated Node2D script with sine-wave pulsing animation (0.7–1.0 alpha at ~2 Hz, matching RangeCircle.gd pattern). Supports two modes: engagement range circles (orange pulsing around fighter models) and target highlights (green pulsing for eligible enemies with outer glow ring, static gray for ineligible). Replaces inline GDScript approach in FightController.gd with proper preloaded script instances. Both fill and outline colors pulse in sync for a smooth breathing effect.
 - T5-V10. Fight phase state banner (fight_phase_audit_report.md §4.3) — **DONE**
   - **Resolution:** FightPhaseStateBanner.gd — persistent banner below HUD_Top showing current subphase (FIGHTS FIRST / REMAINING COMBATS / FIGHTS LAST), selecting player, units remaining; distinct color schemes per subphase; animated transition overlay on subphase change; integrated via FightController signal flow
-- T5-V11. Unit tokens "has fought" indicator (fight_phase_audit_report.md §4.4)
+- T5-V11. Unit tokens "has fought" indicator (fight_phase_audit_report.md §4.4) — **DONE**
 - T5-V12. Damage application visualization (floating numbers, flash) (fight_phase_audit_report.md §4.5)
 - T5-V13. Engaged units board indicator (crossed swords) (fight_phase_audit_report.md §3.5)
 - T5-V14. Deployment zone edge highlighting (DEPLOYMENT_AUDIT.md §QoL 6)
@@ -945,10 +946,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 37 | 14 | 51 |
+| Tier 5 — QoL/Visual | 38 | 13 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **95** | **33** | **128** |
-| **Recently Completed** | **116** | — | **116** |
+| **Total Open** | **96** | **32** | **128** |
+| **Recently Completed** | **117** | — | **117** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---
