@@ -78,6 +78,14 @@ func _run_tests():
 	test_evaluate_reactive_go_to_ground()
 	test_evaluate_reactive_decline()
 
+	# Tank Shock evaluation
+	test_tank_shock_decline_no_cp()
+	test_tank_shock_decline_no_vehicle()
+
+	# Heroic Intervention evaluation
+	test_heroic_intervention_decline_low_cp()
+	test_heroic_intervention_decline_no_eligible()
+
 	# Integration: get_player_cp
 	test_get_player_cp_from_snapshot()
 
@@ -412,6 +420,48 @@ func test_evaluate_reactive_decline():
 	decision = AIDecisionMaker.evaluate_reactive_stratagem(2, available_stratagems, ["lone_model"], snapshot)
 	_assert(decision.get("type", "") == "DECLINE_REACTIVE_STRATAGEM",
 		"Should decline reactive stratagems for dead units (got %s)" % decision.get("type", ""))
+
+# =========================================================================
+# Tank Shock Evaluation Tests
+# =========================================================================
+
+func test_tank_shock_decline_no_cp():
+	"""AI should decline Tank Shock when CP is 0."""
+	var snapshot = _create_test_snapshot()
+	snapshot.players["1"]["cp"] = 0
+	_add_unit(snapshot, "tank", 1, Vector2(400, 400), "Leman Russ", 1,
+		["VEHICLE"], [], 11, 2, 13)
+	var decision = AIDecisionMaker.evaluate_tank_shock(1, "tank", snapshot)
+	_assert(decision.get("type", "") == "DECLINE_TANK_SHOCK",
+		"Should decline Tank Shock with 0 CP (got %s)" % decision.get("type", ""))
+
+func test_tank_shock_decline_no_vehicle():
+	"""AI should decline Tank Shock when vehicle unit is not found."""
+	var snapshot = _create_test_snapshot()
+	var decision = AIDecisionMaker.evaluate_tank_shock(1, "nonexistent_vehicle", snapshot)
+	_assert(decision.get("type", "") == "DECLINE_TANK_SHOCK",
+		"Should decline Tank Shock when vehicle not found (got %s)" % decision.get("type", ""))
+
+# =========================================================================
+# Heroic Intervention Evaluation Tests
+# =========================================================================
+
+func test_heroic_intervention_decline_low_cp():
+	"""AI should decline Heroic Intervention when CP is insufficient (need 2)."""
+	var snapshot = _create_test_snapshot()
+	snapshot.players["2"]["cp"] = 1  # Need 2 CP for Heroic Intervention
+	var decision = AIDecisionMaker.evaluate_heroic_intervention(2, "enemy_charger", snapshot)
+	_assert(decision.get("type", "") == "DECLINE_HEROIC_INTERVENTION",
+		"Should decline Heroic Intervention with 1 CP (got %s)" % decision.get("type", ""))
+
+func test_heroic_intervention_decline_no_eligible():
+	"""AI should decline Heroic Intervention when no StratagemManager is available (pure unit test)."""
+	var snapshot = _create_test_snapshot()
+	# In headless mode without scene tree, StratagemManager won't be found
+	# so the function should decline gracefully
+	var decision = AIDecisionMaker.evaluate_heroic_intervention(2, "enemy_charger", snapshot)
+	_assert(decision.get("type", "") == "DECLINE_HEROIC_INTERVENTION",
+		"Should decline Heroic Intervention when no eligible units (got %s)" % decision.get("type", ""))
 
 # =========================================================================
 # Helper Method Tests

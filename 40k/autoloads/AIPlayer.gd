@@ -183,6 +183,20 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "overwatch_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ChargePhase.overwatch_opportunity")
 
+	# Tank Shock and Heroic Intervention are handled via get_available_actions()
+	# in _decide_charge(), but we also connect signals to trigger re-evaluation promptly.
+	if phase.has_signal("tank_shock_opportunity"):
+		var callable = Callable(self, "_on_tank_shock_opportunity")
+		phase.tank_shock_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "tank_shock_opportunity", "callable": callable})
+		print("AIPlayer: Connected to ChargePhase.tank_shock_opportunity")
+
+	if phase.has_signal("heroic_intervention_opportunity"):
+		var callable = Callable(self, "_on_heroic_intervention_opportunity")
+		phase.heroic_intervention_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "heroic_intervention_opportunity", "callable": callable})
+		print("AIPlayer: Connected to ChargePhase.heroic_intervention_opportunity")
+
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -259,6 +273,38 @@ func _on_charge_overwatch_opportunity(moved_unit_id: String, defending_player: i
 	# which the AI's _decide_charge will handle via the normal evaluation loop.
 	# Just trigger a re-evaluation to ensure the AI acts promptly.
 	print("AIPlayer: Charge phase overwatch opportunity for AI player %d against %s" % [defending_player, moved_unit_id])
+	_request_evaluation()
+
+# --- Proactive Stratagem: Tank Shock (ChargePhase — via tank_shock_opportunity) ---
+
+func _on_tank_shock_opportunity(charging_player: int, vehicle_unit_id: String, eligible_targets: Array) -> void:
+	"""
+	Called when the ChargePhase offers Tank Shock to the charging player
+	after a successful charge with a VEHICLE unit. If the player is AI, evaluate and submit.
+	Tank Shock is handled via get_available_actions() in _decide_charge(), so this
+	signal handler just triggers a re-evaluation to ensure the AI acts promptly.
+	"""
+	if not is_ai_player(charging_player):
+		return
+
+	print("AIPlayer: Tank Shock opportunity for AI player %d — vehicle %s, %d eligible targets" % [
+		charging_player, vehicle_unit_id, eligible_targets.size()])
+	_request_evaluation()
+
+# --- Reactive Stratagem: Heroic Intervention (ChargePhase — via heroic_intervention_opportunity) ---
+
+func _on_heroic_intervention_opportunity(defending_player: int, eligible_units: Array, charging_unit_id: String) -> void:
+	"""
+	Called when the ChargePhase offers Heroic Intervention to the defending player
+	after an enemy unit ends a Charge move. If the defender is AI, evaluate and submit.
+	Heroic Intervention is handled via get_available_actions() in _decide_charge(), so this
+	signal handler just triggers a re-evaluation to ensure the AI acts promptly.
+	"""
+	if not is_ai_player(defending_player):
+		return
+
+	print("AIPlayer: Heroic Intervention opportunity for AI player %d — %d eligible units against %s" % [
+		defending_player, eligible_units.size(), charging_unit_id])
 	_request_evaluation()
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---

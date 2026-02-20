@@ -652,6 +652,20 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			action_types[t] = []
 		action_types[t].append(a)
 
+	# Step 0: Handle pending Command Re-roll decisions first (advance rolls)
+	# The AIPlayer signal handler handles this with full context. This is a fallback.
+	if action_types.has("USE_COMMAND_REROLL") or action_types.has("DECLINE_COMMAND_REROLL"):
+		var uid = ""
+		if action_types.has("USE_COMMAND_REROLL"):
+			uid = action_types["USE_COMMAND_REROLL"][0].get("actor_unit_id", "")
+		elif action_types.has("DECLINE_COMMAND_REROLL"):
+			uid = action_types["DECLINE_COMMAND_REROLL"][0].get("actor_unit_id", "")
+		return {
+			"type": "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": uid,
+			"_ai_description": "Decline Command Re-roll (movement phase fallback)"
+		}
+
 	# Step 1: If CONFIRM_UNIT_MOVE is available, confirm it
 	# (safety fallback — normally AIPlayer handles confirm after staging)
 	if action_types.has("CONFIRM_UNIT_MOVE"):
@@ -3319,19 +3333,36 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 			"_ai_description": "Decline Fire Overwatch"
 		}
 
-	# Heroic Intervention: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_HEROIC_INTERVENTION"):
+	# Heroic Intervention: evaluate whether to counter-charge
+	if action_types.has("USE_HEROIC_INTERVENTION") or action_types.has("DECLINE_HEROIC_INTERVENTION"):
+		var hi_player = player
+		var charging_unit_id = ""
+		if action_types.has("USE_HEROIC_INTERVENTION"):
+			hi_player = action_types["USE_HEROIC_INTERVENTION"][0].get("player", player)
+			charging_unit_id = action_types["USE_HEROIC_INTERVENTION"][0].get("charging_unit_id", "")
+		elif action_types.has("DECLINE_HEROIC_INTERVENTION"):
+			hi_player = action_types["DECLINE_HEROIC_INTERVENTION"][0].get("player", player)
+
+		var hi_decision = evaluate_heroic_intervention(hi_player, charging_unit_id, snapshot)
+		if hi_decision.get("type", "") == "USE_HEROIC_INTERVENTION":
+			hi_decision["player"] = hi_player
+			return hi_decision
 		return {
 			"type": "DECLINE_HEROIC_INTERVENTION",
-			"_ai_description": "Decline Heroic Intervention"
+			"player": hi_player,
+			"_ai_description": "AI declines Heroic Intervention"
 		}
 
-	# Tank Shock: always decline for now (stratagem usage is a separate task)
-	if action_types.has("DECLINE_TANK_SHOCK"):
-		return {
-			"type": "DECLINE_TANK_SHOCK",
-			"_ai_description": "Decline Tank Shock"
-		}
+	# Tank Shock: evaluate whether to use it after a successful charge
+	if action_types.has("USE_TANK_SHOCK") or action_types.has("DECLINE_TANK_SHOCK"):
+		var ts_vehicle_id = ""
+		if action_types.has("USE_TANK_SHOCK"):
+			ts_vehicle_id = action_types["USE_TANK_SHOCK"][0].get("actor_unit_id", "")
+		elif action_types.has("DECLINE_TANK_SHOCK"):
+			ts_vehicle_id = action_types["DECLINE_TANK_SHOCK"][0].get("actor_unit_id", "")
+
+		var ts_decision = evaluate_tank_shock(player, ts_vehicle_id, snapshot)
+		return ts_decision
 
 	# --- Step 1: Complete any pending charge ---
 	if action_types.has("COMPLETE_UNIT_CHARGE"):
@@ -5941,7 +5972,10 @@ static func evaluate_grenade_usage(snapshot: Dictionary, player: int) -> Diction
 	enemy within 8" that would take meaningful damage from 6D6 at 4+ (avg 3 MW).
 	Prefer targets with many wounded low-wound models (mortal wounds bypass saves).
 	"""
-	var strat_manager_node = Engine.get_main_loop().root.get_node_or_null("/root/StratagemManager")
+	var grenade_main_loop = Engine.get_main_loop()
+	var strat_manager_node = null
+	if grenade_main_loop and grenade_main_loop is SceneTree and grenade_main_loop.root:
+		strat_manager_node = grenade_main_loop.root.get_node_or_null("/root/StratagemManager")
 	if not strat_manager_node:
 		return {"should_use": false}
 
@@ -6289,6 +6323,250 @@ static func _decline_fire_overwatch(player: int) -> Dictionary:
 		"type": "DECLINE_FIRE_OVERWATCH",
 		"player": player,
 		"_ai_description": "AI declines Fire Overwatch"
+	}
+
+# --- TANK SHOCK (Proactive — after own charge move with VEHICLE) ---
+
+static func evaluate_tank_shock(player: int, vehicle_unit_id: String, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Tank Shock after a successful charge with a VEHICLE.
+	Returns USE_TANK_SHOCK or DECLINE_TANK_SHOCK action dictionary.
+
+	Heuristic: Tank Shock rolls D6 equal to Toughness (max 6), each 5+ = 1 mortal wound.
+	Use when:
+	- Vehicle has high toughness (T6+ → 6 dice, ~2 expected MW)
+	- Enemy target has low-wound models (MW kills them outright)
+	- CP is affordable (1 CP)
+	Skip when:
+	- Vehicle has low toughness (T4 or less → only 4 dice, ~1.3 MW)
+	- CP reserves are very low (1 CP remaining)
+	"""
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+
+	# Need at least 1 CP to use, but save 1 for other stratagems if possible
+	if player_cp < 1:
+		return {
+			"type": "DECLINE_TANK_SHOCK",
+			"_ai_description": "AI declines Tank Shock (no CP)"
+		}
+
+	var vehicle_unit = snapshot.get("units", {}).get(vehicle_unit_id, {})
+	if vehicle_unit.is_empty():
+		return {
+			"type": "DECLINE_TANK_SHOCK",
+			"_ai_description": "AI declines Tank Shock (no vehicle data)"
+		}
+
+	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
+	var toughness = int(vehicle_unit.get("meta", {}).get("toughness", vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4)))
+	var dice_count = mini(toughness, 6)
+
+	# Expected mortal wounds: dice_count * (2/6) = dice_count / 3
+	var expected_mw = float(dice_count) / 3.0
+
+	# Find the best target among enemies in engagement range
+	# We use StratagemManager.get_tank_shock_eligible_targets if available,
+	# otherwise estimate from snapshot
+	var ts_main_loop = Engine.get_main_loop()
+	var strat_manager_node = null
+	if ts_main_loop and ts_main_loop is SceneTree and ts_main_loop.root:
+		strat_manager_node = ts_main_loop.root.get_node_or_null("/root/StratagemManager")
+	var eligible_targets = []
+	if strat_manager_node:
+		eligible_targets = strat_manager_node.get_tank_shock_eligible_targets(vehicle_unit_id, snapshot)
+
+	if eligible_targets.is_empty():
+		return {
+			"type": "DECLINE_TANK_SHOCK",
+			"_ai_description": "AI declines Tank Shock (no eligible targets)"
+		}
+
+	var best_target_id = ""
+	var best_target_name = ""
+	var best_target_score = 0.0
+
+	for target_entry in eligible_targets:
+		var target_unit_id = target_entry.get("unit_id", "")
+		var target_unit = snapshot.get("units", {}).get(target_unit_id, {})
+		if target_unit.is_empty():
+			continue
+
+		var target_name = target_entry.get("unit_name", target_unit_id)
+		var wounds_per_model = _get_target_wounds_per_model(target_unit)
+		var alive_models = _get_alive_models(target_unit)
+		var alive_count = alive_models.size()
+
+		# Score: higher when MW will kill models outright
+		var score = expected_mw
+
+		# Bonus if wounds_per_model is low (MW kills models outright)
+		if wounds_per_model <= 2:
+			score *= 1.5  # MW efficiently kills low-wound models
+		elif wounds_per_model <= 3:
+			score *= 1.2
+
+		# Bonus for small remaining unit (finishing blow)
+		if alive_count <= 3:
+			score *= 1.3
+
+		# Bonus for high-value targets
+		var target_value = _estimate_unit_value(target_unit)
+		if target_value >= 5.0:
+			score *= 1.2
+
+		if score > best_target_score:
+			best_target_score = score
+			best_target_id = target_unit_id
+			best_target_name = target_name
+
+	# Use if expected value is meaningful (>= 1.0 expected mortal wounds in effect)
+	# and we have enough CP (or the score is high enough to justify spending last CP)
+	if best_target_score >= 1.0 and best_target_id != "":
+		# If this is our last CP, only use if really good value
+		if player_cp <= 1 and best_target_score < 2.0:
+			return {
+				"type": "DECLINE_TANK_SHOCK",
+				"_ai_description": "AI declines Tank Shock (saving last CP)"
+			}
+
+		print("AIDecisionMaker: Tank Shock — %s (T%d, %dD6) targeting %s (score: %.1f)" % [
+			vehicle_name, toughness, dice_count, best_target_name, best_target_score])
+		return {
+			"type": "USE_TANK_SHOCK",
+			"actor_unit_id": vehicle_unit_id,
+			"payload": {
+				"target_unit_id": best_target_id
+			},
+			"_ai_description": "AI uses Tank Shock with %s on %s (T%d, %.1f expected MW)" % [
+				vehicle_name, best_target_name, toughness, expected_mw]
+		}
+
+	return {
+		"type": "DECLINE_TANK_SHOCK",
+		"_ai_description": "AI declines Tank Shock (low value)"
+	}
+
+# --- HEROIC INTERVENTION (Reactive — after opponent's charge) ---
+
+static func evaluate_heroic_intervention(defending_player: int, charging_unit_id: String, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Heroic Intervention to counter-charge.
+	Returns USE_HEROIC_INTERVENTION or DECLINE_HEROIC_INTERVENTION action dictionary.
+
+	Heuristic: Heroic Intervention costs 2 CP and requires a charge roll.
+	Use when:
+	- We have a melee-capable unit nearby (within 6\" of the charging enemy)
+	- The counter-charging unit is a strong melee fighter (CHARACTER with good melee)
+	- CP is affordable (2 CP, save some for other uses)
+	Skip when:
+	- No strong melee units available
+	- CP reserves are low (< 3 CP)
+	- Counter-charger would be outmatched
+	"""
+	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+
+	# Heroic Intervention costs 2 CP — need at least 2, prefer 3+
+	if player_cp < 2:
+		return {
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"player": defending_player,
+			"_ai_description": "AI declines Heroic Intervention (insufficient CP)"
+		}
+
+	# Get eligible units from StratagemManager
+	var main_loop = Engine.get_main_loop()
+	var strat_manager_node = null
+	if main_loop and main_loop is SceneTree and main_loop.root:
+		strat_manager_node = main_loop.root.get_node_or_null("/root/StratagemManager")
+	if not strat_manager_node:
+		return {
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"player": defending_player,
+			"_ai_description": "AI declines Heroic Intervention"
+		}
+
+	var eligible_units = strat_manager_node.get_heroic_intervention_eligible_units(
+		defending_player, charging_unit_id, snapshot
+	)
+
+	if eligible_units.is_empty():
+		return {
+			"type": "DECLINE_HEROIC_INTERVENTION",
+			"player": defending_player,
+			"_ai_description": "AI declines Heroic Intervention (no eligible units)"
+		}
+
+	var charging_unit = snapshot.get("units", {}).get(charging_unit_id, {})
+	var charging_value = _estimate_unit_value(charging_unit)
+
+	var best_unit_id = ""
+	var best_unit_name = ""
+	var best_score = 0.0
+
+	for entry in eligible_units:
+		var unit_id = entry.get("unit_id", "")
+		var unit_name = entry.get("unit_name", unit_id)
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		# Score the counter-charge candidate
+		var score = 0.0
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_melee = _unit_has_melee_weapons(unit)
+
+		# Must have melee weapons to be useful
+		if not has_melee:
+			continue
+
+		# Base score from unit value (stronger units are better counter-chargers)
+		var unit_value = _estimate_unit_value(unit)
+		score += unit_value * 0.5
+
+		# Bonus for CHARACTER units (they usually have strong melee)
+		for kw in keywords:
+			var kw_upper = kw.to_upper()
+			if kw_upper == "CHARACTER":
+				score += 2.0
+			elif kw_upper == "MONSTER":
+				score += 1.0
+
+		# Scale by enemy value (worth counter-charging valuable enemies)
+		if charging_value >= 5.0:
+			score *= 1.3
+		elif charging_value <= 2.0:
+			score *= 0.5  # Not worth 2 CP against cheap units
+
+		if score > best_score:
+			best_score = score
+			best_unit_id = unit_id
+			best_unit_name = unit_name
+
+	# Use if score is high enough to justify 2 CP
+	# Threshold higher than other stratagems because of cost and charge roll uncertainty
+	if best_score >= 3.0 and best_unit_id != "":
+		# If CP is tight (exactly 2), only use against very valuable targets
+		if player_cp <= 2 and best_score < 5.0:
+			return {
+				"type": "DECLINE_HEROIC_INTERVENTION",
+				"player": defending_player,
+				"_ai_description": "AI declines Heroic Intervention (saving CP)"
+			}
+
+		print("AIDecisionMaker: Heroic Intervention — %s counter-charges (score: %.1f)" % [best_unit_name, best_score])
+		return {
+			"type": "USE_HEROIC_INTERVENTION",
+			"player": defending_player,
+			"payload": {
+				"unit_id": best_unit_id
+			},
+			"_ai_description": "AI uses Heroic Intervention with %s (score: %.1f)" % [best_unit_name, best_score]
+		}
+
+	return {
+		"type": "DECLINE_HEROIC_INTERVENTION",
+		"player": defending_player,
+		"_ai_description": "AI declines Heroic Intervention (low value)"
 	}
 
 static func _count_unit_ranged_shots(unit: Dictionary) -> float:
