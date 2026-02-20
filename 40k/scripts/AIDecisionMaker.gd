@@ -1403,6 +1403,15 @@ static func _compute_fall_back_destinations(
 			# Fallback: move toward own deployment zone (toward board edge)
 			retreat_direction = Vector2(0, -1) if player == 1 else Vector2(0, 1)
 
+	# Safety: if retreat direction is zero (target at our position), fall back
+	# to moving directly away from enemies
+	if retreat_direction.length_squared() < 0.01:
+		if engaging_enemy_centroid != Vector2.INF:
+			retreat_direction = (centroid - engaging_enemy_centroid).normalized()
+		else:
+			retreat_direction = Vector2(0, -1) if player == 1 else Vector2(0, 1)
+		print("AIDecisionMaker: Retreat target at unit position, using away-from-enemy direction (%.2f, %.2f)" % [retreat_direction.x, retreat_direction.y])
+
 	# Get deployed model positions for collision checking (excluding this unit)
 	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
 	var first_model = alive_models[0] if alive_models.size() > 0 else {}
@@ -1493,18 +1502,36 @@ static func _pick_fall_back_target(
 	var best_target = Vector2.INF
 	var best_score = -INF
 
+	# Compute "away from enemy" direction for directional scoring
+	var away_from_enemy = Vector2.ZERO
+	if enemy_centroid != Vector2.INF:
+		away_from_enemy = (centroid - enemy_centroid).normalized()
+
 	for obj_pos in objectives:
+		# Skip objectives at or very near our current position — can't retreat
+		# TO where we already are (would produce a zero retreat direction)
+		var dist_to_obj = centroid.distance_to(obj_pos)
+		if dist_to_obj < ENGAGEMENT_RANGE_PX:
+			continue
+
 		# Skip objectives that are closer to the engaging enemy than to us
 		if enemy_centroid != Vector2.INF:
 			var enemy_dist_to_obj = enemy_centroid.distance_to(obj_pos)
-			var our_dist_to_obj = centroid.distance_to(obj_pos)
+			var our_dist_to_obj = dist_to_obj
 			# Only consider objectives that are roughly "behind" us relative to the enemy
 			if enemy_dist_to_obj < our_dist_to_obj * 0.7:
 				continue
 
-		var dist_to_obj = centroid.distance_to(obj_pos)
 		# Prefer closer objectives
 		var score = -dist_to_obj
+
+		# Directional bonus: strongly prefer objectives in the "away from enemy" direction
+		if away_from_enemy != Vector2.ZERO and dist_to_obj > 0.01:
+			var dir_to_obj = (obj_pos - centroid).normalized()
+			var alignment = away_from_enemy.dot(dir_to_obj)  # -1 to +1
+			# Bonus of up to +300 for objectives directly away from enemy
+			# Penalty of up to -300 for objectives directly toward the enemy
+			score += alignment * 300.0
 
 		# Prefer objectives we already control
 		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
