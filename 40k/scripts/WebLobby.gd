@@ -25,6 +25,16 @@ var army_options: Array = []
 var selected_player1_army: String = "A_C_test"
 var selected_player2_army: String = "ORK_test"
 
+# Deployment configuration
+var deployment_options = [
+	{"id": "hammer_anvil", "name": "Hammer and Anvil"},
+	{"id": "dawn_of_war", "name": "Dawn of War"},
+	{"id": "search_and_destroy", "name": "Search and Destroy"},
+	{"id": "sweeping_engagement", "name": "Sweeping Engagement"},
+	{"id": "crucible_of_battle", "name": "Crucible of Battle"}
+]
+var selected_deployment: String = "hammer_anvil"
+
 # Cloud army loading state
 var _cloud_fetch_count: int = 0
 var _cloud_start_pending: bool = false
@@ -42,6 +52,7 @@ var _cloud_start_pending: bool = false
 
 # Army selection UI
 @onready var army_section: Control = $VBoxContainer/ArmySection
+@onready var deployment_dropdown: OptionButton = $VBoxContainer/ArmySection/DeploymentContainer/DeploymentDropdown
 @onready var player1_dropdown: OptionButton = $VBoxContainer/ArmySection/Player1Container/Player1Dropdown
 @onready var player2_dropdown: OptionButton = $VBoxContainer/ArmySection/Player2Container/Player2Dropdown
 @onready var start_game_button: Button = $VBoxContainer/StartGameButton
@@ -73,8 +84,9 @@ func _ready() -> void:
 	relay.opponent_disconnected.connect(_on_opponent_disconnected)
 	relay.message_received.connect(_on_message_received)
 
-	# Initialize army selection
+	# Initialize army and deployment selection
 	_setup_army_selection()
+	_setup_deployment_selection()
 
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
@@ -152,6 +164,21 @@ func _on_player2_army_changed(index: int) -> void:
 		return
 	selected_player2_army = army_options[index].id
 	print("WebLobby: Player 2 army changed to ", selected_player2_army)
+
+func _setup_deployment_selection() -> void:
+	# Populate deployment dropdown
+	for option in deployment_options:
+		deployment_dropdown.add_item(option.name)
+	deployment_dropdown.selected = 0
+	selected_deployment = deployment_options[0].id
+	deployment_dropdown.item_selected.connect(_on_deployment_changed)
+	print("WebLobby: Deployment selection initialized with ", deployment_options.size(), " options")
+
+func _on_deployment_changed(index: int) -> void:
+	if index < 0 or index >= deployment_options.size():
+		return
+	selected_deployment = deployment_options[index].id
+	print("WebLobby: Deployment changed to ", selected_deployment)
 
 # ============================================================================
 # Cloud Army Integration
@@ -303,11 +330,12 @@ func _on_start_game_pressed() -> void:
 	start_game_button.disabled = true
 	_set_status("Starting game...")
 
-	# Notify guest that we're starting the game (include army selections)
+	# Notify guest that we're starting the game (include army and deployment selections)
 	relay.send_game_data({
 		"action": "start_game",
 		"player1_army": selected_player1_army,
-		"player2_army": selected_player2_army
+		"player2_army": selected_player2_army,
+		"deployment": selected_deployment
 	})
 
 	# Check if cloud armies need fetching before starting
@@ -344,12 +372,14 @@ func _on_message_received(data: Dictionary) -> void:
 	var action = data.get("action", "")
 	match action:
 		"start_game":
-			# Receive army selections from host
+			# Receive army and deployment selections from host
 			if data.has("player1_army"):
 				selected_player1_army = data["player1_army"]
 			if data.has("player2_army"):
 				selected_player2_army = data["player2_army"]
-			print("WebLobby: Host started the game with armies P1: ", selected_player1_army, ", P2: ", selected_player2_army)
+			if data.has("deployment"):
+				selected_deployment = data["deployment"]
+			print("WebLobby: Host started the game with armies P1: ", selected_player1_army, ", P2: ", selected_player2_army, ", deployment: ", selected_deployment)
 
 			# Check if guest needs to fetch cloud armies
 			var p1_is_cloud = _is_cloud_selection(selected_player1_army)
@@ -374,11 +404,13 @@ func _do_start_game() -> void:
 	_start_game()
 
 func _start_game() -> void:
-	print("WebLobby: Starting game...")
+	print("WebLobby: Starting game with deployment: ", selected_deployment)
 
-	# Initialize base GameState structure
+	# Initialize base GameState structure with selected deployment type
 	if GameState.state.is_empty():
-		GameState.initialize_default_state()
+		GameState.initialize_default_state(selected_deployment)
+	else:
+		GameState.initialize_default_state(selected_deployment)
 
 	# Load selected armies for both host and client
 	# (Client receives army selections from host via start_game message)
@@ -414,8 +446,13 @@ func _start_game() -> void:
 	GameState.state.meta["is_host"] = relay.is_game_host()
 	GameState.state.meta["game_config"] = {
 		"player1_army": selected_player1_army,
-		"player2_army": selected_player2_army
+		"player2_army": selected_player2_army,
+		"deployment": selected_deployment
 	}
+
+	# Initialize BoardState deployment zones to match selected deployment
+	if BoardState:
+		BoardState.initialize_deployment_zones(selected_deployment)
 
 	print("WebLobby: Game state initialized, is_host=", relay.is_game_host())
 
@@ -510,9 +547,10 @@ func _update_ui_state(state: LobbyState) -> void:
 			$VBoxContainer/HSeparator.visible = true
 			$VBoxContainer/HSeparator2.visible = true
 			$VBoxContainer/HSeparator3.visible = true
-			# Army dropdowns always enabled for selection
+			# Army and deployment dropdowns always enabled for selection
 			player1_dropdown.disabled = false
 			player2_dropdown.disabled = false
+			deployment_dropdown.disabled = false
 
 		LobbyState.CONNECTING, LobbyState.CREATING, LobbyState.JOINING:
 			join_button.disabled = true
@@ -528,9 +566,10 @@ func _update_ui_state(state: LobbyState) -> void:
 			# Hide join section since host is waiting for guest
 			$VBoxContainer/JoinSection.visible = false
 			$VBoxContainer/HSeparator2.visible = false
-			# Host can still change army selections while waiting
+			# Host can still change army and deployment selections while waiting
 			player1_dropdown.disabled = false
 			player2_dropdown.disabled = false
+			deployment_dropdown.disabled = false
 
 		LobbyState.CONNECTED:
 			join_button.disabled = true
@@ -544,13 +583,15 @@ func _update_ui_state(state: LobbyState) -> void:
 			$VBoxContainer/HSeparator2.visible = false
 			$VBoxContainer/HSeparator3.visible = false
 			if is_host:
-				# Host can still change armies before pressing start
+				# Host can still change armies and deployment before pressing start
 				player1_dropdown.disabled = false
 				player2_dropdown.disabled = false
+				deployment_dropdown.disabled = false
 			else:
-				# Guest: disable dropdowns (host controls army selection)
+				# Guest: disable dropdowns (host controls army and deployment selection)
 				player1_dropdown.disabled = true
 				player2_dropdown.disabled = true
+				deployment_dropdown.disabled = true
 
 func _set_status(text: String) -> void:
 	status_label.text = text

@@ -155,6 +155,7 @@ These items were previously open in the audit files and have now been verified a
 | T4-5: Models in base contact should not move during pile-in/consolidation | Fight | FIGHT_PHASE_AUDIT.md §2.11 |
 | T4-7: Rapid Ingress stratagem (1 CP, arrive from reserves at end of opponent's movement) | Movement | MOVEMENT_PHASE_AUDIT.md §2.11 |
 | T4-8: Secondary missions + New Orders stratagem | Command | AUDIT_COMMAND_PHASE.md §P3 |
+| T4-9: Deployment map variety (Hammer and Anvil, Search and Destroy, etc.) | Deployment | DEPLOYMENT_AUDIT.md §7 |
 | T4-10: Mission selection variety — 9 primary missions from Chapter Approved 2025-26 | Pre-game | DEPLOYMENT_AUDIT.md §8 |
 | T4-11: Fortification deployment — cannot place in reserves, must deploy on table | Deployment | DEPLOYMENT_AUDIT.md §9 |
 | T4-12: Unmodified wound roll of 1 always fails (defensive check) | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §2.12 |
@@ -718,9 +719,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** AUDIT_COMMAND_PHASE.md §P3
 - **Resolution:** Full secondary missions system already implemented across multiple files. SecondaryMissionManager.gd (1360 lines) handles tactical deck building (18 cards), card drawing (max 2 active), voluntary discard (+1 CP), New Orders stratagem execution (discard and draw replacement), scoring with VP caps (40 secondary, 90 combined), when-drawn conditions (shuffle back, discard-and-draw, requires-interaction), and unit destruction tracking for kill-based missions. SecondaryMissionData.gd defines all 18 mission cards across 5 categories (Shadow Operations, Battlefield Supremacy, Strategic Conquests, Purge the Enemy, action-based). New Orders stratagem defined in StratagemManager.gd (1 CP, your Command phase, once per battle). CommandPhase.gd integrates deck init, card drawing, VOLUNTARY_DISCARD/USE_NEW_ORDERS/RESOLVE_MARKED_FOR_DEATH/RESOLVE_TEMPTING_TARGET actions with full validation. CommandController.gd provides UI with mission cards, discard buttons, New Orders buttons with availability checking. ScoringPhase.gd scores secondary missions at end of turn. ShootingPhase/FightPhase/WoundAllocationOverlay report unit destructions for kill-based missions. MarkedForDeathDialog.gd and TemptingTargetDialog.gd handle interactive mission requirements. Fixed broken test suite (test_secondary_missions.gd) — 292 tests pass.
 
-### T4-9. Deployment map variety (Hammer and Anvil, Search and Destroy, etc.)
+### T4-9. Deployment map variety (Hammer and Anvil, Search and Destroy, etc.) — **DONE**
 - **Phase:** Deployment
 - **Source:** DEPLOYMENT_AUDIT.md §7
+- **Resolution:** Five deployment maps (Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, Crucible of Battle) are data-driven via DeploymentZoneData.gd with JSON fallbacks. Deployment type selector added to MainMenu, MultiplayerLobby, and WebLobby. Multiplayer sync via RPC/relay messages.
 
 ### T4-10. Mission selection variety — **DONE**
 - **Phase:** Pre-game
