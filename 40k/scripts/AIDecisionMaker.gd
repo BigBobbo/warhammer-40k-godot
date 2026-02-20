@@ -5890,19 +5890,34 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		return {}
 
 	# Find eligible enemy targets
-	var enemies = _get_enemy_units(snapshot, player)
-	if enemies.is_empty():
+	var all_enemies = _get_enemy_units(snapshot, player)
+	if all_enemies.is_empty():
 		return {}
 
-	# Evaluate every primary-weapon × target pairing to maximize total damage
-	# Extra Attacks weapons are included in damage calculation since FightPhase auto-injects them
+	# T7-29: Filter to enemies within engagement range first (fight phase rules)
+	var engaged_entries = _get_engaging_enemy_units(unit, unit_id, all_enemies)
+	var enemies = {}
+	for entry in engaged_entries:
+		enemies[entry.enemy_id] = entry.enemy_unit
+
+	# If no enemies in engagement range, fall back to all enemies (edge case: pile-in may not have completed)
+	if enemies.is_empty():
+		print("AIDecisionMaker: T7-29 no engaged enemies found for %s, falling back to all enemies" % unit_id)
+		enemies = all_enemies
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# T7-29: Score each target by combined damage output + strategic value
+	# For each target, find the best weapon and compute a composite score
 	var best_weapon_id = "close_combat_weapon"
 	var best_target_id = ""
-	var best_total_damage = -1.0
+	var best_composite_score = -1.0
 	var best_weapon_name = "Close combat weapon"
+	var best_raw_damage = 0.0
 
 	# Unit strength for default close combat weapon fallback
 	var unit_strength = int(unit.get("meta", {}).get("stats", {}).get("strength", 4))
+	var objectives = _get_objectives(snapshot)
 
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
@@ -5915,16 +5930,18 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		for ea_w in extra_attack_weapons:
 			ea_damage += _evaluate_melee_weapon_damage(ea_w, alive_attackers, target_toughness, target_save, target_invuln)
 
-		# Evaluate each primary melee weapon
+		# Find the best primary weapon for this target (highest raw damage)
+		var target_best_damage = ea_damage
+		var target_best_weapon_id = "close_combat_weapon"
+		var target_best_weapon_name = "Close combat weapon"
+
 		for w in primary_weapons:
 			var primary_damage = _evaluate_melee_weapon_damage(w, alive_attackers, target_toughness, target_save, target_invuln)
 			var total = primary_damage + ea_damage
-
-			if total > best_total_damage:
-				best_total_damage = total
-				best_weapon_name = w.get("name", "Unknown")
-				best_weapon_id = _generate_weapon_id(best_weapon_name, w.get("type", "Melee"))
-				best_target_id = enemy_id
+			if total > target_best_damage:
+				target_best_damage = total
+				target_best_weapon_name = w.get("name", "Unknown")
+				target_best_weapon_id = _generate_weapon_id(target_best_weapon_name, w.get("type", "Melee"))
 
 		# Also evaluate default close combat weapon (S=user, AP0, D1, A1, WS4+)
 		var ccw_p_hit = _hit_probability(4)
@@ -5932,14 +5949,26 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var ccw_p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
 		var ccw_damage = 1.0 * alive_attackers * ccw_p_hit * ccw_p_wound * ccw_p_unsaved * 1.0
 		var ccw_total = ccw_damage + ea_damage
+		if ccw_total > target_best_damage:
+			target_best_damage = ccw_total
+			target_best_weapon_id = "close_combat_weapon"
+			target_best_weapon_name = "Close combat weapon"
 
-		if ccw_total > best_total_damage:
-			best_total_damage = ccw_total
-			best_weapon_id = "close_combat_weapon"
-			best_weapon_name = "Close combat weapon"
+		# T7-29: Compute strategic value score for this target
+		var strategic_score = _score_fight_target(unit, enemy, target_best_damage, snapshot, player, objectives)
+
+		var target_name = enemy.get("meta", {}).get("name", enemy_id)
+		print("AIDecisionMaker: T7-29 fight target eval %s vs %s: damage=%.2f, strategic=%.2f, weapon='%s'" % [
+			unit_name, target_name, target_best_damage, strategic_score, target_best_weapon_name])
+
+		if strategic_score > best_composite_score:
+			best_composite_score = strategic_score
+			best_weapon_id = target_best_weapon_id
+			best_weapon_name = target_best_weapon_name
 			best_target_id = enemy_id
+			best_raw_damage = target_best_damage
 
-	# Fallback to closest enemy if no damage-based selection worked
+	# Fallback to closest enemy if no scoring worked
 	if best_target_id == "":
 		var unit_centroid = _get_unit_centroid(unit)
 		var best_dist = INF
@@ -5956,20 +5985,99 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	if best_target_id == "":
 		return {}
 
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var target_unit = snapshot.get("units", {}).get(best_target_id, {})
 	var target_name = target_unit.get("meta", {}).get("name", best_target_id)
 	var ea_count = extra_attack_weapons.size()
-	print("AIDecisionMaker: T7-28 melee weapon optimization — %s selects '%s' vs %s (expected damage: %.2f, primary weapons evaluated: %d, extra attacks weapons: %d)" % [
-		unit_name, best_weapon_name, target_name, best_total_damage, primary_weapons.size(), ea_count])
+	print("AIDecisionMaker: T7-29 fight target optimized — %s selects '%s' vs %s (damage: %.2f, score: %.2f, primaries: %d, EA: %d)" % [
+		unit_name, best_weapon_name, target_name, best_raw_damage, best_composite_score, primary_weapons.size(), ea_count])
 
 	return {
 		"type": "ASSIGN_ATTACKS",
 		"unit_id": unit_id,
 		"target_id": best_target_id,
 		"weapon_id": best_weapon_id,
-		"_ai_description": "Assign melee attacks (optimized weapon: %s)" % best_weapon_name
+		"_ai_description": "Assign melee attacks (optimized: %s vs %s)" % [best_weapon_name, target_name]
 	}
+
+# T7-29: Score a fight target by combining expected damage with strategic value factors
+# Similar to _score_charge_target but tailored for the fight phase where units are already engaged
+static func _score_fight_target(attacker: Dictionary, target: Dictionary, expected_damage: float, snapshot: Dictionary, player: int, objectives: Array) -> float:
+	"""Score a melee target in the fight phase by combining expected damage output with
+	strategic value. Higher score = better target to attack."""
+	var score = 0.0
+
+	# --- Expected melee damage (primary factor) ---
+	score += expected_damage * 2.0
+
+	# --- Target value factors ---
+	var target_keywords = target.get("meta", {}).get("keywords", [])
+	var target_wounds = int(target.get("meta", {}).get("stats", {}).get("wounds", 1))
+	var alive_models = _get_alive_models(target).size()
+	var total_models = target.get("models", []).size()
+
+	# Bonus for targets below half strength (easier to wipe out — denies VP, removes threat)
+	if total_models > 0 and alive_models * 2 < total_models:
+		score += 3.0
+
+	# Bonus for CHARACTER targets (high-value eliminations)
+	if "CHARACTER" in target_keywords:
+		score += 2.0
+
+	# Penalty for targets we can't meaningfully damage
+	if expected_damage < 1.0:
+		score -= 3.0
+
+	# --- Kill potential bonus: can we actually wipe the target? ---
+	var target_remaining_wounds = float(alive_models * target_wounds)
+	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
+		# We can likely wipe this unit — big bonus for removing it from the game
+		score += 4.0
+	elif target_remaining_wounds > 0 and expected_damage >= target_remaining_wounds * 0.5:
+		# We can take them below half strength
+		score += 2.0
+
+	# --- Overkill penalty: don't waste massive damage on a nearly-dead 1-model unit ---
+	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 2.0:
+		# More than 2x the wounds remaining — we're overkilling
+		score -= 1.5
+
+	# --- Lock dangerous shooters bonus: keep ranged threats tied up in combat ---
+	var target_has_ranged = _unit_has_ranged_weapons(target)
+	if target_has_ranged:
+		var max_range = _get_max_weapon_range(target)
+		if max_range >= 24.0:
+			score += 2.0  # Lock long-range shooters
+		var ranged_output = _estimate_unit_ranged_strength(target)
+		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
+			score += 1.5  # Extra bonus for truly dangerous shooters
+
+	# --- Target on objective bonus ---
+	var target_centroid = _get_unit_centroid(target)
+	if target_centroid != Vector2.INF:
+		for obj_pos in objectives:
+			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				score += 2.0  # Killing/weakening units on objectives is valuable
+				break
+
+	# --- Low toughness bonus (likely to wound effectively) ---
+	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
+	if target_toughness <= 3:
+		score += 1.0
+
+	# --- AI-GAP-4: Factor in target's defensive abilities ---
+	var target_id = target.get("id", "")
+	if target_id != "":
+		var all_units = snapshot.get("units", {})
+		var def_mult = AIAbilityAnalyzerData.get_defensive_multiplier(target_id, target, all_units)
+		if def_mult > 1.0:
+			score /= def_mult
+
+	# --- Trade efficiency: prefer favorable point trades ---
+	var trade_eff = _get_trade_efficiency(attacker, target)
+	if trade_eff != 1.0:
+		score *= trade_eff
+
+	return max(0.0, score)
 
 # T7-28: Helper — check if weapon data has the Extra Attacks keyword
 static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
