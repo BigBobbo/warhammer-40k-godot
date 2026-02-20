@@ -49,6 +49,9 @@ func _run_tests():
 	test_consolidate_empty_when_no_targets()
 	test_consolidate_multiple_models_toward_objective()
 	test_consolidate_skips_dead_models()
+	test_consolidate_wrapping_distributes_models()
+	test_consolidate_tags_new_enemy_unit()
+	test_consolidate_multiple_models_wrap_around_enemy()
 
 # =========================================================================
 # Helper: Create a test snapshot
@@ -391,3 +394,112 @@ func test_consolidate_skips_dead_models():
 	# Dead model (index 1) should not have a movement
 	_assert(not movements.has("1"),
 		"Dead model should not have a consolidation movement")
+
+
+# =========================================================================
+# Tests: Wrapping and tagging behavior (T7-3 enhancements)
+# =========================================================================
+
+func test_consolidate_wrapping_distributes_models():
+	print("\n--- test_consolidate_wrapping_distributes_models ---")
+	var snapshot = _create_test_snapshot()
+	# Place 3 friendly models close to 1 enemy model — they should spread around
+	# the enemy rather than all stacking on the same side
+	# Models at (400,500), (440,500), (480,500) — enemy at (540,500)
+	# All within ~4" of enemy
+	_add_unit(snapshot, "friendly_1", 2, Vector2(400, 500), "Assault Marines", 2, 6, 3,
+		["INFANTRY"], [_make_melee_weapon()], 4, 3, 1, 32, 40.0)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(540, 500), "Enemy Unit", 2, 6, 1)
+
+	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
+	var movements = result.get("movements", {})
+
+	_assert(movements.size() >= 2,
+		"Multiple models should move during consolidation (got %d)" % movements.size())
+
+	# Check that models end at different angles around the enemy
+	# This validates wrapping behavior (not all bunching up on near side)
+	var enemy_pos = Vector2(540, 500)
+	var angles = []
+	for model_idx_str in movements:
+		var new_pos = movements[model_idx_str]
+		var angle = (new_pos - enemy_pos).angle()
+		angles.append(angle)
+
+	if angles.size() >= 2:
+		# Check that the angular spread is at least 30 degrees (0.52 rad)
+		var min_angle = angles[0]
+		var max_angle = angles[0]
+		for a in angles:
+			if a < min_angle:
+				min_angle = a
+			if a > max_angle:
+				max_angle = a
+		var spread = max_angle - min_angle
+		_assert(spread > 0.5,
+			"Models should wrap at different angles (spread=%.2f rad, >0.5 expected)" % spread)
+	else:
+		_assert(false, "Need at least 2 moved models to test wrapping")
+
+
+func test_consolidate_tags_new_enemy_unit():
+	print("\n--- test_consolidate_tags_new_enemy_unit ---")
+	var snapshot = _create_test_snapshot()
+	# Place friendly unit with 2 models spread apart:
+	# Model 0 at (500,500) in base contact with enemy_1 at (526,500)
+	# Model 1 at (700,500) — closer to enemy_2 at (800,500) than enemy_1
+	# enemy_2 is NOT currently engaged — model 1 should tag it
+	_add_unit(snapshot, "friendly_1", 2, Vector2(500, 500), "Assault Marines", 2, 6, 2,
+		["INFANTRY"], [_make_melee_weapon()], 4, 3, 1, 32, 200.0)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(526, 500), "Enemy Engaged", 2, 6, 1)
+	_add_unit(snapshot, "enemy_2", 1, Vector2(800, 500), "Enemy Taggable", 2, 6, 1)
+
+	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
+	var movements = result.get("movements", {})
+
+	# Model 0 is in base contact with enemy_1, should hold.
+	# Model 1 at (700,500) — closest enemy is enemy_2 at (800,500) (~1.9" edge).
+	# enemy_2 is not engaged, so model 1 is tagging a new unit.
+	_assert(not movements.has("0"),
+		"Model 0 in base contact with enemy_1 should hold position")
+	_assert(movements.has("1"),
+		"Model 1 should move to tag new enemy unit")
+
+	if movements.has("1"):
+		var new_pos = movements["1"]
+		var old_pos = Vector2(700, 500)
+		var enemy2_pos = Vector2(800, 500)
+		_assert(new_pos.distance_to(enemy2_pos) < old_pos.distance_to(enemy2_pos),
+			"Model 1 should move closer to the taggable enemy unit")
+
+
+func test_consolidate_multiple_models_wrap_around_enemy():
+	print("\n--- test_consolidate_multiple_models_wrap_around_enemy ---")
+	var snapshot = _create_test_snapshot()
+	# 4 models approaching from the left, one enemy on the right
+	# Models should wrap around enemy (some going to far side)
+	# Friendly at (400,500) with 4 models spaced 30px apart
+	# Enemy at (520,500) — about 3" away for the closest model
+	_add_unit(snapshot, "friendly_1", 2, Vector2(400, 500), "Assault Marines", 2, 6, 4,
+		["INFANTRY"], [_make_melee_weapon()], 4, 3, 1, 32, 30.0)
+	_add_unit(snapshot, "enemy_1", 1, Vector2(520, 500), "Enemy Unit", 2, 6, 1)
+
+	var result = AIDecisionMaker._compute_consolidate_action(snapshot, "friendly_1", 2)
+	var movements = result.get("movements", {})
+
+	_assert(movements.size() >= 2,
+		"Multiple models should consolidate (got %d)" % movements.size())
+
+	# Verify all movements end closer to the enemy
+	var enemy_pos = Vector2(520, 500)
+	for model_idx_str in movements:
+		var model_idx = int(model_idx_str)
+		var old_pos = Vector2(400 + model_idx * 30.0, 500)
+		var new_pos = movements[model_idx_str]
+		_assert(new_pos.distance_to(enemy_pos) < old_pos.distance_to(enemy_pos),
+			"Model %s should end closer to enemy" % model_idx_str)
+
+		# Verify 3" limit
+		var move_dist_inches = old_pos.distance_to(new_pos) / 40.0
+		_assert(move_dist_inches <= 3.05,
+			"Model %s should respect 3\" limit (moved %.2f\")" % [model_idx_str, move_dist_inches])

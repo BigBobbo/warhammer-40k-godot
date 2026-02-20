@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-3 (2026-02-20): AI consolidation movement — Dedicated `_compute_consolidate_movements_engagement()` with wrapping (far-side angular distribution around enemies), tagging (prioritise unengaged enemy units within 4"), objective fallback. 37 tests pass (3 new). | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-2 |
 | T7-2 (2026-02-20): AI pile-in movement — Full pile-in movement via `_compute_pile_in_action()`/`_compute_pile_in_movements()`. 3" toward closest enemy, B2B skip, collision avoidance with friendly/enemy obstacle splitting (allows B2B contact with enemies). Consolidation engagement mode reuses pile-in logic. 28 tests pass. | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-1 |
 | T7-1 (2026-02-20): AI charge declarations — Full charge decision system: `_evaluate_best_charge()` with 2D6 probability, melee damage estimation, target scoring, objective bonuses, leader ability multipliers. `_compute_charge_move()` for B2B positioning and coherency. Fixed RulesEngine autoload dependency and SKIP_CHARGE handling. 36 tests pass. | Charge/AI | AI_AUDIT.md §AI-GAP-1, CHARGE-1–3 |
 | T5-V15 (2026-02-20): Mathhammer visual histogram — Replaced text-based histogram with graphical ColorRect bar chart; vertical bars (<=20 values) or horizontal bars (>20), color-coded by damage vs mean, auto-bucketing for wide ranges, percentage labels, legend | Mathhammer | MATHHAMMER_AUDIT, Code TODO |
@@ -962,12 +963,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** `_decide_fight()` sends empty `movements: {}` for PILE_IN actions. Implement 3" pile-in toward nearest enemy model, skip models already in B2B contact, maintain unit coherency.
 - **Resolution:** Full pile-in movement implemented via `_compute_pile_in_action()` and `_compute_pile_in_movements()`. Each model moves up to 3" toward closest enemy, models in B2B hold position, collision avoidance with spiral search, board boundary clamping. Fixed collision detection to split friendly/enemy obstacles — friendly models use 2px gap (prevent stacking), enemy models use -1px gap (allow B2B contact). Consolidation engagement mode reuses pile-in logic. 28 tests pass.
 
-### T7-3. AI consolidation movement — models never consolidate
+### T7-3. AI consolidation movement — models never consolidate — **DONE**
 - **Phase:** Fight
 - **Priority:** CRITICAL
 - **Source:** AI_AUDIT.md §AI-GAP-2, FIGHT-2
 - **Files:** `AIDecisionMaker.gd` — `_decide_fight()`
 - **Details:** Consolidation movements always empty. Implement 3" consolidation prioritizing: moving onto objectives, tagging new enemy units, wrapping enemies to prevent fall-back, maintaining coherency.
+- **Resolution:** Implemented dedicated `_compute_consolidate_movements_engagement()` replacing basic pile-in reuse. Enhanced with: (1) wrapping — models distribute around enemies at different angles (far-side priority) to block fall-back, (2) tagging — identifies and prioritises unengaged enemy units within 4" reach, (3) objectives — existing OBJECTIVE mode moves toward closest objective marker. Added `_angle_difference()` helper for angular spacing. 37 tests pass (3 new: wrapping distribution, tagging new units, multi-model wrap).
 
 ### T7-4. AI fall-back model positioning — fall-back doesn't move models
 - **Phase:** Movement
@@ -1410,9 +1412,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 2 | 56 | 58 |
-| **Total** | **102** | **84** | **186** |
-| **Recently Completed** | **122** | — | **122** |
+| Tier 7 — AI Player | 3 | 55 | 58 |
+| **Total** | **103** | **83** | **186** |
+| **Recently Completed** | **123** | — | **123** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
