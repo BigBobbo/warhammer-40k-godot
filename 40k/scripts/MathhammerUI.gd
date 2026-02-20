@@ -57,6 +57,11 @@ var tween: Tween
 # Background thread for simulation (T3-25)
 var _simulation_thread: Thread = null
 
+# Progress indicator UI elements (T5-MH7)
+var _progress_container: VBoxContainer = null
+var _progress_bar: ProgressBar = null
+var _progress_label: Label = null
+
 # Responsive sizing - viewport-relative panel dimensions (T5-MH6)
 var _viewport_size: Vector2 = Vector2(1280, 1024)  # Fallback default
 
@@ -306,7 +311,28 @@ func _create_content_sections() -> void:
 	compare_weapons_button.text = "Compare Weapons"
 	compare_weapons_button.tooltip_text = "Run separate simulations for each weapon and compare results side-by-side"
 	unit_selector.add_child(compare_weapons_button)
-	
+
+	# Progress indicator — hidden until simulation starts (T5-MH7)
+	_progress_container = VBoxContainer.new()
+	_progress_container.name = "ProgressContainer"
+	_progress_container.add_theme_constant_override("separation", 4)
+	_progress_container.visible = false
+	unit_selector.add_child(_progress_container)
+
+	_progress_label = Label.new()
+	_progress_label.text = "Simulating..."
+	_progress_label.add_theme_font_size_override("font_size", 11)
+	_progress_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.4))
+	_progress_container.add_child(_progress_label)
+
+	_progress_bar = ProgressBar.new()
+	_progress_bar.min_value = 0.0
+	_progress_bar.max_value = 100.0
+	_progress_bar.value = 0.0
+	_progress_bar.custom_minimum_size = Vector2(0, 18)
+	_progress_bar.show_percentage = false
+	_progress_container.add_child(_progress_bar)
+
 	# Add spacer before rule toggles
 	content_container.add_child(section_spacer1)
 	
@@ -1130,6 +1156,10 @@ func _run_simulation_async(config: Dictionary) -> void:
 
 	run_simulation_button.disabled = true
 	run_simulation_button.text = "Running..."
+	compare_weapons_button.disabled = true
+
+	# Show progress indicator (T5-MH7)
+	_show_progress("Simulating... 0 / %d trials" % int(config.get("trials", 10000)), 0.0)
 
 	# Run simulation on a background thread to avoid freezing the UI (T3-25)
 	print("MathhammerUI: Starting simulation on background thread...")
@@ -1139,7 +1169,8 @@ func _run_simulation_async(config: Dictionary) -> void:
 func _simulation_thread_func(config: Dictionary) -> void:
 	# This runs on a background thread — no UI access allowed here
 	print("MathhammerUI: Background thread started, running simulation...")
-	var result = Mathhammer.simulate_combat(config)
+	var progress_cb = _create_progress_callback()
+	var result = Mathhammer.simulate_combat(config, progress_cb)
 	print("MathhammerUI: Background thread simulation complete, result type: %s" % typeof(result))
 	# Defer UI update back to the main thread
 	call_deferred("_on_simulation_completed", result)
@@ -1153,6 +1184,9 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 		_simulation_thread.wait_to_finish()
 		print("MathhammerUI: Background thread joined successfully")
 
+	# Hide progress indicator (T5-MH7)
+	_hide_progress()
+
 	current_simulation_result = result
 
 	# Update UI with results
@@ -1162,6 +1196,7 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
+	compare_weapons_button.disabled = false
 
 func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
 	print("MathhammerUI: _display_simulation_results called")
@@ -1717,6 +1752,9 @@ func _run_weapon_comparison_async(configs: Array) -> void:
 	compare_weapons_button.disabled = true
 	compare_weapons_button.text = "Comparing..."
 
+	# Show progress indicator for comparison (T5-MH7)
+	_show_progress("Comparing weapons... 0 / %d" % configs.size(), 0.0)
+
 	print("MathhammerUI: Starting weapon comparison on background thread...")
 	_simulation_thread = Thread.new()
 	_simulation_thread.start(_weapon_comparison_thread_func.bind(configs))
@@ -1724,9 +1762,13 @@ func _run_weapon_comparison_async(configs: Array) -> void:
 func _weapon_comparison_thread_func(configs: Array) -> void:
 	print("MathhammerUI: Comparison thread started, running %d simulations..." % configs.size())
 	var results = []
-	for i in range(configs.size()):
+	var total_weapons = configs.size()
+	for i in range(total_weapons):
 		var entry = configs[i]
-		print("MathhammerUI: Running comparison simulation %d/%d: %s" % [i + 1, configs.size(), entry.weapon_name])
+		print("MathhammerUI: Running comparison simulation %d/%d: %s" % [i + 1, total_weapons, entry.weapon_name])
+		# Update progress for each weapon in comparison (T5-MH7)
+		var pct = float(i) / float(total_weapons) * 100.0
+		call_deferred("_update_progress", "Comparing: %s (%d/%d)" % [entry.weapon_name, i + 1, total_weapons], pct)
 		var result = Mathhammer.simulate_combat(entry.config)
 		results.append({
 			"weapon_name": entry.weapon_name,
@@ -1742,6 +1784,9 @@ func _on_weapon_comparison_completed(results: Array) -> void:
 	if _simulation_thread != null and _simulation_thread.is_started():
 		_simulation_thread.wait_to_finish()
 		print("MathhammerUI: Comparison background thread joined successfully")
+
+	# Hide progress indicator (T5-MH7)
+	_hide_progress()
 
 	_display_comparison_results(results)
 
@@ -1950,6 +1995,41 @@ func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) ->
 					title_label.text = "Cumulative Probability — %s" % weapon_name
 
 	print("MathhammerUI: Populated comparison breakdown panel")
+
+# --- Progress indicator helpers (T5-MH7) ---
+
+# Create a Callable that the background thread can use to report progress.
+# The callback uses call_deferred so it's safe from non-main threads.
+func _create_progress_callback() -> Callable:
+	return func(current_trial: int, total_trials: int) -> void:
+		var pct = float(current_trial) / float(total_trials) * 100.0
+		var text = "Simulating... %d / %d trials" % [current_trial, total_trials]
+		call_deferred("_update_progress", text, pct)
+
+func _show_progress(text: String, percentage: float) -> void:
+	if _progress_container:
+		_progress_container.visible = true
+	if _progress_label:
+		_progress_label.text = text
+	if _progress_bar:
+		_progress_bar.value = percentage
+	print("MathhammerUI: Progress shown — %s (%.0f%%)" % [text, percentage])
+
+func _update_progress(text: String, percentage: float) -> void:
+	# Called on main thread via call_deferred from background thread
+	if _progress_label:
+		_progress_label.text = text
+	if _progress_bar:
+		_progress_bar.value = percentage
+
+func _hide_progress() -> void:
+	if _progress_container:
+		_progress_container.visible = false
+	if _progress_bar:
+		_progress_bar.value = 0.0
+	print("MathhammerUI: Progress hidden")
+
+# --- End progress indicator helpers ---
 
 func _show_error(message: String) -> void:
 	print("MathhammerUI Error: ", message)

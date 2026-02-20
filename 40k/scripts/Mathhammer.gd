@@ -33,37 +33,47 @@ class SimulationResult:
 		return sorted_damage[min(index, sorted_damage.size() - 1)]
 
 # Main simulation entry point
-static func simulate_combat(config: Dictionary) -> SimulationResult:
+# progress_callback: Optional Callable that receives (current_trial: int, total_trials: int)
+# Called periodically from the simulation loop to report progress.
+static func simulate_combat(config: Dictionary, progress_callback: Callable = Callable()) -> SimulationResult:
 	var trials = clamp(config.get("trials", DEFAULT_TRIALS), MIN_TRIALS, MAX_TRIALS)
 	var attackers = config.get("attackers", [])
 	var defender = config.get("defender", {})
 	var rule_toggles = config.get("rule_toggles", {})
 	var phase = config.get("phase", "shooting")
 	var seed_value = config.get("seed", -1)
-	
+
 	if attackers.is_empty() or defender.is_empty():
 		push_error("Mathhammer: Missing attackers or defender in simulation config")
 		return SimulationResult.new()
-	
+
 	var result = SimulationResult.new()
 	result.trials_run = trials
-	
+
 	# Initialize RNG with seed for reproducible results
 	var rng = RulesEngine.RNGService.new(seed_value)
-	
+
+	# Progress reporting interval: report every ~2% or every 100 trials, whichever is larger
+	var has_progress_callback = progress_callback.is_valid()
+	var progress_interval = max(100, int(trials * 0.02))
+
 	# Run Monte Carlo simulation
 	for trial in range(trials):
 		var trial_result = _run_single_trial(attackers, defender, phase, rule_toggles, rng)
 		result.detailed_trials.append(trial_result)
 		result.total_damage += trial_result.damage
-		
+
 		# Update damage distribution histogram
 		var damage_key = str(trial_result.damage)
 		result.damage_distribution[damage_key] = result.damage_distribution.get(damage_key, 0) + 1
-		
+
 		# Track kills for probability calculation
 		if trial_result.models_killed >= _get_total_models(defender):
 			result.kill_probability += 1.0
+
+		# Report progress periodically (T5-MH7)
+		if has_progress_callback and (trial + 1) % progress_interval == 0:
+			progress_callback.call(trial + 1, trials)
 	
 	# Calculate final statistics
 	result.kill_probability /= trials
