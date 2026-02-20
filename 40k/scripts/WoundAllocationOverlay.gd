@@ -6,6 +6,7 @@ class_name WoundAllocationOverlay
 
 # Preload scripts at class level (REQUIRED for instantiation to work)
 const WoundAllocationBoardHighlightsScript = preload("res://scripts/WoundAllocationBoardHighlights.gd")
+const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T5-V4
 
 # Signals for state changes
 signal wound_allocated(model_id: String, wound_index: int)
@@ -28,6 +29,7 @@ var has_precision: bool = false
 var board_view: Node2D
 var target_unit: Dictionary
 var board_highlighter: WoundAllocationBoardHighlights
+var damage_feedback: Node2D  # T5-V4: DamageFeedbackVisual — damage flash + death animation
 
 # UI Nodes
 var overlay_panel: PanelContainer
@@ -92,6 +94,11 @@ func _ready() -> void:
 	if board_view:
 		board_view.add_child(board_highlighter)
 		print("WoundAllocationOverlay: [READY STEP 10] Board highlighter created and added to BoardView")
+		# T5-V4: Create damage feedback visual for flash + death animations
+		damage_feedback = DamageFeedbackVisualScript.new()
+		damage_feedback.name = "DamageFeedback"
+		board_view.add_child(damage_feedback)
+		print("WoundAllocationOverlay: [READY STEP 10b] DamageFeedbackVisual created and added to BoardView")
 	else:
 		print("WoundAllocationOverlay: [READY STEP 10] WARNING - board_view is null, cannot add highlighter")
 
@@ -992,21 +999,19 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	)
 	print("WoundAllocationOverlay: ✅ create_death_marker() call completed")
 
-	# ENHANCEMENT 2: Flash effect (yellow, temporary)
-	print("╔══════════════════════════════════════════════════════════════════")
-	print("║ Creating YELLOW FLASH (for comparison with death marker)")
-	print("╚══════════════════════════════════════════════════════════════════")
-	print("WoundAllocationOverlay: Creating yellow flash effect...")
-	print("  - Position: ", model_pos)
-	print("  - Base size: ", base_mm)
-	print("  - Type: SELECTED (yellow)")
-	board_highlighter.create_highlight(
-		model_pos,
-		base_mm,
-		WoundAllocationBoardHighlights.HighlightType.SELECTED  # Yellow flash
-	)
-	print("WoundAllocationOverlay: ✅ Flash effect created")
-	print("WoundAllocationOverlay: ⚠ QUESTION: Can you see a YELLOW FLASH on screen? (This uses the same system as death markers)")
+	# T5-V4: Play death animation (expanding ring + particles + skull)
+	var base_px = Measurement.base_radius_px(base_mm)
+	if damage_feedback and is_instance_valid(damage_feedback):
+		damage_feedback.play_death_animation(model_pos, base_px)
+		print("WoundAllocationOverlay: T5-V4 death animation played for model %s" % model_id)
+	else:
+		# Fallback: yellow flash from board highlighter
+		board_highlighter.create_highlight(
+			model_pos,
+			base_mm,
+			WoundAllocationBoardHighlights.HighlightType.SELECTED
+		)
+		print("WoundAllocationOverlay: T5-V4 fallback yellow flash created (no damage_feedback)")
 
 	# ENHANCEMENT 3: Trigger board to hide the model token
 	print("WoundAllocationOverlay: Calling _hide_destroyed_model_token()...")
@@ -1019,7 +1024,7 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	print("╚══════════════════════════════════════════════════════════════════")
 
 func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: int) -> void:
-	"""Show visual effect when a model takes damage"""
+	"""Show visual effect when a model takes damage — T5-V4 damage flash"""
 	if not board_highlighter:
 		return
 
@@ -1027,14 +1032,46 @@ func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: 
 	if model_pos == Vector2.ZERO:
 		return
 
-	# Flash the model briefly to show damage taken
 	var max_wounds = model.get("wounds", 1)
-	var wound_percentage = float(new_wounds) / float(max_wounds)
-
-	# Color based on remaining wounds (red = low, yellow = medium, green = high)
-	var flash_color = Color(1.0, wound_percentage, 0.0, 0.7)  # Red to yellow gradient
+	var base_mm = model.get("base_mm", 32)
+	var base_px = Measurement.base_radius_px(base_mm)
+	var damage_taken = max_wounds - new_wounds
 
 	print("WoundAllocationOverlay: ⚡ Model %s took damage - %d/%d wounds remaining" % [model_id, new_wounds, max_wounds])
+
+	# T5-V4: Play damage flash effect
+	if damage_feedback and is_instance_valid(damage_feedback):
+		damage_feedback.play_damage_flash(model_pos, base_px, damage_taken, max_wounds)
+		print("WoundAllocationOverlay: T5-V4 damage flash played for model %s" % model_id)
+
+	# Also flash the token itself (modulate tween on the TokenVisual)
+	_flash_model_token(model_id)
+
+func _flash_model_token(model_id: String) -> void:
+	"""T5-V4: Flash the actual TokenVisual node red briefly to show damage taken."""
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	var target_unit_id = save_data.get("target_unit_id", "")
+	# For composite character IDs like "unit_id:model_id", use the unit part
+	var search_unit_id = target_unit_id
+	var search_model_id = model_id
+	if ":" in model_id:
+		var parts = model_id.split(":")
+		search_unit_id = parts[0]
+		search_model_id = parts[1]
+
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and child.has_meta("model_id"):
+			if child.get_meta("unit_id") == search_unit_id and child.get_meta("model_id") == search_model_id:
+				# Found the token — flash it red using modulate tween
+				var original_modulate = child.modulate
+				var flash_tween = child.create_tween()
+				flash_tween.tween_property(child, "modulate", Color(1.5, 0.3, 0.3, 1.0), 0.08)
+				flash_tween.tween_property(child, "modulate", original_modulate, 0.32)
+				print("WoundAllocationOverlay: T5-V4 token flash for %s:%s" % [search_unit_id, search_model_id])
+				break
 
 func _hide_destroyed_model_token(model_id: String) -> void:
 	"""Hide the visual token for a destroyed model"""

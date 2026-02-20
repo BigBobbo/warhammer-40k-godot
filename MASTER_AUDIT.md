@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V4: Target unit damage feedback — DamageFeedbackVisual.gd with red damage flash, death expanding ring + debris particles + skull marker, token modulate flash, death fade-out animation | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-V3: Phase transition animation banners — PhaseTransitionBanner.gd with slide-in/out animation, phase icons, round/player info, WhiteDwarf gothic theme | All Phases | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-V2: Shooting line animation and tracer effects — ShootingLineVisual.gd with muzzle flash, traveling tracer, impact flash, animated line draw for local/remote players | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T5-V1: Animated dice roll visualization — DiceRollVisual.gd with cycling animation, color-coded dice (gold 6s, red 1s, green success, gray fail), integrated into Shooting/Fight/Charge controllers | Shooting/Fight/Charge | SHOOTING_PHASE_AUDIT.md §Tier 3 |
@@ -839,7 +840,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Created `ShootingLineVisual.gd` — animated shooting line with muzzle flash, traveling tracer pulse, and impact flash effects. Line extends from shooter to target with configurable timing. Integrated into `ShootingController.gd` for both local player (animated tracer on shooting_begun) and remote player (static line on target assignment). Replaces old plain Line2D shooting lines with the animated visual. Auto-fades after hold duration; cleaned up on shooting_resolved.
 - T5-V3. Phase transition animation banners (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Created `PhaseTransitionBanner.gd` — an animated banner that slides in from the top of the screen when phases change. Shows phase name with unicode icons, round number, and active player. Uses WhiteDwarf gothic theme with gold accent borders. Slide-in with TRANS_BACK easing, holds 1.5s, then slides out with fade. Integrated into `Main._on_phase_changed()` for all phases.
-- T5-V4. Target unit damage feedback (flash + death animation) (SHOOTING_PHASE_AUDIT.md §Additional)
+- T5-V4. Target unit damage feedback (flash + death animation) (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
+  - **Resolution:** Created `DamageFeedbackVisual.gd` — a Node2D that provides animated damage feedback effects. Damage flash: red tint pulse with expanding rings on model position, intensity scaled by damage ratio. Death animation: expanding red ring with debris particles and skull marker fade-in. Integrated into `WoundAllocationOverlay.gd` for interactive save resolution (both damage and death paths). Token flash effect via modulate tween on the actual TokenVisual. Death fade-out animation in `Main.update_unit_visuals()` — white flash then fade to transparent instead of instant hide.
 - T5-V5. Range circle visualization for weapons (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V6. Wound allocation overlay enhancements (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V7. Weapon keyword icons in UI (SHOOTING_PHASE_AUDIT.md §Additional)
@@ -931,10 +933,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 30 | 21 | 51 |
+| Tier 5 — QoL/Visual | 31 | 20 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **88** | **40** | **128** |
-| **Recently Completed** | **110** | — | **110** |
+| **Total Open** | **89** | **39** | **128** |
+| **Recently Completed** | **111** | — | **111** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---

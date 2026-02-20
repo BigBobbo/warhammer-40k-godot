@@ -3849,15 +3849,18 @@ func update_unit_visuals(unit_id: String) -> void:
 				token.visible = true
 				print("  - ✅ Model alive → token.visible = true")
 			else:
-				# Model is dead → hide token
-				token.visible = false
+				# T5-V4: Fade-out death animation instead of instant hide
+				if token.visible:
+					_animate_token_death(token, unit_id, model_id)
+				else:
+					token.visible = false
 				tokens_hidden += 1
 				print("╔══════════════════════════════════════════════════════════════════")
 				print("║ ✅ 💀 MODEL TOKEN HIDDEN")
 				print("║ Unit: ", unit_id)
 				print("║ Model: ", model_id)
 				print("║ Token path: ", token.get_path())
-				print("║ Token visible: false")
+				print("║ Token visible: false (with fade animation)")
 				print("╚══════════════════════════════════════════════════════════════════")
 
 			tokens_updated += 1
@@ -3882,6 +3885,20 @@ func refresh_all_model_visuals() -> void:
 		update_unit_visuals(unit_id)
 
 	print("Main: Refreshed all model visuals")
+
+func _animate_token_death(token: Node2D, unit_id: String, model_id: String) -> void:
+	"""T5-V4: Animate token death — flash white then fade to invisible."""
+	print("Main: T5-V4 death fade animation for %s:%s" % [unit_id, model_id])
+	var death_tween = token.create_tween()
+	# Flash white briefly
+	death_tween.tween_property(token, "modulate", Color(2.0, 1.5, 1.5, 1.0), 0.1)
+	# Fade out to transparent
+	death_tween.tween_property(token, "modulate", Color(0.5, 0.1, 0.1, 0.0), 0.4).set_ease(Tween.EASE_IN)
+	# Hide and reset modulate after fade completes
+	death_tween.tween_callback(func():
+		token.visible = false
+		token.modulate = Color.WHITE
+	)
 
 func _debug_load_system():
 	print("\n=== Quick Load Debug ===")
