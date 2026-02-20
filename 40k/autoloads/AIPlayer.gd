@@ -543,6 +543,13 @@ func _execute_next_action(player: int) -> void:
 				print("AIPlayer: Emitting ai_unit_deployed for %s (player %d)" % [deployed_unit_id, player])
 				emit_signal("ai_unit_deployed", player, deployed_unit_id)
 
+		# T7-16: Emit signal for reinforcement arrivals so Main.gd creates visuals
+		elif decision.get("type") == "PLACE_REINFORCEMENT":
+			var reinforced_unit_id = decision.get("unit_id", "")
+			if reinforced_unit_id != "":
+				print("AIPlayer: Emitting ai_unit_deployed for reinforcement %s (player %d)" % [reinforced_unit_id, player])
+				emit_signal("ai_unit_deployed", player, reinforced_unit_id)
+
 		# Handle multi-step movement: BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, or BEGIN_FALL_BACK with pre-computed destinations
 		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
 			_execute_ai_movement(player, decision)
