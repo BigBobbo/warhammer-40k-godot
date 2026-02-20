@@ -687,6 +687,14 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"_ai_description": "Confirmed move"
 		}
 
+	# Step 1.5: Deploy reserves (reinforcements) before normal movement (MOV-8 / T7-16)
+	# From Battle Round 2+, units in reserves can arrive on the battlefield.
+	# Deploy them before moving other units so they participate in the turn.
+	if action_types.has("PLACE_REINFORCEMENT"):
+		var reinforcement_decision = _decide_reserves_arrival(snapshot, action_types["PLACE_REINFORCEMENT"], player)
+		if not reinforcement_decision.is_empty():
+			return reinforcement_decision
+
 	# Step 2: Check if any unit can begin moving
 	var begin_types = ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]
 	var can_begin = false
@@ -941,6 +949,465 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			}
 
 	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase"}
+
+# =============================================================================
+# RESERVES ARRIVAL (T7-16 / MOV-8)
+# =============================================================================
+
+static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions: Array, player: int) -> Dictionary:
+	"""Decide which reserve unit to deploy and where to place it.
+	Called during the movement phase from Round 2+ when PLACE_REINFORCEMENT actions are available."""
+	var battle_round = snapshot.get("battle_round", 1)
+	var objectives = _get_objectives(snapshot)
+	var enemies = _get_enemy_units(snapshot, player)
+
+	print("AIDecisionMaker: [RESERVES] Evaluating %d units in reserves for deployment (Round %d)" % [reinforcement_actions.size(), battle_round])
+
+	# Build enemy model positions for distance checks
+	var enemy_model_positions = _get_enemy_model_positions_from_snapshot(snapshot, player)
+
+	# Score each reserve unit for deployment priority
+	var scored_units = []
+	for action in reinforcement_actions:
+		var unit_id = action.get("unit_id", "")
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var reserve_type = unit.get("reserve_type", "strategic_reserves")
+		var points = int(unit.get("meta", {}).get("points", 0))
+
+		# Calculate deployment priority score
+		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, player, battle_round)
+
+		print("AIDecisionMaker: [RESERVES]   %s (%s, %dpts) — deployment score: %.1f" % [unit_name, reserve_type, points, score])
+
+		scored_units.append({
+			"unit_id": unit_id,
+			"unit": unit,
+			"reserve_type": reserve_type,
+			"score": score,
+			"name": unit_name
+		})
+
+	# Sort by score (highest first)
+	scored_units.sort_custom(func(a, b): return a.score > b.score)
+
+	# Try to deploy the highest-priority unit
+	for candidate in scored_units:
+		var unit_id = candidate.unit_id
+		var unit = candidate.unit
+		var reserve_type = candidate.reserve_type
+		var unit_name = candidate.name
+
+		# Compute valid placement positions
+		var positions = _compute_reinforcement_positions(
+			unit, unit_id, reserve_type, snapshot, player, objectives, enemies, enemy_model_positions, battle_round
+		)
+
+		if positions.is_empty():
+			print("AIDecisionMaker: [RESERVES]   %s — no valid placement found, skipping" % unit_name)
+			continue
+
+		# Generate model formation around the chosen centroid
+		var models = unit.get("models", [])
+		var alive_count = 0
+		for m in models:
+			if m.get("alive", true):
+				alive_count += 1
+
+		var first_model = models[0] if models.size() > 0 else {}
+		var base_mm = first_model.get("base_mm", 32)
+		var base_type = first_model.get("base_type", "circular")
+		var base_dimensions = first_model.get("base_dimensions", {})
+
+		# Use a generous zone bounds for formation generation (the whole board minus margins)
+		var placement_bounds = _get_reinforcement_zone_bounds(reserve_type, player, snapshot, battle_round)
+		var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
+
+		# Resolve collisions with existing models
+		var deployed_models = _get_all_deployed_model_positions(snapshot)
+		model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+
+		# Validate all positions satisfy the 9" enemy distance rule
+		var all_valid = true
+		for pos in model_positions:
+			if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
+				all_valid = false
+				break
+
+		if not all_valid:
+			# Try alternate positions from our candidate list
+			var found_valid = false
+			for pi in range(1, positions.size()):
+				model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
+				model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+				var valid = true
+				for pos in model_positions:
+					if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
+						valid = false
+						break
+				if valid:
+					found_valid = true
+					break
+			if not found_valid:
+				print("AIDecisionMaker: [RESERVES]   %s — no valid formation placement, skipping" % unit_name)
+				continue
+
+		# Build the full model_positions array (including dead models as null)
+		var full_positions = []
+		var alive_idx = 0
+		for i in range(models.size()):
+			if models[i].get("alive", true) and alive_idx < model_positions.size():
+				full_positions.append(model_positions[alive_idx])
+				alive_idx += 1
+			else:
+				full_positions.append(null)
+
+		var rotations = []
+		for i in range(models.size()):
+			rotations.append(0.0)
+
+		var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+		print("AIDecisionMaker: [RESERVES] Deploying %s via %s at (%.0f, %.0f)" % [
+			unit_name, type_label, positions[0].x, positions[0].y])
+
+		return {
+			"type": "PLACE_REINFORCEMENT",
+			"unit_id": unit_id,
+			"model_positions": full_positions,
+			"model_rotations": rotations,
+			"_ai_description": "%s arrives from %s" % [unit_name, type_label]
+		}
+
+	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
+	return {}
+
+static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserve_type: String,
+		objectives: Array, enemies: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> float:
+	"""Score how urgently a reserve unit should be deployed.
+	Higher score = deploy sooner."""
+	var score = 0.0
+	var points = int(unit.get("meta", {}).get("points", 0))
+	var has_ranged = _unit_has_ranged_weapons(unit)
+	var has_melee = _unit_has_melee_weapons(unit)
+
+	# Base priority: more expensive units are more impactful
+	score += points / 50.0
+
+	# Deep strike units get a slight priority (they can be placed more flexibly)
+	if reserve_type == "deep_strike":
+		score += 2.0
+
+	# Melee units benefit from arriving to charge next turn
+	if has_melee:
+		score += 1.5
+
+	# Ranged units benefit from shooting immediately after arrival
+	if has_ranged:
+		score += 1.0
+
+	# Round urgency: later rounds increase urgency (must deploy by Round 5 or lose the unit)
+	if battle_round >= 4:
+		score += 5.0  # Critical — last chance on Round 5
+	elif battle_round >= 3:
+		score += 2.0
+
+	# Check if there are contested objectives that need reinforcement
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var obj_evaluations = _evaluate_all_objectives(snapshot, objectives, player, enemies, friendly_units, battle_round)
+	for eval in obj_evaluations:
+		var obj_state = eval.get("state", "")
+		if obj_state in ["contested", "enemy_held"]:
+			score += 1.5  # Contested objectives benefit from reinforcement
+		elif obj_state == "uncontested":
+			score += 0.5
+
+	return score
+
+static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, reserve_type: String,
+		snapshot: Dictionary, player: int, objectives: Array, enemies: Dictionary,
+		enemy_model_positions: Array, battle_round: int) -> Array:
+	"""Compute candidate centroid positions for placing a reserve unit.
+	Returns an array of Vector2 positions sorted by tactical value (best first)."""
+	var candidates = []
+	var first_model = unit.get("models", [{}])[0]
+	var base_mm = first_model.get("base_mm", 32)
+	# Conservative radius check: 9" + own base radius (in pixels)
+	var base_radius_px = (base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+	var min_enemy_dist_px = 9.0 * PIXELS_PER_INCH + base_radius_px + 25.0  # 25px (~0.6") extra buffer for enemy bases
+
+	if reserve_type == "strategic_reserves":
+		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round)
+	else:
+		# Deep strike: can be placed anywhere on the board >9" from enemies
+		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px)
+
+	return candidates
+
+static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player: int,
+		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
+		min_enemy_dist_px: float, battle_round: int) -> Array:
+	"""Generate candidate positions for strategic reserves (within 6\" of board edge)."""
+	var candidates = []
+	var edge_margin_px = 3.0 * PIXELS_PER_INCH  # Place 3" from edge (safely within the 6" limit)
+	var step_px = 4.0 * PIXELS_PER_INCH  # Sample every 4 inches along the edge
+
+	# Get opponent's deployment zone for Turn 2 restriction
+	var opponent_zone_poly = []
+	if battle_round == 2:
+		var opponent = 3 - player
+		var zones = snapshot.get("board", {}).get("deployment_zones", [])
+		for zone in zones:
+			if zone.get("player", 0) == opponent:
+				var poly = zone.get("poly", zone.get("vertices", []))
+				for v in poly:
+					if v is Dictionary and v.has("x") and v.has("y"):
+						# Convert from inches to pixels for point-in-polygon check
+						opponent_zone_poly.append(Vector2(float(v.x) * PIXELS_PER_INCH, float(v.y) * PIXELS_PER_INCH))
+
+	# Sample along all 4 board edges
+	# Left edge (x = edge_margin)
+	var x = edge_margin_px
+	var y = edge_margin_px
+	while y < BOARD_HEIGHT_PX - edge_margin_px:
+		var pos = Vector2(x, y)
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+			candidates.append(pos)
+		y += step_px
+
+	# Right edge (x = BOARD_WIDTH - edge_margin)
+	x = BOARD_WIDTH_PX - edge_margin_px
+	y = edge_margin_px
+	while y < BOARD_HEIGHT_PX - edge_margin_px:
+		var pos = Vector2(x, y)
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+			candidates.append(pos)
+		y += step_px
+
+	# Top edge (y = edge_margin)
+	y = edge_margin_px
+	x = edge_margin_px
+	while x < BOARD_WIDTH_PX - edge_margin_px:
+		var pos = Vector2(x, y)
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+			candidates.append(pos)
+		x += step_px
+
+	# Bottom edge (y = BOARD_HEIGHT - edge_margin)
+	y = BOARD_HEIGHT_PX - edge_margin_px
+	x = edge_margin_px
+	while x < BOARD_WIDTH_PX - edge_margin_px:
+		var pos = Vector2(x, y)
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+			candidates.append(pos)
+		x += step_px
+
+	# Score candidates by objective proximity and tactical value
+	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies)
+
+	print("AIDecisionMaker: [RESERVES] Found %d valid strategic reserves positions" % candidates.size())
+	return candidates
+
+static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
+		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
+		min_enemy_dist_px: float) -> Array:
+	"""Generate candidate positions for deep strike (anywhere on the board >9\" from enemies)."""
+	var candidates = []
+	var step_px = 4.0 * PIXELS_PER_INCH  # Sample every 4 inches
+
+	# First: generate candidates near objectives (preferred)
+	for obj_pos in objectives:
+		# Ring of positions around objectives at various distances
+		for dist_inches in [10.0, 12.0, 15.0]:
+			var dist_px = dist_inches * PIXELS_PER_INCH
+			for angle_deg in range(0, 360, 30):
+				var angle_rad = deg_to_rad(float(angle_deg))
+				var pos = obj_pos + Vector2(cos(angle_rad), sin(angle_rad)) * dist_px
+				pos.x = clamp(pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+				pos.y = clamp(pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+				if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, []):
+					candidates.append(pos)
+
+	# Second: grid sampling across the board for additional coverage
+	var x = BASE_MARGIN_PX + step_px
+	while x < BOARD_WIDTH_PX - BASE_MARGIN_PX:
+		var y = BASE_MARGIN_PX + step_px
+		while y < BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			var pos = Vector2(x, y)
+			if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, []):
+				candidates.append(pos)
+			y += step_px
+		x += step_px
+
+	# Score and sort candidates
+	candidates = _score_and_sort_reinforcement_candidates(candidates, objectives, enemies)
+
+	print("AIDecisionMaker: [RESERVES] Found %d valid deep strike positions" % candidates.size())
+	return candidates
+
+static func _is_candidate_position_valid(pos: Vector2, enemy_model_positions: Array,
+		min_enemy_dist_px: float, opponent_zone_poly: Array) -> bool:
+	"""Check if a candidate centroid position is valid for reinforcement placement."""
+	# Must be on the board
+	if pos.x < BASE_MARGIN_PX or pos.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+		return false
+	if pos.y < BASE_MARGIN_PX or pos.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+		return false
+
+	# Must be >9" from all enemy models (using conservative buffer)
+	for enemy in enemy_model_positions:
+		if pos.distance_to(enemy.position) < min_enemy_dist_px:
+			return false
+
+	# Turn 2 strategic reserves: cannot be in opponent's deployment zone
+	if not opponent_zone_poly.is_empty():
+		var packed = PackedVector2Array(opponent_zone_poly)
+		if Geometry2D.is_point_in_polygon(pos, packed):
+			return false
+
+	return true
+
+static func _score_and_sort_reinforcement_candidates(candidates: Array, objectives: Array, enemies: Dictionary) -> Array:
+	"""Score reinforcement candidate positions by tactical value and sort (best first)."""
+	var scored = []
+	for pos in candidates:
+		var score = 0.0
+
+		# Closer to objectives = better (but not TOO close — we want control range)
+		var min_obj_dist = INF
+		for obj_pos in objectives:
+			var dist = pos.distance_to(obj_pos)
+			if dist < min_obj_dist:
+				min_obj_dist = dist
+		if min_obj_dist < INF:
+			# Best score at ~3-6" from objective (control range)
+			var dist_inches = min_obj_dist / PIXELS_PER_INCH
+			if dist_inches <= 6.0:
+				score += 10.0 - dist_inches  # Close to objective is great
+			else:
+				score += max(0.0, 8.0 - dist_inches * 0.3)  # Diminishing returns further out
+
+		# Near enemy units = good for melee threats, but also risky
+		var min_enemy_dist = INF
+		for eid in enemies:
+			var ec = _get_unit_centroid(enemies[eid])
+			if ec != Vector2.INF:
+				var dist = pos.distance_to(ec)
+				if dist < min_enemy_dist:
+					min_enemy_dist = dist
+		if min_enemy_dist < INF:
+			var enemy_inches = min_enemy_dist / PIXELS_PER_INCH
+			# Sweet spot: 10-15" from enemies (can shoot, hard to charge immediately)
+			if enemy_inches >= 10.0 and enemy_inches <= 15.0:
+				score += 3.0
+			elif enemy_inches >= 9.0 and enemy_inches < 10.0:
+				score += 2.0  # Just out of charge range, decent
+
+		scored.append({"pos": pos, "score": score})
+
+	scored.sort_custom(func(a, b): return a.score > b.score)
+
+	var result = []
+	for s in scored:
+		result.append(s.pos)
+	return result
+
+static func _get_enemy_model_positions_from_snapshot(snapshot: Dictionary, player: int) -> Array:
+	"""Get all enemy model positions from snapshot for distance checks.
+	Returns array of {position: Vector2, base_mm: int}."""
+	var positions = []
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if unit.get("owner", 0) == player:
+			continue
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos_data = model.get("position", null)
+			if pos_data == null:
+				continue
+			var pos: Vector2
+			if pos_data is Vector2:
+				pos = pos_data
+			else:
+				pos = Vector2(float(pos_data.get("x", 0)), float(pos_data.get("y", 0)))
+			positions.append({
+				"position": pos,
+				"base_mm": model.get("base_mm", 32)
+			})
+	return positions
+
+static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
+		enemy_model_positions: Array, reserve_type: String,
+		placement_bounds: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> bool:
+	"""Validate a single model position for reinforcement placement."""
+	# Must be on the board
+	if pos.x < BASE_MARGIN_PX or pos.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+		return false
+	if pos.y < BASE_MARGIN_PX or pos.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+		return false
+
+	# Must be >9" from all enemy models (edge-to-edge)
+	var model_radius_inches = (base_mm / 2.0) / 25.4
+	for enemy in enemy_model_positions:
+		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+		var dist_px = pos.distance_to(enemy.position)
+		var dist_inches = dist_px / PIXELS_PER_INCH
+		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+		if edge_dist < 9.0:
+			return false
+
+	# Strategic reserves: must be within 6" of a board edge
+	if reserve_type == "strategic_reserves":
+		var pos_inches_x = pos.x / PIXELS_PER_INCH
+		var pos_inches_y = pos.y / PIXELS_PER_INCH
+		var board_w = BOARD_WIDTH_PX / PIXELS_PER_INCH
+		var board_h = BOARD_HEIGHT_PX / PIXELS_PER_INCH
+		var dist_to_edge = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
+		if dist_to_edge > 6.0:
+			return false
+
+		# Turn 2: cannot be in opponent's deployment zone
+		if battle_round == 2:
+			var opponent = 3 - player
+			var zones = snapshot.get("board", {}).get("deployment_zones", [])
+			for zone in zones:
+				if zone.get("player", 0) == opponent:
+					var poly = zone.get("poly", zone.get("vertices", []))
+					var packed = PackedVector2Array()
+					for v in poly:
+						if v is Dictionary and v.has("x") and v.has("y"):
+							packed.append(Vector2(float(v.x) * PIXELS_PER_INCH, float(v.y) * PIXELS_PER_INCH))
+					if not packed.is_empty() and Geometry2D.is_point_in_polygon(pos, packed):
+						return false
+
+	return true
+
+static func _get_reinforcement_zone_bounds(reserve_type: String, player: int,
+		snapshot: Dictionary, battle_round: int) -> Dictionary:
+	"""Get zone bounds for formation generation during reinforcement placement."""
+	if reserve_type == "strategic_reserves":
+		# Strategic reserves must be within 6" of a board edge, so use the full board
+		# but the formation generator will place models close together near the centroid
+		return {
+			"min_x": BASE_MARGIN_PX,
+			"max_x": BOARD_WIDTH_PX - BASE_MARGIN_PX,
+			"min_y": BASE_MARGIN_PX,
+			"max_y": BOARD_HEIGHT_PX - BASE_MARGIN_PX
+		}
+	else:
+		# Deep strike: anywhere on the board
+		return {
+			"min_x": BASE_MARGIN_PX,
+			"max_x": BOARD_WIDTH_PX - BASE_MARGIN_PX,
+			"min_y": BASE_MARGIN_PX,
+			"max_y": BOARD_HEIGHT_PX - BASE_MARGIN_PX
+		}
 
 # =============================================================================
 # OBJECTIVE EVALUATION (Task 1 + Task 5)
