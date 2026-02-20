@@ -5872,45 +5872,143 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	if unit.is_empty():
 		return {}
 
-	# Get melee weapons for this unit
+	# T7-28: Evaluate ALL melee weapon profiles per target to pick damage-maximizing combination
+	# Separate weapons into primary (normal) and Extra Attacks categories
 	var weapons = unit.get("meta", {}).get("weapons", [])
-	var melee_weapon = null
+	var primary_weapons = []  # Non-Extra Attacks melee weapons
+	var extra_attack_weapons = []  # Extra Attacks melee weapons (auto-injected by FightPhase)
+
 	for w in weapons:
 		if w.get("type", "").to_lower() == "melee":
-			melee_weapon = w
-			break
+			if _weapon_has_extra_attacks(w):
+				extra_attack_weapons.append(w)
+			else:
+				primary_weapons.append(w)
 
-	# Default to close combat weapon
-	var weapon_id = "close_combat_weapon"
-	if melee_weapon:
-		weapon_id = _generate_weapon_id(melee_weapon.get("name", "Close combat weapon"), melee_weapon.get("type", "Melee"))
+	var alive_attackers = _get_alive_models(unit).size()
+	if alive_attackers == 0:
+		return {}
 
-	# Find an enemy unit in engagement range
+	# Find eligible enemy targets
 	var enemies = _get_enemy_units(snapshot, player)
+	if enemies.is_empty():
+		return {}
+
+	# Evaluate every primary-weapon × target pairing to maximize total damage
+	# Extra Attacks weapons are included in damage calculation since FightPhase auto-injects them
+	var best_weapon_id = "close_combat_weapon"
 	var best_target_id = ""
-	var best_dist = INF
-	var unit_centroid = _get_unit_centroid(unit)
+	var best_total_damage = -1.0
+	var best_weapon_name = "Close combat weapon"
+
+	# Unit strength for default close combat weapon fallback
+	var unit_strength = int(unit.get("meta", {}).get("stats", {}).get("strength", 4))
 
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
-		var enemy_centroid = _get_unit_centroid(enemy)
-		if enemy_centroid == Vector2.INF:
-			continue
-		var dist = unit_centroid.distance_to(enemy_centroid)
-		if dist < best_dist:
-			best_dist = dist
+		var target_toughness = int(enemy.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var target_save = int(enemy.get("meta", {}).get("stats", {}).get("save", 4))
+		var target_invuln = _get_target_invulnerable_save(enemy)
+
+		# Calculate Extra Attacks weapon damage for this target (constant across primary weapon choices)
+		var ea_damage = 0.0
+		for ea_w in extra_attack_weapons:
+			ea_damage += _evaluate_melee_weapon_damage(ea_w, alive_attackers, target_toughness, target_save, target_invuln)
+
+		# Evaluate each primary melee weapon
+		for w in primary_weapons:
+			var primary_damage = _evaluate_melee_weapon_damage(w, alive_attackers, target_toughness, target_save, target_invuln)
+			var total = primary_damage + ea_damage
+
+			if total > best_total_damage:
+				best_total_damage = total
+				best_weapon_name = w.get("name", "Unknown")
+				best_weapon_id = _generate_weapon_id(best_weapon_name, w.get("type", "Melee"))
+				best_target_id = enemy_id
+
+		# Also evaluate default close combat weapon (S=user, AP0, D1, A1, WS4+)
+		var ccw_p_hit = _hit_probability(4)
+		var ccw_p_wound = _wound_probability(unit_strength, target_toughness)
+		var ccw_p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
+		var ccw_damage = 1.0 * alive_attackers * ccw_p_hit * ccw_p_wound * ccw_p_unsaved * 1.0
+		var ccw_total = ccw_damage + ea_damage
+
+		if ccw_total > best_total_damage:
+			best_total_damage = ccw_total
+			best_weapon_id = "close_combat_weapon"
+			best_weapon_name = "Close combat weapon"
 			best_target_id = enemy_id
+
+	# Fallback to closest enemy if no damage-based selection worked
+	if best_target_id == "":
+		var unit_centroid = _get_unit_centroid(unit)
+		var best_dist = INF
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var enemy_centroid = _get_unit_centroid(enemy)
+			if enemy_centroid == Vector2.INF:
+				continue
+			var dist = unit_centroid.distance_to(enemy_centroid)
+			if dist < best_dist:
+				best_dist = dist
+				best_target_id = enemy_id
 
 	if best_target_id == "":
 		return {}
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var target_unit = snapshot.get("units", {}).get(best_target_id, {})
+	var target_name = target_unit.get("meta", {}).get("name", best_target_id)
+	var ea_count = extra_attack_weapons.size()
+	print("AIDecisionMaker: T7-28 melee weapon optimization — %s selects '%s' vs %s (expected damage: %.2f, primary weapons evaluated: %d, extra attacks weapons: %d)" % [
+		unit_name, best_weapon_name, target_name, best_total_damage, primary_weapons.size(), ea_count])
 
 	return {
 		"type": "ASSIGN_ATTACKS",
 		"unit_id": unit_id,
 		"target_id": best_target_id,
-		"weapon_id": weapon_id,
-		"_ai_description": "Assign melee attacks"
+		"weapon_id": best_weapon_id,
+		"_ai_description": "Assign melee attacks (optimized weapon: %s)" % best_weapon_name
 	}
+
+# T7-28: Helper — check if weapon data has the Extra Attacks keyword
+static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
+	var special_rules = weapon_data.get("special_rules", "").to_lower()
+	if "extra attacks" in special_rules:
+		return true
+	var keywords = weapon_data.get("keywords", [])
+	for keyword in keywords:
+		if "extra attacks" in keyword.to_lower():
+			return true
+	return false
+
+# T7-28: Helper — calculate expected damage for a single melee weapon against a target
+static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int) -> float:
+	var attacks_str = str(weapon.get("attacks", "1"))
+	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+
+	var ws_str = str(weapon.get("weapon_skill", weapon.get("ballistic_skill", "4")))
+	var ws = int(ws_str) if ws_str.is_valid_int() else 4
+
+	var strength_str = str(weapon.get("strength", "4"))
+	var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+	var ap_str = str(weapon.get("ap", "0"))
+	var ap = 0
+	if ap_str.begins_with("-"):
+		var ap_num = ap_str.substr(1)
+		ap = int(ap_num) if ap_num.is_valid_int() else 0
+	else:
+		ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+	var damage_str = str(weapon.get("damage", "1"))
+	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+	var p_hit = _hit_probability(ws)
+	var p_wound = _wound_probability(strength, target_toughness)
+	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+	return attacks * alive_attackers * p_hit * p_wound * p_unsaved * damage
 
 # =============================================================================
 # PILE-IN MOVEMENT COMPUTATION
