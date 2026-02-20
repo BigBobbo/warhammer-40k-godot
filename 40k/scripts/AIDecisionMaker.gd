@@ -416,12 +416,15 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	# so attach all leaders, but prioritize pairings with the best synergy.
 
 	var attachment_actions = []
+	var transport_actions = []
 	var has_confirm = false
 
 	for action in available_actions:
 		match action.get("type", ""):
 			"DECLARE_LEADER_ATTACHMENT":
 				attachment_actions.append(action)
+			"DECLARE_TRANSPORT_EMBARKATION":
+				transport_actions.append(action)
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
@@ -431,12 +434,19 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 		if not best.is_empty():
 			return best
 
-	# No more attachments to make — confirm formations
+	# T7-33 / FORM-2: After leader attachments, evaluate transport embarkation.
+	# Embark small/fast infantry units in transports for deployment efficiency.
+	if not transport_actions.is_empty():
+		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player)
+		if not embark_decision.is_empty():
+			return embark_decision
+
+	# No more attachments or embarkations to make — confirm formations
 	if has_confirm:
 		return {
 			"type": "CONFIRM_FORMATIONS",
 			"player": player,
-			"_ai_description": "AI confirms battle formations (all leader attachments done)"
+			"_ai_description": "AI confirms battle formations (all leader/transport declarations done)"
 		}
 	return {}
 
@@ -529,6 +539,200 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 		off_ranged, off_melee, def_mult, tactical_bonus, model_count, points, score
 	])
 
+	return score
+
+# =============================================================================
+# TRANSPORT EMBARKATION — FORMATIONS PHASE (T7-33 / FORM-2)
+# =============================================================================
+
+static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int) -> Dictionary:
+	"""Evaluate which units should embark in available transports during formations.
+	Prioritizes embarking small/fast INFANTRY units for deployment efficiency.
+	Only embarks one transport per call (called repeatedly until no more are beneficial)."""
+	var all_units = snapshot.get("units", {})
+
+	# Build list of candidate units that could embark (not characters, not transports themselves)
+	var candidate_units = []
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		# Skip transports themselves
+		if unit.has("transport_data"):
+			continue
+		# Skip units already embarked
+		if unit.get("embarked_in", null) != null:
+			continue
+		# Skip characters with leader data (they should attach to bodyguards)
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "CHARACTER" in keywords:
+			var leader_data = unit.get("meta", {}).get("leader_data", {})
+			if not leader_data.get("can_lead", []).is_empty():
+				continue
+		candidate_units.append(unit_id)
+
+	if candidate_units.is_empty():
+		return {}
+
+	var best_score = 0.0
+	var best_action = {}
+
+	for action in transport_actions:
+		var transport_id = action.get("transport_id", "")
+		var transport = all_units.get(transport_id, {})
+		if transport.is_empty() or not transport.has("transport_data"):
+			continue
+
+		var capacity = transport.get("transport_data", {}).get("capacity", 0)
+		var capacity_keywords = transport.get("transport_data", {}).get("capacity_keywords", [])
+		var already_embarked = transport.get("transport_data", {}).get("embarked_units", [])
+
+		# Count already-embarked models
+		var embarked_model_count = 0
+		for emb_id in already_embarked:
+			var emb_unit = all_units.get(emb_id, {})
+			for model in emb_unit.get("models", []):
+				if model.get("alive", true):
+					embarked_model_count += 1
+
+		var remaining_capacity = capacity - embarked_model_count
+		if remaining_capacity <= 0:
+			continue
+
+		# Score each candidate unit for this transport
+		var scored_candidates = []
+		for unit_id in candidate_units:
+			var unit = all_units.get(unit_id, {})
+			var unit_keywords = unit.get("meta", {}).get("keywords", [])
+
+			# Check keyword compatibility
+			if capacity_keywords.size() > 0:
+				var has_keyword = false
+				for kw in capacity_keywords:
+					if kw in unit_keywords:
+						has_keyword = true
+						break
+				if not has_keyword:
+					continue
+
+			# Count alive models
+			var model_count = 0
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					model_count += 1
+			if model_count == 0 or model_count > remaining_capacity:
+				continue
+
+			# Score this unit for transport embarkation
+			var score = _score_unit_for_embarkation(unit, unit_id, model_count, transport, all_units)
+			if score > 0.0:
+				scored_candidates.append({"unit_id": unit_id, "score": score, "model_count": model_count})
+
+		if scored_candidates.is_empty():
+			continue
+
+		# Sort by score descending
+		scored_candidates.sort_custom(func(a, b): return a.score > b.score)
+
+		# Greedily select units that fit in remaining capacity
+		var selected_unit_ids = []
+		var used_capacity = 0
+		for candidate in scored_candidates:
+			if used_capacity + candidate.model_count <= remaining_capacity:
+				selected_unit_ids.append(candidate.unit_id)
+				used_capacity += candidate.model_count
+
+		if selected_unit_ids.is_empty():
+			continue
+
+		# Total score for this transport loading
+		var total_score = 0.0
+		for candidate in scored_candidates:
+			if candidate.unit_id in selected_unit_ids:
+				total_score += candidate.score
+
+		if total_score > best_score:
+			best_score = total_score
+			var transport_name = transport.get("meta", {}).get("name", transport_id)
+			var unit_names = []
+			for uid in selected_unit_ids:
+				unit_names.append(all_units.get(uid, {}).get("meta", {}).get("name", uid))
+			best_action = {
+				"type": "DECLARE_TRANSPORT_EMBARKATION",
+				"transport_id": transport_id,
+				"unit_ids": selected_unit_ids,
+				"player": player,
+				"_ai_description": "AI embarks %s in %s (score: %.2f, %d/%d capacity)" % [
+					", ".join(unit_names), transport_name, total_score, used_capacity, capacity]
+			}
+
+	if not best_action.is_empty():
+		print("AIDecisionMaker: [FORM-2] %s" % best_action.get("_ai_description", ""))
+	return best_action
+
+static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model_count: int,
+										transport: Dictionary, all_units: Dictionary) -> float:
+	"""Score how much a unit benefits from being embarked in a transport.
+	Higher scores = unit benefits more from transport protection and deployment."""
+	var score = 0.0
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var stats = unit.get("meta", {}).get("stats", {})
+	var toughness = int(stats.get("toughness", 4))
+	var save = int(stats.get("save", 4))
+	var wounds = int(stats.get("wounds", 1))
+	var move = int(stats.get("move", 6))
+	var points = unit.get("meta", {}).get("points", 100)
+
+	# Fragile units benefit most from transport protection
+	# Low toughness (T3-4) and poor saves (5+, 6+) want to be in transports
+	if toughness <= 4:
+		score += 0.3
+	if save >= 5:
+		score += 0.2
+	if wounds == 1:
+		score += 0.2  # Single-wound models are very fragile
+
+	# Small units are more efficient to transport (fewer models = more capacity-efficient)
+	if model_count <= 5:
+		score += 0.3
+	elif model_count <= 10:
+		score += 0.15
+
+	# Units with good ranged weapons benefit from being delivered safely to shooting range
+	if _unit_has_ranged_weapons(unit):
+		var max_range = _get_max_weapon_range(unit)
+		if max_range <= 12.0:
+			score += 0.3  # Short-range weapons need transport delivery
+		elif max_range <= 24.0:
+			score += 0.15
+
+	# Melee units benefit greatly from transport delivery to charge range
+	if _unit_has_melee_weapons(unit):
+		score += 0.25
+
+	# Slow units (M5" or less) benefit more from transport speed
+	if move <= 5:
+		score += 0.2
+	elif move <= 6:
+		score += 0.1
+
+	# Higher point units are more worth protecting
+	if points >= 150:
+		score += 0.15
+	elif points >= 100:
+		score += 0.1
+
+	# INFANTRY keyword is the most common transport-compatible type
+	if "INFANTRY" in keywords:
+		score += 0.1
+
+	# Objective control value — units with good OC benefit from fast objective delivery
+	var oc = int(stats.get("oc", 1))
+	if oc >= 2:
+		score += 0.1 * oc
+
+	print("AIDecisionMaker: [FORM-2] Score %s for transport: %.2f (T%d, Sv%d+, W%d, M%d\", %d models, %dpts)" % [
+		unit.get("meta", {}).get("name", unit_id), score, toughness, save, wounds, move, model_count, points])
 	return score
 
 # =============================================================================
@@ -1320,6 +1524,13 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 		if not reinforcement_decision.is_empty():
 			return reinforcement_decision
 
+	# Step 1.75: Disembark units from transports before normal movement (T7-33 / MOV-7)
+	# Check if any embarked units should disembark. Disembark before moving transports
+	# so disembarked units can still move (if transport hasn't moved yet).
+	var disembark_decision = _decide_transport_disembark(snapshot, player)
+	if not disembark_decision.is_empty():
+		return disembark_decision
+
 	# Step 2: Check if any unit can begin moving
 	var begin_types = ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]
 	var can_begin = false
@@ -2089,6 +2300,380 @@ static func _get_reinforcement_zone_bounds(reserve_type: String, player: int,
 			"min_y": BASE_MARGIN_PX,
 			"max_y": BOARD_HEIGHT_PX - BASE_MARGIN_PX
 		}
+
+# =============================================================================
+# TRANSPORT DISEMBARK — MOVEMENT PHASE (T7-33 / MOV-7)
+# =============================================================================
+
+static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Dictionary:
+	"""Check if any embarked units should disembark at the start of movement.
+	Disembark before transports move so disembarked units can still act.
+	Returns a CONFIRM_DISEMBARK action if a unit should disembark, or empty dict."""
+	var all_units = snapshot.get("units", {})
+	var objectives = _get_objectives(snapshot)
+	var enemies = _get_enemy_units(snapshot, player)
+	var battle_round = snapshot.get("battle_round", 1)
+
+	# Find all embarked units belonging to the player
+	var embarked_units = []
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if unit.get("embarked_in", null) == null:
+			continue
+		# Skip units that already disembarked this phase
+		if unit.get("disembarked_this_phase", false):
+			continue
+		embarked_units.append(unit_id)
+
+	if embarked_units.is_empty():
+		return {}
+
+	print("AIDecisionMaker: [MOV-7] Evaluating disembark for %d embarked units" % embarked_units.size())
+
+	var best_score = 0.0
+	var best_action = {}
+
+	for unit_id in embarked_units:
+		var unit = all_units.get(unit_id, {})
+		var transport_id = unit.get("embarked_in", "")
+		var transport = all_units.get(transport_id, {})
+		if transport.is_empty():
+			continue
+
+		# Check if transport has Advanced or Fell Back (can't disembark)
+		var transport_flags = transport.get("flags", {})
+		if transport_flags.get("advanced", false) or transport_flags.get("fell_back", false):
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var transport_name = transport.get("meta", {}).get("name", transport_id)
+
+		# Score whether disembarking is beneficial
+		var score = _score_disembark_benefit(unit, unit_id, transport, transport_id,
+											objectives, enemies, all_units, battle_round, player)
+
+		print("AIDecisionMaker: [MOV-7] %s in %s: disembark score = %.2f" % [unit_name, transport_name, score])
+
+		if score > best_score:
+			# Compute valid disembark positions within 3" of transport
+			var positions = _compute_disembark_positions(unit, transport, all_units, player, snapshot)
+			if not positions.is_empty():
+				best_score = score
+				best_action = {
+					"type": "CONFIRM_DISEMBARK",
+					"actor_unit_id": unit_id,
+					"payload": {"positions": positions},
+					"_ai_description": "AI disembarks %s from %s (score: %.2f)" % [unit_name, transport_name, score]
+				}
+
+	if not best_action.is_empty():
+		print("AIDecisionMaker: [MOV-7] %s" % best_action.get("_ai_description", ""))
+	return best_action
+
+static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transport: Dictionary,
+									transport_id: String, objectives: Array, enemies: Dictionary,
+									all_units: Dictionary, battle_round: int, player: int) -> float:
+	"""Score how beneficial it is to disembark a unit right now.
+	Higher score = more beneficial to disembark. Score < 0.5 means stay embarked."""
+	var score = 0.0
+	var transport_pos = _get_unit_centroid(transport)
+	if transport_pos == Vector2.INF:
+		return 0.0
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var stats = unit.get("meta", {}).get("stats", {})
+	var oc = int(stats.get("oc", 1))
+
+	# Factor 1: Proximity to objectives — disembark when near an objective to claim it
+	var nearest_obj_dist = INF
+	for obj_pos in objectives:
+		var dist = transport_pos.distance_to(obj_pos) / PIXELS_PER_INCH
+		if dist < nearest_obj_dist:
+			nearest_obj_dist = dist
+
+	if nearest_obj_dist <= 3.0:
+		# Transport is on an objective — disembark to claim it with OC
+		score += 0.8 + (oc * 0.1)
+		print("AIDecisionMaker: [MOV-7]   %s: objective within %.1f\" — high disembark priority (OC%d)" % [unit_name, nearest_obj_dist, oc])
+	elif nearest_obj_dist <= 6.0:
+		score += 0.4
+		print("AIDecisionMaker: [MOV-7]   %s: objective within %.1f\" — moderate disembark priority" % [unit_name, nearest_obj_dist])
+	elif nearest_obj_dist <= 12.0:
+		score += 0.15
+
+	# Factor 2: Shooting opportunity — disembark if enemies are in weapon range
+	if _unit_has_ranged_weapons(unit):
+		var max_range = _get_max_weapon_range(unit)
+		var enemies_in_range = 0
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var enemy_pos = _get_unit_centroid(enemy)
+			if enemy_pos == Vector2.INF:
+				continue
+			var dist_inches = transport_pos.distance_to(enemy_pos) / PIXELS_PER_INCH
+			if dist_inches <= max_range + 3.0:  # +3" for disembark spread
+				enemies_in_range += 1
+
+		if enemies_in_range > 0:
+			score += 0.3 + (enemies_in_range * 0.1)
+			print("AIDecisionMaker: [MOV-7]   %s: %d enemies in shooting range (%.0f\")" % [unit_name, enemies_in_range, max_range])
+
+	# Factor 3: Charge opportunity — disembark melee units near enemies
+	if _unit_has_melee_weapons(unit):
+		var transport_moved = transport.get("flags", {}).get("moved", false)
+		if not transport_moved:
+			# If transport hasn't moved, disembarked unit can move AND charge
+			for enemy_id in enemies:
+				var enemy = enemies[enemy_id]
+				var enemy_pos = _get_unit_centroid(enemy)
+				if enemy_pos == Vector2.INF:
+					continue
+				var dist_inches = transport_pos.distance_to(enemy_pos) / PIXELS_PER_INCH
+				var move_inches = float(stats.get("move", 6))
+				if dist_inches <= move_inches + 12.0 + 3.0:  # Move + charge range + disembark
+					score += 0.4
+					print("AIDecisionMaker: [MOV-7]   %s: enemy in charge range after disembark (%.1f\")" % [unit_name, dist_inches])
+					break
+
+	# Factor 4: Battle round — later rounds favor disembarking more
+	# Round 1: prefer staying embarked for protection
+	# Round 2+: objectives matter, start disembarking
+	if battle_round == 1:
+		score -= 0.3  # Penalty for early disembark (protection is valuable Turn 1)
+	elif battle_round >= 3:
+		score += 0.2  # Bonus for late game (objectives are critical)
+
+	# Factor 5: Transport safety — if transport is in danger, disembark to avoid losing contents
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var enemy_pos = _get_unit_centroid(enemy)
+		if enemy_pos == Vector2.INF:
+			continue
+		var dist_inches = transport_pos.distance_to(enemy_pos) / PIXELS_PER_INCH
+		if dist_inches <= 12.0:
+			# Enemy close enough to threaten the transport
+			var enemy_weapons = enemy.get("meta", {}).get("weapons", [])
+			for w in enemy_weapons:
+				if w.get("type", "").to_lower() == "ranged":
+					var strength = int(w.get("strength", 4))
+					if strength >= 7:  # Anti-tank capable
+						score += 0.25
+						print("AIDecisionMaker: [MOV-7]   %s: transport threatened by S%d weapon (%.1f\" away)" % [unit_name, strength, dist_inches])
+						break
+
+	return score
+
+static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary,
+										all_units: Dictionary, player: int, snapshot: Dictionary) -> Array:
+	"""Compute valid positions for disembarking models within 3\" of transport.
+	Returns array of positions indexed to match unit.models (dead models get placeholder).
+	Returns empty array if placement fails."""
+	var transport_pos = _get_unit_centroid(transport)
+	if transport_pos == Vector2.INF:
+		return []
+
+	var transport_model = transport.get("models", [{}])[0] if transport.get("models", []).size() > 0 else {}
+	var transport_base_mm = transport_model.get("base_mm", 100)  # Transports typically have large bases
+	var transport_radius_px = (transport_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+
+	# Disembark range: within 3" of transport edge
+	var disembark_range_px = 3.0 * PIXELS_PER_INCH  # 3 inches
+
+	# Count alive models
+	var all_models = unit.get("models", [])
+	var alive_count = 0
+	var unit_base_mm = 25  # Default
+	for model in all_models:
+		if model.get("alive", true):
+			alive_count += 1
+			unit_base_mm = model.get("base_mm", 25)
+
+	if alive_count == 0:
+		return []
+
+	var unit_radius_px = (unit_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+
+	# Max distance from transport center: transport edge + 3" + model edge
+	# Use a conservative margin so shape-aware validation still passes
+	var max_center_dist_px = transport_radius_px + disembark_range_px + unit_radius_px - 8.0
+
+	# Build list of occupied positions (to avoid overlaps)
+	var occupied_positions = []
+	for uid in all_units:
+		var u = all_units[uid]
+		if u.get("embarked_in", null) != null:
+			continue  # Skip embarked units
+		for model in u.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = _get_model_position(model)
+			if pos != Vector2.INF:
+				occupied_positions.append({
+					"position": pos,
+					"base_mm": model.get("base_mm", 32)
+				})
+
+	# Get enemy model positions for engagement range check
+	var enemy_positions = []
+	for uid in all_units:
+		var u = all_units[uid]
+		if u.get("owner", 0) == player:
+			continue
+		for model in u.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = _get_model_position(model)
+			if pos != Vector2.INF:
+				enemy_positions.append({
+					"position": pos,
+					"base_mm": model.get("base_mm", 32)
+				})
+
+	# Determine preferred direction (toward nearest objective)
+	var preferred_dir = Vector2.DOWN  # Default
+	var objectives = _get_objectives(snapshot)
+	if not objectives.is_empty():
+		var nearest_obj_dist = INF
+		for obj_pos in objectives:
+			var dist = transport_pos.distance_to(obj_pos)
+			if dist < nearest_obj_dist:
+				nearest_obj_dist = dist
+				if dist > 1.0:
+					preferred_dir = (obj_pos - transport_pos).normalized()
+
+	# Start placement offset from transport center in preferred direction
+	var base_offset_dist = transport_radius_px + unit_radius_px + 8.0  # Just outside transport base
+	var base_pos = transport_pos + preferred_dir * base_offset_dist
+	var spacing = unit_radius_px * 2.0 + 6.0  # Base diameter + small gap
+
+	var cols = mini(5, alive_count)
+
+	# Create a perpendicular direction for the grid layout
+	var perp_dir = Vector2(-preferred_dir.y, preferred_dir.x)
+
+	# Build positions for alive models first, then map to model array indices
+	var alive_positions = []
+	var alive_idx = 0
+	for model in all_models:
+		if not model.get("alive", true):
+			continue
+
+		var row = alive_idx / cols
+		var col = alive_idx % cols
+
+		# Calculate grid position
+		var col_offset = (col - (cols - 1) / 2.0) * spacing
+		var row_offset = row * spacing
+		var candidate = base_pos + perp_dir * col_offset + preferred_dir * row_offset
+
+		# Validate: within disembark range (center-to-center)
+		var center_dist = candidate.distance_to(transport_pos)
+		if center_dist > max_center_dist_px:
+			var dir_to_transport = (transport_pos - candidate).normalized()
+			candidate = candidate + dir_to_transport * (center_dist - max_center_dist_px + 4.0)
+
+		# Validate: not in engagement range of enemies (1" edge-to-edge)
+		var in_engagement = _is_pos_in_engagement(candidate, unit_radius_px, enemy_positions)
+
+		if in_engagement:
+			candidate = _find_non_engaged_position(transport_pos, base_offset_dist,
+				preferred_dir, perp_dir, col, cols, spacing, max_center_dist_px,
+				unit_radius_px, enemy_positions)
+			if candidate == Vector2.INF:
+				return []
+
+		# Validate: not overlapping other models
+		var overlaps = _pos_overlaps_any(candidate, unit_radius_px, occupied_positions, alive_positions)
+		if overlaps:
+			candidate = _find_non_overlapping_position(candidate, transport_pos, max_center_dist_px,
+				unit_radius_px, spacing, occupied_positions, alive_positions, enemy_positions)
+			if candidate == Vector2.INF:
+				return []
+
+		# Clamp to board bounds
+		candidate.x = clamp(candidate.x, unit_radius_px + 2.0, BOARD_WIDTH_PX - unit_radius_px - 2.0)
+		candidate.y = clamp(candidate.y, unit_radius_px + 2.0, BOARD_HEIGHT_PX - unit_radius_px - 2.0)
+
+		alive_positions.append(candidate)
+		occupied_positions.append({"position": candidate, "base_mm": unit_base_mm})
+		alive_idx += 1
+
+	if alive_positions.size() != alive_count:
+		return []
+
+	# Map alive positions back to the full model array (dead models get placeholder)
+	var positions = []
+	var alive_pos_idx = 0
+	for model in all_models:
+		if model.get("alive", true):
+			positions.append(alive_positions[alive_pos_idx])
+			alive_pos_idx += 1
+		else:
+			# Dead models get the transport position as placeholder (skipped by validation)
+			positions.append(transport_pos)
+
+	print("AIDecisionMaker: [MOV-7] Computed %d disembark positions (%d alive) for %s" % [
+		positions.size(), alive_count, unit.get("meta", {}).get("name", "")])
+	return positions
+
+static func _is_pos_in_engagement(pos: Vector2, unit_radius_px: float, enemy_positions: Array) -> bool:
+	"""Check if a position is within engagement range (1\") of any enemy model."""
+	for enemy_data in enemy_positions:
+		var enemy_pos = enemy_data.position
+		var enemy_radius_px = (enemy_data.base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+		var edge_dist_px = pos.distance_to(enemy_pos) - unit_radius_px - enemy_radius_px
+		if edge_dist_px < ENGAGEMENT_RANGE_PX:
+			return true
+	return false
+
+static func _find_non_engaged_position(transport_pos: Vector2, base_offset_dist: float,
+	preferred_dir: Vector2, perp_dir: Vector2, col: int, cols: int, spacing: float,
+	max_center_dist_px: float, unit_radius_px: float, enemy_positions: Array) -> Vector2:
+	"""Try alternate angles around transport to find a position not in engagement range."""
+	for angle_offset in [0.5, -0.5, 1.0, -1.0, 1.5, -1.5, PI]:
+		var alt_dir = preferred_dir.rotated(angle_offset)
+		var alt_pos = transport_pos + alt_dir * base_offset_dist + perp_dir.rotated(angle_offset) * (col - (cols - 1) / 2.0) * spacing
+		if alt_pos.distance_to(transport_pos) > max_center_dist_px:
+			continue
+		if not _is_pos_in_engagement(alt_pos, unit_radius_px, enemy_positions):
+			return alt_pos
+	return Vector2.INF
+
+static func _pos_overlaps_any(pos: Vector2, unit_radius_px: float,
+	occupied_positions: Array, placed_positions: Array) -> bool:
+	"""Check if a position overlaps any occupied or already-placed model."""
+	for occ in occupied_positions:
+		var occ_radius_px = (occ.base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+		if pos.distance_to(occ.position) < unit_radius_px + occ_radius_px + 2.0:
+			return true
+	for placed_pos in placed_positions:
+		if pos.distance_to(placed_pos) < unit_radius_px * 2.0 + 2.0:
+			return true
+	return false
+
+static func _find_non_overlapping_position(candidate: Vector2, transport_pos: Vector2,
+	max_center_dist_px: float, unit_radius_px: float, spacing: float,
+	occupied_positions: Array, placed_positions: Array, enemy_positions: Array) -> Vector2:
+	"""Spiral search around candidate for a valid non-overlapping, non-engaged position."""
+	for ring in range(1, 5):
+		for angle_step in range(8):
+			var angle = angle_step * PI / 4.0
+			var offset = Vector2(cos(angle), sin(angle)) * ring * spacing * 0.5
+			var alt_pos = candidate + offset
+			if alt_pos.distance_to(transport_pos) > max_center_dist_px:
+				continue
+			if alt_pos.x < unit_radius_px or alt_pos.x > BOARD_WIDTH_PX - unit_radius_px:
+				continue
+			if alt_pos.y < unit_radius_px or alt_pos.y > BOARD_HEIGHT_PX - unit_radius_px:
+				continue
+			if _pos_overlaps_any(alt_pos, unit_radius_px, occupied_positions, placed_positions):
+				continue
+			if _is_pos_in_engagement(alt_pos, unit_radius_px, enemy_positions):
+				continue
+			return alt_pos
+	return Vector2.INF
 
 # =============================================================================
 # OBJECTIVE EVALUATION (Task 1 + Task 5)

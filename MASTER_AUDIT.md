@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-33 (2026-02-20): AI transport usage — Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for formations phase (FORM-2), plus `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for movement phase (MOV-7). AI scores units for embarkation by fragility/speed/weapons, disembarks based on objective proximity/shooting/charge opportunities/transport safety. | Formations/Movement/AI | AI_AUDIT.md §FORM-2, MOV-7 |
 | T7-32 (2026-02-20): AI Counter-Offensive stratagem usage — Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic (unit value, melee capability, keywords, wound status, engagement risk). Connected signal in AIPlayer.gd, added AI skip in FightController.gd. | Fight/AI | AI_AUDIT.md §FIGHT-5 |
 | T7-31 (2026-02-20): AI cover consideration in target scoring — Added `_target_has_benefit_of_cover()`, `_check_position_has_terrain_cover()`, `_weapon_ignores_cover()` helpers. Both `_score_shooting_target()` and `_estimate_weapon_damage()` now apply cover as +1 to armour save (min 2+), respecting Ignores Cover weapons and invuln save interaction. 24/24 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-7 |
 | T7-30 (2026-02-20): AI range-band optimization — Added half-range weapon analysis (`_get_unit_half_range_data`, `_find_best_half_range_position`) for Rapid Fire/Melta. Movement blends toward half-range positions (40% weight). `_should_hold_for_shooting` overridden when advancing would reach half range. | Shooting/Movement/AI | AI_AUDIT.md §SHOOT-6 |
@@ -1223,12 +1224,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** AI never uses Counter-Offensive (2CP). Use when AI's high-value melee unit is at risk after enemy fights.
 - **Resolution:** Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic considering unit value, melee capability, CHARACTER/MONSTER/VEHICLE keywords, wound status, model count, and engagement risk (multiple enemies in range). Connected `counter_offensive_opportunity` signal in AIPlayer.gd with handler that evaluates and submits via `_submit_reactive_action()`. Added AI player check in FightController.gd to skip the Counter-Offensive dialog for AI players. Uses same 2CP cost threshold (3.0 score) as Heroic Intervention with CP conservation when reserves are tight.
 
-### T7-33. AI transport usage
+### T7-33. AI transport usage — **DONE**
 - **Phase:** Formations/Movement
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §FORM-2, MOV-7
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Transports never used. Embark small/fast units in formations for deployment efficiency, disembark during movement when beneficial for objective control or shooting.
+- **Resolution:** Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for FORM-2: AI scores units for transport embarkation based on fragility (T/Sv/W), model count, weapon range, movement speed, OC, and points value, then greedily fills transports during formations phase. Added `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for MOV-7: AI evaluates disembarking based on objective proximity, shooting/charge opportunities, battle round, and transport safety; computes valid positions within 3" of transport edge avoiding engagement range and overlaps.
 
 ### T7-34. AI reserves declarations
 - **Phase:** Formations
@@ -1456,9 +1458,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 25 | 33 | 58 |
-| **Total** | **124** | **62** | **186** |
-| **Recently Completed** | **143** | — | **143** |
+| Tier 7 — AI Player | 26 | 32 | 58 |
+| **Total** | **125** | **61** | **186** |
+| **Recently Completed** | **144** | — | **144** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
