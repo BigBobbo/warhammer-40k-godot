@@ -1098,7 +1098,7 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 		"unit_id": unit_id,
 		"model_positions": positions,
 		"model_rotations": rotations,
-		"_ai_description": "Deployed %s (%s)" % [unit_name, unit_role]
+		"_ai_description": "Deployed %s (%s, col %d, row %d)" % [unit_name, unit_role, col_index + 1, depth_row + 1]
 	}
 
 # T7-18: Unit role classification for terrain-aware deployment
@@ -5302,22 +5302,40 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				"_ai_description": "Skipped %s — no valid targets in range" % unit_name
 			}
 
-		# Build target summary for description
-		var target_names = []
+		# Build target summary with expected damage reasoning (T7-37)
+		var target_damage = {}  # tid -> total expected damage
+		var target_hp = {}  # tid -> kill threshold (total HP)
+		var target_name_map = {}  # tid -> display name
 		for assignment in assignments:
 			var tid = assignment.get("target_unit_id", "")
 			var target = snapshot.get("units", {}).get(tid, {})
 			var tname = target.get("meta", {}).get("name", tid)
-			if tname not in target_names:
-				target_names.append(tname)
-		var target_summary = ", ".join(target_names)
+			target_name_map[tid] = tname
+			if not target_damage.has(tid):
+				target_damage[tid] = 0.0
+				target_hp[tid] = _calculate_kill_threshold(target)
+			var wid = assignment.get("weapon_id", "")
+			for w in ranged_weapons:
+				if _generate_weapon_id(w.get("name", ""), w.get("type", "")) == wid:
+					target_damage[tid] += _estimate_weapon_damage(w, target, snapshot, unit)
+					break
+
+		var desc_parts = []
+		for tid in target_damage:
+			var tname = target_name_map.get(tid, tid)
+			var dmg = target_damage[tid]
+			var hp = target_hp[tid]
+			var kill_pct = (dmg / hp * 100.0) if hp > 0 else 0.0
+			desc_parts.append("%s — expected %.1f dmg vs %.0f HP (%.0f%% kill)" % [tname, dmg, hp, min(kill_pct, 100.0)])
+
+		var target_summary = "; ".join(desc_parts) if not desc_parts.is_empty() else "targets"
 		return {
 			"type": "SHOOT",
 			"actor_unit_id": selected_unit_id,
 			"payload": {
 				"assignments": assignments
 			},
-			"_ai_description": "%s shoots at %s (%d weapon(s), focus fire)" % [unit_name, target_summary, assignments.size()]
+			"_ai_description": "%s shoots at %s" % [unit_name, target_summary]
 		}
 
 	# No shooters left, end phase — reset plan cache
@@ -6248,6 +6266,10 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			# Score the charge target
 			var target_score = _score_charge_target(unit, target_unit, snapshot, player)
 
+			# T7-37: Compute expected melee damage for description
+			var melee_dmg = _estimate_melee_damage(unit, target_unit)
+			var target_hp = _calculate_kill_threshold(target_unit)
+
 			# Apply charge probability as a multiplier
 			var score = target_score * charge_prob * melee_bonus
 
@@ -6271,8 +6293,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			if score > best_score:
 				best_score = score
 				best_action = target_info.action
-				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away)" % [
-					unit_name, target_name, charge_prob * 100.0, dist]
+				var kill_pct = (melee_dmg / target_hp * 100.0) if target_hp > 0 else 0.0
+				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP)" % [
+					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp]
 
 	# T7-24: Lower charge threshold when behind on VP (desperation charges)
 	var charge_tempo = _calculate_tempo_modifier(snapshot, player)
@@ -6830,10 +6853,27 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		var uid = a.get("unit_id", "")
 		var unit = snapshot.get("units", {}).get(uid, {})
 		var unit_name = unit.get("meta", {}).get("name", uid)
+		# T7-37: Include expected melee damage in fighter selection description
+		var fighter_enemies = _get_enemy_units(snapshot, player)
+		var nearest_enemy_name = ""
+		var fighter_melee_dmg = 0.0
+		var fighter_target_hp = 0.0
+		var nearest_dist = INF
+		for eid in fighter_enemies:
+			var enemy = fighter_enemies[eid]
+			var d = _get_closest_model_distance_inches(unit, enemy) if not unit.is_empty() else INF
+			if d < nearest_dist:
+				nearest_dist = d
+				nearest_enemy_name = enemy.get("meta", {}).get("name", eid)
+				fighter_melee_dmg = _estimate_melee_damage(unit, enemy)
+				fighter_target_hp = _calculate_kill_threshold(enemy)
+		var fighter_desc = "Select %s to fight" % unit_name
+		if nearest_enemy_name != "" and fighter_melee_dmg > 0:
+			fighter_desc = "%s fights — expected %.1f melee dmg vs %s (%.0f HP)" % [unit_name, fighter_melee_dmg, nearest_enemy_name, fighter_target_hp]
 		return {
 			"type": "SELECT_FIGHTER",
 			"unit_id": uid,
-			"_ai_description": "Select %s to fight" % unit_name
+			"_ai_description": fighter_desc
 		}
 
 	# Step 5: Consolidate if available
@@ -6977,7 +7017,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		"unit_id": unit_id,
 		"target_id": best_target_id,
 		"weapon_id": best_weapon_id,
-		"_ai_description": "Assign melee attacks (optimized: %s vs %s)" % [best_weapon_name, target_name]
+		"_ai_description": "%s fights %s with %s — expected %.1f melee dmg vs %.0f HP" % [unit_name, target_name, best_weapon_name, best_raw_damage, _calculate_kill_threshold(target_unit)]
 	}
 
 # T7-29: Score a fight target by combining expected damage with strategic value factors
@@ -9249,13 +9289,16 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 			if strat_entry.get("stratagem", {}).get("id", "") == best_stratagem_id:
 				strat_name = strat_entry.stratagem.get("name", best_stratagem_id)
 				break
-		var unit_name = snapshot.get("units", {}).get(best_target_unit_id, {}).get("meta", {}).get("name", best_target_unit_id)
+		var strat_target_unit = snapshot.get("units", {}).get(best_target_unit_id, {})
+		var unit_name = strat_target_unit.get("meta", {}).get("name", best_target_unit_id)
+		var unit_pts = int(strat_target_unit.get("meta", {}).get("points", 0))
+		var strat_reason = "%s on %s (%dpts, protection score: %.1f)" % [strat_name, unit_name, unit_pts, best_score]
 		return {
 			"type": "USE_REACTIVE_STRATAGEM",
 			"stratagem_id": best_stratagem_id,
 			"target_unit_id": best_target_unit_id,
 			"player": defending_player,
-			"_ai_description": "AI uses %s on %s" % [strat_name, unit_name]
+			"_ai_description": "AI uses %s" % strat_reason
 		}
 
 	return {

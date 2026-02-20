@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-37 (2026-02-20): AI decision explanations — Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), reactive stratagems (protection score, points). Key tactical decisions routed through `GameEventLog.add_ai_entry()` via AIPlayer. Updated test assertion in test_ai_focus_fire.gd. | UI/AI | AI_AUDIT.md §QoL-4 |
 | T7-34 (2026-02-20): AI reserves declarations — Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI scores units for reserves by type (Deep Strike melee 8.0, DS short-range 5.0, strategic reserves melee/fast 4.0+). Excludes CHARACTER leaders, FORTIFICATION, embarked units. Penalizes VEHICLE/MONSTER ranged and long-range shooters. Respects 25% pts cap, 50% unit cap, 2.0 score threshold. | Formations/AI | AI_AUDIT.md §FORM-3 |
 | T7-33 (2026-02-20): AI transport usage — Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for formations phase (FORM-2), plus `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for movement phase (MOV-7). AI scores units for embarkation by fragility/speed/weapons, disembarks based on objective proximity/shooting/charge opportunities/transport safety. | Formations/Movement/AI | AI_AUDIT.md §FORM-2, MOV-7 |
 | T7-32 (2026-02-20): AI Counter-Offensive stratagem usage — Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic (unit value, melee capability, keywords, wound status, engagement risk). Connected signal in AIPlayer.gd, added AI skip in FightController.gd. | Fight/AI | AI_AUDIT.md §FIGHT-5 |
@@ -1256,12 +1257,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIPlayer.gd`
 - **Details:** `AI_ACTION_DELAY` hardcoded to 50ms. Add speed slider in settings: Fast (0ms), Normal (200ms), Slow (500ms), Step-by-step (pause after each action).
 
-### T7-37. AI decision explanations
+### T7-37. AI decision explanations — **DONE**
 - **Phase:** UI
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §QoL-4
 - **Files:** `AIDecisionMaker.gd`, `GameEventLog.gd`
 - **Details:** `_ai_description` strings are terse. Route key decisions through `GameEventLog.add_ai_entry()` with enhanced reasoning (e.g., "Lascannon shoots at Battlewagon — expected 4.2 damage, 67% kill probability").
+- **Resolution:** Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage estimate, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), and reactive stratagems (protection score, points). Key tactical decisions (SHOOT, DECLARE_CHARGE, ASSIGN_ATTACKS, stratagems) are now explicitly routed through `GameEventLog.add_ai_entry()` via AIPlayer for UI visibility.
 
 ### T7-38. AI shooting target line visualization
 - **Phase:** UI
@@ -1460,9 +1462,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 27 | 31 | 58 |
-| **Total** | **126** | **60** | **186** |
-| **Recently Completed** | **145** | — | **145** |
+| Tier 7 — AI Player | 28 | 30 | 58 |
+| **Total** | **127** | **59** | **186** |
+| **Recently Completed** | **146** | — | **146** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
