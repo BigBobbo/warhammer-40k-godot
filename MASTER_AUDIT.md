@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-10 (2026-02-20): AI basic stratagem usage — AI uses all core stratagems: Grenade, Fire Overwatch, Go to Ground/Smokescreen, Command Re-roll (charge/advance/battleshock), Tank Shock, Heroic Intervention. Added `evaluate_tank_shock()` and `evaluate_heroic_intervention()` heuristics, signal handlers, movement phase reroll fallback. 33+36 tests pass. | All/AI | AI_AUDIT.md §AI-GAP-3 |
 | T7-9 (2026-02-20): AI weapon keyword awareness in target scoring — `_apply_weapon_keyword_modifiers()` handles all 8 keywords (Torrent, Blast, Rapid Fire, Melta, Anti-keyword, Sustained/Lethal/Devastating Hits). Fixed Blast formula from 9th ed thresholds to correct 10th ed `floor(models/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use keyword pipeline. 50/50 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-5 |
 | T7-8 (2026-02-20): AI invulnerable save consideration in target scoring — `_save_probability()` now accepts invuln parameter using `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper for model/meta/effect invuln sources. All callers pass invuln through. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-6, SHOOT-3 |
 | T7-7 (2026-02-20): AI weapon-target efficiency matching — Re-enabled damage waste penalty for multi-damage weapons vs 1W models (D3+ → 0.4×, D2 → 0.7×). Combined with role matching, lascannon vs grots = 0.24× efficiency. Added fallback logging. 40/40 tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-5, SHOOT-2 |
@@ -1027,12 +1028,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Weapon keywords not factored into expected damage: Blast (+1A per 5 models), Rapid Fire (+X at half range), Melta (+X damage at half range), Anti-keyword (lower crit wound threshold), Torrent (100% hit), Sustained/Lethal/Devastating Hits.
 - **Resolution:** `_apply_weapon_keyword_modifiers()` adjusts expected-damage components (attacks, p_hit, p_wound, p_unsaved, damage) for all 8 keywords: Torrent (p_hit=1.0), Blast (floor(models/5) bonus attacks per 10th ed), Rapid Fire X (+X attacks at half range with fallback probability), Melta X (+X damage at half range), Anti-keyword X+ (improved wound probability vs matching keywords), Sustained Hits X (crit-weighted attack multiplier), Lethal Hits (effective p_wound boost), Devastating Wounds (effective p_unsaved boost). Fixed Blast formula from incorrect 9th ed thresholds (6/11) to correct 10th ed `floor(alive/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use the modifier pipeline. 50/50 keyword tests pass.
 
-### T7-10. AI basic stratagem usage
+### T7-10. AI basic stratagem usage — **DONE**
 - **Phase:** All
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-GAP-3
 - **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`, `StratagemManager.gd`
 - **Details:** AI never spends CP (except auto Command Re-roll on battle-shock). Implement staged stratagem usage: Grenade (shooting), Fire Overwatch (opponent's charge), Go to Ground/Smokescreen (defensive), intelligent Command Re-roll triggers (failed charges, critical saves).
+- **Resolution:** AI now uses all core stratagems intelligently: Grenade (shooting phase, weak-ranged units vs nearby targets), Fire Overwatch (opponent's movement/charge, high-volume shooters vs valuable targets), Go to Ground/Smokescreen (defensive, opponent's shooting), Command Re-roll (charge rolls, advance rolls, battle-shock tests), Tank Shock (vehicle charges with T-based mortal wounds), and Heroic Intervention (melee counter-charges by CHARACTER units). Added `evaluate_tank_shock()` and `evaluate_heroic_intervention()` heuristic methods, connected `tank_shock_opportunity` and `heroic_intervention_opportunity` signals, added movement phase command reroll fallback. 33/33 stratagem + 36/36 charge tests pass.
 
 ### T7-11. AI unit ability awareness
 - **Phase:** All
@@ -1424,9 +1426,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 9 | 49 | 58 |
-| **Total** | **108** | **78** | **186** |
-| **Recently Completed** | **128** | — | **128** |
+| Tier 7 — AI Player | 10 | 48 | 58 |
+| **Total** | **109** | **77** | **186** |
+| **Recently Completed** | **129** | — | **129** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
