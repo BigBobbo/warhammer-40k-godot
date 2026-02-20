@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-23 (2026-02-20): AI multi-phase planning — Added `_build_phase_plan()` cross-phase coordinator (movement→shooting→charge). Charge intent identifies melee units and blends movement toward charge angles. Shooting suppresses charge targets (`PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET`). Charge prefers locking dangerous shooters (`PHASE_PLAN_LOCK_SHOOTER_BONUS`). Expanded urgency scoring to all 5 rounds (R1 rush, R2 contest, R3 consolidate, R4-5 push). 34/34 tests pass. | All/AI | AI_AUDIT.md §AI-TACTIC-6 |
 | T7-22 (2026-02-20): AI target priority framework — Implemented two-level target priority: macro-level `_calculate_target_value` with points-weighted base value, probability-weighted damage, ability value from AIAbilityAnalyzer, objective/OC scoring, leader buff priority; micro-level `_build_focus_fire_plan` with iterative marginal value optimization via `_calculate_marginal_value` (kill threshold bonuses, model kill milestones, overkill decay, opportunity cost). | Shooting/AI | AI_AUDIT.md §AI-TACTIC-1 |
 | T7-20 (2026-02-20): AI thinking indicator — Added `_ai_thinking` state tracking and `ai_turn_started`/`ai_turn_ended` signal emissions to AIPlayer.gd. Created pulsing "AI is thinking..." overlay in Main.gd with animated ellipsis dots, WhiteDwarf gothic styling. Connected via `_initialize_ai_player()`. 15/15 tests pass. | UI/AI | AI_AUDIT.md §QoL-2 |
 | T7-18 (2026-02-20): AI terrain-aware deployment — Added `_classify_deployment_role()`, `_score_terrain_for_role()`, `_find_terrain_aware_position()` to `_decide_deployment()`. Units classified by role (character/fragile_shooter/durable_shooter/melee/general) and positioned near beneficial terrain (LoS blockers for characters, cover for fragile shooters, front-edge LoS blockers for melee). 20/20 tests pass. | Deployment/AI | AI_AUDIT.md §DEPLOY-1 |
@@ -1136,12 +1137,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No macro-level threat assessment. Implement two-level priority: macro (rank enemies by threat level, damage output, objective presence, ability value) and micro (allocate weapons to maximize total expected value, not just per-weapon damage).
 - **Resolution:** Implemented two-level target priority framework: (1) Macro-level `_calculate_target_value` enhanced with points-weighted base value, probability-weighted damage output, ability value assessment (offensive/defensive multipliers from AIAbilityAnalyzer), enhanced objective/OC scoring, and leader buff priority. (2) Micro-level `_build_focus_fire_plan` replaced greedy-per-target allocation with iterative marginal value optimization via `_calculate_marginal_value` that considers kill threshold crossing bonuses, model kill milestones, overkill decay, and opportunity cost across all targets.
 
-### T7-23. AI multi-phase planning
+### T7-23. AI multi-phase planning — **DONE**
 - **Phase:** All
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-TACTIC-6
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Each phase decided independently. Movement should consider shooting lanes and charge angles; shooting should not target units planned for charge; charge should prefer locking dangerous shooting units in combat. Expand existing round-1 urgency scoring approach.
+- **Resolution:** Added `_build_phase_plan()` cross-phase coordinator built once at movement phase start. Three plan components: (1) `charge_intent` identifies melee units likely to charge and their targets, movement blends toward charge angle; (2) `shooting_lanes` tracks ranged unit targets, `_build_focus_fire_plan` suppresses target value for charge targets via `PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET`; (3) `lock_targets` identifies dangerous enemy shooters (ranged output >= 5.0), `_score_charge_target` gives `PHASE_PLAN_LOCK_SHOOTER_BONUS` for locking them in combat. Expanded urgency scoring from round-1-only to all 5 rounds: R1 rush, R2 contest, R3 consolidate, R4-5 aggressive push. 34/34 tests pass.
 
 ### T7-24. AI trade and tempo awareness
 - **Phase:** All
@@ -1440,9 +1442,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 17 | 41 | 58 |
-| **Total** | **116** | **70** | **186** |
-| **Recently Completed** | **135** | — | **135** |
+| Tier 7 — AI Player | 18 | 40 | 58 |
+| **Total** | **117** | **69** | **186** |
+| **Recently Completed** | **136** | — | **136** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
