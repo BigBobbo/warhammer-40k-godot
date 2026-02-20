@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V12 (2026-02-19): Damage application visualization — Extended DamageFeedbackVisual with floating damage numbers; FightController parses diffs to trigger flash, floating numbers, death animations, and token red flash on melee damage | Fight | fight_phase_audit_report.md §4.5 |
 | T5-V11 (2026-02-19): Unit tokens "has fought" indicator — Added fought overlay (dimmed opacity + checkmark) to TokenVisual/TokenDrawUtils; fixed has_fought flag reset in ScoringPhase | Fight | fight_phase_audit_report.md §4.4 |
 | T5-V10: Fight phase state banner — FightPhaseStateBanner.gd with persistent subphase/player/units-remaining display, distinct color schemes per subphase, animated transition overlay, FightController signal integration | Fight | fight_phase_audit_report.md §4.3 |
 | T5-V9: Engagement range pulsing animation — EngagementRangeVisual.gd with sine-wave pulsing on engagement range circles and target highlights, replacing static inline scripts in FightController.gd | Fight | fight_phase_audit_report.md §4.2 |
@@ -862,7 +863,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-V10. Fight phase state banner (fight_phase_audit_report.md §4.3) — **DONE**
   - **Resolution:** FightPhaseStateBanner.gd — persistent banner below HUD_Top showing current subphase (FIGHTS FIRST / REMAINING COMBATS / FIGHTS LAST), selecting player, units remaining; distinct color schemes per subphase; animated transition overlay on subphase change; integrated via FightController signal flow
 - T5-V11. Unit tokens "has fought" indicator (fight_phase_audit_report.md §4.4) — **DONE**
-- T5-V12. Damage application visualization (floating numbers, flash) (fight_phase_audit_report.md §4.5)
+- T5-V12. Damage application visualization (floating numbers, flash) (fight_phase_audit_report.md §4.5) — **DONE**
+  - **Resolution:** Extended DamageFeedbackVisual.gd with `play_floating_number()` — red damage numbers float upward from wounded models with fade-out animation. Integrated into FightController via `attacks_resolved` signal: parses fight resolution diffs to trigger floating numbers, damage flash, death animations, and token red flash on target models. Filters diffs per-assignment to avoid duplicates in multi-target fights.
 - T5-V13. Engaged units board indicator (crossed swords) (fight_phase_audit_report.md §3.5)
 - T5-V14. Deployment zone edge highlighting (DEPLOYMENT_AUDIT.md §QoL 6)
 - T5-V15. Mathhammer visual histogram (Code TODO in `MathhammerUI.gd:738`) — see also T5-MH1
@@ -946,10 +948,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 38 | 13 | 51 |
+| Tier 5 — QoL/Visual | 39 | 12 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **96** | **32** | **128** |
-| **Recently Completed** | **117** | — | **117** |
+| **Total Open** | **97** | **31** | **128** |
+| **Recently Completed** | **118** | — | **118** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---

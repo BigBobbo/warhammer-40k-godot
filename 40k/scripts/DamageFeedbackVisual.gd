@@ -1,10 +1,12 @@
 extends Node2D
 class_name DamageFeedbackVisual
 
-# DamageFeedbackVisual - Target unit damage feedback (flash + death animation)
+# DamageFeedbackVisual - Target unit damage feedback (flash + death animation + floating numbers)
 # T5-V4: Provides visual feedback when models take damage or are destroyed.
 # - Damage flash: Red tint pulse radiating outward from the model position
 # - Death animation: Expanding ring + fade-out with skull marker and particles
+# T5-V12: Floating damage numbers that rise from wounded/destroyed models
+# - Floating numbers: Damage value floats upward and fades out from model position
 
 # === Damage Flash Constants ===
 const DAMAGE_FLASH_DURATION := 0.4  # Total duration of damage flash
@@ -21,6 +23,13 @@ const DEATH_RING_COLOR := Color(0.8, 0.05, 0.0, 0.8)  # Deep red expanding ring
 const DEATH_FLASH_COLOR := Color(1.0, 0.3, 0.0, 0.9)  # Orange-red death flash
 const DEATH_SKULL_DURATION := 1.5  # How long skull marker stays visible
 const DEATH_PARTICLE_COUNT := 8  # Number of debris particles
+
+# === T5-V12: Floating Number Constants ===
+const FLOAT_NUMBER_DURATION := 1.2  # How long the number floats
+const FLOAT_NUMBER_RISE_PX := 40.0  # How far the number rises (in pixels)
+const FLOAT_NUMBER_FONT_SIZE := 22  # Base font size for floating numbers
+const FLOAT_NUMBER_COLOR_DAMAGE := Color(1.0, 0.2, 0.1, 1.0)  # Red for damage
+const FLOAT_NUMBER_COLOR_KILL := Color(0.8, 0.05, 0.0, 1.0)  # Dark red for kills
 
 # Internal state
 var _effects: Array = []  # Active effects list [{type, pos, radius, elapsed, duration, ...}]
@@ -80,6 +89,33 @@ func play_damage_flash(model_pos: Vector2, base_radius_px: float, damage: int = 
 
 	queue_redraw()
 	print("[DamageFeedbackVisual] T5-V4: Damage flash at %s (radius=%.0f, intensity=%.2f)" % [str(model_pos), base_radius_px, intensity])
+
+func play_floating_number(model_pos: Vector2, damage: int, is_kill: bool = false) -> void:
+	"""T5-V12: Show a damage number floating upward from model position."""
+	var label = Label.new()
+	label.text = "-%d" % damage
+	var font_size = FLOAT_NUMBER_FONT_SIZE + (4 if damage >= 3 else 0)  # Bigger text for bigger hits
+	label.add_theme_font_size_override("font_size", font_size)
+	var base_color = FLOAT_NUMBER_COLOR_KILL if is_kill else FLOAT_NUMBER_COLOR_DAMAGE
+	label.add_theme_color_override("font_color", base_color)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Slight random horizontal offset to prevent stacking when multiple models hit
+	var x_offset = randf_range(-12.0, 12.0)
+	label.position = model_pos + Vector2(x_offset - font_size * 0.4, -font_size * 0.6)
+	label.z_index = 57  # Above skull markers (56)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(label)
+
+	# Tween 1: Rise upward with ease-out
+	var rise_tween = create_tween()
+	rise_tween.tween_property(label, "position:y", label.position.y - FLOAT_NUMBER_RISE_PX, FLOAT_NUMBER_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+	# Tween 2: Fade out in second half, then clean up
+	var fade_tween = create_tween()
+	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, FLOAT_NUMBER_DURATION * 0.5).set_delay(FLOAT_NUMBER_DURATION * 0.5)
+	fade_tween.tween_callback(label.queue_free)
+
+	print("[DamageFeedbackVisual] T5-V12: Floating number -%d at %s (kill=%s)" % [damage, str(model_pos), str(is_kill)])
 
 func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 	"""Play death animation: expanding ring + particles + skull marker."""
