@@ -26,6 +26,7 @@ var defender_selector: OptionButton
 var weapon_selection_panel: VBoxContainer
 var run_simulation_button: Button
 var compare_weapons_button: Button
+var clear_results_button: Button  # T5-MH10: Clear Results / Reset button
 var trials_spinbox: SpinBox
 var phase_toggle: OptionButton  # Shooting/Melee phase selector
 
@@ -312,6 +313,13 @@ func _create_content_sections() -> void:
 	compare_weapons_button.tooltip_text = "Run separate simulations for each weapon and compare results side-by-side"
 	unit_selector.add_child(compare_weapons_button)
 
+	# Clear Results / Reset button (T5-MH10)
+	clear_results_button = Button.new()
+	clear_results_button.text = "Clear Results"
+	clear_results_button.tooltip_text = "Clear simulation results and reset the display"
+	clear_results_button.disabled = true  # Disabled until results exist
+	unit_selector.add_child(clear_results_button)
+
 	# Progress indicator — hidden until simulation starts (T5-MH7)
 	_progress_container = VBoxContainer.new()
 	_progress_container.name = "ProgressContainer"
@@ -429,6 +437,9 @@ func _connect_signals() -> void:
 
 	if compare_weapons_button:
 		compare_weapons_button.pressed.connect(_on_compare_weapons_pressed)
+
+	if clear_results_button:
+		clear_results_button.pressed.connect(_on_clear_results_pressed)
 
 	if phase_toggle:
 		phase_toggle.item_selected.connect(_on_phase_changed)
@@ -1197,6 +1208,8 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
 	compare_weapons_button.disabled = false
+	if clear_results_button:
+		clear_results_button.disabled = false  # T5-MH10: Enable after results are available
 
 func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
 	print("MathhammerUI: _display_simulation_results called")
@@ -1300,6 +1313,50 @@ func _clear_results_display() -> void:
 		print("MathhammerUI: Hidden breakdown_text placeholder")
 
 	print("MathhammerUI: Finished clearing results display")
+
+# T5-MH10: Handler for the Clear Results button
+func _on_clear_results_pressed() -> void:
+	print("MathhammerUI: Clear Results button pressed")
+	_clear_results_display()
+
+	# Clear the histogram
+	if histogram_display:
+		var histogram_label = histogram_display.get_node_or_null("HistogramLabel")
+		if histogram_label:
+			histogram_label.queue_free()
+
+	# Reset stored simulation result
+	current_simulation_result = null
+
+	# Restore the initial placeholder text in summary panel
+	if summary_panel:
+		var initial_label = summary_panel.get_node_or_null("InitialResultsLabel")
+		if not initial_label:
+			results_label = RichTextLabel.new()
+			results_label.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.15)
+			results_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			results_label.bbcode_enabled = true
+			results_label.text = "Run a simulation to see results..."
+			results_label.name = "InitialResultsLabel"
+			summary_panel.add_child(results_label)
+
+	# Restore the breakdown placeholder text
+	if breakdown_panel and (not breakdown_text or not is_instance_valid(breakdown_text)):
+		breakdown_text = RichTextLabel.new()
+		breakdown_text.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.10)
+		breakdown_text.bbcode_enabled = true
+		breakdown_text.text = "Detailed statistics will appear here after simulation..."
+		breakdown_text.visible = true
+		breakdown_panel.add_child(breakdown_text)
+	elif breakdown_text and is_instance_valid(breakdown_text):
+		breakdown_text.text = "Detailed statistics will appear here after simulation..."
+		breakdown_text.visible = true
+
+	# Disable the clear button since there are no results
+	if clear_results_button:
+		clear_results_button.disabled = true
+
+	print("MathhammerUI: Results cleared and display reset")
 
 func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> void:
 	print("MathhammerUI: Creating detailed results display")
@@ -1744,6 +1801,8 @@ func _on_weapon_comparison_completed(results: Array) -> void:
 	run_simulation_button.disabled = false
 	compare_weapons_button.disabled = false
 	compare_weapons_button.text = "Compare Weapons"
+	if clear_results_button:
+		clear_results_button.disabled = false  # T5-MH10: Enable after comparison results
 
 func _display_comparison_results(results: Array) -> void:
 	print("MathhammerUI: Displaying comparison results for %d weapons" % results.size())
