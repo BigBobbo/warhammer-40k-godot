@@ -2460,6 +2460,43 @@ static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_un
 			})
 	return deployed
 
+static func _get_deployed_models_split(snapshot: Dictionary, exclude_unit_id: String, unit_owner: int) -> Dictionary:
+	"""Returns deployed models split by allegiance for pile-in/consolidation collision detection.
+	Returns {"friendly": Array, "enemy": Array} where each entry has position, base_mm, etc."""
+	var friendly = []
+	var enemy = []
+	for uid in snapshot.get("units", {}):
+		if uid == exclude_unit_id:
+			continue
+		var u = snapshot.units[uid]
+		var status = u.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var is_friendly = int(u.get("owner", 0)) == unit_owner
+		for model in u.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos_data = model.get("position", null)
+			if pos_data == null:
+				continue
+			var pos: Vector2
+			if pos_data is Vector2:
+				pos = pos_data
+			else:
+				pos = Vector2(float(pos_data.get("x", 0)), float(pos_data.get("y", 0)))
+			var entry = {
+				"position": pos,
+				"base_mm": model.get("base_mm", 32),
+				"base_type": model.get("base_type", "circular"),
+				"base_dimensions": model.get("base_dimensions", {}),
+				"rotation": model.get("rotation", 0.0)
+			}
+			if is_friendly:
+				friendly.append(entry)
+			else:
+				enemy.append(entry)
+	return {"friendly": friendly, "enemy": enemy}
+
 # =============================================================================
 # SHOOTING PHASE
 # =============================================================================
@@ -3898,6 +3935,18 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 # PILE-IN MOVEMENT COMPUTATION
 # =============================================================================
 
+static func _pile_in_position_collides(pos: Vector2, base_mm: int,
+		friendly_obstacles: Array, enemy_obstacles: Array, placed_positions: Array,
+		base_type: String = "circular", base_dimensions: Dictionary = {}) -> bool:
+	"""Check collision during pile-in/consolidation movement.
+	Uses 2px gap for friendly models (prevent stacking), -1px gap for enemy models
+	(allow base-to-base contact but prevent true physical overlap)."""
+	if _position_collides_with_deployed(pos, base_mm, friendly_obstacles + placed_positions, 2.0, base_type, base_dimensions):
+		return true
+	if _position_collides_with_deployed(pos, base_mm, enemy_obstacles, -1.0, base_type, base_dimensions):
+		return true
+	return false
+
 static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
 	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
 	closest enemy model (edge-to-edge). Models already in base contact stay put.
@@ -3983,8 +4032,12 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 		print("AIDecisionMaker: Pile-in for %s — no enemy models found" % unit_id)
 		return movements
 
-	# Get deployed models for collision checking (excluding this unit)
-	var deployed_models = _get_deployed_models_excluding_unit(snapshot, unit_id)
+	# Get deployed models split by allegiance for collision checking
+	# Friendly models use 2px gap (prevent stacking), enemy models use -1px gap
+	# (allow base-to-base contact during pile-in)
+	var obstacle_split = _get_deployed_models_split(snapshot, unit_id, unit_owner)
+	var friendly_obstacles = obstacle_split.friendly
+	var enemy_obstacles = obstacle_split.enemy
 
 	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
 	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.25")
@@ -4090,8 +4143,8 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 		candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
 
 		# Check collision with deployed models + already placed models from this unit
-		var all_obstacles = deployed_models + placed_positions
-		if _position_collides_with_deployed(candidate_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+		# Friendly obstacles use 2px gap, enemy obstacles use -1px gap (allow B2B contact)
+		if _pile_in_position_collides(candidate_pos, base_mm, friendly_obstacles, enemy_obstacles, placed_positions, base_type, base_dimensions):
 			# Try to find a nearby collision-free position still closer to the enemy
 			var found_alt = false
 			var step = my_radius * 2.0 + 4.0
@@ -4113,8 +4166,8 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 					# Clamp to board
 					test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 					test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-					# Check collision
-					if not _position_collides_with_deployed(test_pos, base_mm, all_obstacles, 2.0, base_type, base_dimensions):
+					# Check collision (friendly gap=2px, enemy gap=-1px)
+					if not _pile_in_position_collides(test_pos, base_mm, friendly_obstacles, enemy_obstacles, placed_positions, base_type, base_dimensions):
 						candidate_pos = test_pos
 						found_alt = true
 						break
