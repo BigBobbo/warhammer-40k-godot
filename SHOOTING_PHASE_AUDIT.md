@@ -347,11 +347,20 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 - **Death fade-out**: Tokens flash white then fade to transparent (0.5s) instead of instant hide.
 - Integrated into `WoundAllocationOverlay` for interactive wound allocation.
 
-### 6.4 MEDIUM: Range Circle Visualization
+### 6.4 MEDIUM: Range Circle Visualization — **DONE**
 
 **Current:** `ShootingRangeVisual` exists (`ShootingController.gd:133-135`) as a Node2D container. The actual range circle implementation should show the weapon's range as a circle around the selected unit.
 
 **Suggestion:** When a weapon is selected, show its range as a translucent circle on the board. Color-code eligible targets inside the range. Show half-range for Rapid Fire and Melta weapons as a dotted inner circle.
+
+**Resolution:** Implemented in T5-V5. Enhanced `RangeCircle.gd` with:
+- **Dashed circle mode**: Half-range circles for Rapid Fire (orange) and Melta (red) use dashed outlines for visual distinction from full-range solid circles.
+- **Pulse animation**: Subtle breathing effect (alpha modulation at 2Hz) on all range circle elements for better visibility.
+- **Weapon display names**: Labels now show the weapon's display name instead of the raw weapon_id.
+- **Melta half-range**: Added dashed red half-range circle with "+X dmg" label for Melta weapons, complementing existing Rapid Fire half-range circles.
+- **Single reference model**: Range circles are drawn from a single representative model position instead of every model, reducing visual clutter for multi-model units.
+- **Non-destructive labels**: Fixed `_show_range_label()` to not clear range circles when showing distance measurement labels.
+- Enemy units are color-coded green (in range) or gray (out of range) via existing `_highlight_enemies_by_range()`.
 
 ### 6.5 MEDIUM: Wound Allocation Board Highlights
 
