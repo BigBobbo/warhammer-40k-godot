@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--script", "res://tests_archived_disabled/test_visual_range.gd"]
