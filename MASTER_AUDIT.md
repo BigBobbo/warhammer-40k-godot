@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-28 (2026-02-20): AI multi-weapon melee optimization — Rewrote `_assign_fight_attacks()` to evaluate all melee weapon profiles against all enemy targets. Separates weapons into primary vs Extra Attacks categories, calculates expected damage per weapon×target pairing (including EA weapon bonus), picks damage-maximizing combination. Added `_evaluate_melee_weapon_damage()` and `_weapon_has_extra_attacks()` helpers. 36+37+28 tests pass. | Fight/AI | AI_AUDIT.md §AI-GAP-7, FIGHT-3 |
 | T7-27 (2026-02-20): AI engaged unit survival assessment — Added survival assessment helpers to estimate expected fight-phase melee damage from engaging enemies. Integrated into `_decide_engaged_unit()`: objective holders facing lethal damage fall back when others can hold; sole holders stay but log threat. Fall-back reasons enriched with survival data. 23/23 tests pass. | Movement/AI | AI_AUDIT.md §MOV-9 |
 | T7-24 (2026-02-20): AI trade and tempo awareness — Added `_get_points_per_wound()`, `_get_trade_efficiency()`, `_calculate_tempo_modifier()` to AIDecisionMaker.gd. PPW-based target value bonus, trade efficiency in charge scoring, VP-differential tempo modifier affecting objective urgency/focus fire/charge thresholds. Desperation mode in rounds 4-5 when behind. 41+36+40+34 tests pass, 0 regressions. | All/AI | AI_AUDIT.md §AI-TACTIC-7 |
 | T7-23 (2026-02-20): AI multi-phase planning — Added `_build_phase_plan()` cross-phase coordinator (movement→shooting→charge). Charge intent identifies melee units and blends movement toward charge angles. Shooting suppresses charge targets (`PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET`). Charge prefers locking dangerous shooters (`PHASE_PLAN_LOCK_SHOOTER_BONUS`). Expanded urgency scoring to all 5 rounds (R1 rush, R2 contest, R3 consolidate, R4-5 push). 34/34 tests pass. | All/AI | AI_AUDIT.md §AI-TACTIC-6 |
@@ -1177,12 +1178,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Doesn't estimate fight-phase damage before hold/fall-back decision. Calculate expected melee damage to the unit to inform whether to hold position or fall back.
 - **Resolution:** Added survival assessment helpers (`_get_engaging_enemy_units`, `_estimate_incoming_melee_damage`, `_estimate_unit_remaining_wounds`, `_assess_engaged_unit_survival`) that estimate expected fight-phase damage from all engaging enemies. Integrated into `_decide_engaged_unit()`: units on objectives facing lethal melee damage now fall back when other friendlies can hold; sole holders stay but log the lethal threat; fall-back reasons enriched with survival data. Added 23 tests in `test_ai_survival_assessment.gd`.
 
-### T7-28. AI multi-weapon melee optimization
+### T7-28. AI multi-weapon melee optimization — **DONE**
 - **Phase:** Fight
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-GAP-7, FIGHT-3
 - **Files:** `AIDecisionMaker.gd` — `_assign_fight_attacks()`
 - **Details:** Only first melee weapon used — `_assign_fight_attacks()` picks first melee weapon found. Evaluate all melee profiles per target, account for Extra Attacks weapons, pick damage-maximizing weapon combination.
+- **Resolution:** Rewrote `_assign_fight_attacks()` to evaluate all melee weapon profiles against all enemy targets. Separates weapons into primary and Extra Attacks categories, calculates expected damage per weapon×target combination (including EA weapon bonus since FightPhase auto-injects them), and picks the damage-maximizing primary weapon + target pair. Added `_evaluate_melee_weapon_damage()` and `_weapon_has_extra_attacks()` helpers. CCW fallback evaluated alongside named weapons. All existing fight/charge/consolidation/pile-in tests pass.
 
 ### T7-29. AI fight target optimization
 - **Phase:** Fight
@@ -1446,9 +1448,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 20 | 38 | 58 |
-| **Total** | **119** | **67** | **186** |
-| **Recently Completed** | **138** | — | **138** |
+| Tier 7 — AI Player | 21 | 37 | 58 |
+| **Total** | **120** | **66** | **186** |
+| **Recently Completed** | **139** | — | **139** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
