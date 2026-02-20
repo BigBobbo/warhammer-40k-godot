@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--script", "tests/run_save_generator.gd"]

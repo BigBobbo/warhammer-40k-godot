@@ -417,6 +417,8 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 
 	var attachment_actions = []
 	var transport_actions = []
+	var reserves_actions = []
+	var undeclare_reserves_actions = []
 	var has_confirm = false
 
 	for action in available_actions:
@@ -425,6 +427,10 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 				attachment_actions.append(action)
 			"DECLARE_TRANSPORT_EMBARKATION":
 				transport_actions.append(action)
+			"DECLARE_RESERVES":
+				reserves_actions.append(action)
+			"UNDECLARE_RESERVES":
+				undeclare_reserves_actions.append(action)
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
@@ -441,12 +447,19 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 		if not embark_decision.is_empty():
 			return embark_decision
 
-	# No more attachments or embarkations to make — confirm formations
+	# T7-34 / FORM-3: After transport embarkations, evaluate reserves declarations.
+	# Put appropriate units in Strategic Reserves or Deep Strike based on army composition.
+	if not reserves_actions.is_empty():
+		var reserves_decision = _evaluate_reserves_declarations(snapshot, reserves_actions, undeclare_reserves_actions, player)
+		if not reserves_decision.is_empty():
+			return reserves_decision
+
+	# No more attachments, embarkations, or reserves to declare — confirm formations
 	if has_confirm:
 		return {
 			"type": "CONFIRM_FORMATIONS",
 			"player": player,
-			"_ai_description": "AI confirms battle formations (all leader/transport declarations done)"
+			"_ai_description": "AI confirms battle formations (all declarations done)"
 		}
 	return {}
 
@@ -733,6 +746,243 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 
 	print("AIDecisionMaker: [FORM-2] Score %s for transport: %.2f (T%d, Sv%d+, W%d, M%d\", %d models, %dpts)" % [
 		unit.get("meta", {}).get("name", unit_id), score, toughness, save, wounds, move, model_count, points])
+	return score
+
+# =============================================================================
+# RESERVES DECLARATIONS — FORMATIONS PHASE (T7-34 / FORM-3)
+# =============================================================================
+
+static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actions: Array,
+		undeclare_reserves_actions: Array, player: int) -> Dictionary:
+	"""Evaluate which units should be placed in reserves during formations.
+
+	Per 10th Edition rules:
+	- Deep Strike: Units with the Deep Strike ability can be set up in reserves,
+	  arriving anywhere on the battlefield >9" from enemies (from Round 2+).
+	- Strategic Reserves: Any unit can go into reserves (within 6" of board edge,
+	  >9" from enemies). Limited to 25% of total army points.
+	- Total reserves cannot exceed 50% of units or 50% of points.
+	- Fortifications cannot be placed in reserves.
+
+	Strategy: Put melee-oriented and short-range Deep Strike units in reserves
+	for flexible positioning. Use Strategic Reserves for fast melee units that
+	benefit from flank entry. Keep ranged firepower on the table for Turn 1 shooting.
+	Returns one DECLARE_RESERVES action per call (called repeatedly until no more are beneficial)."""
+	var all_units = snapshot.get("units", {})
+
+	# --- Calculate army-wide budget ---
+	var total_army_points = 0
+	var total_army_units = 0
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) == player:
+			total_army_points += unit.get("meta", {}).get("points", 0)
+			total_army_units += 1
+
+	var max_reserves_points = int(total_army_points * 0.25)
+	var max_reserves_units = int(total_army_units / 2)  # Can't put more than half the army in reserves
+
+	# Calculate current reserves commitment from UNDECLARE_RESERVES actions
+	# (these represent units already declared in reserves)
+	var current_reserves_points = 0
+	var current_reserves_count = undeclare_reserves_actions.size()
+	for action in undeclare_reserves_actions:
+		var uid = action.get("unit_id", "")
+		var u = all_units.get(uid, {})
+		current_reserves_points += u.get("meta", {}).get("points", 0)
+
+	print("AIDecisionMaker: [FORM-3] Reserves budget: %d/%d pts used, %d/%d units used (army: %d pts, %d units)" % [
+		current_reserves_points, max_reserves_points, current_reserves_count, max_reserves_units,
+		total_army_points, total_army_units])
+
+	if current_reserves_count >= max_reserves_units:
+		print("AIDecisionMaker: [FORM-3] At unit limit for reserves — skipping")
+		return {}
+
+	# --- Group actions by unit_id, preferring deep_strike over strategic_reserves ---
+	# A unit with Deep Strike ability will have both options; always prefer deep_strike.
+	var unit_best_action: Dictionary = {}  # unit_id -> best DECLARE_RESERVES action
+	for action in reserves_actions:
+		var unit_id = action.get("unit_id", "")
+		var reserve_type = action.get("reserve_type", "strategic_reserves")
+		if not unit_best_action.has(unit_id):
+			unit_best_action[unit_id] = action
+		elif reserve_type == "deep_strike":
+			# Deep strike is always preferred over strategic reserves (more flexible)
+			unit_best_action[unit_id] = action
+
+	# --- Score each candidate unit ---
+	var scored_candidates = []
+	for unit_id in unit_best_action:
+		var action = unit_best_action[unit_id]
+		var unit = all_units.get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		var reserve_type = action.get("reserve_type", "strategic_reserves")
+		var unit_points = unit.get("meta", {}).get("points", 0)
+
+		# Check if adding this unit would exceed the points cap
+		if current_reserves_points + unit_points > max_reserves_points:
+			continue
+
+		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player)
+		if score > 0.0:
+			scored_candidates.append({
+				"action": action,
+				"score": score,
+				"unit_id": unit_id,
+				"reserve_type": reserve_type,
+				"points": unit_points
+			})
+
+	if scored_candidates.is_empty():
+		print("AIDecisionMaker: [FORM-3] No suitable reserves candidates found")
+		return {}
+
+	# Sort by score descending — pick the single best candidate
+	scored_candidates.sort_custom(func(a, b): return a.score > b.score)
+
+	# Only declare if the best candidate has a meaningful score
+	# (threshold ensures we don't put marginal units in reserves)
+	var best = scored_candidates[0]
+	if best.score < 2.0:
+		print("AIDecisionMaker: [FORM-3] Best candidate score %.1f below threshold — deploying all on table" % best.score)
+		return {}
+
+	var action = best.action
+	var unit_name = all_units.get(best.unit_id, {}).get("meta", {}).get("name", "unknown")
+	var type_label = "Deep Strike" if best.reserve_type == "deep_strike" else "Strategic Reserves"
+	action["_ai_description"] = "AI declares %s in %s (score: %.1f, %dpts)" % [
+		unit_name, type_label, best.score, best.points]
+	print("AIDecisionMaker: [FORM-3] %s" % action.get("_ai_description", ""))
+	return action
+
+
+static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_type: String,
+		snapshot: Dictionary, player: int) -> float:
+	"""Score how much a unit benefits from being placed in reserves.
+	Higher score = better reserves candidate. Returns 0.0 for units that should not be reserved.
+
+	Scoring philosophy:
+	- Deep Strike melee units benefit most (arrive anywhere, charge next turn)
+	- Deep Strike short-range shooters benefit from flexible positioning
+	- Strategic reserves melee units benefit from flank entry
+	- Long-range ranged units should stay on table for Turn 1 shooting
+	- Characters with leader data should attach, not reserve
+	- Vehicles/Monsters generally prefer table presence"""
+	var score = 0.0
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var points = unit.get("meta", {}).get("points", 0)
+	var has_ranged = _unit_has_ranged_weapons(unit)
+	var has_melee = _unit_has_melee_weapons(unit)
+	var max_range = _get_max_weapon_range(unit)
+
+	# --- Exclusions: units that should never be reserved ---
+
+	# Characters with leader ability should attach to bodyguards, not go into reserves
+	if "CHARACTER" in keywords:
+		var leader_data = unit.get("meta", {}).get("leader_data", {})
+		if not leader_data.get("can_lead", []).is_empty():
+			print("AIDecisionMaker: [FORM-3] Skip %s — CHARACTER with leader data (should attach)" %
+				unit.get("meta", {}).get("name", unit_id))
+			return 0.0
+
+	# Fortifications cannot be placed in reserves (rules requirement)
+	if "FORTIFICATION" in keywords:
+		return 0.0
+
+	# Units already embarked in transports shouldn't go into reserves
+	if unit.get("embarked_in", null) != null:
+		return 0.0
+
+	# Check for Deep Strike ability on the unit
+	var has_deep_strike = false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		if ability is Dictionary and ability.get("name", "") == "Deep Strike":
+			has_deep_strike = true
+			break
+		elif ability is String and ability == "Deep Strike":
+			has_deep_strike = true
+			break
+
+	# --- Scoring by reserve type ---
+
+	if reserve_type == "deep_strike" and has_deep_strike:
+		# Deep Strike allows deployment anywhere >9" from enemies — extremely flexible.
+		# Melee units benefit most: arrive close, charge next turn.
+		if has_melee and not has_ranged:
+			score += 8.0  # Pure melee — Deep Strike is their ideal delivery method
+		elif has_melee:
+			score += 6.0  # Mixed melee/ranged still benefits significantly
+		elif has_ranged and max_range <= 18:
+			score += 5.0  # Very short-range shooters (flamers, meltas) need positioning
+		elif has_ranged and max_range <= 24:
+			score += 3.5  # Short-range shooters benefit from flexible arrival
+		else:
+			score += 1.5  # Long-range shooters have marginal benefit from Deep Strike
+
+		# Bonus for high-value units (worth positioning carefully)
+		score += clamp(points / 100.0, 0.0, 3.0)
+
+	elif reserve_type == "strategic_reserves":
+		# Strategic reserves arrive within 6" of a board edge — less flexible but still useful.
+		# Primarily benefits fast melee units that can exploit flank entry.
+		if has_melee and not has_ranged:
+			score += 4.0  # Pure melee benefits from flank delivery
+		elif has_melee:
+			score += 2.5  # Mixed units get moderate benefit
+		elif has_ranged and max_range <= 18:
+			score += 2.0  # Short-range shooters can use edge entry
+		else:
+			score += 0.5  # Ranged units generally want Turn 1 shooting
+
+		# Fast units capitalize better on board edge entry (more distance after arriving)
+		var movement = 0
+		for model in unit.get("models", []):
+			var m_stat = model.get("stats", {}).get("M", "6")
+			if m_stat is String:
+				m_stat = m_stat.replace("\"", "").strip_edges()
+				if m_stat.is_valid_int():
+					movement = max(movement, int(m_stat))
+				elif m_stat.is_valid_float():
+					movement = max(movement, int(float(m_stat)))
+			elif m_stat is int or m_stat is float:
+				movement = max(movement, int(m_stat))
+		if movement >= 12:
+			score += 2.0  # Very fast units (bikes, cavalry) are great from reserves
+		elif movement >= 10:
+			score += 1.5
+		elif movement >= 8:
+			score += 0.5
+
+		# Bonus for melee-oriented high-value units
+		if has_melee:
+			score += clamp(points / 200.0, 0.0, 1.5)
+
+	# --- Universal modifiers ---
+
+	# Vehicles and Monsters generally prefer deploying on the table
+	# (they have range and durability, and losing a turn of shooting is costly)
+	if "VEHICLE" in keywords or "MONSTER" in keywords:
+		if not has_melee or has_ranged:
+			score *= 0.4  # Significant penalty unless they're melee-focused
+		else:
+			score *= 0.7  # Melee vehicles/monsters still get some penalty
+
+	# Purely long-range ranged units should stay on the table for Turn 1 shooting
+	if has_ranged and not has_melee and max_range >= 36:
+		score *= 0.3  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
+
+	# Cheap screening units are sometimes better deployed as screens
+	if points <= SCREEN_CHEAP_UNIT_POINTS and not has_deep_strike:
+		score *= 0.5  # Cheap units are better as Turn 1 screens than reserves
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var type_label = "DS" if reserve_type == "deep_strike" else "SR"
+	print("AIDecisionMaker: [FORM-3] Score %s (%s): %.1f (melee=%s, ranged=%s, range=%.0f\", pts=%d)" % [
+		unit_name, type_label, score, has_melee, has_ranged, max_range, points])
 	return score
 
 # =============================================================================
