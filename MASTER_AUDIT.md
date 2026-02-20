@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-13 (2026-02-20): AI enemy threat range awareness — Enemy threat ranges (charge M+12"+1", shooting max range) calculated pre-movement. Added 12" close melee proximity penalty, melee weapon quality in threat estimation, threat-aware assignment scoring/position adjustment. 34/35 tests pass (1 pre-existing). | Movement/AI | AI_AUDIT.md §AI-TACTIC-4, MOV-2 |
 | T7-10 (2026-02-20): AI basic stratagem usage — AI uses all core stratagems: Grenade, Fire Overwatch, Go to Ground/Smokescreen, Command Re-roll (charge/advance/battleshock), Tank Shock, Heroic Intervention. Added `evaluate_tank_shock()` and `evaluate_heroic_intervention()` heuristics, signal handlers, movement phase reroll fallback. 33+36 tests pass. | All/AI | AI_AUDIT.md §AI-GAP-3 |
 | T7-9 (2026-02-20): AI weapon keyword awareness in target scoring — `_apply_weapon_keyword_modifiers()` handles all 8 keywords (Torrent, Blast, Rapid Fire, Melta, Anti-keyword, Sustained/Lethal/Devastating Hits). Fixed Blast formula from 9th ed thresholds to correct 10th ed `floor(models/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use keyword pipeline. 50/50 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-5 |
 | T7-8 (2026-02-20): AI invulnerable save consideration in target scoring — `_save_probability()` now accepts invuln parameter using `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper for model/meta/effect invuln sources. All callers pass invuln through. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-6, SHOOT-3 |
@@ -1050,12 +1051,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`
 - **Details:** All scout moves are skipped entirely. Move scouts toward nearest uncontrolled objective while maintaining >9" from enemies.
 
-### T7-13. AI enemy threat range awareness
+### T7-13. AI enemy threat range awareness — **DONE**
 - **Phase:** Movement
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-TACTIC-4, MOV-2
 - **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
 - **Details:** No pre-measurement of enemy threat ranges before moving. Calculate all enemy threat ranges (movement + charge for melee, weapon ranges for shooting), add threat penalty for destinations within 12" of dangerous melee enemies.
+- **Resolution:** Enemy threat ranges (charge: M+12"+1", shooting: max weapon range) are calculated once per movement phase and used in assignment scoring, position evaluation, and safer-position finding. Added 12" close melee proximity penalty (`THREAT_CLOSE_MELEE_PENALTY`) that adds extra danger for positions within raw charge range of melee enemies. Enhanced `_estimate_enemy_threat_level()` to factor in melee weapon quality (attacks, strength, AP, damage). All movement paths (normal, advance, hold) use threat data.
 
 ### T7-14. AI shooting range consideration in movement
 - **Phase:** Movement
@@ -1426,9 +1428,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 10 | 48 | 58 |
-| **Total** | **109** | **77** | **186** |
-| **Recently Completed** | **129** | — | **129** |
+| Tier 7 — AI Player | 11 | 47 | 58 |
+| **Total** | **110** | **76** | **186** |
+| **Recently Completed** | **130** | — | **130** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
