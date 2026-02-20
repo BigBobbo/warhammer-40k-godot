@@ -4,7 +4,7 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 # MissionManager - Handles mission objectives, control, and victory point scoring
 # Supports multiple primary missions via MissionData registry
 
-signal objective_control_changed(objective_id: String, controller: int)
+signal objective_control_changed(objective_id: String, controller: int, old_controller: int)
 signal victory_points_scored(player: int, points: int, reason: String)
 signal objective_removed(objective_id: String)
 
@@ -99,7 +99,7 @@ func check_all_objectives() -> void:
 
 		if controller != old_controller:
 			objective_control_state[obj.id] = controller
-			emit_signal("objective_control_changed", obj.id, controller)
+			emit_signal("objective_control_changed", obj.id, controller, old_controller)
 			print("MissionManager: %s control changed from %d to %d" % [obj.id, old_controller, controller])
 
 func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:

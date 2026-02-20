@@ -1826,11 +1826,12 @@ func _setup_objectives() -> void:
 			# Store reference in MissionManager for easy access
 			MissionManager.objectives_visual_refs[obj.id] = obj_visual
 			
-			# Connect to control changes
+			# Connect to control changes (T7-39: also flash on change)
 			MissionManager.objective_control_changed.connect(
-				func(obj_id, controller):
+				func(obj_id, controller, old_ctrl):
 					if obj_id == obj.id:
 						obj_visual.update_control(controller)
+						obj_visual.flash_control_change(controller, old_ctrl)
 			)
 		
 		# Do initial control check

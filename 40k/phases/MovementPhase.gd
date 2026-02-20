@@ -1683,6 +1683,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 	emit_signal("unit_move_confirmed", unit_id, {"mode": move_data.mode, "models_moved": move_data.model_moves.size()})
 
+	# T7-39: Recheck objective control after movement so flashes trigger in real-time
+	# Uses call_deferred so it runs after GameManager.apply_result() applies the position diffs
+	if MissionManager:
+		MissionManager.call_deferred("check_all_objectives")
+
 	# Check for embark opportunity after movement
 	if not unit.get("disembarked_this_phase", false):
 		call_deferred("_check_embark_opportunity", unit_id)
@@ -2012,6 +2017,10 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
 	log_phase_message("Reinforcement arrived: %s via %s" % [unit_name, type_label])
+
+	# T7-39: Recheck objective control after reinforcement placement
+	if MissionManager:
+		MissionManager.call_deferred("check_all_objectives")
 
 	return create_result(true, changes)
 

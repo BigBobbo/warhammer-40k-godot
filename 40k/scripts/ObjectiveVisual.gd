@@ -163,6 +163,79 @@ func update_control(player: int) -> void:
 			objective_circle.default_color = OBJ_OUTLINE_COLOR
 			objective_polygon.color = OBJ_FILL_COLOR
 
+# T7-39: Flash effect constants for objective control changes
+const FLASH_DURATION := 0.8  # Total flash animation duration
+const FLASH_PULSE_COUNT := 3  # Number of brightness pulses
+const FLASH_COLOR_AI_CAPTURE := Color(0.1, 1.0, 0.2, 0.8)  # Green flash on AI capture
+const FLASH_COLOR_AI_LOSS := Color(1.0, 0.15, 0.05, 0.8)    # Red flash on AI loss
+const FLASH_COLOR_CONTESTED := Color(1.0, 1.0, 0.2, 0.8)     # Yellow flash on contested
+const FLASH_RING_EXPAND := 1.4  # How much the flash ring expands beyond control radius
+
+var _flash_ring: Line2D = null  # Reusable flash ring node
+var _flash_tween: Tween = null  # Current flash animation tween
+
+func flash_control_change(new_controller: int, old_controller: int) -> void:
+	"""T7-39: Flash objective marker when control state changes.
+	Green flash when AI (Player 2) captures, red when AI loses control."""
+	# Determine flash color based on who gained/lost control
+	var flash_color: Color
+	if new_controller == 2:
+		# AI captured this objective
+		flash_color = FLASH_COLOR_AI_CAPTURE
+	elif old_controller == 2:
+		# AI lost this objective
+		flash_color = FLASH_COLOR_AI_LOSS
+	elif new_controller == 0:
+		# Became contested
+		flash_color = FLASH_COLOR_CONTESTED
+	else:
+		# Player 1 captured (from contested/uncontrolled)
+		flash_color = FLASH_COLOR_AI_LOSS  # Red from AI perspective
+
+	print("[ObjectiveVisual] T7-39: Flashing %s (old=%d, new=%d, color=%s)" % [
+		objective_data.get("id", "?"), old_controller, new_controller, flash_color])
+
+	# Kill any existing flash animation
+	if _flash_tween and _flash_tween.is_valid():
+		_flash_tween.kill()
+
+	# Create flash ring if it doesn't exist
+	if _flash_ring == null:
+		_flash_ring = Line2D.new()
+		_flash_ring.name = "FlashRing"
+		_flash_ring.z_index = 3
+		_flash_ring.closed = true
+		var control_radius = Measurement.inches_to_px(OBJECTIVE_RADIUS_INCHES)
+		for i in range(33):
+			var angle = i * TAU / 32
+			_flash_ring.add_point(Vector2(cos(angle), sin(angle)) * control_radius)
+		objective_marker.add_child(_flash_ring)
+
+	# Configure flash ring appearance
+	_flash_ring.width = 8.0
+	_flash_ring.default_color = flash_color
+	_flash_ring.visible = true
+	_flash_ring.scale = Vector2.ONE
+
+	# Create pulsing flash animation
+	_flash_tween = create_tween()
+
+	# Pulse brightness 3 times with expanding ring
+	var pulse_duration = FLASH_DURATION / FLASH_PULSE_COUNT
+	for i in range(FLASH_PULSE_COUNT):
+		# Brighten + expand
+		_flash_tween.tween_property(_flash_ring, "scale",
+			Vector2.ONE * FLASH_RING_EXPAND, pulse_duration * 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		_flash_tween.parallel().tween_property(_flash_ring, "default_color:a",
+			flash_color.a, pulse_duration * 0.1)
+		# Contract back
+		_flash_tween.tween_property(_flash_ring, "scale",
+			Vector2.ONE, pulse_duration * 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+	# Final fade out
+	_flash_tween.tween_property(_flash_ring, "default_color:a", 0.0, 0.2)
+	_flash_tween.tween_callback(func(): _flash_ring.visible = false)
+
 func highlight(enabled: bool) -> void:
 	if enabled:
 		objective_circle.width = 7.0

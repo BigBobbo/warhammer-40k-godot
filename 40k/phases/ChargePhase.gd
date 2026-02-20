@@ -981,6 +981,10 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	emit_signal("charge_resolved", unit_id, true, {"distance": charge_data.distance})
 
+	# T7-39: Recheck objective control after charge movement
+	if MissionManager:
+		MissionManager.call_deferred("check_all_objectives")
+
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
 	var charging_unit = get_unit(unit_id)
