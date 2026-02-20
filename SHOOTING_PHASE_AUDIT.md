@@ -334,11 +334,18 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 - **Auto-fade**: Line holds for 3s then fades out over 0.8s
 - Integrated into `ShootingController._on_shooting_begun()` for local player (animated) and remote player (static line via `show_remote_target_assignment`). Replaces old plain Line2D with the animated visual. Cleaned up on `shooting_resolved`.
 
-### 6.3 MEDIUM: Target Unit Damage Feedback
+### 6.3 MEDIUM: Target Unit Damage Feedback — **DONE**
 
 **Current:** Casualties are applied to models and their sprites are updated. No transition effect exists — models simply disappear or change state.
 
 **Suggestion:** Add a brief damage flash (red tint) when a model takes damage, and a "death" animation (fade out, fall over, or small explosion particle) when destroyed. This gives satisfying visual feedback for successful attacks.
+
+**Resolution:** Implemented in T5-V4. Created `DamageFeedbackVisual.gd` — a Node2D providing animated damage feedback:
+- **Damage flash**: Red tint pulse with expanding rings at model position, intensity scaled by damage ratio. Duration 0.4s.
+- **Death animation**: Expanding red ring with debris particles and skull marker fade-in. Duration ~1.3s.
+- **Token flash**: Modulate tween on TokenVisual — flashes red on damage.
+- **Death fade-out**: Tokens flash white then fade to transparent (0.5s) instead of instant hide.
+- Integrated into `WoundAllocationOverlay` for interactive wound allocation.
 
 ### 6.4 MEDIUM: Range Circle Visualization
 
