@@ -32,6 +32,17 @@ static var _focus_fire_plan_built: bool = false
 # Grenade stratagem evaluation — checked once per shooting phase
 static var _grenade_evaluated: bool = false
 
+# T7-23: Multi-phase planning cache — built at start of movement phase,
+# consumed during shooting and charge phases.
+# Coordinates movement→shooting→charge so phases don't work at cross purposes.
+# _phase_plan stores:
+#   charge_intent: {unit_id: {target_id, score, distance}} — units likely to charge
+#   shooting_lanes: {unit_id: [{target_id, range_inches}]} — shooting targets from post-move positions
+#   lock_targets: [target_id, ...] — dangerous enemy shooters to lock in combat
+static var _phase_plan: Dictionary = {}
+static var _phase_plan_built: bool = false
+static var _phase_plan_round: int = -1  # Track which round the plan was built for
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -96,6 +107,19 @@ const SCREEN_CHEAP_UNIT_POINTS: int = 100           # Units at or below this poi
 const SCREEN_SCORE_BASE: float = 8.0                # Base score for a screening assignment (comparable to objective priority)
 const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
 
+# T7-23: Multi-phase planning constants
+# Movement phase adjustments based on planned future actions
+const PHASE_PLAN_CHARGE_LANE_BONUS: float = 3.0     # Bonus for moving toward charge-worthy targets
+const PHASE_PLAN_SHOOTING_LANE_BONUS: float = 2.0   # Bonus for maintaining shooting lanes
+const PHASE_PLAN_CHARGE_INTENT_THRESHOLD: float = 3.0  # Min charge score to flag intent
+const PHASE_PLAN_LOCK_SHOOTER_BONUS: float = 3.0    # Bonus for charging dangerous shooters
+const PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET: float = 0.1  # Multiplier for shooting at charge targets (near-zero)
+const PHASE_PLAN_RANGED_STRENGTH_DANGEROUS: float = 5.0  # Ranged output threshold for "dangerous shooter"
+# Urgency scoring extension (expanding round-1 urgency)
+const URGENCY_ROUND_2_CONTEST: float = 2.0      # Round 2: contest uncontrolled objectives
+const URGENCY_ROUND_3_HOLD: float = 1.5         # Round 3: consolidate hold on objectives
+const URGENCY_LATE_GAME_PUSH: float = 2.5       # Round 4-5: aggressive push for VP
+
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
 const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
@@ -127,6 +151,14 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			_focus_fire_plan.clear()
 		_grenade_evaluated = false
 
+	# T7-23: Reset multi-phase plan when a new round starts or when we enter
+	# a phase earlier than movement (i.e., command phase or earlier)
+	var current_round = snapshot.get("battle_round", 1)
+	if _phase_plan_round != current_round:
+		_phase_plan.clear()
+		_phase_plan_built = false
+		_phase_plan_round = current_round
+
 	match phase:
 		GameStateData.Phase.FORMATIONS:
 			return _decide_formations(snapshot, available_actions, player)
@@ -153,6 +185,198 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 				if t.begins_with("END_"):
 					return {"type": t, "_ai_description": "End phase (fallback)"}
 			return {}
+
+# =============================================================================
+# T7-23: MULTI-PHASE PLANNING
+# =============================================================================
+# Built once at the start of movement phase. Identifies:
+#   1. charge_intent: units that are likely to charge (melee units near enemies)
+#   2. lock_targets: dangerous enemy shooters that should be locked in combat
+#   3. shooting_lanes: what each unit can shoot from its current/planned position
+# This information is consumed by:
+#   - Movement: position melee units for charge angles, ranged units for shooting lanes
+#   - Shooting: avoid wasting firepower on targets planned for charge
+#   - Charge: prefer locking dangerous shooters in combat
+
+static func _build_phase_plan(snapshot: Dictionary, player: int) -> Dictionary:
+	"""Build a coordinated cross-phase plan for the current turn.
+	Called once at the start of the movement phase."""
+	var plan = {
+		"charge_intent": {},   # unit_id -> {target_id, target_name, score, distance_inches}
+		"lock_targets": [],    # [target_id, ...] — enemy shooters to lock in combat
+		"shooting_lanes": {},  # unit_id -> [{target_id, range_inches}]
+		"charge_target_ids": [],  # convenience: all target_ids from charge_intent
+	}
+
+	var enemies = _get_enemy_units(snapshot, player)
+	var friendly_units = _get_units_for_player(snapshot, player)
+
+	if enemies.is_empty() or friendly_units.is_empty():
+		return plan
+
+	# --- Step 1: Identify dangerous enemy shooters (candidates for lock_targets) ---
+	var dangerous_shooters = []
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var ranged_strength = _estimate_unit_ranged_strength(enemy)
+		if ranged_strength >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
+			dangerous_shooters.append({
+				"unit_id": enemy_id,
+				"ranged_strength": ranged_strength,
+				"name": enemy.get("meta", {}).get("name", enemy_id)
+			})
+
+	# Sort by ranged strength descending (most dangerous first)
+	dangerous_shooters.sort_custom(func(a, b): return a.ranged_strength > b.ranged_strength)
+
+	for ds in dangerous_shooters:
+		plan.lock_targets.append(ds.unit_id)
+
+	if not dangerous_shooters.is_empty():
+		print("AIDecisionMaker: [PHASE-PLAN] Identified %d dangerous enemy shooters:" % dangerous_shooters.size())
+		for ds in dangerous_shooters:
+			print("  %s (ranged output: %.1f)" % [ds.name, ds.ranged_strength])
+
+	# --- Step 2: Identify charge intents (melee units that can plausibly charge) ---
+	for unit_id in friendly_units:
+		var unit = friendly_units[unit_id]
+		var has_melee = _unit_has_melee_weapons(unit)
+		if not has_melee:
+			continue
+
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+
+		# Check if unit is engaged (already in combat, won't charge)
+		var state = unit.get("state", {})
+		if state.get("is_engaged", false):
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+
+		# After movement + charge, total reach is: M + 12" charge range
+		var total_reach_px = (move_inches + 12.0) * PIXELS_PER_INCH
+
+		var best_charge_target = ""
+		var best_charge_score = 0.0
+		var best_charge_dist = INF
+		var best_charge_name = ""
+
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var enemy_centroid = _get_unit_centroid(enemy)
+			if enemy_centroid == Vector2.INF:
+				continue
+
+			var dist_px = centroid.distance_to(enemy_centroid)
+			var dist_inches = dist_px / PIXELS_PER_INCH
+
+			# Can this unit plausibly reach the enemy after moving + charging?
+			# Use total reach + engagement range for generous estimate
+			if dist_px > total_reach_px + ENGAGEMENT_RANGE_PX:
+				continue
+
+			# Score the charge: melee damage * target value
+			var melee_dmg = _estimate_melee_damage(unit, enemy)
+			var score = melee_dmg * 2.0
+
+			# Bonus for locking dangerous shooters
+			if enemy_id in plan.lock_targets:
+				score += PHASE_PLAN_LOCK_SHOOTER_BONUS
+				# Extra bonus proportional to how dangerous the shooter is
+				var shooter_strength = _estimate_unit_ranged_strength(enemy)
+				score += shooter_strength * 0.3
+
+			# Bonus for targets on objectives
+			var objectives = _get_objectives(snapshot)
+			for obj_pos in objectives:
+				if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+					score *= 1.3
+					break
+
+			# Penalty for very long charges (unlikely to succeed)
+			# After movement, the charge distance will be reduced by M
+			var post_move_charge_dist = max(0.0, dist_inches - move_inches)
+			if post_move_charge_dist > 9.0:
+				score *= 0.5  # Long charge, less reliable
+			elif post_move_charge_dist <= 6.0:
+				score *= 1.2  # Reliable charge
+
+			if score > best_charge_score:
+				best_charge_score = score
+				best_charge_target = enemy_id
+				best_charge_dist = dist_inches
+				best_charge_name = enemy.get("meta", {}).get("name", enemy_id)
+
+		if best_charge_score >= PHASE_PLAN_CHARGE_INTENT_THRESHOLD and best_charge_target != "":
+			plan.charge_intent[unit_id] = {
+				"target_id": best_charge_target,
+				"target_name": best_charge_name,
+				"score": best_charge_score,
+				"distance_inches": best_charge_dist
+			}
+			if best_charge_target not in plan.charge_target_ids:
+				plan.charge_target_ids.append(best_charge_target)
+			print("AIDecisionMaker: [PHASE-PLAN] %s intends to charge %s (score: %.1f, dist: %.1f\")" % [
+				unit_name, best_charge_name, best_charge_score, best_charge_dist])
+
+	# --- Step 3: Build shooting lanes for ranged units ---
+	for unit_id in friendly_units:
+		var unit = friendly_units[unit_id]
+		if not _unit_has_ranged_weapons(unit):
+			continue
+
+		# Skip units that intend to charge (they'll be in melee)
+		if plan.charge_intent.has(unit_id):
+			continue
+
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+
+		var max_range = _get_max_weapon_range(unit)
+		if max_range <= 0.0:
+			continue
+
+		var lanes = []
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var enemy_centroid = _get_unit_centroid(enemy)
+			if enemy_centroid == Vector2.INF:
+				continue
+
+			var dist_inches = centroid.distance_to(enemy_centroid) / PIXELS_PER_INCH
+			if dist_inches <= max_range:
+				lanes.append({
+					"target_id": enemy_id,
+					"range_inches": dist_inches
+				})
+
+		if not lanes.is_empty():
+			plan.shooting_lanes[unit_id] = lanes
+
+	print("AIDecisionMaker: [PHASE-PLAN] Summary: %d charge intents, %d lock targets, %d units with shooting lanes" % [
+		plan.charge_intent.size(), plan.lock_targets.size(), plan.shooting_lanes.size()])
+
+	return plan
+
+static func _get_phase_plan() -> Dictionary:
+	"""Get the current phase plan, or empty dict if not built yet."""
+	return _phase_plan
+
+static func _is_charge_target(target_id: String) -> bool:
+	"""Check if a target is planned for charging (don't waste shooting on it)."""
+	if not _phase_plan_built:
+		return false
+	return target_id in _phase_plan.get("charge_target_ids", [])
+
+static func _get_charge_intent(unit_id: String) -> Dictionary:
+	"""Get the charge intent for a specific unit, or empty dict."""
+	if not _phase_plan_built:
+		return {}
+	return _phase_plan.get("charge_intent", {}).get(unit_id, {})
 
 # =============================================================================
 # FORMATIONS PHASE
@@ -1104,6 +1328,14 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 	var battle_round = snapshot.get("battle_round", 1)
 
 	# =========================================================================
+	# T7-23: BUILD MULTI-PHASE PLAN (once per movement phase)
+	# =========================================================================
+	if not _phase_plan_built:
+		_phase_plan = _build_phase_plan(snapshot, player)
+		_phase_plan_built = true
+		_phase_plan_round = battle_round
+
+	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
 	# =========================================================================
 	var threat_data = _calculate_enemy_threat_data(enemies)
@@ -1295,14 +1527,38 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							unit_name, enemies_in_range.size(), max_weapon_range_inches, assigned_obj_id]
 					}
 
+			# --- T7-23: Charge-intent-aware movement target ---
+			# If this unit intends to charge, blend the movement target toward
+			# the charge target to set up a good charge angle
+			var move_target = target_pos
+			var charge_intent = _get_charge_intent(unit_id)
+			if not charge_intent.is_empty():
+				var charge_target_id = charge_intent.get("target_id", "")
+				if charge_target_id != "" and enemies.has(charge_target_id):
+					var charge_target = enemies[charge_target_id]
+					var charge_centroid = _get_unit_centroid(charge_target)
+					if charge_centroid != Vector2.INF:
+						# Move toward charge target, but try to stay near objectives
+						var dist_to_charge = centroid.distance_to(charge_centroid) / PIXELS_PER_INCH
+						if dist_to_charge <= move_inches + 12.0:  # Within move + charge range
+							# Blend: 70% toward charge target, 30% toward objective
+							if target_pos != Vector2.INF:
+								move_target = charge_centroid * 0.7 + target_pos * 0.3
+							else:
+								move_target = charge_centroid
+							print("AIDecisionMaker: [PHASE-PLAN] %s blending movement toward charge target %s" % [
+								unit_name, charge_intent.get("target_name", charge_target_id)])
+
 			var model_destinations = _compute_movement_toward_target(
-				unit, unit_id, target_pos, move_inches, snapshot, enemies,
+				unit, unit_id, move_target, move_inches, snapshot, enemies,
 				max_weapon_range_inches, threat_data, objectives
 			)
 
 			if not model_destinations.is_empty():
 				var obj_dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH if target_pos != Vector2.INF else 0.0
 				var reason = assignment.get("reason", "moving to objective")
+				if not charge_intent.is_empty():
+					reason = "moving toward charge target %s" % charge_intent.get("target_name", "")
 				print("AIDecisionMaker: %s moving toward %s (%s, M: %.0f\")" % [unit_name, assigned_obj_id, reason, move_inches])
 				return {
 					"type": "BEGIN_NORMAL_MOVE",
@@ -1852,13 +2108,36 @@ static func _evaluate_all_objectives(
 		if is_home and friendly_oc == 0:
 			priority += WEIGHT_HOME_UNDEFENDED
 
-		# Scoring urgency: higher priority in Round 1 (need to be on objectives by Round 2)
+		# T7-23: Expanded round-based urgency scoring (was only round 1 + round 4+)
+		# Round 1: Rush to objectives — scoring starts in round 2
 		if battle_round == 1:
 			priority += WEIGHT_SCORING_URGENCY
+			# Extra urgency for uncontrolled no-man's-land objectives
+			if state == "uncontrolled" and not is_home and not is_enemy_home:
+				priority += 1.0
+		# Round 2: Contest uncontrolled objectives — this is the first scoring round
+		elif battle_round == 2:
+			if state in ["uncontrolled", "enemy_weak"]:
+				priority += URGENCY_ROUND_2_CONTEST
+			elif state == "contested":
+				priority += URGENCY_ROUND_2_CONTEST * 0.8
+		# Round 3: Consolidate — hold what we have, reinforce contested
+		elif battle_round == 3:
+			if state == "held_threatened":
+				priority += URGENCY_ROUND_3_HOLD
+			elif state == "contested":
+				priority += URGENCY_ROUND_3_HOLD * 1.2
+			elif state == "enemy_weak":
+				priority += URGENCY_ROUND_3_HOLD
+		# Round 4-5: Aggressive push — every VP matters, flip what we can
 		elif battle_round >= 4:
-			# Late game: every VP matters, prioritize flipping contested objectives
 			if state in ["contested", "enemy_weak"]:
-				priority += WEIGHT_SCORING_URGENCY * 0.5
+				priority += URGENCY_LATE_GAME_PUSH
+			elif state == "uncontrolled":
+				priority += URGENCY_LATE_GAME_PUSH * 0.8
+			# In round 5, even try to contest enemy strongholds
+			if battle_round >= 5 and state == "enemy_strong":
+				priority += URGENCY_LATE_GAME_PUSH * 0.4
 
 		# Don't over-prioritize enemy home objectives (far away, hard to hold)
 		if is_enemy_home and state == "enemy_strong":
@@ -1983,6 +2262,41 @@ static func _assign_units_to_objectives(
 					# Extra charge threat penalty: being chargeable is worse than being shot at
 					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
 						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5
+
+			# --- T7-23: MULTI-PHASE PLANNING INFLUENCE ---
+			# Units with charge intent should be biased toward charge angle
+			var charge_intent = _get_charge_intent(unit_id)
+			if not charge_intent.is_empty():
+				var charge_target_id = charge_intent.get("target_id", "")
+				if charge_target_id != "" and enemies.has(charge_target_id):
+					var charge_target = enemies[charge_target_id]
+					var charge_target_centroid = _get_unit_centroid(charge_target)
+					if charge_target_centroid != Vector2.INF:
+						# Check if this objective is on the way to the charge target
+						var dir_to_obj = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
+						var dir_to_charge = (charge_target_centroid - centroid).normalized()
+						var alignment = dir_to_obj.dot(dir_to_charge)
+						if alignment > 0.5:
+							# Objective is in the same general direction as charge target
+							score += PHASE_PLAN_CHARGE_LANE_BONUS * alignment
+						elif alignment < -0.3:
+							# Objective is in the opposite direction — penalize
+							score -= PHASE_PLAN_CHARGE_LANE_BONUS * 0.5
+
+			# Ranged units: bonus for objectives that maintain shooting lanes
+			if has_ranged and not charge_intent.is_empty() == false:
+				var lanes = _phase_plan.get("shooting_lanes", {}).get(unit_id, [])
+				if not lanes.is_empty():
+					# Check if moving to this objective maintains shooting lanes
+					for lane in lanes:
+						var lane_target_id = lane.get("target_id", "")
+						if enemies.has(lane_target_id):
+							var lane_target = enemies[lane_target_id]
+							var lane_centroid = _get_unit_centroid(lane_target)
+							if lane_centroid != Vector2.INF:
+								var dist_to_lane_target = obj_pos.distance_to(lane_centroid) / PIXELS_PER_INCH
+								if dist_to_lane_target <= max_weapon_range:
+									score += PHASE_PLAN_SHOOTING_LANE_BONUS * 0.5
 
 			# Determine recommended action
 			var action = "move"
@@ -3924,7 +4238,19 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
 		kill_thresholds[enemy_id] = _calculate_kill_threshold(enemy)
-		target_values[enemy_id] = _calculate_target_value(enemy, snapshot, player)
+		var base_value = _calculate_target_value(enemy, snapshot, player)
+
+		# T7-23: Suppress target value for enemies planned for charge.
+		# Don't waste shooting on targets we intend to charge into melee with —
+		# the charge will handle them, and shooting could kill models that
+		# would have been better engaged in combat.
+		if _is_charge_target(enemy_id):
+			var enemy_name = enemy.get("meta", {}).get("name", enemy_id)
+			print("AIDecisionMaker: [PHASE-PLAN] Suppressing shooting priority for %s (planned charge target, %.2f -> %.2f)" % [
+				enemy_name, base_value, base_value * PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET])
+			base_value *= PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET
+
+		target_values[enemy_id] = base_value
 
 	# damage_matrix[weapon_index][enemy_id] = expected damage
 	var damage_matrix = []
@@ -4759,6 +5085,21 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
 			score += 2.0  # Good to tie up long-range shooters
+
+	# T7-23: Enhanced bonus for locking dangerous shooters in combat
+	# Units identified by the phase plan as dangerous shooters get extra charge priority
+	var target_id_for_lock = target.get("id", "")
+	if target_id_for_lock != "" and _phase_plan_built:
+		var lock_targets = _phase_plan.get("lock_targets", [])
+		if target_id_for_lock in lock_targets:
+			var ranged_strength = _estimate_unit_ranged_strength(target)
+			var lock_bonus = PHASE_PLAN_LOCK_SHOOTER_BONUS
+			# Scale bonus by how dangerous the shooter is
+			if ranged_strength >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS * 2.0:
+				lock_bonus *= 1.5  # Very dangerous — high priority to lock
+			score += lock_bonus
+			print("AIDecisionMaker: [PHASE-PLAN] Charge bonus for locking shooter %s (+%.1f, ranged output: %.1f)" % [
+				target.get("meta", {}).get("name", target_id_for_lock), lock_bonus, ranged_strength])
 
 	# Bonus for targeting units with low toughness (likely kill)
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
