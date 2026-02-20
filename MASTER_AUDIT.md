@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V10: Fight phase state banner — FightPhaseStateBanner.gd with persistent subphase/player/units-remaining display, distinct color schemes per subphase, animated transition overlay, FightController signal integration | Fight | fight_phase_audit_report.md §4.3 |
 | T5-V9: Engagement range pulsing animation — EngagementRangeVisual.gd with sine-wave pulsing on engagement range circles and target highlights, replacing static inline scripts in FightController.gd | Fight | fight_phase_audit_report.md §4.2 |
 | T5-V8: Pile-in/consolidate movement arrows and distance labels — PileInMovementVisual.gd with directional arrows, animated dashed movement paths, and distance labels replacing plain Line2D direction lines | Fight | fight_phase_audit_report.md §4.1 |
 | T5-V7: Weapon keyword icons in UI — WeaponKeywordIcons.gd with color-coded badge icons for all 10 weapon keywords, composited strip textures, TreeItem icon integration, keyword tooltips | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
@@ -857,7 +858,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Created `PileInMovementVisual.gd` — a custom Node2D with `_draw()` override that replaces the plain Line2D direction lines with enhanced visuals: (1) Directional arrows with filled triangular arrowheads from current model position to closest enemy, colored green (valid) or red (invalid). (2) Animated dashed movement path ("marching ants") from original position to current drag position, colored green/yellow/red-orange based on validity and 3" distance limit. (3) Distance label at the movement path midpoint showing inches moved with dark background and colored border. Integrated into FightController via `_create_pile_in_visuals()` and `_update_pile_in_visuals()`. Updated PileInDialog and ConsolidateDialog info legends to reflect new visual indicators.
 - T5-V9. Engagement range pulsing animation (fight_phase_audit_report.md §4.2) — **DONE**
   - **Resolution:** Created `EngagementRangeVisual.gd` — a dedicated Node2D script with sine-wave pulsing animation (0.7–1.0 alpha at ~2 Hz, matching RangeCircle.gd pattern). Supports two modes: engagement range circles (orange pulsing around fighter models) and target highlights (green pulsing for eligible enemies with outer glow ring, static gray for ineligible). Replaces inline GDScript approach in FightController.gd with proper preloaded script instances. Both fill and outline colors pulse in sync for a smooth breathing effect.
-- T5-V10. Fight phase state banner (fight_phase_audit_report.md §4.3)
+- T5-V10. Fight phase state banner (fight_phase_audit_report.md §4.3) — **DONE**
+  - **Resolution:** FightPhaseStateBanner.gd — persistent banner below HUD_Top showing current subphase (FIGHTS FIRST / REMAINING COMBATS / FIGHTS LAST), selecting player, units remaining; distinct color schemes per subphase; animated transition overlay on subphase change; integrated via FightController signal flow
 - T5-V11. Unit tokens "has fought" indicator (fight_phase_audit_report.md §4.4)
 - T5-V12. Damage application visualization (floating numbers, flash) (fight_phase_audit_report.md §4.5)
 - T5-V13. Engaged units board indicator (crossed swords) (fight_phase_audit_report.md §3.5)
@@ -943,10 +945,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 36 | 15 | 51 |
+| Tier 5 — QoL/Visual | 37 | 14 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **94** | **34** | **128** |
-| **Recently Completed** | **115** | — | **115** |
+| **Total Open** | **95** | **33** | **128** |
+| **Recently Completed** | **116** | — | **116** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---

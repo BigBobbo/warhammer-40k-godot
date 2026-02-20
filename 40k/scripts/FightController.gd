@@ -65,6 +65,7 @@ var confirm_button: Button
 var clear_button: Button
 var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
+var fight_state_banner: FightPhaseStateBanner = null  # T5-V10: Fight phase state banner
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -90,7 +91,12 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
-	
+
+	# T5-V10: Clean up fight phase state banner
+	if fight_state_banner and is_instance_valid(fight_state_banner):
+		fight_state_banner.queue_free()
+		fight_state_banner = null
+
 	# Right panel cleanup
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
@@ -107,9 +113,43 @@ func _setup_ui_references() -> void:
 	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
 	hud_right = get_node_or_null("/root/Main/HUD_Right")
 
+	# T5-V10: Setup fight phase state banner (anchored below HUD_Top)
+	_setup_fight_state_banner()
+
 	# Setup fight-specific UI in right panel
 	if hud_right:
 		_setup_right_panel()
+
+func _setup_fight_state_banner() -> void:
+	# T5-V10: Create the persistent fight phase state banner below HUD_Top
+	if fight_state_banner and is_instance_valid(fight_state_banner):
+		return  # Already set up
+
+	var hud_top = get_node_or_null("/root/Main/HUD_Top")
+	if not hud_top:
+		print("FightController: WARNING — HUD_Top not found, placing banner at top of Main")
+
+	fight_state_banner = FightPhaseStateBanner.new()
+	fight_state_banner.name = "FightPhaseStateBanner"
+
+	# Insert after HUD_Top in the Main scene tree so it appears below the top bar
+	var main_node = get_node_or_null("/root/Main")
+	if main_node:
+		main_node.add_child(fight_state_banner)
+		# Position it below HUD_Top using anchors
+		fight_state_banner.anchor_left = 0.15
+		fight_state_banner.anchor_right = 0.85
+		fight_state_banner.anchor_top = 0.0
+		fight_state_banner.anchor_bottom = 0.0
+		# Offset below HUD_Top (typically ~40px)
+		var top_offset = 42.0
+		if hud_top and is_instance_valid(hud_top):
+			top_offset = hud_top.size.y + 2.0
+		fight_state_banner.offset_top = top_offset
+		fight_state_banner.offset_bottom = top_offset + FightPhaseStateBanner.BANNER_HEIGHT
+		print("FightController: T5-V10 — Fight phase state banner created")
+	else:
+		print("FightController: ERROR — Cannot find Main node for state banner")
 
 func _create_fight_visuals() -> void:
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
@@ -1125,6 +1165,10 @@ func _on_fight_selection_required(data: Dictionary) -> void:
 		data.get("eligible_units", {}).size()
 	])
 
+	# T5-V10: Update the fight phase state banner
+	if fight_state_banner and is_instance_valid(fight_state_banner):
+		fight_state_banner.update_state(data)
+
 	# Close any existing fight selection dialog first (for multiplayer sync)
 	# Find and close existing dialogs that might be open
 	for child in get_tree().root.get_children():
@@ -1452,6 +1496,10 @@ func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void
 	if dice_log_display:
 		dice_log_display.append_text("\n[color=yellow]=== %s Complete ===[/color]\n" % from_subphase)
 		dice_log_display.append_text("[color=yellow]Starting %s...[/color]\n\n" % to_subphase)
+
+	# T5-V10: Animate subphase transition on the state banner
+	if fight_state_banner and is_instance_valid(fight_state_banner):
+		fight_state_banner.show_subphase_transition(from_subphase, to_subphase)
 
 func _on_attack_assigned(attacker_id: String, target_id: String, weapon_id: String) -> void:
 	"""Display attack assignment to both host and client"""
