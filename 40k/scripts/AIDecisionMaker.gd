@@ -88,6 +88,12 @@ const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat ra
 # Close melee proximity: 12" is the raw charge distance — being this close means
 # the enemy can charge without needing to move first, making it critically dangerous
 const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
+
+# Screening / Deep Strike denial constants (AI-TACTIC-3, MOV-4)
+const DEEP_STRIKE_DENIAL_RANGE_PX: float = 360.0  # 9 inches — deep strike must land >9" from enemies
+const SCREEN_SPACING_PX: float = 720.0             # 18 inches — spacing between screeners for full denial coverage
+const SCREEN_CHEAP_UNIT_POINTS: int = 100           # Units at or below this point cost are screening candidates
+const SCREEN_SCORE_BASE: float = 8.0                # Base score for a screening assignment (comparable to objective priority)
 const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
 
 # =============================================================================
@@ -809,6 +815,38 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					"_ai_description": "%s advances toward %s (%s)" % [unit_name, assigned_obj_id, reason]
 				}
 
+		# --- SCREEN MOVE toward denial/screening position (AI-TACTIC-3, MOV-4) ---
+		if assignment_action == "screen" and "BEGIN_NORMAL_MOVE" in move_types:
+			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+			var screen_centroid = _get_unit_centroid(unit)
+			var screen_target = assigned_obj_pos
+			if screen_target != Vector2.INF and screen_centroid != Vector2.INF:
+				# If already within 1" of screen position, remain stationary
+				if screen_centroid.distance_to(screen_target) <= ENGAGEMENT_RANGE_PX:
+					if "REMAIN_STATIONARY" in move_types:
+						var reason = assignment.get("reason", "screening position reached")
+						print("AIDecisionMaker: [SCREEN] %s at screening position (%.1f\" away)" % [unit_name, screen_centroid.distance_to(screen_target) / PIXELS_PER_INCH])
+						return {
+							"type": "REMAIN_STATIONARY",
+							"actor_unit_id": unit_id,
+							"_ai_description": "%s holds screening position (%s)" % [unit_name, reason]
+						}
+				var model_destinations = _compute_movement_toward_target(
+					unit, unit_id, screen_target, move_inches, snapshot, enemies,
+					0.0, [], objectives  # No threat avoidance for screeners — they're expendable
+				)
+				if not model_destinations.is_empty():
+					var reason = assignment.get("reason", "screening")
+					var dist_inches = screen_centroid.distance_to(screen_target) / PIXELS_PER_INCH
+					print("AIDecisionMaker: [SCREEN] %s moving to screen position (%s, %.1f\" away)" % [unit_name, reason, dist_inches])
+					return {
+						"type": "BEGIN_NORMAL_MOVE",
+						"actor_unit_id": unit_id,
+						"_ai_model_destinations": model_destinations,
+						"_ai_description": "%s screens at (%.0f,%.0f) — %s" % [unit_name, screen_target.x, screen_target.y, reason]
+					}
+			# Fall through to normal move if screen position is unreachable
+
 		# --- NORMAL MOVE toward assigned objective ---
 		if "BEGIN_NORMAL_MOVE" in move_types:
 			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
@@ -1212,7 +1250,37 @@ static func _assign_units_to_objectives(
 		obj_oc_remaining[oid] = max(0, remaining - cand.unit_oc)
 		print("AIDecisionMaker: Assigned %s to %s %s (score: %.1f, reason: %s)" % [uid, cand.action.to_upper(), oid, cand.score, cand.reason])
 
-	# PASS 3: Assign any remaining unassigned units
+	# PASS 3: Assign remaining units — screening / deep strike denial / support
+	# (AI-TACTIC-3, MOV-4) Check for enemy reserves to determine screening urgency
+	var enemy_reserves = _get_enemy_reserves(snapshot, player)
+	var has_enemy_reserves = enemy_reserves.size() > 0
+	if has_enemy_reserves:
+		print("AIDecisionMaker: [SCREEN] Detected %d enemy units in reserves:" % enemy_reserves.size())
+		for er in enemy_reserves:
+			print("  %s (%s, %dpts)" % [er.name, er.reserve_type, er.points])
+
+	# Track screener positions for spacing (18" apart for denial coverage)
+	var screener_positions = []
+	# Include positions of already-assigned units that are effectively screening
+	for uid in assigned_unit_ids:
+		var aunit = snapshot.get("units", {}).get(uid, {})
+		var ac = _get_unit_centroid(aunit)
+		if ac != Vector2.INF:
+			screener_positions.append(ac)
+
+	# Calculate denial positions if enemy has reserves
+	var denial_positions = []
+	if has_enemy_reserves:
+		denial_positions = _calculate_denial_positions(
+			snapshot, objectives, obj_evaluations, friendly_units, player, screener_positions
+		)
+		if not denial_positions.is_empty():
+			print("AIDecisionMaker: [SCREEN] Calculated %d denial positions:" % denial_positions.size())
+			for dp in denial_positions:
+				print("  pos=(%.0f,%.0f) priority=%.1f reason=%s" % [dp.position.x, dp.position.y, dp.priority, dp.reason])
+
+	# Collect unassigned units and sort by screening suitability
+	var unassigned_units = []
 	for unit_id in movable_units:
 		if assigned_unit_ids.has(unit_id):
 			continue
@@ -1220,13 +1288,92 @@ static func _assign_units_to_objectives(
 		var is_engaged = "BEGIN_FALL_BACK" in move_types and not "BEGIN_NORMAL_MOVE" in move_types
 		if is_engaged:
 			continue
-
 		var unit = snapshot.get("units", {}).get(unit_id, {})
 		var centroid = _get_unit_centroid(unit)
 		if centroid == Vector2.INF:
 			continue
+		unassigned_units.append({"unit_id": unit_id, "unit": unit, "centroid": centroid})
 
-		# Find best objective for screening/support or just nearest useful one
+	# Sort: screening candidates first (cheap units), then by distance to backfield
+	unassigned_units.sort_custom(func(a, b):
+		var a_screen = _is_screening_candidate(a.unit)
+		var b_screen = _is_screening_candidate(b.unit)
+		if a_screen != b_screen:
+			return a_screen  # Screening candidates come first
+		return false  # Maintain original order otherwise
+	)
+
+	var denial_idx = 0  # Track which denial position to assign next
+	for entry in unassigned_units:
+		var unit_id = entry.unit_id
+		var unit = entry.unit
+		var centroid = entry.centroid
+		var is_screen_candidate = _is_screening_candidate(unit)
+
+		# --- SCREENING ASSIGNMENT ---
+		# If enemy has reserves and this unit is a screening candidate, assign to denial
+		if has_enemy_reserves and is_screen_candidate and denial_idx < denial_positions.size():
+			var denial = denial_positions[denial_idx]
+			var denial_pos = denial.position
+			var dist_to_denial = centroid.distance_to(denial_pos)
+			var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+
+			# Check spacing: don't cluster screeners, keep ~18" apart
+			var too_close_to_screener = false
+			for sp in screener_positions:
+				if denial_pos.distance_to(sp) < SCREEN_SPACING_PX * 0.5:
+					too_close_to_screener = true
+					break
+
+			if not too_close_to_screener:
+				var score = SCREEN_SCORE_BASE + denial.priority
+				# Closer units score higher for screening
+				score -= (dist_to_denial / PIXELS_PER_INCH) * 0.3
+				assignments[unit_id] = {
+					"objective_id": "screen_denial",
+					"objective_pos": denial_pos,
+					"action": "screen",
+					"score": score,
+					"reason": denial.reason,
+					"distance": dist_to_denial
+				}
+				assigned_unit_ids[unit_id] = true
+				screener_positions.append(denial_pos)
+				denial_idx += 1
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN at (%.0f,%.0f) — %s" % [
+					unit_name, denial_pos.x, denial_pos.y, denial.reason])
+				continue
+
+		# --- SCREENING FALLBACK: Use _compute_screen_position for non-denial screening ---
+		# Even without enemy reserves, cheap unassigned units can screen valuable friendlies
+		if is_screen_candidate and not enemies.is_empty():
+			var screen_pos = _compute_screen_position(unit, unit_id, friendly_units, enemies, snapshot)
+			if screen_pos != Vector2.INF:
+				# Check spacing
+				var too_close = false
+				for sp in screener_positions:
+					if screen_pos.distance_to(sp) < SCREEN_SPACING_PX * 0.5:
+						too_close = true
+						break
+				if not too_close:
+					var dist_to_screen = centroid.distance_to(screen_pos)
+					assignments[unit_id] = {
+						"objective_id": "screen_protect",
+						"objective_pos": screen_pos,
+						"action": "screen",
+						"score": SCREEN_SCORE_BASE,
+						"reason": "screening valuable friendlies from enemy threats",
+						"distance": dist_to_screen
+					}
+					assigned_unit_ids[unit_id] = true
+					screener_positions.append(screen_pos)
+					var unit_name = unit.get("meta", {}).get("name", unit_id)
+					print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN-PROTECT at (%.0f,%.0f)" % [
+						unit_name, screen_pos.x, screen_pos.y])
+					continue
+
+		# --- FALLBACK: Assign to best remaining objective (original behavior) ---
 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player)
 		if not best_obj.is_empty():
 			assignments[unit_id] = best_obj
@@ -2248,8 +2395,145 @@ static func _position_has_cover(pos: Vector2, enemy_positions: Array, terrain_fe
 	return false
 
 # =============================================================================
-# SCREENING/DEFENSIVE POSITIONING (Task 7)
+# SCREENING/DEFENSIVE POSITIONING (Task 7 + T7-15)
 # =============================================================================
+
+## Get enemy units currently in reserves (deep strike / strategic reserves)
+static func _get_enemy_reserves(snapshot: Dictionary, player: int) -> Array:
+	var reserves = []
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if unit.get("owner", 0) == player:
+			continue  # Skip friendly units
+		var status = unit.get("status", 0)
+		if status == GameStateData.UnitStatus.IN_RESERVES:
+			var has_alive = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive = true
+					break
+			if has_alive:
+				var reserve_type = unit.get("reserve_type", "strategic_reserves")
+				var points = int(unit.get("meta", {}).get("points", 0))
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				reserves.append({
+					"unit_id": unit_id,
+					"unit": unit,
+					"reserve_type": reserve_type,
+					"points": points,
+					"name": unit_name
+				})
+	return reserves
+
+## Determine if a unit is a good screening candidate (cheap, expendable)
+static func _is_screening_candidate(unit: Dictionary) -> bool:
+	var points = int(unit.get("meta", {}).get("points", 0))
+	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+	# Cheap units with low OC are ideal screeners — they're expendable
+	# Also include zero-point units (chaff)
+	if points <= SCREEN_CHEAP_UNIT_POINTS and unit_oc <= 2:
+		return true
+	# Units with no ranged weapons are also good screeners (they want to be forward)
+	if points <= SCREEN_CHEAP_UNIT_POINTS * 1.5 and not _unit_has_ranged_weapons(unit):
+		return true
+	return false
+
+## Calculate deep strike denial positions to protect key areas.
+## Returns an array of {position: Vector2, priority: float, reason: String}
+static func _calculate_denial_positions(
+	snapshot: Dictionary, objectives: Array, obj_evaluations: Array,
+	friendly_units: Dictionary, player: int, existing_screeners: Array
+) -> Array:
+	var denial_positions = []
+
+	# Identify home objectives that need protection from deep strike
+	for eval in obj_evaluations:
+		if not eval.get("is_home", false):
+			continue
+		var obj_pos = eval.position
+		var obj_state = eval.get("state", "")
+
+		# Home objectives are high-priority denial targets
+		var priority = 6.0
+		if obj_state == "held_safe":
+			priority = 8.0  # Protect what we already hold
+		elif obj_state == "uncontrolled":
+			priority = 5.0  # Still want to deny enemy access
+
+		# Calculate denial position: offset from objective toward board center
+		# to create a denial bubble that covers the objective
+		var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+		var toward_center = (board_center - obj_pos).normalized()
+		# Place screener between the objective and the center, at ~9" offset
+		# This creates a denial zone that covers the objective area
+		var denial_pos = obj_pos + toward_center * DEEP_STRIKE_DENIAL_RANGE_PX * 0.75
+
+		# Clamp to board
+		denial_pos.x = clamp(denial_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		denial_pos.y = clamp(denial_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+		# Check if an existing screener already covers this area
+		var already_covered = false
+		for screener_pos in existing_screeners:
+			if screener_pos.distance_to(denial_pos) < DEEP_STRIKE_DENIAL_RANGE_PX:
+				already_covered = true
+				break
+
+		if not already_covered:
+			denial_positions.append({
+				"position": denial_pos,
+				"priority": priority,
+				"reason": "deny deep strike near home objective %s" % eval.id
+			})
+
+	# Also identify open backfield gaps — areas far from any friendly unit
+	# that an enemy could deep strike into
+	var deployment_zone = _get_deployment_zone_bounds(snapshot, player)
+	if not deployment_zone.is_empty():
+		# Sample points across the deployment zone to find uncovered gaps
+		var zone_min_x = deployment_zone.get("min_x", 0.0)
+		var zone_max_x = deployment_zone.get("max_x", BOARD_WIDTH_PX)
+		var zone_min_y = deployment_zone.get("min_y", 0.0)
+		var zone_max_y = deployment_zone.get("max_y", BOARD_HEIGHT_PX)
+		var step = SCREEN_SPACING_PX  # Check every 18"
+
+		var sample_x = zone_min_x + step * 0.5
+		while sample_x < zone_max_x:
+			var sample_y = zone_min_y + step * 0.5
+			while sample_y < zone_max_y:
+				var sample_pos = Vector2(sample_x, sample_y)
+
+				# Check if any friendly unit is within 9" of this sample point
+				var nearest_friendly_dist = INF
+				for fid in friendly_units:
+					var funit = friendly_units[fid]
+					var fc = _get_unit_centroid(funit)
+					if fc == Vector2.INF:
+						continue
+					var d = sample_pos.distance_to(fc)
+					if d < nearest_friendly_dist:
+						nearest_friendly_dist = d
+
+				# Also check existing screener positions
+				for screener_pos in existing_screeners:
+					var d = sample_pos.distance_to(screener_pos)
+					if d < nearest_friendly_dist:
+						nearest_friendly_dist = d
+
+				# If no friendly unit within denial range, this is a gap
+				if nearest_friendly_dist > DEEP_STRIKE_DENIAL_RANGE_PX:
+					denial_positions.append({
+						"position": sample_pos,
+						"priority": 3.0,  # Lower priority than objective denial
+						"reason": "backfield gap (nearest friendly: %.0f\")" % (nearest_friendly_dist / PIXELS_PER_INCH)
+					})
+
+				sample_y += step
+			sample_x += step
+
+	# Sort by priority (highest first)
+	denial_positions.sort_custom(func(a, b): return a.priority > b.priority)
+	return denial_positions
 
 static func _compute_screen_position(
 	unit: Dictionary, unit_id: String, friendly_units: Dictionary,
