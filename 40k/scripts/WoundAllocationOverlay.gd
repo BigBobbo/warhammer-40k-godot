@@ -552,7 +552,14 @@ func _highlight_valid_models() -> void:
 				WoundAllocationBoardHighlights.HighlightType.DEAD,
 				model_id
 			)
+			# T5-V6: Remove health display for dead models
+			board_highlighter.remove_model_health_display(model_id)
 			continue
+
+		# T5-V6: Show health gradient overlay and wound counter for multi-wound models
+		var max_wounds = model.get("wounds", 1)
+		var current_wounds = model.get("current_wounds", max_wounds)
+		board_highlighter.update_model_health_display(model_pos, base_mm, current_wounds, max_wounds, model_id)
 
 		# Highlight alive models
 		if model_id in wounded_models:
@@ -592,7 +599,14 @@ func _highlight_valid_models() -> void:
 					WoundAllocationBoardHighlights.HighlightType.DEAD,
 					composite_id
 				)
+				# T5-V6: Remove health display for dead character models
+				board_highlighter.remove_model_health_display(composite_id)
 				continue
+
+			# T5-V6: Show health gradient overlay and wound counter for character models
+			var char_max_wounds = char_model.get("wounds", 1)
+			var char_current_wounds = char_model.get("current_wounds", char_max_wounds)
+			board_highlighter.update_model_health_display(char_pos, char_base_mm, char_current_wounds, char_max_wounds, composite_id)
 
 			# PRECISION (T3-4): During precision wounds, characters are selectable targets
 			if _is_precision_wound_active():
@@ -984,6 +998,9 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	var base_mm = model.get("base_mm", 32)
 	print("WoundAllocationOverlay: Model base_mm: ", base_mm)
 
+	# T5-V6: Remove health display for destroyed model
+	board_highlighter.remove_model_health_display(model_id)
+
 	# ENHANCEMENT 1: Create persistent death marker (red circle)
 	print("╔══════════════════════════════════════════════════════════════════")
 	print("║ CREATING DEATH MARKER")
@@ -1038,6 +1055,9 @@ func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: 
 	var damage_taken = max_wounds - new_wounds
 
 	print("WoundAllocationOverlay: ⚡ Model %s took damage - %d/%d wounds remaining" % [model_id, new_wounds, max_wounds])
+
+	# T5-V6: Update health gradient and wound counter immediately after damage
+	board_highlighter.update_model_health_display(model_pos, base_mm, new_wounds, max_wounds, model_id)
 
 	# T5-V4: Play damage flash effect
 	if damage_feedback and is_instance_valid(damage_feedback):
@@ -1213,6 +1233,8 @@ func _close() -> void:
 	# Clear board highlights
 	if board_highlighter and is_instance_valid(board_highlighter):
 		board_highlighter.clear_all()
+		# T5-V6: Also clear health displays
+		board_highlighter.clear_health_displays()
 		board_highlighter.queue_free()
 
 	# Remove from tree
