@@ -353,6 +353,47 @@ static func _calculate_entropy(probabilities: Dictionary) -> float:
 			entropy -= prob * log(prob) / log(2)
 	return entropy
 
+# Calculate reverse cumulative distribution: P(X >= N) for each damage value N
+# Returns Dictionary of {damage_value: probability_of_at_least_that_damage}
+# Used for "X% chance of at least N wounds" display (T5-MH2)
+static func calculate_reverse_cumulative(result: Mathhammer.SimulationResult) -> Array:
+	if result.damage_distribution.is_empty() or result.trials_run == 0:
+		return []
+
+	var total_trials = float(result.trials_run)
+
+	# Get sorted damage values
+	var sorted_damages = result.damage_distribution.keys()
+	sorted_damages.sort_custom(func(a, b): return int(a) < int(b))
+
+	var min_damage = int(sorted_damages[0])
+	var max_damage = int(sorted_damages[-1])
+
+	# Build a full count array for every integer from min to max
+	var counts = {}
+	for damage_str in sorted_damages:
+		counts[int(damage_str)] = result.damage_distribution[damage_str]
+
+	# Calculate reverse cumulative: P(X >= N) = sum of P(X = k) for k >= N
+	# Start from the highest damage and accumulate downward
+	var running_total = 0.0
+	var reverse_cumulative = {}
+	for damage in range(max_damage, min_damage - 1, -1):
+		running_total += counts.get(damage, 0)
+		reverse_cumulative[damage] = running_total / total_trials
+
+	# Build result array sorted by damage value ascending
+	# Each entry: {damage: N, probability: X} where probability is P(X >= N)
+	var result_array = []
+	for damage in range(min_damage, max_damage + 1):
+		if reverse_cumulative.has(damage):
+			result_array.append({
+				"damage": damage,
+				"probability": reverse_cumulative[damage]
+			})
+
+	return result_array
+
 static func _identify_damage_thresholds(cumulative: Dictionary) -> Dictionary:
 	var thresholds = {}
 	

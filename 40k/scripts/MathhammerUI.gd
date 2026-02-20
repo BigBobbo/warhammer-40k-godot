@@ -1215,7 +1215,11 @@ func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> vo
 	# Damage Distribution Panel
 	_create_damage_distribution_panel(results_vbox, result)
 	print("MathhammerUI: Created damage distribution panel")
-	
+
+	# Cumulative Probability Panel (T5-MH2)
+	_create_cumulative_probability_panel(results_vbox, result)
+	print("MathhammerUI: Created cumulative probability panel")
+
 	# Also add the weapon breakdown to the separate breakdown_panel
 	_populate_breakdown_panel(result)
 	print("MathhammerUI: Populated breakdown panel")
@@ -1310,6 +1314,117 @@ func _create_damage_distribution_panel(parent: VBoxContainer, result: Mathhammer
 	add_stat_row(dist_grid, "95th Percentile:", "%d wounds" % stats.get("percentile_95", 0))
 	add_stat_row(dist_grid, "Maximum Damage:", "%d wounds" % stats.get("max_damage", 0))
 
+func _create_cumulative_probability_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
+	# T5-MH2: "X% chance of at least N wounds" cumulative probability table
+	var reverse_cumulative = MathhammerResults.calculate_reverse_cumulative(result)
+	if reverse_cumulative.is_empty():
+		return
+
+	var cumul_panel = create_styled_panel("Cumulative Probability", Color(0.4, 0.25, 0.5, 0.8))
+	parent.add_child(cumul_panel)
+	var cumul_content = cumul_panel.get_meta("content_vbox")
+
+	# Subtitle
+	var subtitle = Label.new()
+	subtitle.text = "Chance of dealing at least N wounds"
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	cumul_content.add_child(subtitle)
+
+	# Determine which rows to display — show all values if <= 20 entries,
+	# otherwise show key thresholds to keep the table manageable
+	var rows_to_display = []
+	if reverse_cumulative.size() <= 20:
+		rows_to_display = reverse_cumulative
+	else:
+		# Show a sensible subset: first, last, and evenly spaced entries
+		# plus key probability thresholds (90%, 75%, 50%, 25%, 10%)
+		var target_probs = [0.90, 0.75, 0.50, 0.25, 0.10]
+		var threshold_damages = {}
+
+		# Walk from highest damage down to find the highest damage at each threshold
+		var sorted_desc = reverse_cumulative.duplicate()
+		sorted_desc.reverse()
+		for entry in sorted_desc:
+			for target in target_probs:
+				if entry.probability >= target and not threshold_damages.has(target):
+					threshold_damages[target] = entry.damage
+
+		# Collect unique damage values to show
+		var damage_set = {}
+		# Always include first (min) and last (max) entries
+		damage_set[reverse_cumulative[0].damage] = true
+		damage_set[reverse_cumulative[-1].damage] = true
+		# Include probability threshold entries
+		for target in threshold_damages:
+			damage_set[threshold_damages[target]] = true
+		# Include evenly spaced entries (max ~15 total rows)
+		var step = max(1, reverse_cumulative.size() / 12)
+		var idx = 0
+		while idx < reverse_cumulative.size():
+			damage_set[reverse_cumulative[idx].damage] = true
+			idx += step
+
+		# Build filtered display rows preserving ascending damage order
+		for entry in reverse_cumulative:
+			if damage_set.has(entry.damage):
+				rows_to_display.append(entry)
+
+	# Create the table using a GridContainer
+	var table_grid = GridContainer.new()
+	table_grid.columns = 2
+	table_grid.add_theme_constant_override("h_separation", 20)
+	table_grid.add_theme_constant_override("v_separation", 4)
+	cumul_content.add_child(table_grid)
+
+	# Table header
+	var header_wounds = Label.new()
+	header_wounds.text = "At Least"
+	header_wounds.add_theme_font_size_override("font_size", 11)
+	header_wounds.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
+	table_grid.add_child(header_wounds)
+
+	var header_prob = Label.new()
+	header_prob.text = "Probability"
+	header_prob.add_theme_font_size_override("font_size", 11)
+	header_prob.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
+	table_grid.add_child(header_prob)
+
+	# Table rows with color-coding based on probability
+	for entry in rows_to_display:
+		var damage_val = entry.damage
+		var prob = entry.probability
+
+		# Color-code: green for high probability, yellow for medium, red for low
+		var row_color: Color
+		if prob >= 0.75:
+			row_color = Color(0.4, 1.0, 0.4)  # Green
+		elif prob >= 0.50:
+			row_color = Color(0.7, 1.0, 0.3)  # Yellow-green
+		elif prob >= 0.25:
+			row_color = Color(1.0, 0.9, 0.3)  # Yellow
+		elif prob >= 0.10:
+			row_color = Color(1.0, 0.6, 0.3)  # Orange
+		else:
+			row_color = Color(1.0, 0.4, 0.4)  # Red
+
+		var wound_label = Label.new()
+		if damage_val == 1:
+			wound_label.text = "%d wound" % damage_val
+		else:
+			wound_label.text = "%d wounds" % damage_val
+		wound_label.add_theme_font_size_override("font_size", 10)
+		wound_label.add_theme_color_override("font_color", Color.WHITE)
+		table_grid.add_child(wound_label)
+
+		var prob_label = Label.new()
+		prob_label.text = "%.1f%%" % (prob * 100.0)
+		prob_label.add_theme_font_size_override("font_size", 10)
+		prob_label.add_theme_color_override("font_color", row_color)
+		table_grid.add_child(prob_label)
+
+	print("MathhammerUI: Cumulative probability table created with %d rows" % rows_to_display.size())
+
 func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 	print("MathhammerUI: create_styled_panel called for title: %s" % title)
 	var panel_container = VBoxContainer.new()
@@ -1390,7 +1505,11 @@ func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
 	# Damage Distribution Section
 	print("MathhammerUI: Adding damage distribution section to breakdown")
 	_create_damage_distribution_panel(breakdown_vbox, result)
-	
+
+	# Cumulative Probability Section (T5-MH2)
+	print("MathhammerUI: Adding cumulative probability section to breakdown")
+	_create_cumulative_probability_panel(breakdown_vbox, result)
+
 	print("MathhammerUI: breakdown_panel final child_count after population: %d" % breakdown_panel.get_child_count())
 	print("MathhammerUI: breakdown_scroll child_count: %d" % breakdown_scroll.get_child_count())
 	print("MathhammerUI: breakdown_vbox child_count: %d" % breakdown_vbox.get_child_count())
