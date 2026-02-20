@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH9: Deduplicate results display — removed _populate_breakdown_panel() which duplicated all summary_panel content into breakdown_panel | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH7: Loading spinner / progress bar during simulation — ProgressBar + label with live trial count, thread-safe updates via call_deferred | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH6: Responsive panel sizing — viewport-relative layout replacing hardcoded 800px/400x600 sizes | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH3: Multi-weapon side-by-side comparison view — Compare Weapons button runs independent per-weapon simulations with ranked results | Mathhammer | MATHHAMMER_AUDIT |
@@ -813,7 +814,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-MH7. [MH-UI-3] Loading spinner / progress bar during simulation (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added ProgressBar + status label UI below the Run/Compare buttons, hidden by default. Added progress_callback parameter to Mathhammer.simulate_combat() that reports every ~2% of trials. Background thread defers progress updates to main thread via call_deferred. Both simulation and weapon comparison flows show live trial count / weapon name progress. Progress indicator auto-hides on completion.
 - T5-MH8. [MH-UI-6] Color-code results — green for high kill prob, red for low efficiency, yellow for overkill (MATHHAMMER_AUDIT)
-- T5-MH9. [MH-UI-7] Deduplicate results display — stats shown in both summary_panel and breakdown_panel (MATHHAMMER_AUDIT)
+- T5-MH9. [MH-UI-7] Deduplicate results display — stats shown in both summary_panel and breakdown_panel (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Removed `_populate_breakdown_panel()` which duplicated all four result sections (Overall Stats, Weapon Breakdown, Damage Distribution, Cumulative Probability) from summary_panel into breakdown_panel. Standard simulation now shows results only in summary_panel and hides the empty breakdown_panel. Comparison mode's `_populate_comparison_breakdown()` (which shows unique per-weapon cumulative tables) is preserved. `_clear_results_display()` restores breakdown_panel visibility for the comparison flow.
 - T5-MH10. [MH-UI-8] "Clear Results" / "Reset" button (MATHHAMMER_AUDIT)
 - T5-MH11. [MH-FEAT-7] Show dice notation (D6, D3+3) in weapon stats display (MATHHAMMER_AUDIT)
 - T5-MH12. [MH-FEAT-10] Multi-target comparison matrix — run same attacker against multiple defenders (MATHHAMMER_AUDIT)
@@ -915,11 +917,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 22 | 29 | 51 |
+| Tier 5 — QoL/Visual | 23 | 28 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **80** | **48** | **128** |
-| **Recently Completed** | **103** | — | **103** |
-| *Mathhammer items (subset)* | *17* | *14* | *31* |
+| **Total Open** | **81** | **47** | **128** |
+| **Recently Completed** | **104** | — | **104** |
+| *Mathhammer items (subset)* | *18* | *13* | *31* |
 
 ---
 
