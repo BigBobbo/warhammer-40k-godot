@@ -3,6 +3,7 @@ class_name WoundAllocationBoardHighlights
 
 # Visual highlight system for wound allocation on game board
 # Creates GPU-accelerated highlights around models during wound allocation
+# T5-V6: Enhanced with pulsing animations, health color gradients, and wound counters
 
 # Highlight types
 enum HighlightType {
@@ -21,6 +22,10 @@ const HighlightShader = preload("res://shaders/model_highlight.gdshader")
 var highlight_shader: Shader
 var active_highlights: Dictionary = {}  # model_id -> Sprite2D (temporary highlights)
 var death_markers: Dictionary = {}  # model_id -> Sprite2D (persistent death markers)
+# T5-V6: Health gradient overlays and wound counters
+var health_overlays: Dictionary = {}  # model_id -> Sprite2D (health color ring)
+var wound_counters: Dictionary = {}  # model_id -> Label (wound count display)
+var pulsing_highlights: Array = []  # Array of highlights that should pulse
 
 func _ready() -> void:
 	# Load the highlight shader from class constant
@@ -37,6 +42,22 @@ func _ready() -> void:
 	print("║ Self in tree: ", is_inside_tree())
 	print("║ Self path: ", get_path() if is_inside_tree() else "NOT IN TREE")
 	print("╚══════════════════════════════════════════════════════════════════")
+
+# T5-V6: Pulsing animation for PRIORITY highlights
+func _process(delta: float) -> void:
+	if pulsing_highlights.is_empty():
+		return
+	# Sine-wave pulse: alpha oscillates between 0.3 and 0.9, scale oscillates between 0.95x and 1.10x
+	var t = Time.get_ticks_msec() / 1000.0
+	var pulse = (sin(t * 4.0) + 1.0) / 2.0  # 0..1, ~2 Hz
+	var alpha = lerp(0.3, 0.9, pulse)
+	var scale_factor = lerp(0.95, 1.10, pulse)
+	for highlight in pulsing_highlights:
+		if is_instance_valid(highlight):
+			highlight.modulate.a = alpha
+			# Store base scale so we can pulse around it
+			var base_scale = highlight.get_meta("base_scale", highlight.scale)
+			highlight.scale = base_scale * scale_factor
 
 func create_highlight(model_pos: Vector2, base_radius_mm: float, type: HighlightType, model_id: String = "") -> void:
 	"""Create a highlight circle around a model"""
@@ -60,8 +81,11 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 	match type:
 		HighlightType.PRIORITY:
 			# WH Red pulsing for wounded models that must be selected
+			# T5-V6: Actual pulsing animation via _process()
 			highlight.modulate = Color(0.6, 0.07, 0.07, 0.7)  # WH Red
-			print("WoundAllocationBoardHighlights: Created PRIORITY highlight (WH red) at ", model_pos)
+			highlight.set_meta("base_scale", highlight.scale)
+			pulsing_highlights.append(highlight)
+			print("WoundAllocationBoardHighlights: Created PRIORITY highlight (WH red, pulsing) at ", model_pos)
 
 		HighlightType.SELECTABLE:
 			# Gold steady for models that can be selected
@@ -95,7 +119,10 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 
 		HighlightType.PRECISION_TARGET:
 			# PRECISION (T3-4): Orange highlight for CHARACTER models targetable by Precision
+			# T5-V6: Also pulses to draw attention
 			highlight.modulate = Color(0.9, 0.5, 0.1, 0.7)  # Orange
+			highlight.set_meta("base_scale", highlight.scale)
+			pulsing_highlights.append(highlight)
 			# Add crosshair icon label
 			var precision_label = Label.new()
 			precision_label.text = "🎯"
@@ -104,7 +131,7 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 			precision_label.position = Vector2(-base_px * 0.4, -base_px * 0.5)
 			precision_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			highlight.add_child(precision_label)
-			print("WoundAllocationBoardHighlights: Created PRECISION_TARGET highlight (orange) at ", model_pos)
+			print("WoundAllocationBoardHighlights: Created PRECISION_TARGET highlight (orange, pulsing) at ", model_pos)
 
 		HighlightType.DEAD:
 			# Gray semitransparent circle with skull marker
@@ -127,17 +154,21 @@ func create_highlight(model_pos: Vector2, base_radius_mm: float, type: Highlight
 		active_highlights[model_id] = highlight
 
 func clear_all() -> void:
-	"""Remove all highlights from the board (but NOT death markers)"""
+	"""Remove all highlights from the board (but NOT death markers, health overlays, or wound counters)"""
 	for child in get_children():
 		# Skip death markers - they persist until phase end
 		if child.name.begins_with("DeathMarker_"):
 			continue
+		# T5-V6: Skip health overlays and wound counters - they persist
+		if child.name.begins_with("HealthOverlay_") or child.name.begins_with("WoundCounter_"):
+			continue
 
 		child.queue_free()
 
-	# Clear only active_highlights, not death_markers
+	# Clear only active_highlights and pulsing list, not death_markers/health overlays/wound counters
 	active_highlights.clear()
-	# death_markers remain until clear_death_markers() is called
+	pulsing_highlights.clear()
+	# death_markers, health_overlays, wound_counters remain until explicitly cleared
 
 func clear_highlight(model_id: String) -> void:
 	"""Remove highlight for specific model"""
@@ -256,6 +287,133 @@ func clear_death_markers() -> void:
 	death_markers.clear()
 	print("WoundAllocationBoardHighlights: Cleared all death markers")
 
+# T5-V6: Health gradient overlay — ring around model colored green→yellow→red based on HP
+func create_health_overlay(model_pos: Vector2, base_radius_mm: float, current_wounds: int, max_wounds: int, model_id: String) -> void:
+	"""Create a health-colored ring around a model based on its wound ratio"""
+	if max_wounds <= 1:
+		# Single-wound models don't need a gradient — they're alive or dead
+		return
+
+	# Remove existing overlay for this model
+	if health_overlays.has(model_id):
+		var old = health_overlays[model_id]
+		if is_instance_valid(old):
+			old.queue_free()
+		health_overlays.erase(model_id)
+
+	var health_ratio = float(current_wounds) / float(max_wounds)
+
+	# Color gradient: green (1.0) → yellow (0.5) → red (0.0)
+	var health_color: Color
+	if health_ratio > 0.5:
+		# Green to yellow
+		var t = (health_ratio - 0.5) / 0.5
+		health_color = Color(1.0 - t * 0.7, 0.5 + t * 0.3, 0.1, 0.5)
+	else:
+		# Yellow to red
+		var t = health_ratio / 0.5
+		health_color = Color(0.8 + (1.0 - t) * 0.2, t * 0.5, 0.05, 0.5)
+
+	# Create ring sprite
+	var ring = Sprite2D.new()
+	ring.name = "HealthOverlay_" + model_id
+	ring.texture = _create_ring_texture(128, 12)  # Ring with 12px thickness
+	ring.centered = true
+	ring.position = model_pos
+	ring.modulate = health_color
+
+	var base_px = Measurement.base_radius_px(base_radius_mm)
+	var scale_factor = (base_px * 2.4) / 64.0  # Slightly larger than model base
+	ring.scale = Vector2(scale_factor, scale_factor)
+	ring.z_index = 48  # Below highlight rings but above board
+
+	add_child(ring)
+	health_overlays[model_id] = ring
+	print("WoundAllocationBoardHighlights: T5-V6 health overlay for %s — %d/%d (%.0f%% hp, color=%s)" % [model_id, current_wounds, max_wounds, health_ratio * 100, health_color])
+
+# T5-V6: Wound counter label near model
+func create_wound_counter(model_pos: Vector2, base_radius_mm: float, current_wounds: int, max_wounds: int, model_id: String) -> void:
+	"""Display a small wound counter near the model's position"""
+	# Remove existing counter for this model
+	if wound_counters.has(model_id):
+		var old = wound_counters[model_id]
+		if is_instance_valid(old):
+			old.queue_free()
+		wound_counters.erase(model_id)
+
+	# Only show counter for multi-wound models that have taken damage
+	if max_wounds <= 1 or current_wounds >= max_wounds:
+		return
+
+	var base_px = Measurement.base_radius_px(base_radius_mm)
+
+	# Create a label showing wounds remaining
+	var counter = Label.new()
+	counter.name = "WoundCounter_" + model_id
+	counter.text = "%d/%d" % [current_wounds, max_wounds]
+	counter.add_theme_font_size_override("font_size", max(10, int(base_px * 0.55)))
+
+	# Color the text based on health
+	var health_ratio = float(current_wounds) / float(max_wounds)
+	var font_color: Color
+	if health_ratio > 0.5:
+		font_color = Color(0.3, 1.0, 0.3)  # Green
+	elif health_ratio > 0.25:
+		font_color = Color(1.0, 1.0, 0.3)  # Yellow
+	else:
+		font_color = Color(1.0, 0.3, 0.3)  # Red
+	counter.add_theme_color_override("font_color", font_color)
+
+	# Add dark outline for readability
+	counter.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	counter.add_theme_constant_override("outline_size", 3)
+
+	# Position below the model base
+	counter.position = model_pos + Vector2(-base_px * 0.4, base_px * 0.7)
+	counter.z_index = 55  # Above highlights
+	counter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	add_child(counter)
+	wound_counters[model_id] = counter
+	print("WoundAllocationBoardHighlights: T5-V6 wound counter for %s — %d/%d" % [model_id, current_wounds, max_wounds])
+
+# T5-V6: Update health overlay and wound counter for a model after damage
+func update_model_health_display(model_pos: Vector2, base_radius_mm: float, current_wounds: int, max_wounds: int, model_id: String) -> void:
+	"""Update both health overlay ring and wound counter for a model"""
+	create_health_overlay(model_pos, base_radius_mm, current_wounds, max_wounds, model_id)
+	create_wound_counter(model_pos, base_radius_mm, current_wounds, max_wounds, model_id)
+
+# T5-V6: Remove health overlay and wound counter for a destroyed model
+func remove_model_health_display(model_id: String) -> void:
+	"""Remove health display elements for a destroyed model"""
+	if health_overlays.has(model_id):
+		var overlay = health_overlays[model_id]
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		health_overlays.erase(model_id)
+
+	if wound_counters.has(model_id):
+		var counter = wound_counters[model_id]
+		if is_instance_valid(counter):
+			counter.queue_free()
+		wound_counters.erase(model_id)
+
+# T5-V6: Clear all health overlays and wound counters
+func clear_health_displays() -> void:
+	"""Remove all health overlays and wound counters"""
+	for model_id in health_overlays:
+		var overlay = health_overlays[model_id]
+		if overlay and is_instance_valid(overlay):
+			overlay.queue_free()
+	health_overlays.clear()
+
+	for model_id in wound_counters:
+		var counter = wound_counters[model_id]
+		if counter and is_instance_valid(counter):
+			counter.queue_free()
+	wound_counters.clear()
+	print("WoundAllocationBoardHighlights: T5-V6 cleared all health displays")
+
 func _create_circle_texture(size: int) -> ImageTexture:
 	"""Create a simple white circle texture for highlighting"""
 	var image = Image.create(size, size, false, Image.FORMAT_RGBA8)
@@ -272,6 +430,31 @@ func _create_circle_texture(size: int) -> ImageTexture:
 				var alpha = 1.0
 				if dist > radius - 2.0:
 					alpha = 1.0 - ((dist - (radius - 2.0)) / 2.0)
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+			else:
+				image.set_pixel(x, y, Color(0, 0, 0, 0))
+
+	return ImageTexture.create_from_image(image)
+
+# T5-V6: Create a ring (hollow circle) texture for health gradient overlay
+func _create_ring_texture(size: int, thickness: int) -> ImageTexture:
+	"""Create a white ring texture (hollow circle) for health overlay"""
+	var image = Image.create(size, size, false, Image.FORMAT_RGBA8)
+
+	var center = Vector2(size / 2.0, size / 2.0)
+	var outer_radius = size / 2.0 - 1.0
+	var inner_radius = outer_radius - float(thickness)
+
+	for x in range(size):
+		for y in range(size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist <= outer_radius and dist >= inner_radius:
+				# Smooth edges with anti-aliasing
+				var alpha = 1.0
+				if dist > outer_radius - 2.0:
+					alpha = 1.0 - ((dist - (outer_radius - 2.0)) / 2.0)
+				elif dist < inner_radius + 2.0:
+					alpha = (dist - inner_radius) / 2.0
 				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 			else:
 				image.set_pixel(x, y, Color(0, 0, 0, 0))
