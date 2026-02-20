@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-5 (2026-02-20): AI weapon range check in target scoring — `_score_shooting_target()` returns 0 for out-of-range targets using `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`. 15/15 range scoring tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-5, SHOOT-4 |
 | T7-4 (2026-02-20): AI fall-back model positioning — Fixed `_pick_fall_back_target()` directional scoring (skip near-objectives, prefer away-from-enemy direction), zero-direction safety fallback in `_compute_fall_back_destinations()`. 15/15 fall-back tests pass. | Movement/AI | AI_AUDIT.md §MOV-6 |
 | T7-3 (2026-02-20): AI consolidation movement — Dedicated `_compute_consolidate_movements_engagement()` with wrapping (far-side angular distribution around enemies), tagging (prioritise unengaged enemy units within 4"), objective fallback. 37 tests pass (3 new). | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-2 |
 | T7-2 (2026-02-20): AI pile-in movement — Full pile-in movement via `_compute_pile_in_action()`/`_compute_pile_in_movements()`. 3" toward closest enemy, B2B skip, collision avoidance with friendly/enemy obstacle splitting (allows B2B contact with enemies). Consolidation engagement mode reuses pile-in logic. 28 tests pass. | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-1 |
@@ -982,12 +983,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 
 ### P1 — High: AI Plays Very Poorly Without These
 
-### T7-5. AI weapon range check in target scoring
+### T7-5. AI weapon range check in target scoring — **DONE**
 - **Phase:** Shooting
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-GAP-5, SHOOT-4
 - **Files:** `AIDecisionMaker.gd` — `_score_shooting_target()`
 - **Details:** Target scoring doesn't check weapon range. AI wastes turns on out-of-range shots then falls back to SKIP_UNIT. Score 0 for targets beyond weapon range.
+- **Resolution:** `_score_shooting_target()` checks weapon range via `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`, returning 0.0 for out-of-range targets. Caller passes `shooter_unit` for distance calculation. 15/15 weapon range scoring tests pass.
 
 ### T7-6. AI focus fire coordination across units
 - **Phase:** Shooting
@@ -1414,7 +1416,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 4 | 54 | 58 |
+| Tier 7 — AI Player | 5 | 53 | 58 |
 | **Total** | **104** | **82** | **186** |
 | **Recently Completed** | **124** | — | **124** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
