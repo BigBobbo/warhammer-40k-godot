@@ -138,6 +138,40 @@ static func draw_status_tick(canvas: CanvasItem, center: Vector2, radius: float,
 	canvas.draw_rect(rect, tick_color)
 
 
+static func draw_fought_overlay(canvas: CanvasItem, center: Vector2, radius: float, shape_type: String, poly_points: PackedVector2Array = PackedVector2Array()) -> void:
+	# Dimmed overlay + checkmark for units that have fought this turn
+	# Semi-transparent dark wash to visually "grey out" the token
+	var dim_color = Color(0.0, 0.0, 0.0, 0.45)
+	if shape_type == "circular":
+		canvas.draw_circle(center, radius - 1.0, dim_color)
+	else:
+		if poly_points.size() > 0:
+			# Inset slightly so overlay sits inside the rim
+			var poly_center = Vector2.ZERO
+			for p in poly_points:
+				poly_center += p
+			poly_center /= float(poly_points.size())
+			var inset_points = PackedVector2Array()
+			for p in poly_points:
+				inset_points.append(poly_center + (p - poly_center) * 0.95)
+			canvas.draw_colored_polygon(inset_points, dim_color)
+
+	# Draw checkmark in bottom-right quadrant
+	var check_size = max(5.0, radius * 0.28)
+	var check_center = center + Vector2(radius * 0.35, radius * 0.35)
+	# Checkmark background circle
+	canvas.draw_circle(check_center, check_size + 1.0, Color(0.0, 0.0, 0.0, 0.6))
+	canvas.draw_circle(check_center, check_size, Color(0.15, 0.5, 0.15, 0.9))
+	# Checkmark strokes (short leg then long leg)
+	var check_color = Color(1.0, 1.0, 1.0, 0.95)
+	var stroke_width = max(1.5, check_size * 0.25)
+	var p1 = check_center + Vector2(-check_size * 0.4, 0.0)
+	var p2 = check_center + Vector2(-check_size * 0.1, check_size * 0.35)
+	var p3 = check_center + Vector2(check_size * 0.45, -check_size * 0.35)
+	canvas.draw_line(p1, p2, check_color, stroke_width)
+	canvas.draw_line(p2, p3, check_color, stroke_width)
+
+
 static func draw_leader_chevron(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
 	# Small chevron/crown marker above token for CHARACTER models
 	var chevron_y = center.y - radius - 6.0
