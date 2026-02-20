@@ -950,15 +950,17 @@ func _draw_los_line(from_unit_id: String, to_unit_id: String) -> void:
 func _show_range_label(position: Vector2, text: String) -> void:
 	if not range_visual:
 		return
-	
-	# Clear previous labels
+
+	# Clear previous distance labels only (not range circles)
 	for child in range_visual.get_children():
-		child.queue_free()
-	
+		if child.has_meta("is_range_label"):
+			child.queue_free()
+
 	# Create new label
 	var label = Label.new()
 	label.text = text
 	label.position = position
+	label.set_meta("is_range_label", true)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	label.add_theme_constant_override("shadow_offset_x", 1)
@@ -1094,53 +1096,69 @@ func _get_closest_model_positions(shooter_id: String, target_unit_id: String) ->
 
 func _show_range_indicators() -> void:
 	_clear_range_indicators()
-	
+
 	if active_shooter_id == "" or not current_phase:
 		return
-	
+
 	var shooter_unit = current_phase.get_unit(active_shooter_id)
 	if shooter_unit.is_empty():
 		return
-	
+
 	# Get all unique weapon ranges for this unit
 	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
 	var weapon_ranges = {}
-	
+
 	for model_id in unit_weapons:
 		for weapon_id in unit_weapons[model_id]:
 			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 			var range_inches = weapon_profile.get("range", 0)
 			if range_inches > 0:
 				weapon_ranges[weapon_id] = range_inches
-	
-	# Draw range circles from each model
+
+	# T5-V5: Find a representative model position (first alive model) for range circles
+	# Drawing circles from every model creates visual clutter; use one reference point
+	var reference_pos = Vector2.ZERO
 	for model in shooter_unit.get("models", []):
-		if not model.get("alive", true):
-			continue
+		if model.get("alive", true):
+			reference_pos = _get_model_position(model)
+			if reference_pos != Vector2.ZERO:
+				break
 
-		var model_pos = _get_model_position(model)
-		if model_pos == Vector2.ZERO:
-			continue
+	if reference_pos == Vector2.ZERO:
+		return
 
-		# Draw range circles for each weapon type
-		for weapon_id in weapon_ranges:
-			var range_inches = weapon_ranges[weapon_id]
-			var range_px = Measurement.inches_to_px(range_inches)
+	# T5-V5: Draw range circles for each weapon type from the reference model
+	for weapon_id in weapon_ranges:
+		var range_inches = weapon_ranges[weapon_id]
+		var range_px = Measurement.inches_to_px(range_inches)
+		var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
+		var weapon_display_name = weapon_profile.get("name", weapon_id)
 
-			# Create a circle to show weapon range
-			var circle = preload("res://scripts/RangeCircle.gd").new()
-			circle.position = model_pos
-			circle.setup(range_px, weapon_id)
-			range_visual.add_child(circle)
+		# Create the main range circle (solid outline)
+		var circle = preload("res://scripts/RangeCircle.gd").new()
+		circle.position = reference_pos
+		circle.setup(range_px, weapon_display_name)
+		range_visual.add_child(circle)
 
-			# RAPID FIRE: Add half-range circle for Rapid Fire weapons (orange color)
-			var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
-			if rapid_fire_value > 0:
-				var half_range_px = range_px / 2.0
-				var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
-				half_range_circle.position = model_pos
-				half_range_circle.setup(half_range_px, weapon_id + " (RF %d)" % rapid_fire_value, Color.ORANGE)
-				range_visual.add_child(half_range_circle)
+		# RAPID FIRE: Add dashed half-range circle (orange) for bonus attacks
+		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
+		if rapid_fire_value > 0:
+			var half_range_px = range_px / 2.0
+			var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
+			half_range_circle.position = reference_pos
+			half_range_circle.setup(half_range_px, weapon_display_name + " (Rapid Fire %d)" % rapid_fire_value, Color.ORANGE, true)
+			range_visual.add_child(half_range_circle)
+
+		# MELTA: Add dashed half-range circle (red) for bonus damage
+		var melta_value = RulesEngine.get_melta_value(weapon_id)
+		if melta_value > 0:
+			var half_range_px = range_px / 2.0
+			var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
+			half_range_circle.position = reference_pos
+			half_range_circle.setup(half_range_px, weapon_display_name + " (Melta +%d dmg)" % melta_value, Color(1.0, 0.2, 0.2), true)
+			range_visual.add_child(half_range_circle)
+
+	print("ShootingController: T5-V5 showing range circles for %d weapons from unit %s" % [weapon_ranges.size(), active_shooter_id])
 
 	# Highlight enemies within range with different colors
 	_highlight_enemies_by_range(shooter_unit, weapon_ranges)

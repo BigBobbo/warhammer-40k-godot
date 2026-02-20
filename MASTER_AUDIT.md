@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V5: Range circle visualization — Enhanced RangeCircle.gd with dashed half-range circles for Rapid Fire (orange) and Melta (red) weapons, subtle pulse animation, single reference model display, enemy color-coding | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-V4: Target unit damage feedback — DamageFeedbackVisual.gd with red damage flash, death expanding ring + debris particles + skull marker, token modulate flash, death fade-out animation | Shooting/Fight | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-V3: Phase transition animation banners — PhaseTransitionBanner.gd with slide-in/out animation, phase icons, round/player info, WhiteDwarf gothic theme | All Phases | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-V2: Shooting line animation and tracer effects — ShootingLineVisual.gd with muzzle flash, traveling tracer, impact flash, animated line draw for local/remote players | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 4 |
@@ -842,7 +843,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Created `PhaseTransitionBanner.gd` — an animated banner that slides in from the top of the screen when phases change. Shows phase name with unicode icons, round number, and active player. Uses WhiteDwarf gothic theme with gold accent borders. Slide-in with TRANS_BACK easing, holds 1.5s, then slides out with fade. Integrated into `Main._on_phase_changed()` for all phases.
 - T5-V4. Target unit damage feedback (flash + death animation) (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Created `DamageFeedbackVisual.gd` — a Node2D that provides animated damage feedback effects. Damage flash: red tint pulse with expanding rings on model position, intensity scaled by damage ratio. Death animation: expanding red ring with debris particles and skull marker fade-in. Integrated into `WoundAllocationOverlay.gd` for interactive save resolution (both damage and death paths). Token flash effect via modulate tween on the actual TokenVisual. Death fade-out animation in `Main.update_unit_visuals()` — white flash then fade to transparent instead of instant hide.
-- T5-V5. Range circle visualization for weapons (SHOOTING_PHASE_AUDIT.md §Additional)
+- T5-V5. Range circle visualization for weapons (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
+  - **Resolution:** Enhanced `RangeCircle.gd` with dashed circle mode, subtle pulse animation, and per-weapon-type color coding. Updated `ShootingController._show_range_indicators()` to show range circles from a single reference model (reducing clutter), use weapon display names, add dashed half-range circles for Melta weapons (red, +X dmg label), and use dashed style for Rapid Fire half-range circles (orange). Fixed `_show_range_label()` to not clear range circles when showing distance labels. Enemy units color-coded green (in range) or gray (out of range).
 - T5-V6. Wound allocation overlay enhancements (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V7. Weapon keyword icons in UI (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V8. Pile-in/consolidate movement arrows and distance labels (fight_phase_audit_report.md §4.1)
@@ -933,10 +935,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 31 | 20 | 51 |
+| Tier 5 — QoL/Visual | 32 | 19 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **89** | **39** | **128** |
-| **Recently Completed** | **111** | — | **111** |
+| **Total Open** | **90** | **38** | **128** |
+| **Recently Completed** | **112** | — | **112** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---
