@@ -2,6 +2,7 @@ extends Node2D
 class_name FightController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+const EngagementRangeVisualScript = preload("res://scripts/EngagementRangeVisual.gd")
 
 
 # FightController - Handles UI interactions for the Fight Phase
@@ -484,33 +485,12 @@ func _show_engagement_indicators() -> void:
 		if model_pos == Vector2.ZERO:
 			continue
 		
-		# Create a circle to show engagement range (1 inch)
+		# T5-V9: Create pulsing engagement range circle (1 inch)
 		var circle = Node2D.new()
+		circle.set_script(EngagementRangeVisualScript)
 		circle.position = model_pos
-		circle.set_script(GDScript.new())
-		
-		var script_source = """
-extends Node2D
+		circle.setup_engagement_range(ENGAGEMENT_RANGE_MM, Color.ORANGE)
 
-func _ready():
-	queue_redraw()
-
-func _draw():
-	var radius = """ + str(ENGAGEMENT_RANGE_MM) + """
-	var color = Color.ORANGE
-	
-	# Draw engagement range circle
-	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 2.0, true)
-	
-	# Draw filled circle with transparency
-	var fill_color = color
-	fill_color.a = 0.2
-	draw_circle(Vector2.ZERO, radius, fill_color)
-"""
-		circle.set_script(GDScript.new())
-		circle.get_script().source_code = script_source
-		circle.get_script().reload()
-		
 		range_visual.add_child(circle)
 	
 	# Highlight enemies within engagement range
@@ -575,40 +555,13 @@ func _create_target_highlight(unit_id: String, color: Color) -> void:
 		if pos == Vector2.ZERO:
 			continue
 		
-		# Create a circle highlight indicator
+		# T5-V9: Create pulsing target highlight indicator
+		var is_eligible = (color == HIGHLIGHT_COLOR_ELIGIBLE)
 		var highlight = Node2D.new()
+		highlight.set_script(EngagementRangeVisualScript)
 		highlight.position = pos
-		highlight.set_script(GDScript.new())
-		highlight.set_meta("highlight_color", color)
-		highlight.set_meta("base_radius", 35.0)
-		
-		# Add custom draw script for the highlight
-		var script_source = """
-extends Node2D
+		highlight.setup_target_highlight(35.0, color, is_eligible)
 
-func _ready():
-	queue_redraw()
-
-func _draw():
-	var color = get_meta("highlight_color", Color.GREEN)
-	var radius = get_meta("base_radius", 35.0)
-	
-	# Draw outer ring
-	draw_arc(Vector2.ZERO, radius, 0, TAU, 32, color, 4.0, true)
-	
-	# Draw inner filled circle with transparency
-	var fill_color = color
-	fill_color.a = 0.3
-	draw_circle(Vector2.ZERO, radius - 3, fill_color)
-	
-	# Draw pulsing effect for eligible targets
-	if color == Color.GREEN:
-		draw_arc(Vector2.ZERO, radius + 8, 0, TAU, 32, color, 2.0, true)
-"""
-		highlight.set_script(GDScript.new())
-		highlight.get_script().source_code = script_source
-		highlight.get_script().reload()
-		
 		target_highlights.add_child(highlight)
 
 func _clear_target_highlights() -> void:
