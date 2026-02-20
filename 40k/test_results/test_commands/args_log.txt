@@ -1,1 +1,1 @@
-ARGS: ["--script", "tests/unit/test_ai_invulnerable_save_scoring.gd"]
+ARGS: ["--script", "tests/unit/test_ai_charge_decisions.gd"]
