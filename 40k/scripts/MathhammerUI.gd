@@ -25,6 +25,7 @@ var attacker_selector: OptionButton
 var defender_selector: OptionButton
 var weapon_selection_panel: VBoxContainer
 var run_simulation_button: Button
+var compare_weapons_button: Button
 var trials_spinbox: SpinBox
 var phase_toggle: OptionButton  # Shooting/Melee phase selector
 
@@ -228,6 +229,12 @@ func _create_content_sections() -> void:
 	run_simulation_button = Button.new()
 	run_simulation_button.text = "Run Simulation"
 	unit_selector.add_child(run_simulation_button)
+
+	# Compare weapons button (T5-MH3)
+	compare_weapons_button = Button.new()
+	compare_weapons_button.text = "Compare Weapons"
+	compare_weapons_button.tooltip_text = "Run separate simulations for each weapon and compare results side-by-side"
+	unit_selector.add_child(compare_weapons_button)
 	
 	# Add spacer before rule toggles
 	content_container.add_child(section_spacer1)
@@ -322,6 +329,9 @@ func _connect_signals() -> void:
 
 	if defender_selector:
 		defender_selector.item_selected.connect(_on_unit_selection_changed)
+
+	if compare_weapons_button:
+		compare_weapons_button.pressed.connect(_on_compare_weapons_pressed)
 
 	if phase_toggle:
 		phase_toggle.item_selected.connect(_on_phase_changed)
@@ -1559,6 +1569,315 @@ func add_stat_row(grid: GridContainer, label_text: String, value_text: String, v
 	value.add_theme_font_size_override("font_size", 10)
 	value.add_theme_color_override("font_color", value_color)
 	grid.add_child(value)
+
+# === T5-MH3: Multi-weapon side-by-side comparison ===
+
+func _on_compare_weapons_pressed() -> void:
+	var defender_id = ""
+	if defender_selector.selected >= 0:
+		defender_id = defender_selector.get_item_metadata(defender_selector.selected)
+
+	if defender_id == "":
+		_show_error("Please select a defender unit")
+		return
+
+	# Collect all active weapons (attack count > 0)
+	var active_weapons = []
+	for weapon_key in selected_weapons:
+		var weapon_info = selected_weapons[weapon_key]
+		if weapon_info.get("attack_count", 0) > 0:
+			active_weapons.append({
+				"weapon_key": weapon_key,
+				"unit_id": weapon_info.unit_id,
+				"weapon_data": weapon_info.weapon_data,
+				"weapon_index": weapon_info.weapon_index,
+				"attack_count": weapon_info.attack_count
+			})
+
+	if active_weapons.size() < 2:
+		_show_error("Select at least 2 weapons with attacks > 0 to compare")
+		return
+
+	# Build individual simulation configs — one per weapon
+	var configs = []
+	for weapon_info in active_weapons:
+		var unit_id = weapon_info.unit_id
+		var unit = GameState.get_unit(unit_id)
+		var models = unit.get("models", [])
+		var model_ids = []
+		for model in models:
+			model_ids.append(model.get("id", "m%d" % model_ids.size()))
+
+		var weapon_meta = weapon_info.weapon_data
+		var weapon_name = weapon_meta.get("name", "")
+		var weapon_id = weapon_name.to_lower().replace(" ", "_").replace("-", "_").replace("'", "")
+
+		var config = {
+			"trials": int(trials_spinbox.value),
+			"attackers": [{
+				"unit_id": unit_id,
+				"weapons": [{
+					"weapon_id": weapon_id,
+					"model_ids": model_ids,
+					"attacks": weapon_info.attack_count
+				}]
+			}],
+			"defender": _build_defender_config(defender_id),
+			"rule_toggles": rule_toggles.duplicate(),
+			"phase": _get_selected_phase()
+		}
+
+		configs.append({
+			"config": config,
+			"weapon_name": weapon_name,
+			"weapon_data": weapon_meta
+		})
+
+	print("MathhammerUI: Starting weapon comparison with %d weapons" % configs.size())
+	_run_weapon_comparison_async(configs)
+
+func _run_weapon_comparison_async(configs: Array) -> void:
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhammerUI: Waiting for previous simulation thread to finish...")
+		_simulation_thread.wait_to_finish()
+
+	run_simulation_button.disabled = true
+	compare_weapons_button.disabled = true
+	compare_weapons_button.text = "Comparing..."
+
+	print("MathhammerUI: Starting weapon comparison on background thread...")
+	_simulation_thread = Thread.new()
+	_simulation_thread.start(_weapon_comparison_thread_func.bind(configs))
+
+func _weapon_comparison_thread_func(configs: Array) -> void:
+	print("MathhammerUI: Comparison thread started, running %d simulations..." % configs.size())
+	var results = []
+	for i in range(configs.size()):
+		var entry = configs[i]
+		print("MathhammerUI: Running comparison simulation %d/%d: %s" % [i + 1, configs.size(), entry.weapon_name])
+		var result = Mathhammer.simulate_combat(entry.config)
+		results.append({
+			"weapon_name": entry.weapon_name,
+			"weapon_data": entry.weapon_data,
+			"result": result
+		})
+	print("MathhammerUI: Comparison thread complete")
+	call_deferred("_on_weapon_comparison_completed", results)
+
+func _on_weapon_comparison_completed(results: Array) -> void:
+	print("MathhammerUI: Weapon comparison completed on main thread")
+
+	if _simulation_thread != null and _simulation_thread.is_started():
+		_simulation_thread.wait_to_finish()
+		print("MathhammerUI: Comparison background thread joined successfully")
+
+	_display_comparison_results(results)
+
+	run_simulation_button.disabled = false
+	compare_weapons_button.disabled = false
+	compare_weapons_button.text = "Compare Weapons"
+
+func _display_comparison_results(results: Array) -> void:
+	print("MathhammerUI: Displaying comparison results for %d weapons" % results.size())
+	_clear_results_display()
+
+	if not summary_panel:
+		return
+
+	# Create comparison scroll container
+	var comparison_scroll = ScrollContainer.new()
+	comparison_scroll.name = "ResultsScroll"
+	comparison_scroll.custom_minimum_size = Vector2(380, 400)
+	comparison_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	summary_panel.add_child(comparison_scroll)
+
+	var comparison_vbox = VBoxContainer.new()
+	comparison_vbox.add_theme_constant_override("separation", 15)
+	comparison_scroll.add_child(comparison_vbox)
+
+	# Title panel
+	var title_panel = create_styled_panel("Weapon Comparison", Color(0.4, 0.3, 0.15, 0.8))
+	comparison_vbox.add_child(title_panel)
+	var title_content = title_panel.get_meta("content_vbox")
+
+	var subtitle = Label.new()
+	subtitle.text = "Each weapon simulated independently against the same target"
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	title_content.add_child(subtitle)
+
+	# Compute stats for each weapon
+	var weapon_stats_list = []
+	for entry in results:
+		var result = entry.result as Mathhammer.SimulationResult
+		var weapon_data = entry.weapon_data
+
+		# Aggregate per-weapon stats from trials
+		var total_attacks = 0
+		var total_hits = 0
+		var total_wounds = 0
+		var total_unsaved = 0
+
+		for trial in result.detailed_trials:
+			total_attacks += trial.attacks_made
+			total_hits += trial.hits
+			total_wounds += trial.wounds
+			total_unsaved += trial.saves_failed
+
+		var hit_rate = (float(total_hits) / float(total_attacks) * 100.0) if total_attacks > 0 else 0.0
+		var wound_rate = (float(total_wounds) / float(total_hits) * 100.0) if total_hits > 0 else 0.0
+		var unsaved_rate = (float(total_unsaved) / float(total_wounds) * 100.0) if total_wounds > 0 else 0.0
+
+		weapon_stats_list.append({
+			"weapon_name": entry.weapon_name,
+			"weapon_data": weapon_data,
+			"avg_damage": result.get_average_damage(),
+			"median_damage": result.get_damage_percentile(0.5),
+			"kill_probability": result.kill_probability,
+			"expected_survivors": result.expected_survivors,
+			"damage_efficiency": result.damage_efficiency,
+			"hit_rate": hit_rate,
+			"wound_rate": wound_rate,
+			"unsaved_rate": unsaved_rate,
+			"result": result
+		})
+
+	# Find best values for highlighting
+	var best_avg_damage = 0.0
+	var best_kill_prob = 0.0
+	for ws in weapon_stats_list:
+		if ws.avg_damage > best_avg_damage:
+			best_avg_damage = ws.avg_damage
+		if ws.kill_probability > best_kill_prob:
+			best_kill_prob = ws.kill_probability
+
+	# Create weapon stat cards — one per weapon
+	for i in range(weapon_stats_list.size()):
+		var ws = weapon_stats_list[i]
+		var weapon_data = ws.weapon_data
+
+		var is_best_damage = ws.avg_damage >= best_avg_damage and best_avg_damage > 0
+		var bg_color = Color(0.2, 0.4, 0.25, 0.8) if is_best_damage else Color(0.25, 0.3, 0.4, 0.8)
+
+		var weapon_panel = create_styled_panel(ws.weapon_name, bg_color)
+		comparison_vbox.add_child(weapon_panel)
+		var weapon_content = weapon_panel.get_meta("content_vbox")
+
+		# Weapon stats line
+		var stats_text = ""
+		if weapon_data.get("type", "") == "Ranged":
+			stats_text = "BS:%s+ S:%s AP:%s D:%s" % [
+				weapon_data.get("ballistic_skill", "4"),
+				weapon_data.get("strength", "4"),
+				weapon_data.get("ap", "0"),
+				weapon_data.get("damage", "1")
+			]
+		else:
+			stats_text = "WS:%s+ S:%s AP:%s D:%s" % [
+				weapon_data.get("weapon_skill", "4"),
+				weapon_data.get("strength", "4"),
+				weapon_data.get("ap", "0"),
+				weapon_data.get("damage", "1")
+			]
+
+		var stats_label = Label.new()
+		stats_label.text = stats_text
+		stats_label.add_theme_font_size_override("font_size", 10)
+		stats_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
+		weapon_content.add_child(stats_label)
+
+		# Stats grid
+		var grid = GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 15)
+		grid.add_theme_constant_override("v_separation", 4)
+		weapon_content.add_child(grid)
+
+		add_stat_row(grid, "Avg Damage:", "%.2f wounds" % ws.avg_damage,
+			Color.YELLOW if is_best_damage else Color.WHITE)
+		add_stat_row(grid, "Median Damage:", "%d wounds" % ws.median_damage)
+		add_stat_row(grid, "Kill Probability:", "%.1f%%" % (ws.kill_probability * 100),
+			Color.RED if ws.kill_probability >= best_kill_prob and best_kill_prob > 0 else Color.WHITE)
+		add_stat_row(grid, "Expected Survivors:", "%.2f models" % ws.expected_survivors, Color.GREEN)
+		add_stat_row(grid, "Damage Efficiency:", "%.1f%%" % (ws.damage_efficiency * 100), Color.CYAN)
+		add_stat_row(grid, "Hit Rate:", "%.1f%%" % ws.hit_rate)
+		add_stat_row(grid, "Wound Rate:", "%.1f%%" % ws.wound_rate)
+		add_stat_row(grid, "Unsaved Rate:", "%.1f%%" % ws.unsaved_rate)
+
+	# Add ranking summary
+	_create_comparison_ranking(comparison_vbox, weapon_stats_list)
+
+	# Also populate the breakdown panel with comparison data
+	_populate_comparison_breakdown(results, weapon_stats_list)
+
+	print("MathhammerUI: Comparison display complete")
+
+func _create_comparison_ranking(parent: VBoxContainer, weapon_stats: Array) -> void:
+	# Sort weapons by average damage (descending)
+	var sorted_by_damage = weapon_stats.duplicate()
+	sorted_by_damage.sort_custom(func(a, b): return a.avg_damage > b.avg_damage)
+
+	var ranking_panel = create_styled_panel("Damage Ranking", Color(0.5, 0.4, 0.15, 0.8))
+	parent.add_child(ranking_panel)
+	var ranking_content = ranking_panel.get_meta("content_vbox")
+
+	for i in range(sorted_by_damage.size()):
+		var ws = sorted_by_damage[i]
+		var rank_label = Label.new()
+		rank_label.text = "#%d %s — %.2f avg dmg (%.1f%% kill)" % [
+			i + 1, ws.weapon_name, ws.avg_damage, ws.kill_probability * 100]
+		rank_label.add_theme_font_size_override("font_size", 11)
+
+		if i == 0:
+			rank_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
+		elif i == 1:
+			rank_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))  # Silver
+		elif i == 2:
+			rank_label.add_theme_color_override("font_color", Color(0.8, 0.5, 0.2))  # Bronze
+		else:
+			rank_label.add_theme_color_override("font_color", Color.WHITE)
+
+		ranking_content.add_child(rank_label)
+
+func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) -> void:
+	# Populate the breakdown panel with per-weapon cumulative probability tables
+	if not breakdown_panel:
+		return
+
+	# Clear the breakdown_text placeholder if it still exists
+	if breakdown_text and is_instance_valid(breakdown_text):
+		breakdown_text.queue_free()
+		breakdown_text = null
+
+	var breakdown_scroll = ScrollContainer.new()
+	breakdown_scroll.name = "DetailedBreakdownScroll"
+	breakdown_scroll.custom_minimum_size = Vector2(350, 300)
+	breakdown_scroll.visible = true
+	breakdown_panel.add_child(breakdown_scroll)
+
+	var breakdown_vbox = VBoxContainer.new()
+	breakdown_vbox.name = "BreakdownVBox"
+	breakdown_vbox.add_theme_constant_override("separation", 10)
+	breakdown_scroll.add_child(breakdown_vbox)
+
+	# Per-weapon cumulative probability tables
+	for entry in results:
+		var result = entry.result as Mathhammer.SimulationResult
+		var weapon_name = entry.weapon_name
+
+		# Create a mini cumulative probability section per weapon
+		_create_cumulative_probability_panel(breakdown_vbox, result)
+
+		# Rename the panel title to include weapon name
+		var last_child = breakdown_vbox.get_child(breakdown_vbox.get_child_count() - 1)
+		if last_child:
+			var content_vbox = last_child.get_meta("content_vbox") if last_child.has_meta("content_vbox") else null
+			if content_vbox and content_vbox.get_child_count() > 0:
+				var title_label = content_vbox.get_child(0)
+				if title_label is Label:
+					title_label.text = "Cumulative Probability — %s" % weapon_name
+
+	print("MathhammerUI: Populated comparison breakdown panel")
 
 func _show_error(message: String) -> void:
 	print("MathhammerUI Error: ", message)
