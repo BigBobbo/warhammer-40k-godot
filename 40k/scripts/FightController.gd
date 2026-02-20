@@ -3,6 +3,7 @@ class_name FightController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
 const EngagementRangeVisualScript = preload("res://scripts/EngagementRangeVisual.gd")
+const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T5-V12
 
 
 # FightController - Handles UI interactions for the Fight Phase
@@ -66,6 +67,7 @@ var clear_button: Button
 var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 var fight_state_banner: FightPhaseStateBanner = null  # T5-V10: Fight phase state banner
+var damage_feedback: DamageFeedbackVisual = null  # T5-V12: Damage visualization (floating numbers, flash)
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -97,6 +99,11 @@ func _exit_tree() -> void:
 		fight_state_banner.queue_free()
 		fight_state_banner = null
 
+	# T5-V12: Clean up damage feedback visual
+	if damage_feedback and is_instance_valid(damage_feedback):
+		damage_feedback.queue_free()
+		damage_feedback = null
+
 	# Right panel cleanup
 	var container = get_node_or_null("/root/Main/HUD_Right/VBoxContainer")
 	if container and is_instance_valid(container):
@@ -112,6 +119,13 @@ func _setup_ui_references() -> void:
 	# Get references to UI nodes
 	board_view = get_node_or_null("/root/Main/BoardRoot/BoardView")
 	hud_right = get_node_or_null("/root/Main/HUD_Right")
+
+	# T5-V12: Create damage feedback visual for floating numbers + flash effects
+	if board_view and not (damage_feedback and is_instance_valid(damage_feedback)):
+		damage_feedback = DamageFeedbackVisualScript.new()
+		damage_feedback.name = "FightDamageFeedback"
+		board_view.add_child(damage_feedback)
+		print("[FightController] T5-V12: DamageFeedbackVisual created and added to BoardView")
 
 	# T5-V10: Setup fight phase state banner (anchored below HUD_Top)
 	_setup_fight_state_banner()
@@ -341,6 +355,9 @@ func set_phase(phase: BasePhase) -> void:
 			phase.targets_available.connect(_on_targets_available)
 		if phase.has_signal("fight_resolved") and not phase.fight_resolved.is_connected(_on_fight_resolved):
 			phase.fight_resolved.connect(_on_fight_resolved)
+		# T5-V12: Connect attacks_resolved for damage visualization
+		if phase.has_signal("attacks_resolved") and not phase.attacks_resolved.is_connected(_on_attacks_resolved_visual):
+			phase.attacks_resolved.connect(_on_attacks_resolved_visual)
 		if phase.has_signal("dice_rolled") and not phase.dice_rolled.is_connected(_on_dice_rolled):
 			phase.dice_rolled.connect(_on_dice_rolled)
 		if phase.has_signal("fight_sequence_updated") and not phase.fight_sequence_updated.is_connected(_on_fight_sequence_updated):
@@ -893,6 +910,126 @@ func _on_fight_resolved(fighter_id: String, results: Dictionary) -> void:
 	eligible_targets.clear()
 	_refresh_fight_sequence()
 	_update_ui_state()
+
+# T5-V12: Damage application visualization — floating numbers + flash effects
+func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result: Dictionary) -> void:
+	"""Parse fight resolution diffs to show floating damage numbers and flash effects on damaged models.
+	Note: This signal fires BEFORE diffs are applied to GameState (signal emitted inside process_action,
+	diffs applied by execute_action afterward), so GameState has pre-damage values we can use."""
+	if not damage_feedback or not is_instance_valid(damage_feedback):
+		print("[FightController] T5-V12: No damage_feedback visual, skipping damage visualization")
+		return
+
+	var diffs = result.get("diffs", [])
+	if diffs.is_empty():
+		return
+
+	print("[FightController] T5-V12: Processing %d diffs for damage visualization" % diffs.size())
+
+	# Pass 1: Collect wound changes and kill flags from diffs
+	# Key format: "unit_id.model_index"
+	var wound_changes: Dictionary = {}  # key -> {unit_id, model_idx, new_wounds}
+	var kill_set: Dictionary = {}  # key -> true
+
+	for diff in diffs:
+		if diff.get("op", "") != "set":
+			continue
+		var path: String = diff.get("path", "")
+
+		# Parse path format: "units.<UNIT_ID>.models.<INDEX>.<field>"
+		var parts = path.split(".")
+		if parts.size() < 5 or parts[0] != "units" or parts[2] != "models":
+			continue
+
+		var unit_id = parts[1]
+		var model_idx = int(parts[3])
+		var field = parts[4]
+
+		# Only process diffs for the target unit of THIS assignment
+		# (result contains diffs for ALL assignments; signal fires per assignment)
+		if unit_id != target_id:
+			continue
+
+		var key = "%s.%d" % [unit_id, model_idx]
+
+		if field == "alive" and diff.get("value") == false:
+			kill_set[key] = true
+
+		elif field == "current_wounds":
+			var new_wounds: int = diff.get("value", 0)
+			wound_changes[key] = {"unit_id": unit_id, "model_idx": model_idx, "new_wounds": new_wounds}
+
+	# Pass 2: Play visual effects for each affected model
+	for key in wound_changes:
+		var info = wound_changes[key]
+		var unit_id: String = info["unit_id"]
+		var model_idx: int = info["model_idx"]
+		var new_wounds: int = info["new_wounds"]
+		var is_kill = kill_set.has(key)
+
+		# Get model data from GameState (still has OLD values since diffs not yet applied)
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		var models = unit.get("models", [])
+		if model_idx < 0 or model_idx >= models.size():
+			continue
+		var model = models[model_idx]
+
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.ZERO:
+			continue
+
+		var base_mm = model.get("base_mm", 32)
+		var base_px = Measurement.base_radius_px(base_mm)
+		var max_wounds = model.get("wounds", 1)
+		# Old wounds from GameState (pre-diff), new wounds from diff
+		var old_wounds = model.get("current_wounds", max_wounds)
+		var damage_dealt = max(1, old_wounds - new_wounds)
+
+		if is_kill:
+			# Model destroyed — play death animation + floating kill number
+			damage_feedback.play_death_animation(model_pos, base_px)
+			damage_feedback.play_floating_number(model_pos, damage_dealt, true)
+			print("[FightController] T5-V12: Model killed at %s — -%d (was %d/%d)" % [str(model_pos), damage_dealt, old_wounds, max_wounds])
+		else:
+			# Model survived — play damage flash + floating number
+			damage_feedback.play_damage_flash(model_pos, base_px, damage_dealt, max_wounds)
+			damage_feedback.play_floating_number(model_pos, damage_dealt, false)
+			print("[FightController] T5-V12: Model damaged at %s — -%d (%d→%d/%d)" % [str(model_pos), damage_dealt, old_wounds, new_wounds, max_wounds])
+
+	# Flash the target unit's token nodes red for immediate visual feedback
+	if not wound_changes.is_empty():
+		_flash_fight_target_tokens(target_id)
+
+func _get_model_position(model: Dictionary) -> Vector2:
+	"""Get model position as Vector2 (shared helper for T5-V12)."""
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+func _flash_fight_target_tokens(target_unit_id: String) -> void:
+	"""T5-V12: Flash the target unit's token nodes red briefly after melee damage."""
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		return
+
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id"):
+			continue
+		if child.get_meta("unit_id") != target_unit_id:
+			continue
+		# Flash red via modulate tween
+		var original_modulate = child.modulate
+		var tween = child.create_tween()
+		tween.tween_property(child, "modulate", Color(1.5, 0.3, 0.3, 1.0), 0.1)
+		tween.tween_property(child, "modulate", original_modulate, 0.3)
+	print("[FightController] T5-V12: Flashed target tokens for unit %s" % target_unit_id)
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
