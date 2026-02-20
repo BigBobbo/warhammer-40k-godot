@@ -4278,9 +4278,8 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 	var movements = {}
 
 	if mode == "ENGAGEMENT":
-		# Reuse pile-in logic — consolidation in engagement mode follows the same
-		# rules: each model moves up to 3" toward the closest enemy model
-		movements = _compute_pile_in_movements(snapshot, unit_id, unit, player)
+		# Enhanced consolidation: prioritise wrapping enemies and tagging new units
+		movements = _compute_consolidate_movements_engagement(snapshot, unit_id, unit, player)
 	elif mode == "OBJECTIVE":
 		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player)
 
@@ -4351,6 +4350,357 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 		return "OBJECTIVE"
 
 	return "NONE"
+
+static func _compute_consolidate_movements_engagement(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
+	"""Compute per-model consolidation destinations in engagement mode.
+	Enhanced over basic pile-in with priorities:
+	1. Tag new enemy units — move into ER with enemy units not currently engaged
+	2. Wrap enemies — distribute models around the enemy to block fall-back
+	3. Move toward closest enemy — fallback (same as pile-in)
+	Maintains coherency and respects 3" movement limit.
+	Returns {model_index_string: Vector2} for models that should move."""
+
+	var movements = {}
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return movements
+
+	var unit_owner = int(unit.get("owner", player))
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	# Gather enemy model info grouped by unit
+	var enemy_units_info = {}  # {unit_id: [{position, base_radius_px, base_mm, model_idx}]}
+	var all_enemy_models_info = []  # flat list for closest-enemy lookups
+	for other_unit_id in snapshot.get("units", {}):
+		var other_unit = snapshot.units[other_unit_id]
+		if int(other_unit.get("owner", 0)) == unit_owner:
+			continue
+		var other_status = other_unit.get("status", 0)
+		if other_status == GameStateData.UnitStatus.UNDEPLOYED or other_status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var other_keywords = other_unit.get("meta", {}).get("keywords", [])
+		if "AIRCRAFT" in other_keywords and not has_fly:
+			continue
+		var unit_models = []
+		for em in other_unit.get("models", []):
+			if not em.get("alive", true):
+				continue
+			var ep = _get_model_position(em)
+			if ep == Vector2.INF:
+				continue
+			var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
+			var info = {
+				"position": ep,
+				"base_radius_px": ebr,
+				"base_mm": em.get("base_mm", 32),
+				"enemy_unit_id": other_unit_id,
+			}
+			unit_models.append(info)
+			all_enemy_models_info.append(info)
+		if not unit_models.is_empty():
+			enemy_units_info[other_unit_id] = unit_models
+
+	if all_enemy_models_info.is_empty():
+		print("AIDecisionMaker: Consolidate (engagement) for %s — no enemy models found" % unit_id)
+		return movements
+
+	# Get deployed models split for collision detection
+	var obstacle_split = _get_deployed_models_split(snapshot, unit_id, unit_owner)
+	var friendly_obstacles = obstacle_split.friendly
+	var enemy_obstacles = obstacle_split.enemy
+
+	var consolidate_range_px = 3.0 * PIXELS_PER_INCH
+	var base_contact_threshold_px = 0.25 * PIXELS_PER_INCH
+
+	# Track placed positions
+	var placed_positions = []
+
+	# Determine which enemy units we are ALREADY engaged with (any model in ER)
+	var engaged_enemy_unit_ids = {}
+	for model in alive_models:
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+		for ei in all_enemy_models_info:
+			var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+			if edge_dist <= ENGAGEMENT_RANGE_PX:
+				engaged_enemy_unit_ids[ei.enemy_unit_id] = true
+
+	# Find taggable enemy units (within 4" range but NOT currently engaged)
+	var taggable_enemy_units = {}  # {unit_id: [model_info]}
+	for euid in enemy_units_info:
+		if engaged_enemy_unit_ids.has(euid):
+			continue
+		# Check if any of our models can reach any model in this enemy unit (within 4")
+		for model in alive_models:
+			var mpos = _get_model_position(model)
+			if mpos == Vector2.INF:
+				continue
+			var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+			for ei in enemy_units_info[euid]:
+				var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+				if edge_dist <= consolidate_range_px + ENGAGEMENT_RANGE_PX:
+					taggable_enemy_units[euid] = enemy_units_info[euid]
+					break
+			if taggable_enemy_units.has(euid):
+				break
+
+	if not taggable_enemy_units.is_empty():
+		print("AIDecisionMaker: Consolidate %s found %d taggable enemy unit(s)" % [unit_id, taggable_enemy_units.size()])
+
+	# Build model entries with per-model info
+	var model_entries = []
+	for model in alive_models:
+		var mid = model.get("id", "")
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+
+		# Find closest enemy model
+		var closest_enemy_dist_px = INF
+		var closest_enemy_pos = Vector2.INF
+		var closest_enemy_radius = 0.0
+		var closest_enemy_unit_id = ""
+		for ei in all_enemy_models_info:
+			var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+			if edge_dist < closest_enemy_dist_px:
+				closest_enemy_dist_px = edge_dist
+				closest_enemy_pos = ei.position
+				closest_enemy_radius = ei.base_radius_px
+				closest_enemy_unit_id = ei.enemy_unit_id
+
+		# Check if this model can tag a new enemy unit (closest enemy is from unengaged unit)
+		var can_tag_new = closest_enemy_unit_id != "" and taggable_enemy_units.has(closest_enemy_unit_id)
+
+		# Also check if any taggable enemy model is within reach even if not closest
+		var tag_target_pos = Vector2.INF
+		var tag_target_radius = 0.0
+		var tag_target_dist = INF
+		if not taggable_enemy_units.is_empty() and not can_tag_new:
+			for euid in taggable_enemy_units:
+				for ei in taggable_enemy_units[euid]:
+					var edge_dist = mpos.distance_to(ei.position) - mbr - ei.base_radius_px
+					if edge_dist <= consolidate_range_px + ENGAGEMENT_RANGE_PX and edge_dist < tag_target_dist:
+						tag_target_dist = edge_dist
+						tag_target_pos = ei.position
+						tag_target_radius = ei.base_radius_px
+
+		model_entries.append({
+			"model": model,
+			"id": mid,
+			"pos": mpos,
+			"base_radius_px": mbr,
+			"closest_enemy_dist_px": closest_enemy_dist_px,
+			"closest_enemy_pos": closest_enemy_pos,
+			"closest_enemy_radius": closest_enemy_radius,
+			"closest_enemy_unit_id": closest_enemy_unit_id,
+			"can_tag_new": can_tag_new,
+			"tag_target_pos": tag_target_pos,
+			"tag_target_radius": tag_target_radius,
+		})
+
+	# Sort: models closest to enemies first (they get priority for base contact),
+	# but tag-capable models get higher priority
+	model_entries.sort_custom(func(a, b):
+		# Tag-capable models go first
+		if a.can_tag_new and not b.can_tag_new:
+			return true
+		if b.can_tag_new and not a.can_tag_new:
+			return false
+		# Then by distance to closest enemy (closest first)
+		return a.closest_enemy_dist_px < b.closest_enemy_dist_px
+	)
+
+	# Track which angular positions around each enemy have been claimed (for wrapping)
+	var claimed_angles = {}  # {enemy_pos_key: [angle1, angle2, ...]}
+
+	for entry in model_entries:
+		var mid = entry.id
+		var start_pos = entry.pos
+		var my_radius = entry.base_radius_px
+		var closest_enemy_pos = entry.closest_enemy_pos
+		var closest_enemy_radius = entry.closest_enemy_radius
+		var closest_enemy_dist_px = entry.closest_enemy_dist_px
+		var model = entry.model
+		var base_mm = model.get("base_mm", 32)
+		var base_type = model.get("base_type", "circular")
+		var base_dimensions = model.get("base_dimensions", {})
+
+		if closest_enemy_pos == Vector2.INF:
+			placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			continue
+
+		# Check if model is already in base contact — hold position
+		if closest_enemy_dist_px <= base_contact_threshold_px:
+			print("AIDecisionMaker: Consolidate model %s already in base contact (dist=%.1fpx), holding" % [mid, closest_enemy_dist_px])
+			# Record this angle as claimed for wrapping
+			var angle_to_model = (start_pos - closest_enemy_pos).angle()
+			var ekey = "%d_%d" % [int(closest_enemy_pos.x), int(closest_enemy_pos.y)]
+			if not claimed_angles.has(ekey):
+				claimed_angles[ekey] = []
+			claimed_angles[ekey].append(angle_to_model)
+			placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			continue
+
+		# Determine target position based on priority
+		var target_enemy_pos = closest_enemy_pos
+		var target_enemy_radius = closest_enemy_radius
+		var is_tagging = false
+
+		# Priority 1: If this model can tag a new enemy unit (closest enemy is unengaged)
+		if entry.can_tag_new:
+			is_tagging = true
+			print("AIDecisionMaker: Consolidate model %s targeting new enemy unit for tagging" % mid)
+		elif entry.tag_target_pos != Vector2.INF:
+			# Model has a reachable taggable enemy that's not its closest.
+			# We still MUST move closer to the closest enemy (rules requirement),
+			# but we can try a direction that angles toward the taggable target
+			# while still ending closer to the closest enemy.
+			pass
+
+		# Priority 2: Wrapping — calculate a wrap position around the target enemy
+		var b2b_center_dist = my_radius + target_enemy_radius
+		var current_center_dist = start_pos.distance_to(target_enemy_pos)
+		var can_reach_b2b = (current_center_dist - b2b_center_dist) <= consolidate_range_px
+
+		var candidate_pos = Vector2.INF
+
+		if can_reach_b2b:
+			# Calculate wrap position: try to place on the FAR side of the enemy
+			# (opposite from our approach direction — blocks enemy fall-back)
+			var approach_dir = (target_enemy_pos - start_pos).normalized()
+			var ekey = "%d_%d" % [int(target_enemy_pos.x), int(target_enemy_pos.y)]
+			if not claimed_angles.has(ekey):
+				claimed_angles[ekey] = []
+
+			# Try angles starting from far side (180° from approach), then sweeping
+			var base_angle = approach_dir.angle()
+			var wrap_angles = []
+			# Far side (ideal wrap position)
+			wrap_angles.append(base_angle + PI)
+			# Flanking positions
+			wrap_angles.append(base_angle + PI * 0.75)
+			wrap_angles.append(base_angle - PI * 0.75)
+			wrap_angles.append(base_angle + PI * 0.5)
+			wrap_angles.append(base_angle - PI * 0.5)
+			wrap_angles.append(base_angle + PI * 0.25)
+			wrap_angles.append(base_angle - PI * 0.25)
+			# Direct approach (same as pile-in — least priority)
+			wrap_angles.append(base_angle)
+
+			for try_angle in wrap_angles:
+				# Check if this angle is too close to an already-claimed angle
+				var angle_taken = false
+				var min_angular_gap = (my_radius + 4.0) / b2b_center_dist  # minimum gap in radians
+				for claimed in claimed_angles[ekey]:
+					var diff = abs(_angle_difference(try_angle, claimed))
+					if diff < min_angular_gap:
+						angle_taken = true
+						break
+				if angle_taken:
+					continue
+
+				var wrap_pos = target_enemy_pos + Vector2(cos(try_angle), sin(try_angle)) * b2b_center_dist
+
+				# Check movement budget
+				if start_pos.distance_to(wrap_pos) > consolidate_range_px:
+					continue
+
+				# Must end closer to closest enemy than we started
+				if wrap_pos.distance_to(closest_enemy_pos) >= start_pos.distance_to(closest_enemy_pos):
+					continue
+
+				# Clamp to board
+				wrap_pos.x = clampf(wrap_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+				wrap_pos.y = clampf(wrap_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+				# Check collision
+				if not _pile_in_position_collides(wrap_pos, base_mm, friendly_obstacles, enemy_obstacles, placed_positions, base_type, base_dimensions):
+					candidate_pos = wrap_pos
+					claimed_angles[ekey].append(try_angle)
+					if try_angle != base_angle:
+						print("AIDecisionMaker: Consolidate model %s wrapping to far-side angle %.0f°" % [mid, rad_to_deg(try_angle)])
+					break
+
+		# Priority 3: Fallback — straight-line movement toward closest enemy (same as pile-in)
+		if candidate_pos == Vector2.INF:
+			var direction = (target_enemy_pos - start_pos).normalized()
+			if direction == Vector2.ZERO:
+				direction = Vector2.RIGHT
+
+			var desired_move_dist_px = current_center_dist - b2b_center_dist
+			var actual_move_dist_px = clampf(desired_move_dist_px, 0.0, consolidate_range_px)
+
+			if actual_move_dist_px < 1.0:
+				placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+				continue
+
+			candidate_pos = start_pos + direction * actual_move_dist_px
+			candidate_pos.x = clampf(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+			candidate_pos.y = clampf(candidate_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+			# Check collision with spiral search fallback
+			if _pile_in_position_collides(candidate_pos, base_mm, friendly_obstacles, enemy_obstacles, placed_positions, base_type, base_dimensions):
+				var found_alt = false
+				var step = my_radius * 2.0 + 4.0
+				for ring in range(1, 5):
+					var ring_radius = step * ring * 0.4
+					var points_in_ring = maxi(8, ring * 6)
+					for p_idx in range(points_in_ring):
+						var angle = (2.0 * PI * p_idx) / points_in_ring
+						var test_pos = Vector2(
+							candidate_pos.x + cos(angle) * ring_radius,
+							candidate_pos.y + sin(angle) * ring_radius
+						)
+						if start_pos.distance_to(test_pos) > consolidate_range_px:
+							continue
+						if test_pos.distance_to(closest_enemy_pos) >= start_pos.distance_to(closest_enemy_pos):
+							continue
+						test_pos.x = clampf(test_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+						test_pos.y = clampf(test_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+						if not _pile_in_position_collides(test_pos, base_mm, friendly_obstacles, enemy_obstacles, placed_positions, base_type, base_dimensions):
+							candidate_pos = test_pos
+							found_alt = true
+							break
+					if found_alt:
+						break
+
+				if not found_alt:
+					print("AIDecisionMaker: Consolidate model %s collision — holding position" % mid)
+					placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+					continue
+
+		# Final check: must end closer to closest enemy
+		if candidate_pos.distance_to(closest_enemy_pos) >= start_pos.distance_to(closest_enemy_pos):
+			print("AIDecisionMaker: Consolidate model %s would not end closer to enemy, skipping" % mid)
+			placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			continue
+
+		# Record the movement
+		var model_index = _find_model_index_in_unit(unit, mid)
+		if model_index == -1:
+			print("AIDecisionMaker: Consolidate model %s index not found, skipping" % mid)
+			placed_positions.append({"position": start_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+			continue
+
+		var move_inches = start_pos.distance_to(candidate_pos) / PIXELS_PER_INCH
+		var tag_label = " (tagging new unit)" if is_tagging else ""
+		print("AIDecisionMaker: Consolidate model %s (idx %d) moves %.1f\"%s toward enemy" % [mid, model_index, move_inches, tag_label])
+
+		movements[str(model_index)] = candidate_pos
+		placed_positions.append({"position": candidate_pos, "base_mm": base_mm, "base_type": base_type, "base_dimensions": base_dimensions})
+
+	return movements
+
+static func _angle_difference(a: float, b: float) -> float:
+	"""Return the signed angular difference between two angles, normalized to [-PI, PI]."""
+	var diff = fmod(a - b + PI, 2.0 * PI) - PI
+	if diff < -PI:
+		diff += 2.0 * PI
+	return diff
 
 static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int) -> Dictionary:
 	"""Compute per-model consolidation destinations when moving toward the closest
