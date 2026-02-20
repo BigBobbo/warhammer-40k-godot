@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-15 (2026-02-20): AI screening and deep strike denial — Wired `_compute_screen_position()` into Pass 3 of unit assignment. Added `_get_enemy_reserves()`, `_is_screening_candidate()`, `_calculate_denial_positions()` for 9" deep strike denial zones. Cheap units prioritized for screening duty, spaced 18" apart. Added "screen" action handling in movement execution. | Movement/AI | AI_AUDIT.md §AI-TACTIC-3, MOV-4 |
 | T7-13 (2026-02-20): AI enemy threat range awareness — Enemy threat ranges (charge M+12"+1", shooting max range) calculated pre-movement. Added 12" close melee proximity penalty, melee weapon quality in threat estimation, threat-aware assignment scoring/position adjustment. 34/35 tests pass (1 pre-existing). | Movement/AI | AI_AUDIT.md §AI-TACTIC-4, MOV-2 |
 | T7-10 (2026-02-20): AI basic stratagem usage — AI uses all core stratagems: Grenade, Fire Overwatch, Go to Ground/Smokescreen, Command Re-roll (charge/advance/battleshock), Tank Shock, Heroic Intervention. Added `evaluate_tank_shock()` and `evaluate_heroic_intervention()` heuristics, signal handlers, movement phase reroll fallback. 33+36 tests pass. | All/AI | AI_AUDIT.md §AI-GAP-3 |
 | T7-9 (2026-02-20): AI weapon keyword awareness in target scoring — `_apply_weapon_keyword_modifiers()` handles all 8 keywords (Torrent, Blast, Rapid Fire, Melta, Anti-keyword, Sustained/Lethal/Devastating Hits). Fixed Blast formula from 9th ed thresholds to correct 10th ed `floor(models/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use keyword pipeline. 50/50 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-5 |
@@ -1066,12 +1067,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
 - **Details:** May move units out of their weapon range toward objectives. Consider weapon ranges when scoring movement destinations to maintain firing positions.
 
-### T7-15. AI screening and deep strike denial
+### T7-15. AI screening and deep strike denial — **DONE**
 - **Phase:** Movement
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-TACTIC-3, MOV-4
 - **Files:** `AIDecisionMaker.gd` — `_compute_screen_position()` (exists but never called)
 - **Details:** `_compute_screen_position()` exists but is disconnected from any decision path. Wire into pass 3 of unit assignment. Space cheap units 18" apart to create deep strike denial bubbles. Identify enemy units in reserves and calculate 9" denial zones.
+- **Resolution:** Wired `_compute_screen_position()` into Pass 3 of unit assignment. Added `_get_enemy_reserves()` to detect enemy units in reserves, `_is_screening_candidate()` to identify cheap expendable units, and `_calculate_denial_positions()` to compute 9" deep strike denial zones around home objectives and backfield gaps. Cheap unassigned units are now prioritized for screening duty, spaced 18" apart for full denial coverage. Added explicit "screen" action handling in the movement execution phase.
 
 ### T7-16. AI reserves deployment
 - **Phase:** Movement
@@ -1428,8 +1430,8 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 11 | 47 | 58 |
-| **Total** | **110** | **76** | **186** |
+| Tier 7 — AI Player | 12 | 46 | 58 |
+| **Total** | **111** | **75** | **186** |
 | **Recently Completed** | **130** | — | **130** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
