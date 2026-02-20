@@ -359,20 +359,31 @@ func test_efficiency_general_purpose_is_neutral():
 
 func test_efficiency_multi_damage_on_1w_models_penalized():
 	# D6+1 damage (avg 4.5) on 1W models — heavy waste
+	# T7-6: Damage waste is now handled by wound overflow cap in _estimate_weapon_damage()
+	# rather than an efficiency multiplier penalty. The role-based mismatch still applies:
+	# ANTI_TANK vs HORDE = EFFICIENCY_POOR_MATCH (0.6)
 	var lascannon = _make_ranged_weapon_str_damage("Lascannon", 3, 12, 3, "D6+1", "1")
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "grots", 2, Vector2(0, 0), "Gretchin", 10, ["INFANTRY"], [], 2, 7, 1)
 	var eff = AIDecisionMaker._calculate_efficiency_multiplier(lascannon, snapshot.units["grots"])
-	# Anti-tank vs horde = EFFICIENCY_POOR_MATCH (0.6) * DAMAGE_WASTE_PENALTY_HEAVY (0.4) = 0.24
-	_assert(eff < 0.5, "Lascannon vs 1W horde has heavy efficiency penalty (got %.2f)" % eff)
+	_assert(eff < 1.0, "Lascannon vs 1W horde has role-based penalty (got %.2f)" % eff)
 
 func test_efficiency_d2_on_1w_models_moderate_penalty():
 	# D2 weapon on 1W models — moderate waste
+	# T7-6: Damage waste is now handled by wound overflow cap in _estimate_weapon_damage().
+	# Autocannon (S7 AP-1 D2) is classified as GENERAL_PURPOSE (not enough traits for
+	# anti-tank or anti-infantry). GP vs HORDE = neutral (1.0), but wound overflow cap
+	# in the damage estimate limits effective damage to 1 per hit instead of 2.
 	var autocannon = _make_ranged_weapon("Autocannon", 4, 7, 1, 2, 2, 48)
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "grots", 2, Vector2(0, 0), "Gretchin", 10, ["INFANTRY"], [], 2, 7, 1)
-	var eff = AIDecisionMaker._calculate_efficiency_multiplier(autocannon, snapshot.units["grots"])
-	_assert(eff < 1.0, "D2 weapon vs 1W horde has some penalty (got %.2f)" % eff)
+	# Verify that the wound overflow cap handles damage waste in the estimate instead
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 200), "Shooter", 1, ["INFANTRY"], [autocannon])
+	var dmg_vs_1w = AIDecisionMaker._estimate_weapon_damage(autocannon, snapshot.units["grots"], snapshot, snapshot.units["shooter"])
+	# Without wound cap: 2 * 3/6(hit) * 5/6(wound) * 1.0(unsaved) * 2(D) * 1(models) = 1.667
+	# With wound cap:    2 * 3/6(hit) * 5/6(wound) * 1.0(unsaved) * 1(capped) * 1(models) = 0.833
+	# The wound overflow cap halves the estimate — verify it's below the uncapped value
+	_assert(dmg_vs_1w < 1.0, "D2 weapon vs 1W target has reduced damage from wound overflow cap (got %.3f, uncapped would be ~1.67)" % dmg_vs_1w)
 
 func test_efficiency_anti_keyword_bonus():
 	# Kombi-weapon with anti-infantry 4+ vs INFANTRY target

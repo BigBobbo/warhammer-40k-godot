@@ -58,6 +58,13 @@ func _run_tests():
 	test_focus_fire_plan_reset_on_phase_change()
 	test_build_unit_assignments_fallback_populates_model_ids()
 	test_get_alive_model_ids()
+	# T7-6 enhancements
+	test_wound_overflow_cap_lascannon_vs_1w()
+	test_wound_overflow_cap_no_change_when_damage_below_wounds()
+	test_partial_kill_allocation()
+	test_secondary_target_coordination()
+	test_value_per_threshold_sorting()
+	test_anti_tank_not_dragged_to_horde_partial_kill()
 
 # =========================================================================
 # Helper: Create test data
@@ -447,3 +454,179 @@ func test_get_alive_model_ids():
 	_assert(ids.size() == 3, "_get_alive_model_ids returns 3 for 3 alive / 2 dead (got %d)" % ids.size())
 	_assert("m1" in ids, "Alive model m1 is in the list")
 	_assert("m4" not in ids, "Dead model m4 is not in the list")
+
+# =========================================================================
+# Tests: T7-6 — Wound overflow cap
+# =========================================================================
+
+func test_wound_overflow_cap_lascannon_vs_1w():
+	# Lascannon (D6 = avg 3.5 damage) vs 1W models should cap damage at 1
+	var snapshot = _create_test_snapshot()
+	var lascannon = {
+		"name": "Lascannon", "type": "Ranged", "ballistic_skill": "3",
+		"strength": "12", "ap": "-3", "damage": "6", "attacks": "1", "range": "48"
+	}
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [lascannon])
+	_add_unit(snapshot, "grots_1w", 2, Vector2(400, 0), "Grots", 10, ["INFANTRY"], [], 2, 7, 1)
+	_add_unit(snapshot, "marines_2w", 2, Vector2(400, 200), "Marines", 5, ["INFANTRY"], [], 4, 3, 2)
+
+	var dmg_vs_1w = AIDecisionMaker._estimate_weapon_damage(lascannon, snapshot.units["grots_1w"], snapshot, snapshot.units["shooter"])
+	var dmg_vs_2w = AIDecisionMaker._estimate_weapon_damage(lascannon, snapshot.units["marines_2w"], snapshot, snapshot.units["shooter"])
+
+	# Against 1W: damage capped at 1 per hit (not full 6)
+	# Against 2W: damage capped at 2 per hit
+	# The ratio should reflect this: dmg_vs_2w should be MORE than dmg_vs_1w
+	# (even though grots are easier to wound and have worse save)
+	# Grots: p_hit=4/6, p_wound=5/6 (S12 vs T2), p_unsaved=1.0 (7+ save), eff: 0.6 (ANTI_TANK vs HORDE)
+	# = 1 * 4/6 * 5/6 * 1.0 * 1(capped) * 1 * 0.6 = 0.333
+	# Marines: p_hit=4/6, p_wound=5/6 (S12 vs T4), p_unsaved= save 3+3=6+, p_save=1/6, p_unsaved=5/6, eff: 1.15 (ANTI_TANK vs ELITE)
+	# = 1 * 4/6 * 5/6 * 5/6 * 2(capped) * 1 * 1.15 = 1.065
+	_assert(dmg_vs_1w < dmg_vs_2w,
+		"Wound-capped lascannon does less vs 1W grots (%.3f) than 2W marines (%.3f)" % [dmg_vs_1w, dmg_vs_2w])
+	# Without cap, lascannon would do MORE vs grots due to easier wound/save rolls
+	# The cap makes the AI correctly value the lascannon against multi-wound targets
+	_assert(dmg_vs_1w < 0.5, "Lascannon vs 1W grots capped to low damage (got %.3f)" % dmg_vs_1w)
+
+func test_wound_overflow_cap_no_change_when_damage_below_wounds():
+	# D1 weapon vs 2W models — cap should not change anything
+	var snapshot = _create_test_snapshot()
+	var bolt_rifle = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [bolt_rifle])
+	_add_unit(snapshot, "target", 2, Vector2(400, 0), "Target", 5, ["INFANTRY"], [], 4, 3, 2)
+
+	var dmg = AIDecisionMaker._estimate_weapon_damage(bolt_rifle, snapshot.units["target"], snapshot, snapshot.units["shooter"])
+	# D1 vs 2W → min(1, 2) = 1, no change. Same as before.
+	_assert(dmg > 0.0, "D1 vs 2W target still does damage (got %.3f)" % dmg)
+	# Verify approximately correct: 2 attacks * 4/6 hit * 3/6 wound * 0.5 unsaved * 1 damage * 1 model * 1.15 eff
+	_assert_approx(dmg, 0.383, 0.06, "D1 weapon unaffected by wound overflow cap")
+
+# =========================================================================
+# Tests: T7-6 — Model-level partial kill allocation
+# =========================================================================
+
+func test_partial_kill_allocation():
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+	# Weapon that does moderate damage: enough to kill a few models but not wipe
+	var plasma = _make_ranged_weapon("Plasma gun", 3, 8, 3, 2, 2, 24)
+	_add_unit(snapshot, "squad_a", 1, Vector2(0, 0), "Plasma Squad", 5, ["INFANTRY"], [plasma])
+
+	# Target: 10 models × 2W = 20HP total. We can't wipe but should still focus fire.
+	_add_unit(snapshot, "big_squad", 2, Vector2(400, 0), "Big Squad", 10, ["INFANTRY"], [], 4, 3, 2)
+
+	var plan = AIDecisionMaker._build_focus_fire_plan(snapshot, ["squad_a"], 1)
+	_assert(plan.has("squad_a"), "Partial kill: plan includes squad even though can't wipe target")
+	if plan.has("squad_a"):
+		var target_id = plan["squad_a"][0].get("target_unit_id", "")
+		_assert(target_id == "big_squad", "Partial kill: weapons assigned to big squad")
+
+# =========================================================================
+# Tests: T7-6 — Secondary target coordination
+# =========================================================================
+
+func test_secondary_target_coordination():
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+	var bolt_rifle = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+
+	# 3 squads with bolt rifles
+	_add_unit(snapshot, "sq_a", 1, Vector2(0, 0), "Squad A", 5, ["INFANTRY"], [bolt_rifle])
+	_add_unit(snapshot, "sq_b", 1, Vector2(0, 100), "Squad B", 5, ["INFANTRY"], [bolt_rifle])
+	_add_unit(snapshot, "sq_c", 1, Vector2(0, 200), "Squad C", 5, ["INFANTRY"], [bolt_rifle])
+
+	# 3 targets: first is easy kill, second and third are medium
+	_add_wounded_unit(snapshot, "weak", 2, Vector2(400, 0), "Weak",
+		2, 3, 1, 1, ["INFANTRY"], [], 4, 5)  # 2HP, easy kill
+	_add_unit(snapshot, "med_a", 2, Vector2(400, 100), "Medium A", 3, ["INFANTRY"], [], 4, 4, 2)  # 6HP
+	_add_unit(snapshot, "med_b", 2, Vector2(400, 200), "Medium B", 3, ["INFANTRY"], [], 4, 4, 2)  # 6HP
+
+	var plan = AIDecisionMaker._build_focus_fire_plan(snapshot, ["sq_a", "sq_b", "sq_c"], 1)
+
+	# Count assignments per target
+	var target_counts = {}
+	for uid in plan:
+		for a in plan[uid]:
+			var tid = a.get("target_unit_id", "")
+			if not target_counts.has(tid):
+				target_counts[tid] = 0
+			target_counts[tid] += 1
+
+	# The weak target should get some fire, and remaining should coordinate on medium targets
+	# rather than spreading 1 weapon per target
+	var weak_count = target_counts.get("weak", 0)
+	var total_assigned = 0
+	for tid in target_counts:
+		total_assigned += target_counts[tid]
+	_assert(total_assigned == 3, "All 3 weapons assigned (got %d)" % total_assigned)
+	_assert(weak_count >= 1, "At least 1 weapon targets the weak unit (got %d)" % weak_count)
+
+# =========================================================================
+# Tests: T7-6 — Value-per-threshold sorting
+# =========================================================================
+
+func test_value_per_threshold_sorting():
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+	var bolt_rifle = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+
+	# Single squad
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Squad", 5, ["INFANTRY"], [bolt_rifle])
+
+	# Two targets: high-value but tanky vs low-value but easy to kill
+	# Character with high value, hard to kill
+	_add_unit(snapshot, "captain", 2, Vector2(400, 0), "Captain",
+		1, ["CHARACTER", "INFANTRY"], [], 5, 2, 6)  # 6W, tough
+	# Wounded grunt squad — easy to finish off, below half
+	_add_wounded_unit(snapshot, "grunts", 2, Vector2(400, 200), "Grunts",
+		2, 3, 1, 1, ["INFANTRY"], [], 4, 5)  # 2HP total, below half
+
+	var plan = AIDecisionMaker._build_focus_fire_plan(snapshot, ["shooter"], 1)
+
+	# The grunts should be targeted: low threshold (2HP), below half, easy kill
+	# Value-per-threshold: grunts (1.5 below half / 2HP = 0.75) vs captain (1.3 / 6HP = 0.22)
+	if plan.has("shooter") and plan["shooter"].size() > 0:
+		var target = plan["shooter"][0].get("target_unit_id", "")
+		_assert(target == "grunts",
+			"Value-per-threshold sort: targets easy-kill grunts (2HP) over tanky captain (6HP) — got: %s" % target)
+	else:
+		_assert(false, "Plan should have an assignment for shooter")
+
+# =========================================================================
+# Tests: T7-6 — Efficiency filtering in partial kills
+# =========================================================================
+
+func test_anti_tank_not_dragged_to_horde_partial_kill():
+	_reset_focus_fire_state()
+	var snapshot = _create_test_snapshot()
+
+	var lascannon = {
+		"name": "Lascannon", "type": "Ranged", "ballistic_skill": "3",
+		"strength": "12", "ap": "-3", "damage": "6", "attacks": "1", "range": "48"
+	}
+	var bolt_rifle = _make_ranged_weapon("Bolt rifle", 3, 4, 1, 1, 2, 24)
+
+	# Squad with mixed weapons
+	_add_unit(snapshot, "devs", 1, Vector2(0, 0), "Devastators", 5, ["INFANTRY"], [lascannon, bolt_rifle])
+
+	# Two targets: a horde and a vehicle
+	_add_unit(snapshot, "boyz", 2, Vector2(400, 0), "Boyz", 10, ["INFANTRY", "ORKS"], [], 5, 5, 1)  # 10HP horde
+	_add_unit(snapshot, "tank", 2, Vector2(400, 200), "Tank", 1, ["VEHICLE"], [], 10, 3, 12)  # 12HP vehicle
+
+	var plan = AIDecisionMaker._build_focus_fire_plan(snapshot, ["devs"], 1)
+
+	# The lascannon should target the tank (ANTI_TANK vs VEHICLE = perfect match)
+	# The bolt rifle should target the boyz (ANTI_INFANTRY vs HORDE = perfect match)
+	var lascannon_target = ""
+	var bolt_target = ""
+	if plan.has("devs"):
+		for a in plan["devs"]:
+			var wid = a.get("weapon_id", "")
+			if "lascannon" in wid.to_lower():
+				lascannon_target = a.get("target_unit_id", "")
+			elif "bolt" in wid.to_lower():
+				bolt_target = a.get("target_unit_id", "")
+
+	_assert(lascannon_target == "tank",
+		"Lascannon not dragged to horde — targets tank instead (got: %s)" % lascannon_target)
+	_assert(bolt_target == "boyz",
+		"Bolt rifle targets boyz horde (got: %s)" % bolt_target)

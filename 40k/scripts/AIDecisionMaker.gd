@@ -2790,7 +2790,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			dmg_row[enemy_id] = dmg
 		damage_matrix.append(dmg_row)
 
-	# --- Step 3: Greedy allocation ---
+	# --- Step 3: Greedy allocation (T7-6 enhanced) ---
 	# Track how much expected damage is already allocated to each target
 	var allocated_damage = {}
 	for enemy_id in enemies:
@@ -2801,9 +2801,26 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	for wi in range(all_weapons.size()):
 		weapon_target.append("")
 
-	# Sort targets by value (highest first) for prioritized allocation
+	# T7-6: Sort targets by value-per-threshold (efficiency of kill).
+	# Targets that give the best value for the least damage required should be
+	# prioritised — killing a cheap 2HP target first frees weapons for others.
 	var sorted_targets = enemies.keys()
-	sorted_targets.sort_custom(func(a, b): return target_values.get(a, 0) > target_values.get(b, 0))
+	sorted_targets.sort_custom(func(a, b):
+		var thresh_a = kill_thresholds.get(a, 1.0)
+		var thresh_b = kill_thresholds.get(b, 1.0)
+		var ratio_a = target_values.get(a, 0) / maxf(thresh_a, 0.1)
+		var ratio_b = target_values.get(b, 0) / maxf(thresh_b, 0.1)
+		# Break ties with raw value (higher value first)
+		if absf(ratio_a - ratio_b) < 0.001:
+			return target_values.get(a, 0) > target_values.get(b, 0)
+		return ratio_a > ratio_b
+	)
+
+	# T7-6: Calculate model-level kill thresholds (wounds to kill N models)
+	# Used for partial kill assessment when we can't wipe the whole unit
+	var model_wounds_map = {}  # enemy_id -> wounds per model
+	for enemy_id in enemies:
+		model_wounds_map[enemy_id] = float(_get_target_wounds_per_model(enemies[enemy_id]))
 
 	# Pass 1: For each high-value target, assign enough weapons to reach kill threshold
 	for enemy_id in sorted_targets:
@@ -2811,7 +2828,7 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		if threshold <= 0:
 			continue
 
-		# Gather weapons that can damage this target, sorted by efficiency
+		# Gather weapons that can damage this target, with efficiency info
 		var candidates = []  # [{weapon_index, damage, efficiency}]
 		for wi in range(all_weapons.size()):
 			if weapon_target[wi] != "":
@@ -2819,7 +2836,8 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
 			if dmg <= 0:
 				continue  # Can't hit this target (out of range, etc.)
-			candidates.append({"wi": wi, "damage": dmg})
+			var eff = _calculate_efficiency_multiplier(all_weapons[wi]["weapon"], enemies[enemy_id])
+			candidates.append({"wi": wi, "damage": dmg, "efficiency": eff})
 
 		if candidates.is_empty():
 			continue
@@ -2832,59 +2850,149 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		for c in candidates:
 			total_potential += c["damage"]
 
-		# Only focus fire if we can plausibly kill the target (within overkill tolerance)
-		# or if the target is already below half health
+		# T7-6: Also compute well-matched damage (efficiency >= neutral) for
+		# partial kill assessment. Don't drag poorly-matched weapons into partial kills.
+		var well_matched_potential = 0.0
+		var well_matched_candidates = []
+		for c in candidates:
+			if c["efficiency"] >= EFFICIENCY_NEUTRAL:
+				well_matched_potential += c["damage"]
+				well_matched_candidates.append(c)
+
 		var alive_count = _get_alive_models(enemies[enemy_id]).size()
 		var total_count = enemies[enemy_id].get("models", []).size()
 		var below_half = total_count > 0 and alive_count * 2 < total_count
 
-		var can_kill = total_potential >= threshold * 0.6  # At least 60% chance concept
-		if not can_kill and not below_half:
-			continue  # Not worth focusing on — spread fire will happen in pass 2
+		# T7-6: Enhanced kill assessment with model-level partial kills.
+		# For full wipe assessment, use all weapons. For partial kills, only count
+		# well-matched weapons to avoid misallocating (e.g. lascannon vs hordes).
+		var can_wipe = total_potential >= threshold * 0.6
+		var wpm = model_wounds_map.get(enemy_id, 1.0)
+		var matched_model_kills = floorf(well_matched_potential / maxf(wpm, 0.1)) if wpm > 0 else 0.0
+		var worth_partial_kill = alive_count > 1 and matched_model_kills >= 1.0
 
-		# Assign weapons until we reach kill threshold (with overkill tolerance)
-		var target_budget = threshold * OVERKILL_TOLERANCE
-		for c in candidates:
+		if not can_wipe and not below_half and not worth_partial_kill:
+			continue  # Not worth focusing on — will be handled in pass 2
+
+		# Determine target budget and which weapons to draw from:
+		# - If we can wipe or below half: use ALL weapons up to kill threshold
+		# - If partial kill: only use well-matched weapons
+		var target_budget: float
+		var assign_candidates: Array
+		if can_wipe or below_half:
+			target_budget = threshold * OVERKILL_TOLERANCE
+			assign_candidates = candidates
+		else:
+			# Partial kill: use only well-matched weapons
+			var target_model_kills = min(matched_model_kills, float(alive_count))
+			target_budget = target_model_kills * wpm * OVERKILL_TOLERANCE
+			target_budget = min(target_budget, threshold * OVERKILL_TOLERANCE)
+			assign_candidates = well_matched_candidates
+
+		for c in assign_candidates:
 			if allocated_damage[enemy_id] >= target_budget:
 				break  # Enough damage allocated
+			# T7-6: Once we've passed the actual kill threshold, don't pull in
+			# poorly-matched weapons — let them find better targets in Pass 2.
+			if allocated_damage[enemy_id] >= threshold and c["efficiency"] < EFFICIENCY_NEUTRAL:
+				continue
 			var wi = c["wi"]
 			weapon_target[wi] = enemy_id
 			allocated_damage[enemy_id] += c["damage"]
 
-	# Pass 2: Assign remaining unassigned weapons to their best individual targets
+	# Pass 2: Coordinated secondary target allocation (T7-6 enhanced).
+	# Instead of assigning each remaining weapon independently, group remaining
+	# weapons to reach kill thresholds on secondary targets too.
+	var remaining_weapons = []  # indices of unassigned weapons
 	for wi in range(all_weapons.size()):
-		if weapon_target[wi] != "":
-			continue  # Already assigned in pass 1
+		if weapon_target[wi] == "":
+			remaining_weapons.append(wi)
 
-		var weapon_entry = all_weapons[wi]
-		var best_target_id = ""
-		var best_score = -1.0
+	if not remaining_weapons.is_empty():
+		# Build secondary targets: enemies that still have remaining health after Pass 1
+		var secondary_targets = []
+		for enemy_id in sorted_targets:
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			if threshold <= 0:
+				continue
+			# How much more damage needed to reach the kill threshold?
+			var remaining_hp = threshold - allocated_damage.get(enemy_id, 0.0)
+			if remaining_hp <= 0:
+				continue  # Already allocated enough
+			secondary_targets.append(enemy_id)
 
-		for enemy_id in enemies:
-			var dmg = damage_matrix[wi].get(enemy_id, 0.0)
-			if dmg <= 0:
+		# For each secondary target, try to coordinate remaining weapons
+		for enemy_id in secondary_targets:
+			if remaining_weapons.is_empty():
+				break
+
+			var threshold = kill_thresholds.get(enemy_id, 0)
+			var remaining_hp = threshold - allocated_damage.get(enemy_id, 0.0)
+			var wpm = model_wounds_map.get(enemy_id, 1.0)
+
+			# Gather remaining weapons that can damage this target
+			var sec_candidates = []
+			for wi in remaining_weapons:
+				var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+				if dmg > 0:
+					sec_candidates.append({"wi": wi, "damage": dmg})
+
+			if sec_candidates.is_empty():
 				continue
 
-			# Score: base damage * target value, with bonus if this helps reach a kill threshold
-			var score = dmg * target_values.get(enemy_id, 1.0)
+			sec_candidates.sort_custom(func(a, b): return a["damage"] > b["damage"])
 
-			# Bonus: if adding this weapon helps reach the kill threshold
-			var threshold = kill_thresholds.get(enemy_id, 0)
-			var current_alloc = allocated_damage.get(enemy_id, 0)
-			if threshold > 0 and current_alloc < threshold and current_alloc + dmg >= threshold * 0.6:
-				score *= KILL_BONUS_MULTIPLIER
+			# Calculate if remaining weapons can reach a meaningful kill count
+			var sec_total = 0.0
+			for c in sec_candidates:
+				sec_total += c["damage"]
 
-			# Slight penalty for massive overkill
-			if threshold > 0 and current_alloc >= threshold * OVERKILL_TOLERANCE:
-				score *= 0.5
+			var can_contribute_kill = sec_total >= wpm  # Can kill at least 1 model
+			if not can_contribute_kill:
+				continue  # Not enough remaining firepower to kill even 1 model
 
-			if score > best_score:
-				best_score = score
-				best_target_id = enemy_id
+			# Allocate remaining weapons to this secondary target
+			var sec_budget = min(remaining_hp, threshold) * OVERKILL_TOLERANCE
+			for c in sec_candidates:
+				if allocated_damage.get(enemy_id, 0.0) >= threshold * OVERKILL_TOLERANCE:
+					break
+				if allocated_damage.get(enemy_id, 0.0) - (threshold - remaining_hp) >= sec_budget:
+					break
+				var wi = c["wi"]
+				weapon_target[wi] = enemy_id
+				allocated_damage[enemy_id] += c["damage"]
+				remaining_weapons.erase(wi)
 
-		if best_target_id != "":
-			weapon_target[wi] = best_target_id
-			allocated_damage[best_target_id] += damage_matrix[wi].get(best_target_id, 0.0)
+		# Pass 2b: Any still-unassigned weapons get their best individual target
+		for wi in remaining_weapons:
+			var best_target_id = ""
+			var best_score = -1.0
+
+			for enemy_id in enemies:
+				var dmg = damage_matrix[wi].get(enemy_id, 0.0)
+				if dmg <= 0:
+					continue
+
+				# Score: base damage * target value, with bonus if approaching kill threshold
+				var score = dmg * target_values.get(enemy_id, 1.0)
+
+				# Bonus: if adding this weapon helps reach the kill threshold
+				var threshold = kill_thresholds.get(enemy_id, 0)
+				var current_alloc = allocated_damage.get(enemy_id, 0)
+				if threshold > 0 and current_alloc < threshold and current_alloc + dmg >= threshold * 0.6:
+					score *= KILL_BONUS_MULTIPLIER
+
+				# Penalty for massive overkill — redirect to less-saturated targets
+				if threshold > 0 and current_alloc >= threshold * OVERKILL_TOLERANCE:
+					score *= 0.3
+
+				if score > best_score:
+					best_score = score
+					best_target_id = enemy_id
+
+			if best_target_id != "":
+				weapon_target[wi] = best_target_id
+				allocated_damage[best_target_id] += damage_matrix[wi].get(best_target_id, 0.0)
 
 	# --- Step 4: Build per-unit assignment dictionaries ---
 	var plan = {}
@@ -3060,6 +3168,14 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	p_wound = kw_mods["p_wound"]
 	p_unsaved = kw_mods["p_unsaved"]
 	damage = kw_mods["damage"]
+
+	# --- T7-6: Wound overflow cap ---
+	# In 40k, damage that exceeds a model's remaining wounds is lost. Cap damage
+	# at wounds-per-model to avoid overestimating kill potential (e.g. D6+1 damage
+	# weapon only deals 1 effective damage per unsaved wound vs 1W models).
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	if wounds_per_model > 0:
+		damage = min(damage, float(wounds_per_model))
 
 	# Scale by number of alive models that carry this weapon
 	var model_count = _get_alive_models(shooter_unit).size()
@@ -5506,6 +5622,12 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	p_unsaved = kw_mods["p_unsaved"]
 	damage = kw_mods["damage"]
 
+	# --- T7-6: Wound overflow cap ---
+	# Damage exceeding model wounds is lost in 40k. Cap for accurate scoring.
+	var wounds_per_model = _get_target_wounds_per_model(target_unit)
+	if wounds_per_model > 0:
+		damage = min(damage, float(wounds_per_model))
+
 	var expected_damage = attacks * p_hit * p_wound * p_unsaved * damage
 
 	# --- AI-GAP-4: Factor in target FNP for more accurate scoring ---
@@ -5679,22 +5801,10 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 		WeaponRole.GENERAL_PURPOSE:
 			multiplier = EFFICIENCY_NEUTRAL
 
-	# --- Damage waste penalty: multi-damage on single-wound models ---
-	var wounds_per_model = _get_target_wounds_per_model(target_unit)
-	var damage_str = weapon.get("damage", "1")
-	var avg_damage = _parse_average_damage(damage_str)
-
-	if wounds_per_model <= 1 and avg_damage >= 3.0:
-		# Heavy overkill: D3+ damage on 1W models wastes 2+ damage per hit
-		multiplier *= DAMAGE_WASTE_PENALTY_HEAVY
-	elif wounds_per_model <= 1 and avg_damage >= 2.0:
-		# Moderate overkill: D2 on 1W models wastes 1 damage per hit
-		multiplier *= DAMAGE_WASTE_PENALTY_MODERATE
-	elif wounds_per_model > 1 and wounds_per_model < avg_damage:
-		# Partial waste: e.g. D3 damage on 2W models (1 wasted per kill)
-		var waste_ratio = wounds_per_model / avg_damage
-		# Scale the penalty: closer to 1.0 means less waste
-		multiplier *= lerp(0.85, 1.0, waste_ratio)
+	# NOTE: Damage waste penalty (multi-damage on low-wound models) was removed here
+	# because T7-6 added precise wound overflow capping in _estimate_weapon_damage()
+	# and _score_shooting_target(). The role-based matching above already discourages
+	# using anti-tank weapons on hordes without double-penalizing.
 
 	# --- Anti-keyword bonus ---
 	var special_rules = weapon.get("special_rules", "").to_lower()
