@@ -120,6 +120,20 @@ const URGENCY_ROUND_2_CONTEST: float = 2.0      # Round 2: contest uncontrolled 
 const URGENCY_ROUND_3_HOLD: float = 1.5         # Round 3: consolidate hold on objectives
 const URGENCY_LATE_GAME_PUSH: float = 2.5       # Round 4-5: aggressive push for VP
 
+# T7-24: Trade and tempo awareness constants
+# Trade efficiency: points-per-wound used to evaluate whether engagements are favorable
+const TRADE_PPW_WEIGHT: float = 0.25               # How much points-per-wound efficiency affects target value
+const TRADE_FAVORABLE_BONUS: float = 1.3            # Max bonus when trading up (cheap unit kills expensive per wound)
+const TRADE_UNFAVORABLE_PENALTY: float = 0.7        # Min penalty when trading down (expensive unit kills cheap per wound)
+# Tempo: VP differential and round-based aggression adjustments
+const TEMPO_VP_DIFF_WEIGHT: float = 0.1             # Per-VP aggression adjustment
+const TEMPO_BEHIND_AGGRESSION_BOOST: float = 1.5    # Max aggression boost when losing
+const TEMPO_AHEAD_CONSERVATION: float = 0.8         # Conservation factor when winning
+const TEMPO_DESPERATION_ROUND: int = 4              # Round at which being behind triggers desperation
+const TEMPO_DESPERATION_MULTIPLIER: float = 1.8     # Aggression multiplier in desperation mode
+const TEMPO_MAX_ROUNDS: int = 5                     # Standard 40k game length (5 battle rounds)
+const TEMPO_CHARGE_THRESHOLD_REDUCTION: float = 0.4 # How much to lower charge threshold when desperate
+
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
 const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
@@ -2139,11 +2153,26 @@ static func _evaluate_all_objectives(
 			if battle_round >= 5 and state == "enemy_strong":
 				priority += URGENCY_LATE_GAME_PUSH * 0.4
 
+		# T7-24: Tempo-based aggression adjustment
+		# When behind on VP, increase urgency to contest/capture objectives
+		# When ahead, reduce urgency for risky pushes (protect the lead)
+		var tempo_mod = _calculate_tempo_modifier(snapshot, player)
+		if tempo_mod != 1.0:
+			# Apply tempo to offensive objective scoring (contesting, capturing)
+			if state in ["uncontrolled", "contested", "enemy_weak"]:
+				priority *= tempo_mod
+			# When behind, reduce the penalty for contesting enemy strongholds
+			elif state == "enemy_strong" and tempo_mod > 1.0:
+				priority += (tempo_mod - 1.0) * 3.0  # Soften the negative scoring
+			# When ahead, increase value of defending held objectives
+			elif state in ["held_safe", "held_threatened"] and tempo_mod < 1.0:
+				priority += (1.0 - tempo_mod) * 2.0  # Bonus for defensive play
+
 		# Don't over-prioritize enemy home objectives (far away, hard to hold)
 		if is_enemy_home and state == "enemy_strong":
 			priority -= 3.0
 
-		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f" % [obj_id, state, friendly_oc, enemy_oc, priority])
+		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod])
 
 		evaluations.append({
 			"index": i,
@@ -4235,10 +4264,24 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 	# target_value[enemy_id] = priority score for killing this target
 	var target_values = {}
 
+	# T7-24: Calculate tempo modifier once for all targets
+	var shooting_tempo = _calculate_tempo_modifier(snapshot, player)
+
 	for enemy_id in enemies:
 		var enemy = enemies[enemy_id]
 		kill_thresholds[enemy_id] = _calculate_kill_threshold(enemy)
 		var base_value = _calculate_target_value(enemy, snapshot, player)
+
+		# T7-24: When behind on VP, boost target values for units on objectives
+		# (need to clear objectives to score). When ahead, focus on efficient kills.
+		if shooting_tempo > 1.0:
+			var enemy_centroid = _get_unit_centroid(enemy)
+			if enemy_centroid != Vector2.INF:
+				var obj_positions = _get_objectives(snapshot)
+				for obj_pos in obj_positions:
+					if enemy_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						base_value *= shooting_tempo
+						break
 
 		# T7-23: Suppress target value for enemies planned for charge.
 		# Don't waste shooting on targets we intend to charge into melee with —
@@ -4402,6 +4445,71 @@ static func _calculate_kill_threshold(unit: Dictionary) -> float:
 			total += float(model.get("current_wounds", model.get("wounds", 1)))
 	return total
 
+# =============================================================================
+# T7-24: TRADE AND TEMPO AWARENESS
+# =============================================================================
+
+static func _get_points_per_wound(unit: Dictionary) -> float:
+	"""T7-24: Calculate points per wound for a unit. Higher = more expensive per wound.
+	Used for trade efficiency calculations — trading a cheap unit for an expensive one is favorable."""
+	var meta = unit.get("meta", {})
+	var points = int(meta.get("points", 0))
+	if points <= 0:
+		return 0.0
+	var stats = meta.get("stats", {})
+	var wounds_per_model = int(stats.get("wounds", 1))
+	var alive_models = _get_alive_models(unit).size()
+	var total_wounds = wounds_per_model * max(alive_models, 1)
+	if total_wounds <= 0:
+		return 0.0
+	return float(points) / float(total_wounds)
+
+static func _get_trade_efficiency(attacker: Dictionary, target: Dictionary) -> float:
+	"""T7-24: Calculate trade efficiency. Returns >1.0 for favorable trades, <1.0 for unfavorable.
+	A favorable trade is when we spend fewer points-per-wound to remove more expensive-per-wound models.
+	Example: 65pt Intercessors (6.5 ppw) shooting at 200pt Leman Russ (15.4 ppw) = favorable trade."""
+	var attacker_ppw = _get_points_per_wound(attacker)
+	var target_ppw = _get_points_per_wound(target)
+	if attacker_ppw <= 0.0 or target_ppw <= 0.0:
+		return 1.0  # No points data available, neutral trade
+	# Ratio: target PPW / attacker PPW. >1.0 means target is more expensive per wound
+	var ratio = target_ppw / attacker_ppw
+	return clampf(ratio, TRADE_UNFAVORABLE_PENALTY, TRADE_FAVORABLE_BONUS)
+
+static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> float:
+	"""T7-24: Calculate aggression modifier based on VP differential and game round.
+	Returns >1.0 when behind (play more aggressively), <1.0 when ahead (play conservatively).
+	Late-game desperation: being behind in rounds 4-5 sharply increases aggression.
+	This reflects the real-game insight that trailing players must take risks to catch up,
+	while leading players should protect their lead by making efficient trades."""
+	var players = snapshot.get("players", {})
+	var player_key = str(player)
+	var opponent_key = "2" if player == 1 else "1"
+	var my_vp = int(players.get(player_key, {}).get("vp", 0))
+	var opp_vp = int(players.get(opponent_key, {}).get("vp", 0))
+	var vp_diff = my_vp - opp_vp  # Positive = winning, negative = losing
+
+	var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+
+	# Base aggression: adjust based on VP differential
+	var modifier = 1.0
+	if vp_diff < 0:
+		# Behind: increase aggression proportional to deficit
+		modifier += minf(absf(vp_diff) * TEMPO_VP_DIFF_WEIGHT, TEMPO_BEHIND_AGGRESSION_BOOST - 1.0)
+	elif vp_diff > 0:
+		# Ahead: play more conservatively (smaller adjustment to avoid passivity)
+		modifier -= minf(float(vp_diff) * TEMPO_VP_DIFF_WEIGHT * 0.5, 1.0 - TEMPO_AHEAD_CONSERVATION)
+
+	# Late-game desperation: being behind in rounds 4-5 increases aggression sharply
+	if battle_round >= TEMPO_DESPERATION_ROUND and vp_diff < 0:
+		var rounds_left = TEMPO_MAX_ROUNDS - battle_round + 1
+		var urgency = 1.0 + (absf(vp_diff) * TEMPO_VP_DIFF_WEIGHT * (3.0 / maxf(float(rounds_left), 1.0)))
+		modifier = maxf(modifier, minf(urgency, TEMPO_DESPERATION_MULTIPLIER))
+
+	print("AIDecisionMaker: [TEMPO] VP: %d vs %d (diff=%+d), round=%d, modifier=%.2f" % [
+		my_vp, opp_vp, vp_diff, battle_round, modifier])
+	return modifier
+
 static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""
 	T7-22: Macro-level target priority assessment.
@@ -4428,6 +4536,14 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	var points = int(meta.get("points", 0))
 	if points > 0:
 		value += float(points) * MACRO_POINTS_WEIGHT
+
+	# --- T7-24: Points-per-wound efficiency bonus ---
+	# Units with high points-per-wound are more efficient to remove (each wound is expensive)
+	var target_ppw = _get_points_per_wound(target_unit)
+	if target_ppw > 0.0:
+		# Normalize against a reference PPW (~25 pts/wound is average for infantry)
+		var ppw_ratio = target_ppw / 25.0
+		value += (ppw_ratio - 1.0) * TRADE_PPW_WEIGHT
 
 	# --- Expected damage output: compute actual expected damage, not just raw attacks*damage ---
 	# Use a "typical" target (T4, Sv3+) as baseline to estimate how threatening this unit is
@@ -5022,9 +5138,17 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away)" % [
 					unit_name, target_name, charge_prob * 100.0, dist]
 
+	# T7-24: Lower charge threshold when behind on VP (desperation charges)
+	var charge_tempo = _calculate_tempo_modifier(snapshot, player)
+	var charge_threshold = 1.0
+	if charge_tempo > 1.0:
+		# When behind: reduce threshold to accept more marginal charges
+		charge_threshold = maxf(1.0 - (charge_tempo - 1.0) * TEMPO_CHARGE_THRESHOLD_REDUCTION, 0.3)
+		print("AIDecisionMaker: [TEMPO] Charge threshold lowered to %.2f (tempo=%.2f)" % [charge_threshold, charge_tempo])
+
 	# Minimum threshold to declare a charge
-	if best_score < 1.0:
-		print("AIDecisionMaker: No charge worth declaring (best score: %.1f)" % best_score)
+	if best_score < charge_threshold:
+		print("AIDecisionMaker: No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
 		return {}
 
 	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
@@ -5122,6 +5246,13 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		if def_mult > 1.0:
 			# Higher defensive multiplier = harder to kill = lower score
 			score /= def_mult
+
+	# --- T7-24: Trade efficiency — prefer charging targets where the trade is favorable ---
+	var charge_trade_eff = _get_trade_efficiency(charger, target)
+	if charge_trade_eff != 1.0:
+		score *= charge_trade_eff
+		print("AIDecisionMaker: [TRADE] Charge trade efficiency: %.2f (charger ppw=%.1f, target ppw=%.1f)" % [
+			charge_trade_eff, _get_points_per_wound(charger), _get_points_per_wound(target)])
 
 	return max(0.0, score)
 

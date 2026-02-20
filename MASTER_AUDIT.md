@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-24 (2026-02-20): AI trade and tempo awareness — Added `_get_points_per_wound()`, `_get_trade_efficiency()`, `_calculate_tempo_modifier()` to AIDecisionMaker.gd. PPW-based target value bonus, trade efficiency in charge scoring, VP-differential tempo modifier affecting objective urgency/focus fire/charge thresholds. Desperation mode in rounds 4-5 when behind. 41+36+40+34 tests pass, 0 regressions. | All/AI | AI_AUDIT.md §AI-TACTIC-7 |
 | T7-23 (2026-02-20): AI multi-phase planning — Added `_build_phase_plan()` cross-phase coordinator (movement→shooting→charge). Charge intent identifies melee units and blends movement toward charge angles. Shooting suppresses charge targets (`PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET`). Charge prefers locking dangerous shooters (`PHASE_PLAN_LOCK_SHOOTER_BONUS`). Expanded urgency scoring to all 5 rounds (R1 rush, R2 contest, R3 consolidate, R4-5 push). 34/34 tests pass. | All/AI | AI_AUDIT.md §AI-TACTIC-6 |
 | T7-22 (2026-02-20): AI target priority framework — Implemented two-level target priority: macro-level `_calculate_target_value` with points-weighted base value, probability-weighted damage, ability value from AIAbilityAnalyzer, objective/OC scoring, leader buff priority; micro-level `_build_focus_fire_plan` with iterative marginal value optimization via `_calculate_marginal_value` (kill threshold bonuses, model kill milestones, overkill decay, opportunity cost). | Shooting/AI | AI_AUDIT.md §AI-TACTIC-1 |
 | T7-20 (2026-02-20): AI thinking indicator — Added `_ai_thinking` state tracking and `ai_turn_started`/`ai_turn_ended` signal emissions to AIPlayer.gd. Created pulsing "AI is thinking..." overlay in Main.gd with animated ellipsis dots, WhiteDwarf gothic styling. Connected via `_initialize_ai_player()`. 15/15 tests pass. | UI/AI | AI_AUDIT.md §QoL-2 |
@@ -1145,12 +1146,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Each phase decided independently. Movement should consider shooting lanes and charge angles; shooting should not target units planned for charge; charge should prefer locking dangerous shooting units in combat. Expand existing round-1 urgency scoring approach.
 - **Resolution:** Added `_build_phase_plan()` cross-phase coordinator built once at movement phase start. Three plan components: (1) `charge_intent` identifies melee units likely to charge and their targets, movement blends toward charge angle; (2) `shooting_lanes` tracks ranged unit targets, `_build_focus_fire_plan` suppresses target value for charge targets via `PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET`; (3) `lock_targets` identifies dangerous enemy shooters (ranged output >= 5.0), `_score_charge_target` gives `PHASE_PLAN_LOCK_SHOOTER_BONUS` for locking them in combat. Expanded urgency scoring from round-1-only to all 5 rounds: R1 rush, R2 contest, R3 consolidate, R4-5 aggressive push. 34/34 tests pass.
 
-### T7-24. AI trade and tempo awareness
+### T7-24. AI trade and tempo awareness — **DONE**
 - **Phase:** All
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-TACTIC-7
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** No tracking of unit points values. Use `unit.meta.points` for points-per-wound calculations. Adjust aggression based on VP score differential and turn count.
+- **Resolution:** Added points-per-wound (PPW) calculation using `unit.meta.points` for trade efficiency analysis. Integrated trade efficiency into target value scoring and charge target evaluation. Added tempo modifier system that adjusts AI aggression based on VP score differential and battle round (desperation mode in rounds 4-5 when behind). Applied tempo to objective urgency scoring, focus fire target prioritization, and charge threshold decisions.
 
 ### T7-25. AI secondary mission awareness
 - **Phase:** Command/Movement/Scoring
@@ -1442,9 +1444,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 18 | 40 | 58 |
-| **Total** | **117** | **69** | **186** |
-| **Recently Completed** | **136** | — | **136** |
+| Tier 7 — AI Player | 19 | 39 | 58 |
+| **Total** | **118** | **68** | **186** |
+| **Recently Completed** | **137** | — | **137** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
