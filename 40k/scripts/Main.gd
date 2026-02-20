@@ -64,6 +64,13 @@ var _opponent_zone_pulse_tween: Tween = null
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
 
+# T7-20: AI thinking indicator overlay
+var ai_thinking_overlay: PanelContainer = null
+var ai_thinking_label: Label = null
+var _ai_thinking_pulse_tween: Tween = null
+var _ai_thinking_dots_timer: float = 0.0
+var _ai_thinking_dots_count: int = 0
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -245,6 +252,9 @@ func _ready() -> void:
 	# T5-V3: Setup phase transition animation banner
 	_setup_phase_transition_banner()
 
+	# T7-20: Setup AI thinking indicator
+	_setup_ai_thinking_indicator()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -278,6 +288,14 @@ func _initialize_ai_player() -> void:
 	if not ai_player.ai_action_taken.is_connected(_on_ai_action_taken):
 		ai_player.ai_action_taken.connect(_on_ai_action_taken)
 		print("Main: Connected to AIPlayer.ai_action_taken signal")
+
+	# T7-20: Connect to AI thinking signals for the thinking indicator
+	if not ai_player.ai_turn_started.is_connected(_show_ai_thinking_indicator):
+		ai_player.ai_turn_started.connect(_show_ai_thinking_indicator)
+		print("Main: Connected to AIPlayer.ai_turn_started signal (T7-20)")
+	if not ai_player.ai_turn_ended.is_connected(_on_ai_turn_ended):
+		ai_player.ai_turn_ended.connect(_on_ai_turn_ended)
+		print("Main: Connected to AIPlayer.ai_turn_ended signal (T7-20)")
 
 func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Create visual tokens for an AI-deployed unit
@@ -330,6 +348,10 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 	# Refresh UI after any AI action to keep unit list and phase UI current
 	refresh_unit_list()
 	update_ui()
+
+func _on_ai_turn_ended(player: int, _action_summary: Array) -> void:
+	# T7-20: Hide the AI thinking indicator when AI finishes its turn
+	_hide_ai_thinking_indicator(player)
 
 func _sync_all_token_positions() -> void:
 	# Sync all token visual positions from GameState (for after AI plays)
@@ -621,6 +643,87 @@ func _stop_opponent_zone_pulse() -> void:
 	# Restore zone modulates via the normal visibility function
 	if current_phase == GameStateData.Phase.DEPLOYMENT:
 		update_deployment_zone_visibility()
+
+# =============================================================================
+# T7-20: AI Thinking Indicator
+# =============================================================================
+
+func _setup_ai_thinking_indicator() -> void:
+	# Create a centered "AI is thinking..." overlay, styled like the WaitingForOpponent overlay
+	ai_thinking_overlay = PanelContainer.new()
+	ai_thinking_overlay.name = "AIThinkingOverlay"
+	# Center horizontally, position in upper area below HUD
+	ai_thinking_overlay.anchor_left = 0.3
+	ai_thinking_overlay.anchor_right = 0.7
+	ai_thinking_overlay.anchor_top = 0.0
+	ai_thinking_overlay.anchor_bottom = 0.0
+	ai_thinking_overlay.offset_top = 110.0  # Below HUD_Bottom
+	ai_thinking_overlay.offset_bottom = 160.0
+	ai_thinking_overlay.visible = false
+	ai_thinking_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Dark background with gold border — WhiteDwarf gothic style
+	var banner_style = StyleBoxFlat.new()
+	banner_style.bg_color = Color(0.08, 0.06, 0.12, 0.92)
+	banner_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	banner_style.set_border_width_all(2)
+	banner_style.border_width_top = 3
+	banner_style.border_width_bottom = 3
+	banner_style.set_corner_radius_all(6)
+	banner_style.set_content_margin_all(8)
+	ai_thinking_overlay.add_theme_stylebox_override("panel", banner_style)
+
+	# Label with the thinking text
+	ai_thinking_label = Label.new()
+	ai_thinking_label.text = "AI is thinking..."
+	ai_thinking_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ai_thinking_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	ai_thinking_label.add_theme_font_size_override("font_size", 18)
+	ai_thinking_overlay.add_child(ai_thinking_label)
+
+	add_child(ai_thinking_overlay)
+	print("Main: AI thinking indicator created (T7-20)")
+
+func _show_ai_thinking_indicator(player: int) -> void:
+	if not ai_thinking_overlay:
+		return
+	var phase_name = _get_phase_label_text(current_phase)
+	ai_thinking_label.text = "AI is thinking..."
+	_ai_thinking_dots_count = 3
+	ai_thinking_overlay.visible = true
+	_start_ai_thinking_pulse()
+	print("Main: Showing AI thinking indicator (Player %d, %s)" % [player, phase_name])
+
+func _hide_ai_thinking_indicator(_player: int = 0) -> void:
+	if ai_thinking_overlay and ai_thinking_overlay.visible:
+		ai_thinking_overlay.visible = false
+		_stop_ai_thinking_pulse()
+		print("Main: Hiding AI thinking indicator")
+
+func _start_ai_thinking_pulse() -> void:
+	if _ai_thinking_pulse_tween:
+		_ai_thinking_pulse_tween.kill()
+	_ai_thinking_pulse_tween = create_tween().set_loops()
+	_ai_thinking_pulse_tween.tween_property(ai_thinking_overlay, "modulate", Color(1, 1, 1, 0.6), 0.8).set_trans(Tween.TRANS_SINE)
+	_ai_thinking_pulse_tween.tween_property(ai_thinking_overlay, "modulate", Color(1, 1, 1, 1.0), 0.8).set_trans(Tween.TRANS_SINE)
+
+func _stop_ai_thinking_pulse() -> void:
+	if _ai_thinking_pulse_tween:
+		_ai_thinking_pulse_tween.kill()
+		_ai_thinking_pulse_tween = null
+	if ai_thinking_overlay:
+		ai_thinking_overlay.modulate = Color(1, 1, 1, 1)
+
+func _update_ai_thinking_dots(delta: float) -> void:
+	# Animate the ellipsis dots: "AI is thinking.", "AI is thinking..", "AI is thinking..."
+	if not ai_thinking_overlay or not ai_thinking_overlay.visible:
+		return
+	_ai_thinking_dots_timer += delta
+	if _ai_thinking_dots_timer >= 0.4:
+		_ai_thinking_dots_timer = 0.0
+		_ai_thinking_dots_count = (_ai_thinking_dots_count % 3) + 1
+		var dots = ".".repeat(_ai_thinking_dots_count)
+		ai_thinking_label.text = "AI is thinking" + dots
 
 func _setup_phase_timer_hud() -> void:
 	# T5-MP8: Create a phase timer label in the top HUD bar for multiplayer games
@@ -2567,6 +2670,9 @@ func _process(delta: float) -> void:
 					waiting_overlay_timer_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 			else:
 				waiting_overlay_timer_label.visible = false
+
+	# T7-20: Animate the AI thinking indicator dots
+	_update_ai_thinking_dots(delta)
 
 func reset_camera() -> void:
 	camera.position = Vector2(

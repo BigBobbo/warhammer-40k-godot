@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-20 (2026-02-20): AI thinking indicator — Added `_ai_thinking` state tracking and `ai_turn_started`/`ai_turn_ended` signal emissions to AIPlayer.gd. Created pulsing "AI is thinking..." overlay in Main.gd with animated ellipsis dots, WhiteDwarf gothic styling. Connected via `_initialize_ai_player()`. 15/15 tests pass. | UI/AI | AI_AUDIT.md §QoL-2 |
 | T7-18 (2026-02-20): AI terrain-aware deployment — Added `_classify_deployment_role()`, `_score_terrain_for_role()`, `_find_terrain_aware_position()` to `_decide_deployment()`. Units classified by role (character/fragile_shooter/durable_shooter/melee/general) and positioned near beneficial terrain (LoS blockers for characters, cover for fragile shooters, front-edge LoS blockers for melee). 20/20 tests pass. | Deployment/AI | AI_AUDIT.md §DEPLOY-1 |
 | T7-17 (2026-02-20): AI leader attachment in formations — Replaced stub `_decide_formations()` with synergy-based leader attachment. `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` simulate each pairing using AIAbilityAnalyzer multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses). Scales by model count and points. 16/16 tests pass. | Formations/AI | AI_AUDIT.md §AI-GAP-8, FORM-1 |
 | T7-16 (2026-02-20): AI reserves deployment — Added `_decide_reserves_arrival()` for AI reserve unit deployment from Round 2+. Scores units by urgency, computes valid positions (strategic reserves: within 6" of edge; deep strike: near objectives). Enforces 9" enemy distance (edge-to-edge), Turn 2 opponent zone restriction. Updated AIPlayer.gd for reinforcement visuals. | Movement/AI | AI_AUDIT.md §MOV-8 |
@@ -1109,12 +1110,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIPlayer.gd` (signals exist: `ai_action_taken`, `ai_turn_ended`, `_action_log`), new UI scene
 - **Details:** AI actions logged to console only. Create turn summary panel consuming existing signals to show units moved, shooting results, charge results, fight results after each AI turn.
 
-### T7-20. AI thinking indicator
+### T7-20. AI thinking indicator — **DONE**
 - **Phase:** UI
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §QoL-2
-- **Files:** `AIPlayer.gd`, new UI component
+- **Files:** `AIPlayer.gd`, `Main.gd`, new test
 - **Details:** No visual feedback during AI processing — game appears frozen for 50ms between actions. Show "AI is thinking..." indicator with spinner or pulsing animation during AI evaluation.
+- **Resolution:** Added `_ai_thinking` state tracking to AIPlayer.gd with `ai_turn_started`/`ai_turn_ended` signal emissions. Created pulsing "AI is thinking..." overlay in Main.gd (WhiteDwarf-themed PanelContainer with animated ellipsis dots and modulate pulse). Connected via `_initialize_ai_player()`. 15/15 tests pass.
 
 ### T7-21. AI movement path visualization
 - **Phase:** UI
@@ -1436,9 +1438,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 15 | 43 | 58 |
-| **Total** | **114** | **72** | **186** |
-| **Recently Completed** | **133** | — | **133** |
+| Tier 7 — AI Player | 16 | 42 | 58 |
+| **Total** | **115** | **71** | **186** |
+| **Recently Completed** | **134** | — | **134** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
