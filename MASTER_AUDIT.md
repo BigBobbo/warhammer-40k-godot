@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH2: Cumulative probability display — "X% chance of at least N wounds" table with color-coded probability tiers | Mathhammer | MATHHAMMER_AUDIT |
 | T5-UX14: Mathhammer melee simulation integration (full Monte Carlo prediction before dice rolling, scoping bug fix in Mathhammer.gd) | Fight/Mathhammer | FIGHT_PHASE_AUDIT.md, Code TODO |
 | T5-UX11: Unit base preview on hover in deployment (tooltip with base size, model count, special deployment rules) | Deployment | DEPLOYMENT_AUDIT.md §QoL 7 |
 | T5-UX10: Auto-zoom to deployment zone (smooth camera pan/zoom to active player's zone on phase entry and turn switch) | Deployment | DEPLOYMENT_AUDIT.md §QoL 5 |
@@ -798,7 +799,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 
 ### Mathhammer UX
 - T5-MH1. [MH-FEAT-1] Visual histogram / probability distribution chart — replace text bars with graphical bars (MATHHAMMER_AUDIT) — see also T5-V15
-- T5-MH2. [MH-FEAT-2] Cumulative probability display — "X% chance of at least N wounds" table (MATHHAMMER_AUDIT)
+- T5-MH2. [MH-FEAT-2] Cumulative probability display — "X% chance of at least N wounds" table (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Added `calculate_reverse_cumulative()` to MathhammerResults.gd for computing P(X >= N) reverse cumulative distribution. Added `_create_cumulative_probability_panel()` to MathhammerUI.gd displaying a color-coded table (green/yellow/orange/red by probability tier). Smart row filtering keeps the table manageable for large damage ranges. Panel appears in both the summary and breakdown sections.
 - T5-MH3. [MH-FEAT-3] Multi-weapon side-by-side comparison view (MATHHAMMER_AUDIT)
 - T5-MH4. [MH-FEAT-4] Damage per point (points efficiency metric) — unit cost data exists in `meta.points` (MATHHAMMER_AUDIT)
 - T5-MH5. [MH-FEAT-5] Swap attacker/defender button (MATHHAMMER_AUDIT)
@@ -907,11 +909,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 18 | 33 | 51 |
+| Tier 5 — QoL/Visual | 19 | 32 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **76** | **52** | **128** |
-| **Recently Completed** | **99** | — | **99** |
-| *Mathhammer items (subset)* | *13* | *18* | *31* |
+| **Total Open** | **77** | **51** | **128** |
+| **Recently Completed** | **100** | — | **100** |
+| *Mathhammer items (subset)* | *14* | *17* | *31* |
 
 ---
 
