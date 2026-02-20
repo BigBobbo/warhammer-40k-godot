@@ -48,6 +48,7 @@ var pile_in_visuals: Node2D = null  # Container for all pile-in visuals
 var range_circles: Dictionary = {}  # model_id -> Node2D (circle showing 3" range)
 var direction_lines: Dictionary = {}  # model_id -> Line2D (to closest enemy)
 var coherency_lines: Array = []  # Array of Line2D showing unit coherency
+var pile_in_movement_visual: Node2D = null  # T5-V8: Enhanced arrows + distance labels
 
 # Track current fighting unit and its owner
 var current_fighter_id: String = ""
@@ -1657,16 +1658,13 @@ func _create_pile_in_visuals() -> void:
 		lock_indicator.name = "LockedIndicator_" + model_id
 		pile_in_visuals.add_child(lock_indicator)
 
-	# Create direction lines for each model — skip locked models
-	for model_id in original_model_positions:
-		if model_id in locked_base_contact_models:
-			continue  # T4-5: No direction line for locked models
-		var line = Line2D.new()
-		line.width = 2.0
-		line.default_color = Color.YELLOW
-		line.name = "DirectionLine_" + model_id
-		pile_in_visuals.add_child(line)
-		direction_lines[model_id] = line
+	# T5-V8: Create enhanced movement visual (arrows + dashed paths + distance labels)
+	# This replaces the old plain Line2D direction lines
+	var PileInMovementVisualScript = preload("res://scripts/PileInMovementVisual.gd")
+	pile_in_movement_visual = Node2D.new()
+	pile_in_movement_visual.set_script(PileInMovementVisualScript)
+	pile_in_movement_visual.name = "PileInMovementVisual"
+	board_view.add_child(pile_in_movement_visual)
 
 	# Update visuals to show initial state
 	_update_pile_in_visuals()
@@ -1726,6 +1724,11 @@ func _clear_pile_in_visuals() -> void:
 		pile_in_visuals.queue_free()
 		pile_in_visuals = null
 
+	# T5-V8: Clean up enhanced movement visual
+	if pile_in_movement_visual and is_instance_valid(pile_in_movement_visual):
+		pile_in_movement_visual.queue_free()
+		pile_in_movement_visual = null
+
 	range_circles.clear()
 	direction_lines.clear()
 	coherency_lines.clear()
@@ -1735,7 +1738,31 @@ func _update_pile_in_visuals() -> void:
 	if not pile_in_active or not current_phase:
 		return
 
-	# Update direction lines
+	# T5-V8: Update enhanced movement visual with arrows, dashed paths, and distance labels
+	if pile_in_movement_visual and is_instance_valid(pile_in_movement_visual):
+		for model_id in current_model_positions:
+			if model_id in locked_base_contact_models:
+				continue  # T4-5: No visuals for locked models
+
+			var current_pos = current_model_positions[model_id]
+			var original_pos = original_model_positions.get(model_id, current_pos)
+
+			# Find closest enemy position
+			var closest_enemy = _find_closest_enemy_pos(current_pos)
+
+			# Calculate validity
+			var move_distance = Measurement.distance_inches(original_pos, current_pos)
+			var is_valid = false
+			if closest_enemy != Vector2.ZERO:
+				var original_dist = original_pos.distance_to(closest_enemy)
+				var current_dist = current_pos.distance_to(closest_enemy)
+				var is_closer = current_dist <= original_dist
+				var distance_ok = move_distance <= 3.0
+				is_valid = is_closer and distance_ok
+
+			pile_in_movement_visual.update_model(model_id, original_pos, current_pos, closest_enemy, is_valid, move_distance)
+
+	# Also update old direction_lines if any still exist (backward compatibility)
 	for model_id in current_model_positions:
 		if not direction_lines.has(model_id):
 			continue
