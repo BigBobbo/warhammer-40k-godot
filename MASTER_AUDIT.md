@@ -62,6 +62,7 @@ These items were previously open in the audit files and have now been verified a
 | T5-UX6: Show weapon stats in target assignment UI (compact stat sub-line: Range, A, BS, S, AP, D beneath each weapon) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX5: "All to Target" button in fight attack assignment dialog (one-click assign all weapons to selected target) | Fight | fight_phase_audit_report.md §3.1 |
 | T5-UX4: "Undo Last Assignment" button in weapon assignment (undo stack, per-weapon clear, UI feedback) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
+| T5-UX3: "Shoot All Remaining" button (confirmation dialog + sequential auto-shoot at nearest targets) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX2: Auto-select weapon for single-weapon units (auto-select in tree, skip manual weapon click) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
 | T5-UX1: Expected damage preview when hovering weapons (analytical preview panel with hit/wound/save pipeline) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MP9: BEGIN_ADVANCE latency in multiplayer (seed-embedded deterministic optimistic execution) | Movement | MOVEMENT_PHASE_AUDIT.md §3.3 |
@@ -806,7 +807,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added analytical expected damage preview panel in ShootingController. When hovering or selecting a weapon in the weapon tree, a compact preview shows expected hits, wounds, unsaved wounds, damage, and models killed against the assigned (or first eligible) target. Calculation uses 10e wound threshold rules, AP/invuln saves, and weapon stats. UI panel uses WH-themed styling with BBCode rich text.
 - T5-UX2. Auto-select weapon for single-weapon units (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Added `_try_auto_select_single_weapon()` in ShootingController. When a unit has only one usable weapon type (accounting for Pistol/Assault restrictions), it is auto-selected in the weapon tree so the player can directly click an enemy unit to assign a target without first selecting the weapon. Works alongside existing single-target auto-assign for fully automatic handling of simple shooting scenarios.
-- T5-UX3. "Shoot All Remaining" button (SHOOTING_PHASE_AUDIT.md §Additional)
+- T5-UX3. "Shoot All Remaining" button (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
+  - **Resolution:** Added "Shoot All Remaining" button to ShootingController UI. When pressed, shows a confirmation dialog listing all eligible units and their nearest targets. On confirmation, dispatches atomic SHOOT actions sequentially for each remaining unit, assigning all ranged weapons to the nearest eligible target. Uses the same resolution path as AI shooting (hits/wounds/saves resolved automatically).
 - T5-UX4. "Undo Last Assignment" button in weapon assignment (SHOOTING_PHASE_AUDIT.md §Additional) — **DONE**
   - **Resolution:** Added "Undo Last" button in ShootingController between "Clear All" and "Confirm Targets". Maintains an `assignment_history` stack that tracks weapon assignments in order. Undo pops the most recent assignment, clears it from local state and the phase's pending_assignments via `CLEAR_ASSIGNMENT` action, resets the weapon tree row text, and updates the "Apply to All" button state. History is cleared on new shooter selection, clear all, and shooting resolution.
 - T5-UX5. "All to Target" button in fight attack assignment dialog (fight_phase_audit_report.md §3.1) — **DONE**
