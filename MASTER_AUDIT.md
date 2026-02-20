@@ -23,6 +23,8 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V15 (2026-02-20): Mathhammer visual histogram — Replaced text-based histogram with graphical ColorRect bar chart; vertical bars (<=20 values) or horizontal bars (>20), color-coded by damage vs mean, auto-bucketing for wide ranges, percentage labels, legend | Mathhammer | MATHHAMMER_AUDIT, Code TODO |
+| T5-MH1 (2026-02-20): Visual histogram / probability distribution chart — Implemented via T5-V15 | Mathhammer | MATHHAMMER_AUDIT |
 | T5-V14 (2026-02-20): Deployment zone edge highlighting — Animated dashed border with marching ants, multi-layer pulsing glow on inner edges, corner markers, zone depth labels; inner/outer edge detection for board-boundary vs no-man's-land edges | Deployment | DEPLOYMENT_AUDIT.md §QoL 6 |
 | T5-V13 (2026-02-20): Engaged units board indicator (crossed swords) — Crossed swords badge overlay on engaged unit tokens during fight phase, color-coded by fight priority; is_engaged/fight_priority flags in FightPhase with phase-exit cleanup | Fight | fight_phase_audit_report.md §3.5 |
 | T5-V11 (2026-02-19): Unit tokens "has fought" indicator — Added fought overlay (dimmed opacity + checkmark) to TokenVisual/TokenDrawUtils; fixed has_fought flag reset in ScoringPhase | Fight | fight_phase_audit_report.md §4.4 |
@@ -225,7 +227,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 
 | ID | Issue | Priority |
 |----|-------|----------|
-| MH-UI-1 | Histogram display is a TODO placeholder — `_draw_simple_histogram()` creates text-based bars but is never called from the main display path | HIGH — see T5-V15 |
+| MH-UI-1 | Histogram display is a TODO placeholder — `_draw_simple_histogram()` creates text-based bars but is never called from the main display path | HIGH — see T5-V15 — **DONE** |
 | MH-UI-2 | Hardcoded 800px min height + 400x600 scroll container — doesn't adapt to screen size or browser viewport | MEDIUM |
 | MH-UI-3 | No loading indicator during simulation — 10,000 trials blocks the main thread; UI shows "Running..." text only | MEDIUM |
 | MH-UI-4 | ~70 debug print statements in `MathhammerUI.gd` — excessive logging in the UI layer (per project rules, keep debug logs but these are mostly state-debugging noise) | LOW |
@@ -819,7 +821,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** The mathhammer melee prediction was already implemented in `_show_mathhammer_predictions()` (FightPhase.gd), replacing the original placeholder. Runs 1000-trial Monte Carlo simulation via `Mathhammer.simulate_combat()` with phase "fight" before dice rolling. Auto-detects Lance charge bonus. RulesEngine handles weapon special rules (Lethal Hits, Sustained Hits, Devastating Wounds, etc.) from weapon profiles. Also fixed a scoping bug in Mathhammer.gd where `fresh_defender` assignment was outside its declaring block.
 
 ### Mathhammer UX
-- T5-MH1. [MH-FEAT-1] Visual histogram / probability distribution chart — replace text bars with graphical bars (MATHHAMMER_AUDIT) — see also T5-V15
+- T5-MH1. [MH-FEAT-1] Visual histogram / probability distribution chart — replace text bars with graphical bars (MATHHAMMER_AUDIT) — see also T5-V15 — **DONE**
+  - **Resolution:** Implemented via T5-V15. `_draw_visual_histogram()` provides graphical bar chart with color-coded bars, percentage labels, and automatic bucketing for wide damage ranges.
 - T5-MH2. [MH-FEAT-2] Cumulative probability display — "X% chance of at least N wounds" table (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added `calculate_reverse_cumulative()` to MathhammerResults.gd for computing P(X >= N) reverse cumulative distribution. Added `_create_cumulative_probability_panel()` to MathhammerUI.gd displaying a color-coded table (green/yellow/orange/red by probability tier). Smart row filtering keeps the table manageable for large damage ranges. Panel appears in both the summary and breakdown sections.
 - T5-MH3. [MH-FEAT-3] Multi-weapon side-by-side comparison view (MATHHAMMER_AUDIT) — **DONE**
@@ -869,7 +872,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Crossed swords badge overlay on engaged unit tokens during fight phase — color-coded by fight priority (red/gold for Fights First, white for Normal, gray for Fights Last); `is_engaged`/`fight_priority` flags set in FightPhase._initialize_fight_sequence() and cleared on phase exit; badge hidden once unit has fought (defers to "has fought" overlay)
 - T5-V14. Deployment zone edge highlighting (DEPLOYMENT_AUDIT.md §QoL 6) — **DONE**
   - **Resolution:** Enhanced `DeploymentZoneVisual.gd` with animated dashed border (marching ants), multi-layer pulsing glow on inner edges (facing no-man's-land), corner markers at zone boundary transitions, and zone depth labels (e.g., "12\"") on the longest inner edge. Board-boundary edges get subtle dimmed dashed lines while inner edges get full glow + emphasis treatment. Follows sine-wave animation patterns from EngagementRangeVisual.gd and dashed line patterns from RangeCircle.gd/PileInMovementVisual.gd.
-- T5-V15. Mathhammer visual histogram (Code TODO in `MathhammerUI.gd:738`) — see also T5-MH1
+- T5-V15. Mathhammer visual histogram (Code TODO in `MathhammerUI.gd:738`) — see also T5-MH1 — **DONE**
+  - **Resolution:** Replaced text-based `_draw_simple_histogram()` with `_draw_visual_histogram()` using graphical ColorRect bars. Vertical bar chart for <=20 damage values, horizontal bar chart for larger distributions. Bars color-coded by damage relative to mean (blue=below, gold=average, green=above). Includes automatic bucketing for >30 unique damage values, percentage labels, damage labels, and a color legend. Integrated into `_display_simulation_results()` display path and clear-results flow.
 
 ---
 
@@ -925,7 +929,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | ~~`FightPhase.gd`~~ | ~~1022-1023~~ | ~~Heroic intervention not yet implemented~~ | ~~T2-7~~ **DONE** |
 | ~~`FightPhase.gd`~~ | ~~1635-1637~~ | ~~Add heroic intervention specific validation~~ | ~~T2-7~~ **DONE** |
 | ~~`LineOfSightCalculator.gd`~~ | ~~79~~ | ~~Handle medium/low terrain based on model height~~ | ~~T3-19~~ **DONE** |
-| `MathhammerUI.gd` | 738 | Implement custom drawing for visual histogram | T5-V15 |
+| ~~`MathhammerUI.gd`~~ | ~~738~~ | ~~Implement custom drawing for visual histogram~~ | ~~T5-V15~~ **DONE** |
 | `ScoringController.gd` | 148 | Score objectives not implemented | T5-UX13 |
 | `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
 | ~~`test_multiplayer_deployment.gd`~~ | ~~368~~ | ~~Implement collision detection test with turn handling~~ | ~~T6-4~~ **DONE** |
@@ -950,11 +954,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 40 | 11 | 51 |
+| Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **98** | **30** | **128** |
-| **Recently Completed** | **118** | — | **118** |
-| *Mathhammer items (subset)* | *21* | *10* | *31* |
+| **Total Open** | **100** | **28** | **128** |
+| **Recently Completed** | **120** | — | **120** |
+| *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
 

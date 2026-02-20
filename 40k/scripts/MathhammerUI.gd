@@ -1343,7 +1343,10 @@ func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
 	# Create comprehensive results display
 	_create_detailed_results_display(result)
 	print("MathhammerUI: Created detailed results display")
-	
+
+	# T5-V15: Draw visual histogram into the distribution panel
+	_draw_visual_histogram(result)
+
 	# Debug final states
 	print("MathhammerUI: Final debugging...")
 	if summary_panel:
@@ -1357,32 +1360,249 @@ func _display_simulation_results(result: Mathhammer.SimulationResult) -> void:
 			var child = breakdown_panel.get_child(i)
 			print("MathhammerUI: breakdown_panel child %d: %s (visible: %s)" % [i, child.name, child.visible])
 
-func _draw_simple_histogram(result: Mathhammer.SimulationResult) -> void:
-	# For now, create a simple text-based histogram
-	# TODO: Implement custom drawing for visual histogram
-	
-	var histogram_text = "[b]Damage Distribution[/b]\n"
+func _draw_visual_histogram(result: Mathhammer.SimulationResult) -> void:
+	# T5-V15: Visual histogram with graphical bars replacing text-based display
+	print("MathhammerUI: Drawing visual histogram")
+
+	if not histogram_display:
+		print("MathhammerUI: histogram_display is null, cannot draw histogram")
+		return
+
+	# Clear existing histogram content
+	for child in histogram_display.get_children():
+		child.queue_free()
+
+	if result.damage_distribution.is_empty():
+		print("MathhammerUI: No damage distribution data for histogram")
+		return
+
+	# Sort damage keys numerically
 	var sorted_damages = result.damage_distribution.keys()
 	sorted_damages.sort_custom(func(a, b): return int(a) < int(b))
-	
-	for damage_key in sorted_damages:
-		var count = result.damage_distribution[damage_key]
-		var percentage = (float(count) / result.trials_run) * 100
-		var bar_length = int(percentage / 2)  # Scale for display
-		var bar = "■".repeat(bar_length)
-		
-		histogram_text += "%s damage: %s %.1f%%\n" % [damage_key, bar, percentage]
-	
-	# Create a label for histogram if it doesn't exist
-	var histogram_label = histogram_display.get_node_or_null("HistogramLabel")
-	if not histogram_label:
-		histogram_label = RichTextLabel.new()
-		histogram_label.name = "HistogramLabel"
-		histogram_label.bbcode_enabled = true
-		histogram_label.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.15)
-		histogram_display.add_child(histogram_label)
-	
-	histogram_label.text = histogram_text
+
+	# Bucket damage values if there are too many unique values (>30)
+	var display_data: Array = []  # Array of {label: String, count: int}
+	if sorted_damages.size() > 30:
+		display_data = _bucket_damage_distribution(sorted_damages, result.damage_distribution, 25)
+	else:
+		for damage_key in sorted_damages:
+			display_data.append({"label": str(damage_key), "count": result.damage_distribution[damage_key], "value": int(damage_key)})
+
+	if display_data.is_empty():
+		return
+
+	# Find max count for scaling
+	var max_count = 0
+	for entry in display_data:
+		if entry.count > max_count:
+			max_count = entry.count
+
+	var total_trials = float(result.trials_run)
+	var avg_damage = result.get_average_damage()
+	var content_width = _get_content_width()
+
+	# Create main histogram container as VBoxContainer
+	var hist_container = VBoxContainer.new()
+	hist_container.name = "HistogramContainer"
+	hist_container.add_theme_constant_override("separation", 4)
+	histogram_display.add_child(hist_container)
+
+	# Title
+	var title_label = Label.new()
+	title_label.text = "Damage Distribution"
+	title_label.add_theme_font_size_override("font_size", 13)
+	title_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.6))
+	hist_container.add_child(title_label)
+
+	# Subtitle with mean marker info
+	var subtitle_label = Label.new()
+	subtitle_label.text = "Mean: %.1f wounds  |  %d unique outcomes" % [avg_damage, sorted_damages.size()]
+	subtitle_label.add_theme_font_size_override("font_size", 10)
+	subtitle_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	hist_container.add_child(subtitle_label)
+
+	# Chart area — use a VBoxContainer with rows for each bar (horizontal bar chart)
+	# Horizontal bars are more readable for damage distributions
+	var chart_height = 120.0
+	var num_bars = display_data.size()
+	var bar_spacing = 2
+
+	# Determine if we should use horizontal or vertical bars
+	# Horizontal bars work better when labels are long or there are many values
+	if num_bars <= 20:
+		_create_vertical_bar_chart(hist_container, display_data, max_count, total_trials, avg_damage, content_width, chart_height)
+	else:
+		_create_horizontal_bar_chart(hist_container, display_data, max_count, total_trials, avg_damage, content_width)
+
+	# Legend
+	var legend_hbox = HBoxContainer.new()
+	legend_hbox.add_theme_constant_override("separation", 15)
+	hist_container.add_child(legend_hbox)
+
+	_add_histogram_legend_item(legend_hbox, Color(0.3, 0.55, 0.85), "Below avg")
+	_add_histogram_legend_item(legend_hbox, Color(1.0, 0.85, 0.0), "Average")
+	_add_histogram_legend_item(legend_hbox, Color(0.2, 0.75, 0.35), "Above avg")
+
+	print("MathhammerUI: Visual histogram drawn with %d bars" % num_bars)
+
+func _create_vertical_bar_chart(parent: VBoxContainer, display_data: Array, max_count: int, total_trials: float, avg_damage: float, content_width: float, chart_height: float) -> void:
+	# Vertical bar chart — bars grow upward from baseline
+	var num_bars = display_data.size()
+	var available_width = content_width - 20  # padding
+	var bar_width = clamp(available_width / max(num_bars, 1) - 3, 6, 35)
+
+	# Container for bars + percentage labels + damage labels
+	var chart_container = HBoxContainer.new()
+	chart_container.add_theme_constant_override("separation", 2)
+	chart_container.custom_minimum_size = Vector2(0, chart_height + 30)
+	parent.add_child(chart_container)
+
+	for entry in display_data:
+		var percentage = (float(entry.count) / total_trials) * 100.0
+		var bar_height_ratio = float(entry.count) / float(max_count) if max_count > 0 else 0.0
+		var bar_height = bar_height_ratio * chart_height
+
+		# Each bar is a VBoxContainer: spacer -> pct label -> bar -> damage label
+		var bar_column = VBoxContainer.new()
+		bar_column.add_theme_constant_override("separation", 1)
+		bar_column.custom_minimum_size.x = bar_width
+		bar_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chart_container.add_child(bar_column)
+
+		# Spacer to push bar down (remaining height)
+		var spacer = Control.new()
+		spacer.custom_minimum_size.y = chart_height - bar_height
+		spacer.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		bar_column.add_child(spacer)
+
+		# Percentage label above bar (only show if >= 1% or if few bars)
+		var pct_label = Label.new()
+		if percentage >= 1.0:
+			pct_label.text = "%.0f%%" % percentage
+		elif percentage >= 0.1 and num_bars <= 15:
+			pct_label.text = "%.1f%%" % percentage
+		else:
+			pct_label.text = ""
+		pct_label.add_theme_font_size_override("font_size", 7)
+		pct_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pct_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+		bar_column.add_child(pct_label)
+
+		# The bar itself
+		var bar_rect = ColorRect.new()
+		bar_rect.custom_minimum_size = Vector2(bar_width, max(bar_height, 2))
+		bar_rect.color = _get_histogram_bar_color(entry, avg_damage)
+		bar_column.add_child(bar_rect)
+
+		# Damage value label below bar
+		var dmg_label = Label.new()
+		dmg_label.text = entry.label
+		dmg_label.add_theme_font_size_override("font_size", 7)
+		dmg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dmg_label.add_theme_color_override("font_color", Color.WHITE)
+		bar_column.add_child(dmg_label)
+
+func _create_horizontal_bar_chart(parent: VBoxContainer, display_data: Array, max_count: int, total_trials: float, avg_damage: float, content_width: float) -> void:
+	# Horizontal bar chart for when there are many values
+	var max_bar_width = content_width * 0.55
+	var chart_vbox = VBoxContainer.new()
+	chart_vbox.add_theme_constant_override("separation", 1)
+	parent.add_child(chart_vbox)
+
+	for entry in display_data:
+		var percentage = (float(entry.count) / total_trials) * 100.0
+		var bar_width_ratio = float(entry.count) / float(max_count) if max_count > 0 else 0.0
+		var bar_width = bar_width_ratio * max_bar_width
+
+		var row_hbox = HBoxContainer.new()
+		row_hbox.add_theme_constant_override("separation", 4)
+		chart_vbox.add_child(row_hbox)
+
+		# Damage value label (left)
+		var dmg_label = Label.new()
+		dmg_label.text = entry.label
+		dmg_label.custom_minimum_size.x = 35
+		dmg_label.add_theme_font_size_override("font_size", 8)
+		dmg_label.add_theme_color_override("font_color", Color.WHITE)
+		dmg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row_hbox.add_child(dmg_label)
+
+		# The bar
+		var bar_rect = ColorRect.new()
+		bar_rect.custom_minimum_size = Vector2(max(bar_width, 2), 10)
+		bar_rect.color = _get_histogram_bar_color(entry, avg_damage)
+		row_hbox.add_child(bar_rect)
+
+		# Percentage label (right of bar)
+		var pct_label = Label.new()
+		pct_label.text = "%.1f%%" % percentage
+		pct_label.add_theme_font_size_override("font_size", 8)
+		pct_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+		row_hbox.add_child(pct_label)
+
+func _get_histogram_bar_color(entry: Dictionary, avg_damage: float) -> Color:
+	# Color bars based on their damage value relative to the mean
+	var damage_val = entry.get("value", 0)
+	# For bucketed entries, use the midpoint
+	if entry.has("value_min") and entry.has("value_max"):
+		damage_val = (entry.value_min + entry.value_max) / 2.0
+
+	if abs(float(damage_val) - avg_damage) < 0.5:
+		return Color(1.0, 0.85, 0.0)  # Gold for values near average
+	elif float(damage_val) < avg_damage:
+		# Gradient from darker blue (far below) to lighter blue (near avg)
+		var t = clamp(float(damage_val) / max(avg_damage, 1.0), 0.0, 1.0)
+		return Color(0.2 + 0.15 * t, 0.4 + 0.2 * t, 0.7 + 0.2 * t)
+	else:
+		# Gradient from lighter green (near avg) to darker green (far above)
+		var ratio = float(damage_val) / max(avg_damage, 1.0)
+		var t = clamp((ratio - 1.0) / 2.0, 0.0, 1.0)
+		return Color(0.15 + 0.1 * t, 0.65 - 0.2 * t, 0.3 + 0.1 * t)
+
+func _bucket_damage_distribution(sorted_damages: Array, distribution: Dictionary, target_buckets: int) -> Array:
+	# Group damage values into buckets when there are too many unique values
+	var min_val = int(sorted_damages[0])
+	var max_val = int(sorted_damages[-1])
+	var value_range = max_val - min_val
+	var bucket_size = max(1, ceili(float(value_range) / float(target_buckets)))
+
+	var buckets: Array = []
+	var current_bucket_start = min_val
+
+	while current_bucket_start <= max_val:
+		var bucket_end = min(current_bucket_start + bucket_size - 1, max_val)
+		var bucket_count = 0
+
+		for damage_key in sorted_damages:
+			var val = int(damage_key)
+			if val >= current_bucket_start and val <= bucket_end:
+				bucket_count += distribution[damage_key]
+
+		if bucket_count > 0:
+			var label = str(current_bucket_start) if current_bucket_start == bucket_end else "%d-%d" % [current_bucket_start, bucket_end]
+			buckets.append({
+				"label": label,
+				"count": bucket_count,
+				"value": (current_bucket_start + bucket_end) / 2.0,
+				"value_min": current_bucket_start,
+				"value_max": bucket_end
+			})
+
+		current_bucket_start += bucket_size
+
+	return buckets
+
+func _add_histogram_legend_item(parent: HBoxContainer, color: Color, text: String) -> void:
+	var color_rect = ColorRect.new()
+	color_rect.custom_minimum_size = Vector2(10, 10)
+	color_rect.color = color
+	parent.add_child(color_rect)
+
+	var label = Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	parent.add_child(label)
 
 func _clear_results_display() -> void:
 	print("MathhammerUI: Clearing results display")
@@ -1398,6 +1618,11 @@ func _clear_results_display() -> void:
 		for child in distribution_panel.get_children():
 			if child.name.begins_with("DetailedResults"):
 				child.queue_free()
+
+	# T5-V15: Clear the visual histogram
+	if histogram_display:
+		for child in histogram_display.get_children():
+			child.queue_free()
 
 	# T5-MH9: Restore breakdown_panel visibility and clear any comparison content
 	if breakdown_panel:
@@ -1420,11 +1645,10 @@ func _on_clear_results_pressed() -> void:
 	print("MathhammerUI: Clear Results button pressed")
 	_clear_results_display()
 
-	# Clear the histogram
+	# Clear the visual histogram (T5-V15)
 	if histogram_display:
-		var histogram_label = histogram_display.get_node_or_null("HistogramLabel")
-		if histogram_label:
-			histogram_label.queue_free()
+		for child in histogram_display.get_children():
+			child.queue_free()
 
 	# Reset stored simulation result
 	current_simulation_result = null
