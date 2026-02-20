@@ -150,7 +150,7 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 
 **Recommendation**: When a player's turn begins, auto-zoom and pan the camera to center on their deployment zone. Add a quick-nav button "Go to My Zone" for manual reset. During the opponent's turn, optionally show their zone. The `Main.gd:125` comment references camera controls (WASD/arrows, +/-, F to focus on P2 zone) but no auto-zoom on turn change exists.
 
-### 6. Deployment Zone Edge Highlighting
+### 6. Deployment Zone Edge Highlighting — IMPLEMENTED
 **Issue**: Deployment zones are 15% alpha solid fills with a white border only when "active." It can be hard to tell exactly where the zone boundary is.
 
 **Recommendation**:
@@ -158,6 +158,13 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 - Show distance markers (e.g., "12 inches" label) on the zone boundary
 - Highlight the no-man's-land between zones to make the layout clearer
 - Consider a subtle grid overlay within the deployment zone to help with spacing
+
+**Resolution:** Enhanced `DeploymentZoneVisual.gd` (T5-V14) with:
+- **Animated dashed border**: Marching ants animation on all active zone edges using dash/gap pattern (14px/8px at 30px/s)
+- **Multi-layer pulsing glow**: Inner edges (facing no-man's-land) get outer glow (10px, 15% alpha) and inner glow (6px, 30% alpha) layers with sine-wave pulse
+- **Inner/outer edge detection**: Board-boundary edges get dimmed subtle treatment; inner edges facing no-man's-land get full glow + thicker lines (4px vs 2px)
+- **Corner markers**: Diamond markers at corners where inner edges meet for clear boundary transition points
+- **Zone depth labels**: Shows zone depth (e.g., "12\"") on the longest inner edge, positioned toward no-man's-land with dark background
 
 ### 7. Unit Base Preview on Hover
 **Issue**: When hovering over the unit list before selecting a unit to deploy, there's no preview of the unit's base size or model count. The unit list shows `"[Name] ([N] models)"` but no base size or special rules.
@@ -338,7 +345,7 @@ Store deployment map data as configuration rather than hardcoded coordinates.
 | Phase transition animation | **Low** | Low | Visual | Open |
 | Unit placement animation | **Low** | Low | Visual | Open |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
-| Zone edge highlighting | **Low** | Low | Visual | Open |
+| Zone edge highlighting | **Low** | Low | Visual | **Done** |
 | Duplicate geometry functions | **Low** | Low | Code Quality | Open |
 | Mission selection | **Low** | High | Rules | Open |
 | Fortification deployment | **Low** | Low | Rules | Open |

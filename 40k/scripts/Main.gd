@@ -1822,6 +1822,12 @@ func setup_deployment_zones() -> void:
 	p1_zone.polygon = zone1
 	p2_zone.polygon = zone2
 
+	# T5-V14: Set player numbers for deployment zone edge highlighting
+	if p1_zone.has_method("set_active"):
+		p1_zone.player_number = 1
+	if p2_zone.has_method("set_active"):
+		p2_zone.player_number = 2
+
 	update_deployment_zone_visibility()
 
 var _setting_up_controllers: bool = false  # Semaphore to prevent concurrent setup
