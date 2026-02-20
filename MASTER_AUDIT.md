@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-22 (2026-02-20): AI target priority framework — Implemented two-level target priority: macro-level `_calculate_target_value` with points-weighted base value, probability-weighted damage, ability value from AIAbilityAnalyzer, objective/OC scoring, leader buff priority; micro-level `_build_focus_fire_plan` with iterative marginal value optimization via `_calculate_marginal_value` (kill threshold bonuses, model kill milestones, overkill decay, opportunity cost). | Shooting/AI | AI_AUDIT.md §AI-TACTIC-1 |
 | T7-20 (2026-02-20): AI thinking indicator — Added `_ai_thinking` state tracking and `ai_turn_started`/`ai_turn_ended` signal emissions to AIPlayer.gd. Created pulsing "AI is thinking..." overlay in Main.gd with animated ellipsis dots, WhiteDwarf gothic styling. Connected via `_initialize_ai_player()`. 15/15 tests pass. | UI/AI | AI_AUDIT.md §QoL-2 |
 | T7-18 (2026-02-20): AI terrain-aware deployment — Added `_classify_deployment_role()`, `_score_terrain_for_role()`, `_find_terrain_aware_position()` to `_decide_deployment()`. Units classified by role (character/fragile_shooter/durable_shooter/melee/general) and positioned near beneficial terrain (LoS blockers for characters, cover for fragile shooters, front-edge LoS blockers for melee). 20/20 tests pass. | Deployment/AI | AI_AUDIT.md §DEPLOY-1 |
 | T7-17 (2026-02-20): AI leader attachment in formations — Replaced stub `_decide_formations()` with synergy-based leader attachment. `_evaluate_best_leader_attachment()` and `_score_leader_bodyguard_pairing()` simulate each pairing using AIAbilityAnalyzer multipliers (offensive ranged/melee, defensive FNP/cover, tactical bonuses). Scales by model count and points. 16/16 tests pass. | Formations/AI | AI_AUDIT.md §AI-GAP-8, FORM-1 |
@@ -1127,12 +1128,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 
 ### P2 — Medium: AI Competence & Feel Improvements
 
-### T7-22. AI target priority framework
+### T7-22. AI target priority framework — **DONE**
 - **Phase:** Shooting
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-TACTIC-1
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** No macro-level threat assessment. Implement two-level priority: macro (rank enemies by threat level, damage output, objective presence, ability value) and micro (allocate weapons to maximize total expected value, not just per-weapon damage).
+- **Resolution:** Implemented two-level target priority framework: (1) Macro-level `_calculate_target_value` enhanced with points-weighted base value, probability-weighted damage output, ability value assessment (offensive/defensive multipliers from AIAbilityAnalyzer), enhanced objective/OC scoring, and leader buff priority. (2) Micro-level `_build_focus_fire_plan` replaced greedy-per-target allocation with iterative marginal value optimization via `_calculate_marginal_value` that considers kill threshold crossing bonuses, model kill milestones, overkill decay, and opportunity cost across all targets.
 
 ### T7-23. AI multi-phase planning
 - **Phase:** All
@@ -1438,9 +1440,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 16 | 42 | 58 |
-| **Total** | **115** | **71** | **186** |
-| **Recently Completed** | **134** | — | **134** |
+| Tier 7 — AI Player | 17 | 41 | 58 |
+| **Total** | **116** | **70** | **186** |
+| **Recently Completed** | **135** | — | **135** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
