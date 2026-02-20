@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH11: Show dice notation (D6, D3+3) in weapon stats display — added A: field and raw dice notation for attacks, strength, damage | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH10: "Clear Results" / "Reset" button — disabled-by-default button that clears results, histogram, and restores placeholder text | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH9: Deduplicate results display — removed _populate_breakdown_panel() which duplicated all summary_panel content into breakdown_panel | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH7: Loading spinner / progress bar during simulation — ProgressBar + label with live trial count, thread-safe updates via call_deferred | Mathhammer | MATHHAMMER_AUDIT |
@@ -819,7 +820,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Removed `_populate_breakdown_panel()` which duplicated all four result sections (Overall Stats, Weapon Breakdown, Damage Distribution, Cumulative Probability) from summary_panel into breakdown_panel. Standard simulation now shows results only in summary_panel and hides the empty breakdown_panel. Comparison mode's `_populate_comparison_breakdown()` (which shows unique per-weapon cumulative tables) is preserved. `_clear_results_display()` restores breakdown_panel visibility for the comparison flow.
 - T5-MH10. [MH-UI-8] "Clear Results" / "Reset" button (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added "Clear Results" button after the Compare Weapons button, disabled by default. Enabled after simulation or weapon comparison completes. Handler clears results display, histogram, resets stored simulation result to null, restores placeholder text in summary and breakdown panels, then disables itself.
-- T5-MH11. [MH-FEAT-7] Show dice notation (D6, D3+3) in weapon stats display (MATHHAMMER_AUDIT)
+- T5-MH11. [MH-FEAT-7] Show dice notation (D6, D3+3) in weapon stats display (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Added attacks (A:) to weapon stats bracket and now display raw dice notation for attacks, strength, and damage fields (e.g., `[A:D6+3 BS:5+ S:D6+6 AP:-3 D:D6]`). Attacks label next to spinbox shows `(base: D6+3)` hint when attacks use dice notation.
 - T5-MH12. [MH-FEAT-10] Multi-target comparison matrix — run same attacker against multiple defenders (MATHHAMMER_AUDIT)
 - T5-MH13. Shooting/Melee phase toggle in Mathhammer UI (MATHHAMMER_AUDIT)
 
@@ -919,11 +921,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 24 | 27 | 51 |
+| Tier 5 — QoL/Visual | 25 | 26 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **82** | **46** | **128** |
-| **Recently Completed** | **105** | — | **105** |
-| *Mathhammer items (subset)* | *19* | *12* | *31* |
+| **Total Open** | **83** | **45** | **128** |
+| **Recently Completed** | **106** | — | **106** |
+| *Mathhammer items (subset)* | *20* | *11* | *31* |
 
 ---
 

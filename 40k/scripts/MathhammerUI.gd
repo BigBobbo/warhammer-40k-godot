@@ -685,22 +685,27 @@ func _update_weapon_selection() -> void:
 			var weapon_row = HBoxContainer.new()
 			weapon_selection_panel.add_child(weapon_row)
 			
-			# Weapon label with stats
+			# Weapon label with stats (T5-MH11: show dice notation for A, S, D)
 			var weapon_stats = ""
-			
+			var raw_attacks = str(weapon.get("attacks", "1"))
+			var raw_damage = str(weapon.get("damage", "1"))
+			var raw_strength = str(weapon.get("strength", "4"))
+
 			if weapon_type == "Ranged":
-				weapon_stats = " [BS:%s+ S:%s AP:%s D:%s]" % [
+				weapon_stats = " [A:%s BS:%s+ S:%s AP:%s D:%s]" % [
+					raw_attacks,
 					weapon.get("ballistic_skill", "4"),
-					weapon.get("strength", "4"),
+					raw_strength,
 					weapon.get("ap", "0"),
-					weapon.get("damage", "1")
+					raw_damage
 				]
 			else:
-				weapon_stats = " [WS:%s+ S:%s AP:%s D:%s]" % [
+				weapon_stats = " [A:%s WS:%s+ S:%s AP:%s D:%s]" % [
+					raw_attacks,
 					weapon.get("weapon_skill", "4"),
-					weapon.get("strength", "4"),
+					raw_strength,
 					weapon.get("ap", "0"),
-					weapon.get("damage", "1")
+					raw_damage
 				]
 			
 			var weapon_label = Label.new()
@@ -735,9 +740,12 @@ func _update_weapon_selection() -> void:
 			
 			weapon_row.add_child(attack_spinbox)
 			
-			# Add "attacks" label
+			# Add "attacks" label (T5-MH11: show base dice notation when applicable)
 			var attacks_label = Label.new()
-			attacks_label.text = " attacks"
+			if not raw_attacks.is_valid_int():
+				attacks_label.text = " attacks (base: %s)" % raw_attacks
+			else:
+				attacks_label.text = " attacks"
 			attacks_label.add_theme_font_size_override("font_size", 11)
 			weapon_row.add_child(attacks_label)
 			
