@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gtest=test_fight_priority_cancellation.gd"]
