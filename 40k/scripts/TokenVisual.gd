@@ -71,12 +71,13 @@ func _draw() -> void:
 		if not debug_mode:
 			_draw_overlay(fill_color, border_color)
 
-		# Draw fought overlay for classic styles too
+		# Draw fought overlay and engaged indicator for classic styles too
 		if not debug_mode:
 			var bounds = base_shape.get_bounds()
 			var classic_radius = min(bounds.size.x, bounds.size.y) / 2.0
 			var classic_rot = model_data.get("rotation", 0.0)
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
+			_draw_engaged_overlay(classic_radius)
 
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
@@ -126,6 +127,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	# --- Layer 6: "Has fought" dimming overlay + checkmark ---
 	_draw_fought_overlay(radius, shape_type, rot)
+
+	# --- Layer 6b: "Engaged" crossed swords indicator ---
+	_draw_engaged_overlay(radius)
 
 	# --- Layer 7: Status indicator tick ---
 	_draw_status_tick(radius)
@@ -200,6 +204,22 @@ func _draw_fought_overlay(radius: float, shape_type: String, rot: float) -> void
 	if shape_type != "circular":
 		poly_points = _get_shape_polygon(rot)
 	TokenDrawUtils.draw_fought_overlay(self, Vector2.ZERO, radius, shape_type, poly_points)
+
+func _draw_engaged_overlay(radius: float) -> void:
+	if not has_meta("unit_id"):
+		return
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var flags = unit.get("flags", {})
+	if not flags.get("is_engaged", false):
+		return
+	# Don't show engaged indicator if unit has already fought (fought overlay takes priority)
+	if flags.get("has_fought", false):
+		return
+	var fight_priority = flags.get("fight_priority", 1)
+	TokenDrawUtils.draw_engaged_indicator(self, Vector2.ZERO, radius, fight_priority)
 
 func _draw_status_tick(radius: float) -> void:
 	if not has_meta("unit_id"):

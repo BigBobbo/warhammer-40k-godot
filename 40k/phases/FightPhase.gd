@@ -100,6 +100,9 @@ func _on_phase_enter() -> void:
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
 
+	# T5-V13: Clear engagement indicator flags
+	_clear_engagement_flags()
+
 	# Clear unit ability effect flags
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
@@ -167,6 +170,9 @@ func _initialize_fight_sequence() -> void:
 	log_phase_message("  Fights Last P2: %s" % str(fights_last_sequence["2"]))
 	log_phase_message("  Current subphase: %s, Selecting Player: %d (defending)" % [Subphase.keys()[current_subphase], current_selecting_player])
 	log_phase_message("===================================")
+
+	# T5-V13: Set is_engaged and fight_priority flags on engaged units for board indicators
+	_set_engagement_flags()
 
 	# Build legacy fight_sequence for compatibility
 	fight_sequence = _build_alternating_sequence(fights_first_sequence["1"] + fights_first_sequence["2"])
@@ -1937,6 +1943,44 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 func _clear_unit_fight_state(unit_id: String) -> void:
 	# Clear any temporary fight flags
 	pass
+
+# T5-V13: Set is_engaged + fight_priority flags on all units currently in combat
+func _set_engagement_flags() -> void:
+	# Collect engaged unit IDs with their fight priority from the already-built sequences
+	var engaged_units: Dictionary = {}  # unit_id -> fight_priority (int)
+	for uid in fights_first_sequence.get("1", []) + fights_first_sequence.get("2", []):
+		engaged_units[uid] = FightPriority.FIGHTS_FIRST
+	for uid in normal_sequence.get("1", []) + normal_sequence.get("2", []):
+		engaged_units[uid] = FightPriority.NORMAL
+	for uid in fights_last_sequence.get("1", []) + fights_last_sequence.get("2", []):
+		engaged_units[uid] = FightPriority.FIGHTS_LAST
+
+	# Set flags directly on GameState so TokenVisual can read them
+	for unit_id in engaged_units:
+		var gs_unit = GameState.get_unit(unit_id)
+		if gs_unit.is_empty():
+			continue
+		if not gs_unit.has("flags"):
+			gs_unit["flags"] = {}
+		gs_unit["flags"]["is_engaged"] = true
+		gs_unit["flags"]["fight_priority"] = engaged_units[unit_id]
+
+	log_phase_message("T5-V13: Set is_engaged flag on %d units" % engaged_units.size())
+
+# T5-V13: Clear is_engaged + fight_priority flags from all units
+func _clear_engagement_flags() -> void:
+	var all_units = GameState.state.get("units", {}) if GameState.state is Dictionary else {}
+	var cleared = 0
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		var flags = unit.get("flags", {})
+		if flags.has("is_engaged"):
+			flags.erase("is_engaged")
+			cleared += 1
+		if flags.has("fight_priority"):
+			flags.erase("fight_priority")
+	if cleared > 0:
+		log_phase_message("T5-V13: Cleared is_engaged flag from %d units" % cleared)
 
 func get_available_actions() -> Array:
 	var actions = []

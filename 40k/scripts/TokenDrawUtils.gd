@@ -172,6 +172,62 @@ static func draw_fought_overlay(canvas: CanvasItem, center: Vector2, radius: flo
 	canvas.draw_line(p2, p3, check_color, stroke_width)
 
 
+static func draw_engaged_indicator(canvas: CanvasItem, center: Vector2, radius: float, fight_priority: int = 1) -> void:
+	# Crossed swords badge in top-left quadrant for engaged units
+	# fight_priority: 0 = Fights First (red/gold), 1 = Normal (white), 2 = Fights Last (gray)
+	var badge_size = max(5.0, radius * 0.28)
+	var badge_center = center + Vector2(-radius * 0.35, -radius * 0.35)
+
+	# Badge background circle
+	var bg_color: Color
+	var icon_color: Color
+	match fight_priority:
+		0:  # Fights First — red background, gold icon
+			bg_color = Color(0.7, 0.15, 0.1, 0.9)
+			icon_color = Color(1.0, 0.85, 0.3, 0.95)
+		2:  # Fights Last — dark gray background, dim icon
+			bg_color = Color(0.3, 0.3, 0.3, 0.85)
+			icon_color = Color(0.65, 0.65, 0.65, 0.9)
+		_:  # Normal — dark background, white icon
+			bg_color = Color(0.15, 0.15, 0.15, 0.85)
+			icon_color = Color(1.0, 1.0, 1.0, 0.95)
+
+	canvas.draw_circle(badge_center, badge_size + 1.0, Color(0.0, 0.0, 0.0, 0.6))
+	canvas.draw_circle(badge_center, badge_size, bg_color)
+
+	# Draw crossed swords (two diagonal lines crossing at badge center)
+	var stroke_width = max(1.5, badge_size * 0.22)
+	var sword_len = badge_size * 0.55
+
+	# Sword 1: top-left to bottom-right (\)
+	var s1_start = badge_center + Vector2(-sword_len, -sword_len)
+	var s1_end = badge_center + Vector2(sword_len, sword_len)
+	canvas.draw_line(s1_start, s1_end, icon_color, stroke_width)
+
+	# Sword 2: top-right to bottom-left (/)
+	var s2_start = badge_center + Vector2(sword_len, -sword_len)
+	var s2_end = badge_center + Vector2(-sword_len, sword_len)
+	canvas.draw_line(s2_start, s2_end, icon_color, stroke_width)
+
+	# Cross-guards (short horizontal lines on each sword near center)
+	var guard_len = badge_size * 0.25
+	var guard_offset = badge_size * 0.15
+	# Guard on sword 1 (perpendicular to \ at slight offset from center)
+	var g1_center = badge_center + Vector2(-guard_offset, -guard_offset)
+	canvas.draw_line(
+		g1_center + Vector2(-guard_len, guard_len * 0.5),
+		g1_center + Vector2(guard_len, -guard_len * 0.5),
+		icon_color, stroke_width * 0.8
+	)
+	# Guard on sword 2 (perpendicular to / at slight offset from center)
+	var g2_center = badge_center + Vector2(guard_offset, -guard_offset)
+	canvas.draw_line(
+		g2_center + Vector2(-guard_len, -guard_len * 0.5),
+		g2_center + Vector2(guard_len, guard_len * 0.5),
+		icon_color, stroke_width * 0.8
+	)
+
+
 static func draw_leader_chevron(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
 	# Small chevron/crown marker above token for CHARACTER models
 	var chevron_y = center.y - radius - 6.0
