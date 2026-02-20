@@ -5076,15 +5076,20 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
 	var target_invuln = _get_target_invulnerable_save(target_unit)
 
+	# --- T7-31: Apply Benefit of Cover (+1 to armour save) ---
+	var effective_save = target_save
+	if _target_has_benefit_of_cover(target_unit, shooter_unit, snapshot) and not _weapon_ignores_cover(weapon, shooter_unit):
+		effective_save = max(2, target_save - 1)
+
 	var p_hit = _hit_probability(bs)
 	var p_wound = _wound_probability(strength, toughness)
-	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+	var p_unsaved = 1.0 - _save_probability(effective_save, ap, target_invuln)
 
 	# --- Apply weapon keyword modifiers (SHOOT-5) ---
 	var kw_mods = _apply_weapon_keyword_modifiers(
 		weapon, target_unit,
 		attacks, p_hit, p_wound, p_unsaved, damage,
-		strength, toughness, target_save, ap, target_invuln,
+		strength, toughness, effective_save, ap, target_invuln,
 		dist_inches, weapon_range_inches
 	)
 	attacks = kw_mods["attacks"]
@@ -7549,6 +7554,104 @@ static func _get_target_invulnerable_save(target_unit: Dictionary) -> int:
 	return best_invuln
 
 # =============================================================================
+# COVER CONSIDERATION IN TARGET SCORING (T7-31 / SHOOT-7)
+# =============================================================================
+# Benefit of Cover gives +1 to armour saving throws (but not invulnerable saves).
+# This makes covered targets harder to damage. Weapons with "Ignores Cover"
+# negate this bonus entirely.
+
+# Terrain types that grant Benefit of Cover (mirrors RulesEngine constants)
+const COVER_TERRAIN_WITHIN_AND_BEHIND = ["ruins", "obstacle", "barricade"]
+const COVER_TERRAIN_WITHIN_ONLY = ["woods", "crater", "area_terrain", "forest"]
+
+static func _target_has_benefit_of_cover(target_unit: Dictionary, shooter_unit: Dictionary, snapshot: Dictionary) -> bool:
+	"""Check if target unit has Benefit of Cover from the shooter's perspective.
+	Checks both terrain-based cover and effect-granted cover (e.g. Go to Ground)."""
+	# Effect-granted cover (stratagems like Go to Ground, Smokescreen)
+	if EffectPrimitivesData.has_effect_cover(target_unit):
+		return true
+
+	# Flag-based cover (may be set by game logic)
+	if target_unit.get("flags", {}).get("in_cover", false):
+		return true
+
+	# Terrain-based cover: need positions and board data
+	if shooter_unit.is_empty():
+		return false
+
+	var board = snapshot.get("board", {})
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty():
+		return false
+
+	var shooter_centroid = _get_unit_centroid(shooter_unit)
+	if shooter_centroid == Vector2.INF:
+		return false
+
+	# Check if majority of alive target models have cover (same as RulesEngine logic)
+	var models_in_cover = 0
+	var total_alive = 0
+
+	for model in target_unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		total_alive += 1
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.ZERO:
+			continue
+
+		if _check_position_has_terrain_cover(model_pos, shooter_centroid, terrain_features):
+			models_in_cover += 1
+
+	if total_alive == 0:
+		return false
+
+	# Unit has cover if majority of models are in cover
+	return models_in_cover > (total_alive / 2.0)
+
+static func _check_position_has_terrain_cover(target_pos: Vector2, shooter_pos: Vector2, terrain_features: Array) -> bool:
+	"""Check if a target position has Benefit of Cover from terrain relative to shooter."""
+	for terrain_piece in terrain_features:
+		var terrain_type = terrain_piece.get("type", "")
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		if polygon is Array:
+			var packed = PackedVector2Array()
+			for p in polygon:
+				if p is Vector2:
+					packed.append(p)
+				elif p is Dictionary:
+					packed.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+			polygon = packed
+		if polygon.size() < 3:
+			continue
+
+		# Ruins, obstacles, barricades: cover when target is within OR behind (LoS crosses terrain)
+		if terrain_type in COVER_TERRAIN_WITHIN_AND_BEHIND:
+			if Geometry2D.is_point_in_polygon(target_pos, polygon):
+				return true
+			# Target behind terrain (LoS from shooter crosses terrain, shooter not inside)
+			if _line_intersects_polygon(shooter_pos, target_pos, polygon):
+				if not Geometry2D.is_point_in_polygon(shooter_pos, polygon):
+					return true
+
+		# Area terrain (woods, craters): cover only when target is within
+		elif terrain_type in COVER_TERRAIN_WITHIN_ONLY:
+			if Geometry2D.is_point_in_polygon(target_pos, polygon):
+				return true
+
+	return false
+
+static func _weapon_ignores_cover(weapon: Dictionary, shooter_unit: Dictionary = {}) -> bool:
+	"""Check if a weapon ignores Benefit of Cover via special rules or effect flags."""
+	var special_rules = weapon.get("special_rules", "").to_lower()
+	if "ignores cover" in special_rules:
+		return true
+	# Check effect-granted Ignores Cover on the shooter unit
+	if not shooter_unit.is_empty() and EffectPrimitivesData.has_effect_ignores_cover(shooter_unit):
+		return true
+	return false
+
+# =============================================================================
 # WEAPON KEYWORD AWARENESS (SHOOT-5)
 # =============================================================================
 # Adjusts expected damage calculation to account for weapon special rules:
@@ -7786,9 +7889,15 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var target_save = target_unit.get("meta", {}).get("stats", {}).get("save", 4)
 	var target_invuln = _get_target_invulnerable_save(target_unit)
 
+	# --- T7-31: Apply Benefit of Cover (+1 to armour save) ---
+	var effective_save = target_save
+	if _target_has_benefit_of_cover(target_unit, shooter_unit, snapshot) and not _weapon_ignores_cover(weapon, shooter_unit):
+		effective_save = max(2, target_save - 1)  # Cover improves armour save by 1 (min 2+)
+		print("AIDecisionMaker: Target has cover, effective save %d+ -> %d+" % [target_save, effective_save])
+
 	var p_hit = _hit_probability(bs)
 	var p_wound = _wound_probability(strength, toughness)
-	var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+	var p_unsaved = 1.0 - _save_probability(effective_save, ap, target_invuln)
 
 	# --- Apply weapon keyword modifiers (SHOOT-5) ---
 	var kw_mods = _apply_weapon_keyword_modifiers(
