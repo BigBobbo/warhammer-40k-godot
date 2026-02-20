@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-30 (2026-02-20): AI range-band optimization — Added half-range weapon analysis (`_get_unit_half_range_data`, `_find_best_half_range_position`) for Rapid Fire/Melta. Movement blends toward half-range positions (40% weight). `_should_hold_for_shooting` overridden when advancing would reach half range. | Shooting/Movement/AI | AI_AUDIT.md §SHOOT-6 |
 | T7-29 (2026-02-20): AI fight target optimization — Rewrote `_assign_fight_attacks()` to score targets by combined damage + strategic value via new `_score_fight_target()`. Filters to engagement-range targets. Strategic scoring: kill potential, CHARACTER priority, overkill penalty, lock-shooters, objective presence, defensive abilities, trade efficiency. Preserves T7-28 multi-weapon optimization. | Fight/AI | AI_AUDIT.md §FIGHT-4 |
 | T7-28 (2026-02-20): AI multi-weapon melee optimization — Rewrote `_assign_fight_attacks()` to evaluate all melee weapon profiles against all enemy targets. Separates weapons into primary vs Extra Attacks categories, calculates expected damage per weapon×target pairing (including EA weapon bonus), picks damage-maximizing combination. Added `_evaluate_melee_weapon_damage()` and `_weapon_has_extra_attacks()` helpers. 36+37+28 tests pass. | Fight/AI | AI_AUDIT.md §AI-GAP-7, FIGHT-3 |
 | T7-27 (2026-02-20): AI engaged unit survival assessment — Added survival assessment helpers to estimate expected fight-phase melee damage from engaging enemies. Integrated into `_decide_engaged_unit()`: objective holders facing lethal damage fall back when others can hold; sole holders stay but log threat. Fall-back reasons enriched with survival data. 23/23 tests pass. | Movement/AI | AI_AUDIT.md §MOV-9 |
@@ -1195,12 +1196,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Melee target selection is nearest-distance only, not damage-optimal. Score targets by expected damage output and strategic value.
 - **Resolution:** Rewrote `_assign_fight_attacks()` to score targets by combined damage output + strategic value via new `_score_fight_target()`. Filters targets to engagement range first. Strategic scoring includes: kill potential bonus (wipe/half-strength), CHARACTER priority, overkill penalty, lock-dangerous-shooters bonus, objective presence, low-toughness bonus, defensive ability awareness, and trade efficiency (points-per-wound). Preserves T7-28 multi-weapon optimization within the new per-target scoring loop.
 
-### T7-30. AI range-band optimization
+### T7-30. AI range-band optimization — **DONE**
 - **Phase:** Shooting/Movement
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §SHOOT-6
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** No half-range bonus awareness. Position for Rapid Fire extra shots at half range. Prioritize Melta bonus damage at half range.
+- **Resolution:** Added half-range weapon analysis (`_get_unit_half_range_data`, `_find_best_half_range_position`) that detects Rapid Fire and Melta keywords. Movement phase now blends target positions toward half-range of enemies when the damage bonus is significant (40% blend weight). Modified `_should_hold_for_shooting` to not hold stationary when advancing would reach half range for RF/Melta weapons. Damage estimation already correctly handled via existing `_apply_weapon_keyword_modifiers`.
 
 ### T7-31. AI cover consideration in target scoring
 - **Phase:** Shooting
@@ -1450,9 +1452,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 22 | 36 | 58 |
-| **Total** | **121** | **65** | **186** |
-| **Recently Completed** | **140** | — | **140** |
+| Tier 7 — AI Player | 23 | 35 | 58 |
+| **Total** | **122** | **64** | **186** |
+| **Recently Completed** | **141** | — | **141** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

@@ -77,6 +77,12 @@ const CRIT_PROBABILITY: float = 1.0 / 6.0
 # Conservative estimate — assume 50% chance we're at half range unless we can measure.
 const HALF_RANGE_FALLBACK_PROB: float = 0.5
 
+# T7-30: AI range-band optimization constants
+# Movement positioning for Rapid Fire/Melta half-range bonuses
+const HALF_RANGE_MOVE_BLEND: float = 0.4           # How much to blend movement toward half-range position (0-1)
+const HALF_RANGE_MIN_BENEFIT: float = 2.0           # Minimum extra attacks/damage across the unit to trigger repositioning
+const HALF_RANGE_APPROACH_MARGIN_INCHES: float = 1.0 # Move slightly inside half range for safety margin
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -1569,6 +1575,30 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 								move_target = charge_centroid
 							print("AIDecisionMaker: [PHASE-PLAN] %s blending movement toward charge target %s" % [
 								unit_name, charge_intent.get("target_name", charge_target_id)])
+
+			# --- T7-30: Half-range optimization for Rapid Fire/Melta ---
+			# If this unit has weapons that benefit from half range and isn't planning
+			# to charge, adjust movement to close to half range of the best target.
+			if charge_intent.is_empty():
+				var half_range_data = _get_unit_half_range_data(unit)
+				if half_range_data.has_bonus and half_range_data.total_benefit >= HALF_RANGE_MIN_BENEFIT:
+					var half_range_pos = _find_best_half_range_position(centroid, enemies, half_range_data, snapshot, unit)
+					if half_range_pos != Vector2.INF:
+						if move_target != Vector2.INF:
+							move_target = half_range_pos * HALF_RANGE_MOVE_BLEND + move_target * (1.0 - HALF_RANGE_MOVE_BLEND)
+						else:
+							move_target = half_range_pos
+						var hr_dist = centroid.distance_to(half_range_pos) / PIXELS_PER_INCH
+						var weapon_names = []
+						for w_data in half_range_data.weapons:
+							var label = w_data.name
+							if w_data.rapid_fire > 0:
+								label += " (RF%d)" % w_data.rapid_fire
+							if w_data.melta > 0:
+								label += " (Melta%d)" % w_data.melta
+							weapon_names.append(label)
+						print("AIDecisionMaker: [T7-30] %s blending movement toward half range (%.1f\" away) for %s" % [
+							unit_name, hr_dist, ", ".join(weapon_names)])
 
 			var model_destinations = _compute_movement_toward_target(
 				unit, unit_id, move_target, move_inches, snapshot, enemies,
@@ -3333,6 +3363,97 @@ static func _get_weapon_range_inches(weapon: Dictionary) -> float:
 	return 0.0
 
 # =============================================================================
+# T7-30: HALF-RANGE WEAPON ANALYSIS (SHOOT-6)
+# =============================================================================
+
+static func _get_unit_half_range_data(unit: Dictionary) -> Dictionary:
+	"""T7-30: Analyze a unit's weapons for half-range bonuses (Rapid Fire, Melta).
+	Returns {has_bonus, best_half_range_inches, total_benefit, weapons: [{name, rapid_fire, melta, half_range_inches, full_range_inches}]}
+	total_benefit = sum of (rapid_fire_val + melta_val) across all qualifying weapons, scaled by model count."""
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var result = {"has_bonus": false, "best_half_range_inches": 0.0, "total_benefit": 0.0, "weapons": []}
+	var model_count = _get_alive_models(unit).size()
+	if model_count < 1:
+		model_count = 1
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var special_rules = w.get("special_rules", "").to_lower()
+		var weapon_range = _get_weapon_range_inches(w)
+		if weapon_range <= 0.0:
+			continue
+		var half_range = weapon_range / 2.0
+		var rf_val = _parse_rapid_fire_value(special_rules)
+		var melta_val = _parse_melta_value(special_rules)
+		if rf_val > 0 or melta_val > 0:
+			result.has_bonus = true
+			result.best_half_range_inches = max(result.best_half_range_inches, half_range)
+			result.total_benefit += float(rf_val + melta_val) * model_count
+			result.weapons.append({
+				"name": w.get("name", ""),
+				"rapid_fire": rf_val,
+				"melta": melta_val,
+				"half_range_inches": half_range,
+				"full_range_inches": weapon_range
+			})
+	return result
+
+static func _find_best_half_range_position(
+	centroid: Vector2, enemies: Dictionary, half_range_data: Dictionary, snapshot: Dictionary = {}, shooter_unit: Dictionary = {}
+) -> Vector2:
+	"""T7-30: Find the best position that puts the unit within half range of a high-value enemy.
+	Only considers enemies currently in full range but beyond half range.
+	Returns Vector2.INF if no beneficial repositioning exists."""
+	if not half_range_data.has_bonus:
+		return Vector2.INF
+
+	var best_target = Vector2.INF
+	var best_score = 0.0
+
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var enemy_centroid = _get_unit_centroid(enemy)
+		if enemy_centroid == Vector2.INF:
+			continue
+		var dist_px = centroid.distance_to(enemy_centroid)
+		var dist_inches = dist_px / PIXELS_PER_INCH
+
+		# Calculate benefit for each weapon against this enemy
+		var benefit = 0.0
+		var applicable_half_range_px = 0.0
+		for w_data in half_range_data.weapons:
+			# Enemy must be within full range but beyond half range
+			if dist_inches <= w_data.full_range_inches and dist_inches > w_data.half_range_inches:
+				benefit += float(w_data.rapid_fire + w_data.melta)
+				applicable_half_range_px = max(applicable_half_range_px, w_data.half_range_inches * PIXELS_PER_INCH)
+
+		if benefit <= 0.0 or applicable_half_range_px <= 0.0:
+			continue
+
+		# Weight by enemy value if we can estimate it
+		var enemy_value = 1.0
+		if not snapshot.is_empty():
+			var alive_models = _get_alive_models(enemy).size()
+			var total_models = enemy.get("models", []).size()
+			# Prefer closing on damaged units (easier to finish off)
+			if total_models > 0 and alive_models * 2 < total_models:
+				enemy_value = 1.5
+
+		var score = benefit * enemy_value
+
+		if score > best_score:
+			best_score = score
+			# Compute a position at half range of this enemy (with safety margin)
+			var dir = (enemy_centroid - centroid).normalized()
+			var margin_px = HALF_RANGE_APPROACH_MARGIN_INCHES * PIXELS_PER_INCH
+			var desired_dist_px = applicable_half_range_px - margin_px
+			var move_distance_px = max(0.0, dist_px - desired_dist_px)
+			best_target = centroid + dir * move_distance_px
+
+	return best_target if best_score >= HALF_RANGE_MIN_BENEFIT else Vector2.INF
+
+# =============================================================================
 # SHOOTING RANGE CONSIDERATION FOR MOVEMENT (MOV-1)
 # =============================================================================
 
@@ -3469,6 +3590,26 @@ static func _should_hold_for_shooting(
 
 	if keeps_any_target:
 		return false  # Moving keeps targets in range, go ahead
+
+	# T7-30: Before deciding to hold, check if the unit has Rapid Fire/Melta weapons
+	# that would benefit from moving forward to half range. If so, don't hold — let
+	# the movement logic push toward half range for the damage bonus.
+	var half_range_data = _get_unit_half_range_data(unit)
+	if half_range_data.has_bonus and half_range_data.total_benefit >= HALF_RANGE_MIN_BENEFIT:
+		# Check if any enemy in range is beyond half range (would benefit from closing)
+		var would_benefit_from_closing = false
+		for entry in enemies_in_range:
+			for w_data in half_range_data.weapons:
+				if entry.distance_inches > w_data.half_range_inches and entry.distance_inches <= w_data.full_range_inches:
+					would_benefit_from_closing = true
+					break
+			if would_benefit_from_closing:
+				break
+		if would_benefit_from_closing:
+			var unit_name = unit.get("meta", {}).get("name", "unit")
+			print("AIDecisionMaker: [T7-30] %s has Rapid Fire/Melta weapons (benefit=%.1f) — not holding, advancing toward half range" % [
+				unit_name, half_range_data.total_benefit])
+			return false  # Don't hold — let movement code push toward half range
 
 	# Moving would lose all targets and objective isn't reachable this turn
 	# Prefer staying and shooting
