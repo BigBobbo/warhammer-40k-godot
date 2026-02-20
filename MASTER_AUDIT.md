@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-32 (2026-02-20): AI Counter-Offensive stratagem usage — Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic (unit value, melee capability, keywords, wound status, engagement risk). Connected signal in AIPlayer.gd, added AI skip in FightController.gd. | Fight/AI | AI_AUDIT.md §FIGHT-5 |
 | T7-31 (2026-02-20): AI cover consideration in target scoring — Added `_target_has_benefit_of_cover()`, `_check_position_has_terrain_cover()`, `_weapon_ignores_cover()` helpers. Both `_score_shooting_target()` and `_estimate_weapon_damage()` now apply cover as +1 to armour save (min 2+), respecting Ignores Cover weapons and invuln save interaction. 24/24 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-7 |
 | T7-30 (2026-02-20): AI range-band optimization — Added half-range weapon analysis (`_get_unit_half_range_data`, `_find_best_half_range_position`) for Rapid Fire/Melta. Movement blends toward half-range positions (40% weight). `_should_hold_for_shooting` overridden when advancing would reach half range. | Shooting/Movement/AI | AI_AUDIT.md §SHOOT-6 |
 | T7-29 (2026-02-20): AI fight target optimization — Rewrote `_assign_fight_attacks()` to score targets by combined damage + strategic value via new `_score_fight_target()`. Filters to engagement-range targets. Strategic scoring: kill potential, CHARACTER priority, overkill penalty, lock-shooters, objective presence, defensive abilities, trade efficiency. Preserves T7-28 multi-weapon optimization. | Fight/AI | AI_AUDIT.md §FIGHT-4 |
@@ -1213,13 +1214,14 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Benefit of Cover not factored into target scoring. Penalize targets with cover (+1 to save) in expected damage calculation.
 - **Resolution:** Added `_target_has_benefit_of_cover()` (checks terrain-based cover via majority-of-models polygon intersection + effect/flag-granted cover), `_check_position_has_terrain_cover()` (mirrors RulesEngine cover rules for ruins/obstacles/barricades within+behind and woods/craters within-only), and `_weapon_ignores_cover()` (checks weapon special_rules and effect flags). Both `_score_shooting_target()` and `_estimate_weapon_damage()` now apply cover as +1 to armour save (min 2+) when target has cover and weapon doesn't ignore it. Cover correctly interacts with invulnerable saves (only affects armour save comparison). 24/24 tests pass.
 
-### T7-32. AI Counter-Offensive stratagem usage
+### T7-32. AI Counter-Offensive stratagem usage — **DONE**
 - **Phase:** Fight
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §FIGHT-5
 - **Depends on:** T4-3 (Counter-Offensive implementation — DONE)
 - **Files:** `AIDecisionMaker.gd`, `StratagemManager.gd`
 - **Details:** AI never uses Counter-Offensive (2CP). Use when AI's high-value melee unit is at risk after enemy fights.
+- **Resolution:** Added `evaluate_counter_offensive()` in AIDecisionMaker.gd with scoring heuristic considering unit value, melee capability, CHARACTER/MONSTER/VEHICLE keywords, wound status, model count, and engagement risk (multiple enemies in range). Connected `counter_offensive_opportunity` signal in AIPlayer.gd with handler that evaluates and submits via `_submit_reactive_action()`. Added AI player check in FightController.gd to skip the Counter-Offensive dialog for AI players. Uses same 2CP cost threshold (3.0 score) as Heroic Intervention with CP conservation when reserves are tight.
 
 ### T7-33. AI transport usage
 - **Phase:** Formations/Movement
@@ -1454,9 +1456,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 24 | 34 | 58 |
-| **Total** | **123** | **63** | **186** |
-| **Recently Completed** | **142** | — | **142** |
+| Tier 7 — AI Player | 25 | 33 | 58 |
+| **Total** | **124** | **62** | **186** |
+| **Recently Completed** | **143** | — | **143** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

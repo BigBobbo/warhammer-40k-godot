@@ -219,6 +219,13 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "heroic_intervention_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ChargePhase.heroic_intervention_opportunity")
 
+	# T7-32: Counter-Offensive in Fight Phase
+	if phase.has_signal("counter_offensive_opportunity"):
+		var callable = Callable(self, "_on_counter_offensive_opportunity")
+		phase.counter_offensive_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "counter_offensive_opportunity", "callable": callable})
+		print("AIPlayer: Connected to FightPhase.counter_offensive_opportunity")
+
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -328,6 +335,26 @@ func _on_heroic_intervention_opportunity(defending_player: int, eligible_units: 
 	print("AIPlayer: Heroic Intervention opportunity for AI player %d — %d eligible units against %s" % [
 		defending_player, eligible_units.size(), charging_unit_id])
 	_request_evaluation()
+
+# --- T7-32: Reactive Stratagem: Counter-Offensive (FightPhase — after enemy unit fights) ---
+
+func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> void:
+	"""
+	Called when the FightPhase offers Counter-Offensive to the opponent player
+	after an enemy unit has fought and consolidated. If the player is AI, evaluate and submit.
+	Counter-Offensive costs 2 CP and lets the AI select a unit to fight next.
+	"""
+	if not is_ai_player(player):
+		return
+
+	print("AIPlayer: Counter-Offensive opportunity for AI player %d — %d eligible units" % [
+		player, eligible_units.size()])
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_counter_offensive(player, eligible_units, snapshot)
+
+	print("AIPlayer: Counter-Offensive decision for player %d — %s" % [player, decision.get("_ai_description", "?")])
+	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---
 

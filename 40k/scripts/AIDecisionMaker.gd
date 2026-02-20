@@ -8701,6 +8701,163 @@ static func evaluate_tank_shock(player: int, vehicle_unit_id: String, snapshot: 
 		"_ai_description": "AI declines Tank Shock (low value)"
 	}
 
+# --- COUNTER-OFFENSIVE (Reactive — after enemy unit fights in Fight Phase) ---
+
+static func evaluate_counter_offensive(player: int, eligible_units: Array, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Counter-Offensive (2CP) after an enemy unit fights.
+	Returns USE_COUNTER_OFFENSIVE or DECLINE_COUNTER_OFFENSIVE action dictionary.
+
+	Heuristic: Counter-Offensive lets the AI fight next with a chosen unit.
+	Use when:
+	- A high-value melee unit is at risk (could be killed before it gets to fight)
+	- The unit has strong melee weapons and meaningful damage to deal
+	- CP is affordable (2 CP — same cost as Heroic Intervention)
+	Skip when:
+	- No strong melee units eligible
+	- CP reserves are low (< 3 CP) and the unit isn't critical
+	- Eligible units are cheap/expendable (not worth 2 CP)
+	"""
+	var player_cp = _get_player_cp_from_snapshot(snapshot, player)
+
+	# Counter-Offensive costs 2 CP
+	if player_cp < 2:
+		return {
+			"type": "DECLINE_COUNTER_OFFENSIVE",
+			"player": player,
+			"_ai_description": "AI declines Counter-Offensive (insufficient CP: %d)" % player_cp
+		}
+
+	if eligible_units.is_empty():
+		return {
+			"type": "DECLINE_COUNTER_OFFENSIVE",
+			"player": player,
+			"_ai_description": "AI declines Counter-Offensive (no eligible units)"
+		}
+
+	var best_unit_id = ""
+	var best_unit_name = ""
+	var best_score = 0.0
+
+	for entry in eligible_units:
+		var unit_id = entry.get("unit_id", "")
+		var unit_name = entry.get("unit_name", unit_id)
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		var score = 0.0
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_melee = _unit_has_melee_weapons(unit)
+
+		# Must have melee weapons to benefit from fighting next
+		if not has_melee:
+			# Unit only has close combat weapon — low value
+			score += 0.5
+		else:
+			score += 2.0
+
+		# Score based on unit value (high-value units are worth protecting)
+		var unit_value = _estimate_unit_value(unit)
+		score += unit_value * 0.4
+
+		# Bonus for CHARACTER units (critical to protect)
+		for kw in keywords:
+			var kw_upper = kw.to_upper()
+			if kw_upper == "CHARACTER":
+				score += 2.5
+			elif kw_upper == "MONSTER":
+				score += 1.5
+			elif kw_upper == "VEHICLE":
+				score += 1.0
+
+		# Check if the unit is at risk — wounded units benefit more from striking first
+		var alive = _get_alive_models(unit)
+		var alive_count = alive.size()
+		var stats = unit.get("meta", {}).get("stats", {})
+		var wounds_per_model = int(stats.get("wounds", 1))
+
+		if alive_count == 1 and wounds_per_model > 1:
+			# Single multi-wound model — check remaining wounds
+			var current_wounds = alive[0].get("wounds", wounds_per_model)
+			if current_wounds <= wounds_per_model / 2:
+				# Badly wounded — high urgency to strike before being killed
+				score += 2.0
+			elif current_wounds < wounds_per_model:
+				score += 1.0
+
+		# Bonus if the unit has many models (more attacks = more value from fighting)
+		if alive_count >= 5:
+			score += 1.0
+		elif alive_count >= 3:
+			score += 0.5
+
+		# Check how many enemies are in engagement range (more enemies = more risk)
+		var enemy_count_in_range = 0
+		var all_units = snapshot.get("units", {})
+		for other_id in all_units:
+			var other = all_units[other_id]
+			if int(other.get("owner", 0)) == player:
+				continue
+			# Simple proximity check using model positions
+			if _are_units_close(unit, other, 1.5):  # ~1" engagement range in inches
+				enemy_count_in_range += 1
+
+		if enemy_count_in_range >= 2:
+			score += 1.5  # Surrounded — high risk, fight before more enemies pile on
+
+		if score > best_score:
+			best_score = score
+			best_unit_id = unit_id
+			best_unit_name = unit_name
+
+	# Use Counter-Offensive if score justifies the 2 CP cost
+	# Threshold of 3.0 (same as Heroic Intervention — both cost 2 CP)
+	if best_score >= 3.0 and best_unit_id != "":
+		# If CP is tight (exactly 2), only use for very valuable units
+		if player_cp <= 2 and best_score < 5.0:
+			print("AIDecisionMaker: Counter-Offensive — declining for %s (score: %.1f, saving CP)" % [best_unit_name, best_score])
+			return {
+				"type": "DECLINE_COUNTER_OFFENSIVE",
+				"player": player,
+				"_ai_description": "AI declines Counter-Offensive (saving CP, score: %.1f)" % best_score
+			}
+
+		print("AIDecisionMaker: Counter-Offensive — %s fights next! (score: %.1f)" % [best_unit_name, best_score])
+		return {
+			"type": "USE_COUNTER_OFFENSIVE",
+			"unit_id": best_unit_id,
+			"player": player,
+			"_ai_description": "AI uses Counter-Offensive with %s (score: %.1f)" % [best_unit_name, best_score]
+		}
+
+	print("AIDecisionMaker: Counter-Offensive — declining (best score: %.1f below threshold)" % best_score)
+	return {
+		"type": "DECLINE_COUNTER_OFFENSIVE",
+		"player": player,
+		"_ai_description": "AI declines Counter-Offensive (low value, score: %.1f)" % best_score
+	}
+
+static func _are_units_close(unit_a: Dictionary, unit_b: Dictionary, max_inches: float) -> bool:
+	"""Check if any model from unit_a is roughly within max_inches of any model from unit_b.
+	Uses pixel distance with PIXELS_PER_INCH conversion for a quick proximity check."""
+	var max_dist_px = max_inches * PIXELS_PER_INCH
+	for model_a in unit_a.get("models", []):
+		if not model_a.get("alive", true):
+			continue
+		var pos_a = _get_model_position(model_a)
+		if pos_a == Vector2.INF:
+			continue
+		for model_b in unit_b.get("models", []):
+			if not model_b.get("alive", true):
+				continue
+			var pos_b = _get_model_position(model_b)
+			if pos_b == Vector2.INF:
+				continue
+			if pos_a.distance_to(pos_b) <= max_dist_px:
+				return true
+	return false
+
 # --- HEROIC INTERVENTION (Reactive — after opponent's charge) ---
 
 static func evaluate_heroic_intervention(defending_player: int, charging_unit_id: String, snapshot: Dictionary) -> Dictionary:
