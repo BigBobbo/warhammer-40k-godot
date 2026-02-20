@@ -22,6 +22,9 @@ var _needs_evaluation: bool = false
 var _eval_timer: float = 0.0
 const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
 
+# T7-20: AI thinking state — tracks whether the AI is actively processing its turn
+var _ai_thinking: bool = false
+
 # Cached reference to PhaseManager (get_node_or_null fails in web exports)
 var _phase_manager_ref: Node = null
 
@@ -72,6 +75,22 @@ func _request_evaluation() -> void:
 	_needs_evaluation = true
 	_eval_timer = AI_ACTION_DELAY
 
+	# T7-20: Signal that AI is now thinking (only on first evaluation of a sequence)
+	if not _ai_thinking:
+		var active_player = GameState.get_active_player()
+		if is_ai_player(active_player):
+			_ai_thinking = true
+			emit_signal("ai_turn_started", active_player)
+			print("AIPlayer: AI thinking started for player %d" % active_player)
+
+func _end_ai_thinking() -> void:
+	"""T7-20: Signal that the AI has finished its current thinking sequence."""
+	if _ai_thinking:
+		_ai_thinking = false
+		var active_player = GameState.get_active_player()
+		emit_signal("ai_turn_ended", active_player, _action_log.duplicate())
+		print("AIPlayer: AI thinking ended for player %d" % active_player)
+
 func configure(player_types: Dictionary) -> void:
 	"""
 	Called from Main.gd during initialization.
@@ -109,6 +128,9 @@ func _on_phase_changed(_new_phase) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
 	_current_phase_actions = 0  # Reset safety counter on phase change
+
+	# T7-20: End any active thinking state before starting a new phase evaluation
+	_end_ai_thinking()
 
 	# Connect to reactive stratagem signals on the new phase instance
 	_connect_phase_stratagem_signals()
@@ -412,6 +434,7 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 
 func _evaluate_and_act() -> void:
 	if not enabled or PhaseManager.game_ended:
+		_end_ai_thinking()
 		return
 
 	DebugLogger.info("AIPlayer._evaluate_and_act called", {"processing_turn": _processing_turn, "enabled": enabled})
@@ -422,6 +445,7 @@ func _evaluate_and_act() -> void:
 	var active_player = GameState.get_active_player()
 	if not is_ai_player(active_player):
 		DebugLogger.info("AIPlayer._evaluate_and_act - not AI turn", {"active_player": active_player})
+		_end_ai_thinking()
 		return  # Not AI's turn
 
 	# Use cached reference - get_node_or_null("/root/PhaseManager") fails in web exports
@@ -430,9 +454,11 @@ func _evaluate_and_act() -> void:
 	var phase_manager = _phase_manager_ref
 	if not phase_manager:
 		DebugLogger.info("AIPlayer._evaluate_and_act - no PhaseManager", {})
+		_end_ai_thinking()
 		return
 	if not phase_manager.current_phase_instance:
 		DebugLogger.info("AIPlayer._evaluate_and_act - no phase instance", {})
+		_end_ai_thinking()
 		return  # No active phase
 
 	# Check game completion
@@ -440,11 +466,13 @@ func _evaluate_and_act() -> void:
 		if enabled:
 			print("AIPlayer: Game is complete, disabling AI")
 			enabled = false
+		_end_ai_thinking()
 		return
 
 	# Safety check - prevent infinite action loops
 	if _current_phase_actions >= MAX_ACTIONS_PER_PHASE:
 		push_error("AIPlayer: Hit max actions (%d) for current phase! Stopping to prevent infinite loop." % MAX_ACTIONS_PER_PHASE)
+		_end_ai_thinking()
 		return
 
 	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": active_player, "phase": GameState.get_current_phase()})
@@ -463,6 +491,7 @@ func _execute_next_action(player: int) -> void:
 
 	if available.is_empty():
 		print("AIPlayer: No available actions for player %d in phase %d" % [player, phase])
+		_end_ai_thinking()
 		return
 
 	print("AIPlayer: Player %d deciding in phase %d with %d available actions" % [player, phase, available.size()])
@@ -472,6 +501,7 @@ func _execute_next_action(player: int) -> void:
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
+		_end_ai_thinking()
 		return
 
 	# Ensure player field is set
