@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-6 (2026-02-20): AI focus fire coordination across units — Enhanced `_build_focus_fire_plan()` with wound overflow cap, value-per-threshold sorting, model-level partial kills with efficiency filtering, coordinated secondary target allocation. 41/41 focus fire tests pass, 37/37 efficiency tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-2, SHOOT-1 |
 | T7-5 (2026-02-20): AI weapon range check in target scoring — `_score_shooting_target()` returns 0 for out-of-range targets using `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`. 15/15 range scoring tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-5, SHOOT-4 |
 | T7-4 (2026-02-20): AI fall-back model positioning — Fixed `_pick_fall_back_target()` directional scoring (skip near-objectives, prefer away-from-enemy direction), zero-direction safety fallback in `_compute_fall_back_destinations()`. 15/15 fall-back tests pass. | Movement/AI | AI_AUDIT.md §MOV-6 |
 | T7-3 (2026-02-20): AI consolidation movement — Dedicated `_compute_consolidate_movements_engagement()` with wrapping (far-side angular distribution around enemies), tagging (prioritise unengaged enemy units within 4"), objective fallback. 37 tests pass (3 new). | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-2 |
@@ -991,12 +992,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Target scoring doesn't check weapon range. AI wastes turns on out-of-range shots then falls back to SKIP_UNIT. Score 0 for targets beyond weapon range.
 - **Resolution:** `_score_shooting_target()` checks weapon range via `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`, returning 0.0 for out-of-range targets. Caller passes `shooter_unit` for distance calculation. 15/15 weapon range scoring tests pass.
 
-### T7-6. AI focus fire coordination across units
+### T7-6. AI focus fire coordination across units — **DONE**
 - **Phase:** Shooting
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-TACTIC-2, SHOOT-1
-- **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
+- **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`, `_build_focus_fire_plan()`, `_estimate_weapon_damage()`, `_score_shooting_target()`
 - **Details:** Each weapon independently picks best target, spreading fire across many units. Implement kill-threshold targeting: calculate total expected damage vs each target across ALL weapons, allocate to meet kill thresholds before moving to secondary targets.
+- **Resolution:** Enhanced `_build_focus_fire_plan()` with: (1) wound overflow cap in `_estimate_weapon_damage()` and `_score_shooting_target()` — damage capped at model wounds for accurate kill-threshold math; (2) value-per-threshold priority sorting to allocate kills efficiently; (3) model-level partial kill assessment — focuses fire even when can't wipe a unit, using efficiency-filtered weapon selection; (4) coordinated Pass 2 secondary target allocation instead of independent spreading; (5) poorly-matched weapons skipped once kill threshold met. Removed redundant damage waste penalty from `_calculate_efficiency_multiplier()`. 41/41 focus fire tests pass, 37/37 weapon efficiency tests pass.
 
 ### T7-7. AI weapon-target efficiency matching
 - **Phase:** Shooting
@@ -1416,9 +1418,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 5 | 53 | 58 |
-| **Total** | **104** | **82** | **186** |
-| **Recently Completed** | **124** | — | **124** |
+| Tier 7 — AI Player | 6 | 52 | 58 |
+| **Total** | **105** | **81** | **186** |
+| **Recently Completed** | **125** | — | **125** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
