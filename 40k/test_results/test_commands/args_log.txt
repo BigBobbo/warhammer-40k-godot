@@ -1,1 +1,1 @@
-ARGS: ["--test-mode", "Move Start"]
+ARGS: []
