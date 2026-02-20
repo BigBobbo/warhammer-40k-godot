@@ -51,6 +51,7 @@ var skip_button: Button
 var next_unit_button: Button
 var charge_status_label: Label
 var dice_log_display: RichTextLabel
+var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 var failed_charges_container: VBoxContainer  # Container for failed charge tooltip entries
 
 # Visual settings
@@ -319,11 +320,17 @@ func _setup_right_panel() -> void:
 	dice_label.text = "Dice Log:"
 	charge_panel.add_child(dice_label)
 	
+	# T5-V1: Animated dice roll visualization
+	dice_roll_visual = DiceRollVisual.new()
+	dice_roll_visual.custom_minimum_size = Vector2(200, 0)
+	dice_roll_visual.visible = false  # Hidden until first roll
+	charge_panel.add_child(dice_roll_visual)
+
 	dice_log_display = RichTextLabel.new()
 	dice_log_display.custom_minimum_size = Vector2(200, 100)
 	dice_log_display.bbcode_enabled = true
 	charge_panel.add_child(dice_log_display)
-	
+
 	# ADD: Action buttons section after dice log
 	charge_panel.add_child(HSeparator.new())
 	
@@ -1844,6 +1851,18 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	rather than recomputing locally, ensuring both players agree."""
 	if not is_instance_valid(dice_log_display):
 		return
+
+	# T5-V1: Trigger animated dice visualization for charge rolls
+	if dice_roll_visual and dice_data.get("context", "") == "charge_roll":
+		var charge_rolls = dice_data.get("rolls", [])
+		if charge_rolls.size() == 2:
+			# Adapt charge roll format to standard dice visual format
+			var visual_data = {
+				"context": "charge_roll",
+				"rolls_raw": charge_rolls,
+				"threshold": "",  # No threshold for charge rolls
+			}
+			dice_roll_visual.show_dice_roll(visual_data)
 
 	print("ChargeController: _on_dice_rolled called with data: ", dice_data)
 

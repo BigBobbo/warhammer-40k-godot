@@ -50,6 +50,7 @@ var confirm_button: Button
 var clear_button: Button
 var undo_button: Button  # T5-UX4: Undo last weapon assignment
 var dice_log_display: RichTextLabel
+var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
 var grenade_button: Button  # GRENADE stratagem button
@@ -391,6 +392,12 @@ func _setup_right_panel() -> void:
 	dice_label.text = "Dice Log:"
 	shooting_panel.add_child(dice_label)
 	
+	# T5-V1: Animated dice roll visualization
+	dice_roll_visual = DiceRollVisual.new()
+	dice_roll_visual.custom_minimum_size = Vector2(230, 0)
+	dice_roll_visual.visible = false  # Hidden until first roll
+	shooting_panel.add_child(dice_roll_visual)
+
 	dice_log_display = RichTextLabel.new()
 	dice_log_display.custom_minimum_size = Vector2(230, 100)
 	dice_log_display.bbcode_enabled = true
@@ -1452,6 +1459,10 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
+
+	# T5-V1: Trigger animated dice visualization
+	if dice_roll_visual:
+		dice_roll_visual.show_dice_roll(dice_data)
 
 	# T5-MP5: Handle resolution_start context — show header message in dice log
 	var context = dice_data.get("context", "Roll")
