@@ -649,37 +649,14 @@ func _refresh_weapon_tree() -> void:
 		var is_one_shot = RulesEngine.is_one_shot_weapon(weapon_id)
 		var weapon_name = weapon_profile.get("name", weapon_id)
 
-		# Build display name with keyword indicators
-		var display_name = ""
-		var indicators = []
-		if is_torrent:
-			indicators.append("T")  # Torrent indicator (PRP-014) - first because it's most impactful
-		if is_one_shot:
-			indicators.append("1")  # One Shot indicator (T4-2)
-		if is_pistol:
-			indicators.append("P")
-		if is_assault:
-			indicators.append("A")
-		if is_heavy:
-			indicators.append("H")
-		if rapid_fire_value > 0:
-			indicators.append("RF%d" % rapid_fire_value)
-		if has_lethal_hits:
-			indicators.append("LH")  # Lethal Hits indicator
-		if sustained_hits_display != "":
-			indicators.append(sustained_hits_display)  # Sustained Hits indicator (e.g., "SH 1" or "SH D3")
-		if has_devastating_wounds:
-			indicators.append("DW")  # Devastating Wounds indicator (PRP-012)
-		if is_blast:
-			indicators.append("B")  # Blast indicator (PRP-013)
-
-		if not indicators.is_empty():
-			display_name = "[%s] %s (x%d)" % ["/".join(indicators), weapon_name, weapon_counts[weapon_id]]
-		else:
-			display_name = "%s (x%d)" % [weapon_name, weapon_counts[weapon_id]]
+		# Build display name — keyword indicators are now shown as icons (T5-V7)
+		var display_name = "%s (x%d)" % [weapon_name, weapon_counts[weapon_id]]
 
 		weapon_item.set_text(0, display_name)
 		weapon_item.set_metadata(0, weapon_id)
+
+		# T5-V7: Apply keyword icon badges and tooltip to the weapon tree item
+		WeaponKeywordIcons.apply_to_tree_item(weapon_item, weapon_id)
 
 		# T5-UX6: Show weapon stats as compact sub-line beneath each weapon
 		var _wp_range = weapon_profile.get("range", 0)
