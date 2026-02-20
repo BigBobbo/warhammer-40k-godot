@@ -3243,6 +3243,14 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 				"target_unit_id": best_target_id,
 				"model_ids": _get_alive_model_ids(unit)
 			})
+			# T7-7: Log weapon-target efficiency for fallback assignments
+			var role_name = _weapon_role_name(_classify_weapon_role(weapon))
+			var target = enemies.get(best_target_id, {})
+			var tname = target.get("meta", {}).get("name", best_target_id)
+			var target_type_name = _target_type_name(_classify_target_type(target))
+			var eff = _calculate_efficiency_multiplier(weapon, target)
+			print("AIDecisionMaker: Fallback assign %s [%s] -> %s [%s] (efficiency: %.2f, score: %.2f)" % [
+				weapon_name, role_name, tname, target_type_name, eff, best_score])
 
 	return assignments
 
@@ -5801,10 +5809,19 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 		WeaponRole.GENERAL_PURPOSE:
 			multiplier = EFFICIENCY_NEUTRAL
 
-	# NOTE: Damage waste penalty (multi-damage on low-wound models) was removed here
-	# because T7-6 added precise wound overflow capping in _estimate_weapon_damage()
-	# and _score_shooting_target(). The role-based matching above already discourages
-	# using anti-tank weapons on hordes without double-penalizing.
+	# --- T7-7: Damage waste penalty for multi-damage weapons on single-wound models ---
+	# When a weapon's average damage exceeds 1 against single-wound targets, the
+	# excess damage is wasted (each unsaved wound can only remove 1 model).
+	# Wound overflow capping in _estimate_weapon_damage() handles damage ACCURACY;
+	# this penalty captures the OPPORTUNITY COST — the weapon could be more effective
+	# against a higher-wound target. Uses DAMAGE_WASTE_PENALTY constants.
+	var avg_damage = _parse_average_damage(weapon.get("damage", "1"))
+	var wpm = float(_get_target_wounds_per_model(target_unit))
+	if wpm <= 1.0 and avg_damage > 1.0:
+		if avg_damage >= ANTI_TANK_DAMAGE_THRESHOLD:  # D3+ avg damage (heavy waste)
+			multiplier *= DAMAGE_WASTE_PENALTY_HEAVY
+		else:  # D2 (moderate waste)
+			multiplier *= DAMAGE_WASTE_PENALTY_MODERATE
 
 	# --- Anti-keyword bonus ---
 	var special_rules = weapon.get("special_rules", "").to_lower()
