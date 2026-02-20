@@ -28,6 +28,7 @@ var run_simulation_button: Button
 var compare_weapons_button: Button
 var clear_results_button: Button  # T5-MH10: Clear Results / Reset button
 var compare_targets_button: Button  # T5-MH12: Compare Targets button
+var swap_attacker_defender_button: Button
 var trials_spinbox: SpinBox
 var phase_toggle: OptionButton  # Shooting/Melee phase selector
 
@@ -246,7 +247,14 @@ func _create_content_sections() -> void:
 	attacker_selector = OptionButton.new()  # Keep for compatibility, but hidden
 	attacker_selector.visible = false
 	unit_selector.add_child(attacker_selector)
-	
+
+	# Swap attacker/defender button (T5-MH5)
+	swap_attacker_defender_button = Button.new()
+	swap_attacker_defender_button.text = "⇅ Swap Attacker / Defender"
+	swap_attacker_defender_button.tooltip_text = "Swap the current attacker and defender units"
+	swap_attacker_defender_button.add_theme_font_size_override("font_size", 12)
+	unit_selector.add_child(swap_attacker_defender_button)
+
 	# Defender selection
 	var defender_hbox = HBoxContainer.new()
 	unit_selector.add_child(defender_hbox)
@@ -472,6 +480,9 @@ func _connect_signals() -> void:
 
 	if compare_targets_button:
 		compare_targets_button.pressed.connect(_on_compare_targets_pressed)
+
+	if swap_attacker_defender_button:
+		swap_attacker_defender_button.pressed.connect(_on_swap_attacker_defender_pressed)
 
 	if phase_toggle:
 		phase_toggle.item_selected.connect(_on_phase_changed)
@@ -1033,6 +1044,78 @@ func _on_unit_selection_changed(_index: int) -> void:
 	_auto_detect_defender_rules(defender_id)
 
 	emit_signal("unit_selection_changed", attacker_id, defender_id)
+
+func _on_swap_attacker_defender_pressed() -> void:
+	# T5-MH5: Swap attacker and defender units
+	print("MathhammerUI: Swap attacker/defender button pressed")
+
+	# Get current defender unit ID
+	var current_defender_id = ""
+	if defender_selector.selected >= 0:
+		current_defender_id = defender_selector.get_item_metadata(defender_selector.selected)
+
+	if current_defender_id == "":
+		_show_error("No defender selected to swap")
+		return
+
+	# Get the first active attacker (attack count > 0)
+	var first_attacker_id = ""
+	for unit_id in selected_attackers:
+		if selected_attackers[unit_id] > 0:
+			first_attacker_id = unit_id
+			break
+
+	if first_attacker_id == "":
+		_show_error("No attacker with attacks > 0 to swap")
+		return
+
+	print("MathhammerUI: Swapping attacker '%s' <-> defender '%s'" % [first_attacker_id, current_defender_id])
+
+	# Step 1: Reset all attacker spinboxes to 0
+	var attacker_container = unit_selector.get_node_or_null("AttackerContainer")
+	if attacker_container:
+		for row in attacker_container.get_children():
+			if row.has_meta("unit_id"):
+				var unit_id = row.get_meta("unit_id")
+				# Find the SpinBox in this row
+				for child in row.get_children():
+					if child is SpinBox:
+						child.set_block_signals(true)
+						child.value = 0
+						child.set_block_signals(false)
+				selected_attackers[unit_id] = 0
+
+	# Step 2: Set old defender as new attacker with 1 attack
+	if attacker_container:
+		for row in attacker_container.get_children():
+			if row.has_meta("unit_id") and row.get_meta("unit_id") == current_defender_id:
+				for child in row.get_children():
+					if child is SpinBox:
+						child.set_block_signals(true)
+						child.value = 1
+						child.set_block_signals(false)
+				selected_attackers[current_defender_id] = 1
+				break
+
+	# Step 3: Set old attacker as new defender in the dropdown
+	for i in range(defender_selector.get_item_count()):
+		if defender_selector.get_item_metadata(i) == first_attacker_id:
+			defender_selector.select(i)
+			break
+
+	# Step 4: Disable defender override (stats no longer match after swap)
+	if defender_override_checkbox and defender_override_checkbox.button_pressed:
+		defender_override_checkbox.set_pressed(false)
+		defender_override_panel.visible = false
+
+	# Step 5: Refresh weapon selection for new attacker configuration
+	_update_weapon_selection()
+
+	# Step 6: Auto-populate override fields and detect defender rules for new defender
+	_populate_override_from_defender(first_attacker_id)
+	_auto_detect_defender_rules(first_attacker_id)
+
+	print("MathhammerUI: Swap complete — attacker: '%s', defender: '%s'" % [current_defender_id, first_attacker_id])
 
 func _create_defender_override_fields() -> void:
 	# Helper to create a labeled spinbox row
