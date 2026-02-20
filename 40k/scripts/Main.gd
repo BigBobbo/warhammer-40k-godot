@@ -61,6 +61,9 @@ var waiting_overlay_timer_label: Label = null
 var _waiting_overlay_pulse_tween: Tween = null
 var _opponent_zone_pulse_tween: Tween = null
 
+# T5-V3: Phase transition animation banner
+var phase_transition_banner: PhaseTransitionBanner = null
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -238,6 +241,9 @@ func _ready() -> void:
 
 	# Setup Game Event Log panel
 	_setup_game_log_panel()
+
+	# T5-V3: Setup phase transition animation banner
+	_setup_phase_transition_banner()
 
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
@@ -4257,6 +4263,12 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 
 	update_ui_for_phase()
 
+	# T5-V3: Show phase transition animation banner
+	if phase_transition_banner:
+		var banner_round = GameState.state.get("meta", {}).get("round", 1)
+		var banner_player = GameState.get_active_player()
+		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
+
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT:
 		var active_player = GameState.get_active_player()
@@ -5179,6 +5191,13 @@ func _on_left_panel_toggle_pressed() -> void:
 			left_panel_toggle_button.text = "Show Mathhammer"
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
+
+func _setup_phase_transition_banner() -> void:
+	# T5-V3: Create the phase transition animation banner
+	phase_transition_banner = PhaseTransitionBanner.new()
+	phase_transition_banner.name = "PhaseTransitionBanner"
+	add_child(phase_transition_banner)
+	print("Main: T5-V3: Phase transition banner initialized")
 
 func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel")
