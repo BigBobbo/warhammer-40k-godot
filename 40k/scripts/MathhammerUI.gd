@@ -57,6 +57,9 @@ var tween: Tween
 # Background thread for simulation (T3-25)
 var _simulation_thread: Thread = null
 
+# Responsive sizing - viewport-relative panel dimensions (T5-MH6)
+var _viewport_size: Vector2 = Vector2(1280, 1024)  # Fallback default
+
 # Signals
 signal simulation_requested(config: Dictionary)
 signal unit_selection_changed(attacker_id: String, defender_id: String)
@@ -64,11 +67,15 @@ signal unit_selection_changed(attacker_id: String, defender_id: String)
 func _ready() -> void:
 	print("MathhammerUI: Initializing...")
 
+	_update_viewport_size()
 	_setup_ui_structure()
 	_setup_controls()
 	_connect_signals()
 	_populate_unit_selectors()
 	_populate_rule_toggles()
+
+	# Connect to viewport size changes for responsive layout (T5-MH6)
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
 	# Start collapsed following UnitStatsPanel pattern
 	is_collapsed = true
@@ -80,36 +87,100 @@ func _exit_tree() -> void:
 		print("MathhammerUI: Waiting for simulation thread to finish before exit...")
 		_simulation_thread.wait_to_finish()
 
+# --- Responsive sizing helpers (T5-MH6) ---
+
+func _update_viewport_size() -> void:
+	var vp = get_viewport()
+	if vp:
+		_viewport_size = vp.get_visible_rect().size
+		if _viewport_size.x < 1 or _viewport_size.y < 1:
+			_viewport_size = Vector2(1280, 1024)
+	print("MathhammerUI: Viewport size = %s" % str(_viewport_size))
+
+func _get_panel_width() -> float:
+	return _viewport_size.x * 0.32  # ~31-32% of viewport width
+
+func _get_scroll_height() -> float:
+	return _viewport_size.y * 0.58  # ~58% of viewport height
+
+func _get_expanded_height() -> float:
+	return _viewport_size.y * 0.39  # ~39% of viewport height for expanded panel
+
+func _get_content_width() -> float:
+	return _get_panel_width() * 0.88  # Content area slightly narrower than panel
+
+func _get_results_scroll_height() -> float:
+	return _viewport_size.y * 0.29  # ~29% of viewport height
+
+func _get_breakdown_scroll_height() -> float:
+	return _viewport_size.y * 0.29  # ~29% of viewport height
+
+func _get_comparison_scroll_height() -> float:
+	return _viewport_size.y * 0.39  # ~39% of viewport height
+
+func _on_viewport_size_changed() -> void:
+	_update_viewport_size()
+	_apply_responsive_sizes()
+	print("MathhammerUI: Viewport resized, updated layout to %s" % str(_viewport_size))
+
+func _apply_responsive_sizes() -> void:
+	# Update main structural sizes based on current viewport
+	var panel_w = _get_panel_width()
+	var scroll_h = _get_scroll_height()
+	var content_w = _get_content_width()
+	var expanded_h = _get_expanded_height()
+
+	if scroll_container:
+		scroll_container.custom_minimum_size = Vector2(panel_w, scroll_h)
+
+	if not is_collapsed:
+		custom_minimum_size.y = expanded_h
+
+	# Update results/distribution/breakdown minimum sizes
+	if results_label and is_instance_valid(results_label):
+		results_label.custom_minimum_size = Vector2(content_w, _viewport_size.y * 0.15)
+
+	if distribution_panel:
+		distribution_panel.custom_minimum_size = Vector2(content_w, _viewport_size.y * 0.20)
+
+	if histogram_display:
+		histogram_display.custom_minimum_size = Vector2(content_w, _viewport_size.y * 0.15)
+
+	if breakdown_text and is_instance_valid(breakdown_text):
+		breakdown_text.custom_minimum_size = Vector2(content_w, _viewport_size.y * 0.10)
+
+# --- End responsive sizing helpers ---
+
 func _setup_ui_structure() -> void:
 	# Create the main UI structure programmatically if nodes don't exist
 	if not toggle_button:
 		_create_ui_structure()
 
 func _create_ui_structure() -> void:
-	# Set panel to use full height
-	custom_minimum_size.y = 800
+	# Set panel to use viewport-relative height (T5-MH6)
+	custom_minimum_size.y = _get_expanded_height()
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	
+
 	# Create main VBox
 	var main_vbox = VBoxContainer.new()
 	main_vbox.name = "VBox"
 	main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(main_vbox)
-	
+
 	# Header with toggle button
 	var header = HBoxContainer.new()
 	header.name = "Header"
 	main_vbox.add_child(header)
-	
+
 	toggle_button = Button.new()
 	toggle_button.name = "ToggleButton"
 	toggle_button.text = "🎲 Mathhammer Analysis"
 	header.add_child(toggle_button)
-	
-	# Scroll container for content
+
+	# Scroll container for content - viewport-relative sizing (T5-MH6)
 	scroll_container = ScrollContainer.new()
 	scroll_container.name = "ScrollContainer"
-	scroll_container.custom_minimum_size = Vector2(400, 600)
+	scroll_container.custom_minimum_size = Vector2(_get_panel_width(), _get_scroll_height())
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	main_vbox.add_child(scroll_container)
 	
@@ -269,7 +340,7 @@ func _create_content_sections() -> void:
 	summary_panel.add_child(summary_label)
 	
 	results_label = RichTextLabel.new()
-	results_label.custom_minimum_size = Vector2(350, 150)
+	results_label.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.15)
 	results_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	results_label.bbcode_enabled = true
 	results_label.text = "Run a simulation to see results..."
@@ -284,13 +355,13 @@ func _create_content_sections() -> void:
 	# Distribution Panel Section
 	distribution_panel = Control.new()
 	distribution_panel.name = "DistributionPanel"
-	distribution_panel.custom_minimum_size = Vector2(350, 200)
+	distribution_panel.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.20)
 	distribution_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_container.add_child(distribution_panel)
 	
 	histogram_display = Control.new()
 	histogram_display.name = "HistogramDisplay"
-	histogram_display.custom_minimum_size = Vector2(350, 150)
+	histogram_display.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.15)
 	distribution_panel.add_child(histogram_display)
 	
 	# Breakdown Panel Section
@@ -304,7 +375,7 @@ func _create_content_sections() -> void:
 	breakdown_panel.add_child(breakdown_label)
 	
 	breakdown_text = RichTextLabel.new()
-	breakdown_text.custom_minimum_size = Vector2(350, 100)
+	breakdown_text.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.10)
 	breakdown_text.bbcode_enabled = true
 	breakdown_text.text = "Detailed statistics will appear here after simulation..."
 	breakdown_panel.add_child(breakdown_text)
@@ -353,11 +424,12 @@ func set_collapsed(collapsed: bool) -> void:
 		tween.kill()
 	
 	tween = create_tween()
-	var target_height = 40 if collapsed else 400
+	var expanded_h = _get_expanded_height()
+	var target_height = 40 if collapsed else expanded_h
 	tween.tween_property(self, "custom_minimum_size:y", target_height, 0.3)
-	
+
 	# Animate offset to expand upward
-	var target_offset = -40 if collapsed else -400
+	var target_offset = -40 if collapsed else -expanded_h
 	tween.parallel().tween_property(self, "offset_top", target_offset, 0.3)
 
 func _populate_unit_selectors() -> void:
@@ -1158,7 +1230,7 @@ func _draw_simple_histogram(result: Mathhammer.SimulationResult) -> void:
 		histogram_label = RichTextLabel.new()
 		histogram_label.name = "HistogramLabel"
 		histogram_label.bbcode_enabled = true
-		histogram_label.custom_minimum_size = Vector2(350, 150)
+		histogram_label.custom_minimum_size = Vector2(_get_content_width(), _viewport_size.y * 0.15)
 		histogram_display.add_child(histogram_label)
 	
 	histogram_label.text = histogram_text
@@ -1198,9 +1270,9 @@ func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> vo
 	# Create main results scroll container
 	var results_scroll = ScrollContainer.new()
 	results_scroll.name = "ResultsScroll"
-	results_scroll.custom_minimum_size = Vector2(380, 300)
+	results_scroll.custom_minimum_size = Vector2(_get_panel_width() * 0.95, _get_results_scroll_height())
 	results_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	
+
 	if not summary_panel:
 		print("MathhammerUI: ERROR - summary_panel is null!")
 		return
@@ -1491,7 +1563,7 @@ func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
 	# Create comprehensive breakdown display
 	var breakdown_scroll = ScrollContainer.new()
 	breakdown_scroll.name = "DetailedBreakdownScroll"
-	breakdown_scroll.custom_minimum_size = Vector2(350, 300)
+	breakdown_scroll.custom_minimum_size = Vector2(_get_content_width(), _get_breakdown_scroll_height())
 	breakdown_scroll.visible = true
 	print("MathhammerUI: Created breakdown scroll container")
 	breakdown_panel.add_child(breakdown_scroll)
@@ -1687,7 +1759,7 @@ func _display_comparison_results(results: Array) -> void:
 	# Create comparison scroll container
 	var comparison_scroll = ScrollContainer.new()
 	comparison_scroll.name = "ResultsScroll"
-	comparison_scroll.custom_minimum_size = Vector2(380, 400)
+	comparison_scroll.custom_minimum_size = Vector2(_get_panel_width() * 0.95, _get_comparison_scroll_height())
 	comparison_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	summary_panel.add_child(comparison_scroll)
 
@@ -1851,7 +1923,7 @@ func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) ->
 
 	var breakdown_scroll = ScrollContainer.new()
 	breakdown_scroll.name = "DetailedBreakdownScroll"
-	breakdown_scroll.custom_minimum_size = Vector2(350, 300)
+	breakdown_scroll.custom_minimum_size = Vector2(_get_content_width(), _get_breakdown_scroll_height())
 	breakdown_scroll.visible = true
 	breakdown_panel.add_child(breakdown_scroll)
 
