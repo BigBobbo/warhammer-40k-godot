@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-39 (2026-02-20): AI objective control flash on change — Added `flash_control_change()` to ObjectiveVisual.gd with pulsing ring animation (green=AI capture, red=AI loss, yellow=contested). Real-time objective rechecks after movement/charge via `call_deferred`. Updated `objective_control_changed` signal to include old_controller. | UI/AI | AI_AUDIT.md §VIS-4 |
 | T7-37 (2026-02-20): AI decision explanations — Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), reactive stratagems (protection score, points). Key tactical decisions routed through `GameEventLog.add_ai_entry()` via AIPlayer. Updated test assertion in test_ai_focus_fire.gd. | UI/AI | AI_AUDIT.md §QoL-4 |
 | T7-34 (2026-02-20): AI reserves declarations — Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI scores units for reserves by type (Deep Strike melee 8.0, DS short-range 5.0, strategic reserves melee/fast 4.0+). Excludes CHARACTER leaders, FORTIFICATION, embarked units. Penalizes VEHICLE/MONSTER ranged and long-range shooters. Respects 25% pts cap, 50% unit cap, 2.0 score threshold. | Formations/AI | AI_AUDIT.md §FORM-3 |
 | T7-33 (2026-02-20): AI transport usage — Added `_evaluate_transport_embarkation()` and `_score_unit_for_embarkation()` for formations phase (FORM-2), plus `_decide_transport_disembark()`, `_score_disembark_benefit()`, and `_compute_disembark_positions()` for movement phase (MOV-7). AI scores units for embarkation by fragility/speed/weapons, disembarks based on objective proximity/shooting/charge opportunities/transport safety. | Formations/Movement/AI | AI_AUDIT.md §FORM-2, MOV-7 |
@@ -1272,12 +1273,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIPlayer.gd`, `ShootingLineVisual.gd`
 - **Details:** No visual connection between shooter and target during AI shooting. Draw brief targeting line (red) from shooting unit to target, show hit/wound results as floating text near target.
 
-### T7-39. AI objective control flash on change
+### T7-39. AI objective control flash on change — **DONE**
 - **Phase:** UI
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §VIS-4
 - **Files:** New visual component
 - **Details:** Objective control changes during AI movement not highlighted. Flash objective markers when control state changes (green flash on AI capture, red on loss).
+- **Resolution:** Added `flash_control_change()` to ObjectiveVisual.gd with pulsing ring animation (green on AI capture, red on AI loss, yellow on contested). Updated `objective_control_changed` signal in MissionManager.gd to include old_controller. Added real-time objective rechecks after movement confirmation (MovementPhase.gd) and charge completion (ChargePhase.gd) via `call_deferred`. Flash triggers for all control changes during any movement, not just AI.
 
 ### P3 — Low: Polish & Competitive-Level Play
 
@@ -1462,9 +1464,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 28 | 30 | 58 |
-| **Total** | **127** | **59** | **186** |
-| **Recently Completed** | **146** | — | **146** |
+| Tier 7 — AI Player | 29 | 29 | 58 |
+| **Total** | **128** | **58** | **186** |
+| **Recently Completed** | **147** | — | **147** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
