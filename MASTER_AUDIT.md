@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-8 (2026-02-20): AI invulnerable save consideration in target scoring — `_save_probability()` now accepts invuln parameter using `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper for model/meta/effect invuln sources. All callers pass invuln through. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-6, SHOOT-3 |
 | T7-7 (2026-02-20): AI weapon-target efficiency matching — Re-enabled damage waste penalty for multi-damage weapons vs 1W models (D3+ → 0.4×, D2 → 0.7×). Combined with role matching, lascannon vs grots = 0.24× efficiency. Added fallback logging. 40/40 tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-5, SHOOT-2 |
 | T7-6 (2026-02-20): AI focus fire coordination across units — Enhanced `_build_focus_fire_plan()` with wound overflow cap, value-per-threshold sorting, model-level partial kills with efficiency filtering, coordinated secondary target allocation. 41/41 focus fire tests pass, 37/37 efficiency tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-2, SHOOT-1 |
 | T7-5 (2026-02-20): AI weapon range check in target scoring — `_score_shooting_target()` returns 0 for out-of-range targets using `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`. 15/15 range scoring tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-5, SHOOT-4 |
@@ -1009,12 +1010,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** All weapons on a unit fire at same target. Match anti-tank to vehicles, anti-infantry to hordes. Penalize multi-damage weapons on single-wound models. Each weapon gets its own optimal target.
 - **Resolution:** Re-enabled damage waste penalty in `_calculate_efficiency_multiplier()` for multi-damage weapons vs single-wound models: D3+ gets HEAVY penalty (0.4×), D2 gets MODERATE penalty (0.7×). Combined with existing role-based matching (anti-tank vs horde = 0.6×), a lascannon vs 1W grots now scores 0.24× efficiency. Added efficiency logging to fallback assignment path. Per-weapon target assignment and role matching were already functional from T7-5/T7-6. 40/40 weapon efficiency tests pass.
 
-### T7-8. AI invulnerable save consideration in target scoring
+### T7-8. AI invulnerable save consideration in target scoring — **DONE**
 - **Phase:** Shooting
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §AI-GAP-6, SHOOT-3
 - **Files:** `AIDecisionMaker.gd` — `_save_probability()`
 - **Details:** Only basic save used in scoring. Use `min(modified_save, invuln)` to avoid wasting high-AP weapons on invuln-protected targets.
+- **Resolution:** `_save_probability()` accepts optional `invuln` parameter and uses `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper checking model-level, meta.stats, and effect-granted invulns. All callers (`_score_shooting_target`, `_estimate_weapon_damage`, `_estimate_melee_damage`) pass invuln through. 18/18 tests pass.
 
 ### T7-9. AI weapon keyword awareness in target scoring
 - **Phase:** Shooting
@@ -1420,9 +1422,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 7 | 51 | 58 |
-| **Total** | **106** | **80** | **186** |
-| **Recently Completed** | **126** | — | **126** |
+| Tier 7 — AI Player | 8 | 50 | 58 |
+| **Total** | **107** | **79** | **186** |
+| **Recently Completed** | **127** | — | **127** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
