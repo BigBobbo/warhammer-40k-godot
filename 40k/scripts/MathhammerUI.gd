@@ -1279,25 +1279,26 @@ func _clear_results_display() -> void:
 			if child.name.begins_with("Results") or child.name == "InitialResultsLabel":
 				print("MathhammerUI: Removing child: %s" % child.name)
 				child.queue_free()
-	
+
 	if distribution_panel:
 		for child in distribution_panel.get_children():
 			if child.name.begins_with("DetailedResults"):
 				child.queue_free()
-	
-	# Also hide/clear the breakdown_text placeholder
-	if breakdown_text and is_instance_valid(breakdown_text):
-		breakdown_text.visible = false
-		print("MathhammerUI: Hidden breakdown_text placeholder")
-	
-	# Clear any existing detailed breakdowns from breakdown_panel
+
+	# T5-MH9: Restore breakdown_panel visibility and clear any comparison content
 	if breakdown_panel:
+		breakdown_panel.visible = true
 		print("MathhammerUI: Breakdown panel has %d children" % breakdown_panel.get_child_count())
 		for child in breakdown_panel.get_children():
 			if child.name.begins_with("DetailedBreakdown") or child == breakdown_text:
 				print("MathhammerUI: Removing breakdown child: %s" % child.name)
 				child.queue_free()
-	
+
+	# Also hide/clear the breakdown_text placeholder
+	if breakdown_text and is_instance_valid(breakdown_text):
+		breakdown_text.visible = false
+		print("MathhammerUI: Hidden breakdown_text placeholder")
+
 	print("MathhammerUI: Finished clearing results display")
 
 func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> void:
@@ -1337,9 +1338,10 @@ func _create_detailed_results_display(result: Mathhammer.SimulationResult) -> vo
 	_create_cumulative_probability_panel(results_vbox, result)
 	print("MathhammerUI: Created cumulative probability panel")
 
-	# Also add the weapon breakdown to the separate breakdown_panel
-	_populate_breakdown_panel(result)
-	print("MathhammerUI: Populated breakdown panel")
+	# T5-MH9: Hide breakdown_panel to avoid duplicating summary_panel content
+	if breakdown_panel:
+		breakdown_panel.visible = false
+		print("MathhammerUI: Hidden breakdown_panel (dedup — all results in summary_panel)")
 
 func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
 	print("MathhammerUI: Creating overall stats panel")
@@ -1580,57 +1582,6 @@ func create_styled_panel(title: String, bg_color: Color) -> VBoxContainer:
 
 	print("MathhammerUI: create_styled_panel returning panel_container with content_vbox inside")
 	return panel_container
-
-func _populate_breakdown_panel(result: Mathhammer.SimulationResult) -> void:
-	print("MathhammerUI: _populate_breakdown_panel called")
-	if not breakdown_panel:
-		print("MathhammerUI: ERROR - No breakdown_panel found")
-		return
-	
-	print("MathhammerUI: breakdown_panel exists, current child_count: %d" % breakdown_panel.get_child_count())
-	
-	# Clear the breakdown_text placeholder if it still exists
-	if breakdown_text and is_instance_valid(breakdown_text):
-		print("MathhammerUI: Removing old breakdown_text placeholder")
-		breakdown_text.queue_free()
-		breakdown_text = null
-	
-	# Create comprehensive breakdown display
-	var breakdown_scroll = ScrollContainer.new()
-	breakdown_scroll.name = "DetailedBreakdownScroll"
-	breakdown_scroll.custom_minimum_size = Vector2(_get_content_width(), _get_breakdown_scroll_height())
-	breakdown_scroll.visible = true
-	print("MathhammerUI: Created breakdown scroll container")
-	breakdown_panel.add_child(breakdown_scroll)
-	print("MathhammerUI: Added scroll container to breakdown_panel")
-	
-	var breakdown_vbox = VBoxContainer.new()
-	breakdown_vbox.name = "BreakdownVBox"
-	breakdown_vbox.add_theme_constant_override("separation", 10)
-	breakdown_vbox.visible = true
-	breakdown_scroll.add_child(breakdown_vbox)
-	print("MathhammerUI: Created and added breakdown vbox")
-	
-	# Overall Stats Section
-	print("MathhammerUI: Adding overall stats section to breakdown")
-	_create_overall_stats_panel(breakdown_vbox, result)
-	
-	# Weapon Breakdown Section
-	print("MathhammerUI: Adding weapon breakdown section to breakdown")
-	_create_weapon_breakdown_panel(breakdown_vbox, result)
-	
-	# Damage Distribution Section
-	print("MathhammerUI: Adding damage distribution section to breakdown")
-	_create_damage_distribution_panel(breakdown_vbox, result)
-
-	# Cumulative Probability Section (T5-MH2)
-	print("MathhammerUI: Adding cumulative probability section to breakdown")
-	_create_cumulative_probability_panel(breakdown_vbox, result)
-
-	print("MathhammerUI: breakdown_panel final child_count after population: %d" % breakdown_panel.get_child_count())
-	print("MathhammerUI: breakdown_scroll child_count: %d" % breakdown_scroll.get_child_count())
-	print("MathhammerUI: breakdown_vbox child_count: %d" % breakdown_vbox.get_child_count())
-	print("MathhammerUI: Added detailed breakdown to breakdown_panel")
 
 func create_weapon_section(weapon_num: int, weapon_name: String, stats: Dictionary, hit_rate: float, wound_rate: float, unsaved_rate: float, avg_dmg: float, trials: int) -> VBoxContainer:
 	var weapon_vbox = VBoxContainer.new()

@@ -1,1 +1,1 @@
-ARGS: ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+ARGS: []
