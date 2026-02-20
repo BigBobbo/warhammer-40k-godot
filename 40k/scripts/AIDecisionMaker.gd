@@ -5404,16 +5404,12 @@ static func _apply_weapon_keyword_modifiers(
 	if "torrent" in special_rules:
 		p_hit = 1.0
 
-	# --- BLAST: bonus attacks vs large units ---
+	# --- BLAST: +1 attack per 5 models in target unit (10th ed) ---
 	if "blast" in special_rules:
 		var alive_models = _get_alive_models(target_unit).size()
-		if alive_models >= 11:
-			attacks += 2.0
-		elif alive_models >= 6:
-			attacks += 1.0
-		# Blast also enforces minimum 3 attacks vs 6+ model units
-		if alive_models >= 6 and attacks < 3.0:
-			attacks = 3.0
+		var blast_bonus = int(alive_models / 5)
+		if blast_bonus > 0:
+			attacks += float(blast_bonus)
 
 	# --- RAPID FIRE X: bonus attacks at half range ---
 	var rapid_fire_val = _parse_rapid_fire_value(special_rules)

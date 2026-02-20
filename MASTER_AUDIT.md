@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-9 (2026-02-20): AI weapon keyword awareness in target scoring — `_apply_weapon_keyword_modifiers()` handles all 8 keywords (Torrent, Blast, Rapid Fire, Melta, Anti-keyword, Sustained/Lethal/Devastating Hits). Fixed Blast formula from 9th ed thresholds to correct 10th ed `floor(models/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use keyword pipeline. 50/50 tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-5 |
 | T7-8 (2026-02-20): AI invulnerable save consideration in target scoring — `_save_probability()` now accepts invuln parameter using `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper for model/meta/effect invuln sources. All callers pass invuln through. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-6, SHOOT-3 |
 | T7-7 (2026-02-20): AI weapon-target efficiency matching — Re-enabled damage waste penalty for multi-damage weapons vs 1W models (D3+ → 0.4×, D2 → 0.7×). Combined with role matching, lascannon vs grots = 0.24× efficiency. Added fallback logging. 40/40 tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-5, SHOOT-2 |
 | T7-6 (2026-02-20): AI focus fire coordination across units — Enhanced `_build_focus_fire_plan()` with wound overflow cap, value-per-threshold sorting, model-level partial kills with efficiency filtering, coordinated secondary target allocation. 41/41 focus fire tests pass, 37/37 efficiency tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-2, SHOOT-1 |
@@ -1018,12 +1019,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Only basic save used in scoring. Use `min(modified_save, invuln)` to avoid wasting high-AP weapons on invuln-protected targets.
 - **Resolution:** `_save_probability()` accepts optional `invuln` parameter and uses `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper checking model-level, meta.stats, and effect-granted invulns. All callers (`_score_shooting_target`, `_estimate_weapon_damage`, `_estimate_melee_damage`) pass invuln through. 18/18 tests pass.
 
-### T7-9. AI weapon keyword awareness in target scoring
+### T7-9. AI weapon keyword awareness in target scoring — **DONE**
 - **Phase:** Shooting
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §SHOOT-5
 - **Files:** `AIDecisionMaker.gd` — `_score_shooting_target()`
 - **Details:** Weapon keywords not factored into expected damage: Blast (+1A per 5 models), Rapid Fire (+X at half range), Melta (+X damage at half range), Anti-keyword (lower crit wound threshold), Torrent (100% hit), Sustained/Lethal/Devastating Hits.
+- **Resolution:** `_apply_weapon_keyword_modifiers()` adjusts expected-damage components (attacks, p_hit, p_wound, p_unsaved, damage) for all 8 keywords: Torrent (p_hit=1.0), Blast (floor(models/5) bonus attacks per 10th ed), Rapid Fire X (+X attacks at half range with fallback probability), Melta X (+X damage at half range), Anti-keyword X+ (improved wound probability vs matching keywords), Sustained Hits X (crit-weighted attack multiplier), Lethal Hits (effective p_wound boost), Devastating Wounds (effective p_unsaved boost). Fixed Blast formula from incorrect 9th ed thresholds (6/11) to correct 10th ed `floor(alive/5)`. Both `_score_shooting_target()` and `_estimate_weapon_damage()` use the modifier pipeline. 50/50 keyword tests pass.
 
 ### T7-10. AI basic stratagem usage
 - **Phase:** All
@@ -1422,9 +1424,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 8 | 50 | 58 |
-| **Total** | **107** | **79** | **186** |
-| **Recently Completed** | **127** | — | **127** |
+| Tier 7 — AI Player | 9 | 49 | 58 |
+| **Total** | **108** | **78** | **186** |
+| **Recently Completed** | **128** | — | **128** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
