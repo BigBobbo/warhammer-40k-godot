@@ -1393,6 +1393,12 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	"""Show Counter-Offensive dialog when an enemy unit has fought"""
 	print("[FightController] Counter-Offensive opportunity for player %d (%d eligible units)" % [player, eligible_units.size()])
 
+	# T7-32: Skip dialog for AI players - they submit actions via AIPlayer signal handler
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Skipping Counter-Offensive dialog for AI player %d" % player)
+		return
+
 	var dialog_script = load("res://dialogs/CounterOffensiveDialog.gd")
 	if not dialog_script:
 		push_error("Failed to load CounterOffensiveDialog.gd")
