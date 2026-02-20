@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+<<<<<<< HEAD
 | T5-V15 (2026-02-20): Mathhammer visual histogram — Replaced text-based histogram with graphical ColorRect bar chart; vertical bars (<=20 values) or horizontal bars (>20), color-coded by damage vs mean, auto-bucketing for wide ranges, percentage labels, legend | Mathhammer | MATHHAMMER_AUDIT, Code TODO |
 | T5-MH1 (2026-02-20): Visual histogram / probability distribution chart — Implemented via T5-V15 | Mathhammer | MATHHAMMER_AUDIT |
 | T5-V14 (2026-02-20): Deployment zone edge highlighting — Animated dashed border with marching ants, multi-layer pulsing glow on inner edges, corner markers, zone depth labels; inner/outer edge detection for board-boundary vs no-man's-land edges | Deployment | DEPLOYMENT_AUDIT.md §QoL 6 |
@@ -52,6 +53,7 @@ These items were previously open in the audit files and have now been verified a
 | T5-MH3: Multi-weapon side-by-side comparison view — Compare Weapons button runs independent per-weapon simulations with ranked results | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH2: Cumulative probability display — "X% chance of at least N wounds" table with color-coded probability tiers | Mathhammer | MATHHAMMER_AUDIT |
 | T5-UX14: Mathhammer melee simulation integration (full Monte Carlo prediction before dice rolling, scoping bug fix in Mathhammer.gd) | Fight/Mathhammer | FIGHT_PHASE_AUDIT.md, Code TODO |
+| T5-UX12: Keyboard shortcuts for shooting phase (Space/Enter confirm, Esc deselect, Tab cycle, N skip, E end phase) | Shooting | SHOOTING_PHASE_AUDIT.md §Tier 4 |
 | T5-UX11: Unit base preview on hover in deployment (tooltip with base size, model count, special deployment rules) | Deployment | DEPLOYMENT_AUDIT.md §QoL 7 |
 | T5-UX10: Auto-zoom to deployment zone (smooth camera pan/zoom to active player's zone on phase entry and turn switch) | Deployment | DEPLOYMENT_AUDIT.md §QoL 5 |
 | T5-UX8: Deployment summary before ending phase (summary dialog with deployed units, transports, characters, reserves) | Deployment | DEPLOYMENT_AUDIT.md §QoL 8 |
@@ -819,7 +821,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added `focus_on_deployment_zone(player)` to Main.gd with smooth tween animation. Auto-zooms to active player's deployment zone on phase entry and on deployment turn switch. Calculates bounding box of zone polygon and fits camera with 20% padding margin.
 - T5-UX11. Unit base preview on hover in deployment (DEPLOYMENT_AUDIT.md §QoL 7) — **DONE**
   - **Resolution:** Added hover tooltip on UnitListPanel during deployment phase. When hovering over a unit in the list, a styled tooltip appears showing unit name, model count, base size/type, and special deployment rules (Deep Strike, Infiltrators, Fortification, CHARACTER, Transport capacity). Uses gui_input signal with get_item_at_position for hover detection, positioned to the left of the unit list.
-- T5-UX12. Keyboard shortcuts for shooting phase (SHOOTING_PHASE_AUDIT.md §Tier 4)
+- T5-UX12. Keyboard shortcuts for shooting phase (SHOOTING_PHASE_AUDIT.md §Tier 4) — **DONE**
+  - **Resolution:** Added keyboard shortcuts to ShootingController._input(): Space/Enter to confirm targets, Escape to deselect/cancel shooter, Tab/Shift+Tab to cycle eligible units, N to skip current unit, E to end shooting phase. Main.gd ESC handler defers to ShootingController when a shooter is active. Multiplayer-safe (blocks input when not local player's turn).
 - T5-UX13. Score objectives — not implemented (Code TODO in `ScoringController.gd:148`)
 - T5-UX14. Mathhammer melee simulation integration (Code TODO in `FightPhase.gd:947`) — **DONE**
   - **Resolution:** The mathhammer melee prediction was already implemented in `_show_mathhammer_predictions()` (FightPhase.gd), replacing the original placeholder. Runs 1000-trial Monte Carlo simulation via `Mathhammer.simulate_combat()` with phase "fight" before dice rolling. Auto-detects Lance charge bonus. RulesEngine handles weapon special rules (Lethal Hits, Sustained Hits, Devastating Wounds, etc.) from weapon profiles. Also fixed a scoping bug in Mathhammer.gd where `fresh_defender` assignment was outside its declaring block.

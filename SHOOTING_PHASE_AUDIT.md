@@ -300,7 +300,7 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 
 **Resolution:** Implemented "Undo Last" button in ShootingController with assignment history stack. Button appears between "Clear All" and "Confirm Targets". Removes only the most recent weapon assignment while preserving earlier ones.
 
-### 5.7 LOW: Keyboard Shortcuts for Common Actions
+### 5.7 LOW: Keyboard Shortcuts for Common Actions — **DONE**
 
 **Suggestion:** Add keyboard shortcuts for frequent actions:
 - `Space` or `Enter` to confirm targets
@@ -308,6 +308,8 @@ This means the results dialog for single-weapon shooting doesn't show hit count 
 - `Tab` to cycle through eligible units
 - `N` to skip current unit
 - `E` to end shooting phase
+
+**Resolution:** Implemented all five keyboard shortcuts in `ShootingController._input()`. Space/Enter confirms weapon assignments, Escape deselects the active shooter and clears assignments, Tab/Shift+Tab cycles through eligible (un-shot) units, N skips the current unit, E ends the shooting phase. Main.gd ESC handler defers to ShootingController when a shooter is active. Multiplayer-safe with turn validation.
 
 ---
 

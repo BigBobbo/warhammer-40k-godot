@@ -2450,7 +2450,11 @@ func _input(event: InputEvent) -> void:
 	
 	# ESC key handling for save/load dialog
 	# Only handle ESC if dialog is not visible (to avoid interfering with dialog input)
+	# T5-UX12: Defer ESC to ShootingController when shooting phase has active shooter
 	if event.is_action_pressed("ui_cancel"):
+		if shooting_controller and shooting_controller.active_shooter_id != "":
+			# Let ShootingController handle ESC for deselect/cancel
+			return
 		if save_load_dialog and not save_load_dialog.visible:
 			_toggle_save_load_menu()
 			get_viewport().set_input_as_handled()
