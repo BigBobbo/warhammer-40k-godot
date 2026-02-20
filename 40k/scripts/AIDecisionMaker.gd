@@ -134,6 +134,13 @@ const TEMPO_DESPERATION_MULTIPLIER: float = 1.8     # Aggression multiplier in d
 const TEMPO_MAX_ROUNDS: int = 5                     # Standard 40k game length (5 battle rounds)
 const TEMPO_CHARGE_THRESHOLD_REDUCTION: float = 0.4 # How much to lower charge threshold when desperate
 
+# T7-27: Engaged unit survival assessment constants
+# Used to estimate fight-phase damage and inform hold/fall-back decisions
+const SURVIVAL_LETHAL_THRESHOLD: float = 0.75      # If expected damage >= 75% of remaining wounds, unit is likely destroyed
+const SURVIVAL_SEVERE_THRESHOLD: float = 0.5       # If expected damage >= 50% of remaining wounds, unit is badly hurt
+const SURVIVAL_FALL_BACK_BONUS: float = 2.0        # Score bonus toward falling back when survival is threatened
+const SURVIVAL_HOLD_BONUS: float = 1.5             # Score bonus toward holding when unit can survive the fight phase
+
 # T7-22: AI target priority framework constants
 # Macro-level target value weights
 const MACRO_POINTS_WEIGHT: float = 0.008         # Per-point value contribution (200pt unit = +1.6)
@@ -2591,6 +2598,9 @@ static func _decide_engaged_unit(
 			return {"type": "REMAIN_STATIONARY", "actor_unit_id": unit_id, "_ai_description": "%s remains stationary (no position)" % unit_name}
 		return {}
 
+	# --- T7-27: Assess survival before making hold/fall-back decision ---
+	var survival = _assess_engaged_unit_survival(unit, unit_id, unit_name, enemies)
+
 	# Check if this unit is on an objective
 	var on_objective = false
 	var obj_id_held = ""
@@ -2627,9 +2637,27 @@ static func _decide_engaged_unit(
 		# If we're winning the OC war or tied, stay and hold
 		# Exception: if the unit has Fall Back and Charge, falling back may be
 		# tactically better (can charge back in, potentially killing the enemy)
+		# T7-27: Also override to fall back if survival is lethal and other friendly
+		# units can still hold the objective without us
 		if friendly_oc_here >= enemy_oc_here and "REMAIN_STATIONARY" in move_types:
 			if fb_and_charge:
 				print("AIDecisionMaker: %s engaged on %s, winning OC (%d vs %d) but has Fall Back and Charge — may fall back to re-engage" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+			elif survival.is_lethal and "BEGIN_FALL_BACK" in move_types:
+				# T7-27: Unit will likely be destroyed — fall back to preserve it,
+				# but only if other friendlies can still hold the objective
+				var oc_without_us = friendly_oc_here - unit_oc
+				if oc_without_us >= enemy_oc_here:
+					print("AIDecisionMaker: T7-27 %s engaged on %s, winning OC (%d vs %d) but survival is LETHAL (%.1f dmg vs %.1f wounds) — falling back (others can hold)" % [
+						unit_name, obj_id_held, friendly_oc_here, enemy_oc_here, survival.expected_damage, survival.remaining_wounds])
+					# Fall through to fall-back logic below
+				else:
+					print("AIDecisionMaker: T7-27 %s engaged on %s, survival is LETHAL but must hold (no other holders, OC %d vs %d)" % [
+						unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s holds %s despite lethal threat (OC %d vs %d, expected dmg %.1f/%.1f wounds)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here, survival.expected_damage, survival.remaining_wounds]
+					}
 			else:
 				print("AIDecisionMaker: %s engaged on %s but winning OC war (%d vs %d), holding" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
 				return {
@@ -2645,8 +2673,12 @@ static func _decide_engaged_unit(
 				# With Fall Back and Charge we can charge back onto the objective
 				print("AIDecisionMaker: %s engaged on %s, only holder but has Fall Back and Charge — will fall back to re-engage" % [unit_name, obj_id_held])
 			else:
-				# We're the only one holding it — stay even if losing OC war
-				print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
+				# T7-27: Even as sole holder, warn if survival is lethal (unit may die anyway)
+				if survival.is_lethal:
+					print("AIDecisionMaker: T7-27 %s engaged on %s, only holder (OC %d) but survival is LETHAL (%.1f dmg vs %.1f wounds) — staying anyway to deny objective" % [
+						unit_name, obj_id_held, unit_oc, survival.expected_damage, survival.remaining_wounds])
+				else:
+					print("AIDecisionMaker: %s engaged on %s, only holder (OC %d), staying" % [unit_name, obj_id_held, unit_oc])
 				return {
 					"type": "REMAIN_STATIONARY",
 					"actor_unit_id": unit_id,
@@ -2668,6 +2700,12 @@ static func _decide_engaged_unit(
 	# Not on objective or better to fall back — fall back
 	if "BEGIN_FALL_BACK" in move_types:
 		var base_reason = "not on objective" if not on_objective else "losing OC war"
+
+		# T7-27: Enrich reason with survival assessment
+		if survival.is_lethal:
+			base_reason = "%s, survival LETHAL (%.1f dmg vs %.1f wounds)" % [base_reason, survival.expected_damage, survival.remaining_wounds]
+		elif survival.is_severe:
+			base_reason = "%s, survival SEVERE (%.1f dmg vs %.1f wounds)" % [base_reason, survival.expected_damage, survival.remaining_wounds]
 
 		# If the unit has Fall Back and X, enrich the reason
 		var reason = base_reason
@@ -2837,6 +2875,123 @@ static func _get_engaging_enemy_centroid(unit: Dictionary, unit_id: String, enem
 	for pos in engaging_positions:
 		sum_val += pos
 	return sum_val / engaging_positions.size()
+
+# =============================================================================
+# T7-27: ENGAGED UNIT SURVIVAL ASSESSMENT
+# =============================================================================
+
+static func _get_engaging_enemy_units(unit: Dictionary, unit_id: String, enemies: Dictionary) -> Array:
+	"""Return an array of {enemy_id, enemy_unit} for all enemy units with at least one model
+	within engagement range of this unit. Used for survival assessment."""
+	var engaging = []
+	var alive_models = _get_alive_models_with_positions(unit)
+	var own_models_data = unit.get("models", [])
+	var own_base_mm = own_models_data[0].get("base_mm", 32) if own_models_data.size() > 0 else 32
+	var own_radius_px = (own_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+
+	for enemy_id in enemies:
+		var enemy = enemies[enemy_id]
+		var is_engaging = false
+		for enemy_model in enemy.get("models", []):
+			if is_engaging:
+				break
+			if not enemy_model.get("alive", true):
+				continue
+			var enemy_pos = _get_model_position(enemy_model)
+			if enemy_pos == Vector2.INF:
+				continue
+			var enemy_base_mm = enemy_model.get("base_mm", 32)
+			var enemy_radius_px = (enemy_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
+			var er_threshold = own_radius_px + enemy_radius_px + ENGAGEMENT_RANGE_PX
+			for own_model in alive_models:
+				var own_pos = _get_model_position(own_model)
+				if own_pos == Vector2.INF:
+					continue
+				if own_pos.distance_to(enemy_pos) < er_threshold:
+					is_engaging = true
+					break
+		if is_engaging:
+			engaging.append({"enemy_id": enemy_id, "enemy_unit": enemy})
+	return engaging
+
+static func _estimate_incoming_melee_damage(unit: Dictionary, enemies: Dictionary, unit_id: String) -> float:
+	"""T7-27: Estimate total expected melee damage from all engaging enemy units
+	in the upcoming fight phase. Uses _estimate_melee_damage in reverse —
+	each engaging enemy attacks our unit."""
+	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
+	var total_damage = 0.0
+	for entry in engaging:
+		var enemy = entry.enemy_unit
+		var dmg = _estimate_melee_damage(enemy, unit)
+		total_damage += dmg
+	return total_damage
+
+static func _estimate_unit_remaining_wounds(unit: Dictionary) -> float:
+	"""T7-27: Calculate total remaining wounds across all alive models in a unit.
+	Uses current_wounds when available (partially damaged models), otherwise
+	falls back to the per-model wounds stat."""
+	var total = 0.0
+	var wounds_per_model = int(unit.get("meta", {}).get("stats", {}).get("wounds", 1))
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total += float(model.get("current_wounds", model.get("wounds", wounds_per_model)))
+	return total
+
+static func _assess_engaged_unit_survival(
+	unit: Dictionary, unit_id: String, unit_name: String, enemies: Dictionary
+) -> Dictionary:
+	"""T7-27: Assess whether an engaged unit is likely to survive the fight phase.
+	Returns a dictionary with:
+	  - expected_damage: total expected melee damage from engaging enemies
+	  - remaining_wounds: unit's total remaining wounds
+	  - damage_ratio: expected_damage / remaining_wounds (0.0 to INF)
+	  - is_lethal: true if damage_ratio >= SURVIVAL_LETHAL_THRESHOLD
+	  - is_severe: true if damage_ratio >= SURVIVAL_SEVERE_THRESHOLD
+	  - engaging_enemy_ids: list of engaging enemy unit IDs
+	  - recommendation: "fall_back" or "hold" or "neutral"
+	"""
+	var remaining_wounds = _estimate_unit_remaining_wounds(unit)
+	if remaining_wounds <= 0.0:
+		return {
+			"expected_damage": 0.0,
+			"remaining_wounds": 0.0,
+			"damage_ratio": 0.0,
+			"is_lethal": false,
+			"is_severe": false,
+			"engaging_enemy_ids": [],
+			"recommendation": "neutral"
+		}
+
+	var expected_damage = _estimate_incoming_melee_damage(unit, enemies, unit_id)
+	var damage_ratio = expected_damage / remaining_wounds
+	var is_lethal = damage_ratio >= SURVIVAL_LETHAL_THRESHOLD
+	var is_severe = damage_ratio >= SURVIVAL_SEVERE_THRESHOLD
+
+	var engaging = _get_engaging_enemy_units(unit, unit_id, enemies)
+	var engaging_ids = []
+	for entry in engaging:
+		engaging_ids.append(entry.enemy_id)
+
+	var recommendation = "neutral"
+	if is_lethal:
+		recommendation = "fall_back"
+	elif is_severe:
+		recommendation = "fall_back"
+	elif damage_ratio < 0.25:
+		recommendation = "hold"
+
+	print("AIDecisionMaker: T7-27 Survival assessment for %s: expected_damage=%.1f, remaining_wounds=%.1f, ratio=%.2f, recommendation=%s (engaging: %s)" % [
+		unit_name, expected_damage, remaining_wounds, damage_ratio, recommendation, str(engaging_ids)])
+
+	return {
+		"expected_damage": expected_damage,
+		"remaining_wounds": remaining_wounds,
+		"damage_ratio": damage_ratio,
+		"is_lethal": is_lethal,
+		"is_severe": is_severe,
+		"engaging_enemy_ids": engaging_ids,
+		"recommendation": recommendation
+	}
 
 static func _pick_fall_back_target(
 	centroid: Vector2, enemy_centroid: Vector2,
