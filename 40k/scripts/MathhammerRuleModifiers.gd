@@ -139,6 +139,10 @@ static func _register_damage_modifiers() -> void:
 	rule.apply_function = _apply_feel_no_pain.bind(4)
 	RULE_REGISTRY[rule.id] = rule
 
+	rule = RuleDefinition.new("half_damage", "Half Damage", "Halve incoming damage (round up)", RuleCategory.DAMAGE_MODIFIER)
+	rule.apply_function = _apply_half_damage
+	RULE_REGISTRY[rule.id] = rule
+
 # Register situational modifiers
 static func _register_situational_modifiers() -> void:
 	var rule = RuleDefinition.new("rapid_fire", "Rapid Fire Range", "+X attacks at half range (per model)", RuleCategory.SITUATIONAL)
@@ -366,6 +370,11 @@ static func _apply_feel_no_pain(threshold: int, config: Dictionary) -> void:
 	# Feel No Pain: Ignore wounds on dice roll
 	config["modifiers"] = config.get("modifiers", {})
 	config.modifiers["feel_no_pain"] = threshold
+
+static func _apply_half_damage(config: Dictionary) -> void:
+	# Half Damage: Halve incoming damage characteristic (round up)
+	config["modifiers"] = config.get("modifiers", {})
+	config.modifiers["half_damage"] = true
 
 static func _apply_rapid_fire(config: Dictionary) -> void:
 	# Rapid Fire: Double attacks at close range

@@ -1084,6 +1084,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
 			var dmg = dmg_result.value
 
+			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
+			if get_unit_half_damage(target_unit):
+				var pre_half = dmg
+				dmg = apply_half_damage(dmg)
+				print("RulesEngine: Half Damage (Overwatch) — damage %d → %d" % [pre_half, dmg])
+
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
 			var new_wounds = max(0, current_wounds - dmg)
@@ -2297,6 +2303,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				damage += ar_melta_value
 				ar_melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to damage (total: %d)" % [ar_melta_value, damage])
+
+			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
+			if get_unit_half_damage(target_unit):
+				var pre_half = damage
+				damage = apply_half_damage(damage)
+				print("RulesEngine: Half Damage (auto-resolve) — damage %d → %d" % [pre_half, damage])
 
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
@@ -6047,11 +6059,20 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var damage_roll_log = []
 
+	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
+	var melee_has_half_damage = get_unit_half_damage(target_unit)
+	if melee_has_half_damage:
+		print("RulesEngine: Half Damage active on melee defender — all damage characteristics halved (round up)")
+
 	# Roll variable damage per regular failed save
 	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
-		regular_wound_damages.append(dmg_result.value)
+		var wound_dmg_value = dmg_result.value
+		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
+		if melee_has_half_damage:
+			wound_dmg_value = apply_half_damage(wound_dmg_value)
+		regular_wound_damages.append(wound_dmg_value)
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
 	var regular_damage = 0
@@ -6062,7 +6083,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	devastating_damage = 0
 	for _i in range(devastating_wound_count):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
-		devastating_damage += dmg_result.value
+		var dw_dmg_value = dmg_result.value
+		# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
+		if melee_has_half_damage:
+			dw_dmg_value = apply_half_damage(dw_dmg_value)
+		devastating_damage += dw_dmg_value
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
 
@@ -6672,6 +6697,11 @@ static func apply_save_damage(
 	# FEEL NO PAIN: Check if target unit has FNP
 	var fnp_value = get_unit_fnp(target_unit)
 
+	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
+	var has_half_damage = get_unit_half_damage(target_unit)
+	if has_half_damage:
+		print("RulesEngine: Half Damage active on defender — all damage characteristics halved (round up)")
+
 	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
 	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -6679,6 +6709,11 @@ static func apply_save_damage(
 	var dw_damage = 0
 	if devastating_damage_override >= 0:
 		dw_damage = devastating_damage_override
+		# HALF DAMAGE (T4-17): Halve overridden devastating damage (round up)
+		if has_half_damage and dw_damage > 0:
+			var pre_half = dw_damage
+			dw_damage = apply_half_damage(dw_damage)
+			print("RulesEngine: Half Damage — devastating override damage %d → %d" % [pre_half, dw_damage])
 	elif devastating_wound_count > 0 and rng != null:
 		for _i in range(devastating_wound_count):
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -6688,6 +6723,11 @@ static func apply_save_damage(
 				dw_wound_damage += melta_bonus
 				melta_wounds_remaining -= 1
 				print("RulesEngine: MELTA +%d applied to devastating wound (damage: %d → %d)" % [melta_bonus, dmg_result.value, dw_wound_damage])
+			# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
+			if has_half_damage:
+				var pre_half = dw_wound_damage
+				dw_wound_damage = apply_half_damage(dw_wound_damage)
+				print("RulesEngine: Half Damage — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
 			dw_damage += dw_wound_damage
 			if dmg_result.rolled:
 				damage_roll_log.append({"source": "devastating", "result": dmg_result})
@@ -6698,6 +6738,11 @@ static func apply_save_damage(
 			var melta_dw_wounds = min(devastating_wound_count, melta_wounds_remaining)
 			dw_damage += melta_dw_wounds * melta_bonus
 			melta_wounds_remaining -= melta_dw_wounds
+		# HALF DAMAGE (T4-17): Halve fixed devastating damage estimate (round up)
+		if has_half_damage and dw_damage > 0:
+			var pre_half = dw_damage
+			dw_damage = apply_half_damage(dw_damage)
+			print("RulesEngine: Half Damage — fixed devastating damage %d → %d" % [pre_half, dw_damage])
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
@@ -6770,6 +6815,12 @@ static func apply_save_damage(
 			wound_damage += melta_bonus
 			melta_wounds_remaining -= 1
 			print("RulesEngine: MELTA +%d applied to failed save damage (total: %d)" % [melta_bonus, wound_damage])
+
+		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
+		if has_half_damage:
+			var pre_half = wound_damage
+			wound_damage = apply_half_damage(wound_damage)
+			print("RulesEngine: Half Damage — failed save damage %d → %d" % [pre_half, wound_damage])
 
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
 		var actual_damage = wound_damage
@@ -7055,6 +7106,19 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	elif base_fnp > 0:
 		return base_fnp
 	return 0
+
+# HALF DAMAGE (T4-17): Check if unit has half-damage defensive ability
+static func get_unit_half_damage(unit: Dictionary) -> bool:
+	"""Returns true if the unit has the half-damage defensive ability"""
+	return unit.get("meta", {}).get("stats", {}).get("half_damage", false)
+
+# HALF DAMAGE (T4-17): Halve incoming damage, rounding up
+# Per 10e rules: "Each time an attack is made against this unit, halve the Damage
+# characteristic of that attack (rounding up)."
+# Applied per-wound AFTER melta bonus, BEFORE Feel No Pain.
+static func apply_half_damage(damage: int) -> int:
+	"""Halve damage, rounding up. e.g. 5 -> 3, 6 -> 3, 1 -> 1"""
+	return ceili(float(damage) / 2.0)
 
 # FEEL NO PAIN: Roll FNP dice for wounds about to be lost
 static func roll_feel_no_pain(wounds_to_lose: int, fnp_value: int, rng: RNGService) -> Dictionary:
