@@ -27,8 +27,14 @@ var weapon_selection_panel: VBoxContainer
 var run_simulation_button: Button
 var compare_weapons_button: Button
 var clear_results_button: Button  # T5-MH10: Clear Results / Reset button
+var compare_targets_button: Button  # T5-MH12: Compare Targets button
 var trials_spinbox: SpinBox
 var phase_toggle: OptionButton  # Shooting/Melee phase selector
+
+# Multi-defender selection for target comparison (T5-MH12)
+var multi_defender_checkbox: CheckBox
+var multi_defender_panel: VBoxContainer
+var selected_defenders: Dictionary = {}  # unit_id -> bool (selected)
 
 # Defender stats override controls
 var defender_override_checkbox: CheckBox
@@ -313,12 +319,35 @@ func _create_content_sections() -> void:
 	compare_weapons_button.tooltip_text = "Run separate simulations for each weapon and compare results side-by-side"
 	unit_selector.add_child(compare_weapons_button)
 
+	# Compare Targets button (T5-MH12)
+	compare_targets_button = Button.new()
+	compare_targets_button.text = "Compare Targets"
+	compare_targets_button.tooltip_text = "Run same attacker against multiple defenders and compare results side-by-side"
+	unit_selector.add_child(compare_targets_button)
+
 	# Clear Results / Reset button (T5-MH10)
 	clear_results_button = Button.new()
 	clear_results_button.text = "Clear Results"
 	clear_results_button.tooltip_text = "Clear simulation results and reset the display"
 	clear_results_button.disabled = true  # Disabled until results exist
 	unit_selector.add_child(clear_results_button)
+
+	# Multi-defender selection panel (T5-MH12)
+	var defender_multi_separator = HSeparator.new()
+	unit_selector.add_child(defender_multi_separator)
+
+	multi_defender_checkbox = CheckBox.new()
+	multi_defender_checkbox.text = "Select Multiple Defenders"
+	multi_defender_checkbox.tooltip_text = "Enable to select multiple defenders for target comparison"
+	multi_defender_checkbox.add_theme_font_size_override("font_size", 13)
+	unit_selector.add_child(multi_defender_checkbox)
+	multi_defender_checkbox.toggled.connect(_on_multi_defender_toggled)
+
+	multi_defender_panel = VBoxContainer.new()
+	multi_defender_panel.name = "MultiDefenderPanel"
+	multi_defender_panel.add_theme_constant_override("separation", 4)
+	multi_defender_panel.visible = false  # Hidden until checkbox is toggled
+	unit_selector.add_child(multi_defender_panel)
 
 	# Progress indicator — hidden until simulation starts (T5-MH7)
 	_progress_container = VBoxContainer.new()
@@ -441,6 +470,9 @@ func _connect_signals() -> void:
 	if clear_results_button:
 		clear_results_button.pressed.connect(_on_clear_results_pressed)
 
+	if compare_targets_button:
+		compare_targets_button.pressed.connect(_on_compare_targets_pressed)
+
 	if phase_toggle:
 		phase_toggle.item_selected.connect(_on_phase_changed)
 
@@ -551,6 +583,46 @@ func _populate_unit_selectors() -> void:
 		# Add to defender dropdown
 		defender_selector.add_item(display_name)
 		defender_selector.set_item_metadata(defender_selector.get_item_count() - 1, unit_id)
+
+	# Populate multi-defender checkboxes (T5-MH12)
+	_populate_multi_defender_panel()
+
+func _populate_multi_defender_panel() -> void:
+	if not multi_defender_panel:
+		return
+
+	selected_defenders.clear()
+
+	# Clear existing children
+	for child in multi_defender_panel.get_children():
+		child.queue_free()
+
+	# Add a checkbox for each available unit
+	for unit_id in available_units:
+		var unit_info = available_units[unit_id]
+		var checkbox = CheckBox.new()
+		checkbox.text = unit_info.display_name
+		checkbox.add_theme_font_size_override("font_size", 12)
+		checkbox.set_meta("unit_id", unit_id)
+		checkbox.toggled.connect(_on_defender_checkbox_toggled.bind(unit_id))
+		multi_defender_panel.add_child(checkbox)
+		selected_defenders[unit_id] = false
+
+	var note = Label.new()
+	note.text = "Select 2+ defenders, then press Compare Targets"
+	note.add_theme_font_size_override("font_size", 10)
+	note.add_theme_color_override("font_color", Color.GRAY)
+	multi_defender_panel.add_child(note)
+
+	print("MathhammerUI: Populated multi-defender panel with %d units" % available_units.size())
+
+func _on_multi_defender_toggled(enabled: bool) -> void:
+	print("MathhammerUI: Multi-defender selection toggled: %s" % enabled)
+	multi_defender_panel.visible = enabled
+
+func _on_defender_checkbox_toggled(enabled: bool, unit_id: String) -> void:
+	selected_defenders[unit_id] = enabled
+	print("MathhammerUI: Defender %s toggled: %s" % [unit_id, enabled])
 
 func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 	var weapons = unit.get("meta", {}).get("weapons", [])
@@ -1176,6 +1248,7 @@ func _run_simulation_async(config: Dictionary) -> void:
 	run_simulation_button.disabled = true
 	run_simulation_button.text = "Running..."
 	compare_weapons_button.disabled = true
+	compare_targets_button.disabled = true
 
 	# Show progress indicator (T5-MH7)
 	_show_progress("Simulating... 0 / %d trials" % int(config.get("trials", 10000)), 0.0)
@@ -1216,6 +1289,7 @@ func _on_simulation_completed(result: Mathhammer.SimulationResult) -> void:
 	run_simulation_button.disabled = false
 	run_simulation_button.text = "Run Simulation"
 	compare_weapons_button.disabled = false
+	compare_targets_button.disabled = false
 	if clear_results_button:
 		clear_results_button.disabled = false  # T5-MH10: Enable after results are available
 
@@ -1767,6 +1841,7 @@ func _run_weapon_comparison_async(configs: Array) -> void:
 	run_simulation_button.disabled = true
 	compare_weapons_button.disabled = true
 	compare_weapons_button.text = "Comparing..."
+	compare_targets_button.disabled = true
 
 	# Show progress indicator for comparison (T5-MH7)
 	_show_progress("Comparing weapons... 0 / %d" % configs.size(), 0.0)
@@ -1809,6 +1884,7 @@ func _on_weapon_comparison_completed(results: Array) -> void:
 	run_simulation_button.disabled = false
 	compare_weapons_button.disabled = false
 	compare_weapons_button.text = "Compare Weapons"
+	compare_targets_button.disabled = false
 	if clear_results_button:
 		clear_results_button.disabled = false  # T5-MH10: Enable after comparison results
 
@@ -2013,6 +2089,385 @@ func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) ->
 					title_label.text = "Cumulative Probability — %s" % weapon_name
 
 	print("MathhammerUI: Populated comparison breakdown panel")
+
+# === T5-MH12: Multi-target comparison matrix ===
+
+func _on_compare_targets_pressed() -> void:
+	# Collect selected defenders
+	var active_defenders = []
+	for unit_id in selected_defenders:
+		if selected_defenders[unit_id]:
+			active_defenders.append(unit_id)
+
+	if active_defenders.size() < 2:
+		_show_error("Select at least 2 defenders in the multi-defender panel to compare targets")
+		return
+
+	# Check that at least one attacker has attacks > 0
+	var selected_attacker_ids = []
+	for unit_id in selected_attackers:
+		if selected_attackers[unit_id] > 0:
+			selected_attacker_ids.append(unit_id)
+
+	if selected_attacker_ids.is_empty():
+		_show_error("Please set at least one attacker unit with attack count > 0")
+		return
+
+	# Check that at least one weapon has attacks > 0
+	var has_active_weapon = false
+	for weapon_key in selected_weapons:
+		var weapon_data = selected_weapons[weapon_key]
+		if weapon_data.get("attack_count", 0) > 0:
+			has_active_weapon = true
+			break
+
+	if not has_active_weapon:
+		_show_error("Please configure at least one weapon with attack count > 0")
+		return
+
+	# Ensure no attacker is also a defender
+	for attacker_id in selected_attacker_ids:
+		if attacker_id in active_defenders:
+			_show_error("Unit cannot be both attacker and defender: %s" % available_units.get(attacker_id, {}).get("name", attacker_id))
+			return
+
+	# Build attacker configs (same for every defender)
+	var attackers = []
+	for unit_id in selected_attacker_ids:
+		var unit_attack_count = selected_attackers.get(unit_id, 0)
+		for i in range(unit_attack_count):
+			var attacker_config = _build_attacker_config(unit_id)
+			if not attacker_config.weapons.is_empty():
+				attackers.append(attacker_config)
+
+	if attackers.is_empty():
+		_show_error("No valid attacker configurations found")
+		return
+
+	# Build one simulation config per defender
+	var configs = []
+	for defender_id in active_defenders:
+		var defender_name = available_units.get(defender_id, {}).get("name", defender_id)
+
+		# Get defender stats for display
+		var defender_stats = _get_defender_display_stats(defender_id)
+
+		var config = {
+			"trials": int(trials_spinbox.value),
+			"attackers": attackers,
+			"defender": _build_defender_config(defender_id),
+			"rule_toggles": rule_toggles.duplicate(),
+			"phase": _get_selected_phase()
+		}
+
+		configs.append({
+			"config": config,
+			"defender_name": defender_name,
+			"defender_id": defender_id,
+			"defender_stats": defender_stats
+		})
+
+	print("MathhammerUI: Starting target comparison with %d defenders" % configs.size())
+	_run_target_comparison_async(configs)
+
+func _get_defender_display_stats(defender_id: String) -> Dictionary:
+	# Extract defender stats for display in comparison matrix
+	if not GameState:
+		return {}
+	var unit = GameState.get_unit(defender_id)
+	if unit.is_empty():
+		return {}
+
+	var stats = unit.get("meta", {}).get("stats", {})
+	var models = unit.get("models", [])
+	var wounds_per_model = models[0].get("wounds", 1) if not models.is_empty() else 1
+	var invuln = models[0].get("invuln", 0) if not models.is_empty() else 0
+
+	return {
+		"toughness": stats.get("toughness", 4),
+		"save": stats.get("save", 3),
+		"wounds": wounds_per_model,
+		"model_count": models.size(),
+		"invuln": invuln,
+		"fnp": stats.get("fnp", 0)
+	}
+
+func _run_target_comparison_async(configs: Array) -> void:
+	if _simulation_thread != null and _simulation_thread.is_started():
+		print("MathhammerUI: Waiting for previous simulation thread to finish...")
+		_simulation_thread.wait_to_finish()
+
+	run_simulation_button.disabled = true
+	compare_weapons_button.disabled = true
+	compare_targets_button.disabled = true
+	compare_targets_button.text = "Comparing..."
+
+	# Show progress indicator (T5-MH7)
+	_show_progress("Comparing targets... 0 / %d" % configs.size(), 0.0)
+
+	print("MathhammerUI: Starting target comparison on background thread...")
+	_simulation_thread = Thread.new()
+	_simulation_thread.start(_target_comparison_thread_func.bind(configs))
+
+func _target_comparison_thread_func(configs: Array) -> void:
+	print("MathhammerUI: Target comparison thread started, running %d simulations..." % configs.size())
+	var results = []
+	var total_defenders = configs.size()
+	for i in range(total_defenders):
+		var entry = configs[i]
+		print("MathhammerUI: Running target comparison %d/%d: vs %s" % [i + 1, total_defenders, entry.defender_name])
+		var pct = float(i) / float(total_defenders) * 100.0
+		call_deferred("_update_progress", "Comparing: vs %s (%d/%d)" % [entry.defender_name, i + 1, total_defenders], pct)
+		var result = Mathhammer.simulate_combat(entry.config)
+		results.append({
+			"defender_name": entry.defender_name,
+			"defender_id": entry.defender_id,
+			"defender_stats": entry.defender_stats,
+			"result": result
+		})
+	print("MathhammerUI: Target comparison thread complete")
+	call_deferred("_on_target_comparison_completed", results)
+
+func _on_target_comparison_completed(results: Array) -> void:
+	print("MathhammerUI: Target comparison completed on main thread")
+
+	if _simulation_thread != null and _simulation_thread.is_started():
+		_simulation_thread.wait_to_finish()
+		print("MathhammerUI: Target comparison background thread joined successfully")
+
+	# Hide progress indicator (T5-MH7)
+	_hide_progress()
+
+	_display_target_comparison_results(results)
+
+	run_simulation_button.disabled = false
+	compare_weapons_button.disabled = false
+	compare_targets_button.disabled = false
+	compare_targets_button.text = "Compare Targets"
+	if clear_results_button:
+		clear_results_button.disabled = false  # T5-MH10: Enable after target comparison results
+
+func _display_target_comparison_results(results: Array) -> void:
+	print("MathhammerUI: Displaying target comparison results for %d defenders" % results.size())
+	_clear_results_display()
+
+	if not summary_panel:
+		return
+
+	# Create comparison scroll container
+	var comparison_scroll = ScrollContainer.new()
+	comparison_scroll.name = "ResultsScroll"
+	comparison_scroll.custom_minimum_size = Vector2(_get_panel_width() * 0.95, _get_comparison_scroll_height())
+	comparison_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	summary_panel.add_child(comparison_scroll)
+
+	var comparison_vbox = VBoxContainer.new()
+	comparison_vbox.add_theme_constant_override("separation", 15)
+	comparison_scroll.add_child(comparison_vbox)
+
+	# Title panel
+	var title_panel = create_styled_panel("Multi-Target Comparison", Color(0.35, 0.2, 0.45, 0.8))
+	comparison_vbox.add_child(title_panel)
+	var title_content = title_panel.get_meta("content_vbox")
+
+	var subtitle = Label.new()
+	subtitle.text = "Same attacker simulated against each defender independently"
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
+	title_content.add_child(subtitle)
+
+	# Compute stats for each defender target
+	var target_stats_list = []
+	for entry in results:
+		var result = entry.result as Mathhammer.SimulationResult
+		var defender_stats = entry.defender_stats
+
+		# Aggregate per-weapon stats from trials
+		var total_attacks = 0
+		var total_hits = 0
+		var total_wounds = 0
+		var total_unsaved = 0
+
+		for trial in result.detailed_trials:
+			total_attacks += trial.attacks_made
+			total_hits += trial.hits
+			total_wounds += trial.wounds
+			total_unsaved += trial.saves_failed
+
+		var hit_rate = (float(total_hits) / float(total_attacks) * 100.0) if total_attacks > 0 else 0.0
+		var wound_rate = (float(total_wounds) / float(total_hits) * 100.0) if total_hits > 0 else 0.0
+		var unsaved_rate = (float(total_unsaved) / float(total_wounds) * 100.0) if total_wounds > 0 else 0.0
+
+		target_stats_list.append({
+			"defender_name": entry.defender_name,
+			"defender_id": entry.defender_id,
+			"defender_stats": defender_stats,
+			"avg_damage": result.get_average_damage(),
+			"median_damage": result.get_damage_percentile(0.5),
+			"kill_probability": result.kill_probability,
+			"expected_survivors": result.expected_survivors,
+			"damage_efficiency": result.damage_efficiency,
+			"hit_rate": hit_rate,
+			"wound_rate": wound_rate,
+			"unsaved_rate": unsaved_rate,
+			"result": result
+		})
+
+	# Find best values for highlighting
+	var best_avg_damage = 0.0
+	var best_kill_prob = 0.0
+	var best_efficiency = 0.0
+	for ts in target_stats_list:
+		if ts.avg_damage > best_avg_damage:
+			best_avg_damage = ts.avg_damage
+		if ts.kill_probability > best_kill_prob:
+			best_kill_prob = ts.kill_probability
+		if ts.damage_efficiency > best_efficiency:
+			best_efficiency = ts.damage_efficiency
+
+	# Create target comparison cards — one per defender
+	for i in range(target_stats_list.size()):
+		var ts = target_stats_list[i]
+		var dstats = ts.defender_stats
+
+		var is_best_damage = ts.avg_damage >= best_avg_damage and best_avg_damage > 0
+		var bg_color = Color(0.2, 0.4, 0.25, 0.8) if is_best_damage else Color(0.25, 0.3, 0.4, 0.8)
+
+		var target_panel = create_styled_panel("vs %s" % ts.defender_name, bg_color)
+		comparison_vbox.add_child(target_panel)
+		var target_content = target_panel.get_meta("content_vbox")
+
+		# Defender profile line
+		var profile_text = "T:%d  Sv:%d+  W:%d  Models:%d" % [
+			dstats.get("toughness", 4),
+			dstats.get("save", 3),
+			dstats.get("wounds", 1),
+			dstats.get("model_count", 1)
+		]
+		if dstats.get("invuln", 0) > 0:
+			profile_text += "  Invuln:%d+" % dstats.invuln
+		if dstats.get("fnp", 0) > 0:
+			profile_text += "  FNP:%d+" % dstats.fnp
+
+		var profile_label = Label.new()
+		profile_label.text = profile_text
+		profile_label.add_theme_font_size_override("font_size", 10)
+		profile_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.9))
+		target_content.add_child(profile_label)
+
+		# Stats grid
+		var grid = GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 15)
+		grid.add_theme_constant_override("v_separation", 4)
+		target_content.add_child(grid)
+
+		add_stat_row(grid, "Avg Damage:", "%.2f wounds" % ts.avg_damage,
+			Color.YELLOW if is_best_damage else Color.WHITE)
+		add_stat_row(grid, "Median Damage:", "%d wounds" % ts.median_damage)
+		add_stat_row(grid, "Kill Probability:", "%.1f%%" % (ts.kill_probability * 100),
+			Color.RED if ts.kill_probability >= best_kill_prob and best_kill_prob > 0 else Color.WHITE)
+		add_stat_row(grid, "Expected Survivors:", "%.2f models" % ts.expected_survivors, Color.GREEN)
+		add_stat_row(grid, "Damage Efficiency:", "%.1f%%" % (ts.damage_efficiency * 100),
+			Color.CYAN if ts.damage_efficiency >= best_efficiency and best_efficiency > 0 else Color.WHITE)
+		add_stat_row(grid, "Wound Rate:", "%.1f%%" % ts.wound_rate)
+		add_stat_row(grid, "Unsaved Rate:", "%.1f%%" % ts.unsaved_rate)
+
+	# Add ranking summary
+	_create_target_comparison_ranking(comparison_vbox, target_stats_list)
+
+	# Populate breakdown panel with per-target cumulative probability tables
+	_populate_target_comparison_breakdown(results)
+
+	print("MathhammerUI: Target comparison display complete")
+
+func _create_target_comparison_ranking(parent: VBoxContainer, target_stats: Array) -> void:
+	# Sort targets by average damage (descending) — highest damage = easiest to kill
+	var sorted_by_damage = target_stats.duplicate()
+	sorted_by_damage.sort_custom(func(a, b): return a.avg_damage > b.avg_damage)
+
+	var ranking_panel = create_styled_panel("Target Priority Ranking (by Avg Damage)", Color(0.5, 0.4, 0.15, 0.8))
+	parent.add_child(ranking_panel)
+	var ranking_content = ranking_panel.get_meta("content_vbox")
+
+	for i in range(sorted_by_damage.size()):
+		var ts = sorted_by_damage[i]
+		var rank_label = Label.new()
+		rank_label.text = "#%d %s — %.2f avg dmg (%.1f%% kill)" % [
+			i + 1, ts.defender_name, ts.avg_damage, ts.kill_probability * 100]
+		rank_label.add_theme_font_size_override("font_size", 11)
+
+		if i == 0:
+			rank_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
+		elif i == 1:
+			rank_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))  # Silver
+		elif i == 2:
+			rank_label.add_theme_color_override("font_color", Color(0.8, 0.5, 0.2))  # Bronze
+		else:
+			rank_label.add_theme_color_override("font_color", Color.WHITE)
+
+		ranking_content.add_child(rank_label)
+
+	# Also add an efficiency-based ranking
+	var sorted_by_efficiency = target_stats.duplicate()
+	sorted_by_efficiency.sort_custom(func(a, b): return a.damage_efficiency > b.damage_efficiency)
+
+	var eff_ranking_panel = create_styled_panel("Efficiency Ranking (least overkill)", Color(0.15, 0.4, 0.5, 0.8))
+	parent.add_child(eff_ranking_panel)
+	var eff_content = eff_ranking_panel.get_meta("content_vbox")
+
+	for i in range(sorted_by_efficiency.size()):
+		var ts = sorted_by_efficiency[i]
+		var eff_label = Label.new()
+		eff_label.text = "#%d %s — %.1f%% efficiency (%.2f avg dmg)" % [
+			i + 1, ts.defender_name, ts.damage_efficiency * 100, ts.avg_damage]
+		eff_label.add_theme_font_size_override("font_size", 11)
+
+		if i == 0:
+			eff_label.add_theme_color_override("font_color", Color(0.4, 1.0, 1.0))  # Cyan
+		else:
+			eff_label.add_theme_color_override("font_color", Color.WHITE)
+
+		eff_content.add_child(eff_label)
+
+func _populate_target_comparison_breakdown(results: Array) -> void:
+	# Populate the breakdown panel with per-target cumulative probability tables
+	if not breakdown_panel:
+		return
+
+	# Clear the breakdown_text placeholder if it still exists
+	if breakdown_text and is_instance_valid(breakdown_text):
+		breakdown_text.queue_free()
+		breakdown_text = null
+
+	var breakdown_scroll = ScrollContainer.new()
+	breakdown_scroll.name = "DetailedBreakdownScroll"
+	breakdown_scroll.custom_minimum_size = Vector2(_get_content_width(), _get_breakdown_scroll_height())
+	breakdown_scroll.visible = true
+	breakdown_panel.add_child(breakdown_scroll)
+
+	var breakdown_vbox = VBoxContainer.new()
+	breakdown_vbox.name = "BreakdownVBox"
+	breakdown_vbox.add_theme_constant_override("separation", 10)
+	breakdown_scroll.add_child(breakdown_vbox)
+
+	# Per-defender cumulative probability tables
+	for entry in results:
+		var result = entry.result as Mathhammer.SimulationResult
+		var defender_name = entry.defender_name
+
+		_create_cumulative_probability_panel(breakdown_vbox, result)
+
+		# Rename the panel title to include defender name
+		var last_child = breakdown_vbox.get_child(breakdown_vbox.get_child_count() - 1)
+		if last_child:
+			var content_vbox = last_child.get_meta("content_vbox") if last_child.has_meta("content_vbox") else null
+			if content_vbox and content_vbox.get_child_count() > 0:
+				var title_label = content_vbox.get_child(0)
+				if title_label is Label:
+					title_label.text = "Cumulative Probability — vs %s" % defender_name
+
+	print("MathhammerUI: Populated target comparison breakdown panel")
 
 # --- Progress indicator helpers (T5-MH7) ---
 

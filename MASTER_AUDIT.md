@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH12: Multi-target comparison matrix — Compare Targets button with multi-defender selection, per-target comparison cards, priority/efficiency rankings | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH11: Show dice notation (D6, D3+3) in weapon stats display — added A: field and raw dice notation for attacks, strength, damage | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH10: "Clear Results" / "Reset" button — disabled-by-default button that clears results, histogram, and restores placeholder text | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH9: Deduplicate results display — removed _populate_breakdown_panel() which duplicated all summary_panel content into breakdown_panel | Mathhammer | MATHHAMMER_AUDIT |
@@ -203,7 +204,7 @@ Items prefixed with **MH-** are Mathhammer-specific. They are also cross-referen
 | MH-FEAT-7 | Variable damage notation display (show D6, D3+3 in UI) | UnitCrunch, MathHammer8th | LOW |
 | MH-FEAT-8 | Quick-run on hover (expected damage preview) | UnitCrunch | LOW — **DONE** (T5-UX1) |
 | MH-FEAT-9 | Auto-detect weapon abilities from datasheet | UnitCrunch (import), Adept Roll (screenshot) | MEDIUM |
-| MH-FEAT-10 | Multi-target comparison matrix | Cogitator40k | LOW |
+| MH-FEAT-10 | Multi-target comparison matrix | Cogitator40k | LOW — **DONE** (T5-MH12) |
 | MH-FEAT-11 | Simulation runs on background thread (async) | Standard practice | MEDIUM |
 
 ### UI / Visual Issues
@@ -822,7 +823,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added "Clear Results" button after the Compare Weapons button, disabled by default. Enabled after simulation or weapon comparison completes. Handler clears results display, histogram, resets stored simulation result to null, restores placeholder text in summary and breakdown panels, then disables itself.
 - T5-MH11. [MH-FEAT-7] Show dice notation (D6, D3+3) in weapon stats display (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added attacks (A:) to weapon stats bracket and now display raw dice notation for attacks, strength, and damage fields (e.g., `[A:D6+3 BS:5+ S:D6+6 AP:-3 D:D6]`). Attacks label next to spinbox shows `(base: D6+3)` hint when attacks use dice notation.
-- T5-MH12. [MH-FEAT-10] Multi-target comparison matrix — run same attacker against multiple defenders (MATHHAMMER_AUDIT)
+- T5-MH12. [MH-FEAT-10] Multi-target comparison matrix — run same attacker against multiple defenders (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Added "Compare Targets" button and multi-defender selection panel with checkboxes. Users toggle "Select Multiple Defenders" to reveal unit checkboxes, select 2+ defenders, then press "Compare Targets". Runs same attacker config against each defender independently on a background thread with progress updates. Displays per-target comparison cards showing defender profile (T/Sv/W/Models/Invuln/FNP), avg damage, kill probability, expected survivors, damage efficiency, and wound/unsaved rates with color-coded best values. Includes target priority ranking (by avg damage with gold/silver/bronze) and efficiency ranking (least overkill). Per-defender cumulative probability tables in breakdown panel.
 - T5-MH13. Shooting/Melee phase toggle in Mathhammer UI (MATHHAMMER_AUDIT)
 
 ### Visual Polish
@@ -921,11 +923,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 25 | 26 | 51 |
+| Tier 5 — QoL/Visual | 26 | 25 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **83** | **45** | **128** |
-| **Recently Completed** | **106** | — | **106** |
-| *Mathhammer items (subset)* | *20* | *11* | *31* |
+| **Total Open** | **84** | **44** | **128** |
+| **Recently Completed** | **107** | — | **107** |
+| *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---
 
