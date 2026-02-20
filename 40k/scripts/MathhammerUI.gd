@@ -1263,6 +1263,13 @@ func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.Simul
 	add_stat_row(stats_grid, "Expected Survivors:", "%.2f models" % result.expected_survivors, Color.GREEN)
 	add_stat_row(stats_grid, "Damage Efficiency:", "%.1f%%" % (result.damage_efficiency * 100), Color.CYAN)
 
+	# Points efficiency metric (T5-MH4)
+	var attacker_cost = _get_selected_attacker_points_cost()
+	if attacker_cost > 0:
+		add_stat_row(stats_grid, "Attacker Cost:", "%d pts" % attacker_cost)
+		var damage_per_point = result.get_average_damage() / float(attacker_cost)
+		add_stat_row(stats_grid, "Damage/Point:", "%.4f wounds/pt" % damage_per_point, Color(1.0, 0.7, 0.3))
+
 func _create_weapon_breakdown_panel(parent: VBoxContainer, result: Mathhammer.SimulationResult) -> void:
 	if result.detailed_trials.is_empty():
 		return
@@ -1630,7 +1637,8 @@ func _on_compare_weapons_pressed() -> void:
 		configs.append({
 			"config": config,
 			"weapon_name": weapon_name,
-			"weapon_data": weapon_meta
+			"weapon_data": weapon_meta,
+			"unit_id": unit_id
 		})
 
 	print("MathhammerUI: Starting weapon comparison with %d weapons" % configs.size())
@@ -1659,7 +1667,8 @@ func _weapon_comparison_thread_func(configs: Array) -> void:
 		results.append({
 			"weapon_name": entry.weapon_name,
 			"weapon_data": entry.weapon_data,
-			"result": result
+			"result": result,
+			"unit_id": entry.get("unit_id", "")
 		})
 	print("MathhammerUI: Comparison thread complete")
 	call_deferred("_on_weapon_comparison_completed", results)
@@ -1728,10 +1737,15 @@ func _display_comparison_results(results: Array) -> void:
 		var wound_rate = (float(total_wounds) / float(total_hits) * 100.0) if total_hits > 0 else 0.0
 		var unsaved_rate = (float(total_unsaved) / float(total_wounds) * 100.0) if total_wounds > 0 else 0.0
 
+		# Points efficiency (T5-MH4)
+		var unit_cost = _get_unit_points_cost(entry.get("unit_id", ""))
+		var avg_dmg = result.get_average_damage()
+		var dmg_per_point = avg_dmg / float(unit_cost) if unit_cost > 0 else 0.0
+
 		weapon_stats_list.append({
 			"weapon_name": entry.weapon_name,
 			"weapon_data": weapon_data,
-			"avg_damage": result.get_average_damage(),
+			"avg_damage": avg_dmg,
 			"median_damage": result.get_damage_percentile(0.5),
 			"kill_probability": result.kill_probability,
 			"expected_survivors": result.expected_survivors,
@@ -1739,17 +1753,22 @@ func _display_comparison_results(results: Array) -> void:
 			"hit_rate": hit_rate,
 			"wound_rate": wound_rate,
 			"unsaved_rate": unsaved_rate,
+			"unit_cost": unit_cost,
+			"damage_per_point": dmg_per_point,
 			"result": result
 		})
 
 	# Find best values for highlighting
 	var best_avg_damage = 0.0
 	var best_kill_prob = 0.0
+	var best_dmg_per_point = 0.0
 	for ws in weapon_stats_list:
 		if ws.avg_damage > best_avg_damage:
 			best_avg_damage = ws.avg_damage
 		if ws.kill_probability > best_kill_prob:
 			best_kill_prob = ws.kill_probability
+		if ws.damage_per_point > best_dmg_per_point:
+			best_dmg_per_point = ws.damage_per_point
 
 	# Create weapon stat cards — one per weapon
 	for i in range(weapon_stats_list.size()):
@@ -1804,6 +1823,13 @@ func _display_comparison_results(results: Array) -> void:
 		add_stat_row(grid, "Wound Rate:", "%.1f%%" % ws.wound_rate)
 		add_stat_row(grid, "Unsaved Rate:", "%.1f%%" % ws.unsaved_rate)
 
+		# Points efficiency (T5-MH4)
+		if ws.unit_cost > 0:
+			add_stat_row(grid, "Unit Cost:", "%d pts" % ws.unit_cost)
+			var is_best_efficiency = ws.damage_per_point >= best_dmg_per_point and best_dmg_per_point > 0
+			add_stat_row(grid, "Damage/Point:", "%.4f wounds/pt" % ws.damage_per_point,
+				Color(1.0, 0.7, 0.3) if is_best_efficiency else Color.WHITE)
+
 	# Add ranking summary
 	_create_comparison_ranking(comparison_vbox, weapon_stats_list)
 
@@ -1838,6 +1864,39 @@ func _create_comparison_ranking(parent: VBoxContainer, weapon_stats: Array) -> v
 			rank_label.add_theme_color_override("font_color", Color.WHITE)
 
 		ranking_content.add_child(rank_label)
+
+	# Efficiency ranking by damage per point (T5-MH4)
+	var has_costs = false
+	for ws in weapon_stats:
+		if ws.get("unit_cost", 0) > 0:
+			has_costs = true
+			break
+
+	if has_costs:
+		var sorted_by_efficiency = weapon_stats.duplicate()
+		sorted_by_efficiency.sort_custom(func(a, b): return a.get("damage_per_point", 0) > b.get("damage_per_point", 0))
+
+		var efficiency_panel = create_styled_panel("Efficiency Ranking (Damage/Point)", Color(0.5, 0.35, 0.1, 0.8))
+		parent.add_child(efficiency_panel)
+		var efficiency_content = efficiency_panel.get_meta("content_vbox")
+
+		for i in range(sorted_by_efficiency.size()):
+			var ws = sorted_by_efficiency[i]
+			var eff_label = Label.new()
+			eff_label.text = "#%d %s — %.4f dmg/pt (%d pts)" % [
+				i + 1, ws.weapon_name, ws.get("damage_per_point", 0), ws.get("unit_cost", 0)]
+			eff_label.add_theme_font_size_override("font_size", 11)
+
+			if i == 0:
+				eff_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))  # Gold
+			elif i == 1:
+				eff_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))  # Silver
+			elif i == 2:
+				eff_label.add_theme_color_override("font_color", Color(0.8, 0.5, 0.2))  # Bronze
+			else:
+				eff_label.add_theme_color_override("font_color", Color.WHITE)
+
+			efficiency_content.add_child(eff_label)
 
 func _populate_comparison_breakdown(results: Array, weapon_stats_list: Array) -> void:
 	# Populate the breakdown panel with per-weapon cumulative probability tables
@@ -1883,3 +1942,24 @@ func _show_error(message: String) -> void:
 	print("MathhammerUI Error: ", message)
 	if results_label:
 		results_label.text = "[color=red][b]Error:[/b] " + message + "[/color]"
+
+# === T5-MH4: Points efficiency helpers ===
+
+func _get_unit_points_cost(unit_id: String) -> int:
+	# Get the points cost for a single unit from meta.points
+	if unit_id == "" or not GameState:
+		return 0
+	var unit = GameState.get_unit(unit_id)
+	return unit.get("meta", {}).get("points", 0)
+
+func _get_selected_attacker_points_cost() -> int:
+	# Calculate total points cost of unique selected attacker units
+	# Each unit is only counted once regardless of attack count
+	var total_cost = 0
+	var counted_units = {}
+	for unit_id in selected_attackers:
+		if selected_attackers[unit_id] > 0 and not counted_units.has(unit_id):
+			counted_units[unit_id] = true
+			total_cost += _get_unit_points_cost(unit_id)
+	print("MathhammerUI: Calculated attacker points cost: %d pts (from %d unique units)" % [total_cost, counted_units.size()])
+	return total_cost
