@@ -70,7 +70,8 @@ func _run_tests():
 	# --- Blast ---
 	test_blast_bonus_attacks_vs_large_unit()
 	test_blast_no_bonus_vs_small_unit()
-	test_blast_minimum_3_attacks()
+	test_blast_correct_per_5_model_scaling()
+	test_blast_5_model_threshold()
 	test_blast_weapon_prefers_large_unit()
 
 	# --- Rapid Fire ---
@@ -296,7 +297,7 @@ func test_torrent_weapon_scores_higher_than_same_bs_weapon():
 func test_blast_bonus_attacks_vs_large_unit():
 	var blast_weapon = _make_ranged_weapon("Frag missile", 3, 4, 0, 1, 2, 48, "blast")
 	var snapshot = _create_test_snapshot()
-	# 8 models = +1 attack from Blast
+	# 8 models = floor(8/5) = +1 attack from Blast (10th ed)
 	_add_unit(snapshot, "horde", 2, Vector2(400, 0), "Horde", 8, ["INFANTRY"], [], 4, 5, 1)
 
 	var mods = AIDecisionMaker._apply_weapon_keyword_modifiers(
@@ -322,21 +323,49 @@ func test_blast_no_bonus_vs_small_unit():
 	_assert_approx(mods["attacks"], 2.0, 0.01,
 		"Blast adds no bonus attacks vs 3-model unit")
 
-func test_blast_minimum_3_attacks():
-	# Weapon with 1 attack base + Blast vs 6+ model unit should get minimum 3
-	var blast_weapon = _make_ranged_weapon("Small blast", 3, 4, 0, 1, 1, 48, "blast")
+func test_blast_correct_per_5_model_scaling():
+	# 10th ed Blast: +1 per 5 models. 15 models = floor(15/5) = +3
+	var blast_weapon = _make_ranged_weapon("Frag missile", 3, 4, 0, 1, 2, 48, "blast")
 	var snapshot = _create_test_snapshot()
-	_add_unit(snapshot, "squad", 2, Vector2(400, 0), "Squad", 7, ["INFANTRY"], [], 4, 5, 1)
+	_add_unit(snapshot, "big_horde", 2, Vector2(400, 0), "Big Horde", 15, ["INFANTRY"], [], 4, 5, 1)
 
 	var mods = AIDecisionMaker._apply_weapon_keyword_modifiers(
-		blast_weapon, snapshot.units["squad"],
-		1.0, 0.667, 0.5, 0.5, 1.0,
+		blast_weapon, snapshot.units["big_horde"],
+		2.0, 0.667, 0.5, 0.5, 1.0,
 		4, 4, 5, 0, 0,
 		10.0, 48.0
 	)
-	# 1 base + 1 blast = 2, but minimum 3 kicks in
+	# 2 base + 3 blast (15/5) = 5
+	_assert_approx(mods["attacks"], 5.0, 0.01,
+		"Blast adds +3 attacks vs 15-model unit (2 -> 5)")
+
+func test_blast_5_model_threshold():
+	# Exactly 5 models should get +1 from Blast (floor(5/5) = 1)
+	var blast_weapon = _make_ranged_weapon("Frag missile", 3, 4, 0, 1, 2, 48, "blast")
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "squad5", 2, Vector2(400, 0), "Squad of 5", 5, ["INFANTRY"], [], 4, 5, 1)
+
+	var mods = AIDecisionMaker._apply_weapon_keyword_modifiers(
+		blast_weapon, snapshot.units["squad5"],
+		2.0, 0.667, 0.5, 0.5, 1.0,
+		4, 4, 5, 0, 0,
+		10.0, 48.0
+	)
+	# 2 base + 1 blast (5/5) = 3
 	_assert_approx(mods["attacks"], 3.0, 0.01,
-		"Blast enforces minimum 3 attacks vs 7-model unit")
+		"Blast adds +1 attack vs exactly 5-model unit (2 -> 3)")
+
+	# 4 models should get NO bonus
+	var snapshot2 = _create_test_snapshot()
+	_add_unit(snapshot2, "squad4", 2, Vector2(400, 0), "Squad of 4", 4, ["INFANTRY"], [], 4, 5, 1)
+	var mods2 = AIDecisionMaker._apply_weapon_keyword_modifiers(
+		blast_weapon, snapshot2.units["squad4"],
+		2.0, 0.667, 0.5, 0.5, 1.0,
+		4, 4, 5, 0, 0,
+		10.0, 48.0
+	)
+	_assert_approx(mods2["attacks"], 2.0, 0.01,
+		"Blast adds no bonus vs 4-model unit")
 
 func test_blast_weapon_prefers_large_unit():
 	var blast_weapon = _make_ranged_weapon("Frag missile", 3, 4, 0, 1, 2, 48, "blast")
@@ -641,7 +670,7 @@ func test_score_shooting_target_blast_vs_horde():
 	var score_blast = AIDecisionMaker._score_shooting_target(blast, snapshot.units["horde"], snapshot, snapshot.units["shooter"])
 	var score_normal = AIDecisionMaker._score_shooting_target(normal, snapshot.units["horde"], snapshot, snapshot.units["shooter"])
 
-	# Blast adds +2 attacks vs 12-model horde (3 base + 2 = 5)
+	# Blast adds +2 attacks vs 12-model horde: floor(12/5) = 2 (3 base + 2 = 5)
 	_assert_greater(score_blast, score_normal,
 		"Blast weapon scores higher vs 12-model horde in _score_shooting_target")
 
