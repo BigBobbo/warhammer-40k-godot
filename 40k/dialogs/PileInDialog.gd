@@ -62,7 +62,7 @@ func _build_ui() -> void:
 
 	# Info label
 	var info = Label.new()
-	info.text = "• Green line = valid movement\n• Red line = invalid (too far or wrong direction)\n• Green dots = unit coherency maintained\n• Red X (B2B) = model in base contact, cannot move"
+	info.text = "• Green arrow = valid (closer to enemy, within 3\")\n• Red arrow = invalid (too far or wrong direction)\n• Dashed line = movement path with distance\n• Green dots = unit coherency maintained\n• Red X (B2B) = model in base contact, cannot move"
 	info.add_theme_font_size_override("font_size", 11)
 	info.add_theme_color_override("font_color", Color.DARK_GRAY)
 	container.add_child(info)
