@@ -56,6 +56,7 @@ These items were previously open in the audit files and have now been verified a
 | T5-UX13: Score objectives in Scoring Phase (objective control display + updated control check before secondary scoring) | Scoring | ScoringController.gd TODO |
 | T5-UX11: Unit base preview on hover in deployment (tooltip with base size, model count, special deployment rules) | Deployment | DEPLOYMENT_AUDIT.md §QoL 7 |
 | T5-UX10: Auto-zoom to deployment zone (smooth camera pan/zoom to active player's zone on phase entry and turn switch) | Deployment | DEPLOYMENT_AUDIT.md §QoL 5 |
+| T5-UX9: Undo last model placement per-model in deployment (Ctrl+Z / Undo button removes last model, Reset Unit button for full reset) | Deployment | DEPLOYMENT_AUDIT.md §QoL 4 |
 | T5-UX8: Deployment summary before ending phase (summary dialog with deployed units, transports, characters, reserves) | Deployment | DEPLOYMENT_AUDIT.md §QoL 8 |
 | T5-UX7: End fight phase confirmation dialog (warning with unfought units list before ending fight phase) | Fight | fight_phase_audit_report.md §3.6 |
 | T5-UX6: Show weapon stats in target assignment UI (compact stat sub-line: Range, A, BS, S, AP, D beneath each weapon) | Shooting | SHOOTING_PHASE_AUDIT.md §Additional |
@@ -816,7 +817,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Added EndFightConfirmationDialog.gd that shows when the player tries to end the Fight phase while eligible units haven't fought. Lists unfought units by player and subphase with a warning message. Added get_unfought_eligible_units() to FightPhase.gd and intercept logic in Main.gd. If no unfought units remain, the phase ends immediately without a dialog.
 - T5-UX8. Deployment summary before ending phase (DEPLOYMENT_AUDIT.md §QoL 8) — **DONE**
   - **Resolution:** Added DeploymentSummaryDialog.gd that shows a full deployment summary when the player clicks End Deployment. Lists deployed units per player with positions, units in transports, attached characters, and units in reserves. Added get_deployment_summary() to DeploymentPhase.gd and intercept logic in Main.gd. Requires explicit "Confirm and Start Game" or "Go Back" before proceeding.
-- T5-UX9. Undo last model placement (per-model) in deployment (DEPLOYMENT_AUDIT.md §QoL 4)
+- T5-UX9. Undo last model placement (per-model) in deployment (DEPLOYMENT_AUDIT.md §QoL 4) — **DONE**
+  - **Resolution:** Added `undo_last_model()` per-model undo to DeploymentController (Ctrl+Z or Undo button removes only the last placed model). Existing full-unit reset preserved as `reset_unit()` via the Reset Unit button. Both buttons now visible during deployment when models are placed.
 - T5-UX10. Auto-zoom to deployment zone (DEPLOYMENT_AUDIT.md §QoL 5) — **DONE**
   - **Resolution:** Added `focus_on_deployment_zone(player)` to Main.gd with smooth tween animation. Auto-zooms to active player's deployment zone on phase entry and on deployment turn switch. Calculates bounding box of zone polygon and fits camera with 20% padding margin.
 - T5-UX11. Unit base preview on hover in deployment (DEPLOYMENT_AUDIT.md §QoL 7) — **DONE**
