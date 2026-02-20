@@ -57,6 +57,11 @@ func _run_tests():
 	test_find_safer_position_reduces_threat()
 	test_threat_aware_assignment_scoring()
 	test_ranged_unit_avoids_charge_danger()
+	test_close_melee_proximity_penalty()
+	test_close_melee_penalty_not_applied_beyond_12_inches()
+	test_close_melee_penalty_scaled_by_depth()
+	test_melee_weapon_quality_affects_threat_level()
+	test_close_melee_penalty_reduced_for_melee_units()
 
 # =========================================================================
 # Helper: Create test data structures
@@ -504,6 +509,153 @@ func test_ranged_unit_avoids_charge_danger():
 	print("  Threat-aware hold check: start_charge=%.2f, dest_charge=%.2f, has_targets=true" % [
 		start_threat.charge_threat, dest_threat.charge_threat])
 	print("  The AI should prefer holding position to avoid entering charge danger")
+
+# =========================================================================
+# TEST: T7-13 Close melee proximity penalty (within 12")
+# =========================================================================
+
+func _make_powerful_melee_weapons() -> Array:
+	return [{"type": "melee", "name": "Thunder Hammer", "range": "Melee", "attacks": "3",
+			"skill": "4", "strength": "8", "ap": "-2", "damage": "2", "abilities": ""}]
+
+func test_close_melee_proximity_penalty():
+	print("\n--- test_close_melee_proximity_penalty ---")
+	var snapshot = _create_test_snapshot()
+	# Enemy melee unit at (800, 800)
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 800), "Melee Enemy", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	var enemies = _make_enemies(snapshot)
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
+
+	# Own ranged unit
+	_add_unit(snapshot, "own", 2, Vector2(800, 1500), "Own Unit", 2, 6, 5,
+			["INFANTRY"], _make_ranged_weapons())
+
+	# Position within 12" of enemy (10" = 400px away from centroid)
+	# Enemy centroid with 5 models at x=800..960: centroid_x = 880, centroid_y = 800
+	var enemy_centroid = Vector2(880, 800)
+	var pos_close = enemy_centroid + Vector2(0, 400)  # 10" away = within 12"
+
+	var result = AIDecisionMaker._evaluate_position_threat(pos_close, threat_data, snapshot.units["own"])
+	# Should have both normal charge threat AND close melee penalty
+	var has_close_melee = false
+	for t in result.threats:
+		if t.type == "close_melee":
+			has_close_melee = true
+			break
+	_assert(has_close_melee, "Position within 12\" of melee enemy has close_melee threat entry")
+	_assert(result.charge_threat > 0.0, "Close position has positive charge threat (got %.2f)" % result.charge_threat)
+
+func test_close_melee_penalty_not_applied_beyond_12_inches():
+	print("\n--- test_close_melee_penalty_not_applied_beyond_12_inches ---")
+	var snapshot = _create_test_snapshot()
+	# Enemy melee unit
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 800), "Melee Enemy", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	var enemies = _make_enemies(snapshot)
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
+
+	# Own unit
+	_add_unit(snapshot, "own", 2, Vector2(800, 1500), "Own Unit", 2, 6, 5,
+			["INFANTRY"], _make_ranged_weapons())
+
+	# Position at 14" (560px) from enemy centroid — within charge range but outside 12"
+	var enemy_centroid = Vector2(880, 800)
+	var pos_far = enemy_centroid + Vector2(0, 560)  # 14" away, outside 12"
+
+	var result = AIDecisionMaker._evaluate_position_threat(pos_far, threat_data, snapshot.units["own"])
+	var has_close_melee = false
+	for t in result.threats:
+		if t.type == "close_melee":
+			has_close_melee = true
+			break
+	_assert(not has_close_melee, "Position beyond 12\" has no close_melee threat entry")
+	# Should still have normal charge threat (within M+13" = 19" range)
+	var has_charge = false
+	for t in result.threats:
+		if t.type == "charge":
+			has_charge = true
+			break
+	_assert(has_charge, "Position at 14\" still has normal charge threat (within 19\" zone)")
+
+func test_close_melee_penalty_scaled_by_depth():
+	print("\n--- test_close_melee_penalty_scaled_by_depth ---")
+	var snapshot = _create_test_snapshot()
+	# Enemy melee unit
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 800), "Melee Enemy", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	var enemies = _make_enemies(snapshot)
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
+
+	# Own unit
+	_add_unit(snapshot, "own", 2, Vector2(800, 1500), "Own Unit", 2, 6, 5,
+			["INFANTRY"], _make_ranged_weapons())
+
+	var enemy_centroid = Vector2(880, 800)
+
+	# Position very close (4" = 160px) should have higher close melee penalty
+	# than position at edge of 12" (11" = 440px)
+	var pos_very_close = enemy_centroid + Vector2(0, 160)  # 4" away
+	var pos_edge = enemy_centroid + Vector2(0, 440)  # 11" away
+
+	var threat_close = AIDecisionMaker._evaluate_position_threat(pos_very_close, threat_data, snapshot.units["own"])
+	var threat_edge = AIDecisionMaker._evaluate_position_threat(pos_edge, threat_data, snapshot.units["own"])
+	_assert(threat_close.charge_threat > threat_edge.charge_threat,
+		"Position at 4\" has higher charge threat than at 11\" (%.2f > %.2f)" %
+		[threat_close.charge_threat, threat_edge.charge_threat])
+
+func test_melee_weapon_quality_affects_threat_level():
+	print("\n--- test_melee_weapon_quality_affects_threat_level ---")
+	var snapshot = _create_test_snapshot()
+	# Unit with basic melee weapons (chainsword: A3, S4, AP-1, D1)
+	_add_unit(snapshot, "basic_melee", 1, Vector2(800, 600), "Basic Melee", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	# Unit with powerful melee weapons (thunder hammer: A3, S8, AP-2, D2)
+	_add_unit(snapshot, "power_melee", 1, Vector2(800, 1200), "Power Melee", 2, 6, 5,
+			["INFANTRY"], _make_powerful_melee_weapons())
+
+	var basic_threat = AIDecisionMaker._estimate_enemy_threat_level(snapshot.units["basic_melee"])
+	var power_threat = AIDecisionMaker._estimate_enemy_threat_level(snapshot.units["power_melee"])
+	_assert(power_threat > basic_threat,
+		"Unit with powerful melee weapons has higher threat (%.2f > %.2f)" %
+		[power_threat, basic_threat])
+
+func test_close_melee_penalty_reduced_for_melee_units():
+	print("\n--- test_close_melee_penalty_reduced_for_melee_units ---")
+	var snapshot = _create_test_snapshot()
+	# Enemy melee unit
+	_add_unit(snapshot, "enemy1", 1, Vector2(800, 800), "Melee Enemy", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	var enemies = _make_enemies(snapshot)
+	var threat_data = AIDecisionMaker._calculate_enemy_threat_data(enemies)
+
+	# Melee-only friendly unit
+	_add_unit(snapshot, "melee_own", 2, Vector2(800, 1000), "Melee Friendly", 2, 6, 5,
+			["INFANTRY"], _make_melee_weapons())
+	# Ranged-only friendly unit
+	_add_unit(snapshot, "ranged_own", 2, Vector2(800, 1000), "Ranged Friendly", 2, 6, 5,
+			["INFANTRY"], _make_ranged_weapons())
+
+	# Position within 12" (8" = 320px from enemy centroid)
+	var enemy_centroid = Vector2(880, 800)
+	var pos = enemy_centroid + Vector2(0, 320)  # 8" away
+
+	var melee_result = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["melee_own"])
+	var ranged_result = AIDecisionMaker._evaluate_position_threat(pos, threat_data, snapshot.units["ranged_own"])
+
+	# Find close_melee penalties specifically
+	var melee_close_penalty = 0.0
+	for t in melee_result.threats:
+		if t.type == "close_melee":
+			melee_close_penalty += t.penalty
+	var ranged_close_penalty = 0.0
+	for t in ranged_result.threats:
+		if t.type == "close_melee":
+			ranged_close_penalty += t.penalty
+
+	_assert(melee_close_penalty < ranged_close_penalty,
+		"Melee unit has lower close_melee penalty than ranged unit (%.2f < %.2f)" %
+		[melee_close_penalty, ranged_close_penalty])
 
 # =========================================================================
 # Helper: Get objectives from snapshot

@@ -85,6 +85,10 @@ const THREAT_SHOOTING_PENALTY: float = 1.0  # Lighter penalty for moving into sh
 const THREAT_FRAGILE_BONUS: float = 1.5     # Extra penalty multiplier for fragile/high-value units in danger
 const THREAT_MELEE_UNIT_IGNORE: float = 0.3 # Melee-focused units care less about being in charge range
 const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat range for safety
+# Close melee proximity: 12" is the raw charge distance — being this close means
+# the enemy can charge without needing to move first, making it critically dangerous
+const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
+const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
 
 # =============================================================================
 # MAIN ENTRY POINT
@@ -6787,6 +6791,35 @@ static func _estimate_enemy_threat_level(enemy: Dictionary) -> float:
 	if "CHARACTER" in keywords or "VEHICLE" in keywords or "MONSTER" in keywords:
 		value += 0.3
 
+	# T7-13: Factor in melee weapon quality for melee-capable enemies
+	# Units with powerful melee weapons (high strength, AP, damage, many attacks) are scarier
+	var weapons = enemy.get("meta", {}).get("weapons", [])
+	var best_melee_score = 0.0
+	for w in weapons:
+		if w.get("type", "").to_lower() != "melee":
+			continue
+		var w_attacks_str = w.get("attacks", "1")
+		var w_attacks = float(w_attacks_str) if w_attacks_str.is_valid_float() else 1.0
+		var w_strength_str = w.get("strength", "4")
+		var w_strength = int(w_strength_str) if w_strength_str.is_valid_int() else 4
+		var w_ap_str = w.get("ap", "0")
+		var w_ap = abs(int(w_ap_str.replace("-", ""))) if w_ap_str.replace("-", "").is_valid_int() else 0
+		var w_damage_str = w.get("damage", "1")
+		var w_damage = float(w_damage_str) if w_damage_str.is_valid_float() else 1.0
+		# Simple melee quality score: attacks * strength-factor * ap-factor * damage
+		var s_factor = 1.0 + (w_strength - 4) * 0.1  # S4=1.0, S8=1.4, S12=1.8
+		var ap_factor = 1.0 + w_ap * 0.15             # AP0=1.0, AP-2=1.3, AP-4=1.6
+		var melee_score = w_attacks * s_factor * ap_factor * w_damage
+		best_melee_score = max(best_melee_score, melee_score)
+
+	# Scale: 0 damage = no bonus, typical melee (~4 score) = +0.2, powerful melee (~10+ score) = +0.5
+	if best_melee_score >= 10.0:
+		value += 0.5
+	elif best_melee_score >= 6.0:
+		value += 0.3
+	elif best_melee_score >= 3.0:
+		value += 0.2
+
 	return clampf(value, 0.3, 3.0)
 
 static func _evaluate_position_threat(
@@ -6799,6 +6832,8 @@ static func _evaluate_position_threat(
 	var shoot_threat = 0.0
 	var threats = []  # Details of which enemies threaten this position
 	var is_melee_focused = _unit_has_melee_weapons(own_unit) and not _unit_has_ranged_weapons(own_unit)
+
+	var close_melee_range_px = THREAT_CLOSE_MELEE_DISTANCE_INCHES * PIXELS_PER_INCH
 
 	for td in threat_data:
 		var dist = pos.distance_to(td.centroid)
@@ -6819,6 +6854,22 @@ static func _evaluate_position_threat(
 				"threat_range_inches": td.charge_threat_px / PIXELS_PER_INCH,
 				"penalty": charge_penalty
 			})
+
+			# T7-13: Extra close melee proximity penalty — within 12" the enemy can
+			# charge without needing to move first, which is critically dangerous
+			if dist < close_melee_range_px:
+				var close_depth = 1.0 - (dist / close_melee_range_px)  # 0=edge of 12", 1=on top
+				var close_penalty = close_depth * td.unit_value * THREAT_CLOSE_MELEE_PENALTY
+				if is_melee_focused:
+					close_penalty *= THREAT_MELEE_UNIT_IGNORE
+				charge_threat += close_penalty
+				threats.append({
+					"enemy_id": td.unit_id,
+					"type": "close_melee",
+					"distance_inches": dist / PIXELS_PER_INCH,
+					"threat_range_inches": THREAT_CLOSE_MELEE_DISTANCE_INCHES,
+					"penalty": close_penalty
+				})
 
 		# Check shooting threat zone
 		if td.has_ranged and td.shoot_threat_px > 0 and dist < td.shoot_threat_px:
