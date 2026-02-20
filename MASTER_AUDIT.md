@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MH5: Swap attacker/defender button — one-click role reversal with auto-refresh of weapons, rules, and override panel | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH3: Multi-weapon side-by-side comparison view — Compare Weapons button runs independent per-weapon simulations with ranked results | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH2: Cumulative probability display — "X% chance of at least N wounds" table with color-coded probability tiers | Mathhammer | MATHHAMMER_AUDIT |
 | T5-UX14: Mathhammer melee simulation integration (full Monte Carlo prediction before dice rolling, scoping bug fix in Mathhammer.gd) | Fight/Mathhammer | FIGHT_PHASE_AUDIT.md, Code TODO |
@@ -805,7 +806,8 @@ These are real rules gaps but affect niche situations or have workarounds.
 - T5-MH3. [MH-FEAT-3] Multi-weapon side-by-side comparison view (MATHHAMMER_AUDIT) — **DONE**
   - **Resolution:** Added "Compare Weapons" button to MathhammerUI.gd that runs independent Monte Carlo simulations per weapon against the same defender. Results displayed as side-by-side weapon stat cards showing avg damage, kill probability, expected survivors, hit/wound/unsaved rates, and damage efficiency. Best weapon highlighted with green background. Damage ranking panel sorts weapons by effectiveness with color-coded rank labels. Breakdown panel shows per-weapon cumulative probability tables. Runs on background thread to avoid UI freeze.
 - T5-MH4. [MH-FEAT-4] Damage per point (points efficiency metric) — unit cost data exists in `meta.points` (MATHHAMMER_AUDIT)
-- T5-MH5. [MH-FEAT-5] Swap attacker/defender button (MATHHAMMER_AUDIT)
+- T5-MH5. [MH-FEAT-5] Swap attacker/defender button (MATHHAMMER_AUDIT) — **DONE**
+  - **Resolution:** Added "⇅ Swap Attacker / Defender" button between attacker and defender sections in MathhammerUI.gd. Swaps the first active attacker to become the new defender and the current defender to become an attacker with 1 attack. Resets all other attacker spinboxes, refreshes weapon selection, auto-detects new defender rules, and resets defender override panel. Validates that both attacker and defender are selected before swapping.
 - T5-MH6. [MH-UI-2] Responsive panel sizing — adapt to viewport instead of hardcoded 800px/400x600 (MATHHAMMER_AUDIT)
 - T5-MH7. [MH-UI-3] Loading spinner / progress bar during simulation (MATHHAMMER_AUDIT)
 - T5-MH8. [MH-UI-6] Color-code results — green for high kill prob, red for low efficiency, yellow for overkill (MATHHAMMER_AUDIT)
@@ -911,11 +913,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 20 | 31 | 51 |
+| Tier 5 — QoL/Visual | 21 | 30 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **78** | **50** | **128** |
-| **Recently Completed** | **101** | — | **101** |
-| *Mathhammer items (subset)* | *15* | *16* | *31* |
+| **Total Open** | **79** | **49** | **128** |
+| **Recently Completed** | **102** | — | **102** |
+| *Mathhammer items (subset)* | *16* | *15* | *31* |
 
 ---
 
