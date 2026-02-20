@@ -204,7 +204,7 @@ static func _apply_single_effect(effect: Dictionary, target_unit_id: String) -> 
 	if mapping == null:
 		print("EffectPrimitives: Unknown effect type '%s' — no flags to set" % effect_type)
 		return []
-	if mapping == "use_scope":
+	if mapping is String and mapping == "use_scope":
 		# This shouldn't happen since GRANT_PRECISION is handled above
 		return []
 
@@ -333,7 +333,7 @@ static func _clear_single_effect(effect: Dictionary, unit_id: String, unit_flags
 
 	# Look up flag mapping
 	var mapping = _EFFECT_FLAG_MAP.get(effect_type)
-	if mapping == null or mapping == "use_scope":
+	if mapping == null or (mapping is String and mapping == "use_scope"):
 		return
 
 	for descriptor in mapping:
@@ -373,7 +373,7 @@ static func get_flag_names_for_effects(effects: Array) -> Array:
 			continue
 
 		var mapping = _EFFECT_FLAG_MAP.get(effect_type)
-		if mapping == null or mapping == "use_scope":
+		if mapping == null or (mapping is String and mapping == "use_scope"):
 			continue
 		for descriptor in mapping:
 			if descriptor.flag not in flags:

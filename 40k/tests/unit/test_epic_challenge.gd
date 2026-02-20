@@ -420,7 +420,7 @@ func test_precision_detected_in_melee_resolution():
 		}
 	}
 
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(action, board, rng)
 	assert_true(result.success, "Resolution should succeed")
 
@@ -457,7 +457,7 @@ func test_precision_from_weapon_special_rules_in_resolution():
 		}
 	}
 
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(action, board, rng)
 	assert_true(result.success, "Resolution should succeed")
 
@@ -585,6 +585,6 @@ func test_precision_no_character_in_target():
 	}
 
 	# This should succeed without errors even though target has no CHARACTER models
-	var rng = RNGService.new()
+	var rng = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(action, board, rng)
 	assert_true(result.success, "Should succeed even when target has no CHARACTER models")
