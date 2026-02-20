@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-V1: Animated dice roll visualization — DiceRollVisual.gd with cycling animation, color-coded dice (gold 6s, red 1s, green success, gray fail), integrated into Shooting/Fight/Charge controllers | Shooting/Fight/Charge | SHOOTING_PHASE_AUDIT.md §Tier 3 |
 | T5-MH13: Shooting/Melee phase toggle — OptionButton filtering weapons/rules by phase, simulation routing, phase label in results, no-weapons hint | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH12: Multi-target comparison matrix — Compare Targets button with multi-defender selection, per-target comparison cards, priority/efficiency rankings | Mathhammer | MATHHAMMER_AUDIT |
 | T5-MH11: Show dice notation (D6, D3+3) in weapon stats display — added A: field and raw dice notation for attacks, strength, damage | Mathhammer | MATHHAMMER_AUDIT |
@@ -830,7 +831,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Phase toggle OptionButton (Shooting/Melee) filters weapon list to show only ranged or melee weapons respectively, hides shooting-only rule toggles (Cover, Torrent, Rapid Fire, Conversion) in melee mode, routes simulation to correct RulesEngine method (resolve_shoot vs resolve_melee_attacks), and displays phase context in all result views. Added "no weapons" hint when a unit lacks weapons for the selected phase, phase label in Overall Statistics and comparison headers, and _unit_has_melee_weapons helper.
 
 ### Visual Polish
-- T5-V1. Animated dice roll visualization (SHOOTING_PHASE_AUDIT.md §Tier 3)
+- T5-V1. Animated dice roll visualization (SHOOTING_PHASE_AUDIT.md §Tier 3) — **DONE**
+  - **Resolution:** Created `DiceRollVisual.gd` — a reusable animated 2D dice display Control. Each die shows a cycling animation before settling on its final value. Color-coded: gold for critical hits (6s), red for natural 1s, green for successes, gray for failures. Integrated into ShootingController, FightController, and ChargeController via the `dice_rolled` signal. Appears above the text dice log in each phase's right panel.
 - T5-V2. Shooting line animation and tracer effects (SHOOTING_PHASE_AUDIT.md §Tier 4)
 - T5-V3. Phase transition animation banners (SHOOTING_PHASE_AUDIT.md §Additional)
 - T5-V4. Target unit damage feedback (flash + death animation) (SHOOTING_PHASE_AUDIT.md §Additional)
@@ -925,10 +927,10 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 20 | 6 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
-| Tier 5 — QoL/Visual | 27 | 24 | 51 |
+| Tier 5 — QoL/Visual | 28 | 23 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| **Total Open** | **85** | **43** | **128** |
-| **Recently Completed** | **107** | — | **107** |
+| **Total Open** | **86** | **42** | **128** |
+| **Recently Completed** | **108** | — | **108** |
 | *Mathhammer items (subset)* | *21* | *10* | *31* |
 
 ---

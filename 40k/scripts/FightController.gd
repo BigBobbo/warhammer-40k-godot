@@ -62,6 +62,7 @@ var consolidate_button: Button
 var confirm_button: Button
 var clear_button: Button
 var dice_log_display: RichTextLabel
+var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -234,12 +235,18 @@ func _setup_right_panel() -> void:
 	dice_label.text = "Combat Log:"
 	fight_panel.add_child(dice_label)
 	
+	# T5-V1: Animated dice roll visualization
+	dice_roll_visual = DiceRollVisual.new()
+	dice_roll_visual.custom_minimum_size = Vector2(230, 0)
+	dice_roll_visual.visible = false  # Hidden until first roll
+	fight_panel.add_child(dice_roll_visual)
+
 	dice_log_display = RichTextLabel.new()
 	dice_log_display.custom_minimum_size = Vector2(230, 100)
 	dice_log_display.bbcode_enabled = true
 	dice_log_display.scroll_following = true
 	fight_panel.add_child(dice_log_display)
-	
+
 	# ADD: Action buttons section (moved from top bar)
 	fight_panel.add_child(HSeparator.new())
 	
@@ -896,6 +903,10 @@ func _on_fight_resolved(fighter_id: String, results: Dictionary) -> void:
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not dice_log_display:
 		return
+
+	# T5-V1: Trigger animated dice visualization
+	if dice_roll_visual:
+		dice_roll_visual.show_dice_roll(dice_data)
 
 	var context = dice_data.get("context", "")
 	var rolls_raw = dice_data.get("rolls_raw", [])
