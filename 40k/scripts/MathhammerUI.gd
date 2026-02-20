@@ -542,7 +542,8 @@ func _populate_unit_selectors() -> void:
 			"name": unit_name,
 			"display_name": display_name,
 			"owner": owner,
-			"has_ranged_weapons": _unit_has_ranged_weapons(unit)
+			"has_ranged_weapons": _unit_has_ranged_weapons(unit),
+			"has_melee_weapons": _unit_has_melee_weapons(unit)
 		}
 		
 		# Create horizontal container for unit selection
@@ -628,6 +629,13 @@ func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 	var weapons = unit.get("meta", {}).get("weapons", [])
 	for weapon in weapons:
 		if weapon.get("type", "") == "Ranged":
+			return true
+	return false
+
+func _unit_has_melee_weapons(unit: Dictionary) -> bool:
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	for weapon in weapons:
+		if weapon.get("type", "") == "Melee":
 			return true
 	return false
 
@@ -739,7 +747,8 @@ func _update_weapon_selection() -> void:
 		unit_header.add_theme_font_size_override("font_size", 13)
 		unit_header.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
 		weapon_selection_panel.add_child(unit_header)
-		
+
+		var weapons_shown_for_unit = 0
 		for i in range(unit_weapons.size()):
 			var weapon = unit_weapons[i]
 			var weapon_type = weapon.get("type", "Unknown")
@@ -750,6 +759,7 @@ func _update_weapon_selection() -> void:
 			if show_melee and weapon_type.to_lower() != "melee":
 				continue
 
+			weapons_shown_for_unit += 1
 			var weapon_name = weapon.get("name", "Weapon %d" % (i + 1))
 			var weapon_key = "%s_weapon_%d" % [unit_id, i]
 
@@ -828,6 +838,15 @@ func _update_weapon_selection() -> void:
 				"weapon_data": weapon,
 				"weapon_index": i
 			}
+
+		# T5-MH13: Show hint when unit has no weapons for the selected phase
+		if weapons_shown_for_unit == 0:
+			var phase_name = "ranged" if show_ranged else "melee"
+			var no_weapons_label = Label.new()
+			no_weapons_label.text = "  (no %s weapons)" % phase_name
+			no_weapons_label.add_theme_font_size_override("font_size", 11)
+			no_weapons_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.7))
+			weapon_selection_panel.add_child(no_weapons_label)
 
 	# Auto-detect weapon abilities from selected weapons and attacker units
 	_auto_detect_weapon_rules()
@@ -1503,7 +1522,9 @@ func _create_overall_stats_panel(parent: VBoxContainer, result: Mathhammer.Simul
 	stats_grid.add_theme_constant_override("v_separation", 8)
 	stats_content.add_child(stats_grid)
 	
-	# Add key statistics
+	# Add key statistics (T5-MH13: show which phase was simulated)
+	var phase_display = "Shooting" if _get_selected_phase() == "shooting" else "Melee"
+	add_stat_row(stats_grid, "Phase:", phase_display, Color(0.7, 0.85, 1.0))
 	add_stat_row(stats_grid, "Trials Run:", "%d" % result.trials_run)
 	add_stat_row(stats_grid, "Average Damage:", "%.2f wounds" % result.get_average_damage(), Color.YELLOW)
 	add_stat_row(stats_grid, "Median Damage:", "%d wounds" % result.get_damage_percentile(0.5))
@@ -1911,8 +1932,10 @@ func _display_comparison_results(results: Array) -> void:
 	comparison_vbox.add_child(title_panel)
 	var title_content = title_panel.get_meta("content_vbox")
 
+	# T5-MH13: Show phase context in comparison header
+	var phase_display = "Shooting" if _get_selected_phase() == "shooting" else "Melee"
 	var subtitle = Label.new()
-	subtitle.text = "Each weapon simulated independently against the same target"
+	subtitle.text = "Phase: %s — Each weapon simulated independently against the same target" % phase_display
 	subtitle.add_theme_font_size_override("font_size", 10)
 	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	title_content.add_child(subtitle)
@@ -2270,8 +2293,10 @@ func _display_target_comparison_results(results: Array) -> void:
 	comparison_vbox.add_child(title_panel)
 	var title_content = title_panel.get_meta("content_vbox")
 
+	# T5-MH13: Show phase context in comparison header
+	var phase_display = "Shooting" if _get_selected_phase() == "shooting" else "Melee"
 	var subtitle = Label.new()
-	subtitle.text = "Same attacker simulated against each defender independently"
+	subtitle.text = "Phase: %s — Same attacker simulated against each defender independently" % phase_display
 	subtitle.add_theme_font_size_override("font_size", 10)
 	subtitle.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	title_content.add_child(subtitle)
