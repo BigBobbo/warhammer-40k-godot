@@ -1,1 +1,1 @@
-ARGS: ["--script", "tests/unit/test_ai_multi_phase_planning.gd"]
+ARGS: ["--script", "tests/unit/test_ai_survival_assessment.gd"]
