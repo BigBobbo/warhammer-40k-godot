@@ -41,7 +41,7 @@ STOP_FILE="$PROJECT_DIR/.audit_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
 MAIN_BRANCH="main"
 CLAUDE_MODEL="sonnet"
-TASK_TIMEOUT=1800  # seconds (30 minutes)
+TASK_TIMEOUT=7200  # seconds (2 hours)
 
 # CLI flags
 DRY_RUN=false

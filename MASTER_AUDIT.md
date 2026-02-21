@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-58 (2026-02-20): AI charge arrow visualization — Created ChargeArrowVisual.gd with animated arrow (state machine: idle→line_draw→hold→fade), orange/yellow arrowhead with glow, charge roll result label. Integrated into ChargeController and Main.gd for both human and AI charge declarations. | UI/AI | AI_AUDIT.md §VIS-3 |
 | T7-57 (2026-02-20): AI post-game performance summary — Extended GameOverDialog with AI Performance Analysis section showing VP breakdown, units killed/lost, models remaining, CP spent/remaining, objectives held per round, key moments. Added tracking infrastructure to AIPlayer.gd with hooks in ShootingPhase, FightPhase, ScoringPhase. | UI/AI | AI_AUDIT.md §QoL-9 |
 | T7-56 (2026-02-20): AI turn replay — Per-turn action history in AIPlayer.gd, AITurnReplayPanel.gd with round/player navigation and color-coded phase entries, 'R' key toggle, ESC/X close. Turn-grouped query methods in ReplayManager.gd. | UI/AI | AI_AUDIT.md §QoL-8 |
 | T7-55 (2026-02-20): AI vs AI spectator mode improvements — Added spectator mode detection (both players AI), auto-slowed action delay (500ms, adjustable 0.25x-4.0x via comma/period/slash keys), phase summaries with action counts per player in AIActionLogOverlay, spectator speed indicator HUD. | UI/AI | AI_AUDIT.md §QoL-7 |
@@ -1441,13 +1442,14 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No post-game AI analysis. Show total VP scored, units lost vs units killed, objectives held per turn, CP spent, key moments.
 - **Resolution:** Extended GameOverDialog.gd with an "AI Performance Analysis" section that shows per-AI-player stats: VP breakdown (total/primary/secondary), units killed vs lost, units/models remaining, CP spent/remaining, objectives held per round, and key moments (stratagem uses, VP scoring). Added performance tracking infrastructure to AIPlayer.gd (record_ai_cp_spent, record_ai_unit_killed, record_ai_unit_lost, record_ai_objectives, record_ai_key_moment, get_performance_summary). Hooked tracking into ShootingPhase.gd, FightPhase.gd (unit kill/loss), ScoringPhase.gd (objectives per round), and AIPlayer reactive/proactive action flows (CP spent, key moments). Connected to MissionManager.victory_points_scored signal for VP key moments.
 
-### T7-58. AI charge arrow visualization
+### T7-58. AI charge arrow visualization — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §VIS-3
 - **Depends on:** T7-1 (basic charge implementation)
 - **Files:** New visual component
 - **Details:** Draw charge declaration arrows (orange/yellow) from charger to target, show charge roll result prominently.
+- **Resolution:** Created ChargeArrowVisual.gd — animated arrow component with state machine (idle→line_draw→hold→fade), orange/yellow arrowhead with glow effects, and prominent charge roll result label at midpoint. Integrated into ChargeController.gd for both human player (target selection creates static arrows) and AI player (Main.gd listens to ai_action_taken for DECLARE_CHARGE and triggers animated arrows via show_ai_charge_arrows). Arrows update color to green/red on charge roll success/failure and display roll total prominently.
 
 ---
 
@@ -1494,9 +1496,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 44 | 14 | 58 |
-| **Total** | **143** | **43** | **186** |
-| **Recently Completed** | **162** | — | **162** |
+| Tier 7 — AI Player | 45 | 13 | 58 |
+| **Total** | **144** | **42** | **186** |
+| **Recently Completed** | **163** | — | **163** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

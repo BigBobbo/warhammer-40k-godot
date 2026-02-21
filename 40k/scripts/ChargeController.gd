@@ -38,6 +38,9 @@ var target_highlights: Node2D
 var hud_bottom: Control
 var hud_right: Control
 
+# T7-58: Charge arrow visuals - animated arrows from charger to targets
+var charge_arrow_visuals: Array = []  # Array of ChargeArrowVisual instances
+
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
@@ -76,6 +79,7 @@ func _exit_tree() -> void:
 		range_visual.queue_free()
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
+	_clear_charge_arrow_visuals()  # T7-58
 	_clear_movement_visuals()
 	
 	# Clean up bottom HUD elements (End Charge Phase button and related)
@@ -708,17 +712,18 @@ func _update_visuals() -> void:
 	if is_instance_valid(charge_line_visual):
 		charge_line_visual.clear_points()
 	_clear_highlights()
-	
+	_clear_charge_arrow_visuals()  # T7-58: Clear old arrows
+
 	if active_unit_id == "":
 		return
-	
+
 	# Get unit position
 	var unit = GameState.get_unit(active_unit_id)
 	if unit.is_empty():
 		return
-	
+
 	var unit_center = _get_unit_center_position(unit)
-	
+
 	# Draw lines to selected targets
 	for target_id in selected_targets:
 		var target_unit = GameState.get_unit(target_id)
@@ -727,10 +732,13 @@ func _update_visuals() -> void:
 			if is_instance_valid(charge_line_visual):
 				charge_line_visual.add_point(unit_center)
 				charge_line_visual.add_point(target_center)
-			
+
+			# T7-58: Create animated charge arrow visual
+			_create_charge_arrow_visual(unit_center, target_center, false)
+
 			# Add highlight to target
 			_highlight_unit(target_id, HIGHLIGHT_COLOR_SELECTED)
-	
+
 	# Highlight eligible targets
 	for target_id in eligible_targets:
 		if target_id not in selected_targets:
@@ -1826,6 +1834,8 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	if current_phase and current_phase.has_method("has_pending_charge"):
 		if not current_phase.has_pending_charge(unit_id):
 			print("ChargeController: Phase already determined charge failure for %s — deferring to charge_resolved" % unit_id)
+			# T7-58: Update arrows with failure result
+			_update_charge_arrow_roll_results(distance, false)
 			_update_button_states()
 			return
 
@@ -1835,6 +1845,8 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 		charge_info_label.text = "Success! Rolled %d\" - Click models to move them into engagement (max %d\" each)" % [distance, distance]
 	if is_instance_valid(dice_log_display):
 		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+	# T7-58: Update arrows with success result (roll sufficient)
+	_update_charge_arrow_roll_results(distance, true)
 
 	# Enable charge movement for this unit
 	_enable_charge_movement(unit_id, distance)
@@ -1909,6 +1921,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(dice_log_display):
 			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach 1\" engagement range).\n" % [total, min_distance, needed])
 
+		# T7-58: Update arrows with failure result
+		_update_charge_arrow_roll_results(total, false)
+
 		print("ChargeController: Server determined charge failed for %s (rolled %d, min dist %.1f\")" % [unit_id, total, min_distance])
 		# charge_resolved signal will fire next and handle _reset_unit_selection + display refresh
 		_update_button_states()
@@ -1928,6 +1943,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(dice_log_display):
 			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
 
+		# T7-58: Update arrows with success result
+		_update_charge_arrow_roll_results(total, true)
+
 		_enable_charge_movement(unit_id, total)
 		_show_charge_distance_display(total)
 
@@ -1935,6 +1953,10 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 
 func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> void:
 	print("Charge resolved: ", unit_id, " success: ", success)
+
+	# T7-58: Update charge arrows with the final result (they will fade on their own)
+	var distance = result.get("distance", charge_distance)
+	_update_charge_arrow_roll_results(distance, success)
 
 	# DEBUG: Log positions after charge resolution
 	print("=== CHARGE DEBUG: After Charge Resolved ===")
@@ -2500,3 +2522,63 @@ func _on_tank_shock_result(vehicle_unit_id: String, target_unit_id: String, resu
 	})
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
+
+# --- T7-58: Charge Arrow Visual Management ---
+
+func _create_charge_arrow_visual(from_pos: Vector2, to_pos: Vector2, animate: bool) -> ChargeArrowVisual:
+	"""Create and display a charge arrow visual from charger to target."""
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		print("[ChargeController] T7-58: Cannot find BoardRoot for charge arrow")
+		return null
+
+	var visual = ChargeArrowVisual.new()
+	visual.name = "ChargeArrowVisual_%d" % charge_arrow_visuals.size()
+	board_root.add_child(visual)
+	charge_arrow_visuals.append(visual)
+
+	if animate:
+		visual.play(from_pos, to_pos)
+	else:
+		visual.show_static(from_pos, to_pos)
+
+	print("[ChargeController] T7-58: Created charge arrow %s -> %s (animate=%s)" % [str(from_pos), str(to_pos), str(animate)])
+	return visual
+
+func _clear_charge_arrow_visuals() -> void:
+	"""Remove all charge arrow visuals from the scene."""
+	for visual in charge_arrow_visuals:
+		if is_instance_valid(visual):
+			visual.clear_now()
+			visual.queue_free()
+	charge_arrow_visuals.clear()
+
+func _update_charge_arrow_roll_results(roll_total: int, success: bool) -> void:
+	"""Update all active charge arrow visuals with the roll result."""
+	for visual in charge_arrow_visuals:
+		if is_instance_valid(visual):
+			visual.set_roll_result(roll_total, success)
+	print("[ChargeController] T7-58: Updated %d arrow(s) with roll result: %d\" (%s)" % [charge_arrow_visuals.size(), roll_total, "success" if success else "failed"])
+
+func show_ai_charge_arrows(charger_unit_id: String, target_unit_ids: Array) -> void:
+	"""Show animated charge arrows for an AI charge declaration.
+	Called from external code (e.g. AIPlayer or Main) when AI declares a charge."""
+	_clear_charge_arrow_visuals()
+
+	var charger = GameState.get_unit(charger_unit_id)
+	if charger.is_empty():
+		print("[ChargeController] T7-58: Cannot find charger unit %s for arrow visual" % charger_unit_id)
+		return
+
+	var from_pos = _get_unit_center_position(charger)
+	if from_pos == Vector2.ZERO:
+		return
+
+	for target_id in target_unit_ids:
+		var target_unit = GameState.get_unit(target_id)
+		if not target_unit.is_empty():
+			var to_pos = _get_unit_center_position(target_unit)
+			if to_pos != Vector2.ZERO:
+				_create_charge_arrow_visual(from_pos, to_pos, true)
+
+	print("[ChargeController] T7-58: Showing %d AI charge arrow(s) for %s" % [charge_arrow_visuals.size(), charger_unit_id])
