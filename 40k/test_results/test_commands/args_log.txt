@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gselect=test_one_shot_keyword.gd", "-glog=1", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gtest=res://tests/unit/test_go_to_ground_smokescreen.gd", "-gdir=", "-glog=1", "-gexit"]

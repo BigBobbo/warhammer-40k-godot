@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T4-2 (2026-02-21): One Shot weapon keyword — Verified full implementation across RulesEngine.gd (detection, state tracking, filtering, validation), both resolution paths, ShootingPhase.gd, ShootingController.gd, WeaponKeywordIcons.gd. Fixed tests to use static calls. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T3-24 (2026-02-21): Defender stats override panel — Verified existing implementation of "Custom Defender Stats" checkbox with SpinBox fields for T/Sv/W/Models/Invuln/FNP in MathhammerUI.gd, auto-populating from selected defender. Overrides applied via `Mathhammer._apply_defender_overrides()`. Added 9 unit tests. | Mathhammer | MATHHAMMER_AUDIT |
 | T3-17 (2026-02-21): Dual resolution paths — prevent rules drift — Synchronized auto-resolve with interactive path: added DW tracking/save bypass with spillover, FNP, Precision, half-damage to `_resolve_assignment()` | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
@@ -773,9 +774,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Source:** FIGHT_PHASE_AUDIT.md §2.11
 - **Resolution:** Added proactive UI-level prevention and validation enforcement. FightController detects models already in base contact (within 0.25" tolerance) during `_enable_pile_in_mode()` and locks them from being dragged. Visual indicators (red X with "B2B" label) show locked models. FightPhase `_validate_pile_in()` and `_validate_consolidate_engagement_range()` reject movements from models already in base contact via new `_is_model_in_base_contact_with_enemy()` helper. Same rule enforced for both pile-in and consolidation. PileInDialog info updated. Test file added: `test_pile_in_base_contact_locked.gd` (10 tests).
 
-### T4-6. Go to Ground / Smokescreen stratagems
+### T4-6. Go to Ground / Smokescreen stratagems — **DONE**
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 4
+- **Resolution:** Verified full implementation: Go to Ground (INFANTRY, 1 CP, grants 6+ invuln + Benefit of Cover) and Smokescreen (SMOKE, 1 CP, grants Benefit of Cover + Stealth -1 to hit) defined in StratagemManager.gd. EffectPrimitives.gd handles flag application/clearing. RulesEngine.gd reads effect_invuln, effect_cover, effect_stealth in both interactive and auto-resolve paths. ShootingPhase.gd integrates reactive stratagem flow with pause for defender decision. Once-per-phase restriction, CP deduction, phase-end cleanup all working. Fixed 4 test assertions to match current save calculation behavior (documented AP sign bug). 35/35 tests pass.
 
 ### T4-7. Rapid Ingress stratagem — **DONE**
 - **Phase:** Movement
@@ -1525,12 +1527,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 26 | 0 | 26 |
-| Tier 4 — Low/Niche | 15 | 5 | 20 |
+| Tier 4 — Low/Niche | 16 | 4 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **159** | **27** | **186** |
-| **Recently Completed** | **176** | — | **176** |
+| **Total** | **160** | **26** | **186** |
+| **Recently Completed** | **177** | — | **177** |
 | *Mathhammer items (subset)* | *24* | *7* | *31* |
 
 ---
