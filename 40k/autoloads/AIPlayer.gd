@@ -1,6 +1,7 @@
 extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
+const AIMovementPathVisualScript = preload("res://scripts/AIMovementPathVisual.gd")
 
 # AIPlayer - Autoload controller for AI opponents
 # Monitors game signals and submits actions through NetworkIntegration.route_action()
@@ -805,6 +806,19 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 
 	print("AIPlayer: Executing AI movement for %s — staging %d models" % [unit_id, destinations.size()])
 
+	# T7-21: Capture model origin positions before staging for path visualization
+	var origin_positions: Dictionary = {}  # model_id -> Vector2
+	var unit_data = GameState.get_unit(unit_id)
+	for model in unit_data.get("models", []):
+		var mid = model.get("id", "")
+		if mid in destinations and model.get("alive", true):
+			var pos = model.get("position")
+			if pos != null:
+				if pos is Dictionary:
+					origin_positions[mid] = Vector2(pos.get("x", 0), pos.get("y", 0))
+				elif pos is Vector2:
+					origin_positions[mid] = pos
+
 	var staged_count = 0
 	var failed_count = 0
 	var failure_reasons = []
@@ -856,6 +870,8 @@ func _execute_ai_movement(player: int, decision: Dictionary) -> void:
 				"description": "%s (moved %d models)" % [description, staged_count],
 				"player": player
 			})
+			# T7-21: Show movement path visualization
+			_show_ai_movement_paths(origin_positions, destinations, player)
 		else:
 			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
 			push_error("AIPlayer: Failed to confirm movement for %s: %s" % [unit_id, error_msg])
@@ -907,6 +923,19 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 
 	print("AIPlayer: Executing AI scout movement for %s — staging %d models" % [unit_id, destinations.size()])
 
+	# T7-21: Capture model origin positions before staging for path visualization
+	var origin_positions: Dictionary = {}  # model_id -> Vector2
+	var unit_data = GameState.get_unit(unit_id)
+	for model in unit_data.get("models", []):
+		var mid = model.get("id", "")
+		if mid in destinations and model.get("alive", true):
+			var pos = model.get("position")
+			if pos != null:
+				if pos is Dictionary:
+					origin_positions[mid] = Vector2(pos.get("x", 0), pos.get("y", 0))
+				elif pos is Vector2:
+					origin_positions[mid] = pos
+
 	# Stage each model's destination using SET_SCOUT_MODEL_DEST
 	var staged_count = 0
 	var failed_count = 0
@@ -955,6 +984,8 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 				"description": "%s (moved %d models)" % [description, staged_count],
 				"player": player
 			})
+			# T7-21: Show movement path visualization
+			_show_ai_movement_paths(origin_positions, destinations, player)
 		else:
 			var error_msg = "" if confirm_result == null else confirm_result.get("error", confirm_result.get("errors", ""))
 			push_error("AIPlayer: Failed to confirm scout movement for %s: %s" % [unit_id, error_msg])
@@ -977,6 +1008,35 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 			"player": player,
 			"_ai_description": "%s scout move skipped (staging failed: %s)" % [unit_name, reason]
 		})
+
+# =============================================================================
+# T7-21: AI Movement Path Visualization
+# =============================================================================
+
+func _show_ai_movement_paths(origin_positions: Dictionary, destinations: Dictionary, player: int) -> void:
+	"""Create an AIMovementPathVisual showing trails from origins to destinations."""
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		print("AIPlayer: T7-21: Cannot find BoardRoot for movement path visual")
+		return
+
+	var paths: Array = []
+	for model_id in destinations:
+		if model_id in origin_positions:
+			var from_pos: Vector2 = origin_positions[model_id]
+			var dest = destinations[model_id]
+			var to_pos = Vector2(dest[0], dest[1])
+			# Only show trail if model actually moved a meaningful distance
+			if from_pos.distance_to(to_pos) > 5.0:
+				paths.append({"from": from_pos, "to": to_pos})
+
+	if paths.is_empty():
+		return
+
+	var visual = AIMovementPathVisualScript.new()
+	visual.name = "AIMovementPathVisual_%d" % (randi() % 10000)
+	board_root.add_child(visual)
+	visual.show_paths(paths, player)
 
 # =============================================================================
 # T7-55: Spectator Mode (AI vs AI) Helpers

@@ -67,6 +67,7 @@ These items were previously open in the audit files and have now been verified a
 | T7-8 (2026-02-20): AI invulnerable save consideration in target scoring — `_save_probability()` now accepts invuln parameter using `min(modified_save, invuln)`. Added `_get_target_invulnerable_save()` helper for model/meta/effect invuln sources. All callers pass invuln through. 18/18 tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-6, SHOOT-3 |
 | T7-7 (2026-02-20): AI weapon-target efficiency matching — Re-enabled damage waste penalty for multi-damage weapons vs 1W models (D3+ → 0.4×, D2 → 0.7×). Combined with role matching, lascannon vs grots = 0.24× efficiency. Added fallback logging. 40/40 tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-5, SHOOT-2 |
 | T7-6 (2026-02-20): AI focus fire coordination across units — Enhanced `_build_focus_fire_plan()` with wound overflow cap, value-per-threshold sorting, model-level partial kills with efficiency filtering, coordinated secondary target allocation. 41/41 focus fire tests pass, 37/37 efficiency tests pass. | Shooting/AI | AI_AUDIT.md §AI-TACTIC-2, SHOOT-1 |
+| T7-21 (2026-02-20): AI movement path visualization — Created `AIMovementPathVisual.gd` with dashed trails, arrowheads, origin markers, player-themed colors, 1.5s hold + 0.8s fade. Integrated into `AIPlayer._execute_ai_movement()` and `_execute_ai_scout_movement()`. | UI/AI | AI_AUDIT.md §VIS-1 |
 | T7-5 (2026-02-20): AI weapon range check in target scoring — `_score_shooting_target()` returns 0 for out-of-range targets using `_get_weapon_range_inches()` and `_get_closest_model_distance_inches()`. 15/15 range scoring tests pass. | Shooting/AI | AI_AUDIT.md §AI-GAP-5, SHOOT-4 |
 | T7-4 (2026-02-20): AI fall-back model positioning — Fixed `_pick_fall_back_target()` directional scoring (skip near-objectives, prefer away-from-enemy direction), zero-direction safety fallback in `_compute_fall_back_destinations()`. 15/15 fall-back tests pass. | Movement/AI | AI_AUDIT.md §MOV-6 |
 | T7-3 (2026-02-20): AI consolidation movement — Dedicated `_compute_consolidate_movements_engagement()` with wrapping (far-side angular distribution around enemies), tagging (prioritise unengaged enemy units within 4"), objective fallback. 37 tests pass (3 new). | Fight/AI | AI_AUDIT.md §AI-GAP-2, FIGHT-2 |
@@ -1155,12 +1156,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No visual feedback during AI processing — game appears frozen for 50ms between actions. Show "AI is thinking..." indicator with spinner or pulsing animation during AI evaluation.
 - **Resolution:** Added `_ai_thinking` state tracking to AIPlayer.gd with `ai_turn_started`/`ai_turn_ended` signal emissions. Created pulsing "AI is thinking..." overlay in Main.gd (WhiteDwarf-themed PanelContainer with animated ellipsis dots and modulate pulse). Connected via `_initialize_ai_player()`. 15/15 tests pass.
 
-### T7-21. AI movement path visualization
+### T7-21. AI movement path visualization — **DONE**
 - **Phase:** UI
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §VIS-1
 - **Files:** `AIPlayer.gd`, `GhostVisual.gd`
 - **Details:** AI units teleport to destinations with no movement path shown. Draw brief movement trail (dotted line or arrow) from origin to destination during AI movement, fade after 1-2 seconds.
+- **Resolution:** Created `AIMovementPathVisual.gd` — a Node2D that draws dashed movement trails with arrowheads and origin markers from each model's origin to destination, with player-themed colors (blue P1, red P2). Holds for 1.5s then fades over 0.8s, auto-frees on completion. Integrated into `AIPlayer._execute_ai_movement()` and `_execute_ai_scout_movement()` by capturing model positions before staging and spawning the visual after confirmed moves.
 
 ### P2 — Medium: AI Competence & Feel Improvements
 
@@ -1504,9 +1506,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 49 | 9 | 58 |
-| **Total** | **147** | **39** | **186** |
-| **Recently Completed** | **166** | — | **166** |
+| Tier 7 — AI Player | 50 | 8 | 58 |
+| **Total** | **148** | **38** | **186** |
+| **Recently Completed** | **167** | — | **167** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
