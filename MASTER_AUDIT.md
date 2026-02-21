@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T3-24 (2026-02-21): Defender stats override panel — Verified existing implementation of "Custom Defender Stats" checkbox with SpinBox fields for T/Sv/W/Models/Invuln/FNP in MathhammerUI.gd, auto-populating from selected defender. Overrides applied via `Mathhammer._apply_defender_overrides()`. Added 9 unit tests. | Mathhammer | MATHHAMMER_AUDIT |
 | T3-17 (2026-02-21): Dual resolution paths — prevent rules drift — Synchronized auto-resolve with interactive path: added DW tracking/save bypass with spillover, FNP, Precision, half-damage to `_resolve_assignment()` | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T3-16 (2026-02-21): Difficult terrain / movement penalties — Added terrain traits system with `"difficult_ground"` trait (flat 2" penalty per piece crossed). FLY units ignore. 17 tests. | Movement | MOVEMENT_PHASE_AUDIT.md §2.7 |
 | T3-15 (2026-02-21): Disembarked units don't count as Remained Stationary — Added `disembarked_this_phase` check in `_process_remain_stationary()` to prevent Heavy weapon bonus for disembarked units | Movement | MOVEMENT_PHASE_AUDIT.md §2.12 |
@@ -717,12 +718,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `RulesEngine.gd` — only `REROLL_ONES` hit modifier exists (line 342); needs WoundModifier with re-rolls
 - **Resolution:** Added `HitModifier.REROLL_FAILED` (value 8) to the enum and updated `apply_hit_modifiers()` with a `hit_threshold` parameter. Wired up `reroll_failed` flag reading in all three combat paths (resolve_shoot, auto_resolve_shoot, resolve_melee_attacks). Refactored melee hit re-rolls to use the HitModifier system. Added 4 new Mathhammer UI toggles: Re-roll 1s to Hit, Re-roll All Failed Hits, Re-roll 1s to Wound, Re-roll All Failed Wounds. Both Mathhammer `_build_shoot_action` and `_build_melee_action` now pass hit/wound re-roll modifiers from rule toggles to RulesEngine assignments.
 
-### T3-24. [MH-FEAT-6] No defender stats override panel
+### T3-24. [MH-FEAT-6] No defender stats override panel — **DONE**
 - **Phase:** Mathhammer
 - **Rule:** Users should be able to override or input custom defender T/Sv/W/Invuln/FNP
 - **Impact:** Cannot model hypothetical matchups or units not in the game state
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhammerUI.gd` — needs custom defender input fields alongside the unit dropdown
+- **Resolution:** Feature already fully implemented. MathhammerUI.gd has a "Custom Defender Stats" checkbox (line 272) that reveals a panel with SpinBox fields for Toughness, Armor Save, Wounds, Models, Invuln Save, and Feel No Pain. Auto-populates from selected defender unit. Overrides are passed via config to `Mathhammer._apply_defender_overrides()` (line 572) which modifies toughness, save, wounds per model, model count, with FNP/invuln override priority over rule toggles. Added 9 passing unit tests verifying all override paths.
 
 ### T3-25. [MH-FEAT-11] Simulation blocks main thread — **DONE**
 - **Phase:** Mathhammer
@@ -1520,14 +1522,14 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 25 | 1 | 26 |
+| Tier 3 — Medium Rules | 26 | 0 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **157** | **29** | **186** |
-| **Recently Completed** | **174** | — | **174** |
-| *Mathhammer items (subset)* | *23* | *8* | *31* |
+| **Total** | **158** | **28** | **186** |
+| **Recently Completed** | **175** | — | **175** |
+| *Mathhammer items (subset)* | *24* | *7* | *31* |
 
 ---
 
