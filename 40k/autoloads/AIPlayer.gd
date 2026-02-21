@@ -312,6 +312,13 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "heroic_intervention_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ChargePhase.heroic_intervention_opportunity")
 
+	# T7-35: Rapid Ingress in Movement Phase (end of opponent's movement)
+	if phase.has_signal("rapid_ingress_opportunity"):
+		var callable = Callable(self, "_on_movement_rapid_ingress_opportunity")
+		phase.rapid_ingress_opportunity.connect(callable)
+		_connected_phase_signals.append({"signal_name": "rapid_ingress_opportunity", "callable": callable})
+		print("AIPlayer: Connected to MovementPhase.rapid_ingress_opportunity")
+
 	# T7-32: Counter-Offensive in Fight Phase
 	if phase.has_signal("counter_offensive_opportunity"):
 		var callable = Callable(self, "_on_counter_offensive_opportunity")
@@ -400,6 +407,127 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 
 	decision["player"] = defending_player
 	_submit_reactive_action(defending_player, decision)
+
+# --- Reactive Stratagem: Rapid Ingress (MovementPhase — end of opponent's movement, T7-35) ---
+
+func _on_movement_rapid_ingress_opportunity(defending_player: int, eligible_units: Array) -> void:
+	"""
+	Called when the MovementPhase offers Rapid Ingress to the non-active player
+	at the end of the opponent's Movement phase. If the defender is AI, evaluate
+	whether to spend 1 CP to bring a reserve unit onto the board.
+	"""
+	if not is_ai_player(defending_player):
+		return  # Not our AI — let human handle it
+
+	var difficulty = get_difficulty(defending_player)
+	print("AIPlayer: Rapid Ingress opportunity for AI player %d (%d eligible units, difficulty: %s)" % [
+		defending_player, eligible_units.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# T7-40: Only Hard+ AI uses stratagems
+	if not AIDifficultyConfigData.use_stratagems(difficulty):
+		var decline = {
+			"type": "DECLINE_RAPID_INGRESS",
+			"player": defending_player,
+			"_ai_description": "AI declines Rapid Ingress (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
+		}
+		_submit_reactive_action(defending_player, decline)
+		return
+
+	var snapshot = GameState.create_snapshot()
+	var decision = AIDecisionMaker.evaluate_rapid_ingress(defending_player, eligible_units, snapshot)
+
+	if decision.is_empty():
+		decision = {
+			"type": "DECLINE_RAPID_INGRESS",
+			"player": defending_player,
+			"_ai_description": "AI declines Rapid Ingress"
+		}
+
+	decision["player"] = defending_player
+
+	# If declining, submit as normal reactive action
+	if decision.get("type") == "DECLINE_RAPID_INGRESS":
+		_submit_reactive_action(defending_player, decision)
+		return
+
+	# Two-step process: USE_RAPID_INGRESS, then PLACE_RAPID_INGRESS_REINFORCEMENT
+	var placement = decision.get("_placement_action", {})
+	decision.erase("_placement_action")  # Remove internal data before submitting
+
+	call_deferred("_execute_rapid_ingress_sequence", defending_player, decision, placement)
+
+func _execute_rapid_ingress_sequence(player: int, use_action: Dictionary, placement_action: Dictionary) -> void:
+	"""Execute the two-step Rapid Ingress sequence: USE_RAPID_INGRESS then PLACE_RAPID_INGRESS_REINFORCEMENT."""
+	if not enabled or PhaseManager.game_ended:
+		return
+
+	# Step 1: USE_RAPID_INGRESS (select the unit and spend CP)
+	var use_description = use_action.get("_ai_description", "AI uses Rapid Ingress")
+	_action_log.append({
+		"phase": GameState.get_current_phase(),
+		"action_type": use_action.get("type", ""),
+		"description": use_description,
+		"player": player
+	})
+	emit_signal("ai_action_taken", player, use_action, use_description)
+
+	if _spectator_mode:
+		_track_action_for_summary(player, use_action.get("type", ""), GameState.get_current_phase())
+
+	# T7-37: Log the stratagem use as a key event
+	_log_ai_event(player, use_description)
+
+	# T7-57: Track CP spent (Rapid Ingress costs 1 CP)
+	record_ai_cp_spent(player, 1)
+	record_ai_key_moment(player, use_description)
+
+	print("AIPlayer: Rapid Ingress Step 1 — Player %d executing: %s" % [player, use_description])
+
+	_current_phase_actions += 1
+	var result = NetworkIntegration.route_action(use_action)
+
+	if result == null or not result.get("success", false):
+		var error_msg = "" if result == null else result.get("error", result.get("errors", "Unknown error"))
+		push_error("AIPlayer: Rapid Ingress USE action failed: %s" % error_msg)
+		# Attempt to decline gracefully
+		_current_phase_actions += 1
+		NetworkIntegration.route_action({
+			"type": "DECLINE_RAPID_INGRESS",
+			"player": player,
+			"_ai_description": "AI declines Rapid Ingress (USE failed: %s)" % error_msg
+		})
+		_request_evaluation()
+		return
+
+	print("AIPlayer: Rapid Ingress Step 1 succeeded — now placing unit")
+
+	# Step 2: PLACE_RAPID_INGRESS_REINFORCEMENT (place the unit on the board)
+	placement_action["player"] = player
+	var place_description = placement_action.get("_ai_description", "Rapid Ingress placement")
+	_action_log.append({
+		"phase": GameState.get_current_phase(),
+		"action_type": placement_action.get("type", ""),
+		"description": place_description,
+		"player": player
+	})
+	emit_signal("ai_action_taken", player, placement_action, place_description)
+
+	print("AIPlayer: Rapid Ingress Step 2 — Player %d executing: %s" % [player, place_description])
+
+	_current_phase_actions += 1
+	var place_result = NetworkIntegration.route_action(placement_action)
+
+	if place_result == null or not place_result.get("success", false):
+		var error_msg = "" if place_result == null else place_result.get("error", place_result.get("errors", "Unknown error"))
+		push_error("AIPlayer: Rapid Ingress PLACEMENT failed: %s" % error_msg)
+	else:
+		var unit_id = placement_action.get("unit_id", "")
+		if unit_id != "":
+			print("AIPlayer: Emitting ai_unit_deployed for Rapid Ingress %s (player %d)" % [unit_id, player])
+			emit_signal("ai_unit_deployed", player, unit_id)
+		print("AIPlayer: Rapid Ingress complete — unit placed successfully")
+
+	_request_evaluation()
 
 # --- Reactive Stratagem: Fire Overwatch (ChargePhase — via overwatch_opportunity) ---
 
@@ -1105,8 +1233,10 @@ func _categorize_action(action_type: String) -> String:
 			return "units_fought"
 		"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE", \
 		"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM", \
-		"USE_COMMAND_REROLL":
+		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS":
 			return "stratagems_used"
+		"PLACE_RAPID_INGRESS_REINFORCEMENT":
+			return "reinforcements"
 		"SKIP_UNIT", "SKIP_CHARGE":
 			return "units_skipped"
 		"PLACE_REINFORCEMENT":
