@@ -39,6 +39,11 @@ var _fade_alpha := 1.0
 var _fade_tween: Tween = null
 var _hold_timer: Timer = null
 
+# T7-38: AI shooting line customization
+var custom_line_color: Color = Color.TRANSPARENT  # Override line color if set (non-transparent)
+var custom_hold_duration: float = -1.0  # Override hold duration if >= 0
+var auto_cleanup: bool = false  # Auto queue_free after animation completes
+
 signal animation_finished()
 
 func _ready() -> void:
@@ -72,9 +77,16 @@ func _process(delta: float) -> void:
 		if _tracer_progress >= 1.0:
 			_impact_flash_alpha = 0.0
 			_phase = "hold"
-			_hold_timer.start(HOLD_DURATION)
+			var hold_time = custom_hold_duration if custom_hold_duration >= 0 else HOLD_DURATION
+			_hold_timer.start(hold_time)
 
 	queue_redraw()
+
+func _get_line_color() -> Color:
+	# T7-38: Return custom color if set, otherwise default
+	if custom_line_color.a > 0.0:
+		return custom_line_color
+	return LINE_COLOR
 
 func _draw() -> void:
 	if _phase == "idle":
@@ -83,6 +95,7 @@ func _draw() -> void:
 		return
 
 	var alpha = _fade_alpha
+	var effective_color = _get_line_color()  # T7-38: Support custom line color
 	var direction = (to_pos - from_pos)
 	var line_length = direction.length()
 	var dir_norm = direction.normalized()
@@ -91,11 +104,11 @@ func _draw() -> void:
 	var draw_end = from_pos.lerp(to_pos, _line_progress)
 
 	# Outer glow line
-	var glow_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, alpha * 0.3)
+	var glow_color = Color(effective_color.r, effective_color.g, effective_color.b, alpha * 0.3)
 	draw_line(from_pos, draw_end, glow_color, LINE_WIDTH + 4.0)
 
 	# Core line
-	var core_color = Color(LINE_COLOR, alpha)
+	var core_color = Color(effective_color, alpha)
 	draw_line(from_pos, draw_end, core_color, LINE_WIDTH)
 
 	# --- Muzzle flash at shooter position ---
@@ -153,7 +166,8 @@ func _draw_weapon_label(alpha: float) -> void:
 	draw_rect(bg_rect, Color(0, 0, 0, 0.6 * alpha))
 
 	# Text
-	var text_color = Color(LINE_COLOR.r, LINE_COLOR.g, LINE_COLOR.b, alpha)
+	var effective_color = _get_line_color()  # T7-38: Support custom line color
+	var text_color = Color(effective_color.r, effective_color.g, effective_color.b, alpha)
 	draw_string(
 		font,
 		mid_point + Vector2(-text_size.x * 0.5, -5),
@@ -219,6 +233,9 @@ func _on_fade_complete() -> void:
 	visible = false
 	animation_finished.emit()
 	queue_redraw()
+	# T7-38: Auto-cleanup for AI shooting lines (not tracked in shooting_line_visuals)
+	if auto_cleanup:
+		queue_free()
 
 func clear_now() -> void:
 	"""Immediately clear the visual without fading."""

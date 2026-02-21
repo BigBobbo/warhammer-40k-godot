@@ -19,6 +19,7 @@ signal reactive_stratagem_opportunity(defending_player: int, available_stratagem
 signal grenade_result(result: Dictionary)  # For grenade stratagem result display
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
+signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -993,6 +994,48 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		attack_summary += ", %d saved, %d failed" % [total_saves_passed, total_saves_failed]
 	if total_casualties > 0:
 		attack_summary += " → %d slain" % total_casualties
+
+	# T7-38: Emit AI shooting visual signals BEFORE clearing state
+	# Collect unique targets with weapon names for targeting line visualization
+	var ai_target_data = []
+	var seen_targets = {}
+	for a in confirmed_assignments:
+		var tid = a.get("target_unit_id", "")
+		if tid.is_empty() or seen_targets.has(tid):
+			continue
+		seen_targets[tid] = true
+		var weapon_names_for_target = []
+		for a2 in confirmed_assignments:
+			if a2.get("target_unit_id", "") == tid:
+				var wid = a2.get("weapon_id", "")
+				var wp = RulesEngine.get_weapon_profile(wid)
+				var wn = wp.get("name", wid)
+				if wn not in weapon_names_for_target:
+					weapon_names_for_target.append(wn)
+		ai_target_data.append({
+			"target_unit_id": tid,
+			"weapon_names": weapon_names_for_target
+		})
+
+	emit_signal("ai_shooting_visual", unit_id, ai_target_data, {
+		"hits": total_hits,
+		"wounds": total_wounds,
+		"saves_passed": total_saves_passed,
+		"saves_failed": total_saves_failed,
+		"casualties": total_casualties
+	})
+	print("║ T7-38: Emitted ai_shooting_visual for %d target(s)" % ai_target_data.size())
+
+	# T7-38: Emit shooting_damage_applied for floating damage numbers (AI path)
+	var damage_diffs = []
+	for change in all_changes:
+		if change.get("op") == "set":
+			var path: String = change.get("path", "")
+			if ".models." in path and (path.ends_with(".alive") or path.ends_with(".current_wounds")):
+				damage_diffs.append(change)
+	if not damage_diffs.is_empty():
+		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
+		print("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size())
 
 	# Step 6: Mark unit as done
 	all_changes.append({

@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-38 (2026-02-21): AI shooting target line visualization — Red targeting line from shooter to target(s) during AI shooting, floating hit/wound result summary, and per-model damage numbers/death animations via `shooting_damage_applied` signal in AI path. | UI | AI_AUDIT.md §VIS-2 |
 | T7-36 (2026-02-21): AI speed controls — Added `AISpeedPreset` enum (FAST/NORMAL/SLOW/STEP_BY_STEP) with configurable delays (0ms/200ms/500ms/pause) to AIPlayer.gd. Speed dropdown in MainMenu.gd, in-game HUD with comma/period/slash keyboard controls, step-by-step mode with "Continue (Space)" button. | UI/Settings | AI_AUDIT.md §QoL-3 |
 | T7-19 (2026-02-20): AI turn summary panel — Created `AITurnSummaryPanel.gd` post-turn summary popup consuming `ai_turn_ended` signal. Displays categorized action counts per phase (units moved, fired, charged, fought, stratagems used) with notable action descriptions. WhiteDwarf gothic theme, auto-dismiss after 12s, Escape/button dismiss. | UI/AI | AI_AUDIT.md §QoL-1 |
 | T7-14 (2026-02-20): AI shooting range consideration in movement — Enhanced movement destination scoring to evaluate weapon range at estimated destinations (bonus for maintaining range, penalty for losing all targets, bonus for gaining new targets). Added firing position preservation with arc-sampling for ranged units moving toward objectives. | Movement/AI | AI_AUDIT.md §MOV-1 |
@@ -1296,12 +1297,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** `_ai_description` strings are terse. Route key decisions through `GameEventLog.add_ai_entry()` with enhanced reasoning (e.g., "Lascannon shoots at Battlewagon — expected 4.2 damage, 67% kill probability").
 - **Resolution:** Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage estimate, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), and reactive stratagems (protection score, points). Key tactical decisions (SHOOT, DECLARE_CHARGE, ASSIGN_ATTACKS, stratagems) are now explicitly routed through `GameEventLog.add_ai_entry()` via AIPlayer for UI visibility.
 
-### T7-38. AI shooting target line visualization
+### T7-38. AI shooting target line visualization — **DONE**
 - **Phase:** UI
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §VIS-2
 - **Files:** `AIPlayer.gd`, `ShootingLineVisual.gd`
 - **Details:** No visual connection between shooter and target during AI shooting. Draw brief targeting line (red) from shooting unit to target, show hit/wound results as floating text near target.
+- **Resolution:** Added `ai_shooting_visual` signal to ShootingPhase emitted during AI atomic shoot path. ShootingController creates red ShootingLineVisual (with customizable color/hold via new properties) from shooter to each target with brief 1.5s hold and auto-cleanup. Also emits `shooting_damage_applied` in AI path for floating damage numbers/death animations via existing DamageFeedbackVisual. Added `play_result_summary()` to DamageFeedbackVisual showing "X hits, Y wounds → Z slain" floating text near target.
 
 ### T7-39. AI objective control flash on change — **DONE**
 - **Phase:** UI
@@ -1510,9 +1512,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 52 | 6 | 58 |
-| **Total** | **150** | **36** | **186** |
-| **Recently Completed** | **169** | — | **169** |
+| Tier 7 — AI Player | 53 | 5 | 58 |
+| **Total** | **151** | **35** | **186** |
+| **Recently Completed** | **170** | — | **170** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
