@@ -219,6 +219,7 @@ These items were previously open in the audit files and have now been verified a
 | T6-1: Fix broken test compilation errors — BaseUITest created, autoload resolution fixed | Testing | TESTING_AUDIT_SUMMARY.md, PRPs/gh_issue_93_testing-audit.md |
 | T6-5: CI/CD integration — all-branch triggers, correct test dirs, action version updates, timeouts | Testing | MASTER_AUDIT.md §Tier 6 |
 | T6-2: Validate all existing tests and document status — 1234 tests validated, 6 compile fixes, 1 runtime fix | Testing | TESTING_AUDIT_SUMMARY.md, TEST_VALIDATION_REPORT.md |
+| T7-35: AI Rapid Ingress stratagem usage — evaluate_rapid_ingress() + signal handler in AIPlayer | Movement/AI | AI_AUDIT.md §AI-GAP-3 Phase 3 |
 
 ---
 
@@ -1269,13 +1270,14 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No reserves declaration — all units deployed on table unless deployment fails. Put appropriate units in Strategic Reserves or Deep Strike based on army composition and mission.
 - **Resolution:** Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI now parses DECLARE_RESERVES actions during formations phase (after leader attachments and transport embarkations). Scores units by reserve suitability: Deep Strike melee units highest priority (8.0), followed by DS short-range shooters (5.0), strategic reserves melee/fast units (4.0+speed). Exclusions for CHARACTER leaders, FORTIFICATION, embarked units. Universal modifiers penalize VEHICLE/MONSTER ranged, long-range shooters, cheap screens. Respects 25% points cap and 50% unit cap. Score threshold of 2.0 prevents marginal reserves.
 
-### T7-35. AI Rapid Ingress stratagem usage
+### T7-35. AI Rapid Ingress stratagem usage — **DONE**
 - **Phase:** Movement
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-GAP-3 Phase 3
 - **Depends on:** T4-7 (Rapid Ingress implementation — DONE)
 - **Files:** `AIDecisionMaker.gd`, `StratagemManager.gd`
 - **Details:** AI never uses Rapid Ingress to arrive from reserves at end of opponent's movement phase.
+- **Resolution:** Added `evaluate_rapid_ingress()` static method to AIDecisionMaker.gd — scores reserve units for deployment urgency (reusing `_score_reserves_deployment`, `_compute_reinforcement_positions` logic), with Rapid Ingress-specific adjustments for late-game urgency and CP cost penalty. Connected `rapid_ingress_opportunity` signal in AIPlayer.gd `_connect_phase_stratagem_signals()`. Added `_on_movement_rapid_ingress_opportunity()` handler with Hard+ difficulty gate via `AIDifficultyConfigData.use_stratagems()`. Implemented two-step `_execute_rapid_ingress_sequence()` for USE_RAPID_INGRESS then PLACE_RAPID_INGRESS_REINFORCEMENT. Score threshold of 3.0, CP conservation (declines with ≤1 CP before Round 4). Added `USE_RAPID_INGRESS` and `PLACE_RAPID_INGRESS_REINFORCEMENT` to spectator action categorization. Added 4 tests to `test_ai_stratagem_evaluation.gd`.
 
 ### T7-36. AI speed controls
 - **Phase:** UI/Settings
@@ -1506,9 +1508,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 50 | 8 | 58 |
-| **Total** | **148** | **38** | **186** |
-| **Recently Completed** | **167** | — | **167** |
+| Tier 7 — AI Player | 51 | 7 | 58 |
+| **Total** | **149** | **37** | **186** |
+| **Recently Completed** | **168** | — | **168** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

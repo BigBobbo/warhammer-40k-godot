@@ -11969,6 +11969,170 @@ static func evaluate_command_reroll_advance(player: int, advance_roll: int, snap
 
 	return false
 
+# --- RAPID INGRESS (T7-35 — Reactive, end of opponent's Movement phase) ---
+
+static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array, snapshot: Dictionary) -> Dictionary:
+	"""
+	Evaluate whether the AI should use Rapid Ingress (1 CP) to bring a reserve unit
+	onto the board at the end of the opponent's Movement phase.
+
+	Returns a dictionary with:
+	- type: USE_RAPID_INGRESS + embedded _placement_action, or DECLINE_RAPID_INGRESS
+	"""
+	var battle_round = snapshot.get("battle_round", 1)
+	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+
+	print("AIDecisionMaker: [RAPID INGRESS] Evaluating for player %d (%d eligible units, %d CP, Round %d)" % [
+		defending_player, eligible_units.size(), player_cp, battle_round])
+
+	# Need at least 1 CP
+	if player_cp < 1:
+		print("AIDecisionMaker: [RAPID INGRESS] Not enough CP (%d) — declining" % player_cp)
+		return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (insufficient CP)"}
+
+	# Don't spend last CP on Rapid Ingress unless it's urgent (Round 4+)
+	if player_cp <= 1 and battle_round < 4:
+		print("AIDecisionMaker: [RAPID INGRESS] Only 1 CP remaining and Round %d — declining (save CP)" % battle_round)
+		return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (saving CP)"}
+
+	var objectives = _get_objectives(snapshot)
+	var enemies = _get_enemy_units(snapshot, defending_player)
+	var enemy_model_positions = _get_enemy_model_positions_from_snapshot(snapshot, defending_player)
+
+	# Score and rank eligible units
+	var scored_units = []
+	for entry in eligible_units:
+		var unit_id = entry.get("unit_id", "")
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var reserve_type = unit.get("reserve_type", "strategic_reserves")
+
+		var score = _score_reserves_deployment(unit, unit_id, reserve_type, objectives, enemies, snapshot, defending_player, battle_round)
+
+		# Rapid Ingress-specific adjustments:
+		# Bonus for late-game urgency (must deploy by Round 5)
+		if battle_round >= 4:
+			score += 3.0
+		elif battle_round >= 3:
+			score += 1.0
+
+		# Penalty for spending CP (vs. saving for Command Re-roll, etc.)
+		score -= 1.0
+
+		print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — score: %.1f" % [unit_name, reserve_type, score])
+		scored_units.append({
+			"unit_id": unit_id,
+			"unit": unit,
+			"reserve_type": reserve_type,
+			"score": score,
+			"name": unit_name
+		})
+
+	scored_units.sort_custom(func(a, b): return a.score > b.score)
+
+	# Threshold: only use Rapid Ingress if the benefit justifies the CP cost
+	var MIN_SCORE = 3.0
+
+	for candidate in scored_units:
+		if candidate.score < MIN_SCORE:
+			print("AIDecisionMaker: [RAPID INGRESS]   %s score %.1f below threshold %.1f — skipping" % [
+				candidate.name, candidate.score, MIN_SCORE])
+			continue
+
+		var unit_id = candidate.unit_id
+		var unit = candidate.unit
+		var reserve_type = candidate.reserve_type
+		var unit_name = candidate.name
+
+		# Try to compute valid placement positions
+		var positions = _compute_reinforcement_positions(
+			unit, unit_id, reserve_type, snapshot, defending_player, objectives, enemies, enemy_model_positions, battle_round
+		)
+
+		if positions.is_empty():
+			print("AIDecisionMaker: [RAPID INGRESS]   %s — no valid placement found" % unit_name)
+			continue
+
+		# Generate model formation around the chosen centroid
+		var models = unit.get("models", [])
+		var alive_count = 0
+		for m in models:
+			if m.get("alive", true):
+				alive_count += 1
+
+		var first_model = models[0] if models.size() > 0 else {}
+		var base_mm = first_model.get("base_mm", 32)
+		var base_type = first_model.get("base_type", "circular")
+		var base_dimensions = first_model.get("base_dimensions", {})
+
+		var placement_bounds = _get_reinforcement_zone_bounds(reserve_type, defending_player, snapshot, battle_round)
+		var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
+
+		var deployed_models = _get_all_deployed_model_positions(snapshot)
+		model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+
+		# Validate all positions satisfy the 9" enemy distance rule
+		var all_valid = true
+		for pos in model_positions:
+			if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
+				all_valid = false
+				break
+
+		if not all_valid:
+			# Try alternate positions from our candidate list
+			var found_valid = false
+			for pi in range(1, positions.size()):
+				model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
+				model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+				var valid = true
+				for pos in model_positions:
+					if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
+						valid = false
+						break
+				if valid:
+					found_valid = true
+					break
+			if not found_valid:
+				print("AIDecisionMaker: [RAPID INGRESS]   %s — no valid formation placement" % unit_name)
+				continue
+
+		# Build the full model_positions array (including dead models as null)
+		var full_positions = []
+		var alive_idx = 0
+		for i in range(models.size()):
+			if models[i].get("alive", true) and alive_idx < model_positions.size():
+				full_positions.append(model_positions[alive_idx])
+				alive_idx += 1
+			else:
+				full_positions.append(null)
+
+		var rotations = []
+		for i in range(models.size()):
+			rotations.append(0.0)
+
+		var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+		print("AIDecisionMaker: [RAPID INGRESS] Using Rapid Ingress for %s via %s at (%.0f, %.0f)" % [
+			unit_name, type_label, positions[0].x, positions[0].y])
+
+		return {
+			"type": "USE_RAPID_INGRESS",
+			"unit_id": unit_id,
+			"_ai_description": "AI uses Rapid Ingress — %s arrives from %s" % [unit_name, type_label],
+			"_placement_action": {
+				"type": "PLACE_RAPID_INGRESS_REINFORCEMENT",
+				"unit_id": unit_id,
+				"model_positions": full_positions,
+				"model_rotations": rotations,
+				"_ai_description": "Rapid Ingress placement — %s via %s" % [unit_name, type_label]
+			}
+		}
+
+	print("AIDecisionMaker: [RAPID INGRESS] No suitable unit found — declining")
+	return {"type": "DECLINE_RAPID_INGRESS", "_ai_description": "AI declines Rapid Ingress (no worthwhile targets)"}
+
 # --- HELPER: Get player CP from snapshot ---
 
 static func _get_player_cp_from_snapshot(snapshot: Dictionary, player: int) -> int:
