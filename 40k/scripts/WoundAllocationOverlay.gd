@@ -1020,7 +1020,11 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	var base_px = Measurement.base_radius_px(base_mm)
 	if damage_feedback and is_instance_valid(damage_feedback):
 		damage_feedback.play_death_animation(model_pos, base_px)
-		print("WoundAllocationOverlay: T5-V4 death animation played for model %s" % model_id)
+		# T7-53: Show floating kill number for destroyed model
+		var max_wounds = model.get("wounds", 1)
+		var current_w = model.get("current_wounds", max_wounds)
+		damage_feedback.play_floating_number(model_pos, max(1, current_w), true)
+		print("WoundAllocationOverlay: T5-V4 death animation + T7-53 floating kill number for model %s" % model_id)
 	else:
 		# Fallback: yellow flash from board highlighter
 		board_highlighter.create_highlight(
@@ -1062,7 +1066,10 @@ func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: 
 	# T5-V4: Play damage flash effect
 	if damage_feedback and is_instance_valid(damage_feedback):
 		damage_feedback.play_damage_flash(model_pos, base_px, damage_taken, max_wounds)
-		print("WoundAllocationOverlay: T5-V4 damage flash played for model %s" % model_id)
+		# T7-53: Show floating damage number
+		if damage_taken > 0:
+			damage_feedback.play_floating_number(model_pos, damage_taken, false)
+		print("WoundAllocationOverlay: T5-V4 damage flash + T7-53 floating number for model %s" % model_id)
 
 	# Also flash the token itself (modulate tween on the TokenVisual)
 	_flash_model_token(model_id)

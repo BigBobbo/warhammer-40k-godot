@@ -18,6 +18,7 @@ signal next_weapon_confirmation_required(remaining_weapons: Array, current_index
 signal reactive_stratagem_opportunity(defending_player: int, available_stratagems: Array, target_unit_ids: Array)  # For opponent reactive stratagems
 signal grenade_result(result: Dictionary)  # For grenade stratagem result display
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
+signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -2492,6 +2493,13 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	if not pending_one_shot_diffs.is_empty():
 		all_diffs.append_array(pending_one_shot_diffs)
 		pending_one_shot_diffs.clear()
+
+	# T7-53: Emit shooting_damage_applied signal for floating damage numbers
+	# This fires BEFORE diffs are applied by BasePhase.execute_action, allowing
+	# handlers to read pre-damage values from GameState (same pattern as FightPhase.attacks_resolved)
+	if not all_diffs.is_empty():
+		emit_signal("shooting_damage_applied", active_shooter_id, all_diffs)
+		print("[ShootingPhase] T7-53: Emitted shooting_damage_applied with %d diffs" % all_diffs.size())
 
 	# Build combined save log text for game event log
 	var save_log_text = ", ".join(save_log_parts)
