@@ -22,6 +22,15 @@ func _on_phase_enter() -> void:
 		MissionManager.check_all_objectives()
 		print("ScoringPhase: Updated objective control for scoring")
 
+		# T7-57: Track objectives held per round for AI performance summary
+		if AIPlayer and AIPlayer.enabled:
+			var battle_round = GameState.get_battle_round()
+			var obj_summary = MissionManager.get_objective_control_summary()
+			for p in [1, 2]:
+				if AIPlayer.is_ai_player(p):
+					var held = obj_summary.get("player%d_controlled" % p, 0)
+					AIPlayer.record_ai_objectives(p, battle_round, held)
+
 	# Score secondary missions for the active player
 	_secondary_results.clear()
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")

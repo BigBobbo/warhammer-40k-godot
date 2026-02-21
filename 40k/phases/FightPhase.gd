@@ -238,6 +238,13 @@ func _check_kill_diffs(changes: Array) -> void:
 				if all_dead:
 					var destroyed_by = get_current_player()
 					MissionManager.record_unit_destroyed(destroyed_by)
+					# T7-57: Track unit kills/losses for AI performance summary
+					var destroyed_owner = unit.get("owner", 0)
+					if AIPlayer and AIPlayer.enabled:
+						if AIPlayer.is_ai_player(destroyed_by):
+							AIPlayer.record_ai_unit_killed(destroyed_by)
+						if AIPlayer.is_ai_player(destroyed_owner):
+							AIPlayer.record_ai_unit_lost(destroyed_owner)
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")

@@ -33,6 +33,9 @@ var _spectator_speed_index: int = 2  # Default 1.0x (index into SPECTATOR_SPEED_
 var _spectator_mode: bool = false  # Cached: true when both players are AI
 var _phase_action_counts: Dictionary = {}  # player -> {action_type -> count} for turn summaries
 
+# T7-57: Per-game performance tracking for post-game summary
+var _game_performance: Dictionary = {}  # player -> {cp_spent, units_lost, units_killed, objectives_per_round, key_moments}
+
 # T7-20: AI thinking state — tracks whether the AI is actively processing its turn
 var _ai_thinking: bool = false
 
@@ -76,6 +79,12 @@ func _ready() -> void:
 		print("AIPlayer: Connected to PhaseManager.phase_changed and phase_action_taken")
 	else:
 		push_warning("AIPlayer: PhaseManager not found at startup")
+
+	# T7-57: Connect to MissionManager signals for performance tracking
+	if has_node("/root/MissionManager"):
+		var mission_mgr = get_node("/root/MissionManager")
+		mission_mgr.victory_points_scored.connect(_on_vp_scored)
+		print("AIPlayer: Connected to MissionManager.victory_points_scored")
 
 	set_process(true)
 	print("AIPlayer: Ready (disabled until configured)")
@@ -137,6 +146,18 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	# T7-55: Detect spectator mode (both players are AI)
 	_spectator_mode = ai_players.get(1, false) and ai_players.get(2, false)
 	_phase_action_counts.clear()
+
+	# T7-57: Initialize per-game performance tracking
+	_game_performance.clear()
+	for pid in ai_players:
+		if ai_players[pid]:
+			_game_performance[pid] = {
+				"cp_spent": 0,
+				"units_lost": 0,
+				"units_killed": 0,
+				"objectives_per_round": {},  # round -> count
+				"key_moments": [],  # [{round, text}]
+			}
 
 	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.NORMAL))
 	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.NORMAL))
@@ -565,6 +586,14 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK"]:
 		_log_ai_event(player, description)
 
+	# T7-57: Track CP spent for reactive stratagems
+	if reactive_type in ["USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH",
+			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK",
+			"USE_COMMAND_REROLL"]:
+		var cp_cost = decision.get("cp_cost", 1)
+		record_ai_cp_spent(player, cp_cost)
+		record_ai_key_moment(player, description)
+
 	print("AIPlayer: Reactive stratagem — Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
 
 	_current_phase_actions += 1
@@ -682,6 +711,14 @@ func _execute_next_action(player: int) -> void:
 			"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE",
 			"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM"]:
 		_log_ai_event(player, description)
+
+	# T7-57: Track CP spent for proactive stratagems
+	if action_type in ["USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH",
+			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK",
+			"USE_GRENADE_STRATAGEM", "USE_COMMAND_REROLL"]:
+		var cp_cost = decision.get("cp_cost", 1)
+		record_ai_cp_spent(player, cp_cost)
+		record_ai_key_moment(player, description)
 
 	print("AIPlayer: Player %d executing: %s (%s)" % [player, decision.get("type", "?"), description])
 
@@ -1033,6 +1070,116 @@ func _emit_phase_summary_for_current_phase() -> void:
 			keys_to_remove.append(key)
 	for key in keys_to_remove:
 		_phase_action_counts.erase(key)
+
+# =============================================================================
+# T7-57: Post-Game Performance Tracking Signal Handlers
+# =============================================================================
+
+func _on_vp_scored(player: int, points: int, reason: String) -> void:
+	"""T7-57: Track VP scoring as key moments for AI players."""
+	if not is_ai_player(player) or points <= 0:
+		return
+	record_ai_key_moment(player, "Scored %d VP (%s)" % [points, reason])
+
+# =============================================================================
+# T7-57: Post-Game Performance Summary
+# =============================================================================
+
+func record_ai_cp_spent(player: int, amount: int) -> void:
+	"""T7-57: Record CP spent by an AI player."""
+	if _game_performance.has(player):
+		_game_performance[player]["cp_spent"] += amount
+		print("AIPlayer: T7-57 P%d CP spent +%d (total: %d)" % [player, amount, _game_performance[player]["cp_spent"]])
+
+func record_ai_unit_killed(player: int) -> void:
+	"""T7-57: Record that an AI player destroyed an enemy unit."""
+	if _game_performance.has(player):
+		_game_performance[player]["units_killed"] += 1
+		print("AIPlayer: T7-57 P%d units killed: %d" % [player, _game_performance[player]["units_killed"]])
+
+func record_ai_unit_lost(player: int) -> void:
+	"""T7-57: Record that an AI player lost a unit."""
+	if _game_performance.has(player):
+		_game_performance[player]["units_lost"] += 1
+		print("AIPlayer: T7-57 P%d units lost: %d" % [player, _game_performance[player]["units_lost"]])
+
+func record_ai_objectives(player: int, battle_round: int, count: int) -> void:
+	"""T7-57: Record objectives held by an AI player at end of a scoring phase."""
+	if _game_performance.has(player):
+		_game_performance[player]["objectives_per_round"][battle_round] = count
+		print("AIPlayer: T7-57 P%d held %d objectives in round %d" % [player, count, battle_round])
+
+func record_ai_key_moment(player: int, text: String) -> void:
+	"""T7-57: Record a key moment for the AI performance summary."""
+	if _game_performance.has(player):
+		var moment = {
+			"round": GameState.get_battle_round(),
+			"text": text,
+		}
+		_game_performance[player]["key_moments"].append(moment)
+		print("AIPlayer: T7-57 P%d key moment (R%d): %s" % [player, moment.round, text])
+
+func get_performance_summary() -> Dictionary:
+	"""T7-57: Build a complete post-game performance summary for all AI players.
+	Returns {player_id -> {vp_total, vp_primary, vp_secondary, cp_spent, cp_remaining,
+	units_lost, units_killed, objectives_per_round, key_moments, difficulty}}."""
+	var summary = {}
+
+	for player in _game_performance:
+		var perf = _game_performance[player]
+		var player_key = str(player)
+
+		# VP data from GameState
+		var vp_data = GameState.state.get("players", {}).get(player_key, {})
+		var vp_total = vp_data.get("vp", 0)
+		var vp_primary = vp_data.get("primary_vp", 0)
+		var vp_secondary = vp_data.get("secondary_vp", 0)
+		var cp_remaining = vp_data.get("cp", 0)
+
+		# Unit counts from current game state
+		var units_remaining = 0
+		var total_models_remaining = 0
+		var total_models_starting = 0
+		for unit_id in GameState.state.get("units", {}):
+			var unit = GameState.state.units[unit_id]
+			if unit.get("owner", 0) != player:
+				continue
+			var models = unit.get("models", [])
+			total_models_starting += models.size()
+			var alive_count = 0
+			for model in models:
+				if model.get("alive", true):
+					alive_count += 1
+			if alive_count > 0:
+				units_remaining += 1
+			total_models_remaining += alive_count
+
+		# Difficulty name
+		var diff = ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
+		var diff_name = AIDifficultyConfigData.difficulty_name(diff)
+
+		# Faction name
+		var faction_name = GameState.get_faction_name(player)
+
+		summary[player] = {
+			"faction": faction_name,
+			"difficulty": diff_name,
+			"vp_total": vp_total,
+			"vp_primary": vp_primary,
+			"vp_secondary": vp_secondary,
+			"cp_spent": perf.get("cp_spent", 0),
+			"cp_remaining": cp_remaining,
+			"units_killed": perf.get("units_killed", 0),
+			"units_lost": perf.get("units_lost", 0),
+			"units_remaining": units_remaining,
+			"models_remaining": total_models_remaining,
+			"models_starting": total_models_starting,
+			"objectives_per_round": perf.get("objectives_per_round", {}),
+			"key_moments": perf.get("key_moments", []),
+		}
+
+	print("AIPlayer: T7-57 Performance summary built for %d AI player(s)" % summary.size())
+	return summary
 
 # --- Helpers ---
 
