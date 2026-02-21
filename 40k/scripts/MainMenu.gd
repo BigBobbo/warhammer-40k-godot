@@ -9,6 +9,11 @@ extends Control
 @onready var player1_dropdown: OptionButton = $MenuContainer/ArmySection/Player1Container/Player1Dropdown
 @onready var player2_type_dropdown: OptionButton = $MenuContainer/ArmySection/Player2TypeContainer/Player2TypeDropdown
 @onready var player2_dropdown: OptionButton = $MenuContainer/ArmySection/Player2Container/Player2Dropdown
+# T7-40: AI difficulty dropdowns (created dynamically, shown only when player type is AI)
+var player1_difficulty_container: HBoxContainer = null
+var player1_difficulty_dropdown: OptionButton = null
+var player2_difficulty_container: HBoxContainer = null
+var player2_difficulty_dropdown: OptionButton = null
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
@@ -97,6 +102,9 @@ func _setup_dropdowns() -> void:
 	player2_type_dropdown.add_item("AI")
 	player2_type_dropdown.selected = 1  # Default: AI (most common single-player setup)
 
+	# T7-40: Create AI difficulty dropdowns
+	_create_difficulty_dropdowns()
+
 	# Dynamically populate army dropdowns from ArmyListManager
 	_load_available_armies()
 	for option in army_options:
@@ -104,6 +112,91 @@ func _setup_dropdowns() -> void:
 		player2_dropdown.add_item(option.name)
 
 	print("MainMenu: Dropdowns populated with ", army_options.size(), " armies")
+
+func _create_difficulty_dropdowns() -> void:
+	"""T7-40: Create AI difficulty dropdown containers and insert them after the player type rows."""
+	var army_section = $MenuContainer/ArmySection
+
+	# --- Player 1 Difficulty ---
+	player1_difficulty_container = HBoxContainer.new()
+	player1_difficulty_container.name = "Player1DifficultyContainer"
+
+	var p1_label = Label.new()
+	p1_label.text = "P1 AI Difficulty:"
+	p1_label.custom_minimum_size = Vector2(150, 0)
+	player1_difficulty_container.add_child(p1_label)
+
+	player1_difficulty_dropdown = OptionButton.new()
+	player1_difficulty_dropdown.name = "Player1DifficultyDropdown"
+	player1_difficulty_dropdown.custom_minimum_size = Vector2(300, 0)
+	player1_difficulty_dropdown.add_item("Easy")
+	player1_difficulty_dropdown.add_item("Normal")
+	player1_difficulty_dropdown.add_item("Hard")
+	player1_difficulty_dropdown.add_item("Competitive")
+	player1_difficulty_dropdown.selected = 1  # Default: Normal
+	player1_difficulty_container.add_child(player1_difficulty_dropdown)
+
+	# Insert after Player1TypeContainer
+	var p1_type_idx = _get_child_index(army_section, "Player1TypeContainer")
+	army_section.add_child(player1_difficulty_container)
+	if p1_type_idx >= 0:
+		army_section.move_child(player1_difficulty_container, p1_type_idx + 1)
+
+	# --- Player 2 Difficulty ---
+	player2_difficulty_container = HBoxContainer.new()
+	player2_difficulty_container.name = "Player2DifficultyContainer"
+
+	var p2_label = Label.new()
+	p2_label.text = "P2 AI Difficulty:"
+	p2_label.custom_minimum_size = Vector2(150, 0)
+	player2_difficulty_container.add_child(p2_label)
+
+	player2_difficulty_dropdown = OptionButton.new()
+	player2_difficulty_dropdown.name = "Player2DifficultyDropdown"
+	player2_difficulty_dropdown.custom_minimum_size = Vector2(300, 0)
+	player2_difficulty_dropdown.add_item("Easy")
+	player2_difficulty_dropdown.add_item("Normal")
+	player2_difficulty_dropdown.add_item("Hard")
+	player2_difficulty_dropdown.add_item("Competitive")
+	player2_difficulty_dropdown.selected = 1  # Default: Normal
+	player2_difficulty_container.add_child(player2_difficulty_dropdown)
+
+	# Insert after Player2TypeContainer
+	var p2_type_idx = _get_child_index(army_section, "Player2TypeContainer")
+	army_section.add_child(player2_difficulty_container)
+	if p2_type_idx >= 0:
+		army_section.move_child(player2_difficulty_container, p2_type_idx + 1)
+
+	# Set initial visibility based on player type
+	player1_difficulty_container.visible = (player1_type_dropdown.selected == 1)
+	player2_difficulty_container.visible = (player2_type_dropdown.selected == 1)
+
+	# Connect player type changes to toggle difficulty visibility
+	player1_type_dropdown.item_selected.connect(_on_player1_type_changed)
+	player2_type_dropdown.item_selected.connect(_on_player2_type_changed)
+
+	print("MainMenu: AI difficulty dropdowns created")
+
+func _get_child_index(parent: Node, child_name: String) -> int:
+	"""Get the index of a child node by name."""
+	for i in range(parent.get_child_count()):
+		if parent.get_child(i).name == child_name:
+			return i
+	return -1
+
+func _on_player1_type_changed(index: int) -> void:
+	"""T7-40: Show/hide P1 difficulty dropdown based on player type."""
+	if player1_difficulty_container:
+		player1_difficulty_container.visible = (index == 1)  # 1 = AI
+		print("MainMenu: Player 1 type changed to %s, difficulty visible: %s" % [
+			"AI" if index == 1 else "Human", player1_difficulty_container.visible])
+
+func _on_player2_type_changed(index: int) -> void:
+	"""T7-40: Show/hide P2 difficulty dropdown based on player type."""
+	if player2_difficulty_container:
+		player2_difficulty_container.visible = (index == 1)  # 1 = AI
+		print("MainMenu: Player 2 type changed to %s, difficulty visible: %s" % [
+			"AI" if index == 1 else "Human", player2_difficulty_container.visible])
 
 func _load_available_armies() -> void:
 	# Dynamically load available armies from ArmyListManager
@@ -268,6 +361,9 @@ func _on_start_button_pressed() -> void:
 	# Store configuration in GameState
 	var p1_type = "AI" if player1_type_dropdown.selected == 1 else "HUMAN"
 	var p2_type = "AI" if player2_type_dropdown.selected == 1 else "HUMAN"
+	# T7-40: Get difficulty settings (dropdown index matches AIDifficultyConfig.Difficulty enum)
+	var p1_difficulty = player1_difficulty_dropdown.selected if player1_difficulty_dropdown else 1
+	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 1
 	var config = {
 		"terrain": terrain_options[terrain_dropdown.selected].id,
 		"mission": mission_options[mission_dropdown.selected].id,
@@ -275,7 +371,9 @@ func _on_start_button_pressed() -> void:
 		"player1_army": army_options[player1_dropdown.selected].id,
 		"player2_army": army_options[player2_dropdown.selected].id,
 		"player1_type": p1_type,
-		"player2_type": p2_type
+		"player2_type": p2_type,
+		"player1_difficulty": p1_difficulty,
+		"player2_difficulty": p2_difficulty
 	}
 
 	print("MainMenu: Starting game with config: ", config)

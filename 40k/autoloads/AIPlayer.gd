@@ -1,5 +1,6 @@
 extends Node
 const GameStateData = preload("res://autoloads/GameState.gd")
+const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 
 # AIPlayer - Autoload controller for AI opponents
 # Monitors game signals and submits actions through NetworkIntegration.route_action()
@@ -11,6 +12,7 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 # Configuration
 var ai_players: Dictionary = {}  # player_id (int) -> true/false (is AI)
+var ai_difficulty: Dictionary = {}  # player_id (int) -> AIDifficultyConfigData.Difficulty value
 var enabled: bool = false
 var _processing_turn: bool = false  # Guard against re-entrant calls
 var _action_log: Array = []  # Log of AI actions for summary display
@@ -91,22 +93,29 @@ func _end_ai_thinking() -> void:
 		emit_signal("ai_turn_ended", active_player, _action_log.duplicate())
 		print("AIPlayer: AI thinking ended for player %d" % active_player)
 
-func configure(player_types: Dictionary) -> void:
+func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> void:
 	"""
 	Called from Main.gd during initialization.
 	player_types: {1: "HUMAN" or "AI", 2: "HUMAN" or "AI"}
+	difficulty_levels: {1: AIDifficultyConfigData.Difficulty value, 2: ...} (optional)
 	"""
 	ai_players.clear()
+	ai_difficulty.clear()
 	_action_log.clear()
 	_current_phase_actions = 0
 
 	for player_id in player_types:
-		ai_players[int(player_id)] = (player_types[player_id] == "AI")
+		var pid = int(player_id)
+		ai_players[pid] = (player_types[player_id] == "AI")
+		# T7-40: Set difficulty per-player (default Normal for backwards compatibility)
+		ai_difficulty[pid] = difficulty_levels.get(pid, difficulty_levels.get(player_id, AIDifficultyConfigData.Difficulty.NORMAL))
 	enabled = ai_players.values().has(true)
 
-	print("AIPlayer: Configured - P1=%s, P2=%s, enabled=%s" % [
-		player_types.get(1, player_types.get("1", "HUMAN")),
-		player_types.get(2, player_types.get("2", "HUMAN")),
+	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.NORMAL))
+	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.NORMAL))
+	print("AIPlayer: Configured - P1=%s (%s), P2=%s (%s), enabled=%s" % [
+		player_types.get(1, player_types.get("1", "HUMAN")), p1_diff,
+		player_types.get(2, player_types.get("2", "HUMAN")), p2_diff,
 		enabled])
 
 	# If AI should act right away (e.g., Player 1 is AI in deployment), kick off
@@ -115,6 +124,10 @@ func configure(player_types: Dictionary) -> void:
 
 func is_ai_player(player: int) -> bool:
 	return enabled and ai_players.get(player, false)
+
+func get_difficulty(player: int) -> int:
+	"""T7-40: Get the difficulty level for a given player."""
+	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
 
 func get_action_log() -> Array:
 	return _action_log.duplicate()
@@ -247,8 +260,19 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	if not is_ai_player(defending_player):
 		return  # Not our AI — let human handle it
 
-	print("AIPlayer: Reactive stratagem opportunity for AI player %d (stratagems: %d, targets: %d)" % [
-		defending_player, available_stratagems.size(), target_unit_ids.size()])
+	var difficulty = get_difficulty(defending_player)
+	print("AIPlayer: Reactive stratagem opportunity for AI player %d (stratagems: %d, targets: %d, difficulty: %s)" % [
+		defending_player, available_stratagems.size(), target_unit_ids.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# T7-40: Easy/Normal AI skips reactive stratagems
+	if not AIDifficultyConfigData.use_stratagems(difficulty):
+		var decline = {
+			"type": "DECLINE_REACTIVE_STRATAGEM",
+			"player": defending_player,
+			"_ai_description": "AI declines reactive stratagems (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
+		}
+		_submit_reactive_action(defending_player, decline)
+		return
 
 	var snapshot = GameState.create_snapshot()
 	var decision = AIDecisionMaker.evaluate_reactive_stratagem(
@@ -275,8 +299,19 @@ func _on_movement_fire_overwatch_opportunity(defending_player: int, eligible_uni
 	if not is_ai_player(defending_player):
 		return
 
-	print("AIPlayer: Fire Overwatch opportunity for AI player %d (%d eligible units) against %s" % [
-		defending_player, eligible_units.size(), enemy_unit_id])
+	var difficulty = get_difficulty(defending_player)
+	print("AIPlayer: Fire Overwatch opportunity for AI player %d (%d eligible units) against %s (difficulty: %s)" % [
+		defending_player, eligible_units.size(), enemy_unit_id, AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# T7-40: Easy AI never uses overwatch; Normal+ evaluates
+	if not AIDifficultyConfigData.use_overwatch(difficulty):
+		var decline = {
+			"type": "DECLINE_FIRE_OVERWATCH",
+			"player": defending_player,
+			"_ai_description": "AI declines Fire Overwatch (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
+		}
+		_submit_reactive_action(defending_player, decline)
+		return
 
 	var snapshot = GameState.create_snapshot()
 	var decision = AIDecisionMaker.evaluate_fire_overwatch(
@@ -347,8 +382,19 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	if not is_ai_player(player):
 		return
 
-	print("AIPlayer: Counter-Offensive opportunity for AI player %d — %d eligible units" % [
-		player, eligible_units.size()])
+	var difficulty = get_difficulty(player)
+	print("AIPlayer: Counter-Offensive opportunity for AI player %d — %d eligible units (difficulty: %s)" % [
+		player, eligible_units.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# T7-40: Only Hard+ AI uses Counter-Offensive
+	if not AIDifficultyConfigData.use_counter_offensive(difficulty):
+		var decline = {
+			"type": "DECLINE_COUNTER_OFFENSIVE",
+			"player": player,
+			"_ai_description": "AI declines Counter-Offensive (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
+		}
+		_submit_reactive_action(player, decline)
+		return
 
 	var snapshot = GameState.create_snapshot()
 	var decision = AIDecisionMaker.evaluate_counter_offensive(player, eligible_units, snapshot)
@@ -366,8 +412,20 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	if not is_ai_player(player):
 		return
 
-	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s)" % [
-		player, unit_id, roll_context.get("roll_type", "unknown")])
+	var difficulty = get_difficulty(player)
+	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s, difficulty: %s)" % [
+		player, unit_id, roll_context.get("roll_type", "unknown"), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# T7-40: Easy AI never uses Command Re-roll
+	if not AIDifficultyConfigData.use_command_reroll(difficulty):
+		var decline = {
+			"type": "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI declines Command Re-roll (difficulty: %s)" % AIDifficultyConfigData.difficulty_name(difficulty)
+		}
+		_submit_reactive_action(player, decline)
+		return
 
 	var snapshot = GameState.create_snapshot()
 	var should_reroll = false
@@ -527,10 +585,12 @@ func _execute_next_action(player: int) -> void:
 		_end_ai_thinking()
 		return
 
-	print("AIPlayer: Player %d deciding in phase %d with %d available actions" % [player, phase, available.size()])
+	var difficulty = get_difficulty(player)
+	print("AIPlayer: Player %d deciding in phase %d with %d available actions (difficulty: %s)" % [
+		player, phase, available.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
 
 	# Ask decision maker what to do
-	var decision = AIDecisionMaker.decide(phase, snapshot, available, player)
+	var decision = AIDecisionMaker.decide(phase, snapshot, available, player, difficulty)
 
 	if decision.is_empty():
 		push_warning("AIPlayer: No decision made for player %d in phase %d" % [player, phase])
