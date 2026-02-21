@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T4-2 (2026-02-21): One Shot weapon keyword — Verified full implementation across RulesEngine.gd (detection, state tracking, filtering, validation), both resolution paths, ShootingPhase.gd, ShootingController.gd, WeaponKeywordIcons.gd. Fixed tests to use static calls. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T3-24 (2026-02-21): Defender stats override panel — Verified existing implementation of "Custom Defender Stats" checkbox with SpinBox fields for T/Sv/W/Models/Invuln/FNP in MathhammerUI.gd, auto-populating from selected defender. Overrides applied via `Mathhammer._apply_defender_overrides()`. Added 9 unit tests. | Mathhammer | MATHHAMMER_AUDIT |
 | T3-17 (2026-02-21): Dual resolution paths — prevent rules drift — Synchronized auto-resolve with interactive path: added DW tracking/save bypass with spillover, FNP, Precision, half-damage to `_resolve_assignment()` | Shooting | SHOOTING_PHASE_AUDIT.md §Additional Issues |
 | T3-16 (2026-02-21): Difficult terrain / movement penalties — Added terrain traits system with `"difficult_ground"` trait (flat 2" penalty per piece crossed). FLY units ignore. 17 tests. | Movement | MOVEMENT_PHASE_AUDIT.md §2.7 |
@@ -752,9 +753,10 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Depends on:** T1-3 (wound modifier system)
 - **Resolution:** Enhanced `is_lance_weapon()` to detect Lance from both `keywords` array and `special_rules` string (case-insensitive), matching the pattern of other keyword detectors. Lance +1 wound modifier was already integrated into all three RulesEngine resolution paths (interactive shooting, auto-resolve shooting, melee) via the WoundModifier.PLUS_ONE flag when `charged_this_turn` is true. The `charged_this_turn` flag is set by ChargePhase on successful charges and Heroic Interventions. Added `lance_melee`, `lance_lethal`, and `lance_ranged` test weapon profiles. Updated Mathhammer to apply Lance toggle for both shooting and melee phases. Fixed duplicate function declarations in StratagemManager.gd. 25 unit tests in `test_lance_keyword.gd`.
 
-### T4-2. One Shot weapon keyword (single use per battle)
+### T4-2. One Shot weapon keyword (single use per battle) — **DONE**
 - **Phase:** Shooting
 - **Source:** SHOOTING_PHASE_AUDIT.md §Tier 4
+- **Resolution:** Full implementation already existed across RulesEngine.gd (detection via `is_one_shot_weapon()`, state tracking via `has_fired_one_shot()`/`mark_one_shot_fired_diffs()`, filtering via `filter_fired_one_shot_weapons()`, validation in `validate_shoot()`), both auto-resolve and interactive shooting paths, ShootingPhase.gd (pending diffs, miss handling), ShootingController.gd (UI filtering), and WeaponKeywordIcons.gd (gray "1" badge). Per-model tracking, state persistence across turns, idempotent diff generation. Fixed test file to use static method calls directly (bypassing broken autoload chain). 35 tests pass with 58 assertions.
 
 ### T4-3. Counter-Offensive stratagem — **DONE**
 - **Phase:** Fight
@@ -1523,12 +1525,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 26 | 0 | 26 |
-| Tier 4 — Low/Niche | 14 | 6 | 20 |
+| Tier 4 — Low/Niche | 15 | 5 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **158** | **28** | **186** |
-| **Recently Completed** | **175** | — | **175** |
+| **Total** | **159** | **27** | **186** |
+| **Recently Completed** | **176** | — | **176** |
 | *Mathhammer items (subset)* | *24* | *7* | *31* |
 
 ---

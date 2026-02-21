@@ -1,30 +1,14 @@
 extends "res://addons/gut/test.gd"
 
 # Tests for the ONE SHOT weapon keyword implementation (T4-2)
-# Tests the ACTUAL RulesEngine methods, not duplicate local implementations
+# Uses static method calls on preloaded RulesEngine to avoid autoload dependencies.
 #
 # Per Warhammer 40k 10e rules: "Weapons with [ONE SHOT] can only be fired once
 # per battle. After firing, the weapon is unavailable for the rest of the game."
 #
 # One Shot is tracked per model — each model with a one-shot weapon gets one use.
 
-const GameStateData = preload("res://autoloads/GameState.gd")
-
-var rules_engine: Node
-var game_state: Node
-
-func before_each():
-	# Verify autoloads are available
-	if not AutoloadHelper.verify_autoloads_available():
-		push_error("Required autoloads not available - cannot run test")
-		return
-
-	# Get actual autoload singletons
-	rules_engine = AutoloadHelper.get_rules_engine()
-	game_state = AutoloadHelper.get_game_state()
-
-	assert_not_null(rules_engine, "RulesEngine autoload must be available")
-	assert_not_null(game_state, "GameState autoload must be available")
+const RE = preload("res://autoloads/RulesEngine.gd")
 
 # ==========================================
 # is_one_shot_weapon() Tests — Built-in Weapon Profiles
@@ -32,32 +16,32 @@ func before_each():
 
 func test_is_one_shot_weapon_returns_true_for_one_shot_missile():
 	"""Test that one_shot_missile is recognized as a One Shot weapon"""
-	var result = rules_engine.is_one_shot_weapon("one_shot_missile")
+	var result = RE.is_one_shot_weapon("one_shot_missile")
 	assert_true(result, "one_shot_missile should be recognized as a One Shot weapon")
 
 func test_is_one_shot_weapon_returns_true_for_one_shot_blast():
 	"""Test that one_shot_blast is recognized as a One Shot weapon"""
-	var result = rules_engine.is_one_shot_weapon("one_shot_blast")
+	var result = RE.is_one_shot_weapon("one_shot_blast")
 	assert_true(result, "one_shot_blast should be a One Shot weapon")
 
 func test_is_one_shot_weapon_returns_true_for_one_shot_test():
 	"""Test that one_shot_test is recognized as a One Shot weapon"""
-	var result = rules_engine.is_one_shot_weapon("one_shot_test")
+	var result = RE.is_one_shot_weapon("one_shot_test")
 	assert_true(result, "one_shot_test should be a One Shot weapon")
 
 func test_is_one_shot_weapon_returns_false_for_bolt_rifle():
 	"""Test that bolt_rifle is NOT a One Shot weapon"""
-	var result = rules_engine.is_one_shot_weapon("bolt_rifle")
+	var result = RE.is_one_shot_weapon("bolt_rifle")
 	assert_false(result, "bolt_rifle should NOT be a One Shot weapon")
 
 func test_is_one_shot_weapon_returns_false_for_lascannon():
 	"""Test that lascannon is NOT a One Shot weapon"""
-	var result = rules_engine.is_one_shot_weapon("lascannon")
+	var result = RE.is_one_shot_weapon("lascannon")
 	assert_false(result, "lascannon should NOT be a One Shot weapon")
 
 func test_is_one_shot_weapon_returns_false_for_unknown_weapon():
 	"""Test that unknown weapon returns false"""
-	var result = rules_engine.is_one_shot_weapon("nonexistent_weapon")
+	var result = RE.is_one_shot_weapon("nonexistent_weapon")
 	assert_false(result, "Unknown weapon should return false")
 
 # ==========================================
@@ -87,7 +71,7 @@ func test_is_one_shot_weapon_from_special_rules():
 			}
 		}
 	}
-	var result = rules_engine.is_one_shot_weapon("hunter_killer_missile", board)
+	var result = RE.is_one_shot_weapon("hunter_killer_missile", board)
 	assert_true(result, "Should detect One Shot from special_rules string")
 
 func test_is_one_shot_weapon_case_insensitive_special_rules():
@@ -113,7 +97,7 @@ func test_is_one_shot_weapon_case_insensitive_special_rules():
 			}
 		}
 	}
-	var result = rules_engine.is_one_shot_weapon("hk_missile", board)
+	var result = RE.is_one_shot_weapon("hk_missile", board)
 	assert_true(result, "Should detect One Shot (capitalized) from special_rules")
 
 func test_is_one_shot_weapon_from_keywords_array():
@@ -139,7 +123,7 @@ func test_is_one_shot_weapon_from_keywords_array():
 			}
 		}
 	}
-	var result = rules_engine.is_one_shot_weapon("custom_missile", board)
+	var result = RE.is_one_shot_weapon("custom_missile", board)
 	assert_true(result, "Should detect ONE SHOT from keywords array")
 
 # ==========================================
@@ -148,14 +132,14 @@ func test_is_one_shot_weapon_from_keywords_array():
 
 func test_weapon_profile_one_shot_missile_has_keyword():
 	"""Test that one_shot_missile profile contains ONE SHOT keyword"""
-	var profile = rules_engine.get_weapon_profile("one_shot_missile")
+	var profile = RE.get_weapon_profile("one_shot_missile")
 	assert_false(profile.is_empty(), "Should find one_shot_missile profile")
 	var keywords = profile.get("keywords", [])
 	assert_has(keywords, "ONE SHOT", "one_shot_missile should have ONE SHOT keyword")
 
 func test_weapon_profile_one_shot_blast_has_both_keywords():
 	"""Test that one_shot_blast profile has both ONE SHOT and BLAST keywords"""
-	var profile = rules_engine.get_weapon_profile("one_shot_blast")
+	var profile = RE.get_weapon_profile("one_shot_blast")
 	assert_false(profile.is_empty(), "Should find one_shot_blast profile")
 	var keywords = profile.get("keywords", [])
 	assert_has(keywords, "ONE SHOT", "one_shot_blast should have ONE SHOT keyword")
@@ -163,7 +147,7 @@ func test_weapon_profile_one_shot_blast_has_both_keywords():
 
 func test_weapon_profile_bolt_rifle_no_one_shot_keyword():
 	"""Test that bolt_rifle profile does NOT contain ONE SHOT keyword"""
-	var profile = rules_engine.get_weapon_profile("bolt_rifle")
+	var profile = RE.get_weapon_profile("bolt_rifle")
 	assert_false(profile.is_empty(), "Should find bolt_rifle profile")
 	var keywords = profile.get("keywords", [])
 	assert_does_not_have(keywords, "ONE SHOT", "Bolt rifle should NOT have ONE SHOT keyword")
@@ -177,7 +161,7 @@ func test_has_fired_one_shot_returns_false_when_not_fired():
 	var unit = {
 		"flags": {}
 	}
-	var result = rules_engine.has_fired_one_shot(unit, "m1", "one_shot_missile")
+	var result = RE.has_fired_one_shot(unit, "m1", "one_shot_missile")
 	assert_false(result, "Should return false when weapon hasn't been fired")
 
 func test_has_fired_one_shot_returns_true_when_fired():
@@ -189,7 +173,7 @@ func test_has_fired_one_shot_returns_true_when_fired():
 			}
 		}
 	}
-	var result = rules_engine.has_fired_one_shot(unit, "m1", "one_shot_missile")
+	var result = RE.has_fired_one_shot(unit, "m1", "one_shot_missile")
 	assert_true(result, "Should return true when weapon has been fired")
 
 func test_has_fired_one_shot_different_model_not_affected():
@@ -201,7 +185,7 @@ func test_has_fired_one_shot_different_model_not_affected():
 			}
 		}
 	}
-	var result = rules_engine.has_fired_one_shot(unit, "m2", "one_shot_missile")
+	var result = RE.has_fired_one_shot(unit, "m2", "one_shot_missile")
 	assert_false(result, "Model m2 should NOT be affected by m1's one-shot usage")
 
 func test_has_fired_one_shot_different_weapon_not_affected():
@@ -213,7 +197,7 @@ func test_has_fired_one_shot_different_weapon_not_affected():
 			}
 		}
 	}
-	var result = rules_engine.has_fired_one_shot(unit, "m1", "one_shot_blast")
+	var result = RE.has_fired_one_shot(unit, "m1", "one_shot_blast")
 	assert_false(result, "Different weapon should NOT be affected")
 
 func test_mark_one_shot_fired_diffs_creates_correct_diff():
@@ -221,7 +205,7 @@ func test_mark_one_shot_fired_diffs_creates_correct_diff():
 	var unit = {
 		"flags": {}
 	}
-	var diffs = rules_engine.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_missile")
+	var diffs = RE.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_missile")
 	assert_eq(diffs.size(), 1, "Should generate exactly 1 diff")
 	assert_eq(diffs[0].op, "set", "Diff should be a set operation")
 	assert_eq(diffs[0].path, "units.unit_1.flags.one_shot_fired", "Path should target one_shot_fired")
@@ -238,7 +222,7 @@ func test_mark_one_shot_fired_diffs_appends_to_existing():
 			}
 		}
 	}
-	var diffs = rules_engine.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_blast")
+	var diffs = RE.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_blast")
 	assert_eq(diffs.size(), 1, "Should generate exactly 1 diff")
 	var value = diffs[0].value
 	assert_true(value.has("m1"), "Value should have model m1")
@@ -254,7 +238,7 @@ func test_mark_one_shot_fired_diffs_no_duplicate():
 			}
 		}
 	}
-	var diffs = rules_engine.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_missile")
+	var diffs = RE.mark_one_shot_fired_diffs("unit_1", unit, "m1", "one_shot_missile")
 	assert_eq(diffs.size(), 0, "Should not generate a diff for already-fired weapon")
 
 # ==========================================
@@ -282,7 +266,7 @@ func test_filter_fired_one_shot_removes_fired_weapons():
 		"m1": ["bolt_rifle", "one_shot_missile"],
 		"m2": ["bolt_rifle", "one_shot_missile"]
 	}
-	var filtered = rules_engine.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
+	var filtered = RE.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
 
 	# m1 should NOT have one_shot_missile (already fired)
 	assert_false("one_shot_missile" in filtered["m1"], "m1 should not have fired one_shot_missile")
@@ -305,7 +289,7 @@ func test_filter_fired_one_shot_keeps_non_one_shot_weapons():
 	var unit_weapons = {
 		"m1": ["bolt_rifle", "lascannon"]
 	}
-	var filtered = rules_engine.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
+	var filtered = RE.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
 	assert_eq(filtered["m1"].size(), 2, "Should keep all non-one-shot weapons")
 
 func test_filter_fired_one_shot_keeps_unfired_one_shot():
@@ -321,7 +305,7 @@ func test_filter_fired_one_shot_keeps_unfired_one_shot():
 	var unit_weapons = {
 		"m1": ["bolt_rifle", "one_shot_missile"]
 	}
-	var filtered = rules_engine.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
+	var filtered = RE.filter_fired_one_shot_weapons("unit_1", unit_weapons, board)
 	assert_true("one_shot_missile" in filtered["m1"], "Unfired one-shot should remain")
 
 # ==========================================
@@ -409,9 +393,8 @@ func test_resolve_shoot_marks_one_shot_as_fired():
 	var board = _make_shoot_board(["one_shot_test"])
 	var action = _make_shoot_action("one_shot_test")
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot(action, board, rng)
 
 	assert_true(result.success, "Shooting should succeed")
 
@@ -428,9 +411,8 @@ func test_resolve_shoot_marks_one_shot_per_model():
 	var board = _make_shoot_board(["one_shot_test"], {}, {}, 3)
 	var action = _make_shoot_action("one_shot_test", ["m1", "m2", "m3"])
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot(action, board, rng)
 
 	assert_true(result.success, "Shooting should succeed")
 
@@ -448,9 +430,8 @@ func test_resolve_shoot_non_one_shot_no_marking():
 	var board = _make_shoot_board(["bolt_rifle"])
 	var action = _make_shoot_action("bolt_rifle")
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot(action, board, rng)
 
 	# Check that NO one-shot diffs were generated
 	var has_one_shot_diff = false
@@ -469,9 +450,8 @@ func test_resolve_shoot_until_wounds_includes_one_shot_diffs():
 	var board = _make_shoot_board(["one_shot_test"])
 	var action = _make_shoot_action("one_shot_test")
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot_until_wounds(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot_until_wounds(action, board, rng)
 
 	assert_true(result.success, "Interactive shooting should succeed")
 
@@ -484,9 +464,8 @@ func test_resolve_shoot_until_wounds_no_one_shot_diffs_for_normal_weapon():
 	var board = _make_shoot_board(["bolt_rifle"])
 	var action = _make_shoot_action("bolt_rifle")
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot_until_wounds(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot_until_wounds(action, board, rng)
 
 	var one_shot_diffs = result.get("one_shot_diffs", [])
 	assert_eq(one_shot_diffs.size(), 0, "Non-one-shot weapons should not produce one_shot_diffs")
@@ -504,7 +483,7 @@ func test_validate_shoot_rejects_fired_one_shot():
 	})
 	var action = _make_shoot_action("one_shot_test")
 
-	var validation = rules_engine.validate_shoot(action, board)
+	var validation = RE.validate_shoot(action, board)
 	assert_false(validation.valid, "Should reject fired one-shot weapon")
 	assert_true(validation.errors.size() > 0, "Should have validation errors")
 
@@ -513,7 +492,7 @@ func test_validate_shoot_allows_unfired_one_shot():
 	var board = _make_shoot_board(["one_shot_test"])
 	var action = _make_shoot_action("one_shot_test")
 
-	var validation = rules_engine.validate_shoot(action, board)
+	var validation = RE.validate_shoot(action, board)
 	assert_true(validation.valid, "Should allow unfired one-shot weapon")
 
 func test_validate_shoot_allows_normal_weapon():
@@ -521,7 +500,7 @@ func test_validate_shoot_allows_normal_weapon():
 	var board = _make_shoot_board(["bolt_rifle"])
 	var action = _make_shoot_action("bolt_rifle")
 
-	var validation = rules_engine.validate_shoot(action, board)
+	var validation = RE.validate_shoot(action, board)
 	assert_true(validation.valid, "Should allow normal weapon")
 
 # ==========================================
@@ -533,9 +512,8 @@ func test_one_shot_state_persists_after_marking():
 	var board = _make_shoot_board(["one_shot_test"])
 	var action = _make_shoot_action("one_shot_test")
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot(action, board, rng)
 
 	# The board should now have one_shot_fired state (diffs applied to board during resolve)
 	var attacker = board.get("units", {}).get("attacker_unit", {})
@@ -549,9 +527,8 @@ func test_one_shot_cannot_fire_twice_in_auto_resolve():
 
 	# First shot
 	var action1 = _make_shoot_action("one_shot_test")
-	var rng1 = RulesEngine.RNGService.new()
-	rng1.seed_value = 42
-	var result1 = rules_engine.resolve_shoot(action1, board, rng1)
+	var rng1 = RE.RNGService.new(42)
+	var result1 = RE.resolve_shoot(action1, board, rng1)
 	assert_true(result1.success, "First shot should succeed")
 
 	# Verify the weapon is now marked as fired
@@ -561,7 +538,7 @@ func test_one_shot_cannot_fire_twice_in_auto_resolve():
 
 	# Attempt to validate a second shot — should fail
 	var action2 = _make_shoot_action("one_shot_test")
-	var validation = rules_engine.validate_shoot(action2, board)
+	var validation = RE.validate_shoot(action2, board)
 	assert_false(validation.valid, "Second shot should be rejected by validation")
 
 # ==========================================
@@ -573,9 +550,8 @@ func test_multi_model_one_shot_marks_all_models():
 	var board = _make_shoot_board(["one_shot_test"], {}, {}, 2)
 	var action = _make_shoot_action("one_shot_test", ["m1", "m2"])
 
-	var rng = RulesEngine.RNGService.new()
-	rng.seed_value = 42
-	var result = rules_engine.resolve_shoot(action, board, rng)
+	var rng = RE.RNGService.new(42)
+	var result = RE.resolve_shoot(action, board, rng)
 
 	var attacker = board.get("units", {}).get("attacker_unit", {})
 	var fired = attacker.get("flags", {}).get("one_shot_fired", {})
@@ -602,7 +578,7 @@ func test_one_shot_one_model_fired_other_still_can():
 			}]
 		}
 	}
-	var validation = rules_engine.validate_shoot(action, board)
+	var validation = RE.validate_shoot(action, board)
 	assert_true(validation.valid, "m2 should still be able to fire its one-shot weapon")
 
 # ==========================================
@@ -611,8 +587,8 @@ func test_one_shot_one_model_fired_other_still_can():
 
 func test_one_shot_blast_retains_blast_keyword():
 	"""Test that a weapon with both ONE SHOT and BLAST still works as BLAST"""
-	var result = rules_engine.is_blast_weapon("one_shot_blast")
+	var result = RE.is_blast_weapon("one_shot_blast")
 	assert_true(result, "one_shot_blast should also be a BLAST weapon")
 
-	var one_shot = rules_engine.is_one_shot_weapon("one_shot_blast")
+	var one_shot = RE.is_one_shot_weapon("one_shot_blast")
 	assert_true(one_shot, "one_shot_blast should be a ONE SHOT weapon")
