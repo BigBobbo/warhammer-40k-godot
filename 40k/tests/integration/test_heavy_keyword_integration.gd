@@ -413,3 +413,35 @@ func test_moved_and_remained_stationary_mutually_exclusive():
 	unit.flags.remained_stationary = false
 	var result2 = calculate_hit_modifiers("heavy_bolter", unit, test_state)
 	assert_false(result2.heavy_bonus_applied, "Moving unit should NOT get Heavy bonus")
+
+# ==========================================
+# T3-15: Disembarked Units and Heavy Bonus
+# ==========================================
+
+func test_disembarked_unit_no_heavy_bonus_even_if_stationary():
+	"""T3-15: Disembarked units should NOT get Heavy bonus even if they remain stationary.
+	Per 10e rules, disembarked units do not count as having Remained Stationary."""
+	var unit = test_state.units["U_DEVASTATORS_HEAVY"]
+
+	# Simulate a unit that disembarked and then chose Remain Stationary
+	# The remained_stationary flag should NOT be set for disembarked units
+	unit.flags.moved = true
+	unit.flags.remained_stationary = false  # T3-15 fix: disembarked units get false here
+	unit["disembarked_this_phase"] = true
+
+	var result = calculate_hit_modifiers("heavy_bolter", unit, test_state)
+	assert_false(result.heavy_bonus_applied,
+		"Disembarked unit should NOT get Heavy bonus even if it didn't move after disembarking")
+
+func test_non_disembarked_unit_still_gets_heavy_bonus():
+	"""T3-15: Non-disembarked units that remain stationary should still get Heavy bonus"""
+	var unit = test_state.units["U_DEVASTATORS_HEAVY"]
+
+	# Normal unit that remained stationary (not disembarked)
+	unit.flags.moved = false
+	unit.flags.remained_stationary = true
+	unit["disembarked_this_phase"] = false
+
+	var result = calculate_hit_modifiers("heavy_bolter", unit, test_state)
+	assert_true(result.heavy_bonus_applied,
+		"Non-disembarked stationary unit should still get Heavy bonus")

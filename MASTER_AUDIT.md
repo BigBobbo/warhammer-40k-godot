@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T3-15 (2026-02-21): Disembarked units don't count as Remained Stationary — Added `disembarked_this_phase` check in `_process_remain_stationary()` to prevent Heavy weapon bonus for disembarked units | Movement | MOVEMENT_PHASE_AUDIT.md §2.12 |
 | T3-14 (2026-02-21): Desperate Escape battle-shocked modifier — Added conditional fail threshold (1-3 for battle-shocked, 1-2 for normal) in `_process_desperate_escape()`. Previously hardcoded to `roll <= 2` for all cases. | Movement | AUDIT_COMMAND_PHASE.md |
 | T3-13 (2026-02-21): Fight selection dialog sync for remote player — Replaced fragile 0.1s timer workaround with pending data retrieval pattern in FightPhase/FightController, eliminating race condition on initial fight selection dialog for remote players. | Fight | FIGHT_PHASE_AUDIT.md §3.4 |
 | T7-50 (2026-02-21): AI multi-target charge declarations — Added `_evaluate_multi_target_charge()` and `_score_multi_target_combo()` to evaluate 2- and 3-target charge combinations. Multi-target bonus (+15% per extra target) and clustering bonus. Correctly picks multi-target when targets are close together. | Charge/AI | AI_AUDIT.md §CHARGE-4 |
@@ -642,12 +643,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `MovementPhase.gd` — `_process_desperate_escape()`
 - **Resolution:** Added conditional `fail_threshold` variable in `_process_desperate_escape()` that uses 3 for battle-shocked units (fail on 1-3) vs 2 for normal units (fail on 1-2). Previously the threshold was hardcoded to `roll <= 2` for all cases, ignoring the battle-shocked penalty.
 
-### T3-15. Disembarked units should not count as Remained Stationary
+### T3-15. Disembarked units should not count as Remained Stationary — **DONE**
 - **Phase:** Movement
 - **Rule:** Disembarked units don't get Heavy weapon bonus even if they don't move
 - **Impact:** Edge case affecting Heavy weapon accuracy
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.12
 - **Files:** `MovementPhase.gd` — `_process_remain_stationary()` (~line 880)
+- **Resolution:** Added `disembarked_this_phase` check in `_process_remain_stationary()`. When a unit has disembarked this phase, `remained_stationary` is set to `false` instead of `true`, preventing the Heavy weapon +1 to hit bonus. Added integration tests verifying disembarked units don't get the bonus while non-disembarked stationary units still do.
 
 ### T3-16. Difficult terrain / movement penalties
 - **Phase:** Movement
@@ -1514,13 +1516,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 22 | 4 | 26 |
+| Tier 3 — Medium Rules | 23 | 3 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **154** | **32** | **186** |
-| **Recently Completed** | **172** | — | **172** |
+| **Total** | **155** | **31** | **186** |
+| **Recently Completed** | **173** | — | **173** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
