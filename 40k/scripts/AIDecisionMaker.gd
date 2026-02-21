@@ -234,7 +234,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 
 	# T7-23: Reset multi-phase plan when a new round starts or when we enter
 	# a phase earlier than movement (i.e., command phase or earlier)
-	var current_round = snapshot.get("battle_round", 1)
+	# Note: current_round already declared above (T7-43) with meta fallback
 	if _phase_plan_round != current_round:
 		_phase_plan.clear()
 		_phase_plan_built = false
@@ -1368,6 +1368,12 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	baseline_pos.x = col_center_x * 0.7 + objective_pos.x * 0.3
 	baseline_pos.y = clamp(deploy_y, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
 
+	# T7-44: Counter-deployment — adjust baseline based on opponent's deployed units
+	if AIDifficultyConfigData.use_counter_deployment(_current_difficulty):
+		baseline_pos = _apply_counter_deployment(
+			baseline_pos, unit_role, unit, snapshot, player, zone_bounds, is_top_zone, objectives
+		)
+
 	# T7-18: Terrain-aware position adjustment
 	var terrain_features = snapshot.get("board", {}).get("terrain_features", [])
 	var best_pos = _find_terrain_aware_position(
@@ -1440,6 +1446,183 @@ static func _classify_deployment_role(unit: Dictionary) -> String:
 		return "melee"
 
 	return "general"
+
+# T7-44: Counter-deployment — analyze opponent's deployed units and adjust AI placement.
+# During alternating deployment, the AI reacts to where the opponent has placed units:
+# - Melee units deploy toward enemy fragile/valuable targets to threaten charges
+# - Fragile shooters deploy away from enemy melee threats
+# - Durable shooters deploy with firing lanes to high-value enemy concentrations
+# - Characters avoid enemy shooting concentrations
+static func _apply_counter_deployment(
+	baseline_pos: Vector2, role: String, unit: Dictionary,
+	snapshot: Dictionary, player: int, zone_bounds: Dictionary,
+	is_top_zone: bool, objectives: Array
+) -> Vector2:
+	# Get deployed enemy units (already on the board during alternating deployment)
+	var enemy_positions = _get_deployed_enemy_analysis(snapshot, player)
+	if enemy_positions.is_empty():
+		print("AIDecisionMaker: T7-44 no enemy units deployed yet, using baseline")
+		return baseline_pos
+
+	# Compute the counter-deployment offset based on our role vs enemy positions
+	var adjusted = baseline_pos
+	var zone_width = zone_bounds.max_x - zone_bounds.min_x
+	var zone_height = zone_bounds.max_y - zone_bounds.min_y
+
+	# Categorize enemy positions by threat type
+	var enemy_melee_positions: Array = []
+	var enemy_shooter_positions: Array = []
+	var enemy_all_positions: Array = []
+	var enemy_high_value_positions: Array = []
+
+	for ep in enemy_positions:
+		enemy_all_positions.append(ep.centroid)
+		if ep.role == "melee":
+			enemy_melee_positions.append(ep.centroid)
+		elif ep.role in ["fragile_shooter", "durable_shooter"]:
+			enemy_shooter_positions.append(ep.centroid)
+		if ep.points >= 100:
+			enemy_high_value_positions.append(ep.centroid)
+
+	# Compute enemy center of mass for general positioning
+	var enemy_center = Vector2.ZERO
+	for pos in enemy_all_positions:
+		enemy_center += pos
+	enemy_center /= enemy_all_positions.size()
+
+	# Front edge of our deployment zone (facing the enemy)
+	var front_y = zone_bounds.max_y if is_top_zone else zone_bounds.min_y
+
+	match role:
+		"melee":
+			# Melee units should deploy toward enemy fragile/high-value targets
+			# to threaten first-turn charges. Favor the side of the board where
+			# enemy squishies cluster.
+			var target_positions = enemy_high_value_positions if not enemy_high_value_positions.is_empty() else enemy_all_positions
+			if not enemy_shooter_positions.is_empty():
+				# Prioritize fragile shooters (juicy charge targets)
+				target_positions = enemy_shooter_positions
+			var target_center = Vector2.ZERO
+			for pos in target_positions:
+				target_center += pos
+			target_center /= target_positions.size()
+
+			# Shift X toward the enemy cluster (keep within zone)
+			var shift_x = (target_center.x - baseline_pos.x) * 0.35
+			adjusted.x = clamp(baseline_pos.x + shift_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+			# Push toward the front edge to set up charges
+			if is_top_zone:
+				adjusted.y = clamp(baseline_pos.y + 40.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+			else:
+				adjusted.y = clamp(baseline_pos.y - 40.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+			print("AIDecisionMaker: T7-44 melee counter-deploy: shift toward enemy cluster at (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+				target_center.x, target_center.y, adjusted.x, adjusted.y])
+
+		"fragile_shooter":
+			# Fragile shooters should deploy AWAY from enemy melee threats
+			# and toward a flank where they won't be charged turn 1
+			if not enemy_melee_positions.is_empty():
+				var melee_center = Vector2.ZERO
+				for pos in enemy_melee_positions:
+					melee_center += pos
+				melee_center /= enemy_melee_positions.size()
+
+				# Shift X away from enemy melee concentration
+				var away_x = (baseline_pos.x - melee_center.x) * 0.3
+				adjusted.x = clamp(baseline_pos.x + away_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+				# Push toward the back edge for safety
+				if is_top_zone:
+					adjusted.y = clamp(baseline_pos.y - 30.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+				else:
+					adjusted.y = clamp(baseline_pos.y + 30.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+				print("AIDecisionMaker: T7-44 fragile_shooter counter-deploy: shift away from melee at (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+					melee_center.x, melee_center.y, adjusted.x, adjusted.y])
+			else:
+				# No melee threats — shift toward enemy cluster to maximize shooting
+				var shift_x = (enemy_center.x - baseline_pos.x) * 0.2
+				adjusted.x = clamp(baseline_pos.x + shift_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+				print("AIDecisionMaker: T7-44 fragile_shooter counter-deploy: no melee threats, shifting toward enemy center")
+
+		"durable_shooter":
+			# Durable shooters can afford to deploy toward enemy concentrations
+			# for better firing lanes. Shift toward the enemy center of mass.
+			var shift_x = (enemy_center.x - baseline_pos.x) * 0.25
+			adjusted.x = clamp(baseline_pos.x + shift_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+
+			# If there are high-value targets, shift slightly more toward them
+			if not enemy_high_value_positions.is_empty():
+				var hv_center = Vector2.ZERO
+				for pos in enemy_high_value_positions:
+					hv_center += pos
+				hv_center /= enemy_high_value_positions.size()
+				var hv_shift_x = (hv_center.x - adjusted.x) * 0.15
+				adjusted.x = clamp(adjusted.x + hv_shift_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+
+			print("AIDecisionMaker: T7-44 durable_shooter counter-deploy: toward enemy center (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+				enemy_center.x, enemy_center.y, adjusted.x, adjusted.y])
+
+		"character":
+			# Characters should avoid enemy shooting concentrations and deploy
+			# behind friendly units. Shift away from enemy shooters.
+			if not enemy_shooter_positions.is_empty():
+				var shooter_center = Vector2.ZERO
+				for pos in enemy_shooter_positions:
+					shooter_center += pos
+				shooter_center /= enemy_shooter_positions.size()
+
+				# Shift X away from enemy shooting concentration
+				var away_x = (baseline_pos.x - shooter_center.x) * 0.25
+				adjusted.x = clamp(baseline_pos.x + away_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+				# Push toward the back edge for protection
+				if is_top_zone:
+					adjusted.y = clamp(baseline_pos.y - 25.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+				else:
+					adjusted.y = clamp(baseline_pos.y + 25.0, zone_bounds.min_y + 60, zone_bounds.max_y - 60)
+
+				print("AIDecisionMaker: T7-44 character counter-deploy: away from shooters at (%.0f,%.0f), adjusted=(%.0f,%.0f)" % [
+					shooter_center.x, shooter_center.y, adjusted.x, adjusted.y])
+			else:
+				print("AIDecisionMaker: T7-44 character counter-deploy: no enemy shooters, using baseline")
+
+		"general":
+			# General units slightly shift toward enemy center for balanced positioning
+			var shift_x = (enemy_center.x - baseline_pos.x) * 0.15
+			adjusted.x = clamp(baseline_pos.x + shift_x, zone_bounds.min_x + 60, zone_bounds.max_x - 60)
+			print("AIDecisionMaker: T7-44 general counter-deploy: slight shift toward enemy center")
+
+	return adjusted
+
+
+# T7-44: Analyze deployed enemy units and return an array of dictionaries with:
+# {centroid: Vector2, role: String, points: int, unit_name: String}
+static func _get_deployed_enemy_analysis(snapshot: Dictionary, player: int) -> Array:
+	var result = []
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if int(unit.get("owner", 0)) == player:
+			continue  # Skip our own units
+		var status = unit.get("status", 0)
+		# Only consider units that are already deployed on the board
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var role = _classify_deployment_role(unit)
+		var points = int(unit.get("meta", {}).get("points", 0))
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		result.append({
+			"centroid": centroid,
+			"role": role,
+			"points": points,
+			"unit_name": unit_name
+		})
+	if not result.is_empty():
+		print("AIDecisionMaker: T7-44 analyzed %d deployed enemy units" % result.size())
+	return result
+
 
 # T7-18: Score a terrain piece's value for a specific deployment role
 # Returns 0.0 if terrain is irrelevant, positive values for beneficial terrain

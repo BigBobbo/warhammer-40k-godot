@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-44 (2026-02-20): AI counter-deployment — Added `_apply_counter_deployment()` and `_get_deployed_enemy_analysis()` to react to opponent's deployed units. Melee units shift toward enemy fragile/high-value targets, fragile shooters shift away from enemy melee, durable shooters orient toward enemy concentrations, characters avoid enemy shooting lanes. Gated at Normal+ difficulty via `use_counter_deployment()` in AIDifficultyConfig.gd. | Deployment/AI | AI_AUDIT.md §DEPLOY-2 |
 | T7-43 (2026-02-20): AI late-game strategy pivot — Added `_get_round_strategy_modifiers()` with per-round multipliers (aggression, objective_priority, survival, charge_threshold). Rounds 1-2 AGGRESSIVE: +30% kill value, -15% obj weight, -20% threat penalty, -20% charge threshold. Round 3 BALANCED: all 1.0. Rounds 4-5 OBJECTIVE/SURVIVAL: -30% kill value, +40% obj priority, +40% threat avoidance, +30% charge threshold, +50% objective-charge bonus, +30% objective-target bonus. Applied across movement, shooting, charge, engaged-unit, and consolidation decisions. | All/AI | AI_AUDIT.md §AI-TACTIC-10 |
 | T7-42 (2026-02-20): AI move blocking — Added `_calculate_corridor_blocking_positions()` to identify key corridors between enemy units and objectives, then assign expendable units to block them. Corridor positions calculated at 55% along the enemy-to-objective line, prioritized by objective importance and enemy proximity. Integrated into PASS 3 of unit assignment alongside existing screening/denial logic. Capped at 4 blocking positions with 5" minimum spacing. | Movement/AI | AI_AUDIT.md §AI-TACTIC-9 |
 | T7-40 (2026-02-20): AI difficulty levels — Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive difficulty enum and per-level feature flags (stratagems, multi-phase planning, threat awareness, trade analysis, score noise, charge thresholds). Easy uses random valid actions; Normal is current behavior; Hard adds stratagems and multi-phase planning; Competitive adds look-ahead and zero noise. Per-player difficulty stored in AIPlayer, gating reactive stratagems/overwatch/counter-offensive/command reroll by level. Difficulty dropdowns auto-shown in MainMenu when player type is AI. | Settings/AI | AI_AUDIT.md §QoL-5 |
@@ -1317,12 +1318,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Same strategy throughout the game. Implement turn-based modifier: Rounds 1-2 aggressive positioning, Round 3 balance, Rounds 4-5 prioritize objective control and survival over kills.
 - **Resolution:** Added `_get_round_strategy_modifiers()` returning per-round aggression, objective_priority, survival, and charge_threshold multipliers. Applied across movement (objective scoring + threat penalties), shooting (target value + objective-presence bonus), charge (threshold + objective-charge bonus), engaged unit decisions (late-game hold bias), and consolidation (prefer objectives over marginal engagements in rounds 4-5).
 
-### T7-44. AI counter-deployment
+### T7-44. AI counter-deployment — **DONE**
 - **Phase:** Deployment
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §DEPLOY-2
 - **Files:** `AIDecisionMaker.gd` — `_decide_deployment()`
 - **Details:** Doesn't react to opponent's deployment. Adjust unit placement based on where opponent has deployed.
+- **Resolution:** Added `_apply_counter_deployment()` and `_get_deployed_enemy_analysis()` to analyze opponent's deployed units during alternating deployment. AI categorizes enemy units by role (melee/shooter/high-value) and adjusts placement per own unit role: melee units shift toward enemy fragile targets, fragile shooters shift away from enemy melee, durable shooters orient toward enemy concentrations, characters avoid enemy shooting. Gated behind `use_counter_deployment()` at Normal+ difficulty. Also added `use_counter_deployment()` to AIDifficultyConfig.gd.
 
 ### T7-45. AI faction ability activation
 - **Phase:** Command
@@ -1470,9 +1472,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 32 | 26 | 58 |
-| **Total** | **131** | **55** | **186** |
-| **Recently Completed** | **150** | — | **150** |
+| Tier 7 — AI Player | 33 | 25 | 58 |
+| **Total** | **132** | **54** | **186** |
+| **Recently Completed** | **151** | — | **151** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
