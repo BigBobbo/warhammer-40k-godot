@@ -2298,9 +2298,34 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 		if total_models > 0 and alive_models > 0 and alive_models * 2 <= total_models:
 			score *= 1.2  # Below half strength — easier to finish off
 
+		# T7-11: Units with invulnerable saves benefit LESS from Oath re-rolls
+		# (re-rolling hits/wounds doesn't help if the invuln negates them anyway)
+		var invuln = _get_target_invulnerable_save(target_unit)
+		if invuln > 0 and invuln <= 4:
+			score *= 0.9  # Good invuln reduces Oath value
+
+		# T7-11: Leader characters providing buffs are high-priority Oath targets
+		# Removing the buffing leader eliminates benefits for the whole bodyguard
+		var keywords = meta.get("keywords", [])
+		if "CHARACTER" in keywords:
+			var leader_abilities = meta.get("abilities", [])
+			for ability in leader_abilities:
+				if ability is Dictionary:
+					var desc = ability.get("description", "").to_lower()
+					if "while" in desc and "leading" in desc:
+						score *= 1.25  # Leader actively providing buffs — high priority
+						break
+
+		# T7-11: Check if the AI has weapons that can efficiently damage this target
+		# Oath re-rolls are wasted if we lack the weapons to hurt the target
+		var friendly_units = _get_units_for_player(snapshot, player)
+		var can_damage_target = _check_army_can_damage_target(target_unit, friendly_units, snapshot)
+		if not can_damage_target:
+			score *= 0.5  # Halve priority if we lack efficient weapons
+
 		var target_name = meta.get("name", target_id)
-		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining)" % [
-			target_name, score, toughness, save, remaining_wounds])
+		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining, invuln %d+)" % [
+			target_name, score, toughness, save, remaining_wounds, invuln if invuln > 0 else 0])
 
 		if score > best_score:
 			best_score = score
@@ -2606,6 +2631,65 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						"_ai_description": "%s holds position for shooting (%d targets in %.0f\" range, obj %s too far)" % [
 							unit_name, enemies_in_range.size(), max_weapon_range_inches, assigned_obj_id]
 					}
+
+			# --- T7-11: Lone Operative protection ---
+			# Lone Operatives that are not attached to another unit can only be targeted
+			# by ranged attacks within 12". If any enemy is within 12", try to move away
+			# to maintain the protection distance. If already >12" from all enemies, hold.
+			if AIAbilityAnalyzerData.is_lone_operative_protected(unit):
+				var closest_enemy_dist = _get_closest_enemy_distance_inches(centroid, enemies)
+				var lo_safe_distance = 12.0  # Lone Operative protection threshold
+				if closest_enemy_dist >= 0.0 and closest_enemy_dist < lo_safe_distance + move_inches:
+					# Enemy is close — try to move AWAY to maintain >12" distance
+					var retreat_target = _get_lone_operative_safe_position(centroid, move_inches, enemies, objectives, target_pos)
+					if retreat_target != Vector2.INF:
+						var model_dests_lo = _compute_movement_toward_target(
+							unit, unit_id, retreat_target, move_inches, snapshot, enemies,
+							0.0, threat_data, objectives
+						)
+						if not model_dests_lo.is_empty():
+							print("AIDecisionMaker: [T7-11] %s (Lone Operative) retreating to maintain >12\" distance (closest enemy: %.1f\")" % [
+								unit_name, closest_enemy_dist])
+							return {
+								"type": "BEGIN_NORMAL_MOVE",
+								"actor_unit_id": unit_id,
+								"_ai_model_destinations": model_dests_lo,
+								"_ai_description": "%s retreats (Lone Operative protection, closest enemy: %.1f\")" % [unit_name, closest_enemy_dist]
+							}
+					elif closest_enemy_dist > lo_safe_distance and "REMAIN_STATIONARY" in move_types:
+						# Already safe, and moving toward objective might bring us too close
+						print("AIDecisionMaker: [T7-11] %s (Lone Operative) holds position (safe at %.1f\" from enemies)" % [
+							unit_name, closest_enemy_dist])
+						return {
+							"type": "REMAIN_STATIONARY",
+							"actor_unit_id": unit_id,
+							"_ai_description": "%s holds (Lone Operative safe at %.1f\" from enemies)" % [unit_name, closest_enemy_dist]
+						}
+
+			# --- T7-11: Deadly Demise vehicle leverage ---
+			# If this unit is a doomed vehicle with Deadly Demise, override movement
+			# to charge toward the nearest enemy cluster so the explosion hits them.
+			var unit_keywords = unit.get("meta", {}).get("keywords", [])
+			if ("VEHICLE" in unit_keywords or "MONSTER" in unit_keywords) \
+					and AIAbilityAnalyzerData.has_deadly_demise(unit) \
+					and AIAbilityAnalyzerData.is_unit_doomed(unit):
+				var dd_target = _get_nearest_enemy_centroid(centroid, enemies)
+				if dd_target != Vector2.INF:
+					var model_dests_dd = _compute_movement_toward_target(
+						unit, unit_id, dd_target, move_inches, snapshot, enemies,
+						0.0, [], objectives  # No threat avoidance — we WANT to be close
+					)
+					if not model_dests_dd.is_empty():
+						var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(unit)
+						var dist_to_enemy = centroid.distance_to(dd_target) / PIXELS_PER_INCH
+						print("AIDecisionMaker: [T7-11] %s (Deadly Demise D%d, doomed) moving toward enemies (%.1f\" away)" % [
+							unit_name, dd_val, dist_to_enemy])
+						return {
+							"type": "BEGIN_NORMAL_MOVE",
+							"actor_unit_id": unit_id,
+							"_ai_model_destinations": model_dests_dd,
+							"_ai_description": "%s charges toward enemies (Deadly Demise D%d, doomed, %.1f\" away)" % [unit_name, dd_val, dist_to_enemy]
+						}
 
 			# --- T7-23: Charge-intent-aware movement target ---
 			# If this unit intends to charge, blend the movement target toward
@@ -5121,6 +5205,103 @@ static func _nearest_objective_pos(pos: Vector2, objectives: Array) -> Vector2:
 			best = obj_pos
 	return best
 
+# =============================================================================
+# T7-11: LONE OPERATIVE AND DEADLY DEMISE MOVEMENT HELPERS
+# =============================================================================
+
+static func _get_closest_enemy_distance_inches(pos: Vector2, enemies: Dictionary) -> float:
+	"""Get the distance in inches to the closest enemy unit centroid. Returns -1.0 if no enemies."""
+	var min_dist = INF
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ec = _get_unit_centroid(enemy)
+		if ec != Vector2.INF:
+			var d = pos.distance_to(ec) / PIXELS_PER_INCH
+			min_dist = min(min_dist, d)
+	return min_dist if min_dist != INF else -1.0
+
+static func _get_lone_operative_safe_position(
+	centroid: Vector2, move_inches: float, enemies: Dictionary,
+	objectives: Array, preferred_target: Vector2
+) -> Vector2:
+	"""Find a position that keeps a Lone Operative >12\" from all enemies while
+	still making progress toward objectives. Returns Vector2.INF if no good position found."""
+	var safe_dist_px = 12.5 * PIXELS_PER_INCH  # Target slightly over 12" for safety
+	var move_px = move_inches * PIXELS_PER_INCH
+
+	# Get all enemy positions
+	var enemy_positions = []
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ec = _get_unit_centroid(enemy)
+		if ec != Vector2.INF:
+			enemy_positions.append(ec)
+	if enemy_positions.is_empty():
+		return Vector2.INF  # No enemies — no need to retreat
+
+	# Find the closest enemy direction to retreat FROM
+	var closest_enemy_pos = Vector2.INF
+	var closest_dist = INF
+	for ep in enemy_positions:
+		var d = centroid.distance_to(ep)
+		if d < closest_dist:
+			closest_dist = d
+			closest_enemy_pos = ep
+
+	if closest_enemy_pos == Vector2.INF:
+		return Vector2.INF
+
+	# Primary retreat direction: directly away from closest enemy
+	var retreat_dir = (centroid - closest_enemy_pos).normalized()
+
+	# Try to blend retreat with objective direction if possible
+	var candidates = []
+	var angles = [0.0, deg_to_rad(30), deg_to_rad(-30), deg_to_rad(60), deg_to_rad(-60)]
+	for angle in angles:
+		var dir = retreat_dir.rotated(angle)
+		var candidate = centroid + dir * move_px
+		# Clamp to board bounds
+		candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+		candidate.y = clamp(candidate.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+		# Check if this position is safe from all enemies
+		var is_safe = true
+		for ep in enemy_positions:
+			if candidate.distance_to(ep) < safe_dist_px:
+				is_safe = false
+				break
+		if is_safe:
+			candidates.append(candidate)
+
+	if candidates.is_empty():
+		return Vector2.INF  # Can't find a safe position
+
+	# Among safe candidates, pick the one closest to preferred target (objective)
+	if preferred_target != Vector2.INF:
+		var best = candidates[0]
+		var best_obj_dist = candidates[0].distance_to(preferred_target)
+		for c in candidates:
+			var d = c.distance_to(preferred_target)
+			if d < best_obj_dist:
+				best_obj_dist = d
+				best = c
+		return best
+
+	return candidates[0]
+
+static func _get_nearest_enemy_centroid(pos: Vector2, enemies: Dictionary) -> Vector2:
+	"""Get the centroid of the nearest enemy unit. Returns Vector2.INF if no enemies."""
+	var best_pos = Vector2.INF
+	var best_dist = INF
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ec = _get_unit_centroid(enemy)
+		if ec != Vector2.INF:
+			var d = pos.distance_to(ec)
+			if d < best_dist:
+				best_dist = d
+				best_pos = ec
+	return best_pos
+
 static func _get_obj_eval_by_id(evaluations: Array, obj_id: String) -> Dictionary:
 	for eval in evaluations:
 		if eval.id == obj_id:
@@ -6209,6 +6390,13 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		var dmg_row = {}
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
+			# T7-11: Lone Operative targeting restriction — cannot target with ranged attacks
+			# from >12" away. Set damage to 0 if the shooter is too far.
+			if AIAbilityAnalyzerData.is_lone_operative_protected(enemy):
+				var lo_dist = _get_closest_model_distance_inches(shooter_unit, enemy)
+				if lo_dist > 12.0:
+					dmg_row[enemy_id] = 0.0
+					continue
 			var dmg = _estimate_weapon_damage(weapon, enemy, snapshot, shooter_unit)
 			dmg_row[enemy_id] = dmg
 		damage_matrix.append(dmg_row)
@@ -6349,6 +6537,50 @@ static func _calculate_kill_threshold(unit: Dictionary) -> float:
 		if model.get("alive", true):
 			total += float(model.get("current_wounds", model.get("wounds", 1)))
 	return total
+
+# =============================================================================
+# T7-11: ARMY WEAPON EFFICIENCY CHECK (for Oath of Moment)
+# =============================================================================
+
+static func _check_army_can_damage_target(target_unit: Dictionary, friendly_units: Dictionary, snapshot: Dictionary) -> bool:
+	"""T7-11: Check if any friendly unit has weapons that can efficiently damage this target.
+	Returns false if the army mostly has weak weapons against this target (e.g., S3 guns vs T12)."""
+	var target_toughness = int(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var target_save = int(target_unit.get("meta", {}).get("stats", {}).get("save", 4))
+	var target_invuln = _get_target_invulnerable_save(target_unit)
+
+	var total_expected_damage = 0.0
+	for uid in friendly_units:
+		var unit = friendly_units[uid]
+		var weapons = unit.get("meta", {}).get("weapons", [])
+		var alive_count = _get_alive_models(unit).size()
+		if alive_count == 0:
+			continue
+		for w in weapons:
+			var w_type = w.get("type", "").to_lower()
+			if w_type != "ranged" and w_type != "melee":
+				continue
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
+			var skill_str = w.get("ballistic_skill", w.get("weapon_skill", "4"))
+			var skill = int(skill_str) if skill_str.is_valid_int() else 4
+			var s_str = w.get("strength", "4")
+			var s = int(s_str) if s_str.is_valid_int() else 4
+			var ap_str = w.get("ap", "0")
+			var w_ap = 0
+			if ap_str.begins_with("-"):
+				var ap_num = ap_str.substr(1)
+				w_ap = int(ap_num) if ap_num.is_valid_int() else 0
+			else:
+				w_ap = int(ap_str) if ap_str.is_valid_int() else 0
+			var dmg = _parse_average_damage(w.get("damage", "1"))
+			var p_hit = _hit_probability(skill)
+			var p_wound = _wound_probability(s, target_toughness)
+			var p_unsaved = 1.0 - _save_probability(target_save, w_ap, target_invuln)
+			total_expected_damage += attacks * alive_count * p_hit * p_wound * p_unsaved * dmg
+	# If total expected damage across the army is negligible, we can't hurt this target
+	var target_wounds = _calculate_kill_threshold(target_unit)
+	return total_expected_damage >= target_wounds * 0.3  # Can deal at least 30% of target's wounds
 
 # =============================================================================
 # T7-24: TRADE AND TEMPO AWARENESS
@@ -7098,6 +7330,16 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			if ow_risk.score_penalty < 1.0:
 				score *= ow_risk.score_penalty
 
+			# T7-11: Deadly Demise leverage — doomed vehicles with Deadly Demise
+			# should be strongly encouraged to charge into enemies, since they'll
+			# deal mortal wounds to nearby units when destroyed
+			if AIAbilityAnalyzerData.has_deadly_demise(unit) and AIAbilityAnalyzerData.is_unit_doomed(unit):
+				var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(unit)
+				var dd_bonus = 1.0 + (float(dd_val) / 6.0)  # D3=1.5x, D6=2.0x
+				score *= dd_bonus
+				print("AIDecisionMaker: [T7-11] %s has Deadly Demise D%d and is doomed — charge bonus x%.2f" % [
+					unit_name, dd_val, dd_bonus])
+
 			# T7-40: Apply difficulty noise to charge scoring
 			score = _apply_difficulty_noise(score)
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
@@ -7240,6 +7482,16 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		score *= charge_trade_eff
 		print("AIDecisionMaker: [TRADE] Charge trade efficiency: %.2f (charger ppw=%.1f, target ppw=%.1f)" % [
 			charge_trade_eff, _get_points_per_wound(charger), _get_points_per_wound(target)])
+
+	# --- T7-11: Deadly Demise leverage on doomed vehicles ---
+	# If the charger has Deadly Demise and is doomed (about to die anyway),
+	# boost the charge score since getting into engagement range means the
+	# explosion will damage nearby enemies when the vehicle is destroyed.
+	if AIAbilityAnalyzerData.has_deadly_demise(charger) and AIAbilityAnalyzerData.is_unit_doomed(charger):
+		var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(charger)
+		var dd_bonus = 1.0 + (float(dd_val) / 6.0)  # D3=1.5x, D6=2.0x
+		score *= dd_bonus
+		print("AIDecisionMaker: [T7-11] Charge target score boosted by Deadly Demise D%d (x%.2f, charger is doomed)" % [dd_val, dd_bonus])
 
 	# T7-43: Apply round strategy aggression modifier to charge target scoring
 	# Early game: boost charge damage value (aggression > 1.0), Late game: reduce (aggression < 1.0)

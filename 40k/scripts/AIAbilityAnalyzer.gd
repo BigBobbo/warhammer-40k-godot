@@ -534,6 +534,64 @@ static func get_defensive_multiplier(unit_id: String, unit: Dictionary, all_unit
 	return multiplier
 
 # ============================================================================
+# DEADLY DEMISE DETECTION (T7-11)
+# ============================================================================
+
+static func has_deadly_demise(unit: Dictionary) -> bool:
+	"""Check if a unit has the Deadly Demise ability (deals mortal wounds when destroyed)."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = _extract_ability_name(ability).to_lower()
+		if "deadly demise" in name:
+			return true
+		if ability is Dictionary:
+			var desc = ability.get("description", "").to_lower()
+			if "deadly demise" in desc:
+				return true
+	return false
+
+static func get_deadly_demise_value(unit: Dictionary) -> int:
+	"""Get the Deadly Demise dice value (e.g., D3 -> 3, D6 -> 6). Returns 0 if no Deadly Demise."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = _extract_ability_name(ability)
+		var desc = ""
+		if ability is Dictionary:
+			desc = ability.get("description", "")
+		# Check name and description for Deadly Demise value
+		var search_text = name + " " + desc
+		if "deadly demise" in search_text.to_lower():
+			# Extract the dice value: "Deadly Demise D6" -> 6, "Deadly Demise D3" -> 3
+			if "d6" in search_text.to_lower():
+				return 6
+			elif "d3" in search_text.to_lower():
+				return 3
+			elif "d3+3" in search_text.to_lower():
+				return 6  # Average of D3+3 = 5, cap at 6
+			else:
+				return 3  # Default: assume D3 if unspecified
+	return 0
+
+static func is_unit_doomed(unit: Dictionary) -> bool:
+	"""Check if a unit is 'doomed' — below 25% total wounds remaining.
+	For multi-model units, checks model count. For single-model units (vehicles), checks current wounds."""
+	var models = unit.get("models", [])
+	var total_models = models.size()
+	var alive_models = 0
+	var total_wounds = 0
+	var remaining_wounds = 0
+	for model in models:
+		var wounds = int(model.get("wounds", 1))
+		total_wounds += wounds
+		if model.get("alive", true):
+			alive_models += 1
+			remaining_wounds += int(model.get("current_wounds", wounds))
+	if total_wounds <= 0:
+		return false
+	# Below 25% wounds remaining
+	return float(remaining_wounds) / float(total_wounds) <= 0.25
+
+# ============================================================================
 # COMPREHENSIVE UNIT ABILITY PROFILE FOR AI DECISIONS
 # ============================================================================
 
@@ -552,6 +610,9 @@ static func get_unit_ability_profile(unit_id: String, unit: Dictionary, all_unit
 		"has_stealth": bool,
 		"has_lone_operative": bool,
 		"lone_operative_protected": bool,
+		"has_deadly_demise": bool,           # T7-11: Deadly Demise ability
+		"deadly_demise_value": int,          # T7-11: DD dice value (0=none, 3=D3, 6=D6)
+		"is_doomed": bool,                   # T7-11: Below 25% wounds
 		"offensive_mult_ranged": float,
 		"offensive_mult_melee": float,
 		"defensive_mult": float
@@ -568,6 +629,9 @@ static func get_unit_ability_profile(unit_id: String, unit: Dictionary, all_unit
 		"has_stealth": has_stealth(unit),
 		"has_lone_operative": has_lone_operative(unit),
 		"lone_operative_protected": is_lone_operative_protected(unit),
+		"has_deadly_demise": has_deadly_demise(unit),
+		"deadly_demise_value": get_deadly_demise_value(unit),
+		"is_doomed": is_unit_doomed(unit),
 		"offensive_mult_ranged": get_offensive_multiplier_ranged(unit_id, unit, all_units),
 		"offensive_mult_melee": get_offensive_multiplier_melee(unit_id, unit, all_units),
 		"defensive_mult": get_defensive_multiplier(unit_id, unit, all_units),
