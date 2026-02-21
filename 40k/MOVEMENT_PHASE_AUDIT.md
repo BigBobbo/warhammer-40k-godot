@@ -156,15 +156,15 @@ Visual feedback added in `MovementController.gd`:
 
 **Commit:** Board edge enforcement for movement phase
 
-### 2.7 MEDIUM — Difficult Terrain / Movement Penalties
+### 2.7 MEDIUM — Difficult Terrain / Movement Penalties — **DONE**
 
 **Rule:** Certain terrain features (like dense cover, craters, etc.) may apply movement penalties. While the basic 10e rules don't have universal "difficult terrain," terrain traits can affect movement.
 
-**Current state:** Terrain is either passable or impassable — no partial movement costs.
+**Current state:** ~~Terrain is either passable or impassable — no partial movement costs.~~ Implemented terrain traits system with `"difficult_ground"` trait that adds a flat 2" penalty per terrain piece crossed. FLY units ignore the penalty. Applies to both movement and charges.
 
 **Impact:** Medium. Affects tactical positioning around terrain.
 
-**Recommendation:** Consider adding terrain traits that reduce movement or require extra distance when crossing.
+**Resolution:** Added terrain traits array to terrain pieces in TerrainManager.gd. The `"difficult_ground"` trait applies a flat 2" movement penalty per piece crossed (DIFFICULT_GROUND_PENALTY_INCHES constant). FLY units bypass the penalty. JSON terrain layouts support `"traits"` field. Updated layout_2.json with two woods pieces using the trait. 17 tests in test_difficult_ground_terrain.gd.
 
 ### 2.8 MEDIUM — Scout Moves
 
