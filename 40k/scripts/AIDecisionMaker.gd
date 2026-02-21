@@ -89,6 +89,13 @@ const HALF_RANGE_MOVE_BLEND: float = 0.4           # How much to blend movement 
 const HALF_RANGE_MIN_BENEFIT: float = 2.0           # Minimum extra attacks/damage across the unit to trigger repositioning
 const HALF_RANGE_APPROACH_MARGIN_INCHES: float = 1.0 # Move slightly inside half range for safety margin
 
+# T7-14: Weapon range consideration in movement destination scoring (MOV-1)
+# When scoring objectives, factor in whether the destination maintains weapon range on enemies
+const WEIGHT_FIRING_POSITION_KEPT: float = 3.0     # Bonus for destinations that maintain weapon range on enemies
+const WEIGHT_FIRING_POSITION_LOST: float = -2.5    # Penalty for destinations that lose all current shooting targets
+const WEIGHT_FIRING_POSITION_GAINED: float = 1.5   # Bonus for destinations that bring new enemies into range
+const FIRING_POSITION_BLEND: float = 0.35           # How much to blend movement toward firing position vs objective (0-1)
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -2744,6 +2751,27 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 						print("AIDecisionMaker: [T7-30] %s blending movement toward half range (%.1f\" away) for %s" % [
 							unit_name, hr_dist, ", ".join(weapon_names)])
 
+			# --- T7-14: Firing position preservation ---
+			# For ranged units without charge intent, if moving directly toward the
+			# objective would lose all current shooting targets, blend the movement
+			# target toward a position that maintains weapon range while still
+			# making progress toward the objective.
+			if has_ranged_weapons and charge_intent.is_empty() and max_weapon_range_inches > 0.0:
+				var enemies_in_range_now = _get_enemies_in_weapon_range(centroid, max_weapon_range_inches, enemies)
+				if not enemies_in_range_now.is_empty() and move_target != Vector2.INF:
+					var move_dir = (move_target - centroid).normalized() if centroid.distance_to(move_target) > 1.0 else Vector2.ZERO
+					var est_pos = centroid + move_dir * min(move_inches * PIXELS_PER_INCH, centroid.distance_to(move_target))
+					var enemies_at_dest = _get_enemies_in_weapon_range(est_pos, max_weapon_range_inches, enemies)
+					if enemies_at_dest.is_empty():
+						# Moving directly would lose all targets — find a firing position
+						var firing_pos = _find_firing_position_toward_objective(
+							centroid, move_target, max_weapon_range_inches, enemies_in_range_now, move_inches
+						)
+						if firing_pos != Vector2.INF:
+							move_target = firing_pos * FIRING_POSITION_BLEND + move_target * (1.0 - FIRING_POSITION_BLEND)
+							print("AIDecisionMaker: [T7-14] %s blending movement to maintain %.0f\" weapon range (%d targets in range)" % [
+								unit_name, max_weapon_range_inches, enemies_in_range_now.size()])
+
 			var model_destinations = _compute_movement_toward_target(
 				unit, unit_id, move_target, move_inches, snapshot, enemies,
 				max_weapon_range_inches, threat_data, objectives
@@ -3828,19 +3856,40 @@ static func _assign_units_to_objectives(
 			if battle_round == 1 and turns_to_reach > 1:
 				score -= 2.0
 
-			# Unit suitability: units with shooting should consider range to enemies
-			if has_ranged and eval.enemy_nearby > 0:
-				score += 1.0  # Shooting units valuable where enemies are
+			# Estimate where the unit would end up after moving toward this objective
+			# (used by both weapon range scoring and threat awareness)
+			var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
+			var move_px_cap = move_inches * PIXELS_PER_INCH
+			var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
+
+			# --- T7-14: Weapon range consideration in movement scoring (MOV-1) ---
+			# Score destinations based on whether they maintain or lose weapon range
+			# on enemies. Ranged units should prefer objectives that preserve firing positions.
+			if has_ranged and max_weapon_range > 0.0 and not already_on_obj:
+				var enemies_currently_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
+				var enemies_at_dest = _get_enemies_in_weapon_range(estimated_dest, max_weapon_range, enemies)
+				if not enemies_currently_in_range.is_empty():
+					if not enemies_at_dest.is_empty():
+						# Good — moving here keeps targets in range
+						var kept_ratio = float(enemies_at_dest.size()) / float(enemies_currently_in_range.size())
+						score += WEIGHT_FIRING_POSITION_KEPT * kept_ratio
+					else:
+						# Bad — moving here loses ALL current shooting targets
+						score += WEIGHT_FIRING_POSITION_LOST
+				elif not enemies_at_dest.is_empty():
+					# No current targets, but moving here brings enemies into range
+					score += WEIGHT_FIRING_POSITION_GAINED
+				elif eval.enemy_nearby > 0:
+					# No targets in range now or at dest, but enemies near objective
+					score += 1.0
+			elif has_ranged and eval.enemy_nearby > 0:
+				# Fallback for units with no ranged weapon range data
+				score += 1.0
 
 			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
 			# Penalize assignments that route units into enemy threat zones
 			# T7-43: Scale threat penalties by survival modifier (early=less cautious, late=more cautious)
 			if not threat_data.is_empty() and not already_on_obj:
-				# Estimate where the unit would end up after moving toward this objective
-				var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
-				var move_px_cap = move_inches * PIXELS_PER_INCH
-				var estimated_dest = centroid + move_direction * min(move_px_cap, dist_px)
-
 				var dest_threat = _evaluate_position_threat(estimated_dest, threat_data, unit)
 				var current_threat = _evaluate_position_threat(centroid, threat_data, unit)
 
@@ -5127,6 +5176,64 @@ static func _clamp_move_for_weapon_range(
 	print("AIDecisionMaker: %s movement clamped to %.0f%% to stay within %.0f\" weapon range of nearest enemy" % [
 		unit_name, best_fraction * 100.0, max_weapon_range])
 	return clamped
+
+static func _find_firing_position_toward_objective(
+	centroid: Vector2, objective_pos: Vector2, max_weapon_range: float,
+	enemies_in_range: Array, move_inches: float
+) -> Vector2:
+	"""T7-14: Find a position that maintains weapon range on at least one current target
+	while making maximum progress toward the objective. Samples positions along an arc
+	between the direct-to-objective direction and the direction that stays in range.
+	Returns Vector2.INF if no valid firing position found."""
+	if enemies_in_range.is_empty() or max_weapon_range <= 0.0:
+		return Vector2.INF
+
+	var range_px = max_weapon_range * PIXELS_PER_INCH
+	var move_px = move_inches * PIXELS_PER_INCH
+	var dir_to_obj = (objective_pos - centroid).normalized() if centroid.distance_to(objective_pos) > 1.0 else Vector2.ZERO
+	if dir_to_obj == Vector2.ZERO:
+		return Vector2.INF
+
+	# Find the nearest enemy in range — we'll prioritize staying in range of this one
+	var nearest_enemy_pos = Vector2.INF
+	var nearest_dist = INF
+	for entry in enemies_in_range:
+		var d = centroid.distance_to(entry.enemy_centroid)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest_enemy_pos = entry.enemy_centroid
+
+	if nearest_enemy_pos == Vector2.INF:
+		return Vector2.INF
+
+	# Sample 8 positions in a fan between the direct-to-objective direction
+	# and 90 degrees to either side, finding the one that:
+	# 1. Stays within weapon range of the nearest enemy
+	# 2. Makes the most progress toward the objective
+	var best_pos = Vector2.INF
+	var best_progress = -INF  # Progress = dot product with dir_to_obj (higher = closer to objective)
+
+	for i in range(9):
+		# Angle offset from -90 to +90 degrees relative to the objective direction
+		var angle_offset = deg_to_rad(-90.0 + float(i) * 22.5)
+		var rotated_dir = dir_to_obj.rotated(angle_offset)
+		var candidate_pos = centroid + rotated_dir * min(move_px, centroid.distance_to(objective_pos))
+
+		# Check if this position keeps at least one enemy in range
+		var keeps_target = false
+		for entry in enemies_in_range:
+			if candidate_pos.distance_to(entry.enemy_centroid) <= range_px:
+				keeps_target = true
+				break
+
+		if keeps_target:
+			# Measure progress toward the objective
+			var progress = (candidate_pos - centroid).dot(dir_to_obj)
+			if progress > best_progress:
+				best_progress = progress
+				best_pos = candidate_pos
+
+	return best_pos
 
 static func _should_hold_for_shooting(
 	unit: Dictionary, centroid: Vector2, target_pos: Vector2,

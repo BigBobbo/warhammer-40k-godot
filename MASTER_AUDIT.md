@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-14 (2026-02-20): AI shooting range consideration in movement — Enhanced movement destination scoring to evaluate weapon range at estimated destinations (bonus for maintaining range, penalty for losing all targets, bonus for gaining new targets). Added firing position preservation with arc-sampling for ranged units moving toward objectives. | Movement/AI | AI_AUDIT.md §MOV-1 |
 | T7-12 (2026-02-20): AI scout move execution — Fixed double `phase_completed` emission in ScoutPhase and objective zone index alignment in AIDecisionMaker. Scout movement toward nearest uncontrolled objective with >9" enemy distance verified working (32 tests pass). | Scout/AI | AI_AUDIT.md §SCOUT-1, SCOUT-2 |
 | T7-11 (2026-02-20): AI unit ability awareness — Added Deadly Demise detection, doomed-vehicle leverage (movement toward enemies + charge bonus), Lone Operative movement protection (>12" retreat), Lone Operative targeting restriction in focus-fire, enhanced Oath of Moment (invuln/leader/weapon-efficiency awareness). 10 new tests pass. | All/AI | AI_AUDIT.md §AI-GAP-4 |
 | T7-58 (2026-02-20): AI charge arrow visualization — Created ChargeArrowVisual.gd with animated arrow (state machine: idle→line_draw→hold→fade), orange/yellow arrowhead with glow, charge roll result label. Integrated into ChargeController and Main.gd for both human and AI charge declarations. | UI/AI | AI_AUDIT.md §VIS-3 |
@@ -1097,12 +1098,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No pre-measurement of enemy threat ranges before moving. Calculate all enemy threat ranges (movement + charge for melee, weapon ranges for shooting), add threat penalty for destinations within 12" of dangerous melee enemies.
 - **Resolution:** Enemy threat ranges (charge: M+12"+1", shooting: max weapon range) are calculated once per movement phase and used in assignment scoring, position evaluation, and safer-position finding. Added 12" close melee proximity penalty (`THREAT_CLOSE_MELEE_PENALTY`) that adds extra danger for positions within raw charge range of melee enemies. Enhanced `_estimate_enemy_threat_level()` to factor in melee weapon quality (attacks, strength, AP, damage). All movement paths (normal, advance, hold) use threat data.
 
-### T7-14. AI shooting range consideration in movement
+### T7-14. AI shooting range consideration in movement — **DONE**
 - **Phase:** Movement
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §MOV-1
 - **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
 - **Details:** May move units out of their weapon range toward objectives. Consider weapon ranges when scoring movement destinations to maintain firing positions.
+- **Resolution:** Enhanced movement destination scoring in `_assign_units_to_objectives` to evaluate weapon range at estimated destination — objectives that maintain firing positions get a bonus (`WEIGHT_FIRING_POSITION_KEPT`), those that lose all targets get a penalty (`WEIGHT_FIRING_POSITION_LOST`), and those that bring new enemies into range get a smaller bonus (`WEIGHT_FIRING_POSITION_GAINED`). Added firing position preservation in movement execution: when a ranged unit's direct path to the objective would lose all shooting targets, `_find_firing_position_toward_objective` samples positions in a 180° arc to find the path that maintains weapon range while making maximum progress toward the objective, then blends the movement target accordingly.
 
 ### T7-15. AI screening and deep strike denial — **DONE**
 - **Phase:** Movement
@@ -1500,9 +1502,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 47 | 11 | 58 |
-| **Total** | **145** | **41** | **186** |
-| **Recently Completed** | **164** | — | **164** |
+| Tier 7 — AI Player | 48 | 10 | 58 |
+| **Total** | **146** | **40** | **186** |
+| **Recently Completed** | **165** | — | **165** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
