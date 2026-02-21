@@ -400,6 +400,14 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 	var action_type = action.get("type", "")
 	var unit_id = action.get("unit_id", action.get("actor_unit_id", ""))
 
+	# T7-58: Show charge arrow visuals when AI declares a charge
+	if action_type == "DECLARE_CHARGE" and charge_controller and is_instance_valid(charge_controller):
+		var charger_id = action.get("actor_unit_id", "")
+		var target_ids = action.get("payload", {}).get("target_unit_ids", [])
+		if charger_id != "" and target_ids.size() > 0:
+			charge_controller.show_ai_charge_arrows(charger_id, target_ids)
+			print("[Main] T7-58: Triggered AI charge arrows for %s -> %s" % [charger_id, str(target_ids)])
+
 	# Movement-related actions that change model positions
 	if action_type in ["CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY", "CHARGE", "PILE_IN", "CONSOLIDATE"]:
 		if unit_id != "":
