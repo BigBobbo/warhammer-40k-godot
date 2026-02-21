@@ -24,6 +24,13 @@ var _needs_evaluation: bool = false
 var _eval_timer: float = 0.0
 const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
 
+# T7-55: Spectator mode (AI vs AI) — slower action delay so humans can follow
+const SPECTATOR_ACTION_DELAY: float = 0.5  # 500ms between actions in spectator mode
+const SPECTATOR_SPEED_PRESETS: Array = [0.25, 0.5, 1.0, 2.0, 4.0]  # Speed multipliers
+var _spectator_speed_index: int = 2  # Default 1.0x (index into SPECTATOR_SPEED_PRESETS)
+var _spectator_mode: bool = false  # Cached: true when both players are AI
+var _phase_action_counts: Dictionary = {}  # player -> {action_type -> count} for turn summaries
+
 # T7-20: AI thinking state — tracks whether the AI is actively processing its turn
 var _ai_thinking: bool = false
 
@@ -39,6 +46,10 @@ signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
 signal ai_action_taken(player: int, action: Dictionary, description: String)
 signal ai_unit_deployed(player: int, unit_id: String)
+
+# T7-55: Spectator mode signals
+signal spectator_speed_changed(speed: float)
+signal spectator_phase_summary(player: int, phase: int, summary: Dictionary)
 
 func _ready() -> void:
 	# Connect to signals - use call_deferred to avoid acting during signal emission
@@ -75,7 +86,8 @@ func _process(delta: float) -> void:
 func _request_evaluation() -> void:
 	"""Schedule an AI evaluation for the next frame(s), giving the renderer time to draw."""
 	_needs_evaluation = true
-	_eval_timer = AI_ACTION_DELAY
+	# T7-55: Use slower delay in spectator mode so humans can follow
+	_eval_timer = _get_effective_action_delay()
 
 	# T7-20: Signal that AI is now thinking (only on first evaluation of a sequence)
 	if not _ai_thinking:
@@ -111,12 +123,16 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 		ai_difficulty[pid] = difficulty_levels.get(pid, difficulty_levels.get(player_id, AIDifficultyConfigData.Difficulty.NORMAL))
 	enabled = ai_players.values().has(true)
 
+	# T7-55: Detect spectator mode (both players are AI)
+	_spectator_mode = ai_players.get(1, false) and ai_players.get(2, false)
+	_phase_action_counts.clear()
+
 	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.NORMAL))
 	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.NORMAL))
-	print("AIPlayer: Configured - P1=%s (%s), P2=%s (%s), enabled=%s" % [
+	print("AIPlayer: Configured - P1=%s (%s), P2=%s (%s), enabled=%s, spectator=%s" % [
 		player_types.get(1, player_types.get("1", "HUMAN")), p1_diff,
 		player_types.get(2, player_types.get("2", "HUMAN")), p2_diff,
-		enabled])
+		enabled, _spectator_mode])
 
 	# If AI should act right away (e.g., Player 1 is AI in deployment), kick off
 	if enabled:
@@ -140,6 +156,11 @@ func clear_action_log() -> void:
 func _on_phase_changed(_new_phase) -> void:
 	if not enabled or PhaseManager.game_ended:
 		return
+
+	# T7-55: Emit phase summary before resetting counters (spectator mode)
+	if _spectator_mode:
+		_emit_phase_summary_for_current_phase()
+
 	_current_phase_actions = 0  # Reset safety counter on phase change
 
 	# T7-20: End any active thinking state before starting a new phase evaluation
@@ -497,6 +518,10 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 	})
 	emit_signal("ai_action_taken", player, decision, description)
 
+	# T7-55: Track reactive action counts for spectator phase summaries
+	if _spectator_mode:
+		_track_action_for_summary(player, decision.get("type", ""), GameState.get_current_phase())
+
 	# T7-37: Route key reactive decisions through GameEventLog with enhanced reasoning
 	var reactive_type = decision.get("type", "")
 	if reactive_type in ["USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH",
@@ -609,6 +634,10 @@ func _execute_next_action(player: int) -> void:
 		"player": player
 	})
 	emit_signal("ai_action_taken", player, decision, description)
+
+	# T7-55: Track action counts for spectator phase summaries
+	if _spectator_mode:
+		_track_action_for_summary(player, decision.get("type", ""), phase)
 
 	# T7-37: Route key tactical decisions through GameEventLog with enhanced reasoning
 	var action_type = decision.get("type", "")
@@ -874,6 +903,99 @@ func _execute_ai_scout_movement(player: int, decision: Dictionary) -> void:
 			"player": player,
 			"_ai_description": "%s scout move skipped (staging failed: %s)" % [unit_name, reason]
 		})
+
+# =============================================================================
+# T7-55: Spectator Mode (AI vs AI) Helpers
+# =============================================================================
+
+func is_spectator_mode() -> bool:
+	"""Returns true when both players are AI (spectator/AI-vs-AI mode)."""
+	return _spectator_mode
+
+func get_spectator_speed() -> float:
+	"""Get the current spectator speed multiplier."""
+	return SPECTATOR_SPEED_PRESETS[_spectator_speed_index]
+
+func set_spectator_speed_index(index: int) -> void:
+	"""Set the spectator speed by preset index."""
+	_spectator_speed_index = clampi(index, 0, SPECTATOR_SPEED_PRESETS.size() - 1)
+	var speed = get_spectator_speed()
+	emit_signal("spectator_speed_changed", speed)
+	print("AIPlayer: Spectator speed set to %.2fx" % speed)
+
+func cycle_spectator_speed() -> float:
+	"""Cycle to the next spectator speed preset. Returns the new speed."""
+	_spectator_speed_index = (_spectator_speed_index + 1) % SPECTATOR_SPEED_PRESETS.size()
+	var speed = get_spectator_speed()
+	emit_signal("spectator_speed_changed", speed)
+	print("AIPlayer: Spectator speed cycled to %.2fx" % speed)
+	return speed
+
+func _get_effective_action_delay() -> float:
+	"""Get the action delay, accounting for spectator mode and speed settings."""
+	if not _spectator_mode:
+		return AI_ACTION_DELAY
+	var speed = get_spectator_speed()
+	return SPECTATOR_ACTION_DELAY / speed
+
+func _track_action_for_summary(player: int, action_type: String, phase: int) -> void:
+	"""Track an action for the spectator phase summary."""
+	var key = str(player) + "_" + str(phase)
+	if not _phase_action_counts.has(key):
+		_phase_action_counts[key] = {}
+	var counts = _phase_action_counts[key]
+
+	# Group actions into readable categories
+	var category = _categorize_action(action_type)
+	if category != "":
+		counts[category] = counts.get(category, 0) + 1
+
+func _categorize_action(action_type: String) -> String:
+	"""Map action types to readable summary categories."""
+	match action_type:
+		"DEPLOY_UNIT":
+			return "units_deployed"
+		"REMAIN_STATIONARY":
+			return "units_stationary"
+		"CONFIRM_UNIT_MOVE", "BEGIN_NORMAL_MOVE":
+			return "units_moved"
+		"BEGIN_ADVANCE":
+			return "units_advanced"
+		"BEGIN_FALL_BACK":
+			return "units_fell_back"
+		"SHOOT":
+			return "units_shot"
+		"DECLARE_CHARGE":
+			return "charges_declared"
+		"SELECT_FIGHTER", "ASSIGN_ATTACKS":
+			return "units_fought"
+		"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE", \
+		"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM", \
+		"USE_COMMAND_REROLL":
+			return "stratagems_used"
+		"SKIP_UNIT", "SKIP_CHARGE":
+			return "units_skipped"
+		"PLACE_REINFORCEMENT":
+			return "reinforcements"
+		_:
+			return ""
+
+func _emit_phase_summary_for_current_phase() -> void:
+	"""Emit a phase summary for each player that acted in the current phase."""
+	var current_phase_val = GameState.get_current_phase()
+	for player in [1, 2]:
+		var key = str(player) + "_" + str(current_phase_val)
+		if _phase_action_counts.has(key) and not _phase_action_counts[key].is_empty():
+			var summary = _phase_action_counts[key].duplicate()
+			emit_signal("spectator_phase_summary", player, current_phase_val, summary)
+			print("AIPlayer: Spectator phase summary for P%d phase %d: %s" % [player, current_phase_val, str(summary)])
+	# Clear counts for the completed phase
+	var keys_to_remove = []
+	for key in _phase_action_counts:
+		if key.ends_with("_" + str(current_phase_val)):
+			keys_to_remove.append(key)
+	for key in keys_to_remove:
+		_phase_action_counts.erase(key)
 
 # --- Helpers ---
 

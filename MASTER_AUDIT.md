@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-55 (2026-02-20): AI vs AI spectator mode improvements — Added spectator mode detection (both players AI), auto-slowed action delay (500ms, adjustable 0.25x-4.0x via comma/period/slash keys), phase summaries with action counts per player in AIActionLogOverlay, spectator speed indicator HUD. | UI/AI | AI_AUDIT.md §QoL-7 |
 | T7-54 (2026-02-20): AI action log overlay — Created `AIActionLogOverlay.gd` — small scrolling overlay in bottom-right corner showing real-time AI actions with color-coded entries, phase headers, auto-fade after inactivity, auto-scroll, and old-entry trimming. Integrated via `ai_action_taken`/`ai_turn_started`/`ai_turn_ended` signals in Main.gd. | UI/AI | AI_AUDIT.md §VIS-7 |
 | T7-53 (2026-02-20): AI floating damage numbers — Added `shooting_damage_applied` signal to ShootingPhase, floating damage number display to ShootingController (matching FightController pattern), floating numbers to WoundAllocationOverlay for interactive saves, `play_kill_notification()` to DamageFeedbackVisual for "UNIT DESTROYED" banners, and kill notification checks to both FightController and ShootingController. | UI/AI | AI_AUDIT.md §VIS-6 |
 | T7-52 (2026-02-20): AI unit highlighting during actions — Created `AIUnitHighlight.gd` visual component with pulsing glow rings (blue=move, red=shoot, orange=charge/fight). Integrated into `Main.gd` via `ai_action_taken` signal to highlight the AI's active unit during each action, with position tracking and auto-clear on phase/turn end. | UI/AI | AI_AUDIT.md §VIS-5 |
@@ -1414,12 +1415,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Small scrolling text overlay in corner showing real-time AI actions as they happen.
 - **Resolution:** Created `AIActionLogOverlay.gd` — a small scrolling overlay anchored to the bottom-right corner that shows real-time AI actions as they happen. Color-coded entries (blue for P1, red for P2) with phase headers in gold. Auto-fades after 8s of inactivity, auto-scrolls, trims old entries. Connected to `ai_action_taken`, `ai_turn_started`, and `ai_turn_ended` signals in Main.gd.
 
-### T7-55. AI vs AI spectator mode improvements
+### T7-55. AI vs AI spectator mode improvements — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §QoL-7
 - **Files:** `AIPlayer.gd`
 - **Details:** AI vs AI flies by with no ability to follow. Auto-slow action delay and show turn summaries for both players in spectator mode.
+- **Resolution:** Added spectator mode detection when both players are AI. Action delay auto-slows from 50ms to 500ms (adjustable via speed presets 0.25x-4.0x using comma/period/slash keys). Phase summaries emitted at each phase transition showing action counts per player. AIActionLogOverlay displays formatted summaries with longer fade delay. Speed indicator HUD shown at top-center during spectator mode.
 
 ### T7-56. AI turn replay
 - **Phase:** UI
@@ -1488,9 +1490,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 41 | 17 | 58 |
-| **Total** | **140** | **46** | **186** |
-| **Recently Completed** | **159** | — | **159** |
+| Tier 7 — AI Player | 42 | 16 | 58 |
+| **Total** | **141** | **45** | **186** |
+| **Recently Completed** | **160** | — | **160** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

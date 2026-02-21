@@ -17,7 +17,8 @@ const HEADER_FONT_SIZE: int = 12
 const MAX_VISIBLE_ENTRIES: int = 30  # Max entries before trimming old ones
 
 # Timing constants
-const FADE_OUT_DELAY: float = 8.0  # Seconds before overlay fades when AI stops acting
+const FADE_OUT_DELAY: float = 8.0  # Seconds before overlay fades when AI stops acting (non-spectator)
+const SPECTATOR_FADE_OUT_DELAY: float = 30.0  # Longer fade delay in spectator mode
 const FADE_OUT_DURATION: float = 1.5  # Duration of the fade-out animation
 const SHOW_FADE_IN_DURATION: float = 0.3  # Duration of the fade-in when overlay appears
 
@@ -27,6 +28,10 @@ const COLOR_P2_ACTION: Color = Color(0.85, 0.4, 0.4)    # Red for Player 2
 const COLOR_PHASE_HEADER: Color = Color(0.833, 0.588, 0.376)  # Gold for phase headers
 const COLOR_INFO: Color = Color(0.7, 0.7, 0.7)          # Grey for info
 
+# T7-55: Spectator summary colors
+const COLOR_SUMMARY_HEADER: Color = Color(0.9, 0.78, 0.5)  # Warm gold for summary headers
+const COLOR_SUMMARY_STAT: Color = Color(0.75, 0.85, 0.75)  # Light green for stats
+
 # Internal state
 var _scroll_container: ScrollContainer
 var _log_label: RichTextLabel
@@ -35,6 +40,7 @@ var _fade_tween: Tween
 var _fade_timer: float = 0.0
 var _is_active: bool = false  # Whether AI is currently acting
 var _entry_count: int = 0
+var _is_spectator_mode: bool = false  # T7-55: cached spectator mode flag
 
 func _ready() -> void:
 	_build_ui()
@@ -113,7 +119,8 @@ func _process(delta: float) -> void:
 		return
 
 	_fade_timer += delta
-	if _fade_timer >= FADE_OUT_DELAY and _fade_tween == null:
+	var fade_delay = SPECTATOR_FADE_OUT_DELAY if _is_spectator_mode else FADE_OUT_DELAY
+	if _fade_timer >= fade_delay and _fade_tween == null:
 		_start_fade_out()
 
 # ── Public API ────────────────────────────────────────────────────────────
@@ -179,6 +186,78 @@ func add_phase_header(phase_name: String, round_num: int, player: int) -> void:
 	_log_label.append_text(bbcode)
 	_entry_count += 1
 	_auto_scroll()
+
+func set_spectator_mode(is_spectator: bool) -> void:
+	"""T7-55: Set whether we're in spectator mode (longer fade, always visible)."""
+	_is_spectator_mode = is_spectator
+	print("[AIActionLogOverlay] T7-55: Spectator mode set to %s" % is_spectator)
+
+func add_phase_summary(player: int, phase_name: String, summary: Dictionary) -> void:
+	"""T7-55: Add a phase summary block showing what a player did in the completed phase."""
+	if summary.is_empty():
+		return
+
+	# Show overlay if hidden
+	if not visible:
+		visible = true
+		modulate.a = 1.0
+		_is_active = true
+
+	_fade_timer = 0.0
+	_cancel_fade()
+
+	# Build summary text
+	var player_color_hex = (COLOR_P1_ACTION if player == 1 else COLOR_P2_ACTION).to_html(false)
+	var header_hex = COLOR_SUMMARY_HEADER.to_html(false)
+	var stat_hex = COLOR_SUMMARY_STAT.to_html(false)
+
+	var bbcode = "[b][color=#%s]P%d %s Summary:[/color][/b]\n" % [header_hex, player, phase_name]
+
+	# Format each stat from the summary dictionary
+	var stat_lines = _format_summary_stats(summary)
+	for line in stat_lines:
+		bbcode += "  [color=#%s]%s[/color]\n" % [stat_hex, line]
+
+	_log_label.append_text(bbcode)
+	_entry_count += stat_lines.size() + 1
+	_auto_scroll()
+
+func _format_summary_stats(summary: Dictionary) -> Array:
+	"""T7-55: Format summary dictionary into readable stat lines."""
+	var lines = []
+
+	# Define display order and labels
+	var stat_labels = {
+		"units_deployed": "Units deployed",
+		"units_moved": "Units moved",
+		"units_advanced": "Units advanced",
+		"units_fell_back": "Units fell back",
+		"units_stationary": "Units stationary",
+		"units_shot": "Units fired",
+		"charges_declared": "Charges declared",
+		"units_fought": "Units fought",
+		"stratagems_used": "Stratagems used",
+		"units_skipped": "Units skipped",
+		"reinforcements": "Reinforcements arrived"
+	}
+
+	var display_order = [
+		"units_deployed", "units_moved", "units_advanced", "units_fell_back",
+		"units_stationary", "reinforcements", "units_shot", "charges_declared",
+		"units_fought", "stratagems_used", "units_skipped"
+	]
+
+	for key in display_order:
+		if summary.has(key) and summary[key] > 0:
+			var label = stat_labels.get(key, key)
+			lines.append("%s: %d" % [label, summary[key]])
+
+	# Any remaining keys not in display_order
+	for key in summary:
+		if key not in display_order and summary[key] > 0:
+			lines.append("%s: %d" % [key, summary[key]])
+
+	return lines
 
 func clear_log() -> void:
 	"""Clear all log entries."""
