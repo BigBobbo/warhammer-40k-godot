@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-49 (2026-02-20): AI counter-play to opponent defensive stratagems — Added strategic deprioritization (×0.80) in `_score_shooting_target()` for targets with active effect-granted cover, stealth, or invulnerable saves from defensive stratagems. Encourages AI to redirect firepower to softer targets. 3 new tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-10 |
 | T7-47 (2026-02-20): AI secondary mission discard logic — Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added 14 mission-specific assessors. AI discards unachievable missions for +1 CP based on board state analysis. 16/16 tests pass. | Scoring/AI | AI_AUDIT.md §SCORE-2 |
 | T7-46 (2026-02-20): AI fight order optimization — Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan. | Fight/AI | AI_AUDIT.md §FIGHT-6 |
 | T7-45 (2026-02-20): AI faction ability activation — Added `_select_oath_of_moment_target()` with strategic threat-based Oath of Moment target selection. Reuses macro target priority (`_calculate_target_value`) plus Oath-specific bonuses for toughness, save, remaining wounds, and below-half-strength. Integrated into `_decide_command()` after battle-shock tests. 13/13 tests pass. | Command/AI | AI_AUDIT.md §CMD-3 |
@@ -1360,12 +1361,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIDecisionMaker.gd` — `_decide_shooting()`
 - **Details:** Doesn't fire Pistols when units are in engagement range.
 
-### T7-49. AI counter-play to opponent defensive stratagems
+### T7-49. AI counter-play to opponent defensive stratagems — **DONE**
 - **Phase:** Shooting
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §SHOOT-10
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Doesn't penalize targets with active defensive buffs (Smokescreen, Go to Ground) in target scoring.
+- **Resolution:** Added strategic deprioritization (×0.80) in `_score_shooting_target()` for targets with active effect-granted cover, stealth, or invulnerable saves from defensive stratagems. This is applied on top of the existing mechanical damage reductions, encouraging the AI to redirect firepower to softer targets.
 
 ### T7-50. AI multi-target charge declarations
 - **Phase:** Charge
@@ -1478,9 +1480,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 36 | 22 | 58 |
-| **Total** | **135** | **51** | **186** |
-| **Recently Completed** | **154** | — | **154** |
+| Tier 7 — AI Player | 37 | 21 | 58 |
+| **Total** | **136** | **50** | **186** |
+| **Recently Completed** | **155** | — | **155** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
