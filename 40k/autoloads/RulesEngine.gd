@@ -2017,6 +2017,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
+	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
+	var ar_weapon_has_devastating_wounds = has_devastating_wounds(weapon_id, board)
+
 	# ANTI-[KEYWORD] X+: Get critical wound threshold (6 normally, lower if Anti matches target)
 	var ar_critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
 	var ar_anti_keyword_active = ar_critical_wound_threshold < 6
@@ -2087,6 +2090,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var auto_wounds = 0  # From Lethal Hits (never for Torrent)
 	var wounds_from_rolls = 0
 	var wound_rolls = []
+	var ar_critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
+	var ar_regular_wound_count = 0   # Non-critical wounds
 	var ar_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
@@ -2094,6 +2099,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if weapon_has_lethal_hits and not is_torrent:
 		# Critical hits automatically wound - no roll needed
 		auto_wounds = critical_hits
+		# Per 10e rules, Lethal Hits auto-wounds are NOT critical wounds for Devastating Wounds
+		# Critical wounds for DW require unmodified 6 (or Anti threshold) on the WOUND roll
+
 		# Roll wounds for: regular hits + sustained bonus hits
 		var hits_to_roll = regular_hits + sustained_bonus_hits
 		if hits_to_roll > 0:
@@ -2115,6 +2123,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
 				if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 					wounds_from_rolls += 1
+					# Track critical wounds for Devastating Wounds interaction
+					if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+						ar_critical_wound_count += 1
+					else:
+						ar_regular_wound_count += 1
+
+		# Lethal Hits auto-wounds go to regular wounds (not critical wounds for DW)
+		ar_regular_wound_count += auto_wounds
 	else:
 		# Normal processing - all hits (including sustained bonus) roll to wound
 		wound_rolls = rng.roll_d6(total_hits_for_wounds)
@@ -2135,6 +2151,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var ar_is_critical_wound = (unmodified_roll >= ar_critical_wound_threshold)
 			if ar_is_critical_wound or final_wound_roll >= wound_threshold:
 				wounds_from_rolls += 1
+				# Track critical wounds for Devastating Wounds interaction
+				if ar_weapon_has_devastating_wounds and ar_is_critical_wound:
+					ar_critical_wound_count += 1
+				else:
+					ar_regular_wound_count += 1
 
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
@@ -2155,6 +2176,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"lethal_hits_weapon": weapon_has_lethal_hits,
 		# SUSTAINED HITS tracking (PRP-011)
 		"sustained_bonus_hits_rolled": sustained_bonus_hits,
+		# DEVASTATING WOUNDS tracking (PRP-012)
+		"devastating_wounds_weapon": ar_weapon_has_devastating_wounds,
+		"critical_wounds": ar_critical_wound_count,
+		"regular_wounds": ar_regular_wound_count,
 		# ANTI-[KEYWORD] X+ tracking
 		"anti_keyword_active": ar_anti_keyword_active,
 		"critical_wound_threshold": ar_critical_wound_threshold,
@@ -2171,6 +2196,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		return result
 
 	# Process saves and damage
+	# T3-17: This section mirrors the interactive path (prepare_save_resolution + apply_save_damage)
+	# to ensure both resolution paths produce identical results. Keep in sync with apply_save_damage().
 	var ap = weapon_profile.get("ap", 0)
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var casualties = 0
@@ -2205,6 +2232,22 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Get target unit's save value
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
+	# FEEL NO PAIN (T3-17): Check if target unit has FNP — mirrors apply_save_damage()
+	var ar_fnp_value = get_unit_fnp(target_unit)
+
+	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
+	var ar_has_half_damage = get_unit_half_damage(target_unit)
+	if ar_has_half_damage:
+		print("RulesEngine: Half Damage active on defender (auto-resolve) — all damage characteristics halved (round up)")
+
+	# PRECISION (T3-4): Check if weapon has Precision keyword — mirrors interactive path
+	var ar_weapon_has_precision = has_precision(weapon_id, board)
+	var ar_precision_wounds = 0
+	if ar_weapon_has_precision:
+		ar_precision_wounds = mini(critical_hits, wounds_caused)
+		if ar_precision_wounds > 0:
+			print("RulesEngine: PRECISION (auto-resolve) — %d critical hits, %d precision wounds (can target CHARACTER)" % [critical_hits, ar_precision_wounds])
+
 	# Find allocation focus model (if any model was previously wounded)
 	var allocation_focus_model_id = null
 	var models = target_unit.get("models", [])
@@ -2216,13 +2259,90 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if current_wounds < wounds:
 				allocation_focus_model_id = model.get("id", "m%d" % i)
 				break
-	
-	# Allocate wounds
-	for wound_idx in range(wounds_caused):
+
+	# DEVASTATING WOUNDS (PRP-012, T3-17): Apply devastating damage first (unsaveable)
+	# Critical wounds with Devastating Wounds bypass saves entirely and deal mortal-wound-style
+	# damage that spills over between models — mirrors apply_save_damage() behavior.
+	var ar_devastating_damage_applied = 0
+	if ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
+		print("RulesEngine: DEVASTATING WOUNDS (auto-resolve) — %d critical wounds bypass saves, %d regular wounds need saves" % [ar_critical_wound_count, ar_regular_wound_count])
+
+		# Roll variable damage per devastating wound (D3, D6, etc.)
+		var dw_total_damage = 0
+		for _dw_i in range(ar_critical_wound_count):
+			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			var dw_wound_damage = dmg_result.value
+			if dmg_result.rolled:
+				damage_roll_log.append(dmg_result)
+			# MELTA X (T1-1): Add melta bonus to devastating wound damage if applicable
+			if ar_melta_value > 0 and ar_melta_wounds_remaining > 0:
+				dw_wound_damage += ar_melta_value
+				ar_melta_wounds_remaining -= 1
+				print("RulesEngine: MELTA +%d (auto-resolve) applied to devastating wound (damage: %d → %d)" % [ar_melta_value, dmg_result.value, dw_wound_damage])
+			# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
+			if ar_has_half_damage:
+				var pre_half = dw_wound_damage
+				dw_wound_damage = apply_half_damage(dw_wound_damage)
+				print("RulesEngine: Half Damage (auto-resolve) — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
+			dw_total_damage += dw_wound_damage
+
+		# FEEL NO PAIN: FNP applies even to devastating wounds
+		var actual_dw_damage = dw_total_damage
+		if ar_fnp_value > 0:
+			var fnp_result = roll_feel_no_pain(dw_total_damage, ar_fnp_value, rng)
+			actual_dw_damage = fnp_result.wounds_remaining
+			result.dice.append({
+				"context": "feel_no_pain",
+				"source": "devastating_wounds",
+				"rolls": fnp_result.rolls,
+				"fnp_value": ar_fnp_value,
+				"wounds_prevented": fnp_result.wounds_prevented,
+				"wounds_remaining": fnp_result.wounds_remaining,
+				"total_wounds": dw_total_damage
+			})
+			print("RulesEngine: FNP (auto-resolve) reduced devastating damage from %d to %d" % [dw_total_damage, actual_dw_damage])
+
+		if actual_dw_damage > 0:
+			# Apply devastating damage with spillover via _apply_damage_to_unit_pool
+			var dw_result = _apply_damage_to_unit_pool(target_unit_id, actual_dw_damage, models, board)
+			result.diffs.append_array(dw_result.diffs)
+			casualties += dw_result.casualties
+			damage_applied += dw_result.damage_applied
+			ar_devastating_damage_applied = dw_result.damage_applied
+
+			# Update models array for subsequent damage (in case models were killed by DW)
+			for diff in dw_result.diffs:
+				if diff.op == "set" and ".current_wounds" in diff.path:
+					var path_parts = diff.path.split(".")
+					if path_parts.size() >= 4:
+						var model_idx = int(path_parts[3])
+						if model_idx >= 0 and model_idx < models.size():
+							models[model_idx]["current_wounds"] = diff.value
+				elif diff.op == "set" and ".alive" in diff.path:
+					var path_parts = diff.path.split(".")
+					if path_parts.size() >= 4:
+						var model_idx = int(path_parts[3])
+						if model_idx >= 0 and model_idx < models.size():
+							models[model_idx]["alive"] = diff.value
+
+			# Reset allocation focus after DW damage (models may have died)
+			allocation_focus_model_id = null
+			for i in range(models.size()):
+				var model = models[i]
+				if model.get("alive", true):
+					var w = model.get("wounds", 1)
+					var cw = model.get("current_wounds", w)
+					if cw < w:
+						allocation_focus_model_id = model.get("id", "m%d" % i)
+						break
+
+	# Allocate regular wounds (roll saves) — only ar_regular_wound_count if DW active
+	var regular_wounds_to_save = ar_regular_wound_count if ar_weapon_has_devastating_wounds else wounds_caused
+	for wound_idx in range(regular_wounds_to_save):
 		# Select target model
 		var target_model = null
 		var target_model_index = -1
-		
+
 		if allocation_focus_model_id:
 			# Must allocate to previously wounded model
 			for i in range(models.size()):
@@ -2231,7 +2351,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					target_model = model
 					target_model_index = i
 					break
-		
+
 		if not target_model:
 			# Find first alive model
 			for i in range(models.size()):
@@ -2241,10 +2361,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					target_model_index = i
 					allocation_focus_model_id = model.get("id", "m%d" % i)
 					break
-		
+
 		if not target_model:
 			break  # No more models to allocate to
-		
+
 		# Check for cover (IGNORES COVER skips this)
 		# Also check stratagem-granted cover (Go to Ground / Smokescreen)
 		# INDIRECT FIRE (T2-4): Target always gains Benefit of Cover from Indirect Fire
@@ -2295,7 +2415,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"rolls_raw": [save_roll],
 			"fails": 0 if saved else 1
 		})
-		
+
 		if not saved:
 			# Roll variable damage per failed save (D3, D6, etc.)
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -2310,14 +2430,32 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				print("RulesEngine: MELTA +%d (auto-resolve) applied to damage (total: %d)" % [ar_melta_value, damage])
 
 			# HALF DAMAGE (T4-17): Halve damage if defender has half-damage ability
-			if get_unit_half_damage(target_unit):
+			if ar_has_half_damage:
 				var pre_half = damage
 				damage = apply_half_damage(damage)
 				print("RulesEngine: Half Damage (auto-resolve) — damage %d → %d" % [pre_half, damage])
 
+			# FEEL NO PAIN (T3-17): Roll FNP for each point of damage — mirrors apply_save_damage()
+			var actual_damage = damage
+			if ar_fnp_value > 0:
+				var fnp_result = roll_feel_no_pain(damage, ar_fnp_value, rng)
+				actual_damage = fnp_result.wounds_remaining
+				result.dice.append({
+					"context": "feel_no_pain",
+					"source": "failed_save",
+					"rolls": fnp_result.rolls,
+					"fnp_value": ar_fnp_value,
+					"wounds_prevented": fnp_result.wounds_prevented,
+					"wounds_remaining": fnp_result.wounds_remaining,
+					"total_wounds": damage
+				})
+				if actual_damage == 0:
+					print("RulesEngine: FNP (auto-resolve) prevented all %d damage from failed save!" % damage)
+					continue  # FNP saved all wounds from this failed save
+
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
-			var new_wounds = max(0, current_wounds - damage)
+			var new_wounds = max(0, current_wounds - actual_damage)
 
 			result.diffs.append({
 				"op": "set",
@@ -2325,8 +2463,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"value": new_wounds
 			})
 
-			damage_applied += damage
-			
+			damage_applied += actual_damage
+
 			if new_wounds == 0:
 				# Model destroyed
 				result.diffs.append({
@@ -2336,7 +2474,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				})
 				casualties += 1
 				allocation_focus_model_id = null  # Need new allocation target
-	
+
 	# Add variable damage dice log if any rolls were made
 	if damage_roll_log.size() > 0:
 		result.dice.append({
@@ -2352,10 +2490,26 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var actor_name = actor_unit.get("meta", {}).get("name", actor_unit_id)
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 
+	var log_parts = []
+	log_parts.append("%s → %s: %d hits" % [actor_name, target_name, hits])
+	if sustained_bonus_hits > 0:
+		log_parts[0] += " (+%d sustained)" % sustained_bonus_hits
+	log_parts[0] += ", %d wounds" % wounds_caused
+
+	# DEVASTATING WOUNDS: Add critical wound info to log
+	if ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
+		log_parts.append("%d DEVASTATING (unsaveable)" % ar_critical_wound_count)
+
+	# MELTA X (T1-1): Add melta info to log
+	if ar_melta_value > 0 and ar_melta_wounds_remaining < wounds_caused:
+		log_parts.append("MELTA +%d damage" % ar_melta_value)
+
 	if casualties > 0:
-		result.log_text = "%s → %s: %d hits, %d wounds, %d failed saves → %d slain" % [actor_name, target_name, hits, wounds_caused, wounds_caused - (wounds_caused - casualties), casualties]
+		log_parts.append("%d slain" % casualties)
 	else:
-		result.log_text = "%s → %s: %d hits, %d wounds, all saved" % [actor_name, target_name, hits, wounds_caused]
+		log_parts.append("all saved")
+
+	result.log_text = " - ".join(log_parts)
 
 	return result
 
