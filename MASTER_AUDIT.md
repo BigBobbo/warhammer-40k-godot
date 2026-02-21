@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-56 (2026-02-20): AI turn replay — Per-turn action history in AIPlayer.gd, AITurnReplayPanel.gd with round/player navigation and color-coded phase entries, 'R' key toggle, ESC/X close. Turn-grouped query methods in ReplayManager.gd. | UI/AI | AI_AUDIT.md §QoL-8 |
 | T7-55 (2026-02-20): AI vs AI spectator mode improvements — Added spectator mode detection (both players AI), auto-slowed action delay (500ms, adjustable 0.25x-4.0x via comma/period/slash keys), phase summaries with action counts per player in AIActionLogOverlay, spectator speed indicator HUD. | UI/AI | AI_AUDIT.md §QoL-7 |
 | T7-54 (2026-02-20): AI action log overlay — Created `AIActionLogOverlay.gd` — small scrolling overlay in bottom-right corner showing real-time AI actions with color-coded entries, phase headers, auto-fade after inactivity, auto-scroll, and old-entry trimming. Integrated via `ai_action_taken`/`ai_turn_started`/`ai_turn_ended` signals in Main.gd. | UI/AI | AI_AUDIT.md §VIS-7 |
 | T7-53 (2026-02-20): AI floating damage numbers — Added `shooting_damage_applied` signal to ShootingPhase, floating damage number display to ShootingController (matching FightController pattern), floating numbers to WoundAllocationOverlay for interactive saves, `play_kill_notification()` to DamageFeedbackVisual for "UNIT DESTROYED" banners, and kill notification checks to both FightController and ShootingController. | UI/AI | AI_AUDIT.md §VIS-6 |
@@ -1423,12 +1424,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** AI vs AI flies by with no ability to follow. Auto-slow action delay and show turn summaries for both players in spectator mode.
 - **Resolution:** Added spectator mode detection when both players are AI. Action delay auto-slows from 50ms to 500ms (adjustable via speed presets 0.25x-4.0x using comma/period/slash keys). Phase summaries emitted at each phase transition showing action counts per player. AIActionLogOverlay displays formatted summaries with longer fade delay. Speed indicator HUD shown at top-center during spectator mode.
 
-### T7-56. AI turn replay
+### T7-56. AI turn replay — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §QoL-8
 - **Files:** `AIPlayer.gd`, `ReplayManager.gd`
 - **Details:** No way to review AI actions after turn passes. Store full action log per turn and provide replay panel accessible from game menu.
+- **Resolution:** Added per-turn action history storage in AIPlayer.gd (`_turn_history`, `_store_turn_history()`, `get_turn_history()`). Created AITurnReplayPanel.gd — a centered, scrollable, WhiteDwarf-themed panel showing all past AI actions organized by battle round, with prev/next turn navigation and color-coded phase headers. Panel toggles with 'R' key and closes with ESC or X button. Added turn-grouped query methods to ReplayManager.gd for recorded events.
 
 ### T7-57. AI post-game performance summary
 - **Phase:** UI
@@ -1490,9 +1492,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 42 | 16 | 58 |
-| **Total** | **141** | **45** | **186** |
-| **Recently Completed** | **160** | — | **160** |
+| Tier 7 — AI Player | 43 | 15 | 58 |
+| **Total** | **142** | **44** | **186** |
+| **Recently Completed** | **161** | — | **161** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

@@ -16,6 +16,8 @@ var ai_difficulty: Dictionary = {}  # player_id (int) -> AIDifficultyConfigData.
 var enabled: bool = false
 var _processing_turn: bool = false  # Guard against re-entrant calls
 var _action_log: Array = []  # Log of AI actions for summary display
+var _turn_history: Array = []  # T7-56: Per-turn action history [{round, player, phase_range, actions}]
+var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where current thinking sequence started
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 
@@ -50,6 +52,9 @@ signal ai_unit_deployed(player: int, unit_id: String)
 # T7-55: Spectator mode signals
 signal spectator_speed_changed(speed: float)
 signal spectator_phase_summary(player: int, phase: int, summary: Dictionary)
+
+# T7-56: Turn history signal — emitted when a turn's actions are stored
+signal turn_history_updated()
 
 func _ready() -> void:
 	# Connect to signals - use call_deferred to avoid acting during signal emission
@@ -94,6 +99,7 @@ func _request_evaluation() -> void:
 		var active_player = GameState.get_active_player()
 		if is_ai_player(active_player):
 			_ai_thinking = true
+			_turn_start_log_index = _action_log.size()  # T7-56: Track where this turn's actions start
 			emit_signal("ai_turn_started", active_player)
 			print("AIPlayer: AI thinking started for player %d" % active_player)
 
@@ -102,7 +108,11 @@ func _end_ai_thinking() -> void:
 	if _ai_thinking:
 		_ai_thinking = false
 		var active_player = GameState.get_active_player()
-		emit_signal("ai_turn_ended", active_player, _action_log.duplicate())
+		var actions_snapshot = _action_log.duplicate()
+		emit_signal("ai_turn_ended", active_player, actions_snapshot)
+		# T7-56: Store only this turn's actions (slice from start index to end)
+		var turn_actions = _action_log.slice(_turn_start_log_index)
+		_store_turn_history(active_player, turn_actions)
 		print("AIPlayer: AI thinking ended for player %d" % active_player)
 
 func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> void:
@@ -114,6 +124,7 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	ai_players.clear()
 	ai_difficulty.clear()
 	_action_log.clear()
+	_turn_history.clear()  # T7-56: Reset turn history on reconfigure
 	_current_phase_actions = 0
 
 	for player_id in player_types:
@@ -150,6 +161,32 @@ func get_action_log() -> Array:
 
 func clear_action_log() -> void:
 	_action_log.clear()
+
+# T7-56: Per-turn action history for AI turn replay panel
+
+func _store_turn_history(player: int, actions: Array) -> void:
+	"""Store a snapshot of the AI's actions for this thinking sequence."""
+	if actions.is_empty():
+		return
+	var entry = {
+		"battle_round": GameState.get_battle_round(),
+		"player": player,
+		"phase": GameState.get_current_phase(),
+		"timestamp": Time.get_unix_time_from_system(),
+		"actions": actions.duplicate(true),
+	}
+	_turn_history.append(entry)
+	emit_signal("turn_history_updated")
+	print("AIPlayer: T7-56 Stored turn history entry #%d (round %d, player %d, %d actions)" % [
+		_turn_history.size(), entry.battle_round, player, actions.size()])
+
+func get_turn_history() -> Array:
+	"""T7-56: Return the full turn history array (read-only duplicate)."""
+	return _turn_history.duplicate(true)
+
+func get_turn_history_count() -> int:
+	"""T7-56: Return the number of stored turn history entries."""
+	return _turn_history.size()
 
 # --- Signal handlers ---
 
