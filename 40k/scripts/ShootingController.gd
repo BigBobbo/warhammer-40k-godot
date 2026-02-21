@@ -2,6 +2,7 @@ extends Node2D
 class_name ShootingController
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+const DamageFeedbackVisualScript = preload("res://scripts/DamageFeedbackVisual.gd")  # T7-53
 
 
 # ShootingController - Handles UI interactions for the Shooting Phase
@@ -57,6 +58,7 @@ var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
+var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
 
 # Modifier UI elements (Phase 1 MVP)
 var modifier_panel: VBoxContainer
@@ -123,6 +125,11 @@ func _exit_tree() -> void:
 	_clear_shooting_line_visuals()
 	shooting_line_visuals.clear()
 
+	# T7-53: Clean up damage feedback
+	if damage_feedback and is_instance_valid(damage_feedback):
+		damage_feedback.queue_free()
+		damage_feedback = null
+
 	# Clean up UI containers
 	var shooting_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/ShootingControls")
 	if shooting_controls and is_instance_valid(shooting_controls):
@@ -188,6 +195,14 @@ func _create_shooting_visuals() -> void:
 	shooting_lines_container = Node2D.new()
 	shooting_lines_container.name = "ShootingLinesContainer"
 	board_root.add_child(shooting_lines_container)
+
+	# T7-53: Create damage feedback visual for floating damage numbers
+	var board_view_ref = get_node_or_null("/root/Main/BoardRoot/BoardView")
+	if board_view_ref and not (damage_feedback and is_instance_valid(damage_feedback)):
+		damage_feedback = DamageFeedbackVisualScript.new()
+		damage_feedback.name = "ShootingDamageFeedback"
+		board_view_ref.add_child(damage_feedback)
+		print("[ShootingController] T7-53: Created DamageFeedbackVisual for floating damage numbers")
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -498,6 +513,13 @@ func set_phase(phase: BasePhase) -> void:
 			phase.grenade_result.disconnect(_on_grenade_result)
 			print("║ Disconnected existing grenade_result connection")
 		phase.grenade_result.connect(_on_grenade_result)
+
+		# T7-53: Connect shooting_damage_applied for floating damage numbers
+		if phase.has_signal("shooting_damage_applied"):
+			if phase.shooting_damage_applied.is_connected(_on_shooting_damage_visual):
+				phase.shooting_damage_applied.disconnect(_on_shooting_damage_visual)
+			phase.shooting_damage_applied.connect(_on_shooting_damage_visual)
+			print("║ T7-53: Connected shooting_damage_applied signal")
 
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
@@ -1481,6 +1503,127 @@ func _on_shooting_begun(unit_id: String) -> void:
 			var shooter = current_phase.get_unit(unit_id)
 			shooter_name = shooter.get("meta", {}).get("name", unit_id)
 		dice_log_display.append_text("[color=orange]%s is shooting...[/color]\n" % shooter_name)
+
+# T7-53: Floating damage numbers and kill notifications for shooting phase
+func _on_shooting_damage_visual(shooter_id: String, diffs: Array) -> void:
+	"""Parse save-resolution diffs to show floating damage numbers on wounded/destroyed models.
+	Signal fires BEFORE diffs are applied to GameState, so GameState has pre-damage values."""
+	if not damage_feedback or not is_instance_valid(damage_feedback):
+		print("[ShootingController] T7-53: No damage_feedback visual, skipping")
+		return
+
+	if diffs.is_empty():
+		return
+
+	print("[ShootingController] T7-53: Processing %d diffs for shooting damage visualization" % diffs.size())
+
+	# Pass 1: Collect wound changes and kill flags from diffs
+	var wound_changes: Dictionary = {}  # "unit_id.model_idx" -> {unit_id, model_idx, new_wounds}
+	var kill_set: Dictionary = {}  # "unit_id.model_idx" -> true
+	var unit_kill_counts: Dictionary = {}  # unit_id -> count of killed models in this batch
+
+	for diff in diffs:
+		if diff.get("op", "") != "set":
+			continue
+		var path: String = diff.get("path", "")
+		var parts = path.split(".")
+		if parts.size() < 5 or parts[0] != "units" or parts[2] != "models":
+			continue
+
+		var unit_id = parts[1]
+		var model_idx = int(parts[3])
+		var field = parts[4]
+		var key = "%s.%d" % [unit_id, model_idx]
+
+		if field == "alive" and diff.get("value") == false:
+			kill_set[key] = true
+			unit_kill_counts[unit_id] = unit_kill_counts.get(unit_id, 0) + 1
+		elif field == "current_wounds":
+			wound_changes[key] = {"unit_id": unit_id, "model_idx": model_idx, "new_wounds": diff.get("value", 0)}
+
+	# Pass 2: Play visual effects for each affected model
+	for key in wound_changes:
+		var info = wound_changes[key]
+		var unit_id: String = info["unit_id"]
+		var model_idx: int = info["model_idx"]
+		var new_wounds: int = info["new_wounds"]
+		var is_kill = kill_set.has(key)
+
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		var models = unit.get("models", [])
+		if model_idx < 0 or model_idx >= models.size():
+			continue
+		var model = models[model_idx]
+
+		var model_pos = _get_model_position_for_feedback(model)
+		if model_pos == Vector2.ZERO:
+			continue
+
+		var base_mm = model.get("base_mm", 32)
+		var base_px = Measurement.base_radius_px(base_mm)
+		var max_wounds = model.get("wounds", 1)
+		var old_wounds = model.get("current_wounds", max_wounds)
+		var damage_dealt = max(1, old_wounds - new_wounds)
+
+		if is_kill:
+			damage_feedback.play_death_animation(model_pos, base_px)
+			damage_feedback.play_floating_number(model_pos, damage_dealt, true)
+			print("[ShootingController] T7-53: Model killed at %s — -%d" % [str(model_pos), damage_dealt])
+		else:
+			damage_feedback.play_damage_flash(model_pos, base_px, damage_dealt, max_wounds)
+			damage_feedback.play_floating_number(model_pos, damage_dealt, false)
+			print("[ShootingController] T7-53: Model damaged at %s — -%d (%d→%d/%d)" % [str(model_pos), damage_dealt, old_wounds, new_wounds, max_wounds])
+
+	# Pass 3: Check for full unit destruction → kill notification
+	for unit_id in unit_kill_counts:
+		var unit = GameState.get_unit(unit_id)
+		if unit.is_empty():
+			continue
+		var models = unit.get("models", [])
+		var alive_count = 0
+		for model in models:
+			if model.get("alive", true):
+				# Check if this model is being killed in this batch
+				var m_idx = models.find(model)
+				var key = "%s.%d" % [unit_id, m_idx]
+				if not kill_set.has(key):
+					alive_count += 1
+		if alive_count == 0:
+			# Entire unit destroyed — show kill notification
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			var center_pos = _get_unit_center_for_feedback(unit)
+			if center_pos != Vector2.ZERO:
+				damage_feedback.play_kill_notification(center_pos, unit_name)
+				print("[ShootingController] T7-53: UNIT DESTROYED — %s" % unit_name)
+
+func _get_model_position_for_feedback(model: Dictionary) -> Vector2:
+	"""T7-53: Get model position as Vector2 for damage feedback."""
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+func _get_unit_center_for_feedback(unit: Dictionary) -> Vector2:
+	"""T7-53: Compute average position of alive models in unit (pre-diff) for kill notification."""
+	var models = unit.get("models", [])
+	var positions: Array = []
+	for model in models:
+		if model.get("alive", true):
+			var pos = _get_model_position_for_feedback(model)
+			if pos != Vector2.ZERO:
+				positions.append(pos)
+	if positions.is_empty():
+		return Vector2.ZERO
+	var center = Vector2.ZERO
+	for pos in positions:
+		center += pos
+	return center / positions.size()
 
 func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
 	print("ShootingController: Shooting resolved for ", shooter_id, " -> ", target_id)

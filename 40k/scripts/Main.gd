@@ -2106,6 +2106,11 @@ func setup_phase_controllers() -> void:
 			if phase_instance.grenade_result.is_connected(shooting_controller._on_grenade_result):
 				phase_instance.grenade_result.disconnect(shooting_controller._on_grenade_result)
 				print("Main: Disconnected grenade_result")
+			# T7-53: Disconnect shooting_damage_applied
+			if phase_instance.has_signal("shooting_damage_applied") and shooting_controller.has_method("_on_shooting_damage_visual"):
+				if phase_instance.shooting_damage_applied.is_connected(shooting_controller._on_shooting_damage_visual):
+					phase_instance.shooting_damage_applied.disconnect(shooting_controller._on_shooting_damage_visual)
+					print("Main: Disconnected shooting_damage_applied")
 
 		# ENHANCEMENT: Clear visuals before freeing controller
 		if shooting_controller.has_method("_clear_visuals"):

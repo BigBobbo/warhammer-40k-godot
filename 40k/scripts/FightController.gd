@@ -1002,6 +1002,41 @@ func _on_attacks_resolved_visual(attacker_id: String, target_id: String, result:
 	if not wound_changes.is_empty():
 		_flash_fight_target_tokens(target_id)
 
+	# T7-53: Check for full unit destruction → kill notification
+	if not kill_set.is_empty():
+		var unit = GameState.get_unit(target_id)
+		if not unit.is_empty():
+			var models = unit.get("models", [])
+			var alive_count = 0
+			for m_idx in range(models.size()):
+				var model = models[m_idx]
+				if model.get("alive", true):
+					var key = "%s.%d" % [target_id, m_idx]
+					if not kill_set.has(key):
+						alive_count += 1
+			if alive_count == 0:
+				var unit_name = unit.get("meta", {}).get("name", target_id)
+				var center_pos = _get_unit_center(unit)
+				if center_pos != Vector2.ZERO:
+					damage_feedback.play_kill_notification(center_pos, unit_name)
+					print("[FightController] T7-53: UNIT DESTROYED — %s" % unit_name)
+
+func _get_unit_center(unit: Dictionary) -> Vector2:
+	"""T7-53: Compute average position of alive models for kill notification."""
+	var models = unit.get("models", [])
+	var positions: Array = []
+	for model in models:
+		if model.get("alive", true):
+			var pos = _get_model_position(model)
+			if pos != Vector2.ZERO:
+				positions.append(pos)
+	if positions.is_empty():
+		return Vector2.ZERO
+	var center = Vector2.ZERO
+	for pos in positions:
+		center += pos
+	return center / positions.size()
+
 func _get_model_position(model: Dictionary) -> Vector2:
 	"""Get model position as Vector2 (shared helper for T5-V12)."""
 	var pos = model.get("position")

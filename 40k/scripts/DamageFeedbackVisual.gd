@@ -31,6 +31,12 @@ const FLOAT_NUMBER_FONT_SIZE := 22  # Base font size for floating numbers
 const FLOAT_NUMBER_COLOR_DAMAGE := Color(1.0, 0.2, 0.1, 1.0)  # Red for damage
 const FLOAT_NUMBER_COLOR_KILL := Color(0.8, 0.05, 0.0, 1.0)  # Dark red for kills
 
+# === T7-53: Kill Notification Constants ===
+const KILL_NOTIFY_DURATION := 2.0  # How long the notification stays visible
+const KILL_NOTIFY_RISE_PX := 60.0  # How far it rises
+const KILL_NOTIFY_FONT_SIZE := 18  # Font size for kill notification
+const KILL_NOTIFY_COLOR := Color(0.9, 0.05, 0.0, 1.0)  # Deep red for unit destruction
+
 # Internal state
 var _effects: Array = []  # Active effects list [{type, pos, radius, elapsed, duration, ...}]
 
@@ -174,6 +180,45 @@ func play_death_animation(model_pos: Vector2, base_radius_px: float) -> void:
 
 	queue_redraw()
 	print("[DamageFeedbackVisual] T5-V4: Death animation at %s (radius=%.0f)" % [str(model_pos), base_radius_px])
+
+func play_kill_notification(unit_center_pos: Vector2, unit_name: String) -> void:
+	"""T7-53: Show a 'UNIT DESTROYED' notification floating above the destroyed unit's position."""
+	var label = Label.new()
+	label.text = "DESTROYED: %s" % unit_name
+	label.add_theme_font_size_override("font_size", KILL_NOTIFY_FONT_SIZE)
+	label.add_theme_color_override("font_color", KILL_NOTIFY_COLOR)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Position above unit center
+	label.position = unit_center_pos + Vector2(-KILL_NOTIFY_FONT_SIZE * 3.0, -KILL_NOTIFY_FONT_SIZE * 1.5)
+	label.z_index = 58  # Above floating numbers (57)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Add background panel for readability
+	var bg = ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.7)
+	bg.size = Vector2(label.text.length() * KILL_NOTIFY_FONT_SIZE * 0.6, KILL_NOTIFY_FONT_SIZE * 1.4)
+	bg.position = unit_center_pos + Vector2(-bg.size.x * 0.5, -KILL_NOTIFY_FONT_SIZE * 1.5)
+	bg.z_index = 57
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	add_child(label)
+
+	# Tween: Rise upward
+	var rise_tween = create_tween()
+	rise_tween.tween_property(label, "position:y", label.position.y - KILL_NOTIFY_RISE_PX, KILL_NOTIFY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	var bg_rise = create_tween()
+	bg_rise.tween_property(bg, "position:y", bg.position.y - KILL_NOTIFY_RISE_PX, KILL_NOTIFY_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+	# Tween: Fade out in second half, then clean up
+	var fade_tween = create_tween()
+	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, KILL_NOTIFY_DURATION * 0.4).set_delay(KILL_NOTIFY_DURATION * 0.6)
+	fade_tween.tween_callback(label.queue_free)
+
+	var bg_fade = create_tween()
+	bg_fade.tween_property(bg, "color:a", 0.0, KILL_NOTIFY_DURATION * 0.4).set_delay(KILL_NOTIFY_DURATION * 0.6)
+	bg_fade.tween_callback(bg.queue_free)
+
+	print("[DamageFeedbackVisual] T7-53: Kill notification '%s' at %s" % [unit_name, str(unit_center_pos)])
 
 # ── Drawing Helpers ─────────────────────────────────────────────────────────
 
