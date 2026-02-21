@@ -149,6 +149,21 @@ const TEMPO_DESPERATION_MULTIPLIER: float = 1.8     # Aggression multiplier in d
 const TEMPO_MAX_ROUNDS: int = 5                     # Standard 40k game length (5 battle rounds)
 const TEMPO_CHARGE_THRESHOLD_REDUCTION: float = 0.4 # How much to lower charge threshold when desperate
 
+# T7-43: Late-game strategy pivot constants
+# Rounds 1-2: Aggressive — favor kills and aggressive positioning
+# Round 3: Balanced — standard weights (all 1.0)
+# Rounds 4-5: Objective/survival — prioritize objective control and survival over kills
+const STRATEGY_EARLY_AGGRESSION: float = 1.3        # Rounds 1-2: boost kill-seeking scoring by 30%
+const STRATEGY_EARLY_OBJECTIVE: float = 0.85         # Rounds 1-2: slightly reduce objective weight (aggression first)
+const STRATEGY_EARLY_SURVIVAL: float = 0.8           # Rounds 1-2: accept more risk (reduce threat penalty)
+const STRATEGY_EARLY_CHARGE: float = 0.8             # Rounds 1-2: lower charge threshold (more willing to charge)
+const STRATEGY_LATE_AGGRESSION: float = 0.7          # Rounds 4-5: reduce kill-seeking scoring by 30%
+const STRATEGY_LATE_OBJECTIVE: float = 1.4           # Rounds 4-5: boost objective control priority by 40%
+const STRATEGY_LATE_SURVIVAL: float = 1.4            # Rounds 4-5: increase survival/threat avoidance by 40%
+const STRATEGY_LATE_CHARGE: float = 1.3              # Rounds 4-5: higher charge threshold (less willing to charge)
+const STRATEGY_LATE_CHARGE_ON_OBJ_BONUS: float = 1.5 # Rounds 4-5: extra bonus for charging onto objectives
+const STRATEGY_LATE_OBJ_TARGET_BONUS: float = 1.3    # Rounds 4-5: extra bonus for shooting units on objectives
+
 # T7-27: Engaged unit survival assessment constants
 # Used to estimate fight-phase damage and inform hold/fall-back decisions
 const SURVIVAL_LETHAL_THRESHOLD: float = 0.75      # If expected damage >= 75% of remaining wounds, unit is likely destroyed
@@ -198,7 +213,11 @@ static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
-	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s)" % [phase, player, available_actions.size(), diff_name])
+	# T7-43: Log round strategy mode
+	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var strategy = _get_round_strategy_modifiers(current_round)
+	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s, round=%d, strategy=%s)" % [
+		phase, player, available_actions.size(), diff_name, current_round, strategy.label])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
 
@@ -3391,6 +3410,9 @@ static func _assign_units_to_objectives(
 		var has_ranged = _unit_has_ranged_weapons(unit)
 		var max_weapon_range = _get_max_weapon_range(unit)
 
+		# T7-43: Get round strategy modifiers for movement scoring
+		var move_strategy = _get_round_strategy_modifiers(battle_round)
+
 		for eval in obj_evaluations:
 			var obj_pos = eval.position
 			var obj_id = eval.id
@@ -3400,7 +3422,8 @@ static func _assign_units_to_objectives(
 			var already_on_obj = dist_px <= OBJECTIVE_CONTROL_RANGE_PX
 
 			# Base score from objective priority
-			var score = eval.priority
+			# T7-43: Scale objective priority by round strategy modifier
+			var score = eval.priority * move_strategy.objective_priority
 
 			# OC efficiency: high-OC units are more valuable at contested objectives
 			if eval.oc_needed > 0:
@@ -3430,6 +3453,7 @@ static func _assign_units_to_objectives(
 
 			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
 			# Penalize assignments that route units into enemy threat zones
+			# T7-43: Scale threat penalties by survival modifier (early=less cautious, late=more cautious)
 			if not threat_data.is_empty() and not already_on_obj:
 				# Estimate where the unit would end up after moving toward this objective
 				var move_direction = (obj_pos - centroid).normalized() if dist_px > 1.0 else Vector2.ZERO
@@ -3442,10 +3466,10 @@ static func _assign_units_to_objectives(
 				# Penalize moving INTO more danger than we're currently in
 				var threat_increase = dest_threat.total_threat - current_threat.total_threat
 				if threat_increase > 0.5:
-					score -= threat_increase
+					score -= threat_increase * move_strategy.survival
 					# Extra charge threat penalty: being chargeable is worse than being shot at
 					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
-						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5
+						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5 * move_strategy.survival
 
 			# --- T7-23: MULTI-PHASE PLANNING INFLUENCE ---
 			# Units with charge intent should be biased toward charge angle
@@ -3818,6 +3842,10 @@ static func _decide_engaged_unit(
 	var fb_and_charge = AIAbilityAnalyzerData.can_fall_back_and_charge(unit_id, unit, all_units)
 	var fb_and_shoot = AIAbilityAnalyzerData.can_fall_back_and_shoot(unit_id, unit, all_units)
 
+	# T7-43: Get round strategy for engaged unit decisions
+	var engaged_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var engaged_strategy = _get_round_strategy_modifiers(engaged_battle_round)
+
 	if on_objective:
 		# Check if our OC at this objective would be reduced by falling back
 		var friendly_oc_here = _get_oc_at_position(
@@ -3826,6 +3854,18 @@ static func _decide_engaged_unit(
 		var enemy_oc_here = _get_oc_at_position(
 			centroid, enemies, player, false
 		)
+
+		# T7-43: In rounds 4-5, units on objectives are biased toward holding
+		# even if survival is at risk — objective control is paramount
+		if engaged_battle_round >= 4 and friendly_oc_here >= enemy_oc_here and "REMAIN_STATIONARY" in move_types:
+			if not fb_and_charge:
+				print("AIDecisionMaker: [STRATEGY] Round %d — %s holds %s (late-game objective priority, OC %d vs %d)" % [
+					engaged_battle_round, unit_name, obj_id_held, friendly_oc_here, enemy_oc_here])
+				return {
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": unit_id,
+					"_ai_description": "%s holds %s (late-game priority, OC %d vs %d)" % [unit_name, obj_id_held, friendly_oc_here, enemy_oc_here]
+				}
 
 		# If we're winning the OC war or tied, stay and hold
 		# Exception: if the unit has Fall Back and Charge, falling back may be
@@ -6085,6 +6125,37 @@ static func _calculate_tempo_modifier(snapshot: Dictionary, player: int) -> floa
 		my_vp, opp_vp, vp_diff, battle_round, modifier])
 	return modifier
 
+static func _get_round_strategy_modifiers(battle_round: int) -> Dictionary:
+	"""T7-43: Get round-based strategy modifiers for late-game pivot.
+	Rounds 1-2: Aggressive positioning — favor kills and forward movement.
+	Round 3: Balanced — standard weights across all factors.
+	Rounds 4-5: Objective/survival — prioritize objective control and survival over kills.
+	Returns a dictionary with multipliers for different strategic priorities."""
+	if battle_round <= 2:
+		return {
+			"aggression": STRATEGY_EARLY_AGGRESSION,
+			"objective_priority": STRATEGY_EARLY_OBJECTIVE,
+			"survival": STRATEGY_EARLY_SURVIVAL,
+			"charge_threshold": STRATEGY_EARLY_CHARGE,
+			"label": "AGGRESSIVE",
+		}
+	elif battle_round == 3:
+		return {
+			"aggression": 1.0,
+			"objective_priority": 1.0,
+			"survival": 1.0,
+			"charge_threshold": 1.0,
+			"label": "BALANCED",
+		}
+	else:  # Rounds 4-5
+		return {
+			"aggression": STRATEGY_LATE_AGGRESSION,
+			"objective_priority": STRATEGY_LATE_OBJECTIVE,
+			"survival": STRATEGY_LATE_SURVIVAL,
+			"charge_threshold": STRATEGY_LATE_CHARGE,
+			"label": "OBJECTIVE/SURVIVAL",
+		}
+
 static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""
 	T7-22: Macro-level target priority assessment.
@@ -6234,10 +6305,20 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 			# OC value matters much more when actually on an objective
 			if oc >= 1:
 				value += float(oc) * MACRO_OC_ON_OBJECTIVE_WEIGHT
+			# T7-43: In late game, further boost priority of shooting units on objectives
+			var target_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+			if target_battle_round >= 4:
+				value *= STRATEGY_LATE_OBJ_TARGET_BONUS
 		elif near_objective:
 			value *= 1.15
 			if oc >= 1:
 				value += float(oc) * MACRO_OC_NEAR_OBJECTIVE_WEIGHT
+
+	# T7-43: Apply round strategy aggression modifier to overall target value
+	# Early game: boost kill-seeking (aggression > 1.0), Late game: reduce (aggression < 1.0)
+	var tv_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var tv_strategy = _get_round_strategy_modifiers(tv_battle_round)
+	value *= tv_strategy.aggression
 
 	return value
 
@@ -6706,11 +6787,15 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 				score *= 1.3
 
 			# Bonus for charging onto objectives
+			# T7-43: In late game, extra bonus for charging onto objectives (objective control > kills)
 			var target_centroid = _get_unit_centroid(target_unit)
 			var objectives = _get_objectives(snapshot)
+			var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			for obj_pos in objectives:
 				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 					score *= 1.5  # Target is on an objective
+					if charge_battle_round >= 4:
+						score *= STRATEGY_LATE_CHARGE_ON_OBJ_BONUS
 					break
 
 			# T7-40: Apply difficulty noise to charge scoring
@@ -6735,6 +6820,15 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	# T7-40: Apply difficulty modifier to charge threshold
 	charge_threshold *= _get_difficulty_charge_threshold_modifier()
+
+	# T7-43: Apply round strategy modifier to charge threshold
+	# Early game: lower threshold (more willing), Late game: higher (less willing unless on objective)
+	var ct_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var ct_strategy = _get_round_strategy_modifiers(ct_battle_round)
+	charge_threshold *= ct_strategy.charge_threshold
+	if ct_strategy.charge_threshold != 1.0:
+		print("AIDecisionMaker: [STRATEGY] Round %d charge threshold adjusted by %.2f (strategy=%s)" % [
+			ct_battle_round, ct_strategy.charge_threshold, ct_strategy.label])
 
 	# Minimum threshold to declare a charge
 	if best_score < charge_threshold:
@@ -6843,6 +6937,12 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		score *= charge_trade_eff
 		print("AIDecisionMaker: [TRADE] Charge trade efficiency: %.2f (charger ppw=%.1f, target ppw=%.1f)" % [
 			charge_trade_eff, _get_points_per_wound(charger), _get_points_per_wound(target)])
+
+	# T7-43: Apply round strategy aggression modifier to charge target scoring
+	# Early game: boost charge damage value (aggression > 1.0), Late game: reduce (aggression < 1.0)
+	var sct_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var sct_strategy = _get_round_strategy_modifiers(sct_round)
+	score *= sct_strategy.aggression
 
 	return max(0.0, score)
 
@@ -7944,18 +8044,24 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 	- ENGAGEMENT: at least one alive enemy model is within 4" (3" move + 1" ER)
 	  of at least one alive friendly model in this unit.
 	- OBJECTIVE: no enemy is reachable but an objective exists.
-	- NONE: neither target is available."""
+	- NONE: neither target is available.
+	T7-43: In rounds 4-5, prefer OBJECTIVE over ENGAGEMENT when enemies are only
+	marginally reachable (3-4") and an uncontrolled/contested objective is nearby."""
 	var unit_owner = int(unit.get("owner", player))
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
 	var engagement_check_range_px = 4.0 * PIXELS_PER_INCH  # 3" move + 1" ER
+	# T7-43: Tighter range for "firmly engaged" — enemy within 2" means we should stay
+	var firm_engagement_range_px = 2.0 * PIXELS_PER_INCH
 
 	var alive_models = _get_alive_models_with_positions(unit)
 	if alive_models.is_empty():
 		return "NONE"
 
 	# Check if any enemy model is within 4" of any of our models (edge-to-edge)
+	var enemy_reachable = false
+	var enemy_firmly_engaged = false
 	for model in alive_models:
 		var mpos = _get_model_position(model)
 		if mpos == Vector2.INF:
@@ -7981,7 +8087,26 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 				var ebr = _model_bounding_radius_px(em.get("base_mm", 32), em.get("base_type", "circular"), em.get("base_dimensions", {}))
 				var edge_dist_px = mpos.distance_to(ep) - mbr - ebr
 				if edge_dist_px <= engagement_check_range_px:
-					return "ENGAGEMENT"
+					enemy_reachable = true
+				if edge_dist_px <= firm_engagement_range_px:
+					enemy_firmly_engaged = true
+
+	if enemy_reachable:
+		# T7-43: In rounds 4-5, if enemies are only marginally reachable (not firmly engaged),
+		# prefer consolidating toward objectives instead. Objective control > kills in late game.
+		var consol_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		if consol_battle_round >= 4 and not enemy_firmly_engaged:
+			var objectives = _get_objectives(snapshot)
+			if not objectives.is_empty():
+				# Check if any objective is nearby and uncontrolled/contested
+				var unit_centroid = _get_unit_centroid(unit)
+				if unit_centroid != Vector2.INF:
+					for obj_pos in objectives:
+						var obj_dist = unit_centroid.distance_to(obj_pos)
+						if obj_dist <= 6.0 * PIXELS_PER_INCH:  # Objective within 6" — worth consolidating toward
+							print("AIDecisionMaker: [STRATEGY] Round %d — consolidating toward objective instead of marginally reachable enemy" % consol_battle_round)
+							return "OBJECTIVE"
+		return "ENGAGEMENT"
 
 	# No enemy reachable — check for objectives
 	var objectives = _get_objectives(snapshot)
