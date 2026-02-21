@@ -72,6 +72,11 @@ var _ai_thinking_pulse_tween: Tween = null
 var _ai_thinking_dots_timer: float = 0.0
 var _ai_thinking_dots_count: int = 0
 
+# T7-52: AI unit highlighting during actions
+const AIUnitHighlightScript = preload("res://scripts/AIUnitHighlight.gd")
+var _ai_highlight_nodes: Array = []  # Active highlight Node2D instances
+var _ai_highlighted_unit_id: String = ""  # Currently highlighted unit
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -348,8 +353,15 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 			update_unit_visuals(unit_id)
 
 	# Phase-ending actions: sync ALL token positions to catch any missed updates
-	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT"]:
+	if action_type in ["END_MOVEMENT", "END_CHARGE", "END_FIGHT", "END_SHOOTING"]:
 		_sync_all_token_positions()
+		_clear_ai_unit_highlights()
+
+	# T7-52: Highlight the AI's active unit based on action type
+	if unit_id != "" and action_type not in ["END_MOVEMENT", "END_SHOOTING", "END_CHARGE", "END_FIGHT", "END_SCORING"]:
+		var highlight_color = _get_ai_action_highlight_color(action_type)
+		if highlight_color != Color.TRANSPARENT:
+			_show_ai_unit_highlight(unit_id, highlight_color)
 
 	# Refresh UI after any AI action to keep unit list and phase UI current
 	refresh_unit_list()
@@ -358,6 +370,8 @@ func _on_ai_action_taken(_player: int, action: Dictionary, _description: String)
 func _on_ai_turn_ended(player: int, _action_summary: Array) -> void:
 	# T7-20: Hide the AI thinking indicator when AI finishes its turn
 	_hide_ai_thinking_indicator(player)
+	# T7-52: Clear AI unit highlights when AI turn ends
+	_clear_ai_unit_highlights()
 
 func _sync_all_token_positions() -> void:
 	# Sync all token visual positions from GameState (for after AI plays)
@@ -730,6 +744,95 @@ func _update_ai_thinking_dots(delta: float) -> void:
 		_ai_thinking_dots_count = (_ai_thinking_dots_count % 3) + 1
 		var dots = ".".repeat(_ai_thinking_dots_count)
 		ai_thinking_label.text = "AI is thinking" + dots
+
+# =============================================================================
+# T7-52: AI Unit Highlighting During Actions
+# =============================================================================
+
+func _get_ai_action_highlight_color(action_type: String) -> Color:
+	"""Map AI action types to highlight colors: blue=move, red=shoot, orange=charge/fight."""
+	# Movement actions → blue
+	if action_type in ["STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY",
+			"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
+			"SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_MOVE"]:
+		return AIUnitHighlightScript.COLOR_MOVE
+	# Shooting actions → red
+	if action_type in ["SHOOT", "ASSIGN_WEAPON", "CONFIRM_TARGETS", "RESOLVE_SHOOTING",
+			"COMPLETE_SHOOTING_FOR_UNIT", "CONTINUE_SEQUENCE", "APPLY_SAVES",
+			"ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "USE_GRENADE_STRATAGEM",
+			"SKIP_UNIT"]:
+		# Only use red for shooting skip — check phase context
+		if action_type == "SKIP_UNIT":
+			var phase = GameState.get_current_phase()
+			if phase == GameStateData.Phase.SHOOTING:
+				return AIUnitHighlightScript.COLOR_SHOOT
+			return Color.TRANSPARENT
+		return AIUnitHighlightScript.COLOR_SHOOT
+	# Charge actions → orange
+	if action_type in ["CHARGE", "CHARGE_ROLL", "APPLY_CHARGE_MOVE", "COMPLETE_UNIT_CHARGE",
+			"SKIP_CHARGE", "DECLARE_CHARGE"]:
+		return AIUnitHighlightScript.COLOR_CHARGE
+	# Fight actions → orange (same as charge per spec)
+	if action_type in ["SELECT_FIGHTER", "ASSIGN_ATTACKS", "PILE_IN", "CONSOLIDATE",
+			"FIGHT_WITH_UNIT"]:
+		return AIUnitHighlightScript.COLOR_CHARGE
+	return Color.TRANSPARENT
+
+func _show_ai_unit_highlight(unit_id: String, color: Color) -> void:
+	"""Add pulsing highlight rings around all models of the given AI unit."""
+	# Skip if already highlighting this unit with same color
+	if unit_id == _ai_highlighted_unit_id and _ai_highlight_nodes.size() > 0:
+		# Check if color changed (e.g. unit went from move to charge)
+		if _ai_highlight_nodes.size() > 0 and _ai_highlight_nodes[0].highlight_color == color:
+			return
+		# Color changed — clear and re-apply
+		_clear_ai_unit_highlights()
+
+	# Clear previous highlights if switching to a different unit
+	if unit_id != _ai_highlighted_unit_id:
+		_clear_ai_unit_highlights()
+
+	_ai_highlighted_unit_id = unit_id
+
+	# Find all token visuals for this unit on the board
+	for child in token_layer.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.visible:
+			# Determine ring radius from the token's base shape
+			var radius = 28.0  # Default
+			if "base_shape" in child and child.base_shape:
+				var bounds = child.base_shape.get_bounds()
+				radius = max(bounds.size.x, bounds.size.y) / 2.0 + 6.0  # Slightly outside the base
+
+			var highlight = Node2D.new()
+			highlight.set_script(AIUnitHighlightScript)
+			highlight.setup(radius, color)
+			highlight.position = child.position
+			highlight.z_index = 9  # Just below token z_index of 10
+			# Store reference to the token so we can track position
+			highlight.set_meta("tracked_token", child)
+			token_layer.add_child(highlight)
+			_ai_highlight_nodes.append(highlight)
+
+	if _ai_highlight_nodes.size() > 0:
+		print("Main: T7-52 AI highlight: %d rings for unit %s (color=%s)" % [_ai_highlight_nodes.size(), unit_id, color])
+
+func _clear_ai_unit_highlights() -> void:
+	"""Remove all AI unit highlight rings from the board."""
+	for node in _ai_highlight_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	_ai_highlight_nodes.clear()
+	_ai_highlighted_unit_id = ""
+
+func _update_ai_unit_highlight_positions() -> void:
+	"""Keep highlight rings synced with token positions (tokens may move during AI actions)."""
+	for highlight in _ai_highlight_nodes:
+		if not is_instance_valid(highlight):
+			continue
+		var token = highlight.get_meta("tracked_token") if highlight.has_meta("tracked_token") else null
+		if is_instance_valid(token):
+			highlight.position = token.position
+			highlight.visible = token.visible
 
 func _setup_phase_timer_hud() -> void:
 	# T5-MP8: Create a phase timer label in the top HUD bar for multiplayer games
@@ -2680,6 +2783,10 @@ func _process(delta: float) -> void:
 
 	# T7-20: Animate the AI thinking indicator dots
 	_update_ai_thinking_dots(delta)
+
+	# T7-52: Keep AI unit highlights synced with token positions
+	if _ai_highlight_nodes.size() > 0:
+		_update_ai_unit_highlight_positions()
 
 func reset_camera() -> void:
 	camera.position = Vector2(
