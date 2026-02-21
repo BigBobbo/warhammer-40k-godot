@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-50 (2026-02-21): AI multi-target charge declarations — Added `_evaluate_multi_target_charge()` and `_score_multi_target_combo()` to evaluate 2- and 3-target charge combinations. Multi-target bonus (+15% per extra target) and clustering bonus. Correctly picks multi-target when targets are close together. | Charge/AI | AI_AUDIT.md §CHARGE-4 |
 | T7-38 (2026-02-21): AI shooting target line visualization — Red targeting line from shooter to target(s) during AI shooting, floating hit/wound result summary, and per-model damage numbers/death animations via `shooting_damage_applied` signal in AI path. | UI | AI_AUDIT.md §VIS-2 |
 | T7-36 (2026-02-21): AI speed controls — Added `AISpeedPreset` enum (FAST/NORMAL/SLOW/STEP_BY_STEP) with configurable delays (0ms/200ms/500ms/pause) to AIPlayer.gd. Speed dropdown in MainMenu.gd, in-game HUD with comma/period/slash keyboard controls, step-by-step mode with "Continue (Space)" button. | UI/Settings | AI_AUDIT.md §QoL-3 |
 | T7-19 (2026-02-20): AI turn summary panel — Created `AITurnSummaryPanel.gd` post-turn summary popup consuming `ai_turn_ended` signal. Displays categorized action counts per phase (units moved, fired, charged, fought, stratagems used) with notable action descriptions. WhiteDwarf gothic theme, auto-dismiss after 12s, Escape/button dismiss. | UI/AI | AI_AUDIT.md §QoL-1 |
@@ -1393,13 +1394,14 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Doesn't penalize targets with active defensive buffs (Smokescreen, Go to Ground) in target scoring.
 - **Resolution:** Added strategic deprioritization (×0.80) in `_score_shooting_target()` for targets with active effect-granted cover, stealth, or invulnerable saves from defensive stratagems. This is applied on top of the existing mechanical damage reductions, encouraging the AI to redirect firepower to softer targets.
 
-### T7-50. AI multi-target charge declarations
+### T7-50. AI multi-target charge declarations — **DONE**
 - **Phase:** Charge
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §CHARGE-4
 - **Depends on:** T7-1 (basic charge implementation)
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Declare charges against multiple nearby enemies when beneficial.
+- **Resolution:** Added `_evaluate_multi_target_charge()` and `_score_multi_target_combo()` to evaluate 2- and 3-target charge combinations. Per 10th Edition rules, charge probability is based on the farthest target (must reach all), while combined target scores determine benefit. Multi-target bonus (+15% per extra target) and clustering bonus reward engaging grouped enemies. AI correctly picks multi-target when targets are close together and single-target when the probability cost is too high.
 
 ### T7-51. AI overwatch risk assessment for charges — **DONE**
 - **Phase:** Charge
@@ -1512,9 +1514,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 53 | 5 | 58 |
-| **Total** | **151** | **35** | **186** |
-| **Recently Completed** | **170** | — | **170** |
+| Tier 7 — AI Player | 54 | 4 | 58 |
+| **Total** | **152** | **34** | **186** |
+| **Recently Completed** | **171** | — | **171** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
