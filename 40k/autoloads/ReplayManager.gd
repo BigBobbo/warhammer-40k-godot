@@ -857,6 +857,57 @@ func get_replay_statistics() -> Dictionary:
 	return stats
 
 # ============================================================================
+# T7-56: Turn-Grouped Action Queries (for in-game AI Turn Replay Panel)
+# ============================================================================
+
+func get_recorded_events_by_turn() -> Array:
+	"""T7-56: Return recording events grouped by battle round for the replay panel.
+	Returns an array of {battle_round, events} dictionaries, where events are the
+	recorded actions (excluding noisy internal actions) for that round."""
+	if not is_recording and _recording_events.is_empty():
+		return []
+
+	var turns: Dictionary = {}  # battle_round -> Array of events
+	for event in _recording_events:
+		var br = event.get("battle_round", 1)
+		if not turns.has(br):
+			turns[br] = []
+		# Skip noisy internal actions
+		var action_type = event.get("action_type", "")
+		if action_type in FILTERED_ACTIONS:
+			continue
+		turns[br].append(event)
+
+	# Convert to sorted array
+	var result = []
+	var round_keys = turns.keys()
+	round_keys.sort()
+	for br in round_keys:
+		result.append({
+			"battle_round": br,
+			"events": turns[br],
+		})
+	return result
+
+func get_recorded_event_descriptions_for_round(battle_round: int) -> Array:
+	"""T7-56: Return human-readable descriptions of all recorded events in a specific round."""
+	var descriptions = []
+	for event in _recording_events:
+		if event.get("battle_round", 0) != battle_round:
+			continue
+		var action_type = event.get("action_type", "")
+		if action_type in FILTERED_ACTIONS:
+			continue
+		descriptions.append({
+			"description": event.get("description", action_type),
+			"type": event.get("type", "action"),
+			"action_type": action_type,
+			"player": event.get("active_player", 0),
+			"phase": event.get("phase", -1),
+		})
+	return descriptions
+
+# ============================================================================
 # Timer Callback
 # ============================================================================
 

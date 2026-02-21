@@ -80,6 +80,9 @@ var _ai_highlighted_unit_id: String = ""  # Currently highlighted unit
 # T7-54: AI action log overlay
 var _ai_action_log_overlay: AIActionLogOverlay = null
 
+# T7-56: AI turn replay panel
+var _ai_turn_replay_panel: AITurnReplayPanel = null
+
 # T7-55: Spectator mode (AI vs AI) speed indicator HUD
 var _spectator_speed_label: Label = null
 var _spectator_speed_panel: PanelContainer = null
@@ -272,6 +275,9 @@ func _ready() -> void:
 	# T7-54: Setup AI action log overlay
 	_setup_ai_action_log_overlay()
 
+	# T7-56: Setup AI turn replay panel
+	_setup_ai_turn_replay_panel()
+
 	# T7-55: Setup spectator mode speed indicator
 	_setup_spectator_speed_hud()
 
@@ -321,6 +327,12 @@ func _initialize_ai_player() -> void:
 	if not ai_player.ai_turn_ended.is_connected(_on_ai_turn_ended):
 		ai_player.ai_turn_ended.connect(_on_ai_turn_ended)
 		print("Main: Connected to AIPlayer.ai_turn_ended signal (T7-20)")
+
+	# T7-56: Connect turn history signal to replay panel
+	if _ai_turn_replay_panel and ai_player.has_signal("turn_history_updated"):
+		if not ai_player.turn_history_updated.is_connected(_ai_turn_replay_panel.refresh):
+			ai_player.turn_history_updated.connect(_ai_turn_replay_panel.refresh)
+			print("Main: Connected AIPlayer.turn_history_updated to replay panel (T7-56)")
 
 	# T7-54: Connect AI signals to the action log overlay
 	if _ai_action_log_overlay:
@@ -794,6 +806,20 @@ func _setup_ai_action_log_overlay() -> void:
 	_ai_action_log_overlay = AIActionLogOverlay.new()
 	add_child(_ai_action_log_overlay)
 	print("Main: AI action log overlay created (T7-54)")
+
+# =============================================================================
+# T7-56: AI Turn Replay Panel
+# =============================================================================
+
+func _setup_ai_turn_replay_panel() -> void:
+	_ai_turn_replay_panel = AITurnReplayPanel.new()
+	add_child(_ai_turn_replay_panel)
+	print("Main: AI turn replay panel created (T7-56)")
+
+func _toggle_ai_turn_replay_panel() -> void:
+	"""T7-56: Toggle the AI turn replay panel visibility."""
+	if _ai_turn_replay_panel:
+		_ai_turn_replay_panel.toggle_panel()
 
 # =============================================================================
 # T7-55: Spectator Mode Speed Indicator HUD
@@ -2766,6 +2792,12 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
+	# T7-56: AI Turn Replay panel toggle — 'r' key
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+		_toggle_ai_turn_replay_panel()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with 't' key
@@ -2802,6 +2834,11 @@ func _input(event: InputEvent) -> void:
 	# Only handle ESC if dialog is not visible (to avoid interfering with dialog input)
 	# T5-UX12: Defer ESC to ShootingController when shooting phase has active shooter
 	if event.is_action_pressed("ui_cancel"):
+		# T7-56: Close replay panel on ESC if open
+		if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
+			_ai_turn_replay_panel.hide_panel()
+			get_viewport().set_input_as_handled()
+			return
 		if shooting_controller and shooting_controller.active_shooter_id != "":
 			# Let ShootingController handle ESC for deselect/cancel
 			return
