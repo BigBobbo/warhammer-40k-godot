@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-19 (2026-02-20): AI turn summary panel — Created `AITurnSummaryPanel.gd` post-turn summary popup consuming `ai_turn_ended` signal. Displays categorized action counts per phase (units moved, fired, charged, fought, stratagems used) with notable action descriptions. WhiteDwarf gothic theme, auto-dismiss after 12s, Escape/button dismiss. | UI/AI | AI_AUDIT.md §QoL-1 |
 | T7-14 (2026-02-20): AI shooting range consideration in movement — Enhanced movement destination scoring to evaluate weapon range at estimated destinations (bonus for maintaining range, penalty for losing all targets, bonus for gaining new targets). Added firing position preservation with arc-sampling for ranged units moving toward objectives. | Movement/AI | AI_AUDIT.md §MOV-1 |
 | T7-12 (2026-02-20): AI scout move execution — Fixed double `phase_completed` emission in ScoutPhase and objective zone index alignment in AIDecisionMaker. Scout movement toward nearest uncontrolled objective with >9" enemy distance verified working (32 tests pass). | Scout/AI | AI_AUDIT.md §SCOUT-1, SCOUT-2 |
 | T7-11 (2026-02-20): AI unit ability awareness — Added Deadly Demise detection, doomed-vehicle leverage (movement toward enemies + charge bonus), Lone Operative movement protection (>12" retreat), Lone Operative targeting restriction in focus-fire, enhanced Oath of Moment (invuln/leader/weapon-efficiency awareness). 10 new tests pass. | All/AI | AI_AUDIT.md §AI-GAP-4 |
@@ -1138,12 +1139,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Units placed without regard to cover or LoS-blocking terrain. Position shooting units behind LoS blockers, use cover positions for fragile units.
 - **Resolution:** Added terrain-aware deployment to `_decide_deployment()`. New `_classify_deployment_role()` categorizes units as character/fragile_shooter/durable_shooter/melee/general based on keywords, weapons, and stats. New `_score_terrain_for_role()` evaluates terrain pieces (LoS blockers, cover) for each role. New `_find_terrain_aware_position()` generates candidate positions around terrain features in the deployment zone and scores them by terrain value, objective proximity, depth preference, and drift from baseline. Characters hide behind LoS blockers (tall ruins), fragile shooters seek cover and LoS blocking, melee units deploy near front-edge LoS blockers for charge lanes. Falls back to column-based layout when no useful terrain exists. 20/20 tests pass.
 
-### T7-19. AI turn summary panel
+### T7-19. AI turn summary panel — **DONE**
 - **Phase:** UI
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §QoL-1
 - **Files:** `AIPlayer.gd` (signals exist: `ai_action_taken`, `ai_turn_ended`, `_action_log`), new UI scene
 - **Details:** AI actions logged to console only. Create turn summary panel consuming existing signals to show units moved, shooting results, charge results, fight results after each AI turn.
+- **Resolution:** Created `AITurnSummaryPanel.gd` — a procedurally-built PanelContainer that connects to `ai_turn_ended` signal. Displays categorized summary per phase (units moved, units fired, charges declared, units fought, stratagems used, reinforcements, etc.) with notable action descriptions. Uses WhiteDwarf gothic theme, auto-dismisses after 12s, dismissible via button/Escape. Wired up in Main.gd alongside existing AI overlay panels.
 
 ### T7-20. AI thinking indicator — **DONE**
 - **Phase:** UI
@@ -1502,9 +1504,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 48 | 10 | 58 |
-| **Total** | **146** | **40** | **186** |
-| **Recently Completed** | **165** | — | **165** |
+| Tier 7 — AI Player | 49 | 9 | 58 |
+| **Total** | **147** | **39** | **186** |
+| **Recently Completed** | **166** | — | **166** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
