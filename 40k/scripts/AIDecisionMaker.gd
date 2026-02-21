@@ -7367,7 +7367,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	if charger_targets.is_empty():
 		return {}
 
-	# Score each (charger, target) pair
+	# Score each (charger, target) pair and evaluate multi-target combinations (T7-50)
 	var best_score = -INF
 	var best_action = {}
 	var best_description = ""
@@ -7393,6 +7393,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		if ow_risk.expected_damage > 0.0:
 			print("AIDecisionMaker: [OVERWATCH-RISK] %s faces overwatch risk: %.1f expected dmg from %s (risk=%s, penalty=%.2f)" % [
 				unit_name, ow_risk.expected_damage, ow_risk.best_shooter_name, ow_risk.risk_level, ow_risk.score_penalty])
+
+		# --- T7-50: Collect per-target scores for multi-target evaluation ---
+		var scored_targets = []  # Array of {target_id, dist, score, target_score, melee_dmg, target_hp, target_name, action}
 
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
@@ -7459,6 +7462,18 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
 				unit_name, target_name, dist, charge_prob * 100.0, target_score, ow_risk.expected_damage, ow_risk.risk_level, score])
 
+			# T7-50: Store scored target for multi-target evaluation
+			scored_targets.append({
+				"target_id": target_id,
+				"dist": dist,
+				"score": score,
+				"target_score": target_score,
+				"melee_dmg": melee_dmg,
+				"target_hp": target_hp,
+				"target_name": target_name,
+				"action": target_info.action,
+			})
+
 			if score > best_score:
 				best_score = score
 				best_action = target_info.action
@@ -7468,6 +7483,18 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 					ow_desc = ", overwatch risk: %.1f dmg" % ow_risk.expected_damage
 				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP%s)" % [
 					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp, ow_desc]
+
+		# --- T7-50: Evaluate multi-target charge combinations ---
+		# Per 10th Edition rules, a unit can declare a charge against multiple enemies.
+		# The charge roll must be sufficient to reach ALL declared targets (max distance).
+		# Benefit: the charger engages multiple enemies, locking them in combat.
+		if scored_targets.size() >= 2:
+			var multi_target_result = _evaluate_multi_target_charge(
+				uid, unit, unit_name, scored_targets, melee_bonus, ow_risk, snapshot, player)
+			if multi_target_result.score > best_score:
+				best_score = multi_target_result.score
+				best_action = multi_target_result.action
+				best_description = multi_target_result.description
 
 	# T7-24: Lower charge threshold when behind on VP (desperation charges)
 	var charge_tempo = _calculate_tempo_modifier(snapshot, player)
@@ -7519,6 +7546,150 @@ static func _charge_success_probability(distance_needed: float) -> float:
 				success_count += 1
 
 	return float(success_count) / 36.0
+
+# --- T7-50: Multi-target charge evaluation ---
+
+static func _evaluate_multi_target_charge(
+		charger_id: String, charger: Dictionary, charger_name: String,
+		scored_targets: Array, melee_bonus: float, ow_risk: Dictionary,
+		snapshot: Dictionary, player: int) -> Dictionary:
+	"""Evaluate multi-target charge combinations (2-3 targets).
+	Per 10th Edition rules, a unit can declare a charge against multiple enemies.
+	The charge roll must reach ALL declared targets (max distance determines difficulty).
+	Returns {score: float, action: Dictionary, description: String}."""
+	var best_multi = {"score": -INF, "action": {}, "description": ""}
+
+	# Sort targets by distance (closest first) for efficient pruning
+	var sorted_targets = scored_targets.duplicate()
+	sorted_targets.sort_custom(func(a, b): return a.dist < b.dist)
+
+	# Cap at first 5 closest targets to limit combinatorial explosion
+	if sorted_targets.size() > 5:
+		sorted_targets.resize(5)
+
+	# Evaluate pairs (2 targets)
+	for i in range(sorted_targets.size()):
+		for j in range(i + 1, sorted_targets.size()):
+			var combo = [sorted_targets[i], sorted_targets[j]]
+			var combo_result = _score_multi_target_combo(
+				charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player)
+			if combo_result.score > best_multi.score:
+				best_multi = combo_result
+
+	# Evaluate triples (3 targets) — only if we have 3+ targets
+	if sorted_targets.size() >= 3:
+		for i in range(sorted_targets.size()):
+			for j in range(i + 1, sorted_targets.size()):
+				for k in range(j + 1, sorted_targets.size()):
+					var combo = [sorted_targets[i], sorted_targets[j], sorted_targets[k]]
+					var combo_result = _score_multi_target_combo(
+						charger_id, charger, charger_name, combo, melee_bonus, ow_risk, snapshot, player)
+					if combo_result.score > best_multi.score:
+						best_multi = combo_result
+
+	return best_multi
+
+static func _score_multi_target_combo(
+		charger_id: String, charger: Dictionary, charger_name: String,
+		combo: Array, melee_bonus: float, ow_risk: Dictionary,
+		snapshot: Dictionary, player: int) -> Dictionary:
+	"""Score a specific multi-target charge combination.
+	The charge probability is based on the FARTHEST target (must reach all).
+	The score is the sum of individual target scores, weighted by probability."""
+	var result = {"score": -INF, "action": {}, "description": ""}
+
+	# Find the maximum distance (determines charge difficulty)
+	var max_dist = 0.0
+	for t in combo:
+		if t.dist > max_dist:
+			max_dist = t.dist
+
+	var charge_distance_needed = max(0.0, max_dist - 1.0)
+	var charge_prob = _charge_success_probability(charge_distance_needed)
+
+	# Skip if the multi-target charge has very low probability
+	if charge_prob < 0.08:
+		return result
+
+	# Sum individual target scores (without probability — we apply unified probability below)
+	var combined_target_score = 0.0
+	var target_names = []
+	var target_ids = []
+	var total_melee_dmg = 0.0
+	var total_target_hp = 0.0
+	for t in combo:
+		combined_target_score += t.target_score
+		target_names.append(t.target_name)
+		target_ids.append(t.target_id)
+		total_melee_dmg += t.melee_dmg
+		total_target_hp += t.target_hp
+
+	# Apply charge probability and melee bonus
+	var score = combined_target_score * charge_prob * melee_bonus
+
+	# Distance bonuses based on the farthest target (all must be reached)
+	if charge_distance_needed <= 6.0:
+		score *= 1.2
+	if charge_distance_needed <= 3.0:
+		score *= 1.3
+
+	# Multi-target bonus: engaging multiple enemies is tactically valuable
+	# (locks down more shooters, denies more overwatch, more fight targets)
+	# But apply a modest bonus — the probability penalty is already factored in
+	var multi_target_bonus = 1.0 + 0.15 * (combo.size() - 1)  # +15% per extra target
+	score *= multi_target_bonus
+
+	# Bonus if targets are clustered (close together = easier to reach all)
+	# If the farthest target isn't much farther than the closest, the combo is efficient
+	var min_dist = combo[0].dist  # Already sorted by distance
+	var dist_spread = max_dist - min_dist
+	if dist_spread <= 2.0:
+		score *= 1.1  # Targets are very close together — efficient multi-charge
+
+	# Objective bonus (any target on an objective)
+	var objectives = _get_objectives(snapshot)
+	var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	for t in combo:
+		var target_unit = snapshot.get("units", {}).get(t.target_id, {})
+		var target_centroid = _get_unit_centroid(target_unit)
+		for obj_pos in objectives:
+			if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				score *= 1.3
+				if charge_battle_round >= 4:
+					score *= STRATEGY_LATE_CHARGE_ON_OBJ_BONUS
+				break
+
+	# Apply overwatch risk penalty
+	if ow_risk.score_penalty < 1.0:
+		score *= ow_risk.score_penalty
+
+	# Deadly Demise leverage
+	if AIAbilityAnalyzerData.has_deadly_demise(charger) and AIAbilityAnalyzerData.is_unit_doomed(charger):
+		var dd_val = AIAbilityAnalyzerData.get_deadly_demise_value(charger)
+		var dd_bonus = 1.0 + (float(dd_val) / 6.0)
+		score *= dd_bonus
+
+	# Apply difficulty noise
+	score = _apply_difficulty_noise(score)
+
+	var ow_desc = ""
+	if ow_risk.expected_damage > 0.0:
+		ow_desc = ", overwatch risk: %.1f dmg" % ow_risk.expected_damage
+	var target_names_str = " + ".join(target_names)
+	print("AIDecisionMaker: [T7-50] Multi-charge eval %s -> [%s]: max_dist=%.1f\", prob=%.0f%%, combined_score=%.1f, multi_bonus=x%.2f, final=%.1f" % [
+		charger_name, target_names_str, max_dist, charge_prob * 100.0, combined_target_score, multi_target_bonus, score])
+
+	result.score = score
+	# Construct a multi-target DECLARE_CHARGE action
+	result.action = {
+		"type": "DECLARE_CHARGE",
+		"actor_unit_id": charger_id,
+		"payload": {"target_unit_ids": target_ids},
+	}
+	result.description = "%s declares multi-target charge against %s (%.0f%% chance, max %.1f\" away, %d targets%s)" % [
+		charger_name, target_names_str, charge_prob * 100.0, max_dist, combo.size(), ow_desc]
+
+	return result
 
 static func _score_charge_target(charger: Dictionary, target: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""Score a potential charge target based on expected melee damage, target value, and tactical factors."""
