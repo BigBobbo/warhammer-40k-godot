@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-52 (2026-02-20): AI unit highlighting during actions — Created `AIUnitHighlight.gd` visual component with pulsing glow rings (blue=move, red=shoot, orange=charge/fight). Integrated into `Main.gd` via `ai_action_taken` signal to highlight the AI's active unit during each action, with position tracking and auto-clear on phase/turn end. | UI/AI | AI_AUDIT.md §VIS-5 |
 | T7-51 (2026-02-20): AI overwatch risk assessment for charges — Added `_estimate_overwatch_risk()` and `_estimate_unit_overwatch_damage()` to AIDecisionMaker.gd. AI evaluates best enemy overwatch shooter (within 24", with CP, ranged weapons) using hit-on-6s damage math (wound prob, save, wound overflow cap, FNP). Risk classified as low/moderate/high/extreme with score penalties. Extra caution for CHARACTERs and when overwatch could kill 50%+ of charger HP. 5 new tests pass. | Charge/AI | AI_AUDIT.md §CHARGE-5 |
 | T7-49 (2026-02-20): AI counter-play to opponent defensive stratagems — Added strategic deprioritization (×0.80) in `_score_shooting_target()` for targets with active effect-granted cover, stealth, or invulnerable saves from defensive stratagems. Encourages AI to redirect firepower to softer targets. 3 new tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-10 |
 | T7-47 (2026-02-20): AI secondary mission discard logic — Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added 14 mission-specific assessors. AI discards unachievable missions for +1 CP based on board state analysis. 16/16 tests pass. | Scoring/AI | AI_AUDIT.md §SCORE-2 |
@@ -1387,12 +1388,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Weigh charge benefit vs. expected overwatch damage before declaring charges.
 - **Resolution:** Added `_estimate_overwatch_risk()` and `_estimate_unit_overwatch_damage()` functions to AIDecisionMaker.gd. The AI now evaluates the best enemy overwatch shooter (within 24", with CP, with ranged weapons) and calculates expected damage using hit-on-6s, wound probability, save probability, wound overflow cap, and FNP. Risk is classified as low/moderate/high/extreme with corresponding score penalties applied to charge evaluations. Extra caution is applied for CHARACTER units and when overwatch could kill 50%+ of the charger's HP.
 
-### T7-52. AI unit highlighting during actions
+### T7-52. AI unit highlighting during actions — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §VIS-5
 - **Files:** New visual component
 - **Details:** No visual distinction for which unit the AI is currently acting with. Add glow/highlight ring (blue=move, red=shoot, orange=charge).
+- **Resolution:** Created `AIUnitHighlight.gd` — a pulsing glow ring Node2D component with three layers (outer glow, main ring, inner fill). Integrated into `Main.gd`: the `_on_ai_action_taken` handler maps action types to colors (blue=movement, red=shooting, orange=charge/fight) and places highlight rings around all models of the AI's active unit. Highlights track token positions during movement and auto-clear on phase end or AI turn end.
 
 ### T7-53. AI floating damage numbers
 - **Phase:** UI
@@ -1482,9 +1484,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 38 | 20 | 58 |
-| **Total** | **137** | **49** | **186** |
-| **Recently Completed** | **156** | — | **156** |
+| Tier 7 — AI Player | 39 | 19 | 58 |
+| **Total** | **138** | **48** | **186** |
+| **Recently Completed** | **157** | — | **157** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
