@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-47 (2026-02-20): AI secondary mission discard logic — Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added 14 mission-specific assessors. AI discards unachievable missions for +1 CP based on board state analysis. 16/16 tests pass. | Scoring/AI | AI_AUDIT.md §SCORE-2 |
 | T7-46 (2026-02-20): AI fight order optimization — Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan. | Fight/AI | AI_AUDIT.md §FIGHT-6 |
 | T7-45 (2026-02-20): AI faction ability activation — Added `_select_oath_of_moment_target()` with strategic threat-based Oath of Moment target selection. Reuses macro target priority (`_calculate_target_value`) plus Oath-specific bonuses for toughness, save, remaining wounds, and below-half-strength. Integrated into `_decide_command()` after battle-shock tests. 13/13 tests pass. | Command/AI | AI_AUDIT.md §CMD-3 |
 | T7-44 (2026-02-20): AI counter-deployment — Added `_apply_counter_deployment()` and `_get_deployed_enemy_analysis()` to react to opponent's deployed units. Melee units shift toward enemy fragile/high-value targets, fragile shooters shift away from enemy melee, durable shooters orient toward enemy concentrations, characters avoid enemy shooting lanes. Gated at Normal+ difficulty via `use_counter_deployment()` in AIDifficultyConfig.gd. | Deployment/AI | AI_AUDIT.md §DEPLOY-2 |
@@ -1344,12 +1345,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No consideration of which unit to activate first in fight phase for best overall outcomes.
 - **Resolution:** Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan.
 
-### T7-47. AI secondary mission discard logic
+### T7-47. AI secondary mission discard logic — **DONE**
 - **Phase:** Scoring
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §SCORE-2
 - **Files:** `AIDecisionMaker.gd` — `_decide_scoring()`
 - **Details:** Never discards unachievable secondary missions for +1 CP.
+- **Resolution:** Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added `_secondary_mission_manager()` accessor, `_evaluate_mission_achievability()` dispatcher, and 14 mission-specific assessors (kill-based: check if valid targets still alive; positional: check if AI has enough units; objective: check if relevant objectives exist; action: check if AI has units to perform actions; while-active: always keep if enemies exist). AI discards lowest-scoring mission when achievability score falls below threshold (0.2), gaining +1 CP. Late-game with empty deck uses lower threshold (0.1). 16/16 tests pass.
 
 ### T7-48. AI Pistol usage in engagement range
 - **Phase:** Shooting
@@ -1476,9 +1478,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 35 | 23 | 58 |
-| **Total** | **134** | **52** | **186** |
-| **Recently Completed** | **153** | — | **153** |
+| Tier 7 — AI Player | 36 | 22 | 58 |
+| **Total** | **135** | **51** | **186** |
+| **Recently Completed** | **154** | — | **154** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

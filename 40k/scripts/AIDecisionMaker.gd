@@ -9115,7 +9115,399 @@ static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_
 # =============================================================================
 
 static func _decide_scoring(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# T7-47: Evaluate active secondary missions and discard unachievable ones for +1 CP
+	var discard_actions = []
+	for action in available_actions:
+		if action.get("type") == "DISCARD_SECONDARY":
+			discard_actions.append(action)
+
+	if discard_actions.is_empty():
+		print("AIDecisionMaker: [SCORING] No secondary missions to evaluate, ending turn")
+		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+
+	# Get secondary mission manager for mission data
+	var secondary_mgr = _secondary_mission_manager()
+	if not secondary_mgr or not secondary_mgr.is_initialized(player):
+		print("AIDecisionMaker: [SCORING] SecondaryMissionManager not available, ending turn")
+		return {"type": "END_SCORING", "_ai_description": "End Turn"}
+
+	var active_missions = secondary_mgr.get_active_missions(player)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+	var deck_size = secondary_mgr.get_deck_size(player)
+
+	print("AIDecisionMaker: [SCORING] Evaluating %d active secondary missions (round %d, deck: %d cards)" % [
+		active_missions.size(), battle_round, deck_size])
+
+	# Evaluate each active mission for achievability
+	var worst_mission_index = -1
+	var worst_mission_score = INF
+	var worst_mission_name = ""
+
+	for i in range(active_missions.size()):
+		var mission = active_missions[i]
+		var score = _evaluate_mission_achievability(snapshot, mission, player, battle_round)
+		var mission_name = mission.get("name", "Unknown")
+		print("AIDecisionMaker: [SCORING]   Mission '%s': achievability score = %.1f" % [mission_name, score])
+
+		if score < worst_mission_score:
+			worst_mission_score = score
+			worst_mission_index = i
+			worst_mission_name = mission_name
+
+	# Decision: discard if worst mission is clearly unachievable
+	# Score thresholds:
+	#   0.0 = completely impossible (no valid targets, no units, etc.)
+	#   0.0-0.2 = extremely unlikely
+	#   0.2-0.5 = difficult but possible
+	#   0.5+ = reasonably achievable, keep it
+	var discard_threshold = 0.2
+
+	# Late game: be slightly more willing to keep missions (less time to draw replacements)
+	if battle_round >= 4 and deck_size == 0:
+		discard_threshold = 0.1  # Only discard truly impossible missions
+		print("AIDecisionMaker: [SCORING]   Late game with empty deck, lowering discard threshold to %.1f" % discard_threshold)
+
+	if worst_mission_index >= 0 and worst_mission_score < discard_threshold:
+		# Find the matching discard action
+		for action in discard_actions:
+			if action.get("mission_index") == worst_mission_index:
+				print("AIDecisionMaker: [SCORING] Discarding unachievable mission '%s' (score=%.1f) for +1 CP" % [
+					worst_mission_name, worst_mission_score])
+				return {
+					"type": "DISCARD_SECONDARY",
+					"mission_index": worst_mission_index,
+					"_ai_description": "Discard unachievable '%s' for +1 CP" % worst_mission_name,
+				}
+
+	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
+		worst_mission_name if worst_mission_name != "" else "none", worst_mission_score])
 	return {"type": "END_SCORING", "_ai_description": "End Turn"}
+
+# Late-bound reference to SecondaryMissionManager autoload
+static func _secondary_mission_manager():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("SecondaryMissionManager")
+	return null
+
+static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dictionary, player: int, battle_round: int) -> float:
+	"""
+	T7-47: Evaluate how achievable a secondary mission is.
+	Returns a score from 0.0 (impossible) to 1.0 (easily achievable).
+	Uses current board state to assess whether mission conditions can be met.
+	"""
+	var mission_id = mission.get("id", "")
+	var scoring = mission.get("scoring", {})
+	var timing = scoring.get("when", "")
+	var opponent = 2 if player == 1 else 1
+	var units = snapshot.get("units", {})
+
+	# While-active missions (No Prisoners, Overwhelming Force) score passively on kills.
+	# They're almost always achievable if enemy units still exist.
+	if timing == "while_active":
+		var enemy_alive = _count_alive_units_for_player(units, opponent)
+		if enemy_alive == 0:
+			return 0.0
+		return 1.0  # Always keep — passive scoring is free
+
+	# Pending interaction missions haven't been set up yet — keep them
+	if mission.get("pending_interaction", false):
+		return 0.5
+
+	# Evaluate based on mission ID for specific achievability checks
+	match mission_id:
+		# --- POSITIONAL MISSIONS ---
+		"behind_enemy_lines":
+			return _assess_behind_enemy_lines(units, player)
+		"engage_on_all_fronts":
+			return _assess_engage_on_all_fronts(units, player)
+		"area_denial":
+			return _assess_area_denial(units, player, opponent)
+		"display_of_might":
+			return _assess_display_of_might(units, player, opponent)
+
+		# --- OBJECTIVE MISSIONS ---
+		"storm_hostile_objective":
+			return _assess_storm_hostile(units, snapshot, player)
+		"defend_stronghold":
+			return _assess_defend_stronghold(units, snapshot, player)
+		"secure_no_mans_land":
+			return _assess_secure_nml(units, snapshot, player)
+		"a_tempting_target":
+			return _assess_tempting_target(mission, player)
+		"extend_battle_lines":
+			return _assess_extend_battle_lines(units, snapshot, player)
+
+		# --- KILL MISSIONS ---
+		"assassination":
+			return _assess_assassination(units, opponent)
+		"bring_it_down":
+			return _assess_bring_it_down(units, opponent)
+		"cull_the_horde":
+			return _assess_cull_the_horde(units, opponent)
+		"marked_for_death":
+			return _assess_marked_for_death(units, mission)
+		"no_prisoners", "overwhelming_force":
+			# While-active handled above, but just in case
+			return 1.0
+
+		# --- ACTION MISSIONS ---
+		"establish_locus", "cleanse", "deploy_teleport_homer":
+			# Action-based missions require performing actions during shooting phase.
+			# We can't easily tell if the AI will execute these actions in the future,
+			# so give a moderate achievability score — only discard if the AI has very
+			# few units left to perform actions with.
+			return _assess_action_mission(units, player)
+
+		_:
+			# Unknown mission — don't discard what we don't understand
+			return 0.5
+
+# =============================================================================
+# T7-47: MISSION ACHIEVABILITY ASSESSORS
+# =============================================================================
+
+static func _count_alive_units_for_player(units: Dictionary, owner: int) -> int:
+	"""Count how many units have at least one alive model for a given player."""
+	var count = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != owner:
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				count += 1
+				break
+	return count
+
+static func _assess_behind_enemy_lines(units: Dictionary, player: int) -> float:
+	"""Can the AI get units wholly into opponent's deployment zone?
+	Need alive, mobile units. If the AI has very few units, unlikely to spare any."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive == 0:
+		return 0.0
+	if alive <= 1:
+		return 0.1  # Only 1 unit — too risky to send deep
+	return 0.6  # Generally achievable with movement
+
+static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> float:
+	"""Need units spread across table quarters. Requires at least 2 alive units."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive < 2:
+		return 0.05  # Can't cover enough quarters
+	if alive < 3:
+		return 0.3
+	return 0.7  # Usually achievable with enough units
+
+static func _assess_area_denial(units: Dictionary, player: int, opponent: int) -> float:
+	"""Need a unit near center with no enemies nearby. Hard if opponent controls mid."""
+	var alive = _count_alive_units_for_player(units, player)
+	var enemy_alive = _count_alive_units_for_player(units, opponent)
+	if alive == 0:
+		return 0.0
+	if enemy_alive == 0:
+		return 1.0  # No enemies means easy area denial
+	return 0.4  # Moderate — depends on positioning
+
+static func _assess_display_of_might(units: Dictionary, player: int, opponent: int) -> float:
+	"""Need more units wholly in NML than opponent. Hard if outnumbered."""
+	var alive = _count_alive_units_for_player(units, player)
+	var enemy_alive = _count_alive_units_for_player(units, opponent)
+	if alive == 0:
+		return 0.0
+	if enemy_alive == 0:
+		return 1.0
+	# Rough estimate: harder if we have fewer units
+	if alive < enemy_alive:
+		return 0.25
+	return 0.5
+
+static func _assess_storm_hostile(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Need to take objectives the opponent controlled at turn start.
+	Feasible if we have units and there are objectives to contest."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive == 0:
+		return 0.0
+	var objectives = snapshot.get("board", {}).get("objectives", [])
+	if objectives.is_empty():
+		return 0.0
+	return 0.5  # Generally feasible if units can move to objectives
+
+static func _assess_defend_stronghold(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Control objectives in own deployment zone. Usually achievable if we have home units."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive == 0:
+		return 0.0
+	var objectives = snapshot.get("board", {}).get("objectives", [])
+	var player_zone = "player%d" % player
+	var home_objectives = 0
+	for obj in objectives:
+		if obj.get("zone", "") == player_zone:
+			home_objectives += 1
+	if home_objectives == 0:
+		return 0.0  # No home objectives to defend
+	return 0.7  # Usually achievable — defending home turf
+
+static func _assess_secure_nml(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Control objectives in No Man's Land."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive == 0:
+		return 0.0
+	var objectives = snapshot.get("board", {}).get("objectives", [])
+	var nml_count = 0
+	for obj in objectives:
+		if obj.get("zone", "") == "no_mans_land":
+			nml_count += 1
+	if nml_count == 0:
+		return 0.0  # No NML objectives
+	return 0.5
+
+static func _assess_tempting_target(mission: Dictionary, player: int) -> float:
+	"""Control the objective selected by opponent. If target not yet selected, keep."""
+	var target_id = mission.get("mission_data", {}).get("tempting_target_id", "")
+	if target_id == "":
+		return 0.3  # Target not resolved yet, moderate chance
+	# Target exists, check if we can contest it
+	var secondary_mgr = _secondary_mission_manager()
+	if secondary_mgr:
+		# MissionManager tracks objective control; we can't access it statically
+		# but the mission is set up, so give it a reasonable chance
+		return 0.4
+	return 0.3
+
+static func _assess_extend_battle_lines(units: Dictionary, snapshot: Dictionary, player: int) -> float:
+	"""Control own zone AND NML objectives. Need to split forces."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive < 2:
+		return 0.05  # Can't split forces effectively
+	var objectives = snapshot.get("board", {}).get("objectives", [])
+	var player_zone = "player%d" % player
+	var has_home = false
+	var has_nml = false
+	for obj in objectives:
+		if obj.get("zone", "") == player_zone:
+			has_home = true
+		elif obj.get("zone", "") == "no_mans_land":
+			has_nml = true
+	if not has_home or not has_nml:
+		return 0.0  # Missing required objective types
+	return 0.5
+
+static func _assess_assassination(units: Dictionary, opponent: int) -> float:
+	"""Kill enemy CHARACTER models. Impossible if opponent has no characters left alive."""
+	var has_alive_character = false
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_char = false
+		for kw in keywords:
+			if kw.to_upper() == "CHARACTER":
+				is_char = true
+				break
+		if not is_char:
+			continue
+		# Check if any model is alive
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive_character = true
+				break
+		if has_alive_character:
+			break
+	if not has_alive_character:
+		return 0.0  # No characters left — impossible
+	return 0.6  # Characters exist, generally achievable
+
+static func _assess_bring_it_down(units: Dictionary, opponent: int) -> float:
+	"""Destroy MONSTER or VEHICLE units. Impossible if none remain."""
+	var target_count = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_target = false
+		for kw in keywords:
+			var kw_upper = kw.to_upper()
+			if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+				is_target = true
+				break
+		if not is_target:
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				target_count += 1
+				break
+	if target_count == 0:
+		return 0.0  # No valid targets
+	return 0.5
+
+static func _assess_cull_the_horde(units: Dictionary, opponent: int) -> float:
+	"""Destroy INFANTRY units with starting strength 13+. Impossible if none remain."""
+	var target_count = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_infantry = false
+		for kw in keywords:
+			if kw.to_upper() == "INFANTRY":
+				is_infantry = true
+				break
+		if not is_infantry:
+			continue
+		var starting_strength = unit.get("meta", {}).get("starting_strength", unit.get("models", []).size())
+		if starting_strength < 13:
+			continue
+		# Check if unit still alive
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				target_count += 1
+				break
+	if target_count == 0:
+		return 0.0  # No valid horde targets
+	return 0.5
+
+static func _assess_marked_for_death(units: Dictionary, mission: Dictionary) -> float:
+	"""Destroy specific marked targets. Check if any alpha/gamma targets still alive."""
+	var mission_data = mission.get("mission_data", {})
+	var alpha_targets = mission_data.get("alpha_targets", [])
+	var gamma_target = mission_data.get("gamma_target", "")
+
+	if alpha_targets.is_empty() and gamma_target == "":
+		return 0.15  # Targets not yet assigned, keep for now
+
+	# Check if any marked targets are still alive
+	var alive_targets = 0
+	var all_targets = alpha_targets.duplicate()
+	if gamma_target != "":
+		all_targets.append(gamma_target)
+
+	for target_id in all_targets:
+		var unit = units.get(target_id, {})
+		if unit.is_empty():
+			continue
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				alive_targets += 1
+				break
+
+	if alive_targets == 0:
+		return 0.0  # All marked targets already dead — can't score more
+	return 0.5
+
+static func _assess_action_mission(units: Dictionary, player: int) -> float:
+	"""Generic assessment for action-based missions (Establish Locus, Cleanse, Deploy Teleport Homer).
+	These require performing actions during the shooting phase. Achievability depends on
+	having units available to perform the action."""
+	var alive = _count_alive_units_for_player(units, player)
+	if alive == 0:
+		return 0.0
+	if alive <= 1:
+		return 0.15  # Very few units to spare for actions
+	return 0.4  # Moderately achievable
 
 # =============================================================================
 # UTILITY FUNCTIONS
