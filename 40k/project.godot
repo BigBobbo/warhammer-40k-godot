@@ -122,6 +122,7 @@ global_script_class_icon_48=""
 global_script_class_icon_49=""
 global_script_class_icon_50=""
 global_script_class_icon_51=""
+global_script_class_icon_52=""
 
 [global_script_classes]
 
@@ -430,6 +431,12 @@ global_script_class_51={
 "class": "AIDecisionMaker",
 "language": "GDScript",
 "path": "res://scripts/AIDecisionMaker.gd"
+}
+global_script_class_52={
+"base": "RefCounted",
+"class": "AIDifficultyConfig",
+"language": "GDScript",
+"path": "res://scripts/AIDifficultyConfig.gd"
 }
 
 [input]

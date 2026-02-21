@@ -2,6 +2,7 @@ extends CanvasLayer
 # Use global class_name references instead of preloads to avoid web export reload issues
 # GameStateData, BasePhase, ShootingPhase, NetworkIntegration are available via class_name
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 
 @onready var camera: Camera2D = $BoardRoot/Camera2D
 @onready var board_view: Node2D = $BoardRoot/BoardView
@@ -275,9 +276,14 @@ func _initialize_ai_player() -> void:
 	var game_config = GameState.state.get("meta", {}).get("game_config", {})
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
+	# T7-40: Get difficulty levels from config (default Normal for backwards compatibility)
+	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
 
-	print("Main: Configuring AI Player - P1=%s, P2=%s" % [p1_type, p2_type])
-	ai_player.configure({1: p1_type, 2: p2_type})
+	print("Main: Configuring AI Player - P1=%s (%s), P2=%s (%s)" % [
+		p1_type, AIDifficultyConfigData.difficulty_name(p1_difficulty),
+		p2_type, AIDifficultyConfigData.difficulty_name(p2_difficulty)])
+	ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
 
 	# Connect to AI deployment signal so we can create visual tokens
 	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):

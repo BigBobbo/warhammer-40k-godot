@@ -7,6 +7,7 @@ extends RefCounted
 
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
+const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const PIXELS_PER_INCH: float = 40.0
 const ENGAGEMENT_RANGE_PX: float = 40.0  # 1 inch
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
@@ -163,13 +164,39 @@ const MICRO_OVERKILL_DECAY: float = 0.3          # Value multiplier for damage b
 const MICRO_MODEL_KILL_VALUE: float = 0.4        # Fractional value per model killed (vs full wipe value of 1.0)
 
 # =============================================================================
+# T7-40: DIFFICULTY-AWARE SCORING UTILITIES
+# =============================================================================
+
+static func _apply_difficulty_noise(score: float) -> float:
+	"""Add random noise to a score based on current difficulty level.
+	Higher noise makes the AI less optimal (more humanlike / random)."""
+	var noise = AIDifficultyConfigData.get_score_noise(_current_difficulty)
+	if noise <= 0.0:
+		return score
+	return score + (randf() - 0.5) * noise * 2.0
+
+static func _get_difficulty_charge_threshold_modifier() -> float:
+	"""Get charge threshold modifier for current difficulty."""
+	return AIDifficultyConfigData.get_charge_threshold_modifier(_current_difficulty)
+
+# =============================================================================
 # MAIN ENTRY POINT
 # =============================================================================
 
-static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
-	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions" % [phase, player, available_actions.size()])
+# T7-40: Current difficulty level for the active AI player
+# Set by AIPlayer before each decide() call, used by sub-methods
+static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
+
+static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
+	_current_difficulty = difficulty
+	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
+	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s)" % [phase, player, available_actions.size(), diff_name])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
+
+	# T7-40: Easy difficulty — pick random valid actions instead of scoring
+	if AIDifficultyConfigData.use_random_actions(difficulty):
+		return _decide_random(phase, snapshot, available_actions, player)
 
 	# Reset focus fire plan cache and grenade flag when not in shooting phase
 	if phase != GameStateData.Phase.SHOOTING:
@@ -185,6 +212,10 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		_phase_plan.clear()
 		_phase_plan_built = false
 		_phase_plan_round = current_round
+
+	# T7-40: Normal and below skip multi-phase planning
+	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
+		_phase_plan_built = true  # Prevent building phase plans
 
 	match phase:
 		GameStateData.Phase.FORMATIONS:
@@ -212,6 +243,246 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 				if t.begins_with("END_"):
 					return {"type": t, "_ai_description": "End phase (fallback)"}
 			return {}
+
+# =============================================================================
+# T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
+# =============================================================================
+
+static func _decide_random(phase: int, snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	"""Easy difficulty: pick random valid actions. Still handles required
+	sequencing (CONFIRM, APPLY_SAVES, etc.) but makes random tactical choices."""
+	if available_actions.is_empty():
+		return {}
+
+	# Build action type map
+	var action_types = {}
+	for a in available_actions:
+		var t = a.get("type", "")
+		if not action_types.has(t):
+			action_types[t] = []
+		action_types[t].append(a)
+
+	# --- Required sequencing: always handle these deterministically ---
+	# These are mechanical steps that must be completed regardless of difficulty
+
+	# Saves, dice rolls, confirmations
+	if action_types.has("APPLY_SAVES"):
+		return {"type": "APPLY_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying saves (Easy)"}
+	if action_types.has("ROLL_DICE"):
+		return {"type": "ROLL_DICE", "_ai_description": "Roll dice (Easy)"}
+	if action_types.has("CONFIRM_AND_RESOLVE_ATTACKS"):
+		return {"type": "CONFIRM_AND_RESOLVE_ATTACKS", "_ai_description": "Confirm attacks (Easy)"}
+	if action_types.has("CONTINUE_SEQUENCE"):
+		return {"type": "CONTINUE_SEQUENCE", "_ai_description": "Continue sequence (Easy)"}
+	if action_types.has("RESOLVE_SHOOTING"):
+		return {"type": "RESOLVE_SHOOTING", "_ai_description": "Resolve shooting (Easy)"}
+	if action_types.has("CONFIRM_TARGETS"):
+		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets (Easy)"}
+	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
+		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
+		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
+	if action_types.has("CONFIRM_UNIT_MOVE"):
+		var a = action_types["CONFIRM_UNIT_MOVE"][0]
+		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
+
+	# Scoring phase — always process scoring deterministically
+	if phase == GameStateData.Phase.SCORING:
+		return _decide_scoring(snapshot, available_actions, player)
+
+	# Formations phase — leader attachment still uses normal logic (not tactical)
+	if phase == GameStateData.Phase.FORMATIONS:
+		return _decide_formations(snapshot, available_actions, player)
+
+	# Deployment — use normal deployment logic (random positions would be chaotic)
+	if phase == GameStateData.Phase.DEPLOYMENT:
+		return _decide_deployment(snapshot, available_actions, player)
+
+	# Scout moves — use normal logic
+	if phase == GameStateData.Phase.SCOUT:
+		return _decide_scout(snapshot, available_actions, player)
+
+	# Command phase — use normal logic (just CP/Battle-shock, not tactical)
+	if phase == GameStateData.Phase.COMMAND:
+		return _decide_command(snapshot, available_actions, player)
+
+	# --- Tactical decisions: randomize these ---
+
+	# Always decline stratagems and reactive abilities on Easy
+	for decline_type in ["DECLINE_COMMAND_REROLL", "DECLINE_FIRE_OVERWATCH",
+			"DECLINE_REACTIVE_STRATAGEM", "DECLINE_COUNTER_OFFENSIVE",
+			"DECLINE_HEROIC_INTERVENTION", "DECLINE_TANK_SHOCK"]:
+		if action_types.has(decline_type):
+			var a = action_types[decline_type][0]
+			var result = {"type": decline_type, "_ai_description": "Decline (Easy)"}
+			if a.has("actor_unit_id"):
+				result["actor_unit_id"] = a.actor_unit_id
+			return result
+
+	# For USE_ reactive actions, also decline (prefer the decline variant)
+	for use_type in ["USE_COMMAND_REROLL", "USE_FIRE_OVERWATCH", "USE_REACTIVE_STRATAGEM",
+			"USE_COUNTER_OFFENSIVE", "USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK",
+			"USE_GRENADE_STRATAGEM"]:
+		var decline_variant = use_type.replace("USE_", "DECLINE_")
+		if action_types.has(use_type) and action_types.has(decline_variant):
+			var a = action_types[decline_variant][0]
+			var result = {"type": decline_variant, "_ai_description": "Decline (Easy)"}
+			if a.has("actor_unit_id"):
+				result["actor_unit_id"] = a.actor_unit_id
+			return result
+
+	# Movement: randomly choose between moving and staying
+	if phase == GameStateData.Phase.MOVEMENT:
+		return _decide_random_movement(snapshot, available_actions, player, action_types)
+
+	# Shooting: pick a random shooter and random target
+	if phase == GameStateData.Phase.SHOOTING:
+		return _decide_random_shooting(snapshot, available_actions, player, action_types)
+
+	# Charge: randomly decide whether to charge
+	if phase == GameStateData.Phase.CHARGE:
+		return _decide_random_charge(snapshot, available_actions, player, action_types)
+
+	# Fight: use normal fight logic (sequencing is complex)
+	if phase == GameStateData.Phase.FIGHT:
+		return _decide_fight(snapshot, available_actions, player)
+
+	# Fallback: pick END action or random action
+	for action in available_actions:
+		var t = action.get("type", "")
+		if t.begins_with("END_"):
+			return {"type": t, "_ai_description": "End phase (Easy)"}
+
+	# Last resort: pick a random action
+	var random_action = available_actions[randi() % available_actions.size()]
+	var result = random_action.duplicate()
+	result["_ai_description"] = "Random action: %s (Easy)" % result.get("type", "?")
+	return result
+
+static func _decide_random_movement(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
+	"""Easy mode movement: randomly stay or move with minimal optimization."""
+	# Handle reinforcements normally (placing is needed)
+	if action_types.has("PLACE_REINFORCEMENT"):
+		var reinforcement_decision = _decide_reserves_arrival(snapshot, action_types["PLACE_REINFORCEMENT"], player)
+		if not reinforcement_decision.is_empty():
+			return reinforcement_decision
+
+	# Collect movable units
+	var movable_units = {}
+	for a in available_actions:
+		var t = a.get("type", "")
+		if t in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "REMAIN_STATIONARY"]:
+			var uid = a.get("actor_unit_id", a.get("unit_id", ""))
+			if uid != "":
+				if not movable_units.has(uid):
+					movable_units[uid] = []
+				movable_units[uid].append(t)
+
+	if movable_units.is_empty():
+		return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase (Easy)"}
+
+	# Pick a random unit
+	var unit_ids = movable_units.keys()
+	var uid = unit_ids[randi() % unit_ids.size()]
+	var move_types = movable_units[uid]
+	var unit = snapshot.get("units", {}).get(uid, {})
+	var unit_name = unit.get("meta", {}).get("name", uid)
+
+	# 50% chance to remain stationary, 50% chance to move
+	if "REMAIN_STATIONARY" in move_types and randf() < 0.5:
+		return {
+			"type": "REMAIN_STATIONARY",
+			"actor_unit_id": uid,
+			"_ai_description": "%s remains stationary (Easy)" % unit_name
+		}
+
+	# Move normally with a random destination offset
+	if "BEGIN_NORMAL_MOVE" in move_types:
+		var models = unit.get("models", [])
+		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+		var move_px = move_inches * PIXELS_PER_INCH
+		var destinations = {}
+		for model in models:
+			var mid = model.get("id", "")
+			var pos = model.get("position", {})
+			var cx = float(pos.get("x", 0))
+			var cy = float(pos.get("y", 0))
+			# Random direction, random distance up to max move
+			var angle = randf() * TAU
+			var dist = randf() * move_px
+			var dest_x = clamp(cx + cos(angle) * dist, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+			var dest_y = clamp(cy + sin(angle) * dist, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+			destinations[mid] = [dest_x, dest_y]
+
+		return {
+			"type": "BEGIN_NORMAL_MOVE",
+			"actor_unit_id": uid,
+			"_ai_model_destinations": destinations,
+			"_ai_description": "%s moves randomly (Easy)" % unit_name
+		}
+
+	# Fallback: remain stationary
+	if "REMAIN_STATIONARY" in move_types:
+		return {
+			"type": "REMAIN_STATIONARY",
+			"actor_unit_id": uid,
+			"_ai_description": "%s remains stationary (Easy fallback)" % unit_name
+		}
+
+	return {"type": "END_MOVEMENT", "_ai_description": "End Movement Phase (Easy)"}
+
+static func _decide_random_shooting(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
+	"""Easy mode shooting: pick a random shooter and random target."""
+	# If SHOOT actions available, pick randomly
+	if action_types.has("SHOOT"):
+		var shoot_actions = action_types["SHOOT"]
+		var chosen = shoot_actions[randi() % shoot_actions.size()]
+		var result = chosen.duplicate()
+		var unit_name = snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}).get("meta", {}).get("name", "?")
+		result["_ai_description"] = "%s shoots randomly (Easy)" % unit_name
+		return result
+
+	# If SELECT_SHOOTER available, pick randomly
+	if action_types.has("SELECT_SHOOTER"):
+		var shooters = action_types["SELECT_SHOOTER"]
+		var chosen = shooters[randi() % shooters.size()]
+		var result = chosen.duplicate()
+		result["_ai_description"] = "Select random shooter (Easy)"
+		return result
+
+	# End shooting
+	if action_types.has("END_SHOOTING"):
+		return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (Easy)"}
+
+	# Skip unit if available
+	if action_types.has("SKIP_UNIT"):
+		var a = action_types["SKIP_UNIT"][randi() % action_types["SKIP_UNIT"].size()]
+		return {"type": "SKIP_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Skip unit (Easy)"}
+
+	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (Easy fallback)"}
+
+static func _decide_random_charge(snapshot: Dictionary, available_actions: Array, player: int, action_types: Dictionary) -> Dictionary:
+	"""Easy mode charge: rarely charges (20% chance), mostly skips."""
+	if action_types.has("DECLARE_CHARGE"):
+		# 20% chance to charge
+		if randf() < 0.2:
+			var charges = action_types["DECLARE_CHARGE"]
+			var chosen = charges[randi() % charges.size()]
+			var result = chosen.duplicate()
+			var unit_name = snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}).get("meta", {}).get("name", "?")
+			result["_ai_description"] = "%s charges randomly (Easy)" % unit_name
+			return result
+
+	# Skip charging or end phase
+	if action_types.has("SKIP_UNIT_CHARGE"):
+		var skips = action_types["SKIP_UNIT_CHARGE"]
+		var chosen = skips[randi() % skips.size()]
+		return {"type": "SKIP_UNIT_CHARGE", "actor_unit_id": chosen.get("actor_unit_id", ""), "_ai_description": "Skip charge (Easy)"}
+
+	if action_types.has("END_CHARGE"):
+		return {"type": "END_CHARGE", "_ai_description": "End Charge Phase (Easy)"}
+
+	# Fallback to normal charge logic for complex sequencing
+	return _decide_charge(snapshot, available_actions, player)
 
 # =============================================================================
 # T7-23: MULTI-PHASE PLANNING
@@ -1825,8 +2096,11 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
+	# T7-40: Only Normal+ difficulty uses threat awareness for positioning
 	# =========================================================================
-	var threat_data = _calculate_enemy_threat_data(enemies)
+	var threat_data = []
+	if AIDifficultyConfigData.use_threat_awareness(_current_difficulty):
+		threat_data = _calculate_enemy_threat_data(enemies)
 	if not threat_data.is_empty():
 		print("AIDecisionMaker: Calculated threat data for %d enemy units" % threat_data.size())
 		for td in threat_data:
@@ -1871,9 +2145,10 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			return decision
 
 	# --- Sort assigned units by priority (highest assignment score first) ---
+	# T7-40: Apply difficulty noise to assignment scores for ordering
 	assigned_units.sort_custom(func(a, b):
-		var score_a = assignments.get(a, {}).get("score", 0.0)
-		var score_b = assignments.get(b, {}).get("score", 0.0)
+		var score_a = _apply_difficulty_noise(assignments.get(a, {}).get("score", 0.0))
+		var score_b = _apply_difficulty_noise(assignments.get(b, {}).get("score", 0.0))
 		return score_a > score_b
 	)
 
@@ -5179,19 +5454,21 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		return {"type": "CONFIRM_TARGETS", "_ai_description": "Confirm targets"}
 
 	# Step 4.5: Consider GRENADE stratagem before regular shooting
+	# T7-40: Only Hard+ difficulty uses stratagems proactively
 	# Evaluate once per shooting phase — if worthwhile, use it before regular shooting
 	if action_types.has("SELECT_SHOOTER") and not _grenade_evaluated:
 		_grenade_evaluated = true
-		var grenade_eval = evaluate_grenade_usage(snapshot, player)
-		if grenade_eval.get("should_use", false):
-			print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
-			return {
-				"type": "USE_GRENADE_STRATAGEM",
-				"grenade_unit_id": grenade_eval.grenade_unit_id,
-				"target_unit_id": grenade_eval.target_unit_id,
-				"player": player,
-				"_ai_description": grenade_eval.description
-			}
+		if AIDifficultyConfigData.use_stratagems(_current_difficulty):
+			var grenade_eval = evaluate_grenade_usage(snapshot, player)
+			if grenade_eval.get("should_use", false):
+				print("AIDecisionMaker: Using GRENADE stratagem — %s" % grenade_eval.get("description", ""))
+				return {
+					"type": "USE_GRENADE_STRATAGEM",
+					"grenade_unit_id": grenade_eval.grenade_unit_id,
+					"target_unit_id": grenade_eval.target_unit_id,
+					"player": player,
+					"_ai_description": grenade_eval.description
+				}
 
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
@@ -6287,6 +6564,8 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 					score *= 1.5  # Target is on an objective
 					break
 
+			# T7-40: Apply difficulty noise to charge scoring
+			score = _apply_difficulty_noise(score)
 			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, final=%.1f" % [
 				unit_name, target_name, dist, charge_prob * 100.0, target_score, score])
 
@@ -6304,6 +6583,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		# When behind: reduce threshold to accept more marginal charges
 		charge_threshold = maxf(1.0 - (charge_tempo - 1.0) * TEMPO_CHARGE_THRESHOLD_REDUCTION, 0.3)
 		print("AIDecisionMaker: [TEMPO] Charge threshold lowered to %.2f (tempo=%.2f)" % [charge_threshold, charge_tempo])
+
+	# T7-40: Apply difficulty modifier to charge threshold
+	charge_threshold *= _get_difficulty_charge_threshold_modifier()
 
 	# Minimum threshold to declare a charge
 	if best_score < charge_threshold:

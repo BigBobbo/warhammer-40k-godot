@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-40 (2026-02-20): AI difficulty levels — Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive difficulty enum and per-level feature flags (stratagems, multi-phase planning, threat awareness, trade analysis, score noise, charge thresholds). Easy uses random valid actions; Normal is current behavior; Hard adds stratagems and multi-phase planning; Competitive adds look-ahead and zero noise. Per-player difficulty stored in AIPlayer, gating reactive stratagems/overwatch/counter-offensive/command reroll by level. Difficulty dropdowns auto-shown in MainMenu when player type is AI. | Settings/AI | AI_AUDIT.md §QoL-5 |
 | T7-39 (2026-02-20): AI objective control flash on change — Added `flash_control_change()` to ObjectiveVisual.gd with pulsing ring animation (green=AI capture, red=AI loss, yellow=contested). Real-time objective rechecks after movement/charge via `call_deferred`. Updated `objective_control_changed` signal to include old_controller. | UI/AI | AI_AUDIT.md §VIS-4 |
 | T7-37 (2026-02-20): AI decision explanations — Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), reactive stratagems (protection score, points). Key tactical decisions routed through `GameEventLog.add_ai_entry()` via AIPlayer. Updated test assertion in test_ai_focus_fire.gd. | UI/AI | AI_AUDIT.md §QoL-4 |
 | T7-34 (2026-02-20): AI reserves declarations — Added `_evaluate_reserves_declarations()` and `_score_unit_for_reserves()` to AIDecisionMaker.gd. AI scores units for reserves by type (Deep Strike melee 8.0, DS short-range 5.0, strategic reserves melee/fast 4.0+). Excludes CHARACTER leaders, FORTIFICATION, embarked units. Penalizes VEHICLE/MONSTER ranged and long-range shooters. Respects 25% pts cap, 50% unit cap, 2.0 score threshold. | Formations/AI | AI_AUDIT.md §FORM-3 |
@@ -1283,12 +1284,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 
 ### P3 — Low: Polish & Competitive-Level Play
 
-### T7-40. AI difficulty levels
+### T7-40. AI difficulty levels — **DONE**
 - **Phase:** Settings
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §QoL-5
-- **Files:** `AIPlayer.gd`, `AIDecisionMaker.gd`
+- **Files:** `AIPlayer.gd`, `AIDecisionMaker.gd`, `AIDifficultyConfig.gd`, `MainMenu.gd`, `Main.gd`
 - **Details:** Single difficulty level. Implement Easy (random valid actions), Normal (current + Tier 7 P0/P1 fixes), Hard (full tactics + stratagems), Competitive (look-ahead planning + optimal stratagem timing).
+- **Resolution:** Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive enum and per-level feature flags (stratagems, multi-phase planning, focus fire, threat awareness, trade analysis, look-ahead, score noise, charge thresholds). Updated `AIPlayer.gd` to store per-player difficulty and gate reactive stratagems/overwatch/counter-offensive/command reroll by level. Updated `AIDecisionMaker.gd` with `_decide_random()` for Easy mode (random valid actions with required sequencing), difficulty noise on movement/charge scoring, stratagem gating for Normal-, and multi-phase plan suppression for Normal-. Added difficulty dropdowns to MainMenu UI (auto-shown when player type is AI). Config flows through `game_config` to `Main.gd` → `AIPlayer.configure()`.
 
 ### T7-41. AI army-specific strategies
 - **Phase:** All
@@ -1464,9 +1466,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 29 | 29 | 58 |
-| **Total** | **128** | **58** | **186** |
-| **Recently Completed** | **147** | — | **147** |
+| Tier 7 — AI Player | 30 | 28 | 58 |
+| **Total** | **129** | **57** | **186** |
+| **Recently Completed** | **148** | — | **148** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
