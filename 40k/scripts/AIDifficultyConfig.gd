@@ -59,6 +59,10 @@ static func use_survival_assessment(difficulty: int) -> bool:
 static func use_screening(difficulty: int) -> bool:
 	return difficulty >= Difficulty.HARD
 
+# T7-44: Whether the AI reacts to opponent deployment (counter-deployment)
+static func use_counter_deployment(difficulty: int) -> bool:
+	return difficulty >= Difficulty.NORMAL
+
 # Score noise factor — adds randomness to scoring to make AI less predictable
 # Easy: high noise (essentially random), Normal: moderate, Hard: low, Competitive: none
 static func get_score_noise(difficulty: int) -> float:
