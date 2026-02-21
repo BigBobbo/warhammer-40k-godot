@@ -219,7 +219,7 @@ static func _parse_weapon_special_rules(special_rules: String) -> Array:
 	# Map special rule text to rule IDs
 	var rule_mappings = {
 		"lethal hits": "lethal_hits",
-		"sustained hits": "sustained_hits", 
+		"sustained hits": "sustained_hits",
 		"devastating wounds": "devastating_wounds",
 		"twin-linked": "twin_linked",
 		"anti-infantry": "anti_infantry_4",
@@ -228,7 +228,8 @@ static func _parse_weapon_special_rules(special_rules: String) -> Array:
 		"ignores cover": "ignores_cover",
 		"rapid fire": "rapid_fire",
 		"torrent": "torrent",
-		"conversion": "conversion_4"
+		"conversion": "conversion_4",
+		"lance": "lance_charged"
 	}
 	
 	for rule_text in rule_mappings:

@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T4-20 (2026-02-21): Auto-detect weapon abilities from unit datasheet — Connected weapon keyword auto-detection to UI: display weapon keywords in weapon selection labels, added "lance" to keyword parser, re-trigger auto-detection on weapon count changes, parse unit-level abilities from attacker units. | Mathhammer | MATHHAMMER_AUDIT |
 | T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T4-2 (2026-02-21): One Shot weapon keyword — Verified full implementation across RulesEngine.gd (detection, state tracking, filtering, validation), both resolution paths, ShootingPhase.gd, ShootingController.gd, WeaponKeywordIcons.gd. Fixed tests to use static calls. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T3-24 (2026-02-21): Defender stats override panel — Verified existing implementation of "Custom Defender Stats" checkbox with SpinBox fields for T/Sv/W/Models/Invuln/FNP in MathhammerUI.gd, auto-populating from selected defender. Overrides applied via `Mathhammer._apply_defender_overrides()`. Added 9 unit tests. | Mathhammer | MATHHAMMER_AUDIT |
@@ -850,11 +851,12 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Resolution:** Renamed all three files (`MathhammerUI.gd`, `MathhammerResults.gd`, `MathhammerRuleModifiers.gd`) to use double-h (`MathhammerUI.gd`, etc.). Updated `class_name` declarations, all print/comment references, `project.godot` class registrations and paths, `Main.gd` preload path, and benchmark test reference.
 - **Files:** All `Mathhammer*.gd` files, `project.godot` autoload references
 
-### T4-20. [MH-FEAT-9] Auto-detect weapon abilities from unit datasheet
+### T4-20. [MH-FEAT-9] Auto-detect weapon abilities from unit datasheet — **DONE**
 - **Phase:** Mathhammer
 - **Impact:** Weapon keywords (Lethal Hits, Sustained Hits, etc.) exist in unit data but aren't auto-enabled as toggles
 - **Source:** MATHHAMMER_AUDIT
 - **Files:** `MathhammerRuleModifiers.gd:134-180` — `extract_unit_rules()` exists but isn't connected to UI
+- **Resolution:** Connected weapon keyword auto-detection to UI: weapon keywords now display in weapon selection labels, added "lance" to keyword parser, re-trigger auto-detection on weapon count changes, and parse unit-level abilities from attacker units.
 
 ---
 
@@ -1527,13 +1529,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 26 | 0 | 26 |
-| Tier 4 — Low/Niche | 16 | 4 | 20 |
+| Tier 4 — Low/Niche | 17 | 3 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **160** | **26** | **186** |
-| **Recently Completed** | **177** | — | **177** |
-| *Mathhammer items (subset)* | *24* | *7* | *31* |
+| **Total** | **161** | **25** | **186** |
+| **Recently Completed** | **178** | — | **178** |
+| *Mathhammer items (subset)* | *25* | *6* | *31* |
 
 ---
 
