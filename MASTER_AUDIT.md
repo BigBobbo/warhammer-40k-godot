@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-36 (2026-02-21): AI speed controls — Added `AISpeedPreset` enum (FAST/NORMAL/SLOW/STEP_BY_STEP) with configurable delays (0ms/200ms/500ms/pause) to AIPlayer.gd. Speed dropdown in MainMenu.gd, in-game HUD with comma/period/slash keyboard controls, step-by-step mode with "Continue (Space)" button. | UI/Settings | AI_AUDIT.md §QoL-3 |
 | T7-19 (2026-02-20): AI turn summary panel — Created `AITurnSummaryPanel.gd` post-turn summary popup consuming `ai_turn_ended` signal. Displays categorized action counts per phase (units moved, fired, charged, fought, stratagems used) with notable action descriptions. WhiteDwarf gothic theme, auto-dismiss after 12s, Escape/button dismiss. | UI/AI | AI_AUDIT.md §QoL-1 |
 | T7-14 (2026-02-20): AI shooting range consideration in movement — Enhanced movement destination scoring to evaluate weapon range at estimated destinations (bonus for maintaining range, penalty for losing all targets, bonus for gaining new targets). Added firing position preservation with arc-sampling for ranged units moving toward objectives. | Movement/AI | AI_AUDIT.md §MOV-1 |
 | T7-12 (2026-02-20): AI scout move execution — Fixed double `phase_completed` emission in ScoutPhase and objective zone index alignment in AIDecisionMaker. Scout movement toward nearest uncontrolled objective with >9" enemy distance verified working (32 tests pass). | Scout/AI | AI_AUDIT.md §SCOUT-1, SCOUT-2 |
@@ -1279,12 +1280,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** AI never uses Rapid Ingress to arrive from reserves at end of opponent's movement phase.
 - **Resolution:** Added `evaluate_rapid_ingress()` static method to AIDecisionMaker.gd — scores reserve units for deployment urgency (reusing `_score_reserves_deployment`, `_compute_reinforcement_positions` logic), with Rapid Ingress-specific adjustments for late-game urgency and CP cost penalty. Connected `rapid_ingress_opportunity` signal in AIPlayer.gd `_connect_phase_stratagem_signals()`. Added `_on_movement_rapid_ingress_opportunity()` handler with Hard+ difficulty gate via `AIDifficultyConfigData.use_stratagems()`. Implemented two-step `_execute_rapid_ingress_sequence()` for USE_RAPID_INGRESS then PLACE_RAPID_INGRESS_REINFORCEMENT. Score threshold of 3.0, CP conservation (declines with ≤1 CP before Round 4). Added `USE_RAPID_INGRESS` and `PLACE_RAPID_INGRESS_REINFORCEMENT` to spectator action categorization. Added 4 tests to `test_ai_stratagem_evaluation.gd`.
 
-### T7-36. AI speed controls
+### T7-36. AI speed controls — **DONE**
 - **Phase:** UI/Settings
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §QoL-3
 - **Files:** `AIPlayer.gd`
 - **Details:** `AI_ACTION_DELAY` hardcoded to 50ms. Add speed slider in settings: Fast (0ms), Normal (200ms), Slow (500ms), Step-by-step (pause after each action).
+- **Resolution:** Added `AISpeedPreset` enum (FAST/NORMAL/SLOW/STEP_BY_STEP) with configurable delays (0ms/200ms/500ms/pause) to AIPlayer.gd, replacing hardcoded 50ms delay. Added speed dropdown to MainMenu.gd (shown when any player is AI). In-game HUD panel shows current speed with comma/period/slash keyboard shortcuts to adjust. Step-by-step mode pauses after each action with "Continue (Space)" button. Speed persisted in game_config.
 
 ### T7-37. AI decision explanations — **DONE**
 - **Phase:** UI
@@ -1508,9 +1510,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 51 | 7 | 58 |
-| **Total** | **149** | **37** | **186** |
-| **Recently Completed** | **168** | — | **168** |
+| Tier 7 — AI Player | 52 | 6 | 58 |
+| **Total** | **150** | **36** | **186** |
+| **Recently Completed** | **169** | — | **169** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
