@@ -93,6 +93,9 @@ func _run_tests():
 	# Integration tests: AIDecisionMaker scoring with abilities
 	test_shooting_score_reduced_by_target_fnp()
 	test_shooting_score_reduced_by_target_stealth()
+	test_shooting_score_penalized_by_defensive_buff_cover()
+	test_shooting_score_penalized_by_defensive_buff_stealth()
+	test_shooting_score_penalized_by_defensive_buff_invuln()
 	test_melee_damage_reduced_by_target_fnp()
 	test_charge_score_boosted_by_melee_leader()
 
@@ -600,6 +603,63 @@ func test_shooting_score_reduced_by_target_stealth():
 
 	_assert(score_with_stealth < score_no_stealth,
 		"Shooting score lower with target Stealth (no_stealth=%.2f, with_stealth=%.2f)" % [score_no_stealth, score_with_stealth])
+
+func test_shooting_score_penalized_by_defensive_buff_cover():
+	# T7-49: Targets with effect-granted cover (Go to Ground / Smokescreen) should score lower
+	var snapshot = _create_test_snapshot()
+	var weapon = _make_ranged_weapon("Heavy bolter", 4, 5, 1, 2, 3, 36)
+
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [weapon])
+	# Target without defensive buff
+	_add_unit(snapshot, "target_no_buff", 2, Vector2(400, 0), "Target", 3, ["INFANTRY"], [], 4, 3, 1, 0, {})
+	# Target with effect-granted cover (e.g. Go to Ground / Smokescreen)
+	_add_unit(snapshot, "target_buff", 2, Vector2(400, 100), "Target Buffed", 3, ["INFANTRY"], [], 4, 3, 1, 0,
+		{"effect_cover": true})
+
+	var shooter = snapshot.units["shooter"]
+	var score_no_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_no_buff"], snapshot, shooter)
+	var score_with_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_buff"], snapshot, shooter)
+
+	_assert(score_with_buff < score_no_buff,
+		"T7-49: Shooting score lower with target effect_cover (no_buff=%.2f, with_buff=%.2f)" % [score_no_buff, score_with_buff])
+
+func test_shooting_score_penalized_by_defensive_buff_stealth():
+	# T7-49: Targets with effect-granted stealth (Smokescreen) should score lower
+	var snapshot = _create_test_snapshot()
+	var weapon = _make_ranged_weapon("Heavy bolter", 4, 5, 1, 2, 3, 36)
+
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [weapon])
+	# Target without defensive buff
+	_add_unit(snapshot, "target_no_buff", 2, Vector2(400, 0), "Target", 3, ["INFANTRY"], [], 4, 3, 1, 0, {})
+	# Target with effect-granted stealth (e.g. Smokescreen)
+	_add_unit(snapshot, "target_buff", 2, Vector2(400, 100), "Target Buffed", 3, ["INFANTRY"], [], 4, 3, 1, 0,
+		{"effect_stealth": true})
+
+	var shooter = snapshot.units["shooter"]
+	var score_no_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_no_buff"], snapshot, shooter)
+	var score_with_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_buff"], snapshot, shooter)
+
+	_assert(score_with_buff < score_no_buff,
+		"T7-49: Shooting score lower with target effect_stealth (no_buff=%.2f, with_buff=%.2f)" % [score_no_buff, score_with_buff])
+
+func test_shooting_score_penalized_by_defensive_buff_invuln():
+	# T7-49: Targets with effect-granted invuln (Go to Ground 6++) should score lower
+	var snapshot = _create_test_snapshot()
+	var weapon = _make_ranged_weapon("Heavy bolter", 4, 5, 1, 2, 3, 36)
+
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "Shooter", 1, ["INFANTRY"], [weapon])
+	# Target without defensive buff
+	_add_unit(snapshot, "target_no_buff", 2, Vector2(400, 0), "Target", 3, ["INFANTRY"], [], 4, 3, 1, 0, {})
+	# Target with effect-granted invulnerable save (e.g. Go to Ground 6++)
+	_add_unit(snapshot, "target_buff", 2, Vector2(400, 100), "Target Buffed", 3, ["INFANTRY"], [], 4, 3, 1, 0,
+		{"effect_invuln": 6})
+
+	var shooter = snapshot.units["shooter"]
+	var score_no_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_no_buff"], snapshot, shooter)
+	var score_with_buff = AIDecisionMaker._score_shooting_target(weapon, snapshot.units["target_buff"], snapshot, shooter)
+
+	_assert(score_with_buff < score_no_buff,
+		"T7-49: Shooting score lower with target effect_invuln (no_buff=%.2f, with_buff=%.2f)" % [score_no_buff, score_with_buff])
 
 func test_melee_damage_reduced_by_target_fnp():
 	# Melee weapon against target with FNP should deal less expected damage

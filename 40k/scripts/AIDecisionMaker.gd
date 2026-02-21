@@ -10229,6 +10229,22 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 		# Stealth imposes -1 to hit for ranged attacks; approximate as ~15% reduction
 		expected_damage *= 0.85
 
+	# --- T7-49: Penalize targets with active defensive stratagem buffs ---
+	# When opponent uses Go to Ground or Smokescreen, the target becomes less efficient
+	# to shoot. Beyond the mechanical damage reduction (cover/stealth/invuln already
+	# factored above), apply a strategic penalty to redirect firepower to softer targets.
+	var has_defensive_buff = false
+	if EffectPrimitivesData.has_effect_cover(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
+		# Target has stratagem-granted cover or stealth (Smokescreen / Go to Ground)
+		has_defensive_buff = true
+	if EffectPrimitivesData.has_effect_invuln(target_unit):
+		# Target has stratagem-granted invulnerable save (Go to Ground 6++)
+		has_defensive_buff = true
+	if has_defensive_buff:
+		# Apply ~20% strategic deprioritization on top of mechanical reductions
+		expected_damage *= 0.80
+		print("AIDecisionMaker: T7-49 target has active defensive buff, penalizing score (x0.80)")
+
 	# Bonus: target below half strength (finish it off)
 	var alive_count = _get_alive_models(target_unit).size()
 	var total_count = target_unit.get("models", []).size()
