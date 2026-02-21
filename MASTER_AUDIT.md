@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-57 (2026-02-20): AI post-game performance summary — Extended GameOverDialog with AI Performance Analysis section showing VP breakdown, units killed/lost, models remaining, CP spent/remaining, objectives held per round, key moments. Added tracking infrastructure to AIPlayer.gd with hooks in ShootingPhase, FightPhase, ScoringPhase. | UI/AI | AI_AUDIT.md §QoL-9 |
 | T7-56 (2026-02-20): AI turn replay — Per-turn action history in AIPlayer.gd, AITurnReplayPanel.gd with round/player navigation and color-coded phase entries, 'R' key toggle, ESC/X close. Turn-grouped query methods in ReplayManager.gd. | UI/AI | AI_AUDIT.md §QoL-8 |
 | T7-55 (2026-02-20): AI vs AI spectator mode improvements — Added spectator mode detection (both players AI), auto-slowed action delay (500ms, adjustable 0.25x-4.0x via comma/period/slash keys), phase summaries with action counts per player in AIActionLogOverlay, spectator speed indicator HUD. | UI/AI | AI_AUDIT.md §QoL-7 |
 | T7-54 (2026-02-20): AI action log overlay — Created `AIActionLogOverlay.gd` — small scrolling overlay in bottom-right corner showing real-time AI actions with color-coded entries, phase headers, auto-fade after inactivity, auto-scroll, and old-entry trimming. Integrated via `ai_action_taken`/`ai_turn_started`/`ai_turn_ended` signals in Main.gd. | UI/AI | AI_AUDIT.md §VIS-7 |
@@ -1432,12 +1433,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No way to review AI actions after turn passes. Store full action log per turn and provide replay panel accessible from game menu.
 - **Resolution:** Added per-turn action history storage in AIPlayer.gd (`_turn_history`, `_store_turn_history()`, `get_turn_history()`). Created AITurnReplayPanel.gd — a centered, scrollable, WhiteDwarf-themed panel showing all past AI actions organized by battle round, with prev/next turn navigation and color-coded phase headers. Panel toggles with 'R' key and closes with ESC or X button. Added turn-grouped query methods to ReplayManager.gd for recorded events.
 
-### T7-57. AI post-game performance summary
+### T7-57. AI post-game performance summary — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §QoL-9
 - **Files:** New UI component
 - **Details:** No post-game AI analysis. Show total VP scored, units lost vs units killed, objectives held per turn, CP spent, key moments.
+- **Resolution:** Extended GameOverDialog.gd with an "AI Performance Analysis" section that shows per-AI-player stats: VP breakdown (total/primary/secondary), units killed vs lost, units/models remaining, CP spent/remaining, objectives held per round, and key moments (stratagem uses, VP scoring). Added performance tracking infrastructure to AIPlayer.gd (record_ai_cp_spent, record_ai_unit_killed, record_ai_unit_lost, record_ai_objectives, record_ai_key_moment, get_performance_summary). Hooked tracking into ShootingPhase.gd, FightPhase.gd (unit kill/loss), ScoringPhase.gd (objectives per round), and AIPlayer reactive/proactive action flows (CP spent, key moments). Connected to MissionManager.victory_points_scored signal for VP key moments.
 
 ### T7-58. AI charge arrow visualization
 - **Phase:** UI
@@ -1492,9 +1494,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 43 | 15 | 58 |
-| **Total** | **142** | **44** | **186** |
-| **Recently Completed** | **161** | — | **161** |
+| Tier 7 — AI Player | 44 | 14 | 58 |
+| **Total** | **143** | **43** | **186** |
+| **Recently Completed** | **162** | — | **162** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
