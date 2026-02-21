@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T3-14 (2026-02-21): Desperate Escape battle-shocked modifier — Added conditional fail threshold (1-3 for battle-shocked, 1-2 for normal) in `_process_desperate_escape()`. Previously hardcoded to `roll <= 2` for all cases. | Movement | AUDIT_COMMAND_PHASE.md |
 | T3-13 (2026-02-21): Fight selection dialog sync for remote player — Replaced fragile 0.1s timer workaround with pending data retrieval pattern in FightPhase/FightController, eliminating race condition on initial fight selection dialog for remote players. | Fight | FIGHT_PHASE_AUDIT.md §3.4 |
 | T7-50 (2026-02-21): AI multi-target charge declarations — Added `_evaluate_multi_target_charge()` and `_score_multi_target_combo()` to evaluate 2- and 3-target charge combinations. Multi-target bonus (+15% per extra target) and clustering bonus. Correctly picks multi-target when targets are close together. | Charge/AI | AI_AUDIT.md §CHARGE-4 |
 | T7-38 (2026-02-21): AI shooting target line visualization — Red targeting line from shooter to target(s) during AI shooting, floating hit/wound result summary, and per-model damage numbers/death animations via `shooting_damage_applied` signal in AI path. | UI | AI_AUDIT.md §VIS-2 |
@@ -633,12 +634,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `FightController.gd` — `set_phase()`, signal timing
 - **Resolution:** Replaced fragile 0.1s timer workaround with explicit pending data retrieval pattern. FightPhase now stores dialog data in `_pending_fight_selection_data` when `_emit_fight_selection_required()` fires, and FightController retrieves it via `get_pending_fight_selection_data()` after connecting signals. Eliminates the race condition entirely.
 
-### T3-14. Desperate Escape — Battle-shocked modifier not verified
+### T3-14. Desperate Escape — Battle-shocked modifier not verified — **DONE**
 - **Phase:** Movement
 - **Rule:** Battle-shocked units falling back have models destroyed on 1-3 instead of 1-2
 - **Impact:** Battle-shocked penalty may not be fully applied
 - **Source:** AUDIT_COMMAND_PHASE.md, code inspection needed
 - **Files:** `MovementPhase.gd` — `_process_desperate_escape()`
+- **Resolution:** Added conditional `fail_threshold` variable in `_process_desperate_escape()` that uses 3 for battle-shocked units (fail on 1-3) vs 2 for normal units (fail on 1-2). Previously the threshold was hardcoded to `roll <= 2` for all cases, ignoring the battle-shocked penalty.
 
 ### T3-15. Disembarked units should not count as Remained Stationary
 - **Phase:** Movement
@@ -1512,12 +1514,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 21 | 5 | 26 |
+| Tier 3 — Medium Rules | 22 | 4 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **153** | **33** | **186** |
+| **Total** | **154** | **32** | **186** |
 | **Recently Completed** | **172** | — | **172** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 

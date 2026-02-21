@@ -2121,11 +2121,16 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 	var casualties = 0
 	var rolls = []
 
+	# 10e Rule: Desperate Escape failure threshold
+	# Normal: model destroyed on 1-2
+	# Battle-shocked: model destroyed on 1-3
+	var fail_threshold = 3 if move_data.battle_shocked else 2
+
 	for model_data in models_to_test:
 		var roll_result = rng_service.roll_d6(1)
 		var roll = roll_result[0]
 		rolls.append(roll)
-		if roll <= 2:
+		if roll <= fail_threshold:
 			casualties += 1
 	
 	# Apply casualties (player chooses which models)
@@ -2162,7 +2167,8 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 			"rolls": rolls,
 			"result": "%d models lost" % casualties
 		})
-		log_phase_message("Desperate Escape: %s → rolls: %s → models lost: %d" % [unit_name, str(rolls), casualties])
+		var shocked_str = " (Battle-shocked, fail on 1-%d)" % fail_threshold if move_data.battle_shocked else ""
+		log_phase_message("Desperate Escape: %s%s → rolls: %s → models lost: %d" % [unit_name, shocked_str, str(rolls), casualties])
 	
 	return {"changes": changes, "dice": dice_rolls}
 
