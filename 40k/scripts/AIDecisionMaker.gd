@@ -114,6 +114,14 @@ const SCREEN_CHEAP_UNIT_POINTS: int = 100           # Units at or below this poi
 const SCREEN_SCORE_BASE: float = 8.0                # Base score for a screening assignment (comparable to objective priority)
 const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
 
+# T7-42: Corridor blocking constants (AI-TACTIC-9)
+# Position expendable units to block enemy movement corridors toward objectives
+const CORRIDOR_BLOCK_THREAT_RANGE_INCHES: float = 30.0  # Enemy must be within 30" of objective to warrant blocking
+const CORRIDOR_BLOCK_POSITION_RATIO: float = 0.55        # Place blocker 55% of the way from objective toward enemy
+const CORRIDOR_BLOCK_SCORE_BASE: float = 7.0             # Base priority for blocking assignments (below screening 8.0)
+const CORRIDOR_BLOCK_MIN_GAP_PX: float = 200.0           # 5" — minimum spacing between blocking positions
+const CORRIDOR_BLOCK_MAX_POSITIONS: int = 4               # Cap on blocking positions to avoid over-committing
+
 # T7-23: Multi-phase planning constants
 # Movement phase adjustments based on planned future actions
 const PHASE_PLAN_CHARGE_LANE_BONUS: float = 3.0     # Bonus for moving toward charge-worthy targets
@@ -3610,6 +3618,15 @@ static func _assign_units_to_objectives(
 			for dp in denial_positions:
 				print("  pos=(%.0f,%.0f) priority=%.1f reason=%s" % [dp.position.x, dp.position.y, dp.priority, dp.reason])
 
+	# T7-42: Calculate corridor blocking positions to impede enemy approach to objectives
+	var corridor_blocking_positions = _calculate_corridor_blocking_positions(
+		snapshot, objectives, obj_evaluations, enemies, friendly_units, player, screener_positions
+	)
+	if not corridor_blocking_positions.is_empty():
+		print("AIDecisionMaker: [BLOCK] Calculated %d corridor blocking positions:" % corridor_blocking_positions.size())
+		for bp in corridor_blocking_positions:
+			print("  pos=(%.0f,%.0f) priority=%.1f reason=%s" % [bp.position.x, bp.position.y, bp.priority, bp.reason])
+
 	# Collect unassigned units and sort by screening suitability
 	var unassigned_units = []
 	for unit_id in movable_units:
@@ -3635,6 +3652,7 @@ static func _assign_units_to_objectives(
 	)
 
 	var denial_idx = 0  # Track which denial position to assign next
+	var block_idx = 0   # T7-42: Track which corridor blocking position to assign next
 	for entry in unassigned_units:
 		var unit_id = entry.unit_id
 		var unit = entry.unit
@@ -3703,6 +3721,41 @@ static func _assign_units_to_objectives(
 					print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN-PROTECT at (%.0f,%.0f)" % [
 						unit_name, screen_pos.x, screen_pos.y])
 					continue
+
+		# --- T7-42: CORRIDOR BLOCKING — block enemy movement corridors to objectives ---
+		# Expendable units physically block the path between enemies and key objectives,
+		# forcing the opponent to waste movement going around or charge the blocker.
+		if is_screen_candidate and not corridor_blocking_positions.is_empty() and block_idx < corridor_blocking_positions.size():
+			var block = corridor_blocking_positions[block_idx]
+			var block_pos = block.position
+			var dist_to_block = centroid.distance_to(block_pos)
+
+			# Check spacing: don't cluster blockers
+			var too_close_to_blocker = false
+			for sp in screener_positions:
+				if block_pos.distance_to(sp) < CORRIDOR_BLOCK_MIN_GAP_PX:
+					too_close_to_blocker = true
+					break
+
+			if not too_close_to_blocker:
+				var score = CORRIDOR_BLOCK_SCORE_BASE + block.priority
+				# Closer units score higher for blocking
+				score -= (dist_to_block / PIXELS_PER_INCH) * 0.3
+				assignments[unit_id] = {
+					"objective_id": "corridor_block",
+					"objective_pos": block_pos,
+					"action": "screen",
+					"score": score,
+					"reason": block.reason,
+					"distance": dist_to_block
+				}
+				assigned_unit_ids[unit_id] = true
+				screener_positions.append(block_pos)
+				block_idx += 1
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				print("AIDecisionMaker: [BLOCK] Assigned %s to BLOCK at (%.0f,%.0f) — %s" % [
+					unit_name, block_pos.x, block_pos.y, block.reason])
+				continue
 
 		# --- FALLBACK: Assign to best remaining objective (original behavior) ---
 		var best_obj = _find_best_remaining_objective(centroid, obj_evaluations, enemies, unit, snapshot, player)
@@ -5172,6 +5225,102 @@ static func _compute_screen_position(
 	# Screen position: halfway between the friendly unit and the enemy, leaning toward enemy
 	var screen_pos = protect_pos + (nearest_enemy_pos - protect_pos) * 0.6
 	return screen_pos
+
+## T7-42: Calculate corridor blocking positions to impede enemy movement toward objectives.
+## Identifies key corridors between enemy units and high-value objectives, then computes
+## positions where expendable units should stand to physically block the approach path.
+## Returns an array of {position: Vector2, priority: float, reason: String}
+static func _calculate_corridor_blocking_positions(
+	snapshot: Dictionary, objectives: Array, obj_evaluations: Array,
+	enemies: Dictionary, friendly_units: Dictionary, player: int,
+	existing_blockers: Array
+) -> Array:
+	var blocking_positions = []
+	var threat_range_px = CORRIDOR_BLOCK_THREAT_RANGE_INCHES * PIXELS_PER_INCH
+
+	for eval in obj_evaluations:
+		# Only block corridors to objectives we hold or want to contest
+		if eval.state == "enemy_strong":
+			continue  # Don't waste blockers on objectives we can't realistically hold
+
+		var obj_pos = eval.position
+		var obj_id = eval.id
+
+		# Base priority depends on how important this objective is to us
+		var base_priority = 0.0
+		match eval.state:
+			"held_safe":
+				base_priority = 5.0
+			"held_threatened":
+				base_priority = 6.0  # Highest — already under pressure
+			"contested":
+				base_priority = 4.0
+			"uncontrolled":
+				base_priority = 3.0
+			"enemy_weak":
+				base_priority = 2.0
+		# Home objectives get extra blocking priority
+		if eval.is_home:
+			base_priority += 2.0
+
+		# For each enemy that threatens this objective
+		for enemy_id in enemies:
+			var enemy = enemies[enemy_id]
+			var enemy_centroid = _get_unit_centroid(enemy)
+			if enemy_centroid == Vector2.INF:
+				continue
+
+			var dist_to_obj = enemy_centroid.distance_to(obj_pos)
+			if dist_to_obj > threat_range_px:
+				continue  # Enemy too far to be a realistic threat
+			if dist_to_obj < ENGAGEMENT_RANGE_PX * 3:
+				continue  # Enemy already at the objective — blocking won't help
+
+			# Calculate blocking position along the corridor
+			# Place the blocker between the enemy and the objective, biased toward the enemy
+			var corridor_dir = (obj_pos - enemy_centroid).normalized()
+			var block_pos = enemy_centroid + corridor_dir * dist_to_obj * CORRIDOR_BLOCK_POSITION_RATIO
+
+			# Clamp to board
+			block_pos.x = clamp(block_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+			block_pos.y = clamp(block_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+
+			# Check if a friendly unit or existing blocker already covers this corridor
+			var already_covered = false
+			for blocker_pos in existing_blockers:
+				if blocker_pos.distance_to(block_pos) < CORRIDOR_BLOCK_MIN_GAP_PX:
+					already_covered = true
+					break
+			if not already_covered:
+				for fid in friendly_units:
+					var funit = friendly_units[fid]
+					var fc = _get_unit_centroid(funit)
+					if fc == Vector2.INF:
+						continue
+					if fc.distance_to(block_pos) < CORRIDOR_BLOCK_MIN_GAP_PX:
+						already_covered = true
+						break
+
+			if already_covered:
+				continue
+
+			# Priority: closer enemy = more urgent, higher objective value = more important
+			var proximity_bonus = (threat_range_px - dist_to_obj) / threat_range_px * 3.0
+			var enemy_value = _estimate_enemy_threat_level(enemy)
+			var priority = base_priority + proximity_bonus + enemy_value
+
+			var enemy_name = enemy.get("meta", {}).get("name", enemy_id)
+			blocking_positions.append({
+				"position": block_pos,
+				"priority": priority,
+				"reason": "block %s approaching %s (%.0f\" away)" % [enemy_name, obj_id, dist_to_obj / PIXELS_PER_INCH]
+			})
+
+	# Sort by priority (highest first) and cap the number of positions
+	blocking_positions.sort_custom(func(a, b): return a.priority > b.priority)
+	if blocking_positions.size() > CORRIDOR_BLOCK_MAX_POSITIONS:
+		blocking_positions.resize(CORRIDOR_BLOCK_MAX_POSITIONS)
+	return blocking_positions
 
 # --- Movement helpers ---
 
