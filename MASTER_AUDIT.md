@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T3-13 (2026-02-21): Fight selection dialog sync for remote player — Replaced fragile 0.1s timer workaround with pending data retrieval pattern in FightPhase/FightController, eliminating race condition on initial fight selection dialog for remote players. | Fight | FIGHT_PHASE_AUDIT.md §3.4 |
 | T7-50 (2026-02-21): AI multi-target charge declarations — Added `_evaluate_multi_target_charge()` and `_score_multi_target_combo()` to evaluate 2- and 3-target charge combinations. Multi-target bonus (+15% per extra target) and clustering bonus. Correctly picks multi-target when targets are close together. | Charge/AI | AI_AUDIT.md §CHARGE-4 |
 | T7-38 (2026-02-21): AI shooting target line visualization — Red targeting line from shooter to target(s) during AI shooting, floating hit/wound result summary, and per-model damage numbers/death animations via `shooting_damage_applied` signal in AI path. | UI | AI_AUDIT.md §VIS-2 |
 | T7-36 (2026-02-21): AI speed controls — Added `AISpeedPreset` enum (FAST/NORMAL/SLOW/STEP_BY_STEP) with configurable delays (0ms/200ms/500ms/pause) to AIPlayer.gd. Speed dropdown in MainMenu.gd, in-game HUD with comma/period/slash keyboard controls, step-by-step mode with "Continue (Space)" button. | UI/Settings | AI_AUDIT.md §QoL-3 |
@@ -624,12 +625,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `FightController.gd:1357-1392`
 - **Resolution:** Replaced sequential individual actions (ASSIGN_ATTACKS × N + CONFIRM + ROLL_DICE) with fixed timing delays with a single atomic BATCH_FIGHT_ACTIONS composite action processed by FightPhase. Eliminates race condition by sending one action over the network instead of multiple actions with 50ms/100ms delays.
 
-### T3-13. Fight selection dialog sync for remote player
+### T3-13. Fight selection dialog sync for remote player — **DONE**
 - **Phase:** Fight
 - **Rule:** Both players need to see the fighter selection dialog
 - **Impact:** Client may miss initial fight selection on phase entry
 - **Source:** FIGHT_PHASE_AUDIT.md §3.4
 - **Files:** `FightController.gd` — `set_phase()`, signal timing
+- **Resolution:** Replaced fragile 0.1s timer workaround with explicit pending data retrieval pattern. FightPhase now stores dialog data in `_pending_fight_selection_data` when `_emit_fight_selection_required()` fires, and FightController retrieves it via `get_pending_fight_selection_data()` after connecting signals. Eliminates the race condition entirely.
 
 ### T3-14. Desperate Escape — Battle-shocked modifier not verified
 - **Phase:** Movement
@@ -1510,13 +1512,13 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 20 | 6 | 26 |
+| Tier 3 — Medium Rules | 21 | 5 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **152** | **34** | **186** |
-| **Recently Completed** | **171** | — | **171** |
+| **Total** | **153** | **33** | **186** |
+| **Recently Completed** | **172** | — | **172** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

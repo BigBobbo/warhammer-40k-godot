@@ -48,6 +48,11 @@ var normal_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit 
 var fights_last_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
 var current_selecting_player: int = 2  # Which player is currently selecting (defending player starts)
 
+# T3-13: Pending dialog data for controller sync on phase entry
+# Stores the last fight selection dialog data so the controller can retrieve it
+# after connecting signals, eliminating the race condition with signal timing.
+var _pending_fight_selection_data: Dictionary = {}
+
 # Fight priority tiers
 enum FightPriority {
 	FIGHTS_FIRST = 0,  # Charged units + abilities
@@ -88,6 +93,7 @@ func _on_phase_enter() -> void:
 	awaiting_counter_offensive = false
 	counter_offensive_player = 0
 	counter_offensive_unit_id = ""
+	_pending_fight_selection_data = {}
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -1563,10 +1569,22 @@ func _build_fight_selection_dialog_data() -> Dictionary:
 	return dialog_data
 
 func _emit_fight_selection_required() -> void:
-	"""Emit signal to show fight selection dialog with current state"""
+	"""Emit signal to show fight selection dialog with current state.
+	Also stores the data in _pending_fight_selection_data so the controller
+	can retrieve it after connecting signals (T3-13 fix)."""
 	var dialog_data = _build_fight_selection_dialog_data()
 	if not dialog_data.is_empty():
+		# T3-13: Store pending data for controller sync
+		_pending_fight_selection_data = dialog_data
 		emit_signal("fight_selection_required", dialog_data)
+
+func get_pending_fight_selection_data() -> Dictionary:
+	"""T3-13: Returns any pending fight selection dialog data and clears it.
+	Called by FightController after connecting signals to handle the case where
+	the signal fired before the controller was connected."""
+	var data = _pending_fight_selection_data
+	_pending_fight_selection_data = {}
+	return data
 
 func _get_eligible_units_for_selection() -> Dictionary:
 	"""Get units eligible for selection by current player in current subphase"""

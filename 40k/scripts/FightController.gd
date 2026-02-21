@@ -386,14 +386,17 @@ func set_phase(phase: BasePhase) -> void:
 		# Ensure UI is set up after phase assignment
 		_setup_ui_references()
 
-		# IMPORTANT: Check if we missed the initial fight_selection_required signal
-		# This happens because phase emits the signal during enter_phase, before we connect
-		if phase.has_method("_emit_fight_selection_required"):
-			print("DEBUG: Re-triggering fight selection after signal connection")
-			# Give the phase a moment to finish setup, then re-emit
-			await get_tree().create_timer(0.1).timeout
-			if current_phase and current_phase.has_method("_emit_fight_selection_required"):
-				current_phase._emit_fight_selection_required()
+		# T3-13: Check if phase has pending dialog data from before we connected signals.
+		# This replaces the old fragile 0.1s timer workaround. The phase stores dialog
+		# data when _emit_fight_selection_required() fires, so the controller can
+		# retrieve it after connecting, eliminating the race condition.
+		if phase.has_method("get_pending_fight_selection_data"):
+			var pending_data = phase.get_pending_fight_selection_data()
+			if not pending_data.is_empty():
+				print("DEBUG: T3-13 - Retrieved pending fight selection data after signal connection")
+				_on_fight_selection_required(pending_data)
+			else:
+				print("DEBUG: T3-13 - No pending fight selection data (phase may not have entered yet)")
 		
 		_refresh_fight_sequence()
 		
