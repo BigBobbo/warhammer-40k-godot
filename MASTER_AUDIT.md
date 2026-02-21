@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-42 (2026-02-20): AI move blocking — Added `_calculate_corridor_blocking_positions()` to identify key corridors between enemy units and objectives, then assign expendable units to block them. Corridor positions calculated at 55% along the enemy-to-objective line, prioritized by objective importance and enemy proximity. Integrated into PASS 3 of unit assignment alongside existing screening/denial logic. Capped at 4 blocking positions with 5" minimum spacing. | Movement/AI | AI_AUDIT.md §AI-TACTIC-9 |
 | T7-40 (2026-02-20): AI difficulty levels — Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive difficulty enum and per-level feature flags (stratagems, multi-phase planning, threat awareness, trade analysis, score noise, charge thresholds). Easy uses random valid actions; Normal is current behavior; Hard adds stratagems and multi-phase planning; Competitive adds look-ahead and zero noise. Per-player difficulty stored in AIPlayer, gating reactive stratagems/overwatch/counter-offensive/command reroll by level. Difficulty dropdowns auto-shown in MainMenu when player type is AI. | Settings/AI | AI_AUDIT.md §QoL-5 |
 | T7-39 (2026-02-20): AI objective control flash on change — Added `flash_control_change()` to ObjectiveVisual.gd with pulsing ring animation (green=AI capture, red=AI loss, yellow=contested). Real-time objective rechecks after movement/charge via `call_deferred`. Updated `objective_control_changed` signal to include old_controller. | UI/AI | AI_AUDIT.md §VIS-4 |
 | T7-37 (2026-02-20): AI decision explanations — Enhanced `_ai_description` strings across shooting (expected damage vs HP, kill %), charge (melee damage, charge probability), fight (weapon + expected damage vs HP), deployment (grid position), reactive stratagems (protection score, points). Key tactical decisions routed through `GameEventLog.add_ai_entry()` via AIPlayer. Updated test assertion in test_ai_focus_fire.gd. | UI/AI | AI_AUDIT.md §QoL-4 |
@@ -1299,12 +1300,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Identical heuristics regardless of army. Detect archetype based on weapon/keyword distribution: melee-focused (aggressive advance, early charges), shooting-focused (castle, maintain range), balanced, elite (protect key models).
 
-### T7-42. AI move blocking
+### T7-42. AI move blocking — **DONE**
 - **Phase:** Movement
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §AI-TACTIC-9
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** No movement corridor blocking. Identify key corridors between enemy units and objectives, position expendable units to block them.
+- **Resolution:** Added `_calculate_corridor_blocking_positions()` that identifies corridors between enemy units (within 30") and high-value objectives, computing blocking positions at 55% along the corridor. Expendable units (`_is_screening_candidate`) assigned to block corridors in PASS 3 of unit assignment, using existing "screen" movement action. Priority based on objective importance + enemy proximity + threat level. Capped at 4 blocking positions with 5" spacing.
 
 ### T7-43. AI late-game strategy pivot
 - **Phase:** All
@@ -1466,9 +1468,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 30 | 28 | 58 |
-| **Total** | **129** | **57** | **186** |
-| **Recently Completed** | **148** | — | **148** |
+| Tier 7 — AI Player | 31 | 27 | 58 |
+| **Total** | **130** | **56** | **186** |
+| **Recently Completed** | **149** | — | **149** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
