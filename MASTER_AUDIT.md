@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-46 (2026-02-20): AI fight order optimization — Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan. | Fight/AI | AI_AUDIT.md §FIGHT-6 |
 | T7-45 (2026-02-20): AI faction ability activation — Added `_select_oath_of_moment_target()` with strategic threat-based Oath of Moment target selection. Reuses macro target priority (`_calculate_target_value`) plus Oath-specific bonuses for toughness, save, remaining wounds, and below-half-strength. Integrated into `_decide_command()` after battle-shock tests. 13/13 tests pass. | Command/AI | AI_AUDIT.md §CMD-3 |
 | T7-44 (2026-02-20): AI counter-deployment — Added `_apply_counter_deployment()` and `_get_deployed_enemy_analysis()` to react to opponent's deployed units. Melee units shift toward enemy fragile/high-value targets, fragile shooters shift away from enemy melee, durable shooters orient toward enemy concentrations, characters avoid enemy shooting lanes. Gated at Normal+ difficulty via `use_counter_deployment()` in AIDifficultyConfig.gd. | Deployment/AI | AI_AUDIT.md §DEPLOY-2 |
 | T7-43 (2026-02-20): AI late-game strategy pivot — Added `_get_round_strategy_modifiers()` with per-round multipliers (aggression, objective_priority, survival, charge_threshold). Rounds 1-2 AGGRESSIVE: +30% kill value, -15% obj weight, -20% threat penalty, -20% charge threshold. Round 3 BALANCED: all 1.0. Rounds 4-5 OBJECTIVE/SURVIVAL: -30% kill value, +40% obj priority, +40% threat avoidance, +30% charge threshold, +50% objective-charge bonus, +30% objective-target bonus. Applied across movement, shooting, charge, engaged-unit, and consolidation decisions. | All/AI | AI_AUDIT.md §AI-TACTIC-10 |
@@ -1335,12 +1336,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No faction ability activation. Select Oath of Moment target based on focus-fire plan, declare Waaagh! at optimal timing (Orks).
 - **Resolution:** Added `_select_oath_of_moment_target()` to AIDecisionMaker.gd with strategic threat-based scoring. Reuses `_calculate_target_value()` macro priority (points, damage output, objectives, abilities) plus Oath-specific bonuses: toughness scaling (T5+ gets 5% per T above 4), good-save bonus (Sv2+/3+ gets 10%), remaining-wounds scaling (6+ wounds), and below-half-strength bonus (1.2x). Integrated into `_decide_command()` after battle-shock tests. 13/13 tests pass.
 
-### T7-46. AI fight order optimization
+### T7-46. AI fight order optimization — **DONE**
 - **Phase:** Fight
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §FIGHT-6
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** No consideration of which unit to activate first in fight phase for best overall outcomes.
+- **Resolution:** Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan.
 
 ### T7-47. AI secondary mission discard logic
 - **Phase:** Scoring
@@ -1474,9 +1476,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 34 | 24 | 58 |
-| **Total** | **133** | **53** | **186** |
-| **Recently Completed** | **152** | — | **152** |
+| Tier 7 — AI Player | 35 | 23 | 58 |
+| **Total** | **134** | **52** | **186** |
+| **Recently Completed** | **153** | — | **153** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
