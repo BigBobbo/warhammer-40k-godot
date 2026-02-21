@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-12 (2026-02-20): AI scout move execution — Fixed double `phase_completed` emission in ScoutPhase and objective zone index alignment in AIDecisionMaker. Scout movement toward nearest uncontrolled objective with >9" enemy distance verified working (32 tests pass). | Scout/AI | AI_AUDIT.md §SCOUT-1, SCOUT-2 |
 | T7-11 (2026-02-20): AI unit ability awareness — Added Deadly Demise detection, doomed-vehicle leverage (movement toward enemies + charge bonus), Lone Operative movement protection (>12" retreat), Lone Operative targeting restriction in focus-fire, enhanced Oath of Moment (invuln/leader/weapon-efficiency awareness). 10 new tests pass. | All/AI | AI_AUDIT.md §AI-GAP-4 |
 | T7-58 (2026-02-20): AI charge arrow visualization — Created ChargeArrowVisual.gd with animated arrow (state machine: idle→line_draw→hold→fade), orange/yellow arrowhead with glow, charge roll result label. Integrated into ChargeController and Main.gd for both human and AI charge declarations. | UI/AI | AI_AUDIT.md §VIS-3 |
 | T7-57 (2026-02-20): AI post-game performance summary — Extended GameOverDialog with AI Performance Analysis section showing VP breakdown, units killed/lost, models remaining, CP spent/remaining, objectives held per round, key moments. Added tracking infrastructure to AIPlayer.gd with hooks in ShootingPhase, FightPhase, ScoringPhase. | UI/AI | AI_AUDIT.md §QoL-9 |
@@ -1080,12 +1081,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** AI ignores all unit abilities. Factor leader attachment bonuses into unit value, detect "Fall Back and X" abilities, protect Lone Operatives (>12" from enemies), leverage Deadly Demise on doomed vehicles, select Oath of Moment targets intelligently.
 - **Resolution:** Added Deadly Demise detection (has_deadly_demise, get_deadly_demise_value, is_unit_doomed) to AIAbilityAnalyzer. Integrated into AIDecisionMaker: (1) Lone Operative movement protection — AI keeps own LO units >12" from enemies by computing safe retreat positions. (2) Deadly Demise leverage — doomed vehicles move toward enemies and get charge score bonus (D3=1.5x, D6=2.0x). (3) Enhanced Oath of Moment — considers invuln saves, leader buff abilities, and army weapon efficiency against target. (4) Lone Operative targeting restriction — focus fire plan excludes LO targets >12" from shooters. Leader bonuses, Fall Back and X, FNP, Stealth, and offensive/defensive multipliers were already integrated in prior work. 10 new T7-11 tests pass.
 
-### T7-12. AI scout move execution
+### T7-12. AI scout move execution — **DONE**
 - **Phase:** Scout
 - **Priority:** HIGH
 - **Source:** AI_AUDIT.md §SCOUT-1, SCOUT-2
-- **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`
+- **Files:** `AIDecisionMaker.gd`, `AIPlayer.gd`, `ScoutPhase.gd`
 - **Details:** All scout moves are skipped entirely. Move scouts toward nearest uncontrolled objective while maintaining >9" from enemies.
+- **Resolution:** Fixed double `phase_completed` emission in `ScoutPhase._check_scout_progression()` that could corrupt phase progression. Fixed objective zone lookup index alignment bug in `AIDecisionMaker._find_best_scout_objective()`. Scout logic (`_decide_scout`, `_execute_ai_scout_movement`) verified working with 32 passing unit tests covering movement, 9" enemy distance, fractional moves, and objective scoring.
 
 ### T7-13. AI enemy threat range awareness — **DONE**
 - **Phase:** Movement
@@ -1498,9 +1500,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 46 | 12 | 58 |
-| **Total** | **144** | **42** | **186** |
-| **Recently Completed** | **163** | — | **163** |
+| Tier 7 — AI Player | 47 | 11 | 58 |
+| **Total** | **145** | **41** | **186** |
+| **Recently Completed** | **164** | — | **164** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

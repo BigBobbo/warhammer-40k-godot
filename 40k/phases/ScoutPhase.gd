@@ -421,7 +421,9 @@ func _mark_scout_complete(unit_id: String) -> void:
 			pending.remove_at(idx)
 
 func _check_scout_progression() -> void:
-	"""Check if all scouts for current player are done, and switch/complete accordingly."""
+	"""Check if all scouts for current player are done, and switch/complete accordingly.
+	Note: Phase completion is handled by BasePhase via _should_complete_phase() to avoid
+	double-emitting the phase_completed signal."""
 	var current_player = get_current_player()
 	var current_pending = scout_units_pending.get(current_player, [])
 
@@ -437,9 +439,8 @@ func _check_scout_progression() -> void:
 			game_state_snapshot = GameState.create_snapshot()
 			log_phase_message("Player %d scouts complete, switching to Player %d" % [current_player, other_player])
 		else:
-			# All scouts done, complete the phase
+			# All scouts done — BasePhase._should_complete_phase() will emit phase_completed
 			log_phase_message("All Scout moves complete")
-			emit_signal("phase_completed")
 
 func _position_overlaps_other_models(pos: Vector2, base_mm: int, skip_unit_id: String, skip_model_id: String) -> bool:
 	"""Check if a position overlaps with any deployed model."""

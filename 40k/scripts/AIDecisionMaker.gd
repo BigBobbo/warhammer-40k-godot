@@ -1970,10 +1970,17 @@ static func _find_best_scout_objective(
 		var dist = centroid.distance_to(obj_pos)
 		var dist_inches = dist / PIXELS_PER_INCH
 
-		# Determine zone
+		# Determine zone by matching position in raw objective data
+		# (can't rely on index alignment since _get_objectives filters null positions)
 		var obj_zone = "no_mans_land"
-		if i < obj_data.size():
-			obj_zone = obj_data[i].get("zone", "no_mans_land")
+		for od in obj_data:
+			var od_pos = od.get("position", null)
+			if od_pos == null:
+				continue
+			var od_vec = od_pos if od_pos is Vector2 else Vector2(float(od_pos.get("x", 0)), float(od_pos.get("y", 0)))
+			if od_vec.distance_to(obj_pos) < 1.0:  # Match within 1px
+				obj_zone = od.get("zone", "no_mans_land")
+				break
 
 		var is_home = (player == 1 and obj_zone == "player1") or (player == 2 and obj_zone == "player2")
 		var is_enemy_home = (player == 1 and obj_zone == "player2") or (player == 2 and obj_zone == "player1")
