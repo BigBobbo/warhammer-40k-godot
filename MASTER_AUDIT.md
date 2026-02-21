@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T3-16 (2026-02-21): Difficult terrain / movement penalties — Added terrain traits system with `"difficult_ground"` trait (flat 2" penalty per piece crossed). FLY units ignore. 17 tests. | Movement | MOVEMENT_PHASE_AUDIT.md §2.7 |
 | T3-15 (2026-02-21): Disembarked units don't count as Remained Stationary — Added `disembarked_this_phase` check in `_process_remain_stationary()` to prevent Heavy weapon bonus for disembarked units | Movement | MOVEMENT_PHASE_AUDIT.md §2.12 |
 | T3-14 (2026-02-21): Desperate Escape battle-shocked modifier — Added conditional fail threshold (1-3 for battle-shocked, 1-2 for normal) in `_process_desperate_escape()`. Previously hardcoded to `roll <= 2` for all cases. | Movement | AUDIT_COMMAND_PHASE.md |
 | T3-13 (2026-02-21): Fight selection dialog sync for remote player — Replaced fragile 0.1s timer workaround with pending data retrieval pattern in FightPhase/FightController, eliminating race condition on initial fight selection dialog for remote players. | Fight | FIGHT_PHASE_AUDIT.md §3.4 |
@@ -651,12 +652,13 @@ These are real rules gaps but affect niche situations or have workarounds.
 - **Files:** `MovementPhase.gd` — `_process_remain_stationary()` (~line 880)
 - **Resolution:** Added `disembarked_this_phase` check in `_process_remain_stationary()`. When a unit has disembarked this phase, `remained_stationary` is set to `false` instead of `true`, preventing the Heavy weapon +1 to hit bonus. Added integration tests verifying disembarked units don't get the bonus while non-disembarked stationary units still do.
 
-### T3-16. Difficult terrain / movement penalties
+### T3-16. Difficult terrain / movement penalties — **DONE**
 - **Phase:** Movement
 - **Rule:** Certain terrain may apply movement penalties
 - **Impact:** Affects tactical positioning around terrain
 - **Source:** MOVEMENT_PHASE_AUDIT.md §2.7
 - **Files:** `MovementPhase.gd`, `TerrainManager.gd`
+- **Resolution:** Added terrain traits system to TerrainManager. Terrain pieces can now have a `"traits"` array (e.g. `["difficult_ground"]`). The `"difficult_ground"` trait adds a flat 2" penalty per terrain piece crossed during movement or charges. FLY units ignore this penalty. Updated JSON layout loading, save/load, and hardcoded layout to support traits. Added woods terrain pieces with difficult_ground to layout_2. 17 passing tests cover the trait helpers, movement penalty, charge penalty, FLY bypass, cumulative penalties, and combined height+difficult ground scenarios.
 
 ### T3-17. Dual resolution paths — prevent rules drift
 - **Phase:** Shooting
@@ -1516,12 +1518,12 @@ The following TODOs were found in code but were not tracked in any existing audi
 |----------|------|------|-------|
 | Tier 1 — Critical Rules | 10 | 0 | 10 |
 | Tier 2 — High Rules | 15 | 1 | 16 |
-| Tier 3 — Medium Rules | 23 | 3 | 26 |
+| Tier 3 — Medium Rules | 24 | 2 | 26 |
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **155** | **31** | **186** |
+| **Total** | **156** | **30** | **186** |
 | **Recently Completed** | **173** | — | **173** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 

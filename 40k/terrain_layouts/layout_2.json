@@ -248,6 +248,26 @@
 					"blocks_los": true
 				}
 			]
+		},
+		{
+			"id": "woods_1",
+			"type": "woods",
+			"position": [4.0, 18.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 0.0,
+			"traits": ["difficult_ground"],
+			"walls": []
+		},
+		{
+			"id": "woods_2",
+			"type": "woods",
+			"position": [40.0, 42.0],
+			"size": [4.0, 4.0],
+			"height": "low",
+			"rotation": 0.0,
+			"traits": ["difficult_ground"],
+			"walls": []
 		}
 	]
 }

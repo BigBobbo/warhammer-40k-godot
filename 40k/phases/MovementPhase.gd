@@ -2253,16 +2253,17 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	return "FLY" in keywords
 
 func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
-	# Calculate terrain elevation penalty for movement.
-	# FLY units ignore terrain elevation entirely (return 0).
-	# Non-FLY units must count vertical distance (climb up + down) for terrain >2".
+	# Calculate terrain penalty for movement (elevation + difficult ground traits).
+	# FLY units ignore terrain elevation and difficult ground entirely (return 0).
+	# Non-FLY units must count vertical distance (climb up + down) for terrain >2",
+	# and pay a flat 2" penalty for each terrain piece with the "difficult_ground" trait.
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
 	var has_fly = _unit_has_fly_keyword(unit_id)
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
 	if penalty > 0.0:
-		log_phase_message("  Terrain elevation penalty: %.1f\" (FLY=%s)" % [penalty, has_fly])
+		log_phase_message("  Terrain penalty: %.1f\" (FLY=%s)" % [penalty, has_fly])
 	return penalty
 
 func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:

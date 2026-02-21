@@ -28,6 +28,12 @@ const DEFAULT_WALL_BLOCKS_MOVEMENT = {
 	"MONSTER": true
 }
 
+## T3-16: Difficult Ground terrain trait penalty in inches.
+## When a unit moves through terrain with the "difficult_ground" trait,
+## this flat penalty is added to the effective movement distance per terrain piece.
+## FLY units ignore this penalty entirely.
+const DIFFICULT_GROUND_PENALTY_INCHES: float = 2.0
+
 func _ready() -> void:
 	print("[TerrainManager] Initializing terrain system")
 	_preload_layout_metadata()
@@ -126,8 +132,9 @@ func _load_layout_from_json(layout_name: String) -> bool:
 		var size_px = Vector2(size_inches[0] * px_per_inch, size_inches[1] * px_per_inch)
 
 		var height_cat = _parse_height_category(height_str)
+		var piece_traits = piece_data.get("traits", [])  # T3-16: load terrain traits
 
-		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type)
+		_add_terrain_piece(piece_id, position_px, size_px, height_cat, rotation_deg, piece_type, piece_traits)
 
 		# Process walls from JSON (local coordinates -> absolute world coordinates)
 		var json_walls = piece_data.get("walls", [])
@@ -209,7 +216,7 @@ func _setup_layout_2() -> void:
 	# Add walls to terrain pieces based on layout diagram
 	_add_sample_walls_to_terrain()
 
-func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins") -> void:
+func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat: HeightCategory, rotation_degrees: float = 0.0, terrain_type: String = "ruins", traits: Array = []) -> void:
 	# Create polygon from position and size (rectangle)
 	var half_size = size * 0.5
 
@@ -256,7 +263,8 @@ func _add_terrain_piece(id: String, position: Vector2, size: Vector2, height_cat
 			"INFANTRY": true,
 			"VEHICLE": false,
 			"MONSTER": false
-		}
+		},
+		"traits": traits  # T3-16: terrain traits like "difficult_ground"
 	}
 
 	terrain_features.append(terrain_piece)
@@ -332,11 +340,21 @@ func get_height_inches(terrain_piece: Dictionary) -> float:
 		_:
 			return 6.0  # Default to tall
 
+## T3-16: Get the traits array for a terrain piece. Returns empty array if none.
+func get_terrain_traits(terrain_piece: Dictionary) -> Array:
+	return terrain_piece.get("traits", [])
+
+## T3-16: Check if a terrain piece has a specific trait.
+func has_terrain_trait(terrain_piece: Dictionary, trait_name: String) -> bool:
+	return trait_name in get_terrain_traits(terrain_piece)
+
 ## Calculate the vertical distance penalty for a charge path crossing terrain.
 ## Per 10e rules: terrain 2" or less can be moved over freely.
 ## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
 ## against the charge roll.
 ## FLY units measure diagonally instead of vertically, which is more efficient.
+## T3-16: Also applies difficult_ground trait penalty (flat 2" per piece crossed).
+## FLY units ignore difficult ground during charges as well.
 ##
 ## Returns the extra distance in inches that must be added to the path distance.
 func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
@@ -349,31 +367,36 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 
 		var height_inches = get_height_inches(terrain)
 
-		# Terrain 2" or less: no penalty (can move over freely)
-		if height_inches <= 2.0:
-			continue
+		# Height penalty: terrain 2" or less has no climb penalty
+		if height_inches > 2.0:
+			if has_fly:
+				# FLY units measure diagonally through the air
+				# The diagonal distance through a terrain piece of height h
+				# is sqrt(horizontal_cross^2 + h^2) - horizontal_cross
+				# This is less than the vertical climb (up + down = 2*h)
+				# For simplicity, we use the diagonal penalty: sqrt(h^2 + cross^2) - cross
+				# where cross is the horizontal distance through the terrain
+				var polygon = terrain.get("polygon", PackedVector2Array())
+				var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
+				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
+				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
+				var fly_penalty = diagonal - cross_distance_inches
+				total_penalty += fly_penalty
+				print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
+					terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
+			else:
+				# Non-FLY units must climb up and back down: penalty = height * 2
+				# (climb up one side, climb down the other)
+				total_penalty += height_inches * 2.0
+				print("[TerrainManager] Terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+					terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
 
-		if has_fly:
-			# FLY units measure diagonally through the air
-			# The diagonal distance through a terrain piece of height h
-			# is sqrt(horizontal_cross^2 + h^2) - horizontal_cross
-			# This is less than the vertical climb (up + down = 2*h)
-			# For simplicity, we use the diagonal penalty: sqrt(h^2 + cross^2) - cross
-			# where cross is the horizontal distance through the terrain
-			var polygon = terrain.get("polygon", PackedVector2Array())
-			var cross_distance_px = _get_terrain_crossing_distance(from_pos, to_pos, polygon)
-			var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
-			var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
-			var fly_penalty = diagonal - cross_distance_inches
-			total_penalty += fly_penalty
-			print("[TerrainManager] FLY terrain penalty for %s: diagonal=%.1f\" cross=%.1f\" penalty=%.1f\"" % [
-				terrain.get("id", "unknown"), diagonal, cross_distance_inches, fly_penalty])
-		else:
-			# Non-FLY units must climb up and back down: penalty = height * 2
-			# (climb up one side, climb down the other)
-			total_penalty += height_inches * 2.0
-			print("[TerrainManager] Terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
-				terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
+		# FLY units ignore difficult ground
+		if not has_fly and has_terrain_trait(terrain, "difficult_ground"):
+			total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
+			print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
+				terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
 
 	return total_penalty
 
@@ -382,12 +405,14 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 ## Terrain taller than 2" requires counting vertical distance (climb up + climb down)
 ## against the unit's movement allowance.
 ## FLY units ignore terrain elevation entirely during movement — penalty is always 0.
+## T3-16: Also applies difficult_ground trait penalty (flat 2" per piece crossed).
+## FLY units also ignore difficult ground.
 ##
 ## Returns the extra distance in inches that must be added to the movement distance.
 func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
-	# FLY units ignore terrain elevation entirely during movement
+	# FLY units ignore terrain elevation and difficult ground entirely during movement
 	if has_fly:
-		print("[TerrainManager] FLY unit ignores terrain elevation during movement")
+		print("[TerrainManager] FLY unit ignores terrain elevation and difficult ground during movement")
 		return 0.0
 
 	var total_penalty: float = 0.0
@@ -399,15 +424,19 @@ func calculate_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_
 
 		var height_inches = get_height_inches(terrain)
 
-		# Terrain 2" or less: no penalty (can move over freely)
-		if height_inches <= 2.0:
-			continue
+		# Height penalty: terrain 2" or less has no climb penalty
+		if height_inches > 2.0:
+			# Non-FLY units must climb up and back down: penalty = height * 2
+			# (climb up one side, climb down the other)
+			total_penalty += height_inches * 2.0
+			print("[TerrainManager] Movement terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
+				terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
 
-		# Non-FLY units must climb up and back down: penalty = height * 2
-		# (climb up one side, climb down the other)
-		total_penalty += height_inches * 2.0
-		print("[TerrainManager] Movement terrain penalty for %s: climb up + down = %.1f\" (height=%.1f\")" % [
-			terrain.get("id", "unknown"), height_inches * 2.0, height_inches])
+		# T3-16: Difficult ground trait penalty — flat 2" per terrain piece crossed
+		if has_terrain_trait(terrain, "difficult_ground"):
+			total_penalty += DIFFICULT_GROUND_PENALTY_INCHES
+			print("[TerrainManager] Difficult ground penalty for %s: +%.1f\"" % [
+				terrain.get("id", "unknown"), DIFFICULT_GROUND_PENALTY_INCHES])
 
 	return total_penalty
 
@@ -643,6 +672,7 @@ func get_terrain_for_save() -> Array:
 			"size": [terrain.size.x, terrain.size.y],
 			"height_category": terrain.height_category,
 			"rotation": terrain.get("rotation", 0.0),
+			"traits": terrain.get("traits", []),  # T3-16: save terrain traits
 			"layout": current_layout
 		})
 	return save_data
@@ -674,6 +704,7 @@ func load_terrain_from_save(save_data: Array) -> void:
 				height_cat = HeightCategory.TALL
 
 		var saved_type = terrain_data.get("type", "ruins")
-		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type)
+		var saved_traits = terrain_data.get("traits", [])  # T3-16: restore terrain traits
+		_add_terrain_piece(terrain_data.id, pos, size, height_cat, rotation, saved_type, saved_traits)
 
 	emit_signal("terrain_loaded", terrain_features)
