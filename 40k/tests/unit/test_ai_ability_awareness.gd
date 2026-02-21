@@ -99,6 +99,26 @@ func _run_tests():
 	test_melee_damage_reduced_by_target_fnp()
 	test_charge_score_boosted_by_melee_leader()
 
+	# T7-11: Deadly Demise detection tests
+	test_deadly_demise_detection()
+	test_deadly_demise_value_d3()
+	test_deadly_demise_value_d6()
+	test_deadly_demise_not_present()
+	test_is_unit_doomed()
+	test_is_unit_not_doomed()
+
+	# T7-11: Lone Operative protection helpers
+	test_lone_operative_movement_helper()
+
+	# T7-11: Enhanced profile includes new fields
+	test_profile_includes_deadly_demise()
+
+	# T7-11: Oath of Moment prefers leader targets
+	test_oath_prefers_leader_with_buffs()
+
+	# T7-11: Charge score boosted for doomed Deadly Demise vehicles
+	test_charge_score_boosted_by_deadly_demise()
+
 # =========================================================================
 # Helpers
 # =========================================================================
@@ -707,3 +727,159 @@ func test_charge_score_boosted_by_melee_leader():
 
 	_assert(score_led > score_alone,
 		"Charge score higher with Warboss leader (alone=%.2f, led=%.2f)" % [score_alone, score_led])
+
+# =========================================================================
+# T7-11: Deadly Demise detection tests
+# =========================================================================
+
+func test_deadly_demise_detection():
+	var unit = {"meta": {"abilities": [
+		{"name": "Deadly Demise D3", "type": "Datasheet", "description": "When destroyed, roll D3 mortal wounds"}
+	]}}
+	_assert(AIAbilityAnalyzer.has_deadly_demise(unit), "T7-11: Deadly Demise detected from ability name")
+
+func test_deadly_demise_value_d3():
+	var unit = {"meta": {"abilities": [
+		{"name": "Deadly Demise D3", "type": "Datasheet", "description": "Roll D3 mortal wounds"}
+	]}}
+	var val = AIAbilityAnalyzer.get_deadly_demise_value(unit)
+	_assert(val == 3, "T7-11: Deadly Demise D3 returns value 3 (got %d)" % val)
+
+func test_deadly_demise_value_d6():
+	var unit = {"meta": {"abilities": [
+		{"name": "Deadly Demise D6", "type": "Datasheet", "description": "Roll D6 mortal wounds"}
+	]}}
+	var val = AIAbilityAnalyzer.get_deadly_demise_value(unit)
+	_assert(val == 6, "T7-11: Deadly Demise D6 returns value 6 (got %d)" % val)
+
+func test_deadly_demise_not_present():
+	var unit = {"meta": {"abilities": [
+		{"name": "Stealth", "type": "Datasheet"}
+	]}}
+	_assert(not AIAbilityAnalyzer.has_deadly_demise(unit), "T7-11: Deadly Demise not detected on non-DD unit")
+	var val = AIAbilityAnalyzer.get_deadly_demise_value(unit)
+	_assert(val == 0, "T7-11: Non-DD unit returns value 0 (got %d)" % val)
+
+func test_is_unit_doomed():
+	# Single-model vehicle with 1/12 wounds remaining
+	var unit = {"models": [
+		{"id": "m1", "alive": true, "wounds": 12, "current_wounds": 2}
+	]}
+	_assert(AIAbilityAnalyzer.is_unit_doomed(unit), "T7-11: Vehicle with 2/12 wounds is doomed")
+
+func test_is_unit_not_doomed():
+	# Vehicle with 8/12 wounds remaining
+	var unit = {"models": [
+		{"id": "m1", "alive": true, "wounds": 12, "current_wounds": 8}
+	]}
+	_assert(not AIAbilityAnalyzer.is_unit_doomed(unit), "T7-11: Vehicle with 8/12 wounds is not doomed")
+
+# =========================================================================
+# T7-11: Lone Operative movement helper tests
+# =========================================================================
+
+func test_lone_operative_movement_helper():
+	# Test that AIDecisionMaker helper correctly computes safe positions
+	var centroid = Vector2(800, 600)
+	var enemies = {}
+	# Place an enemy within 10" (too close)
+	enemies["e1"] = {
+		"id": "e1", "owner": 2,
+		"models": [{"id": "m1", "alive": true, "position": Vector2(800, 200), "base_mm": 32}],
+		"meta": {"name": "Enemy", "stats": {"move": 6}}
+	}
+	var objectives = [Vector2(400, 400)]
+	var safe_pos = AIDecisionMaker._get_lone_operative_safe_position(
+		centroid, 6.0, enemies, objectives, objectives[0]
+	)
+	_assert(safe_pos != Vector2.INF, "T7-11: Lone Operative safe position found when enemy is close")
+	# The safe position should be further from the enemy than the current position
+	if safe_pos != Vector2.INF:
+		var current_enemy_dist = centroid.distance_to(Vector2(800, 200))
+		var new_enemy_dist = safe_pos.distance_to(Vector2(800, 200))
+		_assert(new_enemy_dist > current_enemy_dist,
+			"T7-11: Safe position is further from enemy (was %.1f\", now %.1f\")" % [
+				current_enemy_dist / 40.0, new_enemy_dist / 40.0])
+
+# =========================================================================
+# T7-11: Profile includes Deadly Demise fields
+# =========================================================================
+
+func test_profile_includes_deadly_demise():
+	var snapshot = _create_test_snapshot()
+	_add_unit(snapshot, "vehicle", 2, Vector2(200, 200), "Battlewagon", 1,
+		["VEHICLE"], [], 12, 3, 16, 0, {},
+		[{"name": "Deadly Demise D6", "type": "Datasheet", "description": "D6 mortal wounds"}])
+	# Set wounds low to make it doomed
+	snapshot.units["vehicle"]["models"][0]["current_wounds"] = 3
+
+	var profile = AIAbilityAnalyzer.get_unit_ability_profile("vehicle", snapshot.units["vehicle"], snapshot.units)
+	_assert(profile["has_deadly_demise"], "T7-11: Profile shows has_deadly_demise for vehicle")
+	_assert(profile["deadly_demise_value"] == 6, "T7-11: Profile shows DD value 6 (got %d)" % profile["deadly_demise_value"])
+	_assert(profile["is_doomed"], "T7-11: Profile shows is_doomed for low-health vehicle")
+
+# =========================================================================
+# T7-11: Oath of Moment prefers leader targets with buffs
+# =========================================================================
+
+func test_oath_prefers_leader_with_buffs():
+	var snapshot = _create_test_snapshot()
+	# Regular infantry unit
+	_add_unit(snapshot, "regular", 2, Vector2(400, 0), "Regular Infantry", 5,
+		["INFANTRY"], [_make_ranged_weapon("Lasgun", 4, 3, 0, 1, 1, 24)], 3, 5, 1, 0, {}, [])
+	snapshot.units["regular"]["meta"]["points"] = "100"
+	# Leader character with "while leading" ability
+	_add_unit(snapshot, "leader", 2, Vector2(600, 0), "Captain", 1,
+		["CHARACTER", "INFANTRY"], [_make_melee_weapon("Power Sword", 2, 5, 3, 2, 5)],
+		4, 3, 5, 4, {},
+		[{"name": "Rites of Battle", "type": "Datasheet", "description": "While this model is leading a unit, re-roll hit rolls of 1"}])
+	snapshot.units["leader"]["meta"]["points"] = "100"
+	snapshot.units["leader"]["attachment_data"] = {"attached_characters": []}
+	snapshot.units["leader"]["attached_to"] = "bodyguard_squad"
+
+	# Add a friendly shooter for the AI
+	_add_unit(snapshot, "shooter", 1, Vector2(0, 0), "AI Shooter", 5,
+		["INFANTRY"], [_make_ranged_weapon("Bolt Rifle", 3, 4, 1, 1, 2, 24)], 4, 3, 2, 0, {}, [])
+
+	var oath_actions = [
+		{"type": "SELECT_OATH_TARGET", "target_unit_id": "regular"},
+		{"type": "SELECT_OATH_TARGET", "target_unit_id": "leader"}
+	]
+
+	var result = AIDecisionMaker._select_oath_of_moment_target(snapshot, oath_actions, 1)
+	_assert(result.get("type") == "SELECT_OATH_TARGET",
+		"T7-11: Oath selects a target when leader and regular are available")
+	# The leader (with while-leading buffs and CHARACTER keyword) should be preferred
+	_assert(result.get("target_unit_id") == "leader",
+		"T7-11: Oath prefers leader character with while-leading buffs (got %s)" % result.get("target_unit_id", ""))
+
+# =========================================================================
+# T7-11: Charge score boosted by Deadly Demise on doomed vehicles
+# =========================================================================
+
+func test_charge_score_boosted_by_deadly_demise():
+	var snapshot = _create_test_snapshot()
+	var melee = _make_melee_weapon("Deff Rolla", 3, 9, 2, 2, 6)
+
+	# Doomed vehicle WITH Deadly Demise
+	_add_unit(snapshot, "dd_vehicle", 1, Vector2(0, 0), "Battlewagon DD", 1,
+		["VEHICLE"], [melee], 12, 3, 16, 0, {},
+		[{"name": "Deadly Demise D6", "type": "Datasheet", "description": "D6 mortal wounds"}])
+	snapshot.units["dd_vehicle"]["models"][0]["current_wounds"] = 3  # Doomed
+
+	# Same vehicle WITHOUT Deadly Demise
+	_add_unit(snapshot, "no_dd_vehicle", 1, Vector2(0, 100), "Battlewagon", 1,
+		["VEHICLE"], [melee], 12, 3, 16, 0, {}, [])
+	snapshot.units["no_dd_vehicle"]["models"][0]["current_wounds"] = 3  # Also doomed
+
+	# Enemy target
+	_add_unit(snapshot, "target", 2, Vector2(200, 0), "Target", 5,
+		["INFANTRY"], [], 4, 3, 1, 0, {})
+
+	var score_dd = AIDecisionMaker._score_charge_target(
+		snapshot.units["dd_vehicle"], snapshot.units["target"], snapshot, 1)
+	var score_no_dd = AIDecisionMaker._score_charge_target(
+		snapshot.units["no_dd_vehicle"], snapshot.units["target"], snapshot, 1)
+
+	_assert(score_dd > score_no_dd,
+		"T7-11: Charge score higher for doomed Deadly Demise vehicle (dd=%.2f, no_dd=%.2f)" % [score_dd, score_no_dd])
