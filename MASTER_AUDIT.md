@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-43 (2026-02-20): AI late-game strategy pivot — Added `_get_round_strategy_modifiers()` with per-round multipliers (aggression, objective_priority, survival, charge_threshold). Rounds 1-2 AGGRESSIVE: +30% kill value, -15% obj weight, -20% threat penalty, -20% charge threshold. Round 3 BALANCED: all 1.0. Rounds 4-5 OBJECTIVE/SURVIVAL: -30% kill value, +40% obj priority, +40% threat avoidance, +30% charge threshold, +50% objective-charge bonus, +30% objective-target bonus. Applied across movement, shooting, charge, engaged-unit, and consolidation decisions. | All/AI | AI_AUDIT.md §AI-TACTIC-10 |
 | T7-42 (2026-02-20): AI move blocking — Added `_calculate_corridor_blocking_positions()` to identify key corridors between enemy units and objectives, then assign expendable units to block them. Corridor positions calculated at 55% along the enemy-to-objective line, prioritized by objective importance and enemy proximity. Integrated into PASS 3 of unit assignment alongside existing screening/denial logic. Capped at 4 blocking positions with 5" minimum spacing. | Movement/AI | AI_AUDIT.md §AI-TACTIC-9 |
 | T7-40 (2026-02-20): AI difficulty levels — Created `AIDifficultyConfig.gd` with Easy/Normal/Hard/Competitive difficulty enum and per-level feature flags (stratagems, multi-phase planning, threat awareness, trade analysis, score noise, charge thresholds). Easy uses random valid actions; Normal is current behavior; Hard adds stratagems and multi-phase planning; Competitive adds look-ahead and zero noise. Per-player difficulty stored in AIPlayer, gating reactive stratagems/overwatch/counter-offensive/command reroll by level. Difficulty dropdowns auto-shown in MainMenu when player type is AI. | Settings/AI | AI_AUDIT.md §QoL-5 |
 | T7-39 (2026-02-20): AI objective control flash on change — Added `flash_control_change()` to ObjectiveVisual.gd with pulsing ring animation (green=AI capture, red=AI loss, yellow=contested). Real-time objective rechecks after movement/charge via `call_deferred`. Updated `objective_control_changed` signal to include old_controller. | UI/AI | AI_AUDIT.md §VIS-4 |
@@ -1308,12 +1309,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No movement corridor blocking. Identify key corridors between enemy units and objectives, position expendable units to block them.
 - **Resolution:** Added `_calculate_corridor_blocking_positions()` that identifies corridors between enemy units (within 30") and high-value objectives, computing blocking positions at 55% along the corridor. Expendable units (`_is_screening_candidate`) assigned to block corridors in PASS 3 of unit assignment, using existing "screen" movement action. Priority based on objective importance + enemy proximity + threat level. Capped at 4 blocking positions with 5" spacing.
 
-### T7-43. AI late-game strategy pivot
+### T7-43. AI late-game strategy pivot — **DONE**
 - **Phase:** All
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §AI-TACTIC-10
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Same strategy throughout the game. Implement turn-based modifier: Rounds 1-2 aggressive positioning, Round 3 balance, Rounds 4-5 prioritize objective control and survival over kills.
+- **Resolution:** Added `_get_round_strategy_modifiers()` returning per-round aggression, objective_priority, survival, and charge_threshold multipliers. Applied across movement (objective scoring + threat penalties), shooting (target value + objective-presence bonus), charge (threshold + objective-charge bonus), engaged unit decisions (late-game hold bias), and consolidation (prefer objectives over marginal engagements in rounds 4-5).
 
 ### T7-44. AI counter-deployment
 - **Phase:** Deployment
@@ -1468,9 +1470,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 31 | 27 | 58 |
-| **Total** | **130** | **56** | **186** |
-| **Recently Completed** | **149** | — | **149** |
+| Tier 7 — AI Player | 32 | 26 | 58 |
+| **Total** | **131** | **55** | **186** |
+| **Recently Completed** | **150** | — | **150** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
