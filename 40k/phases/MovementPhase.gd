@@ -1747,7 +1747,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
-	
+
+	# T3-15: Disembarked units do not count as Remained Stationary per 10e rules.
+	# They don't get Heavy weapon bonus even if they choose not to move after disembarking.
+	var is_disembarked = unit.get("disembarked_this_phase", false)
+
 	var changes = [
 		{
 			"op": "set",
@@ -1757,11 +1761,14 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 		{
 			"op": "set",
 			"path": "units.%s.flags.remained_stationary" % unit_id,
-			"value": true
+			"value": not is_disembarked
 		}
 	]
-	
-	log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
+
+	if is_disembarked:
+		log_phase_message("%s remained stationary (disembarked this phase — no Heavy bonus)" % unit.get("meta", {}).get("name", unit_id))
+	else:
+		log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
 	
 	# Mark unit as completed in active_moves
 	if active_moves.has(unit_id):
