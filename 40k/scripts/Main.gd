@@ -91,6 +91,11 @@ var _spectator_speed_label: Label = null
 var _spectator_speed_panel: PanelContainer = null
 var _is_spectator_mode: bool = false
 
+# T7-36: AI speed controls HUD (for human-vs-AI mode)
+var _ai_speed_panel: PanelContainer = null
+var _ai_speed_label: Label = null
+var _ai_step_continue_button: Button = null
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -287,6 +292,9 @@ func _ready() -> void:
 	# T7-55: Setup spectator mode speed indicator
 	_setup_spectator_speed_hud()
 
+	# T7-36: Setup AI speed controls HUD
+	_setup_ai_speed_hud()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -356,8 +364,25 @@ func _initialize_ai_player() -> void:
 			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
 		print("Main: Connected AIPlayer signals to AI action log overlay (T7-54)")
 
-	# T7-55: Setup spectator mode if both players are AI
+	# T7-36: Apply AI speed setting from game config
+	var ai_speed = int(game_config.get("ai_speed", 1))  # Default: Normal (index 1)
+	ai_player.set_ai_speed_preset(ai_speed)
+	print("Main: T7-36 AI speed preset set to %s" % ai_player.get_ai_speed_name())
+
+	# T7-36: Connect AI speed signals
+	if not ai_player.ai_speed_changed.is_connected(_on_ai_speed_changed):
+		ai_player.ai_speed_changed.connect(_on_ai_speed_changed)
+	if not ai_player.step_by_step_waiting.is_connected(_on_step_by_step_waiting):
+		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
+
+	# T7-36: Show AI speed HUD for non-spectator AI games
 	_is_spectator_mode = ai_player.is_spectator_mode()
+	if not _is_spectator_mode and ai_player.enabled:
+		_update_ai_speed_label(ai_player.get_ai_speed_name())
+		if _ai_speed_panel:
+			_ai_speed_panel.visible = true
+
+	# T7-55: Setup spectator mode if both players are AI
 	if _is_spectator_mode:
 		print("Main: T7-55 Spectator mode detected (AI vs AI)")
 		# Tell the action log overlay to use spectator timing
@@ -445,6 +470,8 @@ func _on_ai_turn_ended(player: int, _action_summary: Array) -> void:
 	_hide_ai_thinking_indicator(player)
 	# T7-52: Clear AI unit highlights when AI turn ends
 	_clear_ai_unit_highlights()
+	# T7-36: Hide step-by-step continue button when AI turn ends
+	_hide_step_continue_button()
 
 func _sync_all_token_positions() -> void:
 	# Sync all token visual positions from GameState (for after AI plays)
@@ -907,6 +934,86 @@ func _on_spectator_phase_summary(player: int, phase: int, summary: Dictionary) -
 		return
 	var phase_name = _get_phase_label_text(phase).replace(" Phase", "")
 	_ai_action_log_overlay.add_phase_summary(player, phase_name, summary)
+
+# =============================================================================
+# T7-36: AI Speed Controls HUD
+# =============================================================================
+
+func _setup_ai_speed_hud() -> void:
+	"""T7-36: Create a speed indicator panel for AI games (non-spectator mode)."""
+	_ai_speed_panel = PanelContainer.new()
+	_ai_speed_panel.name = "AISpeedPanel"
+	# Position at top-center, below the phase HUD
+	_ai_speed_panel.anchor_left = 0.5
+	_ai_speed_panel.anchor_right = 0.5
+	_ai_speed_panel.anchor_top = 0.0
+	_ai_speed_panel.anchor_bottom = 0.0
+	_ai_speed_panel.offset_left = -120.0
+	_ai_speed_panel.offset_right = 120.0
+	_ai_speed_panel.offset_top = 72.0
+	_ai_speed_panel.offset_bottom = 110.0
+	_ai_speed_panel.visible = false  # Hidden until AI game confirmed
+	_ai_speed_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# Dark background with gold border — WhiteDwarf style
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.09, 0.85)
+	style.border_color = Color(_WhiteDwarfTheme.WH_GOLD, 0.6)
+	style.set_border_width_all(1)
+	style.border_width_top = 2
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(4)
+	_ai_speed_panel.add_theme_stylebox_override("panel", style)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	_ai_speed_panel.add_child(vbox)
+
+	_ai_speed_label = Label.new()
+	_ai_speed_label.text = "AI Speed: Normal  [< >]"
+	_ai_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ai_speed_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_ai_speed_label.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(_ai_speed_label)
+
+	# Step-by-step continue button (hidden unless step-by-step mode is paused)
+	_ai_step_continue_button = Button.new()
+	_ai_step_continue_button.text = "Continue (Space)"
+	_ai_step_continue_button.custom_minimum_size = Vector2(0, 24)
+	_ai_step_continue_button.visible = false
+	_ai_step_continue_button.pressed.connect(_on_step_continue_pressed)
+	_WhiteDwarfTheme.apply_to_button(_ai_step_continue_button)
+	vbox.add_child(_ai_step_continue_button)
+
+	add_child(_ai_speed_panel)
+	print("Main: T7-36 AI speed HUD created")
+
+func _on_ai_speed_changed(preset: int, preset_name: String) -> void:
+	"""T7-36: Update the AI speed label when speed changes."""
+	_update_ai_speed_label(preset_name)
+
+func _update_ai_speed_label(speed_name: String) -> void:
+	"""T7-36: Update the AI speed indicator label text."""
+	if _ai_speed_label:
+		_ai_speed_label.text = "AI Speed: %s  [< >]" % speed_name
+
+func _on_step_by_step_waiting() -> void:
+	"""T7-36: Show the continue button when step-by-step mode pauses."""
+	if _ai_step_continue_button:
+		_ai_step_continue_button.visible = true
+
+func _on_step_continue_pressed() -> void:
+	"""T7-36: User pressed the continue button in step-by-step mode."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player:
+		ai_player.step_by_step_continue()
+	if _ai_step_continue_button:
+		_ai_step_continue_button.visible = false
+
+func _hide_step_continue_button() -> void:
+	"""T7-36: Hide the continue button (e.g., when AI turn ends)."""
+	if _ai_step_continue_button:
+		_ai_step_continue_button.visible = false
 
 # =============================================================================
 # T7-52: AI Unit Highlighting During Actions
@@ -2797,29 +2904,53 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
-	# T7-55: Spectator speed control — comma/period to adjust, slash to cycle
-	if event is InputEventKey and event.pressed and _is_spectator_mode:
+	# T7-36: AI speed control — comma/period to adjust, slash to cycle, Space to continue step-by-step
+	if event is InputEventKey and event.pressed:
 		var ai_player = get_node_or_null("/root/AIPlayer")
-		if ai_player:
-			if event.keycode == KEY_COMMA:
-				# Slow down
-				var idx = ai_player._spectator_speed_index
-				if idx > 0:
-					ai_player.set_spectator_speed_index(idx - 1)
+		if ai_player and ai_player.enabled:
+			# T7-36: Space key continues step-by-step mode
+			if event.keycode == KEY_SPACE and ai_player.is_step_by_step_paused():
+				ai_player.step_by_step_continue()
+				_hide_step_continue_button()
 				get_viewport().set_input_as_handled()
 				return
-			elif event.keycode == KEY_PERIOD:
-				# Speed up
-				var idx = ai_player._spectator_speed_index
-				if idx < ai_player.SPECTATOR_SPEED_PRESETS.size() - 1:
-					ai_player.set_spectator_speed_index(idx + 1)
-				get_viewport().set_input_as_handled()
-				return
-			elif event.keycode == KEY_SLASH:
-				# Cycle through presets
-				ai_player.cycle_spectator_speed()
-				get_viewport().set_input_as_handled()
-				return
+
+			# T7-55: Spectator speed control (AI vs AI mode)
+			if _is_spectator_mode:
+				if event.keycode == KEY_COMMA:
+					var idx = ai_player._spectator_speed_index
+					if idx > 0:
+						ai_player.set_spectator_speed_index(idx - 1)
+					get_viewport().set_input_as_handled()
+					return
+				elif event.keycode == KEY_PERIOD:
+					var idx = ai_player._spectator_speed_index
+					if idx < ai_player.SPECTATOR_SPEED_PRESETS.size() - 1:
+						ai_player.set_spectator_speed_index(idx + 1)
+					get_viewport().set_input_as_handled()
+					return
+				elif event.keycode == KEY_SLASH:
+					ai_player.cycle_spectator_speed()
+					get_viewport().set_input_as_handled()
+					return
+			else:
+				# T7-36: Non-spectator AI speed control — comma/period/slash
+				if event.keycode == KEY_COMMA:
+					var preset = ai_player.get_ai_speed_preset()
+					if preset > 0:
+						ai_player.set_ai_speed_preset(preset - 1)
+					get_viewport().set_input_as_handled()
+					return
+				elif event.keycode == KEY_PERIOD:
+					var preset = ai_player.get_ai_speed_preset()
+					if preset < ai_player.AISpeedPreset.STEP_BY_STEP:
+						ai_player.set_ai_speed_preset(preset + 1)
+					get_viewport().set_input_as_handled()
+					return
+				elif event.keycode == KEY_SLASH:
+					ai_player.cycle_ai_speed()
+					get_viewport().set_input_as_handled()
+					return
 
 	# T7-56: AI Turn Replay panel toggle — 'r' key
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:

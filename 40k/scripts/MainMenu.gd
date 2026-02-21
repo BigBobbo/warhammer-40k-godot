@@ -14,6 +14,9 @@ var player1_difficulty_container: HBoxContainer = null
 var player1_difficulty_dropdown: OptionButton = null
 var player2_difficulty_container: HBoxContainer = null
 var player2_difficulty_dropdown: OptionButton = null
+# T7-36: AI speed dropdown (shown when any player is AI)
+var ai_speed_container: HBoxContainer = null
+var ai_speed_dropdown: OptionButton = null
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
@@ -105,6 +108,9 @@ func _setup_dropdowns() -> void:
 	# T7-40: Create AI difficulty dropdowns
 	_create_difficulty_dropdowns()
 
+	# T7-36: Create AI speed dropdown
+	_create_ai_speed_dropdown()
+
 	# Dynamically populate army dropdowns from ArmyListManager
 	_load_available_armies()
 	for option in army_options:
@@ -190,6 +196,7 @@ func _on_player1_type_changed(index: int) -> void:
 		player1_difficulty_container.visible = (index == 1)  # 1 = AI
 		print("MainMenu: Player 1 type changed to %s, difficulty visible: %s" % [
 			"AI" if index == 1 else "Human", player1_difficulty_container.visible])
+	_update_ai_speed_visibility()
 
 func _on_player2_type_changed(index: int) -> void:
 	"""T7-40: Show/hide P2 difficulty dropdown based on player type."""
@@ -197,6 +204,44 @@ func _on_player2_type_changed(index: int) -> void:
 		player2_difficulty_container.visible = (index == 1)  # 1 = AI
 		print("MainMenu: Player 2 type changed to %s, difficulty visible: %s" % [
 			"AI" if index == 1 else "Human", player2_difficulty_container.visible])
+	_update_ai_speed_visibility()
+
+func _create_ai_speed_dropdown() -> void:
+	"""T7-36: Create an AI speed dropdown in the army section, shown when any player is AI."""
+	var army_section = $MenuContainer/ArmySection
+
+	ai_speed_container = HBoxContainer.new()
+	ai_speed_container.name = "AISpeedContainer"
+
+	var speed_label = Label.new()
+	speed_label.text = "AI Speed:"
+	speed_label.custom_minimum_size = Vector2(150, 0)
+	ai_speed_container.add_child(speed_label)
+
+	ai_speed_dropdown = OptionButton.new()
+	ai_speed_dropdown.name = "AISpeedDropdown"
+	ai_speed_dropdown.custom_minimum_size = Vector2(300, 0)
+	ai_speed_dropdown.add_item("Fast (0ms)")          # Index 0 = AISpeedPreset.FAST
+	ai_speed_dropdown.add_item("Normal (200ms)")      # Index 1 = AISpeedPreset.NORMAL
+	ai_speed_dropdown.add_item("Slow (500ms)")        # Index 2 = AISpeedPreset.SLOW
+	ai_speed_dropdown.add_item("Step-by-step")        # Index 3 = AISpeedPreset.STEP_BY_STEP
+	ai_speed_dropdown.selected = 1  # Default: Normal
+
+	ai_speed_container.add_child(ai_speed_dropdown)
+
+	# Insert at the end of ArmySection (after all player containers)
+	army_section.add_child(ai_speed_container)
+
+	# Set initial visibility
+	_update_ai_speed_visibility()
+
+	print("MainMenu: T7-36 AI speed dropdown created")
+
+func _update_ai_speed_visibility() -> void:
+	"""T7-36: Show/hide AI speed dropdown based on whether any player is AI."""
+	if ai_speed_container:
+		var any_ai = (player1_type_dropdown.selected == 1) or (player2_type_dropdown.selected == 1)
+		ai_speed_container.visible = any_ai
 
 func _load_available_armies() -> void:
 	# Dynamically load available armies from ArmyListManager
@@ -364,6 +409,8 @@ func _on_start_button_pressed() -> void:
 	# T7-40: Get difficulty settings (dropdown index matches AIDifficultyConfig.Difficulty enum)
 	var p1_difficulty = player1_difficulty_dropdown.selected if player1_difficulty_dropdown else 1
 	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 1
+	# T7-36: Get AI speed setting (dropdown index matches AIPlayer.AISpeedPreset enum)
+	var ai_speed = ai_speed_dropdown.selected if ai_speed_dropdown else 1
 	var config = {
 		"terrain": terrain_options[terrain_dropdown.selected].id,
 		"mission": mission_options[mission_dropdown.selected].id,
@@ -373,7 +420,8 @@ func _on_start_button_pressed() -> void:
 		"player1_type": p1_type,
 		"player2_type": p2_type,
 		"player1_difficulty": p1_difficulty,
-		"player2_difficulty": p2_difficulty
+		"player2_difficulty": p2_difficulty,
+		"ai_speed": ai_speed,
 	}
 
 	print("MainMenu: Starting game with config: ", config)

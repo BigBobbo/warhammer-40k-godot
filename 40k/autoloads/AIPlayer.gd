@@ -22,10 +22,27 @@ var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where curren
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 
+# T7-36: AI speed presets — configurable delay between AI actions
+enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
+const AI_SPEED_DELAYS: Dictionary = {
+	AISpeedPreset.FAST: 0.0,
+	AISpeedPreset.NORMAL: 0.2,
+	AISpeedPreset.SLOW: 0.5,
+	AISpeedPreset.STEP_BY_STEP: 0.0,  # Step-by-step uses manual continue, not timed delays
+}
+const AI_SPEED_NAMES: Dictionary = {
+	AISpeedPreset.FAST: "Fast",
+	AISpeedPreset.NORMAL: "Normal",
+	AISpeedPreset.SLOW: "Slow",
+	AISpeedPreset.STEP_BY_STEP: "Step-by-step",
+}
+var _ai_speed_preset: int = AISpeedPreset.NORMAL
+var _step_by_step_paused: bool = false  # T7-36: True when waiting for user to continue in step-by-step mode
+
 # Frame-paced evaluation: ensures the renderer gets to draw between AI actions
 var _needs_evaluation: bool = false
 var _eval_timer: float = 0.0
-const AI_ACTION_DELAY: float = 0.05  # 50ms between actions so UI can update
+const AI_ACTION_DELAY: float = 0.05  # 50ms fallback (overridden by _ai_speed_preset)
 
 # T7-55: Spectator mode (AI vs AI) — slower action delay so humans can follow
 const SPECTATOR_ACTION_DELAY: float = 0.5  # 500ms between actions in spectator mode
@@ -52,6 +69,10 @@ signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
 signal ai_action_taken(player: int, action: Dictionary, description: String)
 signal ai_unit_deployed(player: int, unit_id: String)
+
+# T7-36: AI speed control signals
+signal ai_speed_changed(preset: int, name: String)
+signal step_by_step_waiting()  # Emitted when step-by-step mode pauses for user input
 
 # T7-55: Spectator mode signals
 signal spectator_speed_changed(speed: float)
@@ -93,6 +114,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _needs_evaluation or not enabled or PhaseManager.game_ended or _processing_turn:
 		return
+	# T7-36: In step-by-step mode, wait for user to continue
+	if _step_by_step_paused:
+		return
 	_eval_timer -= delta
 	if _eval_timer <= 0.0:
 		_needs_evaluation = false
@@ -101,8 +125,14 @@ func _process(delta: float) -> void:
 func _request_evaluation() -> void:
 	"""Schedule an AI evaluation for the next frame(s), giving the renderer time to draw."""
 	_needs_evaluation = true
-	# T7-55: Use slower delay in spectator mode so humans can follow
+	# T7-36: Use configured speed preset delay (or spectator delay in AI-vs-AI mode)
 	_eval_timer = _get_effective_action_delay()
+
+	# T7-36: In step-by-step mode, pause after the AI has already taken at least one action
+	if _ai_speed_preset == AISpeedPreset.STEP_BY_STEP and _ai_thinking:
+		_step_by_step_paused = true
+		emit_signal("step_by_step_waiting")
+		print("AIPlayer: T7-36 Step-by-step mode — paused, waiting for user continue")
 
 	# T7-20: Signal that AI is now thinking (only on first evaluation of a sequence)
 	if not _ai_thinking:
@@ -117,6 +147,7 @@ func _end_ai_thinking() -> void:
 	"""T7-20: Signal that the AI has finished its current thinking sequence."""
 	if _ai_thinking:
 		_ai_thinking = false
+		_step_by_step_paused = false  # T7-36: Clear step-by-step pause when thinking ends
 		var active_player = GameState.get_active_player()
 		var actions_snapshot = _action_log.duplicate()
 		emit_signal("ai_turn_ended", active_player, actions_snapshot)
@@ -1167,6 +1198,46 @@ func _show_ai_movement_paths(origin_positions: Dictionary, destinations: Diction
 	visual.show_paths(paths, player)
 
 # =============================================================================
+# T7-36: AI Speed Controls
+# =============================================================================
+
+func get_ai_speed_preset() -> int:
+	"""T7-36: Get the current AI speed preset."""
+	return _ai_speed_preset
+
+func get_ai_speed_name() -> String:
+	"""T7-36: Get the display name of the current AI speed preset."""
+	return AI_SPEED_NAMES.get(_ai_speed_preset, "Normal")
+
+func set_ai_speed_preset(preset: int) -> void:
+	"""T7-36: Set the AI speed preset."""
+	if preset < 0 or preset > AISpeedPreset.STEP_BY_STEP:
+		return
+	_ai_speed_preset = preset
+	var preset_name = AI_SPEED_NAMES.get(preset, "Normal")
+	emit_signal("ai_speed_changed", preset, preset_name)
+	# If switching away from step-by-step, unpause
+	if preset != AISpeedPreset.STEP_BY_STEP and _step_by_step_paused:
+		_step_by_step_paused = false
+	print("AIPlayer: T7-36 AI speed set to %s (delay: %.0fms)" % [preset_name, AI_SPEED_DELAYS.get(preset, 0.2) * 1000])
+
+func cycle_ai_speed() -> int:
+	"""T7-36: Cycle to the next AI speed preset. Returns the new preset."""
+	var next_preset = (_ai_speed_preset + 1) % (AISpeedPreset.STEP_BY_STEP + 1)
+	set_ai_speed_preset(next_preset)
+	return next_preset
+
+func step_by_step_continue() -> void:
+	"""T7-36: Resume AI evaluation in step-by-step mode (called by UI on user input)."""
+	if _step_by_step_paused:
+		_step_by_step_paused = false
+		print("AIPlayer: T7-36 Step-by-step continued by user")
+
+func is_step_by_step_paused() -> bool:
+	"""T7-36: Returns true if the AI is paused waiting for user input in step-by-step mode."""
+	return _step_by_step_paused
+
+# =============================================================================
 # T7-55: Spectator Mode (AI vs AI) Helpers
 # =============================================================================
 
@@ -1194,9 +1265,10 @@ func cycle_spectator_speed() -> float:
 	return speed
 
 func _get_effective_action_delay() -> float:
-	"""Get the action delay, accounting for spectator mode and speed settings."""
+	"""Get the action delay, accounting for AI speed preset and spectator mode."""
 	if not _spectator_mode:
-		return AI_ACTION_DELAY
+		# T7-36: Use configured speed preset delay
+		return AI_SPEED_DELAYS.get(_ai_speed_preset, 0.2)
 	var speed = get_spectator_speed()
 	return SPECTATOR_ACTION_DELAY / speed
 
