@@ -220,6 +220,45 @@ func play_kill_notification(unit_center_pos: Vector2, unit_name: String) -> void
 
 	print("[DamageFeedbackVisual] T7-53: Kill notification '%s' at %s" % [unit_name, str(unit_center_pos)])
 
+func play_result_summary(target_pos: Vector2, summary_text: String) -> void:
+	"""T7-38: Show a hit/wound result summary floating above target position during AI shooting."""
+	var font_size := 14
+	var label = Label.new()
+	label.text = summary_text
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7, 1.0))  # Warm white
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.position = target_pos + Vector2(-summary_text.length() * 3.5, -font_size * 2.5)
+	label.z_index = 58
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Background for readability
+	var bg = ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.75)
+	bg.size = Vector2(summary_text.length() * 7.0 + 8, font_size + 6)
+	bg.position = target_pos + Vector2(-bg.size.x * 0.5, -font_size * 2.5)
+	bg.z_index = 57
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	add_child(label)
+
+	# Rise and fade
+	var duration := 2.5
+	var rise_tween = create_tween()
+	rise_tween.tween_property(label, "position:y", label.position.y - 50.0, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	var bg_rise = create_tween()
+	bg_rise.tween_property(bg, "position:y", bg.position.y - 50.0, duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+
+	var fade_tween = create_tween()
+	fade_tween.tween_property(label, "theme_override_colors/font_color:a", 0.0, duration * 0.4).set_delay(duration * 0.6)
+	fade_tween.tween_callback(label.queue_free)
+
+	var bg_fade = create_tween()
+	bg_fade.tween_property(bg, "color:a", 0.0, duration * 0.4).set_delay(duration * 0.6)
+	bg_fade.tween_callback(bg.queue_free)
+
+	print("[DamageFeedbackVisual] T7-38: Result summary '%s' at %s" % [summary_text, str(target_pos)])
+
 # ── Drawing Helpers ─────────────────────────────────────────────────────────
 
 func _draw_damage_flash(effect: Dictionary) -> void:

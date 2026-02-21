@@ -521,6 +521,13 @@ func set_phase(phase: BasePhase) -> void:
 			phase.shooting_damage_applied.connect(_on_shooting_damage_visual)
 			print("║ T7-53: Connected shooting_damage_applied signal")
 
+		# T7-38: Connect ai_shooting_visual for AI targeting lines and result text
+		if phase.has_signal("ai_shooting_visual"):
+			if phase.ai_shooting_visual.is_connected(_on_ai_shooting_visual):
+				phase.ai_shooting_visual.disconnect(_on_ai_shooting_visual)
+			phase.ai_shooting_visual.connect(_on_ai_shooting_visual)
+			print("║ T7-38: Connected ai_shooting_visual signal")
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -1624,6 +1631,56 @@ func _get_unit_center_for_feedback(unit: Dictionary) -> Vector2:
 	for pos in positions:
 		center += pos
 	return center / positions.size()
+
+# ==========================================
+# T7-38: AI Shooting Visual — Targeting Lines + Result Summary
+# ==========================================
+
+func _on_ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary) -> void:
+	"""T7-38: Display red targeting lines from AI shooter to targets and show hit/wound result summary."""
+	print("[ShootingController] T7-38: AI shooting visual for %s → %d target(s)" % [shooter_id, target_data.size()])
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		print("[ShootingController] T7-38: No BoardRoot, skipping visual")
+		return
+
+	# Create a red targeting line for each unique target
+	for td in target_data:
+		var target_unit_id: String = td.get("target_unit_id", "")
+		var weapon_names: Array = td.get("weapon_names", [])
+		var weapon_label = ", ".join(weapon_names) if not weapon_names.is_empty() else ""
+
+		# Get closest model positions between shooter and target
+		var positions = _get_closest_model_positions(shooter_id, target_unit_id)
+		if positions.from == Vector2.ZERO or positions.to == Vector2.ZERO:
+			print("[ShootingController] T7-38: Could not get positions for %s → %s, skipping" % [shooter_id, target_unit_id])
+			continue
+
+		# Create red targeting line with brief hold (auto-cleans after fade)
+		var visual = ShootingLineVisual.new()
+		visual.name = "AIShootingLine_%d" % (randi() % 100000)
+		visual.custom_line_color = Color(1.0, 0.15, 0.1, 0.85)  # Red targeting line
+		visual.custom_hold_duration = 1.5  # Brief hold
+		visual.auto_cleanup = true  # Self-cleanup after fade
+		board_root.add_child(visual)
+		visual.play(positions.from, positions.to, weapon_label)
+		# NOT tracked in shooting_line_visuals — auto-cleans via animation_finished + queue_free
+
+		print("[ShootingController] T7-38: Red targeting line %s → %s (%s)" % [str(positions.from), str(positions.to), weapon_label])
+
+	# Show hit/wound result summary as floating text near the first target
+	if not target_data.is_empty() and damage_feedback and is_instance_valid(damage_feedback):
+		var first_target_id: String = target_data[0].get("target_unit_id", "")
+		var positions = _get_closest_model_positions(shooter_id, first_target_id)
+		if positions.to != Vector2.ZERO:
+			var hits: int = result_summary.get("hits", 0)
+			var wounds: int = result_summary.get("wounds", 0)
+			var casualties: int = result_summary.get("casualties", 0)
+			var summary = "%d hits, %d wounds" % [hits, wounds]
+			if casualties > 0:
+				summary += " → %d slain" % casualties
+			damage_feedback.play_result_summary(positions.to, summary)
 
 func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictionary) -> void:
 	print("ShootingController: Shooting resolved for ", shooter_id, " -> ", target_id)
