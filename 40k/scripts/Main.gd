@@ -80,6 +80,11 @@ var _ai_highlighted_unit_id: String = ""  # Currently highlighted unit
 # T7-54: AI action log overlay
 var _ai_action_log_overlay: AIActionLogOverlay = null
 
+# T7-55: Spectator mode (AI vs AI) speed indicator HUD
+var _spectator_speed_label: Label = null
+var _spectator_speed_panel: PanelContainer = null
+var _is_spectator_mode: bool = false
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -267,6 +272,9 @@ func _ready() -> void:
 	# T7-54: Setup AI action log overlay
 	_setup_ai_action_log_overlay()
 
+	# T7-55: Setup spectator mode speed indicator
+	_setup_spectator_speed_hud()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -323,6 +331,23 @@ func _initialize_ai_player() -> void:
 		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
 			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
 		print("Main: Connected AIPlayer signals to AI action log overlay (T7-54)")
+
+	# T7-55: Setup spectator mode if both players are AI
+	_is_spectator_mode = ai_player.is_spectator_mode()
+	if _is_spectator_mode:
+		print("Main: T7-55 Spectator mode detected (AI vs AI)")
+		# Tell the action log overlay to use spectator timing
+		if _ai_action_log_overlay:
+			_ai_action_log_overlay.set_spectator_mode(true)
+		# Connect spectator-specific signals
+		if not ai_player.spectator_speed_changed.is_connected(_on_spectator_speed_changed):
+			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
+		if not ai_player.spectator_phase_summary.is_connected(_on_spectator_phase_summary):
+			ai_player.spectator_phase_summary.connect(_on_spectator_phase_summary)
+		# Show the speed indicator HUD
+		_update_spectator_speed_label(ai_player.get_spectator_speed())
+		if _spectator_speed_panel:
+			_spectator_speed_panel.visible = true
 
 func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Create visual tokens for an AI-deployed unit
@@ -769,6 +794,64 @@ func _setup_ai_action_log_overlay() -> void:
 	_ai_action_log_overlay = AIActionLogOverlay.new()
 	add_child(_ai_action_log_overlay)
 	print("Main: AI action log overlay created (T7-54)")
+
+# =============================================================================
+# T7-55: Spectator Mode Speed Indicator HUD
+# =============================================================================
+
+func _setup_spectator_speed_hud() -> void:
+	"""Create a small speed indicator panel for AI vs AI spectator mode."""
+	_spectator_speed_panel = PanelContainer.new()
+	_spectator_speed_panel.name = "SpectatorSpeedPanel"
+	# Position at top-center, below the phase HUD
+	_spectator_speed_panel.anchor_left = 0.5
+	_spectator_speed_panel.anchor_right = 0.5
+	_spectator_speed_panel.anchor_top = 0.0
+	_spectator_speed_panel.anchor_bottom = 0.0
+	_spectator_speed_panel.offset_left = -100.0
+	_spectator_speed_panel.offset_right = 100.0
+	_spectator_speed_panel.offset_top = 72.0
+	_spectator_speed_panel.offset_bottom = 100.0
+	_spectator_speed_panel.visible = false  # Hidden until spectator mode confirmed
+	_spectator_speed_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Dark background with gold border — WhiteDwarf style
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.09, 0.85)
+	style.border_color = Color(_WhiteDwarfTheme.WH_GOLD, 0.6)
+	style.set_border_width_all(1)
+	style.border_width_top = 2
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(4)
+	_spectator_speed_panel.add_theme_stylebox_override("panel", style)
+
+	_spectator_speed_label = Label.new()
+	_spectator_speed_label.text = "Spectator: 1.0x  [<] [>]"
+	_spectator_speed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_spectator_speed_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_spectator_speed_label.add_theme_font_size_override("font_size", 12)
+	_spectator_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_spectator_speed_panel.add_child(_spectator_speed_label)
+
+	add_child(_spectator_speed_panel)
+	print("Main: Spectator speed HUD created (T7-55)")
+
+func _on_spectator_speed_changed(speed: float) -> void:
+	"""T7-55: Update the spectator speed label when speed changes."""
+	_update_spectator_speed_label(speed)
+
+func _update_spectator_speed_label(speed: float) -> void:
+	"""T7-55: Update the speed indicator label text."""
+	if _spectator_speed_label:
+		var speed_text = "%.1fx" % speed if speed != int(speed) else "%dx" % int(speed)
+		_spectator_speed_label.text = "Spectator: %s  [< >]" % speed_text
+
+func _on_spectator_phase_summary(player: int, phase: int, summary: Dictionary) -> void:
+	"""T7-55: Display a phase summary in the action log overlay."""
+	if not _ai_action_log_overlay:
+		return
+	var phase_name = _get_phase_label_text(phase).replace(" Phase", "")
+	_ai_action_log_overlay.add_phase_summary(player, phase_name, summary)
 
 # =============================================================================
 # T7-52: AI Unit Highlighting During Actions
@@ -2659,6 +2742,30 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
+	# T7-55: Spectator speed control — comma/period to adjust, slash to cycle
+	if event is InputEventKey and event.pressed and _is_spectator_mode:
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		if ai_player:
+			if event.keycode == KEY_COMMA:
+				# Slow down
+				var idx = ai_player._spectator_speed_index
+				if idx > 0:
+					ai_player.set_spectator_speed_index(idx - 1)
+				get_viewport().set_input_as_handled()
+				return
+			elif event.keycode == KEY_PERIOD:
+				# Speed up
+				var idx = ai_player._spectator_speed_index
+				if idx < ai_player.SPECTATOR_SPEED_PRESETS.size() - 1:
+					ai_player.set_spectator_speed_index(idx + 1)
+				get_viewport().set_input_as_handled()
+				return
+			elif event.keycode == KEY_SLASH:
+				# Cycle through presets
+				ai_player.cycle_spectator_speed()
+				get_viewport().set_input_as_handled()
+				return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with 't' key
