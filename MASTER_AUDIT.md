@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-51 (2026-02-20): AI overwatch risk assessment for charges — Added `_estimate_overwatch_risk()` and `_estimate_unit_overwatch_damage()` to AIDecisionMaker.gd. AI evaluates best enemy overwatch shooter (within 24", with CP, ranged weapons) using hit-on-6s damage math (wound prob, save, wound overflow cap, FNP). Risk classified as low/moderate/high/extreme with score penalties. Extra caution for CHARACTERs and when overwatch could kill 50%+ of charger HP. 5 new tests pass. | Charge/AI | AI_AUDIT.md §CHARGE-5 |
 | T7-49 (2026-02-20): AI counter-play to opponent defensive stratagems — Added strategic deprioritization (×0.80) in `_score_shooting_target()` for targets with active effect-granted cover, stealth, or invulnerable saves from defensive stratagems. Encourages AI to redirect firepower to softer targets. 3 new tests pass. | Shooting/AI | AI_AUDIT.md §SHOOT-10 |
 | T7-47 (2026-02-20): AI secondary mission discard logic — Replaced stub `_decide_scoring()` with full mission achievability evaluation. Added 14 mission-specific assessors. AI discards unachievable missions for +1 CP based on board state analysis. 16/16 tests pass. | Scoring/AI | AI_AUDIT.md §SCORE-2 |
 | T7-46 (2026-02-20): AI fight order optimization — Added `_build_fight_order_plan()` and `_score_fighter_priority()` to AIDecisionMaker.gd. When multiple AI units are eligible to fight, the AI now scores each by kill potential, target value, vulnerability, and damage output to determine optimal activation order. Uses the same plan-cache pattern as the shooting focus fire plan. | Fight/AI | AI_AUDIT.md §FIGHT-6 |
@@ -1377,13 +1378,14 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Declare charges against multiple nearby enemies when beneficial.
 
-### T7-51. AI overwatch risk assessment for charges
+### T7-51. AI overwatch risk assessment for charges — **DONE**
 - **Phase:** Charge
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §CHARGE-5
 - **Depends on:** T7-1 (basic charge implementation)
 - **Files:** `AIDecisionMaker.gd`
 - **Details:** Weigh charge benefit vs. expected overwatch damage before declaring charges.
+- **Resolution:** Added `_estimate_overwatch_risk()` and `_estimate_unit_overwatch_damage()` functions to AIDecisionMaker.gd. The AI now evaluates the best enemy overwatch shooter (within 24", with CP, with ranged weapons) and calculates expected damage using hit-on-6s, wound probability, save probability, wound overflow cap, and FNP. Risk is classified as low/moderate/high/extreme with corresponding score penalties applied to charge evaluations. Extra caution is applied for CHARACTER units and when overwatch could kill 50%+ of the charger's HP.
 
 ### T7-52. AI unit highlighting during actions
 - **Phase:** UI
@@ -1480,9 +1482,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 37 | 21 | 58 |
-| **Total** | **136** | **50** | **186** |
-| **Recently Completed** | **155** | — | **155** |
+| Tier 7 — AI Player | 38 | 20 | 58 |
+| **Total** | **137** | **49** | **186** |
+| **Recently Completed** | **156** | — | **156** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---

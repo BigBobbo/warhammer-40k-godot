@@ -46,6 +46,12 @@ func _run_tests():
 	test_unit_has_melee_weapons()
 	test_closest_model_distance()
 	test_charge_move_computation()
+	# T7-51: Overwatch risk assessment tests
+	test_overwatch_risk_no_cp()
+	test_overwatch_risk_no_ranged_enemies()
+	test_overwatch_risk_with_dangerous_shooter()
+	test_overwatch_risk_out_of_range()
+	test_overwatch_unit_damage_estimation()
 
 # =========================================================================
 # Helper: Create a test snapshot
@@ -424,3 +430,103 @@ func test_charge_move_computation():
 			# After charge, should be closer to y=1200
 			_assert(end_y < start_y, "Model should have moved toward target (lower Y)")
 			_assert(end_y > 1160 and end_y < 1400, "Model should be near engagement range of target")
+
+# =========================================================================
+# Tests: T7-51 Overwatch risk assessment
+# =========================================================================
+
+func test_overwatch_risk_no_cp():
+	# If defending player has no CP, overwatch risk should be "none"
+	var snapshot = _create_test_snapshot(2)
+	snapshot["players"] = {"1": {"cp": 0}, "2": {"cp": 5}}  # Player 1 (defender) has 0 CP
+	var melee_weapons = [_make_melee_weapon()]
+	_add_unit(snapshot, "charger", 2, Vector2(880, 1400), "Assault Marines", 2, 6, 5, ["INFANTRY"], melee_weapons)
+	# Add an enemy with ranged weapons nearby
+	var ranged_weapons = [_make_ranged_weapon("Heavy bolter", 3, 5, 1, 2, 3, 36)]
+	_add_unit(snapshot, "enemy_shooter", 1, Vector2(880, 1200), "Devastators", 1, 6, 5, ["INFANTRY"], ranged_weapons)
+
+	var risk = AIDecisionMaker._estimate_overwatch_risk(snapshot.units["charger"], snapshot, 2)
+	_assert(risk.risk_level == "none", "Risk should be 'none' when defender has 0 CP, got: %s" % risk.risk_level)
+	_assert(risk.expected_damage == 0.0, "Expected damage should be 0.0 with no CP, got: %.2f" % risk.expected_damage)
+	_assert(risk.score_penalty == 1.0, "Score penalty should be 1.0, got: %.2f" % risk.score_penalty)
+
+func test_overwatch_risk_no_ranged_enemies():
+	# If enemies have no ranged weapons, overwatch risk should be low/none
+	var snapshot = _create_test_snapshot(2)
+	snapshot["players"] = {"1": {"cp": 5}, "2": {"cp": 5}}
+	var melee_weapons = [_make_melee_weapon()]
+	_add_unit(snapshot, "charger", 2, Vector2(880, 1400), "Assault Marines", 2, 6, 5, ["INFANTRY"], melee_weapons)
+	# Enemy with only melee weapons
+	_add_unit(snapshot, "enemy_melee", 1, Vector2(880, 1200), "Berzerkers", 1, 6, 5, ["INFANTRY"], [_make_melee_weapon("Chainaxe")])
+
+	var risk = AIDecisionMaker._estimate_overwatch_risk(snapshot.units["charger"], snapshot, 2)
+	_assert(risk.expected_damage == 0.0, "Expected damage should be 0.0 from melee-only enemies, got: %.2f" % risk.expected_damage)
+	_assert(risk.risk_level == "low" or risk.risk_level == "none", "Risk should be low/none, got: %s" % risk.risk_level)
+
+func test_overwatch_risk_with_dangerous_shooter():
+	# A unit with many ranged shots nearby should produce moderate/high overwatch risk
+	var snapshot = _create_test_snapshot(2)
+	snapshot["players"] = {"1": {"cp": 5}, "2": {"cp": 5}}
+	# Charger: 5 assault marines with melee weapons, T4, 3+ save, 1W
+	var melee_weapons = [_make_melee_weapon()]
+	_add_unit(snapshot, "charger", 2, Vector2(880, 1400), "Assault Marines", 2, 6, 5, ["INFANTRY"], melee_weapons)
+	# Enemy: 10 Guardsmen with lasguns (BS4, S3, AP0, D1, A1) — lots of shots but weak
+	var lasguns = [_make_ranged_weapon("Lasgun", 4, 3, 0, 1, 1, 24)]
+	_add_unit(snapshot, "enemy_guards", 1, Vector2(880, 1200), "Guardsmen", 1, 6, 10, ["INFANTRY"], lasguns, 3, 5)
+
+	var risk = AIDecisionMaker._estimate_overwatch_risk(snapshot.units["charger"], snapshot, 2)
+	# 10 shots * 1/6 hit * ~1/6 wound (S3 vs T4 = 5+) * (1 - save_prob(3+, AP0)) = 10 * 0.167 * 0.333 * 0.333 = ~0.185
+	_assert(risk.expected_damage > 0.0, "Expected damage should be > 0 from ranged enemies, got: %.2f" % risk.expected_damage)
+	_assert(risk.expected_damage < 1.0, "10 lasguns overwatch should deal < 1.0 dmg (weak weapons), got: %.2f" % risk.expected_damage)
+	print("  T7-51: Guardsmen overwatch risk: %.3f dmg, level=%s, penalty=%.2f" % [risk.expected_damage, risk.risk_level, risk.score_penalty])
+
+	# Now test with a dangerous shooter: 5 models with heavy bolters (BS3, S5, AP-1, D2, A3)
+	var snapshot2 = _create_test_snapshot(2)
+	snapshot2["players"] = {"1": {"cp": 5}, "2": {"cp": 5}}
+	_add_unit(snapshot2, "charger2", 2, Vector2(880, 1400), "Assault Marines", 2, 6, 5, ["INFANTRY"], melee_weapons)
+	var heavy_bolters = [_make_ranged_weapon("Heavy bolter", 3, 5, 1, 2, 3, 36)]
+	_add_unit(snapshot2, "enemy_devs", 1, Vector2(880, 1200), "Devastators", 1, 6, 5, ["INFANTRY"], heavy_bolters, 4, 3)
+
+	var risk2 = AIDecisionMaker._estimate_overwatch_risk(snapshot2.units["charger2"], snapshot2, 2)
+	# 15 shots * 1/6 hit * 4/6 wound (S5 vs T4) * (1 - save(3+1=4+)) * min(2,1) = 15 * 0.167 * 0.667 * 0.5 * 1 = ~0.83
+	_assert(risk2.expected_damage > risk.expected_damage, "Heavy bolters should do more overwatch dmg than lasguns, got: %.2f vs %.2f" % [risk2.expected_damage, risk.expected_damage])
+	_assert(risk2.score_penalty <= 1.0, "Score penalty should be <= 1.0, got: %.2f" % risk2.score_penalty)
+	print("  T7-51: Devastators overwatch risk: %.3f dmg, level=%s, penalty=%.2f" % [risk2.expected_damage, risk2.risk_level, risk2.score_penalty])
+
+func test_overwatch_risk_out_of_range():
+	# Enemy shooter beyond 24" should not contribute to overwatch risk
+	var snapshot = _create_test_snapshot(2)
+	snapshot["players"] = {"1": {"cp": 5}, "2": {"cp": 5}}
+	var melee_weapons = [_make_melee_weapon()]
+	_add_unit(snapshot, "charger", 2, Vector2(100, 100), "Assault Marines", 2, 6, 5, ["INFANTRY"], melee_weapons)
+	# Enemy far away (>24"): at 1200px away = 30 inches
+	var ranged_weapons = [_make_ranged_weapon("Heavy bolter", 3, 5, 1, 2, 3, 36)]
+	_add_unit(snapshot, "enemy_far", 1, Vector2(1300, 100), "Far Shooters", 1, 6, 5, ["INFANTRY"], ranged_weapons, 4, 3)
+
+	var risk = AIDecisionMaker._estimate_overwatch_risk(snapshot.units["charger"], snapshot, 2)
+	_assert(risk.expected_damage == 0.0, "Expected damage should be 0 for out-of-range shooter, got: %.2f" % risk.expected_damage)
+	_assert(risk.score_penalty == 1.0, "Score penalty should be 1.0 for out-of-range, got: %.2f" % risk.score_penalty)
+
+func test_overwatch_unit_damage_estimation():
+	# Test _estimate_unit_overwatch_damage directly
+	# Shooter: 5 models, Heavy bolter (BS3, S5, AP-1, D2, A3)
+	var shooter = {
+		"meta": {
+			"name": "Devastators",
+			"stats": {"toughness": 4, "save": 3, "wounds": 1},
+			"keywords": ["INFANTRY"],
+			"weapons": [_make_ranged_weapon("Heavy bolter", 3, 5, 1, 2, 3, 36)]
+		},
+		"models": [],
+		"flags": {}
+	}
+	for i in range(5):
+		shooter.models.append({"id": "m%d" % (i+1), "alive": true, "base_mm": 32, "position": Vector2(100 + i*40, 100)})
+
+	# Target: T4, 3+ save, no invuln, 1W per model
+	var damage = AIDecisionMaker._estimate_unit_overwatch_damage(shooter, 4, 3, 0, 1)
+	# 15 attacks * (1/6 hit) * (4/6 wound for S5vsT4) * (1 - (7-4)/6 save for 3+1=4+) * min(2,1)=1
+	# = 15 * 0.1667 * 0.6667 * 0.5 * 1.0 = ~0.833
+	_assert(damage > 0.5, "Heavy bolter overwatch damage should be > 0.5, got: %.3f" % damage)
+	_assert(damage < 1.5, "Heavy bolter overwatch damage should be < 1.5, got: %.3f" % damage)
+	print("  T7-51: Unit overwatch damage estimate: %.3f (expected ~0.83)" % damage)

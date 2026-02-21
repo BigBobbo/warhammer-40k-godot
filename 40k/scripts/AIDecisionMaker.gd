@@ -7042,6 +7042,12 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			melee_bonus *= charger_melee_mult
 			print("AIDecisionMaker: %s has melee leader bonuses (mult=%.2f)" % [unit_name, charger_melee_mult])
 
+		# --- T7-51: Estimate overwatch risk for this charger ---
+		var ow_risk = _estimate_overwatch_risk(unit, snapshot, player)
+		if ow_risk.expected_damage > 0.0:
+			print("AIDecisionMaker: [OVERWATCH-RISK] %s faces overwatch risk: %.1f expected dmg from %s (risk=%s, penalty=%.2f)" % [
+				unit_name, ow_risk.expected_damage, ow_risk.best_shooter_name, ow_risk.risk_level, ow_risk.score_penalty])
+
 		for target_info in charger_targets[uid]:
 			var target_id = target_info.target_id
 			var dist = target_info.distance_inches
@@ -7088,17 +7094,24 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 						score *= STRATEGY_LATE_CHARGE_ON_OBJ_BONUS
 					break
 
+			# T7-51: Apply overwatch risk penalty to charge score
+			if ow_risk.score_penalty < 1.0:
+				score *= ow_risk.score_penalty
+
 			# T7-40: Apply difficulty noise to charge scoring
 			score = _apply_difficulty_noise(score)
-			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, final=%.1f" % [
-				unit_name, target_name, dist, charge_prob * 100.0, target_score, score])
+			print("AIDecisionMaker: Charge eval %s -> %s: dist=%.1f\", prob=%.0f%%, target_score=%.1f, ow_risk=%.1f(%s), final=%.1f" % [
+				unit_name, target_name, dist, charge_prob * 100.0, target_score, ow_risk.expected_damage, ow_risk.risk_level, score])
 
 			if score > best_score:
 				best_score = score
 				best_action = target_info.action
 				var kill_pct = (melee_dmg / target_hp * 100.0) if target_hp > 0 else 0.0
-				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP)" % [
-					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp]
+				var ow_desc = ""
+				if ow_risk.expected_damage > 0.0:
+					ow_desc = ", overwatch risk: %.1f dmg" % ow_risk.expected_damage
+				best_description = "%s declares charge against %s (%.0f%% chance, %.1f\" away, expected %.1f melee dmg vs %.0f HP%s)" % [
+					unit_name, target_name, charge_prob * 100.0, dist, melee_dmg, target_hp, ow_desc]
 
 	# T7-24: Lower charge threshold when behind on VP (desperation charges)
 	var charge_tempo = _calculate_tempo_modifier(snapshot, player)
@@ -7235,6 +7248,162 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	score *= sct_strategy.aggression
 
 	return max(0.0, score)
+
+# --- T7-51: Overwatch risk assessment for charges ---
+
+static func _estimate_overwatch_risk(charging_unit: Dictionary, snapshot: Dictionary, player: int) -> Dictionary:
+	"""Estimate the expected overwatch damage the charging unit could receive.
+	Considers the best overwatch candidate from the defending player's units.
+	Returns { expected_damage: float, best_shooter_name: String, risk_level: String, score_penalty: float }"""
+	var defending_player = 3 - player
+	var defending_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
+
+	# If defending player has no CP, they can't fire overwatch (costs 1 CP)
+	if defending_cp < 1:
+		return {"expected_damage": 0.0, "best_shooter_name": "", "risk_level": "none", "score_penalty": 1.0}
+
+	var charger_stats = charging_unit.get("meta", {}).get("stats", {})
+	var charger_toughness = int(charger_stats.get("toughness", 4))
+	var charger_save = int(charger_stats.get("save", 4))
+	var charger_invuln = _get_target_invulnerable_save(charging_unit)
+	var charger_wounds_per_model = int(charger_stats.get("wounds", 1))
+	var charger_alive = _get_alive_models(charging_unit).size()
+	var charger_total_hp = charger_alive * charger_wounds_per_model
+
+	# Get charger FNP for damage reduction
+	var charger_fnp = AIAbilityAnalyzerData.get_unit_fnp(charging_unit)
+	var fnp_mult = AIAbilityAnalyzerData.get_fnp_damage_multiplier(charger_fnp)
+
+	# Find the best overwatch shooter among enemy units within 24" of the charger
+	var best_ow_damage = 0.0
+	var best_shooter_name = ""
+	var all_units = snapshot.get("units", {})
+
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if int(unit.get("owner", 0)) != defending_player:
+			continue
+
+		# Skip dead units
+		var alive_models = _get_alive_models(unit)
+		if alive_models.is_empty():
+			continue
+
+		# Skip battle-shocked units (can't use stratagems)
+		var flags = unit.get("flags", {})
+		if flags.get("battle_shocked", false):
+			continue
+
+		# Check range: overwatch requires within 24" of the charging unit
+		var dist_inches = _get_closest_model_distance_inches(charging_unit, unit)
+		if dist_inches > 24.0:
+			continue
+
+		# Check if unit has ranged weapons and is not in engagement range
+		var unit_ranged_shots = _count_unit_ranged_shots(unit)
+		if unit_ranged_shots <= 0.0:
+			continue
+
+		# Calculate expected overwatch damage from this unit's ranged weapons
+		# Overwatch hits only on unmodified 6s (1/6 chance)
+		var unit_ow_damage = _estimate_unit_overwatch_damage(unit, charger_toughness, charger_save, charger_invuln, charger_wounds_per_model)
+		unit_ow_damage *= fnp_mult
+
+		if unit_ow_damage > best_ow_damage:
+			best_ow_damage = unit_ow_damage
+			best_shooter_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Classify risk level and compute score penalty
+	# Only the BEST overwatch shooter matters (overwatch is once per turn, 1 CP)
+	var risk_level = "none"
+	var score_penalty = 1.0
+
+	if best_ow_damage < 0.5:
+		risk_level = "low"
+		score_penalty = 1.0  # Negligible — no penalty
+	elif best_ow_damage < 2.0:
+		risk_level = "moderate"
+		# Scale penalty: 0.5 dmg → 1.0, 2.0 dmg → 0.7
+		score_penalty = 1.0 - (best_ow_damage - 0.5) * 0.2
+	elif best_ow_damage < 4.0:
+		risk_level = "high"
+		# Scale penalty: 2.0 dmg → 0.7, 4.0 dmg → 0.4
+		score_penalty = 0.7 - (best_ow_damage - 2.0) * 0.15
+	else:
+		risk_level = "extreme"
+		# Very dangerous overwatch — heavy penalty
+		score_penalty = max(0.2, 0.4 - (best_ow_damage - 4.0) * 0.05)
+
+	# If the charger is a CHARACTER or elite unit, be more cautious about overwatch risk
+	var charger_keywords = charging_unit.get("meta", {}).get("keywords", [])
+	if "CHARACTER" in charger_keywords and best_ow_damage >= 1.0:
+		score_penalty *= 0.8  # Extra caution with characters
+
+	# If overwatch could kill a significant fraction of the unit, penalize heavily
+	if charger_total_hp > 0 and best_ow_damage >= charger_total_hp * 0.5:
+		score_penalty *= 0.5  # Could lose half+ the unit before even fighting
+
+	return {
+		"expected_damage": best_ow_damage,
+		"best_shooter_name": best_shooter_name,
+		"risk_level": risk_level,
+		"score_penalty": score_penalty,
+	}
+
+static func _estimate_unit_overwatch_damage(shooter: Dictionary, target_toughness: int, target_save: int, target_invuln: int, target_wounds_per_model: int) -> float:
+	"""Estimate expected overwatch damage from a single unit against a target.
+	Overwatch hits only on unmodified 6s (1/6). Considers all ranged weapons."""
+	var weapons = shooter.get("meta", {}).get("weapons", [])
+	var alive_shooters = _get_alive_models(shooter).size()
+	var total_damage = 0.0
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+
+		var attacks_str = w.get("attacks", "1")
+		var attacks = 0.0
+		if attacks_str.is_valid_float():
+			attacks = float(attacks_str)
+		elif attacks_str.is_valid_int():
+			attacks = float(attacks_str)
+		elif "d" in attacks_str.to_lower():
+			attacks = _parse_average_damage(attacks_str)
+		else:
+			attacks = 1.0
+
+		var strength_str = w.get("strength", "4")
+		var strength = int(strength_str) if strength_str.is_valid_int() else 4
+
+		var ap_str = w.get("ap", "0")
+		var ap = 0
+		if ap_str.begins_with("-"):
+			var ap_num = ap_str.substr(1)
+			ap = int(ap_num) if ap_num.is_valid_int() else 0
+		else:
+			ap = int(ap_str) if ap_str.is_valid_int() else 0
+
+		var damage_str = w.get("damage", "1")
+		var damage = 0.0
+		if damage_str.is_valid_float():
+			damage = float(damage_str)
+		elif "d" in damage_str.to_lower():
+			damage = _parse_average_damage(damage_str)
+		else:
+			damage = 1.0
+
+		# Cap damage per hit to target wounds per model (wound overflow doesn't carry)
+		var effective_damage = minf(damage, float(target_wounds_per_model))
+
+		# Overwatch: hits on unmodified 6s only (1/6)
+		var p_hit = 1.0 / 6.0
+		var p_wound = _wound_probability(strength, target_toughness)
+		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+		var weapon_damage = attacks * alive_shooters * p_hit * p_wound * p_unsaved * effective_damage
+		total_damage += weapon_damage
+
+	return total_damage
 
 static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -> float:
 	"""Estimate expected damage from a melee attack using the attacker's best melee weapon."""
