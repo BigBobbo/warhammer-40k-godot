@@ -2207,8 +2207,104 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				"_ai_description": "Battle-shock test"
 			}
 
-	# All tests done, end command phase
+	# T7-45: Handle faction ability activation (Oath of Moment target selection)
+	var oath_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_OATH_TARGET":
+			oath_actions.append(action)
+	if not oath_actions.is_empty():
+		var best_target = _select_oath_of_moment_target(snapshot, oath_actions, player)
+		if not best_target.is_empty():
+			return best_target
+
+	# All tests and faction abilities done, end command phase
 	return {"type": "END_COMMAND", "_ai_description": "End Command Phase"}
+
+# =============================================================================
+# T7-45: OATH OF MOMENT TARGET SELECTION
+# =============================================================================
+
+static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Array, player: int) -> Dictionary:
+	"""
+	T7-45: Select the best Oath of Moment target based on strategic threat assessment.
+
+	Oath of Moment grants re-roll 1s to hit and wound against the chosen target,
+	so we want to pick the enemy unit we most want dead this turn. This aligns
+	with the focus-fire plan: mark the unit we'll concentrate fire on.
+
+	Scoring factors (reuses _calculate_target_value macro priority):
+	- Points cost (expensive units benefit more from re-rolls)
+	- Damage output (threatening units we need to remove)
+	- Objective presence (units contesting/holding objectives)
+	- Survivability (tough units benefit most from re-roll accuracy boost)
+	- Health status (wounded units close to death are good Oath targets)
+	"""
+	if oath_actions.is_empty():
+		return {}
+
+	var units = snapshot.get("units", {})
+	var best_target_id = ""
+	var best_score = -INF
+	var best_name = ""
+
+	for action in oath_actions:
+		var target_id = action.get("target_unit_id", "")
+		if target_id == "":
+			continue
+
+		var target_unit = units.get(target_id, {})
+		if target_unit.is_empty():
+			continue
+
+		# Base score from macro target priority (threat, points, objectives, abilities)
+		var score = _calculate_target_value(target_unit, snapshot, player)
+
+		# Oath-specific bonus: tough/durable targets benefit more from re-roll accuracy
+		# Re-rolling 1s to hit and wound is more impactful against targets that are
+		# harder to wound (high T) or save well (good Sv/invuln), since each hit matters more.
+		var meta = target_unit.get("meta", {})
+		var stats = meta.get("stats", {})
+		var toughness = int(stats.get("toughness", 4))
+		var save = int(stats.get("save", 4))
+
+		# High toughness bonus (T5+ benefits more from wound re-rolls)
+		if toughness >= 5:
+			score *= 1.0 + (float(toughness - 4) * 0.05)  # T5=1.05, T8=1.20, T12=1.40
+
+		# Good save bonus (2+/3+ save means each unsaved wound is more precious)
+		if save <= 3:
+			score *= 1.1
+
+		# Remaining wounds bonus: units with more wounds remaining = more attacks needed
+		# = more chances for re-rolls to matter
+		var remaining_wounds = _calculate_kill_threshold(target_unit)
+		if remaining_wounds >= 6.0:
+			score *= 1.0 + (remaining_wounds / 50.0)  # Mild bonus, caps at ~1.24 for 12W
+
+		# Units below half strength are closer to being destroyed — good focus targets
+		var total_models = target_unit.get("models", []).size()
+		var alive_models = _get_alive_models(target_unit).size()
+		if total_models > 0 and alive_models > 0 and alive_models * 2 <= total_models:
+			score *= 1.2  # Below half strength — easier to finish off
+
+		var target_name = meta.get("name", target_id)
+		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining)" % [
+			target_name, score, toughness, save, remaining_wounds])
+
+		if score > best_score:
+			best_score = score
+			best_target_id = target_id
+			best_name = target_name
+
+	if best_target_id == "":
+		return {}
+
+	print("AIDecisionMaker: T7-45 Oath of Moment target selected: %s (score: %.2f)" % [best_name, best_score])
+	return {
+		"type": "SELECT_OATH_TARGET",
+		"target_unit_id": best_target_id,
+		"_ai_description": "Oath of Moment: mark %s for destruction (priority score: %.1f)" % [best_name, best_score]
+	}
 
 # =============================================================================
 # MOVEMENT PHASE
