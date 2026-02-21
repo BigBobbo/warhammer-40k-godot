@@ -77,6 +77,9 @@ const AIUnitHighlightScript = preload("res://scripts/AIUnitHighlight.gd")
 var _ai_highlight_nodes: Array = []  # Active highlight Node2D instances
 var _ai_highlighted_unit_id: String = ""  # Currently highlighted unit
 
+# T7-54: AI action log overlay
+var _ai_action_log_overlay: AIActionLogOverlay = null
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -261,6 +264,9 @@ func _ready() -> void:
 	# T7-20: Setup AI thinking indicator
 	_setup_ai_thinking_indicator()
 
+	# T7-54: Setup AI action log overlay
+	_setup_ai_action_log_overlay()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -307,6 +313,16 @@ func _initialize_ai_player() -> void:
 	if not ai_player.ai_turn_ended.is_connected(_on_ai_turn_ended):
 		ai_player.ai_turn_ended.connect(_on_ai_turn_ended)
 		print("Main: Connected to AIPlayer.ai_turn_ended signal (T7-20)")
+
+	# T7-54: Connect AI signals to the action log overlay
+	if _ai_action_log_overlay:
+		if not ai_player.ai_turn_started.is_connected(_ai_action_log_overlay.on_ai_turn_started):
+			ai_player.ai_turn_started.connect(_ai_action_log_overlay.on_ai_turn_started)
+		if not ai_player.ai_turn_ended.is_connected(_ai_action_log_overlay.on_ai_turn_ended):
+			ai_player.ai_turn_ended.connect(_ai_action_log_overlay.on_ai_turn_ended)
+		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
+			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
+		print("Main: Connected AIPlayer signals to AI action log overlay (T7-54)")
 
 func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Create visual tokens for an AI-deployed unit
@@ -744,6 +760,15 @@ func _update_ai_thinking_dots(delta: float) -> void:
 		_ai_thinking_dots_count = (_ai_thinking_dots_count % 3) + 1
 		var dots = ".".repeat(_ai_thinking_dots_count)
 		ai_thinking_label.text = "AI is thinking" + dots
+
+# =============================================================================
+# T7-54: AI Action Log Overlay
+# =============================================================================
+
+func _setup_ai_action_log_overlay() -> void:
+	_ai_action_log_overlay = AIActionLogOverlay.new()
+	add_child(_ai_action_log_overlay)
+	print("Main: AI action log overlay created (T7-54)")
 
 # =============================================================================
 # T7-52: AI Unit Highlighting During Actions
@@ -4530,6 +4555,15 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		var banner_round = GameState.state.get("meta", {}).get("round", 1)
 		var banner_player = GameState.get_active_player()
 		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
+
+	# T7-54: Add phase header to AI action log overlay when AI is active
+	if _ai_action_log_overlay:
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		var active_player_for_log = GameState.get_active_player()
+		if ai_player and ai_player.is_ai_player(active_player_for_log):
+			var phase_label = _get_phase_label_text(new_phase).replace(" Phase", "")
+			var round_num = GameState.state.get("meta", {}).get("round", 1)
+			_ai_action_log_overlay.add_phase_header(phase_label, round_num, active_player_for_log)
 
 	# T5-UX10: Auto-zoom to active player's deployment zone when entering deployment phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT:

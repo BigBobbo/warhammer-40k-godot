@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-54 (2026-02-20): AI action log overlay — Created `AIActionLogOverlay.gd` — small scrolling overlay in bottom-right corner showing real-time AI actions with color-coded entries, phase headers, auto-fade after inactivity, auto-scroll, and old-entry trimming. Integrated via `ai_action_taken`/`ai_turn_started`/`ai_turn_ended` signals in Main.gd. | UI/AI | AI_AUDIT.md §VIS-7 |
 | T7-53 (2026-02-20): AI floating damage numbers — Added `shooting_damage_applied` signal to ShootingPhase, floating damage number display to ShootingController (matching FightController pattern), floating numbers to WoundAllocationOverlay for interactive saves, `play_kill_notification()` to DamageFeedbackVisual for "UNIT DESTROYED" banners, and kill notification checks to both FightController and ShootingController. | UI/AI | AI_AUDIT.md §VIS-6 |
 | T7-52 (2026-02-20): AI unit highlighting during actions — Created `AIUnitHighlight.gd` visual component with pulsing glow rings (blue=move, red=shoot, orange=charge/fight). Integrated into `Main.gd` via `ai_action_taken` signal to highlight the AI's active unit during each action, with position tracking and auto-clear on phase/turn end. | UI/AI | AI_AUDIT.md §VIS-5 |
 | T7-51 (2026-02-20): AI overwatch risk assessment for charges — Added `_estimate_overwatch_risk()` and `_estimate_unit_overwatch_damage()` to AIDecisionMaker.gd. AI evaluates best enemy overwatch shooter (within 24", with CP, ranged weapons) using hit-on-6s damage math (wound prob, save, wound overflow cap, FNP). Risk classified as low/moderate/high/extreme with score penalties. Extra caution for CHARACTERs and when overwatch could kill 50%+ of charger HP. 5 new tests pass. | Charge/AI | AI_AUDIT.md §CHARGE-5 |
@@ -1405,12 +1406,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** Show floating damage numbers above targets during AI combat and kill notifications on unit destruction.
 - **Resolution:** Added `shooting_damage_applied` signal to `ShootingPhase.gd` that fires after save resolution with damage diffs. Added floating damage number display to `ShootingController.gd` (new `_on_shooting_damage_visual` handler, matching `FightController` pattern). Added floating numbers to `WoundAllocationOverlay.gd` for interactive saves. Added `play_kill_notification()` method to `DamageFeedbackVisual.gd` for "UNIT DESTROYED" banners. Added kill notification checks to both `FightController.gd` and `ShootingController.gd` for full unit wipes.
 
-### T7-54. AI action log overlay
+### T7-54. AI action log overlay — **DONE**
 - **Phase:** UI
 - **Priority:** LOW
 - **Source:** AI_AUDIT.md §VIS-7
 - **Files:** New UI component
 - **Details:** Small scrolling text overlay in corner showing real-time AI actions as they happen.
+- **Resolution:** Created `AIActionLogOverlay.gd` — a small scrolling overlay anchored to the bottom-right corner that shows real-time AI actions as they happen. Color-coded entries (blue for P1, red for P2) with phase headers in gold. Auto-fades after 8s of inactivity, auto-scrolls, trims old entries. Connected to `ai_action_taken`, `ai_turn_started`, and `ai_turn_ended` signals in Main.gd.
 
 ### T7-55. AI vs AI spectator mode improvements
 - **Phase:** UI
@@ -1486,9 +1488,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 14 | 6 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 40 | 18 | 58 |
-| **Total** | **139** | **47** | **186** |
-| **Recently Completed** | **158** | — | **158** |
+| Tier 7 — AI Player | 41 | 17 | 58 |
+| **Total** | **140** | **46** | **186** |
+| **Recently Completed** | **159** | — | **159** |
 | *Mathhammer items (subset)* | *23* | *8* | *31* |
 
 ---
