@@ -44,6 +44,11 @@ static var _phase_plan: Dictionary = {}
 static var _phase_plan_built: bool = false
 static var _phase_plan_round: int = -1  # Track which round the plan was built for
 
+# T7-46: Fight order optimization cache — built once per fight phase
+# Priority-sorted array of unit_ids for optimal fight activation order
+static var _fight_order_plan: Array = []
+static var _fight_order_plan_built: bool = false
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -231,6 +236,12 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
 		_grenade_evaluated = false
+
+	# T7-46: Reset fight order plan when not in fight phase
+	if phase != GameStateData.Phase.FIGHT:
+		if _fight_order_plan_built:
+			_fight_order_plan_built = false
+			_fight_order_plan.clear()
 
 	# T7-23: Reset multi-phase plan when a new round starts or when we enter
 	# a phase earlier than movement (i.e., command phase or earlier)
@@ -7658,12 +7669,30 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			return _assign_fight_attacks(snapshot, uid, player)
 
 	# Step 4: If we need to select a fighter, select one
+	# T7-46: Use fight order optimization to pick the best unit to activate first
 	if action_types.has("SELECT_FIGHTER"):
-		var a = action_types["SELECT_FIGHTER"][0]
-		var uid = a.get("unit_id", "")
-		var unit = snapshot.get("units", {}).get(uid, {})
-		var unit_name = unit.get("meta", {}).get("name", uid)
-		# T7-37: Include expected melee damage in fighter selection description
+		var offered_action = action_types["SELECT_FIGHTER"][0]
+		var offered_uid = offered_action.get("unit_id", "")
+
+		# Build fight order plan once per fight phase
+		if not _fight_order_plan_built:
+			_fight_order_plan = _build_fight_order_plan(snapshot, player)
+			_fight_order_plan_built = true
+
+		# Pick the best unit from the plan that hasn't been used yet
+		var chosen_uid = offered_uid  # Fallback to offered unit
+		for planned_uid in _fight_order_plan:
+			# The planned unit is our best pick — use it
+			chosen_uid = planned_uid
+			break
+
+		# Remove the chosen unit from the plan (consumed)
+		_fight_order_plan.erase(chosen_uid)
+
+		var unit = snapshot.get("units", {}).get(chosen_uid, {})
+		var unit_name = unit.get("meta", {}).get("name", chosen_uid)
+
+		# Build description with expected melee damage info
 		var fighter_enemies = _get_enemy_units(snapshot, player)
 		var nearest_enemy_name = ""
 		var fighter_melee_dmg = 0.0
@@ -7680,9 +7709,13 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		var fighter_desc = "Select %s to fight" % unit_name
 		if nearest_enemy_name != "" and fighter_melee_dmg > 0:
 			fighter_desc = "%s fights — expected %.1f melee dmg vs %s (%.0f HP)" % [unit_name, fighter_melee_dmg, nearest_enemy_name, fighter_target_hp]
+
+		if chosen_uid != offered_uid:
+			print("AIDecisionMaker: T7-46 fight order optimization — selected %s over offered %s" % [unit_name, offered_uid])
+
 		return {
 			"type": "SELECT_FIGHTER",
-			"unit_id": uid,
+			"unit_id": chosen_uid,
 			"_ai_description": fighter_desc
 		}
 
@@ -7909,6 +7942,169 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 		score *= trade_eff
 
 	return max(0.0, score)
+
+# =============================================================================
+# T7-46: FIGHT ORDER OPTIMIZATION
+# =============================================================================
+
+static func _build_fight_order_plan(snapshot: Dictionary, player: int) -> Array:
+	"""T7-46: Build a priority-sorted list of AI unit_ids for optimal fight activation order.
+	Units that should fight first (kill potential, vulnerability, target value) are placed earlier.
+	Returns an array of unit_ids sorted by descending priority score."""
+	var all_units = snapshot.get("units", {})
+	var enemies = _get_enemy_units(snapshot, player)
+	var objectives = _get_objectives(snapshot)
+
+	# Find all AI-owned units that are engaged (have is_engaged flag set by FightPhase)
+	var eligible_fighters = []
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		var owner = unit.get("owner", -1)
+		# Handle owner as int or float
+		if typeof(owner) == TYPE_FLOAT:
+			owner = int(owner)
+		if owner != player:
+			continue
+		# Check if unit is engaged (flag set by FightPhase._set_engagement_flags)
+		var flags = unit.get("flags", {})
+		if not flags.get("is_engaged", false):
+			continue
+		# Check unit has alive models
+		if _get_alive_models(unit).size() == 0:
+			continue
+		eligible_fighters.append(unit_id)
+
+	if eligible_fighters.size() <= 1:
+		print("AIDecisionMaker: T7-46 fight order — %d eligible fighter(s), no optimization needed" % eligible_fighters.size())
+		return eligible_fighters
+
+	# Score each eligible fighter
+	var scored_fighters = []
+	for unit_id in eligible_fighters:
+		var unit = all_units[unit_id]
+		var score = _score_fighter_priority(unit, unit_id, snapshot, player, enemies, objectives)
+		score = _apply_difficulty_noise(score)
+		scored_fighters.append({"unit_id": unit_id, "score": score})
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("AIDecisionMaker: T7-46 fight order score — %s: %.2f" % [unit_name, score])
+
+	# Sort by descending score (highest priority first)
+	scored_fighters.sort_custom(func(a, b): return a.score > b.score)
+
+	# Extract sorted unit_ids
+	var sorted_ids = []
+	for entry in scored_fighters:
+		sorted_ids.append(entry.unit_id)
+
+	# Log the final order
+	var order_names = []
+	for uid in sorted_ids:
+		order_names.append(all_units[uid].get("meta", {}).get("name", uid))
+	print("AIDecisionMaker: T7-46 fight order plan — %s" % " > ".join(order_names))
+
+	return sorted_ids
+
+
+static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot: Dictionary, player: int, enemies: Dictionary, objectives: Array) -> float:
+	"""T7-46: Score how urgently a unit should be activated first in the fight phase.
+	Higher score = should fight earlier. Considers:
+	- Kill potential: units that can eliminate targets should go first (denies enemy retaliation)
+	- Vulnerability: units likely to die should fight before being destroyed
+	- Target value: units engaging high-value targets (characters, shooters, objective holders)
+	- Damage output: units dealing more damage benefit from going earlier
+	- Overkill avoidance: don't waste high-damage units early on easy kills"""
+	var score = 0.0
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# --- Find the best engaged enemy target for this unit ---
+	var engaged_entries = _get_engaging_enemy_units(unit, unit_id, enemies)
+	if engaged_entries.is_empty():
+		# Not actually engaging anyone — low priority
+		return 0.0
+
+	var best_target_damage = 0.0
+	var best_target_id = ""
+	var best_target: Dictionary = {}
+	var best_target_remaining_wounds = 0.0
+
+	for entry in engaged_entries:
+		var enemy = entry.enemy_unit
+		var enemy_id = entry.enemy_id
+		var dmg = _estimate_melee_damage(unit, enemy)
+		if dmg > best_target_damage:
+			best_target_damage = dmg
+			best_target_id = enemy_id
+			best_target = enemy
+			best_target_remaining_wounds = _calculate_kill_threshold(enemy)
+
+	# If no damage can be dealt, very low priority
+	if best_target_damage < 0.1:
+		return 0.5
+
+	# --- Kill potential (highest weight): can we wipe the target? ---
+	# Units that can kill their target should go first — removes the target before it fights back
+	if best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds:
+		score += 6.0  # Can likely wipe — fight first to deny enemy retaliation
+		print("AIDecisionMaker: T7-46   %s: +6.0 kill potential (%.1f dmg vs %.0f HP)" % [unit_name, best_target_damage, best_target_remaining_wounds])
+	elif best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds * 0.5:
+		score += 3.0  # Can take below half — still valuable to go early
+		print("AIDecisionMaker: T7-46   %s: +3.0 half-kill potential" % unit_name)
+
+	# --- Damage output: raw expected damage contribution ---
+	score += best_target_damage * 1.0
+
+	# --- Target value: is the best target high-value? ---
+	var target_keywords = best_target.get("meta", {}).get("keywords", [])
+
+	# CHARACTER targets — eliminate high-value leaders
+	if "CHARACTER" in target_keywords:
+		score += 2.0
+
+	# Dangerous ranged units — fight first to keep them locked or kill them
+	if _unit_has_ranged_weapons(best_target):
+		var ranged_output = _estimate_unit_ranged_strength(best_target)
+		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
+			score += 2.0
+
+	# Target on objective — clearing objective holders is valuable
+	var target_centroid = _get_unit_centroid(best_target)
+	if target_centroid != Vector2.INF:
+		for obj_pos in objectives:
+			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				score += 1.5
+				break
+
+	# --- Vulnerability: units likely to die should fight first ---
+	# Estimate incoming damage from all engaged enemies attacking this unit
+	var incoming_damage = 0.0
+	for entry in engaged_entries:
+		var enemy = entry.enemy_unit
+		incoming_damage += _estimate_melee_damage(enemy, unit)
+	var our_remaining_wounds = _calculate_kill_threshold(unit)
+	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * SURVIVAL_LETHAL_THRESHOLD:
+		score += 3.0  # Unit is likely to die — fight first to get value
+		print("AIDecisionMaker: T7-46   %s: +3.0 vulnerability (%.1f incoming vs %.0f HP)" % [unit_name, incoming_damage, our_remaining_wounds])
+	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * SURVIVAL_SEVERE_THRESHOLD:
+		score += 1.5  # Unit will be badly hurt — prefer fighting early
+
+	# --- Overkill penalty: don't activate big damage units first against weak targets ---
+	if best_target_remaining_wounds > 0 and best_target_damage > best_target_remaining_wounds * 2.5:
+		score -= 1.5  # Massive overkill — let other units handle weak targets first
+
+	# --- AI-GAP-4: Factor in offensive multipliers from abilities ---
+	var all_units = snapshot.get("units", {})
+	var melee_mult = AIAbilityAnalyzerData.get_offensive_multiplier_melee(unit_id, unit, all_units)
+	if melee_mult > 1.0:
+		score *= melee_mult
+
+	# --- Round strategy modifier ---
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	var strategy = _get_round_strategy_modifiers(battle_round)
+	score *= strategy.aggression
+
+	return max(0.0, score)
+
 
 # T7-28: Helper — check if weapon data has the Extra Attacks keyword
 static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
