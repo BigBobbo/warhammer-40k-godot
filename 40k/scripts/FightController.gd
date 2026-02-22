@@ -1040,17 +1040,6 @@ func _get_unit_center(unit: Dictionary) -> Vector2:
 		center += pos
 	return center / positions.size()
 
-func _get_model_position(model: Dictionary) -> Vector2:
-	"""Get model position as Vector2 (shared helper for T5-V12)."""
-	var pos = model.get("position")
-	if pos == null:
-		return Vector2.ZERO
-	if pos is Dictionary:
-		return Vector2(pos.get("x", 0), pos.get("y", 0))
-	elif pos is Vector2:
-		return pos
-	return Vector2.ZERO
-
 func _flash_fight_target_tokens(target_unit_id: String) -> void:
 	"""T5-V12: Flash the target unit's token nodes red briefly after melee damage."""
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
