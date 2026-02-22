@@ -61,6 +61,11 @@ static var _fight_order_plan_built: bool = false
 static var _secondary_awareness: Dictionary = {}
 static var _secondary_awareness_round: int = -1
 
+# T7-41: Army archetype cache — detected once per game, reused across all phases
+# Stores per-player archetype: {player_id: {archetype: ArmyArchetype, label: String, modifiers: {...}}}
+static var _army_archetype_cache: Dictionary = {}
+static var _army_archetype_detected: bool = false
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -195,6 +200,36 @@ const STRATEGY_LATE_CHARGE: float = 1.3              # Rounds 4-5: higher charge
 const STRATEGY_LATE_CHARGE_ON_OBJ_BONUS: float = 1.5 # Rounds 4-5: extra bonus for charging onto objectives
 const STRATEGY_LATE_OBJ_TARGET_BONUS: float = 1.3    # Rounds 4-5: extra bonus for shooting units on objectives
 
+# T7-41: Army archetype strategy constants
+# Multipliers applied on top of round strategy modifiers based on detected army archetype.
+# Archetypes: MELEE (aggressive advance/charges), SHOOTING (castle/range),
+# ELITE (protect key models), BALANCED (neutral).
+enum ArmyArchetype { BALANCED = 0, MELEE = 1, SHOOTING = 2, ELITE = 3 }
+
+# Detection thresholds — what fraction of total weapon output must be melee/ranged
+const ARCHETYPE_MELEE_THRESHOLD: float = 0.60       # 60%+ melee damage → melee archetype
+const ARCHETYPE_SHOOTING_THRESHOLD: float = 0.65     # 65%+ ranged damage → shooting archetype
+const ARCHETYPE_ELITE_AVG_WOUNDS: float = 4.0        # Average wounds per model ≥ 4 → elite archetype
+const ARCHETYPE_ELITE_AVG_POINTS: float = 40.0       # Average points per model ≥ 40 → elite archetype
+
+# Melee archetype modifiers — aggressive advance, early charges, close the gap
+const ARCHETYPE_MELEE_AGGRESSION: float = 1.25       # +25% aggression (kill-seeking)
+const ARCHETYPE_MELEE_OBJECTIVE: float = 0.9         # -10% objective weight (fighting > holding)
+const ARCHETYPE_MELEE_SURVIVAL: float = 0.8          # -20% threat avoidance (wants to close)
+const ARCHETYPE_MELEE_CHARGE: float = 0.75           # -25% charge threshold (more willing to charge)
+
+# Shooting archetype modifiers — castle, maintain range, avoid melee
+const ARCHETYPE_SHOOTING_AGGRESSION: float = 0.8     # -20% aggression (don't overcommit)
+const ARCHETYPE_SHOOTING_OBJECTIVE: float = 1.1      # +10% objective weight (hold and shoot)
+const ARCHETYPE_SHOOTING_SURVIVAL: float = 1.3       # +30% threat avoidance (stay safe)
+const ARCHETYPE_SHOOTING_CHARGE: float = 1.3         # +30% charge threshold (avoid charges)
+
+# Elite archetype modifiers — protect key models, efficient trades
+const ARCHETYPE_ELITE_AGGRESSION: float = 0.9        # -10% aggression (don't throw away expensive models)
+const ARCHETYPE_ELITE_OBJECTIVE: float = 1.15        # +15% objective weight (use high OC models well)
+const ARCHETYPE_ELITE_SURVIVAL: float = 1.25         # +25% threat avoidance (protect expensive units)
+const ARCHETYPE_ELITE_CHARGE: float = 1.0            # Neutral charge threshold
+
 # T7-25: AI secondary mission awareness constants
 # Movement scoring bonuses for positioning that satisfies active secondary missions
 const SECONDARY_OBJECTIVE_ZONE_BONUS: float = 2.5    # Bonus for objectives in zones relevant to secondaries
@@ -256,8 +291,10 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	# T7-43: Log round strategy mode
 	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	var strategy = _get_round_strategy_modifiers(current_round)
-	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s, round=%d, strategy=%s)" % [
-		phase, player, available_actions.size(), diff_name, current_round, strategy.label])
+	# T7-41: Detect army archetype (cached after first detection)
+	var army_strategy = _get_army_strategy_modifiers(snapshot, player)
+	print("AIDecisionMaker: Deciding for phase %d, player %d, %d available actions (difficulty: %s, round=%d, strategy=%s, archetype=%s)" % [
+		phase, player, available_actions.size(), diff_name, current_round, strategy.label, army_strategy.label])
 	for a in available_actions:
 		print("  Available: %s" % a.get("type", "?"))
 
@@ -3880,7 +3917,10 @@ static func _assign_units_to_objectives(
 		var max_weapon_range = _get_max_weapon_range(unit)
 
 		# T7-43: Get round strategy modifiers for movement scoring
-		var move_strategy = _get_round_strategy_modifiers(battle_round)
+		# T7-41: Combine with army archetype modifiers
+		var move_strategy = _apply_army_archetype_to_strategy(
+			_get_round_strategy_modifiers(battle_round),
+			_get_army_strategy_modifiers(snapshot, player))
 
 		for eval in obj_evaluations:
 			var obj_pos = eval.position
@@ -4395,8 +4435,11 @@ static func _decide_engaged_unit(
 	var fb_and_shoot = AIAbilityAnalyzerData.can_fall_back_and_shoot(unit_id, unit, all_units)
 
 	# T7-43: Get round strategy for engaged unit decisions
+	# T7-41: Combine with army archetype modifiers
 	var engaged_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	var engaged_strategy = _get_round_strategy_modifiers(engaged_battle_round)
+	var engaged_strategy = _apply_army_archetype_to_strategy(
+		_get_round_strategy_modifiers(engaged_battle_round),
+		_get_army_strategy_modifiers(snapshot, player))
 
 	if on_objective:
 		# Check if our OC at this objective would be reduced by falling back
@@ -7036,6 +7079,196 @@ static func _get_round_strategy_modifiers(battle_round: int) -> Dictionary:
 			"label": "OBJECTIVE/SURVIVAL",
 		}
 
+# =============================================================================
+# T7-41: ARMY ARCHETYPE DETECTION AND STRATEGY MODIFIERS
+# =============================================================================
+
+static func _detect_army_archetype(snapshot: Dictionary, player: int) -> Dictionary:
+	"""T7-41: Detect army archetype based on weapon and keyword distribution.
+	Analyzes all friendly units to classify the army as:
+	  MELEE — majority melee damage output → aggressive advance, early charges
+	  SHOOTING — majority ranged damage output → castle, maintain range
+	  ELITE — few high-wound/high-points models → protect key models
+	  BALANCED — no dominant weapon type → neutral modifiers
+	Returns {archetype: int, label: String, modifiers: {aggression, objective_priority, survival, charge_threshold}}"""
+	var friendly_units = _get_units_for_player(snapshot, player)
+	if friendly_units.is_empty():
+		return _make_archetype_result(ArmyArchetype.BALANCED)
+
+	var total_melee_output: float = 0.0
+	var total_ranged_output: float = 0.0
+	var total_models: int = 0
+	var total_wounds: int = 0
+	var total_points: float = 0.0
+	var unit_count: int = 0
+	var melee_only_units: int = 0
+	var ranged_only_units: int = 0
+
+	for unit_id in friendly_units:
+		var unit = friendly_units[unit_id]
+		var meta = unit.get("meta", {})
+		var stats = meta.get("stats", {})
+		var weapons = meta.get("weapons", [])
+		var alive_models = _get_alive_models(unit)
+		var model_count = alive_models.size()
+		if model_count == 0:
+			continue
+
+		unit_count += 1
+		total_models += model_count
+		total_wounds += int(stats.get("wounds", 1)) * model_count
+		total_points += float(meta.get("points", 0))
+
+		var has_melee = false
+		var has_ranged = false
+		var unit_melee_output: float = 0.0
+		var unit_ranged_output: float = 0.0
+
+		for w in weapons:
+			var w_type = w.get("type", "").to_lower()
+			var attacks_str = w.get("attacks", "1")
+			var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+			var damage_str = w.get("damage", "1")
+			var avg_damage = _parse_average_damage(damage_str)
+			# Rough expected output: attacks * damage * models (ignoring to-hit/wound for archetype detection)
+			var output = attacks * avg_damage * model_count
+
+			if w_type == "melee":
+				has_melee = true
+				unit_melee_output += output
+			elif w_type == "ranged":
+				has_ranged = true
+				unit_ranged_output += output
+
+		total_melee_output += unit_melee_output
+		total_ranged_output += unit_ranged_output
+
+		if has_melee and not has_ranged:
+			melee_only_units += 1
+		elif has_ranged and not has_melee:
+			ranged_only_units += 1
+
+	if unit_count == 0 or total_models == 0:
+		return _make_archetype_result(ArmyArchetype.BALANCED)
+
+	var total_output = total_melee_output + total_ranged_output
+	var melee_ratio = total_melee_output / maxf(total_output, 1.0)
+	var ranged_ratio = total_ranged_output / maxf(total_output, 1.0)
+	var avg_wounds = float(total_wounds) / float(total_models)
+	var avg_points = total_points / float(total_models)
+
+	print("AIDecisionMaker: [T7-41] Army analysis for player %d: %d units, %d models" % [player, unit_count, total_models])
+	print("AIDecisionMaker: [T7-41]   Melee output: %.1f (%.0f%%), Ranged output: %.1f (%.0f%%)" % [
+		total_melee_output, melee_ratio * 100, total_ranged_output, ranged_ratio * 100])
+	print("AIDecisionMaker: [T7-41]   Melee-only units: %d, Ranged-only units: %d" % [melee_only_units, ranged_only_units])
+	print("AIDecisionMaker: [T7-41]   Avg wounds/model: %.1f, Avg points/model: %.1f" % [avg_wounds, avg_points])
+
+	# --- Classification priority: Elite first (overrides melee/shooting), then melee/shooting ---
+	# Elite: few expensive, multi-wound models (e.g. Custodes, Knights, Terminators)
+	if avg_wounds >= ARCHETYPE_ELITE_AVG_WOUNDS and avg_points >= ARCHETYPE_ELITE_AVG_POINTS:
+		print("AIDecisionMaker: [T7-41] Detected ELITE archetype (avg W=%.1f, avg pts=%.1f)" % [avg_wounds, avg_points])
+		return _make_archetype_result(ArmyArchetype.ELITE)
+
+	# Melee-focused: majority melee output
+	if melee_ratio >= ARCHETYPE_MELEE_THRESHOLD:
+		print("AIDecisionMaker: [T7-41] Detected MELEE archetype (melee=%.0f%%)" % [melee_ratio * 100])
+		return _make_archetype_result(ArmyArchetype.MELEE)
+
+	# Shooting-focused: majority ranged output
+	if ranged_ratio >= ARCHETYPE_SHOOTING_THRESHOLD:
+		print("AIDecisionMaker: [T7-41] Detected SHOOTING archetype (ranged=%.0f%%)" % [ranged_ratio * 100])
+		return _make_archetype_result(ArmyArchetype.SHOOTING)
+
+	# Balanced: no dominant type
+	print("AIDecisionMaker: [T7-41] Detected BALANCED archetype")
+	return _make_archetype_result(ArmyArchetype.BALANCED)
+
+static func _make_archetype_result(archetype: int) -> Dictionary:
+	"""T7-41: Build archetype result dictionary with modifiers for the given archetype."""
+	match archetype:
+		ArmyArchetype.MELEE:
+			return {
+				"archetype": ArmyArchetype.MELEE,
+				"label": "MELEE",
+				"modifiers": {
+					"aggression": ARCHETYPE_MELEE_AGGRESSION,
+					"objective_priority": ARCHETYPE_MELEE_OBJECTIVE,
+					"survival": ARCHETYPE_MELEE_SURVIVAL,
+					"charge_threshold": ARCHETYPE_MELEE_CHARGE,
+				}
+			}
+		ArmyArchetype.SHOOTING:
+			return {
+				"archetype": ArmyArchetype.SHOOTING,
+				"label": "SHOOTING",
+				"modifiers": {
+					"aggression": ARCHETYPE_SHOOTING_AGGRESSION,
+					"objective_priority": ARCHETYPE_SHOOTING_OBJECTIVE,
+					"survival": ARCHETYPE_SHOOTING_SURVIVAL,
+					"charge_threshold": ARCHETYPE_SHOOTING_CHARGE,
+				}
+			}
+		ArmyArchetype.ELITE:
+			return {
+				"archetype": ArmyArchetype.ELITE,
+				"label": "ELITE",
+				"modifiers": {
+					"aggression": ARCHETYPE_ELITE_AGGRESSION,
+					"objective_priority": ARCHETYPE_ELITE_OBJECTIVE,
+					"survival": ARCHETYPE_ELITE_SURVIVAL,
+					"charge_threshold": ARCHETYPE_ELITE_CHARGE,
+				}
+			}
+		_:  # BALANCED
+			return {
+				"archetype": ArmyArchetype.BALANCED,
+				"label": "BALANCED",
+				"modifiers": {
+					"aggression": 1.0,
+					"objective_priority": 1.0,
+					"survival": 1.0,
+					"charge_threshold": 1.0,
+				}
+			}
+
+static func _get_army_archetype(snapshot: Dictionary, player: int) -> Dictionary:
+	"""T7-41: Get cached army archetype for a player. Detects on first call per game."""
+	if not _army_archetype_detected or not _army_archetype_cache.has(player):
+		_army_archetype_cache[player] = _detect_army_archetype(snapshot, player)
+		_army_archetype_detected = true
+	return _army_archetype_cache[player]
+
+static func _get_army_strategy_modifiers(snapshot: Dictionary, player: int) -> Dictionary:
+	"""T7-41: Get army-archetype-specific strategy modifiers for the given player.
+	Returns a dictionary with the same keys as _get_round_strategy_modifiers:
+	{aggression, objective_priority, survival, charge_threshold, label}."""
+	var archetype_data = _get_army_archetype(snapshot, player)
+	var mods = archetype_data.get("modifiers", {})
+	return {
+		"aggression": mods.get("aggression", 1.0),
+		"objective_priority": mods.get("objective_priority", 1.0),
+		"survival": mods.get("survival", 1.0),
+		"charge_threshold": mods.get("charge_threshold", 1.0),
+		"label": archetype_data.get("label", "BALANCED"),
+	}
+
+static func _apply_army_archetype_to_strategy(round_strategy: Dictionary, army_strategy: Dictionary) -> Dictionary:
+	"""T7-41: Combine round-based and army-archetype strategy modifiers.
+	Multiplies each modifier together so both systems stack."""
+	return {
+		"aggression": round_strategy.aggression * army_strategy.aggression,
+		"objective_priority": round_strategy.objective_priority * army_strategy.objective_priority,
+		"survival": round_strategy.survival * army_strategy.survival,
+		"charge_threshold": round_strategy.charge_threshold * army_strategy.charge_threshold,
+		"label": "%s+%s" % [round_strategy.label, army_strategy.label],
+	}
+
+static func reset_army_archetype_cache() -> void:
+	"""T7-41: Reset the army archetype cache (call when starting a new game)."""
+	_army_archetype_cache.clear()
+	_army_archetype_detected = false
+	print("AIDecisionMaker: [T7-41] Army archetype cache reset")
+
 static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""
 	T7-22: Macro-level target priority assessment.
@@ -7196,8 +7429,11 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 
 	# T7-43: Apply round strategy aggression modifier to overall target value
 	# Early game: boost kill-seeking (aggression > 1.0), Late game: reduce (aggression < 1.0)
+	# T7-41: Combine with army archetype modifiers
 	var tv_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	var tv_strategy = _get_round_strategy_modifiers(tv_battle_round)
+	var tv_strategy = _apply_army_archetype_to_strategy(
+		_get_round_strategy_modifiers(tv_battle_round),
+		_get_army_strategy_modifiers(snapshot, player))
 	value *= tv_strategy.aggression
 
 	return value
@@ -7753,8 +7989,11 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 	# T7-43: Apply round strategy modifier to charge threshold
 	# Early game: lower threshold (more willing), Late game: higher (less willing unless on objective)
+	# T7-41: Combine with army archetype modifiers
 	var ct_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	var ct_strategy = _get_round_strategy_modifiers(ct_battle_round)
+	var ct_strategy = _apply_army_archetype_to_strategy(
+		_get_round_strategy_modifiers(ct_battle_round),
+		_get_army_strategy_modifiers(snapshot, player))
 	charge_threshold *= ct_strategy.charge_threshold
 	if ct_strategy.charge_threshold != 1.0:
 		print("AIDecisionMaker: [STRATEGY] Round %d charge threshold adjusted by %.2f (strategy=%s)" % [
@@ -8024,8 +8263,11 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# T7-43: Apply round strategy aggression modifier to charge target scoring
 	# Early game: boost charge damage value (aggression > 1.0), Late game: reduce (aggression < 1.0)
+	# T7-41: Combine with army archetype modifiers
 	var sct_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	var sct_strategy = _get_round_strategy_modifiers(sct_round)
+	var sct_strategy = _apply_army_archetype_to_strategy(
+		_get_round_strategy_modifiers(sct_round),
+		_get_army_strategy_modifiers(snapshot, player))
 	score *= sct_strategy.aggression
 
 	return max(0.0, score)
@@ -9049,8 +9291,11 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 		score *= melee_mult
 
 	# --- Round strategy modifier ---
+	# T7-41: Combine with army archetype modifiers
 	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-	var strategy = _get_round_strategy_modifiers(battle_round)
+	var strategy = _apply_army_archetype_to_strategy(
+		_get_round_strategy_modifiers(battle_round),
+		_get_army_strategy_modifiers(snapshot, player))
 	score *= strategy.aggression
 
 	return max(0.0, score)
