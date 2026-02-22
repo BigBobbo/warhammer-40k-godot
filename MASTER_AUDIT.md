@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-26 (2026-02-21): AI Heavy weapon stationary bonus — Added `_get_unit_heavy_weapon_data()` and `_should_hold_for_heavy_bonus()` to prefer remaining stationary when Heavy weapons provide significant +1 to hit bonus with targets in range. Overrides for reachable/high-priority objectives and charge intent. | Movement/AI | AI_AUDIT.md §MOV-3 |
 | T7-25 (2026-02-21): AI secondary mission awareness — Added `_build_secondary_awareness()` to analyze active secondary missions in command phase. Movement phase now factors secondary conditions into unit-to-objective assignment: zone bonuses, center positioning, spread incentives, enemy zone push, and kill keyword proximity. Scoring phase discard-for-CP via T7-47. | Command/Movement/Scoring/AI | AI_AUDIT.md §AI-TACTIC-8, SCORE-1 |
 | T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T4-2 (2026-02-21): One Shot weapon keyword — Verified full implementation across RulesEngine.gd (detection, state tracking, filtering, validation), both resolution paths, ShootingPhase.gd, ShootingController.gd, WeaponKeywordIcons.gd. Fixed tests to use static calls. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
@@ -1219,12 +1220,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** `_decide_scoring()` immediately ends the scoring phase. Evaluate active secondary missions in command phase, factor secondary conditions into movement positioning, discard unachievable secondaries for +1 CP.
 - **Resolution:** Added secondary mission awareness system (`_build_secondary_awareness()`) that analyzes active secondary missions during the command phase and caches positioning hints. Movement phase now factors secondary mission conditions into unit-to-objective assignment scoring: zone bonuses for objective-based missions, center positioning for Area Denial, spread incentives for Engage on All Fronts, enemy deployment zone push for Behind Enemy Lines, and kill keyword proximity for kill-based missions. Scoring phase already handles achievability evaluation and discard-for-CP via T7-47.
 
-### T7-26. AI Heavy weapon stationary bonus
+### T7-26. AI Heavy weapon stationary bonus — **DONE**
 - **Phase:** Movement
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §MOV-3
 - **Files:** `AIDecisionMaker.gd` — `_decide_movement()`
 - **Details:** Heavy weapon bonus not considered when deciding to move. Prefer remaining stationary when Heavy bonus (+1 to hit) is significant vs. the objective benefit of moving.
+- **Resolution:** Added `_get_unit_heavy_weapon_data()` to analyze Heavy weapons and calculate the expected extra hits from the +1 to hit stationary bonus. Added `_should_hold_for_heavy_bonus()` check in the movement decision flow (after MOV-1 shooting range check) that prefers REMAIN_STATIONARY when Heavy bonus is significant and targets are in range, with overrides for reachable objectives, high-priority close objectives, and charge intent.
 
 ### T7-27. AI engaged unit survival assessment — **DONE**
 - **Phase:** Movement
@@ -1532,8 +1534,8 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 16 | 4 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 55 | 3 | 58 |
-| **Total** | **161** | **25** | **186** |
+| Tier 7 — AI Player | 56 | 2 | 58 |
+| **Total** | **162** | **24** | **186** |
 | **Recently Completed** | **178** | — | **178** |
 | *Mathhammer items (subset)* | *24* | *7* | *31* |
 
