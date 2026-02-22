@@ -302,6 +302,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			return _decide_deployment(snapshot, available_actions, player)
 		GameStateData.Phase.SCOUT:
 			return _decide_scout(snapshot, available_actions, player)
+		GameStateData.Phase.ROLL_OFF:
+			return _decide_roll_off(snapshot, available_actions, player)
 		GameStateData.Phase.COMMAND:
 			return _decide_command(snapshot, available_actions, player)
 		GameStateData.Phase.MOVEMENT:
@@ -378,6 +380,10 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	# Scout moves — use normal logic
 	if phase == GameStateData.Phase.SCOUT:
 		return _decide_scout(snapshot, available_actions, player)
+
+	# Roll-off — use normal logic (not tactical)
+	if phase == GameStateData.Phase.ROLL_OFF:
+		return _decide_roll_off(snapshot, available_actions, player)
 
 	# Command phase — use normal logic (just CP/Battle-shock, not tactical)
 	if phase == GameStateData.Phase.COMMAND:
@@ -2236,6 +2242,39 @@ static func _resolve_scout_collision(
 		return candidate
 
 	return Vector2.INF
+
+# =============================================================================
+# ROLL-OFF PHASE
+# =============================================================================
+
+static func _decide_roll_off(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# Step 1: If ROLL_FOR_FIRST_TURN is available, roll
+	for action in available_actions:
+		if action.get("type") == "ROLL_FOR_FIRST_TURN":
+			return {
+				"type": "ROLL_FOR_FIRST_TURN",
+				"_ai_description": "Rolling for first turn"
+			}
+
+	# Step 2: If CHOOSE_TURN_ORDER is available, AI chooses to go first
+	for action in available_actions:
+		if action.get("type") == "CHOOSE_TURN_ORDER" and action.get("choice") == "first":
+			return {
+				"type": "CHOOSE_TURN_ORDER",
+				"choice": "first",
+				"_ai_description": "AI chooses to go first"
+			}
+
+	# Fallback: pick any available action
+	if not available_actions.is_empty():
+		var a = available_actions[0]
+		return {
+			"type": a.get("type", ""),
+			"choice": a.get("choice", ""),
+			"_ai_description": "Roll-off fallback action"
+		}
+
+	return {}
 
 # =============================================================================
 # COMMAND PHASE

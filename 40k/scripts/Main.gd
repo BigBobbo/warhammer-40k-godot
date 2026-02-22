@@ -3418,6 +3418,14 @@ func update_ui() -> void:
 					else:
 						status_label.text = "Select a unit to deploy (or place in reserves)"
 
+		GameStateData.Phase.ROLL_OFF:
+			var ai_rolloff = get_node_or_null("/root/AIPlayer")
+			if ai_rolloff and ai_rolloff.is_ai_player(active_player):
+				status_label.text = "AI Player %d is rolling for first turn..." % active_player
+			else:
+				status_label.text = "Click 'Roll for First Turn' to determine who goes first"
+			phase_action_button.disabled = false
+
 		GameStateData.Phase.MOVEMENT:
 			var ai_move = get_node_or_null("/root/AIPlayer")
 			if ai_move and ai_move.is_ai_player(active_player):
@@ -4951,6 +4959,7 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.FORMATIONS: return "Declare Battle Formations"
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
 		GameStateData.Phase.SCOUT: return "Scout Moves"
+		GameStateData.Phase.ROLL_OFF: return "Roll Off — First Turn"
 		GameStateData.Phase.COMMAND: return "Command Phase"
 		GameStateData.Phase.MOVEMENT: return "Movement Phase"
 		GameStateData.Phase.SHOOTING: return "Shooting Phase"
@@ -4965,6 +4974,7 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
 		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
 		GameStateData.Phase.SCOUT: return "End Scout Moves"
+		GameStateData.Phase.ROLL_OFF: return "Roll for First Turn"
 		GameStateData.Phase.COMMAND: return "End Command Phase"
 		GameStateData.Phase.MOVEMENT: return "End Movement Phase"
 		GameStateData.Phase.SHOOTING: return "End Shooting Phase"
@@ -5014,6 +5024,8 @@ func _on_phase_action_pressed() -> void:
 			return
 		GameStateData.Phase.SCOUT:
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
+		GameStateData.Phase.ROLL_OFF:
+			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
 			action = {"type": "END_COMMAND", "player": active_player}
 		GameStateData.Phase.MOVEMENT:
@@ -5152,6 +5164,18 @@ func update_ui_for_phase() -> void:
 			# Update button state based on deployment status
 			if GameState.all_units_deployed():
 				phase_action_button.disabled = false
+
+		GameStateData.Phase.ROLL_OFF:
+			# Hide deployment zones during roll-off
+			p1_zone.visible = false
+			p2_zone.visible = false
+			# Hide movement action buttons
+			_show_movement_action_buttons(false)
+			# Hide unit list and unit card during roll-off
+			unit_list.visible = false
+			unit_card.visible = false
+			# Button enabled — triggers the roll
+			phase_action_button.disabled = false
 
 		GameStateData.Phase.COMMAND:
 			# Hide deployment zones during command phase
