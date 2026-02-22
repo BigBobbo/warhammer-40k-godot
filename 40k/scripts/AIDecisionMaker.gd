@@ -49,6 +49,18 @@ static var _phase_plan_round: int = -1  # Track which round the plan was built f
 static var _fight_order_plan: Array = []
 static var _fight_order_plan_built: bool = false
 
+# T7-25: Secondary mission awareness cache — built in command phase, consumed by movement
+# Stores analysis of active secondary missions to inform movement positioning and target priority
+# _secondary_awareness stores:
+#   objective_zone_bonuses: {zone_name: bonus_value} — e.g., "player2": 3.0 for Behind Enemy Lines
+#   positional_targets: [{position: Vector2, bonus: float, reason: String}] — specific board positions
+#   kill_keywords: [keyword, ...] — enemy keywords to prioritize (CHARACTER, VEHICLE, etc.)
+#   spread_needed: bool — true if Engage on All Fronts requires spreading units across quarters
+#   center_priority: float — bonus for Area Denial center positioning
+#   active_mission_ids: [id, ...] — list of active mission IDs for reference
+static var _secondary_awareness: Dictionary = {}
+static var _secondary_awareness_round: int = -1
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -176,6 +188,15 @@ const STRATEGY_LATE_CHARGE: float = 1.3              # Rounds 4-5: higher charge
 const STRATEGY_LATE_CHARGE_ON_OBJ_BONUS: float = 1.5 # Rounds 4-5: extra bonus for charging onto objectives
 const STRATEGY_LATE_OBJ_TARGET_BONUS: float = 1.3    # Rounds 4-5: extra bonus for shooting units on objectives
 
+# T7-25: AI secondary mission awareness constants
+# Movement scoring bonuses for positioning that satisfies active secondary missions
+const SECONDARY_OBJECTIVE_ZONE_BONUS: float = 2.5    # Bonus for objectives in zones relevant to secondaries
+const SECONDARY_POSITIONAL_BONUS: float = 3.0        # Bonus for moving toward secondary-mission positions
+const SECONDARY_KILL_PROXIMITY_BONUS: float = 1.5    # Bonus for positioning near secondary kill targets
+const SECONDARY_SPREAD_BONUS: float = 2.0            # Bonus for spreading to uncovered table quarters
+const SECONDARY_CENTER_BONUS: float = 2.5            # Bonus for Area Denial center positioning
+const SECONDARY_ENEMY_ZONE_PUSH_BONUS: float = 3.5   # Bonus for Behind Enemy Lines deployment zone push
+
 # T7-27: Engaged unit survival assessment constants
 # Used to estimate fight-phase damage and inform hold/fall-back decisions
 const SURVIVAL_LETHAL_THRESHOLD: float = 0.75      # If expected damage >= 75% of remaining wounds, unit is likely destroyed
@@ -257,6 +278,11 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		_phase_plan.clear()
 		_phase_plan_built = false
 		_phase_plan_round = current_round
+
+	# T7-25: Reset secondary awareness when a new round starts
+	if _secondary_awareness_round != current_round:
+		_secondary_awareness.clear()
+		_secondary_awareness_round = current_round
 
 	# T7-40: Normal and below skip multi-phase planning
 	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
@@ -2242,6 +2268,12 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if not best_target.is_empty():
 			return best_target
 
+	# T7-25: Build secondary mission awareness before ending command phase
+	# Analyzes active secondary missions to inform movement positioning this turn
+	if _secondary_awareness.is_empty():
+		_secondary_awareness = _build_secondary_awareness(snapshot, player)
+		_secondary_awareness_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+
 	# All tests and faction abilities done, end command phase
 	return {"type": "END_COMMAND", "_ai_description": "End Command Phase"}
 
@@ -2449,6 +2481,14 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		_phase_plan = _build_phase_plan(snapshot, player)
 		_phase_plan_built = true
 		_phase_plan_round = battle_round
+
+	# =========================================================================
+	# T7-25: Build secondary awareness if not already built (fallback if command
+	# phase was skipped or didn't trigger awareness build)
+	# =========================================================================
+	if _secondary_awareness.is_empty():
+		_secondary_awareness = _build_secondary_awareness(snapshot, player)
+		_secondary_awareness_round = battle_round
 
 	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
@@ -3935,6 +3975,68 @@ static func _assign_units_to_objectives(
 								var dist_to_lane_target = obj_pos.distance_to(lane_centroid) / PIXELS_PER_INCH
 								if dist_to_lane_target <= max_weapon_range:
 									score += PHASE_PLAN_SHOOTING_LANE_BONUS * 0.5
+
+			# --- T7-25: SECONDARY MISSION AWARENESS INFLUENCE ---
+			# Factor active secondary missions into movement positioning
+			var sec_awareness = _get_secondary_awareness()
+			if not sec_awareness.is_empty() and not sec_awareness.get("active_mission_ids", []).is_empty():
+				# Objective zone bonuses: boost objectives in zones relevant to secondaries
+				var zone_bonuses = sec_awareness.get("objective_zone_bonuses", {})
+				var obj_zone_key = eval.get("zone", "")
+				if obj_zone_key != "" and zone_bonuses.has(obj_zone_key):
+					score += zone_bonuses[obj_zone_key]
+
+				# Behind Enemy Lines: bias movement toward enemy deployment zone
+				var enemy_push = sec_awareness.get("enemy_zone_push", 0.0)
+				if enemy_push > 0.0 and eval.is_enemy_home:
+					score += enemy_push
+
+				# Defend Stronghold: bias toward own zone objectives
+				var defend_home_bonus = sec_awareness.get("defend_home", 0.0)
+				if defend_home_bonus > 0.0 and eval.is_home:
+					score += defend_home_bonus
+
+				# NML priority: bonus for no man's land objectives
+				var nml_bonus = sec_awareness.get("nml_priority", 0.0)
+				if nml_bonus > 0.0 and not eval.is_home and not eval.is_enemy_home:
+					score += nml_bonus
+
+				# Area Denial: bonus for moving toward board center
+				var center_bonus = sec_awareness.get("center_priority", 0.0)
+				if center_bonus > 0.0:
+					var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+					var dest_dist_to_center = estimated_dest.distance_to(board_center) / PIXELS_PER_INCH
+					# Scale bonus inversely with distance to center (max at center, 0 at 12"+)
+					if dest_dist_to_center <= 6.0:
+						score += center_bonus * (1.0 - dest_dist_to_center / 6.0)
+					elif dest_dist_to_center <= 12.0:
+						score += center_bonus * 0.2 * (1.0 - (dest_dist_to_center - 6.0) / 6.0)
+
+				# Engage on All Fronts: bonus for moving into uncovered table quarters
+				if sec_awareness.get("spread_needed", false):
+					var covered = _get_covered_quarters(snapshot.get("units", {}), player)
+					var dest_quarter = _get_table_quarter(estimated_dest)
+					if not covered[dest_quarter]:
+						# Moving into an uncovered quarter — valuable for scoring
+						score += SECONDARY_SPREAD_BONUS
+
+				# Kill target proximity: bias positioning toward secondary kill targets
+				var kill_kws = sec_awareness.get("kill_keywords", [])
+				if not kill_kws.is_empty() and not already_on_obj:
+					# Check if any enemies near this objective match secondary kill keywords
+					for enemy_id in enemies:
+						var enemy = enemies[enemy_id]
+						var enemy_centroid = _get_unit_centroid(enemy)
+						if enemy_centroid == Vector2.INF:
+							continue
+						# Only consider enemies near this objective (within 12")
+						if obj_pos.distance_to(enemy_centroid) > CHARGE_RANGE_PX:
+							continue
+						var enemy_keywords = enemy.get("meta", {}).get("keywords", [])
+						for ekw in enemy_keywords:
+							if ekw.to_upper() in kill_kws:
+								score += SECONDARY_KILL_PROXIMITY_BONUS
+								break
 
 			# Determine recommended action
 			var action = "move"
@@ -10214,6 +10316,179 @@ static func _assess_action_mission(units: Dictionary, player: int) -> float:
 	if alive <= 1:
 		return 0.15  # Very few units to spare for actions
 	return 0.4  # Moderately achievable
+
+# =============================================================================
+# T7-25: SECONDARY MISSION AWARENESS — COMMAND PHASE ANALYSIS
+# =============================================================================
+
+static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dictionary:
+	"""T7-25: Analyze active secondary missions and produce positioning hints for movement.
+	Called once per round during the command phase. Results cached in _secondary_awareness.
+
+	Returns a dictionary with:
+	  - objective_zone_bonuses: {zone: bonus} — bonus for objectives in specific zones
+	  - kill_keywords: [keyword, ...] — enemy keywords to prioritize for kills
+	  - spread_needed: bool — true if Engage on All Fronts wants unit spread
+	  - center_priority: float — bonus for positioning near board center
+	  - enemy_zone_push: float — bonus for pushing into enemy deployment zone
+	  - active_mission_ids: [id, ...] — for reference
+	"""
+	var awareness = {
+		"objective_zone_bonuses": {},  # zone_name -> bonus
+		"kill_keywords": [],           # keywords to target
+		"spread_needed": false,        # need to spread across table quarters
+		"center_priority": 0.0,        # bonus for center positioning
+		"enemy_zone_push": 0.0,        # bonus for pushing into enemy deployment zone
+		"nml_priority": 0.0,           # bonus for no man's land positioning
+		"defend_home": 0.0,            # bonus for defending own zone objectives
+		"active_mission_ids": [],      # for reference/logging
+	}
+
+	var secondary_mgr = _secondary_mission_manager()
+	if not secondary_mgr or not secondary_mgr.is_initialized(player):
+		print("AIDecisionMaker: [T7-25] SecondaryMissionManager not available for awareness build")
+		return awareness
+
+	var active_missions = secondary_mgr.get_active_missions(player)
+	if active_missions.is_empty():
+		print("AIDecisionMaker: [T7-25] No active secondary missions")
+		return awareness
+
+	var opponent = 2 if player == 1 else 1
+	var player_zone = "player%d" % player
+	var enemy_zone = "player%d" % opponent
+
+	for mission in active_missions:
+		var mission_id = mission.get("id", "")
+		awareness.active_mission_ids.append(mission_id)
+
+		match mission_id:
+			# --- POSITIONAL MISSIONS ---
+			"behind_enemy_lines":
+				# Need units wholly in opponent's deployment zone
+				awareness.enemy_zone_push = SECONDARY_ENEMY_ZONE_PUSH_BONUS
+				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + SECONDARY_POSITIONAL_BONUS
+				print("AIDecisionMaker: [T7-25] Behind Enemy Lines active — pushing toward %s zone" % enemy_zone)
+
+			"engage_on_all_fronts":
+				# Need units in 2-4 table quarters, >6" from center
+				awareness.spread_needed = true
+				print("AIDecisionMaker: [T7-25] Engage on All Fronts active — spreading units across quarters")
+
+			"area_denial":
+				# Need units near board center, no enemies within 6"
+				awareness.center_priority = SECONDARY_CENTER_BONUS
+				print("AIDecisionMaker: [T7-25] Area Denial active — prioritizing center positioning")
+
+			"display_of_might":
+				# Need more units in NML than opponent
+				awareness.nml_priority += SECONDARY_POSITIONAL_BONUS
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				print("AIDecisionMaker: [T7-25] Display of Might active — pushing units into NML")
+
+			# --- OBJECTIVE MISSIONS ---
+			"storm_hostile_objective":
+				# Need to take objectives opponent controlled at turn start
+				# Boost enemy-held/contested objectives
+				awareness.objective_zone_bonuses[enemy_zone] = awareness.objective_zone_bonuses.get(enemy_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.5
+				print("AIDecisionMaker: [T7-25] Storm Hostile Objective active — contesting enemy objectives")
+
+			"defend_stronghold":
+				# Need to control objectives in own deployment zone
+				awareness.defend_home = SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				print("AIDecisionMaker: [T7-25] Defend Stronghold active — defending home zone objectives")
+
+			"secure_no_mans_land":
+				# Need to control NML objectives
+				awareness.nml_priority += SECONDARY_OBJECTIVE_ZONE_BONUS
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				print("AIDecisionMaker: [T7-25] Secure NML active — prioritizing no man's land objectives")
+
+			"a_tempting_target":
+				# Need to control opponent-selected objective (in NML)
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS
+				print("AIDecisionMaker: [T7-25] A Tempting Target active — contesting NML objectives")
+
+			"extend_battle_lines":
+				# Need to control own zone AND NML objectives
+				awareness.defend_home = max(awareness.defend_home, SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8)
+				awareness.nml_priority += SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
+				awareness.objective_zone_bonuses[player_zone] = awareness.objective_zone_bonuses.get(player_zone, 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.8
+				print("AIDecisionMaker: [T7-25] Extend Battle Lines active — defending home + NML")
+
+			# --- KILL MISSIONS ---
+			"assassination":
+				if "CHARACTER" not in awareness.kill_keywords:
+					awareness.kill_keywords.append("CHARACTER")
+				print("AIDecisionMaker: [T7-25] Assassination active — targeting CHARACTER units")
+
+			"bring_it_down":
+				if "VEHICLE" not in awareness.kill_keywords:
+					awareness.kill_keywords.append("VEHICLE")
+				if "MONSTER" not in awareness.kill_keywords:
+					awareness.kill_keywords.append("MONSTER")
+				print("AIDecisionMaker: [T7-25] Bring it Down active — targeting VEHICLE/MONSTER units")
+
+			"cull_the_horde":
+				if "INFANTRY" not in awareness.kill_keywords:
+					awareness.kill_keywords.append("INFANTRY")
+				print("AIDecisionMaker: [T7-25] Cull the Horde active — targeting large INFANTRY units")
+
+			"marked_for_death":
+				# Marked targets are selected by opponent — can't influence positioning much
+				print("AIDecisionMaker: [T7-25] Marked for Death active")
+
+			"no_prisoners", "overwhelming_force":
+				# While-active — passive scoring from kills, no positioning needed
+				print("AIDecisionMaker: [T7-25] %s active (passive kill scoring)" % mission_id)
+
+			# --- ACTION MISSIONS ---
+			"establish_locus", "cleanse", "deploy_teleport_homer":
+				# Action missions require performing actions near objectives
+				# Bias toward NML objectives where actions are typically performed
+				awareness.objective_zone_bonuses["no_mans_land"] = awareness.objective_zone_bonuses.get("no_mans_land", 0.0) + SECONDARY_OBJECTIVE_ZONE_BONUS * 0.6
+				print("AIDecisionMaker: [T7-25] %s active — positioning for actions" % mission_id)
+
+	print("AIDecisionMaker: [T7-25] Secondary awareness built: zone_bonuses=%s, kill_keywords=%s, spread=%s, center=%.1f, enemy_push=%.1f" % [
+		str(awareness.objective_zone_bonuses), str(awareness.kill_keywords),
+		str(awareness.spread_needed), awareness.center_priority, awareness.enemy_zone_push])
+
+	return awareness
+
+static func _get_secondary_awareness() -> Dictionary:
+	"""Get the current secondary awareness cache. Returns empty dict if not built."""
+	return _secondary_awareness
+
+static func _get_table_quarter(pos: Vector2) -> int:
+	"""Returns the table quarter (0-3) for a given position.
+	0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right."""
+	var mid_x = BOARD_WIDTH_PX / 2.0
+	var mid_y = BOARD_HEIGHT_PX / 2.0
+	if pos.x < mid_x:
+		return 0 if pos.y < mid_y else 2
+	else:
+		return 1 if pos.y < mid_y else 3
+
+static func _get_covered_quarters(units: Dictionary, player: int) -> Array:
+	"""Returns which table quarters have friendly units (for Engage on All Fronts)."""
+	var quarters = [false, false, false, false]
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		# Engage on All Fronts requires >6" from center
+		var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+		if centroid.distance_to(board_center) <= 6.0 * PIXELS_PER_INCH:
+			continue
+		var q = _get_table_quarter(centroid)
+		quarters[q] = true
+	return quarters
 
 # =============================================================================
 # UTILITY FUNCTIONS

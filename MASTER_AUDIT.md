@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T7-25 (2026-02-21): AI secondary mission awareness — Added `_build_secondary_awareness()` to analyze active secondary missions in command phase. Movement phase now factors secondary conditions into unit-to-objective assignment: zone bonuses, center positioning, spread incentives, enemy zone push, and kill keyword proximity. Scoring phase discard-for-CP via T7-47. | Command/Movement/Scoring/AI | AI_AUDIT.md §AI-TACTIC-8, SCORE-1 |
 | T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T4-2 (2026-02-21): One Shot weapon keyword — Verified full implementation across RulesEngine.gd (detection, state tracking, filtering, validation), both resolution paths, ShootingPhase.gd, ShootingController.gd, WeaponKeywordIcons.gd. Fixed tests to use static calls. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
 | T3-24 (2026-02-21): Defender stats override panel — Verified existing implementation of "Custom Defender Stats" checkbox with SpinBox fields for T/Sv/W/Models/Invuln/FNP in MathhammerUI.gd, auto-populating from selected defender. Overrides applied via `Mathhammer._apply_defender_overrides()`. Added 9 unit tests. | Mathhammer | MATHHAMMER_AUDIT |
@@ -1210,12 +1211,13 @@ These items come from the Testing Audit (PRPs/gh_issue_93_testing-audit.md) and 
 - **Details:** No tracking of unit points values. Use `unit.meta.points` for points-per-wound calculations. Adjust aggression based on VP score differential and turn count.
 - **Resolution:** Added points-per-wound (PPW) calculation using `unit.meta.points` for trade efficiency analysis. Integrated trade efficiency into target value scoring and charge target evaluation. Added tempo modifier system that adjusts AI aggression based on VP score differential and battle round (desperation mode in rounds 4-5 when behind). Applied tempo to objective urgency scoring, focus fire target prioritization, and charge threshold decisions.
 
-### T7-25. AI secondary mission awareness
+### T7-25. AI secondary mission awareness — **DONE**
 - **Phase:** Command/Movement/Scoring
 - **Priority:** MEDIUM
 - **Source:** AI_AUDIT.md §AI-TACTIC-8, SCORE-1
 - **Files:** `AIDecisionMaker.gd`, `SecondaryMissionManager.gd`
 - **Details:** `_decide_scoring()` immediately ends the scoring phase. Evaluate active secondary missions in command phase, factor secondary conditions into movement positioning, discard unachievable secondaries for +1 CP.
+- **Resolution:** Added secondary mission awareness system (`_build_secondary_awareness()`) that analyzes active secondary missions during the command phase and caches positioning hints. Movement phase now factors secondary mission conditions into unit-to-objective assignment scoring: zone bonuses for objective-based missions, center positioning for Area Denial, spread incentives for Engage on All Fronts, enemy deployment zone push for Behind Enemy Lines, and kill keyword proximity for kill-based missions. Scoring phase already handles achievability evaluation and discard-for-CP via T7-47.
 
 ### T7-26. AI Heavy weapon stationary bonus
 - **Phase:** Movement
@@ -1530,9 +1532,9 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 4 — Low/Niche | 16 | 4 | 20 |
 | Tier 5 — QoL/Visual | 42 | 9 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
-| Tier 7 — AI Player | 54 | 4 | 58 |
-| **Total** | **160** | **26** | **186** |
-| **Recently Completed** | **177** | — | **177** |
+| Tier 7 — AI Player | 55 | 3 | 58 |
+| **Total** | **161** | **25** | **186** |
+| **Recently Completed** | **178** | — | **178** |
 | *Mathhammer items (subset)* | *24* | *7* | *31* |
 
 ---
