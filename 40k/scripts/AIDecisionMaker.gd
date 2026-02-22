@@ -108,6 +108,13 @@ const WEIGHT_FIRING_POSITION_LOST: float = -2.5    # Penalty for destinations th
 const WEIGHT_FIRING_POSITION_GAINED: float = 1.5   # Bonus for destinations that bring new enemies into range
 const FIRING_POSITION_BLEND: float = 0.35           # How much to blend movement toward firing position vs objective (0-1)
 
+# T7-26: Heavy weapon stationary bonus consideration (MOV-3)
+# When a unit has Heavy weapons and targets in range, prefer remaining stationary
+# for the +1 to hit bonus. The threshold is the minimum aggregate hit probability
+# improvement (across all Heavy weapons × attacks × models) to trigger holding.
+const HEAVY_STATIONARY_MIN_BENEFIT: float = 0.15    # ~1 extra expected hit across the unit to justify staying
+const HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE: float = 10.0  # High-priority objectives override Heavy hold
+
 # Movement AI tuning weights
 const WEIGHT_UNCONTROLLED_OBJ: float = 10.0
 const WEIGHT_CONTESTED_OBJ: float = 8.0
@@ -2686,6 +2693,19 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 							unit_name, enemies_in_range.size(), max_weapon_range_inches, assigned_obj_id]
 					}
 
+			# --- T7-26: Heavy weapon stationary bonus (MOV-3) ---
+			# Heavy weapons get +1 to hit when the unit remains stationary. If this unit
+			# has significant Heavy firepower and targets in range, prefer staying put.
+			if has_ranged_weapons and "REMAIN_STATIONARY" in move_types:
+				var heavy_data = _get_unit_heavy_weapon_data(unit)
+				if _should_hold_for_heavy_bonus(unit, centroid, target_pos, enemies, move_inches, assignment, heavy_data):
+					return {
+						"type": "REMAIN_STATIONARY",
+						"actor_unit_id": unit_id,
+						"_ai_description": "%s holds for Heavy weapon bonus (+1 to hit, %.1f extra expected hits, obj %s)" % [
+							unit_name, heavy_data.total_expected_extra_hits, assigned_obj_id]
+					}
+
 			# --- T7-11: Lone Operative protection ---
 			# Lone Operatives that are not attached to another unit can only be targeted
 			# by ranged attacks within 12". If any enemy is within 12", try to move away
@@ -5096,6 +5116,128 @@ static func _get_weapon_range_inches(weapon: Dictionary) -> float:
 	elif range_str.is_valid_int():
 		return float(int(range_str))
 	return 0.0
+
+# =============================================================================
+# T7-26: HEAVY WEAPON STATIONARY BONUS ANALYSIS (MOV-3)
+# =============================================================================
+
+static func _get_unit_heavy_weapon_data(unit: Dictionary) -> Dictionary:
+	"""T7-26: Analyze a unit's Heavy weapons and calculate the expected hit probability
+	benefit from remaining stationary (+1 to hit for Heavy keyword).
+	Returns {has_heavy, heavy_weapon_count, total_attacks, avg_hit_improvement,
+	         total_expected_extra_hits, weapons: [{name, attacks, bs, hit_improvement, range_inches}]}
+	total_expected_extra_hits = sum across all Heavy weapons of (attacks * hit_improvement_per_attack)
+	"""
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var result = {
+		"has_heavy": false,
+		"heavy_weapon_count": 0,
+		"total_attacks": 0.0,
+		"avg_hit_improvement": 0.0,
+		"total_expected_extra_hits": 0.0,
+		"max_range_inches": 0.0,
+		"weapons": []
+	}
+	var model_count = _get_alive_models(unit).size()
+	if model_count < 1:
+		model_count = 1
+
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var special_rules = w.get("special_rules", "").to_lower()
+		if "heavy" not in special_rules:
+			continue
+
+		# Also skip Torrent weapons — they auto-hit, so Heavy bonus is irrelevant
+		if "torrent" in special_rules:
+			continue
+
+		var weapon_range = _get_weapon_range_inches(w)
+		if weapon_range <= 0.0:
+			continue
+
+		var attacks_str = w.get("attacks", "1")
+		var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
+		var bs_str = w.get("ballistic_skill", "4")
+		var bs = int(bs_str) if bs_str.is_valid_int() else 4
+
+		# Heavy bonus: +1 to hit when stationary, so effective BS improves by 1
+		# Hit probability improvement = p_hit(bs-1) - p_hit(bs)
+		var p_hit_normal = _hit_probability(bs)
+		var p_hit_heavy = _hit_probability(max(2, bs - 1))  # Can't go below 2+
+		var hit_improvement = p_hit_heavy - p_hit_normal
+
+		if hit_improvement <= 0.0:
+			continue  # Already at 2+ BS, no benefit from Heavy
+
+		var weapon_total_attacks = attacks * model_count
+		var extra_hits = weapon_total_attacks * hit_improvement
+
+		result.has_heavy = true
+		result.heavy_weapon_count += 1
+		result.total_attacks += weapon_total_attacks
+		result.total_expected_extra_hits += extra_hits
+		result.max_range_inches = max(result.max_range_inches, weapon_range)
+		result.weapons.append({
+			"name": w.get("name", "unknown"),
+			"attacks": weapon_total_attacks,
+			"bs": bs,
+			"hit_improvement": hit_improvement,
+			"range_inches": weapon_range
+		})
+
+	if result.total_attacks > 0.0:
+		result.avg_hit_improvement = result.total_expected_extra_hits / result.total_attacks
+
+	return result
+
+static func _should_hold_for_heavy_bonus(
+	unit: Dictionary, centroid: Vector2, target_pos: Vector2,
+	enemies: Dictionary, move_inches: float, assignment: Dictionary,
+	heavy_data: Dictionary
+) -> bool:
+	"""T7-26: Determine if a unit with Heavy weapons should remain stationary
+	to benefit from the +1 to hit bonus rather than moving.
+	Only triggers when the Heavy bonus is significant and targets are in range."""
+	if not heavy_data.has_heavy:
+		return false
+
+	# Check if the Heavy bonus is significant enough
+	if heavy_data.total_expected_extra_hits < HEAVY_STATIONARY_MIN_BENEFIT:
+		return false
+
+	# Check if there are enemies within Heavy weapon range
+	var enemies_in_heavy_range = _get_enemies_in_weapon_range(centroid, heavy_data.max_range_inches, enemies)
+	if enemies_in_heavy_range.is_empty():
+		return false  # No targets in range, move freely
+
+	# If the objective is reachable this turn, moving is usually worth it
+	var dist_to_obj = centroid.distance_to(target_pos) if target_pos != Vector2.INF else INF
+	var dist_to_obj_inches = dist_to_obj / PIXELS_PER_INCH
+	if dist_to_obj_inches <= move_inches:
+		return false  # Can reach objective this turn, prioritize that
+
+	# If objective is high-priority and close (2 turns), don't hold
+	var obj_priority = assignment.get("score", 0.0)
+	if obj_priority >= HEAVY_STATIONARY_OBJ_OVERRIDE_SCORE and dist_to_obj_inches <= move_inches * 2:
+		return false  # High priority objective within 2 turns overrides Heavy bonus
+
+	# If the unit intends to charge, don't hold for Heavy bonus
+	var unit_id = unit.get("meta", {}).get("id", "")
+	if unit_id != "" and not _get_charge_intent(unit_id).is_empty():
+		return false  # Charge intent overrides Heavy bonus
+
+	# Heavy bonus is worthwhile — stay stationary
+	var unit_name = unit.get("meta", {}).get("name", "unit")
+	print("AIDecisionMaker: [T7-26] %s has Heavy weapons (%.1f extra expected hits from +1 to hit) — holding stationary (%d targets in %.0f\" range, obj %.1f\" away)" % [
+		unit_name, heavy_data.total_expected_extra_hits, enemies_in_heavy_range.size(),
+		heavy_data.max_range_inches, dist_to_obj_inches])
+	for w_data in heavy_data.weapons:
+		print("  Heavy weapon: %s (%.0f attacks, BS%d+ -> %d+, +%.0f%% hit rate)" % [
+			w_data.name, w_data.attacks, w_data.bs, max(2, w_data.bs - 1),
+			w_data.hit_improvement * 100.0])
+	return true
 
 # =============================================================================
 # T7-30: HALF-RANGE WEAPON ANALYSIS (SHOOT-6)
