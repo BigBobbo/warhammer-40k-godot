@@ -23,6 +23,7 @@ These items were previously open in the audit files and have now been verified a
 
 | Item | Phase | Source Audit |
 |------|-------|-------------|
+| T5-MP7 (2026-02-22): Game over UI with winner and reason — Completed surrender mechanism (`request_surrender()` RPC in NetworkManager, confirmation dialog + HUD button in Main.gd), added "tabled" reason to GameOverDialog. Full game over flow: timeout, disconnect, surrender, tabled, rounds_complete. | Multiplayer | MASTER_AUDIT.md §MP UX |
 | T7-26 (2026-02-21): AI Heavy weapon stationary bonus — Added `_get_unit_heavy_weapon_data()` and `_should_hold_for_heavy_bonus()` to prefer remaining stationary when Heavy weapons provide significant +1 to hit bonus with targets in range. Overrides for reachable/high-priority objectives and charge intent. | Movement/AI | AI_AUDIT.md §MOV-3 |
 | T7-25 (2026-02-21): AI secondary mission awareness — Added `_build_secondary_awareness()` to analyze active secondary missions in command phase. Movement phase now factors secondary conditions into unit-to-objective assignment: zone bonuses, center positioning, spread incentives, enemy zone push, and kill keyword proximity. Scoring phase discard-for-CP via T7-47. | Command/Movement/Scoring/AI | AI_AUDIT.md §AI-TACTIC-8, SCORE-1 |
 | T4-6 (2026-02-21): Go to Ground / Smokescreen stratagems — Verified full implementation across StratagemManager.gd (definitions, validation, CP deduction, effect application, reactive detection), EffectPrimitives.gd (flag system), RulesEngine.gd (invuln/cover/stealth integration), ShootingPhase.gd (reactive stratagem flow). Fixed test assertions for known AP sign bug. 35/35 tests pass. | Shooting | SHOOTING_PHASE_AUDIT.md |
@@ -875,7 +876,8 @@ These are real rules gaps but affect niche situations or have workarounds.
   - **Resolution:** Included `resolution_start` and `weapon_progress` dice blocks in broadcast results so remote players see the same dice log content as the local player. Added proper `resolution_start` context handler in ShootingController for header display. Enhanced NetworkManager dice sync logging with context details. Works across both ENet RPC and WebSocket relay modes.
 - T5-MP6. "Waiting for Opponent" state in deployment (DEPLOYMENT_AUDIT.md §QoL 3) — **DONE**
   - **Resolution:** Added prominent centered overlay banner with "Waiting for Player X (Role) to deploy..." text, live turn timer countdown, pulse animations on both overlay and opponent's deployment zone, and toast notifications on deployment turn switches. Overlay managed via `_setup_waiting_for_opponent_overlay()`, `_update_waiting_for_opponent_overlay()`, and `_hide_waiting_overlay()` in Main.gd.
-- T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`)
+- T5-MP7. Game over UI with winner and reason (Code TODO in `NetworkManager.gd:1474`) — **DONE**
+  - **Resolution:** Game over UI was already partially implemented via GameOverDialog.gd (winner/reason display, VP summary, AI performance). Completed by adding: surrender mechanism with `request_surrender()` RPC in NetworkManager and confirmation dialog + "Surrender" button in Main.gd HUD (multiplayer only), "tabled" reason text in GameOverDialog. Full flow: NetworkManager emits `game_over(winner, reason)` → Main.gd shows GameOverDialog with winner banner (VICTORY/DEFEAT for networked, Player X Wins for local), reason text, VP breakdown, and Return to Menu button. Covers timeout, disconnect, surrender, tabled, and rounds_complete reasons.
 - T5-MP8. Phase timeout for AFK players (AUDIT_COMMAND_PHASE.md §P3) — **DONE**
   - **Resolution:** Implemented configurable phase timeout system for AFK players in multiplayer. NetworkManager now auto-ends the current phase on first timeout (90s), then triggers game over after 2 consecutive timeouts. Timer resets on any player action via PhaseManager.phase_action_taken signal. Added phase timer HUD countdown in top bar (color-coded green/yellow/red), extended "Waiting for Opponent" overlay to all phases (not just deployment), and added toast warnings at 30s/15s/10s/5s thresholds. Both active player and waiting opponent see timer state.
 - T5-MP9. BEGIN_ADVANCE latency in multiplayer (MOVEMENT_PHASE_AUDIT.md §3.3) — **DONE**
@@ -1509,7 +1511,7 @@ The following TODOs were found in code but were not tracked in any existing audi
 | ~~`LineOfSightCalculator.gd`~~ | ~~79~~ | ~~Handle medium/low terrain based on model height~~ | ~~T3-19~~ **DONE** |
 | ~~`MathhammerUI.gd`~~ | ~~738~~ | ~~Implement custom drawing for visual histogram~~ | ~~T5-V15~~ **DONE** |
 | ~~`ScoringController.gd`~~ | ~~148~~ | ~~Score objectives not implemented~~ | ~~T5-UX13~~ **DONE** |
-| `NetworkManager.gd` | 1474 | Show game over UI with winner and reason | T5-MP7 |
+| ~~`NetworkManager.gd`~~ | ~~1474~~ | ~~Show game over UI with winner and reason~~ | ~~T5-MP7~~ **DONE** |
 | ~~`test_multiplayer_deployment.gd`~~ | ~~368~~ | ~~Implement collision detection test with turn handling~~ | ~~T6-4~~ **DONE** |
 | ~~`test_multiplayer_deployment.gd`~~ | ~~555-557~~ | ~~Complete `assert_unit_deployed()` implementation~~ | ~~T6-4~~ **DONE** |
 | ~~`test_multiplayer_deployment.gd`~~ | ~~562-564~~ | ~~Complete `assert_unit_not_deployed()` implementation~~ | ~~T6-4~~ **DONE** |
@@ -1532,11 +1534,11 @@ The following TODOs were found in code but were not tracked in any existing audi
 | Tier 2 — High Rules | 15 | 1 | 16 |
 | Tier 3 — Medium Rules | 26 | 0 | 26 |
 | Tier 4 — Low/Niche | 16 | 4 | 20 |
-| Tier 5 — QoL/Visual | 42 | 9 | 51 |
+| Tier 5 — QoL/Visual | 43 | 8 | 51 |
 | Tier 6 — Testing | 3 | 2 | 5 |
 | Tier 7 — AI Player | 56 | 2 | 58 |
-| **Total** | **162** | **24** | **186** |
-| **Recently Completed** | **178** | — | **178** |
+| **Total** | **163** | **23** | **186** |
+| **Recently Completed** | **179** | — | **179** |
 | *Mathhammer items (subset)* | *24* | *7* | *31* |
 
 ---
