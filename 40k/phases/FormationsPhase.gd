@@ -22,19 +22,29 @@ var current_declaring_player: int = 1
 func _init():
 	phase_type = GameStateData.Phase.FORMATIONS
 
+func _is_player_confirmed(player: int) -> bool:
+	# Check both local state AND GameState (which is synced via diffs in multiplayer)
+	if players_confirmed.get(player, false):
+		return true
+	# Fallback: check GameState for confirmation synced via network diffs
+	var meta = GameState.state.get("meta", {})
+	return meta.get("formations_p%d_confirmed" % player, false)
+
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Declare Battle Formations Phase")
 	player_formations.clear()
 	players_confirmed.clear()
 
 	# Initialize empty formations for both players
+	var meta = GameState.state.get("meta", {})
 	for player in [1, 2]:
 		player_formations[player] = {
 			"leader_attachments": {},  # character_id -> bodyguard_id
 			"transport_embarkations": {},  # transport_id -> [unit_ids]
 			"reserves": []  # [{unit_id: id, reserve_type: type}]
 		}
-		players_confirmed[player] = false
+		# Sync confirmation state from GameState (may have been set via network diffs)
+		players_confirmed[player] = meta.get("formations_p%d_confirmed" % player, false)
 
 	# Check if there's anything to declare for either player
 	var p1_has_options = _player_has_declaration_options(1)
@@ -341,7 +351,7 @@ func _validate_undeclare_leader_attachment(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Character not declared as attached"]}
 
 	# Can't undeclare after confirming
-	if players_confirmed.get(player, false):
+	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
 
 	return {"valid": true, "errors": []}
@@ -358,7 +368,7 @@ func _validate_undeclare_transport_embarkation(action: Dictionary) -> Dictionary
 	if not embarkations.has(transport_id):
 		return {"valid": false, "errors": ["Transport has no declared embarkations"]}
 
-	if players_confirmed.get(player, false):
+	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
 
 	return {"valid": true, "errors": []}
@@ -372,7 +382,7 @@ func _validate_undeclare_reserves(action: Dictionary) -> Dictionary:
 	if not _is_unit_declared_in_reserves(unit_id, player):
 		return {"valid": false, "errors": ["Unit not declared in reserves"]}
 
-	if players_confirmed.get(player, false):
+	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Cannot modify formations after confirming"]}
 
 	return {"valid": true, "errors": []}
@@ -380,16 +390,16 @@ func _validate_undeclare_reserves(action: Dictionary) -> Dictionary:
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = action.get("player", get_current_player())
 
-	if players_confirmed.get(player, false):
+	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Player already confirmed formations"]}
 
 	return {"valid": true, "errors": []}
 
 func _validate_end_formations(action: Dictionary) -> Dictionary:
 	# Both players must have confirmed
-	if not players_confirmed.get(1, false):
+	if not _is_player_confirmed(1):
 		return {"valid": false, "errors": ["Player 1 has not confirmed formations"]}
-	if not players_confirmed.get(2, false):
+	if not _is_player_confirmed(2):
 		return {"valid": false, "errors": ["Player 2 has not confirmed formations"]}
 	return {"valid": true, "errors": []}
 
@@ -483,10 +493,17 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 
 	var changes = []
 
+	# Sync confirmation state to GameState via diffs so clients see it
+	changes.append({
+		"op": "set",
+		"path": "meta.formations_p%d_confirmed" % player,
+		"value": true
+	})
+
 	# If first player confirmed, switch to second player
 	if player == current_declaring_player:
 		var other_player = 3 - current_declaring_player
-		if not players_confirmed.get(other_player, false):
+		if not _is_player_confirmed(other_player):
 			current_declaring_player = other_player
 			# Include active_player switch in diffs for network sync
 			changes.append({
@@ -498,7 +515,7 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 
 	# If both confirmed, build and return all formation changes
 	# (execute_action will apply them and _should_complete_phase triggers phase completion)
-	if players_confirmed.get(1, false) and players_confirmed.get(2, false):
+	if _is_player_confirmed(1) and _is_player_confirmed(2):
 		log_phase_message("Both players confirmed — building formation changes")
 		changes.append_array(_build_formation_changes())
 
@@ -659,9 +676,9 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 
-	if players_confirmed.get(current_player, false):
+	if _is_player_confirmed(current_player):
 		# Already confirmed, check if we can end
-		if players_confirmed.get(1, false) and players_confirmed.get(2, false):
+		if _is_player_confirmed(1) and _is_player_confirmed(2):
 			actions.append({
 				"type": "END_FORMATIONS",
 				"description": "End Formations Phase"
@@ -764,4 +781,4 @@ func get_available_actions() -> Array:
 	return actions
 
 func _should_complete_phase() -> bool:
-	return players_confirmed.get(1, false) and players_confirmed.get(2, false)
+	return _is_player_confirmed(1) and _is_player_confirmed(2)

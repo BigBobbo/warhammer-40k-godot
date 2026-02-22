@@ -4673,6 +4673,13 @@ func _on_network_result_applied(result: Dictionary) -> void:
 		# Update phase-specific UI
 		update_ui_for_phase()
 
+	# Check if active_player changed — refresh waiting overlay so it reflects the new state
+	for diff in diffs:
+		if diff.get("op") == "set" and diff.get("path") == "meta.active_player":
+			print("Main: Active player changed via network to: ", diff.get("value"))
+			_update_waiting_for_opponent_overlay()
+			break
+
 	# Check if this is a staging action (doesn't modify GameState, only phase-local state)
 	# These actions already update visuals via signals, so skip recreation
 	var action_type = result.get("action_type", "")
