@@ -5999,6 +5999,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var ap = weapon_profile.get("ap", 0)
+	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
+	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)
+	var melee_attacker_flags = attacker_unit.get("flags", {})
+	if melee_attacker_flags.get("martial_mastery_improve_ap", false):
+		var pre_ap_mm = ap
+		ap = ap + 1
+		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap > 0:
@@ -6033,6 +6040,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
 		sustained_data = {"value": katah_sh_value, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+
+	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
+	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by Get Stuck In (War Horde detachment)")
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -6078,6 +6090,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	else:
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
+
+		# MARTIAL MASTERY — CRIT ON 5+ (P2-27): Shield Host detachment
+		var melee_crit_threshold = 6  # Default: only unmodified 6s are critical hits
+		if melee_attacker_flags.get("martial_mastery_crit_5", false):
+			melee_crit_threshold = 5
+			print("RulesEngine: Martial Mastery (Crit on 5+) — melee critical hit threshold lowered to 5+")
+		# Also check effect_crit_hit_on flag (from stratagems or other abilities)
+		var effect_crit = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
+		if effect_crit > 0 and effect_crit < melee_crit_threshold:
+			melee_crit_threshold = effect_crit
+			print("RulesEngine: Effect crit_hit_on %d+ active — melee critical hit threshold: %d+" % [effect_crit, effect_crit])
 
 		# Build melee hit modifiers using the HitModifier system
 		var melee_hit_modifiers = HitModifier.NONE
@@ -6136,10 +6159,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
 				pass  # Auto-miss
-			elif unmodified_roll == 6 or roll >= ws:
+			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= ws:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= threshold (6 normally, 5+ with Martial Mastery)
+				if unmodified_roll >= melee_crit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1

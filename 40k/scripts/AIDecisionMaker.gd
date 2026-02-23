@@ -2330,6 +2330,30 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if not best_target.is_empty():
 			return best_target
 
+	# P2-27: Combat Doctrines selection (Space Marines — Gladius Task Force)
+	# AI strategy: Assault Doctrine early (advance+charge), Tactical mid-game (fall back flexibility),
+	# Devastator late (shoot after advancing when fewer units remain)
+	var doctrine_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_COMBAT_DOCTRINE":
+			doctrine_actions.append(action)
+	if not doctrine_actions.is_empty():
+		var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+		var best_doctrine = _select_combat_doctrine(doctrine_actions, battle_round)
+		if not best_doctrine.is_empty():
+			return best_doctrine
+
+	# P2-27: Martial Mastery selection (Adeptus Custodes — Shield Host)
+	# AI strategy: Default to crit_on_5 for more damage output, pick improve_ap vs high-save targets
+	var mastery_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_MARTIAL_MASTERY":
+			mastery_actions.append(action)
+	if not mastery_actions.is_empty():
+		var best_mastery = _select_martial_mastery(mastery_actions, snapshot, player)
+		if not best_mastery.is_empty():
+			return best_mastery
+
 	# T7-25: Build secondary mission awareness before ending command phase
 	# Analyzes active secondary missions to inform movement positioning this turn
 	if _secondary_awareness.is_empty():
@@ -2449,6 +2473,104 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 		"target_unit_id": best_target_id,
 		"_ai_description": "Oath of Moment: mark %s for destruction (priority score: %.1f)" % [best_name, best_score]
 	}
+
+# =============================================================================
+# P2-27: DETACHMENT ABILITY SELECTIONS
+# =============================================================================
+
+static func _select_combat_doctrine(doctrine_actions: Array, battle_round: int) -> Dictionary:
+	"""
+	P2-27: Select the best Combat Doctrine based on battle round.
+	Strategy: Assault early (charge after advance), Tactical mid (fall back flexibility),
+	Devastator late (shoot after advance for remaining units).
+	"""
+	# Build map of available doctrines
+	var available_keys = {}
+	for action in doctrine_actions:
+		available_keys[action.get("doctrine_key", "")] = action
+
+	# Priority order by battle round
+	var preferred_order = []
+	if battle_round <= 2:
+		preferred_order = ["assault", "tactical", "devastator"]
+	elif battle_round <= 3:
+		preferred_order = ["tactical", "assault", "devastator"]
+	else:
+		preferred_order = ["devastator", "tactical", "assault"]
+
+	for key in preferred_order:
+		if key in available_keys:
+			print("AIDecisionMaker: P2-27 Combat Doctrine selected: %s (round %d)" % [key, battle_round])
+			return {
+				"type": "SELECT_COMBAT_DOCTRINE",
+				"doctrine_key": key,
+				"_ai_description": "Combat Doctrines: activate %s (round %d priority)" % [key, battle_round]
+			}
+
+	# Fallback: pick first available
+	if not doctrine_actions.is_empty():
+		var first = doctrine_actions[0]
+		return {
+			"type": "SELECT_COMBAT_DOCTRINE",
+			"doctrine_key": first.get("doctrine_key", ""),
+			"_ai_description": "Combat Doctrines: activate %s (fallback)" % first.get("doctrine_key", "")
+		}
+
+	return {}
+
+static func _select_martial_mastery(mastery_actions: Array, snapshot: Dictionary, player: int) -> Dictionary:
+	"""
+	P2-27: Select Martial Mastery option. Default to crit_on_5 for more damage output.
+	Pick improve_ap when facing high-save targets (3+ or better).
+	"""
+	var opponent = 1 if player == 2 else 2
+	var units = snapshot.get("units", {})
+
+	# Analyze enemy average save to decide
+	var total_save = 0
+	var count = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		var save = unit.get("meta", {}).get("stats", {}).get("save", 7)
+		total_save += save
+		count += 1
+
+	var avg_save = total_save / max(count, 1)
+
+	# If enemies have good saves (3+ or better on average), AP improvement is better
+	var preferred_key = "crit_on_5"
+	if avg_save <= 3:
+		preferred_key = "improve_ap"
+
+	# Find the matching action
+	for action in mastery_actions:
+		if action.get("mastery_key", "") == preferred_key:
+			print("AIDecisionMaker: P2-27 Martial Mastery selected: %s (avg enemy save: %.1f)" % [preferred_key, avg_save])
+			return {
+				"type": "SELECT_MARTIAL_MASTERY",
+				"mastery_key": preferred_key,
+				"_ai_description": "Martial Mastery: %s (avg enemy save %.1f)" % [preferred_key, avg_save]
+			}
+
+	# Fallback: pick first available
+	if not mastery_actions.is_empty():
+		var first = mastery_actions[0]
+		return {
+			"type": "SELECT_MARTIAL_MASTERY",
+			"mastery_key": first.get("mastery_key", ""),
+			"_ai_description": "Martial Mastery: %s (fallback)" % first.get("mastery_key", "")
+		}
+
+	return {}
 
 # =============================================================================
 # MOVEMENT PHASE

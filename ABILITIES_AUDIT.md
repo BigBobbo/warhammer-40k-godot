@@ -31,9 +31,9 @@
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 2 |
 | Core abilities not implemented or partially implemented | 2 |
-| Detachment rules not implemented | 3 |
+| Detachment rules not implemented | 0 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **12** |
+| **Total gaps** | **9** |
 
 ---
 
@@ -300,21 +300,24 @@ These abilities should only be usable once per game but have no usage tracking m
 
 ## Detachment Rules
 
-These are army-wide bonuses from chosen detachments. None are currently implemented.
+These are army-wide bonuses from chosen detachments. All three are now implemented (P2-27).
 
-### Space Marines — Gladius Task Force: Combat Doctrines
+### ~~Space Marines — Gladius Task Force: Combat Doctrines~~ FIXED
 - **Devastator Doctrine:** Unit eligible to shoot after Advancing (all weapons, not just Assault)
 - **Tactical Doctrine:** Unit eligible to shoot and charge after Falling Back
 - **Assault Doctrine:** Unit eligible to charge after Advancing
-- **Status:** Not implemented. Would interact with the advance_and_shoot/charge and fall_back_and_shoot/charge flags
+- **Implementation:** `FactionAbilityManager` detects detachment from `GameState.state.factions[player].detachment`. `DETACHMENT_ABILITIES["Gladius Task Force"]` defines all three doctrines with once-per-battle-each tracking. `CommandPhase` offers `SELECT_COMBAT_DOCTRINE` actions; selected doctrine sets `effect_advance_and_shoot`, `effect_fall_back_and_shoot/charge`, or `effect_advance_and_charge` flags on all ADEPTUS ASTARTES units. Flags cleared at start of next Command Phase. AI selects based on battle round. Army JSON updated: detachment changed from "Battle Company" to "Gladius Task Force".
+- **Status:** **Implemented** — Command Phase selection, flag application, AI support, save/load
 
-### Orks — War Horde: Get Stuck In
+### ~~Orks — War Horde: Get Stuck In~~ FIXED
 - **Effect:** All Orks melee weapons gain Sustained Hits 1
-- **Status:** Not implemented
+- **Implementation:** Passive detachment ability. `FactionAbilityManager._apply_get_stuck_in()` sets `get_stuck_in` flag on all ORKS units at Command Phase start. `RulesEngine._resolve_melee_assignment()` checks `FactionAbilityManager.unit_has_get_stuck_in()` and grants Sustained Hits 1 to melee weapons (stacks with weapon's own Sustained Hits if any).
+- **Status:** **Implemented** — passive flag, RulesEngine integration
 
-### Adeptus Custodes — Shield Host: Martial Mastery
+### ~~Adeptus Custodes — Shield Host: Martial Mastery~~ FIXED
 - **Effect:** At start of each battle round, choose: (1) unmodified 5+ hit rolls are Critical Hits in melee, or (2) improve melee AP by 1
-- **Status:** Not implemented
+- **Implementation:** `FactionAbilityManager` tracks `_active_mastery` per player per battle round. `CommandPhase` offers `SELECT_MARTIAL_MASTERY` actions when Custodes player has Shield Host detachment and hasn't selected for current round. Selected option sets `martial_mastery_crit_5` or `martial_mastery_improve_ap` flags on all units with Martial Ka'tah ability. `RulesEngine._resolve_melee_assignment()` applies: crit_on_5 lowers melee critical hit threshold from 6 to 5; improve_ap adds 1 to AP before defender's worsen_ap. AI picks based on enemy average save.
+- **Status:** **Implemented** — battle round selection, crit threshold and AP integration, AI support
 
 ---
 
@@ -390,7 +393,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 24. **Implement Omni-scramblers mechanically** — block deep strike within 12" — **DONE**
 25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs — **DONE**
 26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads — **DONE**
-27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery
+27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery — **DONE**
 
 ### P3 — Low (units not yet in army files or niche mechanics)
 28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery

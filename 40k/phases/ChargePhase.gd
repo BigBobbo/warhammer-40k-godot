@@ -416,7 +416,7 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	# Track once-per-battle ability usage when a unit charges after advancing
 	var declaring_unit = get_unit(unit_id)
 	var declaring_flags = declaring_unit.get("flags", {})
-	if declaring_flags.get("advanced", false) and EffectPrimitives.has_effect_advance_and_charge(declaring_unit):
+	if declaring_flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(declaring_unit):
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr:
 			ability_mgr.mark_once_per_battle_used(unit_id, "Martial Inspiration")
@@ -1171,13 +1171,13 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		return false
 	
 	if flags.get("advanced", false):
-		if not EffectPrimitives.has_effect_advance_and_charge(unit):
+		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
 			return false
 		else:
 			print("ChargePhase: Unit %s advanced but has advance_and_charge effect — eligible to charge" % unit.get("id", "unknown"))
 
 	if flags.get("fell_back", false):
-		if not EffectPrimitives.has_effect_fall_back_and_charge(unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
 			return false
 		else:
 			print("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — eligible to charge" % unit.get("id", "unknown"))

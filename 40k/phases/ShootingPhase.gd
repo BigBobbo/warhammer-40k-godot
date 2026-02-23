@@ -1788,7 +1788,7 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
 	# EXCEPTION: Units with advance_and_shoot effect can shoot with ALL weapons after Advancing
 	if flags.get("advanced", false):
-		if EffectPrimitives.has_effect_advance_and_shoot(unit):
+		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
 			print("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown"))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
@@ -1796,7 +1796,7 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 
 	# Units that Fell Back cannot shoot (unless special rules)
 	if flags.get("fell_back", false):
-		if not EffectPrimitives.has_effect_fall_back_and_shoot(unit):
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
 			return false
 		else:
 			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown"))
