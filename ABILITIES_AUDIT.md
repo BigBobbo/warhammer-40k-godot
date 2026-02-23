@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 10 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 9 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **26** |
+| **Total gaps** | **25** |
 
 ---
 
@@ -217,7 +217,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D3 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
-| Advanced Firepower | Datasheet | Yes (text only) | No | **No** | Conditional Lethal Hits by target type (MONSTER/VEHICLE vs other) — not implemented |
+| Advanced Firepower | Datasheet | Yes | Yes (RulesEngine) | **Yes** | Conditional Lethal Hits by target type — Twin iliastus: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus: Lethal Hits vs MONSTER/VEHICLE. check_advanced_firepower_lethal_hits() in RulesEngine, both resolve paths. Missing iliastus weapon added to JSON |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | Invulnerable Save 5+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
 
@@ -348,6 +348,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 21 | Throat Slittas | start_of_shooting | mortal wounds vs nearby enemies | Yes | **Yes** — roll 1D6 per model within 9" of enemy, 5+ = MW. Player/AI prompt, unit cannot shoot if used |
 | 22 | Deadly Demise | on_destruction | mortal wounds to all within 6" | Yes | **Yes** — roll 1D6 on unit death, on 6 each unit within 6" suffers D6/D3/1 mortal wounds. Hooked into ShootingPhase, FightPhase, WoundAllocationOverlay |
 | 23 | Damaged | wounds_below_threshold | -1 to hit | Yes | **Yes** — RulesEngine.is_damaged_profile_active() checks current wounds vs threshold parsed from ability name. Applied in all 3 hit resolution paths (ranged interactive, ranged auto-resolve, melee) |
+| 24 | Advanced Firepower | always | conditional Lethal Hits | Yes | **Yes** — RulesEngine.check_advanced_firepower_lethal_hits() checks weapon name + target keywords. Twin iliastus: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus: Lethal Hits vs MONSTER/VEHICLE. Applied in all 4 ranged resolve paths |
 
 ---
 
@@ -371,7 +372,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units) — **DONE**
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon) — **DONE**
 15. **Add Stealth to Kommandos army JSON** — missing core ability — **DONE**
-16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius)
+16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius) — **DONE**
 17. **Implement Dread Foe** — mortal wounds on fight selection (Contemptor-Achillus)
 18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name
 
