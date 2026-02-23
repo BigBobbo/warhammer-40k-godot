@@ -252,6 +252,41 @@ func _check_kill_diffs(changes: Array) -> void:
 							AIPlayer.record_ai_unit_killed(destroyed_by)
 						if AIPlayer.is_ai_player(destroyed_owner):
 							AIPlayer.record_ai_unit_lost(destroyed_owner)
+					# P1-13: Check for Deadly Demise on destroyed unit
+					_resolve_deadly_demise_if_applicable(unit_id)
+
+func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
+	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return
+	if not ability_mgr.has_deadly_demise(destroyed_unit_id):
+		return
+
+	var dd_value = ability_mgr.get_deadly_demise_value(destroyed_unit_id)
+	if dd_value == "":
+		return
+
+	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	print("FightPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value])
+	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
+
+	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
+
+	if dd_result.get("triggered", false):
+		# Apply the mortal wound diffs
+		var diffs = dd_result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			log_phase_message("Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
+				dd_value, dd_result.get("total_mortal_wounds", 0), dd_result.get("per_target", []).size()
+			])
+			# Recursively check if Deadly Demise caused any further unit deaths
+			_check_kill_diffs(diffs)
+	else:
+		log_phase_message("Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
+			dd_value, dd_result.get("trigger_roll", 0)
+		])
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")

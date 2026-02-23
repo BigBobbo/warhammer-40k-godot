@@ -7376,6 +7376,163 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 		"fnp_rolls": fnp_result.get("rolls", [])
 	}
 
+# ==========================================
+# DEADLY DEMISE (P1-13)
+# ==========================================
+
+static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Resolve Deadly Demise when a model with this ability is destroyed.
+	Rules: Roll 1D6. On a 6, each unit within 6\" suffers 'dd_value' mortal wounds.
+	If dd_value is a random number (D3, D6), roll separately for each unit within 6\".
+	Args:
+		destroyed_unit_id: The unit that was just destroyed
+		dd_value: The mortal wound value string ('D6', 'D3', '1', etc.)
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { triggered: bool, trigger_roll: int, diffs: Array, per_target: Array, total_mortal_wounds: int, total_casualties: int }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var destroyed_unit = units.get(destroyed_unit_id, {})
+	var destroyed_name = destroyed_unit.get("meta", {}).get("name", destroyed_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-13: DEADLY DEMISE — %s (%s) destroyed" % [destroyed_name, destroyed_unit_id])
+	print("║ Deadly Demise value: %s" % dd_value)
+
+	# Step 1: Roll 1D6 to see if Deadly Demise triggers (on a 6)
+	var trigger_roll = rng.roll_d6(1)[0]
+	print("║ Trigger roll: %d (needs 6)" % trigger_roll)
+
+	if trigger_roll != 6:
+		print("║ Deadly Demise did NOT trigger (rolled %d, needed 6)" % trigger_roll)
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"triggered": false,
+			"trigger_roll": trigger_roll,
+			"diffs": [],
+			"per_target": [],
+			"total_mortal_wounds": 0,
+			"total_casualties": 0
+		}
+
+	print("║ DEADLY DEMISE TRIGGERED! Rolling mortal wounds for units within 6\"")
+
+	# Step 2: Find all units within 6" of the destroyed model
+	var destroyed_owner = destroyed_unit.get("owner", 0)
+	var targets_within_6 = _find_units_within_range_of_unit(destroyed_unit_id, 6.0, board)
+
+	var all_diffs: Array = []
+	var per_target: Array = []
+	var total_mortal_wounds = 0
+	var total_casualties = 0
+
+	for target_info in targets_within_6:
+		var target_unit_id = target_info.get("unit_id", "")
+		var target_name = target_info.get("unit_name", target_unit_id)
+
+		# Step 3: Roll mortal wounds for each target
+		var mortal_wounds = _roll_deadly_demise_damage(dd_value, rng)
+		print("║ Target: %s — %d mortal wound(s) (from %s)" % [target_name, mortal_wounds, dd_value])
+
+		var target_result = {
+			"target_unit_id": target_unit_id,
+			"target_name": target_name,
+			"mortal_wounds": mortal_wounds,
+			"casualties": 0
+		}
+
+		# Step 4: Apply mortal wounds
+		if mortal_wounds > 0:
+			var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+			all_diffs.append_array(mw_result.get("diffs", []))
+			target_result["casualties"] = mw_result.get("casualties", 0)
+			total_casualties += mw_result.get("casualties", 0)
+
+		total_mortal_wounds += mortal_wounds
+		per_target.append(target_result)
+
+	print("║ DEADLY DEMISE SUMMARY: %d mortal wound(s) dealt, %d casualt(y/ies) across %d target(s)" % [
+		total_mortal_wounds, total_casualties, per_target.size()
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"triggered": true,
+		"trigger_roll": trigger_roll,
+		"diffs": all_diffs,
+		"per_target": per_target,
+		"total_mortal_wounds": total_mortal_wounds,
+		"total_casualties": total_casualties
+	}
+
+static func _find_units_within_range_of_unit(source_unit_id: String, range_inches: float, board: Dictionary) -> Array:
+	"""Find all units (friendly AND enemy) within range_inches of any model in the source unit.
+	Deadly Demise affects ALL units within 6\", both friendly and enemy.
+	Returns array of { unit_id, unit_name, distance }."""
+	var units = board.get("units", {})
+	var source_unit = units.get(source_unit_id, {})
+	if source_unit.is_empty():
+		return []
+
+	var source_models = source_unit.get("models", [])
+	var results: Array = []
+
+	for other_id in units:
+		if other_id == source_unit_id:
+			continue
+
+		var other_unit = units.get(other_id, {})
+
+		# Skip fully destroyed units
+		var has_alive = false
+		for model in other_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check edge-to-edge distance from destroyed model to nearest alive model
+		var min_dist = INF
+		for source_model in source_models:
+			# Use the destroyed model's position (it was just marked dead but position still exists)
+			var source_pos = source_model.get("position", null)
+			if source_pos == null:
+				continue
+
+			for other_model in other_unit.get("models", []):
+				if not other_model.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(source_model, other_model)
+				min_dist = min(min_dist, dist)
+
+		if min_dist <= range_inches:
+			results.append({
+				"unit_id": other_id,
+				"unit_name": other_unit.get("meta", {}).get("name", other_id),
+				"distance": min_dist
+			})
+			print("║ Unit within 6\": %s (%.1f\")" % [other_unit.get("meta", {}).get("name", other_id), min_dist])
+
+	return results
+
+static func _roll_deadly_demise_damage(dd_value: String, rng: RNGService) -> int:
+	"""Roll the mortal wounds for a Deadly Demise trigger.
+	dd_value: 'D6', 'D3', '1', etc."""
+	var upper = dd_value.to_upper()
+	if upper == "D6":
+		return rng.roll_d6(1)[0]
+	elif upper == "D3":
+		# D3 = roll 1D6, divide by 2 rounding up: 1-2=1, 3-4=2, 5-6=3
+		var roll = rng.roll_d6(1)[0]
+		return ceili(float(roll) / 2.0)
+	else:
+		# Fixed value (e.g. "1", "2")
+		return int(dd_value) if dd_value.is_valid_int() else 1
+
 static func get_grenade_eligible_targets(actor_unit_id: String, board: Dictionary) -> Array:
 	"""Get enemy units within 8\" and visible to the grenade-throwing unit.
 	Returns array of { unit_id: String, unit_name: String, model_count: int }

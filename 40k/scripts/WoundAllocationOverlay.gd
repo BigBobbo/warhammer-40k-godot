@@ -960,6 +960,9 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 
 			# Kill hook: check if entire unit is now destroyed for secondary missions
 			SecondaryMissionManager.check_and_report_unit_destroyed(actual_unit_id)
+
+			# P1-13: Check for Deadly Demise on destroyed unit
+			_check_deadly_demise_on_destruction(actual_unit_id)
 		else:
 			print("WoundAllocationOverlay: Model damaged but not destroyed")
 			# VISUAL FEEDBACK: Show damage effect
@@ -971,6 +974,47 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 		print("WoundAllocationOverlay: _refresh_board_visuals() returned")
 	else:
 		print("WoundAllocationOverlay: ERROR - model_index %d out of range (0-%d)" % [actual_model_index, models.size() - 1])
+
+func _check_deadly_demise_on_destruction(unit_id: String) -> void:
+	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve mortal wounds."""
+	# First verify the unit is fully destroyed (all models dead)
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			return  # Not fully destroyed yet
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return
+	if not ability_mgr.has_deadly_demise(unit_id):
+		return
+
+	var dd_value = ability_mgr.get_deadly_demise_value(unit_id)
+	if dd_value == "":
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("WoundAllocationOverlay: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, unit_id, dd_value])
+
+	var dd_result = RulesEngine.resolve_deadly_demise(unit_id, dd_value, GameState.state)
+
+	if dd_result.get("triggered", false):
+		var diffs = dd_result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			print("WoundAllocationOverlay: P1-13 Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
+				dd_value, dd_result.get("total_mortal_wounds", 0), dd_result.get("per_target", []).size()
+			])
+			# Check if any units were destroyed by Deadly Demise (for secondary missions)
+			for target_info in dd_result.get("per_target", []):
+				if target_info.get("casualties", 0) > 0:
+					SecondaryMissionManager.check_and_report_unit_destroyed(target_info.get("target_unit_id", ""))
+	else:
+		print("WoundAllocationOverlay: P1-13 Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
+			dd_value, dd_result.get("trigger_roll", 0)
+		])
 
 func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	"""Show visual effect when a model dies"""
