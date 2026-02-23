@@ -1152,6 +1152,18 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
 						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
 
+			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+			var omni_positions = GameState.get_omni_scrambler_positions(player)
+			for omni in omni_positions:
+				var omni_pos_px = Vector2(omni.x, omni.y)
+				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(omni_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+				if edge_dist < 12.0:
+					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
+					break
+
 	# Check unit coherency
 	if errors.is_empty():
 		var final_models = []
@@ -1962,6 +1974,18 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 
 			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
 			# No additional restrictions for deep strike placement
+
+			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+			var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+			for omni in omni_positions:
+				var omni_pos_px = Vector2(omni.x, omni.y)
+				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(omni_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+				if edge_dist < 12.0:
+					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
+					break
 
 	# Check unit coherency: reinforcement models must maintain 2" coherency
 	if errors.is_empty():
