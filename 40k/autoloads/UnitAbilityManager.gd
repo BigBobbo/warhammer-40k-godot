@@ -180,13 +180,16 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# Ork Boyz — sticky objectives
+	# At end of Command phase, if unit is within range of a controlled objective,
+	# that objective remains under your control until opponent controls it.
+	# Resolved by MissionManager.apply_sticky_objectives() — not a combat effect.
 	"Get Da Good Bitz": {
-		"condition": "on_objective",
+		"condition": "end_of_command",
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Sticky objectives (not yet a combat effect)"
+		"implemented": true,
+		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
 	},
 
 	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds
@@ -748,6 +751,20 @@ func has_dread_foe(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Dread Foe":
 			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
+			return true
+	return false
+
+func has_sticky_objectives_ability(unit_id: String) -> bool:
+	"""Check if a unit has a sticky objectives ability (e.g. Get Da Good Bitz, Objective Secured).
+	Used by MissionManager to apply sticky objective locks at end of Command phase."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name in ["Get Da Good Bitz", "Objective Secured"]:
 			return true
 	return false
 

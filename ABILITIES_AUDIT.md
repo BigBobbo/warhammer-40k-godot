@@ -28,12 +28,12 @@
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 7 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 1 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 0 |
 | Wargear abilities not implemented | 4 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **17** |
+| **Total gaps** | **16** |
 
 ---
 
@@ -127,7 +127,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
-| Get Da Good Bitz | Datasheet | Yes | Yes (not implemented) | No | Sticky objectives — needs objective system integration |
+| Get Da Good Bitz | Datasheet | Yes | Yes (implemented) | **Yes** | Sticky objectives — MissionManager.apply_sticky_objectives() locks controlled objectives at end of Command phase. Locks persist until opponent controls via OC or source unit destroyed |
 | Bodyguard (20-model) | Special | Yes | No | Unknown | Double leader attachment for 20-model units |
 
 ### Kommandos
@@ -339,7 +339,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 13 | Stand Vigil | always | reroll wounds (1s) | Yes | **Partial** — basic reroll works, objective-conditional upgrade missing |
 | 14 | Ramshackle | always | worsen AP by 1 | Yes | **Yes** — correctly worsens AP of incoming attacks by 1 |
 | 15 | Daughters of the Abyss | always | FNP 3+ | Yes | **Partial** — simplified. Should only apply vs Psychic/mortal wounds |
-| 16 | Get Da Good Bitz | on_objective | sticky objectives | No | **No** |
+| 16 | Get Da Good Bitz | end_of_command | sticky objectives | Yes | **Yes** — MissionManager.apply_sticky_objectives() called at end of Command phase. Locks objectives, persists across turns until opponent controls via OC or source unit destroyed |
 | 17 | Da Biggest and da Best | waaagh_active | +4 attacks | Yes | **Yes** — applied in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set |
 | 18 | Dead Brutal | waaagh_active | damage=3 | Yes | **Yes** — 'Uge choppa damage overridden to 3 in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set |
 | 19 | Sentinel Storm | always | shoot-again | Yes | **Yes** — once-per-battle shoot-again with UI prompt, AI support |
@@ -382,7 +382,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 20. **Implement wargear stat bonuses** — Praesidium Shield (+1W), Vexilla (+1OC), 'Ard Case (+2T) — **DONE**
 21. **Fix Daughters of the Abyss** — restrict FNP 3+ to psychic/mortal wounds only
 22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade
-23. **Implement Get Da Good Bitz** — sticky objectives (Boyz)
+23. **Implement Get Da Good Bitz** — sticky objectives (Boyz) — **DONE**
 24. **Implement Omni-scramblers mechanically** — block deep strike within 12"
 25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs
 26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads
