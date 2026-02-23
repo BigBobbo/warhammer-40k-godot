@@ -995,6 +995,11 @@
             "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
           },
           {
+            "name": "Stealth",
+            "type": "Core",
+            "description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll."
+          },
+          {
             "name": "Core",
             "type": "Faction",
             "description": ""
