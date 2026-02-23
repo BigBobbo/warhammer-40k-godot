@@ -2575,7 +2575,8 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
-				if actor_advanced and not is_assault_weapon(weapon_id, board):
+				# EXCEPTION: Units with advance_and_shoot effect can fire all weapons after Advancing
+				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
 		if target_unit_id == "":
