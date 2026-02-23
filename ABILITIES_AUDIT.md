@@ -25,7 +25,7 @@
 | Category | Count |
 |----------|-------|
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
-| Once-per-battle abilities with no usage tracking | 1 |
+| Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 3 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 4 |
@@ -33,7 +33,7 @@
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 1 |
-| **Total gaps** | **39** |
+| **Total gaps** | **38** |
 
 ---
 
@@ -71,10 +71,10 @@ These abilities are marked `implemented: true` in `UnitAbilityManager.gd` and th
 
 These abilities should only be usable once per game but have no usage tracking mechanism.
 
-### 1. Martial Inspiration (Blade Champion, Custodes)
+### 1. ~~Martial Inspiration (Blade Champion, Custodes)~~ FIXED
 - **Rules text:** "Once per battle, in your Charge phase, this model's unit is eligible to declare a charge in a turn which it Advanced."
-- **Current state:** Flag is applied every movement phase via `UnitAbilityManager._apply_eligibility_effects()` with no tracking
-- **What's needed:** A per-unit battle usage counter (e.g., `flags.used_martial_inspiration = true`) checked before applying the flag
+- **Current state:** Once-per-battle tracking implemented via `_once_per_battle_used` dictionary in `UnitAbilityManager`. The flag is checked before applying in `_apply_eligibility_effects()` and `_apply_leader_abilities()`, and marked as used in `ChargePhase.on_declare_charge()` when a unit charges after advancing.
+- **Status:** Fixed — once-per-battle tracking works correctly with save/load support
 
 ### 2. Sentinel Storm (Custodian Guard, Custodes)
 - **Rules text:** "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
@@ -193,7 +193,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Leader | Core | No | No | Partial | Attachment system works |
 | Martial Ka'tah | Faction | Yes (text only) | No | **No** | Stance selection not implemented |
 | Swift Onslaught | Datasheet | Yes | Yes (not implemented) | **No** | Reroll charge — `reroll_charge` primitive doesn't exist |
-| Martial Inspiration | Datasheet | Yes | Yes (implemented) | **No** | Flag set but ChargePhase doesn't check it + no once-per-battle tracking |
+| Martial Inspiration | Datasheet | Yes | Yes (implemented) | **Yes** | Once-per-battle tracking implemented; ChargePhase checks advance_and_charge flag |
 
 ### Custodian Guard
 
