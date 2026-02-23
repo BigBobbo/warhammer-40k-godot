@@ -22,6 +22,8 @@ signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For f
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
 signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
 signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
+signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
+signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -35,6 +37,7 @@ var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing p
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
+var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
@@ -53,6 +56,7 @@ func _on_phase_enter() -> void:
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
 	sentinel_storm_pending_unit = ""
+	throat_slittas_pending_unit = ""
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -189,6 +193,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_sentinel_storm(action)
 		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
 			return _validate_decline_sentinel_storm(action)
+		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas mortal wounds
+			return _validate_use_throat_slittas(action)
+		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
+			return _validate_decline_throat_slittas(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -255,6 +263,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
 			print("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
 			return _process_decline_sentinel_storm(action)
+		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas
+			print("ShootingPhase: Matched USE_THROAT_SLITTAS")
+			return _process_use_throat_slittas(action)
+		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
+			print("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
+			return _process_decline_throat_slittas(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -410,6 +424,26 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 			call_deferred("_show_firing_deck_dialog", unit_id)
 			log_phase_message("Selected transport %s - choosing firing deck models" % unit.get("meta", {}).get("name", unit_id))
 			return create_result(true, [])
+
+	# P1-12: Check for Throat Slittas — offer mortal wounds instead of shooting
+	if not action.get("payload", {}).get("skip_throat_slittas_check", false):
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
+			var ts_targets = _get_throat_slittas_targets(unit_id)
+			if not ts_targets.is_empty():
+				print("ShootingPhase: P1-12 Throat Slittas: Unit %s has enemies within 9\" — prompting" % unit_id)
+				throat_slittas_pending_unit = unit_id
+
+				var current_player = get_current_player()
+				emit_signal("throat_slittas_available", unit_id, current_player, ts_targets)
+
+				log_phase_message("Throat Slittas available for %s — awaiting decision" % unit.get("meta", {}).get("name", unit_id))
+
+				return create_result(true, [], "Throat Slittas available", {
+					"throat_slittas_available": true,
+					"unit_id": unit_id,
+					"eligible_targets": ts_targets
+				})
 
 	# Normal shooting flow
 	# Get eligible targets
@@ -899,10 +933,37 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	print("║ AI SHOOT (atomic): Starting for unit %s" % unit_id)
 	print("╚═══════════════════════════════════════════════════════════════")
 
-	# Step 1: Select shooter
-	var select_result = _process_select_shooter({"actor_unit_id": unit_id})
+	# Step 1: Select shooter (skip Throat Slittas prompt for AI — handle automatically)
+	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true}})
 	if not select_result.success:
 		return select_result
+
+	# P1-12: AI auto-resolve Throat Slittas if applicable
+	# The AI always uses Throat Slittas when enemies are within 9"
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
+		var ts_targets = _get_throat_slittas_targets(unit_id)
+		if not ts_targets.is_empty():
+			print("║ AI SHOOT: P1-12 Throat Slittas — auto-activating for %s" % unit_id)
+			var ts_result = _resolve_throat_slittas(unit_id)
+			var ts_changes = ts_result.get("diffs", [])
+			ts_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % unit_id,
+				"value": true
+			})
+			units_that_shot.append(unit_id)
+			active_shooter_id = ""
+			confirmed_assignments.clear()
+			resolution_state.clear()
+			pending_save_data.clear()
+
+			var ai_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+			return create_result(true, ts_changes, "Throat Slittas resolved", {
+				"throat_slittas": true,
+				"mortal_wounds": ts_result.get("total_mortal_wounds", 0),
+				"casualties": ts_result.get("total_casualties", 0)
+			})
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -2142,6 +2203,27 @@ func get_available_actions() -> Array:
 			"description": "Resolve shooting"
 		})
 
+	# P1-12: Throat Slittas pending — offer use/decline
+	if throat_slittas_pending_unit != "":
+		var ts_unit = get_unit(throat_slittas_pending_unit)
+		var ts_name = ts_unit.get("meta", {}).get("name", throat_slittas_pending_unit) if not ts_unit.is_empty() else throat_slittas_pending_unit
+		actions.append({
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": throat_slittas_pending_unit,
+			"description": "Activate Throat Slittas — %s deals mortal wounds" % ts_name
+		})
+		actions.append({
+			"type": "DECLINE_THROAT_SLITTAS",
+			"actor_unit_id": throat_slittas_pending_unit,
+			"description": "Decline Throat Slittas — %s shoots normally" % ts_name
+		})
+		# When Throat Slittas is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# P1-10: Sentinel Storm pending — offer use/decline
 	if sentinel_storm_pending_unit != "":
 		var ss_unit = get_unit(sentinel_storm_pending_unit)
@@ -2660,6 +2742,237 @@ func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_uni
 		}]
 
 	return []
+
+# ============================================================================
+# P1-12: THROAT SLITTAS — MORTAL WOUNDS INSTEAD OF SHOOTING (Kommandos)
+# ============================================================================
+# "At the start of your Shooting phase, if this unit is within 9" of one or more
+# enemy units, it can use this ability. If it does, until the end of the phase,
+# this unit is not eligible to shoot, but you roll one D6 for each model in this
+# unit that is within 9" of an enemy unit: for each 5+, that enemy unit suffers
+# 1 mortal wound."
+
+func _validate_use_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Validate activating Throat Slittas mortal wounds ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if throat_slittas_pending_unit == "" or throat_slittas_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Throat Slittas pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Validate declining Throat Slittas ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if throat_slittas_pending_unit == "" or throat_slittas_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Throat Slittas pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Player activates Throat Slittas — roll mortal wounds, unit cannot shoot."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit will deal mortal wounds instead of shooting")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear the pending state
+	throat_slittas_pending_unit = ""
+
+	# Resolve the ability
+	var result = _resolve_throat_slittas(unit_id)
+
+	# Mark unit as done shooting (cannot shoot after using Throat Slittas)
+	var changes = result.get("diffs", [])
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	})
+	units_that_shot.append(unit_id)
+
+	# Clear shooter state
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+
+	# Emit signal to clear visuals
+	emit_signal("shooting_resolved", unit_id, "", {"casualties": result.get("total_casualties", 0)})
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Throat Slittas: %s dealt %d mortal wound(s) — unit cannot shoot" % [
+		unit_name, result.get("total_mortal_wounds", 0)
+	])
+
+	return create_result(true, changes, "Throat Slittas resolved")
+
+func _process_decline_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Player declines Throat Slittas — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Proceeding with normal shooting")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	throat_slittas_pending_unit = ""
+
+	# Re-process as a normal select_shooter, skipping the Throat Slittas check
+	return _process_select_shooter({
+		"actor_unit_id": unit_id,
+		"payload": {"skip_throat_slittas_check": true}
+	})
+
+func _get_throat_slittas_targets(unit_id: String) -> Array:
+	"""Find enemy units within 9\" of the unit. Returns array of
+	{target_unit_id, target_name, models_in_range} dictionaries."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_models = unit.get("models", [])
+	var units = game_state_snapshot.get("units", {})
+	var targets: Array = []
+
+	for other_id in units:
+		var other = units[other_id]
+		# Skip friendly units and destroyed units
+		if other.get("owner", 0) == unit_owner:
+			continue
+		var other_alive = false
+		for m in other.get("models", []):
+			if m.get("alive", true):
+				other_alive = true
+				break
+		if not other_alive:
+			continue
+
+		# Count how many of our models are within 9" of this enemy unit
+		var models_in_range = _count_models_within_range(unit_models, other, 9.0)
+		if models_in_range > 0:
+			targets.append({
+				"target_unit_id": other_id,
+				"target_name": other.get("meta", {}).get("name", other_id),
+				"models_in_range": models_in_range
+			})
+
+	return targets
+
+func _count_models_within_range(our_models: Array, enemy_unit: Dictionary, range_inches: float) -> int:
+	"""Count how many of our alive models are within range_inches of any alive model
+	in the enemy unit (edge-to-edge measurement)."""
+	var count = 0
+	var enemy_models = enemy_unit.get("models", [])
+
+	for our_model in our_models:
+		if not our_model.get("alive", true):
+			continue
+
+		var in_range = false
+		for enemy_model in enemy_models:
+			if not enemy_model.get("alive", true):
+				continue
+
+			var distance_inches = Measurement.model_to_model_distance_inches(our_model, enemy_model)
+			if distance_inches <= range_inches:
+				in_range = true
+				break
+
+		if in_range:
+			count += 1
+
+	return count
+
+func _resolve_throat_slittas(unit_id: String) -> Dictionary:
+	"""Resolve Throat Slittas mortal wounds.
+	For each enemy unit within 9\", roll 1D6 per model in range. 5+ = 1 mortal wound.
+	Returns {diffs: Array, total_mortal_wounds: int, total_casualties: int, per_target: Array}."""
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var targets = _get_throat_slittas_targets(unit_id)
+
+	var all_diffs: Array = []
+	var total_mortal_wounds = 0
+	var total_casualties = 0
+	var per_target: Array = []
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — Resolution")
+	print("║ Unit: %s (%s)" % [unit_name, unit_id])
+	print("║ Targets within 9\": %d" % targets.size())
+
+	for target_info in targets:
+		var target_unit_id = target_info.get("target_unit_id", "")
+		var target_name = target_info.get("target_name", target_unit_id)
+		var models_in_range = target_info.get("models_in_range", 0)
+
+		# Roll 1D6 per model in range
+		var rolls: Array = []
+		var mortal_wounds = 0
+		for i in range(models_in_range):
+			var roll = _rng.randi_range(1, 6)
+			rolls.append(roll)
+			if roll >= 5:
+				mortal_wounds += 1
+
+		print("║ Target: %s — %d models in range, rolls: %s → %d mortal wound(s)" % [
+			target_name, models_in_range, str(rolls), mortal_wounds
+		])
+
+		var target_result = {
+			"target_unit_id": target_unit_id,
+			"target_name": target_name,
+			"models_in_range": models_in_range,
+			"rolls": rolls,
+			"mortal_wounds": mortal_wounds,
+			"casualties": 0
+		}
+
+		# Apply mortal wounds as damage (1 damage each, with proper model allocation)
+		if mortal_wounds > 0:
+			var target_unit = get_unit(target_unit_id)
+			var target_models = target_unit.get("models", []).duplicate(true)
+			var damage_result = RulesEngine._apply_damage_to_unit_pool(
+				target_unit_id, mortal_wounds, target_models, game_state_snapshot
+			)
+			all_diffs.append_array(damage_result.get("diffs", []))
+			target_result["casualties"] = damage_result.get("casualties", 0)
+			total_casualties += damage_result.get("casualties", 0)
+
+		total_mortal_wounds += mortal_wounds
+		per_target.append(target_result)
+
+	print("║ TOTAL: %d mortal wound(s), %d casualt%s" % [
+		total_mortal_wounds, total_casualties,
+		"y" if total_casualties == 1 else "ies"
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	log_phase_message("Throat Slittas (%s): %d mortal wound(s), %d casualt%s" % [
+		unit_name, total_mortal_wounds, total_casualties,
+		"y" if total_casualties == 1 else "ies"
+	])
+
+	# Emit signal for UI display
+	var result = {
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"total_mortal_wounds": total_mortal_wounds,
+		"total_casualties": total_casualties,
+		"per_target": per_target,
+		"diffs": all_diffs
+	}
+	emit_signal("throat_slittas_result", unit_id, result)
+
+	return result
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""

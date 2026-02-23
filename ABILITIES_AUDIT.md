@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 14 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 13 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **32** |
+| **Total gaps** | **31** |
 
 ---
 
@@ -138,7 +138,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Infiltrators | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Stealth | Core | **MISSING** | No | **No** | Wahapedia lists Stealth (-1 to hit ranged attacks). Not in army JSON at all |
 | Waaagh! | Faction | No | No | No | Missing |
-| Throat Slittas | Datasheet | Yes | No | No | Mortal wounds in shooting phase — entirely unimplemented |
+| Throat Slittas | Datasheet | Yes | Yes (implemented) | **Yes** | Mortal wounds in shooting phase — roll 1D6 per model within 9" of enemy, 5+ = 1 MW. Unit cannot shoot if used. Player/AI prompt, full resolution |
 | Sneaky Surprise | Datasheet | **MISSING** | No | **No** | "Cannot be targeted by Fire Overwatch" — not in JSON or code |
 | Patrol Squad | Datasheet | **MISSING** | No | **No** | Unit splitting at deployment — not in JSON or code |
 | Distraction Grot | Wargear | **MISSING** | No | **No** | Once per battle 5+ invuln — not in JSON or code |
@@ -345,6 +345,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 18 | Dead Brutal | waaagh_active | damage=3 | No | **No** — needs Waaagh! system |
 | 19 | Sentinel Storm | always | shoot-again | Yes | **Yes** — once-per-battle shoot-again with UI prompt, AI support |
 | 20 | Sanctified Flames | after_shooting | forced Battle-shock test | Yes | **Yes** — tracks hit targets, rolls 2D6 vs Ld, applies battle_shocked flag |
+| 21 | Throat Slittas | start_of_shooting | mortal wounds vs nearby enemies | Yes | **Yes** — roll 1D6 per model within 9" of enemy, 5+ = MW. Player/AI prompt, unit cannot shoot if used |
 
 ---
 
@@ -364,7 +365,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 9. **Implement Swift Onslaught** — reroll charge primitive needed — **DONE**
 10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard — **DONE**
 11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers) — **DONE**
-12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos)
+12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos) — **DONE**
 13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units)
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon)
 15. **Add Stealth to Kommandos army JSON** — missing core ability

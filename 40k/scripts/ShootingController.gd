@@ -535,6 +535,13 @@ func set_phase(phase: BasePhase) -> void:
 			phase.sentinel_storm_available.connect(_on_sentinel_storm_available)
 			print("║ P1-10: Connected sentinel_storm_available signal")
 
+		# P1-12: Connect throat_slittas_available for mortal wounds prompt
+		if phase.has_signal("throat_slittas_available"):
+			if phase.throat_slittas_available.is_connected(_on_throat_slittas_available):
+				phase.throat_slittas_available.disconnect(_on_throat_slittas_available)
+			phase.throat_slittas_available.connect(_on_throat_slittas_available)
+			print("║ P1-12: Connected throat_slittas_available signal")
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -2541,6 +2548,65 @@ func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
 		active_shooter_id = ""
 		weapon_assignments.clear()
 		_clear_visuals()
+
+# ============================================================================
+# P1-12: THROAT SLITTAS — MORTAL WOUNDS PROMPT
+# ============================================================================
+
+func _on_throat_slittas_available(unit_id: String, player: int, eligible_targets: Array) -> void:
+	"""Show Throat Slittas dialog when the ability is available before shooting."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: THROAT SLITTAS AVAILABLE")
+	print("║ Unit ID: ", unit_id)
+	print("║ Player: ", player)
+	print("║ Eligible targets: ", eligible_targets.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Build a simple confirmation dialog
+	var dialog = ConfirmationDialog.new()
+	var unit = current_phase.get_unit(unit_id) if current_phase else {}
+	var unit_name = unit.get("meta", {}).get("name", unit_id) if not unit.is_empty() else unit_id
+
+	# Build target info text
+	var target_text = ""
+	var total_models = 0
+	for t in eligible_targets:
+		total_models += t.get("models_in_range", 0)
+		target_text += "  %s: %d model(s) in range\n" % [t.get("target_name", "?"), t.get("models_in_range", 0)]
+
+	dialog.title = "Throat Slittas"
+	dialog.dialog_text = "%s can use Throat Slittas!\n\nRoll %d dice (1 per model in range), 5+ = mortal wound.\nUnit cannot shoot this phase if used.\n\n%s\nUse Throat Slittas?" % [
+		unit_name, total_models, target_text
+	]
+	dialog.ok_button_text = "Use Throat Slittas"
+	dialog.cancel_button_text = "Shoot Normally"
+
+	# Store unit_id for the callback
+	dialog.set_meta("unit_id", unit_id)
+
+	dialog.confirmed.connect(func():
+		var uid = dialog.get_meta("unit_id")
+		print("ShootingController: Player activates Throat Slittas for %s" % uid)
+		emit_signal("shoot_action_requested", {
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": uid
+		})
+		if dice_log_display:
+			dice_log_display.append_text("[b][color=red]THROAT SLITTAS! Mortal wounds incoming![/color][/b]\n")
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func():
+		var uid = dialog.get_meta("unit_id")
+		print("ShootingController: Player declines Throat Slittas for %s" % uid)
+		emit_signal("shoot_action_requested", {
+			"type": "DECLINE_THROAT_SLITTAS",
+			"actor_unit_id": uid
+		})
+		dialog.queue_free()
+	)
+
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
 
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:
