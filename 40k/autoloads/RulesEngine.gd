@@ -1099,6 +1099,13 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 				dmg = apply_half_damage(dmg)
 				print("RulesEngine: Half Damage (Overwatch) — damage %d → %d" % [pre_half, dmg])
 
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ow_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ow_minus_dmg > 0:
+				var pre_minus = dmg
+				dmg = max(1, dmg - ow_minus_dmg)
+				print("RulesEngine: Minus Damage (Overwatch) — damage %d → %d (-%d)" % [pre_minus, dmg, ow_minus_dmg])
+
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
 			var new_wounds = max(0, current_wounds - dmg)
@@ -2318,6 +2325,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var pre_half = dw_wound_damage
 				dw_wound_damage = apply_half_damage(dw_wound_damage)
 				print("RulesEngine: Half Damage (auto-resolve) — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ar_dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ar_dw_minus_dmg > 0:
+				var pre_minus = dw_wound_damage
+				dw_wound_damage = max(1, dw_wound_damage - ar_dw_minus_dmg)
+				print("RulesEngine: Minus Damage (auto-resolve) — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_wound_damage, ar_dw_minus_dmg])
 			dw_total_damage += dw_wound_damage
 
 		# FEEL NO PAIN: FNP applies even to devastating wounds
@@ -2468,6 +2481,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var pre_half = damage
 				damage = apply_half_damage(damage)
 				print("RulesEngine: Half Damage (auto-resolve) — damage %d → %d" % [pre_half, damage])
+
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ar_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ar_minus_dmg > 0:
+				var pre_minus = damage
+				damage = max(1, damage - ar_minus_dmg)
+				print("RulesEngine: Minus Damage (auto-resolve) — damage %d → %d (-%d)" % [pre_minus, damage, ar_minus_dmg])
 
 			# FEEL NO PAIN (T3-17): Roll FNP for each point of damage — mirrors apply_save_damage()
 			var actual_damage = damage
@@ -6370,6 +6390,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		print("RulesEngine: Half Damage active on melee defender — all damage characteristics halved (round up)")
 
 	# Roll variable damage per regular failed save
+	var melee_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -6377,6 +6398,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
 		if melee_has_half_damage:
 			wound_dmg_value = apply_half_damage(wound_dmg_value)
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if melee_minus_dmg > 0:
+			var pre_minus = wound_dmg_value
+			wound_dmg_value = max(1, wound_dmg_value - melee_minus_dmg)
+			print("RulesEngine: Minus Damage (melee) — damage %d → %d (-%d)" % [pre_minus, wound_dmg_value, melee_minus_dmg])
 		regular_wound_damages.append(wound_dmg_value)
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
@@ -6392,6 +6418,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 		if melee_has_half_damage:
 			dw_dmg_value = apply_half_damage(dw_dmg_value)
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if melee_minus_dmg > 0:
+			var pre_minus = dw_dmg_value
+			dw_dmg_value = max(1, dw_dmg_value - melee_minus_dmg)
+			print("RulesEngine: Minus Damage (melee) — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_dmg_value, melee_minus_dmg])
 		devastating_damage += dw_dmg_value
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
@@ -7013,6 +7044,11 @@ static func apply_save_damage(
 	if has_half_damage:
 		print("RulesEngine: Half Damage active on defender — all damage characteristics halved (round up)")
 
+	# MINUS DAMAGE (P1-18): Check if target unit has damage reduction (e.g. Guardian Eternal -1 Damage)
+	var int_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+	if int_minus_dmg > 0:
+		print("RulesEngine: Minus Damage active on defender — all damage reduced by %d (min 1)" % int_minus_dmg)
+
 	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
 	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -7025,6 +7061,11 @@ static func apply_save_damage(
 			var pre_half = dw_damage
 			dw_damage = apply_half_damage(dw_damage)
 			print("RulesEngine: Half Damage — devastating override damage %d → %d" % [pre_half, dw_damage])
+		# MINUS DAMAGE (P1-18): Subtract damage reduction, min 1
+		if int_minus_dmg > 0 and dw_damage > 0:
+			var pre_minus = dw_damage
+			dw_damage = max(1, dw_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — devastating override damage %d → %d (-%d)" % [pre_minus, dw_damage, int_minus_dmg])
 	elif devastating_wound_count > 0 and rng != null:
 		for _i in range(devastating_wound_count):
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -7039,6 +7080,11 @@ static func apply_save_damage(
 				var pre_half = dw_wound_damage
 				dw_wound_damage = apply_half_damage(dw_wound_damage)
 				print("RulesEngine: Half Damage — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
+			# MINUS DAMAGE (P1-18): Subtract damage reduction, min 1
+			if int_minus_dmg > 0:
+				var pre_minus = dw_wound_damage
+				dw_wound_damage = max(1, dw_wound_damage - int_minus_dmg)
+				print("RulesEngine: Minus Damage — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_wound_damage, int_minus_dmg])
 			dw_damage += dw_wound_damage
 			if dmg_result.rolled:
 				damage_roll_log.append({"source": "devastating", "result": dmg_result})
@@ -7054,6 +7100,11 @@ static func apply_save_damage(
 			var pre_half = dw_damage
 			dw_damage = apply_half_damage(dw_damage)
 			print("RulesEngine: Half Damage — fixed devastating damage %d → %d" % [pre_half, dw_damage])
+		# MINUS DAMAGE (P1-18): Subtract damage reduction from fixed estimate, min 1
+		if int_minus_dmg > 0 and dw_damage > 0:
+			var pre_minus = dw_damage
+			dw_damage = max(1, dw_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — fixed devastating damage %d → %d (-%d)" % [pre_minus, dw_damage, int_minus_dmg])
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
@@ -7132,6 +7183,12 @@ static func apply_save_damage(
 			var pre_half = wound_damage
 			wound_damage = apply_half_damage(wound_damage)
 			print("RulesEngine: Half Damage — failed save damage %d → %d" % [pre_half, wound_damage])
+
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if int_minus_dmg > 0:
+			var pre_minus = wound_damage
+			wound_damage = max(1, wound_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — failed save damage %d → %d (-%d)" % [pre_minus, wound_damage, int_minus_dmg])
 
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
 		var actual_damage = wound_damage

@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 8 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 7 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **24** |
+| **Total gaps** | **23** |
 
 ---
 
@@ -236,7 +236,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D3 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
-| Guardian Eternal | Datasheet | **MISSING** | No | **No** | -1 Damage to incoming attacks — wahapedia lists this, not in JSON. Note: JSON has "Eternal Protector" (reflect mortal wounds on save of 6) which appears to be incorrect/outdated |
+| Guardian Eternal | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 Damage to incoming attacks — JSON fixed (was "Eternal Protector"), ABILITY_EFFECTS entry added, RulesEngine applies minus_damage in all resolve paths (overwatch, auto-resolve, melee, interactive) |
 | Devoted to Destruction | Datasheet | **MISSING** | No | **No** | +2 Attacks with dual Telemon caestus — not in JSON |
 | Damaged: 1-4 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-4 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | Invulnerable Save 4+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
@@ -350,6 +350,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 23 | Damaged | wounds_below_threshold | -1 to hit | Yes | **Yes** — RulesEngine.is_damaged_profile_active() checks current wounds vs threshold parsed from ability name. Applied in all 3 hit resolution paths (ranged interactive, ranged auto-resolve, melee) |
 | 24 | Advanced Firepower | always | conditional Lethal Hits | Yes | **Yes** — RulesEngine.check_advanced_firepower_lethal_hits() checks weapon name + target keywords. Twin iliastus: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus: Lethal Hits vs MONSTER/VEHICLE. Applied in all 4 ranged resolve paths |
 | 25 | Dread Foe | on_fight_selection | mortal wounds on fight selection | Yes | **Yes** — Auto-resolved when selected to fight. Roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW. RulesEngine.resolve_dread_foe() + FightPhase integration |
+| 26 | Guardian Eternal | always | minus_damage (1) | Yes | **Yes** — -1 Damage to all incoming attacks. JSON fixed (was "Eternal Protector"), RulesEngine applies in all resolve paths (overwatch, auto-resolve ranged, melee auto-resolve, interactive ranged, interactive melee). Min 1 damage enforced |
 
 ---
 
@@ -375,7 +376,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 15. **Add Stealth to Kommandos army JSON** — missing core ability — **DONE**
 16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius) — **DONE**
 17. **Implement Dread Foe** — mortal wounds on fight selection (Contemptor-Achillus) — **DONE**
-18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name
+18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name — **DONE**
 
 ### P2 — Medium (require new systems or are less impactful)
 19. **Implement Waaagh! system** — unlocks Da Biggest/Dead Brutal + base Ork faction ability

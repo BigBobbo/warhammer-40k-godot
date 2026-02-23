@@ -832,9 +832,9 @@
             "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
-            "name": "Eternal Protector",
+            "name": "Guardian Eternal",
             "type": "Datasheet",
-            "description": "Each time an attack targets this model, an unmodified saving throw of 6 reflects the attack back at the attacker - the attacking model's unit suffers 1 mortal wound after all of the attacking model's attacks have been resolved."
+            "description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
           },
           {
             "name": "Damaged: 1-4 Wounds Remaining",

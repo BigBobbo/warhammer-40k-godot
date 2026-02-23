@@ -288,6 +288,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
 	},
 
+	# Custodes Telemon Heavy Dreadnought — -1 Damage to incoming attacks
+	"Guardian Eternal": {
+		"condition": "always",
+		"effects": [{"type": "minus_damage", "value": 1}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
