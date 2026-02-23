@@ -20,6 +20,7 @@ signal grenade_result(result: Dictionary)  # For grenade stratagem result displa
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
+signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -32,6 +33,7 @@ var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
+var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -47,6 +49,7 @@ func _on_phase_enter() -> void:
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
+	sentinel_storm_pending_unit = ""
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -178,6 +181,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_reactive_stratagem(action)
 		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
 			return _validate_use_grenade_stratagem(action)
+		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm shoot-again
+			return _validate_use_sentinel_storm(action)
+		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
+			return _validate_decline_sentinel_storm(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -238,6 +245,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
 			print("ShootingPhase: Matched USE_GRENADE_STRATAGEM")
 			return _process_use_grenade_stratagem(action)
+		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm
+			print("ShootingPhase: Matched USE_SENTINEL_STORM")
+			return _process_use_sentinel_storm(action)
+		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
+			print("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
+			return _process_decline_sentinel_storm(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -2086,6 +2099,27 @@ func get_available_actions() -> Array:
 			"description": "Resolve shooting"
 		})
 
+	# P1-10: Sentinel Storm pending — offer use/decline
+	if sentinel_storm_pending_unit != "":
+		var ss_unit = get_unit(sentinel_storm_pending_unit)
+		var ss_name = ss_unit.get("meta", {}).get("name", sentinel_storm_pending_unit) if not ss_unit.is_empty() else sentinel_storm_pending_unit
+		actions.append({
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": sentinel_storm_pending_unit,
+			"description": "Activate Sentinel Storm — %s shoots again" % ss_name
+		})
+		actions.append({
+			"type": "DECLINE_SENTINEL_STORM",
+			"actor_unit_id": sentinel_storm_pending_unit,
+			"description": "Decline Sentinel Storm for %s" % ss_name
+		})
+		# When Sentinel Storm is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# Pending saves need resolution (safety net for AI)
 	if not pending_save_data.is_empty():
 		actions.append({
@@ -2311,7 +2345,7 @@ func _validate_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
-	"""Mark shooter as done and clear state"""
+	"""Mark shooter as done and clear state. Checks for Sentinel Storm shoot-again ability first."""
 	var unit_id = action.get("actor_unit_id", "")
 
 	print("╔═══════════════════════════════════════════════════════════════")
@@ -2319,6 +2353,30 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	print("║ Unit ID: ", unit_id)
 	print("║ This is triggered when user views final weapon results")
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# P1-10: Check for Sentinel Storm shoot-again ability before completing
+	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
+	if not action.get("payload", {}).get("skip_sentinel_storm_check", false):
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
+			print("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id)
+			sentinel_storm_pending_unit = unit_id
+
+			# Clear resolution state but keep active_shooter_id for the decision
+			confirmed_assignments.clear()
+			resolution_state.clear()
+			pending_save_data.clear()
+
+			# Emit signal for UI to show prompt
+			var current_player = get_current_player()
+			emit_signal("sentinel_storm_available", unit_id, current_player)
+
+			log_phase_message("Sentinel Storm available for unit %s — awaiting player decision" % unit_id)
+
+			return create_result(true, [], "Sentinel Storm available", {
+				"sentinel_storm_available": true,
+				"unit_id": unit_id
+			})
 
 	var changes = [{
 		"op": "set",
@@ -2334,6 +2392,7 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
+	sentinel_storm_pending_unit = ""
 
 	log_phase_message("Shooting complete for unit %s" % unit_id)
 
@@ -2341,6 +2400,95 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
 
 	return create_result(true, changes, "Shooting complete")
+
+# ============================================================================
+# P1-10: SENTINEL STORM — SHOOT AGAIN MECHANIC
+# ============================================================================
+
+func _validate_use_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Validate activating Sentinel Storm shoot-again ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Validate declining Sentinel Storm shoot-again ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Player activates Sentinel Storm — unit shoots again.
+	Mark the ability as used, then reset the unit's shooting state so it can shoot again."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SENTINEL STORM: ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit will shoot again this phase")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Mark Sentinel Storm as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Sentinel Storm")
+
+	# Clear the pending state
+	sentinel_storm_pending_unit = ""
+
+	# Reset the unit's shooting state so it can be selected again
+	# The unit is NOT added to units_that_shot, and has_shot flag stays false
+	# active_shooter_id was already set to this unit
+	active_shooter_id = ""
+	pending_assignments.clear()
+	confirmed_assignments.clear()
+	resolution_state.clear()
+
+	log_phase_message("Sentinel Storm activated! %s will shoot again" % unit_id)
+
+	return create_result(true, [], "Sentinel Storm activated — unit shoots again")
+
+func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Player declines Sentinel Storm — complete shooting normally."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SENTINEL STORM: DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Completing shooting normally")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	sentinel_storm_pending_unit = ""
+
+	# Now complete shooting normally — set has_shot flag and add to units_that_shot
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	units_that_shot.append(unit_id)
+
+	# Clear state
+	var shooter_id = active_shooter_id  # Store before clearing
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+
+	log_phase_message("Sentinel Storm declined — shooting complete for unit %s" % unit_id)
+
+	# Emit signal to clear visuals
+	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+	return create_result(true, changes, "Shooting complete (Sentinel Storm declined)")
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""

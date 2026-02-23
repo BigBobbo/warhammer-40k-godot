@@ -210,6 +210,17 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: charge after advancing"
 	},
 
+	# Custodes Custodian Guard — once per battle shoot again after shooting
+	"Sentinel Storm": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: shoot again after this unit has shot"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
@@ -597,6 +608,24 @@ func is_once_per_battle_used(unit_id: String, ability_name: String) -> bool:
 	"""Check if a once-per-battle ability has been used for a specific unit."""
 	var usage_key = unit_id + ":" + ability_name
 	return _once_per_battle_used.get(usage_key, false)
+
+func has_shoot_again_ability(unit_id: String) -> bool:
+	"""Check if a unit has an unused once-per-battle shoot-again ability (e.g. Sentinel Storm).
+	Used by ShootingPhase to offer the shoot-again option after a unit completes shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sentinel Storm":
+			if not is_once_per_battle_used(unit_id, "Sentinel Storm"):
+				print("UnitAbilityManager: Unit %s has unused Sentinel Storm — shoot-again available" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Sentinel Storm but already used this battle" % unit_id)
+	return false
 
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
