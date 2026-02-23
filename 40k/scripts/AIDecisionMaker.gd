@@ -361,6 +361,13 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
 		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
 		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
+	# P1-10: Always use Sentinel Storm — free extra shooting round
+	if action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["USE_SENTINEL_STORM"][0]
+		return {"type": "USE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Use Sentinel Storm (Easy)"}
+	if action_types.has("DECLINE_SENTINEL_STORM") and not action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["DECLINE_SENTINEL_STORM"][0]
+		return {"type": "DECLINE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Decline Sentinel Storm (Easy)"}
 	if action_types.has("CONFIRM_UNIT_MOVE"):
 		var a = action_types["CONFIRM_UNIT_MOVE"][0]
 		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
@@ -6492,6 +6499,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			"type": "COMPLETE_SHOOTING_FOR_UNIT",
 			"actor_unit_id": a.get("actor_unit_id", ""),
 			"_ai_description": "Complete shooting for unit"
+		}
+
+	# Step 0.5: P1-10 — Always use Sentinel Storm (free extra shooting)
+	if action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["USE_SENTINEL_STORM"][0]
+		return {
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": a.get("actor_unit_id", ""),
+			"_ai_description": "Activate Sentinel Storm — shoot again"
 		}
 
 	# Step 1: Handle saves if needed

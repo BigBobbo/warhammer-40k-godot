@@ -528,6 +528,13 @@ func set_phase(phase: BasePhase) -> void:
 			phase.ai_shooting_visual.connect(_on_ai_shooting_visual)
 			print("║ T7-38: Connected ai_shooting_visual signal")
 
+		# P1-10: Connect sentinel_storm_available for shoot-again prompt
+		if phase.has_signal("sentinel_storm_available"):
+			if phase.sentinel_storm_available.is_connected(_on_sentinel_storm_available):
+				phase.sentinel_storm_available.disconnect(_on_sentinel_storm_available)
+			phase.sentinel_storm_available.connect(_on_sentinel_storm_available)
+			print("║ P1-10: Connected sentinel_storm_available signal")
+
 		# Ensure UI is set up after phase assignment (especially after loading)
 		_setup_ui_references()
 		
@@ -2494,6 +2501,46 @@ func _on_shooting_complete() -> void:
 	# Show feedback in dice log
 	if dice_log_display:
 		dice_log_display.append_text("[b][color=green]✓ Shooting complete for unit[/color][/b]\n")
+
+# ============================================================================
+# P1-10: SENTINEL STORM — SHOOT AGAIN PROMPT
+# ============================================================================
+
+func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
+	"""Show Sentinel Storm dialog when the ability is available after shooting."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SHOOTING CONTROLLER: SENTINEL STORM AVAILABLE")
+	print("║ Unit ID: ", unit_id)
+	print("║ Player: ", player)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var dialog = preload("res://dialogs/SentinelStormDialog.gd").new()
+	dialog.setup(unit_id, player)
+	dialog.sentinel_storm_chosen.connect(_on_sentinel_storm_chosen)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
+	"""Handle player's Sentinel Storm decision."""
+	if use_ability:
+		print("ShootingController: Player activates Sentinel Storm for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": unit_id
+		})
+		# Show feedback in dice log
+		if dice_log_display:
+			dice_log_display.append_text("[b][color=gold]SENTINEL STORM! Unit shoots again![/color][/b]\n")
+	else:
+		print("ShootingController: Player declines Sentinel Storm for %s" % unit_id)
+		emit_signal("shoot_action_requested", {
+			"type": "DECLINE_SENTINEL_STORM",
+			"actor_unit_id": unit_id
+		})
+		# Clear local state since shooting is complete
+		active_shooter_id = ""
+		weapon_assignments.clear()
+		_clear_visuals()
 
 func _on_unit_selected(index: int) -> void:
 	if not unit_selector or not current_phase:

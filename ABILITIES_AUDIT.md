@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 15 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **34** |
+| **Total gaps** | **33** |
 
 ---
 
@@ -76,10 +76,10 @@ These abilities should only be usable once per game but have no usage tracking m
 - **Current state:** Once-per-battle tracking implemented via `_once_per_battle_used` dictionary in `UnitAbilityManager`. The flag is checked before applying in `_apply_eligibility_effects()` and `_apply_leader_abilities()`, and marked as used in `ChargePhase.on_declare_charge()` when a unit charges after advancing.
 - **Status:** Fixed — once-per-battle tracking works correctly with save/load support
 
-### 2. Sentinel Storm (Custodian Guard, Custodes)
+### ~~2. Sentinel Storm (Custodian Guard, Custodes)~~ FIXED
 - **Rules text:** "Once per battle, in your Shooting phase, after this unit has shot, it can shoot again."
-- **Current state:** Not implemented at all — not in ABILITY_EFFECTS table, no shoot-again mechanic exists
-- **What's needed:** Full implementation including once-per-battle tracking and a shoot-again trigger in ShootingPhase
+- **Implementation status:** Added to `ABILITY_EFFECTS` table with `once_per_battle: true`. `ShootingPhase._process_complete_shooting_for_unit()` checks `UnitAbilityManager.has_shoot_again_ability()` after a unit finishes shooting. If available, emits `sentinel_storm_available` signal; `ShootingController` shows `SentinelStormDialog` for player choice. `USE_SENTINEL_STORM` action marks ability as used via `mark_once_per_battle_used()` and resets the unit's shooting state so it can shoot again. `DECLINE_SENTINEL_STORM` completes shooting normally. AI always activates when available.
+- **Status:** Fixed — once-per-battle tracking, UI prompt, AI support, and shoot-again flow all implemented
 
 ---
 
@@ -199,7 +199,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Stand Vigil | Datasheet | Yes | Yes (implemented) | **Partial** | Reroll wound 1s works. "While within range of controlled objective, reroll all wound rolls" — objective-conditional part NOT implemented |
-| Sentinel Storm | Datasheet | Yes (text only) | No | **No** | Once per battle shoot again — entirely unimplemented |
+| Sentinel Storm | Datasheet | Yes (text only) | Yes (implemented) | **Yes** | Once per battle shoot again — implemented with UI prompt, AI support, once-per-battle tracking |
 | Praesidium Shield | Wargear | Yes (text only) | No | **No** | +1 Wounds — not applied to model stats |
 | Vexilla | Wargear | Yes (text only) | No | **No** | +1 OC — not applied to model stats |
 
@@ -360,7 +360,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 ### P1 — High (missing abilities for units already in the game)
 8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase) — **DONE**
 9. **Implement Swift Onslaught** — reroll charge primitive needed — **DONE**
-10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard
+10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard — **DONE**
 11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers)
 12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos)
 13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units)
