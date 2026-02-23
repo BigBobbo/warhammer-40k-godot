@@ -306,12 +306,26 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "reactive_stratagem_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ShootingPhase.reactive_stratagem_opportunity")
 
+	# P2-25: Distraction Grot signal
+	if phase.has_signal("distraction_grot_available"):
+		var callable_dg = Callable(self, "_on_distraction_grot_available")
+		phase.distraction_grot_available.connect(callable_dg)
+		_connected_phase_signals.append({"signal_name": "distraction_grot_available", "callable": callable_dg})
+		print("AIPlayer: Connected to ShootingPhase.distraction_grot_available")
+
 	# --- MovementPhase signals ---
 	if phase.has_signal("fire_overwatch_opportunity"):
 		var callable = Callable(self, "_on_movement_fire_overwatch_opportunity")
 		phase.fire_overwatch_opportunity.connect(callable)
 		_connected_phase_signals.append({"signal_name": "fire_overwatch_opportunity", "callable": callable})
 		print("AIPlayer: Connected to MovementPhase.fire_overwatch_opportunity")
+
+	# P2-25: Bomb Squigs signal
+	if phase.has_signal("bomb_squigs_available"):
+		var callable_bs = Callable(self, "_on_bomb_squigs_available")
+		phase.bomb_squigs_available.connect(callable_bs)
+		_connected_phase_signals.append({"signal_name": "bomb_squigs_available", "callable": callable_bs})
+		print("AIPlayer: Connected to MovementPhase.bomb_squigs_available")
 
 	if phase.has_signal("ability_reroll_opportunity"):
 		var callable_ar = Callable(self, "_on_ability_reroll_opportunity")
@@ -412,6 +426,51 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 
 	decision["player"] = defending_player
 	_submit_reactive_action(defending_player, decision)
+
+# --- P2-25: Distraction Grot (ShootingPhase) ---
+
+func _on_distraction_grot_available(unit_id: String, player: int) -> void:
+	"""
+	Called when the ShootingPhase offers Distraction Grot (5+ invuln) to the defending player.
+	AI always activates this free ability since it has no cost.
+	"""
+	if not is_ai_player(player):
+		return
+
+	print("AIPlayer: P2-25 Distraction Grot available for AI player %d, unit %s — auto-activating" % [player, unit_id])
+
+	var decision = {
+		"type": "USE_DISTRACTION_GROT",
+		"actor_unit_id": unit_id,
+		"player": player,
+		"_ai_description": "AI activates Distraction Grot (5+ invuln, free ability)"
+	}
+	_submit_reactive_action(player, decision)
+
+# --- P2-25: Bomb Squigs (MovementPhase) ---
+
+func _on_bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array) -> void:
+	"""
+	Called when the MovementPhase offers Bomb Squigs after a Normal move.
+	AI always activates this free once-per-battle ability.
+	"""
+	if not is_ai_player(player):
+		return
+
+	print("AIPlayer: P2-25 Bomb Squigs available for AI player %d, unit %s — auto-activating" % [player, unit_id])
+
+	var target_unit_id = ""
+	if not eligible_targets.is_empty():
+		target_unit_id = eligible_targets[0].get("target_unit_id", "")
+
+	var decision = {
+		"type": "USE_BOMB_SQUIGS",
+		"actor_unit_id": unit_id,
+		"target_unit_id": target_unit_id,
+		"player": player,
+		"_ai_description": "AI activates Bomb Squigs (D3 mortal wounds, free ability)"
+	}
+	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Fire Overwatch (MovementPhase) ---
 

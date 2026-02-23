@@ -1013,6 +1013,26 @@
             "name": "Throat Slittas",
             "type": "Datasheet",
             "description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound."
+          },
+          {
+            "name": "Sneaky Surprise",
+            "type": "Datasheet",
+            "description": "Enemy units cannot use the Fire Overwatch Stratagem to shoot at this unit."
+          },
+          {
+            "name": "Patrol Squad",
+            "type": "Datasheet",
+            "description": "At the start of the Declare Battle Formations step, this unit can be split into two units, each containing five models."
+          },
+          {
+            "name": "Distraction Grot",
+            "type": "Wargear",
+            "description": "Once per battle, in your opponent's Shooting phase, when this unit is selected as the target of a ranged attack, until the end of the phase, models in this unit have a 5+ invulnerable save."
+          },
+          {
+            "name": "Bomb Squigs",
+            "type": "Wargear",
+            "description": "Once per battle, after this unit ends a Normal move, you can select one enemy unit within 12\" of and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds."
           }
         ],
         "unit_composition": [

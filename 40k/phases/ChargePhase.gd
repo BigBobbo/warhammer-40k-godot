@@ -444,38 +444,48 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
 	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
-	var charging_owner = int(unit.get("owner", 0))
-	var defending_player = 2 if charging_owner == 1 else 1
+	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var has_sneaky_surprise = false
+	if ability_mgr:
+		has_sneaky_surprise = ability_mgr.has_sneaky_surprise(unit_id)
 
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
-		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
-		if ow_check.available:
-			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
-				defending_player, unit_id, game_state_snapshot
-			)
+	if has_sneaky_surprise:
+		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
+		print("ChargePhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+	else:
+		var charging_owner = int(unit.get("owner", 0))
+		var defending_player = 2 if charging_owner == 1 else 1
 
-			if not ow_eligible.is_empty():
-				# Fire Overwatch is available! Pause and offer it to the defender
-				awaiting_fire_overwatch = true
-				awaiting_overwatch_decision = true
-				overwatch_charging_unit_id = unit_id
-				fire_overwatch_player = defending_player
-				fire_overwatch_enemy_unit_id = unit_id
-				fire_overwatch_eligible_units = ow_eligible
-				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
-				print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+			if ow_check.available:
+				var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+					defending_player, unit_id, game_state_snapshot
+				)
 
-				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
-				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+				if not ow_eligible.is_empty():
+					# Fire Overwatch is available! Pause and offer it to the defender
+					awaiting_fire_overwatch = true
+					awaiting_overwatch_decision = true
+					overwatch_charging_unit_id = unit_id
+					fire_overwatch_player = defending_player
+					fire_overwatch_enemy_unit_id = unit_id
+					fire_overwatch_eligible_units = ow_eligible
+					log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
+					print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
 
-				var result = create_result(true, [])
-				result["trigger_fire_overwatch"] = true
-				result["awaiting_overwatch"] = true
-				result["fire_overwatch_player"] = defending_player
-				result["fire_overwatch_eligible_units"] = ow_eligible
-				result["fire_overwatch_enemy_unit_id"] = unit_id
-				return result
+					emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+					emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+
+					var result = create_result(true, [])
+					result["trigger_fire_overwatch"] = true
+					result["awaiting_overwatch"] = true
+					result["fire_overwatch_player"] = defending_player
+					result["fire_overwatch_eligible_units"] = ow_eligible
+					result["fire_overwatch_enemy_unit_id"] = unit_id
+					return result
 
 	return create_result(true, [])
 

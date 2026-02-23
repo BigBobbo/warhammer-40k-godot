@@ -24,6 +24,8 @@ signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel
 signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
 signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
 signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
+signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distraction Grot invuln save prompt
+signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -38,6 +40,8 @@ var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-sho
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
+var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
+var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
@@ -57,6 +61,8 @@ func _on_phase_enter() -> void:
 	awaiting_reactive_stratagem = false
 	sentinel_storm_pending_unit = ""
 	throat_slittas_pending_unit = ""
+	distraction_grot_pending_unit = ""
+	awaiting_distraction_grot = false
 	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
@@ -232,6 +238,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			return _validate_decline_throat_slittas(action)
+		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
+			return _validate_use_distraction_grot(action)
+		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
+			return _validate_decline_distraction_grot(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -304,6 +314,12 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			print("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
 			return _process_decline_throat_slittas(action)
+		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
+			print("ShootingPhase: Matched USE_DISTRACTION_GROT")
+			return _process_use_distraction_grot(action)
+		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
+			print("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
+			return _process_decline_distraction_grot(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -570,6 +586,26 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 
 	emit_signal("shooting_begun", active_shooter_id)
 	log_phase_message("Confirmed targets, ready to resolve shooting")
+
+	# P2-25: Check for Distraction Grot on targeted units
+	var distraction_grot_check = _check_distraction_grot()
+	if distraction_grot_check.get("has_opportunity", false):
+		var dg_unit_id = distraction_grot_check.unit_id
+		var dg_player = distraction_grot_check.player
+		awaiting_distraction_grot = true
+		distraction_grot_pending_unit = dg_unit_id
+		resolution_state = {
+			"phase": "awaiting_distraction_grot",
+			"assignments": confirmed_assignments
+		}
+		var dg_name = get_unit(dg_unit_id).get("meta", {}).get("name", dg_unit_id)
+		log_phase_message("Distraction Grot available for %s — awaiting decision" % dg_name)
+		emit_signal("distraction_grot_available", dg_unit_id, dg_player)
+		return create_result(true, [], "Awaiting Distraction Grot decision", {
+			"distraction_grot_available": true,
+			"unit_id": dg_unit_id,
+			"player": dg_player
+		})
 
 	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
 	var reactive_check = _check_reactive_stratagems()
@@ -2238,6 +2274,25 @@ func get_available_actions() -> Array:
 			"description": "Resolve shooting"
 		})
 
+	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
+	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
+		var dg_unit = get_unit(distraction_grot_pending_unit)
+		var dg_name = dg_unit.get("meta", {}).get("name", distraction_grot_pending_unit) if not dg_unit.is_empty() else distraction_grot_pending_unit
+		var dg_player = int(dg_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_DISTRACTION_GROT",
+			"actor_unit_id": distraction_grot_pending_unit,
+			"player": dg_player,
+			"description": "Activate Distraction Grot — %s gains 5+ invuln" % dg_name
+		})
+		actions.append({
+			"type": "DECLINE_DISTRACTION_GROT",
+			"actor_unit_id": distraction_grot_pending_unit,
+			"player": dg_player,
+			"description": "Decline Distraction Grot — %s" % dg_name
+		})
+		return actions  # Block other actions until resolved
+
 	# P1-12: Throat Slittas pending — offer use/decline
 	if throat_slittas_pending_unit != "":
 		var ts_unit = get_unit(throat_slittas_pending_unit)
@@ -3008,6 +3063,170 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 	emit_signal("throat_slittas_result", unit_id, result)
 
 	return result
+
+# ============================================================================
+# DISTRACTION GROT (P2-25)
+# ============================================================================
+# "Once per battle, in your opponent's Shooting phase, when this unit is selected
+# as the target of a ranged attack, until the end of the phase, models in this
+# unit have a 5+ invulnerable save."
+
+func _check_distraction_grot() -> Dictionary:
+	"""Check if any targeted unit has an unused Distraction Grot ability.
+	Returns { has_opportunity: bool, unit_id: String, player: int }."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"has_opportunity": false}
+
+	var active_player = get_current_player()
+
+	# Collect unique target unit IDs from confirmed assignments
+	var target_unit_ids = []
+	for assignment in confirmed_assignments:
+		var target_id = assignment.get("target_unit_id", "")
+		if target_id != "" and target_id not in target_unit_ids:
+			target_unit_ids.append(target_id)
+
+	for target_id in target_unit_ids:
+		var target_unit = get_unit(target_id)
+		var target_owner = int(target_unit.get("owner", 0))
+
+		# Only the defending player's units can use Distraction Grot
+		if target_owner == active_player:
+			continue
+
+		if ability_mgr.has_distraction_grot(target_id):
+			print("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
+				target_unit.get("meta", {}).get("name", target_id), target_id
+			])
+			return {
+				"has_opportunity": true,
+				"unit_id": target_id,
+				"player": target_owner
+			}
+
+	return {"has_opportunity": false}
+
+func _validate_use_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Validate activating Distraction Grot ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_distraction_grot:
+		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
+	if distraction_grot_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Distraction Grot pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Validate declining Distraction Grot ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_distraction_grot:
+		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Defender activates Distraction Grot — unit gains 5+ invulnerable save for the phase."""
+	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: DISTRACTION GROT — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit gains 5+ invulnerable save until end of phase")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_distraction_grot = false
+	distraction_grot_pending_unit = ""
+
+	# Mark as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Distraction Grot")
+
+	# Apply 5+ invulnerable save flag to the unit
+	var diffs = []
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.flags.effect_invuln" % unit_id,
+		"value": 5
+	})
+	PhaseManager.apply_state_changes(diffs)
+
+	# Refresh snapshot so RulesEngine sees the invuln
+	game_state_snapshot = GameState.create_snapshot()
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Distraction Grot: %s gains 5+ invulnerable save" % unit_name)
+
+	emit_signal("distraction_grot_result", unit_id, true)
+
+	# Now continue to check reactive stratagems
+	var reactive_check = _check_reactive_stratagems()
+	if reactive_check.has_opportunities:
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("Opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			reactive_check.defending_player,
+			reactive_check.available_stratagems,
+			reactive_check.target_unit_ids)
+		return create_result(true, diffs, "Distraction Grot activated, awaiting stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": reactive_check.defending_player,
+			"available_stratagems": reactive_check.available_stratagems,
+			"target_unit_ids": reactive_check.target_unit_ids,
+			"distraction_grot_used": true,
+			"distraction_grot_unit_id": unit_id
+		})
+
+	# No reactive stratagems — continue to resolution
+	var resolution_result = _continue_after_reactive_stratagems()
+	resolution_result["distraction_grot_used"] = true
+	resolution_result["distraction_grot_unit_id"] = unit_id
+	return resolution_result
+
+func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Defender declines Distraction Grot — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: DISTRACTION GROT — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_distraction_grot = false
+	distraction_grot_pending_unit = ""
+
+	emit_signal("distraction_grot_result", unit_id, false)
+
+	# Continue to check reactive stratagems
+	var reactive_check = _check_reactive_stratagems()
+	if reactive_check.has_opportunities:
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("Opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			reactive_check.defending_player,
+			reactive_check.available_stratagems,
+			reactive_check.target_unit_ids)
+		return create_result(true, [], "Awaiting defender stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": reactive_check.defending_player,
+			"available_stratagems": reactive_check.available_stratagems,
+			"target_unit_ids": reactive_check.target_unit_ids
+		})
+
+	return _continue_after_reactive_stratagems()
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""

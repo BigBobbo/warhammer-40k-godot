@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 6 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 0 |
-| Wargear abilities not implemented | 4 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 4 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 1 |
+| Wargear abilities not implemented | 2 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **15** |
+| **Total gaps** | **12** |
 
 ---
 
@@ -138,10 +138,10 @@ These abilities should only be usable once per game but have no usage tracking m
 | Stealth | Core | Yes | Yes (RulesEngine) | **Yes** | Added to army JSON. RulesEngine.has_stealth_ability() detects it; -1 to hit applied in both resolve paths |
 | Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Throat Slittas | Datasheet | Yes | Yes (implemented) | **Yes** | Mortal wounds in shooting phase — roll 1D6 per model within 9" of enemy, 5+ = 1 MW. Unit cannot shoot if used. Player/AI prompt, full resolution |
-| Sneaky Surprise | Datasheet | **MISSING** | No | **No** | "Cannot be targeted by Fire Overwatch" — not in JSON or code |
-| Patrol Squad | Datasheet | **MISSING** | No | **No** | Unit splitting at deployment — not in JSON or code |
-| Distraction Grot | Wargear | **MISSING** | No | **No** | Once per battle 5+ invuln — not in JSON or code |
-| Bomb Squigs | Wargear | **MISSING** | No | **No** | Once per battle mortal wounds — not in JSON or code |
+| Sneaky Surprise | Datasheet | Yes | Yes (implemented) | **Yes** | Added to JSON. Blocks Fire Overwatch in both ChargePhase and MovementPhase. AI aware |
+| Patrol Squad | Datasheet | Yes | Yes (not implemented) | **No** | Added to JSON. Unit splitting at deployment requires deployment system changes — flagged for future work |
+| Distraction Grot | Wargear | Yes | Yes (implemented) | **Yes** | Added to JSON. Once per battle 5+ invuln when targeted in opponent's Shooting phase. Player/AI prompt, once-per-battle tracking |
+| Bomb Squigs | Wargear | Yes | Yes (implemented) | **Yes** | Added to JSON. Once per battle after Normal move: select enemy within 12", roll D6: 3+ = D3 mortal wounds. Player/AI prompt, once-per-battle tracking |
 
 ### Battlewagon
 
@@ -385,7 +385,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade
 23. **Implement Get Da Good Bitz** — sticky objectives (Boyz) — **DONE**
 24. **Implement Omni-scramblers mechanically** — block deep strike within 12" — **DONE**
-25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs
+25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs — **DONE**
 26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads
 27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery
 
