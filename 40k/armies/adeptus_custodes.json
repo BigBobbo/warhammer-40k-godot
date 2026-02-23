@@ -577,6 +577,11 @@
             "name": "Advanced Firepower",
             "type": "Datasheet",
             "description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Damaged: 1-5 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
           }
         ],
         "unit_composition": [
@@ -819,6 +824,11 @@
             "name": "Eternal Protector",
             "type": "Datasheet",
             "description": "Each time an attack targets this model, an unmodified saving throw of 6 reflects the attack back at the attacker - the attacking model's unit suffers 1 mortal wound after all of the attacking model's attacks have been resolved."
+          },
+          {
+            "name": "Damaged: 1-4 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
           }
         ],
         "unit_composition": [

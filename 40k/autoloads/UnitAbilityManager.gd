@@ -253,6 +253,19 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Instead of shooting, roll 1D6 per model within 9\" of enemy: 5+ = 1 mortal wound"
 	},
 
+	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
+	# The wound threshold is parsed from the ability name, e.g. "Damaged: 1-5 Wounds Remaining" -> 5
+	# Checked directly by RulesEngine.is_damaged_profile_active() rather than using the flag system,
+	# since it depends on dynamic wound state that can change mid-phase.
+	"Damaged": {
+		"condition": "wounds_below_threshold",
+		"effects": [{"type": "minus_one_hit"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "-1 to Hit rolls when at low wounds (checked directly in RulesEngine)"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.

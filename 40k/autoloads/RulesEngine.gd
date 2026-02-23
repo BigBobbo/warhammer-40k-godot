@@ -1342,6 +1342,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
 
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit applied for %s" % actor_unit_id)
+
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
@@ -1898,6 +1903,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		elif reroll_hits_scope_ar == "failed" or reroll_hits_scope_ar == "all":
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
+
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
@@ -4022,6 +4032,41 @@ static func has_stealth_ability(unit: Dictionary) -> bool:
 			return true
 	return false
 
+# DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
+# Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
+# the threshold, subtract 1 from Hit rolls when that model attacks.
+# The ability name format is "Damaged: 1-X Wounds Remaining" where X is the threshold.
+# Returns true if the unit has a Damaged ability and its current wounds are within the threshold.
+static func is_damaged_profile_active(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	var threshold = 0
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name.begins_with("Damaged:"):
+			# Parse threshold from "Damaged: 1-X Wounds Remaining"
+			var regex_match = ability_name.split("-")
+			if regex_match.size() >= 2:
+				# Extract the number after the dash, e.g. "5 Wounds Remaining" -> 5
+				var after_dash = regex_match[1].strip_edges()
+				threshold = after_dash.to_int()
+			break
+
+	if threshold <= 0:
+		return false
+
+	# Check current wounds of the model (vehicles are single-model units)
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			var current_wounds = model.get("current_wounds", 0)
+			if current_wounds > 0 and current_wounds <= threshold:
+				return true
+	return false
+
 # Get the effective critical wound threshold for a weapon against a target
 # Returns 6 normally (only unmodified 6s are critical wounds)
 # Returns lower value if weapon has Anti-[Keyword] matching the target
@@ -5936,6 +5981,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		elif melee_reroll_hits_scope == "failed" or melee_reroll_hits_scope == "all":
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
+
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(attacker_unit):
+			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit (melee) applied for %s" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
