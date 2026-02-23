@@ -278,6 +278,36 @@ func get_available_actions() -> Array:
 					"is_current_target": is_current
 				})
 
+	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
+	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Gladius Task Force":
+		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
+		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
+		if available_doctrines.size() > 0 and active_doctrine == "":
+			for doctrine in available_doctrines:
+				actions.append({
+					"type": "SELECT_COMBAT_DOCTRINE",
+					"doctrine_key": doctrine.key,
+					"description": "Combat Doctrines: %s — %s" % [doctrine.display, doctrine.description],
+					"player": current_player
+				})
+			# Allow skipping doctrine selection (no doctrine active this round)
+			actions.append({
+				"type": "SKIP_COMBAT_DOCTRINE",
+				"description": "Skip Combat Doctrine selection (no doctrine active this round)",
+				"player": current_player
+			})
+
+	# Martial Mastery selection (Adeptus Custodes — Shield Host) (P2-27)
+	if faction_mgr and faction_mgr.is_martial_mastery_available(current_player):
+		var mastery_options = faction_mgr.get_mastery_options()
+		for option in mastery_options:
+			actions.append({
+				"type": "SELECT_MARTIAL_MASTERY",
+				"mastery_key": option.key,
+				"description": "%s — %s" % [option.display, option.description],
+				"player": current_player
+			})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -319,6 +349,12 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_oath_target(action)
 		"CALL_WAAAGH":
 			errors = _validate_call_waaagh(action)
+		"SELECT_COMBAT_DOCTRINE":
+			errors = _validate_select_combat_doctrine(action)
+		"SKIP_COMBAT_DOCTRINE":
+			pass  # Always valid
+		"SELECT_MARTIAL_MASTERY":
+			errors = _validate_select_martial_mastery(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -382,6 +418,12 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_oath_target(action)
 		"CALL_WAAAGH":
 			return _handle_call_waaagh(action)
+		"SELECT_COMBAT_DOCTRINE":
+			return _handle_select_combat_doctrine(action)
+		"SKIP_COMBAT_DOCTRINE":
+			return _handle_skip_combat_doctrine(action)
+		"SELECT_MARTIAL_MASTERY":
+			return _handle_select_martial_mastery(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -771,6 +813,140 @@ func _handle_select_oath_target(action: Dictionary) -> Dictionary:
 			"player": current_player,
 			"target_unit_id": target_unit_id,
 			"target_name": result.get("target_name", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# DETACHMENT ABILITIES — COMBAT DOCTRINES (P2-27)
+# ============================================================================
+
+func _validate_select_combat_doctrine(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var doctrine_key = action.get("doctrine_key", "")
+
+	if doctrine_key == "":
+		errors.append("Missing doctrine_key for Combat Doctrine selection")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if faction_mgr.get_player_detachment(current_player) != "Gladius Task Force":
+		errors.append("Player %d is not using Gladius Task Force detachment" % current_player)
+		return errors
+
+	# Check doctrine hasn't been used
+	var available = faction_mgr.get_available_doctrines(current_player)
+	var found = false
+	for d in available:
+		if d.key == doctrine_key:
+			found = true
+			break
+	if not found:
+		errors.append("Doctrine '%s' is not available (already used or unknown)" % doctrine_key)
+
+	# Check no doctrine is already active this phase
+	if faction_mgr.get_active_doctrine(current_player) != "":
+		errors.append("A Combat Doctrine is already active this phase")
+
+	return errors
+
+func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var doctrine_key = action.get("doctrine_key", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.select_combat_doctrine(current_player, doctrine_key)
+
+	if result.success:
+		log_phase_message("COMBAT DOCTRINES: Player %d activates %s" % [
+			current_player, result.get("doctrine_display", doctrine_key)])
+
+		var log_entry = {
+			"type": "SELECT_COMBAT_DOCTRINE",
+			"player": current_player,
+			"doctrine": doctrine_key,
+			"doctrine_display": result.get("doctrine_display", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	log_phase_message("COMBAT DOCTRINES: Player %d skips doctrine selection this round" % current_player)
+
+	var log_entry = {
+		"type": "SKIP_COMBAT_DOCTRINE",
+		"player": current_player,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {"success": true, "message": "No Combat Doctrine selected this round"}
+
+# ============================================================================
+# DETACHMENT ABILITIES — MARTIAL MASTERY (P2-27)
+# ============================================================================
+
+func _validate_select_martial_mastery(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var mastery_key = action.get("mastery_key", "")
+
+	if mastery_key == "":
+		errors.append("Missing mastery_key for Martial Mastery selection")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_martial_mastery_available(current_player):
+		errors.append("Martial Mastery is not available for player %d" % current_player)
+		return errors
+
+	var options = faction_mgr.get_mastery_options()
+	var found = false
+	for opt in options:
+		if opt.key == mastery_key:
+			found = true
+			break
+	if not found:
+		errors.append("Unknown Martial Mastery option: %s" % mastery_key)
+
+	return errors
+
+func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var mastery_key = action.get("mastery_key", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.select_martial_mastery(current_player, mastery_key)
+
+	if result.success:
+		log_phase_message("MARTIAL MASTERY: Player %d selects %s" % [
+			current_player, result.get("mastery_display", mastery_key)])
+
+		var log_entry = {
+			"type": "SELECT_MARTIAL_MASTERY",
+			"player": current_player,
+			"mastery": mastery_key,
+			"mastery_display": result.get("mastery_display", ""),
 			"turn": GameState.get_battle_round()
 		}
 		GameState.add_action_to_phase_log(log_entry)
