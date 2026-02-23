@@ -442,6 +442,40 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# PHASE-TRIGGERED ABILITIES (Movement phase etc.)
+	# ======================================================================
+
+	# Ork Weirdboy — teleport unit at end of Movement phase
+	# Once per turn, roll D6: on 1, unit suffers D6 mortal wounds;
+	# on 2+, remove unit and redeploy 9"+ from enemies.
+	# Requires MovementPhase integration for prompt and resolution.
+	"Da Jump": {
+		"condition": "end_of_movement",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"once_per_turn": true,
+		"description": "Once per turn: at end of Movement phase, roll D6: on 1, unit suffers D6 mortal wounds; on 2+, teleport unit 9\"+ from enemies"
+	},
+
+	# ======================================================================
+	# LEADER ABILITIES — Weapon modifiers based on unit size
+	# ======================================================================
+
+	# Ork Weirdboy — 'Eadbanger gains +1 S and +1 D per 5 models in led unit
+	# Hazardous at 10+ models. Requires dynamic weapon stat modification
+	# based on attached unit model count. Not auto-applied via flag system.
+	"Waaagh! Energy": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "model",
+		"attack_type": "ranged",
+		"implemented": false,
+		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models — requires dynamic weapon modification"
+	},
+
+	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================

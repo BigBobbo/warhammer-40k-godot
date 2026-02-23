@@ -28,12 +28,12 @@
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 0 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 5 |
 | Wargear abilities not implemented | 1 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 0 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **7** |
+| **Total gaps** | **8** |
 
 ---
 
@@ -167,15 +167,15 @@ These abilities should only be usable once per game but have no usage tracking m
 | One Scalpel Short of a Medpack | Datasheet | Yes | Yes (implemented) | **Yes** | Led unit can charge after falling back — `fall_back_and_charge` effect, ChargePhase checks it |
 | Grot Orderly | Wargear | Yes | Yes (implemented) | **Yes** | Once per battle: at start of Command phase, return up to D3 destroyed Bodyguard models. CommandPhase offers USE_GROT_ORDERLY action, once-per-battle tracking |
 
-### Weirdboy (referenced in ABILITY_EFFECTS but no army JSON found)
+### Weirdboy
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deadly Demise D3 | Core | N/A | No | No | Not implemented |
-| Leader | Core | N/A | No | Unknown | Can attach to Boyz |
-| Waaagh! | Faction | N/A | No | No | Missing |
-| Waaagh! Energy | Datasheet | N/A | No | No | +1 S and D per 5 models, Hazardous at 10+ — not implemented |
-| Da Jump (Psychic) | Datasheet | N/A | No | No | Teleport unit, risk D6 mortal wounds — not implemented |
+| Deadly Demise D3 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — RulesEngine.resolve_deadly_demise() handles via ability name parsing |
+| Leader | Core | Yes | No | Partial | Attachment system works — `leader_data.can_lead: ["BOYZ"]` |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
+| Waaagh! Energy | Datasheet | Yes | Yes (not implemented) | **No** | +1 S and D per 5 models in led unit, Hazardous at 10+ — requires dynamic weapon stat modification |
+| Da Jump (Psychic) | Datasheet | Yes | Yes (not implemented) | **No** | Teleport unit at end of Movement phase, risk D6 mortal wounds — requires MovementPhase integration |
 
 ---
 
@@ -361,6 +361,8 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 32 | Strategic Mastery | passive | reduce stratagem CP cost by 1 | Yes | **Yes** — Once per battle round: reduces CP cost by 1 for stratagems targeting this unit. Integrated into StratagemManager.use_stratagem() and can_use_stratagem(). Once-per-round tracked via UnitAbilityManager |
 | 33 | Sawbonez | end_of_movement | heal CHARACTER 3 wounds | Yes | **Yes** — At end of Movement phase, heal friendly BEAST SNAGGA CHARACTER within 3" up to 3 wounds. MovementPhase offers USE_SAWBONEZ/DECLINE_SAWBONEZ actions. Proximity-checked, model-level healing |
 | 34 | Grot Orderly | start_of_command | return D3 destroyed models | Yes | **Yes** — Once per battle: at start of Command phase, return up to D3 destroyed Bodyguard models. CommandPhase offers USE_GROT_ORDERLY action. D3 roll, model revival, once-per-battle tracking |
+| 35 | Da Jump | end_of_movement | teleport unit | No | **No** — Once per turn: at end of Movement phase, roll D6: on 1 unit suffers D6 MW; on 2+ teleport 9"+ from enemies. Requires MovementPhase integration |
+| 36 | Waaagh! Energy | while_leading | +1 S/D per 5 models | No | **No** — +1 Strength and Damage to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models. Requires dynamic weapon stat modification |
 
 ---
 
@@ -402,7 +404,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 ### P3 — Low (units not yet in army files or niche mechanics)
 28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery — **DONE**
 29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive) — **DONE**
-30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump
+30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump — **DONE**
 31. **Implement Firing Deck** — embarked model shooting (Battlewagon)
 32. **Implement Transport capacity** — embark/disembark mechanics
 33. **Add optional wargear** — Helix Gauntlet (FNP 6+), Infiltrator Comms Array (CP regen)
