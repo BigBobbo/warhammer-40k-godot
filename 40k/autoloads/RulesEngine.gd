@@ -1280,6 +1280,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board)
 
 		result.dice.append({
@@ -1411,6 +1414,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -1845,6 +1851,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board)
 
 		result.dice.append({
@@ -1974,6 +1983,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -3745,6 +3757,60 @@ static func has_lethal_hits(weapon_id: String, board: Dictionary = {}) -> bool:
 	for keyword in keywords:
 		if keyword.to_lower() == "lethal hits":
 			return true
+
+	return false
+
+# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits for Caladius Grav-tank
+# Twin iliastus accelerator cannon → Lethal Hits vs non-MONSTER/non-VEHICLE targets
+# Twin arachnus heavy blaze cannon → Lethal Hits vs MONSTER or VEHICLE targets
+static func check_advanced_firepower_lethal_hits(weapon_id: String, attacker_unit: Dictionary, target_unit: Dictionary, board: Dictionary = {}) -> bool:
+	# Check if the attacker has the "Advanced Firepower" ability
+	var abilities = attacker_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Advanced Firepower":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return false
+
+	# Get weapon name from profile
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		return false
+	var weapon_name = weapon_profile.get("name", "").to_lower()
+
+	# Get target keywords
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	var target_is_monster_or_vehicle = false
+	for kw in target_keywords:
+		if kw.to_upper() in ["MONSTER", "VEHICLE"]:
+			target_is_monster_or_vehicle = true
+			break
+
+	# Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/non-VEHICLE
+	if "iliastus" in weapon_name:
+		if not target_is_monster_or_vehicle:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon gains LETHAL HITS (target is not MONSTER/VEHICLE)")
+			return true
+		else:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon does NOT gain LETHAL HITS (target is MONSTER/VEHICLE)")
+			return false
+
+	# Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE
+	if "arachnus" in weapon_name:
+		if target_is_monster_or_vehicle:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon gains LETHAL HITS (target is MONSTER/VEHICLE)")
+			return true
+		else:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon does NOT gain LETHAL HITS (target is not MONSTER/VEHICLE)")
+			return false
 
 	return false
 

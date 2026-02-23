@@ -266,6 +266,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "-1 to Hit rolls when at low wounds (checked directly in RulesEngine)"
 	},
 
+	# Custodes Caladius Grav-tank — conditional Lethal Hits by weapon/target type
+	"Advanced Firepower": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
