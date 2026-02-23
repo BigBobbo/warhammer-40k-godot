@@ -206,6 +206,7 @@ const ABILITY_EFFECTS: Dictionary = {
 		"target": "led_unit",
 		"attack_type": "all",
 		"implemented": true,
+		"once_per_battle": true,
 		"description": "Once per battle: charge after advancing"
 	},
 
@@ -248,6 +249,10 @@ var _active_ability_effects: Array = []
 # Track which units have had ability flags applied this phase
 # { unit_id: [ability_name1, ability_name2, ...] }
 var _applied_this_phase: Dictionary = {}
+
+# Track once-per-battle ability usage
+# Key: "unit_id:ability_name", Value: true (used)
+var _once_per_battle_used: Dictionary = {}
 
 func _ready() -> void:
 	var implemented_count = 0
@@ -353,6 +358,13 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 			# Check if this ability is relevant to the current phase
 			if not _is_relevant_for_phase(effect_def, phase):
 				continue
+
+			# Check once-per-battle restriction
+			if effect_def.get("once_per_battle", false):
+				var usage_key = bodyguard_unit_id + ":" + ability_name
+				if _once_per_battle_used.get(usage_key, false):
+					print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, bodyguard_unit_id])
+					continue
 
 			# Apply the effects to the bodyguard unit
 			var effects = effect_def.get("effects", [])
@@ -484,6 +496,13 @@ func _apply_eligibility_effects() -> void:
 				if effect_def.get("condition", "") != "while_leading":
 					continue
 
+				# Check once-per-battle restriction
+				if effect_def.get("once_per_battle", false):
+					var usage_key = unit_id + ":" + ability_name
+					if _once_per_battle_used.get(usage_key, false):
+						print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, unit_id])
+						continue
+
 				# Only apply eligibility effects (fall_back_and_*, advance_and_*)
 				var effects = effect_def.get("effects", [])
 				var eligibility_effects = []
@@ -567,6 +586,17 @@ func is_ability_implemented(ability_name: String) -> bool:
 	"""Check if an ability has a mechanical implementation."""
 	var def_data = ABILITY_EFFECTS.get(ability_name, {})
 	return def_data.get("implemented", false)
+
+func mark_once_per_battle_used(unit_id: String, ability_name: String) -> void:
+	"""Mark a once-per-battle ability as used for a specific unit."""
+	var usage_key = unit_id + ":" + ability_name
+	_once_per_battle_used[usage_key] = true
+	print("UnitAbilityManager: Marked '%s' as used for unit %s (once per battle)" % [ability_name, unit_id])
+
+func is_once_per_battle_used(unit_id: String, ability_name: String) -> bool:
+	"""Check if a once-per-battle ability has been used for a specific unit."""
+	var usage_key = unit_id + ":" + ability_name
+	return _once_per_battle_used.get(usage_key, false)
 
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
@@ -729,17 +759,20 @@ func get_state_for_save() -> Dictionary:
 	"""Return state data for save games."""
 	return {
 		"active_ability_effects": _active_ability_effects.duplicate(true),
-		"applied_this_phase": _applied_this_phase.duplicate(true)
+		"applied_this_phase": _applied_this_phase.duplicate(true),
+		"once_per_battle_used": _once_per_battle_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
 	"""Restore state from save data."""
 	_active_ability_effects = data.get("active_ability_effects", [])
 	_applied_this_phase = data.get("applied_this_phase", {})
-	print("UnitAbilityManager: State loaded — %d active effects" % _active_ability_effects.size())
+	_once_per_battle_used = data.get("once_per_battle_used", {})
+	print("UnitAbilityManager: State loaded — %d active effects, %d once-per-battle used" % [_active_ability_effects.size(), _once_per_battle_used.size()])
 
 func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()
+	_once_per_battle_used.clear()
 	print("UnitAbilityManager: Reset for new game")
