@@ -256,6 +256,48 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Instead of shooting, roll 1D6 per model within 9\" of enemy: 5+ = 1 mortal wound"
 	},
 
+	# Ork Kommandos — cannot be targeted by Fire Overwatch
+	"Sneaky Surprise": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy units cannot use Fire Overwatch to shoot at this unit"
+	},
+
+	# Ork Kommandos — unit splitting at deployment
+	"Patrol Squad": {
+		"condition": "deployment",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+	},
+
+	# Ork Kommandos wargear — once per battle 5+ invuln save
+	"Distraction Grot": {
+		"condition": "opponent_shooting",
+		"effects": [{"type": "grant_invuln", "value": 5}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: 5+ invulnerable save when targeted in opponent's Shooting phase"
+	},
+
+	# Ork Kommandos wargear — once per battle mortal wounds after normal move
+	"Bomb Squigs": {
+		"condition": "after_normal_move",
+		"effects": [],
+		"target": "enemy_within_12",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
+	},
+
 	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
 	# The wound threshold is parsed from the ability name, e.g. "Damaged: 1-5 Wounds Remaining" -> 5
 	# Checked directly by RulesEngine.is_damaged_profile_active() rather than using the flag system,
@@ -793,6 +835,57 @@ func has_omni_scramblers(unit_id: String) -> bool:
 		if ability_name == "Omni-scramblers":
 			print("UnitAbilityManager: Unit %s has Omni-scramblers ability" % unit_id)
 			return true
+	return false
+
+func has_sneaky_surprise(unit_id: String) -> bool:
+	"""Check if a unit has the Sneaky Surprise ability (e.g. Kommandos).
+	Used by ChargePhase/MovementPhase to block Fire Overwatch against this unit."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sneaky Surprise":
+			print("UnitAbilityManager: Unit %s has Sneaky Surprise — immune to Fire Overwatch" % unit_id)
+			return true
+	return false
+
+func has_distraction_grot(unit_id: String) -> bool:
+	"""Check if a unit has the Distraction Grot wargear ability (e.g. Kommandos).
+	Used by ShootingPhase to offer once-per-battle 5+ invuln save when targeted."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Distraction Grot":
+			if not is_once_per_battle_used(unit_id, "Distraction Grot"):
+				print("UnitAbilityManager: Unit %s has unused Distraction Grot" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Distraction Grot but already used this battle" % unit_id)
+	return false
+
+func has_bomb_squigs(unit_id: String) -> bool:
+	"""Check if a unit has the Bomb Squigs wargear ability (e.g. Kommandos).
+	Used by MovementPhase to offer once-per-battle mortal wounds after normal move."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Bomb Squigs":
+			if not is_once_per_battle_used(unit_id, "Bomb Squigs"):
+				print("UnitAbilityManager: Unit %s has unused Bomb Squigs" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Bomb Squigs but already used this battle" % unit_id)
 	return false
 
 func has_deadly_demise(unit_id: String) -> bool:
