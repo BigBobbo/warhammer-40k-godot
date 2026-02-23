@@ -2477,6 +2477,9 @@ func _select_models_in_box() -> void:
 
 			if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
 			   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
+				# Skip duplicates (TokenLayer may have duplicate tokens)
+				if _find_selected_model_index(model_id) >= 0:
+					continue
 				var model = _get_model_by_id(active_unit_id, model_id)
 				if model.is_empty():
 					continue
