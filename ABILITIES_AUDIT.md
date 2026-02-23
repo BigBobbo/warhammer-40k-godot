@@ -33,7 +33,7 @@
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **17** |
+| **Total gaps** | **16** |
 
 ---
 
@@ -197,7 +197,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
-| Stand Vigil | Datasheet | Yes | Yes (implemented) | **Partial** | Reroll wound 1s works. "While within range of controlled objective, reroll all wound rolls" — objective-conditional part NOT implemented |
+| Stand Vigil | Datasheet | Yes | Yes (implemented) | **Yes** | Reroll wound 1s always; reroll ALL wounds while within range of controlled objective. Objective-conditional upgrade via `objective_upgrade_effects` in ABILITY_EFFECTS |
 | Sentinel Storm | Datasheet | Yes (text only) | Yes (implemented) | **Yes** | Once per battle shoot again — implemented with UI prompt, AI support, once-per-battle tracking |
 | Praesidium Shield | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +1 Wounds — applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.wounds and model wound values |
 | Vexilla | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +1 OC — applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.objective_control |
@@ -336,7 +336,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 10 | One Scalpel Short of a Medpack | while_leading | fall_back_and_charge | Yes | **Yes** — ChargePhase now checks effect_fall_back_and_charge |
 | 11 | Swift Onslaught | while_leading | reroll_charge | Yes | **Yes** — reroll_charge primitive implemented; ChargePhase offers free ability reroll before Command Re-roll |
 | 12 | Martial Inspiration | while_leading | advance_and_charge | Yes | **Yes** — ChargePhase now checks effect_advance_and_charge + once-per-battle tracking added |
-| 13 | Stand Vigil | always | reroll wounds (1s) | Yes | **Partial** — basic reroll works, objective-conditional upgrade missing |
+| 13 | Stand Vigil | always | reroll wounds (1s/all) | Yes | **Yes** — reroll 1s always; reroll ALL wounds when within range of controlled objective |
 | 14 | Ramshackle | always | worsen AP by 1 | Yes | **Yes** — correctly worsens AP of incoming attacks by 1 |
 | 15 | Daughters of the Abyss | always | FNP 3+ | Yes | **Partial** — simplified. Should only apply vs Psychic/mortal wounds |
 | 16 | Get Da Good Bitz | on_objective | sticky objectives | No | **No** |
@@ -381,7 +381,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 19. **Implement Waaagh! system** — unlocks Da Biggest/Dead Brutal + base Ork faction ability — **DONE**
 20. **Implement wargear stat bonuses** — Praesidium Shield (+1W), Vexilla (+1OC), 'Ard Case (+2T) — **DONE**
 21. **Fix Daughters of the Abyss** — restrict FNP 3+ to psychic/mortal wounds only
-22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade
+22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade — **DONE**
 23. **Implement Get Da Good Bitz** — sticky objectives (Boyz)
 24. **Implement Omni-scramblers mechanically** — block deep strike within 12"
 25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs
