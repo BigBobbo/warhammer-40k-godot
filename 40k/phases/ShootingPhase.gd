@@ -21,6 +21,7 @@ signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Di
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
 signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
+signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -34,6 +35,8 @@ var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing p
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
+var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
+var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -50,6 +53,7 @@ func _on_phase_enter() -> void:
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
 	sentinel_storm_pending_unit = ""
+	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -388,6 +392,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
+	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
 
 	var unit = get_unit(unit_id)
 
@@ -678,6 +683,14 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	resolution_state.last_weapon_hit_data = hit_data
 	resolution_state.last_weapon_wound_data = wound_data
 
+	# P1-11: Track hits for Sanctified Flames (single-weapon resolve path)
+	var resolve_hits = hit_data.get("successes", 0)
+	if resolve_hits > 0 and not confirmed_assignments.is_empty():
+		var resolve_tid = confirmed_assignments[0].get("target_unit_id", "")
+		if resolve_tid != "":
+			_targets_hit_by_shooter[resolve_tid] = _targets_hit_by_shooter.get(resolve_tid, 0) + resolve_hits
+			print("ShootingPhase: P1-11 Sanctified Flames tracking (resolve): %d hit(s) on %s" % [resolve_hits, resolve_tid])
+
 	# Check if any saves are needed
 	var save_data_list = result.get("save_data_list", [])
 
@@ -750,6 +763,11 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					"hit_data": miss_hit_data,
 					"wound_data": miss_wound_data
 				}
+
+				# P1-11: Track hits for Sanctified Flames (single weapon miss path)
+				if hits > 0 and target_unit_id != "":
+					_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
+					print("ShootingPhase: P1-11 Sanctified Flames tracking (single miss): %d hit(s) on %s" % [hits, target_unit_id])
 
 				print("║ last_weapon_result built:")
 				print("║   weapon: ", last_weapon_result.get("weapon_name", ""))
@@ -1050,6 +1068,22 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
 		print("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size())
 
+	# P1-11: Track hits for Sanctified Flames (AI atomic path)
+	# Build _targets_hit_by_shooter from the dice + assignment data
+	_targets_hit_by_shooter.clear()
+	if total_hits > 0:
+		# Assign hits to target units from assignments
+		for a in confirmed_assignments:
+			var ai_tid = a.get("target_unit_id", "")
+			if ai_tid != "":
+				# Use total_hits as a proxy — hits are distributed across targets
+				# For accuracy, we just need to know which units were hit at all
+				_targets_hit_by_shooter[ai_tid] = _targets_hit_by_shooter.get(ai_tid, 0) + 1
+
+	# P1-11: Check for Sanctified Flames and apply Battle-shock if triggered
+	var sanctified_diffs = _check_sanctified_flames(unit_id)
+	all_changes.append_array(sanctified_diffs)
+
 	# Step 6: Mark unit as done
 	all_changes.append({
 		"op": "set",
@@ -1064,6 +1098,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
+	_targets_hit_by_shooter.clear()
 
 	# Step 8: Emit shooting_resolved for visual cleanup (non-blocking)
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
@@ -1459,6 +1494,14 @@ func _resolve_next_weapon() -> Dictionary:
 	if save_data_list.is_empty():
 		# No wounds - but still PAUSE for attacker to confirm next weapon (sequential mode)
 		print("ShootingPhase: ⚠ No wounds caused by this weapon")
+
+		# P1-11: Track hits for Sanctified Flames
+		var seq_hits = hit_data.get("successes", 0)
+		if seq_hits > 0:
+			var tid = current_assignment.target_unit_id
+			_targets_hit_by_shooter[tid] = _targets_hit_by_shooter.get(tid, 0) + seq_hits
+			print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [seq_hits, tid, _targets_hit_by_shooter[tid]])
+
 		resolution_state.completed_weapons.append({
 			"weapon_id": weapon_id,
 			"target_unit_id": current_assignment.target_unit_id,
@@ -2378,11 +2421,15 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 				"unit_id": unit_id
 			})
 
+	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
+	var sanctified_changes = _check_sanctified_flames(unit_id)
+
 	var changes = [{
 		"op": "set",
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	}]
+	changes.append_array(sanctified_changes)
 
 	units_that_shot.append(unit_id)
 
@@ -2393,6 +2440,7 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	resolution_state.clear()
 	pending_save_data.clear()
 	sentinel_storm_pending_unit = ""
+	_targets_hit_by_shooter.clear()
 
 	log_phase_message("Shooting complete for unit %s" % unit_id)
 
@@ -2467,12 +2515,16 @@ func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
 	# Clear pending state
 	sentinel_storm_pending_unit = ""
 
+	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
+	var sanctified_changes = _check_sanctified_flames(unit_id)
+
 	# Now complete shooting normally — set has_shot flag and add to units_that_shot
 	var changes = [{
 		"op": "set",
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	}]
+	changes.append_array(sanctified_changes)
 
 	units_that_shot.append(unit_id)
 
@@ -2482,6 +2534,7 @@ func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
+	_targets_hit_by_shooter.clear()
 
 	log_phase_message("Sentinel Storm declined — shooting complete for unit %s" % unit_id)
 
@@ -2489,6 +2542,124 @@ func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
 
 	return create_result(true, changes, "Shooting complete (Sentinel Storm declined)")
+
+# ============================================================================
+# P1-11: SANCTIFIED FLAMES — FORCED BATTLE-SHOCK TEST AFTER SHOOTING
+# ============================================================================
+
+func _check_sanctified_flames(shooter_unit_id: String) -> Array:
+	"""Check if the shooter has Sanctified Flames and trigger a Battle-shock test
+	on one enemy unit that was hit. Returns state-change diffs (empty if not applicable).
+
+	Sanctified Flames (Witchseekers): "In your Shooting phase, after this unit has shot,
+	select one enemy unit hit by one or more of those attacks. That enemy unit must take
+	a Battle-shock test."
+	"""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr or not ability_mgr.has_sanctified_flames_ability(shooter_unit_id):
+		return []
+
+	# Get the list of enemy units that were hit
+	var hit_targets = _targets_hit_by_shooter.duplicate()
+	if hit_targets.is_empty():
+		print("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
+		return []
+
+	# Filter out already-destroyed units
+	var valid_targets: Array = []
+	for target_id in hit_targets:
+		var target_unit = get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+		var has_alive = false
+		for model in target_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if has_alive:
+			valid_targets.append(target_id)
+
+	if valid_targets.is_empty():
+		print("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
+		return []
+
+	# Select target: if only one valid target, auto-select. Otherwise select the one
+	# most likely to fail (lowest Leadership) for AI benefit, or first one for player.
+	var selected_target_id = valid_targets[0]
+	if valid_targets.size() > 1:
+		# Select the target with the lowest Leadership (most likely to fail)
+		var lowest_ld = 99
+		for tid in valid_targets:
+			var t_unit = get_unit(tid)
+			var t_ld = t_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+			if t_ld < lowest_ld:
+				lowest_ld = t_ld
+				selected_target_id = tid
+		print("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld])
+
+	# Perform the Battle-shock test on the selected target
+	return _resolve_sanctified_flames_battle_shock(shooter_unit_id, selected_target_id)
+
+func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_unit_id: String) -> Array:
+	"""Roll a forced Battle-shock test for Sanctified Flames.
+	Returns state-change diffs to set battle_shocked flag if failed."""
+	var target_unit = get_unit(target_unit_id)
+	if target_unit.is_empty():
+		return []
+
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var leadership = target_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+	var shooter_unit = get_unit(shooter_unit_id)
+	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
+
+	# Check if already battle-shocked (no need to re-test)
+	var already_shocked = target_unit.get("flags", {}).get("battle_shocked", false)
+	if already_shocked:
+		print("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name)
+		log_phase_message("Sanctified Flames: %s already Battle-shocked — no additional test" % target_name)
+		return []
+
+	# Roll 2D6 for Battle-shock test
+	var die1 = _rng.randi_range(1, 6)
+	var die2 = _rng.randi_range(1, 6)
+	var roll_total = die1 + die2
+	var test_passed = roll_total >= leadership
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
+	print("║ Shooter: %s" % shooter_name)
+	print("║ Target: %s (Ld %d)" % [target_name, leadership])
+	print("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership])
+	print("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!"))
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	log_phase_message("Sanctified Flames (%s): %s takes Battle-shock test — 2D6 = %d (%d+%d) vs Ld %d — %s" % [
+		shooter_name, target_name, roll_total, die1, die2, leadership,
+		"PASSED" if test_passed else "FAILED (Battle-shocked!)"
+	])
+
+	# Emit signal for UI/log display
+	var test_result = {
+		"target_unit_id": target_unit_id,
+		"target_name": target_name,
+		"die1": die1,
+		"die2": die2,
+		"roll_total": roll_total,
+		"leadership": leadership,
+		"test_passed": test_passed,
+		"battle_shocked": not test_passed
+	}
+	emit_signal("sanctified_flames_result", shooter_unit_id, target_unit_id, test_result)
+
+	# If test failed, apply battle_shocked flag
+	if not test_passed:
+		return [{
+			"op": "set",
+			"path": "units.%s.flags.battle_shocked" % target_unit_id,
+			"value": true
+		}]
+
+	return []
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
@@ -2756,6 +2927,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 			var hits = hit_data.get("successes", 0)
 			var total_attacks = hit_data.get("total", 0)
+
+			# P1-11: Track hits for Sanctified Flames
+			if hits > 0 and target_unit_id != "":
+				_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
+				print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [hits, target_unit_id, _targets_hit_by_shooter[target_unit_id]])
 
 			# Record completed weapon with full data
 			resolution_state.completed_weapons.append({
