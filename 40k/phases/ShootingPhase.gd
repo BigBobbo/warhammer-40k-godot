@@ -1604,7 +1604,10 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 
 	# Units that Fell Back cannot shoot (unless special rules)
 	if flags.get("fell_back", false):
-		return false
+		if not EffectPrimitives.has_effect_fall_back_and_shoot(unit):
+			return false
+		else:
+			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown"))
 
 	# Check other restriction flags (but skip for advanced units handled above)
 	if flags.get("cannot_shoot", false):
