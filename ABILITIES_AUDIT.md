@@ -26,14 +26,14 @@
 |----------|-------|
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
-| Faction abilities with broken/missing implementation | 2 |
+| Faction abilities with broken/missing implementation | 1 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 4 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **36** |
+| **Total gaps** | **35** |
 
 ---
 
@@ -91,10 +91,10 @@ These abilities should only be usable once per game but have no usage tracking m
 - **Impact:** Blocks implementation of Da Biggest and da Best, Dead Brutal, and the baseline Ork faction mechanic
 - **What's needed:** Waaagh! state manager, Command Phase UI trigger, automatic effect application for all Ork units
 
-### Adeptus Custodes — Martial Ka'tah
+### ~~Adeptus Custodes — Martial Ka'tah~~ FIXED
 - **Rules text:** "Each time a unit with this ability is selected to fight, select one Ka'tah Stance: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active until the unit finishes attacking."
-- **Current state:** Listed in army JSON descriptions but not in ABILITY_EFFECTS table, no stance selection UI, no implementation
-- **What's needed:** Fight phase stance selection UI, temporary weapon keyword application during fight resolution
+- **Implementation status:** `FactionAbilityManager` tracks Ka'tah stance via `apply_katah_stance()`/`clear_katah_stance()`. `FightPhase` emits `katah_stance_required` signal after unit selection; `KatahStanceDialog` shows stance choice to player. Selected stance sets `effect_sustained_hits` or `effect_lethal_hits` flags on the unit. `RulesEngine._resolve_melee_assignment()` checks these flags in addition to weapon keywords. Stance is cleared after consolidation.
+- **Status:** Fixed — fight phase stance selection UI, FactionAbilityManager tracking, RulesEngine integration for both Sustained Hits and Lethal Hits
 
 ### ~~Space Marines — Oath of Moment~~ FIXED
 - **Rules text (Codex):** "Select one enemy unit. Each time a model with this ability makes an attack that targets your Oath of Moment target: you can re-roll the Hit roll. If your army does not include Black Templars/Blood Angels/Dark Angels/Deathwatch/Space Wolves keywords, add 1 to the Wound roll as well."
@@ -188,7 +188,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Leader | Core | No | No | Partial | Attachment system works |
-| Martial Ka'tah | Faction | Yes (text only) | No | **No** | Stance selection not implemented |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Swift Onslaught | Datasheet | Yes | Yes (not implemented) | **No** | Reroll charge — `reroll_charge` primitive doesn't exist |
 | Martial Inspiration | Datasheet | Yes | Yes (implemented) | **Yes** | Once-per-battle tracking implemented; ChargePhase checks advance_and_charge flag |
 
@@ -197,7 +197,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
-| Martial Ka'tah | Faction | Yes (text only) | No | **No** | Stance selection not implemented |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Stand Vigil | Datasheet | Yes | Yes (implemented) | **Partial** | Reroll wound 1s works. "While within range of controlled objective, reroll all wound rolls" — objective-conditional part NOT implemented |
 | Sentinel Storm | Datasheet | Yes (text only) | No | **No** | Once per battle shoot again — entirely unimplemented |
 | Praesidium Shield | Wargear | Yes (text only) | No | **No** | +1 Wounds — not applied to model stats |
@@ -216,7 +216,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D3 | Core | **MISSING** | No | **No** | Mortal wounds on destruction — not in JSON or code |
-| Martial Ka'tah | Faction | Yes (text only) | No | **No** | Not implemented |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Advanced Firepower | Datasheet | Yes (text only) | No | **No** | Conditional Lethal Hits by target type (MONSTER/VEHICLE vs other) — not implemented |
 | Damaged: 1-5 Wounds | Datasheet | **MISSING** | No | **No** | -1 to hit when 1-5 wounds remaining |
 | Invulnerable Save 5+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
@@ -226,7 +226,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise 1 | Core | **MISSING** | No | **No** | Mortal wounds on destruction |
-| Martial Ka'tah | Faction | Yes (text only) | No | **No** | Not implemented |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Dread Foe | Datasheet | Yes (text only) | No | **No** | Mortal wounds on fight selection (D3 or 3, bonus on charge) — not implemented |
 | Invulnerable Save 5+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
 
@@ -235,7 +235,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D3 | Core | **MISSING** | No | **No** | Mortal wounds on destruction |
-| Martial Ka'tah | Faction | Yes (text only) | No | **No** | Not implemented |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Guardian Eternal | Datasheet | **MISSING** | No | **No** | -1 Damage to incoming attacks — wahapedia lists this, not in JSON. Note: JSON has "Eternal Protector" (reflect mortal wounds on save of 6) which appears to be incorrect/outdated |
 | Devoted to Destruction | Datasheet | **MISSING** | No | **No** | +2 Attacks with dual Telemon caestus — not in JSON |
 | Damaged: 1-4 Wounds | Datasheet | **MISSING** | No | **No** | -1 to hit when 1-4 wounds remaining |
@@ -358,7 +358,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 7. **Update Oath of Moment rules text** — currently uses old Index wording — **DONE**
 
 ### P1 — High (missing abilities for units already in the game)
-8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase)
+8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase) — **DONE**
 9. **Implement Swift Onslaught** — reroll charge primitive needed
 10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard
 11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers)

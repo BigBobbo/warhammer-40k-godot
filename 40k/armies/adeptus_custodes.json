@@ -84,7 +84,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Swift Onslaught",
@@ -211,7 +211,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Praesidium Shield",
@@ -572,7 +572,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Advanced Firepower",
@@ -685,7 +685,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Dread Foe",
@@ -816,7 +816,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Eternal Protector",

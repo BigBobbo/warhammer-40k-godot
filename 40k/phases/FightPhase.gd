@@ -29,6 +29,7 @@ signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
+signal katah_stance_required(unit_id: String, player: int)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -282,6 +283,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return {"valid": true}
+		"SELECT_KATAH_STANCE":
+			return _validate_select_katah_stance(action)
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
@@ -319,6 +322,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return _process_decline_counter_offensive(action)
+		"SELECT_KATAH_STANCE":
+			return _process_select_katah_stance(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
@@ -948,17 +953,8 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 		result["epic_challenge_player"] = current_selecting_player
 		return result
 
-	# No Epic Challenge available - proceed directly to pile-in
-	# Start unit activation sequence: Pile In → Attack → Consolidate
-	log_phase_message("Emitting pile_in_required for %s" % active_fighter_id)
-	emit_signal("pile_in_required", active_fighter_id, 3.0)
-
-	# Add metadata for NetworkManager to re-emit signal on client
-	var result = create_result(true, [])
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = active_fighter_id
-	result["pile_in_distance"] = 3.0
-	return result
+	# No Epic Challenge available - check for Martial Ka'tah before pile-in
+	return _check_katah_or_proceed_to_pile_in(active_fighter_id)
 
 func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
@@ -1367,6 +1363,18 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	active_fighter_id = ""
 	confirmed_attacks.clear()
 
+	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.clear_katah_stance(unit_id)
+		# Also clear from snapshot
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
+			snap_flags.erase("effect_sustained_hits")
+			snap_flags.erase("effect_lethal_hits")
+			snap_flags.erase("katah_stance")
+			snap_flags.erase("katah_sustained_hits_value")
+
 	# Legacy support - update old index
 	current_fight_index += 1
 
@@ -1431,6 +1439,11 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Skip this unit and advance to next
 	units_that_fought.append(action.unit_id)
 	active_fighter_id = ""
+
+	# Clear Martial Ka'tah stance if any
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.clear_katah_stance(action.unit_id)
 
 	# Legacy support - update old index
 	current_fight_index += 1
@@ -2490,21 +2503,101 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 			game_state_snapshot.units[unit_id]["flags"] = {}
 		game_state_snapshot.units[unit_id].flags[EffectPrimitivesData.FLAG_PRECISION_MELEE] = true
 
-	# Proceed to pile-in now that the stratagem has been handled
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, strat_result.get("diffs", []))
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
-	return result
+	# Check for Martial Ka'tah before proceeding to pile-in
+	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
+	# Merge diffs from stratagem result
+	if not strat_result.get("diffs", []).is_empty():
+		var merged_changes = strat_result.get("diffs", [])
+		merged_changes.append_array(katah_result.get("changes", []))
+		katah_result["changes"] = merged_changes
+	return katah_result
 
 func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", active_fighter_id)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 
 	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
+
+	# Check for Martial Ka'tah before proceeding to pile-in
+	return _check_katah_or_proceed_to_pile_in(unit_id)
+
+# ============================================================================
+# MARTIAL KA'TAH — Stance Selection
+# ============================================================================
+
+func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
+	"""Check if unit has Martial Ka'tah. If so, emit stance dialog signal.
+	Otherwise, proceed directly to pile-in."""
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr and faction_mgr.unit_has_katah(unit_id):
+		log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
+		emit_signal("katah_stance_required", unit_id, current_selecting_player)
+
+		var result = create_result(true, [])
+		result["trigger_katah_stance"] = true
+		result["katah_unit_id"] = unit_id
+		result["katah_player"] = current_selecting_player
+		return result
+
+	# No Ka'tah — proceed to pile-in
+	log_phase_message("Emitting pile_in_required for %s" % unit_id)
+	emit_signal("pile_in_required", unit_id, 3.0)
+
+	var result = create_result(true, [])
+	result["trigger_pile_in"] = true
+	result["pile_in_unit_id"] = unit_id
+	result["pile_in_distance"] = 3.0
+	return result
+
+func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var stance = action.get("stance", "")
+
+	if unit_id.is_empty():
+		errors.append("Missing unit_id")
+		return {"valid": false, "errors": errors}
+
+	if unit_id != active_fighter_id:
+		errors.append("Unit is not the active fighter")
+		return {"valid": false, "errors": errors}
+
+	if stance != "dacatarai" and stance != "rendax":
+		errors.append("Invalid stance: %s (must be 'dacatarai' or 'rendax')" % stance)
+		return {"valid": false, "errors": errors}
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr or not faction_mgr.unit_has_katah(unit_id):
+		errors.append("Unit does not have Martial Ka'tah ability")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true}
+
+func _process_select_katah_stance(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var stance = action.get("stance", "")
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Apply the stance via FactionAbilityManager
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var stance_result = faction_mgr.apply_katah_stance(unit_id, stance)
+
+	if not stance_result.get("success", false):
+		return create_result(false, [], "Failed to apply Ka'tah stance: %s" % stance_result.get("error", "unknown"))
+
+	log_phase_message("MARTIAL KA'TAH: %s assumes %s stance" % [unit_name, stance_result.get("stance_display", stance)])
+
+	# Also apply the flag to the game state snapshot so RulesEngine can see it during this fight
+	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+		if not game_state_snapshot.units[unit_id].has("flags"):
+			game_state_snapshot.units[unit_id]["flags"] = {}
+		if stance == "dacatarai":
+			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "dacatarai"
+			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+		elif stance == "rendax":
+			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "rendax"
 
 	# Proceed to pile-in
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)
