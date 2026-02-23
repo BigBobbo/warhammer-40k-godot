@@ -118,12 +118,12 @@ layout_mode = 2
 text = "Confirm"
 
 [node name="UnitStatsPanel" type="PanelContainer" parent="."]
-custom_minimum_size = Vector2(0, 300)
+custom_minimum_size = Vector2(0, 40)
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -300.0
+offset_top = -40.0
 script = ExtResource("4_stats")
 
 [node name="VBox" type="VBoxContainer" parent="UnitStatsPanel"]
@@ -137,13 +137,14 @@ layout_mode = 2
 custom_minimum_size = Vector2(120, 30)
 layout_mode = 2
 theme_override_font_sizes/font_size = 14
-text = "▲ Unit Stats"
+text = "▼ Unit Stats"
 
 [node name="Spacer" type="Control" parent="UnitStatsPanel/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="MainContent" type="HBoxContainer" parent="UnitStatsPanel/VBox"]
+visible = false
 layout_mode = 2
 size_flags_vertical = 3
 
