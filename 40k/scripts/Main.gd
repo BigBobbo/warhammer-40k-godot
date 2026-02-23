@@ -4093,7 +4093,7 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		# Single player / hotseat — show dialog for the other player
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - player
-		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
+		if phase_instance and not phase_instance._is_player_confirmed(other_player):
 			print("Main: Showing formations dialog for Player %d" % other_player)
 			_show_formations_dialog(other_player)
 		else:
@@ -4120,7 +4120,7 @@ func _on_formations_confirm_pressed() -> void:
 		# Single player / hotseat — show dialog for the other player if needed
 		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - confirming_player
-		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
+		if phase_instance and not phase_instance._is_player_confirmed(other_player):
 			_show_formations_dialog(other_player)
 
 func _on_end_deployment_pressed() -> void:
