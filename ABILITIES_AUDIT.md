@@ -27,8 +27,8 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 4 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 1 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 1 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 2 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
@@ -260,15 +260,15 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
-| Objective Secured | Datasheet | **MISSING** | No | **No** | Sticky objectives — not in JSON or code |
-| Target Elimination | Datasheet | **MISSING** | No | **No** | +2 bolt rifle attacks when targeting single enemy — not in JSON or code |
+| Objective Secured | Datasheet | Yes | Yes (UnitAbilityManager) | **Yes** | Sticky objectives — added to JSON, MissionManager.apply_sticky_objectives() handles via has_sticky_objectives_ability() |
+| Target Elimination | Datasheet | Yes | Yes (not implemented) | **No** | Added to JSON. +2 bolt rifle Attacks when targeting single enemy — requires ShootingPhase prompt for activation |
 
 ### Tactical Squad
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
-| Combat Squads | Datasheet | **MISSING** | No | **No** | Split into two 5-model units at deployment — not in JSON or code |
+| Combat Squads | Datasheet | Yes | Yes (not implemented) | **No** | Added to JSON. Split into two 5-model units at deployment — requires deployment system changes |
 
 ### Infiltrator Squad
 
@@ -351,6 +351,9 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 25 | Dread Foe | on_fight_selection | mortal wounds on fight selection | Yes | **Yes** — Auto-resolved when selected to fight. Roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW. RulesEngine.resolve_dread_foe() + FightPhase integration |
 | 26 | Guardian Eternal | always | minus_damage (1) | Yes | **Yes** — -1 Damage to all incoming attacks. JSON fixed (was "Eternal Protector"), RulesEngine applies in all resolve paths (overwatch, auto-resolve ranged, melee auto-resolve, interactive ranged, interactive melee). Min 1 damage enforced |
 | 27 | Omni-scramblers | passive_aura | deep strike denial (12") | Yes | **Yes** — Enemy reinforcements cannot be set up within 12" of this unit. Enforced in MovementPhase (normal + Rapid Ingress), DeploymentController (UI), and AIDecisionMaker (candidate generation + validation) |
+| 28 | Objective Secured | end_of_command | sticky objectives | Yes | **Yes** — Same mechanic as Get Da Good Bitz. MissionManager.apply_sticky_objectives() checks has_sticky_objectives_ability() which includes "Objective Secured" |
+| 29 | Target Elimination | on_shooting_selection | +2 bolt rifle Attacks (single target) | No | **No** — Added to JSON and ABILITY_EFFECTS. Requires ShootingPhase prompt for activation choice |
+| 30 | Combat Squads | deployment | unit split (two 5-model units) | No | **No** — Added to JSON and ABILITY_EFFECTS. Requires deployment system changes (same as Patrol Squad) |
 
 ---
 
@@ -386,7 +389,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 23. **Implement Get Da Good Bitz** — sticky objectives (Boyz) — **DONE**
 24. **Implement Omni-scramblers mechanically** — block deep strike within 12" — **DONE**
 25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs — **DONE**
-26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads
+26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads — **DONE**
 27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery
 
 ### P3 — Low (units not yet in army files or niche mechanics)

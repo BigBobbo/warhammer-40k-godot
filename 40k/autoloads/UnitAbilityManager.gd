@@ -343,6 +343,40 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
 	},
 
+	# Space Marines Intercessor Squad — sticky objectives
+	# Same mechanic as Ork Boyz "Get Da Good Bitz" — resolved by MissionManager
+	"Objective Secured": {
+		"condition": "end_of_command",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
+	},
+
+	# Space Marines Intercessor Squad — +2 bolt rifle attacks vs single target
+	# When selected to shoot, can choose to add 2 to Attacks of bolt rifles but must
+	# target only one enemy unit with all attacks. Requires ShootingPhase integration.
+	"Target Elimination": {
+		"condition": "on_shooting_selection",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": false,
+		"description": "+2 bolt rifle Attacks when targeting a single enemy unit — requires ShootingPhase prompt"
+	},
+
+	# Space Marines Tactical Squad — unit splitting at deployment
+	# Same mechanic as Kommandos "Patrol Squad" — requires deployment system changes.
+	"Combat Squads": {
+		"condition": "deployment",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+	},
+
 	# Space Marines Infiltrator Squad — block enemy deep strike within 12"
 	# Not a combat effect — enforced during reinforcement placement validation in
 	# MovementPhase, DeploymentController, and AIDecisionMaker.
