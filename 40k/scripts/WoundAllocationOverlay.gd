@@ -963,6 +963,8 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 
 			# P1-13: Check for Deadly Demise on destroyed unit
 			_check_deadly_demise_on_destruction(actual_unit_id)
+			# P3-32: Check if destroyed unit is a transport with embarked units
+			_check_transport_destroyed(actual_unit_id)
 		else:
 			print("WoundAllocationOverlay: Model damaged but not destroyed")
 			# VISUAL FEEDBACK: Show damage effect
@@ -1015,6 +1017,41 @@ func _check_deadly_demise_on_destruction(unit_id: String) -> void:
 		print("WoundAllocationOverlay: P1-13 Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
 			dd_value, dd_result.get("trigger_roll", 0)
 		])
+
+func _check_transport_destroyed(unit_id: String) -> void:
+	"""P3-32: If a destroyed unit is a transport with embarked units, resolve emergency disembark."""
+	# First verify the unit is fully destroyed (all models dead)
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			return  # Not fully destroyed yet
+
+	if not TransportManager.is_transport_with_embarked(unit_id):
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("WoundAllocationOverlay: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, unit_id])
+
+	var result = TransportManager.resolve_transport_destroyed(unit_id)
+	if result.get("triggered", false):
+		var diffs = result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+
+		for unit_result in result.get("per_unit", []):
+			var msg = "Emergency disembark: %s — %d models (rolls: %s)" % [
+				unit_result.unit_name, unit_result.models_disembarked, str(unit_result.rolls)]
+			if unit_result.casualties > 0:
+				msg += " — %d casualty(ies)!" % unit_result.casualties
+			print("WoundAllocationOverlay: P3-32 %s" % msg)
+
+		if result.total_casualties > 0:
+			# Check if any disembarked units were fully destroyed
+			for target_info in result.get("per_unit", []):
+				if target_info.get("casualties", 0) > 0:
+					SecondaryMissionManager.check_and_report_unit_destroyed(target_info.get("unit_id", ""))
 
 func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 	"""Show visual effect when a model dies"""

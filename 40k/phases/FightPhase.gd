@@ -255,6 +255,34 @@ func _check_kill_diffs(changes: Array) -> void:
 							AIPlayer.record_ai_unit_lost(destroyed_owner)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
+					# P3-32: Check if destroyed unit is a transport with embarked units
+					_resolve_transport_destroyed_if_applicable(unit_id)
+
+func _resolve_transport_destroyed_if_applicable(destroyed_unit_id: String) -> void:
+	"""P3-32: If a destroyed unit is a transport, resolve emergency disembark for embarked units."""
+	if not TransportManager.is_transport_with_embarked(destroyed_unit_id):
+		return
+
+	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	print("FightPhase: P3-32 Transport %s (%s) destroyed — resolving emergency disembark" % [unit_name, destroyed_unit_id])
+	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % unit_name)
+
+	var result = TransportManager.resolve_transport_destroyed(destroyed_unit_id)
+	if result.get("triggered", false):
+		var diffs = result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+
+		for unit_result in result.get("per_unit", []):
+			var msg = "%s: %d models disembarked (rolls: %s)" % [
+				unit_result.unit_name, unit_result.models_disembarked, str(unit_result.rolls)]
+			if unit_result.casualties > 0:
+				msg += " — %d model(s) destroyed!" % unit_result.casualties
+			log_phase_message(msg)
+
+		if result.total_casualties > 0:
+			log_phase_message("Emergency disembark: %d total casualty(ies) from transport destruction" % result.total_casualties)
+			_check_kill_diffs(diffs)
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
