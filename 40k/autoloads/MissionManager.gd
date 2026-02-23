@@ -12,6 +12,10 @@ var current_mission: Dictionary = {}
 var objective_control_state: Dictionary = {} # objective_id -> controlling_player
 var objectives_visual_refs: Dictionary = {} # Store references to visual nodes
 
+# Sticky objective tracking — objectives locked by abilities like "Get Da Good Bitz" / "Objective Secured"
+# Key: objective_id, Value: { "player": int, "source_unit_id": String }
+var _sticky_objectives: Dictionary = {}
+
 # Kill tracking for Purge the Foe
 var _kills_this_round: Dictionary = {"1": 0, "2": 0}  # player_key -> units destroyed this round
 
@@ -71,6 +75,7 @@ func _setup_objectives_for_deployment(deployment_type: String) -> void:
 
 	# Initialize control state
 	objective_control_state.clear()
+	_sticky_objectives.clear()
 	for obj in objectives:
 		objective_control_state[obj.id] = 0  # 0 = contested/uncontrolled
 
@@ -179,13 +184,123 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 			print("  - %s" % unit_desc)
 		print("  Total OC - Player 1: %d, Player 2: %d" % [player1_oc, player2_oc])
 
-	# Determine controller
+	# Determine controller based on OC
+	var oc_controller = 0
 	if player1_oc > player2_oc:
-		return 1
+		oc_controller = 1
 	elif player2_oc > player1_oc:
-		return 2
-	else:
-		return 0  # Contested or uncontrolled
+		oc_controller = 2
+
+	# If a player actively controls via OC, that overrides any sticky lock
+	# (opponent "controls it at the start or end of any turn" breaks sticky)
+	if oc_controller > 0:
+		# If the opponent now controls via OC, clear any sticky lock
+		var obj_id = objective.get("id", "")
+		if _sticky_objectives.has(obj_id) and _sticky_objectives[obj_id].player != oc_controller:
+			print("MissionManager: Sticky lock on %s broken — Player %d now controls via OC" % [obj_id, oc_controller])
+			_sticky_objectives.erase(obj_id)
+		return oc_controller
+
+	# No one has OC presence — check for sticky lock
+	var obj_id = objective.get("id", "")
+	if _sticky_objectives.has(obj_id):
+		var sticky_data = _sticky_objectives[obj_id]
+		var sticky_player = sticky_data.player
+		var source_unit_id = sticky_data.source_unit_id
+
+		# Verify the source unit is still alive on the battlefield
+		var source_unit = GameState.state.get("units", {}).get(source_unit_id, {})
+		var source_alive = false
+		for model in source_unit.get("models", []):
+			if model.get("alive", true):
+				source_alive = true
+				break
+
+		if source_alive:
+			print("MissionManager: %s remains under Player %d control via sticky objective (source: %s)" % [obj_id, sticky_player, source_unit_id])
+			return sticky_player
+		else:
+			print("MissionManager: Sticky lock on %s expired — source unit %s is destroyed" % [obj_id, source_unit_id])
+			_sticky_objectives.erase(obj_id)
+
+	return 0  # Contested or uncontrolled
+
+# ============================================================================
+# STICKY OBJECTIVES — "Get Da Good Bitz", "Objective Secured", etc.
+# ============================================================================
+# At the end of the Command phase, if a unit with a sticky objective ability
+# is within range of an objective marker you control, that objective remains
+# under your control even if you have no models within range, until the
+# opponent controls it at the start or end of any turn.
+
+func apply_sticky_objectives(player: int) -> void:
+	"""Called at end of Command phase. Locks objectives controlled by the player
+	where a unit with a sticky objective ability is within range."""
+	var objectives = GameState.state.board.get("objectives", [])
+	var units = GameState.state.get("units", {})
+	var control_radius = Measurement.inches_to_px(3.78740157)
+
+	var unit_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not unit_ability_mgr:
+		print("MissionManager: UnitAbilityManager not available — skipping sticky objectives")
+		return
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		var controller = objective_control_state.get(obj_id, 0)
+
+		# Only apply sticky to objectives the player currently controls
+		if controller != player:
+			continue
+
+		# Check if any unit with sticky objective ability is within range
+		for unit_id in units:
+			var unit = units[unit_id]
+			if unit.get("owner", 0) != player:
+				continue
+
+			# Check if unit has a sticky objective ability
+			if not unit_ability_mgr.has_sticky_objectives_ability(unit_id):
+				continue
+
+			# Skip battle-shocked units (they don't contribute to OC or abilities)
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+
+			# Check if any alive model is within range of the objective
+			var unit_in_range = false
+			for model in unit.get("models", []):
+				if not model.get("alive", true):
+					continue
+				var model_pos = model.get("position")
+				if model_pos == null:
+					continue
+				if model_pos is Dictionary:
+					model_pos = Vector2(model_pos.x, model_pos.y)
+				if model_pos.distance_to(obj.position) <= control_radius:
+					unit_in_range = true
+					break
+
+			if unit_in_range:
+				_sticky_objectives[obj_id] = {"player": player, "source_unit_id": unit_id}
+				var unit_name = unit.get("meta", {}).get("name", unit_id)
+				print("MissionManager: Sticky objective — %s locked by %s (%s) for Player %d" % [obj_id, unit_name, unit_id, player])
+				break  # Only need one qualifying unit per objective
+
+func clear_sticky_objectives_for_player(player: int) -> void:
+	"""Clear all sticky locks for a player. Called if needed for game reset."""
+	var to_erase = []
+	for obj_id in _sticky_objectives:
+		if _sticky_objectives[obj_id].player == player:
+			to_erase.append(obj_id)
+	for obj_id in to_erase:
+		_sticky_objectives.erase(obj_id)
+	if to_erase.size() > 0:
+		print("MissionManager: Cleared %d sticky objective(s) for Player %d" % [to_erase.size(), player])
+
+func get_sticky_objectives() -> Dictionary:
+	"""Get current sticky objective state (for save/load and debugging)."""
+	return _sticky_objectives.duplicate(true)
 
 # ============================================================================
 # PRIMARY SCORING — dispatches to mission-specific scoring logic

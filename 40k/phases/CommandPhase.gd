@@ -1066,6 +1066,12 @@ func _handle_end_command() -> Dictionary:
 					print("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]])
 					_auto_resolve_pending_interaction(p, mission, secondary_mgr)
 
+	# Apply sticky objective locks at end of Command phase
+	# "Get Da Good Bitz" / "Objective Secured": if a unit with this ability is within range
+	# of a controlled objective, that objective stays under your control until the opponent takes it.
+	if MissionManager:
+		MissionManager.apply_sticky_objectives(current_player)
+
 	print("CommandPhase: Player %d ending command phase" % current_player)
 
 	# Score primary objectives before ending phase
