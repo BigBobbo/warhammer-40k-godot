@@ -5849,6 +5849,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 
+	# MARTIAL KA'TAH / EFFECT FLAGS: Check unit-level effect flags for Lethal/Sustained Hits
+	# These are set by faction abilities (e.g., Martial Ka'tah) or stratagems via EffectPrimitives
+	if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(attacker_unit):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Martial Ka'tah Rendax stance)")
+	if sustained_data.value == 0 and EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
+		# Check for Ka'tah-specific sustained hits value, default to 1
+		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
+		sustained_data = {"value": katah_sh_value, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
 	])

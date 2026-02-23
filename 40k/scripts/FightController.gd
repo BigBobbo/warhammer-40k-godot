@@ -380,6 +380,8 @@ func set_phase(phase: BasePhase) -> void:
 			phase.epic_challenge_opportunity.connect(_on_epic_challenge_opportunity)
 		if phase.has_signal("counter_offensive_opportunity") and not phase.counter_offensive_opportunity.is_connected(_on_counter_offensive_opportunity):
 			phase.counter_offensive_opportunity.connect(_on_counter_offensive_opportunity)
+		if phase.has_signal("katah_stance_required") and not phase.katah_stance_required.is_connected(_on_katah_stance_required):
+			phase.katah_stance_required.connect(_on_katah_stance_required)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -1469,6 +1471,53 @@ func _on_counter_offensive_declined(player: int) -> void:
 		"player": player
 	}
 	emit_signal("fight_action_requested", action)
+
+func _on_katah_stance_required(unit_id: String, player: int) -> void:
+	"""Show Martial Ka'tah stance selection dialog"""
+	print("[FightController] Martial Ka'tah stance selection required for %s (player %d)" % [unit_id, player])
+
+	# Skip dialog for AI players - auto-select dacatarai (sustained hits)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Auto-selecting Ka'tah stance for AI player %d" % player)
+		var action = {
+			"type": "SELECT_KATAH_STANCE",
+			"unit_id": unit_id,
+			"stance": "dacatarai",
+			"player": player
+		}
+		emit_signal("fight_action_requested", action)
+		return
+
+	var dialog_script = load("res://dialogs/KatahStanceDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load KatahStanceDialog.gd")
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(unit_id, player)
+	dialog.stance_selected.connect(_on_katah_stance_selected)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("[FightController] Ka'tah stance dialog shown for %s" % unit_id)
+
+func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> void:
+	"""Submit SELECT_KATAH_STANCE action when stance selected from dialog"""
+	print("[FightController] Ka'tah stance selected: %s for unit %s" % [stance, unit_id])
+
+	var action = {
+		"type": "SELECT_KATAH_STANCE",
+		"unit_id": unit_id,
+		"stance": stance,
+		"player": player
+	}
+	emit_signal("fight_action_requested", action)
+
+	if dice_log_display:
+		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
+		var stance_display = "Dacatarai (Sustained Hits 1)" if stance == "dacatarai" else "Rendax (Lethal Hits)"
+		dice_log_display.append_text("[color=gold]MARTIAL KA'TAH: %s assumes %s stance[/color]\n" % [unit_name, stance_display])
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	"""Show pile-in dialog and enable interactive movement"""

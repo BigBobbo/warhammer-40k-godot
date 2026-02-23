@@ -28,6 +28,17 @@ const FACTION_ABILITIES = {
 		"target_type": "enemy_unit",
 		"effect": "reroll_hits_plus_one_wound",
 		"description": "Select one enemy unit as your Oath of Moment target. Each time a model with this ability makes an attack targeting the Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
+	},
+	"Martial Ka'tah": {
+		"faction_keyword": "ADEPTUS CUSTODES",
+		"trigger": "fight_phase_unit_selected",
+		"requires_target": false,
+		"effect": "stance_selection",
+		"stances": {
+			"dacatarai": {"keyword": "sustained_hits", "value": 1, "display": "Dacatarai (Sustained Hits 1)"},
+			"rendax": {"keyword": "lethal_hits", "value": true, "display": "Rendax (Lethal Hits)"}
+		},
+		"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 scores one additional hit. Rendax — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 is always a successful Wound roll."
 	}
 }
 
@@ -231,6 +242,93 @@ func get_eligible_oath_targets(player: int) -> Array:
 		})
 
 	return targets
+
+# ============================================================================
+# PHASE LIFECYCLE
+# ============================================================================
+
+# ============================================================================
+# MARTIAL KA'TAH — STANCE SELECTION (Fight Phase)
+# ============================================================================
+
+func unit_has_katah(unit_id: String) -> bool:
+	"""Check if a unit has the Martial Ka'tah faction ability."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Martial Ka'tah":
+			return true
+	return false
+
+func apply_katah_stance(unit_id: String, stance: String) -> Dictionary:
+	"""Apply a Ka'tah stance to a unit. Sets effect flags for RulesEngine.
+	stance: 'dacatarai' or 'rendax'"""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return {"success": false, "error": "Unit not found: %s" % unit_id}
+
+	if stance != "dacatarai" and stance != "rendax":
+		return {"success": false, "error": "Invalid stance: %s (must be 'dacatarai' or 'rendax')" % stance}
+
+	# Clear any previous stance flags
+	clear_katah_stance(unit_id)
+
+	# Set the appropriate effect flag
+	if not unit.has("flags"):
+		unit["flags"] = {}
+
+	if stance == "dacatarai":
+		# Sustained Hits 1 on melee attacks
+		unit["flags"]["effect_sustained_hits"] = true
+		unit["flags"]["katah_stance"] = "dacatarai"
+		unit["flags"]["katah_sustained_hits_value"] = 1
+	elif stance == "rendax":
+		# Lethal Hits on melee attacks
+		unit["flags"]["effect_lethal_hits"] = true
+		unit["flags"]["katah_stance"] = "rendax"
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var stance_display = FACTION_ABILITIES["Martial Ka'tah"]["stances"][stance]["display"]
+	print("FactionAbilityManager: Martial Ka'tah — %s (%s) assumes %s stance" % [unit_name, unit_id, stance_display])
+
+	return {
+		"success": true,
+		"unit_id": unit_id,
+		"stance": stance,
+		"stance_display": stance_display,
+		"message": "Martial Ka'tah: %s assumes %s" % [unit_name, stance_display]
+	}
+
+func clear_katah_stance(unit_id: String) -> void:
+	"""Clear Ka'tah stance flags from a unit (called after unit finishes fighting)."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+
+	var flags = unit.get("flags", {})
+	var had_stance = flags.get("katah_stance", "") != ""
+
+	# Clear all Ka'tah-related flags
+	flags.erase("effect_sustained_hits")
+	flags.erase("effect_lethal_hits")
+	flags.erase("katah_stance")
+	flags.erase("katah_sustained_hits_value")
+
+	if had_stance:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("FactionAbilityManager: Martial Ka'tah — cleared stance for %s (%s)" % [unit_name, unit_id])
+
+func get_katah_stance(unit_id: String) -> String:
+	"""Get the current Ka'tah stance for a unit. Returns empty string if none."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	return unit.get("flags", {}).get("katah_stance", "")
 
 # ============================================================================
 # PHASE LIFECYCLE
