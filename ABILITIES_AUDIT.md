@@ -30,10 +30,10 @@
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 10 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
-| Core abilities not implemented or partially implemented | 3 |
+| Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **27** |
+| **Total gaps** | **26** |
 
 ---
 
@@ -136,7 +136,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Infiltrators | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
-| Stealth | Core | **MISSING** | No | **No** | Wahapedia lists Stealth (-1 to hit ranged attacks). Not in army JSON at all |
+| Stealth | Core | Yes | Yes (RulesEngine) | **Yes** | Added to army JSON. RulesEngine.has_stealth_ability() detects it; -1 to hit applied in both resolve paths |
 | Waaagh! | Faction | No | No | No | Missing |
 | Throat Slittas | Datasheet | Yes | Yes (implemented) | **Yes** | Mortal wounds in shooting phase — roll 1D6 per model within 9" of enemy, 5+ = 1 MW. Unit cannot shoot if used. Player/AI prompt, full resolution |
 | Sneaky Surprise | Datasheet | **MISSING** | No | **No** | "Cannot be targeted by Fire Overwatch" — not in JSON or code |
@@ -291,7 +291,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Deep Strike | Blade Champion, Custodian Guard, Shield-Captain | Likely | Handled by deployment system, not ability pipeline |
 | Infiltrators | Kommandos, Infiltrator Squad | Likely | Handled by deployment system |
 | Scout 6" | Witchseekers, Infiltrator Squad | Unknown | Pre-game movement — needs verification |
-| Stealth | Kommandos (per wahapedia) | **No** | Missing from army JSON entirely. Should grant -1 to hit on ranged attacks |
+| Stealth | Kommandos (per wahapedia) | **Yes** | Added to Kommandos army JSON. RulesEngine.has_stealth_ability() checks meta.abilities and applies -1 to hit on ranged attacks |
 | Leader | Various characters | Partial | Attachment system works but Leader ability not explicitly tracked |
 | Feel No Pain 5+ | Painboss | Unknown | Painboss not in army JSON files |
 | Deadly Demise (D3/D6/1) | Battlewagon, Caladius, Telemon, Contemptor-Achillus, Weirdboy | **Yes** | Added to JSON for 4 units (Weirdboy has no army file). RulesEngine.resolve_deadly_demise() rolls trigger (6+), finds units within 6", applies mortal wounds. Hooked into ShootingPhase, FightPhase, and WoundAllocationOverlay |
@@ -370,7 +370,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos) — **DONE**
 13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units) — **DONE**
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon) — **DONE**
-15. **Add Stealth to Kommandos army JSON** — missing core ability
+15. **Add Stealth to Kommandos army JSON** — missing core ability — **DONE**
 16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius)
 17. **Implement Dread Foe** — mortal wounds on fight selection (Contemptor-Achillus)
 18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name
