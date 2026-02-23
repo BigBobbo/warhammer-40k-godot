@@ -24,7 +24,7 @@
 
 | Category | Count |
 |----------|-------|
-| Broken pipeline (flags set, never checked by phase logic) | 1 |
+| Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 1 |
 | Faction abilities with broken/missing implementation | 3 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
@@ -33,7 +33,7 @@
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 1 |
-| **Total gaps** | **40** |
+| **Total gaps** | **39** |
 
 ---
 
@@ -59,11 +59,11 @@ These abilities are marked `implemented: true` in `UnitAbilityManager.gd` and th
 - **Where checked:** `ShootingPhase._can_unit_shoot()` now checks `EffectPrimitives.has_effect_fall_back_and_shoot(unit)` before returning false for fell-back units
 - **Status:** Fixed — units with `effect_fall_back_and_shoot` flag can now shoot after falling back
 
-### 4. advance_and_shoot — ShootingPhase ignores flag
+### 4. ~~advance_and_shoot — ShootingPhase ignores flag~~ FIXED
 - **Source:** No current ability grants this, but the flag/primitive exists for stratagem use
 - **Flag set:** `effect_advance_and_shoot`
-- **Where checked:** `ShootingPhase._can_unit_shoot()` (line 1601) checks `flags.get("advanced", false)` and restricts to assault weapons only — does NOT check `effect_advance_and_shoot` to allow all weapons
-- **Fix:** Before restricting to assault weapons, check `EffectPrimitives.has_effect_advance_and_shoot(unit)`
+- **Where checked:** `ShootingPhase._can_unit_shoot()` now checks `EffectPrimitives.has_effect_advance_and_shoot(unit)` before restricting to assault weapons; `RulesEngine.validate_shooting_assignments()` also bypasses the Assault-only weapon restriction when the flag is set
+- **Status:** Fixed — units with `effect_advance_and_shoot` flag can now shoot with all weapons after advancing
 
 ---
 
@@ -355,7 +355,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 1. **Fix ChargePhase to check advance_and_charge flag** — Martial Inspiration — **DONE**
 2. **Fix ChargePhase to check fall_back_and_charge flag** — One Scalpel Short of a Medpack — **DONE**
 3. **Fix ShootingPhase to check fall_back_and_shoot flag** — future-proofing for stratagems/doctrines — **DONE**
-4. **Fix ShootingPhase to check advance_and_shoot flag** — future-proofing for stratagems/doctrines
+4. **Fix ShootingPhase to check advance_and_shoot flag** — future-proofing for stratagems/doctrines — **DONE**
 5. **Add once-per-battle tracking** for Martial Inspiration — **DONE**
 6. **Fix Ramshackle** — currently FNP 6+, should be "worsen AP by 1"
 7. **Update Oath of Moment rules text** — currently uses old Index wording
