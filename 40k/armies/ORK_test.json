@@ -397,6 +397,11 @@
               "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
             },
             {
+              "name": "'Ard Case",
+              "type": "Wargear",
+              "description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability."
+            },
+            {
               "name": "TRANSPORT",
               "type": "Special",
               "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
