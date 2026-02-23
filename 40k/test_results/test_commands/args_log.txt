@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit", "-gprefix=test_feel_no_pain", "-glog=1", "-gexit"]
