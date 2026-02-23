@@ -5924,6 +5924,25 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var model_count = 0
 	var attacks_roll_log = []
 
+	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
+	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
+	# DA BIGGEST AND DA BEST: Check if attacker has this ability (Warboss — +4 attacks while Waaagh!)
+	var has_da_biggest = false
+	# DEAD BRUTAL: Check if attacker has this ability (Warboss in Mega Armour — damage=3 while Waaagh!)
+	var has_dead_brutal = false
+	if waaagh_active:
+		var attacker_abilities = attacker_unit.get("meta", {}).get("abilities", [])
+		for ab in attacker_abilities:
+			var ab_name = ""
+			if ab is String:
+				ab_name = ab
+			elif ab is Dictionary:
+				ab_name = ab.get("name", "")
+			if ab_name == "Da Biggest and da Best":
+				has_da_biggest = true
+			elif ab_name == "Dead Brutal":
+				has_dead_brutal = true
+
 	# Compute per-model fight eligibility based on engagement range
 	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
 	var total_alive_models = 0
@@ -5946,7 +5965,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		model_count += 1
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
-		total_attacks += attacks_result.value
+		var model_attacks = attacks_result.value
+
+		# WAAAGH! BONUS: +1 Attack to melee weapons
+		if waaagh_active:
+			model_attacks += 1
+
+		# DA BIGGEST AND DA BEST: +4 Attacks to this model's melee weapons while Waaagh! active
+		if has_da_biggest:
+			model_attacks += 4
+			print("RulesEngine: Da Biggest and da Best — +4 attacks for model (Waaagh! active)")
+
+		total_attacks += model_attacks
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -5961,6 +5991,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Use WS from weapon profile (10e: WS is on the weapon, not the unit)
 	var ws = weapon_profile.get("ws", 4)
 	var strength = weapon_profile.get("strength", 4)
+
+	# WAAAGH! BONUS: +1 Strength to melee weapons
+	if waaagh_active:
+		strength += 1
+		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
+
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var ap = weapon_profile.get("ap", 0)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
@@ -5970,6 +6006,13 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		ap = max(0, ap - melee_worsen_ap)
 		print("RulesEngine: Worsen AP (melee) — AP %d → %d (worsen by %d)" % [pre_ap, ap, melee_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
+
+	# DEAD BRUTAL: While Waaagh! active, 'Uge choppa has Damage 3
+	if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+		var pre_damage = damage
+		damage = 3
+		print("RulesEngine: Dead Brutal — 'Uge choppa damage %d → %d (Waaagh! active)" % [pre_damage, damage])
+
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	# ===== PHASE 3: DETECT WEAPON ABILITIES =====
@@ -6340,6 +6383,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Also check unit-level invuln in meta stats
 		if invuln == 0:
 			invuln = target_unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+		# Check effect-granted invulnerable save (e.g., Waaagh! 5+, Go to Ground, abilities)
+		var melee_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		if melee_effect_invuln > 0:
+			if invuln == 0 or melee_effect_invuln < invuln:
+				invuln = melee_effect_invuln
+				print("RulesEngine: Effect-granted %d+ invulnerable save applied in melee" % melee_effect_invuln)
 
 		var save_info = _calculate_save_needed(base_save, ap, false, invuln)  # No cover in melee
 		save_threshold = save_info.inv if save_info.use_invuln else save_info.armour
@@ -6382,6 +6431,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Per 10e rules: Devastating Wounds create mortal wounds that spill over between models.
 	# Regular failed-save damage does NOT spill over (excess damage lost when model dies).
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	# DEAD BRUTAL: Override damage_raw for variable damage rolling
+	if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+		damage_raw = "3"
 	var damage_roll_log = []
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
