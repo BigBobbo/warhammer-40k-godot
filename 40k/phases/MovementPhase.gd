@@ -50,6 +50,12 @@ var _bomb_squigs_pending_unit: String = ""     # Unit awaiting Bomb Squigs decis
 var _bomb_squigs_pending_changes: Array = []   # Pending movement changes while awaiting Bomb Squigs
 var _bomb_squigs_pending_dice: Array = []      # Pending dice while awaiting Bomb Squigs
 
+# Sawbonez state tracking (P3-29)
+var _awaiting_sawbonez: bool = false            # Waiting for Sawbonez heal decision
+var _sawbonez_painboss_id: String = ""          # The Painboss unit offering healing
+var _sawbonez_targets: Array = []               # Eligible healing targets
+var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
+
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
 	# Try the expected path first
@@ -120,6 +126,12 @@ func _on_phase_exit() -> void:
 	# Clear any temporary movement data
 	for unit_id in active_moves:
 		_clear_unit_move_state(unit_id)
+
+	# Clear Sawbonez state (P3-29)
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
 
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
@@ -199,6 +211,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_bomb_squigs(action)
 		"DECLINE_BOMB_SQUIGS":
 			return _validate_decline_bomb_squigs(action)
+		"USE_SAWBONEZ":
+			if not _awaiting_sawbonez:
+				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
+			return {"valid": true}
+		"DECLINE_SAWBONEZ":
+			if not _awaiting_sawbonez:
+				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -259,6 +279,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_bomb_squigs(action)
 		"DECLINE_BOMB_SQUIGS":
 			return _process_decline_bomb_squigs(action)
+		"USE_SAWBONEZ":
+			return _process_use_sawbonez(action)
+		"DECLINE_SAWBONEZ":
+			return _process_decline_sawbonez(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1083,6 +1107,120 @@ func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
 	_bomb_squigs_pending_dice = []
 
 	return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+# ============================================================================
+# P3-29: SAWBONEZ (Painboss healing at end of Movement phase)
+# ============================================================================
+
+func _process_use_sawbonez(action: Dictionary) -> Dictionary:
+	"""Player chooses a target for Sawbonez healing — heal up to 3 wounds."""
+	var target_unit_id = action.get("target_unit_id", "")
+	var target_model_index = action.get("target_model_index", -1)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P3-29: SAWBONEZ — HEALING")
+	print("║ Painboss: ", _sawbonez_painboss_id)
+	print("║ Target Unit: ", target_unit_id)
+	print("║ Target Model Index: ", target_model_index)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _sawbonez_pending_changes.duplicate()
+	var heal_changes = []
+
+	# Find the target model and heal up to 3 wounds
+	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+	if not target_unit.is_empty() and target_model_index >= 0:
+		var models = target_unit.get("models", [])
+		if target_model_index < models.size():
+			var model = models[target_model_index]
+			var current_wounds = model.get("current_wounds", 1)
+			var max_wounds = model.get("wounds", 1)
+			var heal_amount = min(3, max_wounds - current_wounds)
+			var new_wounds = current_wounds + heal_amount
+
+			if heal_amount > 0:
+				heal_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+					"value": new_wounds
+				})
+
+				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				var model_id = model.get("id", "m%d" % (target_model_index + 1))
+				log_phase_message("SAWBONEZ: Painboss heals %s model %s for %d wounds (%d → %d)" % [
+					target_name, model_id, heal_amount, current_wounds, new_wounds])
+				print("MovementPhase: Sawbonez healed %s model %s: %d → %d wounds" % [
+					target_name, model_id, current_wounds, new_wounds])
+
+	# Clear Sawbonez state
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
+
+	# Combine with pending changes
+	var all_changes = cached_changes + heal_changes
+
+	# Now continue with the rest of END_MOVEMENT logic (Rapid Ingress check, etc.)
+	# Apply heal changes first, then re-invoke end movement
+	if heal_changes.size() > 0:
+		PhaseManager.apply_state_changes(heal_changes)
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_sawbonez(cached_changes)
+
+func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
+	"""Player declines Sawbonez healing — proceed with ending movement phase."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P3-29: SAWBONEZ — DECLINED")
+	print("║ Painboss: ", _sawbonez_painboss_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _sawbonez_pending_changes.duplicate()
+
+	# Clear Sawbonez state
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_sawbonez(cached_changes)
+
+func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
+	"""Continue the END_MOVEMENT flow after Sawbonez decision (heal or decline).
+	Checks for Rapid Ingress, then completes the phase."""
+	var current_player = get_current_player()
+
+	# T4-7: Check for Rapid Ingress opportunity for the non-active player
+	var defending_player = 2 if current_player == 1 else 1
+	var battle_round = GameState.get_battle_round()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager and battle_round >= 2:
+		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
+		if strat_check.can_use:
+			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
+			if not ri_eligible.is_empty():
+				_awaiting_rapid_ingress = true
+				_rapid_ingress_player = defending_player
+				_rapid_ingress_eligible_units = ri_eligible
+				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
+				print("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()])
+
+				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
+
+				var result = create_result(true, changes)
+				result["trigger_rapid_ingress"] = true
+				result["awaiting_rapid_ingress"] = true
+				result["rapid_ingress_player"] = defending_player
+				result["rapid_ingress_eligible_units"] = ri_eligible
+				return result
+
+	log_phase_message("Ending Movement Phase (post-Sawbonez) - emitting phase_completed signal")
+	emit_signal("phase_completed")
+	log_phase_message("=== END_MOVEMENT COMPLETE (post-Sawbonez) ===")
+	return create_result(true, changes)
 
 func _get_bomb_squigs_targets(unit_id: String) -> Array:
 	"""Find enemy units within 12\" of the unit (and visible).
@@ -2361,6 +2499,45 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				"path": "units.%s.flags.movement_active" % unit_id
 			})
 
+	# P3-29: Check for Sawbonez (Painboss healing) at end of Movement phase
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		var all_units_check = GameState.state.get("units", {})
+		for unit_id in all_units_check:
+			var unit = all_units_check[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if not ability_mgr.has_sawbonez(unit_id):
+				continue
+			# Check if the Painboss is deployed and alive
+			var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
+			if not is_deployed:
+				continue
+			var has_alive_model = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive_model = true
+					break
+			if not has_alive_model:
+				continue
+
+			# Find eligible healing targets
+			var targets = ability_mgr.get_sawbonez_targets(unit_id)
+			if targets.size() > 0:
+				_awaiting_sawbonez = true
+				_sawbonez_painboss_id = unit_id
+				_sawbonez_targets = targets
+				_sawbonez_pending_changes = changes
+				log_phase_message("SAWBONEZ available for Painboss %s — %d eligible targets" % [unit_id, targets.size()])
+				print("MovementPhase: Sawbonez healing opportunity — Painboss %s has %d eligible targets" % [unit_id, targets.size()])
+
+				var result = create_result(true, changes)
+				result["trigger_sawbonez"] = true
+				result["awaiting_sawbonez"] = true
+				result["sawbonez_painboss_id"] = unit_id
+				result["sawbonez_targets"] = targets
+				return result
+
 	# T4-7: Check for Rapid Ingress opportunity for the non-active player
 	# Rapid Ingress is used at the END of the opponent's Movement phase to bring
 	# in a Reserves unit as if it were the Reinforcements step.
@@ -2885,6 +3062,25 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_BOMB_SQUIGS",
 			"actor_unit_id": _bomb_squigs_pending_unit,
 			"description": "Decline Bomb Squigs — %s" % bs_name
+		})
+		return actions  # Block other actions until resolved
+
+	# P3-29: Sawbonez pending — offer heal targets or decline
+	if _awaiting_sawbonez:
+		for target in _sawbonez_targets:
+			actions.append({
+				"type": "USE_SAWBONEZ",
+				"actor_unit_id": _sawbonez_painboss_id,
+				"target_unit_id": target.unit_id,
+				"target_model_id": target.model_id,
+				"target_model_index": target.model_index,
+				"description": "Sawbonez: Heal %s (%d/%d wounds) — regain up to 3 wounds" % [
+					target.unit_name, target.current_wounds, target.max_wounds]
+			})
+		actions.append({
+			"type": "DECLINE_SAWBONEZ",
+			"actor_unit_id": _sawbonez_painboss_id,
+			"description": "Decline Sawbonez healing"
 		})
 		return actions  # Block other actions until resolved
 
