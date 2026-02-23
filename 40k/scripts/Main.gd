@@ -43,6 +43,7 @@ var scoring_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
+var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 
 # Replay mode
 var is_replay_mode: bool = false
@@ -204,7 +205,7 @@ func _ready() -> void:
 		else:
 			print("Main: ERROR - No phase instance after transition!")
 
-	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
+	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone, V to rotate board
 
 	board_view.queue_redraw()
 	setup_deployment_zones()
@@ -236,6 +237,9 @@ func _ready() -> void:
 	# Setup left panel toggle and hide by default
 	_setup_left_panel_toggle()
 	_hide_left_panel()
+
+	# Setup board rotation button
+	_setup_rotate_board_button()
 
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
@@ -2958,6 +2962,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Board rotation - 'v' to rotate 90° clockwise
+	if event is InputEventKey and event.pressed and event.keycode == KEY_V:
+		rotate_board_view(PI / 2.0)
+		get_viewport().set_input_as_handled()
+		return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with 't' key
@@ -3063,17 +3073,19 @@ func _process(delta: float) -> void:
 	var pan_speed = 800.0 * delta / view_zoom
 	var view_changed = false
 	
+	# Build pan vector in screen space, then rotate to match board orientation
+	var pan_dir = Vector2.ZERO
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		view_offset.y -= pan_speed
-		view_changed = true
+		pan_dir.y -= 1.0
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		view_offset.y += pan_speed
-		view_changed = true
+		pan_dir.y += 1.0
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		view_offset.x -= pan_speed
-		view_changed = true
+		pan_dir.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		view_offset.x += pan_speed
+		pan_dir.x += 1.0
+	if pan_dir != Vector2.ZERO:
+		# Counter-rotate the pan direction so WASD always maps to screen directions
+		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
 	
 	# Zoom controls
@@ -3128,14 +3140,34 @@ func reset_camera() -> void:
 		SettingsService.get_board_height_px() / 2
 	)
 	camera.zoom = Vector2(0.3, 0.3)
+	view_rotation = 0.0
 	print("Camera reset to position: ", camera.position, " zoom: ", camera.zoom)
+
+func rotate_board_view(angle: float) -> void:
+	view_rotation = fmod(view_rotation + angle, TAU)
+	# Snap to nearest 90 degrees to avoid floating point drift
+	var steps = round(view_rotation / (PI / 2.0))
+	view_rotation = steps * (PI / 2.0)
+	update_view_transform()
+	var degrees = int(rad_to_deg(view_rotation)) % 360
+	print("Board rotated to %d degrees" % degrees)
 
 func update_view_transform() -> void:
 	# Apply transform to BoardRoot to simulate camera movement
-	var transform = Transform2D()
-	transform = transform.scaled(Vector2(view_zoom, view_zoom))
-	transform.origin = -view_offset * view_zoom
-	$BoardRoot.transform = transform
+	# Rotation is applied around the board center so the board spins in place
+	var board_center = Vector2(
+		SettingsService.get_board_width_px() / 2.0,
+		SettingsService.get_board_height_px() / 2.0
+	)
+	var t = Transform2D()
+	# Translate so board center is at origin, rotate, then translate back
+	t = t.translated(-board_center)
+	t = t.rotated(view_rotation)
+	t = t.translated(board_center)
+	# Apply zoom and pan
+	t = t.scaled(Vector2(view_zoom, view_zoom))
+	t.origin += -view_offset * view_zoom
+	$BoardRoot.transform = t
 
 func focus_on_player2_zone() -> void:
 	var zone2 = BoardState.get_deployment_zone_for_player(2)
@@ -5822,6 +5854,21 @@ func _on_left_panel_toggle_pressed() -> void:
 			left_panel_toggle_button.text = "Show Mathhammer"
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
+
+func _setup_rotate_board_button() -> void:
+	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_bottom:
+		print("ERROR: Could not find HUD_Bottom/HBoxContainer for rotate button")
+		return
+	var rotate_btn = Button.new()
+	rotate_btn.name = "RotateBoardButton"
+	rotate_btn.text = "Rotate Board (V)"
+	rotate_btn.tooltip_text = "Rotate the board view 90° clockwise"
+	rotate_btn.pressed.connect(func(): rotate_board_view(PI / 2.0))
+	# Insert after the left panel toggle (index 1)
+	hud_bottom.add_child(rotate_btn)
+	hud_bottom.move_child(rotate_btn, 1)
+	print("Board rotation button added to top HUD")
 
 func _setup_phase_transition_banner() -> void:
 	# T5-V3: Create the phase transition animation banner
