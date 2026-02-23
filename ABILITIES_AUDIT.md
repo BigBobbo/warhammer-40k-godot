@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 1 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 0 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
-| Wargear abilities not implemented | 2 |
+| Wargear abilities not implemented | 1 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 0 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **9** |
+| **Total gaps** | **7** |
 
 ---
 
@@ -155,17 +155,17 @@ These abilities should only be usable once per game but have no usage tracking m
 | 'Ard Case | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +2 Toughness, lose Firing Deck — added to JSON, applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.toughness and removes firing_deck from transport_data |
 | Transport (22 capacity) | Special | Yes | No | Unknown | Transport mechanic |
 
-### Painboss (referenced in ABILITY_EFFECTS but no army JSON found)
+### Painboss
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Feel No Pain 5+ | Core | N/A | No | Unknown | Painboss's own FNP |
-| Leader | Core | N/A | No | Unknown | Can attach to Beast Snagga Boyz |
-| Waaagh! | Faction | N/A | No | No | Missing |
-| Dok's Toolz | Datasheet | N/A | Yes (implemented) | Partial | Flag set but needs army file |
-| Sawbonez | Datasheet | **N/A** | No | **No** | Heal friendly CHARACTER 3 wounds — not implemented |
-| One Scalpel Short of a Medpack | Datasheet | N/A | Yes (implemented) | **No** | Flag set but ChargePhase doesn't check it (see Broken Pipeline) |
-| Grot Orderly | Wargear | **N/A** | No | **No** | Once per battle return D3 destroyed models — not implemented |
+| Feel No Pain 5+ | Core | Yes | No (stats-based) | **Yes** | Painboss's own FNP — `fnp: 5` in stats, handled by RulesEngine |
+| Leader | Core | No | No | Partial | Attachment system works — `leader_data.can_lead: ["BEAST SNAGGA BOYZ"]` |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
+| Dok's Toolz | Datasheet | Yes | Yes (implemented) | **Yes** | Grants FNP 5+ to led unit — `grant_fnp` effect applied via UnitAbilityManager |
+| Sawbonez | Datasheet | Yes | Yes (implemented) | **Yes** | At end of Movement phase, heal friendly BEAST SNAGGA CHARACTER within 3" up to 3 wounds. MovementPhase offers USE_SAWBONEZ action |
+| One Scalpel Short of a Medpack | Datasheet | Yes | Yes (implemented) | **Yes** | Led unit can charge after falling back — `fall_back_and_charge` effect, ChargePhase checks it |
+| Grot Orderly | Wargear | Yes | Yes (implemented) | **Yes** | Once per battle: at start of Command phase, return up to D3 destroyed Bodyguard models. CommandPhase offers USE_GROT_ORDERLY action, once-per-battle tracking |
 
 ### Weirdboy (referenced in ABILITY_EFFECTS but no army JSON found)
 
@@ -359,6 +359,8 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 30 | Combat Squads | deployment | unit split (two 5-model units) | No | **No** — Added to JSON and ABILITY_EFFECTS. Requires deployment system changes (same as Patrol Squad) |
 | 31 | Master of the Stances | on_fight_selection | both Ka'tah stances active | Yes | **Yes** — Once per battle: both Dacatarai (Sustained Hits 1) and Rendax (Lethal Hits) active simultaneously. FightPhase offers "Both" option in KatahStanceDialog. FactionAbilityManager.apply_katah_stance() supports "both" stance. Once-per-battle tracked via UnitAbilityManager |
 | 32 | Strategic Mastery | passive | reduce stratagem CP cost by 1 | Yes | **Yes** — Once per battle round: reduces CP cost by 1 for stratagems targeting this unit. Integrated into StratagemManager.use_stratagem() and can_use_stratagem(). Once-per-round tracked via UnitAbilityManager |
+| 33 | Sawbonez | end_of_movement | heal CHARACTER 3 wounds | Yes | **Yes** — At end of Movement phase, heal friendly BEAST SNAGGA CHARACTER within 3" up to 3 wounds. MovementPhase offers USE_SAWBONEZ/DECLINE_SAWBONEZ actions. Proximity-checked, model-level healing |
+| 34 | Grot Orderly | start_of_command | return D3 destroyed models | Yes | **Yes** — Once per battle: at start of Command phase, return up to D3 destroyed Bodyguard models. CommandPhase offers USE_GROT_ORDERLY action. D3 roll, model revival, once-per-battle tracking |
 
 ---
 
@@ -399,7 +401,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 
 ### P3 — Low (units not yet in army files or niche mechanics)
 28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery — **DONE**
-29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive)
+29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive) — **DONE**
 30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump
 31. **Implement Firing Deck** — embarked model shooting (Battlewagon)
 32. **Implement Transport capacity** — embark/disembark mechanics

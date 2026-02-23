@@ -1058,6 +1058,103 @@
         {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
+    },
+    "U_PAINBOSS_I": {
+      "id": "U_PAINBOSS_I",
+      "squad_id": "U_PAINBOSS_I",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Painboss",
+        "keywords": [
+          "CHARACTER",
+          "INFANTRY",
+          "BEAST SNAGGA",
+          "ORKS",
+          "PAINBOSS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 4,
+          "wounds": 4,
+          "leadership": 7,
+          "objective_control": 1,
+          "fnp": 5
+        },
+        "points": 70,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Beast Snagga klaw",
+          "1x Grot Orderly"
+        ],
+        "weapons": [
+          {
+            "name": "Beast Snagga klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "4",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "2",
+            "special_rules": "anti-monster 4+, anti-vehicle 4+"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Feel No Pain 5+",
+            "type": "Core",
+            "description": "Each time this model would lose a wound, roll one D6: on a 5+, that wound is not lost."
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Dok's Toolz",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability."
+          },
+          {
+            "name": "Sawbonez",
+            "type": "Datasheet",
+            "description": "At the end of your Movement phase, you can select one friendly BEAST SNAGGA CHARACTER model within 3\" of this model. That model regains up to 3 lost wounds."
+          },
+          {
+            "name": "One Scalpel Short of a Medpack",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, that unit is eligible to declare a charge in a turn in which it Fell Back."
+          },
+          {
+            "name": "Grot Orderly",
+            "type": "Wargear",
+            "description": "Once per battle, at the start of your Command phase, if the bearer's unit is below its Starting Strength, you can return up to D3 destroyed Bodyguard models to that unit."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Painboss",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": ["BEAST SNAGGA BOYZ"]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
     }
   }
 }

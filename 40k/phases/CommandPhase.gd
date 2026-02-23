@@ -308,6 +308,31 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
+	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
+	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_go:
+		var all_units_go = GameState.state.get("units", {})
+		for unit_id in all_units_go:
+			var unit = all_units_go[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if not ability_mgr_go.has_grot_orderly(unit_id):
+				continue
+			# Check if the unit is deployed and alive
+			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var go_info = ability_mgr_go.get_grot_orderly_unit(unit_id)
+			if go_info.get("eligible", false):
+				var painboss_name = unit.get("meta", {}).get("name", unit_id)
+				actions.append({
+					"type": "USE_GROT_ORDERLY",
+					"unit_id": unit_id,
+					"bodyguard_unit_id": go_info.bodyguard_unit_id,
+					"description": "Grot Orderly: %s returns up to D3 models to %s (%d destroyed)" % [
+						painboss_name, go_info.bodyguard_unit_name, go_info.destroyed_count],
+					"player": current_player
+				})
+
 	# Always allow ending command phase (but warn if tests remain)
 	actions.append({
 		"type": "END_COMMAND",
@@ -355,6 +380,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			pass  # Always valid
 		"SELECT_MARTIAL_MASTERY":
 			errors = _validate_select_martial_mastery(action)
+		"USE_GROT_ORDERLY":
+			errors = _validate_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -424,6 +451,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_skip_combat_doctrine(action)
 		"SELECT_MARTIAL_MASTERY":
 			return _handle_select_martial_mastery(action)
+		"USE_GROT_ORDERLY":
+			return _handle_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -952,6 +981,123 @@ func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
 		GameState.add_action_to_phase_log(log_entry)
 
 	return result
+
+# ============================================================================
+# P3-29: GROT ORDERLY (Painboss — return D3 destroyed Bodyguard models)
+# ============================================================================
+
+func _validate_use_grot_orderly(action: Dictionary) -> Array:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
+	var current_player = get_current_player()
+
+	if unit_id == "":
+		errors.append("Missing unit_id for Grot Orderly")
+		return errors
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		errors.append("UnitAbilityManager not available")
+		return errors
+
+	if not ability_mgr.has_grot_orderly(unit_id):
+		errors.append("Unit %s does not have an available Grot Orderly ability" % unit_id)
+		return errors
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.get("owner", 0) != current_player:
+		errors.append("Unit %s does not belong to active player" % unit_id)
+
+	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
+	if not go_info.get("eligible", false):
+		errors.append("Painboss's unit is not below starting strength — no models to return")
+
+	return errors
+
+func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
+	var current_player = get_current_player()
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"success": false, "error": "UnitAbilityManager not available"}
+
+	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
+	if not go_info.get("eligible", false):
+		return {"success": false, "error": "Unit is not below starting strength"}
+
+	bodyguard_unit_id = go_info.bodyguard_unit_id
+
+	# Roll D3 to determine how many models to return
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var d3_roll = rng.randi_range(1, 3)
+	var destroyed_count = go_info.destroyed_count
+	var models_to_return = mini(d3_roll, destroyed_count)
+
+	print("CommandPhase: Grot Orderly — rolled D3 = %d, returning %d model(s) to %s" % [d3_roll, models_to_return, bodyguard_unit_id])
+
+	# Find destroyed models in the bodyguard unit and revive them
+	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
+	var models = bodyguard_unit.get("models", [])
+	var changes = []
+	var returned = 0
+
+	for i in range(models.size()):
+		if returned >= models_to_return:
+			break
+		var model = models[i]
+		if not model.get("alive", true):
+			# Revive this model at full wounds
+			var max_wounds = model.get("wounds", 1)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [bodyguard_unit_id, i],
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [bodyguard_unit_id, i],
+				"value": max_wounds
+			})
+			returned += 1
+			print("CommandPhase: Grot Orderly — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds])
+
+	# Apply changes
+	if changes.size() > 0:
+		PhaseManager.apply_state_changes(changes)
+
+	# Mark Grot Orderly as used (once per battle)
+	ability_mgr.mark_once_per_battle_used(unit_id, "Grot Orderly")
+
+	var painboss_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+	var bg_name = go_info.bodyguard_unit_name
+
+	log_phase_message("GROT ORDERLY: %s returns %d model(s) to %s (rolled D3 = %d)" % [
+		painboss_name, returned, bg_name, d3_roll])
+
+	# Log to phase log
+	var log_entry = {
+		"type": "USE_GROT_ORDERLY",
+		"player": current_player,
+		"painboss_unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"d3_roll": d3_roll,
+		"models_returned": returned,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {
+		"success": true,
+		"unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"d3_roll": d3_roll,
+		"models_returned": returned,
+		"message": "Grot Orderly: %s returned %d model(s) to %s (D3 = %d)" % [painboss_name, returned, bg_name, d3_roll]
+	}
 
 # ============================================================================
 # VOLUNTARY DISCARD & NEW ORDERS

@@ -416,6 +416,32 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
+	# PHASE-TRIGGERED ABILITIES
+	# These trigger at specific phase boundaries and require active resolution.
+	# ======================================================================
+
+	# Ork Painboss — heal friendly BEAST SNAGGA CHARACTER 3 wounds at end of Movement phase
+	"Sawbonez": {
+		"condition": "end_of_movement",
+		"effects": [],
+		"target": "friendly_beast_snagga_character",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At end of Movement phase, select one friendly BEAST SNAGGA CHARACTER within 3\" — regain up to 3 lost wounds"
+	},
+
+	# Ork Painboss wargear — once per battle return D3 destroyed Bodyguard models at start of Command phase
+	"Grot Orderly": {
+		"condition": "start_of_command",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: at start of Command phase, if bearer's unit is below Starting Strength, return up to D3 destroyed Bodyguard models"
+	},
+
+	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
 	# ======================================================================
@@ -1046,6 +1072,175 @@ func has_bomb_squigs(unit_id: String) -> bool:
 			else:
 				print("UnitAbilityManager: Unit %s has Bomb Squigs but already used this battle" % unit_id)
 	return false
+
+func has_sawbonez(unit_id: String) -> bool:
+	"""Check if a unit has the Sawbonez ability (Painboss).
+	Used by MovementPhase at end of movement to offer healing."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sawbonez":
+			print("UnitAbilityManager: Unit %s has Sawbonez ability" % unit_id)
+			return true
+	return false
+
+func get_sawbonez_targets(painboss_unit_id: String) -> Array:
+	"""Get eligible healing targets for Sawbonez ability.
+	Returns array of { unit_id, unit_name, model_id, model_index, wounds_lost } for BEAST SNAGGA CHARACTER
+	models within 3\" that have lost wounds."""
+	var targets = []
+	var painboss_unit = GameState.state.get("units", {}).get(painboss_unit_id, {})
+	if painboss_unit.is_empty():
+		return targets
+
+	# Get Painboss position (first alive model)
+	var painboss_pos = null
+	for model in painboss_unit.get("models", []):
+		if model.get("alive", true) and model.get("position", null) != null:
+			painboss_pos = model.get("position")
+			break
+
+	if painboss_pos == null:
+		print("UnitAbilityManager: Painboss %s has no position — cannot find Sawbonez targets" % painboss_unit_id)
+		return targets
+
+	var units = GameState.state.get("units", {})
+	var painboss_owner = painboss_unit.get("owner", 0)
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Must be same owner (friendly)
+		if unit.get("owner", 0) != painboss_owner:
+			continue
+
+		# Must have BEAST SNAGGA and CHARACTER keywords
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_beast_snagga = false
+		var has_character = false
+		for kw in keywords:
+			if kw.to_upper() == "BEAST SNAGGA":
+				has_beast_snagga = true
+			if kw.to_upper() == "CHARACTER":
+				has_character = true
+		if not has_beast_snagga or not has_character:
+			continue
+
+		# Check each alive model for lost wounds and proximity
+		for i in range(unit.get("models", []).size()):
+			var model = unit.get("models", [])[i]
+			if not model.get("alive", true):
+				continue
+
+			var max_wounds = model.get("wounds", 1)
+			var current_wounds = model.get("current_wounds", max_wounds)
+			if current_wounds >= max_wounds:
+				continue  # No wounds lost
+
+			var model_pos = model.get("position", null)
+			if model_pos == null:
+				continue
+
+			# Check distance (3" = 3 * 25.4mm ~ 76.2mm, but the game uses inches for positions typically)
+			# Use the same distance calculation as elsewhere in the codebase
+			var dist = _calculate_distance(painboss_pos, model_pos)
+			if dist <= 3.0:
+				targets.append({
+					"unit_id": unit_id,
+					"unit_name": unit.get("meta", {}).get("name", unit_id),
+					"model_id": model.get("id", "m%d" % (i + 1)),
+					"model_index": i,
+					"current_wounds": current_wounds,
+					"max_wounds": max_wounds,
+					"wounds_lost": max_wounds - current_wounds
+				})
+				print("UnitAbilityManager: Sawbonez target found — %s model %s (%d/%d wounds)" % [
+					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
+
+	return targets
+
+func has_grot_orderly(unit_id: String) -> bool:
+	"""Check if a unit has an unused Grot Orderly wargear ability (Painboss).
+	Used by CommandPhase at start of command to offer model revival."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Grot Orderly":
+			if not is_once_per_battle_used(unit_id, "Grot Orderly"):
+				print("UnitAbilityManager: Unit %s has unused Grot Orderly" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Grot Orderly but already used this battle" % unit_id)
+	return false
+
+func get_grot_orderly_unit(painboss_unit_id: String) -> Dictionary:
+	"""Check if the Painboss's led unit is below starting strength for Grot Orderly.
+	Returns { eligible: bool, bodyguard_unit_id, destroyed_count, max_return } or empty dict."""
+	var units = GameState.state.get("units", {})
+
+	# Find the bodyguard unit the Painboss is leading
+	for unit_id in units:
+		var unit = units[unit_id]
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_characters = attachment_data.get("attached_characters", [])
+		if painboss_unit_id in attached_characters:
+			# Found the bodyguard unit — check if below starting strength
+			var models = unit.get("models", [])
+			var alive_count = 0
+			var destroyed_count = 0
+			for model in models:
+				if model.get("alive", true):
+					alive_count += 1
+				else:
+					destroyed_count += 1
+
+			if destroyed_count > 0:
+				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is below starting strength (%d destroyed models)" % [unit_id, destroyed_count])
+				return {
+					"eligible": true,
+					"bodyguard_unit_id": unit_id,
+					"bodyguard_unit_name": unit.get("meta", {}).get("name", unit_id),
+					"destroyed_count": destroyed_count,
+					"alive_count": alive_count,
+					"total_models": models.size()
+				}
+			else:
+				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is at full strength" % unit_id)
+				return {"eligible": false}
+
+	print("UnitAbilityManager: Grot Orderly — Painboss %s is not leading any unit" % painboss_unit_id)
+	return {"eligible": false}
+
+func _calculate_distance(pos_a, pos_b) -> float:
+	"""Calculate distance between two positions (in game inches).
+	Handles both Vector2 and Dictionary {x, y} formats."""
+	var ax = 0.0
+	var ay = 0.0
+	var bx = 0.0
+	var by = 0.0
+
+	if pos_a is Vector2:
+		ax = pos_a.x
+		ay = pos_a.y
+	elif pos_a is Dictionary:
+		ax = float(pos_a.get("x", 0))
+		ay = float(pos_a.get("y", 0))
+
+	if pos_b is Vector2:
+		bx = pos_b.x
+		by = pos_b.y
+	elif pos_b is Dictionary:
+		bx = float(pos_b.get("x", 0))
+		by = float(pos_b.get("y", 0))
+
+	return sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by))
 
 func has_deadly_demise(unit_id: String) -> bool:
 	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').
