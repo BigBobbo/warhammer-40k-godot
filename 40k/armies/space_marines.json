@@ -65,7 +65,7 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
           }
         ],
         "unit_composition": [
@@ -141,7 +141,7 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
           }
         ],
         "unit_composition": [
@@ -222,7 +222,7 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
           },
           {
             "name": "Omni-scramblers",

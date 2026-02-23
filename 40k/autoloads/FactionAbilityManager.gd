@@ -10,9 +10,9 @@ extends Node
 #
 # Currently supported faction abilities:
 # - Oath of Moment (Space Marines / ADEPTUS ASTARTES):
-#   At the start of your Command phase, select one enemy unit.
-#   Re-roll hit rolls of 1 and wound rolls of 1 for attacks targeting that unit
-#   by ADEPTUS ASTARTES units from your army.
+#   At the start of your Command phase, select one enemy unit as your Oath of Moment target.
+#   Each time a model with this ability makes an attack targeting the Oath of Moment target,
+#   you can re-roll the Hit roll and add 1 to the Wound roll.
 
 # ============================================================================
 # CONSTANTS
@@ -26,8 +26,8 @@ const FACTION_ABILITIES = {
 		"trigger": "command_phase_start",
 		"requires_target": true,
 		"target_type": "enemy_unit",
-		"effect": "reroll_ones_hit_and_wound",
-		"description": "Select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks against that unit by ADEPTUS ASTARTES units."
+		"effect": "reroll_hits_plus_one_wound",
+		"description": "Select one enemy unit as your Oath of Moment target. Each time a model with this ability makes an attack targeting the Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
 	}
 }
 

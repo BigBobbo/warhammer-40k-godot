@@ -26,14 +26,14 @@
 |----------|-------|
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
-| Faction abilities with broken/missing implementation | 3 |
+| Faction abilities with broken/missing implementation | 2 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 4 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
-| Oath of Moment rules text is outdated | 1 |
-| **Total gaps** | **38** |
+| Oath of Moment rules text is outdated | 0 |
+| **Total gaps** | **36** |
 
 ---
 
@@ -96,13 +96,10 @@ These abilities should only be usable once per game but have no usage tracking m
 - **Current state:** Listed in army JSON descriptions but not in ABILITY_EFFECTS table, no stance selection UI, no implementation
 - **What's needed:** Fight phase stance selection UI, temporary weapon keyword application during fight resolution
 
-### Space Marines — Oath of Moment (OUTDATED RULES TEXT)
+### ~~Space Marines — Oath of Moment~~ FIXED
 - **Rules text (Codex):** "Select one enemy unit. Each time a model with this ability makes an attack that targets your Oath of Moment target: you can re-roll the Hit roll. If your army does not include Black Templars/Blood Angels/Dark Angels/Deathwatch/Space Wolves keywords, add 1 to the Wound roll as well."
-- **Current state in game JSON:** "Re-roll hit rolls and wound rolls of 1" — this is the old Index wording
-- **Implementation status:** `FactionAbilityManager` handles target selection and flags the target. `RulesEngine` DOES check `FactionAbilityManager.attacker_benefits_from_oath()` for rerolls at lines 1328-1335 (ranged) and 5890-5906 (melee)
-- **Issues:**
-  1. Rules text in army JSON is outdated (should be full re-rolls to hit + conditional +1 to wound, not re-roll 1s)
-  2. Need to verify RulesEngine applies full re-rolls (not just 1s) and the +1 to wound bonus
+- **Implementation status:** `FactionAbilityManager` handles target selection and flags the target. `RulesEngine` checks `FactionAbilityManager.attacker_benefits_from_oath()` and applies full hit re-rolls (`REROLL_FAILED`) + `PLUS_ONE` to wound across all attack paths (ranged, auto-resolve, melee). Army JSON rules text updated to Codex wording.
+- **Status:** Fixed — rules text updated, RulesEngine now applies correct Codex-era modifiers
 
 ---
 
@@ -263,7 +260,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | Partial | Rules text outdated (see Faction Abilities section) |
+| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
 | Objective Secured | Datasheet | **MISSING** | No | **No** | Sticky objectives — not in JSON or code |
 | Target Elimination | Datasheet | **MISSING** | No | **No** | +2 bolt rifle attacks when targeting single enemy — not in JSON or code |
 
@@ -271,7 +268,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | Partial | Rules text outdated |
+| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
 | Combat Squads | Datasheet | **MISSING** | No | **No** | Split into two 5-model units at deployment — not in JSON or code |
 
 ### Infiltrator Squad
@@ -280,7 +277,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Infiltrators | Core | Yes | No (separate system) | Likely | Deployment logic |
 | Scout 6" | Core | Yes | No (separate system) | Unknown | Pre-game movement |
-| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | Partial | Rules text outdated |
+| Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
 | Omni-scramblers | Datasheet | Yes (text only) | No | **No** | Blocks enemy deep strike within 12" — not implemented mechanically |
 | Helix Gauntlet | Wargear | **MISSING** | No | **No** | FNP 6+ for unit — optional wargear, not in JSON |
 | Infiltrator Comms Array | Wargear | **MISSING** | No | **No** | 5+ to regain 1CP on stratagem — optional wargear, not in JSON |
@@ -358,7 +355,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 4. **Fix ShootingPhase to check advance_and_shoot flag** — future-proofing for stratagems/doctrines — **DONE**
 5. **Add once-per-battle tracking** for Martial Inspiration — **DONE**
 6. **Fix Ramshackle** — currently FNP 6+, should be "worsen AP by 1" — **DONE**
-7. **Update Oath of Moment rules text** — currently uses old Index wording
+7. **Update Oath of Moment rules text** — currently uses old Index wording — **DONE**
 
 ### P1 — High (missing abilities for units already in the game)
 8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase)
