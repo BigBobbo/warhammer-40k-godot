@@ -821,13 +821,13 @@ func unit_has_katah(unit_id: String) -> bool:
 
 func apply_katah_stance(unit_id: String, stance: String) -> Dictionary:
 	"""Apply a Ka'tah stance to a unit. Sets effect flags for RulesEngine.
-	stance: 'dacatarai' or 'rendax'"""
+	stance: 'dacatarai', 'rendax', or 'both' (Master of the Stances)"""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return {"success": false, "error": "Unit not found: %s" % unit_id}
 
-	if stance != "dacatarai" and stance != "rendax":
-		return {"success": false, "error": "Invalid stance: %s (must be 'dacatarai' or 'rendax')" % stance}
+	if stance != "dacatarai" and stance != "rendax" and stance != "both":
+		return {"success": false, "error": "Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance}
 
 	# Clear any previous stance flags
 	clear_katah_stance(unit_id)
@@ -836,7 +836,13 @@ func apply_katah_stance(unit_id: String, stance: String) -> Dictionary:
 	if not unit.has("flags"):
 		unit["flags"] = {}
 
-	if stance == "dacatarai":
+	if stance == "both":
+		# Master of the Stances: both Sustained Hits 1 AND Lethal Hits
+		unit["flags"]["effect_sustained_hits"] = true
+		unit["flags"]["effect_lethal_hits"] = true
+		unit["flags"]["katah_stance"] = "both"
+		unit["flags"]["katah_sustained_hits_value"] = 1
+	elif stance == "dacatarai":
 		# Sustained Hits 1 on melee attacks
 		unit["flags"]["effect_sustained_hits"] = true
 		unit["flags"]["katah_stance"] = "dacatarai"
@@ -847,7 +853,11 @@ func apply_katah_stance(unit_id: String, stance: String) -> Dictionary:
 		unit["flags"]["katah_stance"] = "rendax"
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var stance_display = FACTION_ABILITIES["Martial Ka'tah"]["stances"][stance]["display"]
+	var stance_display = ""
+	if stance == "both":
+		stance_display = "Master of the Stances (Dacatarai + Rendax)"
+	else:
+		stance_display = FACTION_ABILITIES["Martial Ka'tah"]["stances"][stance]["display"]
 	print("FactionAbilityManager: Martial Ka'tah — %s (%s) assumes %s stance" % [unit_name, unit_id, stance_display])
 
 	return {

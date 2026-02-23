@@ -513,10 +513,16 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if not strat.get("implemented", false):
 			return {"can_use": false, "reason": "%s is not yet mechanically implemented" % strat.name}
 
-	# Check CP
+	# Check CP (account for possible Strategic Mastery discount)
+	var effective_cost = strat.cp_cost
+	if target_unit_id != "" and effective_cost > 0:
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
+			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
+				effective_cost = maxi(effective_cost - 1, 0)
 	var player_cp = _get_player_cp(player)
-	if player_cp < strat.cp_cost:
-		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [strat.cp_cost, player_cp]}
+	if player_cp < effective_cost:
+		return {"can_use": false, "reason": "Not enough CP (need %d, have %d)" % [effective_cost, player_cp]}
 
 	# Check usage restrictions
 	var restriction_check = _check_usage_restriction(player, stratagem_id, strat)
@@ -598,9 +604,21 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var strat = stratagems[stratagem_id]
 	var diffs = []
 
+	# Calculate effective CP cost (check for Strategic Mastery discount)
+	var effective_cp_cost = strat.cp_cost
+	var strategic_mastery_applied = false
+	if target_unit_id != "" and effective_cp_cost > 0:
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
+			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
+				effective_cp_cost = maxi(effective_cp_cost - 1, 0)
+				strategic_mastery_applied = true
+				ability_mgr.mark_once_per_round_used(player, "Strategic Mastery")
+				print("StratagemManager: Strategic Mastery reduces CP cost of %s by 1 (was %d, now %d)" % [strat.name, strat.cp_cost, effective_cp_cost])
+
 	# Deduct CP
 	var current_cp = _get_player_cp(player)
-	var new_cp = current_cp - strat.cp_cost
+	var new_cp = current_cp - effective_cp_cost
 	diffs.append({
 		"op": "set",
 		"path": "players.%s.cp" % str(player),
@@ -621,9 +639,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Apply the CP diff immediately
 	_safe_apply_state_changes(diffs)
 
-	print("StratagemManager: Player %d used %s on %s (cost %d CP, %d -> %d)" % [
+	var cost_msg = "%d CP" % effective_cp_cost
+	if strategic_mastery_applied:
+		cost_msg += " (reduced from %d by Strategic Mastery)" % strat.cp_cost
+	print("StratagemManager: Player %d used %s on %s (cost %s, %d -> %d)" % [
 		player, strat.name, target_unit_id if target_unit_id != "" else "N/A",
-		strat.cp_cost, current_cp, new_cp
+		cost_msg, current_cp, new_cp
 	])
 
 	# Log to phase log
@@ -633,7 +654,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		"stratagem_name": strat.name,
 		"player": player,
 		"target_unit_id": target_unit_id,
-		"cp_cost": strat.cp_cost,
+		"cp_cost": effective_cp_cost,
+		"original_cp_cost": strat.cp_cost,
+		"strategic_mastery_discount": strategic_mastery_applied,
 		"turn": GameState.get_battle_round()
 	})
 

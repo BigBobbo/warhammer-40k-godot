@@ -321,6 +321,32 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
 	},
 
+	# Custodes Shield-Captain — once per battle, both Ka'tah stances active simultaneously
+	# Resolved in FightPhase when unit is selected to fight (during Ka'tah stance selection).
+	# When activated, sets BOTH effect_sustained_hits AND effect_lethal_hits flags.
+	"Master of the Stances": {
+		"condition": "on_fight_selection",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: both Ka'tah stances active simultaneously during this fight"
+	},
+
+	# Custodes Shield-Captain — once per battle round, reduce stratagem CP cost by 1
+	# Resolved in StratagemManager when a stratagem targets this unit.
+	# The CP discount is applied automatically when the Shield-Captain's unit is targeted.
+	"Strategic Mastery": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle_round": true,
+		"description": "Once per battle round: reduce CP cost of a Stratagem targeting this unit by 1"
+	},
+
 	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
 	# Resolved directly in FightPhase when unit is selected to fight.
 	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
@@ -434,6 +460,10 @@ var _applied_this_phase: Dictionary = {}
 # Track once-per-battle ability usage
 # Key: "unit_id:ability_name", Value: true (used)
 var _once_per_battle_used: Dictionary = {}
+
+# Track once-per-battle-round ability usage (e.g., Strategic Mastery)
+# Key: "player:ability_name", Value: battle_round_number (last used round)
+var _once_per_round_used: Dictionary = {}
 
 func _ready() -> void:
 	var implemented_count = 0
@@ -779,6 +809,20 @@ func is_once_per_battle_used(unit_id: String, ability_name: String) -> bool:
 	var usage_key = unit_id + ":" + ability_name
 	return _once_per_battle_used.get(usage_key, false)
 
+func mark_once_per_round_used(player: int, ability_name: String) -> void:
+	"""Mark a once-per-battle-round ability as used for this round."""
+	var usage_key = str(player) + ":" + ability_name
+	var current_round = GameState.get_battle_round()
+	_once_per_round_used[usage_key] = current_round
+	print("UnitAbilityManager: Marked '%s' as used for player %d in round %d (once per round)" % [ability_name, player, current_round])
+
+func is_once_per_round_used(player: int, ability_name: String) -> bool:
+	"""Check if a once-per-battle-round ability has been used this round."""
+	var usage_key = str(player) + ":" + ability_name
+	var last_used_round = _once_per_round_used.get(usage_key, 0)
+	var current_round = GameState.get_battle_round()
+	return last_used_round >= current_round
+
 func has_shoot_again_ability(unit_id: String) -> bool:
 	"""Check if a unit has an unused once-per-battle shoot-again ability (e.g. Sentinel Storm).
 	Used by ShootingPhase to offer the shoot-again option after a unit completes shooting."""
@@ -840,6 +884,87 @@ func has_dread_foe(unit_id: String) -> bool:
 		if ability_name == "Dread Foe":
 			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
 			return true
+	return false
+
+func has_master_of_the_stances(unit_id: String) -> bool:
+	"""Check if a unit has an unused Master of the Stances ability (Shield-Captain).
+	Used by FightPhase to offer both Ka'tah stances simultaneously.
+	Checks attached leaders for the ability (since Shield-Captain is a leader)."""
+	# First check the unit itself
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	# Check the unit's own abilities
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Master of the Stances":
+			if not is_once_per_battle_used(unit_id, "Master of the Stances"):
+				print("UnitAbilityManager: Unit %s has unused Master of the Stances" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Master of the Stances but already used this battle" % unit_id)
+				return false
+
+	# Check attached leaders (Shield-Captain leading Custodian Guard)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+	var units = GameState.state.get("units", {})
+
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if not _has_alive_models(char_unit):
+			continue
+
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "Master of the Stances":
+				# Use the bodyguard unit's ID for tracking (since it's the unit fighting)
+				if not is_once_per_battle_used(unit_id, "Master of the Stances"):
+					print("UnitAbilityManager: Unit %s has leader with unused Master of the Stances" % unit_id)
+					return true
+				else:
+					print("UnitAbilityManager: Unit %s has leader with Master of the Stances but already used this battle" % unit_id)
+					return false
+
+	return false
+
+func has_strategic_mastery(unit_id: String) -> bool:
+	"""Check if a unit or its attached leaders have Strategic Mastery (Shield-Captain).
+	Used by StratagemManager to offer CP discount when targeting this unit."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	# Check the unit's own abilities
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Strategic Mastery":
+			return true
+
+	# Check attached leaders
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+	var units = GameState.state.get("units", {})
+
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if not _has_alive_models(char_unit):
+			continue
+
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "Strategic Mastery":
+				return true
+
 	return false
 
 func has_sticky_objectives_ability(unit_id: String) -> bool:
@@ -1116,7 +1241,8 @@ func get_state_for_save() -> Dictionary:
 	return {
 		"active_ability_effects": _active_ability_effects.duplicate(true),
 		"applied_this_phase": _applied_this_phase.duplicate(true),
-		"once_per_battle_used": _once_per_battle_used.duplicate(true)
+		"once_per_battle_used": _once_per_battle_used.duplicate(true),
+		"once_per_round_used": _once_per_round_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -1124,11 +1250,13 @@ func load_state(data: Dictionary) -> void:
 	_active_ability_effects = data.get("active_ability_effects", [])
 	_applied_this_phase = data.get("applied_this_phase", {})
 	_once_per_battle_used = data.get("once_per_battle_used", {})
-	print("UnitAbilityManager: State loaded — %d active effects, %d once-per-battle used" % [_active_ability_effects.size(), _once_per_battle_used.size()])
+	_once_per_round_used = data.get("once_per_round_used", {})
+	print("UnitAbilityManager: State loaded — %d active effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
 func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()
 	_once_per_battle_used.clear()
+	_once_per_round_used.clear()
 	print("UnitAbilityManager: Reset for new game")

@@ -8,16 +8,21 @@ extends AcceptDialog
 #   - Dacatarai: Melee attacks gain Sustained Hits 1
 #   - Rendax: Melee attacks gain Lethal Hits
 # The stance is active until the unit finishes attacking.
+#
+# MASTER OF THE STANCES (Shield-Captain Datasheet Ability)
+# Once per battle: both Ka'tah stances active simultaneously.
 
 signal stance_selected(unit_id: String, stance: String, player: int)
 
 var unit_id: String = ""
 var player: int = 0
 var unit_name: String = ""
+var master_of_stances_available: bool = false
 
-func setup(p_unit_id: String, p_player: int) -> void:
+func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -> void:
 	unit_id = p_unit_id
 	player = p_player
+	master_of_stances_available = p_master_available
 
 	var unit = GameState.get_unit(unit_id)
 	unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -63,6 +68,26 @@ func _build_ui() -> void:
 	# Stance buttons
 	var button_container = VBoxContainer.new()
 
+	# Master of the Stances button (if available)
+	if master_of_stances_available:
+		var both_button = Button.new()
+		both_button.text = "MASTER OF THE STANCES — Both Stances Active"
+		both_button.custom_minimum_size = Vector2(400, 50)
+		both_button.add_theme_color_override("font_color", Color.GOLD)
+		both_button.pressed.connect(_on_both_pressed)
+		button_container.add_child(both_button)
+
+		var both_desc = Label.new()
+		both_desc.text = "Once per battle: Both Dacatarai (Sustained Hits 1) AND Rendax (Lethal Hits) are active simultaneously for this fight."
+		both_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		both_desc.add_theme_font_size_override("font_size", 11)
+		both_desc.add_theme_color_override("font_color", Color.LIGHT_GOLDENROD)
+		button_container.add_child(both_desc)
+
+		var spacer0 = Control.new()
+		spacer0.custom_minimum_size = Vector2(0, 10)
+		button_container.add_child(spacer0)
+
 	# Dacatarai button
 	var dacatarai_button = Button.new()
 	dacatarai_button.text = "Dacatarai — Sustained Hits 1"
@@ -100,6 +125,12 @@ func _build_ui() -> void:
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+func _on_both_pressed() -> void:
+	print("KatahStanceDialog: Player %d selects BOTH stances (Master of the Stances) for %s" % [player, unit_name])
+	emit_signal("stance_selected", unit_id, "both", player)
+	hide()
+	queue_free()
 
 func _on_dacatarai_pressed() -> void:
 	print("KatahStanceDialog: Player %d selects DACATARAI stance for %s" % [player, unit_name])

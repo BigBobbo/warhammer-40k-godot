@@ -1478,14 +1478,19 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 	"""Show Martial Ka'tah stance selection dialog"""
 	print("[FightController] Martial Ka'tah stance selection required for %s (player %d)" % [unit_id, player])
 
-	# Skip dialog for AI players - auto-select dacatarai (sustained hits)
+	# Check if Master of the Stances is available for this unit
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
+
+	# Skip dialog for AI players - auto-select "both" if Master of the Stances available, else dacatarai
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[FightController] Auto-selecting Ka'tah stance for AI player %d" % player)
+		var ai_stance = "both" if master_available else "dacatarai"
+		print("[FightController] Auto-selecting Ka'tah stance '%s' for AI player %d" % [ai_stance, player])
 		var action = {
 			"type": "SELECT_KATAH_STANCE",
 			"unit_id": unit_id,
-			"stance": "dacatarai",
+			"stance": ai_stance,
 			"player": player
 		}
 		emit_signal("fight_action_requested", action)
@@ -1498,11 +1503,11 @@ func _on_katah_stance_required(unit_id: String, player: int) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
-	dialog.setup(unit_id, player)
+	dialog.setup(unit_id, player, master_available)
 	dialog.stance_selected.connect(_on_katah_stance_selected)
 	get_tree().root.add_child(dialog)
 	dialog.popup_centered()
-	print("[FightController] Ka'tah stance dialog shown for %s" % unit_id)
+	print("[FightController] Ka'tah stance dialog shown for %s (master_of_stances: %s)" % [unit_id, str(master_available)])
 
 func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> void:
 	"""Submit SELECT_KATAH_STANCE action when stance selected from dialog"""
@@ -1518,7 +1523,13 @@ func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> 
 
 	if dice_log_display:
 		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
-		var stance_display = "Dacatarai (Sustained Hits 1)" if stance == "dacatarai" else "Rendax (Lethal Hits)"
+		var stance_display = ""
+		if stance == "both":
+			stance_display = "MASTER OF THE STANCES (Dacatarai + Rendax)"
+		elif stance == "dacatarai":
+			stance_display = "Dacatarai (Sustained Hits 1)"
+		else:
+			stance_display = "Rendax (Lethal Hits)"
 		dice_log_display.append_text("[color=gold]MARTIAL KA'TAH: %s assumes %s stance[/color]\n" % [unit_name, stance_display])
 
 func _on_dread_foe_resolved(unit_id: String, result: Dictionary) -> void:
