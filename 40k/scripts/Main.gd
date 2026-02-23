@@ -27,6 +27,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 @onready var confirm_button: Button = $HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton
 
 var unit_stats_panel: Control
+var secondary_mission_panel: Control
 var left_panel_toggle_button: Button
 var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
@@ -1538,6 +1539,13 @@ func _restructure_ui_layout() -> void:
 	# Create unit stats panel at bottom
 	_setup_unit_stats_panel()
 
+	# Grab reference to the secondary mission overlay panel (defined in Main.tscn)
+	secondary_mission_panel = get_node_or_null("SecondaryMissionPanel")
+	if secondary_mission_panel:
+		print("Main: SecondaryMissionPanel found in scene")
+	else:
+		print("Main: WARNING — SecondaryMissionPanel not found in scene")
+
 func _fix_hud_layout() -> void:
 	# Adjust both left and right HUD panels for proper layout
 	var hud_left = get_node("HUD_Left")
@@ -2955,6 +2963,12 @@ func _input(event: InputEvent) -> void:
 	# T7-56: AI Turn Replay panel toggle — 'r' key
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		_toggle_ai_turn_replay_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Secondary Missions panel toggle — 'm' key
+	if event is InputEventKey and event.pressed and event.keycode == KEY_M:
+		_toggle_secondary_mission_panel()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -5257,6 +5271,11 @@ func update_ui_for_phase() -> void:
 	refresh_unit_list()
 	update_ui()
 
+	# Refresh the persistent secondary missions overlay if it's open
+	if secondary_mission_panel and secondary_mission_panel.has_method("refresh"):
+		if not secondary_mission_panel.is_collapsed:
+			secondary_mission_panel.refresh()
+
 func _on_movement_action_requested(action: Dictionary) -> void:
 	print("Main: Received movement action request: ", action.type)
 
@@ -5822,6 +5841,14 @@ func _on_left_panel_toggle_pressed() -> void:
 			left_panel_toggle_button.text = "Show Mathhammer"
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
+
+func _toggle_secondary_mission_panel() -> void:
+	"""Toggle the persistent secondary missions overlay (M key)."""
+	if secondary_mission_panel and secondary_mission_panel.has_method("toggle"):
+		secondary_mission_panel.toggle()
+		print("Main: Secondary missions panel toggled")
+	else:
+		print("Main: SecondaryMissionPanel not available")
 
 func _setup_phase_transition_banner() -> void:
 	# T5-V3: Create the phase transition animation banner
