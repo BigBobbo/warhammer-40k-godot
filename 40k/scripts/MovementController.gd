@@ -3023,6 +3023,12 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	print("║ Eligible units: %d" % eligible_units.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip UI dialog for AI players — AIPlayer autoload handles the decision
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.is_ai_player(defending_player):
+		print("MovementController: Defending player %d is AI — skipping overwatch dialog" % defending_player)
+		return
+
 	if eligible_units.is_empty():
 		# No eligible units — auto-decline
 		_on_fire_overwatch_declined(defending_player)
