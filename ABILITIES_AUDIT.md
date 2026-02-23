@@ -29,11 +29,11 @@
 | Faction abilities with broken/missing implementation | 0 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 7 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 1 |
-| Wargear abilities not implemented | 7 |
+| Wargear abilities not implemented | 4 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **20** |
+| **Total gaps** | **17** |
 
 ---
 
@@ -152,7 +152,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
-| 'Ard Case | Wargear | **MISSING** | No | **No** | +2 Toughness, lose Firing Deck — not in JSON or code |
+| 'Ard Case | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +2 Toughness, lose Firing Deck — added to JSON, applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.toughness and removes firing_deck from transport_data |
 | Transport (22 capacity) | Special | Yes | No | Unknown | Transport mechanic |
 
 ### Painboss (referenced in ABILITY_EFFECTS but no army JSON found)
@@ -199,8 +199,8 @@ These abilities should only be usable once per game but have no usage tracking m
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Stand Vigil | Datasheet | Yes | Yes (implemented) | **Partial** | Reroll wound 1s works. "While within range of controlled objective, reroll all wound rolls" — objective-conditional part NOT implemented |
 | Sentinel Storm | Datasheet | Yes (text only) | Yes (implemented) | **Yes** | Once per battle shoot again — implemented with UI prompt, AI support, once-per-battle tracking |
-| Praesidium Shield | Wargear | Yes (text only) | No | **No** | +1 Wounds — not applied to model stats |
-| Vexilla | Wargear | Yes (text only) | No | **No** | +1 OC — not applied to model stats |
+| Praesidium Shield | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +1 Wounds — applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.wounds and model wound values |
+| Vexilla | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +1 OC — applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.objective_control |
 
 ### Witchseekers
 
@@ -379,7 +379,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 
 ### P2 — Medium (require new systems or are less impactful)
 19. **Implement Waaagh! system** — unlocks Da Biggest/Dead Brutal + base Ork faction ability — **DONE**
-20. **Implement wargear stat bonuses** — Praesidium Shield (+1W), Vexilla (+1OC), 'Ard Case (+2T)
+20. **Implement wargear stat bonuses** — Praesidium Shield (+1W), Vexilla (+1OC), 'Ard Case (+2T) — **DONE**
 21. **Fix Daughters of the Abyss** — restrict FNP 3+ to psychic/mortal wounds only
 22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade
 23. **Implement Get Da Good Bitz** — sticky objectives (Boyz)
