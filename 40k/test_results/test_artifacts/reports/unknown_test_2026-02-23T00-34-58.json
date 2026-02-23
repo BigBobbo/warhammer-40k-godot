@@ -1,0 +1,15 @@
+{
+	"client_connected": true,
+	"configuration": {
+		"capture_screenshots_on_failure": true,
+		"capture_screenshots_on_success": false,
+		"save_state_on_completion": true,
+		"use_dynamic_ports": true,
+		"visual_debugging": true
+	},
+	"failure_message": "",
+	"host_connected": true,
+	"status": "PASSED",
+	"test_name": "",
+	"timestamp": "2026-02-23T00-34-58"
+}
