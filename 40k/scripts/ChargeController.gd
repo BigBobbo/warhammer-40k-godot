@@ -471,6 +471,10 @@ func set_phase(phase_instance) -> void:
 		if not current_phase.charge_unit_skipped.is_connected(_on_charge_unit_skipped):
 			current_phase.charge_unit_skipped.connect(_on_charge_unit_skipped)
 
+	if current_phase.has_signal("ability_reroll_opportunity"):
+		if not current_phase.ability_reroll_opportunity.is_connected(_on_ability_reroll_opportunity):
+			current_phase.ability_reroll_opportunity.connect(_on_ability_reroll_opportunity)
+
 	if current_phase.has_signal("command_reroll_opportunity"):
 		if not current_phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 			current_phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
@@ -2247,6 +2251,79 @@ func _update_token_rotation(unit_id: String, model_id: String, new_rotation: flo
 					return
 
 	print("WARNING: Could not find token visual for rotation update: unit=", unit_id, " model=", model_id)
+
+# ============================================================================
+# ABILITY REROLL HANDLERS (e.g. Swift Onslaught — free charge reroll)
+# ============================================================================
+
+func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""Handle ability reroll opportunity — show dialog to the charging player."""
+	var ability_name = roll_context.get("ability_name", "Ability")
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ ChargeController: ABILITY REROLL OPPORTUNITY (%s)" % ability_name)
+	print("║ Unit: %s (player %d)" % [roll_context.get("unit_name", unit_id), player])
+	print("║ Original rolls: %s = %d" % [str(roll_context.get("original_rolls", [])), roll_context.get("total", 0)])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Show the dice in the log first
+	var rolls = roll_context.get("original_rolls", [])
+	var total = roll_context.get("total", 0)
+	var unit_name = roll_context.get("unit_name", unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
+			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
+		])
+		dice_log_display.append_text("[color=cyan]%s: Free re-roll available![/color]\n" % ability_name)
+
+	# Skip UI dialog for AI players — AIPlayer autoload handles the decision
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.is_ai_player(player):
+		print("ChargeController: Player %d is AI — skipping ability reroll dialog" % player)
+		return
+
+	# Reuse CommandRerollDialog with modified display (ability name instead of CP cost)
+	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
+	if not dialog_script:
+		push_error("Failed to load CommandRerollDialog.gd for ability reroll")
+		_on_ability_reroll_declined(unit_id, player)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(
+		unit_id,
+		player,
+		"charge_roll",
+		roll_context.get("original_rolls", []),
+		"%s — %s" % [ability_name, roll_context.get("context_text", "Re-roll charge dice for free")]
+	)
+	# Override the dialog title to show ability name instead of "Command Re-roll"
+	dialog.title = "%s — Free Charge Re-roll" % ability_name
+	dialog.command_reroll_used.connect(_on_ability_reroll_used)
+	dialog.command_reroll_declined.connect(_on_ability_reroll_declined)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("ChargeController: Ability reroll dialog shown for player %d (%s)" % [player, ability_name])
+
+func _on_ability_reroll_used(unit_id: String, player: int) -> void:
+	"""Handle player choosing to use ability reroll."""
+	print("ChargeController: Ability reroll USED for %s" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=cyan]SWIFT ONSLAUGHT used! Re-rolling charge...[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "USE_ABILITY_REROLL",
+		"actor_unit_id": unit_id,
+	})
+
+func _on_ability_reroll_declined(unit_id: String, player: int) -> void:
+	"""Handle player declining ability reroll."""
+	print("ChargeController: Ability reroll DECLINED for %s" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Declined free re-roll.[/color]\n")
+	emit_signal("charge_action_requested", {
+		"type": "DECLINE_ABILITY_REROLL",
+		"actor_unit_id": unit_id,
+	})
 
 # ============================================================================
 # COMMAND RE-ROLL HANDLERS

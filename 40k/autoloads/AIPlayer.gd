@@ -313,6 +313,12 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "fire_overwatch_opportunity", "callable": callable})
 		print("AIPlayer: Connected to MovementPhase.fire_overwatch_opportunity")
 
+	if phase.has_signal("ability_reroll_opportunity"):
+		var callable_ar = Callable(self, "_on_ability_reroll_opportunity")
+		phase.ability_reroll_opportunity.connect(callable_ar)
+		_connected_phase_signals.append({"signal_name": "ability_reroll_opportunity", "callable": callable_ar})
+		print("AIPlayer: Connected to phase.ability_reroll_opportunity")
+
 	if phase.has_signal("command_reroll_opportunity"):
 		var callable = Callable(self, "_on_command_reroll_opportunity")
 		phase.command_reroll_opportunity.connect(callable)
@@ -642,6 +648,43 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---
+
+func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
+	"""
+	Called when a phase offers a free ability reroll (e.g. Swift Onslaught) to a player.
+	Since it's free (no CP cost), AI should always use it if the charge roll is insufficient.
+	"""
+	if not is_ai_player(player):
+		return
+
+	var total = roll_context.get("total", 0)
+	var min_distance = roll_context.get("min_distance", 99.0)
+	var needed = max(0.0, min_distance - 1.0)  # Subtract engagement range (1")
+	var ability_name = roll_context.get("ability_name", "ability")
+
+	# Since it's free, always reroll if the roll is insufficient
+	var should_reroll = total < int(ceil(needed))
+
+	print("AIPlayer: Ability reroll (%s) for AI player %d — rolled %d, need %d, reroll: %s" % [
+		ability_name, player, total, int(ceil(needed)), str(should_reroll)])
+
+	var decision: Dictionary
+	if should_reroll:
+		decision = {
+			"type": "USE_ABILITY_REROLL",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI uses %s reroll on charge" % ability_name
+		}
+	else:
+		decision = {
+			"type": "DECLINE_ABILITY_REROLL",
+			"actor_unit_id": unit_id,
+			"player": player,
+			"_ai_description": "AI declines %s reroll (charge already sufficient)" % ability_name
+		}
+
+	_submit_reactive_action(player, decision)
 
 func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary) -> void:
 	"""
