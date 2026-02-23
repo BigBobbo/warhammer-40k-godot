@@ -221,6 +221,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Once per battle: shoot again after this unit has shot"
 	},
 
+	# Custodes Witchseekers — force Battle-shock test after shooting
+	"Sanctified Flames": {
+		"condition": "after_shooting",
+		"effects": [],
+		"target": "enemy_hit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
@@ -625,6 +635,21 @@ func has_shoot_again_ability(unit_id: String) -> bool:
 				return true
 			else:
 				print("UnitAbilityManager: Unit %s has Sentinel Storm but already used this battle" % unit_id)
+	return false
+
+func has_sanctified_flames_ability(unit_id: String) -> bool:
+	"""Check if a unit has the Sanctified Flames ability (e.g. Witchseekers).
+	Used by ShootingPhase to trigger a forced Battle-shock test after shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sanctified Flames":
+			print("UnitAbilityManager: Unit %s has Sanctified Flames ability" % unit_id)
+			return true
 	return false
 
 func get_implemented_abilities() -> Array:

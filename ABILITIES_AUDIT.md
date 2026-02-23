@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 15 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 14 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **33** |
+| **Total gaps** | **32** |
 
 ---
 
@@ -209,7 +209,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Scout 6" | Core | Yes | No (separate system) | Unknown | Should move 6" before first turn |
 | Daughters of the Abyss | Datasheet | Yes | Yes (implemented) | **Partial** | Simplified as FNP 3+ always. Should be FNP 3+ against Psychic Attacks and mortal wounds only |
-| Sanctified Flames | Datasheet | Yes (text only) | No | **No** | Force Battle-shock test on hit enemy — not implemented |
+| Sanctified Flames | Datasheet | Yes (text only) | Yes (implemented) | **Yes** | After shooting, select one hit enemy unit — forced Battle-shock test (2D6 vs Ld). Implemented in ShootingPhase with hit tracking, auto-roll, and battle_shocked flag application |
 
 ### Caladius Grav-tank
 
@@ -343,6 +343,8 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 16 | Get Da Good Bitz | on_objective | sticky objectives | No | **No** |
 | 17 | Da Biggest and da Best | waaagh_active | +4 attacks | No | **No** — needs Waaagh! system |
 | 18 | Dead Brutal | waaagh_active | damage=3 | No | **No** — needs Waaagh! system |
+| 19 | Sentinel Storm | always | shoot-again | Yes | **Yes** — once-per-battle shoot-again with UI prompt, AI support |
+| 20 | Sanctified Flames | after_shooting | forced Battle-shock test | Yes | **Yes** — tracks hit targets, rolls 2D6 vs Ld, applies battle_shocked flag |
 
 ---
 
@@ -361,7 +363,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase) — **DONE**
 9. **Implement Swift Onslaught** — reroll charge primitive needed — **DONE**
 10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard — **DONE**
-11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers)
+11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers) — **DONE**
 12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos)
 13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units)
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon)
