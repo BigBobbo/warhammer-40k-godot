@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 9 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 8 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **25** |
+| **Total gaps** | **24** |
 
 ---
 
@@ -227,7 +227,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise 1 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
-| Dread Foe | Datasheet | Yes (text only) | No | **No** | Mortal wounds on fight selection (D3 or 3, bonus on charge) — not implemented |
+| Dread Foe | Datasheet | Yes | Yes (FightPhase) | **Yes** | Mortal wounds on fight selection — auto-resolved when selected to fight. Roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW. RulesEngine.resolve_dread_foe() + FightPhase._resolve_dread_foe_then_pile_in() |
 | Invulnerable Save 5+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
 
 ### Telemon Heavy Dreadnought
@@ -349,6 +349,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 22 | Deadly Demise | on_destruction | mortal wounds to all within 6" | Yes | **Yes** — roll 1D6 on unit death, on 6 each unit within 6" suffers D6/D3/1 mortal wounds. Hooked into ShootingPhase, FightPhase, WoundAllocationOverlay |
 | 23 | Damaged | wounds_below_threshold | -1 to hit | Yes | **Yes** — RulesEngine.is_damaged_profile_active() checks current wounds vs threshold parsed from ability name. Applied in all 3 hit resolution paths (ranged interactive, ranged auto-resolve, melee) |
 | 24 | Advanced Firepower | always | conditional Lethal Hits | Yes | **Yes** — RulesEngine.check_advanced_firepower_lethal_hits() checks weapon name + target keywords. Twin iliastus: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus: Lethal Hits vs MONSTER/VEHICLE. Applied in all 4 ranged resolve paths |
+| 25 | Dread Foe | on_fight_selection | mortal wounds on fight selection | Yes | **Yes** — Auto-resolved when selected to fight. Roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW. RulesEngine.resolve_dread_foe() + FightPhase integration |
 
 ---
 
@@ -373,7 +374,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon) — **DONE**
 15. **Add Stealth to Kommandos army JSON** — missing core ability — **DONE**
 16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius) — **DONE**
-17. **Implement Dread Foe** — mortal wounds on fight selection (Contemptor-Achillus)
+17. **Implement Dread Foe** — mortal wounds on fight selection (Contemptor-Achillus) — **DONE**
 18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name
 
 ### P2 — Medium (require new systems or are less impactful)

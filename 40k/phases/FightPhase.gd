@@ -30,6 +30,7 @@ signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
 signal katah_stance_required(unit_id: String, player: int)
+signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -2574,7 +2575,67 @@ func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
 		result["katah_player"] = current_selecting_player
 		return result
 
-	# No Ka'tah — proceed to pile-in
+	# No Ka'tah — check for Dread Foe, then proceed to pile-in
+	return _resolve_dread_foe_then_pile_in(unit_id)
+
+# ============================================================================
+# P1-17: DREAD FOE — Mortal wounds on fight selection
+# ============================================================================
+
+func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
+	"""P1-17: Check if unit has Dread Foe ability. If so, auto-resolve mortal wounds
+	against one enemy within Engagement Range, then proceed to pile-in.
+	Dread Foe: Roll 1D6 (+2 if charged this turn). On 4-5, D3 MW. On 6+, 3 MW."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_dread_foe(unit_id):
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+		# Find enemy units within Engagement Range
+		var targets = _get_dread_foe_targets(unit_id)
+		if targets.is_empty():
+			log_phase_message("DREAD FOE: %s has Dread Foe but no enemies in Engagement Range" % unit_name)
+		else:
+			# Auto-select first target (highest priority: most models, or first found)
+			var target_id = targets[0].get("unit_id", "")
+			var target_name = targets[0].get("unit_name", target_id)
+			log_phase_message("DREAD FOE: %s targets %s within Engagement Range" % [unit_name, target_name])
+
+			# Check if this unit charged this turn
+			var flags = unit.get("flags", {})
+			var charged_this_turn = flags.get("charged_this_turn", false)
+
+			# Resolve Dread Foe via RulesEngine
+			var rng_service = RulesEngine.RNGService.new()
+			var dread_foe_result = RulesEngine.resolve_dread_foe(
+				unit_id, target_id, charged_this_turn, GameState.state, rng_service
+			)
+
+			# Apply state changes if mortal wounds were dealt
+			var dread_foe_diffs = dread_foe_result.get("diffs", [])
+			if not dread_foe_diffs.is_empty():
+				PhaseManager.apply_state_changes(dread_foe_diffs)
+				# Also update our snapshot
+				game_state_snapshot = GameState.state.duplicate(true)
+				log_phase_message("DREAD FOE: Applied %d state change(s)" % dread_foe_diffs.size())
+
+			# Emit signal for UI/logging
+			emit_signal("dread_foe_resolved", unit_id, dread_foe_result)
+
+			log_phase_message("DREAD FOE: %s rolled %d (modified %d) — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
+				unit_name,
+				dread_foe_result.get("roll", 0),
+				dread_foe_result.get("modified_roll", 0),
+				dread_foe_result.get("mortal_wounds", 0),
+				target_name,
+				dread_foe_result.get("casualties", 0)
+			])
+
+			# Check if Dread Foe killed any units (could trigger Deadly Demise)
+			if not dread_foe_diffs.is_empty():
+				_check_kill_diffs(dread_foe_diffs)
+
+	# Proceed to pile-in
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)
 	emit_signal("pile_in_required", unit_id, 3.0)
 
@@ -2583,6 +2644,36 @@ func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
 	result["pile_in_unit_id"] = unit_id
 	result["pile_in_distance"] = 3.0
 	return result
+
+func _get_dread_foe_targets(unit_id: String) -> Array:
+	"""P1-17: Get enemy units within Engagement Range of a unit for Dread Foe targeting.
+	Returns array of { unit_id, unit_name } dictionaries."""
+	var unit = get_unit(unit_id)
+	var unit_owner = unit.get("owner", 0)
+	var all_units = game_state_snapshot.get("units", {})
+	var targets: Array = []
+
+	for other_id in all_units:
+		var other = all_units[other_id]
+		# Only enemy units
+		if other.get("owner", 0) == unit_owner:
+			continue
+		# Must have alive models
+		var has_alive = false
+		for m in other.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		# Must be within Engagement Range
+		if _units_in_engagement_range(unit, other):
+			targets.append({
+				"unit_id": other_id,
+				"unit_name": other.get("meta", {}).get("name", other_id)
+			})
+
+	return targets
 
 func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -2634,15 +2725,8 @@ func _process_select_katah_stance(action: Dictionary) -> Dictionary:
 			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
 			game_state_snapshot.units[unit_id].flags["katah_stance"] = "rendax"
 
-	# Proceed to pile-in
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, [])
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
-	return result
+	# After Ka'tah — check for Dread Foe, then proceed to pile-in
+	return _resolve_dread_foe_then_pile_in(unit_id)
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []

@@ -382,6 +382,8 @@ func set_phase(phase: BasePhase) -> void:
 			phase.counter_offensive_opportunity.connect(_on_counter_offensive_opportunity)
 		if phase.has_signal("katah_stance_required") and not phase.katah_stance_required.is_connected(_on_katah_stance_required):
 			phase.katah_stance_required.connect(_on_katah_stance_required)
+		if phase.has_signal("dread_foe_resolved") and not phase.dread_foe_resolved.is_connected(_on_dread_foe_resolved):
+			phase.dread_foe_resolved.connect(_on_dread_foe_resolved)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -1518,6 +1520,30 @@ func _on_katah_stance_selected(unit_id: String, stance: String, player: int) -> 
 		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
 		var stance_display = "Dacatarai (Sustained Hits 1)" if stance == "dacatarai" else "Rendax (Lethal Hits)"
 		dice_log_display.append_text("[color=gold]MARTIAL KA'TAH: %s assumes %s stance[/color]\n" % [unit_name, stance_display])
+
+func _on_dread_foe_resolved(unit_id: String, result: Dictionary) -> void:
+	"""P1-17: Display Dread Foe mortal wounds result in dice log"""
+	print("[FightController] Dread Foe resolved for %s — result: %s" % [unit_id, str(result)])
+
+	if dice_log_display:
+		var unit_name = current_phase.get_unit(unit_id).get("meta", {}).get("name", unit_id) if current_phase else unit_id
+		var roll = result.get("roll", 0)
+		var modified_roll = result.get("modified_roll", 0)
+		var mortal_wounds = result.get("mortal_wounds", 0)
+		var casualties = result.get("casualties", 0)
+
+		var roll_text = str(roll)
+		if modified_roll != roll:
+			roll_text = "%d +2 (charged) = %d" % [roll, modified_roll]
+
+		if mortal_wounds > 0:
+			dice_log_display.append_text("[color=red]DREAD FOE: %s rolled %s — %d mortal wound(s)! (%d casualt(y/ies))[/color]\n" % [
+				unit_name, roll_text, mortal_wounds, casualties
+			])
+		else:
+			dice_log_display.append_text("[color=gray]DREAD FOE: %s rolled %s — no effect (needs 4+)[/color]\n" % [
+				unit_name, roll_text
+			])
 
 func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 	"""Show pile-in dialog and enable interactive movement"""
