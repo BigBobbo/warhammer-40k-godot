@@ -1155,6 +1155,103 @@
           "status_effects": []
         }
       ]
+    },
+    "U_WEIRDBOY_J": {
+      "id": "U_WEIRDBOY_J",
+      "squad_id": "U_WEIRDBOY_J",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Weirdboy",
+        "keywords": [
+          "CHARACTER",
+          "INFANTRY",
+          "PSYKER",
+          "ORKS",
+          "WEIRDBOY"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 4,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 65,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x 'Eadbanger",
+          "1x Weirdboy staff"
+        ],
+        "weapons": [
+          {
+            "name": "'Eadbanger",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "ballistic_skill": "4",
+            "strength": "6",
+            "ap": "-3",
+            "damage": "1",
+            "special_rules": "precision, psychic"
+          },
+          {
+            "name": "Weirdboy staff",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "8",
+            "ap": "-1",
+            "damage": "D3",
+            "special_rules": "psychic"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deadly Demise D3",
+            "type": "Core",
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Waaagh! Energy",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, add 1 to the Strength and Damage characteristics of this model's 'Eadbanger weapon for every 5 models in that unit (rounding down), but while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability."
+          },
+          {
+            "name": "Da Jump",
+            "type": "Datasheet",
+            "description": "Once per turn, at the end of your Movement phase, one WEIRDBOY from your army can use this ability. If it does, roll one D6: on a 1, that WEIRDBOY's unit suffers D6 mortal wounds; on a 2+, remove this WEIRDBOY's unit from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Weirdboy",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": ["BOYZ"]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
     }
   }
 }
