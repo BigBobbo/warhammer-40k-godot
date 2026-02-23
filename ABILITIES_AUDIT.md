@@ -240,16 +240,16 @@ These abilities should only be usable once per game but have no usage tracking m
 | Damaged: 1-4 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-4 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | Invulnerable Save 4+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
 
-### Shield-Captain (NOT IN ANY ARMY FILE)
+### Shield-Captain
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deep Strike | Core | N/A | No | N/A | Unit not in game |
-| Leader | Core | N/A | No | N/A | Unit not in game |
-| Martial Ka'tah | Faction | N/A | No | N/A | Unit not in game |
-| Master of the Stances | Datasheet | N/A | No | N/A | Once per battle: both Ka'tah stances active simultaneously |
-| Strategic Mastery | Datasheet | N/A | No | N/A | Once per battle round: reduce stratagem CP cost by 1 |
-| Praesidium Shield | Wargear | N/A | No | N/A | +1 Wounds |
+| Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
+| Leader | Core | No | No | Partial | Attachment system works but Leader ability not explicitly defined |
+| Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
+| Master of the Stances | Datasheet | Yes | Yes (implemented) | **Yes** | Once per battle: both Ka'tah stances active simultaneously. FightPhase offers "Both" option in KatahStanceDialog; FactionAbilityManager.apply_katah_stance() supports "both" stance; once-per-battle tracked via UnitAbilityManager |
+| Strategic Mastery | Datasheet | Yes | Yes (implemented) | **Yes** | Once per battle round: reduce stratagem CP cost by 1 when targeting this unit. Integrated into StratagemManager.use_stratagem() and can_use_stratagem(); once-per-round tracked via UnitAbilityManager |
+| Praesidium Shield | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +1 Wounds — applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.wounds and model wound values |
 
 ---
 
@@ -357,6 +357,8 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 28 | Objective Secured | end_of_command | sticky objectives | Yes | **Yes** — Same mechanic as Get Da Good Bitz. MissionManager.apply_sticky_objectives() checks has_sticky_objectives_ability() which includes "Objective Secured" |
 | 29 | Target Elimination | on_shooting_selection | +2 bolt rifle Attacks (single target) | No | **No** — Added to JSON and ABILITY_EFFECTS. Requires ShootingPhase prompt for activation choice |
 | 30 | Combat Squads | deployment | unit split (two 5-model units) | No | **No** — Added to JSON and ABILITY_EFFECTS. Requires deployment system changes (same as Patrol Squad) |
+| 31 | Master of the Stances | on_fight_selection | both Ka'tah stances active | Yes | **Yes** — Once per battle: both Dacatarai (Sustained Hits 1) and Rendax (Lethal Hits) active simultaneously. FightPhase offers "Both" option in KatahStanceDialog. FactionAbilityManager.apply_katah_stance() supports "both" stance. Once-per-battle tracked via UnitAbilityManager |
+| 32 | Strategic Mastery | passive | reduce stratagem CP cost by 1 | Yes | **Yes** — Once per battle round: reduces CP cost by 1 for stratagems targeting this unit. Integrated into StratagemManager.use_stratagem() and can_use_stratagem(). Once-per-round tracked via UnitAbilityManager |
 
 ---
 
@@ -396,7 +398,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery — **DONE**
 
 ### P3 — Low (units not yet in army files or niche mechanics)
-28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery
+28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery — **DONE**
 29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive)
 30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump
 31. **Implement Firing Deck** — embarked model shooting (Battlewagon)

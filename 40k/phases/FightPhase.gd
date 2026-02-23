@@ -2566,13 +2566,20 @@ func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
 	Otherwise, proceed directly to pile-in."""
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if faction_mgr and faction_mgr.unit_has_katah(unit_id):
-		log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
+		# Check if Master of the Stances is available for this unit
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
+		if master_available:
+			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah + Master of the Stances available — stance selection required" % unit_id)
+		else:
+			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
 		emit_signal("katah_stance_required", unit_id, current_selecting_player)
 
 		var result = create_result(true, [])
 		result["trigger_katah_stance"] = true
 		result["katah_unit_id"] = unit_id
 		result["katah_player"] = current_selecting_player
+		result["master_of_the_stances_available"] = master_available
 		return result
 
 	# No Ka'tah — check for Dread Foe, then proceed to pile-in
@@ -2688,9 +2695,16 @@ func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
 		errors.append("Unit is not the active fighter")
 		return {"valid": false, "errors": errors}
 
-	if stance != "dacatarai" and stance != "rendax":
-		errors.append("Invalid stance: %s (must be 'dacatarai' or 'rendax')" % stance)
+	if stance != "dacatarai" and stance != "rendax" and stance != "both":
+		errors.append("Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance)
 		return {"valid": false, "errors": errors}
+
+	# "both" requires Master of the Stances (once per battle)
+	if stance == "both":
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if not ability_mgr or not ability_mgr.has_master_of_the_stances(unit_id):
+			errors.append("Master of the Stances not available for this unit")
+			return {"valid": false, "errors": errors}
 
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	if not faction_mgr or not faction_mgr.unit_has_katah(unit_id):
@@ -2703,6 +2717,13 @@ func _process_select_katah_stance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var stance = action.get("stance", "")
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# If "both" stance selected, mark Master of the Stances as used
+	if stance == "both":
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr:
+			ability_mgr.mark_once_per_battle_used(unit_id, "Master of the Stances")
+			log_phase_message("MASTER OF THE STANCES: %s activates both Ka'tah stances (once per battle)" % unit_name)
 
 	# Apply the stance via FactionAbilityManager
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -2717,7 +2738,12 @@ func _process_select_katah_stance(action: Dictionary) -> Dictionary:
 	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
 		if not game_state_snapshot.units[unit_id].has("flags"):
 			game_state_snapshot.units[unit_id]["flags"] = {}
-		if stance == "dacatarai":
+		if stance == "both":
+			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
+			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "both"
+			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+		elif stance == "dacatarai":
 			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
 			game_state_snapshot.units[unit_id].flags["katah_stance"] = "dacatarai"
 			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
