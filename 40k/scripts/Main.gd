@@ -4048,6 +4048,11 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 	"""Handle formations dialog confirmation — apply declarations through the network-aware action system."""
 	print("Main: Player %d confirmed formations: %s" % [player, str(formations)])
 
+	# Guard: bail out if we're no longer in the formations phase (e.g., AI already completed it)
+	if current_phase != GameStateData.Phase.FORMATIONS:
+		print("Main: Phase is no longer FORMATIONS (now %s) — ignoring stale dialog confirmation" % GameStateData.Phase.keys()[current_phase])
+		return
+
 	# Submit leader attachments
 	for char_id in formations.get("leader_attachments", {}):
 		var bg_id = formations["leader_attachments"][char_id]
@@ -4079,10 +4084,15 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		})
 
 	# Confirm this player's formations
-	NetworkIntegration.route_action({
+	var confirm_result = NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
 		"player": player
 	})
+
+	# If the confirm action failed (e.g., phase already changed), stop here
+	if not confirm_result.get("success", false) and not confirm_result.get("pending", false):
+		print("Main: CONFIRM_FORMATIONS failed for player %d — not showing next dialog" % player)
+		return
 
 	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
 	if is_multiplayer:
@@ -4091,9 +4101,21 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		print("Main: Player %d confirmed formations (multiplayer) — waiting for other player" % player)
 	else:
 		# Single player / hotseat — show dialog for the other player
-		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - player
-		if phase_instance and not phase_instance._is_player_confirmed(other_player):
+
+		# If the other player is AI, let the AI handle its own formations
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(other_player):
+			print("Main: Player %d is AI — AI will handle its own formations" % other_player)
+			return
+
+		# Check phase is still FORMATIONS after action processing (phase may have auto-completed)
+		if current_phase != GameStateData.Phase.FORMATIONS:
+			print("Main: Phase changed to %s after confirmation — not showing next dialog" % GameStateData.Phase.keys()[current_phase])
+			return
+
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			print("Main: Showing formations dialog for Player %d" % other_player)
 			_show_formations_dialog(other_player)
 		else:
@@ -4102,6 +4124,12 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 func _on_formations_confirm_pressed() -> void:
 	"""Handle the phase action button press during formations phase."""
 	print("Main: Formations confirm button pressed")
+
+	# Guard: bail out if we're no longer in the formations phase
+	if current_phase != GameStateData.Phase.FORMATIONS:
+		print("Main: Phase is no longer FORMATIONS — ignoring confirm press")
+		return
+
 	# Determine which player to confirm for
 	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
 	var confirming_player: int
@@ -4111,16 +4139,33 @@ func _on_formations_confirm_pressed() -> void:
 		confirming_player = GameState.get_active_player()
 
 	# Submit confirm through the network-aware action system
-	NetworkIntegration.route_action({
+	var confirm_result = NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
 		"player": confirming_player
 	})
 
+	# If the confirm action failed, stop here
+	if not confirm_result.get("success", false) and not confirm_result.get("pending", false):
+		print("Main: CONFIRM_FORMATIONS failed for player %d — not showing next dialog" % confirming_player)
+		return
+
 	if not is_multiplayer:
 		# Single player / hotseat — show dialog for the other player if needed
-		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - confirming_player
-		if phase_instance and not phase_instance._is_player_confirmed(other_player):
+
+		# If the other player is AI, let the AI handle its own formations
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(other_player):
+			print("Main: Player %d is AI — AI will handle its own formations" % other_player)
+			return
+
+		# Check phase is still FORMATIONS after action processing
+		if current_phase != GameStateData.Phase.FORMATIONS:
+			print("Main: Phase changed after confirmation — not showing next dialog")
+			return
+
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			_show_formations_dialog(other_player)
 
 func _on_end_deployment_pressed() -> void:
