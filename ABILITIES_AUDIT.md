@@ -30,10 +30,10 @@
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 0 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 5 |
 | Wargear abilities not implemented | 1 |
-| Core abilities not implemented or partially implemented | 2 |
+| Core abilities not implemented or partially implemented | 1 |
 | Detachment rules not implemented | 0 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **8** |
+| **Total gaps** | **7** |
 
 ---
 
@@ -148,7 +148,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D6 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
-| Firing Deck 11 | Core | **MISSING** | No | **No** | Embarked models can shoot — not in JSON or code |
+| Firing Deck 11 | Core | Yes | Yes (ShootingPhase/TransportManager) | **Yes** | Added to JSON. ArmyListManager parses "FIRING DECK" ability, sets transport_data.firing_deck=11. ShootingPhase detects firing deck, shows FiringDeckDialog for model/weapon selection (up to 11). 'Ard Case wargear removes firing_deck via WARGEAR_STAT_BONUSES |
 | Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
@@ -294,7 +294,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Leader | Various characters | Partial | Attachment system works but Leader ability not explicitly tracked |
 | Feel No Pain 5+ | Painboss | Unknown | Painboss not in army JSON files |
 | Deadly Demise (D3/D6/1) | Battlewagon, Caladius, Telemon, Contemptor-Achillus, Weirdboy | **Yes** | Added to JSON for 4 units (Weirdboy has no army file). RulesEngine.resolve_deadly_demise() rolls trigger (6+), finds units within 6", applies mortal wounds. Hooked into ShootingPhase, FightPhase, and WoundAllocationOverlay |
-| Firing Deck 11 | Battlewagon | **No** | No embarked shooting mechanic exists |
+| Firing Deck 11 | Battlewagon | **Yes** | Added to JSON. ArmyListManager parses ability and sets transport_data.firing_deck=11. ShootingPhase shows FiringDeckDialog for embarked model weapon selection. 'Ard Case removes firing_deck |
 
 ---
 
@@ -405,7 +405,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 28. **Add Shield-Captain unit** — Master of the Stances, Strategic Mastery — **DONE**
 29. **Add Painboss to army JSON** — Sawbonez (heal), Grot Orderly (revive) — **DONE**
 30. **Add Weirdboy to army JSON** — Waaagh! Energy, Da Jump — **DONE**
-31. **Implement Firing Deck** — embarked model shooting (Battlewagon)
+31. **Implement Firing Deck** — embarked model shooting (Battlewagon) — **DONE**
 32. **Implement Transport capacity** — embark/disembark mechanics
 33. **Add optional wargear** — Helix Gauntlet (FNP 6+), Infiltrator Comms Array (CP regen)
 34. **Implement Devoted to Destruction** — +2 Attacks with dual Telemon caestus
