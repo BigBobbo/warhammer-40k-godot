@@ -903,6 +903,11 @@
             "description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound."
           },
           {
+            "name": "Damaged: 1-5 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
+          },
+          {
             "name": "TRANSPORT",
             "type": "Special",
             "description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models."
