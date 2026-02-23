@@ -535,6 +535,45 @@ func get_enemy_model_positions(player: int) -> Array:
 				positions.append({"x": pos.get("x", pos.x if pos is Vector2 else 0), "y": pos.get("y", pos.y if pos is Vector2 else 0), "base_mm": model.get("base_mm", 32)})
 	return positions
 
+func get_omni_scrambler_positions(deploying_player: int) -> Array:
+	"""Get all model positions of enemy units with Omni-scramblers ability (for 12\" deep strike denial).
+	Returns array of { x, y, base_mm, unit_name } for units belonging to the opponent of deploying_player."""
+	var positions = []
+	for uid in state["units"]:
+		var unit = state["units"][uid]
+		# Omni-scramblers are on the opponent's units — they block the deploying player
+		if unit["owner"] == deploying_player:
+			continue
+		if unit["status"] != UnitStatus.DEPLOYED and unit["status"] != UnitStatus.MOVED:
+			continue
+		# Check if unit has Omni-scramblers ability
+		var has_omni = false
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			var name = ""
+			if ability is String:
+				name = ability
+			elif ability is Dictionary:
+				name = ability.get("name", "")
+			if name == "Omni-scramblers":
+				has_omni = true
+				break
+		if not has_omni:
+			continue
+		var unit_name = unit.get("meta", {}).get("name", uid)
+		for model in unit.get("models", []):
+			var pos = model.get("position", null)
+			if pos != null and model.get("alive", true):
+				positions.append({
+					"x": pos.get("x", pos.x if pos is Vector2 else 0),
+					"y": pos.get("y", pos.y if pos is Vector2 else 0),
+					"base_mm": model.get("base_mm", 32),
+					"unit_name": unit_name
+				})
+	if positions.size() > 0:
+		print("GameState: Found %d Omni-scrambler model positions blocking player %d deep strike" % [positions.size(), deploying_player])
+	return positions
+
 func get_combined_models(unit_id: String) -> Array:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():

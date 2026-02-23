@@ -301,6 +301,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
 	},
 
+	# Space Marines Infiltrator Squad — block enemy deep strike within 12"
+	# Not a combat effect — enforced during reinforcement placement validation in
+	# MovementPhase, DeploymentController, and AIDecisionMaker.
+	"Omni-scramblers": {
+		"condition": "passive_aura",
+		"effects": [],
+		"target": "enemy_reserves",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy units set up from Reserves cannot be set up within 12\" of this unit"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
@@ -765,6 +777,21 @@ func has_sticky_objectives_ability(unit_id: String) -> bool:
 	for ability in abilities:
 		var ability_name = _get_ability_name(ability)
 		if ability_name in ["Get Da Good Bitz", "Objective Secured"]:
+			return true
+	return false
+
+func has_omni_scramblers(unit_id: String) -> bool:
+	"""Check if a unit has the Omni-scramblers ability (e.g. Infiltrator Squad).
+	Used by reinforcement placement validation to enforce 12\" deep strike denial zone."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Omni-scramblers":
+			print("UnitAbilityManager: Unit %s has Omni-scramblers ability" % unit_id)
 			return true
 	return false
 

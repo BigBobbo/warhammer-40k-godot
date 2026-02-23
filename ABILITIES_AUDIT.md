@@ -27,13 +27,13 @@
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 0 |
-| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 7 |
+| Datasheet abilities missing from ABILITY_EFFECTS table entirely | 6 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 0 |
 | Wargear abilities not implemented | 4 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **16** |
+| **Total gaps** | **15** |
 
 ---
 
@@ -277,7 +277,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Infiltrators | Core | Yes | No (separate system) | Likely | Deployment logic |
 | Scout 6" | Core | Yes | No (separate system) | Unknown | Pre-game movement |
 | Oath of Moment | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Rules text and mechanics updated to Codex wording |
-| Omni-scramblers | Datasheet | Yes (text only) | No | **No** | Blocks enemy deep strike within 12" — not implemented mechanically |
+| Omni-scramblers | Datasheet | Yes | Yes (UnitAbilityManager) | **Yes** | Blocks enemy deep strike within 12" — enforced in MovementPhase, DeploymentController, and AIDecisionMaker reinforcement placement validation |
 | Helix Gauntlet | Wargear | **MISSING** | No | **No** | FNP 6+ for unit — optional wargear, not in JSON |
 | Infiltrator Comms Array | Wargear | **MISSING** | No | **No** | 5+ to regain 1CP on stratagem — optional wargear, not in JSON |
 
@@ -350,6 +350,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 24 | Advanced Firepower | always | conditional Lethal Hits | Yes | **Yes** — RulesEngine.check_advanced_firepower_lethal_hits() checks weapon name + target keywords. Twin iliastus: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus: Lethal Hits vs MONSTER/VEHICLE. Applied in all 4 ranged resolve paths |
 | 25 | Dread Foe | on_fight_selection | mortal wounds on fight selection | Yes | **Yes** — Auto-resolved when selected to fight. Roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW. RulesEngine.resolve_dread_foe() + FightPhase integration |
 | 26 | Guardian Eternal | always | minus_damage (1) | Yes | **Yes** — -1 Damage to all incoming attacks. JSON fixed (was "Eternal Protector"), RulesEngine applies in all resolve paths (overwatch, auto-resolve ranged, melee auto-resolve, interactive ranged, interactive melee). Min 1 damage enforced |
+| 27 | Omni-scramblers | passive_aura | deep strike denial (12") | Yes | **Yes** — Enemy reinforcements cannot be set up within 12" of this unit. Enforced in MovementPhase (normal + Rapid Ingress), DeploymentController (UI), and AIDecisionMaker (candidate generation + validation) |
 
 ---
 
@@ -383,7 +384,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 21. **Fix Daughters of the Abyss** — restrict FNP 3+ to psychic/mortal wounds only
 22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade
 23. **Implement Get Da Good Bitz** — sticky objectives (Boyz) — **DONE**
-24. **Implement Omni-scramblers mechanically** — block deep strike within 12"
+24. **Implement Omni-scramblers mechanically** — block deep strike within 12" — **DONE**
 25. **Add missing Kommandos abilities to JSON** — Sneaky Surprise, Patrol Squad, Distraction Grot, Bomb Squigs
 26. **Add missing Space Marine abilities to JSON** — Objective Secured, Target Elimination, Combat Squads
 27. **Implement Detachment rules** — Combat Doctrines, Get Stuck In, Martial Mastery

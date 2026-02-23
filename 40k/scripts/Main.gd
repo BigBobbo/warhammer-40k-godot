@@ -1329,6 +1329,11 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
+		# Check for enemy Omni-scramblers creating 12" denial zones
+		var active_player = GameState.get_active_player()
+		var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+		if omni_positions.size() > 0:
+			status_label.text += " — >12\" from Omni-scramblers"
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
