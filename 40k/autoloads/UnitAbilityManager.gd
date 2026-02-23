@@ -231,6 +231,16 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
 	},
 
+	# Ork Kommandos — mortal wounds instead of shooting
+	"Throat Slittas": {
+		"condition": "start_of_shooting",
+		"effects": [],
+		"target": "enemy_within_9",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Instead of shooting, roll 1D6 per model within 9\" of enemy: 5+ = 1 mortal wound"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
@@ -649,6 +659,21 @@ func has_sanctified_flames_ability(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Sanctified Flames":
 			print("UnitAbilityManager: Unit %s has Sanctified Flames ability" % unit_id)
+			return true
+	return false
+
+func has_throat_slittas_ability(unit_id: String) -> bool:
+	"""Check if a unit has the Throat Slittas ability (e.g. Kommandos).
+	Used by ShootingPhase to offer mortal wounds instead of shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Throat Slittas":
+			print("UnitAbilityManager: Unit %s has Throat Slittas ability" % unit_id)
 			return true
 	return false
 

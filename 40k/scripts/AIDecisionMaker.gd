@@ -6501,7 +6501,16 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			"_ai_description": "Complete shooting for unit"
 		}
 
-	# Step 0.5: P1-10 — Always use Sentinel Storm (free extra shooting)
+	# Step 0.5a: P1-12 — Always use Throat Slittas (mortal wounds > slugga shots)
+	if action_types.has("USE_THROAT_SLITTAS"):
+		var a = action_types["USE_THROAT_SLITTAS"][0]
+		return {
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": a.get("actor_unit_id", ""),
+			"_ai_description": "Activate Throat Slittas — mortal wounds"
+		}
+
+	# Step 0.5b: P1-10 — Always use Sentinel Storm (free extra shooting)
 	if action_types.has("USE_SENTINEL_STORM"):
 		var a = action_types["USE_SENTINEL_STORM"][0]
 		return {

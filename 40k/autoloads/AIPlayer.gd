@@ -1340,7 +1340,7 @@ func _categorize_action(action_type: String) -> String:
 			return "units_advanced"
 		"BEGIN_FALL_BACK":
 			return "units_fell_back"
-		"SHOOT":
+		"SHOOT", "USE_THROAT_SLITTAS":
 			return "units_shot"
 		"DECLARE_CHARGE":
 			return "charges_declared"
