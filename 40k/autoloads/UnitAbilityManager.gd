@@ -169,14 +169,14 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Wound rolls of 1"
 	},
 
-	# Ork Battlewagon — simplified as FNP 6+ (actual: each time loses wounds, D6: 6 = ignore)
+	# Ork Battlewagon — worsen AP of incoming attacks by 1
 	"Ramshackle": {
 		"condition": "always",
-		"effects": [{"type": "grant_fnp", "value": 6}],
+		"effects": [{"type": "worsen_ap", "value": 1}],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Feel No Pain 6+ (simplified from per-wound-loss D6:6)"
+		"description": "Worsen AP of incoming attacks by 1"
 	},
 
 	# Ork Boyz — sticky objectives

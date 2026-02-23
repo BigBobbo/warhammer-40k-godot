@@ -154,7 +154,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Deadly Demise D6 | Core | **MISSING** | No | **No** | Mortal wounds on destruction — not in JSON or code |
 | Firing Deck 11 | Core | **MISSING** | No | **No** | Embarked models can shoot — not in JSON or code |
 | Waaagh! | Faction | No | No | No | Missing |
-| Ramshackle | Datasheet | Yes | Yes (implemented) | Partial | In-game: FNP 6+ (simplified). Wahapedia: "worsen AP by 1" — different mechanic entirely |
+| Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | **MISSING** | No | **No** | -1 to hit when 1-5 wounds remaining — not in JSON or code |
 | 'Ard Case | Wargear | **MISSING** | No | **No** | +2 Toughness, lose Firing Deck — not in JSON or code |
 | Transport (22 capacity) | Special | Yes | No | Unknown | Transport mechanic |
@@ -341,7 +341,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 11 | Swift Onslaught | while_leading | reroll_charge | No | **No** — primitive doesn't exist |
 | 12 | Martial Inspiration | while_leading | advance_and_charge | Yes | **Yes** — ChargePhase now checks effect_advance_and_charge + once-per-battle tracking added |
 | 13 | Stand Vigil | always | reroll wounds (1s) | Yes | **Partial** — basic reroll works, objective-conditional upgrade missing |
-| 14 | Ramshackle | always | FNP 6+ | Yes | **Partial** — simplified. Should be "worsen AP by 1" per wahapedia |
+| 14 | Ramshackle | always | worsen AP by 1 | Yes | **Yes** — correctly worsens AP of incoming attacks by 1 |
 | 15 | Daughters of the Abyss | always | FNP 3+ | Yes | **Partial** — simplified. Should only apply vs Psychic/mortal wounds |
 | 16 | Get Da Good Bitz | on_objective | sticky objectives | No | **No** |
 | 17 | Da Biggest and da Best | waaagh_active | +4 attacks | No | **No** — needs Waaagh! system |
@@ -357,7 +357,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 3. **Fix ShootingPhase to check fall_back_and_shoot flag** — future-proofing for stratagems/doctrines — **DONE**
 4. **Fix ShootingPhase to check advance_and_shoot flag** — future-proofing for stratagems/doctrines — **DONE**
 5. **Add once-per-battle tracking** for Martial Inspiration — **DONE**
-6. **Fix Ramshackle** — currently FNP 6+, should be "worsen AP by 1"
+6. **Fix Ramshackle** — currently FNP 6+, should be "worsen AP by 1" — **DONE**
 7. **Update Oath of Moment rules text** — currently uses old Index wording
 
 ### P1 — High (missing abilities for units already in the game)
