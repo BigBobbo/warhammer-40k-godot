@@ -5653,15 +5653,23 @@ func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> voi
 func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
 	# Handle visual updates for model drops (including staged moves)
 	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px)
-	
+
 	# For staged moves, we want to move the visual token directly without updating GameState
-	# Find the existing token in token_layer
+	# Find the existing token in token_layer (check both direct children and nested children,
+	# since deployment tokens wrap the base_circle with meta inside a parent node)
 	if token_layer:
 		for child in token_layer.get_children():
+			# Check direct child (tokens created by _recreate_unit_visuals)
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 				print("Moving token visual to ", dest_px)
 				child.position = dest_px
 				return
+			# Check nested children (deployment tokens have meta on inner base_circle)
+			for grandchild in child.get_children():
+				if grandchild.has_meta("unit_id") and grandchild.get_meta("unit_id") == unit_id and grandchild.has_meta("model_id") and grandchild.get_meta("model_id") == model_id:
+					print("Moving token visual (nested) to ", dest_px)
+					child.position = dest_px
+					return
 
 	print("Could not find token to move, falling back to full recreation")
 	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])

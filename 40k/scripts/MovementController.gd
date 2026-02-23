@@ -1189,6 +1189,10 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches(current_path)
 
+	# Add terrain penalty (elevation changes for non-FLY units)
+	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	distance_inches += terrain_penalty
+
 	# Get the model's already accumulated distance
 	var already_used = _get_accumulated_distance()
 	var total_distance = already_used + distance_inches
@@ -1261,7 +1265,11 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
-	print("Distance moved: ", distance_inches, " inches")
+
+	# Add terrain penalty (elevation changes for non-FLY units)
+	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	distance_inches += terrain_penalty
+	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ")")
 
 	# Get accumulated distance to check against cap
 	var accumulated = _get_accumulated_distance()
@@ -2130,6 +2138,20 @@ func _update_model_token_visual(model: Dictionary) -> void:
 				child.set_model_data(model)
 				child.queue_redraw()
 			break
+
+func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
+	"""Calculate terrain elevation penalty via TerrainManager.
+	Non-FLY units must count vertical distance for tall terrain."""
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
+		return 0.0
+	# Check if the active unit has FLY keyword
+	var has_fly = false
+	if active_unit_id != "":
+		var unit = GameState.get_unit(active_unit_id)
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		has_fly = "FLY" in keywords
+	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
 	# Check if placing the selected model at the given position would overlap

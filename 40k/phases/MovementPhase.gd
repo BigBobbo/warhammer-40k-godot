@@ -663,7 +663,10 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
-	
+
+	# If unit already had staged moves (e.g. switching modes), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
+
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -701,6 +704,10 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+
+	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
+	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
+	_reset_staged_visuals_if_needed(unit_id)
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
@@ -766,6 +773,9 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	var move_inches = get_unit_movement(unit)
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
 
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
@@ -1329,7 +1339,10 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
-	
+
+	# If unit already had staged moves (e.g. switching modes), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
+
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -2474,6 +2487,23 @@ func _get_model_position(model: Dictionary) -> Vector2:
 	elif pos is Vector2:
 		return pos
 	return Vector2.ZERO
+
+func _reset_staged_visuals_if_needed(unit_id: String) -> void:
+	"""If a unit has staged (uncommitted) moves, reset visual tokens to GameState positions.
+	This prevents visual/GameState desync when switching movement modes (e.g. Normal -> Advance)."""
+	if not active_moves.has(unit_id):
+		return
+	var move_data = active_moves[unit_id]
+	if move_data.staged_moves.size() > 0:
+		print("[MovementPhase] Resetting staged visuals for %s (had %d staged moves)" % [unit_id, move_data.staged_moves.size()])
+		# Reset each staged model's visual back to its GameState position
+		for staged_move in move_data.staged_moves:
+			var model = _get_model_in_unit(unit_id, staged_move.model_id)
+			if not model.is_empty():
+				var gs_pos = _get_model_position(model)
+				emit_signal("model_drop_committed", unit_id, staged_move.model_id, gs_pos)
+		# Also emit unit_move_reset so controller clears its state
+		emit_signal("unit_move_reset", unit_id)
 
 func _clear_unit_move_state(unit_id: String) -> void:
 	if active_moves.has(unit_id):
