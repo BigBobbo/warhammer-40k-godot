@@ -276,6 +276,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
 	},
 
+	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
+	# Resolved directly in FightPhase when unit is selected to fight.
+	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
+	"Dread Foe": {
+		"condition": "on_fight_selection",
+		"effects": [],
+		"target": "enemy_in_engagement",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
+	},
+
 	# ======================================================================
 	# CONDITIONAL ABILITIES (Waaagh!-dependent etc.)
 	# These are tracked but not auto-applied; they require game state conditions.
@@ -709,6 +721,21 @@ func has_throat_slittas_ability(unit_id: String) -> bool:
 		var ability_name = _get_ability_name(ability)
 		if ability_name == "Throat Slittas":
 			print("UnitAbilityManager: Unit %s has Throat Slittas ability" % unit_id)
+			return true
+	return false
+
+func has_dread_foe(unit_id: String) -> bool:
+	"""Check if a unit has the Dread Foe ability (e.g. Contemptor-Achillus Dreadnought).
+	Used by FightPhase to trigger mortal wounds on fight selection."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Dread Foe":
+			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
 			return true
 	return false
 

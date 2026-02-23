@@ -7584,6 +7584,79 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		"total_casualties": total_casualties
 	}
 
+# ==========================================
+# DREAD FOE (P1-17)
+# ==========================================
+
+static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, charged_this_turn: bool, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Resolve Dread Foe ability when the Contemptor-Achillus is selected to fight.
+	Rules: Select one enemy unit within Engagement Range. Roll 1D6, adding 2 if
+	this model made a Charge move this turn: on 4-5, D3 mortal wounds; on 6+, 3 mortal wounds.
+	Args:
+		attacker_unit_id: The unit with Dread Foe (Contemptor-Achillus)
+		target_unit_id: The selected enemy unit within Engagement Range
+		charged_this_turn: Whether the attacker charged this turn (+2 to roll)
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { roll: int, modified_roll: int, mortal_wounds: int, diffs: Array, casualties: int }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_unit_id, {})
+	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_unit_id)
+	var target_unit = units.get(target_unit_id, {})
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-17: DREAD FOE — %s (%s)" % [attacker_name, attacker_unit_id])
+	print("║ Target: %s (%s)" % [target_name, target_unit_id])
+	print("║ Charged this turn: %s" % str(charged_this_turn))
+
+	# Step 1: Roll 1D6
+	var roll = rng.roll_d6(1)[0]
+	var modified_roll = roll + (2 if charged_this_turn else 0)
+	print("║ Roll: %d%s = %d" % [roll, " +2 (charged)" if charged_this_turn else "", modified_roll])
+
+	# Step 2: Determine mortal wounds based on modified roll
+	var mortal_wounds = 0
+	if modified_roll >= 6:
+		mortal_wounds = 3
+		print("║ Result: 6+ → 3 mortal wounds!")
+	elif modified_roll >= 4:
+		# D3 mortal wounds (D6 / 2, round up: 1-2=1, 3-4=2, 5-6=3)
+		var d3_roll = rng.roll_d6(1)[0]
+		mortal_wounds = ceili(float(d3_roll) / 2.0)
+		print("║ Result: 4-5 → D3 mortal wounds (rolled %d on D6 = %d)" % [d3_roll, mortal_wounds])
+	else:
+		print("║ Result: %d — no mortal wounds (needs 4+)" % modified_roll)
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"roll": roll,
+			"modified_roll": modified_roll,
+			"mortal_wounds": 0,
+			"diffs": [],
+			"casualties": 0
+		}
+
+	# Step 3: Apply mortal wounds to target
+	var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+
+	print("║ DREAD FOE SUMMARY: %d mortal wound(s) dealt to %s, %d casualt(y/ies)" % [
+		mortal_wounds, target_name, mw_result.get("casualties", 0)
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"roll": roll,
+		"modified_roll": modified_roll,
+		"mortal_wounds": mortal_wounds,
+		"diffs": mw_result.get("diffs", []),
+		"casualties": mw_result.get("casualties", 0),
+		"fnp_rolls": mw_result.get("fnp_rolls", [])
+	}
+
 static func _find_units_within_range_of_unit(source_unit_id: String, range_inches: float, board: Dictionary) -> Array:
 	"""Find all units (friendly AND enemy) within range_inches of any model in the source unit.
 	Deadly Demise affects ALL units within 6\", both friendly and enemy.
