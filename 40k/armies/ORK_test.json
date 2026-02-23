@@ -99,9 +99,9 @@
               "description": ""
             },
             {
-              "name": "Core",
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Might is Right",
@@ -198,9 +198,9 @@
               "description": ""
             },
             {
-              "name": "Core",
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Might is Right",
@@ -382,9 +382,9 @@
               "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
             },
             {
-              "name": "Core",
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Ramshackle",

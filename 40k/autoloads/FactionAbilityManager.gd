@@ -13,6 +13,12 @@ extends Node
 #   At the start of your Command phase, select one enemy unit as your Oath of Moment target.
 #   Each time a model with this ability makes an attack targeting the Oath of Moment target,
 #   you can re-roll the Hit roll and add 1 to the Wound roll.
+# - Waaagh! (Orks):
+#   Once per battle, at the start of your Command phase, you can call a Waaagh!.
+#   Until the start of your next Command phase:
+#   (1) Units with this ability are eligible to charge in a turn they Advanced.
+#   (2) Add 1 to Strength and Attacks of melee weapons.
+#   (3) Models have a 5+ invulnerable save.
 
 # ============================================================================
 # CONSTANTS
@@ -39,6 +45,14 @@ const FACTION_ABILITIES = {
 			"rendax": {"keyword": "lethal_hits", "value": true, "display": "Rendax (Lethal Hits)"}
 		},
 		"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 scores one additional hit. Rendax — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 is always a successful Wound roll."
+	},
+	"Waaagh!": {
+		"faction_keyword": "ORKS",
+		"trigger": "command_phase_start",
+		"requires_target": false,
+		"once_per_battle": true,
+		"effect": "waaagh_activation",
+		"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
 	}
 }
 
@@ -53,6 +67,12 @@ var _active_effects: Dictionary = {"1": {}, "2": {}}
 # Cache of which faction abilities each player has (computed on phase enter)
 # Format: { "1": ["Oath of Moment"], "2": [] }
 var _player_abilities: Dictionary = {"1": [], "2": []}
+
+# Waaagh! state tracking
+# Per-player: whether Waaagh! has been called this battle (once per battle)
+var _waaagh_used: Dictionary = {"1": false, "2": false}
+# Per-player: whether Waaagh! is currently active (lasts until start of next Command phase)
+var _waaagh_active: Dictionary = {"1": false, "2": false}
 
 func _ready():
 	print("FactionAbilityManager: Ready")
@@ -178,6 +198,130 @@ func _clear_oath_flag(unit_id: String) -> void:
 	if not unit.is_empty() and unit.has("flags"):
 		unit["flags"]["oath_of_moment_target"] = false
 		unit["flags"].erase("oath_of_moment_owner")
+
+# ============================================================================
+# WAAAGH! — ACTIVATION AND EFFECT APPLICATION
+# ============================================================================
+
+func is_waaagh_available(player: int) -> bool:
+	"""Check if Waaagh! can be called (player has it, hasn't used it, not currently active)."""
+	if not player_has_ability(player, "Waaagh!"):
+		return false
+	var player_key = str(player)
+	if _waaagh_used.get(player_key, false):
+		return false
+	if _waaagh_active.get(player_key, false):
+		return false
+	return true
+
+func is_waaagh_active(player: int) -> bool:
+	"""Check if Waaagh! is currently active for a player."""
+	return _waaagh_active.get(str(player), false)
+
+func activate_waaagh(player: int) -> Dictionary:
+	"""Activate Waaagh! for a player. Called during Command Phase."""
+	var player_key = str(player)
+
+	if not player_has_ability(player, "Waaagh!"):
+		return {"success": false, "error": "Player %d does not have Waaagh! ability" % player}
+
+	if _waaagh_used.get(player_key, false):
+		return {"success": false, "error": "Waaagh! already used this battle"}
+
+	if _waaagh_active.get(player_key, false):
+		return {"success": false, "error": "Waaagh! is already active"}
+
+	# Activate Waaagh!
+	_waaagh_used[player_key] = true
+	_waaagh_active[player_key] = true
+
+	# Apply Waaagh! effects to all Ork units
+	_apply_waaagh_effects(player)
+
+	print("FactionAbilityManager: WAAAGH! Player %d calls a Waaagh! — effects active until next Command phase" % player)
+
+	return {
+		"success": true,
+		"message": "WAAAGH! Called — advance and charge, +1 S/A melee, 5+ invuln active!"
+	}
+
+func deactivate_waaagh(player: int) -> void:
+	"""Deactivate Waaagh! at the start of the player's next Command Phase."""
+	var player_key = str(player)
+	if _waaagh_active.get(player_key, false):
+		_waaagh_active[player_key] = false
+		_clear_waaagh_effects(player)
+		print("FactionAbilityManager: Waaagh! deactivated for player %d" % player)
+
+func _apply_waaagh_effects(player: int) -> void:
+	"""Apply Waaagh! flags to all Ork units with the Waaagh! ability."""
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+
+		# Skip destroyed units
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check if unit has Waaagh! ability
+		if not _unit_has_waaagh_ability(unit):
+			continue
+
+		# Apply Waaagh! flags
+		if not unit.has("flags"):
+			unit["flags"] = {}
+		unit["flags"]["waaagh_active"] = true
+		# 5+ invulnerable save
+		unit["flags"]["effect_invuln"] = 5
+		# Advance and charge eligibility
+		unit["flags"]["effect_advance_and_charge"] = true
+
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
+
+func _clear_waaagh_effects(player: int) -> void:
+	"""Clear Waaagh! flags from all Ork units."""
+	var units = GameState.state.get("units", {})
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+
+		var flags = unit.get("flags", {})
+		if flags.get("waaagh_active", false):
+			flags.erase("waaagh_active")
+			flags.erase("effect_advance_and_charge")
+			# Only clear invuln if it was the Waaagh! 5+ (don't clobber other sources)
+			if flags.get("effect_invuln", 0) == 5:
+				flags.erase("effect_invuln")
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			print("FactionAbilityManager: Waaagh! effects cleared from %s (%s)" % [unit_name, unit_id])
+
+func _unit_has_waaagh_ability(unit: Dictionary) -> bool:
+	"""Check if a unit has the Waaagh! faction ability."""
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Waaagh!":
+			return true
+	return false
+
+static func is_waaagh_active_for_unit(unit: Dictionary) -> bool:
+	"""Static query: Check if a unit currently has Waaagh! active (for RulesEngine)."""
+	return unit.get("flags", {}).get("waaagh_active", false)
 
 # ============================================================================
 # COMBAT MODIFIER QUERIES (called by RulesEngine)
@@ -338,6 +482,10 @@ func on_command_phase_start(player: int) -> void:
 	"""Called at the start of each Command Phase. Detects abilities and clears old targets."""
 	detect_faction_abilities(player)
 
+	# Deactivate Waaagh! if it was active (it lasts "until the start of your next Command phase")
+	if _waaagh_active.get(str(player), false):
+		deactivate_waaagh(player)
+
 	# Clear previous Oath of Moment (it's re-selected each Command Phase)
 	if player_has_ability(player, "Oath of Moment"):
 		clear_oath_of_moment(player)
@@ -364,11 +512,15 @@ func get_state_for_save() -> Dictionary:
 	"""Return state data for save games."""
 	return {
 		"active_effects": _active_effects.duplicate(true),
-		"player_abilities": _player_abilities.duplicate(true)
+		"player_abilities": _player_abilities.duplicate(true),
+		"waaagh_used": _waaagh_used.duplicate(true),
+		"waaagh_active": _waaagh_active.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
 	"""Restore state from save data."""
 	_active_effects = data.get("active_effects", {"1": {}, "2": {}})
 	_player_abilities = data.get("player_abilities", {"1": [], "2": []})
-	print("FactionAbilityManager: State loaded — effects: %s" % str(_active_effects))
+	_waaagh_used = data.get("waaagh_used", {"1": false, "2": false})
+	_waaagh_active = data.get("waaagh_active", {"1": false, "2": false})
+	print("FactionAbilityManager: State loaded — effects: %s, waaagh_active: %s" % [str(_active_effects), str(_waaagh_active)])

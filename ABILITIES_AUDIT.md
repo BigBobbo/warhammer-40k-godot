@@ -26,14 +26,14 @@
 |----------|-------|
 | Broken pipeline (flags set, never checked by phase logic) | 0 |
 | Once-per-battle abilities with no usage tracking | 0 |
-| Faction abilities with broken/missing implementation | 1 |
+| Faction abilities with broken/missing implementation | 0 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 7 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 1 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 2 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **23** |
+| **Total gaps** | **20** |
 
 ---
 
@@ -85,11 +85,10 @@ These abilities should only be usable once per game but have no usage tracking m
 
 ## Faction Abilities
 
-### Orks — Waaagh!
+### ~~Orks — Waaagh!~~ FIXED
 - **Rules text:** "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: (1) Units with this ability are eligible to charge in a turn they Advanced. (2) Add 1 to Strength and Attacks of melee weapons. (3) Models have a 5+ invulnerable save."
-- **Current state:** Not implemented. No Waaagh! state tracking exists in the codebase
-- **Impact:** Blocks implementation of Da Biggest and da Best, Dead Brutal, and the baseline Ork faction mechanic
-- **What's needed:** Waaagh! state manager, Command Phase UI trigger, automatic effect application for all Ork units
+- **Implementation status:** `FactionAbilityManager` tracks Waaagh! state via `activate_waaagh()`/`deactivate_waaagh()`. Once-per-battle enforced. `CommandPhase` offers `CALL_WAAAGH` action with validation. On activation, all Ork units with Waaagh! ability get `waaagh_active`, `effect_invuln=5`, and `effect_advance_and_charge` flags. `RulesEngine._resolve_melee_assignment()` checks `waaagh_active` flag and applies +1 Attacks, +1 Strength to melee weapons. Also resolves Da Biggest and da Best (+4 attacks) and Dead Brutal (damage=3 for 'Uge choppa). Melee save path now checks `effect_invuln` for the 5+ invuln. AI always activates when available. Deactivated at start of next Command phase.
+- **Status:** Fixed — Waaagh! state manager, Command Phase UI trigger, melee bonuses, 5+ invuln, advance+charge, Da Biggest and da Best, Dead Brutal all implemented
 
 ### ~~Adeptus Custodes — Martial Ka'tah~~ FIXED
 - **Rules text:** "Each time a unit with this ability is selected to fight, select one Ka'tah Stance: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active until the unit finishes attacking."
@@ -110,24 +109,24 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Leader | Core | No | No | Partial | Attachment system works but Leader ability not explicitly defined |
-| Waaagh! | Faction | No | No | No | Entire Waaagh! system missing |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! state tracking, Command Phase trigger, advance+charge, +1 S/A melee, 5+ invuln |
 | Might is Right | Datasheet | Yes | Yes (implemented) | Yes | +1 melee hit rolls working via RulesEngine |
-| Da Biggest and da Best | Datasheet | Yes | Yes (not implemented) | No | Needs Waaagh! state + stat modification (+4 attacks) |
+| Da Biggest and da Best | Datasheet | Yes | Yes (implemented) | **Yes** | +4 melee attacks while Waaagh! active — applied in RulesEngine._resolve_melee_assignment() |
 
 ### Warboss in Mega Armour
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
 | Leader | Core | No | No | Partial | Attachment system works |
-| Waaagh! | Faction | No | No | No | Entire Waaagh! system missing |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! state tracking, Command Phase trigger, advance+charge, +1 S/A melee, 5+ invuln |
 | Might is Right | Datasheet | Yes | Yes (implemented) | Yes | Working |
-| Dead Brutal | Datasheet | Yes | Yes (not implemented) | No | Needs Waaagh! state + weapon damage modification (damage=3) |
+| Dead Brutal | Datasheet | Yes | Yes (implemented) | **Yes** | 'Uge choppa damage=3 while Waaagh! active — applied in RulesEngine._resolve_melee_assignment() |
 
 ### Boyz
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Waaagh! | Faction | No | No | No | Missing |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Get Da Good Bitz | Datasheet | Yes | Yes (not implemented) | No | Sticky objectives — needs objective system integration |
 | Bodyguard (20-model) | Special | Yes | No | Unknown | Double leader attachment for 20-model units |
 
@@ -137,7 +136,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Infiltrators | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Stealth | Core | Yes | Yes (RulesEngine) | **Yes** | Added to army JSON. RulesEngine.has_stealth_ability() detects it; -1 to hit applied in both resolve paths |
-| Waaagh! | Faction | No | No | No | Missing |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Throat Slittas | Datasheet | Yes | Yes (implemented) | **Yes** | Mortal wounds in shooting phase — roll 1D6 per model within 9" of enemy, 5+ = 1 MW. Unit cannot shoot if used. Player/AI prompt, full resolution |
 | Sneaky Surprise | Datasheet | **MISSING** | No | **No** | "Cannot be targeted by Fire Overwatch" — not in JSON or code |
 | Patrol Squad | Datasheet | **MISSING** | No | **No** | Unit splitting at deployment — not in JSON or code |
@@ -150,7 +149,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---------|------|---------|-------------------|---------|-------|
 | Deadly Demise D6 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Firing Deck 11 | Core | **MISSING** | No | **No** | Embarked models can shoot — not in JSON or code |
-| Waaagh! | Faction | No | No | No | Missing |
+| Waaagh! | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Waaagh! system implemented |
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | 'Ard Case | Wargear | **MISSING** | No | **No** | +2 Toughness, lose Firing Deck — not in JSON or code |
@@ -341,8 +340,8 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 14 | Ramshackle | always | worsen AP by 1 | Yes | **Yes** — correctly worsens AP of incoming attacks by 1 |
 | 15 | Daughters of the Abyss | always | FNP 3+ | Yes | **Partial** — simplified. Should only apply vs Psychic/mortal wounds |
 | 16 | Get Da Good Bitz | on_objective | sticky objectives | No | **No** |
-| 17 | Da Biggest and da Best | waaagh_active | +4 attacks | No | **No** — needs Waaagh! system |
-| 18 | Dead Brutal | waaagh_active | damage=3 | No | **No** — needs Waaagh! system |
+| 17 | Da Biggest and da Best | waaagh_active | +4 attacks | Yes | **Yes** — applied in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set |
+| 18 | Dead Brutal | waaagh_active | damage=3 | Yes | **Yes** — 'Uge choppa damage overridden to 3 in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set |
 | 19 | Sentinel Storm | always | shoot-again | Yes | **Yes** — once-per-battle shoot-again with UI prompt, AI support |
 | 20 | Sanctified Flames | after_shooting | forced Battle-shock test | Yes | **Yes** — tracks hit targets, rolls 2D6 vs Ld, applies battle_shocked flag |
 | 21 | Throat Slittas | start_of_shooting | mortal wounds vs nearby enemies | Yes | **Yes** — roll 1D6 per model within 9" of enemy, 5+ = MW. Player/AI prompt, unit cannot shoot if used |
@@ -379,7 +378,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 18. **Implement Guardian Eternal** — -1 Damage (Telemon) — also fix JSON which has wrong ability name — **DONE**
 
 ### P2 — Medium (require new systems or are less impactful)
-19. **Implement Waaagh! system** — unlocks Da Biggest/Dead Brutal + base Ork faction ability
+19. **Implement Waaagh! system** — unlocks Da Biggest/Dead Brutal + base Ork faction ability — **DONE**
 20. **Implement wargear stat bonuses** — Praesidium Shield (+1W), Vexilla (+1OC), 'Ard Case (+2T)
 21. **Fix Daughters of the Abyss** — restrict FNP 3+ to psychic/mortal wounds only
 22. **Fix Stand Vigil** — add objective-conditional reroll-all upgrade

@@ -251,8 +251,18 @@ func get_available_actions() -> Array:
 						"player": current_player
 					})
 
-	# Faction ability actions (Oath of Moment target selection)
+	# Faction ability actions
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+
+	# Waaagh! activation (Orks)
+	if faction_mgr and faction_mgr.is_waaagh_available(current_player):
+		actions.append({
+			"type": "CALL_WAAAGH",
+			"description": "WAAAGH! — Advance+Charge, +1 S/A melee, 5+ invuln (once per battle)",
+			"player": current_player
+		})
+
+	# Oath of Moment target selection (Space Marines)
 	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
 		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
 		var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
@@ -307,6 +317,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_new_orders(action)
 		"SELECT_OATH_TARGET":
 			errors = _validate_select_oath_target(action)
+		"CALL_WAAAGH":
+			errors = _validate_call_waaagh(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -368,6 +380,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_new_orders(action)
 		"SELECT_OATH_TARGET":
 			return _handle_select_oath_target(action)
+		"CALL_WAAAGH":
+			return _handle_call_waaagh(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -654,6 +668,46 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 		"stratagem_used": "insane_bravery",
 		"message": "%s AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)" % unit_name
 	}
+
+# ============================================================================
+# FACTION ABILITIES — WAAAGH! (Orks)
+# ============================================================================
+
+func _validate_call_waaagh(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_waaagh_available(current_player):
+		errors.append("Waaagh! is not available (already used or not an Ork player)")
+
+	return errors
+
+func _handle_call_waaagh(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.activate_waaagh(current_player)
+
+	if result.success:
+		log_phase_message("WAAAGH! Player %d calls a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln!" % current_player)
+
+		# Log to phase log
+		var log_entry = {
+			"type": "CALL_WAAAGH",
+			"player": current_player,
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
 
 # ============================================================================
 # FACTION ABILITIES — OATH OF MOMENT

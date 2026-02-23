@@ -2311,6 +2311,15 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				"_ai_description": "Battle-shock test"
 			}
 
+	# WAAAGH! activation (Orks) — AI always calls Waaagh! when available
+	for action in available_actions:
+		if action.get("type") == "CALL_WAAAGH":
+			print("AIDecisionMaker: Calling WAAAGH! — advance+charge, +1 S/A melee, 5+ invuln")
+			return {
+				"type": "CALL_WAAAGH",
+				"_ai_description": "WAAAGH! — activate Ork faction ability"
+			}
+
 	# T7-45: Handle faction ability activation (Oath of Moment target selection)
 	var oath_actions = []
 	for action in available_actions:

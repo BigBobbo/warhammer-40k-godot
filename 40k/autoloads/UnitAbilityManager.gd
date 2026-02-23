@@ -304,23 +304,25 @@ const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
 
 	# Ork Warboss — +4 attacks while Waaagh! active
+	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
 	"Da Biggest and da Best": {
 		"condition": "waaagh_active",
 		"effects": [],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "+4 melee Attacks while Waaagh! active (stat modification not yet supported)"
+		"implemented": true,
+		"description": "+4 melee Attacks while Waaagh! active — applied in RulesEngine melee resolution"
 	},
 
 	# Ork Warboss in Mega Armour — weapon damage 3 while Waaagh! active
+	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
 	"Dead Brutal": {
 		"condition": "waaagh_active",
 		"effects": [],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "Weapon damage = 3 while Waaagh! active (weapon stat modification not yet supported)"
+		"implemented": true,
+		"description": "Weapon damage = 3 while Waaagh! active — applied in RulesEngine melee resolution"
 	},
 }
 
