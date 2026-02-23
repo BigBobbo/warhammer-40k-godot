@@ -994,6 +994,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 4: Saves and damage (normal rules apply) ---
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if ow_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - ow_worsen_ap)
+		print("RulesEngine: Worsen AP (Overwatch) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ow_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var target_flags = target_unit.get("flags", {})
@@ -2199,6 +2205,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# T3-17: This section mirrors the interactive path (prepare_save_resolution + apply_save_damage)
 	# to ensure both resolution paths produce identical results. Keep in sync with apply_save_damage().
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if ar_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - ar_worsen_ap)
+		print("RulesEngine: Worsen AP (auto-resolve) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ar_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var casualties = 0
 	var damage_applied = 0
@@ -5820,6 +5832,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var strength = weapon_profile.get("strength", 4)
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if melee_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - melee_worsen_ap)
+		print("RulesEngine: Worsen AP (melee) — AP %d → %d (worsen by %d)" % [pre_ap, ap, melee_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
@@ -6597,6 +6615,12 @@ static func prepare_save_resolution(
 		return {"success": false, "error": "Target unit not found"}
 
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if int_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - int_worsen_ap)
+		print("RulesEngine: Worsen AP (interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, int_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
