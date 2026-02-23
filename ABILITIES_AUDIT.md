@@ -28,12 +28,12 @@
 | Once-per-battle abilities with no usage tracking | 0 |
 | Faction abilities with broken/missing implementation | 1 |
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 16 |
-| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 4 |
+| Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
 | Core abilities not implemented or partially implemented | 4 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **35** |
+| **Total gaps** | **34** |
 
 ---
 
@@ -189,7 +189,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Deep Strike | Core | Yes | No (separate system) | Likely | Handled by deployment logic |
 | Leader | Core | No | No | Partial | Attachment system works |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
-| Swift Onslaught | Datasheet | Yes | Yes (not implemented) | **No** | Reroll charge — `reroll_charge` primitive doesn't exist |
+| Swift Onslaught | Datasheet | Yes | Yes (implemented) | **Yes** | Reroll charge — `reroll_charge` primitive implemented, ChargePhase offers free ability reroll |
 | Martial Inspiration | Datasheet | Yes | Yes (implemented) | **Yes** | Once-per-battle tracking implemented; ChargePhase checks advance_and_charge flag |
 
 ### Custodian Guard
@@ -335,7 +335,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 8 | Dok's Toolz | while_leading | FNP 5+ | Yes | **Yes** |
 | 9 | Mad Dok | while_leading | FNP 5+ | Yes | **Yes** |
 | 10 | One Scalpel Short of a Medpack | while_leading | fall_back_and_charge | Yes | **Yes** — ChargePhase now checks effect_fall_back_and_charge |
-| 11 | Swift Onslaught | while_leading | reroll_charge | No | **No** — primitive doesn't exist |
+| 11 | Swift Onslaught | while_leading | reroll_charge | Yes | **Yes** — reroll_charge primitive implemented; ChargePhase offers free ability reroll before Command Re-roll |
 | 12 | Martial Inspiration | while_leading | advance_and_charge | Yes | **Yes** — ChargePhase now checks effect_advance_and_charge + once-per-battle tracking added |
 | 13 | Stand Vigil | always | reroll wounds (1s) | Yes | **Partial** — basic reroll works, objective-conditional upgrade missing |
 | 14 | Ramshackle | always | worsen AP by 1 | Yes | **Yes** — correctly worsens AP of incoming attacks by 1 |
@@ -359,7 +359,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 
 ### P1 — High (missing abilities for units already in the game)
 8. **Implement Martial Ka'tah** — affects all Custodes units (stance selection in fight phase) — **DONE**
-9. **Implement Swift Onslaught** — reroll charge primitive needed
+9. **Implement Swift Onslaught** — reroll charge primitive needed — **DONE**
 10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard
 11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers)
 12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos)

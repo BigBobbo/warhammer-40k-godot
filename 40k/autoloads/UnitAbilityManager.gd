@@ -151,8 +151,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [{"type": "reroll_charge"}],
 		"target": "led_unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Re-roll Charge rolls for led unit (reroll_charge not yet a primitive)"
+		"implemented": true,
+		"description": "Re-roll Charge rolls for led unit"
 	},
 
 	# ======================================================================
