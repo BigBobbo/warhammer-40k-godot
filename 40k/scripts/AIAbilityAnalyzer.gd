@@ -554,22 +554,36 @@ static func get_deadly_demise_value(unit: Dictionary) -> int:
 	"""Get the Deadly Demise dice value (e.g., D3 -> 3, D6 -> 6). Returns 0 if no Deadly Demise."""
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:
-		var name = _extract_ability_name(ability)
+		var ability_name = _extract_ability_name(ability)
 		var desc = ""
 		if ability is Dictionary:
 			desc = ability.get("description", "")
-		# Check name and description for Deadly Demise value
-		var search_text = name + " " + desc
+		# Check name first, then description for Deadly Demise detection
+		var search_text = ability_name + " " + desc
 		if "deadly demise" in search_text.to_lower():
-			# Extract the dice value: "Deadly Demise D6" -> 6, "Deadly Demise D3" -> 3
-			if "d6" in search_text.to_lower():
+			# Extract value from ability NAME first (more reliable than description
+			# which may contain "roll one D6" for the trigger roll)
+			var name_lower = ability_name.to_lower()
+			if "deadly demise" in name_lower:
+				if "d6" in name_lower:
+					return 6
+				elif "d3+3" in name_lower:
+					return 6
+				elif "d3" in name_lower:
+					return 3
+				else:
+					# Try to extract a number: "Deadly Demise 1" -> 1
+					var parts = ability_name.split(" ")
+					if parts.size() >= 3 and parts[2].is_valid_int():
+						return int(parts[2])
+					return 3  # Default: assume D3 if unspecified
+			# Fallback: extract from description only
+			if "d6" in desc.to_lower():
 				return 6
-			elif "d3" in search_text.to_lower():
+			elif "d3" in desc.to_lower():
 				return 3
-			elif "d3+3" in search_text.to_lower():
-				return 6  # Average of D3+3 = 5, cap at 6
 			else:
-				return 3  # Default: assume D3 if unspecified
+				return 3  # Default
 	return 0
 
 static func is_unit_doomed(unit: Dictionary) -> bool:

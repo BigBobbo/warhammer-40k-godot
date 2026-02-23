@@ -30,10 +30,10 @@
 | Datasheet abilities missing from ABILITY_EFFECTS table entirely | 13 |
 | Datasheet abilities in ABILITY_EFFECTS but marked not implemented | 3 |
 | Wargear abilities not implemented | 7 |
-| Core abilities not implemented or partially implemented | 4 |
+| Core abilities not implemented or partially implemented | 3 |
 | Detachment rules not implemented | 3 |
 | Oath of Moment rules text is outdated | 0 |
-| **Total gaps** | **31** |
+| **Total gaps** | **30** |
 
 ---
 
@@ -148,7 +148,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deadly Demise D6 | Core | **MISSING** | No | **No** | Mortal wounds on destruction — not in JSON or code |
+| Deadly Demise D6 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Firing Deck 11 | Core | **MISSING** | No | **No** | Embarked models can shoot — not in JSON or code |
 | Waaagh! | Faction | No | No | No | Missing |
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
@@ -215,7 +215,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deadly Demise D3 | Core | **MISSING** | No | **No** | Mortal wounds on destruction — not in JSON or code |
+| Deadly Demise D3 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Advanced Firepower | Datasheet | Yes (text only) | No | **No** | Conditional Lethal Hits by target type (MONSTER/VEHICLE vs other) — not implemented |
 | Damaged: 1-5 Wounds | Datasheet | **MISSING** | No | **No** | -1 to hit when 1-5 wounds remaining |
@@ -225,7 +225,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deadly Demise 1 | Core | **MISSING** | No | **No** | Mortal wounds on destruction |
+| Deadly Demise 1 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Dread Foe | Datasheet | Yes (text only) | No | **No** | Mortal wounds on fight selection (D3 or 3, bonus on charge) — not implemented |
 | Invulnerable Save 5+ | Innate | Unknown | N/A | Unknown | Should be part of unit stats |
@@ -234,7 +234,7 @@ These abilities should only be usable once per game but have no usage tracking m
 
 | Ability | Type | In JSON | In ABILITY_EFFECTS | Working | Notes |
 |---------|------|---------|-------------------|---------|-------|
-| Deadly Demise D3 | Core | **MISSING** | No | **No** | Mortal wounds on destruction |
+| Deadly Demise D3 | Core | Yes | Yes (implemented) | **Yes** | Mortal wounds on destruction — added to JSON, RulesEngine.resolve_deadly_demise() triggers on unit death |
 | Martial Ka'tah | Faction | Yes | Yes (FactionAbilityManager) | **Yes** | Stance selection in fight phase — Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits) |
 | Guardian Eternal | Datasheet | **MISSING** | No | **No** | -1 Damage to incoming attacks — wahapedia lists this, not in JSON. Note: JSON has "Eternal Protector" (reflect mortal wounds on save of 6) which appears to be incorrect/outdated |
 | Devoted to Destruction | Datasheet | **MISSING** | No | **No** | +2 Attacks with dual Telemon caestus — not in JSON |
@@ -294,7 +294,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Stealth | Kommandos (per wahapedia) | **No** | Missing from army JSON entirely. Should grant -1 to hit on ranged attacks |
 | Leader | Various characters | Partial | Attachment system works but Leader ability not explicitly tracked |
 | Feel No Pain 5+ | Painboss | Unknown | Painboss not in army JSON files |
-| Deadly Demise (D3/D6/1) | Battlewagon, Caladius, Telemon, Contemptor-Achillus, Weirdboy | **No** | No destruction-triggered mortal wound mechanic exists |
+| Deadly Demise (D3/D6/1) | Battlewagon, Caladius, Telemon, Contemptor-Achillus, Weirdboy | **Yes** | Added to JSON for 4 units (Weirdboy has no army file). RulesEngine.resolve_deadly_demise() rolls trigger (6+), finds units within 6", applies mortal wounds. Hooked into ShootingPhase, FightPhase, and WoundAllocationOverlay |
 | Firing Deck 11 | Battlewagon | **No** | No embarked shooting mechanic exists |
 
 ---
@@ -346,6 +346,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 | 19 | Sentinel Storm | always | shoot-again | Yes | **Yes** — once-per-battle shoot-again with UI prompt, AI support |
 | 20 | Sanctified Flames | after_shooting | forced Battle-shock test | Yes | **Yes** — tracks hit targets, rolls 2D6 vs Ld, applies battle_shocked flag |
 | 21 | Throat Slittas | start_of_shooting | mortal wounds vs nearby enemies | Yes | **Yes** — roll 1D6 per model within 9" of enemy, 5+ = MW. Player/AI prompt, unit cannot shoot if used |
+| 22 | Deadly Demise | on_destruction | mortal wounds to all within 6" | Yes | **Yes** — roll 1D6 on unit death, on 6 each unit within 6" suffers D6/D3/1 mortal wounds. Hooked into ShootingPhase, FightPhase, WoundAllocationOverlay |
 
 ---
 
@@ -366,7 +367,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 10. **Implement Sentinel Storm** — shoot-again mechanic for Custodian Guard — **DONE**
 11. **Implement Sanctified Flames** — Battle-shock test after shooting (Witchseekers) — **DONE**
 12. **Implement Throat Slittas** — mortal wounds mechanic (Kommandos) — **DONE**
-13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units)
+13. **Implement Deadly Demise** — destruction-triggered mortal wounds (multiple vehicle units) — **DONE**
 14. **Implement Damaged profiles** — -1 to hit at low wounds (Caladius, Telemon, Battlewagon)
 15. **Add Stealth to Kommandos army JSON** — missing core ability
 16. **Implement Advanced Firepower** — conditional Lethal Hits (Caladius)

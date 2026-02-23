@@ -888,6 +888,11 @@
         ],
         "abilities": [
           {
+            "name": "Deadly Demise D6",
+            "type": "Core",
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
+          },
+          {
             "name": "Core",
             "type": "Faction",
             "description": ""

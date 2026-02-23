@@ -292,10 +292,9 @@
           ],
           "abilities": [
             {
-              "name": "Core",
+              "name": "Deadly Demise D3",
               "type": "Core",
-              "description": "",
-              "parameter": "D3"
+              "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
             },
             {
               "name": "Martial Ka'tah",

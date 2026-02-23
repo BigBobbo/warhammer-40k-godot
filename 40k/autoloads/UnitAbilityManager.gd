@@ -231,6 +231,18 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
 	},
 
+	# Deadly Demise — mortal wounds when destroyed (Battlewagon D6, Caladius D3, Telemon D3, Contemptor-Achillus 1)
+	# The value (D6/D3/1) is parsed from the ability name, e.g. "Deadly Demise D6"
+	# Triggered on unit destruction — resolved by RulesEngine.resolve_deadly_demise()
+	"Deadly Demise": {
+		"condition": "on_destruction",
+		"effects": [],
+		"target": "all_within_6",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers mortal wounds."
+	},
+
 	# Ork Kommandos — mortal wounds instead of shooting
 	"Throat Slittas": {
 		"condition": "start_of_shooting",
@@ -676,6 +688,38 @@ func has_throat_slittas_ability(unit_id: String) -> bool:
 			print("UnitAbilityManager: Unit %s has Throat Slittas ability" % unit_id)
 			return true
 	return false
+
+func has_deadly_demise(unit_id: String) -> bool:
+	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').
+	Used by _check_kill_diffs to trigger mortal wounds on destruction."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name.begins_with("Deadly Demise"):
+			return true
+	return false
+
+func get_deadly_demise_value(unit_id: String) -> String:
+	"""Get the Deadly Demise damage value string (e.g. 'D6', 'D3', '1').
+	Returns empty string if the unit has no Deadly Demise ability."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return ""
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name.begins_with("Deadly Demise"):
+			# Extract the value from e.g. "Deadly Demise D6" -> "D6"
+			var parts = ability_name.split(" ")
+			if parts.size() >= 3:
+				return parts[2]  # "D6", "D3", "1", etc.
+			return "D3"  # Default if no value specified
+	return ""
 
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
