@@ -233,3 +233,48 @@ func test_fly_charge_penalty_vs_movement_penalty():
 
 	assert_gt(charge_fly_penalty, 0.0, "FLY charge penalty should be positive (diagonal)")
 	assert_eq(movement_fly_penalty, 0.0, "FLY movement penalty should be zero (ignore elevation)")
+
+# ==========================================
+# Moving onto / off terrain: partial climb penalty
+# ==========================================
+
+func test_moving_onto_tall_terrain_half_penalty():
+	# Moving from outside to inside tall terrain should only pay climb UP = height * 1
+	# Terrain centered at (200, 0) with size (80, 80) → polygon from (160, -40) to (240, 40)
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)       # Outside terrain
+	var to_pos = Vector2(200, 0)       # Inside terrain (center)
+
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Moving onto tall terrain should only pay climb up = 6\" (not 12\")")
+
+func test_moving_off_tall_terrain_half_penalty():
+	# Moving from inside to outside tall terrain should only pay climb DOWN = height * 1
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(200, 0)     # Inside terrain (center)
+	var to_pos = Vector2(400, 0)       # Outside terrain
+
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Moving off tall terrain should only pay climb down = 6\" (not 12\")")
+
+func test_moving_through_tall_terrain_full_penalty():
+	# Moving through tall terrain (both endpoints outside) should pay full climb up + down
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)       # Outside terrain
+	var to_pos = Vector2(400, 0)       # Outside terrain
+
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 12.0, "Moving through tall terrain should pay full climb up + down = 12\"")
+
+func test_moving_onto_medium_terrain_half_penalty():
+	# Moving onto medium terrain (3.5") should pay climb up = 3.5"
+	_add_medium_terrain("medium_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)       # Outside terrain
+	var to_pos = Vector2(200, 0)       # Inside terrain (center)
+
+	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 3.5, "Moving onto medium terrain should only pay climb up = 3.5\" (not 7\")")

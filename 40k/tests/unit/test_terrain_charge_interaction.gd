@@ -389,3 +389,27 @@ func test_multiple_terrain_penalties_accumulate():
 
 	# Two tall terrain pieces: 6" * 2 * 2 = 24" total penalty
 	assert_eq(penalty, 24.0, "Two tall terrain penalties should accumulate: 12\" + 12\" = 24\"")
+
+# ==========================================
+# Moving onto / off terrain during charge: partial climb
+# ==========================================
+
+func test_charge_onto_tall_terrain_half_penalty():
+	# Charging onto tall terrain should only pay climb up = height * 1
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(0, 0)       # Outside terrain
+	var to_pos = Vector2(200, 0)       # Inside terrain (center)
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Charging onto tall terrain should only pay climb up = 6\" (not 12\")")
+
+func test_charge_off_tall_terrain_half_penalty():
+	# Charging from inside terrain to outside should only pay climb down = height * 1
+	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
+
+	var from_pos = Vector2(200, 0)     # Inside terrain (center)
+	var to_pos = Vector2(400, 0)       # Outside terrain
+
+	var penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, false)
+	assert_eq(penalty, 6.0, "Charging off tall terrain should only pay climb down = 6\" (not 12\")")
