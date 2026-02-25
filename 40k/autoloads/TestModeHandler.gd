@@ -132,6 +132,12 @@ func _parse_command_line_arguments():
 				test_config["window_size"] = Vector2i(width, height)
 			continue
 
+		# Deployment type override
+		if arg.begins_with("--deployment="):
+			test_config["deployment"] = arg.split("=")[1]
+			print("TestModeHandler: Deployment type override: %s" % test_config["deployment"])
+			continue
+
 		# AI vs AI mode - auto-start with both players as AI
 		if arg == "--ai-vs-ai":
 			current_test_mode = TestMode.AI_VS_AI
@@ -320,6 +326,17 @@ func _schedule_ai_vs_ai():
 		if main_menu.get("player2_type_dropdown"):
 			main_menu.player2_type_dropdown.selected = 1  # AI
 			print("TestModeHandler: Set Player 2 to AI")
+
+		# Set deployment type if specified
+		var deploy_override = test_config.get("deployment", "")
+		if deploy_override != "" and main_menu.get("deployment_dropdown"):
+			var deploy_options = main_menu.get("deployment_options")
+			if deploy_options:
+				for i in range(deploy_options.size()):
+					if deploy_options[i].id == deploy_override:
+						main_menu.deployment_dropdown.selected = i
+						print("TestModeHandler: Set deployment to %s (index %d)" % [deploy_override, i])
+						break
 
 		# Trigger start
 		print("TestModeHandler: Starting AI vs AI game...")

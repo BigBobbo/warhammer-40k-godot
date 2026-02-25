@@ -21,6 +21,7 @@ var _turn_history: Array = []  # T7-56: Per-turn action history [{round, player,
 var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where current thinking sequence started
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
+var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
 
 # T7-36: AI speed presets — configurable delay between AI actions
 enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
@@ -252,6 +253,7 @@ func _on_phase_changed(_new_phase) -> void:
 		_emit_phase_summary_for_current_phase()
 
 	_current_phase_actions = 0  # Reset safety counter on phase change
+	_failed_deploy_unit_ids.clear()  # Reset failed deployment tracking on phase change
 
 	# T7-20: End any active thinking state before starting a new phase evaluation
 	_end_ai_thinking()
@@ -933,6 +935,14 @@ func _execute_next_action(player: int) -> void:
 	var phase_manager = get_node("/root/PhaseManager")
 	var available = phase_manager.get_available_actions()
 
+	# Filter out units that have permanently failed deployment (both deploy and reserves failed)
+	if not _failed_deploy_unit_ids.is_empty():
+		available = available.filter(func(a):
+			if a.get("type") in ["DEPLOY_UNIT", "PLACE_IN_RESERVES"]:
+				return a.get("unit_id", "") not in _failed_deploy_unit_ids
+			return true
+		)
+
 	if available.is_empty():
 		print("AIPlayer: No available actions for player %d in phase %d" % [player, phase])
 		_end_ai_thinking()
@@ -1596,24 +1606,54 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 	var zone_width = zone_bounds.max_x - zone_bounds.min_x
 	var zone_height = zone_bounds.max_y - zone_bounds.min_y
 
-	# Try up to 3 retries with positions spread across different zone quadrants
-	for attempt in range(3):
-		# Pick a different quadrant each retry
-		var quadrant_x = (attempt % 2) * 0.5
-		var quadrant_y = (attempt / 2) * 0.5
-		# Add jitter so we don't land on exact same spots
-		var jitter_x = (randf() - 0.5) * zone_width * 0.2
-		var jitter_y = (randf() - 0.5) * zone_height * 0.2
+	# Get the actual deployment zone polygon for point-in-polygon testing
+	var zone_poly_pixels: PackedVector2Array = _get_deployment_zone_polygon_pixels(snapshot, player)
 
-		var retry_center = Vector2(
-			zone_bounds.min_x + zone_width * (0.25 + quadrant_x) + jitter_x,
-			zone_bounds.min_y + zone_height * (0.25 + quadrant_y) + jitter_y
-		)
-		retry_center.x = clamp(retry_center.x, zone_bounds.min_x + 80, zone_bounds.max_x - 80)
-		retry_center.y = clamp(retry_center.y, zone_bounds.min_y + 80, zone_bounds.max_y - 80)
+	# Try up to 5 retries with wall-aware random sampling across the zone
+	for attempt in range(5):
+		# Sample random positions within zone bounds, then validate against walls
+		var best_center = Vector2.ZERO
+		var found_wall_free = false
 
-		var positions = AIDecisionMaker._generate_formation_positions(retry_center, models.size(), base_mm, zone_bounds)
+		# Try multiple random samples to find a wall-free center point
+		for sample in range(20):
+			var test_center = Vector2(
+				zone_bounds.min_x + 80 + randf() * (zone_width - 160),
+				zone_bounds.min_y + 80 + randf() * (zone_height - 160)
+			)
+
+			# Check if center is within the actual zone polygon (not just bounding box)
+			if zone_poly_pixels.size() > 0 and not Geometry2D.is_point_in_polygon(test_center, zone_poly_pixels):
+				continue
+
+			# Check if a model at this position would overlap walls
+			var test_model = first_model.duplicate()
+			test_model["position"] = test_center
+			test_model["rotation"] = 0.0
+			if not Measurement.model_overlaps_any_wall(test_model):
+				best_center = test_center
+				found_wall_free = true
+				break
+
+		if not found_wall_free:
+			print("AIPlayer: Deployment retry %d for %s: no wall-free center found" % [attempt + 1, unit_name])
+			continue
+
+		var positions = AIDecisionMaker._generate_formation_positions(best_center, models.size(), base_mm, zone_bounds)
 		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+
+		# Validate all positions are wall-free before submitting
+		var all_wall_free = true
+		for pos in positions:
+			var test_model = first_model.duplicate()
+			test_model["position"] = pos
+			test_model["rotation"] = 0.0
+			if Measurement.model_overlaps_any_wall(test_model):
+				all_wall_free = false
+				break
+		if not all_wall_free:
+			print("AIPlayer: Deployment retry %d for %s: formation positions overlap walls" % [attempt + 1, unit_name])
+			continue
 
 		var rotations = []
 		for i in range(models.size()):
@@ -1628,7 +1668,7 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 			"_ai_description": "Deployed %s (retry %d)" % [unit_name, attempt + 1]
 		}
 
-		print("AIPlayer: Deployment retry %d for %s at center (%.0f, %.0f)" % [attempt + 1, unit_name, retry_center.x, retry_center.y])
+		print("AIPlayer: Deployment retry %d for %s at center (%.0f, %.0f)" % [attempt + 1, unit_name, best_center.x, best_center.y])
 
 		_current_phase_actions += 1
 		var result = NetworkIntegration.route_action(retry_action)
@@ -1675,4 +1715,21 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		})
 	else:
 		var error_msg = "" if result == null else result.get("error", result.get("errors", ""))
-		push_error("AIPlayer: Failed to place %s in reserves: %s" % [unit_name, error_msg])
+		push_error("AIPlayer: Failed to place %s in reserves: %s — marking as failed to prevent infinite loop" % [unit_name, error_msg])
+		_failed_deploy_unit_ids.append(unit_id)
+		_log_ai_event(player, "%s deployment permanently failed (reserves also rejected: %s) — skipping unit" % [unit_name, error_msg])
+
+func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> PackedVector2Array:
+	"""Get the actual deployment zone polygon in pixels for point-in-polygon testing."""
+	var poly = PackedVector2Array()
+	var px_per_inch = 40.0
+	var zones = snapshot.get("board", {}).get("deployment_zones", [])
+	for zone in zones:
+		if zone.get("player", 0) == player:
+			var zone_poly = zone.get("poly", [])
+			for vertex in zone_poly:
+				var vx = float(vertex.get("x", 0))
+				var vy = float(vertex.get("y", 0))
+				poly.append(Vector2(vx * px_per_inch, vy * px_per_inch))
+			break
+	return poly

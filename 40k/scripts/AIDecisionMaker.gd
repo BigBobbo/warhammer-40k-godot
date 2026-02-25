@@ -25,6 +25,13 @@ static func _rules_engine():
 		return main.root.get_node_or_null("RulesEngine")
 	return null
 
+# Late-bound reference to Measurement autoload
+static func _measurement():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("Measurement")
+	return null
+
 # Focus fire plan cache — built once per shooting phase, consumed per-unit
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
@@ -1456,6 +1463,28 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# Resolve collisions with already-deployed models
 	var deployed_models = _get_all_deployed_model_positions(snapshot)
 	positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+
+	# Validate positions don't overlap walls — if any do, try to find wall-free alternatives
+	var measurement = _measurement()
+	var has_wall_overlap = false
+	if measurement:
+		for pos in positions:
+			var test_model = first_model.duplicate()
+			test_model["position"] = pos
+			test_model["rotation"] = 0.0
+			if measurement.model_overlaps_any_wall(test_model):
+				has_wall_overlap = true
+				break
+
+	if has_wall_overlap:
+		print("AIDecisionMaker: Initial positions for %s overlap walls, searching for wall-free positions" % unit_name)
+		# Get the actual zone polygon for point-in-polygon testing
+		var zone_poly_pixels = _get_deployment_zone_polygon_pixels(snapshot, player)
+		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels)
+		if wall_free_center != Vector2.ZERO:
+			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds)
+			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+			print("AIDecisionMaker: Found wall-free center for %s at (%.0f, %.0f)" % [unit_name, wall_free_center.x, wall_free_center.y])
 
 	var rotations = []
 	for i in range(models.size()):
@@ -10977,7 +11006,10 @@ static func _get_deployment_zone_bounds(snapshot: Dictionary, player: int) -> Di
 	var zones = snapshot.get("board", {}).get("deployment_zones", [])
 	for zone in zones:
 		if zone.get("player", 0) == player:
-			var vertices = zone.get("vertices", [])
+			# Check "poly" (current, values in inches) and "vertices" (legacy test data, values in pixels)
+			var poly = zone.get("poly", [])
+			var use_inches = not poly.is_empty()
+			var vertices = poly if use_inches else zone.get("vertices", [])
 			if not vertices.is_empty():
 				var min_x = INF
 				var max_x = -INF
@@ -10992,6 +11024,10 @@ static func _get_deployment_zone_bounds(snapshot: Dictionary, player: int) -> Di
 					else:
 						vx = float(v.get("x", 0))
 						vy = float(v.get("y", 0))
+					# Poly values are in inches — convert to pixels
+					if use_inches:
+						vx *= PIXELS_PER_INCH
+						vy *= PIXELS_PER_INCH
 					min_x = min(min_x, vx)
 					max_x = max(max_x, vx)
 					min_y = min(min_y, vy)
@@ -11157,6 +11193,50 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 			})
 
 	return resolved
+
+static func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> PackedVector2Array:
+	"""Get the actual deployment zone polygon in pixels for point-in-polygon testing."""
+	var poly = PackedVector2Array()
+	var px_per_inch = PIXELS_PER_INCH
+	var zones = snapshot.get("board", {}).get("deployment_zones", [])
+	for zone in zones:
+		if zone.get("player", 0) == player:
+			var zone_poly = zone.get("poly", [])
+			for vertex in zone_poly:
+				var vx = float(vertex.get("x", 0))
+				var vy = float(vertex.get("y", 0))
+				poly.append(Vector2(vx * px_per_inch, vy * px_per_inch))
+			break
+	return poly
+
+static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array) -> Vector2:
+	"""Sample random positions within the deployment zone to find one that doesn't overlap walls."""
+	var measurement = _measurement()
+	if not measurement:
+		return Vector2.ZERO
+
+	var zone_width = zone_bounds.max_x - zone_bounds.min_x
+	var zone_height = zone_bounds.max_y - zone_bounds.min_y
+	var margin = 80.0
+
+	for sample in range(30):
+		var test_pos = Vector2(
+			zone_bounds.min_x + margin + randf() * (zone_width - margin * 2),
+			zone_bounds.min_y + margin + randf() * (zone_height - margin * 2)
+		)
+
+		# Check if within the actual polygon (not just bounding box)
+		if zone_poly_pixels.size() > 0 and not Geometry2D.is_point_in_polygon(test_pos, zone_poly_pixels):
+			continue
+
+		# Check wall overlap
+		var test_model = model_template.duplicate()
+		test_model["position"] = test_pos
+		test_model["rotation"] = 0.0
+		if not measurement.model_overlaps_any_wall(test_model):
+			return test_pos
+
+	return Vector2.ZERO
 
 static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	var weapon_id = weapon_name.to_lower()
