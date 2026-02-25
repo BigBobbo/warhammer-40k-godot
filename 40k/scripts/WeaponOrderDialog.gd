@@ -1,5 +1,7 @@
 extends AcceptDialog
 
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+
 # WeaponOrderDialog - Allows players to order weapons before shooting sequence
 # Phase 1 MVP: Basic ordering with up/down arrows, fast roll option
 
@@ -73,12 +75,14 @@ func _ready() -> void:
 	fast_roll_button.text = "Fast Roll All (Skip Order)"
 	fast_roll_button.pressed.connect(_on_fast_roll_pressed)
 	fast_roll_button.custom_minimum_size = Vector2(200, 40)
+	_WhiteDwarfTheme.apply_to_button(fast_roll_button)
 	button_hbox.add_child(fast_roll_button)
 
 	start_sequence_button = Button.new()
 	start_sequence_button.text = "Start Sequence"
 	start_sequence_button.pressed.connect(_on_start_sequence_pressed)
 	start_sequence_button.custom_minimum_size = Vector2(150, 40)
+	_WhiteDwarfTheme.apply_to_button(start_sequence_button)
 	button_hbox.add_child(start_sequence_button)
 
 	close_button = Button.new()
@@ -86,6 +90,7 @@ func _ready() -> void:
 	close_button.pressed.connect(_on_close_pressed)
 	close_button.custom_minimum_size = Vector2(100, 40)
 	close_button.visible = false  # Hidden until sequence complete or fast roll
+	_WhiteDwarfTheme.apply_to_button(close_button)
 	button_hbox.add_child(close_button)
 
 	# NEW: Continue button for mid-sequence progression
@@ -95,6 +100,7 @@ func _ready() -> void:
 	continue_button.text = "Continue to Next Weapon"
 	continue_button.pressed.connect(_on_continue_next_weapon_pressed)
 	continue_button.custom_minimum_size = Vector2(220, 40)
+	_WhiteDwarfTheme.apply_to_button(continue_button)
 	# Make this button prominent with green color
 	continue_button.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
 	button_hbox.add_child(continue_button)
@@ -284,6 +290,7 @@ func _rebuild_weapon_list() -> void:
 		up_button.custom_minimum_size = Vector2(50, 25)
 		up_button.disabled = (i == 0)  # Can't move first item up
 		up_button.pressed.connect(_on_move_up_pressed.bind(i))
+		_WhiteDwarfTheme.apply_to_button(up_button)
 		button_vbox.add_child(up_button)
 
 		var down_button = Button.new()
@@ -291,6 +298,7 @@ func _rebuild_weapon_list() -> void:
 		down_button.custom_minimum_size = Vector2(50, 25)
 		down_button.disabled = (i == weapon_order.size() - 1)  # Can't move last item down
 		down_button.pressed.connect(_on_move_down_pressed.bind(i))
+		_WhiteDwarfTheme.apply_to_button(down_button)
 		button_vbox.add_child(down_button)
 
 		weapon_list_container.add_child(panel)

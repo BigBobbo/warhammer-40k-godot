@@ -1,5 +1,7 @@
 extends AcceptDialog
 
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+
 # NextWeaponDialog - Enhanced to show last weapon's results before continuing
 # Displays attack summary, dice details, and remaining weapons
 
@@ -70,6 +72,7 @@ func _create_ui() -> void:
 	dice_details_button.text = "▼ Show Detailed Dice Rolls"
 	dice_details_button.flat = true
 	dice_details_button.pressed.connect(_on_toggle_dice_details)
+	_WhiteDwarfTheme.apply_to_button(dice_details_button)
 	main_vbox.add_child(dice_details_button)
 
 	# Dice Details Panel (collapsible)

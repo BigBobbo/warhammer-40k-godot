@@ -46,18 +46,18 @@ static func create_button_normal() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.13, 0.1, 0.9)
 	style.border_color = WH_GOLD
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
-	style.set_content_margin_all(6)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(8)
 	return style
 
 static func create_button_hover() -> StyleBoxFlat:
 	var style = StyleBoxFlat.new()
 	style.bg_color = WH_RED
 	style.border_color = WH_GOLD
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(2)
-	style.set_content_margin_all(6)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(8)
 	return style
 
 static func create_button_pressed() -> StyleBoxFlat:
@@ -65,8 +65,17 @@ static func create_button_pressed() -> StyleBoxFlat:
 	style.bg_color = Color(0.45, 0.05, 0.06)  # Darker red
 	style.border_color = WH_PARCHMENT
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(2)
-	style.set_content_margin_all(6)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(8)
+	return style
+
+static func create_button_disabled() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.09, 0.07, 0.7)
+	style.border_color = Color(0.4, 0.3, 0.2, 0.5)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(3)
+	style.set_content_margin_all(8)
 	return style
 
 static func create_item_list_style() -> StyleBoxFlat:
@@ -91,9 +100,11 @@ static func apply_to_button(button: Button) -> void:
 	button.add_theme_stylebox_override("normal", create_button_normal())
 	button.add_theme_stylebox_override("hover", create_button_hover())
 	button.add_theme_stylebox_override("pressed", create_button_pressed())
+	button.add_theme_stylebox_override("disabled", create_button_disabled())
 	button.add_theme_color_override("font_color", WH_PARCHMENT)
 	button.add_theme_color_override("font_hover_color", WH_PARCHMENT)
 	button.add_theme_color_override("font_pressed_color", WH_GOLD)
+	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.6))
 
 static func apply_to_label(label: Label, is_header: bool = false) -> void:
 	if not label:

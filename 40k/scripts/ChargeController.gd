@@ -2,6 +2,7 @@ extends Node2D
 class_name ChargeController
 
 const GameStateData = preload("res://autoloads/GameState.gd")
+const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 
 # ChargeController - Handles UI interactions for the Charge Phase
@@ -361,12 +362,14 @@ func _setup_right_panel() -> void:
 	declare_button.text = "Declare Charge"
 	declare_button.disabled = true
 	declare_button.pressed.connect(_on_declare_charge_pressed)
+	_WhiteDwarfTheme.apply_to_button(declare_button)
 	main_buttons.add_child(declare_button)
-	
+
 	roll_button = Button.new()
 	roll_button.text = "Roll 2D6"
 	roll_button.disabled = true
 	roll_button.pressed.connect(_on_roll_charge_pressed)
+	_WhiteDwarfTheme.apply_to_button(roll_button)
 	main_buttons.add_child(roll_button)
 	
 	action_button_container.add_child(main_buttons)
@@ -378,13 +381,15 @@ func _setup_right_panel() -> void:
 	skip_button.text = "Skip Charge"
 	skip_button.disabled = true
 	skip_button.pressed.connect(_on_skip_charge_pressed)
+	_WhiteDwarfTheme.apply_to_button(skip_button)
 	secondary_buttons.add_child(skip_button)
-	
+
 	next_unit_button = Button.new()
 	next_unit_button.text = "Select Next Unit"
 	next_unit_button.disabled = true
 	next_unit_button.visible = false
 	next_unit_button.pressed.connect(_on_next_unit_pressed)
+	_WhiteDwarfTheme.apply_to_button(next_unit_button)
 	secondary_buttons.add_child(next_unit_button)
 	
 	action_button_container.add_child(secondary_buttons)
@@ -983,6 +988,7 @@ func _add_confirm_button() -> void:
 	confirm_button = Button.new()
 	confirm_button.text = "Confirm Charge Moves"
 	confirm_button.visible = false
+	_WhiteDwarfTheme.apply_to_button(confirm_button)
 	print("DEBUG: Connecting confirm button signal...")
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
