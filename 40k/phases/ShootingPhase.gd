@@ -1533,6 +1533,57 @@ func _resolve_next_weapon() -> Dictionary:
 
 		return create_result(true, changes, "Sequential weapon resolution complete")
 
+	# Skip weapons whose target unit has been fully destroyed
+	while current_index < weapon_order.size():
+		var next_assignment = weapon_order[current_index]
+		var next_target_id = next_assignment.get("target_unit_id", "")
+		if next_target_id == "" or not _is_unit_destroyed(next_target_id):
+			break
+		# Target is destroyed — skip this weapon
+		var skipped_weapon_id = next_assignment.get("weapon_id", "")
+		var skipped_weapon_profile = RulesEngine.get_weapon_profile(skipped_weapon_id)
+		var skipped_weapon_name = skipped_weapon_profile.get("name", skipped_weapon_id)
+		var skipped_target_name = get_unit(next_target_id).get("meta", {}).get("name", next_target_id)
+		print("ShootingPhase: SKIPPING weapon %d (%s) — target unit %s is destroyed" % [current_index + 1, skipped_weapon_name, skipped_target_name])
+		log_phase_message("Skipped %s — target %s destroyed" % [skipped_weapon_name, skipped_target_name])
+		resolution_state.completed_weapons.append({
+			"weapon_id": skipped_weapon_id,
+			"target_unit_id": next_target_id,
+			"target_unit_name": skipped_target_name,
+			"wounds": 0,
+			"casualties": 0,
+			"hits": 0,
+			"total_attacks": 0,
+			"saves_failed": 0,
+			"dice_rolls": [],
+			"hit_data": {},
+			"wound_data": {},
+			"skipped_target_destroyed": true
+		})
+		current_index += 1
+		resolution_state.current_index = current_index
+
+	# Re-check if all weapons are now complete (some may have been skipped)
+	if current_index >= weapon_order.size():
+		print("ShootingPhase: All weapons complete (some skipped due to destroyed targets)")
+		log_phase_message("All weapons resolved sequentially")
+
+		var shooter_id = active_shooter_id
+		units_that_shot.append(active_shooter_id)
+		var changes = [{
+			"op": "set",
+			"path": "units.%s.flags.has_shot" % active_shooter_id,
+			"value": true
+		}]
+
+		active_shooter_id = ""
+		confirmed_assignments.clear()
+		resolution_state.clear()
+
+		emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+		return create_result(true, changes, "Sequential weapon resolution complete (remaining targets destroyed)")
+
 	# Get current weapon assignment
 	var current_assignment = weapon_order[current_index]
 	var weapon_id = current_assignment.get("weapon_id", "")
@@ -1667,6 +1718,15 @@ func _resolve_next_weapon() -> Dictionary:
 
 		for i in range(resolution_state.current_index, weapon_order.size()):
 			var weapon = weapon_order[i]
+			var miss_target_id = weapon.get("target_unit_id", "")
+
+			# Filter out weapons whose target unit is already destroyed
+			if miss_target_id != "" and _is_unit_destroyed(miss_target_id):
+				var skipped_wid = weapon.get("weapon_id", "")
+				var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
+				print("║ Filtered weapon %d: %s (target %s already destroyed)" % [i, skipped_wp.get("name", skipped_wid), miss_target_id])
+				continue
+
 			remaining_weapons.append(weapon)
 
 			# Validate weapon structure
@@ -1680,7 +1740,7 @@ func _resolve_next_weapon() -> Dictionary:
 
 		print("║ Total remaining weapons: %d" % remaining_weapons.size())
 		if remaining_weapons.is_empty():
-			print("║ ✓ This is the FINAL weapon - dialog will show 'Complete Shooting' button")
+			print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
 		print("╚═══════════════════════════════════════════════════════════════")
 
 		# Get last weapon result for dialog display
@@ -1763,6 +1823,19 @@ func _resolve_next_weapon() -> Dictionary:
 	})
 
 # Helper Methods
+
+func _is_unit_destroyed(unit_id: String) -> bool:
+	"""Check if a target unit has been fully destroyed (all models dead)."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return true
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return true
+	for model in models:
+		if model.get("alive", true):
+			return false
+	return true
 
 func _can_unit_shoot(unit: Dictionary) -> bool:
 	var status = unit.get("status", 0)
@@ -3530,7 +3603,29 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			print("ShootingPhase: ⚠ PAUSING - Waiting for attacker to confirm next weapon")
 			print("ShootingPhase: Remaining weapons: ", weapon_order.size() - resolution_state.current_index)
 
+			# Determine which target units are fully destroyed by the pending diffs
+			# (diffs haven't been applied to game state yet, so compute from diff + snapshot)
+			var _models_killed_by_unit = {}
+			for diff in all_diffs:
+				var dpath = diff.get("path", "")
+				if dpath.ends_with(".alive") and diff.get("value") == false:
+					var dparts = dpath.split(".")
+					if dparts.size() >= 2 and dparts[0] == "units":
+						var uid = dparts[1]
+						_models_killed_by_unit[uid] = _models_killed_by_unit.get(uid, 0) + 1
+			var _targets_destroyed_by_diffs = {}
+			for uid in _models_killed_by_unit:
+				var tunit = get_unit(uid)
+				var alive_count = 0
+				for m in tunit.get("models", []):
+					if m.get("alive", true):
+						alive_count += 1
+				if alive_count > 0 and alive_count <= _models_killed_by_unit[uid]:
+					_targets_destroyed_by_diffs[uid] = true
+					print("ShootingPhase: Target unit %s fully destroyed by current saves — will skip remaining weapons targeting it" % uid)
+
 			# Build remaining weapons with validation (may be empty array if this is the last weapon)
+			# Filter out weapons targeting units destroyed by the current save diffs
 			var remaining_weapons = []
 
 			print("╔═══════════════════════════════════════════════════════════════")
@@ -3541,6 +3636,16 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 			for i in range(resolution_state.current_index, weapon_order.size()):
 				var weapon = weapon_order[i]
+				var weapon_target_id = weapon.get("target_unit_id", "")
+
+				# Filter out weapons whose target was just destroyed (for UI display only)
+				# Actual skipping and index management is handled by _resolve_next_weapon
+				if _targets_destroyed_by_diffs.has(weapon_target_id):
+					var skipped_wid = weapon.get("weapon_id", "")
+					var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
+					print("║ Filtered weapon %d: %s (target %s destroyed)" % [i, skipped_wp.get("name", skipped_wid), weapon_target_id])
+					continue
+
 				remaining_weapons.append(weapon)
 
 				# Validate weapon structure
@@ -3554,7 +3659,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 			print("║ Total remaining weapons: %d" % remaining_weapons.size())
 			if remaining_weapons.is_empty():
-				print("║ ✓ This is the FINAL weapon - dialog will show 'Complete Shooting' button")
+				print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
 			print("╚═══════════════════════════════════════════════════════════════")
 
 			# Get last weapon result for dialog display
