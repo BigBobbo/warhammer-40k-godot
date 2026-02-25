@@ -5088,6 +5088,9 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 			if polygon.is_empty():
 				continue
 
+			var starts_inside = Geometry2D.is_point_in_polygon(from_pos, polygon)
+			var ends_inside = Geometry2D.is_point_in_polygon(to_pos, polygon)
+
 			var crosses = false
 			for j in range(polygon.size()):
 				var edge_start = polygon[j]
@@ -5096,7 +5099,21 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 					crosses = true
 					break
 
-			if not crosses:
+			# Skip terrain that the path doesn't interact with at all
+			if not crosses and not starts_inside and not ends_inside:
+				continue
+
+			# Determine climb multiplier:
+			# 0 = both inside (no climb), 1 = onto or off, 2 = over (up + down)
+			var climb_multiplier: float = 0.0
+			if starts_inside and ends_inside:
+				climb_multiplier = 0.0
+			elif starts_inside or ends_inside:
+				climb_multiplier = 1.0
+			else:
+				climb_multiplier = 2.0
+
+			if climb_multiplier == 0.0:
 				continue
 
 			if has_fly:
@@ -5115,10 +5132,10 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 					cross_distance_px = intersections[0].distance_to(intersections[1])
 				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
 				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
-				total_penalty += diagonal - cross_distance_inches
+				total_penalty += (diagonal - cross_distance_inches) * (climb_multiplier / 2.0)
 			else:
-				# Non-FLY: climb up + climb down = height * 2
-				total_penalty += height_inches * 2.0
+				# Non-FLY: climb penalty based on whether moving onto, off, or over terrain
+				total_penalty += height_inches * climb_multiplier
 
 	return total_penalty
 
