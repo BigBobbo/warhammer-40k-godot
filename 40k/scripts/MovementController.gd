@@ -420,17 +420,20 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	
 	var undo_button = Button.new()
 	undo_button.text = "Undo Model"
-	undo_button.pressed.connect(_on_undo_model_pressed) 
+	undo_button.pressed.connect(_on_undo_model_pressed)
+	WhiteDwarfTheme.apply_to_button(undo_button)
 	button_container.add_child(undo_button)
-	
+
 	var reset_button = Button.new()
 	reset_button.text = "Reset Unit"
 	reset_button.pressed.connect(_on_reset_unit_pressed)
+	WhiteDwarfTheme.apply_to_button(reset_button)
 	button_container.add_child(reset_button)
-	
-	var confirm_button = Button.new()  
+
+	var confirm_button = Button.new()
 	confirm_button.text = "Confirm Move"
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
+	WhiteDwarfTheme.apply_to_button(confirm_button)
 	button_container.add_child(confirm_button)
 	
 	section.add_child(button_container)
