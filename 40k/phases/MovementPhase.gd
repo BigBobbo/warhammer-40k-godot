@@ -2748,6 +2748,7 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 	# FLY units ignore terrain elevation and difficult ground entirely (return 0).
 	# Non-FLY units must count vertical distance (climb up + down) for terrain >2",
 	# and pay a flat 2" penalty for each terrain piece with the "difficult_ground" trait.
+	# Per 10e rules: INFANTRY can move through ruins walls freely with no penalty.
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
