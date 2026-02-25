@@ -348,58 +348,6 @@ func get_terrain_traits(terrain_piece: Dictionary) -> Array:
 func has_terrain_trait(terrain_piece: Dictionary, trait_name: String) -> bool:
 	return trait_name in get_terrain_traits(terrain_piece)
 
-## Calculate the wall climb penalty for a movement path crossing walls within terrain.
-## Per 10e rules: INFANTRY can move through ruins walls, but must count the vertical
-## distance of climbing over them. Each wall crossed costs one climb up + one climb down
-## (wall height * 2). Walls use their parent terrain piece's height.
-## FLY units ignore wall climb penalties entirely.
-## Wall types affect the penalty:
-##   - "solid" walls: full climb penalty (height * 2)
-##   - "door" walls: no penalty (designed for passage)
-##   - "window" walls: reduced penalty (height * 1, climbing through opening)
-func calculate_wall_climb_penalty(from_pos: Vector2, to_pos: Vector2, unit_keywords: Array) -> float:
-	# FLY units ignore wall climb penalties
-	if "FLY" in unit_keywords:
-		return 0.0
-
-	var total_penalty: float = 0.0
-
-	for terrain in terrain_features:
-		var walls = terrain.get("walls", [])
-		if walls.is_empty():
-			continue
-
-		var height_inches = get_height_inches(terrain)
-		# Walls in low terrain (<=2") don't require climbing
-		if height_inches <= 2.0:
-			continue
-
-		for wall in walls:
-			# Only count walls the unit can actually cross (infantry through ruins walls)
-			if not can_unit_cross_wall(unit_keywords, wall):
-				continue
-
-			if not check_line_intersects_wall(from_pos, to_pos, wall):
-				continue
-
-			var wall_type = wall.get("type", "solid")
-			match wall_type:
-				"door":
-					# Doors allow passage without climbing
-					print("[TerrainManager] Wall '%s' is a door — no climb penalty" % wall.get("id", "unknown"))
-				"window":
-					# Windows allow partial passage — climb up only (half penalty)
-					total_penalty += height_inches
-					print("[TerrainManager] Wall climb penalty for %s (window): %.1f\" (height=%.1f\")" % [
-						wall.get("id", "unknown"), height_inches, height_inches])
-				_:
-					# Solid walls require full climb over: up + down
-					total_penalty += height_inches * 2.0
-					print("[TerrainManager] Wall climb penalty for %s (solid): %.1f\" (height=%.1f\")" % [
-						wall.get("id", "unknown"), height_inches * 2.0, height_inches])
-
-	return total_penalty
-
 ## Calculate the vertical distance penalty for a charge path crossing terrain.
 ## Per 10e rules: terrain 2" or less can be moved over freely.
 ## Terrain taller than 2" requires counting vertical distance against the charge roll:

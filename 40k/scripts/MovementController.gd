@@ -2139,21 +2139,17 @@ func _update_model_token_visual(model: Dictionary) -> void:
 
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
 	"""Calculate terrain elevation penalty via TerrainManager.
-	Non-FLY units must count vertical distance for tall terrain and wall climbs."""
+	Non-FLY units must count vertical distance for tall terrain."""
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
 	# Check if the active unit has FLY keyword
 	var has_fly = false
-	var keywords: Array = []
 	if active_unit_id != "":
 		var unit = GameState.get_unit(active_unit_id)
-		keywords = unit.get("meta", {}).get("keywords", [])
+		var keywords = unit.get("meta", {}).get("keywords", [])
 		has_fly = "FLY" in keywords
-	var terrain_penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
-	# Also add wall climb penalty for infantry crossing walls within terrain
-	var wall_penalty = terrain_manager.calculate_wall_climb_penalty(from_pos, to_pos, keywords)
-	return terrain_penalty + wall_penalty
+	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
 
 func _check_position_would_overlap(position: Vector2) -> bool:
 	# Check if placing the selected model at the given position would overlap

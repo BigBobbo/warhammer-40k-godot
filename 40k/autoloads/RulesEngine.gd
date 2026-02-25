@@ -4884,8 +4884,8 @@ static func validate_charge_paths(unit_id: String, targets: Array, roll: int, pa
 		if path is Array and path.size() >= 2:
 			var path_distance = Measurement.distance_polyline_inches(path)
 
-			# T2-8: Calculate terrain vertical distance penalty (including wall climbs)
-			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board, unit_keywords)
+			# T2-8: Calculate terrain vertical distance penalty
+			var terrain_penalty = _calculate_charge_terrain_penalty_rules(path, has_fly, board)
 			var effective_distance = path_distance + terrain_penalty
 
 			if effective_distance > roll:
@@ -5039,7 +5039,7 @@ static func _get_model_position_rules(model: Dictionary) -> Vector2:
 # Uses board terrain_features data to check for terrain >2" high.
 # Non-FLY units pay full climb (height * 2 for up + down).
 # FLY units pay diagonal distance (shorter).
-static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary, unit_keywords: Array = []) -> float:
+static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary) -> float:
 	var total_penalty: float = 0.0
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty():
@@ -5059,9 +5059,6 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 				var to_pos = _path_point_to_vector2(path[i])
 				if from_pos != null and to_pos != null:
 					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
-					# Also add wall climb penalty
-					if terrain_manager.has_method("calculate_wall_climb_penalty"):
-						total_penalty += terrain_manager.calculate_wall_climb_penalty(from_pos, to_pos, unit_keywords)
 			return total_penalty
 
 	# Use terrain_features from board dict
