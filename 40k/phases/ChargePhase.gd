@@ -1344,7 +1344,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 			# T2-8: Add terrain vertical distance penalty
 			# Terrain >2" high costs vertical distance against charge roll
 			# FLY units measure diagonally instead (shorter penalty)
-			var terrain_penalty = _calculate_path_terrain_penalty(path, has_fly)
+			var terrain_penalty = _calculate_path_terrain_penalty(path, has_fly, unit_keywords)
 			var effective_distance = path_distance + terrain_penalty
 
 			if terrain_penalty > 0.0:
@@ -1645,7 +1645,7 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 ## T2-8: Calculate the total terrain vertical distance penalty for a charge path.
 ## For each segment of the path that crosses terrain >2" high, adds vertical
 ## distance (climb up + down for non-FLY, diagonal for FLY units).
-func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
+func _calculate_path_terrain_penalty(path: Array, has_fly: bool, unit_keywords: Array = []) -> float:
 	var total_penalty: float = 0.0
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager:
@@ -1672,6 +1672,8 @@ func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
 			continue
 
 		total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+		# Also add wall climb penalty for crossing walls within terrain
+		total_penalty += terrain_manager.calculate_wall_climb_penalty(from_pos, to_pos, unit_keywords)
 
 	return total_penalty
 
@@ -2029,7 +2031,7 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 
 				# T2-8: Add terrain penalty for the straight-line path
 				var terrain_penalty = _calculate_path_terrain_penalty(
-					[model_pos, target_pos], has_fly)
+					[model_pos, target_pos], has_fly, unit_keywords)
 				var effective_distance = distance_to_close + terrain_penalty
 
 				if effective_distance <= rolled_distance:
