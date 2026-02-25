@@ -146,7 +146,7 @@ func _setup_right_panel() -> void:
 
 	scoring_panel.add_child(HSeparator.new())
 
-	# Secondary Missions display
+	# Secondary Missions display with discard buttons
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var missions_title = Label.new()
@@ -162,21 +162,7 @@ func _setup_right_panel() -> void:
 		else:
 			for i in range(active_missions.size()):
 				var mission = active_missions[i]
-				var mission_label = Label.new()
-				var timing = mission.get("scoring", {}).get("when", "")
-				var timing_text = ""
-				match timing:
-					"end_of_your_turn": timing_text = "End of your turn"
-					"end_of_either_turn": timing_text = "End of either turn"
-					"end_of_opponent_turn": timing_text = "End of opponent's turn"
-					"while_active": timing_text = "While active"
-
-				mission_label.text = "  [%d] %s\n      Category: %s | Scores: %s" % [
-					i + 1, mission["name"], mission["category"].capitalize(), timing_text]
-				if mission.get("pending_interaction", false):
-					mission_label.text += "\n      (Awaiting opponent interaction)"
-				mission_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				scoring_panel.add_child(mission_label)
+				_add_mission_card(scoring_panel, mission, i)
 
 		# Deck info
 		var deck_label = Label.new()
@@ -195,7 +181,7 @@ func _setup_right_panel() -> void:
 		scoring_panel.add_child(game_end_label)
 	else:
 		var instruction_label = Label.new()
-		instruction_label.text = "Player %d, you may:\n- Discard a secondary mission (gain 1 CP)\n- End your turn" % current_player
+		instruction_label.text = "Press a Discard button above to discard\na secondary for +1 CP, or End Turn below."
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
 
@@ -255,9 +241,112 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	mission_info.text = "  Mission: %s" % mission_name
 	panel.add_child(mission_info)
 
+func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -> void:
+	var card_container = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.2, 0.9)
+	style.border_color = Color(0.4, 0.35, 0.15)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(6)
+	card_container.add_theme_stylebox_override("panel", style)
+	parent.add_child(card_container)
+
+	var card_vbox = VBoxContainer.new()
+	card_vbox.add_theme_constant_override("separation", 2)
+	card_container.add_child(card_vbox)
+
+	# Mission name
+	var name_label = Label.new()
+	name_label.text = mission.get("name", "Unknown Mission")
+	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+	card_vbox.add_child(name_label)
+
+	# Category
+	var cat_label = Label.new()
+	cat_label.text = mission.get("category", "").capitalize()
+	cat_label.add_theme_font_size_override("font_size", 10)
+	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	card_vbox.add_child(cat_label)
+
+	# Scoring info
+	var scoring = mission.get("scoring", {})
+	var timing = scoring.get("when", "")
+	var timing_text = _get_timing_display(timing)
+	var conditions = scoring.get("conditions", [])
+	var max_vp = 0
+	for c in conditions:
+		max_vp = max(max_vp, c.get("vp", 0))
+	var scoring_label = Label.new()
+	scoring_label.text = "Up to %d VP | %s" % [max_vp, timing_text]
+	scoring_label.add_theme_font_size_override("font_size", 10)
+	scoring_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+	card_vbox.add_child(scoring_label)
+
+	# Pending interaction indicator
+	if mission.get("pending_interaction", false):
+		var pending_label = Label.new()
+		pending_label.text = "AWAITING INTERACTION"
+		pending_label.add_theme_font_size_override("font_size", 10)
+		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+		card_vbox.add_child(pending_label)
+
+	# Discard button
+	var discard_btn = Button.new()
+	discard_btn.text = "Discard \"%s\" (+1 CP)" % mission.get("name", "?")
+	discard_btn.custom_minimum_size = Vector2(0, 28)
+	discard_btn.add_theme_font_size_override("font_size", 11)
+	discard_btn.tooltip_text = "Voluntarily discard this mission and gain 1 CP."
+	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
+	card_vbox.add_child(discard_btn)
+
+func _get_timing_display(timing: String) -> String:
+	match timing:
+		"end_of_your_turn":
+			return "End of your turn"
+		"end_of_either_turn":
+			return "End of either turn"
+		"end_of_opponent_turn":
+			return "End of opponent's turn"
+		"while_active":
+			return "While active"
+		_:
+			return timing
+
+func _on_discard_pressed(mission_index: int) -> void:
+	if GameState.is_game_complete():
+		print("ScoringController: Game is already complete, cannot discard")
+		return
+
+	var current_player = GameState.get_active_player()
+	print("ScoringController: Discard requested for mission index %d by player %d" % [mission_index, current_player])
+	emit_signal("scoring_action_requested", {
+		"type": "DISCARD_SECONDARY",
+		"mission_index": mission_index,
+		"player": current_player,
+	})
+
+func _rebuild_right_panel() -> void:
+	if not hud_right:
+		return
+
+	# Remove existing scoring panel elements
+	var container = hud_right.get_node_or_null("VBoxContainer")
+	if container and is_instance_valid(container):
+		var scoring_elements = ["ScoringScrollContainer"]
+		for element in scoring_elements:
+			var node = container.get_node_or_null(element)
+			if node and is_instance_valid(node):
+				container.remove_child(node)
+				node.queue_free()
+
+	# Rebuild the panel with fresh data
+	_setup_right_panel()
+
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
-	
+
 	if phase:
 		# Update UI elements with current game state
 		_refresh_ui()
@@ -269,12 +358,15 @@ func _refresh_ui() -> void:
 	# Update battle round label
 	if battle_round_label:
 		battle_round_label.text = "Battle Round " + str(GameState.get_battle_round())
-	
+
 	# Update turn info label
 	if turn_info_label:
 		var current_player = GameState.get_active_player()
 		turn_info_label.text = "Player %d Turn" % current_player
-	
+
+	# Rebuild right panel to reflect current mission state
+	_rebuild_right_panel()
+
 	# Check if game is complete
 	if GameState.is_game_complete():
 		# Main.gd will handle disabling the phase action button
@@ -284,6 +376,6 @@ func _on_end_turn_pressed() -> void:
 	if GameState.is_game_complete():
 		print("ScoringController: Game is already complete, cannot end turn")
 		return
-	
+
 	print("ScoringController: End Turn button pressed")
 	emit_signal("scoring_action_requested", {"type": "END_TURN"})
