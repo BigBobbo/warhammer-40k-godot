@@ -1687,6 +1687,18 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 			_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
 			return false
 
+	# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+	var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+	for omni in omni_positions:
+		var omni_pos_px = Vector2(omni.x, omni.y)
+		var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+		var dist_px = world_pos.distance_to(omni_pos_px)
+		var dist_inches = dist_px / px_per_inch
+		var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+		if edge_dist < 12.0:
+			_show_toast("Cannot deploy within 12\" of Omni-scramblers (%s) (%.1f\")" % [omni.get("unit_name", "unknown"), edge_dist])
+			return false
+
 	return true
 
 func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:

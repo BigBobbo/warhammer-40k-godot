@@ -25,6 +25,7 @@ signal heroic_intervention_opportunity(player: int, eligible_units: Array, charg
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 signal tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_targets: Array)
 signal tank_shock_result(vehicle_unit_id: String, target_unit_id: String, result: Dictionary)
+signal ability_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const CHARGE_RANGE_INCHES: float = 12.0     # Maximum charge declaration range
@@ -39,6 +40,9 @@ var completed_charges: Array = []      # Units that finished charging this phase
 var failed_charge_attempts: Array = [] # Structured failure records for UI tooltips
 var awaiting_reroll_decision: bool = false  # True when waiting for Command Re-roll response
 var reroll_pending_unit_id: String = ""     # Unit awaiting reroll decision
+var awaiting_ability_reroll: bool = false   # True when waiting for ability reroll response (e.g. Swift Onslaught)
+var ability_reroll_unit_id: String = ""     # Unit awaiting ability reroll decision
+var ability_reroll_used: bool = false       # True if ability reroll was used for current charge (prevents Command Re-roll)
 # Fire Overwatch state tracking (T3-11 + remote PR)
 var awaiting_overwatch_decision: bool = false  # True when waiting for Fire Overwatch response (remote)
 var overwatch_charging_unit_id: String = ""   # The unit that declared the charge (overwatch target, remote)
@@ -95,6 +99,9 @@ func _on_phase_enter() -> void:
 	failed_charge_attempts.clear()
 	awaiting_reroll_decision = false
 	reroll_pending_unit_id = ""
+	awaiting_ability_reroll = false
+	ability_reroll_unit_id = ""
+	ability_reroll_used = false
 	awaiting_overwatch_decision = false
 	overwatch_charging_unit_id = ""
 	awaiting_fire_overwatch = false
@@ -161,6 +168,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_skip_charge(action)
 		"END_CHARGE":
 			return _validate_end_charge(action)
+		"USE_ABILITY_REROLL":
+			return _validate_ability_reroll(action)
+		"DECLINE_ABILITY_REROLL":
+			return _validate_ability_reroll(action)
 		"USE_COMMAND_REROLL":
 			return _validate_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
@@ -202,6 +213,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_skip_charge(action)
 		"END_CHARGE":
 			return _process_end_charge(action)
+		"USE_ABILITY_REROLL":
+			return _process_use_ability_reroll(action)
+		"DECLINE_ABILITY_REROLL":
+			return _process_decline_ability_reroll(action)
 		"USE_COMMAND_REROLL":
 			return _process_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
@@ -398,6 +413,15 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		"declared_at": Time.get_unix_time_from_system()
 	}
 
+	# Track once-per-battle ability usage when a unit charges after advancing
+	var declaring_unit = get_unit(unit_id)
+	var declaring_flags = declaring_unit.get("flags", {})
+	if declaring_flags.get("advanced", false) and EffectPrimitivesData.has_effect_advance_and_charge(declaring_unit):
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr:
+			ability_mgr.mark_once_per_battle_used(unit_id, "Martial Inspiration")
+			print("ChargePhase: Marked Martial Inspiration as used for unit %s (charged after advancing)" % unit_id)
+
 	# Track the currently charging unit (may not have been set via SELECT_CHARGE_UNIT)
 	current_charging_unit = unit_id
 
@@ -420,38 +444,48 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
 	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
-	var charging_owner = int(unit.get("owner", 0))
-	var defending_player = 2 if charging_owner == 1 else 1
+	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var has_sneaky_surprise = false
+	if ability_mgr:
+		has_sneaky_surprise = ability_mgr.has_sneaky_surprise(unit_id)
 
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
-		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
-		if ow_check.available:
-			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
-				defending_player, unit_id, game_state_snapshot
-			)
+	if has_sneaky_surprise:
+		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
+		print("ChargePhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+	else:
+		var charging_owner = int(unit.get("owner", 0))
+		var defending_player = 2 if charging_owner == 1 else 1
 
-			if not ow_eligible.is_empty():
-				# Fire Overwatch is available! Pause and offer it to the defender
-				awaiting_fire_overwatch = true
-				awaiting_overwatch_decision = true
-				overwatch_charging_unit_id = unit_id
-				fire_overwatch_player = defending_player
-				fire_overwatch_enemy_unit_id = unit_id
-				fire_overwatch_eligible_units = ow_eligible
-				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
-				print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+			if ow_check.available:
+				var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+					defending_player, unit_id, game_state_snapshot
+				)
 
-				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
-				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+				if not ow_eligible.is_empty():
+					# Fire Overwatch is available! Pause and offer it to the defender
+					awaiting_fire_overwatch = true
+					awaiting_overwatch_decision = true
+					overwatch_charging_unit_id = unit_id
+					fire_overwatch_player = defending_player
+					fire_overwatch_enemy_unit_id = unit_id
+					fire_overwatch_eligible_units = ow_eligible
+					log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against charging %s" % [defending_player, ow_eligible.size(), unit_name])
+					print("ChargePhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
 
-				var result = create_result(true, [])
-				result["trigger_fire_overwatch"] = true
-				result["awaiting_overwatch"] = true
-				result["fire_overwatch_player"] = defending_player
-				result["fire_overwatch_eligible_units"] = ow_eligible
-				result["fire_overwatch_enemy_unit_id"] = unit_id
-				return result
+					emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+					emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+
+					var result = create_result(true, [])
+					result["trigger_fire_overwatch"] = true
+					result["awaiting_overwatch"] = true
+					result["fire_overwatch_player"] = defending_player
+					result["fire_overwatch_eligible_units"] = ow_eligible
+					result["fire_overwatch_enemy_unit_id"] = unit_id
+					return result
 
 	return create_result(true, [])
 
@@ -472,6 +506,57 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	var target_ids = charge_data.targets
 
 	log_phase_message("Charge roll: 2D6 = %d (%d + %d)" % [total_distance, rolls[0], rolls[1]])
+
+	# Reset ability reroll tracking for this charge attempt
+	ability_reroll_used = false
+
+	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught)
+	var unit_data = get_unit(unit_id)
+	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data)
+
+	if has_ability_reroll:
+		# Offer free ability reroll first (before Command Re-roll)
+		awaiting_ability_reroll = true
+		ability_reroll_unit_id = unit_id
+
+		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
+		var needed = max(0.0, min_distance - ENGAGEMENT_RANGE_INCHES)
+		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
+
+		var roll_context = {
+			"roll_type": "charge_roll",
+			"original_rolls": rolls,
+			"total": total_distance,
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"context_text": context_text,
+			"min_distance": min_distance,
+			"ability_name": "Swift Onslaught",
+		}
+
+		print("ChargePhase: Ability reroll (Swift Onslaught) available for %s — pausing for player decision" % unit_name)
+		emit_signal("ability_reroll_opportunity", unit_id, get_current_player(), roll_context)
+
+		return create_result(true, [], "", {
+			"dice": [{"context": "charge_roll", "unit_id": unit_id, "unit_name": unit_name, "rolls": rolls, "total": total_distance, "targets": target_ids}],
+			"awaiting_ability_reroll": true,
+		})
+
+	# No ability reroll — check Command Re-roll
+	return _check_command_reroll_or_resolve(unit_id)
+
+func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
+	"""After ability reroll decision (or if none available), check Command Re-roll or resolve."""
+	var charge_data = pending_charges[unit_id]
+	var rolls = charge_data.dice_rolls
+	var total_distance = charge_data.distance
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_ids = charge_data.targets
+
+	# Per 10e rules: a dice can only be re-rolled once. If ability reroll was used, skip Command Re-roll.
+	if ability_reroll_used:
+		print("ChargePhase: Ability reroll already used for %s — cannot Command Re-roll (dice re-rolled once rule)" % unit_name)
+		return _resolve_charge_roll(unit_id)
 
 	# Check if Command Re-roll is available for the charging player
 	var current_player = get_current_player()
@@ -510,7 +595,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 			"awaiting_reroll": true,
 		})
 
-	# No Command Re-roll available — resolve immediately
+	# No rerolls available — resolve immediately
 	return _resolve_charge_roll(unit_id)
 
 func _resolve_charge_roll(unit_id: String) -> Dictionary:
@@ -577,6 +662,60 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		"dice": [dice_result],
 		"charge_failed": false,
 	})
+
+func _validate_ability_reroll(action: Dictionary) -> Dictionary:
+	"""Validate USE_ABILITY_REROLL or DECLINE_ABILITY_REROLL action."""
+	if not awaiting_ability_reroll:
+		return {"valid": false, "errors": ["Not awaiting an ability reroll decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_ability_reroll(action: Dictionary) -> Dictionary:
+	"""Process USE_ABILITY_REROLL: re-roll the charge dice using ability (free, no CP cost)."""
+	var unit_id = ability_reroll_unit_id
+	awaiting_ability_reroll = false
+	ability_reroll_unit_id = ""
+	ability_reroll_used = true
+
+	if not pending_charges.has(unit_id):
+		return create_result(false, [], "No pending charge for ability reroll")
+
+	var charge_data = pending_charges[unit_id]
+	var old_rolls = charge_data.dice_rolls.duplicate()
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# Re-roll the 2D6 (free — no CP cost)
+	var rng = RulesEngine.RNGService.new()
+	var new_rolls = rng.roll_d6(2)
+	var new_total = new_rolls[0] + new_rolls[1]
+
+	# Update the charge data with new rolls
+	charge_data.distance = new_total
+	charge_data.dice_rolls = new_rolls
+
+	log_phase_message("SWIFT ONSLAUGHT: Charge re-rolled from %d (%s) → %d (%d + %d)" % [
+		old_rolls[0] + old_rolls[1], str(old_rolls), new_total, new_rolls[0], new_rolls[1]
+	])
+
+	print("ChargePhase: ABILITY REROLL (Swift Onslaught) — %s charge re-rolled: %s → %s (total %d → %d)" % [
+		unit_name, str(old_rolls), str(new_rolls), old_rolls[0] + old_rolls[1], new_total
+	])
+
+	# Dice already re-rolled once — cannot Command Re-roll per 10e rules
+	return _resolve_charge_roll(unit_id)
+
+func _process_decline_ability_reroll(action: Dictionary) -> Dictionary:
+	"""Process DECLINE_ABILITY_REROLL: skip free reroll, proceed to Command Re-roll check."""
+	var unit_id = ability_reroll_unit_id
+	awaiting_ability_reroll = false
+	ability_reroll_unit_id = ""
+
+	if not pending_charges.has(unit_id):
+		return create_result(false, [], "No pending charge for ability reroll decline")
+
+	print("ChargePhase: Ability reroll DECLINED for %s — checking Command Re-roll" % unit_id)
+
+	# Player chose not to use ability reroll — check Command Re-roll
+	return _check_command_reroll_or_resolve(unit_id)
 
 func _validate_command_reroll(action: Dictionary) -> Dictionary:
 	"""Validate USE_COMMAND_REROLL or DECLINE_COMMAND_REROLL action."""
@@ -1032,10 +1171,16 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 		return false
 	
 	if flags.get("advanced", false):
-		return false
-	
+		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
+			return false
+		else:
+			print("ChargePhase: Unit %s advanced but has advance_and_charge effect — eligible to charge" % unit.get("id", "unknown"))
+
 	if flags.get("fell_back", false):
-		return false
+		if not EffectPrimitivesData.has_effect_fall_back_and_charge(unit):
+			return false
+		else:
+			print("ChargePhase: Unit %s fell back but has fall_back_and_charge effect — eligible to charge" % unit.get("id", "unknown"))
 
 	if flags.get("charged_this_turn", false):
 		return false
@@ -1580,6 +1725,20 @@ func get_available_actions() -> Array:
 	var units = get_units_for_player(current_player)
 
 	# --- Reaction states: these block normal charge actions until resolved ---
+
+	# Ability reroll decision pending (e.g. Swift Onslaught — free reroll)
+	if awaiting_ability_reroll and ability_reroll_unit_id != "":
+		actions.append({
+			"type": "USE_ABILITY_REROLL",
+			"actor_unit_id": ability_reroll_unit_id,
+			"description": "Use Swift Onslaught — re-roll charge dice (free)"
+		})
+		actions.append({
+			"type": "DECLINE_ABILITY_REROLL",
+			"actor_unit_id": ability_reroll_unit_id,
+			"description": "Keep original charge roll"
+		})
+		return actions  # Block other actions until resolved
 
 	# Command Re-roll decision pending
 	if awaiting_reroll_decision and reroll_pending_unit_id != "":

@@ -251,8 +251,18 @@ func get_available_actions() -> Array:
 						"player": current_player
 					})
 
-	# Faction ability actions (Oath of Moment target selection)
+	# Faction ability actions
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+
+	# Waaagh! activation (Orks)
+	if faction_mgr and faction_mgr.is_waaagh_available(current_player):
+		actions.append({
+			"type": "CALL_WAAAGH",
+			"description": "WAAAGH! — Advance+Charge, +1 S/A melee, 5+ invuln (once per battle)",
+			"player": current_player
+		})
+
+	# Oath of Moment target selection (Space Marines)
 	if faction_mgr and faction_mgr.player_has_ability(current_player, "Oath of Moment"):
 		var current_oath_target = faction_mgr.get_oath_of_moment_target(current_player)
 		var eligible_targets = faction_mgr.get_eligible_oath_targets(current_player)
@@ -266,6 +276,61 @@ func get_available_actions() -> Array:
 					"description": "Oath of Moment: %s%s" % [target_info.unit_name, " (current)" if is_current else ""],
 					"player": current_player,
 					"is_current_target": is_current
+				})
+
+	# Combat Doctrines selection (Space Marines — Gladius Task Force) (P2-27)
+	if faction_mgr and faction_mgr.get_player_detachment(current_player) == "Gladius Task Force":
+		var available_doctrines = faction_mgr.get_available_doctrines(current_player)
+		var active_doctrine = faction_mgr.get_active_doctrine(current_player)
+		if available_doctrines.size() > 0 and active_doctrine == "":
+			for doctrine in available_doctrines:
+				actions.append({
+					"type": "SELECT_COMBAT_DOCTRINE",
+					"doctrine_key": doctrine.key,
+					"description": "Combat Doctrines: %s — %s" % [doctrine.display, doctrine.description],
+					"player": current_player
+				})
+			# Allow skipping doctrine selection (no doctrine active this round)
+			actions.append({
+				"type": "SKIP_COMBAT_DOCTRINE",
+				"description": "Skip Combat Doctrine selection (no doctrine active this round)",
+				"player": current_player
+			})
+
+	# Martial Mastery selection (Adeptus Custodes — Shield Host) (P2-27)
+	if faction_mgr and faction_mgr.is_martial_mastery_available(current_player):
+		var mastery_options = faction_mgr.get_mastery_options()
+		for option in mastery_options:
+			actions.append({
+				"type": "SELECT_MARTIAL_MASTERY",
+				"mastery_key": option.key,
+				"description": "%s — %s" % [option.display, option.description],
+				"player": current_player
+			})
+
+	# P3-29: Grot Orderly — once per battle, return D3 destroyed Bodyguard models
+	var ability_mgr_go = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr_go:
+		var all_units_go = GameState.state.get("units", {})
+		for unit_id in all_units_go:
+			var unit = all_units_go[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if not ability_mgr_go.has_grot_orderly(unit_id):
+				continue
+			# Check if the unit is deployed and alive
+			if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var go_info = ability_mgr_go.get_grot_orderly_unit(unit_id)
+			if go_info.get("eligible", false):
+				var painboss_name = unit.get("meta", {}).get("name", unit_id)
+				actions.append({
+					"type": "USE_GROT_ORDERLY",
+					"unit_id": unit_id,
+					"bodyguard_unit_id": go_info.bodyguard_unit_id,
+					"description": "Grot Orderly: %s returns up to D3 models to %s (%d destroyed)" % [
+						painboss_name, go_info.bodyguard_unit_name, go_info.destroyed_count],
+					"player": current_player
 				})
 
 	# Always allow ending command phase (but warn if tests remain)
@@ -307,6 +372,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_use_new_orders(action)
 		"SELECT_OATH_TARGET":
 			errors = _validate_select_oath_target(action)
+		"CALL_WAAAGH":
+			errors = _validate_call_waaagh(action)
+		"SELECT_COMBAT_DOCTRINE":
+			errors = _validate_select_combat_doctrine(action)
+		"SKIP_COMBAT_DOCTRINE":
+			pass  # Always valid
+		"SELECT_MARTIAL_MASTERY":
+			errors = _validate_select_martial_mastery(action)
+		"USE_GROT_ORDERLY":
+			errors = _validate_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			errors = _validate_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -368,6 +443,16 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_new_orders(action)
 		"SELECT_OATH_TARGET":
 			return _handle_select_oath_target(action)
+		"CALL_WAAAGH":
+			return _handle_call_waaagh(action)
+		"SELECT_COMBAT_DOCTRINE":
+			return _handle_select_combat_doctrine(action)
+		"SKIP_COMBAT_DOCTRINE":
+			return _handle_skip_combat_doctrine(action)
+		"SELECT_MARTIAL_MASTERY":
+			return _handle_select_martial_mastery(action)
+		"USE_GROT_ORDERLY":
+			return _handle_use_grot_orderly(action)
 		"RESOLVE_MARKED_FOR_DEATH":
 			return _handle_resolve_marked_for_death(action)
 		"RESOLVE_TEMPTING_TARGET":
@@ -656,6 +741,46 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 	}
 
 # ============================================================================
+# FACTION ABILITIES — WAAAGH! (Orks)
+# ============================================================================
+
+func _validate_call_waaagh(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_waaagh_available(current_player):
+		errors.append("Waaagh! is not available (already used or not an Ork player)")
+
+	return errors
+
+func _handle_call_waaagh(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.activate_waaagh(current_player)
+
+	if result.success:
+		log_phase_message("WAAAGH! Player %d calls a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln!" % current_player)
+
+		# Log to phase log
+		var log_entry = {
+			"type": "CALL_WAAAGH",
+			"player": current_player,
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
 # FACTION ABILITIES — OATH OF MOMENT
 # ============================================================================
 
@@ -722,6 +847,257 @@ func _handle_select_oath_target(action: Dictionary) -> Dictionary:
 		GameState.add_action_to_phase_log(log_entry)
 
 	return result
+
+# ============================================================================
+# DETACHMENT ABILITIES — COMBAT DOCTRINES (P2-27)
+# ============================================================================
+
+func _validate_select_combat_doctrine(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var doctrine_key = action.get("doctrine_key", "")
+
+	if doctrine_key == "":
+		errors.append("Missing doctrine_key for Combat Doctrine selection")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if faction_mgr.get_player_detachment(current_player) != "Gladius Task Force":
+		errors.append("Player %d is not using Gladius Task Force detachment" % current_player)
+		return errors
+
+	# Check doctrine hasn't been used
+	var available = faction_mgr.get_available_doctrines(current_player)
+	var found = false
+	for d in available:
+		if d.key == doctrine_key:
+			found = true
+			break
+	if not found:
+		errors.append("Doctrine '%s' is not available (already used or unknown)" % doctrine_key)
+
+	# Check no doctrine is already active this phase
+	if faction_mgr.get_active_doctrine(current_player) != "":
+		errors.append("A Combat Doctrine is already active this phase")
+
+	return errors
+
+func _handle_select_combat_doctrine(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var doctrine_key = action.get("doctrine_key", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.select_combat_doctrine(current_player, doctrine_key)
+
+	if result.success:
+		log_phase_message("COMBAT DOCTRINES: Player %d activates %s" % [
+			current_player, result.get("doctrine_display", doctrine_key)])
+
+		var log_entry = {
+			"type": "SELECT_COMBAT_DOCTRINE",
+			"player": current_player,
+			"doctrine": doctrine_key,
+			"doctrine_display": result.get("doctrine_display", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	log_phase_message("COMBAT DOCTRINES: Player %d skips doctrine selection this round" % current_player)
+
+	var log_entry = {
+		"type": "SKIP_COMBAT_DOCTRINE",
+		"player": current_player,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {"success": true, "message": "No Combat Doctrine selected this round"}
+
+# ============================================================================
+# DETACHMENT ABILITIES — MARTIAL MASTERY (P2-27)
+# ============================================================================
+
+func _validate_select_martial_mastery(action: Dictionary) -> Array:
+	var errors = []
+	var current_player = get_current_player()
+	var mastery_key = action.get("mastery_key", "")
+
+	if mastery_key == "":
+		errors.append("Missing mastery_key for Martial Mastery selection")
+		return errors
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		errors.append("FactionAbilityManager not available")
+		return errors
+
+	if not faction_mgr.is_martial_mastery_available(current_player):
+		errors.append("Martial Mastery is not available for player %d" % current_player)
+		return errors
+
+	var options = faction_mgr.get_mastery_options()
+	var found = false
+	for opt in options:
+		if opt.key == mastery_key:
+			found = true
+			break
+	if not found:
+		errors.append("Unknown Martial Mastery option: %s" % mastery_key)
+
+	return errors
+
+func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
+	var current_player = get_current_player()
+	var mastery_key = action.get("mastery_key", "")
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr:
+		return {"success": false, "error": "FactionAbilityManager not available"}
+
+	var result = faction_mgr.select_martial_mastery(current_player, mastery_key)
+
+	if result.success:
+		log_phase_message("MARTIAL MASTERY: Player %d selects %s" % [
+			current_player, result.get("mastery_display", mastery_key)])
+
+		var log_entry = {
+			"type": "SELECT_MARTIAL_MASTERY",
+			"player": current_player,
+			"mastery": mastery_key,
+			"mastery_display": result.get("mastery_display", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+# ============================================================================
+# P3-29: GROT ORDERLY (Painboss — return D3 destroyed Bodyguard models)
+# ============================================================================
+
+func _validate_use_grot_orderly(action: Dictionary) -> Array:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
+	var current_player = get_current_player()
+
+	if unit_id == "":
+		errors.append("Missing unit_id for Grot Orderly")
+		return errors
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		errors.append("UnitAbilityManager not available")
+		return errors
+
+	if not ability_mgr.has_grot_orderly(unit_id):
+		errors.append("Unit %s does not have an available Grot Orderly ability" % unit_id)
+		return errors
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.get("owner", 0) != current_player:
+		errors.append("Unit %s does not belong to active player" % unit_id)
+
+	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
+	if not go_info.get("eligible", false):
+		errors.append("Painboss's unit is not below starting strength — no models to return")
+
+	return errors
+
+func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var bodyguard_unit_id = action.get("bodyguard_unit_id", "")
+	var current_player = get_current_player()
+
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"success": false, "error": "UnitAbilityManager not available"}
+
+	var go_info = ability_mgr.get_grot_orderly_unit(unit_id)
+	if not go_info.get("eligible", false):
+		return {"success": false, "error": "Unit is not below starting strength"}
+
+	bodyguard_unit_id = go_info.bodyguard_unit_id
+
+	# Roll D3 to determine how many models to return
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var d3_roll = rng.randi_range(1, 3)
+	var destroyed_count = go_info.destroyed_count
+	var models_to_return = mini(d3_roll, destroyed_count)
+
+	print("CommandPhase: Grot Orderly — rolled D3 = %d, returning %d model(s) to %s" % [d3_roll, models_to_return, bodyguard_unit_id])
+
+	# Find destroyed models in the bodyguard unit and revive them
+	var bodyguard_unit = GameState.state.get("units", {}).get(bodyguard_unit_id, {})
+	var models = bodyguard_unit.get("models", [])
+	var changes = []
+	var returned = 0
+
+	for i in range(models.size()):
+		if returned >= models_to_return:
+			break
+		var model = models[i]
+		if not model.get("alive", true):
+			# Revive this model at full wounds
+			var max_wounds = model.get("wounds", 1)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [bodyguard_unit_id, i],
+				"value": true
+			})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [bodyguard_unit_id, i],
+				"value": max_wounds
+			})
+			returned += 1
+			print("CommandPhase: Grot Orderly — returned model %s (index %d) with %d wounds" % [model.get("id", ""), i, max_wounds])
+
+	# Apply changes
+	if changes.size() > 0:
+		PhaseManager.apply_state_changes(changes)
+
+	# Mark Grot Orderly as used (once per battle)
+	ability_mgr.mark_once_per_battle_used(unit_id, "Grot Orderly")
+
+	var painboss_name = GameState.state.get("units", {}).get(unit_id, {}).get("meta", {}).get("name", unit_id)
+	var bg_name = go_info.bodyguard_unit_name
+
+	log_phase_message("GROT ORDERLY: %s returns %d model(s) to %s (rolled D3 = %d)" % [
+		painboss_name, returned, bg_name, d3_roll])
+
+	# Log to phase log
+	var log_entry = {
+		"type": "USE_GROT_ORDERLY",
+		"player": current_player,
+		"painboss_unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"d3_roll": d3_roll,
+		"models_returned": returned,
+		"turn": GameState.get_battle_round()
+	}
+	GameState.add_action_to_phase_log(log_entry)
+
+	return {
+		"success": true,
+		"unit_id": unit_id,
+		"bodyguard_unit_id": bodyguard_unit_id,
+		"d3_roll": d3_roll,
+		"models_returned": returned,
+		"message": "Grot Orderly: %s returned %d model(s) to %s (D3 = %d)" % [painboss_name, returned, bg_name, d3_roll]
+	}
 
 # ============================================================================
 # VOLUNTARY DISCARD & NEW ORDERS
@@ -1011,6 +1387,12 @@ func _handle_end_command() -> Dictionary:
 				if mission.get("pending_interaction", false):
 					print("CommandPhase: WARNING — Player %d has pending interaction for %s, auto-resolving" % [p, mission["name"]])
 					_auto_resolve_pending_interaction(p, mission, secondary_mgr)
+
+	# Apply sticky objective locks at end of Command phase
+	# "Get Da Good Bitz" / "Objective Secured": if a unit with this ability is within range
+	# of a controlled objective, that objective stays under your control until the opponent takes it.
+	if MissionManager:
+		MissionManager.apply_sticky_objectives(current_player)
 
 	print("CommandPhase: Player %d ending command phase" % current_player)
 

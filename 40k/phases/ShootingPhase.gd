@@ -20,6 +20,12 @@ signal grenade_result(result: Dictionary)  # For grenade stratagem result displa
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)  # For Command Re-roll on save rolls (future expansion)
 signal shooting_damage_applied(shooter_id: String, diffs: Array)  # T7-53: For floating damage numbers after saves resolved
 signal ai_shooting_visual(shooter_id: String, target_data: Array, result_summary: Dictionary)  # T7-38: AI shooting targeting line + result text
+signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel Storm shoot-again prompt
+signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
+signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
+signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
+signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distraction Grot invuln save prompt
+signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -32,6 +38,12 @@ var pending_save_data: Array = []  # Save data awaiting resolution
 var pending_hazardous_weapons: Array = []  # HAZARDOUS (T2-3): Weapons needing post-save hazardous check
 var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-shot weapons as fired
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
+var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
+var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
+var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
+var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
+var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
+var _rng = RandomNumberGenerator.new()  # P1-11: RNG for battle-shock tests
 
 func _init():
 	phase_type = GameStateData.Phase.SHOOTING
@@ -47,6 +59,11 @@ func _on_phase_enter() -> void:
 	pending_hazardous_weapons.clear()
 	pending_one_shot_diffs.clear()
 	awaiting_reactive_stratagem = false
+	sentinel_storm_pending_unit = ""
+	throat_slittas_pending_unit = ""
+	distraction_grot_pending_unit = ""
+	awaiting_distraction_grot = false
+	_targets_hit_by_shooter.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -126,6 +143,41 @@ func _check_kill_diffs(changes: Array) -> void:
 							AIPlayer.record_ai_unit_killed(destroyed_by)
 						if AIPlayer.is_ai_player(destroyed_owner):
 							AIPlayer.record_ai_unit_lost(destroyed_owner)
+					# P1-13: Check for Deadly Demise on destroyed unit
+					_resolve_deadly_demise_if_applicable(unit_id)
+
+func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
+	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return
+	if not ability_mgr.has_deadly_demise(destroyed_unit_id):
+		return
+
+	var dd_value = ability_mgr.get_deadly_demise_value(destroyed_unit_id)
+	if dd_value == "":
+		return
+
+	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	print("ShootingPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value])
+	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
+
+	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
+
+	if dd_result.get("triggered", false):
+		# Apply the mortal wound diffs
+		var diffs = dd_result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			log_phase_message("Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
+				dd_value, dd_result.get("total_mortal_wounds", 0), dd_result.get("per_target", []).size()
+			])
+			# Recursively check if Deadly Demise caused any further unit deaths
+			_check_kill_diffs(diffs)
+	else:
+		log_phase_message("Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
+			dd_value, dd_result.get("trigger_roll", 0)
+		])
 
 func _initialize_shooting() -> void:
 	var current_player = get_current_player()
@@ -178,6 +230,18 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_reactive_stratagem(action)
 		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
 			return _validate_use_grenade_stratagem(action)
+		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm shoot-again
+			return _validate_use_sentinel_storm(action)
+		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
+			return _validate_decline_sentinel_storm(action)
+		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas mortal wounds
+			return _validate_use_throat_slittas(action)
+		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
+			return _validate_decline_throat_slittas(action)
+		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
+			return _validate_use_distraction_grot(action)
+		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
+			return _validate_decline_distraction_grot(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -238,6 +302,24 @@ func process_action(action: Dictionary) -> Dictionary:
 		"USE_GRENADE_STRATAGEM":  # Active player uses GRENADE stratagem
 			print("ShootingPhase: Matched USE_GRENADE_STRATAGEM")
 			return _process_use_grenade_stratagem(action)
+		"USE_SENTINEL_STORM":  # P1-10: Player uses Sentinel Storm
+			print("ShootingPhase: Matched USE_SENTINEL_STORM")
+			return _process_use_sentinel_storm(action)
+		"DECLINE_SENTINEL_STORM":  # P1-10: Player declines Sentinel Storm
+			print("ShootingPhase: Matched DECLINE_SENTINEL_STORM")
+			return _process_decline_sentinel_storm(action)
+		"USE_THROAT_SLITTAS":  # P1-12: Player uses Throat Slittas
+			print("ShootingPhase: Matched USE_THROAT_SLITTAS")
+			return _process_use_throat_slittas(action)
+		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
+			print("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
+			return _process_decline_throat_slittas(action)
+		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
+			print("ShootingPhase: Matched USE_DISTRACTION_GROT")
+			return _process_use_distraction_grot(action)
+		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
+			print("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
+			return _process_decline_distraction_grot(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -375,6 +457,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
+	_targets_hit_by_shooter.clear()  # P1-11: Reset hit tracking for new shooter
 
 	var unit = get_unit(unit_id)
 
@@ -392,6 +475,26 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 			call_deferred("_show_firing_deck_dialog", unit_id)
 			log_phase_message("Selected transport %s - choosing firing deck models" % unit.get("meta", {}).get("name", unit_id))
 			return create_result(true, [])
+
+	# P1-12: Check for Throat Slittas — offer mortal wounds instead of shooting
+	if not action.get("payload", {}).get("skip_throat_slittas_check", false):
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
+			var ts_targets = _get_throat_slittas_targets(unit_id)
+			if not ts_targets.is_empty():
+				print("ShootingPhase: P1-12 Throat Slittas: Unit %s has enemies within 9\" — prompting" % unit_id)
+				throat_slittas_pending_unit = unit_id
+
+				var current_player = get_current_player()
+				emit_signal("throat_slittas_available", unit_id, current_player, ts_targets)
+
+				log_phase_message("Throat Slittas available for %s — awaiting decision" % unit.get("meta", {}).get("name", unit_id))
+
+				return create_result(true, [], "Throat Slittas available", {
+					"throat_slittas_available": true,
+					"unit_id": unit_id,
+					"eligible_targets": ts_targets
+				})
 
 	# Normal shooting flow
 	# Get eligible targets
@@ -483,6 +586,26 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 
 	emit_signal("shooting_begun", active_shooter_id)
 	log_phase_message("Confirmed targets, ready to resolve shooting")
+
+	# P2-25: Check for Distraction Grot on targeted units
+	var distraction_grot_check = _check_distraction_grot()
+	if distraction_grot_check.get("has_opportunity", false):
+		var dg_unit_id = distraction_grot_check.unit_id
+		var dg_player = distraction_grot_check.player
+		awaiting_distraction_grot = true
+		distraction_grot_pending_unit = dg_unit_id
+		resolution_state = {
+			"phase": "awaiting_distraction_grot",
+			"assignments": confirmed_assignments
+		}
+		var dg_name = get_unit(dg_unit_id).get("meta", {}).get("name", dg_unit_id)
+		log_phase_message("Distraction Grot available for %s — awaiting decision" % dg_name)
+		emit_signal("distraction_grot_available", dg_unit_id, dg_player)
+		return create_result(true, [], "Awaiting Distraction Grot decision", {
+			"distraction_grot_available": true,
+			"unit_id": dg_unit_id,
+			"player": dg_player
+		})
 
 	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
 	var reactive_check = _check_reactive_stratagems()
@@ -665,6 +788,14 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 	resolution_state.last_weapon_hit_data = hit_data
 	resolution_state.last_weapon_wound_data = wound_data
 
+	# P1-11: Track hits for Sanctified Flames (single-weapon resolve path)
+	var resolve_hits = hit_data.get("successes", 0)
+	if resolve_hits > 0 and not confirmed_assignments.is_empty():
+		var resolve_tid = confirmed_assignments[0].get("target_unit_id", "")
+		if resolve_tid != "":
+			_targets_hit_by_shooter[resolve_tid] = _targets_hit_by_shooter.get(resolve_tid, 0) + resolve_hits
+			print("ShootingPhase: P1-11 Sanctified Flames tracking (resolve): %d hit(s) on %s" % [resolve_hits, resolve_tid])
+
 	# Check if any saves are needed
 	var save_data_list = result.get("save_data_list", [])
 
@@ -737,6 +868,11 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					"hit_data": miss_hit_data,
 					"wound_data": miss_wound_data
 				}
+
+				# P1-11: Track hits for Sanctified Flames (single weapon miss path)
+				if hits > 0 and target_unit_id != "":
+					_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
+					print("ShootingPhase: P1-11 Sanctified Flames tracking (single miss): %d hit(s) on %s" % [hits, target_unit_id])
 
 				print("║ last_weapon_result built:")
 				print("║   weapon: ", last_weapon_result.get("weapon_name", ""))
@@ -868,10 +1004,37 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	print("║ AI SHOOT (atomic): Starting for unit %s" % unit_id)
 	print("╚═══════════════════════════════════════════════════════════════")
 
-	# Step 1: Select shooter
-	var select_result = _process_select_shooter({"actor_unit_id": unit_id})
+	# Step 1: Select shooter (skip Throat Slittas prompt for AI — handle automatically)
+	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true}})
 	if not select_result.success:
 		return select_result
+
+	# P1-12: AI auto-resolve Throat Slittas if applicable
+	# The AI always uses Throat Slittas when enemies are within 9"
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
+		var ts_targets = _get_throat_slittas_targets(unit_id)
+		if not ts_targets.is_empty():
+			print("║ AI SHOOT: P1-12 Throat Slittas — auto-activating for %s" % unit_id)
+			var ts_result = _resolve_throat_slittas(unit_id)
+			var ts_changes = ts_result.get("diffs", [])
+			ts_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % unit_id,
+				"value": true
+			})
+			units_that_shot.append(unit_id)
+			active_shooter_id = ""
+			confirmed_assignments.clear()
+			resolution_state.clear()
+			pending_save_data.clear()
+
+			var ai_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+			return create_result(true, ts_changes, "Throat Slittas resolved", {
+				"throat_slittas": true,
+				"mortal_wounds": ts_result.get("total_mortal_wounds", 0),
+				"casualties": ts_result.get("total_casualties", 0)
+			})
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -1037,6 +1200,22 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
 		print("║ T7-38: Emitted shooting_damage_applied with %d diffs" % damage_diffs.size())
 
+	# P1-11: Track hits for Sanctified Flames (AI atomic path)
+	# Build _targets_hit_by_shooter from the dice + assignment data
+	_targets_hit_by_shooter.clear()
+	if total_hits > 0:
+		# Assign hits to target units from assignments
+		for a in confirmed_assignments:
+			var ai_tid = a.get("target_unit_id", "")
+			if ai_tid != "":
+				# Use total_hits as a proxy — hits are distributed across targets
+				# For accuracy, we just need to know which units were hit at all
+				_targets_hit_by_shooter[ai_tid] = _targets_hit_by_shooter.get(ai_tid, 0) + 1
+
+	# P1-11: Check for Sanctified Flames and apply Battle-shock if triggered
+	var sanctified_diffs = _check_sanctified_flames(unit_id)
+	all_changes.append_array(sanctified_diffs)
+
 	# Step 6: Mark unit as done
 	all_changes.append({
 		"op": "set",
@@ -1051,6 +1230,7 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
+	_targets_hit_by_shooter.clear()
 
 	# Step 8: Emit shooting_resolved for visual cleanup (non-blocking)
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
@@ -1446,6 +1626,14 @@ func _resolve_next_weapon() -> Dictionary:
 	if save_data_list.is_empty():
 		# No wounds - but still PAUSE for attacker to confirm next weapon (sequential mode)
 		print("ShootingPhase: ⚠ No wounds caused by this weapon")
+
+		# P1-11: Track hits for Sanctified Flames
+		var seq_hits = hit_data.get("successes", 0)
+		if seq_hits > 0:
+			var tid = current_assignment.target_unit_id
+			_targets_hit_by_shooter[tid] = _targets_hit_by_shooter.get(tid, 0) + seq_hits
+			print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [seq_hits, tid, _targets_hit_by_shooter[tid]])
+
 		resolution_state.completed_weapons.append({
 			"weapon_id": weapon_id,
 			"target_unit_id": current_assignment.target_unit_id,
@@ -1598,13 +1786,20 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 
 	# ASSAULT RULES: Units that Advanced can shoot with Assault weapons ONLY
 	# Check this BEFORE cannot_shoot flag since Advanced units CAN shoot (with restrictions)
+	# EXCEPTION: Units with advance_and_shoot effect can shoot with ALL weapons after Advancing
 	if flags.get("advanced", false):
-		# Unit advanced - can only shoot if it has Assault weapons
-		return _unit_has_assault_weapons(unit)
+		if EffectPrimitivesData.has_effect_advance_and_shoot(unit):
+			print("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown"))
+		else:
+			# Unit advanced - can only shoot if it has Assault weapons
+			return _unit_has_assault_weapons(unit)
 
 	# Units that Fell Back cannot shoot (unless special rules)
 	if flags.get("fell_back", false):
-		return false
+		if not EffectPrimitivesData.has_effect_fall_back_and_shoot(unit):
+			return false
+		else:
+			print("ShootingPhase: Unit %s fell back but has fall_back_and_shoot effect — eligible to shoot" % unit.get("id", "unknown"))
 
 	# Check other restriction flags (but skip for advanced units handled above)
 	if flags.get("cannot_shoot", false):
@@ -2079,6 +2274,67 @@ func get_available_actions() -> Array:
 			"description": "Resolve shooting"
 		})
 
+	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
+	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
+		var dg_unit = get_unit(distraction_grot_pending_unit)
+		var dg_name = dg_unit.get("meta", {}).get("name", distraction_grot_pending_unit) if not dg_unit.is_empty() else distraction_grot_pending_unit
+		var dg_player = int(dg_unit.get("owner", 0))
+		actions.append({
+			"type": "USE_DISTRACTION_GROT",
+			"actor_unit_id": distraction_grot_pending_unit,
+			"player": dg_player,
+			"description": "Activate Distraction Grot — %s gains 5+ invuln" % dg_name
+		})
+		actions.append({
+			"type": "DECLINE_DISTRACTION_GROT",
+			"actor_unit_id": distraction_grot_pending_unit,
+			"player": dg_player,
+			"description": "Decline Distraction Grot — %s" % dg_name
+		})
+		return actions  # Block other actions until resolved
+
+	# P1-12: Throat Slittas pending — offer use/decline
+	if throat_slittas_pending_unit != "":
+		var ts_unit = get_unit(throat_slittas_pending_unit)
+		var ts_name = ts_unit.get("meta", {}).get("name", throat_slittas_pending_unit) if not ts_unit.is_empty() else throat_slittas_pending_unit
+		actions.append({
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": throat_slittas_pending_unit,
+			"description": "Activate Throat Slittas — %s deals mortal wounds" % ts_name
+		})
+		actions.append({
+			"type": "DECLINE_THROAT_SLITTAS",
+			"actor_unit_id": throat_slittas_pending_unit,
+			"description": "Decline Throat Slittas — %s shoots normally" % ts_name
+		})
+		# When Throat Slittas is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
+	# P1-10: Sentinel Storm pending — offer use/decline
+	if sentinel_storm_pending_unit != "":
+		var ss_unit = get_unit(sentinel_storm_pending_unit)
+		var ss_name = ss_unit.get("meta", {}).get("name", sentinel_storm_pending_unit) if not ss_unit.is_empty() else sentinel_storm_pending_unit
+		actions.append({
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": sentinel_storm_pending_unit,
+			"description": "Activate Sentinel Storm — %s shoots again" % ss_name
+		})
+		actions.append({
+			"type": "DECLINE_SENTINEL_STORM",
+			"actor_unit_id": sentinel_storm_pending_unit,
+			"description": "Decline Sentinel Storm for %s" % ss_name
+		})
+		# When Sentinel Storm is pending, only these actions should be available
+		actions.append({
+			"type": "END_SHOOTING",
+			"description": "End Shooting Phase"
+		})
+		return actions
+
 	# Pending saves need resolution (safety net for AI)
 	if not pending_save_data.is_empty():
 		actions.append({
@@ -2304,7 +2560,7 @@ func _validate_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
-	"""Mark shooter as done and clear state"""
+	"""Mark shooter as done and clear state. Checks for Sentinel Storm shoot-again ability first."""
 	var unit_id = action.get("actor_unit_id", "")
 
 	print("╔═══════════════════════════════════════════════════════════════")
@@ -2313,11 +2569,39 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	print("║ This is triggered when user views final weapon results")
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# P1-10: Check for Sentinel Storm shoot-again ability before completing
+	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
+	if not action.get("payload", {}).get("skip_sentinel_storm_check", false):
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
+			print("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id)
+			sentinel_storm_pending_unit = unit_id
+
+			# Clear resolution state but keep active_shooter_id for the decision
+			confirmed_assignments.clear()
+			resolution_state.clear()
+			pending_save_data.clear()
+
+			# Emit signal for UI to show prompt
+			var current_player = get_current_player()
+			emit_signal("sentinel_storm_available", unit_id, current_player)
+
+			log_phase_message("Sentinel Storm available for unit %s — awaiting player decision" % unit_id)
+
+			return create_result(true, [], "Sentinel Storm available", {
+				"sentinel_storm_available": true,
+				"unit_id": unit_id
+			})
+
+	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
+	var sanctified_changes = _check_sanctified_flames(unit_id)
+
 	var changes = [{
 		"op": "set",
 		"path": "units.%s.flags.has_shot" % unit_id,
 		"value": true
 	}]
+	changes.append_array(sanctified_changes)
 
 	units_that_shot.append(unit_id)
 
@@ -2327,6 +2611,8 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	confirmed_assignments.clear()
 	resolution_state.clear()
 	pending_save_data.clear()
+	sentinel_storm_pending_unit = ""
+	_targets_hit_by_shooter.clear()
 
 	log_phase_message("Shooting complete for unit %s" % unit_id)
 
@@ -2334,6 +2620,613 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
 
 	return create_result(true, changes, "Shooting complete")
+
+# ============================================================================
+# P1-10: SENTINEL STORM — SHOOT AGAIN MECHANIC
+# ============================================================================
+
+func _validate_use_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Validate activating Sentinel Storm shoot-again ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Validate declining Sentinel Storm shoot-again ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if sentinel_storm_pending_unit == "" or sentinel_storm_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Sentinel Storm pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Player activates Sentinel Storm — unit shoots again.
+	Mark the ability as used, then reset the unit's shooting state so it can shoot again."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SENTINEL STORM: ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit will shoot again this phase")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Mark Sentinel Storm as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Sentinel Storm")
+
+	# Clear the pending state
+	sentinel_storm_pending_unit = ""
+
+	# Reset the unit's shooting state so it can be selected again
+	# The unit is NOT added to units_that_shot, and has_shot flag stays false
+	# active_shooter_id was already set to this unit
+	active_shooter_id = ""
+	pending_assignments.clear()
+	confirmed_assignments.clear()
+	resolution_state.clear()
+
+	log_phase_message("Sentinel Storm activated! %s will shoot again" % unit_id)
+
+	return create_result(true, [], "Sentinel Storm activated — unit shoots again")
+
+func _process_decline_sentinel_storm(action: Dictionary) -> Dictionary:
+	"""Player declines Sentinel Storm — complete shooting normally."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ SENTINEL STORM: DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Completing shooting normally")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	sentinel_storm_pending_unit = ""
+
+	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
+	var sanctified_changes = _check_sanctified_flames(unit_id)
+
+	# Now complete shooting normally — set has_shot flag and add to units_that_shot
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+	changes.append_array(sanctified_changes)
+
+	units_that_shot.append(unit_id)
+
+	# Clear state
+	var shooter_id = active_shooter_id  # Store before clearing
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+	_targets_hit_by_shooter.clear()
+
+	log_phase_message("Sentinel Storm declined — shooting complete for unit %s" % unit_id)
+
+	# Emit signal to clear visuals
+	emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+	return create_result(true, changes, "Shooting complete (Sentinel Storm declined)")
+
+# ============================================================================
+# P1-11: SANCTIFIED FLAMES — FORCED BATTLE-SHOCK TEST AFTER SHOOTING
+# ============================================================================
+
+func _check_sanctified_flames(shooter_unit_id: String) -> Array:
+	"""Check if the shooter has Sanctified Flames and trigger a Battle-shock test
+	on one enemy unit that was hit. Returns state-change diffs (empty if not applicable).
+
+	Sanctified Flames (Witchseekers): "In your Shooting phase, after this unit has shot,
+	select one enemy unit hit by one or more of those attacks. That enemy unit must take
+	a Battle-shock test."
+	"""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr or not ability_mgr.has_sanctified_flames_ability(shooter_unit_id):
+		return []
+
+	# Get the list of enemy units that were hit
+	var hit_targets = _targets_hit_by_shooter.duplicate()
+	if hit_targets.is_empty():
+		print("ShootingPhase: P1-11 Sanctified Flames: No enemy units were hit — no Battle-shock test triggered")
+		return []
+
+	# Filter out already-destroyed units
+	var valid_targets: Array = []
+	for target_id in hit_targets:
+		var target_unit = get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+		var has_alive = false
+		for model in target_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if has_alive:
+			valid_targets.append(target_id)
+
+	if valid_targets.is_empty():
+		print("ShootingPhase: P1-11 Sanctified Flames: All hit targets destroyed — no Battle-shock test triggered")
+		return []
+
+	# Select target: if only one valid target, auto-select. Otherwise select the one
+	# most likely to fail (lowest Leadership) for AI benefit, or first one for player.
+	var selected_target_id = valid_targets[0]
+	if valid_targets.size() > 1:
+		# Select the target with the lowest Leadership (most likely to fail)
+		var lowest_ld = 99
+		for tid in valid_targets:
+			var t_unit = get_unit(tid)
+			var t_ld = t_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+			if t_ld < lowest_ld:
+				lowest_ld = t_ld
+				selected_target_id = tid
+		print("ShootingPhase: P1-11 Sanctified Flames: Multiple targets hit, selecting %s (Ld %d)" % [selected_target_id, lowest_ld])
+
+	# Perform the Battle-shock test on the selected target
+	return _resolve_sanctified_flames_battle_shock(shooter_unit_id, selected_target_id)
+
+func _resolve_sanctified_flames_battle_shock(shooter_unit_id: String, target_unit_id: String) -> Array:
+	"""Roll a forced Battle-shock test for Sanctified Flames.
+	Returns state-change diffs to set battle_shocked flag if failed."""
+	var target_unit = get_unit(target_unit_id)
+	if target_unit.is_empty():
+		return []
+
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var leadership = target_unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+	var shooter_unit = get_unit(shooter_unit_id)
+	var shooter_name = shooter_unit.get("meta", {}).get("name", shooter_unit_id)
+
+	# Check if already battle-shocked (no need to re-test)
+	var already_shocked = target_unit.get("flags", {}).get("battle_shocked", false)
+	if already_shocked:
+		print("ShootingPhase: P1-11 Sanctified Flames: %s is already Battle-shocked — skipping test" % target_name)
+		log_phase_message("Sanctified Flames: %s already Battle-shocked — no additional test" % target_name)
+		return []
+
+	# Roll 2D6 for Battle-shock test
+	var die1 = _rng.randi_range(1, 6)
+	var die2 = _rng.randi_range(1, 6)
+	var roll_total = die1 + die2
+	var test_passed = roll_total >= leadership
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-11: SANCTIFIED FLAMES — Battle-shock Test")
+	print("║ Shooter: %s" % shooter_name)
+	print("║ Target: %s (Ld %d)" % [target_name, leadership])
+	print("║ Roll: 2D6 = %d + %d = %d (need %d+)" % [die1, die2, roll_total, leadership])
+	print("║ Result: %s" % ("PASSED" if test_passed else "FAILED — Battle-shocked!"))
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	log_phase_message("Sanctified Flames (%s): %s takes Battle-shock test — 2D6 = %d (%d+%d) vs Ld %d — %s" % [
+		shooter_name, target_name, roll_total, die1, die2, leadership,
+		"PASSED" if test_passed else "FAILED (Battle-shocked!)"
+	])
+
+	# Emit signal for UI/log display
+	var test_result = {
+		"target_unit_id": target_unit_id,
+		"target_name": target_name,
+		"die1": die1,
+		"die2": die2,
+		"roll_total": roll_total,
+		"leadership": leadership,
+		"test_passed": test_passed,
+		"battle_shocked": not test_passed
+	}
+	emit_signal("sanctified_flames_result", shooter_unit_id, target_unit_id, test_result)
+
+	# If test failed, apply battle_shocked flag
+	if not test_passed:
+		return [{
+			"op": "set",
+			"path": "units.%s.flags.battle_shocked" % target_unit_id,
+			"value": true
+		}]
+
+	return []
+
+# ============================================================================
+# P1-12: THROAT SLITTAS — MORTAL WOUNDS INSTEAD OF SHOOTING (Kommandos)
+# ============================================================================
+# "At the start of your Shooting phase, if this unit is within 9" of one or more
+# enemy units, it can use this ability. If it does, until the end of the phase,
+# this unit is not eligible to shoot, but you roll one D6 for each model in this
+# unit that is within 9" of an enemy unit: for each 5+, that enemy unit suffers
+# 1 mortal wound."
+
+func _validate_use_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Validate activating Throat Slittas mortal wounds ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if throat_slittas_pending_unit == "" or throat_slittas_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Throat Slittas pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Validate declining Throat Slittas ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if throat_slittas_pending_unit == "" or throat_slittas_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Throat Slittas pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Player activates Throat Slittas — roll mortal wounds, unit cannot shoot."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit will deal mortal wounds instead of shooting")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear the pending state
+	throat_slittas_pending_unit = ""
+
+	# Resolve the ability
+	var result = _resolve_throat_slittas(unit_id)
+
+	# Mark unit as done shooting (cannot shoot after using Throat Slittas)
+	var changes = result.get("diffs", [])
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	})
+	units_that_shot.append(unit_id)
+
+	# Clear shooter state
+	active_shooter_id = ""
+	confirmed_assignments.clear()
+	resolution_state.clear()
+	pending_save_data.clear()
+
+	# Emit signal to clear visuals
+	emit_signal("shooting_resolved", unit_id, "", {"casualties": result.get("total_casualties", 0)})
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Throat Slittas: %s dealt %d mortal wound(s) — unit cannot shoot" % [
+		unit_name, result.get("total_mortal_wounds", 0)
+	])
+
+	return create_result(true, changes, "Throat Slittas resolved")
+
+func _process_decline_throat_slittas(action: Dictionary) -> Dictionary:
+	"""Player declines Throat Slittas — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Proceeding with normal shooting")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	throat_slittas_pending_unit = ""
+
+	# Re-process as a normal select_shooter, skipping the Throat Slittas check
+	return _process_select_shooter({
+		"actor_unit_id": unit_id,
+		"payload": {"skip_throat_slittas_check": true}
+	})
+
+func _get_throat_slittas_targets(unit_id: String) -> Array:
+	"""Find enemy units within 9\" of the unit. Returns array of
+	{target_unit_id, target_name, models_in_range} dictionaries."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	var unit_owner = unit.get("owner", 0)
+	var unit_models = unit.get("models", [])
+	var units = game_state_snapshot.get("units", {})
+	var targets: Array = []
+
+	for other_id in units:
+		var other = units[other_id]
+		# Skip friendly units and destroyed units
+		if other.get("owner", 0) == unit_owner:
+			continue
+		var other_alive = false
+		for m in other.get("models", []):
+			if m.get("alive", true):
+				other_alive = true
+				break
+		if not other_alive:
+			continue
+
+		# Count how many of our models are within 9" of this enemy unit
+		var models_in_range = _count_models_within_range(unit_models, other, 9.0)
+		if models_in_range > 0:
+			targets.append({
+				"target_unit_id": other_id,
+				"target_name": other.get("meta", {}).get("name", other_id),
+				"models_in_range": models_in_range
+			})
+
+	return targets
+
+func _count_models_within_range(our_models: Array, enemy_unit: Dictionary, range_inches: float) -> int:
+	"""Count how many of our alive models are within range_inches of any alive model
+	in the enemy unit (edge-to-edge measurement)."""
+	var count = 0
+	var enemy_models = enemy_unit.get("models", [])
+
+	for our_model in our_models:
+		if not our_model.get("alive", true):
+			continue
+
+		var in_range = false
+		for enemy_model in enemy_models:
+			if not enemy_model.get("alive", true):
+				continue
+
+			var distance_inches = Measurement.model_to_model_distance_inches(our_model, enemy_model)
+			if distance_inches <= range_inches:
+				in_range = true
+				break
+
+		if in_range:
+			count += 1
+
+	return count
+
+func _resolve_throat_slittas(unit_id: String) -> Dictionary:
+	"""Resolve Throat Slittas mortal wounds.
+	For each enemy unit within 9\", roll 1D6 per model in range. 5+ = 1 mortal wound.
+	Returns {diffs: Array, total_mortal_wounds: int, total_casualties: int, per_target: Array}."""
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var targets = _get_throat_slittas_targets(unit_id)
+
+	var all_diffs: Array = []
+	var total_mortal_wounds = 0
+	var total_casualties = 0
+	var per_target: Array = []
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-12: THROAT SLITTAS — Resolution")
+	print("║ Unit: %s (%s)" % [unit_name, unit_id])
+	print("║ Targets within 9\": %d" % targets.size())
+
+	for target_info in targets:
+		var target_unit_id = target_info.get("target_unit_id", "")
+		var target_name = target_info.get("target_name", target_unit_id)
+		var models_in_range = target_info.get("models_in_range", 0)
+
+		# Roll 1D6 per model in range
+		var rolls: Array = []
+		var mortal_wounds = 0
+		for i in range(models_in_range):
+			var roll = _rng.randi_range(1, 6)
+			rolls.append(roll)
+			if roll >= 5:
+				mortal_wounds += 1
+
+		print("║ Target: %s — %d models in range, rolls: %s → %d mortal wound(s)" % [
+			target_name, models_in_range, str(rolls), mortal_wounds
+		])
+
+		var target_result = {
+			"target_unit_id": target_unit_id,
+			"target_name": target_name,
+			"models_in_range": models_in_range,
+			"rolls": rolls,
+			"mortal_wounds": mortal_wounds,
+			"casualties": 0
+		}
+
+		# Apply mortal wounds as damage (1 damage each, with proper model allocation)
+		if mortal_wounds > 0:
+			var target_unit = get_unit(target_unit_id)
+			var target_models = target_unit.get("models", []).duplicate(true)
+			var damage_result = RulesEngine._apply_damage_to_unit_pool(
+				target_unit_id, mortal_wounds, target_models, game_state_snapshot
+			)
+			all_diffs.append_array(damage_result.get("diffs", []))
+			target_result["casualties"] = damage_result.get("casualties", 0)
+			total_casualties += damage_result.get("casualties", 0)
+
+		total_mortal_wounds += mortal_wounds
+		per_target.append(target_result)
+
+	print("║ TOTAL: %d mortal wound(s), %d casualt%s" % [
+		total_mortal_wounds, total_casualties,
+		"y" if total_casualties == 1 else "ies"
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	log_phase_message("Throat Slittas (%s): %d mortal wound(s), %d casualt%s" % [
+		unit_name, total_mortal_wounds, total_casualties,
+		"y" if total_casualties == 1 else "ies"
+	])
+
+	# Emit signal for UI display
+	var result = {
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"total_mortal_wounds": total_mortal_wounds,
+		"total_casualties": total_casualties,
+		"per_target": per_target,
+		"diffs": all_diffs
+	}
+	emit_signal("throat_slittas_result", unit_id, result)
+
+	return result
+
+# ============================================================================
+# DISTRACTION GROT (P2-25)
+# ============================================================================
+# "Once per battle, in your opponent's Shooting phase, when this unit is selected
+# as the target of a ranged attack, until the end of the phase, models in this
+# unit have a 5+ invulnerable save."
+
+func _check_distraction_grot() -> Dictionary:
+	"""Check if any targeted unit has an unused Distraction Grot ability.
+	Returns { has_opportunity: bool, unit_id: String, player: int }."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return {"has_opportunity": false}
+
+	var active_player = get_current_player()
+
+	# Collect unique target unit IDs from confirmed assignments
+	var target_unit_ids = []
+	for assignment in confirmed_assignments:
+		var target_id = assignment.get("target_unit_id", "")
+		if target_id != "" and target_id not in target_unit_ids:
+			target_unit_ids.append(target_id)
+
+	for target_id in target_unit_ids:
+		var target_unit = get_unit(target_id)
+		var target_owner = int(target_unit.get("owner", 0))
+
+		# Only the defending player's units can use Distraction Grot
+		if target_owner == active_player:
+			continue
+
+		if ability_mgr.has_distraction_grot(target_id):
+			print("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
+				target_unit.get("meta", {}).get("name", target_id), target_id
+			])
+			return {
+				"has_opportunity": true,
+				"unit_id": target_id,
+				"player": target_owner
+			}
+
+	return {"has_opportunity": false}
+
+func _validate_use_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Validate activating Distraction Grot ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_distraction_grot:
+		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
+	if distraction_grot_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Distraction Grot pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Validate declining Distraction Grot ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if not awaiting_distraction_grot:
+		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Defender activates Distraction Grot — unit gains 5+ invulnerable save for the phase."""
+	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: DISTRACTION GROT — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("║ Unit gains 5+ invulnerable save until end of phase")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_distraction_grot = false
+	distraction_grot_pending_unit = ""
+
+	# Mark as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Distraction Grot")
+
+	# Apply 5+ invulnerable save flag to the unit
+	var diffs = []
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.flags.effect_invuln" % unit_id,
+		"value": 5
+	})
+	PhaseManager.apply_state_changes(diffs)
+
+	# Refresh snapshot so RulesEngine sees the invuln
+	game_state_snapshot = GameState.create_snapshot()
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Distraction Grot: %s gains 5+ invulnerable save" % unit_name)
+
+	emit_signal("distraction_grot_result", unit_id, true)
+
+	# Now continue to check reactive stratagems
+	var reactive_check = _check_reactive_stratagems()
+	if reactive_check.has_opportunities:
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("Opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			reactive_check.defending_player,
+			reactive_check.available_stratagems,
+			reactive_check.target_unit_ids)
+		return create_result(true, diffs, "Distraction Grot activated, awaiting stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": reactive_check.defending_player,
+			"available_stratagems": reactive_check.available_stratagems,
+			"target_unit_ids": reactive_check.target_unit_ids,
+			"distraction_grot_used": true,
+			"distraction_grot_unit_id": unit_id
+		})
+
+	# No reactive stratagems — continue to resolution
+	var resolution_result = _continue_after_reactive_stratagems()
+	resolution_result["distraction_grot_used"] = true
+	resolution_result["distraction_grot_unit_id"] = unit_id
+	return resolution_result
+
+func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
+	"""Defender declines Distraction Grot — proceed with normal shooting."""
+	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: DISTRACTION GROT — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Clear pending state
+	awaiting_distraction_grot = false
+	distraction_grot_pending_unit = ""
+
+	emit_signal("distraction_grot_result", unit_id, false)
+
+	# Continue to check reactive stratagems
+	var reactive_check = _check_reactive_stratagems()
+	if reactive_check.has_opportunities:
+		awaiting_reactive_stratagem = true
+		resolution_state = {
+			"phase": "awaiting_reactive_stratagem",
+			"assignments": confirmed_assignments
+		}
+		log_phase_message("Opponent may use reactive stratagems...")
+		emit_signal("reactive_stratagem_opportunity",
+			reactive_check.defending_player,
+			reactive_check.available_stratagems,
+			reactive_check.target_unit_ids)
+		return create_result(true, [], "Awaiting defender stratagem decision", {
+			"reactive_stratagem_opportunity": true,
+			"defending_player": reactive_check.defending_player,
+			"available_stratagems": reactive_check.available_stratagems,
+			"target_unit_ids": reactive_check.target_unit_ids
+		})
+
+	return _continue_after_reactive_stratagems()
 
 func _process_apply_saves(action: Dictionary) -> Dictionary:
 	"""Process save results and apply damage"""
@@ -2601,6 +3494,11 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 			var hits = hit_data.get("successes", 0)
 			var total_attacks = hit_data.get("total", 0)
+
+			# P1-11: Track hits for Sanctified Flames
+			if hits > 0 and target_unit_id != "":
+				_targets_hit_by_shooter[target_unit_id] = _targets_hit_by_shooter.get(target_unit_id, 0) + hits
+				print("ShootingPhase: P1-11 Sanctified Flames tracking: %d hit(s) on %s (total: %d)" % [hits, target_unit_id, _targets_hit_by_shooter[target_unit_id]])
 
 			# Record completed weapon with full data
 			resolution_state.completed_weapons.append({

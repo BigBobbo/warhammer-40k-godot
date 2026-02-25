@@ -361,6 +361,13 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
 		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
 		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
+	# P1-10: Always use Sentinel Storm — free extra shooting round
+	if action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["USE_SENTINEL_STORM"][0]
+		return {"type": "USE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Use Sentinel Storm (Easy)"}
+	if action_types.has("DECLINE_SENTINEL_STORM") and not action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["DECLINE_SENTINEL_STORM"][0]
+		return {"type": "DECLINE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Decline Sentinel Storm (Easy)"}
 	if action_types.has("CONFIRM_UNIT_MOVE"):
 		var a = action_types["CONFIRM_UNIT_MOVE"][0]
 		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
@@ -2304,6 +2311,15 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				"_ai_description": "Battle-shock test"
 			}
 
+	# WAAAGH! activation (Orks) — AI always calls Waaagh! when available
+	for action in available_actions:
+		if action.get("type") == "CALL_WAAAGH":
+			print("AIDecisionMaker: Calling WAAAGH! — advance+charge, +1 S/A melee, 5+ invuln")
+			return {
+				"type": "CALL_WAAAGH",
+				"_ai_description": "WAAAGH! — activate Ork faction ability"
+			}
+
 	# T7-45: Handle faction ability activation (Oath of Moment target selection)
 	var oath_actions = []
 	for action in available_actions:
@@ -2313,6 +2329,30 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		var best_target = _select_oath_of_moment_target(snapshot, oath_actions, player)
 		if not best_target.is_empty():
 			return best_target
+
+	# P2-27: Combat Doctrines selection (Space Marines — Gladius Task Force)
+	# AI strategy: Assault Doctrine early (advance+charge), Tactical mid-game (fall back flexibility),
+	# Devastator late (shoot after advancing when fewer units remain)
+	var doctrine_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_COMBAT_DOCTRINE":
+			doctrine_actions.append(action)
+	if not doctrine_actions.is_empty():
+		var battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+		var best_doctrine = _select_combat_doctrine(doctrine_actions, battle_round)
+		if not best_doctrine.is_empty():
+			return best_doctrine
+
+	# P2-27: Martial Mastery selection (Adeptus Custodes — Shield Host)
+	# AI strategy: Default to crit_on_5 for more damage output, pick improve_ap vs high-save targets
+	var mastery_actions = []
+	for action in available_actions:
+		if action.get("type") == "SELECT_MARTIAL_MASTERY":
+			mastery_actions.append(action)
+	if not mastery_actions.is_empty():
+		var best_mastery = _select_martial_mastery(mastery_actions, snapshot, player)
+		if not best_mastery.is_empty():
+			return best_mastery
 
 	# T7-25: Build secondary mission awareness before ending command phase
 	# Analyzes active secondary missions to inform movement positioning this turn
@@ -2433,6 +2473,104 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 		"target_unit_id": best_target_id,
 		"_ai_description": "Oath of Moment: mark %s for destruction (priority score: %.1f)" % [best_name, best_score]
 	}
+
+# =============================================================================
+# P2-27: DETACHMENT ABILITY SELECTIONS
+# =============================================================================
+
+static func _select_combat_doctrine(doctrine_actions: Array, battle_round: int) -> Dictionary:
+	"""
+	P2-27: Select the best Combat Doctrine based on battle round.
+	Strategy: Assault early (charge after advance), Tactical mid (fall back flexibility),
+	Devastator late (shoot after advance for remaining units).
+	"""
+	# Build map of available doctrines
+	var available_keys = {}
+	for action in doctrine_actions:
+		available_keys[action.get("doctrine_key", "")] = action
+
+	# Priority order by battle round
+	var preferred_order = []
+	if battle_round <= 2:
+		preferred_order = ["assault", "tactical", "devastator"]
+	elif battle_round <= 3:
+		preferred_order = ["tactical", "assault", "devastator"]
+	else:
+		preferred_order = ["devastator", "tactical", "assault"]
+
+	for key in preferred_order:
+		if key in available_keys:
+			print("AIDecisionMaker: P2-27 Combat Doctrine selected: %s (round %d)" % [key, battle_round])
+			return {
+				"type": "SELECT_COMBAT_DOCTRINE",
+				"doctrine_key": key,
+				"_ai_description": "Combat Doctrines: activate %s (round %d priority)" % [key, battle_round]
+			}
+
+	# Fallback: pick first available
+	if not doctrine_actions.is_empty():
+		var first = doctrine_actions[0]
+		return {
+			"type": "SELECT_COMBAT_DOCTRINE",
+			"doctrine_key": first.get("doctrine_key", ""),
+			"_ai_description": "Combat Doctrines: activate %s (fallback)" % first.get("doctrine_key", "")
+		}
+
+	return {}
+
+static func _select_martial_mastery(mastery_actions: Array, snapshot: Dictionary, player: int) -> Dictionary:
+	"""
+	P2-27: Select Martial Mastery option. Default to crit_on_5 for more damage output.
+	Pick improve_ap when facing high-save targets (3+ or better).
+	"""
+	var opponent = 1 if player == 2 else 2
+	var units = snapshot.get("units", {})
+
+	# Analyze enemy average save to decide
+	var total_save = 0
+	var count = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != opponent:
+			continue
+		var has_alive = false
+		for model in unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		var save = unit.get("meta", {}).get("stats", {}).get("save", 7)
+		total_save += save
+		count += 1
+
+	var avg_save = total_save / max(count, 1)
+
+	# If enemies have good saves (3+ or better on average), AP improvement is better
+	var preferred_key = "crit_on_5"
+	if avg_save <= 3:
+		preferred_key = "improve_ap"
+
+	# Find the matching action
+	for action in mastery_actions:
+		if action.get("mastery_key", "") == preferred_key:
+			print("AIDecisionMaker: P2-27 Martial Mastery selected: %s (avg enemy save: %.1f)" % [preferred_key, avg_save])
+			return {
+				"type": "SELECT_MARTIAL_MASTERY",
+				"mastery_key": preferred_key,
+				"_ai_description": "Martial Mastery: %s (avg enemy save %.1f)" % [preferred_key, avg_save]
+			}
+
+	# Fallback: pick first available
+	if not mastery_actions.is_empty():
+		var first = mastery_actions[0]
+		return {
+			"type": "SELECT_MARTIAL_MASTERY",
+			"mastery_key": first.get("mastery_key", ""),
+			"_ai_description": "Martial Mastery: %s (fallback)" % first.get("mastery_key", "")
+		}
+
+	return {}
 
 # =============================================================================
 # MOVEMENT PHASE
@@ -3090,17 +3228,22 @@ static func _compute_reinforcement_positions(unit: Dictionary, unit_id: String, 
 	var base_radius_px = (base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 	var min_enemy_dist_px = 9.0 * PIXELS_PER_INCH + base_radius_px + 25.0  # 25px (~0.6") extra buffer for enemy bases
 
+	# Get Omni-scrambler positions for deep strike denial zones
+	var omni_positions = _get_omni_scrambler_positions_from_snapshot(snapshot, player)
+	if omni_positions.size() > 0:
+		print("AIDecisionMaker: [RESERVES] %d Omni-scrambler models creating 12\" deep strike denial zones" % omni_positions.size())
+
 	if reserve_type == "strategic_reserves":
-		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round)
+		candidates = _generate_strategic_reserves_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, battle_round, omni_positions)
 	else:
 		# Deep strike: can be placed anywhere on the board >9" from enemies
-		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px)
+		candidates = _generate_deep_strike_candidates(snapshot, player, objectives, enemies, enemy_model_positions, min_enemy_dist_px, omni_positions)
 
 	return candidates
 
 static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
-		min_enemy_dist_px: float, battle_round: int) -> Array:
+		min_enemy_dist_px: float, battle_round: int, omni_scrambler_positions: Array = []) -> Array:
 	"""Generate candidate positions for strategic reserves (within 6\" of board edge)."""
 	var candidates = []
 	var edge_margin_px = 3.0 * PIXELS_PER_INCH  # Place 3" from edge (safely within the 6" limit)
@@ -3125,7 +3268,7 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 	var y = edge_margin_px
 	while y < BOARD_HEIGHT_PX - edge_margin_px:
 		var pos = Vector2(x, y)
-		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly, omni_scrambler_positions):
 			candidates.append(pos)
 		y += step_px
 
@@ -3134,7 +3277,7 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 	y = edge_margin_px
 	while y < BOARD_HEIGHT_PX - edge_margin_px:
 		var pos = Vector2(x, y)
-		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly, omni_scrambler_positions):
 			candidates.append(pos)
 		y += step_px
 
@@ -3143,7 +3286,7 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 	x = edge_margin_px
 	while x < BOARD_WIDTH_PX - edge_margin_px:
 		var pos = Vector2(x, y)
-		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly, omni_scrambler_positions):
 			candidates.append(pos)
 		x += step_px
 
@@ -3152,7 +3295,7 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 	x = edge_margin_px
 	while x < BOARD_WIDTH_PX - edge_margin_px:
 		var pos = Vector2(x, y)
-		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly):
+		if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, opponent_zone_poly, omni_scrambler_positions):
 			candidates.append(pos)
 		x += step_px
 
@@ -3164,7 +3307,7 @@ static func _generate_strategic_reserves_candidates(snapshot: Dictionary, player
 
 static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 		objectives: Array, enemies: Dictionary, enemy_model_positions: Array,
-		min_enemy_dist_px: float) -> Array:
+		min_enemy_dist_px: float, omni_scrambler_positions: Array = []) -> Array:
 	"""Generate candidate positions for deep strike (anywhere on the board >9\" from enemies)."""
 	var candidates = []
 	var step_px = 4.0 * PIXELS_PER_INCH  # Sample every 4 inches
@@ -3179,7 +3322,7 @@ static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 				var pos = obj_pos + Vector2(cos(angle_rad), sin(angle_rad)) * dist_px
 				pos.x = clamp(pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 				pos.y = clamp(pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
-				if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, []):
+				if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, [], omni_scrambler_positions):
 					candidates.append(pos)
 
 	# Second: grid sampling across the board for additional coverage
@@ -3188,7 +3331,7 @@ static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 		var y = BASE_MARGIN_PX + step_px
 		while y < BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 			var pos = Vector2(x, y)
-			if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, []):
+			if _is_candidate_position_valid(pos, enemy_model_positions, min_enemy_dist_px, [], omni_scrambler_positions):
 				candidates.append(pos)
 			y += step_px
 		x += step_px
@@ -3200,7 +3343,8 @@ static func _generate_deep_strike_candidates(snapshot: Dictionary, player: int,
 	return candidates
 
 static func _is_candidate_position_valid(pos: Vector2, enemy_model_positions: Array,
-		min_enemy_dist_px: float, opponent_zone_poly: Array) -> bool:
+		min_enemy_dist_px: float, opponent_zone_poly: Array,
+		omni_scrambler_positions: Array = []) -> bool:
 	"""Check if a candidate centroid position is valid for reinforcement placement."""
 	# Must be on the board
 	if pos.x < BASE_MARGIN_PX or pos.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
@@ -3217,6 +3361,13 @@ static func _is_candidate_position_valid(pos: Vector2, enemy_model_positions: Ar
 	if not opponent_zone_poly.is_empty():
 		var packed = PackedVector2Array(opponent_zone_poly)
 		if Geometry2D.is_point_in_polygon(pos, packed):
+			return false
+
+	# Omni-scramblers: cannot be within 12" of enemy units with Omni-scramblers
+	# Use conservative buffer: 12" + base radius (~0.6" buffer)
+	var omni_deny_dist_px = 12.0 * PIXELS_PER_INCH + 25.0  # 25px buffer for base sizes
+	for omni in omni_scrambler_positions:
+		if pos.distance_to(omni.position) < omni_deny_dist_px:
 			return false
 
 	return true
@@ -3294,6 +3445,50 @@ static func _get_enemy_model_positions_from_snapshot(snapshot: Dictionary, playe
 			})
 	return positions
 
+static func _get_omni_scrambler_positions_from_snapshot(snapshot: Dictionary, deploying_player: int) -> Array:
+	"""Get model positions of enemy units with Omni-scramblers from snapshot.
+	Returns array of {position: Vector2, base_mm: int, unit_name: String}."""
+	var positions = []
+	for unit_id in snapshot.get("units", {}):
+		var unit = snapshot.units[unit_id]
+		if unit.get("owner", 0) == deploying_player:
+			continue
+		var status = unit.get("status", 0)
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:
+			continue
+		# Check for Omni-scramblers ability
+		var has_omni = false
+		var abilities = unit.get("meta", {}).get("abilities", [])
+		for ability in abilities:
+			var aname = ""
+			if ability is String:
+				aname = ability
+			elif ability is Dictionary:
+				aname = ability.get("name", "")
+			if aname == "Omni-scramblers":
+				has_omni = true
+				break
+		if not has_omni:
+			continue
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos_data = model.get("position", null)
+			if pos_data == null:
+				continue
+			var mpos: Vector2
+			if pos_data is Vector2:
+				mpos = pos_data
+			else:
+				mpos = Vector2(float(pos_data.get("x", 0)), float(pos_data.get("y", 0)))
+			positions.append({
+				"position": mpos,
+				"base_mm": model.get("base_mm", 32),
+				"unit_name": unit_name
+			})
+	return positions
+
 static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 		enemy_model_positions: Array, reserve_type: String,
 		placement_bounds: Dictionary, snapshot: Dictionary, player: int, battle_round: int) -> bool:
@@ -3337,6 +3532,16 @@ static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 							packed.append(Vector2(float(v.x) * PIXELS_PER_INCH, float(v.y) * PIXELS_PER_INCH))
 					if not packed.is_empty() and Geometry2D.is_point_in_polygon(pos, packed):
 						return false
+
+	# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+	var omni_positions = _get_omni_scrambler_positions_from_snapshot(snapshot, player)
+	for omni in omni_positions:
+		var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+		var dist_px = pos.distance_to(omni.position)
+		var dist_inches = dist_px / PIXELS_PER_INCH
+		var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+		if edge_dist < 12.0:
+			return false
 
 	return true
 
@@ -6492,6 +6697,24 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			"type": "COMPLETE_SHOOTING_FOR_UNIT",
 			"actor_unit_id": a.get("actor_unit_id", ""),
 			"_ai_description": "Complete shooting for unit"
+		}
+
+	# Step 0.5a: P1-12 — Always use Throat Slittas (mortal wounds > slugga shots)
+	if action_types.has("USE_THROAT_SLITTAS"):
+		var a = action_types["USE_THROAT_SLITTAS"][0]
+		return {
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": a.get("actor_unit_id", ""),
+			"_ai_description": "Activate Throat Slittas — mortal wounds"
+		}
+
+	# Step 0.5b: P1-10 — Always use Sentinel Storm (free extra shooting)
+	if action_types.has("USE_SENTINEL_STORM"):
+		var a = action_types["USE_SENTINEL_STORM"][0]
+		return {
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": a.get("actor_unit_id", ""),
+			"_ai_description": "Activate Sentinel Storm — shoot again"
 		}
 
 	# Step 1: Handle saves if needed

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 ###############################################################################
-# run_audit_tasks.sh — Automated MASTER_AUDIT.md task runner using Claude Code
+# run_audit_tasks.sh — Automated ABILITIES_AUDIT.md task runner using Claude Code
 #
-# Parses open tasks from MASTER_AUDIT.md, loops through them one-by-one,
-# launching a fresh Claude Code session for each. Claude implements the task,
-# updates the audit file, commits, and merges to main before the next task
-# starts.
+# Parses open tasks from ABILITIES_AUDIT.md Priority Recommendations, loops
+# through them one-by-one, launching a fresh Claude Code session for each.
+# Claude implements the task, updates the audit file, commits, and merges to
+# main before the next task starts.
+#
+# Tasks are numbered 1-35 under priority headers (P0-P3).
+# Task IDs use the format P{priority}-{number} (e.g. P0-1, P1-8, P2-19).
 #
 # Designed to run locally on macOS.
 #
@@ -14,8 +17,8 @@
 #
 # Options:
 #   --dry-run            Show tasks that would be processed without executing
-#   --start-from ID      Start from a specific task ID (e.g. T2-5)
-#   --tier N             Only run tasks from tier N (1-6)
+#   --start-from ID      Start from a specific task ID (e.g. P0-1, P1-8)
+#   --priority N         Only run tasks from priority N (0-3)
 #   --max-tasks N        Stop after processing N tasks
 #   --skip ID[,ID,...]   Skip specific task IDs (comma-separated)
 #   --skip-failed        Skip tasks that previously failed (from state file)
@@ -35,7 +38,7 @@ export GIT_MERGE_AUTOEDIT=no
 # ─── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR"
-AUDIT_FILE="$PROJECT_DIR/MASTER_AUDIT.md"
+AUDIT_FILE="$PROJECT_DIR/ABILITIES_AUDIT.md"
 STATE_FILE="$PROJECT_DIR/.audit_runner_state"
 STOP_FILE="$PROJECT_DIR/.audit_runner_stop"
 LOG_DIR="$PROJECT_DIR/.audit_logs"
@@ -103,6 +106,7 @@ parse_args() {
         case "$1" in
             --dry-run)      DRY_RUN=true ;;
             --start-from)   START_FROM="$2"; shift ;;
+            --priority)     TIER_FILTER="$2"; shift ;;
             --tier)         TIER_FILTER="$2"; shift ;;
             --max-tasks)    MAX_TASKS="$2"; shift ;;
             --skip)         SKIP_IDS="$2"; shift ;;
@@ -174,68 +178,129 @@ get_failed_task_ids() {
 
 # ─── Task Parsing ────────────────────────────────────────────────────────────
 
-# Extracts all open task IDs and titles from MASTER_AUDIT.md
+# Extracts all open tasks from ABILITIES_AUDIT.md Priority Recommendations.
+# Tasks are numbered lines under ### P{n} headers, e.g.:
+#   ### P0 — Critical (abilities that claim to work but don't)
+#   1. **Fix ChargePhase to check advance_and_charge flag** — Martial Inspiration
+#
 # Output format: TASK_ID<TAB>TASK_TITLE
-# Note: reads file directly with grep/sed (not via echo) for macOS compatibility
+# Task IDs are constructed as P{priority}-{number} (e.g. P0-1, P1-8)
 parse_all_tasks() {
-    # ── Tier 1-4 and Tier 6 tasks: ### T{n}-{m}. Title ──
-    # Skip lines containing **DONE** or ~~strikethrough~~
-    grep -E '^### T[0-9]+-[0-9]+\.' "$AUDIT_FILE" | while IFS= read -r line; do
-        # Skip DONE tasks
-        if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
-            continue
-        fi
-        # Extract ID and title
-        local task_id task_title
-        task_id=$(printf '%s' "$line" | grep -oE 'T[0-9]+-[0-9]+')
-        task_title=$(printf '%s' "$line" | sed 's/^### //' | sed 's/^ *//')
-        printf '%s\t%s\n' "$task_id" "$task_title"
-    done
+    local current_priority=""
 
-    # ── Tier 5 tasks: - T5-{type}{n}. Description ──
-    grep -E '^- T5-[A-Za-z]+[0-9]+\.' "$AUDIT_FILE" | while IFS= read -r line; do
-        if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
+    while IFS= read -r line; do
+        # Detect priority header: ### P0, ### P1, ### P2, ### P3
+        if printf '%s' "$line" | grep -qE '^### P[0-9]'; then
+            current_priority=$(printf '%s' "$line" | grep -oE 'P[0-9]' | head -1 | sed 's/P//')
             continue
         fi
-        local task_id task_title
-        # Use head -1 to only grab the first T5-ID on the line (avoid cross-refs like "see also T5-V15")
-        task_id=$(printf '%s' "$line" | grep -oE 'T5-[A-Za-z]+[0-9]+' | head -1)
-        task_title=$(printf '%s' "$line" | sed 's/^- //')
-        printf '%s\t%s\n' "$task_id" "$task_title"
-    done
+
+        # Skip if we haven't found a priority header yet
+        [[ -z "$current_priority" ]] && continue
+
+        # Stop if we hit a section break (next ## or ---)
+        if printf '%s' "$line" | grep -qE '^(## |---)'; then
+            break
+        fi
+
+        # Match numbered task lines: "1. **Task title** — description"
+        if printf '%s' "$line" | grep -qE '^[0-9]+\. \*\*'; then
+            # Skip DONE tasks
+            if printf '%s' "$line" | grep -qE '\*\*DONE\*\*|~~.*~~'; then
+                continue
+            fi
+
+            local task_num task_title task_id
+            task_num=$(printf '%s' "$line" | grep -oE '^[0-9]+')
+            task_id="P${current_priority}-${task_num}"
+            # Extract the full line minus the leading number and period
+            task_title=$(printf '%s' "$line" | sed 's/^[0-9]*\. //')
+            printf '%s\t%s\n' "$task_id" "$task_title"
+        fi
+    done < "$AUDIT_FILE"
 }
 
-# Extracts the full section content for a given task ID from MASTER_AUDIT.md
-# For ### headers: everything from the header to the next ### or ---
-# For - bullets: the single line plus the subsection header it's under
-# Note: reads file directly with grep/awk (not via echo) for macOS compatibility
+# Extracts the full context for a given task from ABILITIES_AUDIT.md.
+# Task ID format: P{priority}-{number} (e.g. P0-1, P1-8)
+# Returns: the priority header, the task line itself, and all related
+# sections from earlier in the file that provide background context.
 get_task_context() {
     local task_id="$1"
 
-    # Determine if this is a ### header task or a - bullet task
-    if grep -qE "^### ${task_id}\." "$AUDIT_FILE"; then
-        # Header task: extract from ### to next ### or ---
-        awk "
-            /^### ${task_id}\./ { found=1 }
-            found && /^###/ && !/^### ${task_id}\./ { found=0 }
+    # Parse priority and task number from ID
+    local priority task_num
+    priority=$(echo "$task_id" | sed 's/P\([0-9]\)-.*/\1/')
+    task_num=$(echo "$task_id" | sed 's/P[0-9]-//')
+
+    # Find the priority header text
+    local priority_header
+    priority_header=$(grep -E "^### P${priority} " "$AUDIT_FILE" | head -1)
+
+    # Find the task line itself
+    local task_line
+    task_line=$(awk "
+        /^### P${priority} / { in_section=1; next }
+        in_section && /^### P[0-9]/ { in_section=0 }
+        in_section && /^(## |---)/ { in_section=0 }
+        in_section && /^${task_num}\. / { print; exit }
+    " "$AUDIT_FILE")
+
+    if [[ -z "$task_line" ]]; then
+        echo "Task ${task_id} not found in audit file."
+        return
+    fi
+
+    # Extract key terms from the task to find related context sections.
+    # Look for ability names, unit names, or system names mentioned in the task.
+    local related_context=""
+
+    # Always include the Broken Pipeline section for P0 tasks (they're about broken flags)
+    if [[ "$priority" == "0" ]]; then
+        related_context+=$(awk '
+            /^## Broken Pipeline/ { found=1 }
             found && /^---/ { found=0 }
             found { print }
-        " "$AUDIT_FILE"
-    elif grep -qE "^- ${task_id}\." "$AUDIT_FILE"; then
-        # Bullet task: get the subsection header and the bullet line
-        awk "
-            /^### / { section=\$0 }
-            /^- ${task_id}\./ { print section; print \$0 }
-        " "$AUDIT_FILE"
-    else
-        echo "Task ${task_id} not found in audit file."
+        ' "$AUDIT_FILE")
+        related_context+=$'\n\n'
     fi
+
+    # Include the relevant unit gap tables by scanning for ability/unit names in the task line
+    # Check each faction section for mentions of terms in the task
+    for section in "Orks — Unit Ability Gaps" "Adeptus Custodes — Unit Ability Gaps" "Space Marines — Unit Ability Gaps" "Faction Abilities" "Core Abilities Audit" "Once Per Battle"; do
+        local section_escaped
+        section_escaped=$(printf '%s' "$section" | sed 's/[.*+?^${}()|[\]\\]/\\&/g')
+        # Check if any key terms from the task line appear in this section
+        local section_content
+        section_content=$(awk -v sec="$section" '
+            $0 ~ "^## " sec { found=1; next }
+            found && /^---/ { found=0 }
+            found && /^## / { found=0 }
+            found { print }
+        ' "$AUDIT_FILE")
+
+        if [[ -n "$section_content" ]]; then
+            related_context+="## ${section}"$'\n'
+            related_context+="$section_content"$'\n\n'
+        fi
+    done
+
+    # Build the full context
+    echo "TASK: ${task_id}"
+    echo "${priority_header}"
+    echo ""
+    echo "Task: ${task_line}"
+    echo ""
+    echo "═══════════════════════════════════════════════════════"
+    echo "RELATED CONTEXT FROM ABILITIES_AUDIT.md"
+    echo "═══════════════════════════════════════════════════════"
+    echo ""
+    echo "$related_context"
 }
 
-# Get the tier number from a task ID
+# Get the priority number from a task ID (P0-1 -> 0, P1-8 -> 1, etc.)
 get_tier() {
     local task_id="$1"
-    echo "$task_id" | grep -oE '^T[0-9]+' | sed 's/T//'
+    echo "$task_id" | grep -oE '^P[0-9]' | sed 's/P//'
 }
 
 # ─── Branch Management ───────────────────────────────────────────────────────
@@ -306,7 +371,7 @@ build_prompt() {
 
     cat <<PROMPT_EOF
 You are working on a Warhammer 40k tabletop game implemented in Godot 4.4 (GDScript).
-Your job is to implement one specific audit task from the project's MASTER_AUDIT.md.
+Your job is to implement one specific ability task from the project's ABILITIES_AUDIT.md.
 
 ═══════════════════════════════════════════════════════
 TASK: ${task_id} — ${task_title}
@@ -323,20 +388,33 @@ INSTRUCTIONS
 
 1. READ the relevant source files mentioned in the task details above.
    Understand the existing code patterns before making changes.
+   Key files to check:
+   - 40k/autoloads/UnitAbilityManager.gd (ABILITY_EFFECTS table, ability application)
+   - 40k/autoloads/FactionAbilityManager.gd (faction abilities like Oath of Moment)
+   - 40k/autoloads/EffectPrimitives.gd (effect flag system)
+   - 40k/phases/ChargePhase.gd (charge eligibility checks)
+   - 40k/phases/ShootingPhase.gd (shooting eligibility checks)
+   - 40k/phases/FightPhase.gd (fight phase logic)
+   - 40k/autoloads/RulesEngine.gd (combat resolution, rerolls, saves)
+   - 40k/armies/*.json (unit data with abilities)
 
 2. IMPLEMENT the required changes:
    - Follow existing code style and patterns in the codebase
    - Do NOT remove debugging logs (project rule)
    - Keep changes focused — only implement what this task requires
    - Reference the 10th Edition core rules at https://wahapedia.ru/wh40k10ed/the-rules/core-rules/
+   - Reference specific unit datasheets on wahapedia when implementing unit-specific abilities
    - Reference Godot 4.4 docs at https://docs.godotengine.org/en/4.4/
    - Be careful not to introduce regressions in other phases
+   - Ensure any new logic has consistent behavior across both the interactive
+     resolution path and auto-resolve path in RulesEngine.gd (if applicable)
 
-3. UPDATE MASTER_AUDIT.md to reflect completion:
-   a. Add **DONE** to the task heading/line (e.g., change "### T1-1. Title" to "### T1-1. Title — **DONE**")
-   b. If the task was a ### header task, add a brief "- **Resolution:**" line describing what was done
-   c. Add the task to the "Recently Completed Items" table at the top of the file
-   d. Update the Quick Stats table: increment Done count, decrement Open count for the task's tier
+3. UPDATE ABILITIES_AUDIT.md to reflect completion:
+   a. In the Priority Recommendations section, append **DONE** to the task line
+      (e.g., change "1. **Fix ChargePhase...**" to "1. **Fix ChargePhase...** — **DONE**")
+   b. Update the Summary table: decrement the relevant count
+   c. If the task fixed an item in the "Implementation Status of ABILITY_EFFECTS Table",
+      update the "Actually Working" column to reflect the new status
 
 4. COMMIT all changes with a clear message in this format:
       Implement ${task_id}: <short description>
@@ -349,12 +427,13 @@ INSTRUCTIONS
 IMPORTANT NOTES
 ═══════════════════════════════════════════════════════
 - The project path is the current working directory
-- If a task depends on another task (noted in "Depends on:" fields), implement
-  what you can and note any limitations. Do NOT skip the task entirely.
+- If a task depends on another task, implement what you can and note any
+  limitations. Do NOT skip the task entirely.
 - If a task references specific line numbers, verify them first — they may have
   shifted since the audit was written.
-- Ensure any new logic has consistent behavior across both the interactive
-  resolution path and auto-resolve path in RulesEngine.gd (if applicable).
+- For abilities that need army JSON changes AND code changes, do both.
+- For abilities marked as "simplified" that need fixing, update both the
+  ABILITY_EFFECTS entry and the EffectPrimitives flag handling.
 PROMPT_EOF
 }
 
@@ -503,7 +582,7 @@ run_single_task() {
 
     echo ""
     echo -e "${BOLD}═══════════════════════════════════════════════════════${NC}"
-    log_task "TASK ${task_id} (Tier ${tier})${progress}"
+    log_task "TASK ${task_id} (Priority ${tier})${progress}"
     echo -e "  ${task_title}"
     echo -e "${BOLD}═══════════════════════════════════════════════════════${NC}"
 
@@ -584,7 +663,7 @@ main() {
     parse_args "$@"
 
     # Sanity checks
-    [[ -f "$AUDIT_FILE" ]] || die "MASTER_AUDIT.md not found at: ${AUDIT_FILE}"
+    [[ -f "$AUDIT_FILE" ]] || die "ABILITIES_AUDIT.md not found at: ${AUDIT_FILE}"
     command -v claude >/dev/null 2>&1 || die "Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code"
     command -v git >/dev/null 2>&1 || die "git not found"
 
@@ -601,7 +680,7 @@ main() {
 
     echo ""
     echo -e "${BOLD}╔═══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}║     MASTER AUDIT TASK RUNNER — Claude Code           ║${NC}"
+    echo -e "${BOLD}║   ABILITIES AUDIT TASK RUNNER — Claude Code          ║${NC}"
     echo -e "${BOLD}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -610,7 +689,7 @@ main() {
     tasks_raw=$(parse_all_tasks)
 
     if [[ -z "$tasks_raw" ]]; then
-        log_ok "No open tasks found in MASTER_AUDIT.md — all done!"
+        log_ok "No open tasks found in ABILITIES_AUDIT.md — all done!"
         exit 0
     fi
 
@@ -713,14 +792,12 @@ main() {
             tier=$(get_tier "$task_id")
             local color="$NC"
             case "$tier" in
-                1) color="$RED" ;;
-                2) color="$YELLOW" ;;
-                3) color="$BLUE" ;;
-                4) color="$CYAN" ;;
-                5) color="$NC" ;;
-                6) color="$GREEN" ;;
+                0) color="$RED" ;;
+                1) color="$YELLOW" ;;
+                2) color="$BLUE" ;;
+                3) color="$CYAN" ;;
             esac
-            printf "  ${color}%3d. [T%s] %s${NC}\n" "$idx" "${task_id#T}" "$task_title"
+            printf "  ${color}%3d. [%s] %s${NC}\n" "$idx" "$task_id" "$task_title"
         done 3<<< "$tasks_filtered"
         echo ""
         exit 0

@@ -994,6 +994,12 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 4: Saves and damage (normal rules apply) ---
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if ow_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - ow_worsen_ap)
+		print("RulesEngine: Worsen AP (Overwatch) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ow_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var target_flags = target_unit.get("flags", {})
@@ -1092,6 +1098,13 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 				var pre_half = dmg
 				dmg = apply_half_damage(dmg)
 				print("RulesEngine: Half Damage (Overwatch) — damage %d → %d" % [pre_half, dmg])
+
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ow_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ow_minus_dmg > 0:
+				var pre_minus = dmg
+				dmg = max(1, dmg - ow_minus_dmg)
+				print("RulesEngine: Minus Damage (Overwatch) — damage %d → %d (-%d)" % [pre_minus, dmg, ow_minus_dmg])
 
 			# Apply damage
 			var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
@@ -1274,6 +1287,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board)
 
 		result.dice.append({
@@ -1313,10 +1329,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
 
-		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-			hit_modifiers |= HitModifier.REROLL_ONES
-			print("RulesEngine: OATH OF MOMENT — re-roll 1s to hit against %s" % target_unit_id)
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: OATH OF MOMENT — re-roll all failed hits against %s" % target_unit_id)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
@@ -1335,6 +1351,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		elif reroll_hits_scope == "all":
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
+
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
@@ -1400,6 +1421,9 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -1485,10 +1509,10 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	if weapon_has_twin_linked:
 		wound_modifiers |= WoundModifier.REROLL_FAILED
 
-	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-		wound_modifiers |= WoundModifier.REROLL_ONES
-		print("RulesEngine: OATH OF MOMENT — re-roll 1s to wound against %s" % target_unit_id)
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: OATH OF MOMENT — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -1834,6 +1858,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Note: We still check if weapon HAS these keywords for UI display
 		# but they won't have any effect since there's no hit roll
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 		sustained_data = get_sustained_hits_value(weapon_id, board)
 
 		result.dice.append({
@@ -1873,10 +1900,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
 
-		# OATH OF MOMENT (T3-10): Re-roll hit rolls of 1 when ADEPTUS ASTARTES attacks oath target
+		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-			hit_modifiers |= HitModifier.REROLL_ONES
-			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to hit against %s" % target_unit_id)
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll all failed hits against %s" % target_unit_id)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
@@ -1892,6 +1919,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		elif reroll_hits_scope_ar == "failed" or reroll_hits_scope_ar == "all":
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
+
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(actor_unit):
+			hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
 		if is_heavy_weapon(weapon_id, board):
@@ -1958,6 +1990,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# Check for Lethal Hits keyword
 		weapon_has_lethal_hits = has_lethal_hits(weapon_id, board)
+		# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits based on weapon/target type
+		if not weapon_has_lethal_hits:
+			weapon_has_lethal_hits = check_advanced_firepower_lethal_hits(weapon_id, actor_unit, target_unit, board)
 
 		# SUSTAINED HITS (PRP-011): Generate bonus hits on critical hits
 		sustained_data = get_sustained_hits_value(weapon_id, board)
@@ -2043,10 +2078,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_weapon_has_twin_linked:
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
 
-	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
-		ar_wound_modifiers |= WoundModifier.REROLL_ONES
-		print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll 1s to wound against %s" % target_unit_id)
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: OATH OF MOMENT (auto-resolve) — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
@@ -2199,6 +2234,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# T3-17: This section mirrors the interactive path (prepare_save_resolution + apply_save_damage)
 	# to ensure both resolution paths produce identical results. Keep in sync with apply_save_damage().
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if ar_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - ar_worsen_ap)
+		print("RulesEngine: Worsen AP (auto-resolve) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ar_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var casualties = 0
 	var damage_applied = 0
@@ -2284,6 +2325,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var pre_half = dw_wound_damage
 				dw_wound_damage = apply_half_damage(dw_wound_damage)
 				print("RulesEngine: Half Damage (auto-resolve) — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ar_dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ar_dw_minus_dmg > 0:
+				var pre_minus = dw_wound_damage
+				dw_wound_damage = max(1, dw_wound_damage - ar_dw_minus_dmg)
+				print("RulesEngine: Minus Damage (auto-resolve) — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_wound_damage, ar_dw_minus_dmg])
 			dw_total_damage += dw_wound_damage
 
 		# FEEL NO PAIN: FNP applies even to devastating wounds
@@ -2435,6 +2482,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				damage = apply_half_damage(damage)
 				print("RulesEngine: Half Damage (auto-resolve) — damage %d → %d" % [pre_half, damage])
 
+			# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+			var ar_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+			if ar_minus_dmg > 0:
+				var pre_minus = damage
+				damage = max(1, damage - ar_minus_dmg)
+				print("RulesEngine: Minus Damage (auto-resolve) — damage %d → %d (-%d)" % [pre_minus, damage, ar_minus_dmg])
+
 			# FEEL NO PAIN (T3-17): Roll FNP for each point of damage — mirrors apply_save_damage()
 			var actual_damage = damage
 			if ar_fnp_value > 0:
@@ -2575,7 +2629,8 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 					errors.append("Non-Pistol weapon '%s' cannot be fired while in engagement range" % weapon_profile.get("name", weapon_id))
 
 				# ASSAULT RULES: If unit Advanced, only Assault weapons can be used
-				if actor_advanced and not is_assault_weapon(weapon_id, board):
+				# EXCEPTION: Units with advance_and_shoot effect can fire all weapons after Advancing
+				if actor_advanced and not is_assault_weapon(weapon_id, board) and not EffectPrimitivesData.has_effect_advance_and_shoot(actor_unit):
 					errors.append("Cannot fire non-Assault weapon '%s' after Advancing" % weapon_profile.get("name", weapon_id))
 
 		if target_unit_id == "":
@@ -3725,6 +3780,60 @@ static func has_lethal_hits(weapon_id: String, board: Dictionary = {}) -> bool:
 
 	return false
 
+# ADVANCED FIREPOWER (P1-16): Conditional Lethal Hits for Caladius Grav-tank
+# Twin iliastus accelerator cannon → Lethal Hits vs non-MONSTER/non-VEHICLE targets
+# Twin arachnus heavy blaze cannon → Lethal Hits vs MONSTER or VEHICLE targets
+static func check_advanced_firepower_lethal_hits(weapon_id: String, attacker_unit: Dictionary, target_unit: Dictionary, board: Dictionary = {}) -> bool:
+	# Check if the attacker has the "Advanced Firepower" ability
+	var abilities = attacker_unit.get("meta", {}).get("abilities", [])
+	var has_ability = false
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name == "Advanced Firepower":
+			has_ability = true
+			break
+
+	if not has_ability:
+		return false
+
+	# Get weapon name from profile
+	var weapon_profile = get_weapon_profile(weapon_id, board)
+	if weapon_profile.is_empty():
+		return false
+	var weapon_name = weapon_profile.get("name", "").to_lower()
+
+	# Get target keywords
+	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
+	var target_is_monster_or_vehicle = false
+	for kw in target_keywords:
+		if kw.to_upper() in ["MONSTER", "VEHICLE"]:
+			target_is_monster_or_vehicle = true
+			break
+
+	# Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/non-VEHICLE
+	if "iliastus" in weapon_name:
+		if not target_is_monster_or_vehicle:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon gains LETHAL HITS (target is not MONSTER/VEHICLE)")
+			return true
+		else:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin iliastus accelerator cannon does NOT gain LETHAL HITS (target is MONSTER/VEHICLE)")
+			return false
+
+	# Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE
+	if "arachnus" in weapon_name:
+		if target_is_monster_or_vehicle:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon gains LETHAL HITS (target is MONSTER/VEHICLE)")
+			return true
+		else:
+			print("RulesEngine: ADVANCED FIREPOWER — Twin arachnus heavy blaze cannon does NOT gain LETHAL HITS (target is not MONSTER/VEHICLE)")
+			return false
+
+	return false
+
 # ==========================================
 # SUSTAINED HITS (PRP-011)
 # ==========================================
@@ -4007,6 +4116,41 @@ static func has_stealth_ability(unit: Dictionary) -> bool:
 			ability_name = ability.get("name", "")
 		if ability_name.to_lower() == "stealth":
 			return true
+	return false
+
+# DAMAGED PROFILE (P1-14): Check if a unit's Damaged profile is active
+# Per 10e rules: When a model with a Damaged profile has wounds remaining at or below
+# the threshold, subtract 1 from Hit rolls when that model attacks.
+# The ability name format is "Damaged: 1-X Wounds Remaining" where X is the threshold.
+# Returns true if the unit has a Damaged ability and its current wounds are within the threshold.
+static func is_damaged_profile_active(unit: Dictionary) -> bool:
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	var threshold = 0
+	for ability in abilities:
+		var ability_name = ""
+		if ability is String:
+			ability_name = ability
+		elif ability is Dictionary:
+			ability_name = ability.get("name", "")
+		if ability_name.begins_with("Damaged:"):
+			# Parse threshold from "Damaged: 1-X Wounds Remaining"
+			var regex_match = ability_name.split("-")
+			if regex_match.size() >= 2:
+				# Extract the number after the dash, e.g. "5 Wounds Remaining" -> 5
+				var after_dash = regex_match[1].strip_edges()
+				threshold = after_dash.to_int()
+			break
+
+	if threshold <= 0:
+		return false
+
+	# Check current wounds of the model (vehicles are single-model units)
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			var current_wounds = model.get("current_wounds", 0)
+			if current_wounds > 0 and current_wounds <= threshold:
+				return true
 	return false
 
 # Get the effective critical wound threshold for a weapon against a target
@@ -5780,6 +5924,25 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var model_count = 0
 	var attacks_roll_log = []
 
+	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
+	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
+	# DA BIGGEST AND DA BEST: Check if attacker has this ability (Warboss — +4 attacks while Waaagh!)
+	var has_da_biggest = false
+	# DEAD BRUTAL: Check if attacker has this ability (Warboss in Mega Armour — damage=3 while Waaagh!)
+	var has_dead_brutal = false
+	if waaagh_active:
+		var attacker_abilities = attacker_unit.get("meta", {}).get("abilities", [])
+		for ab in attacker_abilities:
+			var ab_name = ""
+			if ab is String:
+				ab_name = ab
+			elif ab is Dictionary:
+				ab_name = ab.get("name", "")
+			if ab_name == "Da Biggest and da Best":
+				has_da_biggest = true
+			elif ab_name == "Dead Brutal":
+				has_dead_brutal = true
+
 	# Compute per-model fight eligibility based on engagement range
 	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
 	var total_alive_models = 0
@@ -5802,7 +5965,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		model_count += 1
 		# Roll variable attacks for each model separately (per 10e rules)
 		var attacks_result = roll_variable_characteristic(attacks_raw, rng)
-		total_attacks += attacks_result.value
+		var model_attacks = attacks_result.value
+
+		# WAAAGH! BONUS: +1 Attack to melee weapons
+		if waaagh_active:
+			model_attacks += 1
+
+		# DA BIGGEST AND DA BEST: +4 Attacks to this model's melee weapons while Waaagh! active
+		if has_da_biggest:
+			model_attacks += 4
+			print("RulesEngine: Da Biggest and da Best — +4 attacks for model (Waaagh! active)")
+
+		total_attacks += model_attacks
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -5817,9 +5991,35 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Use WS from weapon profile (10e: WS is on the weapon, not the unit)
 	var ws = weapon_profile.get("ws", 4)
 	var strength = weapon_profile.get("strength", 4)
+
+	# WAAAGH! BONUS: +1 Strength to melee weapons
+	if waaagh_active:
+		strength += 1
+		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
+
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
 	var ap = weapon_profile.get("ap", 0)
+	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
+	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)
+	var melee_attacker_flags = attacker_unit.get("flags", {})
+	if melee_attacker_flags.get("martial_mastery_improve_ap", false):
+		var pre_ap_mm = ap
+		ap = ap + 1
+		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if melee_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - melee_worsen_ap)
+		print("RulesEngine: Worsen AP (melee) — AP %d → %d (worsen by %d)" % [pre_ap, ap, melee_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
+
+	# DEAD BRUTAL: While Waaagh! active, 'Uge choppa has Damage 3
+	if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+		var pre_damage = damage
+		damage = 3
+		print("RulesEngine: Dead Brutal — 'Uge choppa damage %d → %d (Waaagh! active)" % [pre_damage, damage])
+
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
 	# ===== PHASE 3: DETECT WEAPON ABILITIES =====
@@ -5829,6 +6029,22 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
+
+	# MARTIAL KA'TAH / EFFECT FLAGS: Check unit-level effect flags for Lethal/Sustained Hits
+	# These are set by faction abilities (e.g., Martial Ka'tah) or stratagems via EffectPrimitives
+	if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(attacker_unit):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Martial Ka'tah Rendax stance)")
+	if sustained_data.value == 0 and EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
+		# Check for Ka'tah-specific sustained hits value, default to 1
+		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
+		sustained_data = {"value": katah_sh_value, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+
+	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
+	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by Get Stuck In (War Horde detachment)")
 
 	print("RulesEngine: Melee %s (%s) → %s: %d attacks (%d/%d models eligible), WS %d+, S%d, AP%d, D%d" % [
 		attacker_name, weapon_name, target_name, total_attacks, model_count, total_alive_models, ws, strength, ap, damage
@@ -5875,6 +6091,17 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
 
+		# MARTIAL MASTERY — CRIT ON 5+ (P2-27): Shield Host detachment
+		var melee_crit_threshold = 6  # Default: only unmodified 6s are critical hits
+		if melee_attacker_flags.get("martial_mastery_crit_5", false):
+			melee_crit_threshold = 5
+			print("RulesEngine: Martial Mastery (Crit on 5+) — melee critical hit threshold lowered to 5+")
+		# Also check effect_crit_hit_on flag (from stratagems or other abilities)
+		var effect_crit = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
+		if effect_crit > 0 and effect_crit < melee_crit_threshold:
+			melee_crit_threshold = effect_crit
+			print("RulesEngine: Effect crit_hit_on %d+ active — melee critical hit threshold: %d+" % [effect_crit, effect_crit])
+
 		# Build melee hit modifiers using the HitModifier system
 		var melee_hit_modifiers = HitModifier.NONE
 
@@ -5886,11 +6113,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			if hit_mods.get("reroll_failed", false):
 				melee_hit_modifiers |= HitModifier.REROLL_FAILED
 
-		# OATH OF MOMENT (T3-10): Check if attacker benefits from Oath for melee hit rerolls
+		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
 		if melee_oath_reroll_hits:
-			melee_hit_modifiers |= HitModifier.REROLL_ONES
-			print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to hit against %s" % target_name)
+			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			print("RulesEngine: OATH OF MOMENT (melee) — re-roll all failed hits against %s" % target_name)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker (melee)
 		if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
@@ -5906,6 +6133,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		elif melee_reroll_hits_scope == "failed" or melee_reroll_hits_scope == "all":
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
 			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
+
+		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
+		if is_damaged_profile_active(attacker_unit):
+			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			print("RulesEngine: Damaged profile -1 to hit (melee) applied for %s" % attacker_id)
 
 		var melee_hit_reroll_data = []
 		for i in range(hit_rolls.size()):
@@ -5927,10 +6159,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			# 10e rules: Unmodified 1 always misses, unmodified 6 always hits
 			if unmodified_roll == 1:
 				pass  # Auto-miss
-			elif unmodified_roll == 6 or roll >= ws:
+			elif unmodified_roll >= melee_crit_threshold or unmodified_roll == 6 or roll >= ws:
 				hits += 1
-				# Critical hit = unmodified 6 (BEFORE modifiers)
-				if unmodified_roll == 6:
+				# Critical hit = unmodified roll >= threshold (6 normally, 5+ with Martial Mastery)
+				if unmodified_roll >= melee_crit_threshold:
 					critical_hits += 1
 				else:
 					regular_hits += 1
@@ -5997,10 +6229,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	if melee_weapon_has_twin_linked:
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
 
-	# OATH OF MOMENT (T3-10): Re-roll wound rolls of 1 when ADEPTUS ASTARTES attacks oath target
+	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
-		melee_wound_modifiers |= WoundModifier.REROLL_ONES
-		print("RulesEngine: OATH OF MOMENT (melee) — re-roll 1s to wound against %s" % target_name)
+		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		print("RulesEngine: OATH OF MOMENT (melee) — +1 to wound against %s" % target_name)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
@@ -6174,6 +6406,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# Also check unit-level invuln in meta stats
 		if invuln == 0:
 			invuln = target_unit.get("meta", {}).get("stats", {}).get("invuln", 0)
+		# Check effect-granted invulnerable save (e.g., Waaagh! 5+, Go to Ground, abilities)
+		var melee_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		if melee_effect_invuln > 0:
+			if invuln == 0 or melee_effect_invuln < invuln:
+				invuln = melee_effect_invuln
+				print("RulesEngine: Effect-granted %d+ invulnerable save applied in melee" % melee_effect_invuln)
 
 		var save_info = _calculate_save_needed(base_save, ap, false, invuln)  # No cover in melee
 		save_threshold = save_info.inv if save_info.use_invuln else save_info.armour
@@ -6216,6 +6454,9 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# Per 10e rules: Devastating Wounds create mortal wounds that spill over between models.
 	# Regular failed-save damage does NOT spill over (excess damage lost when model dies).
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	# DEAD BRUTAL: Override damage_raw for variable damage rolling
+	if has_dead_brutal and weapon_name.to_lower().contains("uge choppa"):
+		damage_raw = "3"
 	var damage_roll_log = []
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
@@ -6224,6 +6465,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		print("RulesEngine: Half Damage active on melee defender — all damage characteristics halved (round up)")
 
 	# Roll variable damage per regular failed save
+	var melee_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 	var regular_wound_damages = []
 	for _i in range(failed_saves):
 		var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -6231,6 +6473,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# HALF DAMAGE (T4-17): Halve per-wound damage (round up)
 		if melee_has_half_damage:
 			wound_dmg_value = apply_half_damage(wound_dmg_value)
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if melee_minus_dmg > 0:
+			var pre_minus = wound_dmg_value
+			wound_dmg_value = max(1, wound_dmg_value - melee_minus_dmg)
+			print("RulesEngine: Minus Damage (melee) — damage %d → %d (-%d)" % [pre_minus, wound_dmg_value, melee_minus_dmg])
 		regular_wound_damages.append(wound_dmg_value)
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
@@ -6246,6 +6493,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		# HALF DAMAGE (T4-17): Halve devastating wound damage (round up)
 		if melee_has_half_damage:
 			dw_dmg_value = apply_half_damage(dw_dmg_value)
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if melee_minus_dmg > 0:
+			var pre_minus = dw_dmg_value
+			dw_dmg_value = max(1, dw_dmg_value - melee_minus_dmg)
+			print("RulesEngine: Minus Damage (melee) — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_dmg_value, melee_minus_dmg])
 		devastating_damage += dw_dmg_value
 		if dmg_result.rolled:
 			damage_roll_log.append(dmg_result)
@@ -6596,6 +6848,12 @@ static func prepare_save_resolution(
 		return {"success": false, "error": "Target unit not found"}
 
 	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if int_worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - int_worsen_ap)
+		print("RulesEngine: Worsen AP (interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, int_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 
@@ -6861,6 +7119,11 @@ static func apply_save_damage(
 	if has_half_damage:
 		print("RulesEngine: Half Damage active on defender — all damage characteristics halved (round up)")
 
+	# MINUS DAMAGE (P1-18): Check if target unit has damage reduction (e.g. Guardian Eternal -1 Damage)
+	var int_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+	if int_minus_dmg > 0:
+		print("RulesEngine: Minus Damage active on defender — all damage reduced by %d (min 1)" % int_minus_dmg)
+
 	# DEVASTATING WOUNDS (PRP-012, T2-11): Apply devastating damage first (unsaveable)
 	# T2-11: DW mortal wounds spill over between models via _apply_damage_to_unit_pool
 	# Roll variable damage per devastating wound (D3, D6, etc.)
@@ -6873,6 +7136,11 @@ static func apply_save_damage(
 			var pre_half = dw_damage
 			dw_damage = apply_half_damage(dw_damage)
 			print("RulesEngine: Half Damage — devastating override damage %d → %d" % [pre_half, dw_damage])
+		# MINUS DAMAGE (P1-18): Subtract damage reduction, min 1
+		if int_minus_dmg > 0 and dw_damage > 0:
+			var pre_minus = dw_damage
+			dw_damage = max(1, dw_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — devastating override damage %d → %d (-%d)" % [pre_minus, dw_damage, int_minus_dmg])
 	elif devastating_wound_count > 0 and rng != null:
 		for _i in range(devastating_wound_count):
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
@@ -6887,6 +7155,11 @@ static func apply_save_damage(
 				var pre_half = dw_wound_damage
 				dw_wound_damage = apply_half_damage(dw_wound_damage)
 				print("RulesEngine: Half Damage — devastating wound damage %d → %d" % [pre_half, dw_wound_damage])
+			# MINUS DAMAGE (P1-18): Subtract damage reduction, min 1
+			if int_minus_dmg > 0:
+				var pre_minus = dw_wound_damage
+				dw_wound_damage = max(1, dw_wound_damage - int_minus_dmg)
+				print("RulesEngine: Minus Damage — devastating wound damage %d → %d (-%d)" % [pre_minus, dw_wound_damage, int_minus_dmg])
 			dw_damage += dw_wound_damage
 			if dmg_result.rolled:
 				damage_roll_log.append({"source": "devastating", "result": dmg_result})
@@ -6902,6 +7175,11 @@ static func apply_save_damage(
 			var pre_half = dw_damage
 			dw_damage = apply_half_damage(dw_damage)
 			print("RulesEngine: Half Damage — fixed devastating damage %d → %d" % [pre_half, dw_damage])
+		# MINUS DAMAGE (P1-18): Subtract damage reduction from fixed estimate, min 1
+		if int_minus_dmg > 0 and dw_damage > 0:
+			var pre_minus = dw_damage
+			dw_damage = max(1, dw_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — fixed devastating damage %d → %d (-%d)" % [pre_minus, dw_damage, int_minus_dmg])
 	if dw_damage > 0:
 		print("RulesEngine: Applying %d devastating wounds damage (unsaveable)" % dw_damage)
 
@@ -6980,6 +7258,12 @@ static func apply_save_damage(
 			var pre_half = wound_damage
 			wound_damage = apply_half_damage(wound_damage)
 			print("RulesEngine: Half Damage — failed save damage %d → %d" % [pre_half, wound_damage])
+
+		# MINUS DAMAGE (P1-18): Subtract damage reduction (e.g. Guardian Eternal -1 Damage), min 1
+		if int_minus_dmg > 0:
+			var pre_minus = wound_damage
+			wound_damage = max(1, wound_damage - int_minus_dmg)
+			print("RulesEngine: Minus Damage — failed save damage %d → %d (-%d)" % [pre_minus, wound_damage, int_minus_dmg])
 
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
 		var actual_damage = wound_damage
@@ -7339,6 +7623,236 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 		"wounds_applied": actual_wounds,
 		"fnp_rolls": fnp_result.get("rolls", [])
 	}
+
+# ==========================================
+# DEADLY DEMISE (P1-13)
+# ==========================================
+
+static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Resolve Deadly Demise when a model with this ability is destroyed.
+	Rules: Roll 1D6. On a 6, each unit within 6\" suffers 'dd_value' mortal wounds.
+	If dd_value is a random number (D3, D6), roll separately for each unit within 6\".
+	Args:
+		destroyed_unit_id: The unit that was just destroyed
+		dd_value: The mortal wound value string ('D6', 'D3', '1', etc.)
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { triggered: bool, trigger_roll: int, diffs: Array, per_target: Array, total_mortal_wounds: int, total_casualties: int }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var destroyed_unit = units.get(destroyed_unit_id, {})
+	var destroyed_name = destroyed_unit.get("meta", {}).get("name", destroyed_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-13: DEADLY DEMISE — %s (%s) destroyed" % [destroyed_name, destroyed_unit_id])
+	print("║ Deadly Demise value: %s" % dd_value)
+
+	# Step 1: Roll 1D6 to see if Deadly Demise triggers (on a 6)
+	var trigger_roll = rng.roll_d6(1)[0]
+	print("║ Trigger roll: %d (needs 6)" % trigger_roll)
+
+	if trigger_roll != 6:
+		print("║ Deadly Demise did NOT trigger (rolled %d, needed 6)" % trigger_roll)
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"triggered": false,
+			"trigger_roll": trigger_roll,
+			"diffs": [],
+			"per_target": [],
+			"total_mortal_wounds": 0,
+			"total_casualties": 0
+		}
+
+	print("║ DEADLY DEMISE TRIGGERED! Rolling mortal wounds for units within 6\"")
+
+	# Step 2: Find all units within 6" of the destroyed model
+	var destroyed_owner = destroyed_unit.get("owner", 0)
+	var targets_within_6 = _find_units_within_range_of_unit(destroyed_unit_id, 6.0, board)
+
+	var all_diffs: Array = []
+	var per_target: Array = []
+	var total_mortal_wounds = 0
+	var total_casualties = 0
+
+	for target_info in targets_within_6:
+		var target_unit_id = target_info.get("unit_id", "")
+		var target_name = target_info.get("unit_name", target_unit_id)
+
+		# Step 3: Roll mortal wounds for each target
+		var mortal_wounds = _roll_deadly_demise_damage(dd_value, rng)
+		print("║ Target: %s — %d mortal wound(s) (from %s)" % [target_name, mortal_wounds, dd_value])
+
+		var target_result = {
+			"target_unit_id": target_unit_id,
+			"target_name": target_name,
+			"mortal_wounds": mortal_wounds,
+			"casualties": 0
+		}
+
+		# Step 4: Apply mortal wounds
+		if mortal_wounds > 0:
+			var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+			all_diffs.append_array(mw_result.get("diffs", []))
+			target_result["casualties"] = mw_result.get("casualties", 0)
+			total_casualties += mw_result.get("casualties", 0)
+
+		total_mortal_wounds += mortal_wounds
+		per_target.append(target_result)
+
+	print("║ DEADLY DEMISE SUMMARY: %d mortal wound(s) dealt, %d casualt(y/ies) across %d target(s)" % [
+		total_mortal_wounds, total_casualties, per_target.size()
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"triggered": true,
+		"trigger_roll": trigger_roll,
+		"diffs": all_diffs,
+		"per_target": per_target,
+		"total_mortal_wounds": total_mortal_wounds,
+		"total_casualties": total_casualties
+	}
+
+# ==========================================
+# DREAD FOE (P1-17)
+# ==========================================
+
+static func resolve_dread_foe(attacker_unit_id: String, target_unit_id: String, charged_this_turn: bool, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Resolve Dread Foe ability when the Contemptor-Achillus is selected to fight.
+	Rules: Select one enemy unit within Engagement Range. Roll 1D6, adding 2 if
+	this model made a Charge move this turn: on 4-5, D3 mortal wounds; on 6+, 3 mortal wounds.
+	Args:
+		attacker_unit_id: The unit with Dread Foe (Contemptor-Achillus)
+		target_unit_id: The selected enemy unit within Engagement Range
+		charged_this_turn: Whether the attacker charged this turn (+2 to roll)
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { roll: int, modified_roll: int, mortal_wounds: int, diffs: Array, casualties: int }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var attacker_unit = units.get(attacker_unit_id, {})
+	var attacker_name = attacker_unit.get("meta", {}).get("name", attacker_unit_id)
+	var target_unit = units.get(target_unit_id, {})
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-17: DREAD FOE — %s (%s)" % [attacker_name, attacker_unit_id])
+	print("║ Target: %s (%s)" % [target_name, target_unit_id])
+	print("║ Charged this turn: %s" % str(charged_this_turn))
+
+	# Step 1: Roll 1D6
+	var roll = rng.roll_d6(1)[0]
+	var modified_roll = roll + (2 if charged_this_turn else 0)
+	print("║ Roll: %d%s = %d" % [roll, " +2 (charged)" if charged_this_turn else "", modified_roll])
+
+	# Step 2: Determine mortal wounds based on modified roll
+	var mortal_wounds = 0
+	if modified_roll >= 6:
+		mortal_wounds = 3
+		print("║ Result: 6+ → 3 mortal wounds!")
+	elif modified_roll >= 4:
+		# D3 mortal wounds (D6 / 2, round up: 1-2=1, 3-4=2, 5-6=3)
+		var d3_roll = rng.roll_d6(1)[0]
+		mortal_wounds = ceili(float(d3_roll) / 2.0)
+		print("║ Result: 4-5 → D3 mortal wounds (rolled %d on D6 = %d)" % [d3_roll, mortal_wounds])
+	else:
+		print("║ Result: %d — no mortal wounds (needs 4+)" % modified_roll)
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"roll": roll,
+			"modified_roll": modified_roll,
+			"mortal_wounds": 0,
+			"diffs": [],
+			"casualties": 0
+		}
+
+	# Step 3: Apply mortal wounds to target
+	var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
+
+	print("║ DREAD FOE SUMMARY: %d mortal wound(s) dealt to %s, %d casualt(y/ies)" % [
+		mortal_wounds, target_name, mw_result.get("casualties", 0)
+	])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"roll": roll,
+		"modified_roll": modified_roll,
+		"mortal_wounds": mortal_wounds,
+		"diffs": mw_result.get("diffs", []),
+		"casualties": mw_result.get("casualties", 0),
+		"fnp_rolls": mw_result.get("fnp_rolls", [])
+	}
+
+static func _find_units_within_range_of_unit(source_unit_id: String, range_inches: float, board: Dictionary) -> Array:
+	"""Find all units (friendly AND enemy) within range_inches of any model in the source unit.
+	Deadly Demise affects ALL units within 6\", both friendly and enemy.
+	Returns array of { unit_id, unit_name, distance }."""
+	var units = board.get("units", {})
+	var source_unit = units.get(source_unit_id, {})
+	if source_unit.is_empty():
+		return []
+
+	var source_models = source_unit.get("models", [])
+	var results: Array = []
+
+	for other_id in units:
+		if other_id == source_unit_id:
+			continue
+
+		var other_unit = units.get(other_id, {})
+
+		# Skip fully destroyed units
+		var has_alive = false
+		for model in other_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Check edge-to-edge distance from destroyed model to nearest alive model
+		var min_dist = INF
+		for source_model in source_models:
+			# Use the destroyed model's position (it was just marked dead but position still exists)
+			var source_pos = source_model.get("position", null)
+			if source_pos == null:
+				continue
+
+			for other_model in other_unit.get("models", []):
+				if not other_model.get("alive", true):
+					continue
+				var dist = Measurement.model_to_model_distance_inches(source_model, other_model)
+				min_dist = min(min_dist, dist)
+
+		if min_dist <= range_inches:
+			results.append({
+				"unit_id": other_id,
+				"unit_name": other_unit.get("meta", {}).get("name", other_id),
+				"distance": min_dist
+			})
+			print("║ Unit within 6\": %s (%.1f\")" % [other_unit.get("meta", {}).get("name", other_id), min_dist])
+
+	return results
+
+static func _roll_deadly_demise_damage(dd_value: String, rng: RNGService) -> int:
+	"""Roll the mortal wounds for a Deadly Demise trigger.
+	dd_value: 'D6', 'D3', '1', etc."""
+	var upper = dd_value.to_upper()
+	if upper == "D6":
+		return rng.roll_d6(1)[0]
+	elif upper == "D3":
+		# D3 = roll 1D6, divide by 2 rounding up: 1-2=1, 3-4=2, 5-6=3
+		var roll = rng.roll_d6(1)[0]
+		return ceili(float(roll) / 2.0)
+	else:
+		# Fixed value (e.g. "1", "2")
+		return int(dd_value) if dd_value.is_valid_int() else 1
 
 static func get_grenade_eligible_targets(actor_unit_id: String, board: Dictionary) -> Array:
 	"""Get enemy units within 8\" and visible to the grenade-throwing unit.

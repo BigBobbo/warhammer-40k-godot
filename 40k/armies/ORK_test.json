@@ -99,9 +99,9 @@
               "description": ""
             },
             {
-              "name": "Core",
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Might is Right",
@@ -198,9 +198,9 @@
               "description": ""
             },
             {
-              "name": "Core",
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Might is Right",
@@ -377,14 +377,34 @@
           ],
           "abilities": [
             {
-              "name": "Core",
+              "name": "Deadly Demise D6",
+              "type": "Core",
+              "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
+            },
+            {
+              "name": "FIRING DECK",
+              "type": "Core",
+              "description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield."
+            },
+            {
+              "name": "Waaagh!",
               "type": "Faction",
-              "description": ""
+              "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
             },
             {
               "name": "Ramshackle",
               "type": "Datasheet",
               "description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound."
+            },
+            {
+              "name": "Damaged: 1-5 Wounds Remaining",
+              "type": "Datasheet",
+              "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
+            },
+            {
+              "name": "'Ard Case",
+              "type": "Wargear",
+              "description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability."
             },
             {
               "name": "TRANSPORT",

@@ -269,6 +269,17 @@
               "special_rules": "twin-linked"
             },
             {
+              "name": "Twin iliastus accelerator cannon",
+              "type": "Ranged",
+              "range": "48",
+              "attacks": "4",
+              "ballistic_skill": "2",
+              "strength": "10",
+              "ap": "-1",
+              "damage": "3",
+              "special_rules": "rapid fire 4, twin-linked"
+            },
+            {
               "name": "Twin lastrum bolt cannon",
               "type": "Ranged",
               "range": "36",
@@ -292,10 +303,9 @@
           ],
           "abilities": [
             {
-              "name": "Core",
+              "name": "Deadly Demise D3",
               "type": "Core",
-              "description": "",
-              "parameter": "D3"
+              "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
             },
             {
               "name": "Martial Ka'tah",
@@ -306,6 +316,11 @@
               "name": "Advanced Firepower",
               "type": "Datasheet",
               "description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability."
+            },
+            {
+              "name": "Damaged: 1-5 Wounds Remaining",
+              "type": "Datasheet",
+              "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
             }
           ],
           "unit_composition": [

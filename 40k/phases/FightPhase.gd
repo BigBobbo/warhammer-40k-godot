@@ -29,6 +29,8 @@ signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
+signal katah_stance_required(unit_id: String, player: int)
+signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -251,6 +253,41 @@ func _check_kill_diffs(changes: Array) -> void:
 							AIPlayer.record_ai_unit_killed(destroyed_by)
 						if AIPlayer.is_ai_player(destroyed_owner):
 							AIPlayer.record_ai_unit_lost(destroyed_owner)
+					# P1-13: Check for Deadly Demise on destroyed unit
+					_resolve_deadly_demise_if_applicable(unit_id)
+
+func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
+	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if not ability_mgr:
+		return
+	if not ability_mgr.has_deadly_demise(destroyed_unit_id):
+		return
+
+	var dd_value = ability_mgr.get_deadly_demise_value(destroyed_unit_id)
+	if dd_value == "":
+		return
+
+	var unit_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	print("FightPhase: P1-13 Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [unit_name, destroyed_unit_id, dd_value])
+	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
+
+	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
+
+	if dd_result.get("triggered", false):
+		# Apply the mortal wound diffs
+		var diffs = dd_result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			log_phase_message("Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
+				dd_value, dd_result.get("total_mortal_wounds", 0), dd_result.get("per_target", []).size()
+			])
+			# Recursively check if Deadly Demise caused any further unit deaths
+			_check_kill_diffs(diffs)
+	else:
+		log_phase_message("Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
+			dd_value, dd_result.get("trigger_roll", 0)
+		])
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
@@ -282,6 +319,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return {"valid": true}
+		"SELECT_KATAH_STANCE":
+			return _validate_select_katah_stance(action)
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
@@ -319,6 +358,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return _process_decline_counter_offensive(action)
+		"SELECT_KATAH_STANCE":
+			return _process_select_katah_stance(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
@@ -948,17 +989,8 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 		result["epic_challenge_player"] = current_selecting_player
 		return result
 
-	# No Epic Challenge available - proceed directly to pile-in
-	# Start unit activation sequence: Pile In → Attack → Consolidate
-	log_phase_message("Emitting pile_in_required for %s" % active_fighter_id)
-	emit_signal("pile_in_required", active_fighter_id, 3.0)
-
-	# Add metadata for NetworkManager to re-emit signal on client
-	var result = create_result(true, [])
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = active_fighter_id
-	result["pile_in_distance"] = 3.0
-	return result
+	# No Epic Challenge available - check for Martial Ka'tah before pile-in
+	return _check_katah_or_proceed_to_pile_in(active_fighter_id)
 
 func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
@@ -1367,6 +1399,18 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	active_fighter_id = ""
 	confirmed_attacks.clear()
 
+	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.clear_katah_stance(unit_id)
+		# Also clear from snapshot
+		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
+			snap_flags.erase("effect_sustained_hits")
+			snap_flags.erase("effect_lethal_hits")
+			snap_flags.erase("katah_stance")
+			snap_flags.erase("katah_sustained_hits_value")
+
 	# Legacy support - update old index
 	current_fight_index += 1
 
@@ -1431,6 +1475,11 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# Skip this unit and advance to next
 	units_that_fought.append(action.unit_id)
 	active_fighter_id = ""
+
+	# Clear Martial Ka'tah stance if any
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr:
+		faction_mgr.clear_katah_stance(action.unit_id)
 
 	# Legacy support - update old index
 	current_fight_index += 1
@@ -2490,21 +2539,108 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 			game_state_snapshot.units[unit_id]["flags"] = {}
 		game_state_snapshot.units[unit_id].flags[EffectPrimitivesData.FLAG_PRECISION_MELEE] = true
 
-	# Proceed to pile-in now that the stratagem has been handled
-	log_phase_message("Emitting pile_in_required for %s" % unit_id)
-	emit_signal("pile_in_required", unit_id, 3.0)
-
-	var result = create_result(true, strat_result.get("diffs", []))
-	result["trigger_pile_in"] = true
-	result["pile_in_unit_id"] = unit_id
-	result["pile_in_distance"] = 3.0
-	return result
+	# Check for Martial Ka'tah before proceeding to pile-in
+	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
+	# Merge diffs from stratagem result
+	if not strat_result.get("diffs", []).is_empty():
+		var merged_changes = strat_result.get("diffs", [])
+		merged_changes.append_array(katah_result.get("changes", []))
+		katah_result["changes"] = merged_changes
+	return katah_result
 
 func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", active_fighter_id)
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 
 	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
+
+	# Check for Martial Ka'tah before proceeding to pile-in
+	return _check_katah_or_proceed_to_pile_in(unit_id)
+
+# ============================================================================
+# MARTIAL KA'TAH — Stance Selection
+# ============================================================================
+
+func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
+	"""Check if unit has Martial Ka'tah. If so, emit stance dialog signal.
+	Otherwise, proceed directly to pile-in."""
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if faction_mgr and faction_mgr.unit_has_katah(unit_id):
+		# Check if Master of the Stances is available for this unit
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
+		if master_available:
+			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah + Master of the Stances available — stance selection required" % unit_id)
+		else:
+			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
+		emit_signal("katah_stance_required", unit_id, current_selecting_player)
+
+		var result = create_result(true, [])
+		result["trigger_katah_stance"] = true
+		result["katah_unit_id"] = unit_id
+		result["katah_player"] = current_selecting_player
+		result["master_of_the_stances_available"] = master_available
+		return result
+
+	# No Ka'tah — check for Dread Foe, then proceed to pile-in
+	return _resolve_dread_foe_then_pile_in(unit_id)
+
+# ============================================================================
+# P1-17: DREAD FOE — Mortal wounds on fight selection
+# ============================================================================
+
+func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
+	"""P1-17: Check if unit has Dread Foe ability. If so, auto-resolve mortal wounds
+	against one enemy within Engagement Range, then proceed to pile-in.
+	Dread Foe: Roll 1D6 (+2 if charged this turn). On 4-5, D3 MW. On 6+, 3 MW."""
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_dread_foe(unit_id):
+		var unit = get_unit(unit_id)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+		# Find enemy units within Engagement Range
+		var targets = _get_dread_foe_targets(unit_id)
+		if targets.is_empty():
+			log_phase_message("DREAD FOE: %s has Dread Foe but no enemies in Engagement Range" % unit_name)
+		else:
+			# Auto-select first target (highest priority: most models, or first found)
+			var target_id = targets[0].get("unit_id", "")
+			var target_name = targets[0].get("unit_name", target_id)
+			log_phase_message("DREAD FOE: %s targets %s within Engagement Range" % [unit_name, target_name])
+
+			# Check if this unit charged this turn
+			var flags = unit.get("flags", {})
+			var charged_this_turn = flags.get("charged_this_turn", false)
+
+			# Resolve Dread Foe via RulesEngine
+			var rng_service = RulesEngine.RNGService.new()
+			var dread_foe_result = RulesEngine.resolve_dread_foe(
+				unit_id, target_id, charged_this_turn, GameState.state, rng_service
+			)
+
+			# Apply state changes if mortal wounds were dealt
+			var dread_foe_diffs = dread_foe_result.get("diffs", [])
+			if not dread_foe_diffs.is_empty():
+				PhaseManager.apply_state_changes(dread_foe_diffs)
+				# Also update our snapshot
+				game_state_snapshot = GameState.state.duplicate(true)
+				log_phase_message("DREAD FOE: Applied %d state change(s)" % dread_foe_diffs.size())
+
+			# Emit signal for UI/logging
+			emit_signal("dread_foe_resolved", unit_id, dread_foe_result)
+
+			log_phase_message("DREAD FOE: %s rolled %d (modified %d) — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
+				unit_name,
+				dread_foe_result.get("roll", 0),
+				dread_foe_result.get("modified_roll", 0),
+				dread_foe_result.get("mortal_wounds", 0),
+				target_name,
+				dread_foe_result.get("casualties", 0)
+			])
+
+			# Check if Dread Foe killed any units (could trigger Deadly Demise)
+			if not dread_foe_diffs.is_empty():
+				_check_kill_diffs(dread_foe_diffs)
 
 	# Proceed to pile-in
 	log_phase_message("Emitting pile_in_required for %s" % unit_id)
@@ -2515,6 +2651,108 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	result["pile_in_unit_id"] = unit_id
 	result["pile_in_distance"] = 3.0
 	return result
+
+func _get_dread_foe_targets(unit_id: String) -> Array:
+	"""P1-17: Get enemy units within Engagement Range of a unit for Dread Foe targeting.
+	Returns array of { unit_id, unit_name } dictionaries."""
+	var unit = get_unit(unit_id)
+	var unit_owner = unit.get("owner", 0)
+	var all_units = game_state_snapshot.get("units", {})
+	var targets: Array = []
+
+	for other_id in all_units:
+		var other = all_units[other_id]
+		# Only enemy units
+		if other.get("owner", 0) == unit_owner:
+			continue
+		# Must have alive models
+		var has_alive = false
+		for m in other.get("models", []):
+			if m.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+		# Must be within Engagement Range
+		if _units_in_engagement_range(unit, other):
+			targets.append({
+				"unit_id": other_id,
+				"unit_name": other.get("meta", {}).get("name", other_id)
+			})
+
+	return targets
+
+func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	var stance = action.get("stance", "")
+
+	if unit_id.is_empty():
+		errors.append("Missing unit_id")
+		return {"valid": false, "errors": errors}
+
+	if unit_id != active_fighter_id:
+		errors.append("Unit is not the active fighter")
+		return {"valid": false, "errors": errors}
+
+	if stance != "dacatarai" and stance != "rendax" and stance != "both":
+		errors.append("Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance)
+		return {"valid": false, "errors": errors}
+
+	# "both" requires Master of the Stances (once per battle)
+	if stance == "both":
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if not ability_mgr or not ability_mgr.has_master_of_the_stances(unit_id):
+			errors.append("Master of the Stances not available for this unit")
+			return {"valid": false, "errors": errors}
+
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	if not faction_mgr or not faction_mgr.unit_has_katah(unit_id):
+		errors.append("Unit does not have Martial Ka'tah ability")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true}
+
+func _process_select_katah_stance(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var stance = action.get("stance", "")
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+
+	# If "both" stance selected, mark Master of the Stances as used
+	if stance == "both":
+		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+		if ability_mgr:
+			ability_mgr.mark_once_per_battle_used(unit_id, "Master of the Stances")
+			log_phase_message("MASTER OF THE STANCES: %s activates both Ka'tah stances (once per battle)" % unit_name)
+
+	# Apply the stance via FactionAbilityManager
+	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
+	var stance_result = faction_mgr.apply_katah_stance(unit_id, stance)
+
+	if not stance_result.get("success", false):
+		return create_result(false, [], "Failed to apply Ka'tah stance: %s" % stance_result.get("error", "unknown"))
+
+	log_phase_message("MARTIAL KA'TAH: %s assumes %s stance" % [unit_name, stance_result.get("stance_display", stance)])
+
+	# Also apply the flag to the game state snapshot so RulesEngine can see it during this fight
+	if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
+		if not game_state_snapshot.units[unit_id].has("flags"):
+			game_state_snapshot.units[unit_id]["flags"] = {}
+		if stance == "both":
+			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
+			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "both"
+			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+		elif stance == "dacatarai":
+			game_state_snapshot.units[unit_id].flags["effect_sustained_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "dacatarai"
+			game_state_snapshot.units[unit_id].flags["katah_sustained_hits_value"] = 1
+		elif stance == "rendax":
+			game_state_snapshot.units[unit_id].flags["effect_lethal_hits"] = true
+			game_state_snapshot.units[unit_id].flags["katah_stance"] = "rendax"
+
+	# After Ka'tah — check for Dread Foe, then proceed to pile-in
+	return _resolve_dread_foe_then_pile_in(unit_id)
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []

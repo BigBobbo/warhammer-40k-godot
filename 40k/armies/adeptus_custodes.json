@@ -7,6 +7,107 @@
     "team_name": ""
   },
   "units": {
+    "U_SHIELD_CAPTAIN_A": {
+      "id": "U_SHIELD_CAPTAIN_A",
+      "squad_id": "U_SHIELD_CAPTAIN_A",
+      "owner": 1,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Shield-Captain",
+        "keywords": [
+          "ADEPTUS CUSTODES",
+          "CHARACTER",
+          "IMPERIUM",
+          "INFANTRY",
+          "SHIELD-CAPTAIN"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 6,
+          "save": 2,
+          "wounds": 6,
+          "leadership": 6,
+          "objective_control": 2,
+          "invuln": 4
+        },
+        "points": 120,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "Shield-Captain (Shield), Praesidium Shield"
+        ],
+        "weapons": [
+          {
+            "name": "Sentinel blade",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "2",
+            "ballistic_skill": "2",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "2",
+            "special_rules": "assault, pistol"
+          },
+          {
+            "name": "Sentinel blade",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "7",
+            "weapon_skill": "2",
+            "strength": "6",
+            "ap": "-2",
+            "damage": "1"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deep Strike",
+            "type": "Core",
+            "description": "Some units make their way to battle via tunnelling, teleportation, high-altitude descent or other extraordinary means that allow them to appear suddenly in the thick of the fighting."
+          },
+          {
+            "name": "Martial Ka'tah",
+            "type": "Faction",
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
+          },
+          {
+            "name": "Master of the Stances",
+            "type": "Datasheet",
+            "description": "Once per battle, when this model's unit is selected to fight, it can use this ability. If it does, until that fight is resolved, both Ka'tah Stances are active for that unit instead of only one."
+          },
+          {
+            "name": "Strategic Mastery",
+            "type": "Datasheet",
+            "description": "Once per battle round, you can select one model from your army with this ability and target that model's unit with a Stratagem. If you do, reduce the CP cost of that use of that Stratagem by 1CP."
+          },
+          {
+            "name": "Praesidium Shield",
+            "type": "Wargear",
+            "description": "Add 1 to the bearer's Wounds characteristic."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Shield-Captain",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": ["CUSTODIAN GUARD"]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 6,
+          "current_wounds": 6,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
     "U_BLADE_CHAMPION_A": {
       "id": "U_BLADE_CHAMPION_A",
       "squad_id": "U_BLADE_CHAMPION_A",
@@ -84,7 +185,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Swift Onslaught",
@@ -211,7 +312,7 @@
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Praesidium Shield",
@@ -541,6 +642,17 @@
             "special_rules": "twin-linked"
           },
           {
+            "name": "Twin iliastus accelerator cannon",
+            "type": "Ranged",
+            "range": "48",
+            "attacks": "4",
+            "ballistic_skill": "2",
+            "strength": "10",
+            "ap": "-1",
+            "damage": "3",
+            "special_rules": "rapid fire 4, twin-linked"
+          },
+          {
             "name": "Twin lastrum bolt cannon",
             "type": "Ranged",
             "range": "36",
@@ -564,20 +676,24 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Deadly Demise D3",
             "type": "Core",
-            "description": "",
-            "parameter": "D3"
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
           },
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Advanced Firepower",
             "type": "Datasheet",
             "description": "Each time this model makes an attack with its twin iliastus accelerator cannon that targets an enemy unit (excluding MONSTERS and VEHICLES), that attack has the [LETHAL HITS] ability. Each time this model makes an attack with its twin arachnus heavy blaze cannon that targets an enemy MONSTER or VEHICLE unit, that attack has the [LETHAL HITS] ability."
+          },
+          {
+            "name": "Damaged: 1-5 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
           }
         ],
         "unit_composition": [
@@ -677,15 +793,14 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Deadly Demise 1",
             "type": "Core",
-            "description": "",
-            "parameter": "1"
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers 1 mortal wound."
           },
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
             "name": "Dread Foe",
@@ -808,20 +923,24 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Deadly Demise D3",
             "type": "Core",
-            "description": "",
-            "parameter": "1"
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
           },
           {
             "name": "Martial Ka'tah",
             "type": "Faction",
-            "description": "Specialised disciplines mastered by Custodians over decades if not centuries, each ka'tah equips its practitioner to overmaster any foe in a particular discipline or philosophy."
+            "description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai (Sustained Hits 1) or Rendax (Lethal Hits). That stance is active for melee attacks until the unit finishes attacking."
           },
           {
-            "name": "Eternal Protector",
+            "name": "Guardian Eternal",
             "type": "Datasheet",
-            "description": "Each time an attack targets this model, an unmodified saving throw of 6 reflects the attack back at the attacker - the attacking model's unit suffers 1 mortal wound after all of the attacking model's attacks have been resolved."
+            "description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
+          },
+          {
+            "name": "Damaged: 1-4 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
           }
         ],
         "unit_composition": [

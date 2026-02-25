@@ -1304,6 +1304,17 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			print("NetworkManager: ⚠️ Missing fight_selection_data or phase doesn't support signal")
 
 	# Handle pile_in_required signal (after SELECT_FIGHTER)
+	# Handle katah_stance_required signal (Martial Ka'tah, after SELECT_FIGHTER)
+	if result.get("trigger_katah_stance", false):
+		print("NetworkManager: Result has trigger_katah_stance flag")
+		var unit_id = result.get("katah_unit_id", "")
+		var katah_player = result.get("katah_player", 0)
+		if phase.has_signal("katah_stance_required") and unit_id != "":
+			print("NetworkManager: Client re-emitting katah_stance_required for unit %s" % unit_id)
+			phase.emit_signal("katah_stance_required", unit_id, katah_player)
+		else:
+			print("NetworkManager: ⚠️ Phase doesn't support katah_stance_required or missing unit_id")
+
 	if result.get("trigger_pile_in", false):
 		print("NetworkManager: Result has trigger_pile_in flag")
 		var unit_id = result.get("pile_in_unit_id", "")

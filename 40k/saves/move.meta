@@ -1,0 +1,17 @@
+{
+	"created_at": 1771811817.51691,
+	"description": "move",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "aff0fe12-265a-f279-877d-1c8efec630152bbe",
+		"phase": 4,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "move",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

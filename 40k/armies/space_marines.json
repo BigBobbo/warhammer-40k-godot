@@ -2,7 +2,7 @@
   "faction": {
     "name": "Space Marines",
     "points": 500,
-    "detachment": "Battle Company",
+    "detachment": "Gladius Task Force",
     "player_name": "",
     "team_name": ""
   },
@@ -65,7 +65,17 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
+          },
+          {
+            "name": "Objective Secured",
+            "type": "Datasheet",
+            "description": "If you control an objective marker at the end of your Command phase and this unit is within range of that objective marker, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn."
+          },
+          {
+            "name": "Target Elimination",
+            "type": "Datasheet",
+            "description": "Each time this unit is selected to shoot, it can use this ability. If it does, until the end of the phase, add 2 to the Attacks characteristic of bolt rifles equipped by models in this unit and you can only select one enemy unit as the target of all of this unit's attacks."
           }
         ],
         "unit_composition": [
@@ -141,7 +151,12 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
+          },
+          {
+            "name": "Combat Squads",
+            "type": "Datasheet",
+            "description": "At the start of the Declare Battle Formations step, before any units have been set up, this unit can be split into two units, each containing five models."
           }
         ],
         "unit_composition": [
@@ -222,7 +237,7 @@
           {
             "name": "Oath of Moment",
             "type": "Faction",
-            "description": "At the start of your Command phase, select one enemy unit. Re-roll hit rolls and wound rolls of 1 for attacks made against that unit by ADEPTUS ASTARTES units from your army."
+            "description": "At the start of your Command phase, select one unit from your opponent's army. Until the start of your next Command phase, that enemy unit is your Oath of Moment target. Each time a model with this ability makes an attack that targets your Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
           },
           {
             "name": "Omni-scramblers",

@@ -18,6 +18,8 @@ signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligi
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 signal rapid_ingress_opportunity(player: int, eligible_units: Array)
+signal bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array)
+signal bomb_squigs_result(unit_id: String, results: Dictionary)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -42,6 +44,17 @@ var _awaiting_rapid_ingress: bool = false
 var _rapid_ingress_player: int = 0             # Non-active player being offered Rapid Ingress
 var _rapid_ingress_eligible_units: Array = []  # Reserve units eligible for Rapid Ingress
 var _rapid_ingress_unit_id: String = ""        # The unit chosen for Rapid Ingress placement
+
+# Bomb Squigs state tracking (P2-25)
+var _bomb_squigs_pending_unit: String = ""     # Unit awaiting Bomb Squigs decision
+var _bomb_squigs_pending_changes: Array = []   # Pending movement changes while awaiting Bomb Squigs
+var _bomb_squigs_pending_dice: Array = []      # Pending dice while awaiting Bomb Squigs
+
+# Sawbonez state tracking (P3-29)
+var _awaiting_sawbonez: bool = false            # Waiting for Sawbonez heal decision
+var _sawbonez_painboss_id: String = ""          # The Painboss unit offering healing
+var _sawbonez_targets: Array = []               # Eligible healing targets
+var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
 
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
@@ -81,6 +94,9 @@ func _on_phase_enter() -> void:
 	_rapid_ingress_player = 0
 	_rapid_ingress_eligible_units = []
 	_rapid_ingress_unit_id = ""
+	_bomb_squigs_pending_unit = ""
+	_bomb_squigs_pending_changes = []
+	_bomb_squigs_pending_dice = []
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -110,6 +126,12 @@ func _on_phase_exit() -> void:
 	# Clear any temporary movement data
 	for unit_id in active_moves:
 		_clear_unit_move_state(unit_id)
+
+	# Clear Sawbonez state (P3-29)
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
 
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
@@ -185,6 +207,18 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_rapid_ingress(action)
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return _validate_place_rapid_ingress_reinforcement(action)
+		"USE_BOMB_SQUIGS":
+			return _validate_use_bomb_squigs(action)
+		"DECLINE_BOMB_SQUIGS":
+			return _validate_decline_bomb_squigs(action)
+		"USE_SAWBONEZ":
+			if not _awaiting_sawbonez:
+				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
+			return {"valid": true}
+		"DECLINE_SAWBONEZ":
+			if not _awaiting_sawbonez:
+				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
+			return {"valid": true}
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -241,6 +275,14 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_rapid_ingress(action)
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return _process_place_rapid_ingress_reinforcement(action)
+		"USE_BOMB_SQUIGS":
+			return _process_use_bomb_squigs(action)
+		"DECLINE_BOMB_SQUIGS":
+			return _process_decline_bomb_squigs(action)
+		"USE_SAWBONEZ":
+			return _process_use_sawbonez(action)
+		"DECLINE_SAWBONEZ":
+			return _process_decline_sawbonez(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -663,7 +705,10 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
-	
+
+	# If unit already had staged moves (e.g. switching modes), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
+
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -701,6 +746,10 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
+
+	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
+	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
+	_reset_staged_visuals_if_needed(unit_id)
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
@@ -766,6 +815,9 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	var move_inches = get_unit_movement(unit)
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
 
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
@@ -965,6 +1017,347 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 # ============================================================================
+# BOMB SQUIGS (P2-25)
+# ============================================================================
+# "Once per battle, after this unit ends a Normal move, you can select one enemy
+# unit within 12\" of and visible to this unit and roll one D6: on a 3+, that
+# enemy unit suffers D3 mortal wounds."
+
+func _validate_use_bomb_squigs(action: Dictionary) -> Dictionary:
+	"""Validate activating Bomb Squigs ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if _bomb_squigs_pending_unit == "" or _bomb_squigs_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Bomb Squigs pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _validate_decline_bomb_squigs(action: Dictionary) -> Dictionary:
+	"""Validate declining Bomb Squigs ability."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+	if _bomb_squigs_pending_unit == "" or _bomb_squigs_pending_unit != unit_id:
+		return {"valid": false, "errors": ["No Bomb Squigs pending for this unit"]}
+	return {"valid": true, "errors": []}
+
+func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
+	"""Player activates Bomb Squigs — roll mortal wounds against nearest visible enemy."""
+	var unit_id = action.get("actor_unit_id", "")
+	var target_unit_id = action.get("target_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: BOMB SQUIGS — ACTIVATED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Get cached movement changes/dice
+	var cached_changes = _bomb_squigs_pending_changes.duplicate()
+	var cached_dice = _bomb_squigs_pending_dice.duplicate()
+
+	# Clear the pending state
+	_bomb_squigs_pending_unit = ""
+	_bomb_squigs_pending_changes = []
+	_bomb_squigs_pending_dice = []
+
+	# If no specific target, pick the first eligible target
+	if target_unit_id == "":
+		var targets = _get_bomb_squigs_targets(unit_id)
+		if not targets.is_empty():
+			target_unit_id = targets[0].get("target_unit_id", "")
+
+	if target_unit_id == "":
+		log_phase_message("Bomb Squigs: No valid target found")
+		return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+	# Mark as used (once per battle)
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		ability_mgr.mark_once_per_battle_used(unit_id, "Bomb Squigs")
+
+	# Resolve: roll 1D6, on 3+ the target suffers D3 mortal wounds
+	var result = _resolve_bomb_squigs(unit_id, target_unit_id)
+
+	var all_changes = cached_changes.duplicate()
+	all_changes.append_array(result.get("diffs", []))
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+	log_phase_message("Bomb Squigs: %s targets %s — %s" % [unit_name, target_name, result.get("log_text", "")])
+
+	emit_signal("bomb_squigs_result", unit_id, result)
+
+	return create_result(true, all_changes, "Bomb Squigs resolved", {"dice": cached_dice})
+
+func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
+	"""Player declines Bomb Squigs — proceed normally."""
+	var unit_id = action.get("actor_unit_id", "")
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P2-25: BOMB SQUIGS — DECLINED")
+	print("║ Unit ID: ", unit_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _bomb_squigs_pending_changes.duplicate()
+	var cached_dice = _bomb_squigs_pending_dice.duplicate()
+
+	# Clear pending state
+	_bomb_squigs_pending_unit = ""
+	_bomb_squigs_pending_changes = []
+	_bomb_squigs_pending_dice = []
+
+	return create_result(true, cached_changes, "", {"dice": cached_dice})
+
+# ============================================================================
+# P3-29: SAWBONEZ (Painboss healing at end of Movement phase)
+# ============================================================================
+
+func _process_use_sawbonez(action: Dictionary) -> Dictionary:
+	"""Player chooses a target for Sawbonez healing — heal up to 3 wounds."""
+	var target_unit_id = action.get("target_unit_id", "")
+	var target_model_index = action.get("target_model_index", -1)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P3-29: SAWBONEZ — HEALING")
+	print("║ Painboss: ", _sawbonez_painboss_id)
+	print("║ Target Unit: ", target_unit_id)
+	print("║ Target Model Index: ", target_model_index)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _sawbonez_pending_changes.duplicate()
+	var heal_changes = []
+
+	# Find the target model and heal up to 3 wounds
+	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+	if not target_unit.is_empty() and target_model_index >= 0:
+		var models = target_unit.get("models", [])
+		if target_model_index < models.size():
+			var model = models[target_model_index]
+			var current_wounds = model.get("current_wounds", 1)
+			var max_wounds = model.get("wounds", 1)
+			var heal_amount = min(3, max_wounds - current_wounds)
+			var new_wounds = current_wounds + heal_amount
+
+			if heal_amount > 0:
+				heal_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
+					"value": new_wounds
+				})
+
+				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+				var model_id = model.get("id", "m%d" % (target_model_index + 1))
+				log_phase_message("SAWBONEZ: Painboss heals %s model %s for %d wounds (%d → %d)" % [
+					target_name, model_id, heal_amount, current_wounds, new_wounds])
+				print("MovementPhase: Sawbonez healed %s model %s: %d → %d wounds" % [
+					target_name, model_id, current_wounds, new_wounds])
+
+	# Clear Sawbonez state
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
+
+	# Combine with pending changes
+	var all_changes = cached_changes + heal_changes
+
+	# Now continue with the rest of END_MOVEMENT logic (Rapid Ingress check, etc.)
+	# Apply heal changes first, then re-invoke end movement
+	if heal_changes.size() > 0:
+		PhaseManager.apply_state_changes(heal_changes)
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_sawbonez(cached_changes)
+
+func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
+	"""Player declines Sawbonez healing — proceed with ending movement phase."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P3-29: SAWBONEZ — DECLINED")
+	print("║ Painboss: ", _sawbonez_painboss_id)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var cached_changes = _sawbonez_pending_changes.duplicate()
+
+	# Clear Sawbonez state
+	_awaiting_sawbonez = false
+	_sawbonez_painboss_id = ""
+	_sawbonez_targets = []
+	_sawbonez_pending_changes = []
+
+	# Continue with Rapid Ingress check and phase completion
+	return _continue_end_movement_after_sawbonez(cached_changes)
+
+func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
+	"""Continue the END_MOVEMENT flow after Sawbonez decision (heal or decline).
+	Checks for Rapid Ingress, then completes the phase."""
+	var current_player = get_current_player()
+
+	# T4-7: Check for Rapid Ingress opportunity for the non-active player
+	var defending_player = 2 if current_player == 1 else 1
+	var battle_round = GameState.get_battle_round()
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager and battle_round >= 2:
+		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
+		if strat_check.can_use:
+			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
+			if not ri_eligible.is_empty():
+				_awaiting_rapid_ingress = true
+				_rapid_ingress_player = defending_player
+				_rapid_ingress_eligible_units = ri_eligible
+				log_phase_message("RAPID INGRESS available for Player %d (%d eligible reserve units)" % [defending_player, ri_eligible.size()])
+				print("MovementPhase: Rapid Ingress opportunity — Player %d has %d eligible units in reserves" % [defending_player, ri_eligible.size()])
+
+				emit_signal("rapid_ingress_opportunity", defending_player, ri_eligible)
+
+				var result = create_result(true, changes)
+				result["trigger_rapid_ingress"] = true
+				result["awaiting_rapid_ingress"] = true
+				result["rapid_ingress_player"] = defending_player
+				result["rapid_ingress_eligible_units"] = ri_eligible
+				return result
+
+	log_phase_message("Ending Movement Phase (post-Sawbonez) - emitting phase_completed signal")
+	emit_signal("phase_completed")
+	log_phase_message("=== END_MOVEMENT COMPLETE (post-Sawbonez) ===")
+	return create_result(true, changes)
+
+func _get_bomb_squigs_targets(unit_id: String) -> Array:
+	"""Find enemy units within 12\" of the unit (and visible).
+	Returns array of {target_unit_id, target_name} dictionaries."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	var owner = int(unit.get("owner", 0))
+	var unit_pos = _get_unit_center(unit)
+	if unit_pos == null:
+		return []
+
+	var targets = []
+	var all_units = game_state_snapshot.get("units", {})
+
+	for other_id in all_units:
+		var other = all_units[other_id]
+		if int(other.get("owner", 0)) == owner:
+			continue  # Skip friendly units
+
+		# Must be alive
+		var has_alive = false
+		for model in other.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Must be within 12"
+		var other_pos = _get_unit_center(other)
+		if other_pos == null:
+			continue
+
+		var dist_inches = unit_pos.distance_to(other_pos) / GameState.PIXELS_PER_INCH
+		if dist_inches <= 12.0:
+			targets.append({
+				"target_unit_id": other_id,
+				"target_name": other.get("meta", {}).get("name", other_id)
+			})
+
+	return targets
+
+func _get_unit_center(unit: Dictionary) -> Variant:
+	"""Get the center position of a unit's alive models. Returns null if no positioned models."""
+	var positions = []
+	for model in unit.get("models", []):
+		if model.get("alive", true) and model.get("position", null) != null:
+			var pos = model.position
+			if pos is Vector2:
+				positions.append(pos)
+			elif pos is Dictionary and pos.has("x") and pos.has("y"):
+				positions.append(Vector2(pos.x, pos.y))
+
+	if positions.is_empty():
+		return null
+
+	var center = Vector2.ZERO
+	for p in positions:
+		center += p
+	return center / positions.size()
+
+func _resolve_bomb_squigs(unit_id: String, target_unit_id: String) -> Dictionary:
+	"""Resolve Bomb Squigs: roll 1D6, on 3+ target suffers D3 mortal wounds.
+	Returns {diffs: Array, mortal_wounds: int, casualties: int, success: bool, roll: int, log_text: String}."""
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+
+	var roll = rng.randi_range(1, 6)
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
+
+	print("║ P2-25: Bomb Squigs roll: %d (need 3+)" % roll)
+
+	if roll < 3:
+		print("║ P2-25: Bomb Squigs — MISS! Roll %d < 3" % roll)
+		return {
+			"diffs": [],
+			"mortal_wounds": 0,
+			"casualties": 0,
+			"success": false,
+			"roll": roll,
+			"log_text": "Bomb Squigs: %s rolled %d — miss!" % [unit_name, roll]
+		}
+
+	# D3 mortal wounds
+	var mortal_wounds = rng.randi_range(1, 3)
+	print("║ P2-25: Bomb Squigs — HIT! D3 = %d mortal wounds on %s" % [mortal_wounds, target_name])
+
+	# Apply mortal wounds to target
+	var target = get_unit(target_unit_id)
+	var diffs = []
+	var casualties = 0
+	var remaining_mw = mortal_wounds
+
+	for model in target.get("models", []):
+		if remaining_mw <= 0:
+			break
+		if not model.get("alive", true):
+			continue
+
+		var current_wounds = model.get("current_wounds", 1)
+		var new_wounds = max(0, current_wounds - remaining_mw)
+		remaining_mw -= (current_wounds - new_wounds)
+
+		if new_wounds != current_wounds:
+			var model_idx = target.get("models", []).find(model)
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, model_idx],
+				"value": new_wounds
+			})
+			if new_wounds <= 0:
+				diffs.append({
+					"op": "set",
+					"path": "units.%s.models.%d.alive" % [target_unit_id, model_idx],
+					"value": false
+				})
+				casualties += 1
+
+	var log_text = "Bomb Squigs: %s → %s — rolled %d, %d mortal wound(s), %d casualt%s" % [
+		unit_name, target_name, roll, mortal_wounds, casualties,
+		"y" if casualties == 1 else "ies"
+	]
+	print("║ P2-25: %s" % log_text)
+
+	return {
+		"diffs": diffs,
+		"mortal_wounds": mortal_wounds,
+		"casualties": casualties,
+		"success": true,
+		"roll": roll,
+		"log_text": log_text
+	}
+
+# ============================================================================
 # RAPID INGRESS STRATAGEM (T4-7)
 # ============================================================================
 
@@ -1141,6 +1534,18 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 					var zone_poly = opponent_zone.get("poly", [])
 					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
 						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+
+			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+			var omni_positions = GameState.get_omni_scrambler_positions(player)
+			for omni in omni_positions:
+				var omni_pos_px = Vector2(omni.x, omni.y)
+				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(omni_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+				if edge_dist < 12.0:
+					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
+					break
 
 	# Check unit coherency
 	if errors.is_empty():
@@ -1329,7 +1734,10 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
-	
+
+	# If unit already had staged moves (e.g. switching modes), reset visuals first
+	_reset_staged_visuals_if_needed(unit_id)
+
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -1695,51 +2103,83 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: The defending player may use Fire Overwatch (1CP) when an enemy
 	# unit starts or ends a Normal, Advance, or Fall Back move within 24" of an eligible unit
-	var moving_owner = int(unit.get("owner", 0))
-	var defending_player = 2 if moving_owner == 1 else 1
+	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
+	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var _has_sneaky_surprise = false
+	if _ability_mgr:
+		_has_sneaky_surprise = _ability_mgr.has_sneaky_surprise(unit_id)
 
-	var strat_manager = get_node_or_null("/root/StratagemManager")
-	if strat_manager:
-		var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
-		if ow_check.available:
-			# Build a temporary snapshot with the new positions applied
-			var temp_snapshot = game_state_snapshot.duplicate(true)
-			for change in changes:
-				if change.get("op", "") == "set":
-					var path_parts = change.path.split(".")
-					if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
-						var u_id = path_parts[1]
-						var m_idx = int(path_parts[3])
-						var field = path_parts[4] if path_parts.size() > 4 else ""
-						if field == "position" and temp_snapshot.get("units", {}).has(u_id):
-							var models = temp_snapshot.units[u_id].get("models", [])
-							if m_idx < models.size():
-								models[m_idx]["position"] = change.value
+	if _has_sneaky_surprise:
+		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
+		print("MovementPhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+	else:
+		var moving_owner = int(unit.get("owner", 0))
+		var defending_player = 2 if moving_owner == 1 else 1
 
-			var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
-				defending_player, unit_id, temp_snapshot
-			)
+		var strat_manager = get_node_or_null("/root/StratagemManager")
+		if strat_manager:
+			var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+			if ow_check.available:
+				# Build a temporary snapshot with the new positions applied
+				var temp_snapshot = game_state_snapshot.duplicate(true)
+				for change in changes:
+					if change.get("op", "") == "set":
+						var path_parts = change.path.split(".")
+						if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+							var u_id = path_parts[1]
+							var m_idx = int(path_parts[3])
+							var field = path_parts[4] if path_parts.size() > 4 else ""
+							if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+								var models = temp_snapshot.units[u_id].get("models", [])
+								if m_idx < models.size():
+									models[m_idx]["position"] = change.value
 
-			if not ow_eligible.is_empty():
-				# Fire Overwatch is available! Pause and offer it to the defender
-				_awaiting_fire_overwatch = true
-				_awaiting_overwatch_decision = true
-				_overwatch_moved_unit_id = unit_id
-				_fire_overwatch_player = defending_player
-				_fire_overwatch_enemy_unit_id = unit_id
-				_fire_overwatch_eligible_units = ow_eligible
-				log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against moving %s" % [defending_player, ow_eligible.size(), unit_name])
-				print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+				var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+					defending_player, unit_id, temp_snapshot
+				)
 
-				emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
-				emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+				if not ow_eligible.is_empty():
+					# Fire Overwatch is available! Pause and offer it to the defender
+					_awaiting_fire_overwatch = true
+					_awaiting_overwatch_decision = true
+					_overwatch_moved_unit_id = unit_id
+					_fire_overwatch_player = defending_player
+					_fire_overwatch_enemy_unit_id = unit_id
+					_fire_overwatch_eligible_units = ow_eligible
+					log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against moving %s" % [defending_player, ow_eligible.size(), unit_name])
+					print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
+
+					emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+					emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+
+					var result = create_result(true, changes, "", {"dice": additional_dice})
+					result["trigger_fire_overwatch"] = true
+					result["awaiting_overwatch"] = true
+					result["fire_overwatch_player"] = defending_player
+					result["fire_overwatch_eligible_units"] = ow_eligible
+					result["fire_overwatch_enemy_unit_id"] = unit_id
+					return result
+
+	# P2-25: Check for Bomb Squigs after Normal move
+	if _ability_mgr and _ability_mgr.has_bomb_squigs(unit_id):
+		var move_mode = unit.get("flags", {}).get("move_mode", "")
+		if move_mode == "normal" or move_mode == "":
+			var bomb_targets = _get_bomb_squigs_targets(unit_id)
+			if not bomb_targets.is_empty():
+				print("MovementPhase: P2-25 Bomb Squigs — %s has enemies within 12\" after Normal move" % unit_name)
+				_bomb_squigs_pending_unit = unit_id
+				_bomb_squigs_pending_changes = changes
+				_bomb_squigs_pending_dice = additional_dice
+
+				var current_player = get_current_player()
+				emit_signal("bomb_squigs_available", unit_id, current_player, bomb_targets)
+
+				log_phase_message("Bomb Squigs available for %s — awaiting decision" % unit_name)
 
 				var result = create_result(true, changes, "", {"dice": additional_dice})
-				result["trigger_fire_overwatch"] = true
-				result["awaiting_overwatch"] = true
-				result["fire_overwatch_player"] = defending_player
-				result["fire_overwatch_eligible_units"] = ow_eligible
-				result["fire_overwatch_enemy_unit_id"] = unit_id
+				result["bomb_squigs_available"] = true
+				result["unit_id"] = unit_id
+				result["eligible_targets"] = bomb_targets
 				return result
 
 	return create_result(true, changes, "", {"dice": additional_dice})
@@ -1950,6 +2390,18 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
 			# No additional restrictions for deep strike placement
 
+			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+			var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+			for omni in omni_positions:
+				var omni_pos_px = Vector2(omni.x, omni.y)
+				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+				var dist_px = pos.distance_to(omni_pos_px)
+				var dist_inches = dist_px / px_per_inch
+				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+				if edge_dist < 12.0:
+					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
+					break
+
 	# Check unit coherency: reinforcement models must maintain 2" coherency
 	if errors.is_empty():
 		var final_models = []
@@ -2046,6 +2498,45 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				"op": "remove",
 				"path": "units.%s.flags.movement_active" % unit_id
 			})
+
+	# P3-29: Check for Sawbonez (Painboss healing) at end of Movement phase
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr:
+		var all_units_check = GameState.state.get("units", {})
+		for unit_id in all_units_check:
+			var unit = all_units_check[unit_id]
+			if unit.get("owner", 0) != current_player:
+				continue
+			if not ability_mgr.has_sawbonez(unit_id):
+				continue
+			# Check if the Painboss is deployed and alive
+			var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
+			if not is_deployed:
+				continue
+			var has_alive_model = false
+			for model in unit.get("models", []):
+				if model.get("alive", true):
+					has_alive_model = true
+					break
+			if not has_alive_model:
+				continue
+
+			# Find eligible healing targets
+			var targets = ability_mgr.get_sawbonez_targets(unit_id)
+			if targets.size() > 0:
+				_awaiting_sawbonez = true
+				_sawbonez_painboss_id = unit_id
+				_sawbonez_targets = targets
+				_sawbonez_pending_changes = changes
+				log_phase_message("SAWBONEZ available for Painboss %s — %d eligible targets" % [unit_id, targets.size()])
+				print("MovementPhase: Sawbonez healing opportunity — Painboss %s has %d eligible targets" % [unit_id, targets.size()])
+
+				var result = create_result(true, changes)
+				result["trigger_sawbonez"] = true
+				result["awaiting_sawbonez"] = true
+				result["sawbonez_painboss_id"] = unit_id
+				result["sawbonez_targets"] = targets
+				return result
 
 	# T4-7: Check for Rapid Ingress opportunity for the non-active player
 	# Rapid Ingress is used at the END of the opponent's Movement phase to bring
@@ -2475,6 +2966,23 @@ func _get_model_position(model: Dictionary) -> Vector2:
 		return pos
 	return Vector2.ZERO
 
+func _reset_staged_visuals_if_needed(unit_id: String) -> void:
+	"""If a unit has staged (uncommitted) moves, reset visual tokens to GameState positions.
+	This prevents visual/GameState desync when switching movement modes (e.g. Normal -> Advance)."""
+	if not active_moves.has(unit_id):
+		return
+	var move_data = active_moves[unit_id]
+	if move_data.staged_moves.size() > 0:
+		print("[MovementPhase] Resetting staged visuals for %s (had %d staged moves)" % [unit_id, move_data.staged_moves.size()])
+		# Reset each staged model's visual back to its GameState position
+		for staged_move in move_data.staged_moves:
+			var model = _get_model_in_unit(unit_id, staged_move.model_id)
+			if not model.is_empty():
+				var gs_pos = _get_model_position(model)
+				emit_signal("model_drop_committed", unit_id, staged_move.model_id, gs_pos)
+		# Also emit unit_move_reset so controller clears its state
+		emit_signal("unit_move_reset", unit_id)
+
 func _clear_unit_move_state(unit_id: String) -> void:
 	if active_moves.has(unit_id):
 		active_moves.erase(unit_id)
@@ -2541,6 +3049,41 @@ func get_available_actions() -> Array:
 				"description": unit_name + " remains stationary"
 			})
 	
+	# P2-25: Bomb Squigs pending — offer use/decline
+	if _bomb_squigs_pending_unit != "":
+		var bs_unit = get_unit(_bomb_squigs_pending_unit)
+		var bs_name = bs_unit.get("meta", {}).get("name", _bomb_squigs_pending_unit) if not bs_unit.is_empty() else _bomb_squigs_pending_unit
+		actions.append({
+			"type": "USE_BOMB_SQUIGS",
+			"actor_unit_id": _bomb_squigs_pending_unit,
+			"description": "Activate Bomb Squigs — %s deals mortal wounds" % bs_name
+		})
+		actions.append({
+			"type": "DECLINE_BOMB_SQUIGS",
+			"actor_unit_id": _bomb_squigs_pending_unit,
+			"description": "Decline Bomb Squigs — %s" % bs_name
+		})
+		return actions  # Block other actions until resolved
+
+	# P3-29: Sawbonez pending — offer heal targets or decline
+	if _awaiting_sawbonez:
+		for target in _sawbonez_targets:
+			actions.append({
+				"type": "USE_SAWBONEZ",
+				"actor_unit_id": _sawbonez_painboss_id,
+				"target_unit_id": target.unit_id,
+				"target_model_id": target.model_id,
+				"target_model_index": target.model_index,
+				"description": "Sawbonez: Heal %s (%d/%d wounds) — regain up to 3 wounds" % [
+					target.unit_name, target.current_wounds, target.max_wounds]
+			})
+		actions.append({
+			"type": "DECLINE_SAWBONEZ",
+			"actor_unit_id": _sawbonez_painboss_id,
+			"description": "Decline Sawbonez healing"
+		})
+		return actions  # Block other actions until resolved
+
 	# Add active move actions (skip completed moves)
 	# Use synced GameState flags.moved to determine completion for multiplayer compatibility
 	for unit_id in active_moves:

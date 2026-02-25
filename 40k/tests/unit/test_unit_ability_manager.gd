@@ -288,8 +288,8 @@ func test_stand_vigil_applies_reroll_wounds():
 	var reroll_scope = unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	assert_eq(reroll_scope, "ones", "Stand Vigil should grant reroll 1s to wound")
 
-func test_ramshackle_applies_fnp():
-	"""Ramshackle should grant FNP 6+ (simplified)."""
+func test_ramshackle_applies_worsen_ap():
+	"""Ramshackle should worsen AP of incoming attacks by 1."""
 	_create_bodyguard_unit("U_WAGON_A", 1, [
 		{"name": "Ramshackle", "type": "Datasheet", "description": "..."}
 	])
@@ -297,8 +297,9 @@ func test_ramshackle_applies_fnp():
 	ability_mgr.on_phase_start(GameStateData.Phase.SHOOTING)
 
 	var unit = GameState.state["units"]["U_WAGON_A"]
-	var fnp = EffectPrimitivesData.get_effect_fnp(unit)
-	assert_eq(fnp, 6, "Ramshackle should grant FNP 6+")
+	var worsen = EffectPrimitivesData.get_effect_worsen_ap(unit)
+	assert_eq(worsen, 1, "Ramshackle should worsen AP by 1")
+	assert_true(EffectPrimitivesData.has_effect_worsen_ap(unit), "Ramshackle should set worsen_ap flag")
 
 # ==========================================
 # TEST: Phase lifecycle (apply/clear)

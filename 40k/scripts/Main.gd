@@ -44,6 +44,7 @@ var scoring_controller: Node
 var current_phase: GameStateData.Phase
 var view_offset: Vector2 = Vector2.ZERO
 var view_zoom: float = 1.0
+var view_rotation: float = 0.0  # Board rotation in radians (multiples of PI/2)
 
 # Replay mode
 var is_replay_mode: bool = false
@@ -205,7 +206,7 @@ func _ready() -> void:
 		else:
 			print("Main: ERROR - No phase instance after transition!")
 
-	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone
+	# Camera controls: WASD/arrows to pan, +/- to zoom, F to focus on Player 2 zone, V to rotate board
 
 	board_view.queue_redraw()
 	setup_deployment_zones()
@@ -237,6 +238,9 @@ func _ready() -> void:
 	# Setup left panel toggle and hide by default
 	_setup_left_panel_toggle()
 	_hide_left_panel()
+
+	# Setup board rotation button
+	_setup_rotate_board_button()
 
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
@@ -1326,6 +1330,11 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
+		# Check for enemy Omni-scramblers creating 12" denial zones
+		var active_player = GameState.get_active_player()
+		var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+		if omni_positions.size() > 0:
+			status_label.text += " — >12\" from Omni-scramblers"
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
@@ -2972,6 +2981,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Board rotation - 'v' to rotate 90° clockwise
+	if event is InputEventKey and event.pressed and event.keycode == KEY_V:
+		rotate_board_view(PI / 2.0)
+		get_viewport().set_input_as_handled()
+		return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with 't' key
@@ -3077,17 +3092,19 @@ func _process(delta: float) -> void:
 	var pan_speed = 800.0 * delta / view_zoom
 	var view_changed = false
 	
+	# Build pan vector in screen space, then rotate to match board orientation
+	var pan_dir = Vector2.ZERO
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		view_offset.y -= pan_speed
-		view_changed = true
+		pan_dir.y -= 1.0
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		view_offset.y += pan_speed
-		view_changed = true
+		pan_dir.y += 1.0
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		view_offset.x -= pan_speed
-		view_changed = true
+		pan_dir.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		view_offset.x += pan_speed
+		pan_dir.x += 1.0
+	if pan_dir != Vector2.ZERO:
+		# Counter-rotate the pan direction so WASD always maps to screen directions
+		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
 	
 	# Zoom controls
@@ -3142,14 +3159,34 @@ func reset_camera() -> void:
 		SettingsService.get_board_height_px() / 2
 	)
 	camera.zoom = Vector2(0.3, 0.3)
+	view_rotation = 0.0
 	print("Camera reset to position: ", camera.position, " zoom: ", camera.zoom)
+
+func rotate_board_view(angle: float) -> void:
+	view_rotation = fmod(view_rotation + angle, TAU)
+	# Snap to nearest 90 degrees to avoid floating point drift
+	var steps = round(view_rotation / (PI / 2.0))
+	view_rotation = steps * (PI / 2.0)
+	update_view_transform()
+	var degrees = int(rad_to_deg(view_rotation)) % 360
+	print("Board rotated to %d degrees" % degrees)
 
 func update_view_transform() -> void:
 	# Apply transform to BoardRoot to simulate camera movement
-	var transform = Transform2D()
-	transform = transform.scaled(Vector2(view_zoom, view_zoom))
-	transform.origin = -view_offset * view_zoom
-	$BoardRoot.transform = transform
+	# Rotation is applied around the board center so the board spins in place
+	var board_center = Vector2(
+		SettingsService.get_board_width_px() / 2.0,
+		SettingsService.get_board_height_px() / 2.0
+	)
+	var t = Transform2D()
+	# Translate so board center is at origin, rotate, then translate back
+	t = t.translated(-board_center)
+	t = t.rotated(view_rotation)
+	t = t.translated(board_center)
+	# Apply zoom and pan
+	t = t.scaled(Vector2(view_zoom, view_zoom))
+	t.origin += -view_offset * view_zoom
+	$BoardRoot.transform = t
 
 func focus_on_player2_zone() -> void:
 	var zone2 = BoardState.get_deployment_zone_for_player(2)
@@ -4030,6 +4067,11 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 	"""Handle formations dialog confirmation — apply declarations through the network-aware action system."""
 	print("Main: Player %d confirmed formations: %s" % [player, str(formations)])
 
+	# Guard: bail out if we're no longer in the formations phase (e.g., AI already completed it)
+	if current_phase != GameStateData.Phase.FORMATIONS:
+		print("Main: Phase is no longer FORMATIONS (now %s) — ignoring stale dialog confirmation" % GameStateData.Phase.keys()[current_phase])
+		return
+
 	# Submit leader attachments
 	for char_id in formations.get("leader_attachments", {}):
 		var bg_id = formations["leader_attachments"][char_id]
@@ -4061,10 +4103,15 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		})
 
 	# Confirm this player's formations
-	NetworkIntegration.route_action({
+	var confirm_result = NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
 		"player": player
 	})
+
+	# If the confirm action failed (e.g., phase already changed), stop here
+	if not confirm_result.get("success", false) and not confirm_result.get("pending", false):
+		print("Main: CONFIRM_FORMATIONS failed for player %d — not showing next dialog" % player)
+		return
 
 	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
 	if is_multiplayer:
@@ -4073,9 +4120,21 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		print("Main: Player %d confirmed formations (multiplayer) — waiting for other player" % player)
 	else:
 		# Single player / hotseat — show dialog for the other player
-		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - player
-		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
+
+		# If the other player is AI, let the AI handle its own formations
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(other_player):
+			print("Main: Player %d is AI — AI will handle its own formations" % other_player)
+			return
+
+		# Check phase is still FORMATIONS after action processing (phase may have auto-completed)
+		if current_phase != GameStateData.Phase.FORMATIONS:
+			print("Main: Phase changed to %s after confirmation — not showing next dialog" % GameStateData.Phase.keys()[current_phase])
+			return
+
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			print("Main: Showing formations dialog for Player %d" % other_player)
 			_show_formations_dialog(other_player)
 		else:
@@ -4084,6 +4143,12 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 func _on_formations_confirm_pressed() -> void:
 	"""Handle the phase action button press during formations phase."""
 	print("Main: Formations confirm button pressed")
+
+	# Guard: bail out if we're no longer in the formations phase
+	if current_phase != GameStateData.Phase.FORMATIONS:
+		print("Main: Phase is no longer FORMATIONS — ignoring confirm press")
+		return
+
 	# Determine which player to confirm for
 	var is_multiplayer = NetworkIntegration.is_multiplayer_active()
 	var confirming_player: int
@@ -4093,16 +4158,33 @@ func _on_formations_confirm_pressed() -> void:
 		confirming_player = GameState.get_active_player()
 
 	# Submit confirm through the network-aware action system
-	NetworkIntegration.route_action({
+	var confirm_result = NetworkIntegration.route_action({
 		"type": "CONFIRM_FORMATIONS",
 		"player": confirming_player
 	})
 
+	# If the confirm action failed, stop here
+	if not confirm_result.get("success", false) and not confirm_result.get("pending", false):
+		print("Main: CONFIRM_FORMATIONS failed for player %d — not showing next dialog" % confirming_player)
+		return
+
 	if not is_multiplayer:
 		# Single player / hotseat — show dialog for the other player if needed
-		var phase_instance = PhaseManager.get_current_phase_instance()
 		var other_player = 3 - confirming_player
-		if phase_instance and not phase_instance.players_confirmed.get(other_player, false):
+
+		# If the other player is AI, let the AI handle its own formations
+		var ai_player_node = get_node_or_null("/root/AIPlayer")
+		if ai_player_node and ai_player_node.is_ai_player(other_player):
+			print("Main: Player %d is AI — AI will handle its own formations" % other_player)
+			return
+
+		# Check phase is still FORMATIONS after action processing
+		if current_phase != GameStateData.Phase.FORMATIONS:
+			print("Main: Phase changed after confirmation — not showing next dialog")
+			return
+
+		var phase_instance = PhaseManager.get_current_phase_instance()
+		if phase_instance and phase_instance.has_method("_is_player_confirmed") and not phase_instance._is_player_confirmed(other_player):
 			_show_formations_dialog(other_player)
 
 func _on_end_deployment_pressed() -> void:
@@ -5672,18 +5754,31 @@ func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> voi
 func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
 	# Handle visual updates for model drops (including staged moves)
 	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px)
-	
+
 	# For staged moves, we want to move the visual token directly without updating GameState
-	# Find the existing token in token_layer
+	# Move ALL matching tokens (there may be duplicates from concurrent _recreate_unit_visuals calls)
+	var found_any = false
 	if token_layer:
 		for child in token_layer.get_children():
+			# Check direct child (tokens created by _recreate_unit_visuals)
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
-				print("Moving token visual to ", dest_px)
 				child.position = dest_px
-				return
+				if not found_any:
+					print("Moving token visual to ", dest_px)
+				found_any = true
+				continue
+			# Check nested children (deployment tokens have meta on inner base_circle)
+			for grandchild in child.get_children():
+				if grandchild.has_meta("unit_id") and grandchild.get_meta("unit_id") == unit_id and grandchild.has_meta("model_id") and grandchild.get_meta("model_id") == model_id:
+					child.position = dest_px
+					if not found_any:
+						print("Moving token visual (nested) to ", dest_px)
+					found_any = true
+					break
 
-	print("Could not find token to move, falling back to full recreation")
-	_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
+	if not found_any:
+		print("Could not find token to move, falling back to full recreation")
+		_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
 
 func _clear_right_panel_phase_ui() -> void:
 	"""Completely clear all phase-specific UI from right panel"""
@@ -5849,6 +5944,21 @@ func _toggle_secondary_mission_panel() -> void:
 		print("Main: Secondary missions panel toggled")
 	else:
 		print("Main: SecondaryMissionPanel not available")
+
+func _setup_rotate_board_button() -> void:
+	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_bottom:
+		print("ERROR: Could not find HUD_Bottom/HBoxContainer for rotate button")
+		return
+	var rotate_btn = Button.new()
+	rotate_btn.name = "RotateBoardButton"
+	rotate_btn.text = "Rotate Board (V)"
+	rotate_btn.tooltip_text = "Rotate the board view 90° clockwise"
+	rotate_btn.pressed.connect(func(): rotate_board_view(PI / 2.0))
+	# Insert after the left panel toggle (index 1)
+	hud_bottom.add_child(rotate_btn)
+	hud_bottom.move_child(rotate_btn, 1)
+	print("Board rotation button added to top HUD")
 
 func _setup_phase_transition_banner() -> void:
 	# T5-V3: Create the phase transition animation banner

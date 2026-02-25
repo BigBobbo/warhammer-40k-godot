@@ -33,7 +33,7 @@ var selection_mode: String = "SINGLE"  # SINGLE, MULTI, DRAG_BOX
 var drag_box_active: bool = false
 var drag_box_start: Vector2
 var drag_box_end: Vector2
-var selection_visual: NinePatchRect
+var selection_visual: Node2D  # Custom drawn selection box
 var selection_indicators: Array = []  # Visual indicators for selected models
 var group_dragging: bool = false
 var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2
@@ -209,11 +209,9 @@ func _create_path_visuals() -> void:
 	ghost_visual.name = "MovementGhostVisual"
 	board_root.add_child(ghost_visual)
 
-	# Create selection box visual for drag-box selection
-	selection_visual = NinePatchRect.new()
+	# Create selection box visual for drag-box selection (custom drawn)
+	selection_visual = _SelectionBoxVisual.new()
 	selection_visual.name = "MultiSelectionBox"
-	selection_visual.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	selection_visual.modulate = Color(0.5, 0.8, 1.0, 0.3)  # Light blue transparent
 	selection_visual.visible = false
 	board_root.add_child(selection_visual)
 
@@ -1189,6 +1187,10 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches(current_path)
 
+	# Add terrain penalty (elevation changes for non-FLY units)
+	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	distance_inches += terrain_penalty
+
 	# Get the model's already accumulated distance
 	var already_used = _get_accumulated_distance()
 	var total_distance = already_used + distance_inches
@@ -1261,7 +1263,11 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	
 	# Calculate distance
 	var distance_inches = Measurement.distance_polyline_inches([drag_start_pos, world_pos])
-	print("Distance moved: ", distance_inches, " inches")
+
+	# Add terrain penalty (elevation changes for non-FLY units)
+	var terrain_penalty = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
+	distance_inches += terrain_penalty
+	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ")")
 
 	# Get accumulated distance to check against cap
 	var accumulated = _get_accumulated_distance()
@@ -2131,6 +2137,20 @@ func _update_model_token_visual(model: Dictionary) -> void:
 				child.queue_redraw()
 			break
 
+func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
+	"""Calculate terrain elevation penalty via TerrainManager.
+	Non-FLY units must count vertical distance for tall terrain."""
+	var terrain_manager = get_node_or_null("/root/TerrainManager")
+	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
+		return 0.0
+	# Check if the active unit has FLY keyword
+	var has_fly = false
+	if active_unit_id != "":
+		var unit = GameState.get_unit(active_unit_id)
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		has_fly = "FLY" in keywords
+	return terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, has_fly)
+
 func _check_position_would_overlap(position: Vector2) -> bool:
 	# Check if placing the selected model at the given position would overlap
 	if not current_phase or selected_model.is_empty():
@@ -2237,7 +2257,14 @@ func _should_start_drag_box() -> bool:
 	"""Determine if we should start drag-box selection (requires Shift key)"""
 	# Start drag box only when Shift is held and we're not clicking directly on a model
 	# This prevents conflicts with normal drag-to-move operations
-	return not _is_clicking_on_model(get_global_mouse_position())
+	# Convert screen position to board-local coords before checking model overlap
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	var world_pos: Vector2
+	if board_root:
+		world_pos = board_root.transform.affine_inverse() * get_viewport().get_mouse_position()
+	else:
+		world_pos = get_global_mouse_position()
+	return not _is_clicking_on_model(world_pos)
 
 func _is_clicking_on_model(world_pos: Vector2) -> bool:
 	"""Check if the mouse position is over a model"""
@@ -2345,19 +2372,84 @@ func _update_drag_box_visual() -> void:
 
 	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
 	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
-	var size = max_pos - min_pos
+	var box_size = max_pos - min_pos
 
 	# Only show if drag box is large enough
-	if size.length() > 10.0:
+	if box_size.length() > 10.0:
 		selection_visual.position = min_pos
-		selection_visual.size = size
+		selection_visual.box_size = box_size
 		selection_visual.visible = true
+		selection_visual.queue_redraw()
+		# Show live preview of which models would be selected
+		_update_drag_box_preview(min_pos, max_pos)
 	else:
 		selection_visual.visible = false
+		_clear_selection_indicators()
+
+func _update_drag_box_preview(min_pos: Vector2, max_pos: Vector2) -> void:
+	"""Show live preview highlights on models inside the current drag box"""
+	_clear_selection_indicators()
+
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root or active_unit_id == "":
+		return
+
+	# Try visual tokens first
+	var found_via_tokens = false
+	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if token_layer:
+		for child in token_layer.get_children():
+			if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
+				continue
+			if not child.has_meta("model_id"):
+				continue
+
+			found_via_tokens = true
+			var visual_pos = child.position
+			if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
+			   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
+				var base_radius = 16.0
+				if child.has_method("get_base_radius"):
+					base_radius = child.get_base_radius()
+				elif child.has_meta("base_mm"):
+					base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
+				var indicator = _create_selection_ring_indicator(visual_pos, base_radius)
+				if indicator:
+					board_root.add_child(indicator)
+					selection_indicators.append(indicator)
+
+	# Fallback to GameState positions
+	if not found_via_tokens:
+		var unit = GameState.get_unit(active_unit_id)
+		if unit.is_empty():
+			return
+		var models = unit.get("models", [])
+		for model in models:
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			var model_pos: Vector2
+			if pos is Dictionary:
+				model_pos = Vector2(pos.x, pos.y)
+			elif pos is Vector2:
+				model_pos = pos
+			else:
+				continue
+
+			if model_pos.x >= min_pos.x and model_pos.x <= max_pos.x and \
+			   model_pos.y >= min_pos.y and model_pos.y <= max_pos.y:
+				var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+				var indicator = _create_selection_ring_indicator(model_pos, base_radius)
+				if indicator:
+					board_root.add_child(indicator)
+					selection_indicators.append(indicator)
 
 func _select_models_in_box() -> void:
 	"""Select all models from the active unit within the drag box"""
 	if not current_phase or active_unit_id == "":
+		print("_select_models_in_box: No current_phase or active_unit_id")
 		return
 
 	# Clear existing selection
@@ -2367,42 +2459,83 @@ func _select_models_in_box() -> void:
 	var min_pos = Vector2(min(drag_box_start.x, drag_box_end.x), min(drag_box_start.y, drag_box_end.y))
 	var max_pos = Vector2(max(drag_box_start.x, drag_box_end.x), max(drag_box_start.y, drag_box_end.y))
 
-	print("Selecting models in box from (", min_pos, ") to (", max_pos, ")")
+	print("Selecting models in box from (", min_pos, ") to (", max_pos, ") active_unit: ", active_unit_id)
 
-	# Get the actual visual tokens from the board to check their current positions
+	# FIRST: Try visual tokens on the board
+	var found_via_tokens = false
 	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
-	if not token_layer:
-		print("ERROR: Cannot find TokenLayer")
-		return
-
-	# Iterate through all tokens and check if they belong to our unit and are in the box
-	for child in token_layer.get_children():
-		# Check if this token belongs to our active unit
-		if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
-			continue
-
-		if not child.has_meta("model_id"):
-			continue
-
-		var model_id = child.get_meta("model_id")
-
-		# Get the actual visual position of the token
-		var visual_pos = child.position
-
-		# Check if this visual position is within the selection box
-		if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
-		   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
-			# Get the model data from the game state
-			var model = _get_model_by_id(active_unit_id, model_id)
-			if model.is_empty():
+	if token_layer:
+		for child in token_layer.get_children():
+			if not child.has_meta("unit_id") or child.get_meta("unit_id") != active_unit_id:
+				continue
+			if not child.has_meta("model_id"):
 				continue
 
-			var model_data = model.duplicate()
-			model_data["unit_id"] = active_unit_id
-			model_data["model_id"] = model_id
-			model_data["position"] = visual_pos  # Use the actual visual position
-			selected_models.append(model_data)
-			print("  Selected model ", model_id, " at visual position ", visual_pos)
+			found_via_tokens = true
+			var model_id = child.get_meta("model_id")
+			var visual_pos = child.position
+
+			if visual_pos.x >= min_pos.x and visual_pos.x <= max_pos.x and \
+			   visual_pos.y >= min_pos.y and visual_pos.y <= max_pos.y:
+				# Skip duplicates (TokenLayer may have duplicate tokens)
+				if _find_selected_model_index(model_id) >= 0:
+					continue
+				var model = _get_model_by_id(active_unit_id, model_id)
+				if model.is_empty():
+					continue
+				var model_data = model.duplicate()
+				model_data["unit_id"] = active_unit_id
+				model_data["model_id"] = model_id
+				model_data["position"] = visual_pos
+				selected_models.append(model_data)
+				print("  Selected model ", model_id, " at visual position ", visual_pos)
+
+	# FALLBACK: If no tokens found for this unit, use GameState positions
+	if not found_via_tokens:
+		print("  Falling back to GameState positions for unit: ", active_unit_id)
+		var unit = GameState.get_unit(active_unit_id)
+		if unit.is_empty():
+			return
+		var models = unit.get("models", [])
+		var move_data = {}
+		if current_phase.has_method("get_active_move_data"):
+			move_data = current_phase.get_active_move_data(active_unit_id)
+
+		for model in models:
+			if not model.get("alive", true):
+				continue
+			var model_id = model.get("id", "")
+			var model_pos: Vector2
+
+			# Check staged position first
+			var staged_pos_found = false
+			if move_data.has("staged_moves"):
+				for staged_move in move_data.staged_moves:
+					if staged_move.get("model_id") == model_id:
+						model_pos = staged_move.get("dest", Vector2.ZERO)
+						staged_pos_found = true
+						break
+
+			if not staged_pos_found:
+				var pos = model.get("position")
+				if pos == null:
+					continue
+				if pos is Dictionary:
+					model_pos = Vector2(pos.x, pos.y)
+				elif pos is Vector2:
+					model_pos = pos
+				else:
+					continue
+
+			print("  GameState model ", model_id, " pos=", model_pos)
+			if model_pos.x >= min_pos.x and model_pos.x <= max_pos.x and \
+			   model_pos.y >= min_pos.y and model_pos.y <= max_pos.y:
+				var model_data = model.duplicate()
+				model_data["unit_id"] = active_unit_id
+				model_data["model_id"] = model_id
+				model_data["position"] = model_pos
+				selected_models.append(model_data)
+				print("  Selected model ", model_id, " at GameState position ", model_pos)
 
 func _find_selected_model_index(model_id: String) -> int:
 	"""Find the index of a model in the selected_models array"""
@@ -2435,44 +2568,49 @@ func _update_model_selection_visuals() -> void:
 	if not board_root:
 		return
 
-	var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
-	if not token_layer:
-		return
-
 	for model_data in selected_models:
 		var model_id = model_data.get("model_id", "")
+		var visual_pos = model_data.get("position", Vector2.ZERO)
+		var base_radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
+		var found_token = false
 
-		# Find the actual visual token to get its current position
-		var visual_pos = model_data.position  # Default to stored position
+		# Try visual tokens first
+		var token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+		if token_layer:
+			for child in token_layer.get_children():
+				if child.has_meta("unit_id") and child.get_meta("unit_id") == active_unit_id and \
+				   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
+					visual_pos = child.position
+					model_data.position = visual_pos
+					if child.has_method("get_base_radius"):
+						base_radius = child.get_base_radius()
+					elif child.has_meta("base_mm"):
+						base_radius = Measurement.base_radius_px(child.get_meta("base_mm"))
+					found_token = true
+					break
 
-		for child in token_layer.get_children():
-			if child.has_meta("unit_id") and child.get_meta("unit_id") == active_unit_id and \
-			   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
-				visual_pos = child.position
-				model_data.position = visual_pos  # Update cached position
-				break
+		# Fallback: get latest position from GameState (handles staged moves)
+		if not found_token and current_phase:
+			var move_data = {}
+			if current_phase.has_method("get_active_move_data"):
+				move_data = current_phase.get_active_move_data(active_unit_id)
+			if move_data.has("staged_moves"):
+				for staged_move in move_data.staged_moves:
+					if staged_move.get("model_id") == model_id:
+						visual_pos = staged_move.get("dest", visual_pos)
+						model_data.position = visual_pos
+						break
 
-		var indicator = _create_selection_indicator(model_data)
+		var indicator = _create_selection_ring_indicator(visual_pos, base_radius)
 		if indicator:
 			board_root.add_child(indicator)
 			selection_indicators.append(indicator)
 
-func _create_selection_indicator(model_data: Dictionary) -> Control:
-	"""Create a visual indicator for a selected model"""
-	var indicator = ColorRect.new()
-	indicator.name = "SelectionIndicator_" + model_data.get("model_id", "")
-
-	# Set appearance
-	indicator.color = Color(0.5, 0.8, 1.0, 0.6)  # Light blue
-	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	# Position and size based on model
-	var model_pos = model_data.get("position", Vector2.ZERO)
-	var base_radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
-
-	indicator.position = model_pos - Vector2(base_radius, base_radius)
-	indicator.size = Vector2(base_radius * 2, base_radius * 2)
-
+func _create_selection_ring_indicator(pos: Vector2, base_radius: float) -> Node2D:
+	"""Create a visual ring indicator for a selected model"""
+	var indicator = _SelectionRingIndicator.new()
+	indicator.position = pos
+	indicator.ring_radius = base_radius
 	return indicator
 
 func _start_group_movement(mouse_pos: Vector2) -> void:
@@ -2502,6 +2640,9 @@ func _start_group_movement(mouse_pos: Vector2) -> void:
 	# Set drag start position to the clicked point
 	drag_start_pos = world_pos
 	group_dragging = true
+
+	# Hide selection indicators during drag - ghosts show the new positions
+	_clear_selection_indicators()
 
 	# Create ghost visuals for all selected models
 	_create_group_ghost_visuals()
@@ -3023,6 +3164,12 @@ func _on_overwatch_opportunity(moved_unit_id: String, defending_player: int, eli
 	print("║ Eligible units: %d" % eligible_units.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip UI dialog for AI players — AIPlayer autoload handles the decision
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.is_ai_player(defending_player):
+		print("MovementController: Defending player %d is AI — skipping overwatch dialog" % defending_player)
+		return
+
 	if eligible_units.is_empty():
 		# No eligible units — auto-decline
 		_on_fire_overwatch_declined(defending_player)
@@ -3113,3 +3260,55 @@ func _on_rapid_ingress_declined(player: int) -> void:
 		"type": "DECLINE_RAPID_INGRESS",
 		"actor_unit_id": "",
 	})
+
+
+# ── Inner helper classes for selection visuals ──────────────────────────────
+
+class _SelectionBoxVisual extends Node2D:
+	"""Custom drawn selection rectangle with fill + dashed border"""
+	var box_size: Vector2 = Vector2.ZERO
+
+	func _draw() -> void:
+		if box_size.length() < 1.0:
+			return
+		var rect = Rect2(Vector2.ZERO, box_size)
+		# Semi-transparent blue fill
+		draw_rect(rect, Color(0.3, 0.6, 1.0, 0.15))
+		# Solid border
+		draw_rect(rect, Color(0.4, 0.7, 1.0, 0.8), false, 2.0)
+		# Corner markers for clarity
+		var corner_len = min(12.0, min(box_size.x, box_size.y) * 0.3)
+		var c = Color(0.5, 0.85, 1.0, 1.0)
+		var w = 3.0
+		# Top-left
+		draw_line(Vector2.ZERO, Vector2(corner_len, 0), c, w)
+		draw_line(Vector2.ZERO, Vector2(0, corner_len), c, w)
+		# Top-right
+		draw_line(Vector2(box_size.x, 0), Vector2(box_size.x - corner_len, 0), c, w)
+		draw_line(Vector2(box_size.x, 0), Vector2(box_size.x, corner_len), c, w)
+		# Bottom-left
+		draw_line(Vector2(0, box_size.y), Vector2(corner_len, box_size.y), c, w)
+		draw_line(Vector2(0, box_size.y), Vector2(0, box_size.y - corner_len), c, w)
+		# Bottom-right
+		draw_line(box_size, Vector2(box_size.x - corner_len, box_size.y), c, w)
+		draw_line(box_size, Vector2(box_size.x, box_size.y - corner_len), c, w)
+
+
+class _SelectionRingIndicator extends Node2D:
+	"""Pulsing selection ring drawn around a selected model"""
+	var ring_radius: float = 16.0
+	var _time: float = 0.0
+
+	func _process(delta: float) -> void:
+		_time += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var pulse = (sin(_time * 5.0) + 1.0) / 2.0  # 0..1 oscillation
+		var alpha = 0.5 + pulse * 0.5
+		# Outer glow ring
+		draw_arc(Vector2.ZERO, ring_radius + 5.0, 0, TAU, 48, Color(0.3, 0.7, 1.0, alpha * 0.3), 4.0)
+		# Main selection ring
+		draw_arc(Vector2.ZERO, ring_radius + 3.0, 0, TAU, 48, Color(0.4, 0.8, 1.0, alpha), 2.5)
+		# Inner fill circle
+		draw_circle(Vector2.ZERO, ring_radius, Color(0.3, 0.6, 1.0, 0.1))

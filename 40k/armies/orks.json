@@ -131,9 +131,9 @@
             "description": ""
           },
           {
-            "name": "Core",
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Might is Right",
@@ -260,9 +260,9 @@
             "description": ""
           },
           {
-            "name": "Core",
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Might is Right",
@@ -359,9 +359,9 @@
             "description": ""
           },
           {
-            "name": "Core",
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Might is Right",
@@ -525,9 +525,9 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Get Da Good Bitz",
@@ -700,9 +700,9 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Get Da Good Bitz",
@@ -888,14 +888,34 @@
         ],
         "abilities": [
           {
-            "name": "Core",
+            "name": "Deadly Demise D6",
+            "type": "Core",
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds."
+          },
+          {
+            "name": "FIRING DECK",
+            "type": "Core",
+            "description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield."
+          },
+          {
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Ramshackle",
             "type": "Datasheet",
             "description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound."
+          },
+          {
+            "name": "Damaged: 1-5 Wounds Remaining",
+            "type": "Datasheet",
+            "description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll."
+          },
+          {
+            "name": "'Ard Case",
+            "type": "Wargear",
+            "description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability."
           },
           {
             "name": "TRANSPORT",
@@ -985,14 +1005,39 @@
             "description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models."
           },
           {
-            "name": "Core",
+            "name": "Stealth",
+            "type": "Core",
+            "description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll."
+          },
+          {
+            "name": "Waaagh!",
             "type": "Faction",
-            "description": ""
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
           },
           {
             "name": "Throat Slittas",
             "type": "Datasheet",
             "description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound."
+          },
+          {
+            "name": "Sneaky Surprise",
+            "type": "Datasheet",
+            "description": "Enemy units cannot use the Fire Overwatch Stratagem to shoot at this unit."
+          },
+          {
+            "name": "Patrol Squad",
+            "type": "Datasheet",
+            "description": "At the start of the Declare Battle Formations step, this unit can be split into two units, each containing five models."
+          },
+          {
+            "name": "Distraction Grot",
+            "type": "Wargear",
+            "description": "Once per battle, in your opponent's Shooting phase, when this unit is selected as the target of a ranged attack, until the end of the phase, models in this unit have a 5+ invulnerable save."
+          },
+          {
+            "name": "Bomb Squigs",
+            "type": "Wargear",
+            "description": "Once per battle, after this unit ends a Normal move, you can select one enemy unit within 12\" of and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds."
           }
         ],
         "unit_composition": [
@@ -1017,6 +1062,200 @@
         {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+      ]
+    },
+    "U_PAINBOSS_I": {
+      "id": "U_PAINBOSS_I",
+      "squad_id": "U_PAINBOSS_I",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Painboss",
+        "keywords": [
+          "CHARACTER",
+          "INFANTRY",
+          "BEAST SNAGGA",
+          "ORKS",
+          "PAINBOSS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 4,
+          "wounds": 4,
+          "leadership": 7,
+          "objective_control": 1,
+          "fnp": 5
+        },
+        "points": 70,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x Beast Snagga klaw",
+          "1x Grot Orderly"
+        ],
+        "weapons": [
+          {
+            "name": "Beast Snagga klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "4",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "2",
+            "special_rules": "anti-monster 4+, anti-vehicle 4+"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Feel No Pain 5+",
+            "type": "Core",
+            "description": "Each time this model would lose a wound, roll one D6: on a 5+, that wound is not lost."
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Dok's Toolz",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability."
+          },
+          {
+            "name": "Sawbonez",
+            "type": "Datasheet",
+            "description": "At the end of your Movement phase, you can select one friendly BEAST SNAGGA CHARACTER model within 3\" of this model. That model regains up to 3 lost wounds."
+          },
+          {
+            "name": "One Scalpel Short of a Medpack",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, that unit is eligible to declare a charge in a turn in which it Fell Back."
+          },
+          {
+            "name": "Grot Orderly",
+            "type": "Wargear",
+            "description": "Once per battle, at the start of your Command phase, if the bearer's unit is below its Starting Strength, you can return up to D3 destroyed Bodyguard models to that unit."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Painboss",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": ["BEAST SNAGGA BOYZ"]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
+      ]
+    },
+    "U_WEIRDBOY_J": {
+      "id": "U_WEIRDBOY_J",
+      "squad_id": "U_WEIRDBOY_J",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Weirdboy",
+        "keywords": [
+          "CHARACTER",
+          "INFANTRY",
+          "PSYKER",
+          "ORKS",
+          "WEIRDBOY"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 4,
+          "leadership": 7,
+          "objective_control": 1
+        },
+        "points": 65,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "1x 'Eadbanger",
+          "1x Weirdboy staff"
+        ],
+        "weapons": [
+          {
+            "name": "'Eadbanger",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "ballistic_skill": "4",
+            "strength": "6",
+            "ap": "-3",
+            "damage": "1",
+            "special_rules": "precision, psychic"
+          },
+          {
+            "name": "Weirdboy staff",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "8",
+            "ap": "-1",
+            "damage": "D3",
+            "special_rules": "psychic"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Deadly Demise D3",
+            "type": "Core",
+            "description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds."
+          },
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Waaagh! Energy",
+            "type": "Datasheet",
+            "description": "While this model is leading a unit, add 1 to the Strength and Damage characteristics of this model's 'Eadbanger weapon for every 5 models in that unit (rounding down), but while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability."
+          },
+          {
+            "name": "Da Jump",
+            "type": "Datasheet",
+            "description": "Once per turn, at the end of your Movement phase, one WEIRDBOY from your army can use this ability. If it does, roll one D6: on a 1, that WEIRDBOY's unit suffers D6 mortal wounds; on a 2+, remove this WEIRDBOY's unit from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Weirdboy",
+            "line": 1
+          }
+        ],
+        "leader_data": {
+          "can_lead": ["BOYZ"]
+        }
+      },
+      "models": [
+        {
+          "id": "m1",
+          "wounds": 4,
+          "current_wounds": 4,
+          "base_mm": 40,
+          "position": null,
+          "alive": true,
+          "status_effects": []
+        }
       ]
     }
   }

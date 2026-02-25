@@ -151,8 +151,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [{"type": "reroll_charge"}],
 		"target": "led_unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Re-roll Charge rolls for led unit (reroll_charge not yet a primitive)"
+		"implemented": true,
+		"description": "Re-roll Charge rolls for led unit"
 	},
 
 	# ======================================================================
@@ -169,24 +169,27 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Re-roll Wound rolls of 1"
 	},
 
-	# Ork Battlewagon — simplified as FNP 6+ (actual: each time loses wounds, D6: 6 = ignore)
+	# Ork Battlewagon — worsen AP of incoming attacks by 1
 	"Ramshackle": {
 		"condition": "always",
-		"effects": [{"type": "grant_fnp", "value": 6}],
+		"effects": [{"type": "worsen_ap", "value": 1}],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Feel No Pain 6+ (simplified from per-wound-loss D6:6)"
+		"description": "Worsen AP of incoming attacks by 1"
 	},
 
 	# Ork Boyz — sticky objectives
+	# At end of Command phase, if unit is within range of a controlled objective,
+	# that objective remains under your control until opponent controls it.
+	# Resolved by MissionManager.apply_sticky_objectives() — not a combat effect.
 	"Get Da Good Bitz": {
-		"condition": "on_objective",
+		"condition": "end_of_command",
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": false,
-		"description": "Sticky objectives (not yet a combat effect)"
+		"implemented": true,
+		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
 	},
 
 	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds
@@ -206,7 +209,270 @@ const ABILITY_EFFECTS: Dictionary = {
 		"target": "led_unit",
 		"attack_type": "all",
 		"implemented": true,
+		"once_per_battle": true,
 		"description": "Once per battle: charge after advancing"
+	},
+
+	# Custodes Custodian Guard — once per battle shoot again after shooting
+	"Sentinel Storm": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: shoot again after this unit has shot"
+	},
+
+	# Custodes Witchseekers — force Battle-shock test after shooting
+	"Sanctified Flames": {
+		"condition": "after_shooting",
+		"effects": [],
+		"target": "enemy_hit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "After shooting, one enemy unit hit must take a Battle-shock test"
+	},
+
+	# Deadly Demise — mortal wounds when destroyed (Battlewagon D6, Caladius D3, Telemon D3, Contemptor-Achillus 1)
+	# The value (D6/D3/1) is parsed from the ability name, e.g. "Deadly Demise D6"
+	# Triggered on unit destruction — resolved by RulesEngine.resolve_deadly_demise()
+	"Deadly Demise": {
+		"condition": "on_destruction",
+		"effects": [],
+		"target": "all_within_6",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers mortal wounds."
+	},
+
+	# Ork Kommandos — mortal wounds instead of shooting
+	"Throat Slittas": {
+		"condition": "start_of_shooting",
+		"effects": [],
+		"target": "enemy_within_9",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Instead of shooting, roll 1D6 per model within 9\" of enemy: 5+ = 1 mortal wound"
+	},
+
+	# Ork Kommandos — cannot be targeted by Fire Overwatch
+	"Sneaky Surprise": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy units cannot use Fire Overwatch to shoot at this unit"
+	},
+
+	# Ork Kommandos — unit splitting at deployment
+	"Patrol Squad": {
+		"condition": "deployment",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+	},
+
+	# Ork Kommandos wargear — once per battle 5+ invuln save
+	"Distraction Grot": {
+		"condition": "opponent_shooting",
+		"effects": [{"type": "grant_invuln", "value": 5}],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: 5+ invulnerable save when targeted in opponent's Shooting phase"
+	},
+
+	# Ork Kommandos wargear — once per battle mortal wounds after normal move
+	"Bomb Squigs": {
+		"condition": "after_normal_move",
+		"effects": [],
+		"target": "enemy_within_12",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: after Normal move, select enemy within 12\" — on 3+, D3 mortal wounds"
+	},
+
+	# Damaged Profile — -1 to hit when at low wounds (Battlewagon, Caladius, Telemon)
+	# The wound threshold is parsed from the ability name, e.g. "Damaged: 1-5 Wounds Remaining" -> 5
+	# Checked directly by RulesEngine.is_damaged_profile_active() rather than using the flag system,
+	# since it depends on dynamic wound state that can change mid-phase.
+	"Damaged": {
+		"condition": "wounds_below_threshold",
+		"effects": [{"type": "minus_one_hit"}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "-1 to Hit rolls when at low wounds (checked directly in RulesEngine)"
+	},
+
+	# Custodes Caladius Grav-tank — conditional Lethal Hits by weapon/target type
+	"Advanced Firepower": {
+		"condition": "always",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": true,
+		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
+	},
+
+	# Custodes Shield-Captain — once per battle, both Ka'tah stances active simultaneously
+	# Resolved in FightPhase when unit is selected to fight (during Ka'tah stance selection).
+	# When activated, sets BOTH effect_sustained_hits AND effect_lethal_hits flags.
+	"Master of the Stances": {
+		"condition": "on_fight_selection",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "melee",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: both Ka'tah stances active simultaneously during this fight"
+	},
+
+	# Custodes Shield-Captain — once per battle round, reduce stratagem CP cost by 1
+	# Resolved in StratagemManager when a stratagem targets this unit.
+	# The CP discount is applied automatically when the Shield-Captain's unit is targeted.
+	"Strategic Mastery": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle_round": true,
+		"description": "Once per battle round: reduce CP cost of a Stratagem targeting this unit by 1"
+	},
+
+	# Custodes Contemptor-Achillus Dreadnought — mortal wounds on fight selection
+	# Resolved directly in FightPhase when unit is selected to fight.
+	# Roll 1D6 (+2 if charged): on 4-5, target suffers D3 mortal wounds; on 6+, 3 mortal wounds.
+	"Dread Foe": {
+		"condition": "on_fight_selection",
+		"effects": [],
+		"target": "enemy_in_engagement",
+		"attack_type": "melee",
+		"implemented": true,
+		"description": "When selected to fight, select one enemy in Engagement Range and roll D6 (+2 if charged): 4-5 = D3 MW, 6+ = 3 MW"
+	},
+
+	# Custodes Telemon Heavy Dreadnought — -1 Damage to incoming attacks
+	"Guardian Eternal": {
+		"condition": "always",
+		"effects": [{"type": "minus_damage", "value": 1}],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Each time an attack is allocated to this model, subtract 1 from the Damage characteristic of that attack."
+	},
+
+	# Space Marines Intercessor Squad — sticky objectives
+	# Same mechanic as Ork Boyz "Get Da Good Bitz" — resolved by MissionManager
+	"Objective Secured": {
+		"condition": "end_of_command",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
+	},
+
+	# Space Marines Intercessor Squad — +2 bolt rifle attacks vs single target
+	# When selected to shoot, can choose to add 2 to Attacks of bolt rifles but must
+	# target only one enemy unit with all attacks. Requires ShootingPhase integration.
+	"Target Elimination": {
+		"condition": "on_shooting_selection",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "ranged",
+		"implemented": false,
+		"description": "+2 bolt rifle Attacks when targeting a single enemy unit — requires ShootingPhase prompt"
+	},
+
+	# Space Marines Tactical Squad — unit splitting at deployment
+	# Same mechanic as Kommandos "Patrol Squad" — requires deployment system changes.
+	"Combat Squads": {
+		"condition": "deployment",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"description": "At deployment, can split into two 5-model units (requires deployment system changes)"
+	},
+
+	# Space Marines Infiltrator Squad — block enemy deep strike within 12"
+	# Not a combat effect — enforced during reinforcement placement validation in
+	# MovementPhase, DeploymentController, and AIDecisionMaker.
+	"Omni-scramblers": {
+		"condition": "passive_aura",
+		"effects": [],
+		"target": "enemy_reserves",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Enemy units set up from Reserves cannot be set up within 12\" of this unit"
+	},
+
+	# ======================================================================
+	# PHASE-TRIGGERED ABILITIES
+	# These trigger at specific phase boundaries and require active resolution.
+	# ======================================================================
+
+	# Ork Painboss — heal friendly BEAST SNAGGA CHARACTER 3 wounds at end of Movement phase
+	"Sawbonez": {
+		"condition": "end_of_movement",
+		"effects": [],
+		"target": "friendly_beast_snagga_character",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "At end of Movement phase, select one friendly BEAST SNAGGA CHARACTER within 3\" — regain up to 3 lost wounds"
+	},
+
+	# Ork Painboss wargear — once per battle return D3 destroyed Bodyguard models at start of Command phase
+	"Grot Orderly": {
+		"condition": "start_of_command",
+		"effects": [],
+		"target": "led_unit",
+		"attack_type": "all",
+		"implemented": true,
+		"once_per_battle": true,
+		"description": "Once per battle: at start of Command phase, if bearer's unit is below Starting Strength, return up to D3 destroyed Bodyguard models"
+	},
+
+	# ======================================================================
+	# PHASE-TRIGGERED ABILITIES (Movement phase etc.)
+	# ======================================================================
+
+	# Ork Weirdboy — teleport unit at end of Movement phase
+	# Once per turn, roll D6: on 1, unit suffers D6 mortal wounds;
+	# on 2+, remove unit and redeploy 9"+ from enemies.
+	# Requires MovementPhase integration for prompt and resolution.
+	"Da Jump": {
+		"condition": "end_of_movement",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": false,
+		"once_per_turn": true,
+		"description": "Once per turn: at end of Movement phase, roll D6: on 1, unit suffers D6 mortal wounds; on 2+, teleport unit 9\"+ from enemies"
+	},
+
+	# ======================================================================
+	# LEADER ABILITIES — Weapon modifiers based on unit size
+	# ======================================================================
+
+	# Ork Weirdboy — 'Eadbanger gains +1 S and +1 D per 5 models in led unit
+	# Hazardous at 10+ models. Requires dynamic weapon stat modification
+	# based on attached unit model count. Not auto-applied via flag system.
+	"Waaagh! Energy": {
+		"condition": "while_leading",
+		"effects": [],
+		"target": "model",
+		"attack_type": "ranged",
+		"implemented": false,
+		"description": "+1 S and +1 D to 'Eadbanger per 5 models in led unit; Hazardous at 10+ models — requires dynamic weapon modification"
 	},
 
 	# ======================================================================
@@ -215,23 +481,25 @@ const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
 
 	# Ork Warboss — +4 attacks while Waaagh! active
+	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
 	"Da Biggest and da Best": {
 		"condition": "waaagh_active",
 		"effects": [],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "+4 melee Attacks while Waaagh! active (stat modification not yet supported)"
+		"implemented": true,
+		"description": "+4 melee Attacks while Waaagh! active — applied in RulesEngine melee resolution"
 	},
 
 	# Ork Warboss in Mega Armour — weapon damage 3 while Waaagh! active
+	# Handled directly in RulesEngine._resolve_melee_assignment() when waaagh_active flag is set
 	"Dead Brutal": {
 		"condition": "waaagh_active",
 		"effects": [],
 		"target": "model",
 		"attack_type": "melee",
-		"implemented": false,
-		"description": "Weapon damage = 3 while Waaagh! active (weapon stat modification not yet supported)"
+		"implemented": true,
+		"description": "Weapon damage = 3 while Waaagh! active — applied in RulesEngine melee resolution"
 	},
 }
 
@@ -248,6 +516,14 @@ var _active_ability_effects: Array = []
 # Track which units have had ability flags applied this phase
 # { unit_id: [ability_name1, ability_name2, ...] }
 var _applied_this_phase: Dictionary = {}
+
+# Track once-per-battle ability usage
+# Key: "unit_id:ability_name", Value: true (used)
+var _once_per_battle_used: Dictionary = {}
+
+# Track once-per-battle-round ability usage (e.g., Strategic Mastery)
+# Key: "player:ability_name", Value: battle_round_number (last used round)
+var _once_per_round_used: Dictionary = {}
 
 func _ready() -> void:
 	var implemented_count = 0
@@ -353,6 +629,13 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 			# Check if this ability is relevant to the current phase
 			if not _is_relevant_for_phase(effect_def, phase):
 				continue
+
+			# Check once-per-battle restriction
+			if effect_def.get("once_per_battle", false):
+				var usage_key = bodyguard_unit_id + ":" + ability_name
+				if _once_per_battle_used.get(usage_key, false):
+					print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, bodyguard_unit_id])
+					continue
 
 			# Apply the effects to the bodyguard unit
 			var effects = effect_def.get("effects", [])
@@ -484,6 +767,13 @@ func _apply_eligibility_effects() -> void:
 				if effect_def.get("condition", "") != "while_leading":
 					continue
 
+				# Check once-per-battle restriction
+				if effect_def.get("once_per_battle", false):
+					var usage_key = unit_id + ":" + ability_name
+					if _once_per_battle_used.get(usage_key, false):
+						print("UnitAbilityManager: '%s' already used this battle for unit %s — skipping" % [ability_name, unit_id])
+						continue
+
 				# Only apply eligibility effects (fall_back_and_*, advance_and_*)
 				var effects = effect_def.get("effects", [])
 				var eligibility_effects = []
@@ -567,6 +857,456 @@ func is_ability_implemented(ability_name: String) -> bool:
 	"""Check if an ability has a mechanical implementation."""
 	var def_data = ABILITY_EFFECTS.get(ability_name, {})
 	return def_data.get("implemented", false)
+
+func mark_once_per_battle_used(unit_id: String, ability_name: String) -> void:
+	"""Mark a once-per-battle ability as used for a specific unit."""
+	var usage_key = unit_id + ":" + ability_name
+	_once_per_battle_used[usage_key] = true
+	print("UnitAbilityManager: Marked '%s' as used for unit %s (once per battle)" % [ability_name, unit_id])
+
+func is_once_per_battle_used(unit_id: String, ability_name: String) -> bool:
+	"""Check if a once-per-battle ability has been used for a specific unit."""
+	var usage_key = unit_id + ":" + ability_name
+	return _once_per_battle_used.get(usage_key, false)
+
+func mark_once_per_round_used(player: int, ability_name: String) -> void:
+	"""Mark a once-per-battle-round ability as used for this round."""
+	var usage_key = str(player) + ":" + ability_name
+	var current_round = GameState.get_battle_round()
+	_once_per_round_used[usage_key] = current_round
+	print("UnitAbilityManager: Marked '%s' as used for player %d in round %d (once per round)" % [ability_name, player, current_round])
+
+func is_once_per_round_used(player: int, ability_name: String) -> bool:
+	"""Check if a once-per-battle-round ability has been used this round."""
+	var usage_key = str(player) + ":" + ability_name
+	var last_used_round = _once_per_round_used.get(usage_key, 0)
+	var current_round = GameState.get_battle_round()
+	return last_used_round >= current_round
+
+func has_shoot_again_ability(unit_id: String) -> bool:
+	"""Check if a unit has an unused once-per-battle shoot-again ability (e.g. Sentinel Storm).
+	Used by ShootingPhase to offer the shoot-again option after a unit completes shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sentinel Storm":
+			if not is_once_per_battle_used(unit_id, "Sentinel Storm"):
+				print("UnitAbilityManager: Unit %s has unused Sentinel Storm — shoot-again available" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Sentinel Storm but already used this battle" % unit_id)
+	return false
+
+func has_sanctified_flames_ability(unit_id: String) -> bool:
+	"""Check if a unit has the Sanctified Flames ability (e.g. Witchseekers).
+	Used by ShootingPhase to trigger a forced Battle-shock test after shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sanctified Flames":
+			print("UnitAbilityManager: Unit %s has Sanctified Flames ability" % unit_id)
+			return true
+	return false
+
+func has_throat_slittas_ability(unit_id: String) -> bool:
+	"""Check if a unit has the Throat Slittas ability (e.g. Kommandos).
+	Used by ShootingPhase to offer mortal wounds instead of shooting."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Throat Slittas":
+			print("UnitAbilityManager: Unit %s has Throat Slittas ability" % unit_id)
+			return true
+	return false
+
+func has_dread_foe(unit_id: String) -> bool:
+	"""Check if a unit has the Dread Foe ability (e.g. Contemptor-Achillus Dreadnought).
+	Used by FightPhase to trigger mortal wounds on fight selection."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Dread Foe":
+			print("UnitAbilityManager: Unit %s has Dread Foe ability" % unit_id)
+			return true
+	return false
+
+func has_master_of_the_stances(unit_id: String) -> bool:
+	"""Check if a unit has an unused Master of the Stances ability (Shield-Captain).
+	Used by FightPhase to offer both Ka'tah stances simultaneously.
+	Checks attached leaders for the ability (since Shield-Captain is a leader)."""
+	# First check the unit itself
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	# Check the unit's own abilities
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Master of the Stances":
+			if not is_once_per_battle_used(unit_id, "Master of the Stances"):
+				print("UnitAbilityManager: Unit %s has unused Master of the Stances" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Master of the Stances but already used this battle" % unit_id)
+				return false
+
+	# Check attached leaders (Shield-Captain leading Custodian Guard)
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+	var units = GameState.state.get("units", {})
+
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if not _has_alive_models(char_unit):
+			continue
+
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "Master of the Stances":
+				# Use the bodyguard unit's ID for tracking (since it's the unit fighting)
+				if not is_once_per_battle_used(unit_id, "Master of the Stances"):
+					print("UnitAbilityManager: Unit %s has leader with unused Master of the Stances" % unit_id)
+					return true
+				else:
+					print("UnitAbilityManager: Unit %s has leader with Master of the Stances but already used this battle" % unit_id)
+					return false
+
+	return false
+
+func has_strategic_mastery(unit_id: String) -> bool:
+	"""Check if a unit or its attached leaders have Strategic Mastery (Shield-Captain).
+	Used by StratagemManager to offer CP discount when targeting this unit."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	# Check the unit's own abilities
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Strategic Mastery":
+			return true
+
+	# Check attached leaders
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+	var units = GameState.state.get("units", {})
+
+	for char_id in attached_characters:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+		if not _has_alive_models(char_unit):
+			continue
+
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "Strategic Mastery":
+				return true
+
+	return false
+
+func has_sticky_objectives_ability(unit_id: String) -> bool:
+	"""Check if a unit has a sticky objectives ability (e.g. Get Da Good Bitz, Objective Secured).
+	Used by MissionManager to apply sticky objective locks at end of Command phase."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name in ["Get Da Good Bitz", "Objective Secured"]:
+			return true
+	return false
+
+func has_omni_scramblers(unit_id: String) -> bool:
+	"""Check if a unit has the Omni-scramblers ability (e.g. Infiltrator Squad).
+	Used by reinforcement placement validation to enforce 12\" deep strike denial zone."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Omni-scramblers":
+			print("UnitAbilityManager: Unit %s has Omni-scramblers ability" % unit_id)
+			return true
+	return false
+
+func has_sneaky_surprise(unit_id: String) -> bool:
+	"""Check if a unit has the Sneaky Surprise ability (e.g. Kommandos).
+	Used by ChargePhase/MovementPhase to block Fire Overwatch against this unit."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sneaky Surprise":
+			print("UnitAbilityManager: Unit %s has Sneaky Surprise — immune to Fire Overwatch" % unit_id)
+			return true
+	return false
+
+func has_distraction_grot(unit_id: String) -> bool:
+	"""Check if a unit has the Distraction Grot wargear ability (e.g. Kommandos).
+	Used by ShootingPhase to offer once-per-battle 5+ invuln save when targeted."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Distraction Grot":
+			if not is_once_per_battle_used(unit_id, "Distraction Grot"):
+				print("UnitAbilityManager: Unit %s has unused Distraction Grot" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Distraction Grot but already used this battle" % unit_id)
+	return false
+
+func has_bomb_squigs(unit_id: String) -> bool:
+	"""Check if a unit has the Bomb Squigs wargear ability (e.g. Kommandos).
+	Used by MovementPhase to offer once-per-battle mortal wounds after normal move."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Bomb Squigs":
+			if not is_once_per_battle_used(unit_id, "Bomb Squigs"):
+				print("UnitAbilityManager: Unit %s has unused Bomb Squigs" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Bomb Squigs but already used this battle" % unit_id)
+	return false
+
+func has_sawbonez(unit_id: String) -> bool:
+	"""Check if a unit has the Sawbonez ability (Painboss).
+	Used by MovementPhase at end of movement to offer healing."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Sawbonez":
+			print("UnitAbilityManager: Unit %s has Sawbonez ability" % unit_id)
+			return true
+	return false
+
+func get_sawbonez_targets(painboss_unit_id: String) -> Array:
+	"""Get eligible healing targets for Sawbonez ability.
+	Returns array of { unit_id, unit_name, model_id, model_index, wounds_lost } for BEAST SNAGGA CHARACTER
+	models within 3\" that have lost wounds."""
+	var targets = []
+	var painboss_unit = GameState.state.get("units", {}).get(painboss_unit_id, {})
+	if painboss_unit.is_empty():
+		return targets
+
+	# Get Painboss position (first alive model)
+	var painboss_pos = null
+	for model in painboss_unit.get("models", []):
+		if model.get("alive", true) and model.get("position", null) != null:
+			painboss_pos = model.get("position")
+			break
+
+	if painboss_pos == null:
+		print("UnitAbilityManager: Painboss %s has no position — cannot find Sawbonez targets" % painboss_unit_id)
+		return targets
+
+	var units = GameState.state.get("units", {})
+	var painboss_owner = painboss_unit.get("owner", 0)
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Must be same owner (friendly)
+		if unit.get("owner", 0) != painboss_owner:
+			continue
+
+		# Must have BEAST SNAGGA and CHARACTER keywords
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var has_beast_snagga = false
+		var has_character = false
+		for kw in keywords:
+			if kw.to_upper() == "BEAST SNAGGA":
+				has_beast_snagga = true
+			if kw.to_upper() == "CHARACTER":
+				has_character = true
+		if not has_beast_snagga or not has_character:
+			continue
+
+		# Check each alive model for lost wounds and proximity
+		for i in range(unit.get("models", []).size()):
+			var model = unit.get("models", [])[i]
+			if not model.get("alive", true):
+				continue
+
+			var max_wounds = model.get("wounds", 1)
+			var current_wounds = model.get("current_wounds", max_wounds)
+			if current_wounds >= max_wounds:
+				continue  # No wounds lost
+
+			var model_pos = model.get("position", null)
+			if model_pos == null:
+				continue
+
+			# Check distance (3" = 3 * 25.4mm ~ 76.2mm, but the game uses inches for positions typically)
+			# Use the same distance calculation as elsewhere in the codebase
+			var dist = _calculate_distance(painboss_pos, model_pos)
+			if dist <= 3.0:
+				targets.append({
+					"unit_id": unit_id,
+					"unit_name": unit.get("meta", {}).get("name", unit_id),
+					"model_id": model.get("id", "m%d" % (i + 1)),
+					"model_index": i,
+					"current_wounds": current_wounds,
+					"max_wounds": max_wounds,
+					"wounds_lost": max_wounds - current_wounds
+				})
+				print("UnitAbilityManager: Sawbonez target found — %s model %s (%d/%d wounds)" % [
+					unit.get("meta", {}).get("name", unit_id), model.get("id", ""), current_wounds, max_wounds])
+
+	return targets
+
+func has_grot_orderly(unit_id: String) -> bool:
+	"""Check if a unit has an unused Grot Orderly wargear ability (Painboss).
+	Used by CommandPhase at start of command to offer model revival."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "Grot Orderly":
+			if not is_once_per_battle_used(unit_id, "Grot Orderly"):
+				print("UnitAbilityManager: Unit %s has unused Grot Orderly" % unit_id)
+				return true
+			else:
+				print("UnitAbilityManager: Unit %s has Grot Orderly but already used this battle" % unit_id)
+	return false
+
+func get_grot_orderly_unit(painboss_unit_id: String) -> Dictionary:
+	"""Check if the Painboss's led unit is below starting strength for Grot Orderly.
+	Returns { eligible: bool, bodyguard_unit_id, destroyed_count, max_return } or empty dict."""
+	var units = GameState.state.get("units", {})
+
+	# Find the bodyguard unit the Painboss is leading
+	for unit_id in units:
+		var unit = units[unit_id]
+		var attachment_data = unit.get("attachment_data", {})
+		var attached_characters = attachment_data.get("attached_characters", [])
+		if painboss_unit_id in attached_characters:
+			# Found the bodyguard unit — check if below starting strength
+			var models = unit.get("models", [])
+			var alive_count = 0
+			var destroyed_count = 0
+			for model in models:
+				if model.get("alive", true):
+					alive_count += 1
+				else:
+					destroyed_count += 1
+
+			if destroyed_count > 0:
+				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is below starting strength (%d destroyed models)" % [unit_id, destroyed_count])
+				return {
+					"eligible": true,
+					"bodyguard_unit_id": unit_id,
+					"bodyguard_unit_name": unit.get("meta", {}).get("name", unit_id),
+					"destroyed_count": destroyed_count,
+					"alive_count": alive_count,
+					"total_models": models.size()
+				}
+			else:
+				print("UnitAbilityManager: Grot Orderly — bodyguard unit %s is at full strength" % unit_id)
+				return {"eligible": false}
+
+	print("UnitAbilityManager: Grot Orderly — Painboss %s is not leading any unit" % painboss_unit_id)
+	return {"eligible": false}
+
+func _calculate_distance(pos_a, pos_b) -> float:
+	"""Calculate distance between two positions (in game inches).
+	Handles both Vector2 and Dictionary {x, y} formats."""
+	var ax = 0.0
+	var ay = 0.0
+	var bx = 0.0
+	var by = 0.0
+
+	if pos_a is Vector2:
+		ax = pos_a.x
+		ay = pos_a.y
+	elif pos_a is Dictionary:
+		ax = float(pos_a.get("x", 0))
+		ay = float(pos_a.get("y", 0))
+
+	if pos_b is Vector2:
+		bx = pos_b.x
+		by = pos_b.y
+	elif pos_b is Dictionary:
+		bx = float(pos_b.get("x", 0))
+		by = float(pos_b.get("y", 0))
+
+	return sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by))
+
+func has_deadly_demise(unit_id: String) -> bool:
+	"""Check if a unit has a Deadly Demise ability (e.g. 'Deadly Demise D6', 'Deadly Demise D3', 'Deadly Demise 1').
+	Used by _check_kill_diffs to trigger mortal wounds on destruction."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name.begins_with("Deadly Demise"):
+			return true
+	return false
+
+func get_deadly_demise_value(unit_id: String) -> String:
+	"""Get the Deadly Demise damage value string (e.g. 'D6', 'D3', '1').
+	Returns empty string if the unit has no Deadly Demise ability."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return ""
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name.begins_with("Deadly Demise"):
+			# Extract the value from e.g. "Deadly Demise D6" -> "D6"
+			var parts = ability_name.split(" ")
+			if parts.size() >= 3:
+				return parts[2]  # "D6", "D3", "1", etc.
+			return "D3"  # Default if no value specified
+	return ""
 
 func get_implemented_abilities() -> Array:
 	"""Get all ability names that are mechanically implemented."""
@@ -729,17 +1469,23 @@ func get_state_for_save() -> Dictionary:
 	"""Return state data for save games."""
 	return {
 		"active_ability_effects": _active_ability_effects.duplicate(true),
-		"applied_this_phase": _applied_this_phase.duplicate(true)
+		"applied_this_phase": _applied_this_phase.duplicate(true),
+		"once_per_battle_used": _once_per_battle_used.duplicate(true),
+		"once_per_round_used": _once_per_round_used.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
 	"""Restore state from save data."""
 	_active_ability_effects = data.get("active_ability_effects", [])
 	_applied_this_phase = data.get("applied_this_phase", {})
-	print("UnitAbilityManager: State loaded — %d active effects" % _active_ability_effects.size())
+	_once_per_battle_used = data.get("once_per_battle_used", {})
+	_once_per_round_used = data.get("once_per_round_used", {})
+	print("UnitAbilityManager: State loaded — %d active effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
 func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()
+	_once_per_battle_used.clear()
+	_once_per_round_used.clear()
 	print("UnitAbilityManager: Reset for new game")

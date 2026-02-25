@@ -204,8 +204,11 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 						"firing_deck": firing_deck
 					}
 
+			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+			_apply_wargear_stat_bonuses(unit_id, unit)
+
 			print("Processed unit: ", unit_id, " for player ", player)
-	
+
 	current_army_data = army_data
 	print("Successfully loaded army: ", army_name, " with ", army_data.units.size(), " units")
 	emit_signal("army_loaded", army_data)
@@ -465,9 +468,109 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 					"firing_deck": firing_deck
 				}
 
+		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+		_apply_wargear_stat_bonuses(unit_id, unit)
+
 		print("Processed unit: ", unit_id, " for player ", player)
 
 	return army_data
+
+# ============================================================================
+# WARGEAR STAT BONUSES
+# ============================================================================
+# Some wargear items modify unit/model stats permanently (not phase-based).
+# These are applied at army load time by modifying meta.stats and model data.
+#
+# Supported wargear stat bonuses:
+#   - Praesidium Shield: +1 Wounds (Custodian Guard)
+#   - Vexilla: +1 OC (Custodian Guard)
+#   - 'Ard Case: +2 Toughness (Battlewagon) — also removes Firing Deck
+
+# Wargear stat bonus definitions: ability_name -> { stat_changes }
+const WARGEAR_STAT_BONUSES: Dictionary = {
+	"Praesidium Shield": {
+		"stat": "wounds",
+		"bonus": 1,
+		"apply_to_models": true,
+		"description": "+1 Wounds to bearer"
+	},
+	"Vexilla": {
+		"stat": "objective_control",
+		"bonus": 1,
+		"apply_to_models": false,
+		"description": "+1 OC to unit"
+	},
+	"'Ard Case": {
+		"stat": "toughness",
+		"bonus": 2,
+		"apply_to_models": false,
+		"removes_firing_deck": true,
+		"description": "+2 Toughness, loses Firing Deck"
+	}
+}
+
+func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
+	"""Check unit abilities for wargear stat bonuses and apply them to stats/models."""
+	if not unit.has("meta"):
+		return
+
+	var meta = unit.meta
+	if not meta.has("abilities"):
+		return
+
+	for ability in meta.abilities:
+		if not ability is Dictionary:
+			continue
+		var ability_name = ability.get("name", "")
+		if ability_name.is_empty():
+			continue
+
+		var wargear_def = WARGEAR_STAT_BONUSES.get(ability_name, {})
+		if wargear_def.is_empty():
+			continue
+
+		# Only apply to Wargear-type abilities
+		var ability_type = ability.get("type", "")
+		if ability_type != "Wargear":
+			continue
+
+		var stat_name = wargear_def.get("stat", "")
+		var bonus = wargear_def.get("bonus", 0)
+		if stat_name.is_empty() or bonus == 0:
+			continue
+
+		# Apply stat bonus to meta.stats
+		if meta.has("stats") and meta.stats.has(stat_name):
+			var old_value = meta.stats[stat_name]
+			meta.stats[stat_name] = old_value + bonus
+			print("ArmyListManager: Wargear '%s' on %s (%s): %s %d -> %d (+%d)" % [
+				ability_name, meta.get("name", unit_id), unit_id,
+				stat_name, old_value, meta.stats[stat_name], bonus
+			])
+
+		# If this wargear modifies wounds, also update model wound values
+		if wargear_def.get("apply_to_models", false) and stat_name == "wounds":
+			if unit.has("models"):
+				for model in unit.models:
+					var old_wounds = model.get("wounds", 1)
+					model["wounds"] = old_wounds + bonus
+					# Also update current_wounds if at max (not damaged)
+					var old_current = model.get("current_wounds", old_wounds)
+					if old_current == old_wounds:
+						model["current_wounds"] = old_current + bonus
+					print("ArmyListManager: Wargear '%s' updated model %s wounds: %d -> %d" % [
+						ability_name, model.get("id", "?"), old_wounds, model["wounds"]
+					])
+
+		# Handle 'Ard Case removing Firing Deck
+		if wargear_def.get("removes_firing_deck", false):
+			if unit.has("transport_data"):
+				var old_fd = unit.transport_data.get("firing_deck", 0)
+				if old_fd > 0:
+					unit.transport_data["firing_deck"] = 0
+					print("ArmyListManager: Wargear '%s' on %s: removed Firing Deck %d" % [
+						ability_name, meta.get("name", unit_id), old_fd
+					])
 
 # Validate army structure
 func validate_army_structure(army_data: Dictionary) -> Dictionary:
