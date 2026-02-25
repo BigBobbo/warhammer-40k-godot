@@ -9,8 +9,11 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 # Store secondary mission scoring results for UI display
 var _secondary_results: Array = []
+# Track whether the phase should complete (only after END_TURN, not after discard)
+var _turn_ended: bool = false
 
 func _on_phase_enter() -> void:
+	_turn_ended = false
 	phase_type = GameStateData.Phase.SCORING
 	var current_player = get_current_player()
 	print("ScoringPhase: Entering scoring phase for player ", current_player)
@@ -123,6 +126,7 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 	return result
 
 func _handle_end_turn() -> Dictionary:
+	_turn_ended = true
 	var current_player = get_current_player()
 	var next_player = 2 if current_player == 1 else 1
 
@@ -211,5 +215,5 @@ func _create_flag_reset_changes(player: int) -> Array:
 	return changes
 
 func _should_complete_phase() -> bool:
-	# Scoring phase completes immediately after END_TURN action
-	return true
+	# Only complete after END_TURN, not after a discard action
+	return _turn_ended
