@@ -23,13 +23,23 @@ var phase_info_label: Label
 func _ready() -> void:
 	_setup_ui_references()
 	print("CommandController ready")
+	# Schedule a deferred refresh to catch any timing edge cases where
+	# secondary missions were initialized after initial UI build
+	call_deferred("_deferred_secondary_refresh")
 
 func _exit_tree() -> void:
-	# Disconnect SecondaryMissionManager signal
+	# Disconnect SecondaryMissionManager signals
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if secondary_mgr and secondary_mgr.has_signal("when_drawn_requires_interaction"):
-		if secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
-			secondary_mgr.when_drawn_requires_interaction.disconnect(_on_when_drawn_requires_interaction)
+	if secondary_mgr:
+		if secondary_mgr.has_signal("when_drawn_requires_interaction"):
+			if secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
+				secondary_mgr.when_drawn_requires_interaction.disconnect(_on_when_drawn_requires_interaction)
+		if secondary_mgr.has_signal("mission_drawn"):
+			if secondary_mgr.mission_drawn.is_connected(_on_mission_drawn):
+				secondary_mgr.mission_drawn.disconnect(_on_mission_drawn)
+		if secondary_mgr.has_signal("mission_discarded"):
+			if secondary_mgr.mission_discarded.is_connected(_on_mission_discarded):
+				secondary_mgr.mission_discarded.disconnect(_on_mission_discarded)
 
 	# Clean up UI containers
 	var command_controls = get_node_or_null("/root/Main/HUD_Bottom/HBoxContainer/CommandControls")
@@ -57,6 +67,20 @@ func _setup_ui_references() -> void:
 		_setup_bottom_hud()
 	if hud_right:
 		_setup_right_panel()
+
+func _deferred_secondary_refresh() -> void:
+	"""Deferred refresh to ensure secondary missions are displayed after initialization."""
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var current_player = GameState.get_active_player()
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		var command_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel")
+		if command_panel:
+			var existing_section = command_panel.get_node_or_null("SecondaryMissionsSection")
+			if not existing_section:
+				print("CommandController: Deferred refresh — secondary missions section missing, rebuilding")
+				_setup_secondary_missions_section(command_panel)
+			else:
+				print("CommandController: Deferred refresh — secondary missions section already present")
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -211,10 +235,14 @@ func _setup_secondary_missions_section(command_panel: VBoxContainer) -> void:
 	"""Build the secondary missions display with discard and New Orders controls."""
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if not secondary_mgr:
+		print("CommandController: SecondaryMissionManager not found - skipping secondary missions section")
 		return
 
 	var current_player = GameState.get_active_player()
+	print("CommandController: _setup_secondary_missions_section called for player %d, initialized=%s" % [
+		current_player, str(secondary_mgr.is_initialized(current_player))])
 	if not secondary_mgr.is_initialized(current_player):
+		print("CommandController: Secondary missions not initialized for player %d - skipping section" % current_player)
 		return
 
 	command_panel.add_child(HSeparator.new())
@@ -593,12 +621,21 @@ func set_phase(phase: BasePhase) -> void:
 			if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 				phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
 
-		# Connect SecondaryMissionManager interaction signal
+		# Connect SecondaryMissionManager signals for reactive UI updates
 		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-		if secondary_mgr and secondary_mgr.has_signal("when_drawn_requires_interaction"):
-			if not secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
-				secondary_mgr.when_drawn_requires_interaction.connect(_on_when_drawn_requires_interaction)
-				print("CommandController: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
+		if secondary_mgr:
+			if secondary_mgr.has_signal("when_drawn_requires_interaction"):
+				if not secondary_mgr.when_drawn_requires_interaction.is_connected(_on_when_drawn_requires_interaction):
+					secondary_mgr.when_drawn_requires_interaction.connect(_on_when_drawn_requires_interaction)
+					print("CommandController: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
+			if secondary_mgr.has_signal("mission_drawn"):
+				if not secondary_mgr.mission_drawn.is_connected(_on_mission_drawn):
+					secondary_mgr.mission_drawn.connect(_on_mission_drawn)
+					print("CommandController: Connected to SecondaryMissionManager.mission_drawn")
+			if secondary_mgr.has_signal("mission_discarded"):
+				if not secondary_mgr.mission_discarded.is_connected(_on_mission_discarded):
+					secondary_mgr.mission_discarded.connect(_on_mission_discarded)
+					print("CommandController: Connected to SecondaryMissionManager.mission_discarded")
 
 		# Update UI elements with current game state
 		_refresh_ui()
@@ -607,6 +644,7 @@ func set_phase(phase: BasePhase) -> void:
 		hide()
 
 func _refresh_ui() -> void:
+	print("CommandController: _refresh_ui() called")
 	# Update phase info label
 	if phase_info_label:
 		var current_player = GameState.get_active_player()
@@ -615,6 +653,9 @@ func _refresh_ui() -> void:
 
 	# Update CP labels if they exist
 	var command_panel = get_node_or_null("/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel")
+	if not command_panel:
+		print("CommandController: _refresh_ui() — command_panel not found at expected path")
+		return
 	if command_panel:
 		var cp_section = command_panel.get_node_or_null("CPSection")
 		if cp_section:
@@ -715,6 +756,16 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 # ============================================================================
 # SECONDARY MISSION INTERACTION HANDLERS
 # ============================================================================
+
+func _on_mission_drawn(player: int, mission_id: String) -> void:
+	"""Handle SecondaryMissionManager mission_drawn signal — rebuild the secondary missions UI."""
+	print("CommandController: mission_drawn signal received — Player %d drew %s, refreshing UI" % [player, mission_id])
+	_refresh_ui()
+
+func _on_mission_discarded(player: int, mission_id: String, reason: String) -> void:
+	"""Handle SecondaryMissionManager mission_discarded signal — rebuild the secondary missions UI."""
+	print("CommandController: mission_discarded signal received — Player %d discarded %s (%s), refreshing UI" % [player, mission_id, reason])
+	_refresh_ui()
 
 func _on_when_drawn_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary) -> void:
 	"""Handle SecondaryMissionManager requesting opponent interaction for a drawn mission."""

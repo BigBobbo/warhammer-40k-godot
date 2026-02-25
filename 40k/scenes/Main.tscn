@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://b5gtyqpr3xktt"]
+[gd_scene load_steps=6 format=3 uid="uid://b5gtyqpr3xktt"]
 
 [ext_resource type="Script" uid="uid://o6wrk15crjyd" path="res://scripts/Main.gd" id="1_uu5k7"]
 [ext_resource type="Script" uid="uid://b4qtegojmcp2n" path="res://scripts/BoardVisual.gd" id="2_board"]
 [ext_resource type="Script" uid="uid://c0tcro85as1j5" path="res://scripts/DeploymentZoneVisual.gd" id="3_zone"]
 [ext_resource type="Script" uid="uid://dk12myirluqy5" path="res://scripts/UnitStatsPanel.gd" id="4_stats"]
+[ext_resource type="Script" path="res://scripts/SecondaryMissionPanel.gd" id="5_secondary"]
 
 [node name="Main" type="CanvasLayer"]
 script = ExtResource("1_uu5k7")
@@ -311,3 +312,11 @@ layout_mode = 2
 
 [node name="EnemyCompositionContainer" type="VBoxContainer" parent="UnitStatsPanel/VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
 layout_mode = 2
+
+[node name="SecondaryMissionPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(300, 32)
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 308.0
+offset_bottom = 40.0
+script = ExtResource("5_secondary")
