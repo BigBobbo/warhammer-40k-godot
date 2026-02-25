@@ -6579,21 +6579,27 @@ static func _try_move_with_collision_check(
 		dest.x = clamp(dest.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 		dest.y = clamp(dest.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
 
-		# Check enemy engagement range
-		if _is_position_near_enemy(dest, enemies, unit):
-			return {}
-
 		# Check overlap with deployed models and already-placed models in this move
 		var all_obstacles = deployed_models + placed_models
-		if _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
-			# Try small perpendicular offsets to avoid the collision
+		var needs_resolve = false
+
+		# Check enemy engagement range
+		if _is_position_near_enemy(dest, enemies, unit):
+			needs_resolve = true
+
+		# Check overlap with deployed models
+		if not needs_resolve and _position_collides_with_deployed(dest, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
+			needs_resolve = true
+
+		if needs_resolve:
+			# Try small perpendicular offsets to avoid enemy engagement and/or collision
 			var orig_pos = original_positions.get(model_id, model_pos)
 			var resolved_dest = _resolve_movement_collision(
 				dest, move_vector, base_mm, base_type, base_dimensions,
 				all_obstacles, enemies, unit, orig_pos, move_cap_px
 			)
 			if resolved_dest == Vector2.INF:
-				return {}  # Could not resolve collision
+				return {}  # Could not resolve engagement/collision
 			dest = resolved_dest
 
 		destinations[model_id] = [dest.x, dest.y]

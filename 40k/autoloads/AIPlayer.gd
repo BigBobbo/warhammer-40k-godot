@@ -22,6 +22,7 @@ var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where curren
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
+var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
 
 # T7-36: AI speed presets — configurable delay between AI actions
 enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
@@ -340,6 +341,13 @@ func _connect_phase_stratagem_signals() -> void:
 		phase.command_reroll_opportunity.connect(callable)
 		_connected_phase_signals.append({"signal_name": "command_reroll_opportunity", "callable": callable})
 		print("AIPlayer: Connected to phase.command_reroll_opportunity")
+
+	# Connect to unit_move_begun to execute pending advance moves after roll resolves
+	if phase.has_signal("unit_move_begun"):
+		var callable_umb = Callable(self, "_on_unit_move_begun")
+		phase.unit_move_begun.connect(callable_umb)
+		_connected_phase_signals.append({"signal_name": "unit_move_begun", "callable": callable_umb})
+		print("AIPlayer: Connected to MovementPhase.unit_move_begun")
 
 	# --- ChargePhase signals ---
 	# Note: ChargePhase overwatch and reroll actions are exposed via get_available_actions()
@@ -817,6 +825,85 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 
 	_submit_reactive_action(player, decision)
 
+# --- Pending advance movement after reroll resolves ---
+
+func _on_unit_move_begun(unit_id: String, mode: String) -> void:
+	"""Called when MovementPhase creates active_moves for a unit (after advance roll resolves)."""
+	if not unit_id in _pending_advance_moves:
+		return
+
+	var pending = _pending_advance_moves[unit_id]
+	_pending_advance_moves.erase(unit_id)
+	var player = pending.get("player", 0)
+	var decision = pending.get("decision", {})
+
+	print("AIPlayer: Advance roll resolved for %s — executing pending movement" % unit_id)
+	call_deferred("_execute_pending_advance_move", player, decision, unit_id)
+
+func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: String) -> void:
+	"""Execute AI movement after an advance roll has resolved and active_moves is ready."""
+	if not enabled or PhaseManager.game_ended:
+		return
+
+	# Get the actual move cap from MovementPhase's active_moves
+	var phase = _phase_manager_ref.current_phase_instance if _phase_manager_ref else null
+	if phase == null or not phase.has_method("get_current_player"):
+		push_error("AIPlayer: Cannot execute pending advance — no movement phase")
+		return
+
+	var active_move = phase.active_moves.get(unit_id, {})
+	var actual_move_cap = active_move.get("move_cap_inches", 0.0)
+
+	if actual_move_cap <= 0:
+		push_error("AIPlayer: Pending advance for %s has no move cap — skipping" % unit_id)
+		return
+
+	# Check if we need to recompute destinations (actual roll differs from estimated M+2)
+	var unit = GameState.get_unit(unit_id)
+	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+	var estimated_move = move_inches + 2.0  # Original estimate used by AIDecisionMaker
+	var actual_differs = abs(actual_move_cap - estimated_move) > 0.1
+
+	if actual_differs:
+		print("AIPlayer: Advance actual cap %.1f\" differs from estimate %.1f\" — recomputing destinations for %s" % [actual_move_cap, estimated_move, unit_id])
+		var snapshot = GameState.create_snapshot()
+		var enemies = _get_enemies_for_recompute(player, snapshot)
+		var objectives = snapshot.get("board", {}).get("objectives", [])
+
+		# Find the target position from the original decision description
+		var target_pos = _get_target_pos_for_unit(unit, snapshot, objectives)
+
+		var new_destinations = AIDecisionMaker._compute_movement_toward_target(
+			unit, unit_id, target_pos, actual_move_cap, snapshot, enemies,
+			0.0, [], objectives
+		)
+
+		if new_destinations.is_empty():
+			print("AIPlayer: Recomputed destinations empty for %s with actual cap %.1f\" — trying with original destinations" % [unit_id, actual_move_cap])
+			# Fall through to use original destinations — staging will clamp or fail per-model
+		else:
+			decision["_ai_model_destinations"] = new_destinations
+			print("AIPlayer: Recomputed %d model destinations for %s" % [new_destinations.size(), unit_id])
+
+	_execute_ai_movement(player, decision)
+
+func _get_enemies_for_recompute(player: int, snapshot: Dictionary) -> Dictionary:
+	"""Build enemies dictionary for AIDecisionMaker recomputation."""
+	var enemies: Dictionary = {}
+	var units = snapshot.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if int(u.get("owner", 0)) != player and not u.get("destroyed", false):
+			enemies[uid] = u
+	return enemies
+
+func _get_target_pos_for_unit(unit: Dictionary, snapshot: Dictionary, objectives: Array) -> Vector2:
+	"""Get the target position for a unit's advance move (nearest objective)."""
+	var centroid = AIDecisionMaker._get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return Vector2.INF
+	return AIDecisionMaker._nearest_objective_pos(centroid, objectives)
+
 # --- Submit reactive action ---
 
 func _submit_reactive_action(player: int, decision: Dictionary) -> void:
@@ -1057,7 +1144,13 @@ func _execute_next_action(player: int) -> void:
 
 		# Handle multi-step movement: BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, or BEGIN_FALL_BACK with pre-computed destinations
 		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
-			_execute_ai_movement(player, decision)
+			# Check if advance is awaiting reroll — active_moves won't exist yet
+			if result.get("awaiting_reroll", false):
+				var unit_id = decision.get("actor_unit_id", "")
+				print("AIPlayer: Advance for %s awaiting reroll — deferring movement staging" % unit_id)
+				_pending_advance_moves[unit_id] = {"decision": decision, "player": player}
+			else:
+				_execute_ai_movement(player, decision)
 
 		# Handle multi-step scout movement: BEGIN_SCOUT_MOVE with pre-computed destinations
 		elif decision.get("type") == "BEGIN_SCOUT_MOVE" and decision.has("_ai_scout_destinations"):
