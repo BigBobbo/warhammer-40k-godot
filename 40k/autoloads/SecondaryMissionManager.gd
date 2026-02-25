@@ -1043,7 +1043,9 @@ func _check_unit_near_any_objective(unit: Dictionary) -> bool:
 				continue
 			if pos is Dictionary:
 				pos = Vector2(pos.x, pos.y)
-			if pos.distance_to(obj_pos) <= range_px:
+			# Any part of the model's base overlapping counts
+			var model_base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+			if pos.distance_to(obj_pos) <= range_px + model_base_radius:
 				return true
 
 	return false
