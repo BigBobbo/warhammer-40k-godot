@@ -354,6 +354,7 @@ func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int
 	discard_btn.add_theme_font_size_override("font_size", 11)
 	discard_btn.tooltip_text = "Voluntarily discard this mission. Gain 1 CP if it's your turn."
 	discard_btn.pressed.connect(_on_voluntary_discard_pressed.bind(index))
+	WhiteDwarfTheme.apply_to_button(discard_btn)
 	card_vbox.add_child(discard_btn)
 
 func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions: Array) -> void:
@@ -400,6 +401,7 @@ func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions:
 		btn.text = "New Orders: Discard \"%s\"" % mission.get("name", "?")
 		btn.custom_minimum_size = Vector2(0, 26)
 		btn.add_theme_font_size_override("font_size", 11)
+		WhiteDwarfTheme.apply_to_button(btn)
 
 		# Disable if can't use
 		if not can_use.get("can_use", false):
@@ -503,6 +505,7 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 		test_btn.text = "Roll Battle-shock: %s (Ld %d)" % [unit_name, ld]
 		test_btn.custom_minimum_size = Vector2(230, 28)
 		test_btn.pressed.connect(_on_battle_shock_test_pressed.bind(unit_id))
+		WhiteDwarfTheme.apply_to_button(test_btn)
 		unit_box.add_child(test_btn)
 
 		# Check for Insane Bravery stratagem availability
@@ -516,6 +519,7 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 			var strat_btn = Button.new()
 			strat_btn.text = "INSANE BRAVERY (1 CP) - Auto-pass"
 			strat_btn.custom_minimum_size = Vector2(230, 28)
+			WhiteDwarfTheme.apply_to_button(strat_btn)
 			strat_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
 			strat_btn.pressed.connect(_on_insane_bravery_pressed.bind(unit_id))
 			unit_box.add_child(strat_btn)
@@ -580,6 +584,7 @@ func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 			btn.text = "%s%s" % [target_info.unit_name, " (SELECTED)" if is_current else ""]
 			btn.custom_minimum_size = Vector2(230, 26)
 			btn.add_theme_font_size_override("font_size", 11)
+			WhiteDwarfTheme.apply_to_button(btn)
 			if is_current:
 				btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 				btn.tooltip_text = "Currently targeted by Oath of Moment"
