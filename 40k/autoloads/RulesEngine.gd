@@ -5035,10 +5035,10 @@ static func _get_model_position_rules(model: Dictionary) -> Vector2:
 		return pos
 	return Vector2.ZERO
 
-# T2-8: Calculate terrain vertical distance penalty for a charge path segment.
-# Uses board terrain_features data to check for terrain >2" high.
-# Non-FLY units pay full climb (height * 2 for up + down).
-# FLY units pay diagonal distance (shorter).
+# Calculate terrain penalty for a charge path segment.
+# Units are always assumed to stay on the ground floor, so there is no
+# vertical climbing penalty for terrain height.
+# Difficult ground penalties are handled by TerrainManager when available.
 static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, board: Dictionary) -> float:
 	var total_penalty: float = 0.0
 	var terrain_features = board.get("terrain_features", [])
@@ -5061,82 +5061,9 @@ static func _calculate_charge_terrain_penalty_rules(path: Array, has_fly: bool, 
 					total_penalty += terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
 			return total_penalty
 
-	# Use terrain_features from board dict
-	for i in range(1, path.size()):
-		var from_pos = _path_point_to_vector2(path[i - 1])
-		var to_pos = _path_point_to_vector2(path[i])
-		if from_pos == null or to_pos == null:
-			continue
-
-		for terrain in terrain_features:
-			var height_cat = terrain.get("height_category", "tall")
-			var height_inches: float = 6.0
-			match height_cat:
-				"low":
-					height_inches = 1.5
-				"medium":
-					height_inches = 3.5
-				"tall":
-					height_inches = 6.0
-
-			# Skip terrain 2" or less (no penalty)
-			if height_inches <= 2.0:
-				continue
-
-			# Check if path segment crosses this terrain
-			var polygon = terrain.get("polygon", PackedVector2Array())
-			if polygon.is_empty():
-				continue
-
-			var starts_inside = Geometry2D.is_point_in_polygon(from_pos, polygon)
-			var ends_inside = Geometry2D.is_point_in_polygon(to_pos, polygon)
-
-			var crosses = false
-			for j in range(polygon.size()):
-				var edge_start = polygon[j]
-				var edge_end = polygon[(j + 1) % polygon.size()]
-				if Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end) != null:
-					crosses = true
-					break
-
-			# Skip terrain that the path doesn't interact with at all
-			if not crosses and not starts_inside and not ends_inside:
-				continue
-
-			# Determine climb multiplier:
-			# 0 = both inside (no climb), 1 = onto or off, 2 = over (up + down)
-			var climb_multiplier: float = 0.0
-			if starts_inside and ends_inside:
-				climb_multiplier = 0.0
-			elif starts_inside or ends_inside:
-				climb_multiplier = 1.0
-			else:
-				climb_multiplier = 2.0
-
-			if climb_multiplier == 0.0:
-				continue
-
-			if has_fly:
-				# FLY: diagonal measurement through terrain
-				# Find crossing distance through polygon
-				var intersections: Array = []
-				for j in range(polygon.size()):
-					var edge_start = polygon[j]
-					var edge_end = polygon[(j + 1) % polygon.size()]
-					var result = Geometry2D.segment_intersects_segment(from_pos, to_pos, edge_start, edge_end)
-					if result != null:
-						intersections.append(result)
-
-				var cross_distance_px: float = 0.0
-				if intersections.size() >= 2:
-					cross_distance_px = intersections[0].distance_to(intersections[1])
-				var cross_distance_inches = cross_distance_px / Measurement.PX_PER_INCH
-				var diagonal = sqrt(height_inches * height_inches + cross_distance_inches * cross_distance_inches)
-				total_penalty += (diagonal - cross_distance_inches) * (climb_multiplier / 2.0)
-			else:
-				# Non-FLY: climb penalty based on whether moving onto, off, or over terrain
-				total_penalty += height_inches * climb_multiplier
-
+	# No height/climbing penalty — units always stay on the ground floor.
+	# Without TerrainManager, we cannot check difficult_ground traits,
+	# so return 0.
 	return total_penalty
 
 # Helper to convert a path point (Vector2 or Array) to Vector2

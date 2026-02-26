@@ -192,15 +192,15 @@ func test_multiple_difficult_ground_fly_ignores_all():
 # Difficult ground + height penalty combined
 # ==========================================
 
-func test_tall_difficult_ground_both_penalties():
-	# Tall terrain with difficult_ground: climb penalty (12") + difficult ground (2") = 14"
+func test_tall_difficult_ground_only_difficult_penalty():
+	# Tall terrain with difficult_ground: no height penalty (ground floor) + 2" difficult ground = 2"
 	_add_difficult_ground("tall_woods", Vector2(200, 0), Vector2(80, 80), "tall")
 
 	var from_pos = Vector2(0, 0)
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 14.0, "Tall difficult ground should give 14\" penalty (12\" climb + 2\" difficult)")
+	assert_eq(penalty, 2.0, "Tall difficult ground should give 2\" penalty (no height penalty, only difficult ground)")
 
 func test_tall_difficult_ground_fly_ignores_all():
 	# FLY units ignore both height and difficult ground penalties during movement
@@ -221,9 +221,9 @@ func test_mixed_terrain_types():
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
-	# Ruins: tall (6") → climb penalty 12", no difficult ground
-	# Woods: low with difficult ground → 2"
-	assert_eq(penalty, 14.0, "Mixed terrain should sum both climb and difficult ground penalties")
+	# Ruins: no height penalty (ground floor), no difficult ground → 0"
+	# Woods: no height penalty (ground floor), difficult ground → 2"
+	assert_eq(penalty, 2.0, "Only difficult ground penalty should apply — no height penalties")
 
 # ==========================================
 # Charge penalty: difficult ground

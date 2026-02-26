@@ -116,15 +116,15 @@ func test_fly_always_zero_movement_penalty():
 	var fly_penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, true)
 	assert_eq(fly_penalty, 0.0, "FLY unit should have zero terrain penalty during movement")
 
-func test_non_fly_tall_terrain_movement_penalty():
-	# Non-FLY unit crossing tall terrain (6") pays climb up + down = 12"
+func test_non_fly_tall_terrain_no_movement_penalty():
+	# Units always stay on ground floor — no height penalty even for tall terrain
 	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 12.0, "Non-FLY tall terrain movement penalty should be 12\" (6\" * 2)")
+	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
 
 func test_low_terrain_no_movement_penalty():
 	# Low terrain (<=2") has no penalty for anyone
@@ -138,15 +138,15 @@ func test_low_terrain_no_movement_penalty():
 	assert_eq(non_fly_penalty, 0.0, "Low terrain should have no movement penalty for non-FLY")
 	assert_eq(fly_penalty, 0.0, "Low terrain should have no movement penalty for FLY")
 
-func test_medium_terrain_non_fly_movement_penalty():
-	# Medium terrain (3.5" high > 2") penalizes non-FLY
+func test_medium_terrain_non_fly_no_movement_penalty():
+	# Units always stay on ground floor — no height penalty even for medium terrain
 	_add_medium_terrain("medium_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 7.0, "Medium terrain (3.5\") non-FLY movement penalty should be 7.0\"")
+	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
 
 func test_medium_terrain_fly_no_movement_penalty():
 	# Medium terrain has no penalty for FLY during movement
@@ -162,8 +162,8 @@ func test_medium_terrain_fly_no_movement_penalty():
 # Multiple terrain pieces
 # ==========================================
 
-func test_multiple_tall_terrain_non_fly_cumulative():
-	# Two tall terrain pieces — penalties should accumulate
+func test_multiple_tall_terrain_non_fly_no_penalty():
+	# Units always stay on ground floor — no height penalty even with multiple terrain
 	_add_tall_terrain("ruins_1", Vector2(150, 0), Vector2(60, 80))
 	_add_tall_terrain("ruins_2", Vector2(300, 0), Vector2(60, 80))
 
@@ -171,7 +171,7 @@ func test_multiple_tall_terrain_non_fly_cumulative():
 	var to_pos = Vector2(400, 0)
 
 	var penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
-	assert_eq(penalty, 24.0, "Two tall terrain pieces should give 24\" total penalty (12\" each)")
+	assert_eq(penalty, 0.0, "No height penalty — units always stay on ground floor")
 
 func test_multiple_terrain_fly_always_zero():
 	# FLY units ignore all terrain elevation
@@ -202,8 +202,8 @@ func test_path_misses_terrain_no_penalty():
 # Verify FLY vs non-FLY difference in movement
 # ==========================================
 
-func test_fly_vs_non_fly_movement_difference():
-	# With tall terrain, FLY units should have 0 penalty while non-FLY gets 12"
+func test_fly_vs_non_fly_movement_both_zero():
+	# With ground floor assumption, both FLY and non-FLY have zero height penalty
 	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
@@ -212,17 +212,15 @@ func test_fly_vs_non_fly_movement_difference():
 	var non_fly_penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false)
 	var fly_penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, true)
 
-	assert_gt(non_fly_penalty, 0.0, "Non-FLY should have positive movement penalty for tall terrain")
+	assert_eq(non_fly_penalty, 0.0, "No height penalty — units always stay on ground floor")
 	assert_eq(fly_penalty, 0.0, "FLY should have zero movement penalty")
-	assert_gt(non_fly_penalty, fly_penalty, "Non-FLY penalty should be greater than FLY penalty")
 
 # ==========================================
 # Charge vs Movement: FLY behavior differs
 # ==========================================
 
-func test_fly_charge_penalty_vs_movement_penalty():
-	# During charges, FLY units get a reduced diagonal penalty
-	# During movement, FLY units get ZERO penalty (ignore elevation entirely)
+func test_fly_charge_and_movement_both_zero():
+	# With ground floor assumption, no height penalty for either charge or movement
 	_add_tall_terrain("tall_ruins", Vector2(200, 0), Vector2(80, 80))
 
 	var from_pos = Vector2(0, 0)
@@ -231,5 +229,5 @@ func test_fly_charge_penalty_vs_movement_penalty():
 	var charge_fly_penalty = terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, true)
 	var movement_fly_penalty = terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, true)
 
-	assert_gt(charge_fly_penalty, 0.0, "FLY charge penalty should be positive (diagonal)")
-	assert_eq(movement_fly_penalty, 0.0, "FLY movement penalty should be zero (ignore elevation)")
+	assert_eq(charge_fly_penalty, 0.0, "No height penalty — units always stay on ground floor")
+	assert_eq(movement_fly_penalty, 0.0, "No height penalty — units always stay on ground floor")

@@ -386,8 +386,7 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Model has no current position"]}
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
-	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
-	# FLY units ignore terrain elevation entirely (penalty = 0)
+	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(current_pos, dest_vec, unit_id)
 	var effective_distance = distance_inches + terrain_penalty
 	if effective_distance > move_data.move_cap_inches:
@@ -462,8 +461,7 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 
 	# Calculate total distance from original position to destination
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
-	# FLY units ignore terrain elevation entirely (penalty = 0)
+	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
 	total_distance_for_model += terrain_penalty
 	log_phase_message("  Distance calculation: %.2f inches (terrain penalty: %.2f\")" % [total_distance_for_model, terrain_penalty])
@@ -1850,8 +1848,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Calculate total distance from original position
 	var original_pos = move_data.original_positions.get(model_id, current_pos)
 	var total_distance_for_model = Measurement.distance_inches(original_pos, dest_vec)
-	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
-	# FLY units ignore terrain elevation entirely (penalty = 0)
+	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	var terrain_penalty = _get_movement_terrain_penalty(original_pos, dest_vec, unit_id)
 	total_distance_for_model += terrain_penalty
 
@@ -2744,11 +2741,10 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	return "FLY" in keywords
 
 func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
-	# Calculate terrain penalty for movement (elevation + difficult ground traits).
-	# FLY units ignore terrain elevation and difficult ground entirely (return 0).
-	# Non-FLY units must count vertical distance (climb up + down) for terrain >2",
-	# and pay a flat 2" penalty for each terrain piece with the "difficult_ground" trait.
-	# Per 10e rules: INFANTRY can move through ruins walls freely with no penalty.
+	# Calculate terrain penalty for movement (difficult ground traits only).
+	# Units always stay on the ground floor — no vertical height penalty.
+	# FLY units ignore difficult ground entirely (return 0).
+	# Non-FLY units pay a flat 2" penalty per terrain piece with "difficult_ground" trait.
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
@@ -3282,8 +3278,7 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	# Check distance limit
 	var original_pos = move_data.original_positions.get(model_id, _get_model_position(model))
 	var total_distance = Measurement.distance_inches(original_pos, dest_pos)
-	# Add terrain elevation penalty: non-FLY units must count vertical distance for tall terrain
-	# FLY units ignore terrain elevation entirely (penalty = 0)
+	# Add terrain penalty (difficult ground only — no height penalty, units stay on ground floor)
 	total_distance += _get_movement_terrain_penalty(original_pos, dest_pos, unit_id)
 
 	if total_distance > move_data.move_cap_inches:

@@ -1642,9 +1642,8 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 
 	return {"valid": errors.is_empty(), "errors": errors}
 
-## T2-8: Calculate the total terrain vertical distance penalty for a charge path.
-## For each segment of the path that crosses terrain >2" high, adds vertical
-## distance (climb up + down for non-FLY, diagonal for FLY units).
+## Calculate the total terrain penalty for a charge path.
+## Units always stay on ground floor — no height penalty. Only difficult ground applies.
 func _calculate_path_terrain_penalty(path: Array, has_fly: bool) -> float:
 	var total_penalty: float = 0.0
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
