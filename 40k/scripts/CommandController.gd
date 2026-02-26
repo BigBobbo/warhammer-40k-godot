@@ -628,6 +628,9 @@ func set_phase(phase: BasePhase) -> void:
 		# Update UI elements with current game state
 		_refresh_ui()
 		show()
+
+		# Show review dialog for newly drawn secondary missions
+		_show_drawn_missions_review_dialog()
 	else:
 		hide()
 
@@ -740,6 +743,74 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 		"type": "DECLINE_COMMAND_REROLL",
 		"unit_id": unit_id,
 	})
+
+# ============================================================================
+# SECONDARY MISSION REVIEW (show drawn missions with replace option)
+# ============================================================================
+
+func _show_drawn_missions_review_dialog() -> void:
+	"""Show a dialog displaying newly drawn secondary missions with option to replace one (1 CP)."""
+	if not current_phase:
+		return
+	if not current_phase.has_method("get_newly_drawn_missions"):
+		return
+
+	var drawn_missions = current_phase.get_newly_drawn_missions()
+	if drawn_missions.size() == 0:
+		print("CommandController: No newly drawn missions to review")
+		return
+
+	var current_player = GameState.get_active_player()
+	var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var deck_size = 0
+	if secondary_mgr:
+		deck_size = secondary_mgr.get_deck_size(current_player)
+
+	print("CommandController: Showing secondary mission review dialog for player %d (%d missions drawn, %d CP, %d deck)" % [
+		current_player, drawn_missions.size(), player_cp, deck_size])
+
+	var dialog = SecondaryMissionReviewDialog.new()
+	dialog.setup(current_player, drawn_missions, player_cp, deck_size)
+	dialog.mission_replacement_requested.connect(_on_mission_replacement_requested)
+	dialog.review_completed.connect(_on_mission_review_completed)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+
+func _on_mission_replacement_requested(mission_id: String) -> void:
+	"""Handle player requesting to replace a drawn mission (spend 1 CP)."""
+	print("CommandController: Mission replacement requested for mission %s" % mission_id)
+
+	# Find the correct active index for this mission ID
+	var current_player = GameState.get_active_player()
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var mission_index = -1
+	if secondary_mgr:
+		var active_missions = secondary_mgr.get_active_missions(current_player)
+		for i in range(active_missions.size()):
+			if active_missions[i].get("id", "") == mission_id:
+				mission_index = i
+				break
+
+	if mission_index == -1:
+		push_error("CommandController: Could not find mission %s in active missions" % mission_id)
+		return
+
+	print("CommandController: Mission %s is at active index %d" % [mission_id, mission_index])
+	emit_signal("command_action_requested", {
+		"type": "REPLACE_SECONDARY_MISSION",
+		"mission_index": mission_index,
+	})
+	# Clear the newly drawn list so the dialog doesn't re-show
+	if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
+		current_phase.clear_newly_drawn_missions()
+
+func _on_mission_review_completed() -> void:
+	"""Handle player accepting drawn missions without replacement."""
+	print("CommandController: Player accepted drawn missions without replacement")
+	if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
+		current_phase.clear_newly_drawn_missions()
 
 # ============================================================================
 # SECONDARY MISSION INTERACTION HANDLERS

@@ -24,6 +24,7 @@ var _rng: RandomNumberGenerator
 var _awaiting_reroll_decision: bool = false
 var _reroll_pending_unit_id: String = ""
 var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leadership}
+var _newly_drawn_missions: Array = []  # Missions drawn this phase, for review dialog
 
 func _init():
 	_rng = RandomNumberGenerator.new()
@@ -63,10 +64,12 @@ func _on_phase_enter() -> void:
 		MissionManager.check_all_objectives()
 
 	# Step 5: Draw secondary mission cards (tactical mode)
+	_newly_drawn_missions = []
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		secondary_mgr.on_turn_start(current_player)
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
+			_newly_drawn_missions = drawn.duplicate()
 			print("CommandPhase: Player %d drew %d secondary mission card(s)" % [current_player, drawn.size()])
 			for card in drawn:
 				print("  - %s" % card["name"])
@@ -112,6 +115,14 @@ func _generate_command_points(active_player: int) -> void:
 		opponent, opponent_cp, opponent_cp + 1
 	])
 
+func get_newly_drawn_missions() -> Array:
+	"""Return missions drawn at the start of this command phase (for review dialog)."""
+	return _newly_drawn_missions
+
+func clear_newly_drawn_missions() -> void:
+	"""Clear the newly drawn missions list after review is complete."""
+	_newly_drawn_missions = []
+
 func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")
 	_units_needing_test.clear()
@@ -120,6 +131,7 @@ func _on_phase_exit() -> void:
 	_awaiting_reroll_decision = false
 	_reroll_pending_unit_id = ""
 	_reroll_pending_roll = {}
+	_newly_drawn_missions.clear()
 
 func _clear_battle_shocked_flags() -> void:
 	# Per 10th edition: Clear battle-shocked status at the start of each Command Phase
@@ -361,6 +373,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 				errors.append("Not awaiting a Command Re-roll decision")
 		"USE_NEW_ORDERS":
 			errors = _validate_use_new_orders(action)
+		"REPLACE_SECONDARY_MISSION":
+			errors = _validate_replace_secondary_mission(action)
 		"SELECT_OATH_TARGET":
 			errors = _validate_select_oath_target(action)
 		"CALL_WAAAGH":
@@ -430,6 +444,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_decline_command_reroll(action)
 		"USE_NEW_ORDERS":
 			return _handle_use_new_orders(action)
+		"REPLACE_SECONDARY_MISSION":
+			return _handle_replace_secondary_mission(action)
 		"SELECT_OATH_TARGET":
 			return _handle_select_oath_target(action)
 		"CALL_WAAAGH":
@@ -1150,6 +1166,72 @@ func _handle_use_new_orders(action: Dictionary) -> Dictionary:
 			"type": "USE_NEW_ORDERS",
 			"player": current_player,
 			"discarded": result.get("discarded", ""),
+			"drawn": result.get("drawn", ""),
+			"turn": GameState.get_battle_round()
+		}
+		GameState.add_action_to_phase_log(log_entry)
+
+	return result
+
+func _validate_replace_secondary_mission(action: Dictionary) -> Array:
+	var errors = []
+	var mission_index = action.get("mission_index", -1)
+	var current_player = get_current_player()
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		errors.append("SecondaryMissionManager not available")
+		return errors
+
+	if not secondary_mgr.is_initialized(current_player):
+		errors.append("Secondary missions not initialized")
+		return errors
+
+	var active = secondary_mgr.get_active_missions(current_player)
+	if mission_index < 0 or mission_index >= active.size():
+		errors.append("Invalid mission index: %d (have %d active missions)" % [mission_index, active.size()])
+
+	if secondary_mgr.get_deck_size(current_player) == 0:
+		errors.append("Deck is empty — cannot draw a replacement")
+
+	# Check player has at least 1 CP
+	var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
+	if player_cp < 1:
+		errors.append("Not enough CP (need 1, have %d)" % player_cp)
+
+	return errors
+
+func _handle_replace_secondary_mission(action: Dictionary) -> Dictionary:
+	var mission_index = action.get("mission_index", -1)
+	var current_player = get_current_player()
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return {"success": false, "error": "SecondaryMissionManager not available"}
+
+	# Deduct 1 CP
+	var current_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
+	var changes = [{
+		"op": "set",
+		"path": "players.%s.cp" % str(current_player),
+		"value": current_cp - 1,
+	}]
+	PhaseManager.apply_state_changes(changes)
+	game_state_snapshot = GameState.create_snapshot()
+	print("CommandPhase: Player %d spent 1 CP to replace secondary mission (CP: %d -> %d)" % [
+		current_player, current_cp, current_cp - 1])
+
+	var result = secondary_mgr.replace_drawn_mission(current_player, mission_index)
+
+	if result.get("success", false):
+		log_phase_message("Player %d replaced secondary mission %s (back to deck), drew %s (1 CP)" % [
+			current_player, result.get("replaced", "?"), result.get("drawn", "?")])
+
+		# Log to phase log
+		var log_entry = {
+			"type": "REPLACE_SECONDARY_MISSION",
+			"player": current_player,
+			"replaced": result.get("replaced", ""),
 			"drawn": result.get("drawn", ""),
 			"turn": GameState.get_battle_round()
 		}
