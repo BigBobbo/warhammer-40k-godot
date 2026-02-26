@@ -42,12 +42,16 @@ func _on_phase_enter() -> void:
 		MissionManager.reset_round_kills()
 
 	# Step 0b: Initialize secondary mission decks on first command phase
+	# Both players' decks are set up on the very first command phase entry,
+	# regardless of which player goes first (determined by roll-off)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if secondary_mgr and battle_round == 1 and current_player == 1:
+	if secondary_mgr:
 		if not secondary_mgr.is_initialized(1):
 			secondary_mgr.setup_tactical_deck(1)
+			print("CommandPhase: Secondary mission deck initialized for Player 1")
+		if not secondary_mgr.is_initialized(2):
 			secondary_mgr.setup_tactical_deck(2)
-			print("CommandPhase: Secondary mission decks initialized for both players")
+			print("CommandPhase: Secondary mission deck initialized for Player 2")
 
 	# Step 1: Generate Command Points
 	# Per 10th edition rules, both players gain 1 CP at the start of each Command Phase
