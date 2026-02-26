@@ -121,9 +121,23 @@ theme_override_constants/separation = 15
 
 [node name="ArmyLabel" type="Label" parent="LobbyContainer/ArmySelection"]
 layout_mode = 2
-text = "Army & Deployment Selection"
+text = "Mission, Army & Deployment Selection"
 theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
+
+[node name="MissionContainer" type="HBoxContainer" parent="LobbyContainer/ArmySelection"]
+layout_mode = 2
+alignment = 1
+
+[node name="MissionLabel" type="Label" parent="LobbyContainer/ArmySelection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 0)
+text = "Primary Mission:"
+theme_override_font_sizes/font_size = 16
+
+[node name="MissionDropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/MissionContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(250, 40)
 
 [node name="DeploymentContainer" type="HBoxContainer" parent="LobbyContainer/ArmySelection"]
 layout_mode = 2
