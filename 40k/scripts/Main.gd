@@ -3944,10 +3944,14 @@ func _on_reset_pressed() -> void:
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			if deployment_controller:
-				# Full-unit reset: clears all placed models and cancels deployment
+				# Save unit_id before reset clears it
+				var reset_unit_id = deployment_controller.unit_id
+				# Full-unit reset: clears all placed models and resets placement state
 				deployment_controller.reset_unit()
-				unit_card.visible = false
-				unit_list.visible = true
+				# Re-select the same unit so user can immediately place again
+				if reset_unit_id != "":
+					deployment_controller.begin_deploy(reset_unit_id)
+				update_unit_card_buttons()
 				update_ui()
 		GameStateData.Phase.MOVEMENT:
 			if movement_controller and movement_controller.active_unit_id != "":
