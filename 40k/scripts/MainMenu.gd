@@ -67,6 +67,12 @@ var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
+
+	# Ensure network state is clean when returning to menu (e.g. after leaving a multiplayer game)
+	if NetworkManager.is_networked():
+		print("MainMenu: Cleaning up stale network state")
+		NetworkManager.disconnect_network()
+
 	_setup_dropdowns()
 	_connect_signals()
 	_setup_save_load_dialog()
