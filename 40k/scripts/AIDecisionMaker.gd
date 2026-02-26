@@ -68,6 +68,16 @@ static var _fight_order_plan_built: bool = false
 static var _secondary_awareness: Dictionary = {}
 static var _secondary_awareness_round: int = -1
 
+# Verbose thinking log — accumulates reasoning steps during a decision, returned in the result dict
+# Cleared at the start of each decide() call, and attached as "_ai_thinking_steps" to the result
+static var _thinking_steps: Array = []
+# Track whether the movement plan summary has been logged (reset per phase)
+static var _movement_plan_logged: bool = false
+# Track whether the focus fire summary has been logged (reset per phase)
+static var _focus_fire_plan_logged: bool = false
+# Track whether fight order summary has been logged (reset per phase)
+static var _fight_order_logged: bool = false
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -237,6 +247,10 @@ const MICRO_MODEL_KILL_VALUE: float = 0.4        # Fractional value per model ki
 # T7-40: DIFFICULTY-AWARE SCORING UTILITIES
 # =============================================================================
 
+static func _add_thinking_step(text: String) -> void:
+	"""Add a verbose thinking/reasoning step for the game log."""
+	_thinking_steps.append(text)
+
 static func _apply_difficulty_noise(score: float) -> float:
 	"""Add random noise to a score based on current difficulty level.
 	Higher noise makes the AI less optimal (more humanlike / random)."""
@@ -259,6 +273,7 @@ static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
 
 static func decide(phase: int, snapshot: Dictionary, available_actions: Array, player: int, difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL) -> Dictionary:
 	_current_difficulty = difficulty
+	_thinking_steps.clear()  # Reset thinking log for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
 	# T7-43: Log round strategy mode
 	var current_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
@@ -278,12 +293,18 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			_focus_fire_plan_built = false
 			_focus_fire_plan.clear()
 		_grenade_evaluated = false
+		_focus_fire_plan_logged = false
 
 	# T7-46: Reset fight order plan when not in fight phase
 	if phase != GameStateData.Phase.FIGHT:
 		if _fight_order_plan_built:
 			_fight_order_plan_built = false
 			_fight_order_plan.clear()
+		_fight_order_logged = false
+
+	# Reset movement plan log flag when not in movement phase
+	if phase != GameStateData.Phase.MOVEMENT:
+		_movement_plan_logged = false
 
 	# T7-23: Reset multi-phase plan when a new round starts or when we enter
 	# a phase earlier than movement (i.e., command phase or earlier)
@@ -302,34 +323,40 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
 		_phase_plan_built = true  # Prevent building phase plans
 
+	var result: Dictionary = {}
 	match phase:
 		GameStateData.Phase.FORMATIONS:
-			return _decide_formations(snapshot, available_actions, player)
+			result = _decide_formations(snapshot, available_actions, player)
 		GameStateData.Phase.DEPLOYMENT:
-			return _decide_deployment(snapshot, available_actions, player)
+			result = _decide_deployment(snapshot, available_actions, player)
 		GameStateData.Phase.SCOUT:
-			return _decide_scout(snapshot, available_actions, player)
+			result = _decide_scout(snapshot, available_actions, player)
 		GameStateData.Phase.ROLL_OFF:
-			return _decide_roll_off(snapshot, available_actions, player)
+			result = _decide_roll_off(snapshot, available_actions, player)
 		GameStateData.Phase.COMMAND:
-			return _decide_command(snapshot, available_actions, player)
+			result = _decide_command(snapshot, available_actions, player)
 		GameStateData.Phase.MOVEMENT:
-			return _decide_movement(snapshot, available_actions, player)
+			result = _decide_movement(snapshot, available_actions, player)
 		GameStateData.Phase.SHOOTING:
-			return _decide_shooting(snapshot, available_actions, player)
+			result = _decide_shooting(snapshot, available_actions, player)
 		GameStateData.Phase.CHARGE:
-			return _decide_charge(snapshot, available_actions, player)
+			result = _decide_charge(snapshot, available_actions, player)
 		GameStateData.Phase.FIGHT:
-			return _decide_fight(snapshot, available_actions, player)
+			result = _decide_fight(snapshot, available_actions, player)
 		GameStateData.Phase.SCORING:
-			return _decide_scoring(snapshot, available_actions, player)
+			result = _decide_scoring(snapshot, available_actions, player)
 		_:
 			# Unknown phase - try to find an END action
 			for action in available_actions:
 				var t = action.get("type", "")
 				if t.begins_with("END_"):
-					return {"type": t, "_ai_description": "End phase (fallback)"}
-			return {}
+					result = {"type": t, "_ai_description": "End phase (fallback)"}
+					break
+
+	# Attach accumulated thinking steps to the decision
+	if not _thinking_steps.is_empty() and not result.is_empty():
+		result["_ai_thinking_steps"] = _thinking_steps.duplicate()
+	return result
 
 # =============================================================================
 # T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
@@ -1384,6 +1411,16 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	print("AIDecisionMaker: Deploying %s (role=%s)" % [unit_name, unit_role])
 
+	# Log deployment thinking step with role classification
+	var role_desc = ""
+	match unit_role:
+		"fragile_shooter": role_desc = "fragile ranged unit — seeking cover"
+		"durable_shooter": role_desc = "durable ranged unit — positioning for firing lanes"
+		"melee": role_desc = "melee unit — deploying forward"
+		"character": role_desc = "character — hiding behind LoS blockers"
+		_: role_desc = "general role"
+	_add_thinking_step("Deploying %s (%s)" % [unit_name, role_desc])
+
 	# Find best position near an objective
 	var objectives = _get_objectives(snapshot)
 	var zone_center = Vector2(
@@ -2355,6 +2392,7 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if action.get("type") == "SELECT_OATH_TARGET":
 			oath_actions.append(action)
 	if not oath_actions.is_empty():
+		_add_thinking_step("Selecting Oath of Moment target — evaluating %d enemy units" % oath_actions.size())
 		var best_target = _select_oath_of_moment_target(snapshot, oath_actions, player)
 		if not best_target.is_empty():
 			return best_target
@@ -2694,6 +2732,16 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		_phase_plan = _build_phase_plan(snapshot, player)
 		_phase_plan_built = true
 		_phase_plan_round = battle_round
+		# Log multi-phase plan thinking step
+		var charge_intent = _phase_plan.get("charge_intent", {})
+		var lock_targets = _phase_plan.get("lock_targets", [])
+		if not charge_intent.is_empty() or not lock_targets.is_empty():
+			var plan_parts = []
+			if not charge_intent.is_empty():
+				plan_parts.append("%d unit(s) planning to charge" % charge_intent.size())
+			if not lock_targets.is_empty():
+				plan_parts.append("%d enemy shooter(s) to lock in melee" % lock_targets.size())
+			_add_thinking_step("Multi-phase plan: %s" % ", ".join(plan_parts))
 
 	# =========================================================================
 	# T7-25: Build secondary awareness if not already built (fallback if command
@@ -2743,6 +2791,28 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			engaged_units.append(unit_id)
 		else:
 			assigned_units.append(unit_id)
+
+	# Log movement plan summary (once per movement phase evaluation cycle)
+	if not _movement_plan_logged:
+		_movement_plan_logged = true
+		var plan_summary_parts = []
+		if not engaged_units.is_empty():
+			plan_summary_parts.append("%d engaged (must fall back or fight)" % engaged_units.size())
+		# Summarize assignment actions
+		var action_counts = {"hold": 0, "move": 0, "advance": 0, "screen": 0, "block": 0}
+		for uid in assignments:
+			var act = assignments[uid].get("action", "move")
+			action_counts[act] = action_counts.get(act, 0) + 1
+		var move_parts = []
+		for act_key in action_counts:
+			if action_counts[act_key] > 0:
+				move_parts.append("%d %s" % [action_counts[act_key], act_key])
+		if not move_parts.is_empty():
+			plan_summary_parts.append(", ".join(move_parts))
+		if not threat_data.is_empty():
+			plan_summary_parts.append("avoiding %d threat zones" % threat_data.size())
+		if not plan_summary_parts.is_empty():
+			_add_thinking_step("Movement plan: %d units — %s" % [movable_units.size(), "; ".join(plan_summary_parts)])
 
 	# --- Handle engaged units first ---
 	for unit_id in engaged_units:
@@ -3081,6 +3151,7 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 	var enemies = _get_enemy_units(snapshot, player)
 
 	print("AIDecisionMaker: [RESERVES] Evaluating %d units in reserves for deployment (Round %d)" % [reinforcement_actions.size(), battle_round])
+	_add_thinking_step("Evaluating %d unit(s) in reserves for arrival (Round %d)" % [reinforcement_actions.size(), battle_round])
 
 	# Build enemy model positions for distance checks
 	var enemy_model_positions = _get_enemy_model_positions_from_snapshot(snapshot, player)
@@ -6801,6 +6872,8 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			_focus_fire_plan_built = true
 			print("AIDecisionMaker: Built focus fire plan for %d units, %d target assignments" % [
 				shooter_unit_ids.size(), _focus_fire_plan.size()])
+			# Build focus fire thinking summary for game log
+			var ff_target_summary = {}  # target_name -> count of shooters assigned
 			for ff_uid in _focus_fire_plan:
 				var ff_unit = snapshot.get("units", {}).get(ff_uid, {})
 				var ff_name = ff_unit.get("meta", {}).get("name", ff_uid)
@@ -6815,6 +6888,18 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					var ff_target = snapshot.get("units", {}).get(ff_tid, {})
 					var ff_tname = ff_target.get("meta", {}).get("name", ff_tid)
 					print("  Focus fire: %s -> %s (%d weapon(s))" % [ff_name, ff_tname, ff_targets[ff_tid]])
+					ff_target_summary[ff_tname] = ff_target_summary.get(ff_tname, 0) + 1
+			# Log thinking step with focus fire plan summary
+			if not _focus_fire_plan_logged:
+				_focus_fire_plan_logged = true
+				if not ff_target_summary.is_empty():
+					var ff_parts = []
+					for tname in ff_target_summary:
+						ff_parts.append("%s (%d shooter(s))" % [tname, ff_target_summary[tname]])
+					_add_thinking_step("Focus fire plan: %d shooters coordinating — priority targets: %s" % [
+						shooter_unit_ids.size(), ", ".join(ff_parts)])
+				else:
+					_add_thinking_step("Shooting plan: %d units with ranged weapons, evaluating targets" % shooter_unit_ids.size())
 
 		# Pick the first available shooter that has a plan
 		var selected_unit_id = ""
@@ -8057,12 +8142,25 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 		print("AIDecisionMaker: [STRATEGY] Round %d charge threshold adjusted by %.2f (strategy=%s)" % [
 			ct_battle_round, ct_strategy.charge_threshold, ct_strategy.label])
 
+	# Log charge evaluation thinking steps
+	var num_chargers = charger_targets.size()
+	if num_chargers > 0:
+		var eval_parts = []
+		for uid_eval in charger_targets:
+			var u = snapshot.get("units", {}).get(uid_eval, {})
+			var uname = u.get("meta", {}).get("name", uid_eval)
+			var num_targets = charger_targets[uid_eval].size()
+			eval_parts.append("%s (%d target(s))" % [uname, num_targets])
+		_add_thinking_step("Evaluating charges: %s" % ", ".join(eval_parts))
+
 	# Minimum threshold to declare a charge
 	if best_score < charge_threshold:
 		print("AIDecisionMaker: No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
+		_add_thinking_step("No charge worth declaring (best score: %.1f, threshold: %.1f)" % [best_score, charge_threshold])
 		return {}
 
 	print("AIDecisionMaker: Best charge: %s (score=%.1f)" % [best_description, best_score])
+	_add_thinking_step("Declaring charge: %s (score: %.1f)" % [best_description, best_score])
 	var result = best_action.duplicate()
 	result["_ai_description"] = best_description
 	return result
@@ -8925,6 +9023,17 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if not _fight_order_plan_built:
 			_fight_order_plan = _build_fight_order_plan(snapshot, player)
 			_fight_order_plan_built = true
+			# Log fight order thinking step
+			if not _fight_order_logged:
+				_fight_order_logged = true
+				if not _fight_order_plan.is_empty():
+					var order_names = []
+					for fuid in _fight_order_plan:
+						var fu = snapshot.get("units", {}).get(fuid, {})
+						order_names.append(fu.get("meta", {}).get("name", fuid))
+					_add_thinking_step("Fight activation order: %s" % ", ".join(order_names))
+				else:
+					_add_thinking_step("No units available to fight")
 
 		# Pick the best unit from the plan that hasn't been used yet
 		var chosen_uid = offered_uid  # Fallback to offered unit

@@ -377,6 +377,8 @@ func _initialize_ai_player() -> void:
 			ai_player.ai_turn_ended.connect(_ai_action_log_overlay.on_ai_turn_ended)
 		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
 			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
+		if ai_player.has_signal("ai_thinking_step") and not ai_player.ai_thinking_step.is_connected(_ai_action_log_overlay.add_thinking_entry):
+			ai_player.ai_thinking_step.connect(_ai_action_log_overlay.add_thinking_entry)
 		print("Main: Connected AIPlayer signals to AI action log overlay (T7-54)")
 
 	# T7-36: Apply AI speed setting from game config
@@ -6235,6 +6237,8 @@ func _append_log_entry(text: String, entry_type: String) -> void:
 			colored_text = "[color=#6699CC]%s[/color]" % text
 		"p2_action":
 			colored_text = "[color=#CC6666]%s[/color]" % text
+		"ai_thinking":
+			colored_text = "[i][color=#8899AA]  %s[/color][/i]" % text
 		_:
 			colored_text = "[color=#AAAAAA]%s[/color]" % text
 
