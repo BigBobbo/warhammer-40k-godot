@@ -36,6 +36,8 @@ var tween: Tween
 # Signals
 signal unit_selected(unit_id: String, is_enemy: bool)
 
+signal panel_visibility_changed(is_visible: bool)
+
 func _ready() -> void:
 	print("UnitStatsPanel: _ready() called with 4-section layout")
 
@@ -60,9 +62,15 @@ func _ready() -> void:
 		_WhiteDwarfTheme.apply_to_item_list(enemy_units_list)
 		print("UnitStatsPanel: Enemy units list connected")
 
-	# Start collapsed by default
+	# Start hidden by default
 	is_collapsed = true
-	set_collapsed(true)
+	visible = false
+	custom_minimum_size.y = 0
+	if main_content:
+		main_content.visible = false
+	if toggle_button:
+		toggle_button.text = "▼ Unit Stats"
+	print("UnitStatsPanel: Hidden by default")
 
 	# Update panel labels for player/enemy distinction
 	_update_section_labels()
@@ -104,28 +112,57 @@ func _on_toggle_pressed() -> void:
 func set_collapsed(collapsed: bool) -> void:
 	is_collapsed = collapsed
 	print("UnitStatsPanel: Setting collapsed to ", collapsed)
-	
+
+	# Make the panel visible when expanding, emit signal for layout adjustments
+	if not collapsed and not visible:
+		visible = true
+		emit_signal("panel_visibility_changed", true)
+		print("UnitStatsPanel: Panel now visible")
+
 	if main_content:
 		main_content.visible = !collapsed
 		print("UnitStatsPanel: Main content visible = ", !collapsed)
-	
+
 	if toggle_button:
 		toggle_button.text = "▼ Unit Stats" if collapsed else "▲ Unit Stats"
 		print("UnitStatsPanel: Toggle button text = ", toggle_button.text)
-	
+
 	# Animate panel height
 	if tween:
 		tween.kill()
-	
+
 	tween = create_tween()
 	var target_height = 40 if collapsed else 300
 	tween.tween_property(self, "custom_minimum_size:y", target_height, 0.3)
-	
+
 	# Also update the offset to expand upward
 	var target_offset = -40 if collapsed else -300
 	tween.parallel().tween_property(self, "offset_top", target_offset, 0.3)
-	
+
 	print("UnitStatsPanel: Target height = ", target_height, ", Target offset = ", target_offset)
+
+func hide_panel() -> void:
+	"""Hide the unit stats panel completely."""
+	is_collapsed = true
+	if main_content:
+		main_content.visible = false
+	if toggle_button:
+		toggle_button.text = "▼ Unit Stats"
+
+	if tween:
+		tween.kill()
+
+	visible = false
+	custom_minimum_size.y = 0
+	emit_signal("panel_visibility_changed", false)
+	print("UnitStatsPanel: Panel hidden")
+
+func show_panel(expanded: bool = false) -> void:
+	"""Show the unit stats panel (collapsed header or expanded)."""
+	visible = true
+	emit_signal("panel_visibility_changed", true)
+	set_collapsed(!expanded)
+	print("UnitStatsPanel: Panel shown, expanded=", expanded)
 
 func populate_unit_lists(phase: String) -> void:
 	current_phase = phase
@@ -232,17 +269,13 @@ func _on_player_unit_selected(index: int) -> void:
 	
 	if unit_data:
 		selected_player_unit = unit_data
-		display_unit_stats(unit_data, player_stats_content, player_keywords_label, 
-						   player_stats_label, player_weapons_container, 
+		display_unit_stats(unit_data, player_stats_content, player_keywords_label,
+						   player_stats_label, player_weapons_container,
 						   player_abilities_container, player_composition_container)
-		
-		# Auto-expand if collapsed
-		if is_collapsed:
-			set_collapsed(false)
-		
+
 		# Emit signal for Main.gd integration
 		emit_signal("unit_selected", unit_id, false)
-		
+
 		print("UnitStatsPanel: Player unit selected - ", unit_id)
 
 func _on_enemy_unit_selected(index: int) -> void:
@@ -257,14 +290,10 @@ func _on_enemy_unit_selected(index: int) -> void:
 		display_unit_stats(unit_data, enemy_stats_content, enemy_keywords_label,
 						   enemy_stats_label, enemy_weapons_container,
 						   enemy_abilities_container, enemy_composition_container)
-		
-		# Auto-expand if collapsed
-		if is_collapsed:
-			set_collapsed(false)
-		
+
 		# Emit signal for Main.gd integration
 		emit_signal("unit_selected", unit_id, true)
-		
+
 		print("UnitStatsPanel: Enemy unit selected - ", unit_id)
 
 func display_unit_stats(unit_data: Dictionary, content_container: VBoxContainer,
@@ -309,10 +338,6 @@ func display_unit(unit_data: Dictionary) -> void:
 	display_unit_stats(unit_data, player_stats_content, player_keywords_label,
 					   player_stats_label, player_weapons_container,
 					   player_abilities_container, player_composition_container)
-	
-	# Auto-expand
-	if is_collapsed:
-		set_collapsed(false)
 
 func _create_weapons_tables(unit_data: Dictionary, weapons_container: VBoxContainer) -> void:
 	# Clear existing

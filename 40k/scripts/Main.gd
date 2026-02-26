@@ -1649,35 +1649,35 @@ func _fix_hud_layout() -> void:
 	# Adjust both left and right HUD panels for proper layout
 	var hud_left = get_node("HUD_Left")
 	var hud_right = get_node("HUD_Right")
-	
-	# Reserve space for the unit stats panel at bottom (40px collapsed, up to 300px expanded)
-	var bottom_height = 300.0  # Max height when expanded
+
+	# Unit stats panel starts hidden, so no bottom reservation needed initially
+	var bottom_height = 0.0  # Panel is hidden by default
 	var top_height = 100.0    # Space for top panel
-	
+
 	if hud_left:
 		# Adjust HUD_Left to not overlap with panels
 		hud_left.anchor_bottom = 1.0
 		hud_left.offset_bottom = -bottom_height
 		hud_left.anchor_top = 0.0
 		hud_left.offset_top = top_height  # Leave space for top panel
-		
+
 		print("Fixed HUD layout: HUD_Left adjusted for new layout")
-	
+
 	if hud_right:
-		# Adjust HUD_Right to not overlap with bottom panel
+		# HUD_Right extends full height when unit stats panel is hidden
 		hud_right.anchor_bottom = 1.0
 		hud_right.offset_bottom = -bottom_height
 		hud_right.anchor_top = 0.0
 		hud_right.offset_top = top_height  # Leave space for top panel
-		
-		print("Fixed HUD layout: HUD_Right adjusted for new layout")
-	
+
+		print("Fixed HUD layout: HUD_Right adjusted for new layout (full height, panel hidden)")
+
 	# Adjust unit list to take less space, giving more room to phase panels
-	var unit_list = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
-	if unit_list:
+	var unit_list_panel = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
+	if unit_list_panel:
 		# Change from size_flags_vertical = 3 (expand/fill) to 0 (fixed size)
-		unit_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		unit_list.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
+		unit_list_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
 		print("Adjusted unit list: fixed height to 150px")
 
 func _apply_white_dwarf_theme() -> void:
@@ -1763,17 +1763,22 @@ func _setup_unit_stats_panel() -> void:
 	# UnitStatsPanel is now directly in the Main.tscn scene file
 	print("Looking for UnitStatsPanel in scene...")
 	unit_stats_panel = get_node_or_null("UnitStatsPanel")
-	
+
 	if unit_stats_panel:
 		print("Found UnitStatsPanel in scene structure")
-		
+
 		# Connect to the unit_selected signal from the panel
 		if unit_stats_panel.has_signal("unit_selected"):
 			unit_stats_panel.unit_selected.connect(_on_unit_stats_panel_unit_selected)
 			print("Connected to unit_selected signal from UnitStatsPanel")
 		else:
 			print("Warning: UnitStatsPanel does not have unit_selected signal")
-		
+
+		# Connect to panel_visibility_changed to adjust HUD_Right layout
+		if unit_stats_panel.has_signal("panel_visibility_changed"):
+			unit_stats_panel.panel_visibility_changed.connect(_on_unit_stats_panel_visibility_changed)
+			print("Connected to panel_visibility_changed signal from UnitStatsPanel")
+
 		# Initialize the panel with current phase
 		if unit_stats_panel.has_method("populate_unit_lists"):
 			var phase_name = GameStateData.Phase.keys()[current_phase]
@@ -3947,8 +3952,22 @@ func _on_unit_stats_panel_unit_selected(unit_id: String, is_enemy: bool) -> void
 		# For enemy units, just show the card for viewing
 		print("Enemy unit selected for viewing: ", unit_id)
 		# Could add additional enemy-specific functionality here
-	
+
 	update_ui()
+
+func _on_unit_stats_panel_visibility_changed(panel_is_visible: bool) -> void:
+	# Adjust HUD_Right and HUD_Left bottom offset based on unit stats panel visibility
+	var hud_right = get_node_or_null("HUD_Right")
+	var hud_left = get_node_or_null("HUD_Left")
+	var bottom_offset = -300.0 if panel_is_visible else 0.0
+
+	if hud_right:
+		hud_right.offset_bottom = bottom_offset
+		print("Main: HUD_Right offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
+
+	if hud_left:
+		hud_left.offset_bottom = bottom_offset
+		print("Main: HUD_Left offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
 
 func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
