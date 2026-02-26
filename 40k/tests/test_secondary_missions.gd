@@ -407,21 +407,21 @@ func test_command_phase_integration():
 	# Test that the phase handles these action types in process_action
 	# (We verify by checking the source has these handlers)
 	var source = phase_script.source_code
-	assert_true(source.find("VOLUNTARY_DISCARD") != -1, "CommandPhase handles VOLUNTARY_DISCARD action")
 	assert_true(source.find("USE_NEW_ORDERS") != -1, "CommandPhase handles USE_NEW_ORDERS action")
 	assert_true(source.find("RESOLVE_MARKED_FOR_DEATH") != -1, "CommandPhase handles RESOLVE_MARKED_FOR_DEATH")
 	assert_true(source.find("RESOLVE_TEMPTING_TARGET") != -1, "CommandPhase handles RESOLVE_TEMPTING_TARGET")
 
+	# Voluntary discard should NOT be in CommandPhase — it belongs in ScoringPhase (end of turn)
+	assert_true(source.find("VOLUNTARY_DISCARD") == -1, "CommandPhase does NOT offer voluntary discard (moved to ScoringPhase)")
+
 	# Test that validate_action covers secondary mission types
-	assert_true(source.find("_validate_voluntary_discard") != -1, "CommandPhase validates voluntary discard")
 	assert_true(source.find("_validate_use_new_orders") != -1, "CommandPhase validates New Orders")
 
 	# Test that secondary mission deck init happens on phase entry
 	assert_true(source.find("setup_tactical_deck") != -1, "CommandPhase initializes tactical decks")
 	assert_true(source.find("draw_missions_to_hand") != -1, "CommandPhase draws missions to hand")
 
-	# Test that get_available_actions offers secondary mission actions
-	assert_true(source.find("VOLUNTARY_DISCARD") != -1, "CommandPhase offers voluntary discard action")
+	# Test that get_available_actions offers New Orders (but NOT voluntary discard)
 	assert_true(source.find("USE_NEW_ORDERS") != -1, "CommandPhase offers New Orders action")
 
 	# Test CommandController has UI for secondary missions
@@ -432,7 +432,7 @@ func test_command_phase_integration():
 	assert_true(ctrl_source.find("_setup_secondary_missions_section") != -1, "CommandController has secondary missions UI")
 	assert_true(ctrl_source.find("_add_new_orders_button") != -1, "CommandController has New Orders button")
 	assert_true(ctrl_source.find("_add_mission_card_ui") != -1, "CommandController has mission card UI")
-	assert_true(ctrl_source.find("_on_voluntary_discard_pressed") != -1, "CommandController handles discard button")
+	assert_true(ctrl_source.find("_on_voluntary_discard_pressed") == -1, "CommandController does NOT have discard button (moved to ScoringPhase)")
 	assert_true(ctrl_source.find("_on_new_orders_pressed") != -1, "CommandController handles New Orders button")
 
 	# Test ScoringPhase scores secondary missions
@@ -441,6 +441,8 @@ func test_command_phase_integration():
 
 	var scoring_source = scoring_script.source_code
 	assert_true(scoring_source.find("score_secondary_missions_for_player") != -1, "ScoringPhase scores secondary missions")
+	assert_true(scoring_source.find("DISCARD_SECONDARY") != -1, "ScoringPhase offers voluntary discard at end of turn")
+	assert_true(scoring_source.find("voluntary_discard") != -1, "ScoringPhase handles voluntary discard")
 
 	# Test that dialogs exist for mission interactions
 	var mfd_dialog = load("res://dialogs/MarkedForDeathDialog.gd")

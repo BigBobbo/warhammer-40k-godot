@@ -225,18 +225,11 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
-	# Secondary mission actions
+	# Secondary mission actions (New Orders stratagem only - voluntary discard
+	# happens at end of turn in the Scoring Phase, not during Command Phase)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
-		for i in range(active_missions.size()):
-			var mission = active_missions[i]
-			actions.append({
-				"type": "VOLUNTARY_DISCARD",
-				"mission_index": i,
-				"description": "Voluntarily discard %s (+1 CP)" % mission.get("name", "?"),
-				"player": current_player
-			})
 
 		# New Orders stratagem
 		var strat_manager = get_node_or_null("/root/StratagemManager")
@@ -366,8 +359,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_COMMAND_REROLL":
 			if not _awaiting_reroll_decision:
 				errors.append("Not awaiting a Command Re-roll decision")
-		"VOLUNTARY_DISCARD":
-			errors = _validate_voluntary_discard(action)
 		"USE_NEW_ORDERS":
 			errors = _validate_use_new_orders(action)
 		"SELECT_OATH_TARGET":
@@ -437,8 +428,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_use_command_reroll(action)
 		"DECLINE_COMMAND_REROLL":
 			return _handle_decline_command_reroll(action)
-		"VOLUNTARY_DISCARD":
-			return _handle_voluntary_discard(action)
 		"USE_NEW_ORDERS":
 			return _handle_use_new_orders(action)
 		"SELECT_OATH_TARGET":
@@ -1100,28 +1089,8 @@ func _handle_use_grot_orderly(action: Dictionary) -> Dictionary:
 	}
 
 # ============================================================================
-# VOLUNTARY DISCARD & NEW ORDERS
+# NEW ORDERS STRATAGEM
 # ============================================================================
-
-func _validate_voluntary_discard(action: Dictionary) -> Array:
-	var errors = []
-	var mission_index = action.get("mission_index", -1)
-
-	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if not secondary_mgr:
-		errors.append("SecondaryMissionManager not available")
-		return errors
-
-	var current_player = get_current_player()
-	if not secondary_mgr.is_initialized(current_player):
-		errors.append("Secondary missions not initialized for player %d" % current_player)
-		return errors
-
-	var active = secondary_mgr.get_active_missions(current_player)
-	if mission_index < 0 or mission_index >= active.size():
-		errors.append("Invalid mission index: %d (have %d active missions)" % [mission_index, active.size()])
-
-	return errors
 
 func _validate_use_new_orders(action: Dictionary) -> Array:
 	var errors = []
@@ -1154,32 +1123,6 @@ func _validate_use_new_orders(action: Dictionary) -> Array:
 		errors.append("StratagemManager not available")
 
 	return errors
-
-func _handle_voluntary_discard(action: Dictionary) -> Dictionary:
-	var mission_index = action.get("mission_index", -1)
-	var current_player = get_current_player()
-
-	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if not secondary_mgr:
-		return {"success": false, "error": "SecondaryMissionManager not available"}
-
-	var result = secondary_mgr.voluntary_discard(current_player, mission_index)
-
-	if result.get("success", false):
-		log_phase_message("Player %d voluntarily discarded %s (gained %d CP)" % [
-			current_player, result.get("discarded", "?"), result.get("cp_gained", 0)])
-
-		# Log to phase log
-		var log_entry = {
-			"type": "VOLUNTARY_DISCARD",
-			"player": current_player,
-			"discarded": result.get("discarded", ""),
-			"cp_gained": result.get("cp_gained", 0),
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-	return result
 
 func _handle_use_new_orders(action: Dictionary) -> Dictionary:
 	var mission_index = action.get("mission_index", -1)

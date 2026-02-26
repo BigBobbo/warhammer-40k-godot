@@ -347,15 +347,6 @@ func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int
 		vp_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
 		card_vbox.add_child(vp_label)
 
-	# Voluntary Discard button
-	var discard_btn = Button.new()
-	discard_btn.text = "Discard (+1 CP)"
-	discard_btn.custom_minimum_size = Vector2(0, 24)
-	discard_btn.add_theme_font_size_override("font_size", 11)
-	discard_btn.tooltip_text = "Voluntarily discard this mission. Gain 1 CP if it's your turn."
-	discard_btn.pressed.connect(_on_voluntary_discard_pressed.bind(index))
-	WhiteDwarfTheme.apply_to_button(discard_btn)
-	card_vbox.add_child(discard_btn)
 
 func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions: Array) -> void:
 	"""Add the New Orders stratagem button if available."""
@@ -432,14 +423,6 @@ func _get_timing_display(timing: String) -> String:
 			return "While active"
 		_:
 			return timing
-
-func _on_voluntary_discard_pressed(mission_index: int) -> void:
-	"""Handle voluntary discard button press."""
-	print("CommandController: Voluntary discard requested for mission index %d" % mission_index)
-	emit_signal("command_action_requested", {
-		"type": "VOLUNTARY_DISCARD",
-		"mission_index": mission_index,
-	})
 
 func _on_new_orders_pressed(mission_index: int) -> void:
 	"""Handle New Orders stratagem button press."""
