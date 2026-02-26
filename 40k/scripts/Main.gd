@@ -5381,7 +5381,11 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					_update_model_visual(action.actor_unit_id, action.payload.model_id, action.payload.dest)
 				"UNDO_LAST_MODEL_MOVE":
 					print("Model move undone")
-					_recreate_unit_visuals()
+					# Visual update for the undone model is handled by model_drop_committed signal
+					# from MovementPhase. Don't call _recreate_unit_visuals() here as it would
+					# reset other staged models back to their GameState positions.
+					if movement_controller:
+						movement_controller._update_staged_moves_visual()
 				"RESET_UNIT_MOVE":
 					print("Unit movement reset")
 					_recreate_unit_visuals()

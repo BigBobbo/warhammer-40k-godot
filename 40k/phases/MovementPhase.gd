@@ -510,9 +510,9 @@ func _validate_undo_last_model_move(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["No active move for unit"]}
 	
 	var move_data = active_moves[unit_id]
-	if move_data.model_moves.is_empty():
+	if move_data.model_moves.is_empty() and move_data.staged_moves.is_empty():
 		return {"valid": false, "errors": ["No model moves to undo"]}
-	
+
 	return {"valid": true, "errors": []}
 
 func _validate_reset_unit_move(action: Dictionary) -> Dictionary:
@@ -1899,14 +1899,41 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var move_data = active_moves[unit_id]
-	
+
+	# Prefer undoing staged moves (current system), fall back to model_moves (legacy)
+	if not move_data.staged_moves.is_empty():
+		var last_staged = move_data.staged_moves.pop_back()
+		var model_id = last_staged.model_id
+		var original_pos = move_data.original_positions.get(model_id)
+
+		print("[MovementPhase] Undoing staged move for model %s, restoring to %s" % [model_id, str(original_pos)])
+
+		# Check if this model has any remaining staged moves
+		var has_remaining_staged = false
+		for staged_move in move_data.staged_moves:
+			if staged_move.model_id == model_id:
+				has_remaining_staged = true
+				break
+
+		# If no more staged moves for this model, clear its tracking data
+		if not has_remaining_staged:
+			move_data.model_distances.erase(model_id)
+			move_data.original_positions.erase(model_id)
+
+		# Restore to original position (before any movement this phase)
+		if original_pos:
+			emit_signal("model_drop_committed", unit_id, model_id, original_pos)
+			return create_result(true, [])
+		else:
+			return create_result(true, [])
+
 	if move_data.model_moves.is_empty():
 		return create_result(false, [], "No moves to undo")
-	
+
 	var last_move = move_data.model_moves.pop_back()
 	var model_id = last_move.model_id
 	var from_pos = last_move.from
-	
+
 	return create_result(true, [
 		{
 			"op": "set",
@@ -3101,7 +3128,7 @@ func get_available_actions() -> Array:
 			"actor_unit_id": unit_id,
 			"description": "Reset move"
 		})
-		if not active_moves[unit_id].model_moves.is_empty():
+		if not active_moves[unit_id].model_moves.is_empty() or not active_moves[unit_id].staged_moves.is_empty():
 			actions.append({
 				"type": "UNDO_LAST_MODEL_MOVE",
 				"actor_unit_id": unit_id,
