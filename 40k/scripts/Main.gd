@@ -4963,6 +4963,10 @@ func _toggle_save_load_menu() -> void:
 
 func _on_main_menu_requested() -> void:
 	print("Main: Returning to Main Menu")
+	# Clean up network state so next game doesn't think it's still networked
+	if NetworkManager.is_networked():
+		print("Main: Disconnecting network before returning to menu")
+		NetworkManager.disconnect_network()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_save_requested(save_name: String) -> void:
@@ -5202,6 +5206,10 @@ func _determine_vp_winner() -> int:
 
 func _on_game_over_return_to_menu() -> void:
 	print("Main: Returning to main menu from game over")
+	# Clean up network state so next game doesn't think it's still networked
+	if NetworkManager.is_networked():
+		print("Main: Disconnecting network before returning to menu from game over")
+		NetworkManager.disconnect_network()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
