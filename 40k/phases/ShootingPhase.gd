@@ -1251,8 +1251,19 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 	var all_changes = []
 	var total_casualties = 0
 	var all_dice_blocks = []
+	# Track which units have been destroyed by previous weapon saves in this batch
+	var _destroyed_units_in_batch: Dictionary = {}
 
 	for save_data in save_data_list:
+		# Skip saves for targets already destroyed by earlier weapons in this batch
+		var target_unit_id = save_data.get("target_unit_id", "")
+		if _destroyed_units_in_batch.has(target_unit_id):
+			var target_name = save_data.get("target_unit_name", target_unit_id)
+			var weapon_name = save_data.get("weapon_name", "Unknown")
+			print("ShootingPhase: AI SKIP — %s saves skipped, target %s already destroyed" % [weapon_name, target_name])
+			log_phase_message("Skipped %s — target %s destroyed" % [weapon_name, target_name])
+			continue
+
 		var wounds_to_save = save_data.get("wounds_to_save", 0)
 		var model_save_profiles = save_data.get("model_save_profiles", [])
 
@@ -1383,9 +1394,25 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 
 		# Check if bodyguard unit was destroyed
 		if damage_result.casualties > 0:
-			var target_unit_id = save_data.get("target_unit_id", "")
 			if target_unit_id != "":
 				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+
+		# Check if target unit was fully destroyed by this weapon's damage
+		# (compute from diffs since game_state_snapshot hasn't been updated yet)
+		if damage_result.casualties > 0 and target_unit_id != "":
+			var models_killed_count = 0
+			for diff in all_changes:
+				var dpath = diff.get("path", "")
+				if dpath.begins_with("units.%s.models." % target_unit_id) and dpath.ends_with(".alive") and diff.get("value") == false:
+					models_killed_count += 1
+			var target_unit_data = game_state_snapshot.get("units", {}).get(target_unit_id, {})
+			var alive_in_snapshot = 0
+			for m in target_unit_data.get("models", []):
+				if m.get("alive", true):
+					alive_in_snapshot += 1
+			if alive_in_snapshot > 0 and models_killed_count >= alive_in_snapshot:
+				_destroyed_units_in_batch[target_unit_id] = true
+				print("ShootingPhase: AI — target unit %s fully destroyed, will skip remaining saves" % target_unit_id)
 
 		# Log FNP dice blocks
 		var fnp_rolls = damage_result.get("fnp_rolls", [])
@@ -1742,6 +1769,80 @@ func _resolve_next_weapon() -> Dictionary:
 		if remaining_weapons.is_empty():
 			print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
 		print("╚═══════════════════════════════════════════════════════════════")
+
+		# AUTO-COMPLETE: If all remaining weapons target destroyed units, skip them
+		# and complete shooting automatically (no dialog needed)
+		var _has_destroyed_targets = false
+		for i in range(resolution_state.current_index, weapon_order.size()):
+			var check_tid = weapon_order[i].get("target_unit_id", "")
+			if check_tid != "" and _is_unit_destroyed(check_tid):
+				_has_destroyed_targets = true
+				break
+
+		if remaining_weapons.is_empty() and _has_destroyed_targets:
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ AUTO-COMPLETE: All remaining targets destroyed (miss path)")
+
+			var auto_changes = []
+			if not pending_one_shot_diffs.is_empty():
+				auto_changes.append_array(pending_one_shot_diffs)
+				pending_one_shot_diffs.clear()
+
+			# Record skipped weapons in completed_weapons
+			for i in range(resolution_state.current_index, weapon_order.size()):
+				var skipped_assignment = weapon_order[i]
+				var skipped_wid = skipped_assignment.get("weapon_id", "")
+				var skipped_tid = skipped_assignment.get("target_unit_id", "")
+				var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
+				var skipped_wname = skipped_wp.get("name", skipped_wid)
+				var skipped_tname = get_unit(skipped_tid).get("meta", {}).get("name", skipped_tid)
+				print("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname])
+				log_phase_message("Skipped %s — target %s destroyed" % [skipped_wname, skipped_tname])
+				resolution_state.completed_weapons.append({
+					"weapon_id": skipped_wid,
+					"target_unit_id": skipped_tid,
+					"target_unit_name": skipped_tname,
+					"wounds": 0,
+					"casualties": 0,
+					"hits": 0,
+					"total_attacks": 0,
+					"saves_failed": 0,
+					"dice_rolls": [],
+					"hit_data": {},
+					"wound_data": {},
+					"skipped_target_destroyed": true
+				})
+
+			# Mark shooter as done
+			var shooter_id = active_shooter_id
+			auto_changes.append({
+				"op": "set",
+				"path": "units.%s.flags.has_shot" % active_shooter_id,
+				"value": true
+			})
+			units_that_shot.append(active_shooter_id)
+
+			# P1-11: Check for Sanctified Flames before clearing state
+			var sanctified_changes = _check_sanctified_flames(active_shooter_id)
+			auto_changes.append_array(sanctified_changes)
+
+			# Clear state
+			active_shooter_id = ""
+			confirmed_assignments.clear()
+			resolution_state.clear()
+			pending_save_data.clear()
+			_targets_hit_by_shooter.clear()
+
+			# Emit signal to clear visuals
+			emit_signal("shooting_resolved", shooter_id, "", {"casualties": 0})
+
+			print("║ Shooting auto-completed — all remaining targets destroyed")
+			print("╚═══════════════════════════════════════════════════════════════")
+
+			return create_result(true, auto_changes, "Sequential weapon resolution complete (remaining targets destroyed)", {
+				"dice": dice_data,
+				"log_text": result.get("log_text", "")
+			})
 
 		# Get last weapon result for dialog display
 		var last_weapon_result = _get_last_weapon_result()
@@ -3661,6 +3762,68 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			if remaining_weapons.is_empty():
 				print("║ ✓ All remaining weapons skipped or this is the FINAL weapon")
 			print("╚═══════════════════════════════════════════════════════════════")
+
+			# AUTO-COMPLETE: If all remaining weapons target destroyed units, skip them
+			# and complete shooting automatically (no dialog needed)
+			if remaining_weapons.is_empty() and not _targets_destroyed_by_diffs.is_empty():
+				print("╔═══════════════════════════════════════════════════════════════")
+				print("║ AUTO-COMPLETE: All remaining targets destroyed — skipping weapons")
+
+				# Record skipped weapons in completed_weapons
+				for i in range(resolution_state.current_index, weapon_order.size()):
+					var skipped_assignment = weapon_order[i]
+					var skipped_wid = skipped_assignment.get("weapon_id", "")
+					var skipped_tid = skipped_assignment.get("target_unit_id", "")
+					var skipped_wp = RulesEngine.get_weapon_profile(skipped_wid)
+					var skipped_wname = skipped_wp.get("name", skipped_wid)
+					var skipped_tname = get_unit(skipped_tid).get("meta", {}).get("name", skipped_tid)
+					print("║ Skipped: %s → %s (target destroyed)" % [skipped_wname, skipped_tname])
+					log_phase_message("Skipped %s — target %s destroyed" % [skipped_wname, skipped_tname])
+					resolution_state.completed_weapons.append({
+						"weapon_id": skipped_wid,
+						"target_unit_id": skipped_tid,
+						"target_unit_name": skipped_tname,
+						"wounds": 0,
+						"casualties": 0,
+						"hits": 0,
+						"total_attacks": 0,
+						"saves_failed": 0,
+						"dice_rolls": [],
+						"hit_data": {},
+						"wound_data": {},
+						"skipped_target_destroyed": true
+					})
+
+				# Mark shooter as done
+				var shooter_id = active_shooter_id
+				all_diffs.append({
+					"op": "set",
+					"path": "units.%s.flags.has_shot" % active_shooter_id,
+					"value": true
+				})
+				units_that_shot.append(active_shooter_id)
+
+				# P1-11: Check for Sanctified Flames before clearing state
+				var sanctified_changes = _check_sanctified_flames(active_shooter_id)
+				all_diffs.append_array(sanctified_changes)
+
+				# Clear state
+				active_shooter_id = ""
+				confirmed_assignments.clear()
+				resolution_state.clear()
+				pending_save_data.clear()
+				_targets_hit_by_shooter.clear()
+
+				# Emit signal to clear visuals
+				emit_signal("shooting_resolved", shooter_id, "", {"casualties": total_casualties})
+
+				print("║ Shooting auto-completed — all remaining targets destroyed")
+				print("╚═══════════════════════════════════════════════════════════════")
+
+				return create_result(true, all_diffs, "Sequential weapon resolution complete (remaining targets destroyed)", {
+					"dice": save_dice_blocks,
+					"log_text": save_log_text
+				})
 
 			# Get last weapon result for dialog display
 			var last_weapon_result = _get_last_weapon_result()

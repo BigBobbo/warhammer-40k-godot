@@ -811,6 +811,17 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 
 	# Resolve each weapon assignment with overwatch rules
 	for wa in weapon_assignments:
+		# Skip remaining weapons if target unit is already destroyed
+		var ow_target_unit = board.get("units", {}).get(target_unit_id, {})
+		var ow_target_alive = false
+		for ow_m in ow_target_unit.get("models", []):
+			if ow_m.get("alive", true):
+				ow_target_alive = true
+				break
+		if not ow_target_alive:
+			print("RulesEngine: OVERWATCH — skipping remaining weapons, target %s destroyed" % target_name)
+			break
+
 		var wa_result = _resolve_overwatch_assignment(wa, shooter_unit_id, target_unit_id, board, rng_service)
 		result.diffs.append_array(wa_result.get("diffs", []))
 		result.dice.append_array(wa_result.get("dice", []))
