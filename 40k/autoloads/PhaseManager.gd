@@ -21,6 +21,16 @@ func _ready() -> void:
 	# Let the Main scene initialize it after armies are loaded
 	print("[PhaseManager] Ready - awaiting explicit phase initialization")
 
+func reset() -> void:
+	# Clean up current phase instance when returning to main menu
+	# PhaseManager is an autoload so it persists across scene changes
+	print("[PhaseManager] Resetting state for new game")
+	if current_phase_instance != null:
+		current_phase_instance.exit_phase()
+		current_phase_instance.queue_free()
+		current_phase_instance = null
+	game_ended = false
+
 func register_phase_classes() -> void:
 	# Register phase implementations
 	phase_classes[GameStateData.Phase.FORMATIONS] = preload("res://phases/FormationsPhase.gd")
