@@ -3035,9 +3035,13 @@ func get_available_actions() -> Array:
 		var unit = units[unit_id]
 		if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
 			continue
-		
+
 		# Skip if already moved
 		if unit.get("flags", {}).get("moved", false):
+			continue
+
+		# Skip attached characters — they move with their bodyguard unit automatically
+		if unit.get("attached_to", null) != null:
 			continue
 		
 		var unit_name = unit.get("meta", {}).get("name", unit_id)

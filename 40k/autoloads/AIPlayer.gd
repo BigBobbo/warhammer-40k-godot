@@ -1127,6 +1127,14 @@ func _execute_next_action(player: int) -> void:
 					"player": player,
 					"_ai_description": "Skipped %s — %s" % [shoot_unit_name, shoot_reason]
 				})
+
+		# Handle failed movement — skip the unit so we don't freeze
+		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"]:
+			var failed_unit_id = decision.get("actor_unit_id", "")
+			if failed_unit_id != "":
+				var move_unit_name = _get_unit_name(failed_unit_id)
+				print("AIPlayer: Movement failed for %s (%s), re-evaluating" % [failed_unit_id, _format_error_concise(error_msg)])
+				_request_evaluation()
 	else:
 		# Emit signal for successful deployments so Main.gd can create visuals
 		if decision.get("type") == "DEPLOY_UNIT":
