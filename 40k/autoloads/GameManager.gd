@@ -15,6 +15,12 @@ func _get_phase_manager() -> Node:
 	return _phase_manager_ref
 
 func apply_action(action: Dictionary) -> Dictionary:
+	# Capture active player before processing so we can detect TurnManager switches.
+	# Some deployment actions go through the phase system, which emits action_taken,
+	# causing TurnManager to switch the player locally. But the player switch diff
+	# may not be in the result, so the remote client wouldn't see the switch.
+	var pre_active_player = GameState.get_active_player()
+
 	var result = process_action(action)
 	if result["success"]:
 		# Normalize: phases return "changes", we need "diffs" for network sync
@@ -25,6 +31,27 @@ func apply_action(action: Dictionary) -> Dictionary:
 		# This is needed for client-side visual updates in multiplayer
 		result["action_type"] = action.get("type", "")
 		result["action_data"] = action
+
+		# Ensure active_player changes from TurnManager are included in diffs
+		# for network sync. During deployment, actions processed via the phase system
+		# (e.g. PLACE_IN_RESERVES) trigger TurnManager to switch the player locally,
+		# but the phase's result diffs don't include the player switch. Add it here
+		# so the client also switches.
+		var post_active_player = GameState.get_active_player()
+		if post_active_player != pre_active_player:
+			var result_diffs = result.get("diffs", [])
+			var has_player_diff = false
+			for diff in result_diffs:
+				if diff.get("path") == "meta.active_player":
+					has_player_diff = true
+					break
+			if not has_player_diff:
+				result_diffs.append({
+					"op": "set",
+					"path": "meta.active_player",
+					"value": post_active_player
+				})
+				print("GameManager: Added active_player diff (%d → %d) for network sync" % [pre_active_player, post_active_player])
 
 		# Capture reverse diffs BEFORE applying changes (for undo support)
 		var diffs = result.get("diffs", [])
@@ -341,6 +368,19 @@ func apply_result(result: Dictionary) -> void:
 		emit_signal("action_logged", result["log_text"])
 
 	emit_signal("result_applied", result)
+
+	# In multiplayer, deployment actions (DEPLOY_UNIT) go through GameManager
+	# instead of the phase system, so TurnManager's deployment_side_changed
+	# signal never fires. Emit it here so the UI updates (turn indicator,
+	# unit list, board tokens, deployment zone visibility).
+	var action_type = result.get("action_type", "")
+	var deployment_actions = ["DEPLOY_UNIT", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]
+	if action_type in deployment_actions and GameState.get_current_phase() == GameStateData.Phase.DEPLOYMENT:
+		var turn_manager = get_node_or_null("/root/TurnManager")
+		if turn_manager:
+			var new_active = GameState.get_active_player()
+			print("GameManager: Emitting deployment_side_changed for player %d (after %s)" % [new_active, action_type])
+			turn_manager.emit_signal("deployment_side_changed", new_active)
 
 	# Trigger a state change signal so UI updates
 	var game_state = get_node_or_null("/root/GameState")
