@@ -2141,8 +2141,8 @@ func _update_model_token_visual(model: Dictionary) -> void:
 			break
 
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
-	"""Calculate terrain elevation penalty via TerrainManager.
-	Non-FLY units must count vertical distance for tall terrain."""
+	"""Calculate terrain penalty via TerrainManager.
+	Units always stay on ground floor — no height penalty. Only difficult ground applies."""
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
