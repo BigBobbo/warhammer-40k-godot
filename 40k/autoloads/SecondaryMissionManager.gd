@@ -462,10 +462,10 @@ func _check_condition(player: int, check: String, params: Dictionary, mission: D
 			return _check_locus_opponent_zone(player)
 		"objectives_cleansed":
 			return _check_objectives_cleansed(player, params)
-		"sabotage_committed_not_in_opponent_zone":
-			return _check_sabotage(player, false)
-		"sabotage_committed_in_opponent_zone":
-			return _check_sabotage(player, true)
+		"teleport_homer_deployed_not_in_opponent_zone":
+			return _check_teleport_homer(player, false)
+		"teleport_homer_deployed_in_opponent_zone":
+			return _check_teleport_homer(player, true)
 		"units_recovered_assets":
 			return _check_recovered_assets(player, params)
 
@@ -802,10 +802,10 @@ func _check_objectives_cleansed(player: int, params: Dictionary) -> bool:
 			count += 1
 	return count >= required
 
-func _check_sabotage(player: int, in_opponent_zone: bool) -> bool:
-	"""Check if sabotage was committed."""
+func _check_teleport_homer(player: int, in_opponent_zone: bool) -> bool:
+	"""Check if a teleport homer was deployed."""
 	for action in _active_actions[str(player)]:
-		if action.get("action_name", "") == "Sabotage" and action.get("completed", false):
+		if action.get("action_name", "") == "Deploy Teleport Homer" and action.get("completed", false):
 			if in_opponent_zone:
 				return action.get("location", "") == "opponent_zone"
 			else:

@@ -367,16 +367,16 @@ static func _load_missions() -> void:
 		"name": "Deploy Teleport Homer",
 		"number": 18,
 		"category": "Shadow Operations",
-		"description": "Sabotage enemy territory or deploy a teleport homer.",
+		"description": "Deploy a teleport homer in enemy territory.",
 		"scoring": {
 			"when": TIMING_END_OF_YOUR_TURN,
 			"conditions": [
-				{"check": "sabotage_committed_in_opponent_zone", "params": {}, "vp": 5},
-				{"check": "sabotage_committed_not_in_opponent_zone", "params": {}, "vp": 3},
+				{"check": "teleport_homer_deployed_in_opponent_zone", "params": {}, "vp": 5},
+				{"check": "teleport_homer_deployed_not_in_opponent_zone", "params": {}, "vp": 3},
 			],
 		},
 		"requires_action": true,
-		"action": {"name": "Sabotage", "phase": "shooting"},
+		"action": {"name": "Deploy Teleport Homer", "phase": "shooting"},
 		"when_drawn": {},
 	}
 
