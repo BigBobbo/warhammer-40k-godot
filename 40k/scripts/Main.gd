@@ -112,6 +112,13 @@ var _hovered_deploy_unit_id: String = ""
 var _deploy_hover_tooltip: PanelContainer = null
 var _deploy_hover_tooltip_label: RichTextLabel = null
 
+# Player scores and CP display (top bar)
+var _p1_score_label: Label = null
+var _p2_score_label: Label = null
+var _p1_cp_label: Label = null
+var _p2_cp_label: Label = null
+var _score_display_container: HBoxContainer = null
+
 # Game Event Log UI elements
 var game_log_panel: PanelContainer
 var game_log_label: RichTextLabel
@@ -216,6 +223,9 @@ func _ready() -> void:
 
 	# Move HUD_Bottom to top and create stats panel at bottom
 	_restructure_ui_layout()
+
+	# Setup player scores and CP display in top bar
+	_setup_score_display()
 
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
@@ -1555,6 +1565,86 @@ func _restructure_ui_layout() -> void:
 	else:
 		print("Main: WARNING — SecondaryMissionPanel not found in scene")
 
+func _setup_score_display() -> void:
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_container:
+		print("Main: HUD_Bottom/HBoxContainer not found for score display")
+		return
+
+	# Create a container for the score/CP display
+	_score_display_container = HBoxContainer.new()
+	_score_display_container.name = "ScoreDisplay"
+	_score_display_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	# Add separator before score display
+	var sep = VSeparator.new()
+	sep.custom_minimum_size = Vector2(2, 0)
+	_score_display_container.add_child(sep)
+
+	# Player 1 info
+	_p1_cp_label = Label.new()
+	_p1_cp_label.name = "P1CPLabel"
+	_p1_cp_label.add_theme_font_size_override("font_size", 14)
+	_p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	_score_display_container.add_child(_p1_cp_label)
+
+	_p1_score_label = Label.new()
+	_p1_score_label.name = "P1ScoreLabel"
+	_p1_score_label.add_theme_font_size_override("font_size", 14)
+	_p1_score_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	_score_display_container.add_child(_p1_score_label)
+
+	# Divider between players
+	var divider = VSeparator.new()
+	divider.custom_minimum_size = Vector2(2, 0)
+	_score_display_container.add_child(divider)
+
+	# Player 2 info
+	_p2_cp_label = Label.new()
+	_p2_cp_label.name = "P2CPLabel"
+	_p2_cp_label.add_theme_font_size_override("font_size", 14)
+	_p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	_score_display_container.add_child(_p2_cp_label)
+
+	_p2_score_label = Label.new()
+	_p2_score_label.name = "P2ScoreLabel"
+	_p2_score_label.add_theme_font_size_override("font_size", 14)
+	_p2_score_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	_score_display_container.add_child(_p2_score_label)
+
+	# Add separator after score display
+	var sep2 = VSeparator.new()
+	sep2.custom_minimum_size = Vector2(2, 0)
+	_score_display_container.add_child(sep2)
+
+	# Insert after ActivePlayerBadge (index 1) so scores appear in the middle of the top bar
+	var badge_idx = active_player_badge.get_index()
+	hud_container.add_child(_score_display_container)
+	hud_container.move_child(_score_display_container, badge_idx + 1)
+
+	_update_score_display()
+	print("Main: Score display created in top bar")
+
+func _update_score_display() -> void:
+	if not _p1_score_label or not _p2_score_label:
+		return
+
+	var p1_data = GameState.state.get("players", {}).get("1", {})
+	var p2_data = GameState.state.get("players", {}).get("2", {})
+
+	var p1_cp = p1_data.get("cp", 0)
+	var p1_vp = p1_data.get("vp", 0)
+	var p2_cp = p2_data.get("cp", 0)
+	var p2_vp = p2_data.get("vp", 0)
+
+	var p1_faction = GameState.get_faction_name(1)
+	var p2_faction = GameState.get_faction_name(2)
+
+	_p1_cp_label.text = "P1 %s CP: %d" % [p1_faction, p1_cp]
+	_p1_score_label.text = "VP: %d" % p1_vp
+	_p2_cp_label.text = "P2 %s CP: %d" % [p2_faction, p2_cp]
+	_p2_score_label.text = "VP: %d" % p2_vp
+
 func _fix_hud_layout() -> void:
 	# Adjust both left and right HUD panels for proper layout
 	var hud_left = get_node("HUD_Left")
@@ -1614,6 +1704,20 @@ func _apply_white_dwarf_theme() -> void:
 		_WhiteDwarfTheme.apply_to_label(active_player_badge)
 	if status_label:
 		_WhiteDwarfTheme.apply_to_label(status_label)
+
+	# Theme score/CP display labels (preserve player colors)
+	if _p1_score_label:
+		_WhiteDwarfTheme.apply_to_label(_p1_score_label)
+		_p1_score_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	if _p1_cp_label:
+		_WhiteDwarfTheme.apply_to_label(_p1_cp_label)
+		_p1_cp_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	if _p2_score_label:
+		_WhiteDwarfTheme.apply_to_label(_p2_score_label)
+		_p2_score_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	if _p2_cp_label:
+		_WhiteDwarfTheme.apply_to_label(_p2_cp_label)
+		_p2_cp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 
 	# Theme the phase action button
 	if phase_action_button:
@@ -2858,6 +2962,17 @@ func connect_signals() -> void:
 	if OS.has_feature("web"):
 		SaveLoadManager.delete_completed.connect(_on_delete_completed_main)
 
+	# Connect VP/score signals to update top bar display
+	if MissionManager and MissionManager.has_signal("victory_points_scored"):
+		if not MissionManager.victory_points_scored.is_connected(_on_score_changed):
+			MissionManager.victory_points_scored.connect(_on_score_changed)
+			print("Main: Connected to MissionManager.victory_points_scored for score display")
+	var sec_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if sec_mgr and sec_mgr.has_signal("secondary_vp_scored"):
+		if not sec_mgr.secondary_vp_scored.is_connected(_on_secondary_score_changed):
+			sec_mgr.secondary_vp_scored.connect(_on_secondary_score_changed)
+			print("Main: Connected to SecondaryMissionManager.secondary_vp_scored for score display")
+
 	# Connect multiplayer sync signals
 	if has_node("/root/GameManager"):
 		var game_manager = get_node("/root/GameManager")
@@ -3404,6 +3519,9 @@ func update_ui() -> void:
 		role_label = "Defender" if active_player == 1 else "Attacker"
 	var player_text = "Player %d (%s)" % [active_player, role_label]
 	active_player_badge.text = player_text
+
+	# Update player scores and CP in top bar
+	_update_score_display()
 	
 	# Phase-specific UI updates
 	match current_phase:
@@ -4737,6 +4855,12 @@ func _on_network_game_started() -> void:
 		update_deployment_zone_visibility()
 
 		print("Main: UI refresh complete after network game started")
+
+func _on_score_changed(_player: int, _points: int, _reason: String) -> void:
+	_update_score_display()
+
+func _on_secondary_score_changed(_player: int, _vp: int, _mission_id: String) -> void:
+	_update_score_display()
 
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
