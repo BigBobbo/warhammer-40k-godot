@@ -83,6 +83,21 @@ func create_base_shape(model: Dictionary) -> BaseShape:
 			var radius = base_radius_px(base_mm)
 			return CircularBase.new(radius)
 
+func model_edge_to_point_distance_px(model: Dictionary, point: Vector2) -> float:
+	# Shape-aware distance from the nearest edge of a model's base to a point.
+	# This correctly handles oval and rectangular bases, unlike base_radius_px()
+	# which assumes a circular base.
+	var pos = model.get("position", Vector2.ZERO)
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos == null:
+		pos = Vector2.ZERO
+
+	var rotation = model.get("rotation", 0.0)
+	var shape = create_base_shape(model)
+	var closest_edge = shape.get_closest_edge_point(point, pos, rotation)
+	return closest_edge.distance_to(point)
+
 func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float:
 	var pos1 = model1.get("position", Vector2.ZERO)
 	var pos2 = model2.get("position", Vector2.ZERO)

@@ -160,20 +160,17 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 				model_pos = Vector2(model_pos.x, model_pos.y)
 
 			# A model is within range of an objective if any part of its base
-			# overlaps the control area, so add the model's base radius to the
-			# effective check distance (center-to-center).
-			var model_base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-			var effective_radius = control_radius + model_base_radius
-
-			var distance = model_pos.distance_to(obj_pos)
-			var distance_inches = Measurement.px_to_inches(distance)
+			# is within the control radius. Use shape-aware distance to correctly
+			# handle oval and rectangular bases (not just circular).
+			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			var edge_distance_inches = Measurement.px_to_inches(edge_distance)
 
 			# Debug log for each model checked
-			print("  Model from %s at %s, distance: %.1f\" (%.1fpx), base_radius: %.1fpx, effective_radius: %.1fpx from %s at %s" % [
-				unit_id, model_pos, distance_inches, distance, model_base_radius, effective_radius, objective.id, obj_pos
+			print("  Model from %s at %s, edge_distance: %.1f\" (%.1fpx), control_radius: %.1fpx, base_type: %s from %s at %s" % [
+				unit_id, model_pos, edge_distance_inches, edge_distance, control_radius, model.get("base_type", "circular"), objective.id, obj_pos
 			])
 
-			if distance <= effective_radius:
+			if edge_distance <= control_radius:
 				units_in_range.append("%s (Player %d, OC: %d)" % [unit_id, owner, oc_value])
 				if owner == 1:
 					player1_oc += oc_value
@@ -273,7 +270,7 @@ func apply_sticky_objectives(player: int) -> void:
 				continue
 
 			# Check if any alive model is within range of the objective
-			# (any part of the base overlapping counts)
+			# (any part of the base overlapping counts — shape-aware for oval/rect bases)
 			var unit_in_range = false
 			for model in unit.get("models", []):
 				if not model.get("alive", true):
@@ -283,8 +280,8 @@ func apply_sticky_objectives(player: int) -> void:
 					continue
 				if model_pos is Dictionary:
 					model_pos = Vector2(model_pos.x, model_pos.y)
-				var model_base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				if model_pos.distance_to(obj.position) <= control_radius + model_base_radius:
+				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj.position)
+				if edge_distance <= control_radius:
 					unit_in_range = true
 					break
 
@@ -518,7 +515,7 @@ func _score_sites_of_power(active_player: int, _battle_round: int) -> void:
 				continue
 
 			# Check if any model of this character unit is within range
-			# (any part of the base overlapping counts)
+			# (any part of the base overlapping counts — shape-aware for oval/rect bases)
 			for model in unit.get("models", []):
 				if not model.get("alive", true):
 					continue
@@ -527,8 +524,8 @@ func _score_sites_of_power(active_player: int, _battle_round: int) -> void:
 					continue
 				if model_pos is Dictionary:
 					model_pos = Vector2(model_pos.x, model_pos.y)
-				var model_base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-				if model_pos.distance_to(obj_pos) <= control_radius + model_base_radius:
+				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+				if edge_distance <= control_radius:
 					characters_on_nml += 1
 					print("MissionManager: Sites of Power - Character %s on NML objective %s" % [unit_id, obj.id])
 					break  # Only count this character once
