@@ -22,6 +22,9 @@ extends Control
 # Deployment selection UI
 @onready var deployment_dropdown: OptionButton = $LobbyContainer/ArmySelection/DeploymentContainer/DeploymentDropdown
 
+# Mission selection UI
+@onready var mission_dropdown: OptionButton = $LobbyContainer/ArmySelection/MissionContainer/MissionDropdown
+
 # State
 var is_hosting: bool = false
 var connected_players: int = 0
@@ -40,6 +43,20 @@ var deployment_options = [
 	{"id": "crucible_of_battle", "name": "Crucible of Battle"}
 ]
 var selected_deployment: String = "hammer_anvil"
+
+# Mission configuration
+var mission_options = [
+	{"id": "take_and_hold", "name": "Take and Hold"},
+	{"id": "supply_drop", "name": "Supply Drop"},
+	{"id": "purge_the_foe", "name": "Purge the Foe"},
+	{"id": "linchpin", "name": "Linchpin"},
+	{"id": "sites_of_power", "name": "Sites of Power"},
+	{"id": "scorched_earth", "name": "Scorched Earth"},
+	{"id": "the_ritual", "name": "The Ritual"},
+	{"id": "terraform", "name": "Terraform"},
+	{"id": "hidden_supplies", "name": "Hidden Supplies"},
+]
+var selected_mission: String = "take_and_hold"
 
 # Cloud army loading state
 var _cloud_fetch_count: int = 0
@@ -81,9 +98,10 @@ func _ready() -> void:
 		network_manager.connection_failed.connect(_on_connection_failed)
 		network_manager.game_started.connect(_on_game_started)
 
-	# Load available armies and deployment options from ArmyListManager
+	# Load available armies, deployment, and mission options from ArmyListManager
 	_setup_army_selection()
 	_setup_deployment_selection()
+	_setup_mission_selection()
 
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
@@ -157,6 +175,25 @@ func _on_deployment_changed(index: int) -> void:
 	if is_hosting and connected_players >= 2:
 		_sync_deployment_selection.rpc(selected_deployment)
 
+func _setup_mission_selection() -> void:
+	# Populate mission dropdown
+	for option in mission_options:
+		mission_dropdown.add_item(option.name)
+	mission_dropdown.selected = 0
+	selected_mission = mission_options[0].id
+	mission_dropdown.item_selected.connect(_on_mission_changed)
+	mission_dropdown.disabled = true  # Disabled until connected
+	print("MultiplayerLobby: Mission selection initialized with ", mission_options.size(), " options")
+
+func _on_mission_changed(index: int) -> void:
+	if index < 0 or index >= mission_options.size():
+		return
+	selected_mission = mission_options[index].id
+	print("MultiplayerLobby: Mission changed to ", selected_mission)
+	# If host and connected, broadcast to client
+	if is_hosting and connected_players >= 2:
+		_sync_mission_selection.rpc(selected_mission)
+
 func _on_start_game_button_pressed() -> void:
 	print("MultiplayerLobby: Start game button pressed")
 
@@ -190,7 +227,7 @@ func _on_start_game_button_pressed() -> void:
 
 func _do_start_game() -> void:
 	# Load armies before starting game
-	print("MultiplayerLobby: Loading armies with deployment: ", selected_deployment)
+	print("MultiplayerLobby: Loading armies with deployment: ", selected_deployment, " mission: ", selected_mission)
 
 	# Initialize GameState with selected deployment type
 	if GameState.state.is_empty():
@@ -231,8 +268,14 @@ func _do_start_game() -> void:
 	GameState.state.meta["game_config"] = {
 		"player1_army": selected_player1_army,
 		"player2_army": selected_player2_army,
-		"deployment": selected_deployment
+		"deployment": selected_deployment,
+		"mission": selected_mission
 	}
+
+	# Initialize MissionManager with selected mission
+	if MissionManager:
+		MissionManager.initialize_mission(selected_mission)
+		print("MultiplayerLobby: Mission initialized: ", selected_mission)
 
 	# Initialize BoardState deployment zones to match selected deployment
 	if BoardState:
@@ -301,10 +344,11 @@ func _on_peer_connected(peer_id: int) -> void:
 		player_list_label.text = "Connected Players: 2/2"
 		start_game_button.disabled = false
 
-		# Send current army and deployment selections to client
+		# Send current army, deployment, and mission selections to client
 		_sync_army_selection.rpc(1, selected_player1_army)
 		_sync_army_selection.rpc(2, selected_player2_army)
 		_sync_deployment_selection.rpc(selected_deployment)
+		_sync_mission_selection.rpc(selected_mission)
 	else:
 		status_label.text = "Status: Connected to host"
 		info_label.text = "Select your army and wait for host to start"
@@ -345,10 +389,11 @@ func _update_ui_for_hosting() -> void:
 	disconnect_button.disabled = false
 	back_button.disabled = true
 
-	# Enable host to select their army (Player 1) and deployment
+	# Enable host to select their army (Player 1), deployment, and mission
 	player1_dropdown.disabled = false
 	player2_dropdown.disabled = true  # Can't pre-select opponent's army
 	deployment_dropdown.disabled = false  # Host can select deployment map
+	mission_dropdown.disabled = false  # Host can select mission
 
 func _update_ui_for_joining() -> void:
 	host_button.disabled = true
@@ -362,6 +407,7 @@ func _update_ui_for_joining() -> void:
 	player1_dropdown.disabled = true
 	player2_dropdown.disabled = true
 	deployment_dropdown.disabled = true  # Client cannot change deployment
+	mission_dropdown.disabled = true  # Client cannot change mission
 
 func _reset_ui() -> void:
 	host_button.disabled = false
@@ -374,12 +420,15 @@ func _reset_ui() -> void:
 	is_hosting = false
 	connected_players = 0
 
-	# Reset army and deployment selection
+	# Reset army, deployment, and mission selection
 	player1_dropdown.disabled = true
 	player2_dropdown.disabled = true
 	deployment_dropdown.disabled = true
 	deployment_dropdown.selected = 0
 	selected_deployment = deployment_options[0].id
+	mission_dropdown.disabled = true
+	mission_dropdown.selected = 0
+	selected_mission = mission_options[0].id
 
 	# Try to find A_C_test and ORK_test as defaults
 	var p1_index = 0
@@ -499,6 +548,24 @@ func _sync_deployment_selection(deployment_id: String) -> void:
 			return
 
 	print("MultiplayerLobby: Warning - Unknown deployment ID: ", deployment_id)
+
+# ============================================================================
+# NETWORK - MISSION SYNCHRONIZATION
+# ============================================================================
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_mission_selection(mission_id: String) -> void:
+	"""Called by host to synchronize mission selection to client."""
+	print("MultiplayerLobby: Syncing mission selection -> ", mission_id)
+
+	# Find mission index
+	for i in range(mission_options.size()):
+		if mission_options[i].id == mission_id:
+			selected_mission = mission_id
+			mission_dropdown.selected = i
+			return
+
+	print("MultiplayerLobby: Warning - Unknown mission ID: ", mission_id)
 
 # ============================================================================
 # Cloud Army Integration
