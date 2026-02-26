@@ -300,20 +300,28 @@ func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
 	# Remove the selected mission from active
 	var replaced = state["active"][mission_index]
 	state["active"].remove_at(mission_index)
+	var replaced_id = replaced["id"]
 
-	# Put it back into the deck (not the discard pile)
-	state["deck"].append(replaced["id"])
+	emit_signal("mission_discarded", player, replaced_id, "replaced_back_to_deck")
+	print("SecondaryMissionManager: Player %d put %s back into deck" % [player, replaced["name"]])
+
+	# Shuffle the deck WITHOUT the replaced card first, then draw.
+	# This guarantees the replacement cannot be the same mission.
+	# After drawing, we insert the replaced card back and re-shuffle.
 	_shuffle_array(state["deck"])
-	print("SecondaryMissionManager: Player %d put %s back into deck and shuffled" % [player, replaced["name"]])
-	emit_signal("mission_discarded", player, replaced["id"], "replaced_back_to_deck")
 
-	# Draw a replacement
+	# Draw a replacement (replaced card is NOT in the deck yet)
 	var drawn = draw_missions_to_hand(player)
+
+	# Now put the replaced card back into the deck and shuffle
+	state["deck"].append(replaced_id)
+	_shuffle_array(state["deck"])
+	print("SecondaryMissionManager: Player %d — %s returned to deck after drawing replacement" % [player, replaced["name"]])
 
 	return {
 		"success": true,
 		"replaced": replaced["name"],
-		"replaced_id": replaced["id"],
+		"replaced_id": replaced_id,
 		"drawn": drawn[0]["name"] if drawn.size() > 0 else "none (deck depleted)",
 		"drawn_mission": drawn[0] if drawn.size() > 0 else {},
 	}
