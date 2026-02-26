@@ -13,6 +13,7 @@ signal mission_discarded(player: int, mission_id: String, reason: String)
 signal secondary_vp_scored(player: int, vp: int, mission_id: String)
 signal deck_depleted(player: int)
 signal when_drawn_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary)
+signal missions_drawn_for_review(player: int, drawn_missions: Array)
 
 # VP caps per Chapter Approved 2025-26
 const MAX_SECONDARY_VP = 40
@@ -274,6 +275,47 @@ func use_new_orders(player: int, mission_index: int) -> Dictionary:
 		"success": true,
 		"discarded": discarded["name"],
 		"drawn": drawn[0]["name"] if drawn.size() > 0 else "none (deck depleted)",
+	}
+
+# ============================================================================
+# REPLACE DRAWN MISSION (spend 1 CP to swap a newly drawn mission)
+# ============================================================================
+
+func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
+	"""
+	Replace one active mission by putting it back into the deck and drawing a new one.
+	Costs 1 CP (CP deduction handled by caller).
+	The replaced mission goes back into the deck (shuffled in), not the discard pile.
+	Returns result dict with success status, replaced mission name, and new mission name.
+	"""
+	var player_key = str(player)
+	var state = _player_state[player_key]
+
+	if mission_index < 0 or mission_index >= state["active"].size():
+		return {"success": false, "error": "Invalid mission index"}
+
+	if state["deck"].size() == 0:
+		return {"success": false, "error": "Deck is empty, cannot draw replacement"}
+
+	# Remove the selected mission from active
+	var replaced = state["active"][mission_index]
+	state["active"].remove_at(mission_index)
+
+	# Put it back into the deck (not the discard pile)
+	state["deck"].append(replaced["id"])
+	_shuffle_array(state["deck"])
+	print("SecondaryMissionManager: Player %d put %s back into deck and shuffled" % [player, replaced["name"]])
+	emit_signal("mission_discarded", player, replaced["id"], "replaced_back_to_deck")
+
+	# Draw a replacement
+	var drawn = draw_missions_to_hand(player)
+
+	return {
+		"success": true,
+		"replaced": replaced["name"],
+		"replaced_id": replaced["id"],
+		"drawn": drawn[0]["name"] if drawn.size() > 0 else "none (deck depleted)",
+		"drawn_mission": drawn[0] if drawn.size() > 0 else {},
 	}
 
 # ============================================================================
