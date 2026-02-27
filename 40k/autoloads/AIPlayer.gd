@@ -22,6 +22,7 @@ var _turn_start_log_index: int = 0  # T7-56: Index into _action_log where curren
 var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
+var _failed_reinforcement_unit_ids: Array = []  # Units that failed reinforcement placement — skip to avoid infinite loop
 var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
 var _last_thinking_phase: int = -1  # Track which phase we last logged a "thinking" message for
 var _last_thinking_round: int = -1  # Track which round we last logged a "thinking" message for
@@ -258,6 +259,7 @@ func _on_phase_changed(_new_phase) -> void:
 
 	_current_phase_actions = 0  # Reset safety counter on phase change
 	_failed_deploy_unit_ids.clear()  # Reset failed deployment tracking on phase change
+	_failed_reinforcement_unit_ids.clear()  # Reset failed reinforcement tracking on phase change
 
 	# T7-20: End any active thinking state before starting a new phase evaluation
 	_end_ai_thinking()
@@ -1033,6 +1035,14 @@ func _execute_next_action(player: int) -> void:
 			return true
 		)
 
+	# Filter out units that have permanently failed reinforcement placement
+	if not _failed_reinforcement_unit_ids.is_empty():
+		available = available.filter(func(a):
+			if a.get("type") == "PLACE_REINFORCEMENT":
+				return a.get("unit_id", "") not in _failed_reinforcement_unit_ids
+			return true
+		)
+
 	if available.is_empty():
 		print("AIPlayer: No available actions for player %d in phase %d" % [player, phase])
 		_end_ai_thinking()
@@ -1162,6 +1172,13 @@ func _execute_next_action(player: int) -> void:
 					"player": player,
 					"_ai_description": "Skipped %s — %s" % [shoot_unit_name, shoot_reason]
 				})
+
+		# Handle failed reinforcement placement — retry with new positions or skip
+		elif decision.get("type") == "PLACE_REINFORCEMENT":
+			var reinf_unit_id = decision.get("unit_id", "")
+			var reinf_unit_name = _get_unit_name(reinf_unit_id)
+			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
+			_handle_failed_reinforcement(player, decision)
 	else:
 		# Emit signal for successful deployments so Main.gd can create visuals
 		if decision.get("type") == "DEPLOY_UNIT":
@@ -1909,6 +1926,114 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 		push_error("AIPlayer: Failed to place %s in reserves: %s — marking as failed to prevent infinite loop" % [unit_name, error_msg])
 		_failed_deploy_unit_ids.append(unit_id)
 		_log_ai_event(player, "%s deployment permanently failed (reserves also rejected: %s) — skipping unit" % [unit_name, error_msg])
+
+func _handle_failed_reinforcement(player: int, original_decision: Dictionary) -> void:
+	"""Handle failed PLACE_REINFORCEMENT by retrying with new positions, then skipping the unit."""
+	var unit_id = original_decision.get("unit_id", "")
+	if unit_id == "":
+		return
+
+	var snapshot = GameState.create_snapshot()
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var reserve_type = unit.get("reserve_type", "deep_strike")
+	print("AIPlayer: Reinforcement retry for %s (player %d, %s)" % [unit_name, player, reserve_type])
+
+	var models = unit.get("models", [])
+	var first_model = models[0] if models.size() > 0 else {}
+	var base_mm = first_model.get("base_mm", 32)
+	var base_type = first_model.get("base_type", "circular")
+	var base_dimensions = first_model.get("base_dimensions", {})
+
+	var alive_count = 0
+	for m in models:
+		if m.get("alive", true):
+			alive_count += 1
+
+	if alive_count == 0:
+		print("AIPlayer: No alive models in %s, skipping reinforcement" % unit_name)
+		_failed_reinforcement_unit_ids.append(unit_id)
+		return
+
+	var battle_round = GameState.get_battle_round()
+	var deployed_models = AIDecisionMaker._get_all_deployed_model_positions(snapshot)
+	var enemy_model_positions = AIDecisionMaker._get_enemy_model_positions_from_snapshot(snapshot, player)
+	var placement_bounds = AIDecisionMaker._get_reinforcement_zone_bounds(reserve_type, player, snapshot, battle_round)
+
+	# Try up to 5 retries with random sampling
+	for attempt in range(5):
+		# Generate a random center point within placement bounds
+		var zone_width = placement_bounds.get("max_x", 1760.0) - placement_bounds.get("min_x", 0.0)
+		var zone_height = placement_bounds.get("max_y", 2400.0) - placement_bounds.get("min_y", 0.0)
+		var test_center = Vector2(
+			placement_bounds.get("min_x", 0.0) + 80 + randf() * (zone_width - 160),
+			placement_bounds.get("min_y", 0.0) + 80 + randf() * (zone_height - 160)
+		)
+
+		var positions = AIDecisionMaker._generate_formation_positions(test_center, alive_count, base_mm, placement_bounds)
+		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+
+		# Validate: 9" from enemies and coherent formation
+		var valid = true
+		for pos in positions:
+			if not AIDecisionMaker._is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
+				valid = false
+				break
+		if valid and not AIDecisionMaker._check_formation_coherency(positions, base_mm):
+			valid = false
+
+		if not valid:
+			print("AIPlayer: Reinforcement retry %d for %s: invalid placement" % [attempt + 1, unit_name])
+			continue
+
+		# Build full model_positions array (including dead models as null)
+		var full_positions = []
+		var alive_idx = 0
+		for i in range(models.size()):
+			if models[i].get("alive", true) and alive_idx < positions.size():
+				full_positions.append(positions[alive_idx])
+				alive_idx += 1
+			else:
+				full_positions.append(null)
+
+		var rotations = []
+		for i in range(models.size()):
+			rotations.append(0.0)
+
+		var retry_action = {
+			"type": "PLACE_REINFORCEMENT",
+			"unit_id": unit_id,
+			"model_positions": full_positions,
+			"model_rotations": rotations,
+			"player": player,
+			"_ai_description": "%s arrives from %s (retry %d)" % [unit_name, "Deep Strike" if reserve_type == "deep_strike" else "Reserves", attempt + 1]
+		}
+
+		print("AIPlayer: Reinforcement retry %d for %s at center (%.0f, %.0f)" % [attempt + 1, unit_name, test_center.x, test_center.y])
+
+		_current_phase_actions += 1
+		var result = NetworkIntegration.route_action(retry_action)
+		if result != null and result.get("success", false):
+			print("AIPlayer: Reinforcement retry %d succeeded for %s" % [attempt + 1, unit_name])
+			_action_log.append({
+				"phase": GameState.get_current_phase(),
+				"action_type": "PLACE_REINFORCEMENT",
+				"description": "%s arrives (retry %d)" % [unit_name, attempt + 1],
+				"player": player
+			})
+			emit_signal("ai_unit_deployed", player, unit_id)
+			return
+
+		var retry_error = "" if result == null else result.get("error", result.get("errors", ""))
+		print("AIPlayer: Reinforcement retry %d failed for %s: %s" % [attempt + 1, unit_name, retry_error])
+
+	# All retries failed — skip this unit's reinforcement to prevent stalling
+	print("AIPlayer: All reinforcement retries failed for %s — skipping (unit stays in reserves)" % unit_name)
+	_failed_reinforcement_unit_ids.append(unit_id)
+	_log_ai_event(player, "%s reinforcement failed after retries — remains in reserves" % unit_name)
 
 func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> PackedVector2Array:
 	"""Get the actual deployment zone polygon in pixels for point-in-polygon testing."""

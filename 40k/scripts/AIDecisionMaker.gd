@@ -3220,12 +3220,15 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		var deployed_models = _get_all_deployed_model_positions(snapshot)
 		model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 
-		# Validate all positions satisfy the 9" enemy distance rule
+		# Validate all positions satisfy the 9" enemy distance rule AND unit coherency
 		var all_valid = true
 		for pos in model_positions:
 			if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
 				all_valid = false
 				break
+		if all_valid and not _check_formation_coherency(model_positions, base_mm):
+			print("AIDecisionMaker: [RESERVES]   %s — formation at candidate 0 fails coherency, trying alternates" % unit_name)
+			all_valid = false
 
 		if not all_valid:
 			# Try alternate positions from our candidate list
@@ -3238,6 +3241,9 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 					if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
 						valid = false
 						break
+				if valid and not _check_formation_coherency(model_positions, base_mm):
+					print("AIDecisionMaker: [RESERVES]   %s — formation at candidate %d fails coherency" % [unit_name, pi])
+					valid = false
 				if valid:
 					found_valid = true
 					break
@@ -11244,7 +11250,7 @@ static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deploye
 
 static func _resolve_formation_collisions(positions: Array, base_mm: int, deployed_models: Array, zone_bounds: Dictionary, base_type: String = "circular", base_dimensions: Dictionary = {}) -> Array:
 	"""For each position that collides, spiral-search for the nearest free spot.
-	Also prevents intra-formation overlap."""
+	Also prevents intra-formation overlap and maintains unit coherency."""
 	var resolved = []
 	# Track positions we've already placed in this formation
 	var formation_placed: Array = []  # Array of {position, base_mm, base_type, base_dimensions}
@@ -11253,24 +11259,35 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 	var margin = my_radius + 5.0
 	var step = my_radius * 2.0 + 8.0  # Spiral step size
 
+	# Max center-to-center distance for 2" edge-to-edge coherency
+	var base_radius_inches = (base_mm / 2.0) / 25.4
+	var coherency_max_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH
+
 	for pos in positions:
 		# Combine deployed models + already-placed formation models for collision
 		var all_obstacles = deployed_models + formation_placed
 
 		if not _position_collides_with_deployed(pos, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
-			# No collision, use as-is
-			resolved.append(pos)
-			formation_placed.append({
-				"position": pos,
-				"base_mm": base_mm,
-				"base_type": base_type,
-				"base_dimensions": base_dimensions
-			})
-			continue
+			# No collision — but check coherency with already-placed models
+			var coherent = resolved.is_empty()
+			if not coherent:
+				for prev_pos in resolved:
+					if pos.distance_to(prev_pos) <= coherency_max_px:
+						coherent = true
+						break
+			if coherent:
+				resolved.append(pos)
+				formation_placed.append({
+					"position": pos,
+					"base_mm": base_mm,
+					"base_type": base_type,
+					"base_dimensions": base_dimensions
+				})
+				continue
 
-		# Spiral search for a free spot
+		# Spiral search for a free spot that also maintains coherency
 		var found = false
-		for ring in range(1, 8):  # Up to 7 rings outward
+		for ring in range(1, 12):  # Up to 11 rings outward (increased from 7 for coherency search)
 			var ring_radius = step * ring
 			var points_in_ring = maxi(8, ring * 8)
 			for p_idx in range(points_in_ring):
@@ -11284,21 +11301,29 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 				candidate.y = clamp(candidate.y, zone_bounds.get("min_y", margin) + margin, zone_bounds.get("max_y", BOARD_HEIGHT_PX - margin) - margin)
 
 				if not _position_collides_with_deployed(candidate, base_mm, all_obstacles, 4.0, base_type, base_dimensions):
-					resolved.append(candidate)
-					formation_placed.append({
-						"position": candidate,
-						"base_mm": base_mm,
-						"base_type": base_type,
-						"base_dimensions": base_dimensions
-					})
-					found = true
-					break
+					# Also check coherency with already-placed formation models
+					var is_coherent = resolved.is_empty()
+					if not is_coherent:
+						for prev_pos in resolved:
+							if candidate.distance_to(prev_pos) <= coherency_max_px:
+								is_coherent = true
+								break
+					if is_coherent:
+						resolved.append(candidate)
+						formation_placed.append({
+							"position": candidate,
+							"base_mm": base_mm,
+							"base_type": base_type,
+							"base_dimensions": base_dimensions
+						})
+						found = true
+						break
 			if found:
 				break
 
 		if not found:
 			# Last resort: use original position (will likely fail validation, but retry logic will handle it)
-			print("AIDecisionMaker: WARNING - Could not find collision-free position for model, using original")
+			print("AIDecisionMaker: WARNING - Could not find collision-free coherent position for model, using original")
 			resolved.append(pos)
 			formation_placed.append({
 				"position": pos,
@@ -11308,6 +11333,28 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 			})
 
 	return resolved
+
+static func _check_formation_coherency(positions: Array, base_mm: int) -> bool:
+	"""Check that all positions maintain 2\" unit coherency (each model within 2\" of at least one other).
+	For 7+ model units, each model must be within 2\" of at least 2 others.
+	Uses edge-to-edge distance (center distance minus both base radii)."""
+	if positions.size() <= 1:
+		return true
+	var required_connections = 1 if positions.size() <= 6 else 2
+	var base_radius_inches = (base_mm / 2.0) / 25.4
+	var coherency_threshold_px = (2.0 + base_radius_inches * 2.0) * PIXELS_PER_INCH  # 2" edge-to-edge = 2" + both radii center-to-center
+	for i in range(positions.size()):
+		var connections = 0
+		for j in range(positions.size()):
+			if i == j:
+				continue
+			if positions[i].distance_to(positions[j]) <= coherency_threshold_px:
+				connections += 1
+				if connections >= required_connections:
+					break
+		if connections < required_connections:
+			return false
+	return true
 
 static func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: int) -> PackedVector2Array:
 	"""Get the actual deployment zone polygon in pixels for point-in-polygon testing."""
