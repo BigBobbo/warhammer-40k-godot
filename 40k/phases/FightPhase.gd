@@ -2066,14 +2066,24 @@ func get_available_actions() -> Array:
 	log_phase_message("fight_sequence: %s" % str(fight_sequence))
 	
 	# If no active fighter, need to select one
+	# Skip units that are no longer in engagement range (enemies may have been destroyed during earlier fights)
 	if active_fighter_id == "" and current_fight_index < fight_sequence.size():
-		var next_unit = fight_sequence[current_fight_index]
-		log_phase_message("Adding SELECT_FIGHTER action for: %s" % next_unit)
-		actions.append({
-			"type": "SELECT_FIGHTER",
-			"unit_id": next_unit,
-			"description": "Select %s to fight" % next_unit
-		})
+		while current_fight_index < fight_sequence.size():
+			var candidate_unit_id = fight_sequence[current_fight_index]
+			var candidate_unit = game_state_snapshot.get("units", {}).get(candidate_unit_id, {})
+			if not candidate_unit.is_empty() and _is_unit_in_combat(candidate_unit):
+				break
+			log_phase_message("Skipping %s from fight sequence — no longer in engagement range" % candidate_unit_id)
+			units_that_fought.append(candidate_unit_id)  # Mark as fought so it's not re-offered
+			current_fight_index += 1
+		if current_fight_index < fight_sequence.size():
+			var next_unit = fight_sequence[current_fight_index]
+			log_phase_message("Adding SELECT_FIGHTER action for: %s" % next_unit)
+			actions.append({
+				"type": "SELECT_FIGHTER",
+				"unit_id": next_unit,
+				"description": "Select %s to fight" % next_unit
+			})
 	else:
 		log_phase_message("NOT adding SELECT_FIGHTER: active_fighter_id='%s', index=%d, size=%d" % [active_fighter_id, current_fight_index, fight_sequence.size()])
 	

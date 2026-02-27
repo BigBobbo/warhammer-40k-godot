@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--test-mode", "--ai-vs-ai", "--deployment=search_and_destroy"]

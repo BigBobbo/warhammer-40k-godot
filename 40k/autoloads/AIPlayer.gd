@@ -392,6 +392,13 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "counter_offensive_opportunity", "callable": callable})
 		print("AIPlayer: Connected to FightPhase.counter_offensive_opportunity")
 
+	# Epic Challenge in Fight Phase — AI must respond or the game stalls
+	if phase.has_signal("epic_challenge_opportunity"):
+		var callable_ec = Callable(self, "_on_epic_challenge_opportunity")
+		phase.epic_challenge_opportunity.connect(callable_ec)
+		_connected_phase_signals.append({"signal_name": "epic_challenge_opportunity", "callable": callable_ec})
+		print("AIPlayer: Connected to FightPhase.epic_challenge_opportunity")
+
 func _disconnect_phase_stratagem_signals() -> void:
 	"""Disconnect all previously connected phase stratagem signals."""
 	if _current_phase_ref and is_instance_valid(_current_phase_ref):
@@ -720,6 +727,26 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 
 	print("AIPlayer: Counter-Offensive decision for player %d — %s" % [player, decision.get("_ai_description", "?")])
 	_submit_reactive_action(player, decision)
+
+# --- Epic Challenge in Fight Phase ---
+
+func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
+	"""
+	Called when the FightPhase detects a CHARACTER unit is selected to fight
+	and an Epic Challenge is available. The AI must respond or the game stalls.
+	For now, AI always declines — Epic Challenge is niche and rarely beneficial.
+	"""
+	if not is_ai_player(player):
+		return
+
+	print("AIPlayer: Epic Challenge opportunity for AI player %d, unit %s — declining" % [player, unit_id])
+	var decline = {
+		"type": "DECLINE_EPIC_CHALLENGE",
+		"unit_id": unit_id,
+		"player": player,
+		"_ai_description": "AI declines Epic Challenge for %s" % _get_unit_name(unit_id)
+	}
+	_submit_reactive_action(player, decline)
 
 # --- Reactive Stratagem: Command Re-roll (any phase) ---
 
@@ -1141,11 +1168,54 @@ func _execute_next_action(player: int) -> void:
 		push_error("AIPlayer: Action failed: %s - Error: %s" % [decision.get("type", "?"), error_msg])
 		print("AIPlayer: Failed action details: %s" % str(decision))
 
+		# Handle failed SELECT_FIGHTER — unit no longer in engagement range, send END_FIGHT
+		if decision.get("type") == "SELECT_FIGHTER":
+			var failed_unit_id = decision.get("unit_id", "")
+			var fight_unit_name = _get_unit_name(failed_unit_id)
+			print("AIPlayer: SELECT_FIGHTER failed for %s, sending END_FIGHT" % failed_unit_id)
+			_log_ai_event(player, "%s no longer in combat — ending fight" % fight_unit_name)
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "END_FIGHT",
+				"player": player,
+				"_ai_description": "End fight — %s not in engagement range" % fight_unit_name
+			})
+
 		# Handle failed deployment specifically
-		if decision.get("type") == "DEPLOY_UNIT":
+		elif decision.get("type") == "DEPLOY_UNIT":
 			var deploy_unit_name = _get_unit_name(decision.get("unit_id", ""))
 			_log_ai_event(player, "%s deployment failed (%s) — retrying" % [deploy_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_deployment(player, decision)
+
+		# Handle failed charge move — skip the charge so the game can continue
+		elif decision.get("type") in ["APPLY_CHARGE_MOVE", "APPLY_HEROIC_INTERVENTION_MOVE"]:
+			var failed_charge_unit_id = decision.get("actor_unit_id", "")
+			if failed_charge_unit_id != "":
+				var charge_unit_name = _get_unit_name(failed_charge_unit_id)
+				print("AIPlayer: Charge move failed for %s, sending SKIP_CHARGE" % failed_charge_unit_id)
+				_log_ai_event(player, "%s charge move failed — skipping" % charge_unit_name)
+				_current_phase_actions += 1
+				NetworkIntegration.route_action({
+					"type": "SKIP_CHARGE",
+					"actor_unit_id": failed_charge_unit_id,
+					"player": player,
+					"_ai_description": "Skipped charge for %s — move validation failed" % charge_unit_name
+				})
+
+		# Handle failed fight attacks — consolidate so the game can continue
+		elif decision.get("type") == "ASSIGN_ATTACKS":
+			var failed_unit_id = decision.get("unit_id", "")
+			if failed_unit_id != "":
+				var fight_unit_name = _get_unit_name(failed_unit_id)
+				print("AIPlayer: Fight attacks failed for %s, sending CONSOLIDATE" % failed_unit_id)
+				_log_ai_event(player, "%s fight failed — consolidating" % fight_unit_name)
+				_current_phase_actions += 1
+				NetworkIntegration.route_action({
+					"type": "CONSOLIDATE",
+					"unit_id": failed_unit_id,
+					"player": player,
+					"_ai_description": "Consolidate %s — attack validation failed" % fight_unit_name
+				})
 
 		# Handle failed shooting — skip the unit so we don't retry the same one
 		elif decision.get("type") == "SHOOT":

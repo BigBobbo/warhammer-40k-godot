@@ -1799,6 +1799,20 @@ func get_available_actions() -> Array:
 		})
 		return actions  # Block other actions until resolved
 
+	# Heroic Intervention move pending (HI accepted, charge roll succeeded, awaiting move)
+	if heroic_intervention_unit_id != "" and not heroic_intervention_pending_charge.is_empty() and heroic_intervention_pending_charge.has("distance"):
+		var hi_distance = heroic_intervention_pending_charge.get("distance", 0)
+		var hi_targets = heroic_intervention_pending_charge.get("targets", [])
+		actions.append({
+			"type": "APPLY_HEROIC_INTERVENTION_MOVE",
+			"actor_unit_id": heroic_intervention_unit_id,
+			"rolled_distance": hi_distance,
+			"target_ids": hi_targets,
+			"player": heroic_intervention_player,
+			"description": "Apply Heroic Intervention movement for %s" % heroic_intervention_unit_id
+		})
+		return actions  # Block other actions until HI move is applied
+
 	# --- Normal charge actions ---
 
 	# Units that can declare charges

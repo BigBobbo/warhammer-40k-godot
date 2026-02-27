@@ -32,6 +32,30 @@ static func _measurement():
 		return main.root.get_node_or_null("Measurement")
 	return null
 
+# Late-bound reference to TerrainManager autoload
+static func _terrain_manager():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("TerrainManager")
+	return null
+
+# Estimate terrain penalty (in inches) for a charge path between two positions.
+# Uses TerrainManager.calculate_charge_terrain_penalty() if available.
+static func _estimate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fly: bool) -> float:
+	var tm = _terrain_manager()
+	if tm and tm.has_method("calculate_charge_terrain_penalty"):
+		return tm.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly)
+	return 0.0
+
+# Check if a shooter unit can see (has LoS to) a target unit for at least one weapon.
+# Uses RulesEngine._check_target_visibility if available, otherwise returns true (optimistic).
+static func _can_shooter_see_target(shooter_unit_id: String, target_unit_id: String, weapon_id: String, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re and re.has_method("_check_target_visibility"):
+		var result = re._check_target_visibility(shooter_unit_id, target_unit_id, weapon_id, snapshot)
+		return result.get("visible", true)
+	return true  # Optimistic fallback if RulesEngine unavailable
+
 # Focus fire plan cache — built once per shooting phase, consumed per-unit
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
@@ -146,10 +170,10 @@ const WEIGHT_OC_EFFICIENCY: float = 2.0
 # Charge threat = enemy M + 12" charge + 1" engagement range
 # Shooting threat = max weapon range of the enemy unit
 # Penalty weights for moving into threat zones
-const THREAT_CHARGE_PENALTY: float = 3.0    # Penalty for moving into charge threat range
-const THREAT_SHOOTING_PENALTY: float = 1.0  # Lighter penalty for moving into shooting range (often unavoidable)
-const THREAT_FRAGILE_BONUS: float = 1.5     # Extra penalty multiplier for fragile/high-value units in danger
-const THREAT_MELEE_UNIT_IGNORE: float = 0.3 # Melee-focused units care less about being in charge range
+const THREAT_CHARGE_PENALTY: float = 2.0    # Penalty for moving into charge threat range (reduced from 3.0 to encourage engagement)
+const THREAT_SHOOTING_PENALTY: float = 0.5  # Lighter penalty for moving into shooting range (reduced from 1.0 — often unavoidable)
+const THREAT_FRAGILE_BONUS: float = 1.3     # Extra penalty multiplier for fragile/high-value units in danger (reduced from 1.5)
+const THREAT_MELEE_UNIT_IGNORE: float = 0.05 # Melee-focused units barely care about being in charge range (reduced from 0.15)
 const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat range for safety
 # Close melee proximity: 12" is the raw charge distance — being this close means
 # the enemy can charge without needing to move first, making it critically dangerous
@@ -201,10 +225,10 @@ const TEMPO_CHARGE_THRESHOLD_REDUCTION: float = 0.4 # How much to lower charge t
 # Rounds 1-2: Aggressive — favor kills and aggressive positioning
 # Round 3: Balanced — standard weights (all 1.0)
 # Rounds 4-5: Objective/survival — prioritize objective control and survival over kills
-const STRATEGY_EARLY_AGGRESSION: float = 1.3        # Rounds 1-2: boost kill-seeking scoring by 30%
-const STRATEGY_EARLY_OBJECTIVE: float = 0.85         # Rounds 1-2: slightly reduce objective weight (aggression first)
-const STRATEGY_EARLY_SURVIVAL: float = 0.8           # Rounds 1-2: accept more risk (reduce threat penalty)
-const STRATEGY_EARLY_CHARGE: float = 0.8             # Rounds 1-2: lower charge threshold (more willing to charge)
+const STRATEGY_EARLY_AGGRESSION: float = 1.5        # Rounds 1-2: boost kill-seeking scoring by 50% (increased from 1.3)
+const STRATEGY_EARLY_OBJECTIVE: float = 0.7          # Rounds 1-2: reduce objective weight more (aggression first, was 0.85)
+const STRATEGY_EARLY_SURVIVAL: float = 0.6           # Rounds 1-2: accept significantly more risk (was 0.8)
+const STRATEGY_EARLY_CHARGE: float = 0.4             # Rounds 1-2: much lower charge threshold (was 0.6)
 const STRATEGY_LATE_AGGRESSION: float = 0.7          # Rounds 4-5: reduce kill-seeking scoring by 30%
 const STRATEGY_LATE_OBJECTIVE: float = 1.4           # Rounds 4-5: boost objective control priority by 40%
 const STRATEGY_LATE_SURVIVAL: float = 1.4            # Rounds 4-5: increase survival/threat avoidance by 40%
@@ -220,6 +244,21 @@ const SECONDARY_KILL_PROXIMITY_BONUS: float = 1.5    # Bonus for positioning nea
 const SECONDARY_SPREAD_BONUS: float = 2.0            # Bonus for spreading to uncovered table quarters
 const SECONDARY_CENTER_BONUS: float = 2.5            # Bonus for Area Denial center positioning
 const SECONDARY_ENEMY_ZONE_PUSH_BONUS: float = 3.5   # Bonus for Behind Enemy Lines deployment zone push
+
+# Faction aggression modifiers — faction-specific combat style adjustments
+# Aggressive factions (e.g. Orks) prefer melee, advance more, charge more often
+# These multiply against charge thresholds and movement aggression
+const FACTION_AGGRESSION_DEFAULT: float = 1.0
+const FACTION_AGGRESSION_ORKS: float = 2.2         # Orks are extremely aggressive — WAAAGH! (increased from 1.8)
+const FACTION_AGGRESSION_WORLD_EATERS: float = 2.0 # World Eaters — blood for the blood god
+const FACTION_AGGRESSION_KHORNE: float = 1.8        # Khorne daemons — melee focused
+
+# Melee aggression movement constants — melee units actively seek enemies
+# When no objective is urgent, melee units should advance toward the nearest enemy
+const MELEE_AGGRESSION_ENEMY_SEEK_BONUS: float = 12.0    # Score bonus for moving toward nearest enemy (increased from 8.0)
+const MELEE_AGGRESSION_CHARGE_RANGE_BONUS: float = 16.0  # Big bonus for reaching charge range of enemy (increased from 12.0)
+const MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES: float = 30.0  # Advance toward enemy if within this distance (increased from 18.0)
+const MELEE_AGGRESSION_MIN_MOVE_RATIO: float = 0.7      # Always move at least 70% of M toward enemy (increased from 0.5)
 
 # T7-27: Engaged unit survival assessment constants
 # Used to estimate fight-phase damage and inform hold/fall-back decisions
@@ -262,6 +301,159 @@ static func _apply_difficulty_noise(score: float) -> float:
 static func _get_difficulty_charge_threshold_modifier() -> float:
 	"""Get charge threshold modifier for current difficulty."""
 	return AIDifficultyConfigData.get_charge_threshold_modifier(_current_difficulty)
+
+# =============================================================================
+# FACTION AGGRESSION HELPERS
+# =============================================================================
+
+static func _get_faction_aggression(snapshot: Dictionary, player: int) -> float:
+	"""Get faction-specific aggression modifier for a player.
+	Aggressive factions (Orks, World Eaters) have higher values, encouraging
+	melee engagement, advancing, and charging."""
+	var faction_name = _get_player_faction_name(snapshot, player).to_upper()
+	if "ORK" in faction_name:
+		return FACTION_AGGRESSION_ORKS
+	elif "WORLD EATER" in faction_name:
+		return FACTION_AGGRESSION_WORLD_EATERS
+	elif "KHORNE" in faction_name:
+		return FACTION_AGGRESSION_KHORNE
+	return FACTION_AGGRESSION_DEFAULT
+
+static func _get_player_faction_name(snapshot: Dictionary, player: int) -> String:
+	"""Get the faction name for a player from the game state."""
+	var meta = snapshot.get("meta", {})
+	var config = meta.get("game_config", {})
+	# Try to get from army data
+	var army_key = "player%d_army" % player
+	var army_name = config.get(army_key, "")
+	if army_name != "":
+		return army_name
+	# Fallback: check unit keywords for faction identity
+	var units = snapshot.get("units", {})
+	for uid in units:
+		var unit = units[uid]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		for kw in keywords:
+			if kw.to_upper() in ["ORKS", "ORK"]:
+				return "Orks"
+			if kw.to_upper() in ["WORLD EATERS"]:
+				return "World Eaters"
+		# Also check faction name from unit meta
+		var faction = unit.get("meta", {}).get("faction_keyword", "")
+		if faction != "":
+			return faction
+	return ""
+
+static func _is_melee_focused_unit(unit: Dictionary) -> bool:
+	"""Determine if a unit is primarily melee-focused.
+	True if the unit has melee weapons and either no ranged weapons or weak ranged weapons."""
+	var has_melee = _unit_has_melee_weapons(unit)
+	if not has_melee:
+		return false
+	var has_ranged = _unit_has_ranged_weapons(unit)
+	if not has_ranged:
+		return true
+	# Check if ranged weapons are just pistols/weak — still melee-focused
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var strong_ranged = false
+	for w in weapons:
+		if w.get("type", "").to_lower() != "ranged":
+			continue
+		var special = w.get("special_rules", "").to_lower()
+		var strength = int(w.get("strength", 0))
+		var attacks = int(w.get("attacks", 0))
+		# Pistols and weak weapons don't count as strong ranged
+		if "pistol" in special:
+			continue
+		if strength >= 5 and attacks >= 2:
+			strong_ranged = true
+			break
+		if attacks >= 4:
+			strong_ranged = true
+			break
+	return not strong_ranged
+
+static func _get_nearest_enemy_for_charge(unit: Dictionary, enemies: Dictionary) -> Dictionary:
+	"""Find the nearest enemy unit and return {enemy_id, enemy_unit, distance_inches, centroid}.
+	Factors in terrain penalties to prefer enemies reachable without climbing through terrain."""
+	var centroid = _get_unit_centroid(unit)
+	if centroid == Vector2.INF:
+		return {}
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+	var best_effective_dist = INF
+	var best_id = ""
+	var best_unit = {}
+	var best_centroid = Vector2.INF
+	var best_raw_dist = INF
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var ec = _get_unit_centroid(enemy)
+		if ec == Vector2.INF:
+			continue
+		var raw_dist_px = centroid.distance_to(ec)
+		var raw_dist_inches = raw_dist_px / PIXELS_PER_INCH
+		# Add terrain penalty to effective distance so we prefer unobstructed charge paths
+		var terrain_penalty = _estimate_charge_terrain_penalty(centroid, ec, has_fly)
+		var effective_dist_inches = raw_dist_inches + terrain_penalty
+		if effective_dist_inches < best_effective_dist:
+			best_effective_dist = effective_dist_inches
+			best_raw_dist = raw_dist_px
+			best_id = eid
+			best_unit = enemy
+			best_centroid = ec
+	if best_id == "":
+		return {}
+	return {
+		"enemy_id": best_id,
+		"enemy_unit": best_unit,
+		"distance_inches": best_raw_dist / PIXELS_PER_INCH,
+		"effective_distance_inches": best_effective_dist,
+		"centroid": best_centroid
+	}
+
+static func _find_flank_around_terrain(from_pos: Vector2, target_pos: Vector2, unit: Dictionary, enemies: Dictionary) -> Vector2:
+	# When terrain blocks a direct charge path, find a waypoint that goes around it.
+	# Tests positions at various angles from the direct path and picks the one with
+	# the lowest terrain penalty while still making progress toward the target.
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+	var direct_penalty = _estimate_charge_terrain_penalty(from_pos, target_pos, has_fly)
+	if direct_penalty <= 0.0:
+		return Vector2.INF  # No terrain in the way
+
+	var direction = (target_pos - from_pos).normalized()
+	var dist_to_target = from_pos.distance_to(target_pos)
+
+	# Try waypoints at different angles but at a moderate distance (half way to target)
+	# The unit will move toward this waypoint, then next turn continue to the enemy
+	var waypoint_dist = dist_to_target * 0.6  # Aim for 60% of the way
+	var best_waypoint = Vector2.INF
+	var best_penalty = direct_penalty
+	var angles = [30, -30, 45, -45, 60, -60, 75, -75, 90, -90]
+
+	for angle_deg in angles:
+		var rotated = direction.rotated(deg_to_rad(angle_deg))
+		var waypoint = from_pos + rotated * waypoint_dist
+		# Check that the waypoint is within the board (simple bounds check)
+		if waypoint.x < 0 or waypoint.y < 0 or waypoint.x > 1760 or waypoint.y > 2400:
+			continue
+		# Check terrain penalty from waypoint to target
+		var wp_to_target_penalty = _estimate_charge_terrain_penalty(waypoint, target_pos, has_fly)
+		# Also check penalty from us to waypoint
+		var us_to_wp_penalty = _estimate_charge_terrain_penalty(from_pos, waypoint, has_fly)
+		# Total penalty for this route should be less than going direct
+		var total_penalty = us_to_wp_penalty + wp_to_target_penalty
+		if total_penalty < best_penalty:
+			best_penalty = total_penalty
+			best_waypoint = waypoint
+
+	if best_waypoint != Vector2.INF:
+		print("AIDecisionMaker: [FLANK] Found flanking waypoint reducing terrain penalty from %.1f\" to %.1f\"" % [
+			direct_penalty, best_penalty])
+	return best_waypoint
 
 # =============================================================================
 # MAIN ENTRY POINT
@@ -2841,8 +3033,22 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var assignment_action = assignment.get("action", "move")  # "hold", "move", "advance", "screen"
 
 		# --- OC-AWARE HOLD DECISION ---
+		# Melee units from aggressive factions should NOT passively hold — they should seek enemies
+		var hold_faction_aggression = _get_faction_aggression(snapshot, player)
+		var hold_is_melee = _is_melee_focused_unit(unit) or (hold_faction_aggression >= 1.5 and _unit_has_melee_weapons(unit))
 		if assignment_action == "hold":
-			if "REMAIN_STATIONARY" in move_types:
+			# Check if there's a nearby enemy worth charging
+			var skip_hold_for_melee = false
+			if hold_is_melee and not enemies.is_empty():
+				var hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
+				# Aggressive factions always skip hold to seek enemies (no distance limit)
+				# Other melee units skip hold if enemy is within 24"
+				var hold_dist_limit = 999.0 if hold_faction_aggression >= 1.5 else 24.0
+				if not hold_nearest.is_empty() and hold_nearest.distance_inches <= hold_dist_limit:
+					skip_hold_for_melee = true
+					print("AIDecisionMaker: [MELEE-AGGRESSION] %s skipping hold to seek %s (%.1f\" away, aggression=%.1f)" % [
+						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_faction_aggression])
+			if not skip_hold_for_melee and "REMAIN_STATIONARY" in move_types:
 				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
 				var reason = assignment.get("reason", "holding objective")
 				print("AIDecisionMaker: %s holds %s (%s, %.1f\" away)" % [unit_name, assigned_obj_id, reason, dist_inches])
@@ -2870,6 +3076,75 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					"_ai_model_destinations": model_destinations,
 					"_ai_description": "%s advances toward %s (%s)" % [unit_name, assigned_obj_id, reason]
 				}
+
+		# --- MELEE AGGRESSION: Melee units actively seek enemies ---
+		# If this unit is melee-focused, consider advancing toward the nearest enemy
+		# instead of moving toward objectives. This ensures melee units get into combat.
+		var is_melee_unit = _is_melee_focused_unit(unit)
+		var faction_aggression = _get_faction_aggression(snapshot, player)
+		# Also consider all units from aggressive factions as melee-seekers if they have melee weapons
+		var has_any_melee = _unit_has_melee_weapons(unit)
+		var is_aggressive_faction = faction_aggression >= 1.5
+		var should_seek_enemies = is_melee_unit or (is_aggressive_faction and has_any_melee)
+		print("AIDecisionMaker: [MELEE-CHECK] %s: is_melee=%s, has_melee=%s, aggressive_faction=%s, seek_enemies=%s, enemies=%d, assignment=%s" % [
+			unit_name, is_melee_unit, has_any_melee, is_aggressive_faction, should_seek_enemies, enemies.size(), assignment_action])
+		if should_seek_enemies and not enemies.is_empty():
+			var nearest_enemy = _get_nearest_enemy_for_charge(unit, enemies)
+			if not nearest_enemy.is_empty():
+				var enemy_dist = nearest_enemy.distance_inches
+				var effective_dist = nearest_enemy.get("effective_distance_inches", enemy_dist)
+				var move_inches_melee = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+				var melee_centroid = _get_unit_centroid(unit)
+				var enemy_pos = nearest_enemy.centroid
+				var enemy_name = nearest_enemy.enemy_unit.get("meta", {}).get("name", "enemy")
+
+				# Move directly toward enemy — _compute_movement_toward_target handles terrain pathing
+				var move_target = enemy_pos
+
+				# Calculate if we should advance or normal move toward enemy
+				# Melee units should ALWAYS move toward enemies — no distance limit
+				var charge_range_inches = 12.0  # Pure charge range (without move)
+
+				# Always seek enemies — advance if they're far, normal move if close
+				if true:  # Always attempt melee aggression (removed distance limit)
+					# Prefer advance if enemy is far (to close faster) and we have no good ranged
+					# or if we're from an aggressive faction
+					var should_advance_melee = enemy_dist > charge_range_inches and "BEGIN_ADVANCE" in move_types
+					# Faction aggression makes advancing more likely
+					if faction_aggression >= 1.5 and enemy_dist > move_inches_melee + 1.0:
+						should_advance_melee = should_advance_melee or ("BEGIN_ADVANCE" in move_types)
+
+					if should_advance_melee:
+						var advance_dist = move_inches_melee + 2.0  # Average advance roll
+						var model_destinations_melee = _compute_movement_toward_target(
+							unit, unit_id, move_target, advance_dist, snapshot, enemies,
+							0.0, [], objectives  # No threat avoidance — melee units WANT to be close
+						)
+						if not model_destinations_melee.is_empty():
+							print("AIDecisionMaker: [MELEE-AGGRESSION] %s ADVANCES toward %s (%.1f\" away, effective=%.1f\", faction_aggression=%.1f)" % [
+								unit_name, enemy_name, enemy_dist, effective_dist, faction_aggression])
+							return {
+								"type": "BEGIN_ADVANCE",
+								"actor_unit_id": unit_id,
+								"_ai_model_destinations": model_destinations_melee,
+								"_ai_description": "%s advances aggressively toward %s (%.1f\" away)" % [unit_name, enemy_name, enemy_dist]
+							}
+
+					# Normal move toward enemy if we can't or shouldn't advance
+					if "BEGIN_NORMAL_MOVE" in move_types and melee_centroid != Vector2.INF:
+						var model_destinations_melee = _compute_movement_toward_target(
+							unit, unit_id, move_target, move_inches_melee, snapshot, enemies,
+							0.0, [], objectives  # No threat avoidance for melee aggression
+						)
+						if not model_destinations_melee.is_empty():
+							print("AIDecisionMaker: [MELEE-AGGRESSION] %s moves toward %s (%.1f\" away, effective=%.1f\", faction_aggression=%.1f)" % [
+								unit_name, enemy_name, enemy_dist, effective_dist, faction_aggression])
+							return {
+								"type": "BEGIN_NORMAL_MOVE",
+								"actor_unit_id": unit_id,
+								"_ai_model_destinations": model_destinations_melee,
+								"_ai_description": "%s moves aggressively toward %s (%.1f\" away)" % [unit_name, enemy_name, enemy_dist]
+							}
 
 		# --- SCREEN MOVE toward denial/screening position (AI-TACTIC-3, MOV-4) ---
 		if assignment_action == "screen" and "BEGIN_NORMAL_MOVE" in move_types:
@@ -2912,7 +3187,17 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(centroid, objectives)
 
 			# If we're already within control range and assigned to hold, remain stationary
-			if target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			# EXCEPT: melee units near enemies should keep moving toward them
+			var obj_hold_is_melee = _is_melee_focused_unit(unit) or (_get_faction_aggression(snapshot, player) >= 1.5 and _unit_has_melee_weapons(unit))
+			var obj_hold_skip = false
+			if obj_hold_is_melee and not enemies.is_empty():
+				var obj_hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
+				var obj_hold_dist_limit = 999.0 if _get_faction_aggression(snapshot, player) >= 1.5 else 24.0
+				if not obj_hold_nearest.is_empty() and obj_hold_nearest.distance_inches <= obj_hold_dist_limit:
+					obj_hold_skip = true
+					print("AIDecisionMaker: [MELEE-AGGRESSION] %s on objective but enemy %s is %.1f\" away — keep moving" % [
+						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches])
+			if not obj_hold_skip and target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 				if "REMAIN_STATIONARY" in move_types:
 					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
 					print("AIDecisionMaker: %s within control range of %s (%.1f\"), holding" % [unit_name, assigned_obj_id, dist_inches])
@@ -2923,12 +3208,15 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					}
 
 			# --- AI-TACTIC-4: Threat-aware hold check ---
-			# Ranged units currently safe from charge threat should avoid moving
-			# into charge range if the objective is far away and they have targets to shoot
-			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types:
+			# ONLY pure ranged units (no melee capability) should avoid charge threat zones.
+			# Mixed units and melee units should keep advancing.
+			# Skip this check entirely for aggressive factions — they want to fight.
+			var faction_agg_for_threat = _get_faction_aggression(snapshot, player)
+			if not threat_data.is_empty() and "REMAIN_STATIONARY" in move_types and faction_agg_for_threat <= 1.2:
 				var has_ranged_for_threat = _unit_has_ranged_weapons(unit)
-				var is_melee_unit = _unit_has_melee_weapons(unit) and not has_ranged_for_threat
-				if has_ranged_for_threat and not is_melee_unit:
+				var has_melee_for_threat = _unit_has_melee_weapons(unit)
+				# Only hold back pure ranged units — units with melee capability should keep moving
+				if has_ranged_for_threat and not has_melee_for_threat:
 					var current_threat_eval = _evaluate_position_threat(centroid, threat_data, unit)
 					# Estimate where we'd end up
 					var move_dir = (target_pos - centroid).normalized() if centroid.distance_to(target_pos) > 1.0 else Vector2.ZERO
@@ -2936,7 +3224,8 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 					var dest_threat_eval = _evaluate_position_threat(est_dest, threat_data, unit)
 					# If we're currently safe from charges but would move into charge range,
 					# and we have shooting targets, consider staying put
-					if current_threat_eval.charge_threat < 0.5 and dest_threat_eval.charge_threat >= 2.0:
+					# Increased threshold from 2.0 to 3.0 to make this less conservative
+					if current_threat_eval.charge_threat < 0.5 and dest_threat_eval.charge_threat >= 3.0:
 						var max_wr = _get_max_weapon_range(unit)
 						var has_shoot_targets = false
 						for eid in enemies:
@@ -5842,6 +6131,11 @@ static func _should_hold_for_shooting(
 	if max_weapon_range <= 0.0:
 		return false  # No ranged weapons
 
+	# Units with melee weapons should not hold for shooting — they want to close the gap
+	# Exception: units with very strong ranged and weak melee can hold
+	if _is_melee_focused_unit(unit):
+		return false  # Melee units should keep moving
+
 	# Check if there are enemies currently in weapon range
 	var enemies_in_range = _get_enemies_in_weapon_range(centroid, max_weapon_range, enemies)
 	if enemies_in_range.is_empty():
@@ -6102,6 +6396,64 @@ static func _compute_movement_toward_target(
 	if final_move_vector == Vector2.ZERO:
 		print("AIDecisionMaker: All movement paths blocked by terrain")
 		return {}
+
+	# --- Terrain elevation penalty: reduce effective move to account for climb costs ---
+	# MovementPhase validates: raw_distance + terrain_penalty <= move_cap
+	# So we must ensure our destination satisfies: raw_distance + terrain_penalty <= move_inches
+	var has_fly_move = "FLY" in unit_keywords
+	if not has_fly_move:
+		var dest_candidate = centroid + final_move_vector
+		var terrain_move_penalty = _estimate_charge_terrain_penalty(centroid, dest_candidate, false)
+		if terrain_move_penalty > 0.0:
+			var raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
+			var allowed_raw_inches = move_inches - terrain_move_penalty
+			# If terrain penalty eats into our movement, try alternate angles
+			# Weight by: (1) lower terrain penalty AND (2) progress toward target
+			if terrain_move_penalty > 1.0:
+				var base_dir = final_move_vector.normalized()
+				var best_alt_vector = final_move_vector
+				var best_alt_score = -INF
+				var best_alt_penalty = terrain_move_penalty
+				var try_angles = [deg_to_rad(15), deg_to_rad(-15), deg_to_rad(30), deg_to_rad(-30),
+					deg_to_rad(45), deg_to_rad(-45), deg_to_rad(60), deg_to_rad(-60),
+					deg_to_rad(75), deg_to_rad(-75)]
+				# Score: higher = better. Progress toward target minus terrain cost
+				var direct_progress = base_dir.dot(base_dir) * actual_move_px  # Full progress for direct path
+				var direct_score = (actual_move_px / PIXELS_PER_INCH) - terrain_move_penalty  # Net inches gained
+				for angle in try_angles:
+					var alt_dir = base_dir.rotated(angle)
+					var alt_vector = alt_dir * actual_move_px
+					var alt_dest = centroid + alt_vector
+					if alt_dest.x < BASE_MARGIN_PX or alt_dest.y < BASE_MARGIN_PX or alt_dest.x > BOARD_WIDTH_PX - BASE_MARGIN_PX or alt_dest.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+						continue
+					var alt_penalty = _estimate_charge_terrain_penalty(centroid, alt_dest, false)
+					# Progress toward target = dot product of move direction with target direction
+					var target_dir = (target_pos - centroid).normalized()
+					var progress_ratio = alt_dir.dot(target_dir)  # 1.0 = straight toward, 0 = perpendicular
+					var effective_progress = (actual_move_px / PIXELS_PER_INCH) * progress_ratio
+					var alt_score = effective_progress - alt_penalty  # Net gain in inches toward target
+					if alt_score > best_alt_score:
+						best_alt_score = alt_score
+						best_alt_penalty = alt_penalty
+						best_alt_vector = alt_vector
+				# Also score the direct path
+				if direct_score < best_alt_score:
+					print("AIDecisionMaker: Found terrain-avoiding path (penalty %.1f\" -> %.1f\", net progress %.1f\") at alternate angle" % [
+						terrain_move_penalty, best_alt_penalty, best_alt_score])
+					final_move_vector = best_alt_vector
+					terrain_move_penalty = best_alt_penalty
+					raw_move_inches = final_move_vector.length() / PIXELS_PER_INCH
+					allowed_raw_inches = move_inches - terrain_move_penalty
+			# Apply remaining terrain penalty by scaling down movement
+			if terrain_move_penalty > 0.0:
+				allowed_raw_inches = move_inches - terrain_move_penalty
+				if allowed_raw_inches <= 0.5:
+					final_move_vector *= 0.1
+					print("AIDecisionMaker: Terrain penalty %.1f\" blocks most of %.1f\" move — minimal movement" % [terrain_move_penalty, move_inches])
+				elif allowed_raw_inches < raw_move_inches:
+					var scale = allowed_raw_inches / raw_move_inches
+					final_move_vector *= scale
+					print("AIDecisionMaker: Terrain penalty %.1f\" reduces effective move from %.1f\" to %.1f\"" % [terrain_move_penalty, raw_move_inches, allowed_raw_inches])
 
 	# --- MOV-1: Clamp movement to maintain weapon range on current targets ---
 	if max_weapon_range > 0.0:
@@ -6959,13 +7311,19 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			assignments = _focus_fire_plan[selected_unit_id]
 			_focus_fire_plan.erase(selected_unit_id)
 			# Filter out assignments targeting units that may have been destroyed by earlier shooters
+			# T7-LOS: Also filter out assignments where shooter can't see the target (LoS blocked)
 			var valid_assignments = []
 			for a in assignments:
 				var tid = a.get("target_unit_id", "")
-				if enemies.has(tid):
-					valid_assignments.append(a)
-				else:
+				if not enemies.has(tid):
 					print("AIDecisionMaker: Dropping assignment for destroyed target %s" % tid)
+					continue
+				var wid = a.get("weapon_id", "")
+				if not _can_shooter_see_target(selected_unit_id, tid, wid, snapshot):
+					var tname = enemies[tid].get("meta", {}).get("name", tid)
+					print("AIDecisionMaker: Dropping assignment %s -> %s (no LoS)" % [unit_name, tname])
+					continue
+				valid_assignments.append(a)
 			assignments = valid_assignments
 			# If all plan targets were destroyed, fall back to greedy scoring
 			if assignments.is_empty() and not enemies.is_empty():
@@ -7128,11 +7486,16 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 		target_values[enemy_id] = base_value
 
 	# damage_matrix[weapon_index][enemy_id] = expected damage
+	# T7-LOS: Pre-compute LoS visibility per shooter->target pair to avoid assigning
+	# weapons to targets the shooter can't actually see (causing validation failures).
+	var los_cache = {}  # "shooter_id::target_id" -> bool
 	var damage_matrix = []
 	for wi in range(all_weapons.size()):
 		var weapon_entry = all_weapons[wi]
 		var weapon = weapon_entry["weapon"]
+		var weapon_id = weapon_entry["weapon_id"]
 		var shooter_unit = weapon_entry["unit"]
+		var shooter_unit_id = weapon_entry["unit_id"]
 		var dmg_row = {}
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
@@ -7143,6 +7506,13 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				if lo_dist > 12.0:
 					dmg_row[enemy_id] = 0.0
 					continue
+			# T7-LOS: Check if shooter can actually see the target (range + LoS)
+			var los_key = shooter_unit_id + "::" + enemy_id + "::" + weapon_id
+			if not los_cache.has(los_key):
+				los_cache[los_key] = _can_shooter_see_target(shooter_unit_id, enemy_id, weapon_id, snapshot)
+			if not los_cache[los_key]:
+				dmg_row[enemy_id] = 0.0
+				continue
 			var dmg = _estimate_weapon_damage(weapon, enemy, snapshot, shooter_unit)
 			dmg_row[enemy_id] = dmg
 		damage_matrix.append(dmg_row)
@@ -7907,6 +8277,14 @@ static func _decide_charge(snapshot: Dictionary, available_actions: Array, playe
 		var ts_decision = evaluate_tank_shock(player, ts_vehicle_id, snapshot)
 		return ts_decision
 
+	# --- Step 0b: Apply Heroic Intervention movement if pending ---
+	if action_types.has("APPLY_HEROIC_INTERVENTION_MOVE"):
+		var a = action_types["APPLY_HEROIC_INTERVENTION_MOVE"][0]
+		var uid = a.get("actor_unit_id", "")
+		var rolled_distance = a.get("rolled_distance", 0)
+		var target_ids = a.get("target_ids", [])
+		return _compute_charge_move(snapshot, uid, rolled_distance, target_ids, player, "APPLY_HEROIC_INTERVENTION_MOVE")
+
 	# --- Step 1: Complete any pending charge ---
 	if action_types.has("COMPLETE_UNIT_CHARGE"):
 		var a = action_types["COMPLETE_UNIT_CHARGE"][0]
@@ -8038,13 +8416,21 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_name = target_unit.get("meta", {}).get("name", target_id)
 
 			# Calculate charge probability (2D6 must meet or exceed distance - ER)
-			var charge_distance_needed = max(0.0, dist - 1.0)  # minus 1" engagement range
+			# Include terrain penalties — charging through tall terrain adds climb distance
+			var has_fly = "FLY" in unit_keywords
+			var charger_pos_for_terrain = _get_unit_centroid(unit)
+			var target_pos_for_terrain = _get_unit_centroid(target_unit)
+			var terrain_penalty = _estimate_charge_terrain_penalty(charger_pos_for_terrain, target_pos_for_terrain, has_fly)
+			var charge_distance_needed = max(0.0, dist - 1.0) + terrain_penalty  # minus 1" engagement range, plus terrain
+			if terrain_penalty > 0.0:
+				print("AIDecisionMaker: [CHARGE-TERRAIN] %s -> %s: raw=%.1f\" terrain_penalty=+%.1f\" effective=%.1f\"" % [
+					unit_name, target_name, dist - 1.0, terrain_penalty, charge_distance_needed])
 			var charge_prob = _charge_success_probability(charge_distance_needed)
 
 			# Skip charges with very low probability
-			if charge_prob < 0.08:  # Less than ~8% chance (need 11+ on 2d6)
-				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\")" % [
-					unit_name, target_name, charge_prob * 100.0, charge_distance_needed])
+			if charge_prob < 0.03:  # Less than ~3% chance (need 12 on 2d6) — reduced from 8% to attempt more charges
+				print("AIDecisionMaker: Skipping charge %s -> %s (prob=%.1f%%, need=%.1f\", terrain=%.1f\")" % [
+					unit_name, target_name, charge_prob * 100.0, charge_distance_needed, terrain_penalty])
 				continue
 
 			# Score the charge target
@@ -8158,6 +8544,14 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var num_targets = charger_targets[uid_eval].size()
 			eval_parts.append("%s (%d target(s))" % [uname, num_targets])
 		_add_thinking_step("Evaluating charges: %s" % ", ".join(eval_parts))
+
+	# Apply faction aggression to charge threshold — aggressive factions charge more willingly
+	var charge_faction_aggression = _get_faction_aggression(snapshot, player)
+	if charge_faction_aggression > 1.0:
+		# Divide threshold by aggression (1.8 Ork aggression → threshold becomes ~56% of original)
+		charge_threshold /= charge_faction_aggression
+		print("AIDecisionMaker: [FACTION] Charge threshold reduced by faction aggression %.1f (now: %.2f)" % [
+			charge_faction_aggression, charge_threshold])
 
 	# Minimum threshold to declare a charge
 	if best_score < charge_threshold:
@@ -8688,7 +9082,7 @@ static func _get_closest_model_distance_inches(unit_a: Dictionary, unit_b: Dicti
 # CHARGE MOVEMENT COMPUTATION
 # =============================================================================
 
-static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_distance: int, target_ids: Array, player: int) -> Dictionary:
+static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_distance: int, target_ids: Array, player: int, action_type: String = "APPLY_CHARGE_MOVE") -> Dictionary:
 	"""Compute model positions for a charge move. Each model must:
 	1. Move at most rolled_distance inches
 	2. End closer to at least one charge target than it started
@@ -8696,7 +9090,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	4. No model may end within engagement range of a non-target enemy
 	5. Unit coherency must be maintained
 	6. No model overlaps
-	Returns an APPLY_CHARGE_MOVE action dict with per_model_paths, or a SKIP_CHARGE fallback."""
+	Returns an action dict with per_model_paths (type from action_type param), or a SKIP_CHARGE fallback."""
 
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -8779,19 +9173,31 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	var my_base_radius_px = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
 
 	# --- Compute destinations for each model ---
-	# Strategy: move each model toward the primary target, stopping at engagement range
+	# Strategy: for multi-target charges, find a position that reaches all targets.
+	# For single-target, move toward the target into base-to-base contact.
 	# The lead model should get into base-to-base or just within engagement range
 	# Remaining models maintain coherency and follow
+
+	# For multi-target charges, compute the centroid of all target positions
+	# and move toward it (this maximizes chance of reaching all targets)
+	var charge_destination = primary_target_pos
+	if target_positions.size() > 1:
+		var centroid = Vector2.ZERO
+		for tp in target_positions:
+			centroid += tp
+		centroid /= target_positions.size()
+		charge_destination = centroid
+		print("AIDecisionMaker: Multi-target charge — using centroid of %d targets as destination" % target_positions.size())
 
 	var per_model_paths = {}
 	var placed_positions = []  # Track placed positions for intra-unit overlap avoidance
 
-	# Sort models by distance to primary target (closest first)
+	# Sort models by distance to charge destination (closest first)
 	var model_distances = []
 	for model in alive_models:
 		var mid = model.get("id", "")
 		var mpos = _get_model_position(model)
-		var dist = mpos.distance_to(primary_target_pos)
+		var dist = mpos.distance_to(charge_destination)
 		model_distances.append({"model": model, "id": mid, "pos": mpos, "dist": dist})
 	model_distances.sort_custom(func(a, b): return a.dist < b.dist)
 
@@ -8800,6 +9206,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 	for tid in target_ids:
 		any_model_in_er[tid] = false
 
+	var model_index = 0  # Track model index for angular offset
 	for md in model_distances:
 		var model = md.model
 		var mid = md.id
@@ -8815,7 +9222,7 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 		# Edge-to-edge engagement range: center distance = ER + my_radius + target_radius
 		var closest_target_model = _find_closest_target_model_info(start_pos, target_model_info)
 		var target_base_radius = closest_target_model.base_radius_px if not closest_target_model.is_empty() else 20.0
-		var ideal_center_dist = engagement_range_px + my_base_radius_px + target_base_radius - 2.0  # Slight buffer inside ER
+		var ideal_center_dist = my_base_radius_px + target_base_radius + 1.0  # Base-to-base contact (1px gap for rounding)
 		var target_for_model = closest_target_model.position if not closest_target_model.is_empty() else primary_target_pos
 
 		var dir_to_target = (target_for_model - start_pos).normalized()
@@ -8828,6 +9235,22 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 		var actual_move_dist = clamp(desired_move_dist, 0.0, move_budget_px)
 
 		var candidate_pos = start_pos + dir_to_target * actual_move_dist
+
+		# For subsequent models (index > 0), apply angular offset around the target
+		# to avoid overlapping with previously placed models
+		if model_index > 0:
+			var angle_offset = (PI / 3.0) * model_index  # 60 degrees apart per model
+			if model_index % 2 == 0:
+				angle_offset = -angle_offset / 2.0  # Alternate sides
+			var rotated_dir = Vector2(
+				dir_to_target.x * cos(angle_offset) - dir_to_target.y * sin(angle_offset),
+				dir_to_target.x * sin(angle_offset) + dir_to_target.y * cos(angle_offset)
+			)
+			candidate_pos = target_for_model - rotated_dir * ideal_center_dist
+			# Ensure within move budget
+			var dist_from_start = start_pos.distance_to(candidate_pos)
+			if dist_from_start > move_budget_px:
+				candidate_pos = start_pos + (candidate_pos - start_pos).normalized() * move_budget_px
 
 		# Clamp to board bounds
 		candidate_pos.x = clamp(candidate_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
@@ -8853,11 +9276,54 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 			# Fallback: don't move this model (stay in place is valid if it was already close)
 			candidate_pos = start_pos
 
-		# Track which targets have a model in engagement range
+		# Ensure the model reaches base-to-base contact with a charge target.
+		# Per 10e rules, charging models MUST make base contact when possible.
+		# Base contact is checked as edge-to-edge distance <= 0.25" (10px).
+		# This OVERRIDES non-target enemy avoidance — base contact with charge target is mandatory.
+		var in_b2b_with_target = false
+		var b2b_tolerance_px = 10.0  # 0.25 inches = 10px (matches ChargePhase BASE_CONTACT_TOLERANCE_INCHES)
+		for tp_info in target_model_info:
+			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - my_base_radius_px - tp_info.base_radius_px
+			if edge_dist_px <= b2b_tolerance_px:
+				in_b2b_with_target = true
+				break
+		if not in_b2b_with_target:
+			# Model isn't in base contact — force move to base-to-base with closest target
+			var best_target = _find_closest_target_model_info(start_pos, target_model_info)
+			if not best_target.is_empty():
+				var btpos = best_target.position
+				var bt_radius = best_target.base_radius_px
+				# Place exactly at base-to-base contact (edge-to-edge = 0, with tiny margin)
+				var base_contact_center_dist = my_base_radius_px + bt_radius + 1.0
+				var dir_to_bt = (btpos - start_pos).normalized()
+				if dir_to_bt == Vector2.ZERO:
+					dir_to_bt = Vector2.RIGHT
+				var base_contact_pos = btpos - dir_to_bt * base_contact_center_dist
+				# Check if we can reach this position within move budget
+				var dist_to_contact = start_pos.distance_to(base_contact_pos)
+				if dist_to_contact <= move_budget_px:
+					candidate_pos = base_contact_pos
+					var final_edge_dist = candidate_pos.distance_to(btpos) - my_base_radius_px - bt_radius
+					print("AIDecisionMaker: Forced charge to base contact (edge_dist=%.1fpx, %.2f\")" % [
+						final_edge_dist, final_edge_dist / PIXELS_PER_INCH])
+				else:
+					# Can't reach base contact — move as close as possible
+					candidate_pos = start_pos + dir_to_bt * move_budget_px
+					print("AIDecisionMaker: Charge move maxed out (%.1fpx budget, %.1fpx needed for contact)" % [
+						move_budget_px, dist_to_contact])
+
+		# Track which targets have a model in engagement range (1" = 40px)
 		for tp_info in target_model_info:
 			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - my_base_radius_px - tp_info.base_radius_px
 			if edge_dist_px <= engagement_range_px:
 				any_model_in_er[tp_info.target_id] = true
+		# Also track b2b contact
+		var in_er_of_any_target = false
+		for tp_info in target_model_info:
+			var edge_dist_px = candidate_pos.distance_to(tp_info.position) - my_base_radius_px - tp_info.base_radius_px
+			if edge_dist_px <= engagement_range_px:
+				in_er_of_any_target = true
+				break
 
 		# Record the path (start -> end)
 		per_model_paths[mid] = [
@@ -8872,32 +9338,80 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 			"base_dimensions": base_dimensions
 		})
 
+		model_index += 1
+
 	# Verify we achieved engagement range with all targets
 	var all_targets_reached = true
+	var unreached_targets = []
 	for tid in target_ids:
 		if not any_model_in_er.get(tid, false):
 			all_targets_reached = false
+			unreached_targets.append(tid)
 			print("AIDecisionMaker: Charge move for %s failed to reach target %s engagement range" % [unit_name, tid])
-			break
 
-	if not all_targets_reached:
-		# Cannot construct a valid charge move — this shouldn't happen if the roll was sufficient
-		# but may occur due to geometry constraints. The phase will handle the failure.
-		print("AIDecisionMaker: Submitting charge move anyway — phase will validate and handle failure")
+	if not all_targets_reached and target_ids.size() > 1:
+		# Multi-target charge failed to reach all targets.
+		# Recompute for just the closest reachable target (fallback to single-target charge).
+		print("AIDecisionMaker: Multi-target charge failed — retrying with closest reachable target only")
+		var reached_targets = []
+		for tid in target_ids:
+			if any_model_in_er.get(tid, false):
+				reached_targets.append(tid)
+		if not reached_targets.is_empty():
+			# Find the closest reached target and reposition for base contact
+			var closest_reached_tid = reached_targets[0]
+			var closest_reached_info = []
+			for tp_info in target_model_info:
+				if tp_info.target_id == closest_reached_tid:
+					closest_reached_info.append(tp_info)
+			if not closest_reached_info.is_empty():
+				# Recompute move for just this target (base-to-base contact)
+				per_model_paths.clear()
+				placed_positions.clear()
+				for md in model_distances:
+					var _model = md.model
+					var _mid = md.id
+					var _start_pos = md.pos
+					var best_t = _find_closest_target_model_info(_start_pos, closest_reached_info)
+					if best_t.is_empty():
+						per_model_paths[_mid] = [[_start_pos.x, _start_pos.y], [_start_pos.x, _start_pos.y]]
+						continue
+					var _bt_radius = best_t.base_radius_px
+					var _contact_dist = my_base_radius_px + _bt_radius + 1.0
+					var _dir = (best_t.position - _start_pos).normalized()
+					if _dir == Vector2.ZERO:
+						_dir = Vector2.RIGHT
+					var _contact_pos = best_t.position - _dir * _contact_dist
+					var _move_dist = _start_pos.distance_to(_contact_pos)
+					if _move_dist > move_budget_px:
+						_contact_pos = _start_pos + _dir * move_budget_px
+					_contact_pos.x = clamp(_contact_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
+					_contact_pos.y = clamp(_contact_pos.y, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
+					per_model_paths[_mid] = [[_start_pos.x, _start_pos.y], [_contact_pos.x, _contact_pos.y]]
+				print("AIDecisionMaker: Recomputed charge move for single target %s (base-to-base)" % closest_reached_tid)
+		else:
+			# No targets reached at all — shouldn't happen if roll was sufficient
+			print("AIDecisionMaker: No targets reachable — submitting move anyway for phase handling")
+	elif not all_targets_reached:
+		print("AIDecisionMaker: Single-target charge failed to reach — submitting move for phase handling")
 
 	var target_names = []
 	for tid in target_ids:
 		var t = snapshot.get("units", {}).get(tid, {})
 		target_names.append(t.get("meta", {}).get("name", tid))
 
+	var charge_desc = "%s charges into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
+	if action_type == "APPLY_HEROIC_INTERVENTION_MOVE":
+		charge_desc = "%s heroic intervention into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
+
 	return {
-		"type": "APPLY_CHARGE_MOVE",
+		"type": action_type,
 		"actor_unit_id": unit_id,
 		"payload": {
 			"per_model_paths": per_model_paths,
 			"per_model_rotations": {},
 		},
-		"_ai_description": "%s charges into %s (rolled %d\")" % [unit_name, ", ".join(target_names), rolled_distance]
+		"_ai_description": charge_desc
 	}
 
 static func _find_closest_target_model_info(pos: Vector2, target_model_info: Array) -> Dictionary:
@@ -9126,10 +9640,15 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	for entry in engaged_entries:
 		enemies[entry.enemy_id] = entry.enemy_unit
 
-	# If no enemies in engagement range, fall back to all enemies (edge case: pile-in may not have completed)
+	# If no enemies in engagement range, skip attacks and consolidate instead
+	# Falling back to all enemies causes ASSIGN_ATTACKS to fail validation ("Units are not within engagement range")
 	if enemies.is_empty():
-		print("AIDecisionMaker: T7-29 no engaged enemies found for %s, falling back to all enemies" % unit_id)
-		enemies = all_enemies
+		print("AIDecisionMaker: T7-29 no engaged enemies found for %s, skipping attacks — will consolidate" % unit_id)
+		return {
+			"type": "CONSOLIDATE",
+			"unit_id": unit_id,
+			"_ai_description": "%s has no enemies in engagement range — consolidating" % unit.get("meta", {}).get("name", unit_id)
+		}
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 

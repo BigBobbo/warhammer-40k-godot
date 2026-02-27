@@ -298,15 +298,15 @@ func _set_default_army_selections() -> void:
 	var player1_index = 0
 	var player2_index = min(1, army_options.size() - 1)  # Different army if possible
 
-	# Prefer A_C_test for Player 1 if available
+	# Prefer full Adeptus Custodes for Player 1 if available
 	for i in range(army_options.size()):
-		if army_options[i].id == "A_C_test":
+		if army_options[i].id == "adeptus_custodes":
 			player1_index = i
 			break
 
-	# Prefer ORK_test for Player 2 if available
+	# Prefer full Orks for Player 2 if available
 	for i in range(army_options.size()):
-		if army_options[i].id == "ORK_test":
+		if army_options[i].id == "orks":
 			player2_index = i
 			break
 
