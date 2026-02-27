@@ -28,6 +28,10 @@ const COLOR_P2_ACTION: Color = Color(0.85, 0.4, 0.4)    # Red for Player 2
 const COLOR_PHASE_HEADER: Color = Color(0.833, 0.588, 0.376)  # Gold for phase headers
 const COLOR_INFO: Color = Color(0.7, 0.7, 0.7)          # Grey for info
 
+# AI thinking/reasoning colors — dimmer to distinguish from action entries
+const COLOR_AI_THINKING_P1: Color = Color(0.35, 0.50, 0.70)  # Muted blue for P1 thinking
+const COLOR_AI_THINKING_P2: Color = Color(0.70, 0.35, 0.35)  # Muted red for P2 thinking
+
 # T7-55: Spectator summary colors
 const COLOR_SUMMARY_HEADER: Color = Color(0.9, 0.78, 0.5)  # Warm gold for summary headers
 const COLOR_SUMMARY_STAT: Color = Color(0.75, 0.85, 0.75)  # Light green for stats
@@ -177,6 +181,31 @@ func add_action_entry(player: int, _action: Dictionary, description: String) -> 
 	_log_label.append_text(bbcode)
 
 	# Auto-scroll to bottom after appending
+	_auto_scroll()
+
+func add_thinking_entry(player: int, text: String) -> void:
+	"""Add a thinking/reasoning entry to the overlay — shown in a dimmer color to
+	distinguish AI reasoning from actual actions taken."""
+	if text == "":
+		return
+
+	# Show overlay if hidden
+	if not visible:
+		visible = true
+		modulate.a = 1.0
+		_is_active = true
+
+	_fade_timer = 0.0
+	_cancel_fade()
+
+	_entry_count += 1
+	if _entry_count > MAX_VISIBLE_ENTRIES:
+		_trim_old_entries()
+
+	var color = COLOR_AI_THINKING_P1 if player == 1 else COLOR_AI_THINKING_P2
+	var color_hex = color.to_html(false)
+	var bbcode = "[i][color=#%s]  %s[/color][/i]\n" % [color_hex, text]
+	_log_label.append_text(bbcode)
 	_auto_scroll()
 
 func add_phase_header(phase_name: String, round_num: int, player: int) -> void:

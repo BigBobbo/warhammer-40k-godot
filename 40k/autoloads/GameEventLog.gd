@@ -7,7 +7,7 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 signal entry_added(text: String, entry_type: String)
 
-# entry_type: "phase_header", "p1_action", "p2_action", "info"
+# entry_type: "phase_header", "p1_action", "p2_action", "ai_thinking", "info"
 var entries: Array = []
 
 # Noisy internal actions to filter out
@@ -117,11 +117,17 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
 			var target_name = _get_unit_name(action.get("target_unit_id", action.get("target_id", "")))
 			return prefix + "%s charged %s" % [unit_name, target_name]
 		"PILE_IN":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "%s piled in" % unit_name
 		"CONSOLIDATE":
+			if ai_desc != "":
+				return prefix + ai_desc
 			return prefix + "%s consolidated" % unit_name
 		"END_DEPLOYMENT":
 			return prefix + "Ended Deployment Phase"
@@ -184,6 +190,11 @@ func add_ai_entry(player: int, text: String) -> void:
 	var prefix = "P%d: " % player
 	var entry_type = "p1_action" if player == 1 else "p2_action"
 	_add_entry(prefix + text, entry_type)
+
+func add_ai_thinking_entry(player: int, text: String) -> void:
+	"""Called by AIPlayer to log AI thinking/reasoning steps so the user can follow AI logic."""
+	var prefix = "P%d AI: " % player
+	_add_entry(prefix + text, "ai_thinking")
 
 func get_all_entries() -> Array:
 	return entries.duplicate()

@@ -23,6 +23,8 @@ var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
 var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
+var _last_thinking_phase: int = -1  # Track which phase we last logged a "thinking" message for
+var _last_thinking_round: int = -1  # Track which round we last logged a "thinking" message for
 
 # T7-36: AI speed presets — configurable delay between AI actions
 enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
@@ -70,6 +72,7 @@ var _current_phase_ref = null  # Reference to the currently connected phase inst
 signal ai_turn_started(player: int)
 signal ai_turn_ended(player: int, action_summary: Array)
 signal ai_action_taken(player: int, action: Dictionary, description: String)
+signal ai_thinking_step(player: int, text: String)  # Verbose thinking/reasoning messages for UI
 signal ai_unit_deployed(player: int, unit_id: String)
 
 # T7-36: AI speed control signals
@@ -1036,8 +1039,29 @@ func _execute_next_action(player: int) -> void:
 		return
 
 	var difficulty = get_difficulty(player)
+	var battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 	print("AIPlayer: Player %d deciding in phase %d with %d available actions (difficulty: %s)" % [
 		player, phase, available.size(), AIDifficultyConfigData.difficulty_name(difficulty)])
+
+	# Log a phase-level "AI is thinking about..." message (once per phase per round)
+	if phase != _last_thinking_phase or battle_round != _last_thinking_round:
+		_last_thinking_phase = phase
+		_last_thinking_round = battle_round
+		var phase_name = PHASE_DISPLAY_NAMES.get(phase, "Unknown")
+		var action_count = available.size()
+		# Build a summary of what actions are available
+		var action_type_set = {}
+		for a in available:
+			var t = a.get("type", "")
+			action_type_set[t] = action_type_set.get(t, 0) + 1
+		var action_summary_parts = []
+		for t in action_type_set:
+			if action_type_set[t] > 1:
+				action_summary_parts.append("%s x%d" % [_humanize_action_type(t), action_type_set[t]])
+			else:
+				action_summary_parts.append(_humanize_action_type(t))
+		var action_summary = ", ".join(action_summary_parts) if not action_summary_parts.is_empty() else "evaluating options"
+		_log_ai_thinking(player, "Thinking about %s Phase... (%s)" % [phase_name, action_summary])
 
 	# Ask decision maker what to do
 	var decision = AIDecisionMaker.decide(phase, snapshot, available, player, difficulty)
@@ -1049,6 +1073,11 @@ func _execute_next_action(player: int) -> void:
 
 	# Ensure player field is set
 	decision["player"] = player
+
+	# Process any thinking steps returned by the decision maker
+	var thinking_steps = decision.get("_ai_thinking_steps", [])
+	for step in thinking_steps:
+		_log_ai_thinking(player, step)
 
 	# Log for summary
 	var description = decision.get("_ai_description", str(decision.get("type", "unknown")))
@@ -1065,10 +1094,16 @@ func _execute_next_action(player: int) -> void:
 		_track_action_for_summary(player, decision.get("type", ""), phase)
 
 	# T7-37: Route key tactical decisions through GameEventLog with enhanced reasoning
+	# Note: Only log actions that are FILTERED in GameEventLog._on_action_taken (so they'd
+	# otherwise be invisible), or where showing AI intent separately from phase result is useful
+	# (e.g., SHOOT shows AI targeting intent, then phase_action_taken shows actual hit/wound results).
+	# Actions like REMAIN_STATIONARY, DEPLOY_UNIT, SKIP_UNIT, etc. are already shown by
+	# GameEventLog._on_action_taken with their _ai_description, so we don't double-log them.
 	var action_type = decision.get("type", "")
 	if action_type in ["SHOOT", "DECLARE_CHARGE", "ASSIGN_ATTACKS", "SELECT_FIGHTER",
 			"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE",
-			"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM"]:
+			"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM",
+			"BEGIN_NORMAL_MOVE"]:
 		_log_ai_event(player, description)
 
 	# T7-57: Track CP spent for proactive stratagems
@@ -1661,6 +1696,69 @@ func _log_ai_event(player: int, text: String) -> void:
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log and game_event_log.has_method("add_ai_entry"):
 		game_event_log.add_ai_entry(player, text)
+
+func _log_ai_thinking(player: int, text: String) -> void:
+	"""Log an AI thinking/reasoning step to the GameEventLog panel and overlay.
+	These messages help the user understand what the AI is evaluating."""
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log and game_event_log.has_method("add_ai_thinking_entry"):
+		game_event_log.add_ai_thinking_entry(player, text)
+	emit_signal("ai_thinking_step", player, text)
+	print("AIPlayer: [THINKING] P%d: %s" % [player, text])
+	DebugLogger.info("AIPlayer thinking: %s" % text, {"player": player})
+
+const PHASE_DISPLAY_NAMES: Dictionary = {
+	GameStateData.Phase.FORMATIONS: "Formations",
+	GameStateData.Phase.DEPLOYMENT: "Deployment",
+	GameStateData.Phase.SCOUT: "Scout Moves",
+	GameStateData.Phase.ROLL_OFF: "Roll-Off",
+	GameStateData.Phase.COMMAND: "Command",
+	GameStateData.Phase.MOVEMENT: "Movement",
+	GameStateData.Phase.SHOOTING: "Shooting",
+	GameStateData.Phase.CHARGE: "Charge",
+	GameStateData.Phase.FIGHT: "Fight",
+	GameStateData.Phase.SCORING: "Scoring",
+	GameStateData.Phase.MORALE: "Morale",
+}
+
+func _humanize_action_type(action_type: String) -> String:
+	"""Convert ACTION_TYPE strings to human-readable form for thinking messages."""
+	match action_type:
+		"BEGIN_NORMAL_MOVE": return "move"
+		"BEGIN_ADVANCE": return "advance"
+		"BEGIN_FALL_BACK": return "fall back"
+		"REMAIN_STATIONARY": return "hold"
+		"CONFIRM_UNIT_MOVE": return "confirm move"
+		"DEPLOY_UNIT": return "deploy"
+		"END_DEPLOYMENT": return "end deployment"
+		"END_MOVEMENT": return "end movement"
+		"END_SHOOTING": return "end shooting"
+		"END_CHARGE": return "end charge"
+		"END_FIGHT": return "end fight"
+		"SELECT_SHOOTER": return "shoot"
+		"SELECT_FIGHTER": return "fight"
+		"DECLARE_CHARGE": return "charge"
+		"SKIP_CHARGE": return "skip charge"
+		"SKIP_UNIT": return "skip"
+		"CHARGE_ROLL": return "charge roll"
+		"APPLY_CHARGE_MOVE": return "charge move"
+		"PLACE_REINFORCEMENT": return "reinforcements"
+		"APPLY_SAVES": return "saves"
+		"ROLL_DICE": return "roll dice"
+		"PILE_IN": return "pile in"
+		"CONSOLIDATE": return "consolidate"
+		"ASSIGN_ATTACKS_UI": return "assign attacks"
+		"USE_COMMAND_REROLL": return "command reroll"
+		"DECLINE_COMMAND_REROLL": return "decline reroll"
+		"USE_FIRE_OVERWATCH": return "overwatch"
+		"DECLINE_FIRE_OVERWATCH": return "decline overwatch"
+		"USE_HEROIC_INTERVENTION": return "heroic intervention"
+		"USE_GRENADE_STRATAGEM": return "grenade"
+		"USE_TANK_SHOCK": return "tank shock"
+		"BATTLE_SHOCK_TEST": return "battle-shock"
+		"SCORE_PRIMARY", "SCORE_SECONDARY": return "score"
+		"DECLARE_STRATEGIC_RESERVES": return "reserves"
+		_: return action_type.to_lower().replace("_", " ")
 
 func _format_error_concise(error) -> String:
 	"""Format error messages concisely, deduplicating arrays."""
