@@ -198,8 +198,9 @@ func _ready() -> void:
 
 	# Initialize PhaseManager with formations phase NOW that armies are loaded
 	# Per 10e rules, Declare Battle Formations happens before Deployment
+	# Always transition to formations phase - transition_to_phase() handles cleanup of any stale instance
 	var phase_manager = get_node("/root/PhaseManager")
-	if phase_manager and not phase_manager.current_phase_instance:
+	if phase_manager:
 		print("Main: Initializing formations phase with ", GameState.state.units.size(), " units")
 		phase_manager.transition_to_phase(GameStateData.Phase.FORMATIONS)
 
@@ -4967,6 +4968,10 @@ func _on_main_menu_requested() -> void:
 	if NetworkManager.is_networked():
 		print("Main: Disconnecting network before returning to menu")
 		NetworkManager.disconnect_network()
+	# Reset PhaseManager state so it doesn't carry stale phase instances into the next game
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if phase_manager:
+		phase_manager.reset()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
 
 func _on_save_requested(save_name: String) -> void:
