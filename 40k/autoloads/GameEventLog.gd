@@ -196,6 +196,16 @@ func add_ai_thinking_entry(player: int, text: String) -> void:
 	var prefix = "P%d AI: " % player
 	_add_entry(prefix + text, "ai_thinking")
 
+func add_info_entry(text: String) -> void:
+	"""Add a general information entry (VP scoring, mission status, CP generation, etc.)."""
+	_add_entry(text, "info")
+
+func add_player_entry(player: int, text: String) -> void:
+	"""Add a player-attributed entry to the game log."""
+	var prefix = "P%d: " % player
+	var entry_type = "p1_action" if player == 1 else "p2_action"
+	_add_entry(prefix + text, entry_type)
+
 func get_all_entries() -> Array:
 	return entries.duplicate()
 

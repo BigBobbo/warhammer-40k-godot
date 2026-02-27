@@ -36,6 +36,7 @@ func _on_phase_enter() -> void:
 
 	# Score secondary missions for the active player
 	_secondary_results.clear()
+	var game_event_log = get_node_or_null("/root/GameEventLog")
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		# Score end-of-your-turn missions for active player
@@ -44,6 +45,9 @@ func _on_phase_enter() -> void:
 			print("ScoringPhase: Player %d scored secondary missions:" % current_player)
 			for result in _secondary_results:
 				print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
+			if game_event_log:
+				for result in _secondary_results:
+					game_event_log.add_player_entry(current_player, "Scored %d VP from %s" % [result["vp_earned"], result["mission_name"]])
 
 		# Also score end-of-opponent-turn missions for the opponent
 		var opponent = 2 if current_player == 1 else 1
@@ -53,6 +57,18 @@ func _on_phase_enter() -> void:
 				print("ScoringPhase: Player %d scored secondary missions (end of opponent turn):" % opponent)
 				for result in opponent_results:
 					print("  - %s: %d VP" % [result["mission_name"], result["vp_earned"]])
+				if game_event_log:
+					for result in opponent_results:
+						game_event_log.add_player_entry(opponent, "Scored %d VP from %s" % [result["vp_earned"], result["mission_name"]])
+
+	# Log VP totals summary
+	if game_event_log and MissionManager:
+		var vp = MissionManager.get_vp_summary()
+		var p1 = vp["player1"]
+		var p2 = vp["player2"]
+		game_event_log.add_info_entry("VP Totals — P1: %d (Pri %d + Sec %d) | P2: %d (Pri %d + Sec %d)" % [
+			p1["total"], p1["primary"], p1["secondary"],
+			p2["total"], p2["primary"], p2["secondary"]])
 
 func _on_phase_exit() -> void:
 	print("ScoringPhase: Exiting scoring phase")
@@ -123,6 +139,9 @@ func _handle_discard_secondary(action: Dictionary) -> Dictionary:
 	if result["success"]:
 		print("ScoringPhase: Player %d discarded %s (gained %d CP)" % [
 			current_player, result["discarded"], result["cp_gained"]])
+		var game_event_log = get_node_or_null("/root/GameEventLog")
+		if game_event_log:
+			game_event_log.add_player_entry(current_player, "Discarded %s (gained %d CP)" % [result["discarded"], result["cp_gained"]])
 	return result
 
 func _handle_end_turn() -> Dictionary:

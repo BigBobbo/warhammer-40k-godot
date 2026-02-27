@@ -69,6 +69,7 @@ func _on_phase_enter() -> void:
 
 	# Step 5: Draw secondary mission cards (tactical mode)
 	_newly_drawn_missions = []
+	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		secondary_mgr.on_turn_start(current_player)
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
@@ -77,6 +78,19 @@ func _on_phase_enter() -> void:
 			print("CommandPhase: Player %d drew %d secondary mission card(s)" % [current_player, drawn.size()])
 			for card in drawn:
 				print("  - %s" % card["name"])
+				if game_event_log:
+					game_event_log.add_player_entry(current_player, "Drew secondary mission: %s" % card["name"])
+
+	# Log active secondary missions for both players
+	if game_event_log and secondary_mgr:
+		for p in [1, 2]:
+			if secondary_mgr.is_initialized(p):
+				var active = secondary_mgr.get_active_missions(p)
+				if active.size() > 0:
+					var names = []
+					for m in active:
+						names.append(m["name"])
+					game_event_log.add_info_entry("P%d secondaries: %s" % [p, ", ".join(names)])
 
 	# Step 6: Initialize faction abilities (Oath of Moment, etc.)
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
@@ -118,6 +132,11 @@ func _generate_command_points(active_player: int) -> void:
 		active_player, active_cp, active_cp + 1,
 		opponent, opponent_cp, opponent_cp + 1
 	])
+
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_info_entry("CP generated — P%d: %d CP, P%d: %d CP" % [
+			active_player, active_cp + 1, opponent, opponent_cp + 1])
 
 func get_newly_drawn_missions() -> Array:
 	"""Return missions drawn at the start of this command phase (for review dialog)."""
@@ -1428,6 +1447,16 @@ func _handle_end_command() -> Dictionary:
 	# Score primary objectives before ending phase
 	if MissionManager:
 		MissionManager.score_primary_objectives()
+
+	# Log VP summary to game log
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log and MissionManager:
+		var vp = MissionManager.get_vp_summary()
+		var p1 = vp["player1"]
+		var p2 = vp["player2"]
+		game_event_log.add_info_entry("VP Status — P1: %d (Pri %d + Sec %d) | P2: %d (Pri %d + Sec %d)" % [
+			p1["total"], p1["primary"], p1["secondary"],
+			p2["total"], p2["primary"], p2["secondary"]])
 
 	# Emit phase completion signal to proceed to next phase
 	emit_signal("phase_completed")
