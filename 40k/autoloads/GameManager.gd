@@ -32,11 +32,20 @@ func apply_action(action: Dictionary) -> Dictionary:
 		result["action_type"] = action.get("type", "")
 		result["action_data"] = action
 
+		# Capture reverse diffs BEFORE applying changes (for undo support)
+		var diffs = result.get("diffs", [])
+		var reverse_diffs = _create_reverse_diffs(diffs)
+
+		apply_result(result)
+		action_history.append(action)
+
 		# Ensure active_player changes from TurnManager are included in diffs
-		# for network sync. During deployment, actions processed via the phase system
-		# (e.g. PLACE_IN_RESERVES) trigger TurnManager to switch the player locally,
-		# but the phase's result diffs don't include the player switch. Add it here
-		# so the client also switches.
+		# for network sync. During deployment, apply_result() delegates player
+		# switching to TurnManager.check_deployment_alternation(), which modifies
+		# GameState directly. For other phase actions processed via the phase system
+		# (e.g. PLACE_IN_RESERVES), TurnManager also switches the player locally.
+		# In either case, the result diffs may not include the player switch.
+		# Detect the change here and add it so the remote client also switches.
 		var post_active_player = GameState.get_active_player()
 		if post_active_player != pre_active_player:
 			var result_diffs = result.get("diffs", [])
@@ -52,13 +61,6 @@ func apply_action(action: Dictionary) -> Dictionary:
 					"value": post_active_player
 				})
 				print("GameManager: Added active_player diff (%d → %d) for network sync" % [pre_active_player, post_active_player])
-
-		# Capture reverse diffs BEFORE applying changes (for undo support)
-		var diffs = result.get("diffs", [])
-		var reverse_diffs = _create_reverse_diffs(diffs)
-
-		apply_result(result)
-		action_history.append(action)
 
 		# Store reverse diffs for undo (only if there were actual changes)
 		if not reverse_diffs.is_empty():
@@ -305,35 +307,10 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
-	# Handle deployment player alternation for multiplayer sync
-	var current_player = GameState.get_active_player()
-	var player1_has_units = _has_undeployed_units(1)
-	var player2_has_units = _has_undeployed_units(2)
-
-	# Determine if we need to switch players
-	var should_switch = false
-	var new_player = current_player
-
-	# Simple alternation - if both players have units, just alternate every time
-	if player1_has_units and player2_has_units:
-		new_player = 2 if current_player == 1 else 1
-		should_switch = true
-	# If only one player has units left, switch to that player if needed
-	elif player1_has_units and current_player != 1:
-		new_player = 1
-		should_switch = true
-	elif player2_has_units and current_player != 2:
-		new_player = 2
-		should_switch = true
-
-	# Add active_player change to diffs if needed
-	if should_switch:
-		diffs.append({
-			"op": "set",
-			"path": "meta.active_player",
-			"value": new_player
-		})
-		print("GameManager: Switching active player from ", current_player, " to ", new_player)
+	# Player switching is handled by TurnManager.check_deployment_alternation()
+	# which is called from apply_result() after diffs are applied. This ensures
+	# a single source of truth for deployment alternation in both single-player
+	# and multiplayer modes.
 
 	# Get unit info for logging
 	var unit_data = GameState.get_unit(unit_id)
@@ -369,18 +346,34 @@ func apply_result(result: Dictionary) -> void:
 
 	emit_signal("result_applied", result)
 
-	# In multiplayer, deployment actions (DEPLOY_UNIT) go through GameManager
-	# instead of the phase system, so TurnManager's deployment_side_changed
-	# signal never fires. Emit it here so the UI updates (turn indicator,
-	# unit list, board tokens, deployment zone visibility).
+	# After applying diffs, handle deployment player alternation.
+	# TurnManager is the single source of truth for deployment switching.
+	# If the result already contains a meta.active_player diff (e.g. from host
+	# broadcast to client), the switch was already applied via that diff — just
+	# emit the UI signal. Otherwise, let TurnManager compute the correct switch
+	# based on post-diff state.
 	var action_type = result.get("action_type", "")
 	var deployment_actions = ["DEPLOY_UNIT", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]
 	if action_type in deployment_actions and GameState.get_current_phase() == GameStateData.Phase.DEPLOYMENT:
 		var turn_manager = get_node_or_null("/root/TurnManager")
 		if turn_manager:
-			var new_active = GameState.get_active_player()
-			print("GameManager: Emitting deployment_side_changed for player %d (after %s)" % [new_active, action_type])
-			turn_manager.emit_signal("deployment_side_changed", new_active)
+			# Check if the result already includes an active_player change
+			var has_player_diff = false
+			for diff in changes:
+				if diff.get("path") == "meta.active_player":
+					has_player_diff = true
+					break
+
+			if has_player_diff:
+				# Active player was already changed by the diff — just notify UI
+				var new_active = GameState.get_active_player()
+				print("GameManager: Active player already set to %d by diff (after %s) — emitting signal" % [new_active, action_type])
+				turn_manager.emit_signal("deployment_side_changed", new_active)
+			else:
+				# No active_player diff — let TurnManager compute the switch
+				# based on the post-diff game state (unit now DEPLOYED)
+				print("GameManager: Delegating deployment alternation to TurnManager (after %s)" % action_type)
+				turn_manager.check_deployment_alternation()
 
 	# Trigger a state change signal so UI updates
 	var game_state = get_node_or_null("/root/GameState")
