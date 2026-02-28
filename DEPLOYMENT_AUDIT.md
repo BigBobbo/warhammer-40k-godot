@@ -213,10 +213,10 @@ Both players reveal simultaneously, then deployment begins.
 
 **Status**: **Implemented.** Deployment phase now uses a scaled timeout: base 120s + 15s per unit (capped at 300s). Deployment-specific warning thresholds at 60s, 30s, 15s, 10s, and 5s. Warnings at 30s explicitly notify that remaining units will go to Strategic Reserves. On timeout, remaining undeployed units are automatically placed into Strategic Reserves instead of triggering an instant loss. Reserves cap validation is bypassed for auto-timeout placements.
 
-### 7. Web Relay Deployment State Sync
+### 7. Web Relay Deployment State Sync — RESOLVED
 **Issue**: In web relay mode, the initial state is sent after a 0.5-second delay. Guest may briefly see default army configuration.
 
-**Recommendation**: Add a "Waiting for game state..." loading screen on the guest side.
+**Status**: **Implemented (P3-56).** Full-screen "Waiting for game state..." loading overlay shown on guest side in web relay mode. Dark background covers the entire screen (preventing flash of default army configuration) with pulsing text and subtitle. Overlay blocks all input while active. Automatically dismissed with a fade-out animation when the host's initial state is received via `NetworkManager.game_started` signal. Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_web_relay_loading_overlay()`, dismissed by `Main.gd::_dismiss_web_relay_loading_overlay()`.
 
 ---
 
@@ -273,7 +273,7 @@ Both players reveal simultaneously, then deployment begins.
 | Token unit name labels | **Low** | Low | Visual | **DONE** |
 | Opponent zone dimming | **Low** | Low | Visual | **DONE** |
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
-| Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
+| Web relay state sync loading screen | **Medium** | Low | Multiplayer | **DONE** |
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
 | Race condition: embark after player switch | **Medium** | Low | Multiplayer | **DONE** |
 | Duplicate geometry functions | **Low** | Low | Code Quality | **DONE** |
@@ -303,3 +303,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 14 | **Opponent zone dimming marked DONE (DEPLOY-VIS-7, P3-52).** Active zone: bright saturated color (0.65 alpha), full border/glow/hatching. Opponent zone: desaturated grayish tones (0.2 alpha), scaled-down pulse (30%), glow (30%), hatching (40%), brackets (30%) via `is_dimmed` flag in `DeploymentZoneVisual.gd`. Reverses on turn switch. |
 | Update 15 | **TITANIC deployment skip marked DONE (DEPLOY-RULES-3, P3-53).** `TurnManager.check_deployment_alternation()` detects TITANIC keyword on deployed units and skips the deploying player's next deployment turn via `_titanic_skip_turns` dictionary. Only applies to board placement (not reserves). `[TITAN]` tag in deployment list. GameManager and Main.gd paths pass unit_id. |
 | Update 16 | **Keyboard shortcut reference marked DONE (DEPLOY-QOL-5, P3-54).** `KeyboardShortcutOverlay.gd` provides toggleable reference panel (press ? to show/hide) listing all deployment controls, formation modes, and general shortcuts. Positioned bottom-left, WhiteDwarfTheme styled. Created in `Main.gd::_setup_keyboard_shortcut_overlay()`. |
+| Update 17 | **Web relay state sync loading screen marked DONE (DEPLOY-MP-2, P3-56).** Full-screen "Waiting for game state..." overlay on guest side prevents flash of default army configuration. Dark background, pulsing text, input blocking. Dismissed with fade-out on `game_started` signal. Created in `Main.gd::_setup_web_relay_loading_overlay()`. |
