@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests", "-gprefix=test_", "-gsuffix=.gd"]
+ARGS: []
