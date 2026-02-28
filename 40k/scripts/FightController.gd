@@ -56,6 +56,10 @@ var pile_in_movement_visual: Node2D = null  # T5-V8: Enhanced arrows + distance 
 var current_fighter_id: String = ""
 var current_fighter_owner: int = -1
 
+# P0-58: Track active melee wound allocation overlay
+var active_melee_allocation_overlay: WoundAllocationOverlay = null
+var processing_melee_saves_signal: bool = false
+
 # UI Elements
 var unit_selector: ItemList
 var attack_tree: Tree
@@ -388,6 +392,9 @@ func set_phase(phase: BasePhase) -> void:
 			phase.katah_stance_required.connect(_on_katah_stance_required)
 		if phase.has_signal("dread_foe_resolved") and not phase.dread_foe_resolved.is_connected(_on_dread_foe_resolved):
 			phase.dread_foe_resolved.connect(_on_dread_foe_resolved)
+		# P0-58: Connect saves_required signal for interactive melee wound allocation
+		if phase.has_signal("saves_required") and not phase.saves_required.is_connected(_on_melee_saves_required):
+			phase.saves_required.connect(_on_melee_saves_required)
 
 		print("DEBUG: FightController signals connected, setting up UI")
 
@@ -2497,3 +2504,137 @@ func _update_model_overlap_visual(token: Node2D, has_overlap: bool) -> void:
 		token.modulate = Color(1.0, 0.3, 0.3, 1.0)  # Red tint
 	else:
 		token.modulate = Color(1.0, 1.0, 1.0, 1.0)  # Normal
+
+# =============================================================================
+# P0-58: INTERACTIVE MELEE WOUND ALLOCATION
+# =============================================================================
+
+func _on_melee_saves_required(save_data_list: Array) -> void:
+	"""Show WoundAllocationOverlay when defender needs to make saves in melee combat."""
+	# Prevent re-entrant calls
+	if processing_melee_saves_signal:
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ P0-58: ❌ DUPLICATE MELEE SAVES SIGNAL BLOCKED")
+		print("╚═══════════════════════════════════════════════════════════════")
+		return
+
+	processing_melee_saves_signal = true
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P0-58: MELEE SAVES_REQUIRED RECEIVED (FightController)")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ Save data list size: ", save_data_list.size())
+
+	if save_data_list.is_empty():
+		print("║ ⚠️  WARNING: Empty save data list - RETURNING")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_melee_saves_signal = false
+		return
+
+	var save_data = save_data_list[0]
+	var target = save_data.get("target_unit_id", "unknown")
+	var weapon = save_data.get("weapon_name", "unknown")
+	var wounds = save_data.get("wounds_to_save", 0)
+
+	print("║ Target: ", target)
+	print("║ Weapon: ", weapon)
+	print("║ Wounds: ", wounds)
+
+	# Check if overlay already exists
+	if active_melee_allocation_overlay != null and is_instance_valid(active_melee_allocation_overlay):
+		print("║ ⚠️  Active melee overlay already exists — ignoring duplicate")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_melee_saves_signal = false
+		return
+
+	# Get defender
+	var target_unit_id = save_data.get("target_unit_id", "")
+	if target_unit_id == "":
+		push_error("FightController: P0-58: No target_unit_id in save data")
+		processing_melee_saves_signal = false
+		return
+
+	var target_unit = GameState.get_unit(target_unit_id)
+	if target_unit.is_empty():
+		push_error("FightController: P0-58: Target unit not found: " + target_unit_id)
+		processing_melee_saves_signal = false
+		return
+
+	var defender_player = target_unit.get("owner", 0)
+
+	# Determine if this local player should see the dialog
+	var should_show_dialog = false
+
+	if NetworkManager.is_networked():
+		var local_player = NetworkManager.get_local_player()
+		should_show_dialog = (local_player == defender_player)
+		print("║ Mode: MULTIPLAYER, Local: %d, Defender: %d, Show: %s" % [local_player, defender_player, str(should_show_dialog)])
+	else:
+		should_show_dialog = true
+		print("║ Mode: SINGLE PLAYER — showing dialog")
+
+	if not should_show_dialog:
+		print("║ ❌ NOT SHOWING — Not the defending player")
+		print("╚═══════════════════════════════════════════════════════════════")
+		processing_melee_saves_signal = false
+		return
+
+	print("║ ✅ SHOWING MELEE WOUND ALLOCATION DIALOG")
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Temporarily disable input
+	set_process_input(false)
+	set_process_unhandled_input(false)
+
+	# Create WoundAllocationOverlay
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P0-58: CREATING MELEE WOUND ALLOCATION OVERLAY")
+	print("║ Target: ", target)
+	print("║ Weapon: ", weapon)
+	print("║ Wounds: ", wounds)
+
+	var overlay = WoundAllocationOverlay.new()
+	active_melee_allocation_overlay = overlay
+	print("║ Overlay instance created: ", overlay.get_instance_id())
+
+	# Connect to allocation_complete signal to submit APPLY_MELEE_SAVES
+	overlay.allocation_complete.connect(func(summary):
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ P0-58: MELEE WOUND ALLOCATION COMPLETE")
+		print("║ Timestamp: ", Time.get_ticks_msec())
+		print("║ Summary: ", summary)
+
+		# Build APPLY_MELEE_SAVES action from summary
+		var apply_melee_saves_action = {
+			"type": "APPLY_MELEE_SAVES",
+			"payload": {
+				"save_results_list": [summary]
+			}
+		}
+
+		print("║ Emitting fight_action_requested with APPLY_MELEE_SAVES")
+		emit_signal("fight_action_requested", apply_melee_saves_action)
+
+		print("║ APPLY_MELEE_SAVES action submitted successfully")
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		active_melee_allocation_overlay = null
+		processing_melee_saves_signal = false
+		set_process_input(true)
+		set_process_unhandled_input(true)
+	)
+
+	# Add to scene tree
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		push_error("FightController: P0-58: /root/Main not found!")
+		processing_melee_saves_signal = false
+		return
+
+	main.add_child(overlay)
+	print("║ Overlay added to scene tree")
+
+	# Setup overlay with save data and defender player
+	overlay.setup(save_data, defender_player)
+	print("║ Overlay setup called with defender_player=%d" % defender_player)
+	print("╚═══════════════════════════════════════════════════════════════")

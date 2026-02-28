@@ -2031,6 +2031,7 @@ func _humanize_action_type(action_type: String) -> String:
 		"APPLY_CHARGE_MOVE": return "charge move"
 		"PLACE_REINFORCEMENT": return "reinforcements"
 		"APPLY_SAVES": return "saves"
+		"APPLY_MELEE_SAVES": return "melee saves"
 		"ROLL_DICE": return "roll dice"
 		"PILE_IN": return "pile in"
 		"CONSOLIDATE": return "consolidate"

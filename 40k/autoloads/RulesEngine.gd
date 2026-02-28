@@ -6076,11 +6076,105 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 
 	return result
 
+# P0-58: Resolve melee attacks but stop before saves for interactive wound allocation.
+# Returns hit/wound dice blocks and save preparation data for WoundAllocationOverlay.
+static func resolve_melee_attacks_interactive(action: Dictionary, board: Dictionary, rng_service: RNGService = null) -> Dictionary:
+	"""Resolve melee hit and wound rolls only, returning save data for interactive allocation.
+	Used when the defending player is human and should choose wound allocation."""
+	if not rng_service:
+		rng_service = RNGService.new()
+
+	var result = {
+		"success": true,
+		"phase": "FIGHT",
+		"diffs": [],
+		"dice": [],
+		"log_text": "",
+		"save_data_list": [],  # Save data per assignment (for WoundAllocationOverlay)
+		"has_wounds": false
+	}
+
+	var actor_unit_id = action.get("actor_unit_id", "")
+	var assignments = action.get("payload", {}).get("assignments", [])
+
+	if assignments.is_empty():
+		result.success = false
+		result.log_text = "No attack assignments provided"
+		return result
+
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+
+	if actor_unit.is_empty():
+		result.success = false
+		result.log_text = "Actor unit not found"
+		return result
+
+	# Process each attack assignment with stop_before_saves=true
+	for assignment in assignments:
+		var assignment_result = _resolve_melee_assignment(assignment, actor_unit_id, board, rng_service, true)
+		result.dice.append_array(assignment_result.dice)
+		if assignment_result.log_text:
+			result.log_text += assignment_result.log_text + "\n"
+
+		# If this assignment produced wounds, prepare save data for the overlay
+		if assignment_result.get("stop_before_saves", false) and assignment_result.get("wounds_caused", 0) > 0:
+			var target_id = assignment_result.get("target_id", "")
+			var weapon_prof = assignment_result.get("weapon_profile", {})
+
+			# Build devastating wounds data
+			var dw_data = {
+				"has_devastating_wounds": assignment_result.get("weapon_has_devastating_wounds", false),
+				"critical_wounds": assignment_result.get("critical_wound_count", 0),
+				"regular_wounds": assignment_result.get("regular_wound_count", 0)
+			}
+
+			# Build precision data
+			var prec_data = {
+				"has_precision": assignment_result.get("weapon_has_precision", false),
+				"precision_wounds": assignment_result.get("critical_hits", 0) if assignment_result.get("weapon_has_precision", false) else 0,
+				"critical_hits": assignment_result.get("critical_hits", 0)
+			}
+
+			var save_data = prepare_melee_save_resolution(
+				assignment_result.get("wounds_caused", 0),
+				target_id,
+				assignment_result.get("attacker_id", actor_unit_id),
+				weapon_prof,
+				board,
+				dw_data,
+				prec_data
+			)
+
+			if save_data.get("success", false):
+				result.save_data_list.append(save_data)
+				result.has_wounds = true
+				print("RulesEngine: P0-58 — Prepared melee save data: %d wounds for %s from %s" % [
+					assignment_result.get("wounds_caused", 0),
+					save_data.get("target_unit_name", ""),
+					save_data.get("weapon_name", "")
+				])
+
+		# HAZARDOUS (T2-3): After weapon resolves, check for Hazardous self-damage (melee)
+		var weapon_id = assignment.get("weapon", "")
+		if is_hazardous_weapon(weapon_id, board):
+			var models_that_fought = assignment.get("models", []).size()
+			var hazardous_result = resolve_hazardous_check(actor_unit_id, weapon_id, models_that_fought, board, rng_service)
+			if hazardous_result.hazardous_triggered:
+				result.diffs.append_array(hazardous_result.diffs)
+			result.dice.append_array(hazardous_result.dice)
+			if hazardous_result.log_text:
+				result.log_text += hazardous_result.log_text + "\n"
+
+	return result
+
 # Resolve a single melee assignment (models with weapon -> target)
 # Full pipeline mirroring shooting: hit rolls (with critical tracking, Sustained Hits),
 # wound rolls (with Lethal Hits, Devastating Wounds), save rolls (with invulnerable saves),
 # FNP, and damage application.
-static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
+# P0-58: When stop_before_saves=true, stops after wound rolls and returns save prep data
+# for interactive wound allocation overlay (defender-controlled wound allocation).
+static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService, stop_before_saves: bool = false) -> Dictionary:
 	var result = {
 		"diffs": [],
 		"dice": [],
@@ -6576,6 +6670,42 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		if sustained_bonus_hits > 0:
 			hit_text += " (+%d sustained)" % sustained_bonus_hits
 		result.log_text = "Melee: %s (%s) → %s: %d attacks, %s, 0 wounds" % [attacker_name, weapon_name, target_name, total_attacks, hit_text]
+		return result
+
+	# P0-58: When stop_before_saves=true, return wound data for interactive save allocation
+	if stop_before_saves:
+		result["wounds_caused"] = wounds_caused
+		result["critical_wound_count"] = critical_wound_count
+		result["regular_wound_count"] = regular_wound_count
+		result["weapon_has_devastating_wounds"] = weapon_has_devastating_wounds
+		result["weapon_has_precision"] = weapon_has_precision
+		result["critical_hits"] = critical_hits
+		result["weapon_profile"] = weapon_profile
+		result["target_id"] = target_id
+		result["attacker_id"] = attacker_id
+		result["target_name"] = target_name
+		result["attacker_name"] = attacker_name
+		result["weapon_name"] = weapon_name
+		result["stop_before_saves"] = true
+		# Build log text for the hit/wound portion
+		var hw_parts = []
+		hw_parts.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
+		if is_torrent:
+			hw_parts.append("Torrent: %d auto-hits" % hits)
+		else:
+			var hw_hit_detail = "Hit: %d/%d" % [hits, total_attacks]
+			if critical_hits > 0:
+				hw_hit_detail += " [%d crit]" % critical_hits
+			hw_parts.append(hw_hit_detail)
+		if sustained_bonus_hits > 0:
+			hw_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
+		var hw_wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+		if auto_wounds > 0:
+			hw_wound_detail += " (%d Lethal)" % auto_wounds
+		hw_parts.append(hw_wound_detail)
+		hw_parts.append("Awaiting defender save allocation...")
+		result.log_text = " - ".join(hw_parts)
+		print("RulesEngine: P0-58 — Melee hits/wounds resolved, %d wounds caused, returning for interactive saves" % wounds_caused)
 		return result
 
 	# ===== PHASE 6: SAVE ROLLS =====
@@ -7238,6 +7368,147 @@ static func prepare_save_resolution(
 		# Character model IDs for precision targeting
 		"character_model_ids": allocation_info.character_model_ids,
 		"bodyguard_alive": allocation_info.bodyguard_alive
+	}
+
+# P0-58: Prepare melee save resolution data for interactive wound allocation overlay.
+# Similar to prepare_save_resolution() but for melee context (no cover, no indirect fire, no melta).
+static func prepare_melee_save_resolution(
+	wounds_caused: int,
+	target_unit_id: String,
+	attacker_unit_id: String,
+	weapon_profile: Dictionary,
+	board: Dictionary,
+	devastating_wounds_data: Dictionary = {},
+	precision_data: Dictionary = {}
+) -> Dictionary:
+	"""
+	Prepares save resolution data for melee wounds so the defending player
+	can interactively allocate wounds via WoundAllocationOverlay.
+	Returns the same format as prepare_save_resolution().
+	"""
+	var units = board.get("units", {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if target_unit.is_empty():
+		return {"success": false, "error": "Target unit not found"}
+
+	var ap = weapon_profile.get("ap", 0)
+	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if worsen_ap > 0 and ap > 0:
+		var pre_ap = ap
+		ap = max(0, ap - worsen_ap)
+		print("RulesEngine: Worsen AP (melee interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, worsen_ap])
+
+	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment
+	var attacker_unit = units.get(attacker_unit_id, {})
+	var attacker_flags = attacker_unit.get("flags", {})
+	if attacker_flags.get("martial_mastery_improve_ap", false):
+		var pre_ap_mm = ap
+		ap = ap + 1
+		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
+
+	var damage = weapon_profile.get("damage", 1)
+
+	# DEAD BRUTAL: Override damage while Waaagh! active
+	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
+	if waaagh_active:
+		var attacker_abilities = attacker_unit.get("meta", {}).get("abilities", [])
+		for ab in attacker_abilities:
+			var ab_name = ""
+			if ab is String:
+				ab_name = ab
+			elif ab is Dictionary:
+				ab_name = ab.get("name", "")
+			if ab_name == "Dead Brutal" and weapon_profile.get("name", "").to_lower().contains("uge choppa"):
+				damage = 3
+				print("RulesEngine: Dead Brutal — melee interactive 'Uge choppa damage = 3")
+
+	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
+	var damage_raw = weapon_profile.get("damage_raw", str(damage))
+
+	# Get model allocation requirements (prioritize wounded models)
+	var allocation_info = _get_save_allocation_requirements(target_unit, attacker_unit_id, board)
+
+	# Effect-granted invuln (e.g., Waaagh! 5+)
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	if effect_invuln > 0:
+		print("RulesEngine: Target has effect-granted %d+ invulnerable save (melee interactive)" % effect_invuln)
+
+	# Calculate save profile for each model — NO COVER in melee
+	var model_save_profiles = []
+	for model_info in allocation_info.models:
+		var model = model_info.model
+		# Invulnerable save: use best of model's native invuln and effect-granted invuln
+		var model_invuln = model.get("invuln", 0)
+		if effect_invuln > 0:
+			if model_invuln == 0 or effect_invuln < model_invuln:
+				model_invuln = effect_invuln
+
+		var save_result = _calculate_save_needed(base_save, ap, false, model_invuln)  # No cover in melee
+
+		model_save_profiles.append({
+			"model_id": model_info.model_id,
+			"model_index": model_info.model_index,
+			"is_wounded": model_info.is_wounded,
+			"is_character": model_info.get("is_character", false),
+			"current_wounds": model.get("current_wounds", model.get("wounds", 1)),
+			"max_wounds": model.get("wounds", 1),
+			"has_cover": false,  # No cover in melee
+			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
+			"using_invuln": save_result.use_invuln,
+			"invuln_value": save_result.inv if save_result.use_invuln else 0,
+			"armour_value": save_result.armour
+		})
+
+	# DEVASTATING WOUNDS data
+	var has_devastating_wounds = devastating_wounds_data.get("has_devastating_wounds", false)
+	var critical_wounds = devastating_wounds_data.get("critical_wounds", 0)
+	var regular_wounds = devastating_wounds_data.get("regular_wounds", wounds_caused)
+	var wounds_needing_saves = regular_wounds if has_devastating_wounds else wounds_caused
+	var devastating_wound_count = critical_wounds if has_devastating_wounds else 0
+	var devastating_damage_val = devastating_wound_count * damage
+
+	# HALF DAMAGE (T4-17)
+	var has_half_damage = get_unit_half_damage(target_unit)
+	# MINUS DAMAGE (P1-18)
+	var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+
+	return {
+		"success": true,
+		"wounds_to_save": wounds_needing_saves,
+		"total_wounds": wounds_caused,
+		"target_unit_id": target_unit_id,
+		"target_unit_name": target_unit.get("meta", {}).get("name", target_unit_id),
+		"shooter_unit_id": attacker_unit_id,
+		"weapon_name": weapon_profile.get("name", "Unknown Weapon"),
+		"ap": ap,
+		"damage": damage,
+		"damage_raw": damage_raw,
+		"base_save": base_save,
+		"model_save_profiles": model_save_profiles,
+		"allocation_priority": allocation_info.priority_model_ids,
+		# DEVASTATING WOUNDS
+		"has_devastating_wounds": has_devastating_wounds,
+		"devastating_wounds": devastating_wound_count,
+		"devastating_damage": devastating_damage_val,
+		# No cover, no indirect fire, no melta in melee
+		"ignores_cover": true,
+		"indirect_fire": false,
+		"melta_bonus": 0,
+		"melta_models_in_half_range": 0,
+		"melta_total_models": 0,
+		# PRECISION
+		"has_precision": precision_data.get("has_precision", false),
+		"precision_wounds": precision_data.get("precision_wounds", 0),
+		"precision_critical_hits": precision_data.get("critical_hits", 0),
+		"character_model_ids": allocation_info.character_model_ids,
+		"bodyguard_alive": allocation_info.bodyguard_alive,
+		# Melee-specific: damage modifiers for WoundAllocationOverlay
+		"has_half_damage": has_half_damage,
+		"minus_damage": minus_dmg,
+		# Flag to identify this as melee save data
+		"is_melee": true
 	}
 
 # Get save allocation requirements (which models can/must receive wounds)

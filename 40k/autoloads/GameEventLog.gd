@@ -168,6 +168,11 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if log_text != "":
 				return prefix + log_text
 			return prefix + "Saves resolved"
+		"APPLY_MELEE_SAVES":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return prefix + "Melee saves resolved"
 		"DECLARE_CHARGE":
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
