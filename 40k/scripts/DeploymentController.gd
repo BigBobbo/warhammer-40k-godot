@@ -29,9 +29,6 @@ var reposition_model_index: int = -1
 var reposition_start_pos: Vector2
 var reposition_ghost: Node2D = null
 
-# Throttle zone validation debug logging to avoid spam every frame
-var _last_zone_debug_center: Vector2 = Vector2.INF
-
 # Coherency distance display label (floating near ghost during placement)
 var coherency_distance_label: Label = null
 
@@ -1138,31 +1135,12 @@ func _finalize_tokens() -> void:
 					child.set_preview(false)
 	placed_tokens.clear()
 
+# Delegated to Measurement.gd (single source of truth)
 func _circle_wholly_in_polygon(center: Vector2, radius: float, polygon: PackedVector2Array) -> bool:
-	if not Geometry2D.is_point_in_polygon(center, polygon):
-		return false
-	
-	for i in range(polygon.size()):
-		var p1 = polygon[i]
-		var p2 = polygon[(i + 1) % polygon.size()]
-		var dist = _point_to_line_distance(center, p1, p2)
-		if dist < radius:
-			return false
-	
-	return true
+	return Measurement.circle_wholly_in_polygon(center, radius, polygon)
 
 func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vector2) -> float:
-	var line_vec = line_end - line_start
-	var point_vec = point - line_start
-	var line_len = line_vec.length()
-	
-	if line_len == 0:
-		return point_vec.length()
-	
-	var t = max(0, min(1, point_vec.dot(line_vec) / (line_len * line_len)))
-	var projection = line_start + t * line_vec
-	
-	return point.distance_to(projection)
+	return Measurement.point_to_line_distance(point, line_start, line_end)
 
 func _check_coherency_warning() -> void:
 	var unit_data = GameState.get_unit(unit_id)
@@ -1279,88 +1257,7 @@ func _is_unit_coherent() -> bool:
 	return true
 
 func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation: float, polygon: PackedVector2Array) -> bool:
-	# Create the base shape
-	var shape = Measurement.create_base_shape(model_data)
-	if not shape:
-		return false
-
-	# For circular, use existing method
-	if shape.get_type() == "circular":
-		var circular = shape as CircularBase
-		return _circle_wholly_in_polygon(center, circular.radius, polygon)
-
-	# For non-circular shapes, we need to check multiple points around the edge
-	var _should_log = center.distance_to(_last_zone_debug_center) > 1.0
-	if _should_log:
-		_last_zone_debug_center = center
-		print("\n=== DEBUG: Zone Validation for %s ===" % shape.get_type())
-		print("Center: ", center)
-		print("Rotation: %.2f degrees (%.4f radians)" % [rad_to_deg(rotation), rotation])
-
-	# Generate sample points around the shape's edge
-	var sample_points = []
-
-	if shape.get_type() == "oval":
-		# For ovals, sample points around the ellipse perimeter
-		var oval = shape as OvalBase
-		var num_samples = 16  # Check 16 points around the ellipse
-		if _should_log:
-			print("Oval shape - length: %.2f, width: %.2f" % [oval.length, oval.width])
-
-		for i in range(num_samples):
-			var angle = (i * TAU) / num_samples
-			# Points on ellipse: (a*cos(θ), b*sin(θ))
-			var local_point = Vector2(
-				oval.length * cos(angle),
-				oval.width * sin(angle)
-			)
-			sample_points.append(local_point)
-	elif shape.get_type() == "rectangular":
-		# For rectangles, check the 4 corners
-		var bounds = shape.get_bounds()
-		var half_width = bounds.size.x / 2.0
-		var half_height = bounds.size.y / 2.0
-
-		sample_points = [
-			Vector2(-half_width, -half_height),
-			Vector2(half_width, -half_height),
-			Vector2(half_width, half_height),
-			Vector2(-half_width, half_height)
-		]
-	else:
-		# Fallback: use bounding box corners
-		var bounds = shape.get_bounds()
-		var half_width = bounds.size.x / 2.0
-		var half_height = bounds.size.y / 2.0
-
-		sample_points = [
-			Vector2(-half_width, -half_height),
-			Vector2(half_width, -half_height),
-			Vector2(half_width, half_height),
-			Vector2(-half_width, half_height)
-		]
-
-	if _should_log:
-		print("Checking %d sample points" % sample_points.size())
-
-	# Transform sample points to world space and check if in polygon
-	var point_idx = 0
-	for local_point in sample_points:
-		var world_point = shape.to_world_space(local_point, center, rotation)
-		var in_poly = Geometry2D.is_point_in_polygon(world_point, polygon)
-
-		if _should_log and (point_idx < 4 or not in_poly):  # Only print first 4 and failures
-			print("Point %d: local=%s -> world=%s, in_polygon=%s" % [point_idx, local_point, world_point, in_poly])
-
-		if not in_poly:
-			print("❌ FAILED: Point outside polygon")
-			return false
-
-		point_idx += 1
-
-	if _should_log:
-		print("✅ SUCCESS: All %d points in polygon" % sample_points.size())
-	return true
+	return Measurement.shape_wholly_in_polygon(center, model_data, rotation, polygon)
 
 func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
 	var shape = Measurement.create_base_shape(model_data)

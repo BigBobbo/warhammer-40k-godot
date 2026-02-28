@@ -1207,31 +1207,12 @@ func _dict_array_to_packed_vector2(dict_array: Array) -> PackedVector2Array:
 			packed.append(Vector2(dict.x, dict.y))
 	return packed
 
+# Delegated to Measurement.gd (single source of truth)
 func _circle_wholly_in_polygon(center: Vector2, radius: float, polygon: PackedVector2Array) -> bool:
-	if not Geometry2D.is_point_in_polygon(center, polygon):
-		return false
-	
-	for i in range(polygon.size()):
-		var p1 = polygon[i]
-		var p2 = polygon[(i + 1) % polygon.size()]
-		var dist = _point_to_line_distance(center, p1, p2)
-		if dist < radius:
-			return false
-	
-	return true
+	return Measurement.circle_wholly_in_polygon(center, radius, polygon)
 
 func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vector2) -> float:
-	var line_vec = line_end - line_start
-	var point_vec = point - line_start
-	var line_len = line_vec.length()
-	
-	if line_len == 0:
-		return point_vec.length()
-	
-	var t = max(0, min(1, point_vec.dot(line_vec) / (line_len * line_len)))
-	var projection = line_start + t * line_vec
-	
-	return point.distance_to(projection)
+	return Measurement.point_to_line_distance(point, line_start, line_end)
 
 func _position_overlaps_existing_models(pos: Vector2, radius: float, current_unit_id: String) -> bool:
 	var units = game_state_snapshot.get("units", {})
@@ -1252,67 +1233,7 @@ func _position_overlaps_existing_models(pos: Vector2, radius: float, current_uni
 	return false
 
 func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation: float, polygon: PackedVector2Array) -> bool:
-	"""Check if a model's base shape is wholly within a polygon"""
-	# Create the base shape
-	var shape = Measurement.create_base_shape(model_data)
-	if not shape:
-		return false
-
-	# For circular, use existing method
-	var base_type = model_data.get("base_type", "circular")
-	if base_type == "circular":
-		var radius = Measurement.base_radius_px(model_data.get("base_mm", 32))
-		return _circle_wholly_in_polygon(center, radius, polygon)
-
-	# Generate sample points around the shape's edge
-	var sample_points = []
-
-	if shape.get_type() == "oval":
-		# For ovals, sample points around the ellipse perimeter
-		var oval = shape as OvalBase
-		var num_samples = 16  # Check 16 points around the ellipse
-
-		for i in range(num_samples):
-			var angle = (i * TAU) / num_samples
-			# Points on ellipse: (a*cos(θ), b*sin(θ))
-			var local_point = Vector2(
-				oval.length * cos(angle),
-				oval.width * sin(angle)
-			)
-			sample_points.append(local_point)
-	elif shape.get_type() == "rectangular":
-		# For rectangles, check the 4 corners
-		var bounds = shape.get_bounds()
-		var half_width = bounds.size.x / 2.0
-		var half_height = bounds.size.y / 2.0
-
-		sample_points = [
-			Vector2(-half_width, -half_height),
-			Vector2(half_width, -half_height),
-			Vector2(half_width, half_height),
-			Vector2(-half_width, half_height)
-		]
-	else:
-		# Fallback: use bounding box corners
-		var bounds = shape.get_bounds()
-		var half_width = bounds.size.x / 2.0
-		var half_height = bounds.size.y / 2.0
-
-		sample_points = [
-			Vector2(-half_width, -half_height),
-			Vector2(half_width, -half_height),
-			Vector2(half_width, half_height),
-			Vector2(-half_width, half_height)
-		]
-
-	# Transform sample points to world space and check if in polygon
-	for local_point in sample_points:
-		var world_point = shape.to_world_space(local_point, center, rotation)
-
-		if not Geometry2D.is_point_in_polygon(world_point, polygon):
-			return false
-
-	return true
+	return Measurement.shape_wholly_in_polygon(center, model_data, rotation, polygon)
 
 func _position_overlaps_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float, current_unit_id: String) -> bool:
 	"""Check if a model's shape overlaps with any existing deployed models"""
