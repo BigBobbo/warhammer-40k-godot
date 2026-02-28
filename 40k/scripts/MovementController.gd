@@ -600,8 +600,14 @@ func _on_unit_selected(index: int) -> void:
 				move_cap_inches = existing_cap
 				print("MovementController: Unit %s already has active move (mode=%s, cap=%.1f\")" % [unit_id, existing_move_data.get("mode", "?"), move_cap_inches])
 			active_mode = existing_move_data.get("mode", "NORMAL")
+			# Sync pivot state from phase data
+			pivot_cost_paid = existing_move_data.get("pivot_cost_applied", false)
+			pivot_cost_inches = existing_move_data.get("pivot_value", 0.0) if pivot_cost_paid else 0.0
 
 	if not has_existing_move:
+		# Reset pivot state for new unit
+		_reset_pivot_cost()
+
 		# Get unit movement cap
 		if unit:
 			move_cap_inches = get_unit_movement(unit)
@@ -1933,8 +1939,16 @@ func _get_accumulated_distance() -> float:
 	return 0.0
 
 func _update_movement_display() -> void:
+	# Calculate effective cap accounting for pivot cost
+	var effective_cap = move_cap_inches
+	if pivot_cost_paid:
+		effective_cap -= pivot_cost_inches
+
 	if move_cap_label:
-		move_cap_label.text = "Move: %.1f\"" % move_cap_inches
+		if pivot_cost_paid and pivot_cost_inches > 0:
+			move_cap_label.text = "Move: %.1f\" (pivot: -%.0f\")" % [effective_cap, pivot_cost_inches]
+		else:
+			move_cap_label.text = "Move: %.1f\"" % move_cap_inches
 
 	# Handle group selection display
 	if selected_models.size() > 1:
@@ -1948,7 +1962,7 @@ func _update_movement_display() -> void:
 		if inches_used_label:
 			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
 		if inches_left_label:
-			inches_left_label.text = "Left: %.1f\"" % (move_cap_inches - accumulated)
+			inches_left_label.text = "Left: %.1f\"" % (effective_cap - accumulated)
 	elif not selected_model.is_empty():
 		# Original single model selection
 		var accumulated = _get_accumulated_distance()
@@ -1957,7 +1971,7 @@ func _update_movement_display() -> void:
 		if inches_used_label:
 			inches_used_label.text = "%s Used: %.1f\"" % [model_id, accumulated]
 		if inches_left_label:
-			inches_left_label.text = "Left: %.1f\"" % (move_cap_inches - accumulated)
+			inches_left_label.text = "Left: %.1f\"" % (effective_cap - accumulated)
 	else:
 		# No selection
 		if inches_used_label:
@@ -1986,8 +2000,14 @@ func _get_model_accumulated_distance(model_id: String) -> float:
 
 
 func _update_movement_display_with_preview(used: float, left: float, valid: bool) -> void:
+	var effective_cap = move_cap_inches
+	if pivot_cost_paid:
+		effective_cap -= pivot_cost_inches
 	if move_cap_label:
-		move_cap_label.text = "Move: %.1f\"" % move_cap_inches
+		if pivot_cost_paid and pivot_cost_inches > 0:
+			move_cap_label.text = "Move: %.1f\" (pivot: -%.0f\")" % [effective_cap, pivot_cost_inches]
+		else:
+			move_cap_label.text = "Move: %.1f\"" % move_cap_inches
 	if inches_used_label:
 		if selected_model.is_empty():
 			inches_used_label.text = "Used: %.1f\"" % used
@@ -2045,10 +2065,15 @@ func _start_model_rotation(mouse_pos: Vector2) -> void:
 	if selected_model.is_empty():
 		return
 
-	# Check if model has a non-circular base
+	# Check if model has a non-circular base, or is a Vehicle with flying stem on round base >32mm
 	var base_type = selected_model.get("base_type", "circular")
+	var base_mm = selected_model.get("base_mm", 32)
+	var has_flying_stem = selected_model.get("flying_stem", false)
+
 	if base_type == "circular":
-		return  # No rotation needed for circular bases
+		# Vehicles on round bases >32mm with flying stem can still pivot (with cost)
+		if not (base_mm > 32 and has_flying_stem):
+			return  # No rotation needed for standard circular bases
 
 	rotating_model = true
 	var model_pos = selected_model.get("position", Vector2.ZERO)
@@ -2056,7 +2081,7 @@ func _start_model_rotation(mouse_pos: Vector2) -> void:
 	rotation_start_angle = to_mouse.angle()
 	model_start_rotation = selected_model.get("rotation", 0.0)
 
-	print("Starting rotation for model with base type: ", base_type)
+	print("Starting rotation for model with base type: %s (base_mm: %d)" % [base_type, base_mm])
 
 func _update_model_rotation(mouse_pos: Vector2) -> void:
 	if not rotating_model or selected_model.is_empty():
@@ -2084,7 +2109,10 @@ func _rotate_model_by_angle(angle: float) -> void:
 		return
 
 	var base_type = selected_model.get("base_type", "circular")
-	if base_type == "circular":
+	var base_mm = selected_model.get("base_mm", 32)
+	var has_flying_stem = selected_model.get("flying_stem", false)
+
+	if base_type == "circular" and not (base_mm > 32 and has_flying_stem):
 		return
 
 	var current_rotation = selected_model.get("rotation", 0.0)
@@ -2128,39 +2156,48 @@ func _check_and_apply_pivot_cost() -> void:
 	if pivot_cost_paid:
 		return  # Already paid this movement
 
-	# Check if this model needs pivot cost
-	var base_type = selected_model.get("base_type", "circular")
-	if base_type == "circular":
-		return  # No pivot cost for circular bases
-
-	# Check if model is a vehicle or monster
-	var keywords = selected_model.get("meta", {}).get("keywords", [])
-	var needs_pivot_cost = false
-	for keyword in keywords:
-		if keyword in ["VEHICLE", "MONSTER"]:
-			needs_pivot_cost = true
-			break
-
-	if not needs_pivot_cost:
+	# Get pivot value from the phase's active move data (10e Core Rules Update)
+	if not current_phase or active_unit_id == "":
 		return
 
-	# Apply pivot cost
-	pivot_cost_paid = true
-	var remaining_movement = move_cap_inches - _get_accumulated_distance()
-	remaining_movement -= pivot_cost_inches
+	var move_data = {}
+	if current_phase.has_method("get_active_move_data"):
+		move_data = current_phase.get_active_move_data(active_unit_id)
 
+	if move_data.is_empty():
+		return
+
+	var pivot_value = move_data.get("pivot_value", 0.0)
+	if pivot_value <= 0:
+		return  # No pivot cost for this unit
+
+	if move_data.get("pivot_cost_applied", false):
+		pivot_cost_paid = true  # Sync with phase state
+		return
+
+	# Apply pivot cost through the phase action system
+	pivot_cost_paid = true
+	pivot_cost_inches = pivot_value
+
+	var action = {
+		"type": "APPLY_PIVOT_COST",
+		"actor_unit_id": active_unit_id
+	}
+	emit_signal("move_action_requested", action)
+
+	var remaining_movement = move_cap_inches - pivot_value - _get_accumulated_distance()
 	if remaining_movement < 0:
 		print("WARNING: Pivot cost exceeds remaining movement!")
-		# Show warning to player
 		if illegal_reason_label:
-			illegal_reason_label.text = "Pivot cost exceeds movement!"
+			illegal_reason_label.text = "Pivot cost (%.0f\") exceeds remaining movement!" % pivot_value
 			illegal_reason_label.modulate = Color.RED
 
-	print("Applied pivot cost of ", pivot_cost_inches, " inches")
+	print("Applied pivot cost of %.0f inches (10e Core Rules Update)" % pivot_value)
 	_update_movement_display()
 
 func _reset_pivot_cost() -> void:
 	pivot_cost_paid = false
+	pivot_cost_inches = 0.0
 
 func _update_model_token_visual(model: Dictionary) -> void:
 	# Find and update the token visual directly

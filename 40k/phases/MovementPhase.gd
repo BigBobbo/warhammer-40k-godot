@@ -56,6 +56,51 @@ var _sawbonez_painboss_id: String = ""          # The Painboss unit offering hea
 var _sawbonez_targets: Array = []               # Eligible healing targets
 var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
 
+# Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
+# - Non-round base, non-Monster/Vehicle: 1"
+# - Monster/Vehicle non-round base: 2"
+# - Vehicle round base >32mm with flying stem: 2"
+# - Aircraft: 0"
+# - All other (standard round base): 0"
+func get_pivot_value_for_unit(unit_id: String) -> float:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return 0.0
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var is_vehicle = "VEHICLE" in keywords
+	var is_monster = "MONSTER" in keywords
+	var is_aircraft = "AIRCRAFT" in keywords
+
+	# Aircraft always have 0" pivot value
+	if is_aircraft:
+		return 0.0
+
+	# Check base type from first alive model
+	var base_type = "circular"
+	var base_mm = 32
+	var has_flying_stem = false
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("alive", true):
+			base_type = model.get("base_type", "circular")
+			base_mm = model.get("base_mm", 32)
+			has_flying_stem = model.get("flying_stem", false)
+			break
+
+	# Non-round base (rectangular, oval, etc.)
+	if base_type != "circular":
+		if is_vehicle or is_monster:
+			return 2.0  # Monster/Vehicle non-round base = 2"
+		else:
+			return 1.0  # Other non-round base = 1"
+
+	# Round base >32mm with flying stem — Vehicle only
+	if base_type == "circular" and base_mm > 32 and has_flying_stem and is_vehicle:
+		return 2.0
+
+	return 0.0
+
 # Helper function to get unit movement stat with proper error handling
 func get_unit_movement(unit: Dictionary) -> float:
 	# Try the expected path first
@@ -219,6 +264,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			if not _awaiting_sawbonez:
 				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
 			return {"valid": true}
+		"APPLY_PIVOT_COST":
+			return _validate_apply_pivot_cost(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -283,6 +330,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_sawbonez(action)
 		"DECLINE_SAWBONEZ":
 			return _process_decline_sawbonez(action)
+		"APPLY_PIVOT_COST":
+			return _process_apply_pivot_cost(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -466,10 +515,15 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	total_distance_for_model += terrain_penalty
 	log_phase_message("  Distance calculation: %.2f inches (terrain penalty: %.2f\")" % [total_distance_for_model, terrain_penalty])
 
+	# Account for pivot cost (10e Core Rules Update) — pivot value reduces effective move cap
+	var effective_cap = move_data.move_cap_inches
+	if move_data.get("pivot_cost_applied", false):
+		effective_cap -= move_data.get("pivot_value", 0.0)
+
 	# Check if this specific model's distance exceeds cap (with floating-point tolerance)
-	if total_distance_for_model > move_data.move_cap_inches + MOVEMENT_CAP_EPSILON:
-		log_phase_message("  FAILED: Distance %.1f\" exceeds cap %.1f\"" % [total_distance_for_model, move_data.move_cap_inches])
-		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, move_data.move_cap_inches]]}
+	if total_distance_for_model > effective_cap + MOVEMENT_CAP_EPSILON:
+		log_phase_message("  FAILED: Distance %.1f\" exceeds cap %.1f\" (pivot cost: %.0f\")" % [total_distance_for_model, effective_cap, move_data.get("pivot_value", 0.0) if move_data.get("pivot_cost_applied", false) else 0.0])
+		return {"valid": false, "errors": ["Model %s would exceed movement cap: %.1f\" > %.1f\"" % [model_id, total_distance_for_model, effective_cap]]}
 	
 	# Check engagement range restrictions for the destination
 	var er_check = _check_engagement_range_at_position(unit_id, model_id, dest_vec, move_data.mode)
@@ -707,6 +761,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
+	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "NORMAL",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -718,11 +773,16 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 		"original_positions": {},  # NEW: Track starting positions for reset
 		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
+		# Pivot tracking (10e Core Rules Update)
+		"pivot_value": pivot_value,  # Cost in inches for first pivot (0, 1, or 2)
+		"pivot_cost_applied": false,  # Whether pivot cost has been deducted this move
 		# Multi-selection group movement support
 		"group_moves": [],  # Track group movement operations
 		"group_selection": [],  # Current multi-selected models
 		"group_formation": {}  # Relative positions within group
 	}
+	if pivot_value > 0:
+		log_phase_message("  Pivot value for %s: %.0f\"" % [unit.get("meta", {}).get("name", unit_id), pivot_value])
 	
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 	log_phase_message("Beginning normal move for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
@@ -817,6 +877,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
+	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "ADVANCE",
 		"mode_locked": false,
@@ -828,6 +889,9 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		"original_positions": {},
 		"model_distances": {},
 		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}],
+		# Pivot tracking (10e Core Rules Update)
+		"pivot_value": pivot_value,
+		"pivot_cost_applied": false,
 		"group_moves": [],
 		"group_selection": [],
 		"group_formation": {}
@@ -1240,6 +1304,50 @@ func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
 
 	# Continue with Rapid Ingress check and phase completion
 	return _continue_end_movement_after_sawbonez(cached_changes)
+
+func _validate_apply_pivot_cost(action: Dictionary) -> Dictionary:
+	"""Validate APPLY_PIVOT_COST action — pivot cost deduction for non-round base models."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	if not active_moves.has(unit_id):
+		return {"valid": false, "errors": ["No active move for unit"]}
+
+	var move_data = active_moves[unit_id]
+
+	# Already applied this move
+	if move_data.get("pivot_cost_applied", false):
+		return {"valid": false, "errors": ["Pivot cost already applied for this move"]}
+
+	# No pivot cost for this unit
+	var pivot_value = move_data.get("pivot_value", 0.0)
+	if pivot_value <= 0:
+		return {"valid": false, "errors": ["Unit has no pivot cost"]}
+
+	return {"valid": true, "errors": []}
+
+func _process_apply_pivot_cost(action: Dictionary) -> Dictionary:
+	"""Apply pivot cost to a unit's movement — deducts pivot value from effective movement cap.
+	10e Core Rules Update: non-round base costs subtracted from movement on first pivot."""
+	var unit_id = action.get("actor_unit_id", "")
+	var move_data = active_moves[unit_id]
+	var pivot_value = move_data.get("pivot_value", 0.0)
+
+	move_data["pivot_cost_applied"] = true
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var effective_cap = move_data.move_cap_inches - pivot_value
+
+	log_phase_message("PIVOT COST: %s — %.0f\" deducted from movement (effective cap: %.1f\")" % [unit_name, pivot_value, effective_cap])
+	print("MovementPhase: PIVOT COST applied for %s: %.0f\" (cap %.1f\" → effective %.1f\")" % [unit_name, pivot_value, move_data.move_cap_inches, effective_cap])
+
+	return create_result(true, [], "", {
+		"pivot_cost_applied": true,
+		"pivot_value": pivot_value,
+		"effective_move_cap": effective_cap
+	})
 
 func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
 	"""Continue the END_MOVEMENT flow after Sawbonez decision (heal or decline).
@@ -1792,6 +1900,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
+	var pivot_value = get_pivot_value_for_unit(unit_id)
 	active_moves[unit_id] = {
 		"mode": "FALL_BACK",
 		"mode_locked": false,  # Track if mode is confirmed
@@ -1804,6 +1913,9 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
 		"battle_shocked": unit.get("status_effects", {}).get("battle_shocked", false),
+		# Pivot tracking (10e Core Rules Update)
+		"pivot_value": pivot_value,
+		"pivot_cost_applied": false,
 		# Multi-selection group movement support
 		"group_moves": [],  # Track group movement operations
 		"group_selection": [],  # Current multi-selected models
@@ -1932,21 +2044,30 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Update per-model distance tracking
 	move_data.model_distances[model_id] = total_distance_for_model
 	
+	# Calculate effective cap accounting for pivot cost
+	var effective_cap = move_data.move_cap_inches
+	if move_data.get("pivot_cost_applied", false):
+		effective_cap -= move_data.get("pivot_value", 0.0)
+
 	print("  - Distance this segment: ", distance_inches, "\"")
 	print("  - Total distance from origin: ", total_distance_for_model, "\"")
-	print("  - Remaining for this model: ", (move_data.move_cap_inches - total_distance_for_model), "\"")
-	
+	print("  - Remaining for this model: ", (effective_cap - total_distance_for_model), "\"")
+	if move_data.get("pivot_cost_applied", false):
+		print("  - Pivot cost applied: ", move_data.get("pivot_value", 0.0), "\"")
+
 	# Emit both signals for visual update
 	emit_signal("model_drop_preview", unit_id, model_id, [current_pos, dest_vec], distance_inches, true)
 	# Also emit committed signal so model visually moves (but game state not updated)
 	emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
-	
+
 	# Return result without state changes (staged only)
 	return create_result(true, [], "", {
-		"staged": true, 
+		"staged": true,
 		"model_distance": total_distance_for_model,
-		"model_remaining": move_data.move_cap_inches - total_distance_for_model,
-		"model_distances": move_data.model_distances
+		"model_remaining": effective_cap - total_distance_for_model,
+		"model_distances": move_data.model_distances,
+		"pivot_cost_applied": move_data.get("pivot_cost_applied", false),
+		"pivot_value": move_data.get("pivot_value", 0.0)
 	})
 
 func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
@@ -2024,6 +2145,7 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 	move_data.staged_moves.clear()
 	move_data.model_distances.clear()  # Clear per-model distances
 	move_data.original_positions.clear()
+	move_data["pivot_cost_applied"] = false  # Reset pivot cost on move reset
 
 	# Clear movement_active flag (synced across network)
 	changes.append({
