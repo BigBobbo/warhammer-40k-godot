@@ -175,13 +175,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 4. Deployment Zone Theming — IMPLEMENTED
 **Status**: **Implemented.** `DeploymentZoneVisual.gd` now draws subtle diagonal hatching lines (45° dashed pattern, clipped to zone polygon via `Geometry2D.intersect_polyline_with_polygon`) and military-style L-shaped corner brackets at inner edge corners. Hatching uses very low alpha (0.08) to avoid overwhelming the board. Corner brackets replace the previous simple circle markers with inset L-shaped arms along edge directions.
 
-### 5. Ghost Visual Enhancement
-**Issue**: Ghost previews are functional but basic.
-
-**Recommendation**:
-- Add a subtle pulsing effect to the ghost to draw attention
-- Show a connecting line from the ghost to the nearest placed model (helps with coherency)
-- Display the distance from the ghost to the nearest friendly model in inches (see QoL #11)
+### 5. Ghost Visual Enhancement — IMPLEMENTED
+**Status**: **Implemented.** `GhostVisual.gd` now features: (1) Subtle pulsing effect via sine-wave alpha modulation (0.7–1.0 at 2.5 Hz) applied to fill and border colors. (2) Dashed connecting line from ghost to nearest placed model, colored green when within 2" coherency range, red when outside. (3) Distance display in inches already implemented via QoL #11 coherency distance label. `DeploymentController.gd` passes nearest model world position and distance to the ghost via `set_nearest_model()`. Works in single placement and reposition modes; hidden in formation mode.
 
 ### 6. Coherency Visualization
 **Issue**: Coherency is only communicated via a text warning and a toast.
@@ -279,7 +274,7 @@ Both players reveal simultaneously, then deployment begins.
 | Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
 | Unit placement animation | **Low** | Low | Visual | **DONE** |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
-| Ghost visual enhancement | **Low** | Low | Visual | Open |
+| Ghost visual enhancement | **Low** | Low | Visual | **DONE** |
 | Deployment zone theming | **Low** | Low | Visual | **DONE** |
 | Token unit name labels | **Low** | Low | Visual | Open |
 | Opponent zone dimming | **Low** | Low | Visual | Open |
@@ -309,3 +304,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 9 | **Snapshot staleness in `_all_units_deployed()` marked DONE (DEPLOY-CODE-2, P2-46).** `GameManager.apply_result()` refreshes phase snapshot after deployment diffs. `_all_units_deployed()` and `get_deployment_summary()` now use `game_state_snapshot`. |
 | Update 10 | **Unit placement animation marked DONE (DEPLOY-VIS-2, P3-47).** Scale 0→1 tween over 0.2s with back-ease-out in `_spawn_preview_token()` for both `DeploymentController.gd` and `DisembarkController.gd`. |
 | Update 11 | **Deployment zone theming marked DONE (DEPLOY-VIS-3, P3-48).** Diagonal hatching (45° dashed lines clipped to polygon via Geometry2D) and military-style L-shaped corner brackets at inner edge corners in `DeploymentZoneVisual.gd`. |
+| Update 12 | **Ghost visual enhancement marked DONE (DEPLOY-VIS-4, P3-49).** Pulsing effect (sine-wave alpha 0.7–1.0 at 2.5 Hz), dashed connecting line to nearest placed model (green/red coherency coloring), and distance display (existing QoL #11) in `GhostVisual.gd`. |
