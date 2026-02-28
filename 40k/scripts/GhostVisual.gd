@@ -7,9 +7,23 @@ var model_data: Dictionary = {}
 var base_rotation: float = 0.0
 var base_shape: BaseShape = null
 
+# Pulsing effect state
+var _pulse_time: float = 0.0
+const PULSE_SPEED: float = 2.5  # Cycles per second
+const PULSE_MIN_ALPHA: float = 0.7  # Minimum alpha multiplier during pulse
+const PULSE_MAX_ALPHA: float = 1.0  # Maximum alpha multiplier during pulse
+
+# Connecting line to nearest placed model (world-space position, or null if none)
+var nearest_model_world_pos = null  # Vector2 or null
+var nearest_model_distance_inches: float = -1.0  # -1 means no data
+
 func _ready() -> void:
 	z_index = 20
 	set_process(true)
+
+func _process(delta: float) -> void:
+	_pulse_time += delta
+	queue_redraw()
 
 func _draw() -> void:
 	if not base_shape:
@@ -18,21 +32,24 @@ func _draw() -> void:
 		print("  model_data: ", model_data)
 		base_shape = CircularBase.new(20.0)
 
+	# Calculate pulse alpha multiplier (smooth sine wave)
+	var pulse_factor = lerp(PULSE_MIN_ALPHA, PULSE_MAX_ALPHA, (sin(_pulse_time * PULSE_SPEED * TAU) + 1.0) / 2.0)
+
 	var fill_color: Color
 	var border_color: Color
 
 	if not is_valid_position:
-		fill_color = Color(0.8, 0.2, 0.2, 0.5)
-		border_color = Color(1.0, 0.0, 0.0, 0.8)
+		fill_color = Color(0.8, 0.2, 0.2, 0.5 * pulse_factor)
+		border_color = Color(1.0, 0.0, 0.0, 0.8 * pulse_factor)
 	else:
 		if owner_player == 1:
 			# P1: Blue-gray fill (reduced alpha), gold border
-			fill_color = Color(0.2, 0.25, 0.45, 0.4)
-			border_color = Color(0.83, 0.59, 0.38, 0.6)
+			fill_color = Color(0.2, 0.25, 0.45, 0.4 * pulse_factor)
+			border_color = Color(0.83, 0.59, 0.38, 0.6 * pulse_factor)
 		else:
 			# P2: Crimson fill (reduced alpha), bone border
-			fill_color = Color(0.5, 0.12, 0.1, 0.4)
-			border_color = Color(0.85, 0.8, 0.65, 0.6)
+			fill_color = Color(0.5, 0.12, 0.1, 0.4 * pulse_factor)
+			border_color = Color(0.85, 0.8, 0.65, 0.6 * pulse_factor)
 
 	# Check if enhanced mode for gradient ghost fill
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
@@ -58,6 +75,52 @@ func _draw() -> void:
 	else:
 		# Original rendering - no silhouette overlays on ghosts for clarity
 		base_shape.draw(self, Vector2.ZERO, base_rotation, fill_color, border_color, 2.0)
+
+	# Draw connecting line to nearest placed model (if available)
+	_draw_coherency_line(border_color)
+
+func _draw_coherency_line(border_color: Color) -> void:
+	if nearest_model_world_pos == null:
+		return
+
+	# Convert world-space target to local-space for drawing
+	var local_target: Vector2 = nearest_model_world_pos - global_position
+
+	# Determine line color based on coherency (2" threshold)
+	var line_color: Color
+	if nearest_model_distance_inches >= 0.0 and nearest_model_distance_inches <= 2.0:
+		line_color = Color(0.2, 0.9, 0.2, 0.4)  # Green - in coherency
+	else:
+		line_color = Color(0.9, 0.2, 0.2, 0.4)  # Red - out of coherency
+
+	# Draw dashed line from ghost center to nearest model
+	var from_pos = Vector2.ZERO
+	var direction = (local_target - from_pos)
+	var total_length = direction.length()
+	if total_length < 1.0:
+		return
+
+	var dash_length = 6.0
+	var gap_length = 4.0
+	var segment_length = dash_length + gap_length
+	var dir_normalized = direction.normalized()
+
+	var distance_traveled = 0.0
+	while distance_traveled < total_length:
+		var dash_start = from_pos + dir_normalized * distance_traveled
+		var dash_end_dist = min(distance_traveled + dash_length, total_length)
+		var dash_end = from_pos + dir_normalized * dash_end_dist
+		draw_line(dash_start, dash_end, line_color, 1.5, true)
+		distance_traveled += segment_length
+
+func set_nearest_model(world_pos, distance_inches: float) -> void:
+	nearest_model_world_pos = world_pos
+	nearest_model_distance_inches = distance_inches
+	# No need to queue_redraw() here as _process() already does it every frame
+
+func clear_nearest_model() -> void:
+	nearest_model_world_pos = null
+	nearest_model_distance_inches = -1.0
 
 func set_validity(valid: bool) -> void:
 	is_valid_position = valid

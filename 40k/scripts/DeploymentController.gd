@@ -1007,6 +1007,9 @@ func _remove_coherency_distance_label() -> void:
 
 func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Dictionary, ghost_rotation: float) -> void:
 	"""Update the floating coherency distance label near the ghost model."""
+	# Determine which ghost to update (reposition ghost or main ghost)
+	var active_ghost = reposition_ghost if (repositioning_model and reposition_ghost) else ghost_sprite
+
 	# Only show when there are placed models to measure against
 	var has_placed_models = false
 	for pos in temp_positions:
@@ -1017,6 +1020,8 @@ func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Di
 	if not has_placed_models:
 		if coherency_distance_label != null:
 			coherency_distance_label.visible = false
+		if active_ghost and active_ghost.has_method("clear_nearest_model"):
+			active_ghost.clear_nearest_model()
 		return
 
 	# Create the label if it doesn't exist
@@ -1031,6 +1036,7 @@ func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Di
 	# Find nearest placed model distance (edge-to-edge, shape-aware)
 	var unit_data = GameState.get_unit(unit_id)
 	var min_distance_inches = INF
+	var nearest_pos: Vector2 = Vector2.ZERO
 
 	for i in range(temp_positions.size()):
 		if temp_positions[i] == null:
@@ -1050,10 +1056,17 @@ func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Di
 		var dist = Measurement.model_to_model_distance_inches(ghost_model, placed_model)
 		if dist < min_distance_inches:
 			min_distance_inches = dist
+			nearest_pos = temp_positions[i]
 
 	if min_distance_inches == INF:
 		coherency_distance_label.visible = false
+		if active_ghost and active_ghost.has_method("clear_nearest_model"):
+			active_ghost.clear_nearest_model()
 		return
+
+	# Update ghost with nearest model info for connecting line
+	if active_ghost and active_ghost.has_method("set_nearest_model"):
+		active_ghost.set_nearest_model(nearest_pos, min_distance_inches)
 
 	# Update label text and color
 	var is_in_coherency = min_distance_inches <= 2.0
@@ -1379,9 +1392,12 @@ func _process(delta: float) -> void:
 	# Handle formation mode ghost updates
 	if formation_mode != "SINGLE" and not formation_preview_ghosts.is_empty():
 		_update_formation_ghost_positions(mouse_pos)
-		# Hide coherency distance in formation mode (multiple ghosts)
+		# Hide coherency distance and connecting line in formation mode (multiple ghosts)
 		if coherency_distance_label != null:
 			coherency_distance_label.visible = false
+		for fg in formation_preview_ghosts:
+			if fg and fg.has_method("clear_nearest_model"):
+				fg.clear_nearest_model()
 		return
 
 	# Handle single mode ghost updates
