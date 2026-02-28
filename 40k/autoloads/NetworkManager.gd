@@ -84,6 +84,12 @@ const TURN_TIMEOUT_WARNING_THRESHOLDS: Array[int] = [30, 15, 10, 5]
 signal turn_timer_warning(seconds_remaining: int)
 signal phase_auto_ended(phase_name: String)  # Emitted when a phase is auto-ended due to timeout
 
+# P2-42: Deployment-specific timeout — longer for large armies, auto-place on timeout
+const DEPLOYMENT_BASE_TIMEOUT_SECONDS: float = 120.0  # Base deployment timeout (vs 90s for other phases)
+const DEPLOYMENT_PER_UNIT_SECONDS: float = 15.0  # Extra seconds per unit to deploy
+const DEPLOYMENT_MAX_TIMEOUT_SECONDS: float = 300.0  # Cap at 5 minutes
+const DEPLOYMENT_WARNING_THRESHOLDS: Array[int] = [60, 30, 15, 10, 5]  # Deployment-specific warnings
+
 # RNG determinism (Phase 4)
 var rng_seed_counter: int = 0
 var game_session_id: String = ""
@@ -141,7 +147,11 @@ func _process(_delta: float) -> void:
 	if not turn_timer or turn_timer.is_stopped():
 		return
 	var time_left = int(turn_timer.time_left)
-	for threshold in TURN_TIMEOUT_WARNING_THRESHOLDS:
+	# P2-42: Use deployment-specific thresholds during deployment phase
+	var thresholds = TURN_TIMEOUT_WARNING_THRESHOLDS
+	if game_state and game_state.get_current_phase() == GameStateData.Phase.DEPLOYMENT:
+		thresholds = DEPLOYMENT_WARNING_THRESHOLDS
+	for threshold in thresholds:
 		if time_left <= threshold and _last_warning_threshold != threshold:
 			_last_warning_threshold = threshold
 			turn_timer_warning.emit(threshold)
@@ -1957,8 +1967,37 @@ func start_turn_timer() -> void:
 		return
 
 	_last_warning_threshold = -1
-	turn_timer.start(TURN_TIMEOUT_SECONDS)
-	print("NetworkManager: Turn timer started - %ds (consecutive timeouts: %d)" % [int(TURN_TIMEOUT_SECONDS), consecutive_timeout_count])
+	var timeout = _get_timeout_for_current_phase()
+	turn_timer.start(timeout)
+	print("NetworkManager: Turn timer started - %ds (consecutive timeouts: %d)" % [int(timeout), consecutive_timeout_count])
+
+func _get_timeout_for_current_phase() -> float:
+	"""P2-42: Return the timeout duration for the current phase. Deployment gets a longer, army-size-scaled timeout."""
+	if not game_state:
+		return TURN_TIMEOUT_SECONDS
+	var current_phase = game_state.get_current_phase()
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		return _calculate_deployment_timeout()
+	return TURN_TIMEOUT_SECONDS
+
+func _calculate_deployment_timeout() -> float:
+	"""P2-42: Scale deployment timeout based on total units to deploy. Base 120s + 15s per unit, capped at 300s."""
+	if not game_state:
+		return DEPLOYMENT_BASE_TIMEOUT_SECONDS
+	var total_units = 0
+	var units = game_state.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Count units that need active deployment (not embarked/attached)
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		total_units += 1
+	var timeout = DEPLOYMENT_BASE_TIMEOUT_SECONDS + (total_units * DEPLOYMENT_PER_UNIT_SECONDS)
+	timeout = minf(timeout, DEPLOYMENT_MAX_TIMEOUT_SECONDS)
+	print("NetworkManager: Deployment timeout calculated - %ds (base=%d + %d units * %ds, max=%d)" % [int(timeout), int(DEPLOYMENT_BASE_TIMEOUT_SECONDS), total_units, int(DEPLOYMENT_PER_UNIT_SECONDS), int(DEPLOYMENT_MAX_TIMEOUT_SECONDS)])
+	return timeout
 
 func stop_turn_timer() -> void:
 	if turn_timer:
@@ -1970,7 +2009,8 @@ func reset_turn_timer_on_activity() -> void:
 		return
 	if turn_timer and not turn_timer.is_stopped():
 		_last_warning_threshold = -1
-		turn_timer.start(TURN_TIMEOUT_SECONDS)
+		var timeout = _get_timeout_for_current_phase()
+		turn_timer.start(timeout)
 		# Player is active — reset consecutive timeout count
 		consecutive_timeout_count = 0
 
@@ -1987,6 +2027,12 @@ func _on_turn_timeout() -> void:
 	var current_phase = game_state.get_current_phase()
 	var phase_name = GameStateData.Phase.keys()[current_phase] if current_phase < GameStateData.Phase.size() else "UNKNOWN"
 	print("NetworkManager: Turn timeout! Player %d in %s phase (consecutive: %d/%d)" % [current_player, phase_name, consecutive_timeout_count, MAX_CONSECUTIVE_TIMEOUTS])
+
+	# P2-42: Deployment phase gets special handling — auto-deploy remaining units instead of instant loss
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		print("NetworkManager: Deployment timeout — auto-deploying remaining units to reserves")
+		_auto_deploy_remaining_units_on_timeout()
+		return
 
 	if consecutive_timeout_count >= MAX_CONSECUTIVE_TIMEOUTS:
 		# Player has been AFK for multiple consecutive phases — game over
@@ -2023,6 +2069,56 @@ func _auto_end_current_phase() -> void:
 		"auto_timeout": true
 	}
 	print("NetworkManager: Auto-submitting %s for AFK timeout" % end_action_type)
+	submit_action(action)
+
+func _auto_deploy_remaining_units_on_timeout() -> void:
+	"""P2-42: Auto-place remaining undeployed units into Strategic Reserves on deployment timeout.
+	This prevents instant loss — units are placed in reserves and arrive from Turn 2 onwards."""
+	if not phase_manager_ref or not game_state:
+		return
+
+	phase_auto_ended.emit("DEPLOYMENT")
+
+	var units = game_state.state.get("units", {})
+	var auto_deployed_count = 0
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		# Skip units that are already deployed, embarked, attached, or in reserves
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit.get("attached_to", null) != null:
+			continue
+		if unit.get("status", 0) != GameStateData.UnitStatus.UNDEPLOYED:
+			continue
+
+		# Auto-place into strategic reserves
+		var action = {
+			"type": "PLACE_IN_RESERVES",
+			"unit_id": unit_id,
+			"reserve_type": "strategic_reserves",
+			"player": unit.get("owner", 0),
+			"auto_timeout": true
+		}
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("NetworkManager: Auto-deploying %s to Strategic Reserves (deployment timeout)" % unit_name)
+		submit_action(action)
+		auto_deployed_count += 1
+
+	print("NetworkManager: Auto-deployed %d units to Strategic Reserves" % auto_deployed_count)
+
+	# Now submit END_DEPLOYMENT since all units should be handled
+	# Use call_deferred to ensure reserves actions are processed first
+	call_deferred("_submit_end_deployment_after_auto_deploy")
+
+func _submit_end_deployment_after_auto_deploy() -> void:
+	"""P2-42: Submit END_DEPLOYMENT after auto-deploying remaining units."""
+	var action = {
+		"type": "END_DEPLOYMENT",
+		"player": game_state.get_active_player(),
+		"auto_timeout": true
+	}
+	print("NetworkManager: Auto-submitting END_DEPLOYMENT after auto-deploy")
 	submit_action(action)
 
 func _get_end_action_for_phase(phase: GameStateData.Phase) -> String:

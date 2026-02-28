@@ -1190,10 +1190,18 @@ func _on_turn_timer_warning(seconds_remaining: int) -> void:
 	var is_my_turn = network_manager.is_local_player_turn()
 
 	if is_my_turn:
+		# P2-42: During deployment, show auto-deploy warning at 60s and 30s
+		var game_state = get_node_or_null("/root/GameState")
+		var is_deployment = game_state and game_state.get_current_phase() == GameStateData.Phase.DEPLOYMENT
 		if seconds_remaining <= 10:
 			_show_toast("WARNING: %ds remaining!" % seconds_remaining, 2.0)
 		elif seconds_remaining <= 30:
-			_show_toast("Turn timer: %ds remaining" % seconds_remaining, 2.0)
+			if is_deployment:
+				_show_toast("WARNING: %ds remaining — undeployed units will go to Reserves!" % seconds_remaining, 3.0)
+			else:
+				_show_toast("Turn timer: %ds remaining" % seconds_remaining, 2.0)
+		elif seconds_remaining <= 60 and is_deployment:
+			_show_toast("Deployment timer: %ds remaining" % seconds_remaining, 2.0)
 	print("Main: Turn timer warning - %ds remaining (my_turn=%s)" % [seconds_remaining, is_my_turn])
 
 func _on_phase_auto_ended(phase_name: String) -> void:
@@ -1205,7 +1213,13 @@ func _on_phase_auto_ended(phase_name: String) -> void:
 	var active_player = GameState.get_active_player()
 	var is_my_turn = network_manager.is_local_player_turn()
 
-	if is_my_turn:
+	# P2-42: Deployment timeout gets a specific message about auto-reserves
+	if phase_name == "DEPLOYMENT":
+		if is_my_turn:
+			_show_toast("Deployment timed out — remaining units sent to Strategic Reserves", 4.0)
+		else:
+			_show_toast("Player %d's deployment timed out — remaining units sent to Reserves" % active_player, 4.0)
+	elif is_my_turn:
 		_show_toast("Phase auto-ended due to timeout!", 3.0)
 	else:
 		_show_toast("Player %d's %s phase timed out" % [active_player, phase_name.to_lower()], 3.0)

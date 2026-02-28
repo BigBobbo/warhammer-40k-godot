@@ -228,10 +228,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 5. Turn Timer UI During Deployment — IMPLEMENTED
 **Status**: **Implemented.** Turn timer countdown is shown in the HUD bar via `_on_turn_timer_warning()` connected to `NetworkManager.turn_timer_warning`. The "waiting for opponent" overlay also includes a live countdown.
 
-### 6. Game Over on Timeout is Too Punitive
+### 6. Game Over on Timeout is Too Punitive — IMPLEMENTED
 **Issue**: When turn timeout fires, the other player immediately wins. During deployment — where players are carefully arranging many models — 90 seconds may not be enough for large armies.
 
-**Recommendation**: Consider (a) longer timeout during deployment specifically, (b) warnings at 60s and 30s remaining, or (c) auto-placing remaining units rather than ending the game.
+**Status**: **Implemented.** Deployment phase now uses a scaled timeout: base 120s + 15s per unit (capped at 300s). Deployment-specific warning thresholds at 60s, 30s, 15s, 10s, and 5s. Warnings at 30s explicitly notify that remaining units will go to Strategic Reserves. On timeout, remaining undeployed units are automatically placed into Strategic Reserves instead of triggering an instant loss. Reserves cap validation is bypassed for auto-timeout placements.
 
 ### 7. Web Relay Deployment State Sync
 **Issue**: In web relay mode, the initial state is sent after a 0.5-second delay. Guest may briefly see default army configuration.
@@ -294,7 +294,7 @@ Both players reveal simultaneously, then deployment begins.
 | Opponent zone dimming | **Low** | Low | Visual | Open |
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
-| Timeout too punitive during deployment | **Medium** | Low | Multiplayer | Open |
+| Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
 | Race condition: embark after player switch | **Medium** | Low | Multiplayer | Open |
 | Duplicate geometry functions | **Low** | Low | Code Quality | Open |
 | Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | Open |
@@ -313,3 +313,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 4 | **Infiltrators marked DONE.** Full server-side and client-side validation. |
 | Update 5 | **Major revision.** Marked newly-implemented items as DONE: Scout Moves (`ScoutPhase.gd`), Roll-Off Phase (`RollOffPhase.gd`), Formations Phase (`FormationsPhase.gd`), Auto-Zoom, Phase Transition Banner, Deployment Summary Dialog, Unit Base Hover Tooltip, Turn Timer UI. Added new gaps: TITANIC deployment skip (not implemented), Reserves cap incorrect (25% → should be 50% per CA 2025-26), Reserves not destroyed after Round 3. Removed outdated recommendations section. Cleaned up resolved items. |
 | Update 6 | **Coherency distance display marked DONE.** Floating label near ghost shows edge-to-edge distance to nearest placed model in real-time (green ≤2", red >2"). Works in single and reposition modes. |
+| Update 7 | **Deployment timeout punitiveness marked DONE (DEPLOY-MP-3).** Scaled timeout (120s base + 15s/unit, max 300s), deployment warnings at 60s/30s/15s/10s/5s, auto-placement to Strategic Reserves on timeout instead of instant loss. |

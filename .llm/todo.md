@@ -107,7 +107,7 @@
 
 - [ ] Implement graceful disconnect handling during deployment — Replace `get_tree().quit()` on disconnect with reconnection dialog, grace period, option to save state or continue single-player (DEPLOY-MP-1)
 - [ ] Add web relay "Waiting for game state" loading screen — Guest side loading screen that dismisses once host state is received, preventing flash of default army configuration (DEPLOY-MP-2)
-- [ ] Reduce deployment timeout punitiveness — Longer timeout during deployment (>90s for large armies), warnings at 60s and 30s, consider auto-placing remaining units instead of instant loss (DEPLOY-MP-3)
+- [x] Reduce deployment timeout punitiveness — Longer timeout during deployment (>90s for large armies), warnings at 60s and 30s, consider auto-placing remaining units instead of instant loss (DEPLOY-MP-3)
 - [ ] Batch deploy+embark/attach into composite action — Fix race condition where embark/attach actions arrive after player switch in multiplayer. Bundle deploy + embark/attach into single atomic action (DEPLOY-MP-4)
 
 ## Code Quality

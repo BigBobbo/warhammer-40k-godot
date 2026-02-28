@@ -252,6 +252,12 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 		errors.append("Unit is not available for reserves: " + unit_id)
 		return {"valid": false, "errors": errors}
 
+	# P2-42: Auto-timeout placements bypass active player check and reserves caps
+	# (units MUST be placed somewhere when the deployment timer expires)
+	if action.get("auto_timeout", false):
+		log_phase_message("Auto-timeout reserves placement for %s — bypassing caps" % unit_id)
+		return {"valid": true, "errors": []}
+
 	# Check if unit belongs to active player
 	var active_player = get_current_player()
 	if unit.get("owner", 0) != active_player:
@@ -305,6 +311,11 @@ func _validate_switch_player_action(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_end_deployment_action(action: Dictionary) -> Dictionary:
+	# P2-42: Auto-timeout actions bypass the all-deployed check (units were auto-placed in reserves)
+	if action.get("auto_timeout", false):
+		log_phase_message("END_DEPLOYMENT auto-timeout — bypassing all-deployed check")
+		return {"valid": true, "errors": []}
+
 	# Can only end deployment if all units are deployed
 	var all_deployed = _all_units_deployed()
 
