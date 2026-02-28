@@ -90,7 +90,7 @@
 - [ ] Add per-model undo during deployment — Current undo resets entire unit. Add Ctrl+Z to undo only the last placed model by decrementing `model_idx` and clearing last `temp_positions` entry. Keep full reset as separate button (DEPLOY-QOL-1)
 - [ ] Add coherency distance display during placement — Show real-time distance from ghost model to nearest placed model as a floating label (e.g., "1.8\"" green / "2.3\"" red) near the cursor during deployment (DEPLOY-QOL-2)
 - [ ] Add measuring tool button during deployment — Ensure measuring tape is accessible during deployment with a visible button or tooltip showing keybind (DEPLOY-QOL-3)
-- [ ] Add opponent deployment notifications in multiplayer — When opponent deploys a unit: pan camera briefly to show placement, show toast "[Unit Name] deployed", add deployment log panel showing order of all deployments (DEPLOY-QOL-4)
+- [x] Add opponent deployment notifications in multiplayer — When opponent deploys a unit: pan camera briefly to show placement, show toast "[Unit Name] deployed", add deployment log panel showing order of all deployments (DEPLOY-QOL-4)
 - [ ] Add keyboard shortcut reference overlay during deployment — Show toggleable controls panel (press ? to show/hide) listing Q/E rotation, Shift+click reposition, mouse wheel rotation, formation modes (DEPLOY-QOL-5)
 
 ## Visual Improvements

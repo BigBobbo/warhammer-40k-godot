@@ -129,6 +129,15 @@ var game_log_scroll: ScrollContainer
 var is_game_log_visible: bool = true
 var game_log_toggle_button: Button
 
+# P2-40: Deployment log panel — tracks all deployments in order for multiplayer visibility
+var _deployment_log_panel: PanelContainer = null
+var _deployment_log_label: RichTextLabel = null
+var _deployment_log_entries: Array = []  # Array of {player: int, unit_name: String, position: Vector2}
+var _deployment_camera_pan_tween: Tween = null
+var _deployment_camera_return_tween: Tween = null
+var _pre_pan_offset: Vector2 = Vector2.ZERO
+var _pre_pan_zoom: float = 1.0
+
 func _ready() -> void:
 	# Clear stale game event log entries from previous sessions
 	# GameEventLog is an autoload that persists across scene reloads
@@ -2567,6 +2576,12 @@ func setup_deployment_controller() -> void:
 	print("[Main] token_layer is null: ", token_layer == null)
 	print("[Main] ghost_layer is null: ", ghost_layer == null)
 
+	# P2-40: Reset deployment log for new deployment phase
+	_deployment_log_entries.clear()
+	if _deployment_log_label:
+		_deployment_log_label.text = ""
+	print("P2-40: Deployment log cleared for new deployment phase")
+
 	var DeploymentControllerScript = load("res://scripts/DeploymentController.gd")
 	print("[Main] DeploymentController script loaded: ", DeploymentControllerScript != null)
 
@@ -2954,7 +2969,14 @@ func connect_signals() -> void:
 	# Phase management signals
 	PhaseManager.phase_changed.connect(_on_phase_changed)
 	PhaseManager.phase_completed.connect(_on_phase_completed)
-	
+
+	# P2-40: Listen for deployment actions via GameManager.result_applied
+	# (DEPLOY_UNIT goes through GameManager directly, not through the phase system)
+	var game_manager = get_node_or_null("/root/GameManager")
+	if game_manager:
+		game_manager.result_applied.connect(_on_phase_action_for_deployment_log)
+		print("P2-40: Connected to GameManager.result_applied for deployment log")
+
 	TurnManager.deployment_side_changed.connect(_on_deployment_side_changed)
 	TurnManager.deployment_phase_complete.connect(_on_deployment_complete)
 	
@@ -3387,6 +3409,50 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 
 func _tween_update_view(_progress: float) -> void:
 	update_view_transform()
+
+# P2-40: Briefly pan camera to a world position, then return after a delay
+func focus_on_position_briefly(world_pos: Vector2, hold_duration: float = 1.5, pan_duration: float = 0.5) -> void:
+	print("P2-40: Panning camera to position %s (hold=%.1fs)" % [world_pos, hold_duration])
+
+	# Save current camera state for return trip
+	_pre_pan_offset = view_offset
+	_pre_pan_zoom = view_zoom
+
+	# Kill any existing pan tweens
+	if _deployment_camera_pan_tween and _deployment_camera_pan_tween.is_valid():
+		_deployment_camera_pan_tween.kill()
+	if _deployment_camera_return_tween and _deployment_camera_return_tween.is_valid():
+		_deployment_camera_return_tween.kill()
+
+	# Calculate target offset to center the position in viewport
+	var viewport_size = get_viewport().get_visible_rect().size
+	var target_zoom = clamp(view_zoom, 0.4, 1.0)  # Zoom in slightly if too far out
+	var target_offset = world_pos - viewport_size / (2.0 * target_zoom)
+
+	# Animate pan to the target position
+	_deployment_camera_pan_tween = create_tween()
+	_deployment_camera_pan_tween.set_parallel(true)
+	_deployment_camera_pan_tween.set_ease(Tween.EASE_OUT)
+	_deployment_camera_pan_tween.set_trans(Tween.TRANS_CUBIC)
+	_deployment_camera_pan_tween.tween_property(self, "view_zoom", target_zoom, pan_duration)
+	_deployment_camera_pan_tween.tween_property(self, "view_offset", target_offset, pan_duration)
+	_deployment_camera_pan_tween.tween_method(_tween_update_view, 0.0, 1.0, pan_duration)
+
+	# After hold duration, pan back to the original view
+	await get_tree().create_timer(pan_duration + hold_duration).timeout
+
+	# Only return if we haven't been interrupted by another focus
+	if _deployment_camera_return_tween and _deployment_camera_return_tween.is_valid():
+		_deployment_camera_return_tween.kill()
+
+	_deployment_camera_return_tween = create_tween()
+	_deployment_camera_return_tween.set_parallel(true)
+	_deployment_camera_return_tween.set_ease(Tween.EASE_IN_OUT)
+	_deployment_camera_return_tween.set_trans(Tween.TRANS_CUBIC)
+	_deployment_camera_return_tween.tween_property(self, "view_zoom", _pre_pan_zoom, pan_duration)
+	_deployment_camera_return_tween.tween_property(self, "view_offset", _pre_pan_offset, pan_duration)
+	_deployment_camera_return_tween.tween_method(_tween_update_view, 0.0, 1.0, pan_duration)
+	print("P2-40: Camera returning to original position")
 
 func refresh_unit_list() -> void:
 	# Update the new bottom panel unit lists (always visible for comparison)
@@ -4191,6 +4257,186 @@ func _on_deployment_side_changed(player: int) -> void:
 func _on_deployment_complete() -> void:
 	status_label.text = "Deployment complete!"
 	phase_action_button.disabled = false
+	# P2-40: Hide deployment log panel when deployment is done
+	_hide_deployment_log_panel()
+
+# ========================================
+# P2-40: Opponent Deployment Notifications
+# ========================================
+
+func _on_phase_action_for_deployment_log(result: Dictionary) -> void:
+	"""P2-40: Handle deployment actions via GameManager.result_applied — show camera pan, toast, and log entry"""
+	var action_type = result.get("action_type", "")
+
+	# Only care about deployment-related actions
+	if action_type != "DEPLOY_UNIT":
+		return
+
+	# Only during deployment phase
+	if current_phase != GameStateData.Phase.DEPLOYMENT:
+		return
+
+	var action_data = result.get("action_data", {})
+	var unit_id = action_data.get("unit_id", "")
+	var player = action_data.get("player", 0)
+	if unit_id == "" or player == 0:
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Get the unit's deployed position (first alive model)
+	var deploy_pos: Vector2 = Vector2.ZERO
+	var has_pos = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			var pos = model.get("position", null)
+			if pos != null:
+				if pos is Dictionary:
+					deploy_pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+				elif pos is Vector2:
+					deploy_pos = pos
+				has_pos = true
+				break
+
+	# Always add to deployment log (both local and remote deployments)
+	_add_deployment_log_entry(player, unit_name, deploy_pos)
+
+	# Check if this is the opponent's deployment (not local player's)
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	var is_opponent_deploy = false
+	if network_manager and network_manager.is_networked():
+		var local_player = network_manager.get_local_player()
+		is_opponent_deploy = (player != local_player)
+	else:
+		# Single player vs AI: check if AI deployed
+		var ai_player = get_node_or_null("/root/AIPlayer")
+		if ai_player and ai_player.is_ai_player(player):
+			is_opponent_deploy = true
+
+	if is_opponent_deploy:
+		# Show toast notification
+		ToastManager.show_toast("%s deployed" % unit_name, Color(0.9, 0.7, 0.2), 3.0)
+		print("P2-40: Opponent deployed %s (Player %d)" % [unit_name, player])
+
+		# Pan camera briefly to show where the unit was placed
+		if has_pos:
+			focus_on_position_briefly(deploy_pos, 1.5, 0.5)
+
+func _add_deployment_log_entry(player: int, unit_name: String, position: Vector2) -> void:
+	"""P2-40: Add an entry to the deployment log panel"""
+	_deployment_log_entries.append({
+		"player": player,
+		"unit_name": unit_name,
+		"position": position
+	})
+	print("P2-40: Deployment log entry added — P%d: %s at %s (total: %d)" % [player, unit_name, position, _deployment_log_entries.size()])
+
+	# Ensure the deployment log panel exists and is visible
+	if not _deployment_log_panel:
+		_create_deployment_log_panel()
+	_deployment_log_panel.visible = true
+	_update_deployment_log_display()
+
+func _create_deployment_log_panel() -> void:
+	"""P2-40: Create the deployment log panel UI"""
+	_deployment_log_panel = PanelContainer.new()
+	_deployment_log_panel.name = "DeploymentLogPanel"
+
+	# Style: dark semi-transparent panel
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.06, 0.1, 0.85)
+	style.border_color = Color(0.3, 0.3, 0.4, 0.6)
+	style.border_width_bottom = 1
+	style.border_width_top = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	_deployment_log_panel.add_theme_stylebox_override("panel", style)
+
+	# Position: bottom-left corner, above the bottom HUD
+	_deployment_log_panel.anchor_left = 0.0
+	_deployment_log_panel.anchor_right = 0.0
+	_deployment_log_panel.anchor_top = 1.0
+	_deployment_log_panel.anchor_bottom = 1.0
+	_deployment_log_panel.offset_left = 10
+	_deployment_log_panel.offset_right = 300
+	_deployment_log_panel.offset_top = -280
+	_deployment_log_panel.offset_bottom = -50
+
+	# VBox for header + scroll content
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+
+	# Header label
+	var header = Label.new()
+	header.text = "Deployment Log"
+	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(header)
+
+	# Separator
+	var sep = HSeparator.new()
+	sep.add_theme_constant_override("separation", 2)
+	vbox.add_child(sep)
+
+	# Scrollable log content
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+	_deployment_log_label = RichTextLabel.new()
+	_deployment_log_label.bbcode_enabled = true
+	_deployment_log_label.fit_content = true
+	_deployment_log_label.scroll_active = false
+	_deployment_log_label.add_theme_font_size_override("normal_font_size", 12)
+	_deployment_log_label.add_theme_color_override("default_color", Color(0.85, 0.85, 0.85))
+	_deployment_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_deployment_log_label)
+
+	vbox.add_child(scroll)
+	_deployment_log_panel.add_child(vbox)
+
+	# Don't intercept mouse events on the panel (allow clicking through)
+	_deployment_log_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_deployment_log_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	add_child(_deployment_log_panel)
+	print("P2-40: Deployment log panel created")
+
+func _update_deployment_log_display() -> void:
+	"""P2-40: Refresh the deployment log panel content"""
+	if not _deployment_log_label:
+		return
+
+	var bbcode = ""
+	for i in range(_deployment_log_entries.size()):
+		var entry = _deployment_log_entries[i]
+		var player = entry.player
+		var unit_name = entry.unit_name
+		var color_hex = "4488ff" if player == 1 else "ff6644"
+		var player_label = "P%d" % player
+		bbcode += "[color=#888888]%d.[/color] [color=#%s]%s[/color]: %s\n" % [i + 1, color_hex, player_label, unit_name]
+
+	_deployment_log_label.text = bbcode
+
+func _hide_deployment_log_panel() -> void:
+	"""P2-40: Hide the deployment log panel (called when deployment ends)"""
+	if _deployment_log_panel:
+		_deployment_log_panel.visible = false
+		print("P2-40: Deployment log panel hidden")
 
 # ========================================
 # Formations Phase UI
