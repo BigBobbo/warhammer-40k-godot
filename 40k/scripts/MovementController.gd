@@ -586,18 +586,34 @@ func _on_unit_selected(index: int) -> void:
 		_handle_embarked_unit_selected(unit_id)
 		return
 
-	# Get unit movement cap
-	if unit:
-		move_cap_inches = get_unit_movement(unit)
-		print("MovementController: Unit %s has movement cap of %.1f inches" % [unit_id, move_cap_inches])
+	# Check if this unit already has an active move in the phase (e.g., an advance)
+	# If so, don't send BEGIN_NORMAL_MOVE as it would overwrite the existing move data
+	# (including advance roll and move cap)
+	var has_existing_move = false
+	if current_phase and current_phase.has_method("get_active_move_data"):
+		var existing_move_data = current_phase.get_active_move_data(unit_id)
+		if not existing_move_data.is_empty() and not existing_move_data.get("completed", false):
+			has_existing_move = true
+			# Restore the correct move cap from the existing active move
+			var existing_cap = existing_move_data.get("move_cap_inches", -1.0)
+			if existing_cap > 0:
+				move_cap_inches = existing_cap
+				print("MovementController: Unit %s already has active move (mode=%s, cap=%.1f\")" % [unit_id, existing_move_data.get("mode", "?"), move_cap_inches])
+			active_mode = existing_move_data.get("mode", "NORMAL")
 
-	# Request phase to begin movement (this will trigger _on_unit_move_begun callback)
-	if current_phase:
-		var action = {
-			"type": "BEGIN_NORMAL_MOVE",
-			"actor_unit_id": unit_id
-		}
-		emit_signal("move_action_requested", action)
+	if not has_existing_move:
+		# Get unit movement cap
+		if unit:
+			move_cap_inches = get_unit_movement(unit)
+			print("MovementController: Unit %s has movement cap of %.1f inches" % [unit_id, move_cap_inches])
+
+		# Request phase to begin movement (this will trigger _on_unit_move_begun callback)
+		if current_phase:
+			var action = {
+				"type": "BEGIN_NORMAL_MOVE",
+				"actor_unit_id": unit_id
+			}
+			emit_signal("move_action_requested", action)
 
 	_highlight_unit_models(unit_id)
 	_update_selected_unit_display()  # NEW: Update section 2
@@ -950,32 +966,43 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	print("MovementController: Unit move begun - ", unit_id, " mode: ", mode)
 	active_unit_id = unit_id
 	active_mode = mode
-	
+
 	# Get move cap from unit
 	if current_phase:
-		# Try to get unit through the phase
-		var unit = null
-		if current_phase.has_method("get_unit"):
-			unit = current_phase.get_unit(unit_id)
+		# PRIORITY 1: Read move cap from phase's active_moves (most authoritative)
+		# This is critical for advance moves where active_moves is set by _resolve_advance_roll
+		# BEFORE the signal fires, but GameState flags aren't applied until after.
+		var cap_from_active_moves = -1.0
+		if current_phase.has_method("get_active_move_data"):
+			var move_data = current_phase.get_active_move_data(unit_id)
+			if not move_data.is_empty():
+				cap_from_active_moves = move_data.get("move_cap_inches", -1.0)
+
+		if cap_from_active_moves > 0:
+			move_cap_inches = cap_from_active_moves
+			print("Move cap from active_moves: ", move_cap_inches, " inches")
 		else:
-			# Fallback to GameState
-			unit = GameState.get_unit(unit_id)
-			
-		if unit:
-			# Try to get from flags first (set by movement phase), fallback to unit stats
-			var move_cap_from_flags = unit.get("flags", {}).get("move_cap_inches", -1.0)
-			if move_cap_from_flags > 0:
-				move_cap_inches = move_cap_from_flags
-				print("Move cap from flags: ", move_cap_inches, " inches")
+			# PRIORITY 2: Try unit flags, then fall back to unit stats
+			var unit = null
+			if current_phase.has_method("get_unit"):
+				unit = current_phase.get_unit(unit_id)
 			else:
-				move_cap_inches = get_unit_movement(unit)
-				print("Move cap from unit stats: ", move_cap_inches, " inches")
-			_update_movement_display()
-		else:
-			print("ERROR: Could not get unit data!")
+				unit = GameState.get_unit(unit_id)
+
+			if unit:
+				var move_cap_from_flags = unit.get("flags", {}).get("move_cap_inches", -1.0)
+				if move_cap_from_flags > 0:
+					move_cap_inches = move_cap_from_flags
+					print("Move cap from flags: ", move_cap_inches, " inches")
+				else:
+					move_cap_inches = get_unit_movement(unit)
+					print("Move cap from unit stats: ", move_cap_inches, " inches")
+			else:
+				print("ERROR: Could not get unit data!")
+		_update_movement_display()
 	else:
 		print("ERROR: No current phase set!")
-	
+
 	# Update dice log and advance roll display if it was an advance
 	if mode == "ADVANCE" and current_phase:
 		if current_phase.has_method("get_dice_log"):
@@ -985,9 +1012,11 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 		if current_phase.has_method("get_active_move_data"):
 			var move_data = current_phase.get_active_move_data(unit_id)
 			var advance_roll = move_data.get("advance_roll", 0)
-			if advance_roll > 0 and advance_roll_label:
-				advance_roll_label.text = "Advance Roll: %d\"" % advance_roll
-				advance_roll_label.visible = true
+			if advance_roll > 0:
+				if advance_roll_label:
+					advance_roll_label.text = "Advance Roll: %d\"" % advance_roll
+					advance_roll_label.visible = true
+				# Always update the move cap for advance, regardless of label existence
 				_update_movement_display_with_advance(advance_roll)
 
 	# Notify Main to update UI
@@ -1117,10 +1146,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _start_model_drag(mouse_pos: Vector2) -> void:
 	print("Starting model drag. Active unit: ", active_unit_id, " Mode: ", active_mode)
-	
+
 	if active_unit_id == "" or active_mode == "":
 		print("Cannot drag - no active unit or mode")
 		return
+
+	# Sync move_cap_inches from phase's active_moves (authoritative source)
+	# This prevents stale cap values from overriding the advance bonus
+	if current_phase and current_phase.has_method("get_active_move_data"):
+		var move_data = current_phase.get_active_move_data(active_unit_id)
+		if not move_data.is_empty():
+			var phase_cap = move_data.get("move_cap_inches", -1.0)
+			if phase_cap > 0 and abs(phase_cap - move_cap_inches) > 0.01:
+				print("MovementController: Syncing move_cap from active_moves: %.1f -> %.1f" % [move_cap_inches, phase_cap])
+				move_cap_inches = phase_cap
 	
 	# Get the board transform from Main
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
