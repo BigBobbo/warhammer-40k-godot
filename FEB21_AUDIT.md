@@ -43,7 +43,7 @@ The project is a **production-quality implementation** of Warhammer 40k 10th Edi
 - Fights First / Remaining / Fights Last three-tier fight sequencing
 
 **Critical Gaps Remaining:**
-- CHARACTER targeting "closest eligible" rule not enforced in shooting
+- ~~CHARACTER targeting "closest eligible" rule not enforced in shooting~~ **FIXED**
 - Wound allocation not controlled by defending player
 - Engagement Range missing 5" vertical component
 - Attached unit starting strength not combined for battle-shock
@@ -162,7 +162,7 @@ The following items from the original Feb 21 audit have been verified as impleme
 
 | ID | Severity | Issue | Details |
 |----|----------|-------|---------|
-| SHOOT-1 | **CRITICAL** | CHARACTER targeting "closest eligible visible unit" rule missing | 10e: Characters with W<=9 near friendly non-Character units (3+ models or VEHICLE/MONSTER) cannot be targeted unless they are the closest eligible visible unit. Only Lone Operative (12") and Precision are implemented. No "closest visible" check in `_validate_assign_target()` |
+| SHOOT-1 | ~~**CRITICAL**~~ **DONE** | ~~CHARACTER targeting "closest eligible visible unit" rule missing~~ | **FIXED** — `is_character_protected_from_targeting()` checks if CHARACTER (W<=9) is within 3" of friendly non-CHARACTER unit (3+ models or VEHICLE/MONSTER). `is_closest_eligible_target()` computes distance to all eligible targets. Both `get_eligible_targets()` and `validate_shoot()` enforce the restriction. |
 | SHOOT-9 | **HIGH** | Wound allocation not controlled by defending player | 10e: The defending player chooses which model receives wounds (with wounded-first restriction). Currently the system auto-allocates without defender input. Critical for multiplayer correctness |
 | SHOOT-2 | MEDIUM | Hazardous updated rules (Balance Dataslate v3.3) | Allocation priority: (1) wounded model with Hazardous weapon, (2) non-Character with Hazardous, (3) Character with Hazardous. Verify current implementation matches |
 | SHOOT-4 | MEDIUM | Extra Attacks cannot be modified unless weapon name specified | Balance Dataslate restriction on Extra Attacks number modification. Verify enforcement |
@@ -382,7 +382,7 @@ These issues were reported through playtesting:
 
 ### Priority 0 - Critical (Game-breaking)
 
-- [ ] **SHOOT-1**: Implement CHARACTER targeting "closest eligible visible unit" restriction - Characters with W<=9 near friendly non-Character units cannot be targeted unless closest eligible visible target
+- [x] **SHOOT-1**: Implement CHARACTER targeting "closest eligible visible unit" restriction - Characters with W<=9 near friendly non-Character units cannot be targeted unless closest eligible visible target — **DONE**
 - [ ] **SHOOT-9**: Implement defender-controlled wound allocation - The defending player must choose which model receives wounds (with wounded-first restriction). Currently auto-allocated
 
 ### Priority 1 - High (Incorrect rules that significantly affect gameplay)

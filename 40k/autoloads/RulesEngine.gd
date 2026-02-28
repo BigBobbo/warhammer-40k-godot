@@ -2783,6 +2783,13 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 						var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 						errors.append("Cannot target '%s' — Lone Operative can only be targeted from within 12\" (closest model is %.1f\" away)" % [target_name, min_dist])
 
+			# CHARACTER TARGETING (SHOOT-1): Protected characters cannot be targeted unless
+			# they are the closest eligible visible target to the attacker
+			if is_character_protected_from_targeting(target_unit_id, target_unit, board):
+				if not is_closest_eligible_target(actor_unit_id, target_unit_id, board):
+					var target_name2 = target_unit.get("meta", {}).get("name", target_unit_id)
+					errors.append("Cannot target '%s' — this CHARACTER is protected by nearby friendly units and is not the closest eligible target" % target_name2)
+
 			# PISTOL RULES: If in engagement, targets must be within engagement range
 			if actor_in_engagement:
 				var target_in_er = _is_target_within_engagement_range(actor_unit_id, target_unit_id, board)
@@ -3240,6 +3247,13 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary) -> Di
 				if min_dist > 12.0:
 					print("RulesEngine: Lone Operative — target '%s' cannot be targeted (closest actor model is %.1f\" away, must be within 12\")" % [target_unit.get("meta", {}).get("name", target_unit_id), min_dist])
 					continue
+
+		# CHARACTER TARGETING (SHOOT-1): Protected characters can only be targeted if they
+		# are the closest eligible visible target to the attacker
+		if is_character_protected_from_targeting(target_unit_id, target_unit, board):
+			if not is_closest_eligible_target(actor_unit_id, target_unit_id, board):
+				print("RulesEngine: CHARACTER target '%s' cannot be targeted — protected and not the closest eligible target" % target_unit.get("meta", {}).get("name", target_unit_id))
+				continue
 
 		# Check if target is within engagement range (needed for Pistol targeting)
 		var target_in_er = false
@@ -4226,6 +4240,123 @@ static func has_lone_operative(unit: Dictionary) -> bool:
 		if ability_name.to_lower() == "lone operative":
 			return true
 	return false
+
+# CHARACTER TARGETING (SHOOT-1): Check if a CHARACTER unit is "protected" from ranged targeting
+# Per 10e rules: A CHARACTER with Wounds <=9 cannot be targeted by ranged attacks if it is
+# within 3" of a friendly non-CHARACTER unit that has either 3+ models or the VEHICLE/MONSTER keyword,
+# UNLESS it is the closest eligible visible target to the attacking unit.
+# An attached character (attached_to != null) is already protected by the bodyguard system and
+# doesn't need this check — they can't be directly targeted at all.
+static func is_character_protected_from_targeting(target_unit_id: String, target_unit: Dictionary, board: Dictionary) -> bool:
+	# Must have CHARACTER keyword
+	if not unit_has_keyword(target_unit, "CHARACTER"):
+		return false
+
+	# Must have Wounds characteristic <= 9
+	var wounds_stat = target_unit.get("meta", {}).get("stats", {}).get("wounds", 0)
+	if wounds_stat > 9:
+		return false
+
+	# If attached to a bodyguard unit, they're already hidden via the attachment system
+	if target_unit.get("attached_to", null) != null:
+		return false
+
+	# Check if there's a friendly non-CHARACTER unit within 3" that qualifies
+	var target_owner = target_unit.get("owner", 0)
+	var units = board.get("units", {})
+
+	for unit_id in units:
+		if unit_id == target_unit_id:
+			continue
+
+		var unit = units[unit_id]
+
+		# Must be friendly
+		if unit.get("owner", 0) != target_owner:
+			continue
+
+		# Must not be a CHARACTER unit itself
+		if unit_has_keyword(unit, "CHARACTER"):
+			continue
+
+		# Skip destroyed units
+		var alive_count = count_alive_models(unit)
+		if alive_count == 0:
+			continue
+
+		# Must have 3+ models OR be a VEHICLE/MONSTER
+		if alive_count < 3 and not is_monster_or_vehicle(unit):
+			continue
+
+		# Must be within 3" of the character
+		var dist = _get_min_distance_to_target_rules(target_unit_id, unit_id, board)
+		if dist <= 3.0:
+			print("RulesEngine: CHARACTER '%s' (W=%d) is protected — friendly unit '%s' (%d models) is within 3\" (%.1f\")" % [
+				target_unit.get("meta", {}).get("name", target_unit_id),
+				wounds_stat,
+				unit.get("meta", {}).get("name", unit_id),
+				alive_count,
+				dist
+			])
+			return true
+
+	return false
+
+# CHARACTER TARGETING (SHOOT-1): Check if a character is the closest eligible visible target
+# to the attacking unit. If it is, the attacker CAN target it even if it's protected.
+# "Eligible" means any enemy unit that the attacker could legally target (visible, in range, etc.)
+# excluding other protected characters that are NOT the closest.
+static func is_closest_eligible_target(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var actor_owner = actor_unit.get("owner", 0)
+
+	var target_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
+
+	# Check all other enemy units to see if any non-protected one is closer
+	for other_unit_id in units:
+		if other_unit_id == target_unit_id or other_unit_id == actor_unit_id:
+			continue
+
+		var other_unit = units[other_unit_id]
+
+		# Must be enemy
+		if other_unit.get("owner", 0) == actor_owner:
+			continue
+
+		# Skip attached units (targeted through bodyguard)
+		if other_unit.get("attached_to", null) != null:
+			continue
+
+		# Skip destroyed units
+		var has_alive = false
+		for model in other_unit.get("models", []):
+			if model.get("alive", true):
+				has_alive = true
+				break
+		if not has_alive:
+			continue
+
+		# Skip OTHER protected characters — they don't count as "closer eligible"
+		# Only non-protected units count for the distance comparison
+		if is_character_protected_from_targeting(other_unit_id, other_unit, board):
+			continue
+
+		# Check if this unit is visible to the attacker (use any weapon for basic visibility)
+		# We do a simplified visibility check — just need at least one model visible
+		var other_dist = _get_min_distance_to_target_rules(actor_unit_id, other_unit_id, board)
+		if other_dist < target_dist:
+			# There's a closer eligible (non-protected) target
+			print("RulesEngine: CHARACTER target '%s' (%.1f\") is NOT closest — '%s' is closer (%.1f\")" % [
+				units.get(target_unit_id, {}).get("meta", {}).get("name", target_unit_id),
+				target_dist,
+				other_unit.get("meta", {}).get("name", other_unit_id),
+				other_dist
+			])
+			return false
+
+	# No non-protected unit is closer — this character IS the closest eligible target
+	return true
 
 # STEALTH (T2-1): Check if a unit has the Stealth ability
 # Per 10e rules: If all models in a unit have Stealth, ranged attacks targeting it get -1 to hit
