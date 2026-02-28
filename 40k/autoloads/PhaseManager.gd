@@ -288,29 +288,27 @@ func _set_state_value(path: String, value) -> void:
 	var current = GameState.state
 	for i in range(parts.size() - 1):
 		var part = parts[i]
-		if part.is_valid_int():
+		if current is Dictionary:
+			# Dictionary keys take priority (even if key looks like an int, e.g. "1", "2")
+			if not current.has(part):
+				current[part] = {}
+			current = current[part]
+		elif part.is_valid_int():
 			var index = part.to_int()
 			if current is Array and index >= 0 and index < current.size():
 				current = current[index]
 			else:
 				return
 		else:
-			if current is Dictionary:
-				# Create missing keys in the path
-				if not current.has(part):
-					current[part] = {}
-				current = current[part]
-			else:
-				return
+			return
 
 	var final_key = parts[-1]
-	if final_key.is_valid_int():
+	if current is Dictionary:
+		current[final_key] = value
+	elif final_key.is_valid_int():
 		var index = final_key.to_int()
 		if current is Array and index >= 0 and index < current.size():
 			current[index] = value
-	else:
-		if current is Dictionary:
-			current[final_key] = value
 
 func _add_to_state_array(path: String, value) -> void:
 	var parts = path.split(".")

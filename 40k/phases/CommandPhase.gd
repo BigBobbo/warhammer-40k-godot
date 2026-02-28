@@ -63,15 +63,20 @@ func _on_phase_enter() -> void:
 	# Step 3: Identify units below half-strength that need battle-shock tests
 	_identify_units_needing_tests()
 
-	# Step 4: Check objectives at start of command phase
+	# Step 4: Snapshot objective control BEFORE checking objectives this turn
+	# This is critical for secondary missions like "Storm Hostile Objective" that compare
+	# start-of-turn vs current control. Snapshot must happen BEFORE check_all_objectives().
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+		secondary_mgr.on_turn_start(current_player)
+
+	# Step 5: Check objectives at start of command phase (AFTER snapshot)
 	if MissionManager:
 		MissionManager.check_all_objectives()
 
-	# Step 5: Draw secondary mission cards (tactical mode)
+	# Step 6: Draw secondary mission cards (tactical mode)
 	_newly_drawn_missions = []
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
-		secondary_mgr.on_turn_start(current_player)
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
 			_newly_drawn_missions = drawn.duplicate()
@@ -260,13 +265,31 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
-	# Secondary mission actions (New Orders stratagem only - voluntary discard
-	# happens at end of turn in the Scoring Phase, not during Command Phase)
+	# Secondary mission actions
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
 
-		# New Orders stratagem
+		# Replace newly drawn mission (put back in deck, draw different — 1 CP)
+		if _newly_drawn_missions.size() > 0 and secondary_mgr.get_deck_size(current_player) > 0:
+			var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
+			if player_cp >= 1:
+				for i in range(active_missions.size()):
+					var mission = active_missions[i]
+					var is_newly_drawn = false
+					for drawn in _newly_drawn_missions:
+						if drawn.get("id", "") == mission.get("id", ""):
+							is_newly_drawn = true
+							break
+					if is_newly_drawn:
+						actions.append({
+							"type": "REPLACE_SECONDARY_MISSION",
+							"mission_index": i,
+							"description": "Replace %s (back to deck, draw new — 1 CP)" % mission.get("name", "?"),
+							"player": current_player
+						})
+
+		# New Orders stratagem (discard permanently and draw new — 1 CP)
 		var strat_manager = get_node_or_null("/root/StratagemManager")
 		if strat_manager and active_missions.size() > 0:
 			var can_use = strat_manager.can_use_stratagem(current_player, "new_orders")

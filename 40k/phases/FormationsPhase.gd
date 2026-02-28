@@ -198,11 +198,40 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if attachments.has(character_id):
 		errors.append("Character already declared as attached to: " + str(attachments[character_id]))
 
-	# Check bodyguard doesn't already have a character
+	# Check bodyguard doesn't already have too many characters
+	# Boyz with 20 models and BODYGUARD ability can take 2 leaders (one must be WARBOSS)
+	var existing_leaders_on_bg = []
 	for char_id in attachments:
 		if attachments[char_id] == bodyguard_id:
-			errors.append("Bodyguard already has a character assigned: " + char_id)
-			break
+			existing_leaders_on_bg.append(char_id)
+
+	if existing_leaders_on_bg.size() > 0:
+		# Check if dual-leader is allowed (BODYGUARD ability + 20 models)
+		var bg_abilities = bodyguard.get("meta", {}).get("abilities", [])
+		var has_bodyguard_ability = false
+		for ab in bg_abilities:
+			if ab is Dictionary and ab.get("name", "").to_lower() == "bodyguard":
+				has_bodyguard_ability = true
+				break
+			elif ab is String and ab.to_lower() == "bodyguard":
+				has_bodyguard_ability = true
+				break
+
+		var model_count = bodyguard.get("models", []).size()
+		var can_take_two = has_bodyguard_ability and model_count >= 20
+
+		if not can_take_two or existing_leaders_on_bg.size() >= 2:
+			errors.append("Bodyguard already has a character assigned: " + existing_leaders_on_bg[0])
+		else:
+			# Dual-leader: one must be a WARBOSS
+			var existing_char = get_unit(existing_leaders_on_bg[0])
+			var existing_kw = existing_char.get("meta", {}).get("keywords", [])
+			var new_is_warboss = "WARBOSS" in char_keywords
+			var existing_is_warboss = "WARBOSS" in existing_kw
+			if not new_is_warboss and not existing_is_warboss:
+				errors.append("Dual-leader attachment requires at least one WARBOSS model")
+			else:
+				print("FormationsPhase: Dual-leader attachment approved - %s joins %s on %s" % [character_id, existing_leaders_on_bg[0], bodyguard_id])
 
 	# Check character is not declared as embarked or in reserves
 	if _is_unit_declared_embarked(character_id, player):
@@ -695,14 +724,37 @@ func get_available_actions() -> Array:
 			var char_name = get_unit(char_id).get("meta", {}).get("name", char_id)
 			var eligible = GameState.get_eligible_bodyguards_for_character(char_id)
 			for bg_id in eligible:
-				# Skip bodyguards already assigned to another character
-				var already_assigned = false
-				for existing_char in formations.get("leader_attachments", {}).values():
-					if existing_char == bg_id:
-						already_assigned = true
-						break
-				if already_assigned:
-					continue
+				# Check how many leaders already assigned to this bodyguard
+				var leaders_on_bg = []
+				for existing_char_id in formations.get("leader_attachments", {}):
+					if formations["leader_attachments"][existing_char_id] == bg_id:
+						leaders_on_bg.append(existing_char_id)
+
+				if leaders_on_bg.size() >= 1:
+					# Check if dual-leader is allowed (BODYGUARD ability + 20 models)
+					var bg_unit = get_unit(bg_id)
+					var bg_abilities = bg_unit.get("meta", {}).get("abilities", [])
+					var has_bodyguard_ability = false
+					for ab in bg_abilities:
+						if ab is Dictionary and ab.get("name", "").to_lower() == "bodyguard":
+							has_bodyguard_ability = true
+							break
+						elif ab is String and ab.to_lower() == "bodyguard":
+							has_bodyguard_ability = true
+							break
+					var bg_model_count = bg_unit.get("models", []).size()
+					var can_dual = has_bodyguard_ability and bg_model_count >= 20
+
+					if not can_dual or leaders_on_bg.size() >= 2:
+						continue
+
+					# Dual-leader requires one to be WARBOSS
+					var char_unit = get_unit(char_id)
+					var char_kw = char_unit.get("meta", {}).get("keywords", [])
+					var existing_unit = get_unit(leaders_on_bg[0])
+					var existing_kw = existing_unit.get("meta", {}).get("keywords", [])
+					if "WARBOSS" not in char_kw and "WARBOSS" not in existing_kw:
+						continue
 
 				var bg_name = get_unit(bg_id).get("meta", {}).get("name", bg_id)
 				actions.append({
@@ -723,16 +775,41 @@ func get_available_actions() -> Array:
 			"description": "Undo: %s attachment" % char_name
 		})
 
-	# Transport embarkation options
+	# Transport embarkation options — only offer if eligible units remain
 	var transports = GameState.get_transports_for_player(current_player)
 	for transport_id in transports:
-		var transport_name = get_unit(transport_id).get("meta", {}).get("name", transport_id)
-		actions.append({
-			"type": "DECLARE_TRANSPORT_EMBARKATION",
-			"transport_id": transport_id,
-			"player": current_player,
-			"description": "Embark units in %s" % transport_name
-		})
+		# Check if any non-embarked, non-attached units could fit in this transport
+		var has_eligible_units = false
+		var transport_data = get_unit(transport_id).get("transport_data", {})
+		var capacity = transport_data.get("capacity", 0)
+		var already_embarked_ids = formations.get("transport_embarkations", {}).get(transport_id, [])
+		var already_embarked_count = 0
+		for emb_id in already_embarked_ids:
+			var emb_unit = get_unit(emb_id)
+			for m in emb_unit.get("models", []):
+				if m.get("alive", true):
+					already_embarked_count += 1
+		if already_embarked_count < capacity:
+			var all_player_units = GameState.get_units_for_player(current_player)
+			for uid in all_player_units:
+				if uid == transport_id:
+					continue
+				if _is_unit_declared_attached(uid, current_player):
+					continue
+				if _is_unit_declared_embarked(uid, current_player):
+					continue
+				if _is_unit_declared_in_reserves(uid, current_player):
+					continue
+				has_eligible_units = true
+				break
+		if has_eligible_units:
+			var transport_name = get_unit(transport_id).get("meta", {}).get("name", transport_id)
+			actions.append({
+				"type": "DECLARE_TRANSPORT_EMBARKATION",
+				"transport_id": transport_id,
+				"player": current_player,
+				"description": "Embark units in %s" % transport_name
+			})
 
 	# Reserves options
 	var units = GameState.get_units_for_player(current_player)

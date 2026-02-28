@@ -89,8 +89,29 @@ static var _fight_order_plan_built: bool = false
 #   spread_needed: bool — true if Engage on All Fronts requires spreading units across quarters
 #   center_priority: float — bonus for Area Denial center positioning
 #   active_mission_ids: [id, ...] — list of active mission IDs for reference
-static var _secondary_awareness: Dictionary = {}
-static var _secondary_awareness_round: int = -1
+# Per-player secondary awareness — each player gets their own awareness dict
+static var _secondary_awareness_p1: Dictionary = {}
+static var _secondary_awareness_p2: Dictionary = {}
+static var _secondary_awareness_round_p1: int = -1
+static var _secondary_awareness_round_p2: int = -1
+static var _failed_disembark_unit_ids: Array = []  # Units that failed disembark — skip to avoid loop
+static var _fight_attack_retry_count: Dictionary = {}  # {unit_id: count} — track repeated fight attack attempts
+
+# Charge coordination — tracks targets declared as charge targets earlier this phase
+# so subsequent chargers can get a bonus for piling onto the same target (gang-up)
+# Stores {target_id: {charger_ids: [uid, ...], total_expected_dmg: float}}
+static var _charge_coordination: Dictionary = {}
+static var _charge_coordination_round: int = -1
+
+# Fight coordination — tracks cumulative melee damage dealt to each enemy this fight phase
+# so subsequent fighters prioritize targets that are close to dying from accumulated damage
+# Stores {target_id: {attacker_ids: [uid, ...], total_dealt_dmg: float}}
+static var _fight_coordination: Dictionary = {}
+static var _fight_coordination_round: int = -1
+
+# Leader attachment tracking — bodyguard unit IDs that have leaders attached this game
+# Used to prevent embarking bodyguard units in transports after leaders are attached
+static var _bodyguards_with_leaders: Array = []
 
 # Verbose thinking log — accumulates reasoning steps during a decision, returned in the result dict
 # Cleared at the start of each decide() call, and attached as "_ai_thinking_steps" to the result
@@ -103,7 +124,7 @@ static var _focus_fire_plan_logged: bool = false
 static var _fight_order_logged: bool = false
 
 # Focus fire tuning constants
-const OVERKILL_TOLERANCE: float = 1.3  # Allow up to 30% overkill before redirecting
+const OVERKILL_TOLERANCE: float = 1.15  # Allow up to 15% overkill before redirecting (tighter to ensure kills)
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
 const LOW_HEALTH_BONUS: float = 1.5  # Bonus for targets below half health
 
@@ -162,7 +183,7 @@ const WEIGHT_CONTESTED_OBJ: float = 8.0
 const WEIGHT_ENEMY_WEAK_OBJ: float = 7.0
 const WEIGHT_HOME_UNDEFENDED: float = 9.0
 const WEIGHT_ENEMY_STRONG_OBJ: float = -5.0
-const WEIGHT_ALREADY_HELD_OBJ: float = -8.0
+const WEIGHT_ALREADY_HELD_OBJ: float = -3.0   # Reduced from -8.0 — held objectives still need some units
 const WEIGHT_SCORING_URGENCY: float = 3.0
 const WEIGHT_OC_EFFICIENCY: float = 2.0
 
@@ -200,7 +221,7 @@ const PHASE_PLAN_CHARGE_LANE_BONUS: float = 3.0     # Bonus for moving toward ch
 const PHASE_PLAN_SHOOTING_LANE_BONUS: float = 2.0   # Bonus for maintaining shooting lanes
 const PHASE_PLAN_CHARGE_INTENT_THRESHOLD: float = 3.0  # Min charge score to flag intent
 const PHASE_PLAN_LOCK_SHOOTER_BONUS: float = 3.0    # Bonus for charging dangerous shooters
-const PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET: float = 0.1  # Multiplier for shooting at charge targets (near-zero)
+const PHASE_PLAN_DONT_SHOOT_CHARGE_TARGET: float = 0.5  # Multiplier for shooting at charge targets (weaken before charging)
 const PHASE_PLAN_RANGED_STRENGTH_DANGEROUS: float = 5.0  # Ranged output threshold for "dangerous shooter"
 # Urgency scoring extension (expanding round-1 urgency)
 const URGENCY_ROUND_2_CONTEST: float = 2.0      # Round 2: contest uncontrolled objectives
@@ -225,12 +246,12 @@ const TEMPO_CHARGE_THRESHOLD_REDUCTION: float = 0.4 # How much to lower charge t
 # Rounds 1-2: Aggressive — favor kills and aggressive positioning
 # Round 3: Balanced — standard weights (all 1.0)
 # Rounds 4-5: Objective/survival — prioritize objective control and survival over kills
-const STRATEGY_EARLY_AGGRESSION: float = 1.5        # Rounds 1-2: boost kill-seeking scoring by 50% (increased from 1.3)
-const STRATEGY_EARLY_OBJECTIVE: float = 0.7          # Rounds 1-2: reduce objective weight more (aggression first, was 0.85)
-const STRATEGY_EARLY_SURVIVAL: float = 0.6           # Rounds 1-2: accept significantly more risk (was 0.8)
-const STRATEGY_EARLY_CHARGE: float = 0.4             # Rounds 1-2: much lower charge threshold (was 0.6)
+const STRATEGY_EARLY_AGGRESSION: float = 1.3        # Rounds 1-2: boost kill-seeking scoring by 30% (reduced from 1.5)
+const STRATEGY_EARLY_OBJECTIVE: float = 0.95         # Rounds 1-2: near-full objective weight — grabbing objectives early is critical for R2 scoring (increased from 0.85)
+const STRATEGY_EARLY_SURVIVAL: float = 0.7           # Rounds 1-2: accept more risk (increased from 0.6)
+const STRATEGY_EARLY_CHARGE: float = 0.5             # Rounds 1-2: lower charge threshold (increased from 0.4)
 const STRATEGY_LATE_AGGRESSION: float = 0.7          # Rounds 4-5: reduce kill-seeking scoring by 30%
-const STRATEGY_LATE_OBJECTIVE: float = 1.4           # Rounds 4-5: boost objective control priority by 40%
+const STRATEGY_LATE_OBJECTIVE: float = 1.6           # Rounds 4-5: boost objective control priority by 60% (increased from 1.4)
 const STRATEGY_LATE_SURVIVAL: float = 1.4            # Rounds 4-5: increase survival/threat avoidance by 40%
 const STRATEGY_LATE_CHARGE: float = 1.3              # Rounds 4-5: higher charge threshold (less willing to charge)
 const STRATEGY_LATE_CHARGE_ON_OBJ_BONUS: float = 1.5 # Rounds 4-5: extra bonus for charging onto objectives
@@ -238,27 +259,28 @@ const STRATEGY_LATE_OBJ_TARGET_BONUS: float = 1.3    # Rounds 4-5: extra bonus f
 
 # T7-25: AI secondary mission awareness constants
 # Movement scoring bonuses for positioning that satisfies active secondary missions
-const SECONDARY_OBJECTIVE_ZONE_BONUS: float = 2.5    # Bonus for objectives in zones relevant to secondaries
-const SECONDARY_POSITIONAL_BONUS: float = 3.0        # Bonus for moving toward secondary-mission positions
-const SECONDARY_KILL_PROXIMITY_BONUS: float = 1.5    # Bonus for positioning near secondary kill targets
-const SECONDARY_SPREAD_BONUS: float = 2.0            # Bonus for spreading to uncovered table quarters
-const SECONDARY_CENTER_BONUS: float = 2.5            # Bonus for Area Denial center positioning
-const SECONDARY_ENEMY_ZONE_PUSH_BONUS: float = 3.5   # Bonus for Behind Enemy Lines deployment zone push
+const SECONDARY_OBJECTIVE_ZONE_BONUS: float = 3.5    # Bonus for objectives in zones relevant to secondaries
+const SECONDARY_POSITIONAL_BONUS: float = 4.0        # Bonus for moving toward secondary-mission positions
+const SECONDARY_KILL_PROXIMITY_BONUS: float = 2.0    # Bonus for positioning near secondary kill targets
+const SECONDARY_SPREAD_BONUS: float = 6.0            # Bonus for spreading to uncovered table quarters
+const SECONDARY_CENTER_BONUS: float = 3.5            # Bonus for Area Denial center positioning
+const SECONDARY_ENEMY_ZONE_PUSH_BONUS: float = 7.0   # Bonus for Behind Enemy Lines deployment zone push
 
 # Faction aggression modifiers — faction-specific combat style adjustments
 # Aggressive factions (e.g. Orks) prefer melee, advance more, charge more often
 # These multiply against charge thresholds and movement aggression
 const FACTION_AGGRESSION_DEFAULT: float = 1.0
-const FACTION_AGGRESSION_ORKS: float = 2.2         # Orks are extremely aggressive — WAAAGH! (increased from 1.8)
+const FACTION_AGGRESSION_CUSTODES: float = 1.5     # Custodes are elite melee fighters — fewer units but devastating in combat
+const FACTION_AGGRESSION_ORKS: float = 1.8         # Orks are aggressive melee horde — charge more (raised from 1.6, was 2.2)
 const FACTION_AGGRESSION_WORLD_EATERS: float = 2.0 # World Eaters — blood for the blood god
 const FACTION_AGGRESSION_KHORNE: float = 1.8        # Khorne daemons — melee focused
 
 # Melee aggression movement constants — melee units actively seek enemies
-# When no objective is urgent, melee units should advance toward the nearest enemy
-const MELEE_AGGRESSION_ENEMY_SEEK_BONUS: float = 12.0    # Score bonus for moving toward nearest enemy (increased from 8.0)
-const MELEE_AGGRESSION_CHARGE_RANGE_BONUS: float = 16.0  # Big bonus for reaching charge range of enemy (increased from 12.0)
-const MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES: float = 30.0  # Advance toward enemy if within this distance (increased from 18.0)
-const MELEE_AGGRESSION_MIN_MOVE_RATIO: float = 0.7      # Always move at least 70% of M toward enemy (increased from 0.5)
+# Balance aggression with objective control — don't chase enemies across the board
+const MELEE_AGGRESSION_ENEMY_SEEK_BONUS: float = 8.0    # Score bonus for moving toward nearest enemy (reduced from 12.0)
+const MELEE_AGGRESSION_CHARGE_RANGE_BONUS: float = 12.0  # Big bonus for reaching charge range of enemy (reduced from 16.0)
+const MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES: float = 20.0  # Advance toward enemy if within this distance (reduced from 30.0)
+const MELEE_AGGRESSION_MIN_MOVE_RATIO: float = 0.6      # Move at least 60% of M toward enemy (reduced from 0.7)
 
 # T7-27: Engaged unit survival assessment constants
 # Used to estimate fight-phase damage and inform hold/fall-back decisions
@@ -279,8 +301,8 @@ const MACRO_OC_NEAR_OBJECTIVE_WEIGHT: float = 0.2 # Per-OC when unit is near an 
 const MACRO_LEADER_BUFF_BONUS: float = 1.5       # Multiplier for leaders providing buffs to attached units
 # Micro-level weapon allocation constants
 const MICRO_MARGINAL_KILL_BONUS: float = 2.5     # Bonus multiplier when assignment pushes total past kill threshold
-const MICRO_OVERKILL_DECAY: float = 0.3          # Value multiplier for damage beyond kill threshold
-const MICRO_MODEL_KILL_VALUE: float = 0.4        # Fractional value per model killed (vs full wipe value of 1.0)
+const MICRO_OVERKILL_DECAY: float = 0.35          # Value multiplier for damage beyond kill threshold (0.35 = still rewards finishing kills)
+const MICRO_MODEL_KILL_VALUE: float = 0.6        # Fractional value per model killed (vs full wipe value of 1.0)
 
 # =============================================================================
 # T7-40: DIFFICULTY-AWARE SCORING UTILITIES
@@ -313,6 +335,8 @@ static func _get_faction_aggression(snapshot: Dictionary, player: int) -> float:
 	var faction_name = _get_player_faction_name(snapshot, player).to_upper()
 	if "ORK" in faction_name:
 		return FACTION_AGGRESSION_ORKS
+	elif "CUSTODES" in faction_name or "ADEPTUS CUSTODES" in faction_name:
+		return FACTION_AGGRESSION_CUSTODES
 	elif "WORLD EATER" in faction_name:
 		return FACTION_AGGRESSION_WORLD_EATERS
 	elif "KHORNE" in faction_name:
@@ -493,6 +517,17 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			_fight_order_plan_built = false
 			_fight_order_plan.clear()
 		_fight_order_logged = false
+		_fight_attack_retry_count.clear()
+
+	# Reset charge coordination when entering a new round's charge phase
+	if phase == GameStateData.Phase.CHARGE:
+		if _charge_coordination_round != current_round:
+			_charge_coordination.clear()
+			_charge_coordination_round = current_round
+	elif phase != GameStateData.Phase.CHARGE:
+		# Clear when we leave the charge phase entirely
+		if not _charge_coordination.is_empty():
+			_charge_coordination.clear()
 
 	# Reset movement plan log flag when not in movement phase
 	if phase != GameStateData.Phase.MOVEMENT:
@@ -506,10 +541,15 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		_phase_plan_built = false
 		_phase_plan_round = current_round
 
-	# T7-25: Reset secondary awareness when a new round starts
-	if _secondary_awareness_round != current_round:
-		_secondary_awareness.clear()
-		_secondary_awareness_round = current_round
+	# T7-25: Reset secondary awareness when a new round starts (per-player)
+	if player == 1:
+		if _secondary_awareness_round_p1 != current_round:
+			_secondary_awareness_p1.clear()
+			_secondary_awareness_round_p1 = current_round
+	else:
+		if _secondary_awareness_round_p2 != current_round:
+			_secondary_awareness_p2.clear()
+			_secondary_awareness_round_p2 = current_round
 
 	# T7-40: Normal and below skip multi-phase planning
 	if not AIDifficultyConfigData.use_multi_phase_planning(difficulty):
@@ -1072,9 +1112,13 @@ static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_ac
 		return {}
 
 	var char_name = all_units.get(best_action.get("character_id", ""), {}).get("meta", {}).get("name", "unknown")
-	var bg_name = all_units.get(best_action.get("bodyguard_id", ""), {}).get("meta", {}).get("name", "unknown")
+	var bg_id = best_action.get("bodyguard_id", "")
+	var bg_name = all_units.get(bg_id, {}).get("meta", {}).get("name", "unknown")
 	best_action["_ai_description"] = "AI attaches %s to %s (synergy: %.2f)" % [char_name, bg_name, best_score]
 	print("AIDecisionMaker: Leader attachment - %s -> %s (score=%.2f)" % [char_name, bg_name, best_score])
+	# Track this bodyguard as having a leader — prevents embarking in transports
+	if bg_id != "" and bg_id not in _bodyguards_with_leaders:
+		_bodyguards_with_leaders.append(bg_id)
 	return best_action
 
 static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_units: Dictionary) -> float:
@@ -1170,6 +1214,24 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 			var leader_data = unit.get("meta", {}).get("leader_data", {})
 			if not leader_data.get("can_lead", []).is_empty():
 				continue
+		# Skip units with BODYGUARD ability — they need to stay on the board as bodyguards
+		var has_bodyguard_ability = false
+		for ab in unit.get("meta", {}).get("abilities", []):
+			var ab_name = ""
+			if ab is Dictionary:
+				ab_name = ab.get("name", "").to_lower()
+			elif ab is String:
+				ab_name = ab.to_lower()
+			if ab_name == "bodyguard":
+				has_bodyguard_ability = true
+				break
+		if has_bodyguard_ability:
+			print("AIDecisionMaker: [FORM-2] Skipping %s for transport — has BODYGUARD ability (needed on board)" % unit_id)
+			continue
+		# Skip units that have a leader attached — they need to stay on the board with their leader
+		if unit_id in _bodyguards_with_leaders:
+			print("AIDecisionMaker: [FORM-2] Skipping %s for transport — has leader attached (needed on board)" % unit_id)
+			continue
 		candidate_units.append(unit_id)
 
 	if candidate_units.is_empty():
@@ -2569,14 +2631,66 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				"_ai_description": "Battle-shock test"
 			}
 
-	# WAAAGH! activation (Orks) — AI always calls Waaagh! when available
+	# WAAAGH! activation (Orks) — smart timing for maximum melee impact
 	for action in available_actions:
 		if action.get("type") == "CALL_WAAAGH":
-			print("AIDecisionMaker: Calling WAAAGH! — advance+charge, +1 S/A melee, 5+ invuln")
-			return {
-				"type": "CALL_WAAAGH",
-				"_ai_description": "WAAAGH! — activate Ork faction ability"
-			}
+			var waaagh_round = snapshot.get("meta", {}).get("battle_round", 1)
+			# Count friendly units that are within advance+charge range (≈22") of any enemy
+			var waaagh_range_px = 22.0 * PIXELS_PER_INCH  # 880px — realistic advance+charge range
+			var friendly_units = _get_units_for_player(snapshot, player)
+			var enemy_units = _get_enemy_units(snapshot, player)
+			var units_in_range = 0
+			var total_friendly_alive = 0
+			for f_uid in friendly_units:
+				var f_unit = friendly_units[f_uid]
+				if _get_alive_models(f_unit).is_empty():
+					continue
+				# Skip non-combat units (Strike Force placeholder etc)
+				var f_keywords = f_unit.get("meta", {}).get("keywords", [])
+				if "UNKNOWN" in f_keywords:
+					continue
+				total_friendly_alive += 1
+				var f_pos = _get_unit_centroid(f_unit)
+				if f_pos == Vector2.INF:
+					continue
+				for e_uid in enemy_units:
+					var e_unit = enemy_units[e_uid]
+					if _get_alive_models(e_unit).is_empty():
+						continue
+					var e_pos = _get_unit_centroid(e_unit)
+					if e_pos == Vector2.INF:
+						continue
+					if f_pos.distance_to(e_pos) < waaagh_range_px:
+						units_in_range += 1
+						break  # Count this friendly unit once
+
+			# Decision: Use WAAAGH aggressively — maximizes turns of melee damage
+			# T19-1: Made much more aggressive. WAAAGH is once-per-game and gives
+			# +1S, +1A, advance+charge, 5++ invuln. Using it early means MORE
+			# turns benefit from the charge/advance flexibility.
+			var should_waaagh = false
+			var reason = ""
+			if waaagh_round >= 2:
+				# Round 2+: always use it — waiting loses turns of benefit
+				should_waaagh = true
+				if waaagh_round >= 3:
+					reason = "round %d (use-it-or-lose-it)" % waaagh_round
+				else:
+					reason = "round 2, %d units in range (early aggression)" % units_in_range
+			elif waaagh_round == 1 and units_in_range >= 1:
+				# Round 1: use if ANY unit can reach enemies (Search & Destroy = close deployment)
+				should_waaagh = true
+				reason = "round 1, %d units in range (alpha strike)" % units_in_range
+
+			if should_waaagh:
+				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — advance+charge, +1 S/A melee, 5+ invuln" % reason)
+				return {
+					"type": "CALL_WAAAGH",
+					"_ai_description": "WAAAGH! — %s" % reason
+				}
+			else:
+				print("AIDecisionMaker: [WAAAGH] Holding WAAAGH! (round %d, %d/%d units in range — waiting for better timing)" % [
+					waaagh_round, units_in_range, total_friendly_alive])
 
 	# T7-45: Handle faction ability activation (Oath of Moment target selection)
 	var oath_actions = []
@@ -2614,10 +2728,87 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 			return best_mastery
 
 	# T7-25: Build secondary mission awareness before ending command phase
-	# Analyzes active secondary missions to inform movement positioning this turn
-	if _secondary_awareness.is_empty():
-		_secondary_awareness = _build_secondary_awareness(snapshot, player)
-		_secondary_awareness_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+	# Analyzes active secondary missions to inform movement positioning this turn (per-player)
+	var _player_awareness = _secondary_awareness_p1 if player == 1 else _secondary_awareness_p2
+	if _player_awareness.is_empty():
+		var built = _build_secondary_awareness(snapshot, player)
+		if player == 1:
+			_secondary_awareness_p1 = built
+			_secondary_awareness_round_p1 = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+		else:
+			_secondary_awareness_p2 = built
+			_secondary_awareness_round_p2 = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
+
+	# Evaluate REPLACE_SECONDARY_MISSION — replace bad newly-drawn missions (1 CP, back to deck)
+	var replace_actions = []
+	for action in available_actions:
+		if action.get("type") == "REPLACE_SECONDARY_MISSION":
+			replace_actions.append(action)
+	if not replace_actions.is_empty():
+		var replace_round = snapshot.get("meta", {}).get("battle_round", 1)
+		var secondary_mgr_r = _secondary_mission_manager()
+		if secondary_mgr_r and secondary_mgr_r.is_initialized(player):
+			var active_missions_r = secondary_mgr_r.get_active_missions(player)
+			var player_cp_r = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
+			for action in replace_actions:
+				var m_idx = action.get("mission_index", -1)
+				if m_idx >= 0 and m_idx < active_missions_r.size():
+					var mission = active_missions_r[m_idx]
+					var m_name = mission.get("name", "Unknown")
+					var score = _evaluate_mission_achievability(snapshot, mission, player, replace_round)
+					print("AIDecisionMaker: [REPLACE-MISSION] Evaluating newly drawn '%s': achievability = %.2f" % [m_name, score])
+					# Replace if mission is poorly achievable (action-based = 0.1, or low achievability)
+					if score <= 0.25 and player_cp_r >= 1:
+						print("AIDecisionMaker: [REPLACE-MISSION] Replacing bad draw '%s' (score=%.2f, CP=%d)" % [m_name, score, player_cp_r])
+						return {
+							"type": "REPLACE_SECONDARY_MISSION",
+							"mission_index": m_idx,
+							"_ai_description": "Replace bad draw '%s' (achievability %.2f)" % [m_name, score]
+						}
+					else:
+						print("AIDecisionMaker: [REPLACE-MISSION] Keeping '%s' (score=%.2f)" % [m_name, score])
+
+	# Evaluate New Orders — swap unachievable secondary missions for better ones (costs 1 CP)
+	var new_orders_actions = []
+	for action in available_actions:
+		if action.get("type") == "USE_NEW_ORDERS":
+			new_orders_actions.append(action)
+	if not new_orders_actions.is_empty():
+		var cmd_battle_round = snapshot.get("meta", {}).get("battle_round", 1)
+		var secondary_mgr = _secondary_mission_manager()
+		if secondary_mgr and secondary_mgr.is_initialized(player):
+			var active_missions = secondary_mgr.get_active_missions(player)
+			var worst_idx = -1
+			var worst_score = INF
+			var worst_name = ""
+			for i in range(active_missions.size()):
+				var score = _evaluate_mission_achievability(snapshot, active_missions[i], player, cmd_battle_round)
+				var mname = active_missions[i].get("name", "Unknown")
+				print("AIDecisionMaker: [NEW-ORDERS] Mission '%s': achievability = %.2f" % [mname, score])
+				if score < worst_score:
+					worst_score = score
+					worst_idx = i
+					worst_name = mname
+			# Use New Orders if worst mission is poorly achievable and we have CP to spare
+			var player_cp = int(snapshot.get("players", {}).get(str(player), {}).get("cp", 0))
+			# In early rounds, be more aggressive about swapping (more turns to benefit from better mission)
+			# Round 1-2: swap anything below 0.45 achievability
+			# Round 3+: swap anything below 0.30 achievability (less time to benefit)
+			var swap_threshold = 0.30 if cmd_battle_round >= 3 else 0.45
+			if worst_idx >= 0 and worst_score < swap_threshold and player_cp >= 1:
+				# Find matching action
+				for action in new_orders_actions:
+					if action.get("mission_index") == worst_idx:
+						print("AIDecisionMaker: [NEW-ORDERS] Using New Orders to swap '%s' (score=%.2f < %.2f, CP=%d)" % [
+							worst_name, worst_score, swap_threshold, player_cp])
+						return {
+							"type": "USE_NEW_ORDERS",
+							"mission_index": worst_idx,
+							"_ai_description": "New Orders: swap unachievable '%s' for new mission" % worst_name
+						}
+			else:
+				print("AIDecisionMaker: [NEW-ORDERS] Keeping missions (worst='%s' score=%.2f, threshold=%.2f, CP=%d)" % [
+					worst_name, worst_score, swap_threshold, player_cp])
 
 	# All tests and faction abilities done, end command phase
 	return {"type": "END_COMMAND", "_ai_description": "End Command Phase"}
@@ -2857,6 +3048,18 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"_ai_description": "Decline Command Re-roll (movement phase fallback)"
 		}
 
+	# Step 0.5: Handle Sawbonez healing ability (Painboss)
+	# Always use Sawbonez — free healing is always beneficial
+	if action_types.has("USE_SAWBONEZ"):
+		var sawbonez_action = action_types["USE_SAWBONEZ"][0]
+		return {
+			"type": "USE_SAWBONEZ",
+			"actor_unit_id": sawbonez_action.get("actor_unit_id", ""),
+			"target_unit_id": sawbonez_action.get("target_unit_id", sawbonez_action.get("actor_unit_id", "")),
+			"player": player,
+			"_ai_description": "AI uses Sawbonez healing"
+		}
+
 	# Step 1: If CONFIRM_UNIT_MOVE is available, confirm it
 	# (safety fallback — normally AIPlayer handles confirm after staging)
 	if action_types.has("CONFIRM_UNIT_MOVE"):
@@ -2937,11 +3140,17 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 	# =========================================================================
 	# T7-25: Build secondary awareness if not already built (fallback if command
-	# phase was skipped or didn't trigger awareness build)
+	# phase was skipped or didn't trigger awareness build) — per-player
 	# =========================================================================
-	if _secondary_awareness.is_empty():
-		_secondary_awareness = _build_secondary_awareness(snapshot, player)
-		_secondary_awareness_round = battle_round
+	var _mv_awareness = _secondary_awareness_p1 if player == 1 else _secondary_awareness_p2
+	if _mv_awareness.is_empty():
+		var built_mv = _build_secondary_awareness(snapshot, player)
+		if player == 1:
+			_secondary_awareness_p1 = built_mv
+			_secondary_awareness_round_p1 = battle_round
+		else:
+			_secondary_awareness_p2 = built_mv
+			_secondary_awareness_round_p2 = battle_round
 
 	# =========================================================================
 	# THREAT DATA: Calculate enemy threat zones once for all units (AI-TACTIC-4)
@@ -3033,21 +3242,46 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 		var assignment_action = assignment.get("action", "move")  # "hold", "move", "advance", "screen"
 
 		# --- OC-AWARE HOLD DECISION ---
-		# Melee units from aggressive factions should NOT passively hold — they should seek enemies
+		# Balance melee aggression with objective control
+		# Key insight: Orks should NOT abandon objectives to chase distant enemies
 		var hold_faction_aggression = _get_faction_aggression(snapshot, player)
-		var hold_is_melee = _is_melee_focused_unit(unit) or (hold_faction_aggression >= 1.5 and _unit_has_melee_weapons(unit))
+		var hold_unit_is_melee_focused = _is_melee_focused_unit(unit)
+		var hold_kw = unit.get("meta", {}).get("keywords", [])
+		var hold_is_ranged_vehicle = not hold_unit_is_melee_focused and ("VEHICLE" in hold_kw) and _unit_has_ranged_weapons(unit)
+		var hold_is_melee = hold_unit_is_melee_focused or (hold_faction_aggression >= 1.5 and _unit_has_melee_weapons(unit) and not hold_is_ranged_vehicle)
+		var hold_battle_round = snapshot.get("battle_round", 1)
 		if assignment_action == "hold":
 			# Check if there's a nearby enemy worth charging
 			var skip_hold_for_melee = false
 			if hold_is_melee and not enemies.is_empty():
 				var hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
-				# Aggressive factions always skip hold to seek enemies (no distance limit)
-				# Other melee units skip hold if enemy is within 24"
-				var hold_dist_limit = 999.0 if hold_faction_aggression >= 1.5 else 24.0
+				# Smart distance limit: only skip hold for NEARBY enemies
+				# Round 1: more aggressive (objectives don't score), wider limit
+				# Round 2+: tighter limit to preserve objective control
+				# T16-1: Horde units (10+ models) use tighter limits — their OC is more valuable on objectives
+				var hold_alive_count = _get_alive_models(unit).size()
+				var is_horde_unit = hold_alive_count >= 10
+				var hold_dist_limit: float
+				if hold_battle_round <= 1:
+					if is_horde_unit:
+						hold_dist_limit = 12.0  # Horde: tighter limit in R1 — get to objectives first
+					else:
+						hold_dist_limit = 18.0 if hold_faction_aggression >= 1.5 else 14.0
+				elif hold_battle_round <= 2:
+					if is_horde_unit:
+						hold_dist_limit = 10.0  # Horde: very tight in R2 — scoring round
+					else:
+						hold_dist_limit = 14.0 if hold_faction_aggression >= 1.5 else 12.0
+				else:
+					# Mid-late game: only abandon objective for enemies in charge range
+					hold_dist_limit = 12.0 if hold_faction_aggression >= 1.5 else 10.0
 				if not hold_nearest.is_empty() and hold_nearest.distance_inches <= hold_dist_limit:
 					skip_hold_for_melee = true
-					print("AIDecisionMaker: [MELEE-AGGRESSION] %s skipping hold to seek %s (%.1f\" away, aggression=%.1f)" % [
-						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_faction_aggression])
+					print("AIDecisionMaker: [MELEE-AGGRESSION] %s skipping hold to seek %s (%.1f\" away, limit=%.0f\", round=%d)" % [
+						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
+				elif not hold_nearest.is_empty():
+					print("AIDecisionMaker: [HOLD-PRIORITY] %s staying on objective — enemy %s is %.1f\" away (limit=%.0f\", round=%d)" % [
+						unit_name, hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), hold_nearest.distance_inches, hold_dist_limit, hold_battle_round])
 			if not skip_hold_for_melee and "REMAIN_STATIONARY" in move_types:
 				var dist_inches = assignment.get("distance", 0.0) / PIXELS_PER_INCH
 				var reason = assignment.get("reason", "holding objective")
@@ -3079,15 +3313,42 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 
 		# --- MELEE AGGRESSION: Melee units actively seek enemies ---
 		# If this unit is melee-focused, consider advancing toward the nearest enemy
-		# instead of moving toward objectives. This ensures melee units get into combat.
+		# instead of moving toward objectives. Balance aggression with objective control.
 		var is_melee_unit = _is_melee_focused_unit(unit)
 		var faction_aggression = _get_faction_aggression(snapshot, player)
-		# Also consider all units from aggressive factions as melee-seekers if they have melee weapons
 		var has_any_melee = _unit_has_melee_weapons(unit)
 		var is_aggressive_faction = faction_aggression >= 1.5
-		var should_seek_enemies = is_melee_unit or (is_aggressive_faction and has_any_melee)
-		print("AIDecisionMaker: [MELEE-CHECK] %s: is_melee=%s, has_melee=%s, aggressive_faction=%s, seek_enemies=%s, enemies=%d, assignment=%s" % [
-			unit_name, is_melee_unit, has_any_melee, is_aggressive_faction, should_seek_enemies, enemies.size(), assignment_action])
+		# For aggressive factions: ranged-focused vehicles should NOT melee aggress
+		# (e.g. Caladius Grav-tank with strong ranged weapons should stay at range)
+		var unit_keywords_for_melee = unit.get("meta", {}).get("keywords", [])
+		var is_ranged_vehicle = not is_melee_unit and ("VEHICLE" in unit_keywords_for_melee) and _unit_has_ranged_weapons(unit)
+		var should_seek_enemies = is_melee_unit or (is_aggressive_faction and has_any_melee and not is_ranged_vehicle)
+		var melee_battle_round = snapshot.get("battle_round", 1)
+
+		# Determine if this unit is needed at its objective (don't abandon objectives)
+		var unit_centroid_for_obj = _get_unit_centroid(unit)
+		var unit_is_on_objective = false
+		var unit_objective_is_contested = false
+		if unit_centroid_for_obj != Vector2.INF and assigned_obj_pos != Vector2.INF:
+			unit_is_on_objective = unit_centroid_for_obj.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX
+			if unit_is_on_objective:
+				# Check if the objective is contested/enemy controlled — we might be needed
+				var obj_friendly_oc = 0
+				var obj_enemy_oc = 0
+				for f_uid in friendly_units:
+					var f_unit_data = friendly_units[f_uid]
+					var f_centroid = _get_unit_centroid(f_unit_data)
+					if f_centroid != Vector2.INF and f_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						obj_friendly_oc += int(f_unit_data.get("meta", {}).get("stats", {}).get("objective_control", 1))
+				for e_uid in enemies:
+					var e_unit_data = enemies[e_uid]
+					var e_centroid = _get_unit_centroid(e_unit_data)
+					if e_centroid != Vector2.INF and e_centroid.distance_to(assigned_obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+						obj_enemy_oc += int(e_unit_data.get("meta", {}).get("stats", {}).get("objective_control", 1))
+				unit_objective_is_contested = obj_enemy_oc > 0
+
+		print("AIDecisionMaker: [MELEE-CHECK] %s: is_melee=%s, aggressive=%s, seek=%s, enemies=%d, on_obj=%s, contested=%s, round=%d, assignment=%s" % [
+			unit_name, is_melee_unit, is_aggressive_faction, should_seek_enemies, enemies.size(), unit_is_on_objective, unit_objective_is_contested, melee_battle_round, assignment_action])
 		if should_seek_enemies and not enemies.is_empty():
 			var nearest_enemy = _get_nearest_enemy_for_charge(unit, enemies)
 			if not nearest_enemy.is_empty():
@@ -3101,12 +3362,45 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 				# Move directly toward enemy — _compute_movement_toward_target handles terrain pathing
 				var move_target = enemy_pos
 
-				# Calculate if we should advance or normal move toward enemy
-				# Melee units should ALWAYS move toward enemies — no distance limit
 				var charge_range_inches = 12.0  # Pure charge range (without move)
 
-				# Always seek enemies — advance if they're far, normal move if close
-				if true:  # Always attempt melee aggression (removed distance limit)
+				# Smart melee aggression: balance enemy-seeking with objective control
+				# DON'T chase enemies when:
+				# 1. Unit is on a contested objective in rounds 2+ (we need the OC)
+				# 2. Unit is on a safe objective in rounds 3+ and enemy is far (>14")
+				# 3. Unit is assigned to hold and enemy is beyond charge range
+				var should_chase = true
+				# T16-1: Horde units (10+ models) prioritize reaching their assigned objective
+				# in R1-R2 before chasing enemies. Their OC is critical for primary VP.
+				# Only chase if the enemy is within charge range (they'll get there anyway).
+				var alive_count_for_chase = _get_alive_models(unit).size()
+				if not unit_is_on_objective and alive_count_for_chase >= 10 and melee_battle_round <= 2 and enemy_dist > charge_range_inches:
+					should_chase = false
+					print("AIDecisionMaker: [OBJ-PRIORITY] %s (horde %d models) prioritizes objective %s over chasing %s (%.1f\" > %.1f\" charge range, round %d)" % [
+						unit_name, alive_count_for_chase, assigned_obj_id, enemy_name, enemy_dist, charge_range_inches, melee_battle_round])
+				elif unit_is_on_objective and unit_objective_is_contested and melee_battle_round >= 2:
+					# Don't leave a contested objective — OC matters
+					should_chase = false
+					print("AIDecisionMaker: [OBJ-PRIORITY] %s stays on contested objective %s (round %d) instead of chasing %s (%.1f\" away)" % [
+						unit_name, assigned_obj_id, melee_battle_round, enemy_name, enemy_dist])
+				elif unit_is_on_objective and melee_battle_round >= 3 and enemy_dist > 14.0:
+					# Late game: don't abandon controlled objectives for distant enemies
+					should_chase = false
+					print("AIDecisionMaker: [OBJ-PRIORITY] %s holds objective %s late game (round %d) — enemy %s too far (%.1f\")" % [
+						unit_name, assigned_obj_id, melee_battle_round, enemy_name, enemy_dist])
+				elif assignment_action == "hold" and enemy_dist > charge_range_inches + move_inches_melee:
+					# Assigned to hold and enemy is beyond move+charge — stay put
+					# EXCEPTION: R1 aggressive factions — advance now to set up R2 charge
+					if melee_battle_round <= 1 and faction_aggression >= 1.5 and enemy_dist <= charge_range_inches + move_inches_melee + 6.0:
+						# Within advance+charge range — move toward enemy in R1 for next-turn charge
+						print("AIDecisionMaker: [R1-AGGRESSION] %s leaves hold to advance toward %s (%.1f\" away, R1 setup charge, aggression=%.1f)" % [
+							unit_name, enemy_name, enemy_dist, faction_aggression])
+					else:
+						should_chase = false
+						print("AIDecisionMaker: [OBJ-PRIORITY] %s holds as assigned — enemy %s beyond move+charge (%.1f\" > %.1f\")" % [
+							unit_name, enemy_name, enemy_dist, charge_range_inches + move_inches_melee])
+
+				if should_chase:
 					# Prefer advance if enemy is far (to close faster) and we have no good ranged
 					# or if we're from an aggressive faction
 					var should_advance_melee = enemy_dist > charge_range_inches and "BEGIN_ADVANCE" in move_types
@@ -3187,16 +3481,40 @@ static func _select_movement_action(snapshot: Dictionary, available_actions: Arr
 			var target_pos = assigned_obj_pos if assigned_obj_pos != Vector2.INF else _nearest_objective_pos(centroid, objectives)
 
 			# If we're already within control range and assigned to hold, remain stationary
-			# EXCEPT: melee units near enemies should keep moving toward them
-			var obj_hold_is_melee = _is_melee_focused_unit(unit) or (_get_faction_aggression(snapshot, player) >= 1.5 and _unit_has_melee_weapons(unit))
+			# EXCEPT: melee units with NEARBY enemies (within charge range) should keep moving
+			var obj_hold_is_melee_unit = _is_melee_focused_unit(unit)
+			var obj_hold_kw = unit.get("meta", {}).get("keywords", [])
+			var obj_hold_is_ranged_vehicle = not obj_hold_is_melee_unit and ("VEHICLE" in obj_hold_kw) and _unit_has_ranged_weapons(unit)
+			var obj_hold_is_melee = obj_hold_is_melee_unit or (_get_faction_aggression(snapshot, player) >= 1.5 and _unit_has_melee_weapons(unit) and not obj_hold_is_ranged_vehicle)
 			var obj_hold_skip = false
+			var obj_hold_round = snapshot.get("battle_round", 1)
 			if obj_hold_is_melee and not enemies.is_empty():
 				var obj_hold_nearest = _get_nearest_enemy_for_charge(unit, enemies)
-				var obj_hold_dist_limit = 999.0 if _get_faction_aggression(snapshot, player) >= 1.5 else 24.0
+				# Only leave objective for enemies within charge+move range, not the whole board
+				# T16-1: Horde units (10+ models) use much tighter limits — their OC is critical
+				var obj_move_stat = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+				var obj_hold_alive_count = _get_alive_models(unit).size()
+				var obj_is_horde = obj_hold_alive_count >= 10
+				var obj_hold_dist_limit: float
+				if obj_hold_round <= 1:
+					if obj_is_horde:
+						obj_hold_dist_limit = 8.0  # Horde on objective in R1: only leave for very close enemies
+					else:
+						obj_hold_dist_limit = obj_move_stat + 14.0  # move + charge range, round 1
+				elif obj_hold_round <= 2:
+					if obj_is_horde:
+						obj_hold_dist_limit = 6.0  # Horde on objective in R2: almost never leave (scoring round)
+					else:
+						obj_hold_dist_limit = obj_move_stat + 12.0  # tighter in round 2
+				else:
+					obj_hold_dist_limit = 12.0  # Late game: only leave for enemies in charge range
 				if not obj_hold_nearest.is_empty() and obj_hold_nearest.distance_inches <= obj_hold_dist_limit:
 					obj_hold_skip = true
-					print("AIDecisionMaker: [MELEE-AGGRESSION] %s on objective but enemy %s is %.1f\" away — keep moving" % [
-						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches])
+					print("AIDecisionMaker: [MELEE-AGGRESSION] %s on objective but enemy %s is %.1f\" away (limit=%.0f\") — keep moving" % [
+						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit])
+				elif not obj_hold_nearest.is_empty():
+					print("AIDecisionMaker: [OBJ-PRIORITY] %s holding objective — enemy %s at %.1f\" beyond limit %.0f\" (round %d)" % [
+						unit_name, obj_hold_nearest.enemy_unit.get("meta", {}).get("name", "enemy"), obj_hold_nearest.distance_inches, obj_hold_dist_limit, obj_hold_round])
 			if not obj_hold_skip and target_pos != Vector2.INF and centroid.distance_to(target_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
 				if "REMAIN_STATIONARY" in move_types:
 					var dist_inches = centroid.distance_to(target_pos) / PIXELS_PER_INCH
@@ -3996,6 +4314,10 @@ static func _decide_transport_disembark(snapshot: Dictionary, player: int) -> Di
 	var best_action = {}
 
 	for unit_id in embarked_units:
+		# Skip units that previously failed disembark positioning
+		if unit_id in _failed_disembark_unit_ids:
+			continue
+
 		var unit = all_units.get(unit_id, {})
 		var transport_id = unit.get("embarked_in", "")
 		var transport = all_units.get(transport_id, {})
@@ -4156,8 +4478,10 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 	var unit_radius_px = (unit_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 
 	# Max distance from transport center: transport edge + 3" + model edge
-	# Use a conservative margin so shape-aware validation still passes
-	var max_center_dist_px = transport_radius_px + disembark_range_px + unit_radius_px - 8.0
+	# Use a very conservative margin so shape-aware validation still passes.
+	# Vehicles often have non-circular footprints, so the radius underestimates
+	# edge distance in narrow directions. Use a large safety margin.
+	var max_center_dist_px = transport_radius_px + disembark_range_px + unit_radius_px - 20.0
 
 	# Build list of occupied positions (to avoid overlaps)
 	var occupied_positions = []
@@ -4417,6 +4741,12 @@ static func _evaluate_all_objectives(
 				priority += URGENCY_ROUND_2_CONTEST
 			elif state == "contested":
 				priority += URGENCY_ROUND_2_CONTEST * 0.8
+			# T13-1: Held objectives in R2 need retention — this is the FIRST scoring round
+			elif state in ["held_safe", "held_threatened"]:
+				priority += URGENCY_ROUND_2_CONTEST * 0.6  # +1.2 to stay on held objectives for first VP scoring
+			# T13-1: NML objectives get extra priority in R2 since they're the main contested ground
+			if not is_home and not is_enemy_home:
+				priority += 1.5  # Extra NML urgency in first scoring round
 		# Round 3: Consolidate — hold what we have, reinforce contested
 		elif battle_round == 3:
 			if state == "held_threatened":
@@ -4453,6 +4783,38 @@ static func _evaluate_all_objectives(
 		# Don't over-prioritize enemy home objectives (far away, hard to hold)
 		if is_enemy_home and state == "enemy_strong":
 			priority -= 3.0
+
+		# T10-1: OBJECTIVE DENIAL — contest enemy-held objectives to deny VP
+		# Reduced from previous values (3-5 for weak, 1.5-2.5 for strong) to prevent
+		# units abandoning their own held objectives to chase enemy ones
+		if state in ["enemy_weak", "enemy_strong"] and battle_round >= 3:
+			var denial_bonus = 0.0
+			if state == "enemy_weak":
+				denial_bonus = 1.5 + float(battle_round - 2) * 0.5  # 1.5 R3, 2.0 R4, 2.5 R5 (was 3-5)
+			elif state == "enemy_strong" and not is_enemy_home:
+				denial_bonus = 0.5 + float(battle_round - 2) * 0.5  # 0.5 R3, 1.0 R4, 1.5 R5 (was 1.5-2.5)
+			if denial_bonus > 0.0:
+				priority += denial_bonus
+				print("AIDecisionMaker: [OBJ-DENY] Objective %s: +%.1f denial bonus (state=%s, round=%d)" % [obj_id, denial_bonus, state, battle_round])
+
+		# T12-1: HELD OBJECTIVE RETENTION — maintain held objectives in ALL rounds
+		# Prevents units from abandoning captured objectives to chase denial targets
+		# T16-1: Extended to R1 — don't abandon early captures before scoring starts
+		if state == "held_safe":
+			var retention_bonus = 0.0
+			if battle_round == 1:
+				retention_bonus = 1.5  # R1: small bonus to hold early positions
+			else:
+				retention_bonus = 2.0 + float(battle_round - 1) * 1.0  # 2.0 R2, 3.0 R3, 4.0 R4, 5.0 R5
+			priority += retention_bonus
+			print("AIDecisionMaker: [OBJ-RETAIN] Objective %s: +%.1f retention bonus (round=%d)" % [obj_id, retention_bonus, battle_round])
+
+		# T13-1: THREATENED OBJECTIVE RETENTION — defend objectives under threat
+		# Units should stay and contest, not abandon to chase other objectives
+		if state == "held_threatened" and battle_round >= 2:
+			var threatened_retention = 1.5 + float(battle_round - 1) * 0.75  # 1.5 R2, 2.25 R3, 3.0 R4, 3.75 R5
+			priority += threatened_retention
+			print("AIDecisionMaker: [OBJ-DEFEND] Objective %s: +%.1f threatened retention bonus (round=%d)" % [obj_id, threatened_retention, battle_round])
 
 		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod])
 
@@ -4542,8 +4904,21 @@ static func _assign_units_to_objectives(
 				score -= (turns_to_reach - 1) * 2.0
 
 			# Already on the objective: big bonus for holding
+			# T13-1: Scale bonus by round — staying put becomes more valuable as game progresses
 			if already_on_obj:
-				score += 5.0
+				if battle_round >= 4:
+					score += 7.0  # Late game: staying on objective is critical for VP
+				elif battle_round >= 2:
+					score += 6.0  # Scoring rounds: don't leave scored objectives
+				else:
+					score += 5.0  # Round 1: still good to hold early positions
+				# T16-1: Horde OC advantage — multi-model units contribute more OC
+				# and are harder to shift off objectives. Give extra stay bonus for model count.
+				var alive_models = _get_alive_models(unit).size()
+				if alive_models >= 10:
+					score += 2.0  # Large squad (Ork Boyz 10-20 models) — very hard to contest
+				elif alive_models >= 5:
+					score += 1.0  # Medium squad — decent presence
 
 			# Can reach this turn: bonus
 			if dist_inches <= move_inches:
@@ -4636,8 +5011,8 @@ static func _assign_units_to_objectives(
 									score += PHASE_PLAN_SHOOTING_LANE_BONUS * 0.5
 
 			# --- T7-25: SECONDARY MISSION AWARENESS INFLUENCE ---
-			# Factor active secondary missions into movement positioning
-			var sec_awareness = _get_secondary_awareness()
+			# Factor active secondary missions into movement positioning (per-player)
+			var sec_awareness = _get_secondary_awareness(player)
 			if not sec_awareness.is_empty() and not sec_awareness.get("active_mission_ids", []).is_empty():
 				# Objective zone bonuses: boost objectives in zones relevant to secondaries
 				var zone_bonuses = sec_awareness.get("objective_zone_bonuses", {})
@@ -4646,9 +5021,29 @@ static func _assign_units_to_objectives(
 					score += zone_bonuses[obj_zone_key]
 
 				# Behind Enemy Lines: bias movement toward enemy deployment zone
+				# Apply a proximity-based bonus to ANY destination closer to enemy zone center
+				# Uses corner-to-corner distance for Search and Destroy deployment
 				var enemy_push = sec_awareness.get("enemy_zone_push", 0.0)
-				if enemy_push > 0.0 and eval.is_enemy_home:
-					score += enemy_push
+				if enemy_push > 0.0:
+					# Enemy deployment zone center (Search and Destroy: opposite corners)
+					var enemy_zone_center: Vector2
+					if player == 1:
+						# P1's enemy is P2 at bottom-right: center ~(32, 48) inches
+						enemy_zone_center = Vector2(32.0 * PIXELS_PER_INCH, 48.0 * PIXELS_PER_INCH)
+					else:
+						# P2's enemy is P1 at top-left: center ~(12, 12) inches
+						enemy_zone_center = Vector2(12.0 * PIXELS_PER_INCH, 12.0 * PIXELS_PER_INCH)
+					var dist_from_enemy_zone = estimated_dest.distance_to(enemy_zone_center) / PIXELS_PER_INCH
+					# Strong bonus when within 18" of enemy zone center, scaling up as we get closer
+					if dist_from_enemy_zone <= 8.0:
+						score += enemy_push * 1.5  # In or near enemy zone — max bonus
+					elif dist_from_enemy_zone <= 16.0:
+						score += enemy_push * (1.0 - (dist_from_enemy_zone - 8.0) / 16.0)
+					elif dist_from_enemy_zone <= 24.0:
+						score += enemy_push * 0.3 * (1.0 - (dist_from_enemy_zone - 16.0) / 16.0)
+					# Also keep the objective zone bonus for enemy home objectives
+					if eval.is_enemy_home:
+						score += enemy_push * 0.5
 
 				# Defend Stronghold: bias toward own zone objectives
 				var defend_home_bonus = sec_awareness.get("defend_home", 0.0)
@@ -4696,6 +5091,37 @@ static func _assign_units_to_objectives(
 							if ekw.to_upper() in kill_kws:
 								score += SECONDARY_KILL_PROXIMITY_BONUS
 								break
+
+				# T12-2: No Prisoners — bonus for positioning near any enemy unit (kills score VP)
+				if sec_awareness.get("kill_proximity", false):
+					var nearest_enemy_dist = INF
+					for enemy_id in enemies:
+						var enemy = enemies[enemy_id]
+						var enemy_centroid = _get_unit_centroid(enemy)
+						if enemy_centroid == Vector2.INF:
+							continue
+						var d = estimated_dest.distance_to(enemy_centroid) / PIXELS_PER_INCH
+						if d < nearest_enemy_dist:
+							nearest_enemy_dist = d
+					# Bonus scales with proximity — max 2.0 at 0", 0 at 18"
+					if nearest_enemy_dist < 18.0:
+						var kill_prox_bonus = 2.0 * (1.0 - nearest_enemy_dist / 18.0)
+						score += kill_prox_bonus
+
+				# T12-2: Overwhelming Force — bonus for positioning near enemies ON objectives
+				if sec_awareness.get("kill_near_objectives", false):
+					for enemy_id in enemies:
+						var enemy = enemies[enemy_id]
+						var enemy_centroid = _get_unit_centroid(enemy)
+						if enemy_centroid == Vector2.INF:
+							continue
+						# Enemy must be near this objective
+						if obj_pos.distance_to(enemy_centroid) > 6.0 * PIXELS_PER_INCH:
+							continue
+						var d = estimated_dest.distance_to(enemy_centroid) / PIXELS_PER_INCH
+						if d < 14.0:
+							score += 2.5 * (1.0 - d / 14.0)
+							break  # Only count once per objective
 
 			# Determine recommended action
 			var action = "move"
@@ -6641,6 +7067,10 @@ static func _get_enemy_reserves(snapshot: Dictionary, player: int) -> Array:
 
 ## Determine if a unit is a good screening candidate (cheap, expendable)
 static func _is_screening_candidate(unit: Dictionary) -> bool:
+	# CHARACTER units should never be screeners — they're high-value targets
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "CHARACTER" in keywords:
+		return false
 	var points = int(unit.get("meta", {}).get("points", 0))
 	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 	# Cheap units with low OC are ideal screeners — they're expendable
@@ -6774,9 +7204,10 @@ static func _compute_screen_position(
 	if nearest_enemy_pos == Vector2.INF:
 		return Vector2.INF
 
-	# Find the nearest valuable friendly unit to protect
+	# Find the most valuable nearby friendly unit to protect
+	# Prioritize unattached CHARACTER units — they die quickly without protection
 	var protect_pos = Vector2.INF
-	var protect_dist = INF
+	var protect_score = -INF
 	for fid in friendly_units:
 		if fid == unit_id:
 			continue
@@ -6784,10 +7215,21 @@ static func _compute_screen_position(
 		var fcentroid = _get_unit_centroid(funit)
 		if fcentroid == Vector2.INF:
 			continue
-		# Prioritize protecting units near objectives or with high value
 		var d = centroid.distance_to(fcentroid)
-		if d < protect_dist:
-			protect_dist = d
+		# Base score: prefer nearby units (inversely proportional to distance)
+		var score = 1000.0 / max(d, 1.0)
+		# Unattached CHARACTER units get massive priority — they're fragile and valuable
+		var f_keywords = funit.get("meta", {}).get("keywords", [])
+		var f_attached = funit.get("attached_to", null)
+		if "CHARACTER" in f_keywords and f_attached == null:
+			score += 50.0  # Massive priority boost for unattached characters
+		elif "CHARACTER" in f_keywords:
+			score += 10.0  # Attached characters still worth protecting
+		# High-value units get priority
+		var f_points = int(funit.get("meta", {}).get("points", 0))
+		score += f_points * 0.01
+		if score > protect_score:
+			protect_score = score
 			protect_pos = fcentroid
 
 	if protect_pos == Vector2.INF:
@@ -7841,12 +8283,20 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		if w.get("type", "").to_lower() != "ranged":
 			continue
 		var attacks_str = w.get("attacks", "1")
+		if attacks_str == null: attacks_str = "1"
+		attacks_str = str(attacks_str)
 		var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
 		var bs_str = w.get("ballistic_skill", "4")
+		if bs_str == null: bs_str = "4"
+		bs_str = str(bs_str)
 		var bs = int(bs_str) if bs_str.is_valid_int() else 4
 		var s_str = w.get("strength", "4")
+		if s_str == null: s_str = "4"
+		s_str = str(s_str)
 		var s = int(s_str) if s_str.is_valid_int() else 4
 		var ap_str = w.get("ap", "0")
+		if ap_str == null: ap_str = "0"
+		ap_str = str(ap_str)
 		var w_ap = 0
 		if ap_str.begins_with("-"):
 			var ap_num = ap_str.substr(1)
@@ -7869,12 +8319,20 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 		if w.get("type", "").to_lower() != "melee":
 			continue
 		var attacks_str = w.get("attacks", "1")
+		if attacks_str == null: attacks_str = "1"
+		attacks_str = str(attacks_str)
 		var attacks = float(attacks_str) if attacks_str.is_valid_float() else _parse_average_damage(attacks_str)
 		var ws_str = w.get("weapon_skill", w.get("ballistic_skill", "4"))
+		if ws_str == null: ws_str = "4"
+		ws_str = str(ws_str)
 		var ws = int(ws_str) if ws_str.is_valid_int() else 4
 		var s_str = w.get("strength", "4")
+		if s_str == null: s_str = "4"
+		s_str = str(s_str)
 		var s = int(s_str) if s_str.is_valid_int() else 4
 		var ap_str = w.get("ap", "0")
+		if ap_str == null: ap_str = "0"
+		ap_str = str(ap_str)
 		var w_ap = 0
 		if ap_str.begins_with("-"):
 			var ap_num = ap_str.substr(1)
@@ -7952,6 +8410,24 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 			if oc >= 1:
 				value += float(oc) * MACRO_OC_NEAR_OBJECTIVE_WEIGHT
 
+	# Secondary mission kill-target bonus: boost priority when target matches active kill secondaries
+	var sec_awareness = _get_secondary_awareness(player)
+	var kill_kws = sec_awareness.get("kill_keywords", [])
+	if not kill_kws.is_empty():
+		for kw in kill_kws:
+			if kw in keywords:
+				value *= 1.4  # 40% boost for secondary mission kill targets
+				print("AIDecisionMaker: [SEC-TARGET] +40%% priority for %s (matches kill keyword '%s')" % [
+					meta.get("name", unit_id), kw])
+				break  # Only apply once even if multiple keywords match
+
+	# Marked for Death: boost priority for specifically marked target units
+	var marked_targets = sec_awareness.get("marked_targets", [])
+	if unit_id in marked_targets:
+		value *= 1.5  # 50% boost for Marked for Death targets (higher than keyword match)
+		print("AIDecisionMaker: [SEC-TARGET] +50%% priority for %s (Marked for Death target)" % [
+			meta.get("name", unit_id)])
+
 	# T7-43: Apply round strategy aggression modifier to overall target value
 	# Early game: boost kill-seeking (aggression > 1.0), Late game: reduce (aggression < 1.0)
 	var tv_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
@@ -8017,7 +8493,7 @@ static func _calculate_marginal_value(
 			marginal += new_model_kills * wpm * target_value * MICRO_MODEL_KILL_VALUE
 
 		# Full wipe bonus: if we cross the total kill threshold
-		if current_alloc < threshold and new_total >= threshold * 0.7:
+		if current_alloc < threshold and new_total >= threshold * 0.6:
 			marginal *= MICRO_MARGINAL_KILL_BONUS
 
 	# Overkill: heavily discount damage beyond the threshold
@@ -8051,15 +8527,24 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 			return 0.0
 
 	var attacks_str = weapon.get("attacks", "1")
+	if attacks_str == null: attacks_str = "1"
+	attacks_str = str(attacks_str)
 	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
 
-	var bs_str = weapon.get("ballistic_skill", "4")
+	# Use ballistic_skill for ranged, weapon_skill for melee — fallback to 4
+	var bs_str = weapon.get("ballistic_skill", weapon.get("weapon_skill", "4"))
+	if bs_str == null: bs_str = "4"
+	bs_str = str(bs_str)
 	var bs = int(bs_str) if bs_str.is_valid_int() else 4
 
 	var strength_str = weapon.get("strength", "4")
+	if strength_str == null: strength_str = "4"
+	strength_str = str(strength_str)
 	var strength = int(strength_str) if strength_str.is_valid_int() else 4
 
 	var ap_str = weapon.get("ap", "0")
+	if ap_str == null: ap_str = "0"
+	ap_str = str(ap_str)
 	var ap = 0
 	if ap_str.begins_with("-"):
 		var ap_num = ap_str.substr(1)
@@ -8068,6 +8553,8 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 		ap = int(ap_str) if ap_str.is_valid_int() else 0
 
 	var damage_str = weapon.get("damage", "1")
+	if damage_str == null: damage_str = "1"
+	damage_str = str(damage_str)
 	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
@@ -8563,6 +9050,21 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 	_add_thinking_step("Declaring charge: %s (score: %.1f)" % [best_description, best_score])
 	var result = best_action.duplicate()
 	result["_ai_description"] = best_description
+
+	# Record this charge declaration for coordination — later chargers get bonuses for piling on
+	var declared_charger_id = result.get("actor_unit_id", "")
+	var declared_target_ids = result.get("payload", {}).get("target_unit_ids", [])
+	for dtid in declared_target_ids:
+		if not _charge_coordination.has(dtid):
+			_charge_coordination[dtid] = {"charger_ids": [], "total_expected_dmg": 0.0}
+		_charge_coordination[dtid].charger_ids.append(declared_charger_id)
+		var charger_unit = snapshot.get("units", {}).get(declared_charger_id, {})
+		var target_unit = snapshot.get("units", {}).get(dtid, {})
+		if not charger_unit.is_empty() and not target_unit.is_empty():
+			_charge_coordination[dtid].total_expected_dmg += _estimate_melee_damage(charger_unit, target_unit)
+		print("AIDecisionMaker: [CHARGE-COORD] Recorded charge against %s (now %d chargers, %.1f total expected dmg)" % [
+			dtid, _charge_coordination[dtid].charger_ids.size(), _charge_coordination[dtid].total_expected_dmg])
+
 	return result
 
 static func _charge_success_probability(distance_needed: float) -> float:
@@ -8807,6 +9309,105 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 		print("AIDecisionMaker: [TRADE] Charge trade efficiency: %.2f (charger ppw=%.1f, target ppw=%.1f)" % [
 			charge_trade_eff, _get_points_per_wound(charger), _get_points_per_wound(target)])
 
+	# --- Focus charge: bonus for charging targets that friendly units are already engaged with ---
+	# This encourages Orks to pile multiple units into the same target for a kill
+	var target_id_for_focus = target.get("id", "")
+	if target_id_for_focus != "":
+		var all_units_focus = snapshot.get("units", {})
+		for funit_id in all_units_focus:
+			var funit = all_units_focus[funit_id]
+			if funit.get("player") != player:
+				continue
+			if funit.get("id", "") == charger.get("id", ""):
+				continue  # Skip self
+			# Check if this friendly unit is engaged with the target
+			var funit_engaged = funit.get("is_engaged", false)
+			if funit_engaged:
+				var funit_centroid = _get_unit_centroid(funit)
+				var target_centroid = _get_unit_centroid(target)
+				if funit_centroid != Vector2.INF and target_centroid != Vector2.INF:
+					if funit_centroid.distance_to(target_centroid) <= ENGAGEMENT_RANGE_PX * 2.0:
+						score += 3.0  # Big bonus for concentrating attacks
+						print("AIDecisionMaker: [FOCUS-CHARGE] Bonus for %s — friendly unit already fighting target %s" % [
+							charger.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", "")])
+						break
+
+	# --- T19-5: Proactive charge coordination seed — first charger gets bonus if other friendly
+	# units are also within charge range of the same target (they'll charge later) ---
+	var coord_target_id = target.get("id", "")
+	if coord_target_id != "" and not _charge_coordination.has(coord_target_id):
+		var faction_agg = _get_faction_aggression(snapshot, player)
+		if faction_agg >= 1.5:  # Only for aggressive horde factions (Orks)
+			var charger_id_for_seed = charger.get("id", "")
+			var target_centroid_seed = _get_unit_centroid(target)
+			if target_centroid_seed != Vector2.INF:
+				var other_potential_chargers = 0
+				var all_units_seed = snapshot.get("units", {})
+				for fuid in all_units_seed:
+					if fuid == charger_id_for_seed:
+						continue
+					var funit = all_units_seed[fuid]
+					var fowner = funit.get("owner", -1)
+					if typeof(fowner) == TYPE_FLOAT:
+						fowner = int(fowner)
+					if fowner != player:
+						continue
+					if _get_alive_models(funit).is_empty():
+						continue
+					if funit.get("flags", {}).get("is_engaged", false):
+						continue  # Already engaged — won't charge
+					if funit.get("flags", {}).get("has_charged", false):
+						continue  # Already charged
+					var f_centroid = _get_unit_centroid(funit)
+					if f_centroid == Vector2.INF:
+						continue
+					# Check if within reasonable charge range (12" charge + 6" move = 18")
+					var charge_dist = f_centroid.distance_to(target_centroid_seed) / PIXELS_PER_INCH
+					if charge_dist <= 18.0:
+						other_potential_chargers += 1
+				if other_potential_chargers > 0:
+					var seed_bonus = 3.0 + (2.0 * min(other_potential_chargers, 3))
+					score += seed_bonus
+					print("AIDecisionMaker: [CHARGE-COORD-SEED] %s first charge on %s — %d other units in charge range, seed bonus=+%.1f" % [
+						charger.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", ""),
+						other_potential_chargers, seed_bonus])
+
+	# --- Charge coordination: bonus for piling onto targets already declared as charge targets ---
+	# This makes the AI gang up multiple chargers on the same target for concentrated kills
+	if coord_target_id != "" and _charge_coordination.has(coord_target_id):
+		var coord_data = _charge_coordination[coord_target_id]
+		var num_already_charging = coord_data.charger_ids.size()
+		var dmg_already_incoming = coord_data.total_expected_dmg
+		var combined_dmg = dmg_already_incoming + melee_damage
+		var target_total_hp = float(alive_models * target_wounds)
+
+		# T18-1: Horde factions get higher gang-up bonuses (Orks need multiple charges to kill elites)
+		var faction_agg = _get_faction_aggression(snapshot, player)
+		var gang_kill_bonus = 7.0 if faction_agg >= 1.5 else 5.0
+		var gang_pile_bonus = 3.0 if faction_agg >= 1.5 else 2.0
+
+		# Big bonus if combined damage can actually kill the target
+		if target_total_hp > 0 and combined_dmg >= target_total_hp:
+			score += gang_kill_bonus  # Gang up for the kill!
+			print("AIDecisionMaker: [CHARGE-COORD] KILL GANG-UP: %s + %d others can kill %s (%.1f + %.1f = %.1f dmg vs %.0f HP, bonus=+%.1f)" % [
+				charger.get("meta", {}).get("name", ""), num_already_charging, target.get("meta", {}).get("name", ""),
+				melee_damage, dmg_already_incoming, combined_dmg, target_total_hp, gang_kill_bonus])
+		elif num_already_charging > 0:
+			# Still bonus for concentrating even if not a certain kill
+			score += gang_pile_bonus * num_already_charging
+			print("AIDecisionMaker: [CHARGE-COORD] Piling on %s — %d other charger(s) already incoming (+%.1f)" % [
+				target.get("meta", {}).get("name", ""), num_already_charging, gang_pile_bonus * num_already_charging])
+
+	# --- Bonus for wounded targets (close to dying) ---
+	var target_remaining_wounds = float(alive_models * target_wounds)
+	if target_remaining_wounds > 0 and melee_damage / target_remaining_wounds >= 0.5:
+		# We can do 50%+ of remaining wounds — good chance of killing
+		score += 3.0
+		if melee_damage >= target_remaining_wounds:
+			score += 5.0  # Likely kill! Very high priority
+			print("AIDecisionMaker: [KILL-PRIORITY] Charge can likely kill %s (%.1f dmg vs %.0f wounds)" % [
+				target.get("meta", {}).get("name", ""), melee_damage, target_remaining_wounds])
+
 	# --- T7-11: Deadly Demise leverage on doomed vehicles ---
 	# If the charger has Deadly Demise and is doomed (about to die anyway),
 	# boost the charge score since getting into engagement range means the
@@ -8991,6 +9592,25 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 	var target_save = int(defender.get("meta", {}).get("stats", {}).get("save", 4))
 	var target_invuln = _get_target_invulnerable_save(defender)
 
+	# Check for WAAAGH! active on attacker — +1 Strength, +1 Attacks to melee weapons
+	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
+	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
+	var has_da_biggest = false
+	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
+	var has_dead_brutal = false
+	if waaagh_active:
+		var attacker_abilities = attacker.get("meta", {}).get("abilities", [])
+		for ab in attacker_abilities:
+			var ab_name = ""
+			if ab is String:
+				ab_name = ab
+			elif ab is Dictionary:
+				ab_name = ab.get("name", "")
+			if ab_name == "Da Biggest and da Best":
+				has_da_biggest = true
+			elif ab_name == "Dead Brutal":
+				has_dead_brutal = true
+
 	for w in weapons:
 		if w.get("type", "").to_lower() != "melee":
 			continue
@@ -9015,6 +9635,17 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 		var damage_str = w.get("damage", "1")
 		var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
 
+		# WAAAGH! buffs: +1 Strength, +1 Attacks per model
+		if waaagh_active:
+			strength += 1
+			attacks += 1.0
+			# Da Biggest and da Best: +4 additional attacks (Warboss only)
+			if has_da_biggest:
+				attacks += 4.0
+			# Dead Brutal: damage becomes 3 (Warboss in Mega Armour only)
+			if has_dead_brutal:
+				damage = 3.0
+
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
@@ -9025,11 +9656,16 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary) -
 
 	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
 	if best_damage == 0.0 and alive_attackers > 0:
-		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("toughness", 4))
+		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("strength", 4))
+		# WAAAGH! also buffs fallback melee (+1S, +1A)
+		var fallback_attacks = 1.0
+		if waaagh_active:
+			charger_strength += 1
+			fallback_attacks += 1.0
 		var p_hit = _hit_probability(4)  # WS4+ default
 		var p_wound = _wound_probability(charger_strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
-		best_damage = alive_attackers * p_hit * p_wound * p_unsaved * 1.0
+		best_damage = alive_attackers * fallback_attacks * p_hit * p_wound * p_unsaved * 1.0
 
 	# --- AI-GAP-4: Factor in target FNP for more accurate melee damage estimates ---
 	var target_fnp = AIAbilityAnalyzerData.get_unit_fnp(defender)
@@ -9527,10 +10163,20 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			var uid = a.get("unit_id", "")
 			return _compute_pile_in_action(snapshot, uid, player)
 
-		# Then assign attacks
+		# Then assign attacks — but check for repeated failures first
 		if action_types.has("ASSIGN_ATTACKS_UI"):
 			var a = action_types["ASSIGN_ATTACKS_UI"][0]
 			var uid = a.get("unit_id", "")
+
+			# T12-3: If this unit has already tried ASSIGN_ATTACKS 2+ times without
+			# progressing (0 eligible models), choose CONSOLIDATE instead to break the loop
+			var retry_count = _fight_attack_retry_count.get(uid, 0)
+			if retry_count >= 2 and action_types.has("CONSOLIDATE"):
+				print("AIDecisionMaker: T12-3 %s already attempted %d fight attacks — forcing CONSOLIDATE to break loop" % [uid, retry_count])
+				_fight_attack_retry_count.erase(uid)
+				return _compute_consolidate_action(snapshot, uid, player)
+
+			_fight_attack_retry_count[uid] = retry_count + 1
 			return _assign_fight_attacks(snapshot, uid, player)
 
 	# Step 4: If we need to select a fighter, select one
@@ -9652,6 +10298,23 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
+	# Build WAAAGH! buffs dict for damage estimation (matches RulesEngine behavior)
+	var waaagh_buffs = {}
+	var waaagh_active = unit.get("flags", {}).get("waaagh_active", false)
+	if waaagh_active:
+		waaagh_buffs["active"] = true
+		var attacker_abilities = unit.get("meta", {}).get("abilities", [])
+		for ab in attacker_abilities:
+			var ab_name = ""
+			if ab is String:
+				ab_name = ab
+			elif ab is Dictionary:
+				ab_name = ab.get("name", "")
+			if ab_name == "Da Biggest and da Best":
+				waaagh_buffs["da_biggest"] = true
+			elif ab_name == "Dead Brutal":
+				waaagh_buffs["dead_brutal"] = true
+
 	# T7-29: Score each target by combined damage output + strategic value
 	# For each target, find the best weapon and compute a composite score
 	var best_weapon_id = "close_combat_weapon"
@@ -9673,7 +10336,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		# Calculate Extra Attacks weapon damage for this target (constant across primary weapon choices)
 		var ea_damage = 0.0
 		for ea_w in extra_attack_weapons:
-			ea_damage += _evaluate_melee_weapon_damage(ea_w, alive_attackers, target_toughness, target_save, target_invuln)
+			ea_damage += _evaluate_melee_weapon_damage(ea_w, alive_attackers, target_toughness, target_save, target_invuln, waaagh_buffs)
 
 		# Find the best primary weapon for this target (highest raw damage)
 		var target_best_damage = ea_damage
@@ -9681,7 +10344,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		var target_best_weapon_name = "Close combat weapon"
 
 		for w in primary_weapons:
-			var primary_damage = _evaluate_melee_weapon_damage(w, alive_attackers, target_toughness, target_save, target_invuln)
+			var primary_damage = _evaluate_melee_weapon_damage(w, alive_attackers, target_toughness, target_save, target_invuln, waaagh_buffs)
 			var total = primary_damage + ea_damage
 			if total > target_best_damage:
 				target_best_damage = total
@@ -9689,10 +10352,15 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 				target_best_weapon_id = _generate_weapon_id(target_best_weapon_name, w.get("type", "Melee"))
 
 		# Also evaluate default close combat weapon (S=user, AP0, D1, A1, WS4+)
+		var ccw_str = unit_strength
+		var ccw_attacks = 1.0
+		if waaagh_active:
+			ccw_str += 1
+			ccw_attacks += 1.0
 		var ccw_p_hit = _hit_probability(4)
-		var ccw_p_wound = _wound_probability(unit_strength, target_toughness)
+		var ccw_p_wound = _wound_probability(ccw_str, target_toughness)
 		var ccw_p_unsaved = 1.0 - _save_probability(target_save, 0, target_invuln)
-		var ccw_damage = 1.0 * alive_attackers * ccw_p_hit * ccw_p_wound * ccw_p_unsaved * 1.0
+		var ccw_damage = ccw_attacks * alive_attackers * ccw_p_hit * ccw_p_wound * ccw_p_unsaved * 1.0
 		var ccw_total = ccw_damage + ea_damage
 		if ccw_total > target_best_damage:
 			target_best_damage = ccw_total
@@ -9736,6 +10404,16 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	print("AIDecisionMaker: T7-29 fight target optimized — %s selects '%s' vs %s (damage: %.2f, score: %.2f, primaries: %d, EA: %d)" % [
 		unit_name, best_weapon_name, target_name, best_raw_damage, best_composite_score, primary_weapons.size(), ea_count])
 
+	# Record fight coordination for subsequent fighters to see accumulated damage on this target
+	var current_round = snapshot.get("meta", {}).get("battle_round", 1)
+	if _fight_coordination_round != current_round:
+		_fight_coordination.clear()
+		_fight_coordination_round = current_round
+	if not _fight_coordination.has(best_target_id):
+		_fight_coordination[best_target_id] = {"attacker_ids": [], "total_dealt_dmg": 0.0}
+	_fight_coordination[best_target_id].attacker_ids.append(unit_id)
+	_fight_coordination[best_target_id].total_dealt_dmg += best_raw_damage
+
 	return {
 		"type": "ASSIGN_ATTACKS",
 		"unit_id": unit_id,
@@ -9776,15 +10454,15 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	var target_remaining_wounds = float(alive_models * target_wounds)
 	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
 		# We can likely wipe this unit — big bonus for removing it from the game
-		score += 4.0
+		score += 6.0
 	elif target_remaining_wounds > 0 and expected_damage >= target_remaining_wounds * 0.5:
 		# We can take them below half strength
-		score += 2.0
+		score += 3.0
 
 	# --- Overkill penalty: don't waste massive damage on a nearly-dead 1-model unit ---
-	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 2.0:
-		# More than 2x the wounds remaining — we're overkilling
-		score -= 1.5
+	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 3.0:
+		# More than 3x the wounds remaining — significant overkill
+		score -= 1.0
 
 	# --- Lock dangerous shooters bonus: keep ranged threats tied up in combat ---
 	var target_has_ranged = _unit_has_ranged_weapons(target)
@@ -9821,6 +10499,64 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	var trade_eff = _get_trade_efficiency(attacker, target)
 	if trade_eff != 1.0:
 		score *= trade_eff
+
+	# --- Fight coordination: bonus for concentrating attacks on targets already hit this phase ---
+	# T18-1: Horde units (10+ models) get larger finish-off bonus since they need to stack damage
+	var attacker_alive = _get_alive_models(attacker).size()
+	var is_horde_attacker = attacker_alive >= 10
+	if _fight_coordination.has(target_id):
+		var prior = _fight_coordination[target_id]
+		var prior_dmg = prior.get("total_dealt_dmg", 0.0)
+		var remaining_after_prior = target_remaining_wounds - prior_dmg
+		if remaining_after_prior > 0:
+			# Combined damage from previous fighters + us could kill the target
+			var finish_bonus = 7.0 if is_horde_attacker else 5.0
+			var significant_bonus = 3.5 if is_horde_attacker else 2.5
+			if expected_damage >= remaining_after_prior:
+				score += finish_bonus  # Big bonus: we can finish off what others started
+				print("AIDecisionMaker: [FIGHT-COORD] %s can finish off target (prior dmg %.1f + our %.1f >= %.1f HP, horde=%s)" % [
+					attacker.get("meta", {}).get("name", ""), prior_dmg, expected_damage, target_remaining_wounds, str(is_horde_attacker)])
+			elif expected_damage >= remaining_after_prior * 0.5:
+				score += significant_bonus  # Medium bonus: combined damage is significant
+		elif remaining_after_prior <= 0:
+			# Target already overkilled by prior fighters — small penalty (reduced from -2.0)
+			score -= 1.0
+	else:
+		# T19-2: PROACTIVE gang-up detection — first attacker on a target gets bonus if
+		# other friendly units are also engaged with the same target (they'll fight later)
+		# This prevents Ork horde units from splitting attacks across multiple targets
+		var gang_target_centroid = _get_unit_centroid(target)
+		if gang_target_centroid != Vector2.INF and is_horde_attacker:
+			var friendly_units = snapshot.get("units", {})
+			var attacker_id = attacker.get("id", "")
+			var other_engaged_count = 0
+			var other_engaged_total_models = 0
+			for fuid in friendly_units:
+				if fuid == attacker_id:
+					continue
+				var funit = friendly_units[fuid]
+				var fowner = funit.get("owner", -1)
+				if typeof(fowner) == TYPE_FLOAT:
+					fowner = int(fowner)
+				if fowner != snapshot.get("meta", {}).get("active_player", -1):
+					continue
+				if not funit.get("flags", {}).get("is_engaged", false):
+					continue
+				var f_alive = _get_alive_models(funit).size()
+				if f_alive == 0:
+					continue
+				# Check if this friendly unit is also engaged with the same target
+				var f_centroid = _get_unit_centroid(funit)
+				if f_centroid != Vector2.INF and f_centroid.distance_to(gang_target_centroid) <= ENGAGEMENT_RANGE_PX * 2.0:
+					other_engaged_count += 1
+					other_engaged_total_models += f_alive
+			if other_engaged_count > 0:
+				# Multiple horde units engaged with same target — initiate the gang-up
+				var gang_seed_bonus = 4.0 + (2.0 * min(other_engaged_count, 3))
+				score += gang_seed_bonus
+				print("AIDecisionMaker: [FIGHT-COORD-SEED] %s initiating gang-up on %s — %d other friendly units (%d models) also engaged, bonus=+%.1f" % [
+					attacker.get("meta", {}).get("name", ""), target.get("meta", {}).get("name", ""),
+					other_engaged_count, other_engaged_total_models, gang_seed_bonus])
 
 	return max(0.0, score)
 
@@ -9999,7 +10735,7 @@ static func _weapon_has_extra_attacks(weapon_data: Dictionary) -> bool:
 	return false
 
 # T7-28: Helper — calculate expected damage for a single melee weapon against a target
-static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int) -> float:
+static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: int, target_toughness: int, target_save: int, target_invuln: int, waaagh_buffs: Dictionary = {}) -> float:
 	var attacks_str = str(weapon.get("attacks", "1"))
 	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
 
@@ -10019,6 +10755,15 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 
 	var damage_str = str(weapon.get("damage", "1"))
 	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
+
+	# Apply WAAAGH! buffs if active
+	if waaagh_buffs.get("active", false):
+		strength += 1
+		attacks += 1.0
+		if waaagh_buffs.get("da_biggest", false):
+			attacks += 4.0
+		if waaagh_buffs.get("dead_brutal", false):
+			damage = 3.0
 
 	var p_hit = _hit_probability(ws)
 	var p_wound = _wound_probability(strength, target_toughness)
@@ -11084,12 +11829,51 @@ static func _evaluate_mission_achievability(snapshot: Dictionary, mission: Dicti
 	var units = snapshot.get("units", {})
 
 	# While-active missions (No Prisoners, Overwhelming Force) score passively on kills.
-	# They're almost always achievable if enemy units still exist.
+	# T18-1: Scale achievability by whether any enemy units have been destroyed.
+	# Check if any opponent units are actually dead (status >= 3 = DESTROYED or later).
 	if timing == "while_active":
 		var enemy_alive = _count_alive_units_for_player(units, opponent)
 		if enemy_alive == 0:
 			return 0.0
-		return 1.0  # Always keep — passive scoring is free
+		# battle_round is already passed as function parameter — use it directly
+		# Early game (R1-R2): keep while_active at decent achievability — give it time to score
+		if battle_round <= 2:
+			return 0.75
+		# Mid/late game: check if the player has actually destroyed any enemy units
+		var enemy_destroyed_count = 0
+		# T19-4: Also count enemy units below half-strength (kills coming soon)
+		var enemy_below_half = 0
+		for uid in units:
+			var u = units[uid]
+			var owner = u.get("owner", -1)
+			if typeof(owner) == TYPE_FLOAT:
+				owner = int(owner)
+			if owner == opponent:
+				var status = u.get("status", 0)
+				if typeof(status) == TYPE_FLOAT:
+					status = int(status)
+				if status >= 3:  # DESTROYED or later
+					enemy_destroyed_count += 1
+				else:
+					# Check if unit is below half strength
+					var alive_m = 0
+					var total_m = 0
+					for m in u.get("models", []):
+						total_m += 1
+						if m.get("alive", true):
+							alive_m += 1
+					if total_m > 0 and alive_m > 0 and alive_m * 2 < total_m:
+						enemy_below_half += 1
+		if enemy_destroyed_count == 0 and battle_round >= 3:
+			# T19-4: If enemies are below half-strength, kills are likely — don't discard yet
+			if enemy_below_half >= 1:
+				print("AIDecisionMaker: [WHILE-ACTIVE] %s — 0 kills but %d enemy units below half-strength, keeping R%d" % [mission_id, enemy_below_half, battle_round])
+				return 0.40  # Above swap threshold (0.30) — keep it, kills are coming
+			print("AIDecisionMaker: [WHILE-ACTIVE] %s achievability reduced — 0 enemy units destroyed by R%d" % [mission_id, battle_round])
+			return 0.15  # Below both New Orders swap (0.30) and scoring discard (0.20) thresholds
+		elif enemy_destroyed_count >= 1:
+			return 0.85  # At least 1 kill — keep the mission
+		return 0.75
 
 	# Pending interaction missions haven't been set up yet — keep them
 	if mission.get("pending_interaction", false):
@@ -11163,56 +11947,166 @@ static func _count_alive_units_for_player(units: Dictionary, owner: int) -> int:
 
 static func _assess_behind_enemy_lines(units: Dictionary, player: int) -> float:
 	"""Can the AI get units wholly into opponent's deployment zone?
-	Need alive, mobile units. If the AI has very few units, unlikely to spare any."""
+	Check actual unit proximity — need units that are ACTUALLY close to the zone.
+	This mission rarely scores in practice — only rate high if units are very close."""
 	var alive = _count_alive_units_for_player(units, player)
 	if alive == 0:
 		return 0.0
 	if alive <= 1:
-		return 0.1  # Only 1 unit — too risky to send deep
-	return 0.6  # Generally achievable with movement
+		return 0.05  # Only 1 unit — can't afford to send deep
+	# Check how many units are close to the enemy deployment zone
+	# Search and Destroy uses corner deployment — use diagonal distance to enemy zone center
+	var enemy_zone_center: Vector2
+	if player == 1:
+		enemy_zone_center = Vector2(32.0 * PIXELS_PER_INCH, 48.0 * PIXELS_PER_INCH)  # P2 zone center (bottom-right)
+	else:
+		enemy_zone_center = Vector2(12.0 * PIXELS_PER_INCH, 12.0 * PIXELS_PER_INCH)  # P1 zone center (top-left)
+	var units_very_close = 0  # Within 12" (almost there)
+	var units_in_range = 0    # Within 24" (could reach in 1-2 turns)
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		if _get_alive_models(unit).is_empty():
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var dist_to_enemy_zone = centroid.distance_to(enemy_zone_center) / PIXELS_PER_INCH
+		if dist_to_enemy_zone < 12.0:
+			units_very_close += 1
+		elif dist_to_enemy_zone < 24.0:
+			units_in_range += 1
+	if units_very_close >= 2:
+		return 0.7  # Multiple units nearly there — very achievable
+	elif units_very_close >= 1:
+		return 0.45  # One unit nearly there
+	elif units_in_range >= 2:
+		return 0.25  # Units could reach but far — unlikely to score
+	elif units_in_range >= 1:
+		return 0.15  # One unit might make it — rarely scores
+	return 0.05  # No units close enough — definitely swap this
 
 static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> float:
-	"""Need units spread across table quarters. Requires at least 2 alive units."""
+	"""Need units spread across table quarters, >6\" from center. Check actual positions."""
 	var alive = _count_alive_units_for_player(units, player)
 	if alive < 2:
 		return 0.05  # Can't cover enough quarters
+	# Check how many quarters we currently have units in (>6" from center)
+	var covered = _get_covered_quarters(units, player)
+	var covered_count = 0
+	for q in covered:
+		if covered[q]:
+			covered_count += 1
+	if covered_count >= 3:
+		return 0.8  # Already in 3+ quarters — very achievable
+	if covered_count >= 2 and alive >= 4:
+		return 0.6  # In 2 quarters with units to spread
+	if alive >= 4:
+		return 0.5  # Enough units to spread, just need to move
 	if alive < 3:
-		return 0.3
-	return 0.7  # Usually achievable with enough units
+		return 0.2  # Only 2 units — hard to cover 3+ quarters
+	return 0.4  # 3 units — possible but depends on positioning
 
 static func _assess_area_denial(units: Dictionary, player: int, opponent: int) -> float:
-	"""Need a unit near center with no enemies nearby. Hard if opponent controls mid."""
+	"""Need a unit near center with no enemies nearby. Hard if opponent controls mid.
+	T13-1: Check actual enemy density near center — if enemies are clustered around center,
+	this mission is very hard to score. Return lower score to enable New Orders swap.
+	T16-1: Also check friendly density near center — if we have more units near center
+	than the opponent, we may be able to push them out or overwhelm."""
 	var alive = _count_alive_units_for_player(units, player)
 	var enemy_alive = _count_alive_units_for_player(units, opponent)
 	if alive == 0:
 		return 0.0
 	if enemy_alive == 0:
 		return 1.0  # No enemies means easy area denial
-	return 0.4  # Moderate — depends on positioning
+	# Check density near board center for both sides
+	var board_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
+	var enemies_near_center = 0
+	var friendlies_near_center = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		var owner = unit.get("owner", 0)
+		var models = unit.get("models", [])
+		if models.is_empty():
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var dist_to_center = centroid.distance_to(board_center) / PIXELS_PER_INCH
+		if dist_to_center <= 12.0:  # Within 12" of center
+			if owner == opponent:
+				enemies_near_center += 1
+			elif owner == player:
+				friendlies_near_center += 1
+	# If many enemies near center, this mission is very hard
+	# T16-1: But if we have more friendlies than enemies, we may still be able to score
+	if enemies_near_center >= 3:
+		if friendlies_near_center >= enemies_near_center:
+			return 0.30  # We outnumber them — some chance of pushing through
+		return 0.15  # Very hard — will get swapped
+	elif enemies_near_center >= 2:
+		if friendlies_near_center >= enemies_near_center + 1:
+			return 0.40  # We dominate center — decent chance
+		return 0.25  # Hard — borderline swap
+	elif enemies_near_center >= 1:
+		if friendlies_near_center >= 2:
+			return 0.45  # We outnumber — reasonable chance
+		return 0.35  # Possible but enemy present
+	return 0.55  # Good chance if no enemies near center
 
 static func _assess_display_of_might(units: Dictionary, player: int, opponent: int) -> float:
-	"""Need more units wholly in NML than opponent. Hard if outnumbered."""
+	"""Need more units wholly in NML than opponent. 'Wholly' means every model in the unit must be in NML.
+	T18-1: Large multi-model units (10+ models) are rarely wholly in NML — some models
+	always straddle the NML boundary or sit on objectives in deployment zones.
+	Small elite units (3-5 models) can more easily be wholly positioned in NML."""
 	var alive = _count_alive_units_for_player(units, player)
 	var enemy_alive = _count_alive_units_for_player(units, opponent)
 	if alive == 0:
 		return 0.0
 	if enemy_alive == 0:
 		return 1.0
-	# Rough estimate: harder if we have fewer units
-	if alive < enemy_alive:
-		return 0.25
-	return 0.5
+	# Count how many player units have 10+ models (these are very hard to keep wholly in NML)
+	var large_unit_count = 0
+	var small_unit_count = 0
+	for uid in units:
+		var u = units[uid]
+		var owner = u.get("owner", -1)
+		if typeof(owner) == TYPE_FLOAT:
+			owner = int(owner)
+		if owner != player:
+			continue
+		var alive_models = _get_alive_models(u).size()
+		if alive_models >= 10:
+			large_unit_count += 1
+		elif alive_models > 0:
+			small_unit_count += 1
+	# Horde armies (lots of large units) actually STRUGGLE with wholly-in-NML conditions
+	if large_unit_count >= 3:
+		return 0.30  # Many large units = hard to position wholly in NML
+	var unit_advantage = alive - enemy_alive
+	if unit_advantage >= 3 and small_unit_count >= 3:
+		return 0.60  # Many small units = easier to position wholly in NML
+	elif alive >= enemy_alive:
+		return 0.45
+	else:
+		return 0.25  # Outnumbered — harder to dominate NML
 
 static func _assess_storm_hostile(units: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""Need to take objectives the opponent controlled at turn start.
-	Feasible if we have units and there are objectives to contest."""
+	T19-3: Horde armies with many mobile units excel at storming objectives."""
 	var alive = _count_alive_units_for_player(units, player)
 	if alive == 0:
 		return 0.0
 	var objectives = snapshot.get("board", {}).get("objectives", [])
 	if objectives.is_empty():
 		return 0.0
-	return 0.5  # Generally feasible if units can move to objectives
+	# T19-3: More units = better chance of overwhelming objective defenders
+	if alive >= 6:
+		return 0.70  # Many units — excellent for storming objectives
+	elif alive >= 4:
+		return 0.60  # Decent force for objective control
+	return 0.45  # Few units — harder to contest
 
 static func _assess_defend_stronghold(units: Dictionary, snapshot: Dictionary, player: int) -> float:
 	"""Control objectives in own deployment zone. Usually achievable if we have home units."""
@@ -11230,7 +12124,8 @@ static func _assess_defend_stronghold(units: Dictionary, snapshot: Dictionary, p
 	return 0.7  # Usually achievable — defending home turf
 
 static func _assess_secure_nml(units: Dictionary, snapshot: Dictionary, player: int) -> float:
-	"""Control objectives in No Man's Land."""
+	"""Control objectives in No Man's Land.
+	T19-3: Horde armies with high OC have natural advantage at NML control."""
 	var alive = _count_alive_units_for_player(units, player)
 	if alive == 0:
 		return 0.0
@@ -11241,23 +12136,48 @@ static func _assess_secure_nml(units: Dictionary, snapshot: Dictionary, player: 
 			nml_count += 1
 	if nml_count == 0:
 		return 0.0  # No NML objectives
-	return 0.5
+	# T19-3: Count total OC to assess objective control strength
+	var total_oc = 0
+	for uid in units:
+		var u = units[uid]
+		if u.get("owner", 0) != player:
+			continue
+		if _get_alive_models(u).is_empty():
+			continue
+		total_oc += int(u.get("meta", {}).get("stats", {}).get("oc", 1))
+	# Horde armies with high total OC are better at NML control
+	if total_oc >= 10:
+		return 0.70  # High OC — excellent NML control capability
+	elif total_oc >= 6:
+		return 0.60  # Good OC — solid NML control
+	elif alive >= 4:
+		return 0.55  # Decent unit count
+	return 0.45  # Low OC/units — harder but possible
 
 static func _assess_tempting_target(mission: Dictionary, player: int) -> float:
-	"""Control the objective selected by opponent. If target not yet selected, keep."""
+	"""Control the objective selected by opponent. If target not yet selected, keep.
+	T13-1: Check actual objective control state to determine achievability more accurately."""
 	var target_id = mission.get("mission_data", {}).get("tempting_target_id", "")
 	if target_id == "":
 		return 0.3  # Target not resolved yet, moderate chance
-	# Target exists, check if we can contest it
-	var secondary_mgr = _secondary_mission_manager()
-	if secondary_mgr:
-		# MissionManager tracks objective control; we can't access it statically
-		# but the mission is set up, so give it a reasonable chance
-		return 0.4
-	return 0.3
+	# Check objective control state from MissionManager
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		var mission_mgr = main.root.get_node_or_null("MissionManager")
+		if mission_mgr and "objective_control_state" in mission_mgr:
+			var controller = mission_mgr.objective_control_state.get(target_id, 0)
+			if controller == player:
+				return 0.8  # We already control it!
+			elif controller == 0:
+				return 0.5  # Contested — good chance to flip
+			else:
+				return 0.3  # Enemy controls it — harder but possible
+	# Fallback if we can't check control state
+	return 0.4
 
 static func _assess_extend_battle_lines(units: Dictionary, snapshot: Dictionary, player: int) -> float:
-	"""Control own zone AND NML objectives. Need to split forces."""
+	"""Control own zone AND NML objectives. Need to split forces.
+	T19-3: Horde armies naturally excel — enough units to hold home AND push NML."""
 	var alive = _count_alive_units_for_player(units, player)
 	if alive < 2:
 		return 0.05  # Can't split forces effectively
@@ -11272,7 +12192,12 @@ static func _assess_extend_battle_lines(units: Dictionary, snapshot: Dictionary,
 			has_nml = true
 	if not has_home or not has_nml:
 		return 0.0  # Missing required objective types
-	return 0.5
+	# T19-3: More units = better at splitting forces between zones
+	if alive >= 6:
+		return 0.70  # Plenty of units to split
+	elif alive >= 4:
+		return 0.60  # Good force split capability
+	return 0.45  # Tight on units but still possible
 
 static func _assess_assassination(units: Dictionary, opponent: int) -> float:
 	"""Kill enemy CHARACTER models. Impossible if opponent has no characters left alive."""
@@ -11301,8 +12226,10 @@ static func _assess_assassination(units: Dictionary, opponent: int) -> float:
 	return 0.6  # Characters exist, generally achievable
 
 static func _assess_bring_it_down(units: Dictionary, opponent: int) -> float:
-	"""Destroy MONSTER or VEHICLE units. Impossible if none remain."""
+	"""Destroy MONSTER or VEHICLE units. Impossible if none remain.
+	Also checks if targets are realistically killable based on remaining wounds."""
 	var target_count = 0
+	var easiest_wounds = 999
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != opponent:
@@ -11316,17 +12243,31 @@ static func _assess_bring_it_down(units: Dictionary, opponent: int) -> float:
 				break
 		if not is_target:
 			continue
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				target_count += 1
-				break
+		var alive_models = _get_alive_models(unit)
+		if alive_models.is_empty():
+			continue
+		target_count += 1
+		var wounds_per = int(unit.get("meta", {}).get("stats", {}).get("wounds", 1))
+		var total_wounds = alive_models.size() * wounds_per
+		if total_wounds < easiest_wounds:
+			easiest_wounds = total_wounds
 	if target_count == 0:
 		return 0.0  # No valid targets
-	return 0.5
+	# Bring it Down requires destroying the unit in a single turn — very difficult
+	# High-wound targets (14+ wounds) are nearly impossible to one-turn destroy
+	if easiest_wounds >= 14:
+		return 0.10  # Very unlikely to score — swap this
+	elif easiest_wounds >= 10:
+		return 0.20  # Hard even with focused fire
+	elif easiest_wounds >= 6:
+		return 0.35  # Medium difficulty — possible with melee
+	return 0.50  # Low-wound targets — reasonably achievable
 
 static func _assess_cull_the_horde(units: Dictionary, opponent: int) -> float:
-	"""Destroy INFANTRY units with starting strength 13+. Impossible if none remain."""
+	"""Destroy INFANTRY units with starting strength 13+. Requires FULL destruction of large squads.
+	This is very hard for elite armies (Custodes) against hordes (Orks) — need to wipe entire 20-model squads."""
 	var target_count = 0
+	var easiest_target_alive = 999
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("owner", 0) != opponent:
@@ -11342,17 +12283,28 @@ static func _assess_cull_the_horde(units: Dictionary, opponent: int) -> float:
 		var starting_strength = unit.get("meta", {}).get("starting_strength", unit.get("models", []).size())
 		if starting_strength < 13:
 			continue
-		# Check if unit still alive
+		# Count alive models
+		var alive_count = 0
 		for model in unit.get("models", []):
 			if model.get("alive", true):
-				target_count += 1
-				break
+				alive_count += 1
+		if alive_count > 0:
+			target_count += 1
+			if alive_count < easiest_target_alive:
+				easiest_target_alive = alive_count
 	if target_count == 0:
 		return 0.0  # No valid horde targets
-	return 0.5
+	# Assess difficulty based on how many models remain on the easiest target
+	# Wiping a 20-model squad is very hard; wiping a 5-model remnant is feasible
+	if easiest_target_alive <= 5:
+		return 0.6  # Damaged squad — achievable
+	elif easiest_target_alive <= 10:
+		return 0.3  # Half-strength — difficult but possible
+	else:
+		return 0.15  # Full/near-full squad (13-20 models) — very hard to fully wipe in one turn
 
 static func _assess_marked_for_death(units: Dictionary, mission: Dictionary) -> float:
-	"""Destroy specific marked targets. Check if any alpha/gamma targets still alive."""
+	"""Destroy specific marked targets. Check if any alpha/gamma targets still alive and damageable."""
 	var mission_data = mission.get("mission_data", {})
 	var alpha_targets = mission_data.get("alpha_targets", [])
 	var gamma_target = mission_data.get("gamma_target", "")
@@ -11360,35 +12312,56 @@ static func _assess_marked_for_death(units: Dictionary, mission: Dictionary) -> 
 	if alpha_targets.is_empty() and gamma_target == "":
 		return 0.15  # Targets not yet assigned, keep for now
 
-	# Check if any marked targets are still alive
-	var alive_targets = 0
-	var all_targets = alpha_targets.duplicate()
-	if gamma_target != "":
-		all_targets.append(gamma_target)
+	# Check health of marked targets
+	var alpha_alive = 0
+	var gamma_alive = false
+	var weakest_alpha_pct = 1.0
 
-	for target_id in all_targets:
+	for target_id in alpha_targets:
 		var unit = units.get(target_id, {})
 		if unit.is_empty():
 			continue
+		var alive_models = 0
+		var total_models = 0
 		for model in unit.get("models", []):
+			total_models += 1
 			if model.get("alive", true):
-				alive_targets += 1
+				alive_models += 1
+		if alive_models > 0:
+			alpha_alive += 1
+			var pct = float(alive_models) / max(total_models, 1)
+			if pct < weakest_alpha_pct:
+				weakest_alpha_pct = pct
+
+	if gamma_target != "":
+		var gamma_unit = units.get(gamma_target, {})
+		for model in gamma_unit.get("models", []):
+			if model.get("alive", true):
+				gamma_alive = true
 				break
 
-	if alive_targets == 0:
+	if alpha_alive == 0 and not gamma_alive:
 		return 0.0  # All marked targets already dead — can't score more
-	return 0.5
+
+	# Rate based on how close we are to killing targets
+	if alpha_alive > 0 and weakest_alpha_pct <= 0.3:
+		return 0.7  # Almost dead alpha target — very achievable (5 VP)
+	if alpha_alive > 0 and weakest_alpha_pct <= 0.5:
+		return 0.55  # Damaged alpha target
+	if alpha_alive > 0:
+		return 0.45  # Full-health alpha targets — moderate difficulty
+	if gamma_alive:
+		return 0.35  # Only gamma left (2 VP) — keep but may swap
+	return 0.0
 
 static func _assess_action_mission(units: Dictionary, player: int) -> float:
 	"""Generic assessment for action-based missions (Establish Locus, Cleanse, Deploy Teleport Homer).
-	These require performing actions during the shooting phase. Achievability depends on
-	having units available to perform the action."""
-	var alive = _count_alive_units_for_player(units, player)
-	if alive == 0:
-		return 0.0
-	if alive <= 1:
-		return 0.15  # Very few units to spare for actions
-	return 0.4  # Moderately achievable
+	These require performing actions during the shooting phase. The AI currently does not have
+	logic to perform these actions, so rate them as low achievability to encourage discarding
+	in favor of missions the AI can actually score."""
+	# AI cannot currently perform shooting-phase actions for secondary missions
+	# Rate low so the AI swaps these for missions it CAN score
+	return 0.1  # Low achievability — AI lacks action-performing logic
 
 # =============================================================================
 # T7-25: SECONDARY MISSION AWARENESS — COMMAND PHASE ANALYSIS
@@ -11511,12 +12484,30 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 				print("AIDecisionMaker: [T7-25] Cull the Horde active — targeting large INFANTRY units")
 
 			"marked_for_death":
-				# Marked targets are selected by opponent — can't influence positioning much
-				print("AIDecisionMaker: [T7-25] Marked for Death active")
+				# Marked targets are selected by opponent — prioritize killing them
+				var mfd_data = mission.get("mission_data", {})
+				var mfd_alpha = mfd_data.get("alpha_targets", [])
+				var mfd_gamma = mfd_data.get("gamma_target", "")
+				if not mfd_alpha.is_empty():
+					if not awareness.has("marked_targets"):
+						awareness["marked_targets"] = []
+					awareness["marked_targets"].append_array(mfd_alpha)
+					if mfd_gamma != "":
+						awareness["marked_targets"].append(mfd_gamma)
+					print("AIDecisionMaker: [T7-25] Marked for Death active — targeting units: %s" % str(awareness["marked_targets"]))
+				else:
+					print("AIDecisionMaker: [T7-25] Marked for Death active (targets not yet assigned)")
 
-			"no_prisoners", "overwhelming_force":
-				# While-active — passive scoring from kills, no positioning needed
-				print("AIDecisionMaker: [T7-25] %s active (passive kill scoring)" % mission_id)
+			"no_prisoners":
+				# While-active — score by killing enemy units. Bias toward enemies.
+				awareness["kill_proximity"] = true
+				print("AIDecisionMaker: [T7-25] %s active (kill proximity bonus enabled)" % mission_id)
+
+			"overwhelming_force":
+				# While-active — score by killing enemy units near objectives
+				awareness["kill_near_objectives"] = true
+				awareness["nml_priority"] = awareness.get("nml_priority", 0.0) + 1.5
+				print("AIDecisionMaker: [T7-25] %s active (kill near objectives bonus enabled)" % mission_id)
 
 			# --- ACTION MISSIONS ---
 			"establish_locus", "cleanse", "deploy_teleport_homer":
@@ -11531,9 +12522,16 @@ static func _build_secondary_awareness(snapshot: Dictionary, player: int) -> Dic
 
 	return awareness
 
-static func _get_secondary_awareness() -> Dictionary:
-	"""Get the current secondary awareness cache. Returns empty dict if not built."""
-	return _secondary_awareness
+static func _get_secondary_awareness(player: int = 0) -> Dictionary:
+	"""Get the current secondary awareness cache for a player. Returns empty dict if not built."""
+	if player == 1:
+		return _secondary_awareness_p1
+	elif player == 2:
+		return _secondary_awareness_p2
+	# Fallback: return whichever is non-empty (backwards compatibility)
+	if not _secondary_awareness_p1.is_empty():
+		return _secondary_awareness_p1
+	return _secondary_awareness_p2
 
 static func _get_table_quarter(pos: Vector2) -> int:
 	"""Returns the table quarter (0-3) for a given position.
@@ -12310,15 +13308,24 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 			return 0.0
 
 	var attacks_str = weapon.get("attacks", "1")
+	if attacks_str == null: attacks_str = "1"
+	attacks_str = str(attacks_str)
 	var attacks = float(attacks_str) if attacks_str.is_valid_float() else 1.0
 
-	var bs_str = weapon.get("ballistic_skill", "4")
+	# Use ballistic_skill for ranged, weapon_skill for melee — fallback to 4
+	var bs_str = weapon.get("ballistic_skill", weapon.get("weapon_skill", "4"))
+	if bs_str == null: bs_str = "4"
+	bs_str = str(bs_str)
 	var bs = int(bs_str) if bs_str.is_valid_int() else 4
 
 	var strength_str = weapon.get("strength", "4")
+	if strength_str == null: strength_str = "4"
+	strength_str = str(strength_str)
 	var strength = int(strength_str) if strength_str.is_valid_int() else 4
 
 	var ap_str = weapon.get("ap", "0")
+	if ap_str == null: ap_str = "0"
+	ap_str = str(ap_str)
 	var ap = 0
 	if ap_str.begins_with("-"):
 		var ap_num = ap_str.substr(1)
@@ -12327,6 +13334,8 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 		ap = int(ap_str) if ap_str.is_valid_int() else 0
 
 	var damage_str = weapon.get("damage", "1")
+	if damage_str == null: damage_str = "1"
+	damage_str = str(damage_str)
 	var damage = float(damage_str) if damage_str.is_valid_float() else 1.0
 
 	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
@@ -13432,9 +14441,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 		return {
 			"type": "USE_HEROIC_INTERVENTION",
 			"player": defending_player,
-			"payload": {
-				"unit_id": best_unit_id
-			},
+			"unit_id": best_unit_id,
 			"_ai_description": "AI uses Heroic Intervention with %s (score: %.1f)" % [best_unit_name, best_score]
 		}
 

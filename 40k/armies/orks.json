@@ -568,7 +568,10 @@
         {"id": "m14", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m15", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m16", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m18", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m19", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m20", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
     },
     "U_BOYZ_F": {
@@ -743,7 +746,10 @@
         {"id": "m14", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m15", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
         {"id": "m16", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
-        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
+        {"id": "m17", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m18", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m19", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m20", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
     },
     "U_BATTLEWAGON_G": {
@@ -1146,7 +1152,7 @@
           }
         ],
         "leader_data": {
-          "can_lead": ["BEAST SNAGGA BOYZ"]
+          "can_lead": ["BEAST SNAGGA BOYZ", "BOYZ"]
         }
       },
       "models": [
@@ -1256,6 +1262,169 @@
           "alive": true,
           "status_effects": []
         }
+      ]
+    },
+    "U_BOYZ_K": {
+      "id": "U_BOYZ_K",
+      "squad_id": "U_BOYZ_K",
+      "owner": 2,
+      "status": "UNDEPLOYED",
+      "meta": {
+        "name": "Boyz",
+        "keywords": [
+          "BATTLELINE",
+          "BOYZ",
+          "GRENADES",
+          "INFANTRY",
+          "MOB",
+          "ORKS"
+        ],
+        "stats": {
+          "move": 6,
+          "toughness": 5,
+          "save": 5,
+          "wounds": 1,
+          "leadership": 7,
+          "objective_control": 2
+        },
+        "points": 80,
+        "is_warlord": false,
+        "enhancements": [],
+        "wargear": [
+          "9x Slugga",
+          "1x Slugga"
+        ],
+        "weapons": [
+          {
+            "name": "Big shoota",
+            "type": "Ranged",
+            "range": "36",
+            "attacks": "3",
+            "ballistic_skill": "5",
+            "strength": "5",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 2"
+          },
+          {
+            "name": "Kombi-weapon",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1"
+          },
+          {
+            "name": "Rokkit launcha",
+            "type": "Ranged",
+            "range": "24",
+            "attacks": "D3",
+            "ballistic_skill": "5",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "3",
+            "special_rules": "blast"
+          },
+          {
+            "name": "Shoota",
+            "type": "Ranged",
+            "range": "18",
+            "attacks": "2",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "rapid fire 1"
+          },
+          {
+            "name": "Slugga",
+            "type": "Ranged",
+            "range": "12",
+            "attacks": "1",
+            "ballistic_skill": "5",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1",
+            "special_rules": "pistol"
+          },
+          {
+            "name": "Big choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "7",
+            "ap": "-1",
+            "damage": "2"
+          },
+          {
+            "name": "Choppa",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "-1",
+            "damage": "1"
+          },
+          {
+            "name": "Close combat weapon",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "2",
+            "weapon_skill": "3",
+            "strength": "4",
+            "ap": "0",
+            "damage": "1"
+          },
+          {
+            "name": "Power klaw",
+            "type": "Melee",
+            "range": "Melee",
+            "attacks": "3",
+            "weapon_skill": "4",
+            "strength": "9",
+            "ap": "-2",
+            "damage": "2"
+          }
+        ],
+        "abilities": [
+          {
+            "name": "Waaagh!",
+            "type": "Faction",
+            "description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save."
+          },
+          {
+            "name": "Get Da Good Bitz",
+            "type": "Datasheet",
+            "description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn."
+          }
+        ],
+        "unit_composition": [
+          {
+            "description": "1 Boss Nob",
+            "line": 1
+          },
+          {
+            "description": "9 Boyz",
+            "line": 2
+          }
+        ]
+      },
+      "models": [
+        {"id": "m1", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m2", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m3", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m4", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m5", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m6", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m7", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m8", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m9", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []},
+        {"id": "m10", "wounds": 1, "current_wounds": 1, "base_mm": 32, "position": null, "alive": true, "status_effects": []}
       ]
     }
   }

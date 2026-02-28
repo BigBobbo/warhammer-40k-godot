@@ -23,6 +23,8 @@ var _current_phase_actions: int = 0  # Safety counter per phase
 const MAX_ACTIONS_PER_PHASE: int = 200  # Safety limit to prevent infinite loops
 var _failed_deploy_unit_ids: Array = []  # Units that failed both deployment and reserves — skip to avoid infinite loop
 var _failed_reinforcement_unit_ids: Array = []  # Units that failed reinforcement placement — skip to avoid infinite loop
+var _failed_transport_ids: Array = []  # Transports that completed or failed embarkation — skip to avoid re-embarkation
+var _pile_in_retry_units: Array = []  # Units that already had an empty pile-in retry — next failure sends CONSOLIDATE
 var _pending_advance_moves: Dictionary = {}  # unit_id -> decision — awaiting advance roll resolution before staging moves
 var _last_thinking_phase: int = -1  # Track which phase we last logged a "thinking" message for
 var _last_thinking_round: int = -1  # Track which round we last logged a "thinking" message for
@@ -113,6 +115,12 @@ func _ready() -> void:
 		var mission_mgr = get_node("/root/MissionManager")
 		mission_mgr.victory_points_scored.connect(_on_vp_scored)
 		print("AIPlayer: Connected to MissionManager.victory_points_scored")
+
+	# Connect to SecondaryMissionManager for AI auto-resolution of interactions
+	if has_node("/root/SecondaryMissionManager"):
+		var secondary_mgr = get_node("/root/SecondaryMissionManager")
+		secondary_mgr.when_drawn_requires_interaction.connect(_on_secondary_requires_interaction)
+		print("AIPlayer: Connected to SecondaryMissionManager.when_drawn_requires_interaction")
 
 	set_process(true)
 	print("AIPlayer: Ready (disabled until configured)")
@@ -260,6 +268,10 @@ func _on_phase_changed(_new_phase) -> void:
 	_current_phase_actions = 0  # Reset safety counter on phase change
 	_failed_deploy_unit_ids.clear()  # Reset failed deployment tracking on phase change
 	_failed_reinforcement_unit_ids.clear()  # Reset failed reinforcement tracking on phase change
+	_failed_transport_ids.clear()  # Reset transport embarkation tracking on phase change
+	# Reset failed disembark tracking in AIDecisionMaker
+	var AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+	AIDecisionMaker._failed_disembark_unit_ids.clear()
 
 	# T7-20: End any active thinking state before starting a new phase evaluation
 	_end_ai_thinking()
@@ -1054,11 +1066,13 @@ func _execute_next_action(player: int) -> void:
 	var phase_manager = get_node("/root/PhaseManager")
 	var available = phase_manager.get_available_actions()
 
-	# Filter out units that have permanently failed deployment (both deploy and reserves failed)
+	# Filter out units that have permanently failed deployment/disembark
 	if not _failed_deploy_unit_ids.is_empty():
 		available = available.filter(func(a):
 			if a.get("type") in ["DEPLOY_UNIT", "PLACE_IN_RESERVES"]:
 				return a.get("unit_id", "") not in _failed_deploy_unit_ids
+			if a.get("type") == "CONFIRM_DISEMBARK":
+				return a.get("actor_unit_id", "") not in _failed_deploy_unit_ids
 			return true
 		)
 
@@ -1067,6 +1081,14 @@ func _execute_next_action(player: int) -> void:
 		available = available.filter(func(a):
 			if a.get("type") == "PLACE_REINFORCEMENT":
 				return a.get("unit_id", "") not in _failed_reinforcement_unit_ids
+			return true
+		)
+
+	# Filter out transports that have already been used or failed embarkation
+	if not _failed_transport_ids.is_empty():
+		available = available.filter(func(a):
+			if a.get("type") == "DECLARE_TRANSPORT_EMBARKATION":
+				return a.get("transport_id", "") not in _failed_transport_ids
 			return true
 		)
 
@@ -1202,6 +1224,63 @@ func _execute_next_action(player: int) -> void:
 					"_ai_description": "Skipped charge for %s — move validation failed" % charge_unit_name
 				})
 
+		# Handle failed pile-in — retry with empty movements, or CONSOLIDATE if already retried
+		elif decision.get("type") == "PILE_IN":
+			var failed_unit_id = decision.get("unit_id", decision.get("actor_unit_id", ""))
+			if failed_unit_id != "":
+				var pile_unit_name = _get_unit_name(failed_unit_id)
+				if failed_unit_id in _pile_in_retry_units:
+					# T12-4: Already retried with empty movements — force CONSOLIDATE to break loop
+					print("AIPlayer: T12-4 Pile-in retry also failed for %s — sending CONSOLIDATE" % failed_unit_id)
+					_log_ai_event(player, "%s pile-in double failure — consolidating" % pile_unit_name)
+					_pile_in_retry_units.erase(failed_unit_id)
+					_current_phase_actions += 1
+					NetworkIntegration.route_action({
+						"type": "CONSOLIDATE",
+						"unit_id": failed_unit_id,
+						"actor_unit_id": failed_unit_id,
+						"movements": {},
+						"player": player,
+						"_ai_description": "Consolidate %s — pile-in double failure" % pile_unit_name
+					})
+				else:
+					print("AIPlayer: Pile-in failed for %s, retrying with no movement" % failed_unit_id)
+					_log_ai_event(player, "%s pile-in failed — skipping movement" % pile_unit_name)
+					_pile_in_retry_units.append(failed_unit_id)
+					_current_phase_actions += 1
+					NetworkIntegration.route_action({
+						"type": "PILE_IN",
+						"unit_id": failed_unit_id,
+						"actor_unit_id": failed_unit_id,
+						"movements": {},
+						"player": player,
+						"_ai_description": "Pile-in %s — no movement (validation failed)" % pile_unit_name
+					})
+
+		# Handle failed consolidate — retry with empty movements (no movement)
+		elif decision.get("type") == "CONSOLIDATE":
+			var failed_unit_id = decision.get("unit_id", decision.get("actor_unit_id", ""))
+			if failed_unit_id != "":
+				var consol_unit_name = _get_unit_name(failed_unit_id)
+				var movements_were_empty = decision.get("movements", {}).is_empty()
+				if movements_were_empty:
+					# T12-4: Empty consolidation failed too — request re-evaluation to break loop
+					print("AIPlayer: T12-4 Consolidate with empty movements also failed for %s — requesting re-evaluation" % failed_unit_id)
+					_log_ai_event(player, "%s consolidate double failure — re-evaluating" % consol_unit_name)
+					_request_evaluation()
+				else:
+					print("AIPlayer: Consolidate failed for %s, retrying with no movement" % failed_unit_id)
+					_log_ai_event(player, "%s consolidate failed — skipping movement" % consol_unit_name)
+					_current_phase_actions += 1
+					NetworkIntegration.route_action({
+						"type": "CONSOLIDATE",
+						"unit_id": failed_unit_id,
+						"actor_unit_id": failed_unit_id,
+						"movements": {},
+						"player": player,
+						"_ai_description": "Consolidate %s — no movement (validation failed)" % consol_unit_name
+					})
+
 		# Handle failed fight attacks — consolidate so the game can continue
 		elif decision.get("type") == "ASSIGN_ATTACKS":
 			var failed_unit_id = decision.get("unit_id", "")
@@ -1243,6 +1322,52 @@ func _execute_next_action(player: int) -> void:
 					"_ai_description": "Skipped %s — %s" % [shoot_unit_name, shoot_reason]
 				})
 
+		# Handle failed transport embarkation — skip the transport so we don't retry
+		elif decision.get("type") == "DECLARE_TRANSPORT_EMBARKATION":
+			var failed_transport_id = decision.get("transport_id", "")
+			if failed_transport_id != "":
+				print("AIPlayer: Transport embarkation failed for %s, adding to skip list and retrying" % failed_transport_id)
+				_failed_transport_ids.append(failed_transport_id)
+				# Schedule re-evaluation so the AI continues with other formations decisions
+				_request_evaluation()
+
+		# Handle failed movement — skip the unit and re-evaluate
+		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"]:
+			var failed_move_unit = decision.get("actor_unit_id", "")
+			if failed_move_unit != "":
+				var move_unit_name = _get_unit_name(failed_move_unit)
+				print("AIPlayer: Movement failed for %s (%s), using REMAIN_STATIONARY instead" % [failed_move_unit, _format_error_concise(error_msg)])
+				_log_ai_event(player, "%s movement failed — remaining stationary" % move_unit_name)
+				# Use REMAIN_STATIONARY since MovementPhase doesn't have SKIP_UNIT
+				_current_phase_actions += 1
+				NetworkIntegration.route_action({
+					"type": "REMAIN_STATIONARY",
+					"actor_unit_id": failed_move_unit,
+					"player": player,
+					"_ai_description": "%s remained stationary — movement failed" % move_unit_name
+				})
+
+		# Handle failed disembark — mark unit as failed and re-evaluate
+		elif decision.get("type") == "CONFIRM_DISEMBARK":
+			var disembark_unit_id = decision.get("actor_unit_id", "")
+			print("AIPlayer: Disembark failed for %s, skipping and re-evaluating" % disembark_unit_id)
+			# Mark the unit as having failed disembark in AIDecisionMaker so it won't retry
+			if disembark_unit_id != "":
+				var AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+				if disembark_unit_id not in AIDecisionMaker._failed_disembark_unit_ids:
+					AIDecisionMaker._failed_disembark_unit_ids.append(disembark_unit_id)
+			_request_evaluation()
+
+		# Handle failed heroic intervention — decline instead
+		elif decision.get("type") == "USE_HEROIC_INTERVENTION":
+			print("AIPlayer: Heroic Intervention failed, declining instead")
+			_current_phase_actions += 1
+			NetworkIntegration.route_action({
+				"type": "DECLINE_HEROIC_INTERVENTION",
+				"player": player,
+				"_ai_description": "Declined Heroic Intervention (action failed)"
+			})
+
 		# Handle failed reinforcement placement — retry with new positions or skip
 		elif decision.get("type") == "PLACE_REINFORCEMENT":
 			var reinf_unit_id = decision.get("unit_id", "")
@@ -1250,6 +1375,13 @@ func _execute_next_action(player: int) -> void:
 			_log_ai_event(player, "%s reinforcement failed (%s) — retrying" % [reinf_unit_name, _format_error_concise(error_msg)])
 			_handle_failed_reinforcement(player, decision)
 	else:
+		# Track successful transport embarkation to prevent re-embarkation of same transport
+		if decision.get("type") == "DECLARE_TRANSPORT_EMBARKATION":
+			var transport_id = decision.get("transport_id", "")
+			if transport_id != "" and transport_id not in _failed_transport_ids:
+				_failed_transport_ids.append(transport_id)
+				print("AIPlayer: Transport %s embarkation succeeded, marking as done" % transport_id)
+
 		# Emit signal for successful deployments so Main.gd can create visuals
 		if decision.get("type") == "DEPLOY_UNIT":
 			var deployed_unit_id = decision.get("unit_id", "")
@@ -1669,6 +1801,74 @@ func _on_vp_scored(player: int, points: int, reason: String) -> void:
 	if not is_ai_player(player) or points <= 0:
 		return
 	record_ai_key_moment(player, "Scored %d VP (%s)" % [points, reason])
+
+func _on_secondary_requires_interaction(player: int, mission_id: String, interaction_type: String, details: Dictionary) -> void:
+	"""Auto-resolve secondary mission interactions for AI players."""
+	# Determine which player needs to respond — it's typically the opponent
+	var opponent = 2 if player == 1 else 1
+	# For AI-vs-AI, the "opponent" is also AI, so auto-resolve regardless
+	if not is_ai_player(player) and not is_ai_player(opponent):
+		return  # Both human — let UI handle it
+
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if not secondary_mgr:
+		return
+
+	match interaction_type:
+		"opponent_selects_units":
+			# Marked for Death — opponent selects units from THEIR OWN army as targets
+			# 'player' here is the DRAWING player. 'opponent' (declared above) selects from the OPPONENT's army.
+			var snapshot = GameState.create_snapshot()
+			var units = snapshot.get("units", {})
+			var player_units = []
+			for uid in units:
+				var unit = units[uid]
+				# GameState.UnitStatus: UNDEPLOYED=0, DEPLOYING=1, DEPLOYED=2, etc.
+				if unit.get("owner", 0) == opponent and unit.get("status", 0) >= 2:  # DEPLOYED or later status
+					player_units.append({"id": uid, "points": unit.get("meta", {}).get("points", 0), "name": unit.get("meta", {}).get("name", uid)})
+			# Sort by points descending
+			player_units.sort_custom(func(a, b): return a.points > b.points)
+			var alpha_targets = []
+			var gamma_target = ""
+			if player_units.size() >= 3:
+				alpha_targets = [player_units[0].id, player_units[1].id]
+				gamma_target = player_units[-1].id
+			elif player_units.size() == 2:
+				alpha_targets = [player_units[0].id]
+				gamma_target = player_units[1].id
+			elif player_units.size() == 1:
+				alpha_targets = [player_units[0].id]
+				gamma_target = player_units[0].id
+			if not alpha_targets.is_empty():
+				secondary_mgr.resolve_marked_for_death(player, alpha_targets, gamma_target)
+				var alpha_names = []
+				var gamma_name = ""
+				for pu in player_units:
+					if pu.id in alpha_targets:
+						alpha_names.append("%s (%dpts)" % [pu.name, pu.points])
+					if pu.id == gamma_target:
+						gamma_name = "%s (%dpts)" % [pu.name, pu.points]
+				print("AIPlayer: [MFD] Auto-resolved Marked for Death for Player %d (drawing) — opponent P%d's units marked:" % [player, opponent])
+				print("AIPlayer: [MFD]   Alpha targets (5VP each): %s" % str(alpha_names))
+				print("AIPlayer: [MFD]   Gamma target (2VP): %s" % gamma_name)
+			else:
+				print("AIPlayer: Cannot resolve Marked for Death — no valid targets")
+
+		"opponent_selects_objective":
+			# A Tempting Target — opponent selects an objective in no man's land
+			var objectives = GameState.state.get("board", {}).get("objectives", [])
+			var nml_objectives = []
+			for obj in objectives:
+				var obj_id = obj.get("id", "")
+				if "nml" in obj_id or "center" in obj_id:
+					nml_objectives.append(obj_id)
+			if nml_objectives.size() > 0:
+				# Pick randomly
+				var chosen = nml_objectives[randi() % nml_objectives.size()]
+				secondary_mgr.resolve_tempting_target(player, chosen)
+				print("AIPlayer: Auto-resolved A Tempting Target for Player %d — objective: %s" % [player, chosen])
+			else:
+				print("AIPlayer: Cannot resolve A Tempting Target — no NML objectives found")
 
 # =============================================================================
 # T7-57: Post-Game Performance Summary

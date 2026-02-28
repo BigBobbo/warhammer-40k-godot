@@ -82,6 +82,14 @@ func setup_tactical_deck(player: int) -> void:
 	# Get standard 18-card tactical deck
 	var deck_ids = SecondaryMissionData.get_mission_ids_for_deck(false)
 
+	# T16-1: For AI players, filter out missions the army literally cannot score
+	# This prevents the AI from wasting CP and turns cycling through impossible missions
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		var removed = _filter_unachievable_missions_for_ai(deck_ids, player)
+		if removed > 0:
+			print("SecondaryMissionManager: [AI-DECK] Filtered %d unachievable missions from Player %d deck (%d remaining)" % [removed, player, deck_ids.size()])
+
 	# Shuffle
 	_shuffle_array(deck_ids)
 
@@ -93,6 +101,62 @@ func setup_tactical_deck(player: int) -> void:
 	state["initialized"] = true
 
 	print("SecondaryMissionManager: Built tactical deck for Player %d (%d cards)" % [player, deck_ids.size()])
+
+func _filter_unachievable_missions_for_ai(deck_ids: Array, player: int) -> int:
+	"""T16-1: Remove missions from deck that the player's army literally cannot score.
+	Returns the number of removed missions."""
+	var removed_count = 0
+
+	# Check if army has any deep strike units
+	var has_deep_strike = false
+	var player_units = GameState.get_units_for_player(player)
+	for unit_id in player_units:
+		if GameState.unit_has_deep_strike(unit_id):
+			has_deep_strike = true
+			break
+
+	# Action-based missions require shooting-phase actions the AI can't perform
+	# AND some require deep strike specifically
+	var impossible_mission_ids = []
+
+	# These missions require performing a shooting-phase action near objectives
+	# The AI has no logic to perform these actions at all
+	impossible_mission_ids.append("cleanse")
+	impossible_mission_ids.append("establish_locus")
+
+	# Deploy Teleport Homer requires deep strike — impossible without it
+	if not has_deep_strike:
+		impossible_mission_ids.append("deploy_teleport_homer")
+
+	# T18-1: Behind Enemy Lines requires reaching the enemy deployment zone.
+	# Armies without deep strike or very fast non-VEHICLE units (M12+) can never realistically reach it.
+	# VEHICLE units (Battlewagon M10) are transports/support, not zone-pushers.
+	var has_fast_non_vehicle = false
+	for unit_id in player_units:
+		var unit_data = GameState.get_unit(unit_id)
+		if not unit_data.is_empty():
+			var move_stat = unit_data.get("meta", {}).get("stats", {}).get("move", 6)
+			if typeof(move_stat) == TYPE_STRING:
+				move_stat = int(move_stat)
+			var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
+			if move_stat >= 12 and "VEHICLE" not in unit_keywords:
+				has_fast_non_vehicle = true
+				break
+	if not has_deep_strike and not has_fast_non_vehicle:
+		impossible_mission_ids.append("behind_enemy_lines")
+		print("SecondaryMissionManager: [AI-DECK] Behind Enemy Lines filtered — no deep strike or fast non-vehicle units (M12+)")
+
+	# Remove impossible missions from deck
+	var i = deck_ids.size() - 1
+	while i >= 0:
+		if deck_ids[i] in impossible_mission_ids:
+			var removed_id = deck_ids[i]
+			deck_ids.remove_at(i)
+			removed_count += 1
+			print("SecondaryMissionManager: [AI-DECK] Removed '%s' from Player %d deck (unachievable)" % [removed_id, player])
+		i -= 1
+
+	return removed_count
 
 # ============================================================================
 # CARD DRAWING
@@ -450,13 +514,18 @@ func _evaluate_mission_conditions(player: int, mission: Dictionary) -> int:
 	var sorted_conditions = conditions.duplicate()
 	sorted_conditions.sort_custom(func(a, b): return a.get("vp", 0) > b.get("vp", 0))
 
+	var mission_name = mission.get("name", mission.get("id", "unknown"))
 	for condition in sorted_conditions:
 		var check = condition.get("check", "")
 		var params = condition.get("params", {})
 		var vp = condition.get("vp", 0)
 
-		if _check_condition(player, check, params, mission):
+		var result = _check_condition(player, check, params, mission)
+		if result:
+			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' PASSED — awarding %d VP" % [player, mission_name, check, vp])
 			return vp
+		else:
+			print("SecondaryMissionManager: [SCORING] P%d '%s' condition '%s' FAILED (would give %d VP)" % [player, mission_name, check, vp])
 
 	return 0
 
@@ -535,6 +604,7 @@ func _check_units_in_opponent_zone(player: int, params: Dictionary) -> bool:
 	var opponent_zone = _get_deployment_zone_polygon(opponent)
 
 	if opponent_zone.is_empty():
+		print("SecondaryMissionManager: [BEL-CHECK] P%d — opponent zone polygon is empty!" % player)
 		return false
 
 	var qualifying_count = 0
@@ -546,9 +616,13 @@ func _check_units_in_opponent_zone(player: int, params: Dictionary) -> bool:
 			continue
 		if _is_unit_excluded(unit, exclude):
 			continue
-		if _is_unit_wholly_in_zone(unit, opponent_zone):
+		var in_zone = _is_unit_wholly_in_zone(unit, opponent_zone)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		if in_zone:
 			qualifying_count += 1
+			print("SecondaryMissionManager: [BEL-CHECK] P%d %s IS wholly in opponent zone" % [player, unit_name])
 
+	print("SecondaryMissionManager: [BEL-CHECK] P%d — %d/%d units in opponent zone" % [player, qualifying_count, required])
 	return qualifying_count >= required
 
 func _check_table_quarter_presence(player: int, params: Dictionary) -> bool:
@@ -649,7 +723,9 @@ func _check_display_of_might(player: int) -> bool:
 # ============================================================================
 
 func _check_storm_hostile_objective(player: int, params: Dictionary) -> bool:
-	"""Check if player controls objectives that opponent controlled at start of turn."""
+	"""Check if player controls objectives that opponent controlled at start of turn.
+	Also counts objectives that were contested (0) at start but are now player-controlled,
+	since capturing contested objectives is a valid 'storm' action."""
 	var required = params.get("count", 1)
 	var count = 0
 
@@ -658,14 +734,17 @@ func _check_storm_hostile_objective(player: int, params: Dictionary) -> bool:
 		var start_controller = _objective_control_at_turn_start.get(obj_id, 0)
 		var opponent = 2 if player == 1 else 1
 
-		if current_controller == player and start_controller == opponent:
+		# Count if: player now controls AND (opponent controlled at start OR was contested at start)
+		if current_controller == player and start_controller != player:
 			count += 1
+			print("SecondaryMissionManager: [STORM] Player %d captured objective %s (was %d, now %d)" % [player, obj_id, start_controller, current_controller])
 
 	return count >= required
 
 func _check_storm_hostile_alt(player: int, params: Dictionary) -> bool:
-	"""Alt condition: opponent controlled no objectives at start AND you control new ones."""
-	var min_round = params.get("min_round", 2)
+	"""Alt condition: opponent controlled no objectives at start AND you control new ones.
+	Per rules, this triggers when opponent had 0 objectives at turn start and you capture at least 1."""
+	var min_round = params.get("min_round", 1)
 	if GameState.get_battle_round() < min_round:
 		return false
 
@@ -681,6 +760,7 @@ func _check_storm_hostile_alt(player: int, params: Dictionary) -> bool:
 		var current = MissionManager.objective_control_state[obj_id]
 		var start = _objective_control_at_turn_start.get(obj_id, 0)
 		if current == player and start != player:
+			print("SecondaryMissionManager: [STORM-ALT] Player %d captured objective %s (opponent had 0 at start)" % [player, obj_id])
 			return true
 
 	return false
