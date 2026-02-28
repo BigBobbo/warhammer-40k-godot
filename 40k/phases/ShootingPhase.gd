@@ -2984,7 +2984,11 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 
 	# P1-10: Check for Sentinel Storm shoot-again ability before completing
 	# Skip this check if the unit is already in its shoot-again round (already used Sentinel Storm)
-	if not action.get("payload", {}).get("skip_sentinel_storm_check", false):
+	# P1-59: Also skip if out-of-phase action is active (e.g. Fire Overwatch) — cannot use
+	# phase-specific abilities during out-of-phase actions per core rules
+	var strat_mgr_for_oop = get_node_or_null("/root/StratagemManager")
+	var is_out_of_phase = strat_mgr_for_oop and strat_mgr_for_oop.is_out_of_phase_active()
+	if not action.get("payload", {}).get("skip_sentinel_storm_check", false) and not is_out_of_phase:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr and ability_mgr.has_shoot_again_ability(unit_id):
 			print("║ SENTINEL STORM: Unit %s has unused Sentinel Storm — prompting player" % unit_id)
@@ -3005,9 +3009,14 @@ func _process_complete_shooting_for_unit(action: Dictionary) -> Dictionary:
 				"sentinel_storm_available": true,
 				"unit_id": unit_id
 			})
+	elif is_out_of_phase:
+		print("║ SENTINEL STORM: Blocked for %s — out-of-phase action active (P1-59)" % unit_id)
 
 	# P1-11: Check for Sanctified Flames — force Battle-shock test on hit enemy
-	var sanctified_changes = _check_sanctified_flames(unit_id)
+	# P1-59: Also skip if out-of-phase action is active
+	var sanctified_changes = _check_sanctified_flames(unit_id) if not is_out_of_phase else []
+	if is_out_of_phase:
+		print("ShootingPhase: Sanctified Flames check skipped — out-of-phase action active (P1-59)")
 
 	var changes = [{
 		"op": "set",
