@@ -427,7 +427,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 46. **Fix snapshot staleness in _all_units_deployed()** — Refresh phase snapshot in `DeploymentPhase._process_deploy_unit()` after applying changes so `_all_units_deployed()` can use snapshot instead of direct `GameState.state` access. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-CODE-2 as DONE. — **DONE**
 
 ### P3 — Low (Deployment visual polish)
-47. **Add unit placement drop-in animation** — Brief scale 0→1 or fade-in over 0.2s when model is placed in `DeploymentController._spawn_preview_token()` for tactile feedback. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-VIS-1 as DONE.
+47. **Add unit placement drop-in animation** — Brief scale 0→1 or fade-in over 0.2s when model is placed in `DeploymentController._spawn_preview_token()` for tactile feedback. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-VIS-1 as DONE. — **DONE**
 48. **Add deployment zone theming** — Add subtle textures or patterns within deployment zones (diagonal hatching, military-style markers) in `DeploymentZoneVisual.gd` to distinguish from regular board. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-VIS-3 as DONE.
 49. **Enhance ghost visual with coherency aids** — Add pulsing effect to ghost in `GhostVisual.gd`, connecting line from ghost to nearest placed model, distance display to nearest friendly model in inches. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-VIS-4 as DONE.
 50. **Add coherency visualization circles during deployment** — Draw faint 2" radius circles around placed models in `DeploymentController.gd`, green when next model in coherency range, red when out of range. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-VIS-5 as DONE.

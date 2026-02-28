@@ -1093,6 +1093,11 @@ func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2, rotat
 	var token = _create_token_visual(unit_id, model_index, pos, true, rotation)
 	placed_tokens.append(token)
 	token_layer.add_child(token)
+	# Drop-in animation: scale from 0 to 1 over 0.2s for tactile feedback
+	token.scale = Vector2.ZERO
+	var tween = token.create_tween()
+	tween.tween_property(token, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	print("[DeploymentController] Drop-in animation started for token %s model %d" % [unit_id, model_index])
 
 func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_preview: bool = false, rotation: float = 0.0) -> Node2D:
 	var token = Node2D.new()

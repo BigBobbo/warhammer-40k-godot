@@ -166,10 +166,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 1. Deployment Phase Transition Animation — IMPLEMENTED
 **Status**: **Implemented.** `PhaseTransitionBanner.gd` shows animated banner for all phase transitions including DEPLOYMENT, SCOUT, ROLL OFF, etc. Slides in from top, holds, slides out with gothic-themed styling.
 
-### 2. Unit Placement Animation
-**Issue**: When a model is placed, it appears instantly via `_spawn_preview_token()`.
-
-**Recommendation**: Add a brief drop-in animation (scale from 0 to 1 or fade-in over 0.2s) when a model is placed. This gives tactile feedback and makes the deployment feel more deliberate.
+### 2. Unit Placement Animation — IMPLEMENTED
+**Status**: **Implemented.** `_spawn_preview_token()` in both `DeploymentController.gd` and `DisembarkController.gd` now applies a scale 0→1 tween over 0.2s with back-ease-out for a tactile "pop" effect when each model is placed.
 
 ### 3. Player Turn Indicator Enhancement — IMPLEMENTED
 **Status**: **Implemented.** `PlayerTurnBorder.gd` draws a colored border around the screen edge matching the active player's color (blue for P1, red for P2). Flashes briefly on turn swap and deployment side change. Works across all phases. Integrated in `Main.gd` via `_setup_player_turn_border()`, updated in `_on_phase_changed()` and `_on_deployment_side_changed()`.
@@ -281,7 +279,7 @@ Both players reveal simultaneously, then deployment begins.
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
-| Unit placement animation | **Low** | Low | Visual | Open |
+| Unit placement animation | **Low** | Low | Visual | **DONE** |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
 | Ghost visual enhancement | **Low** | Low | Visual | Open |
 | Deployment zone theming | **Low** | Low | Visual | Open |
@@ -311,3 +309,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 7 | **Deployment timeout punitiveness marked DONE (DEPLOY-MP-3).** Scaled timeout (120s base + 15s/unit, max 300s), deployment warnings at 60s/30s/15s/10s/5s, auto-placement to Strategic Reserves on timeout instead of instant loss. |
 | Update 8 | **Race condition: embark after player switch marked DONE (DEPLOY-MP-4, P2-43).** Deploy + embark/attach bundled into atomic `COMPOSITE_DEPLOY` action. Single-action processing prevents turn switch before sub-actions complete. |
 | Update 9 | **Snapshot staleness in `_all_units_deployed()` marked DONE (DEPLOY-CODE-2, P2-46).** `GameManager.apply_result()` refreshes phase snapshot after deployment diffs. `_all_units_deployed()` and `get_deployment_summary()` now use `game_state_snapshot`. |
+| Update 10 | **Unit placement animation marked DONE (DEPLOY-VIS-2, P3-47).** Scale 0→1 tween over 0.2s with back-ease-out in `_spawn_preview_token()` for both `DeploymentController.gd` and `DisembarkController.gd`. |
