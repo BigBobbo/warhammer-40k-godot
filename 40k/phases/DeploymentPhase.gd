@@ -1011,9 +1011,9 @@ func _get_undeployed_units_for_player(player: int) -> Array:
 	return undeployed
 
 func _all_units_deployed() -> bool:
-	# CRITICAL: Use GameState directly instead of game_state_snapshot
-	# The snapshot may be stale and not reflect recent deployments
-	var units = GameState.state.get("units", {})
+	# P2-46: Use game_state_snapshot now that GameManager.apply_result() refreshes
+	# the phase snapshot after every deployment action (DEPLOY_UNIT, COMPOSITE_DEPLOY, etc.)
+	var units = game_state_snapshot.get("units", {})
 
 	for unit_id in units:
 		var unit = units[unit_id]
@@ -1035,7 +1035,7 @@ func _all_units_deployed() -> bool:
 
 func get_deployment_summary() -> Dictionary:
 	"""T5-UX8: Build a summary of deployment state for the confirmation dialog"""
-	var units = GameState.state.get("units", {})
+	var units = game_state_snapshot.get("units", {})
 	var player1_units = []
 	var player2_units = []
 	var embarked_units = []

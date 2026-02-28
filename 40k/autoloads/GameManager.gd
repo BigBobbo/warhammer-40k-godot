@@ -358,6 +358,20 @@ func apply_result(result: Dictionary) -> void:
 				print("GameManager: Delegating deployment alternation to TurnManager (after %s)" % action_type)
 				turn_manager.check_deployment_alternation()
 
+	# P2-46: Refresh the phase snapshot after applying deployment diffs so that
+	# phase methods like _all_units_deployed() can use the snapshot instead of
+	# accessing GameState.state directly. DEPLOY_UNIT is processed by GameManager
+	# (not delegated to the phase), so the phase snapshot would otherwise be stale.
+	if action_type in deployment_actions:
+		var phase_mgr_ref = _get_phase_manager()
+		if phase_mgr_ref:
+			var current_phase_inst = phase_mgr_ref.get_current_phase_instance()
+			if current_phase_inst and current_phase_inst.has_method("update_local_state"):
+				var game_state_ref = get_node_or_null("/root/GameState")
+				if game_state_ref:
+					current_phase_inst.update_local_state(game_state_ref.create_snapshot())
+					print("GameManager: Refreshed phase snapshot after %s" % action_type)
+
 	# Trigger a state change signal so UI updates
 	var game_state = get_node_or_null("/root/GameState")
 	if game_state and game_state.has_signal("state_changed"):
