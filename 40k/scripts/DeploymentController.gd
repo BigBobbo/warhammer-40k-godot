@@ -32,6 +32,9 @@ var reposition_ghost: Node2D = null
 # Coherency distance display label (floating near ghost during placement)
 var coherency_distance_label: Label = null
 
+# Coherency visualization circles around placed models (DEPLOY-VIS-5)
+var coherency_circles: Array = []
+
 # Transport embark state
 var pending_embark_units: Array = []  # Units to embark after deployment
 var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dialog
@@ -444,6 +447,13 @@ func undo_last_model() -> bool:
 			token.queue_free()
 			placed_tokens.remove_at(i)
 			break
+
+	# DEPLOY-VIS-5: Remove the corresponding coherency circle
+	if last_placed_idx < coherency_circles.size():
+		var circle = coherency_circles[last_placed_idx]
+		if is_instance_valid(circle):
+			circle.queue_free()
+		coherency_circles.remove_at(last_placed_idx)
 
 	# Set model_idx back to this model so the ghost appears for it
 	model_idx = last_placed_idx
@@ -1112,6 +1122,156 @@ func _spawn_preview_token(unit_id: String, model_index: int, pos: Vector2, rotat
 	tween.tween_property(token, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	print("[DeploymentController] Drop-in animation started for token %s model %d" % [unit_id, model_index])
 
+	# DEPLOY-VIS-5: Add coherency circle around the placed model
+	_spawn_coherency_circle(unit_id, model_index, pos)
+
+func _spawn_coherency_circle(p_unit_id: String, model_index: int, pos: Vector2) -> void:
+	"""DEPLOY-VIS-5: Spawn a faint 2\" coherency range circle around a placed model."""
+	var unit_data = GameState.get_unit(p_unit_id)
+	if unit_data.is_empty():
+		return
+	var model_data = unit_data["models"][model_index]
+	var base_radius = Measurement.base_radius_px(model_data["base_mm"])
+
+	var circle = load("res://scripts/CoherencyCircleVisual.gd").new()
+	circle.position = pos
+	circle.name = "CoherencyCircle_%d" % coherency_circles.size()
+	circle.setup(base_radius)
+	coherency_circles.append(circle)
+	if token_layer:
+		token_layer.add_child(circle)
+	print("[DeploymentController] Spawned coherency circle at %s (base_radius=%.1f)" % [str(pos), base_radius])
+
+func _clear_coherency_circles() -> void:
+	"""DEPLOY-VIS-5: Remove all coherency visualization circles."""
+	for circle in coherency_circles:
+		if is_instance_valid(circle):
+			circle.queue_free()
+	coherency_circles.clear()
+
+func _update_coherency_circles() -> void:
+	"""DEPLOY-VIS-5: Update coherency circle colors based on ghost position.
+	Green if the ghost (next model to place) would be within 2\" coherency range
+	of that placed model, red if out of range."""
+	if coherency_circles.is_empty():
+		return
+
+	# Get ghost position and model data
+	var ghost_pos: Vector2 = Vector2.ZERO
+	var ghost_model_data: Dictionary = {}
+	var ghost_rotation: float = 0.0
+	var has_ghost: bool = false
+
+	if repositioning_model and reposition_ghost:
+		ghost_pos = reposition_ghost.position
+		var unit_data = GameState.get_unit(unit_id)
+		ghost_model_data = unit_data["models"][reposition_model_index]
+		if reposition_ghost.has_method("get_base_rotation"):
+			ghost_rotation = reposition_ghost.get_base_rotation()
+		has_ghost = true
+	elif ghost_sprite != null and model_idx < temp_positions.size():
+		ghost_pos = ghost_sprite.position
+		if is_combined_deployment and model_idx < combined_models.size():
+			ghost_model_data = combined_models[model_idx]["model_data"]
+		else:
+			var unit_data = GameState.get_unit(unit_id)
+			if not unit_data.is_empty() and model_idx < unit_data["models"].size():
+				ghost_model_data = unit_data["models"][model_idx]
+		if ghost_sprite.has_method("get_base_rotation"):
+			ghost_rotation = ghost_sprite.get_base_rotation()
+		has_ghost = not ghost_model_data.is_empty()
+
+	if not has_ghost:
+		# No ghost visible (all models placed) — show coherency status between placed models
+		_update_coherency_circles_static()
+		return
+
+	# Build ghost model dict for distance measurement
+	var ghost_model = ghost_model_data.duplicate()
+	ghost_model["position"] = ghost_pos
+	ghost_model["rotation"] = ghost_rotation
+
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	# Update each circle: green if ghost is within 2" edge-to-edge of that placed model
+	for i in range(coherency_circles.size()):
+		if i >= temp_positions.size() or temp_positions[i] == null:
+			continue
+		if not is_instance_valid(coherency_circles[i]):
+			continue
+		# Skip repositioning model's circle
+		if repositioning_model and i == reposition_model_index:
+			coherency_circles[i].visible = false
+			continue
+		coherency_circles[i].visible = true
+
+		# Build placed model dict
+		var placed_model: Dictionary
+		if is_combined_deployment and i < combined_models.size():
+			placed_model = combined_models[i]["model_data"].duplicate()
+		else:
+			placed_model = unit_data["models"][i].duplicate()
+		placed_model["position"] = temp_positions[i]
+		placed_model["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
+
+		var dist = Measurement.model_to_model_distance_inches(ghost_model, placed_model)
+		coherency_circles[i].set_in_range(dist <= 2.0)
+
+func _update_coherency_circles_static() -> void:
+	"""DEPLOY-VIS-5: When no ghost is active, show coherency status between placed models.
+	Each placed model's circle is green if it has at least one neighbor within 2\",
+	red if it has no neighbors within 2\"."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+
+	var placed_indices = []
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:
+			placed_indices.append(i)
+
+	for i in range(coherency_circles.size()):
+		if i >= temp_positions.size() or temp_positions[i] == null:
+			continue
+		if not is_instance_valid(coherency_circles[i]):
+			continue
+		coherency_circles[i].visible = true
+
+		# Single model is always coherent
+		if placed_indices.size() <= 1:
+			coherency_circles[i].set_in_range(true)
+			continue
+
+		# Check if this model has at least one neighbor within 2"
+		var has_neighbor = false
+		var model_i: Dictionary
+		if is_combined_deployment and i < combined_models.size():
+			model_i = combined_models[i]["model_data"].duplicate()
+		else:
+			model_i = unit_data["models"][i].duplicate()
+		model_i["position"] = temp_positions[i]
+		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
+
+		for j in placed_indices:
+			if j == i:
+				continue
+			var model_j: Dictionary
+			if is_combined_deployment and j < combined_models.size():
+				model_j = combined_models[j]["model_data"].duplicate()
+			else:
+				model_j = unit_data["models"][j].duplicate()
+			model_j["position"] = temp_positions[j]
+			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
+
+			var dist = Measurement.model_to_model_distance_inches(model_i, model_j)
+			if dist <= 2.0:
+				has_neighbor = true
+				break
+
+		coherency_circles[i].set_in_range(has_neighbor)
+
 func _create_token_visual(unit_id: String, model_index: int, pos: Vector2, is_preview: bool = false, rotation: float = 0.0) -> Node2D:
 	var token = Node2D.new()
 	token.position = pos
@@ -1144,6 +1304,7 @@ func _clear_previews() -> void:
 		if is_instance_valid(token):
 			token.queue_free()
 	placed_tokens.clear()
+	_clear_coherency_circles()
 
 func _finalize_tokens() -> void:
 	for token in placed_tokens:
@@ -1152,6 +1313,7 @@ func _finalize_tokens() -> void:
 				if child.has_method("set_preview"):
 					child.set_preview(false)
 	placed_tokens.clear()
+	_clear_coherency_circles()
 
 # Delegated to Measurement.gd (single source of truth)
 func _circle_wholly_in_polygon(center: Vector2, radius: float, polygon: PackedVector2Array) -> bool:
@@ -1387,6 +1549,7 @@ func _process(delta: float) -> void:
 		if reposition_ghost.has_method("get_base_rotation"):
 			rot = reposition_ghost.get_base_rotation()
 		_update_coherency_distance_display(mouse_pos, model_data, rot)
+		_update_coherency_circles()
 		return
 
 	# Handle formation mode ghost updates
@@ -1398,6 +1561,7 @@ func _process(delta: float) -> void:
 		for fg in formation_preview_ghosts:
 			if fg and fg.has_method("clear_nearest_model"):
 				fg.clear_nearest_model()
+		_update_coherency_circles()
 		return
 
 	# Handle single mode ghost updates
@@ -1456,6 +1620,9 @@ func _process(delta: float) -> void:
 
 		# Update coherency distance display near ghost
 		_update_coherency_distance_display(mouse_pos, model_data, rotation)
+
+	# DEPLOY-VIS-5: Update coherency circle colors based on ghost position
+	_update_coherency_circles()
 
 func _get_world_mouse_position() -> Vector2:
 	# Get the main scene to access the coordinate conversion
@@ -1813,6 +1980,12 @@ func _end_model_repositioning(mouse_pos: Vector2) -> void:
 				token.position = world_pos
 				token.modulate.a = 1.0  # Restore full opacity
 				break
+
+		# DEPLOY-VIS-5: Update coherency circle position after repositioning
+		if reposition_model_index < coherency_circles.size():
+			var circle = coherency_circles[reposition_model_index]
+			if is_instance_valid(circle):
+				circle.position = world_pos
 
 		print("Model ", reposition_model_index, " repositioned to ", world_pos)
 		emit_signal("models_placed_changed")
