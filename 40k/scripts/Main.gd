@@ -99,6 +99,10 @@ var _ai_speed_panel: PanelContainer = null
 var _ai_speed_label: Label = null
 var _ai_step_continue_button: Button = null
 
+# P2-44: Player turn screen-edge color indicator
+var _player_turn_border: PlayerTurnBorder = null
+var _last_active_player: int = -1  # Track player changes for flash animation
+
 # T5-MP8: Phase timer HUD elements (visible to active player in multiplayer)
 var phase_timer_label: Label = null
 var _phase_timer_last_warning: int = -1
@@ -296,6 +300,9 @@ func _ready() -> void:
 
 	# T5-V3: Setup phase transition animation banner
 	_setup_phase_transition_banner()
+
+	# P2-44: Setup player turn screen-edge color indicator
+	_setup_player_turn_border()
 
 	# T7-20: Setup AI thinking indicator
 	_setup_ai_thinking_indicator()
@@ -4191,6 +4198,11 @@ func _on_deployment_side_changed(player: int) -> void:
 	update_ui()
 	update_deployment_zone_visibility()
 
+	# P2-44: Flash border on deployment side change
+	if _player_turn_border:
+		_player_turn_border.flash_turn_swap(player)
+		_last_active_player = player
+
 	# T5-UX10: Auto-zoom to the new active player's deployment zone on turn switch
 	print("T5-UX10: Deployment side changed to Player %d — auto-zooming" % player)
 	focus_on_deployment_zone(player)
@@ -5199,6 +5211,15 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 		var banner_round = GameState.state.get("meta", {}).get("round", 1)
 		var banner_player = GameState.get_active_player()
 		phase_transition_banner.show_phase_banner(new_phase, banner_round, banner_player)
+
+	# P2-44: Update player turn border color, flash on turn swap
+	if _player_turn_border:
+		var border_player = GameState.get_active_player()
+		if _last_active_player != border_player:
+			_player_turn_border.flash_turn_swap(border_player)
+			_last_active_player = border_player
+		else:
+			_player_turn_border.set_active_player(border_player)
 
 	# T7-54: Add phase header to AI action log overlay when AI is active
 	if _ai_action_log_overlay:
@@ -6299,6 +6320,15 @@ func _setup_phase_transition_banner() -> void:
 	phase_transition_banner.name = "PhaseTransitionBanner"
 	add_child(phase_transition_banner)
 	print("Main: T5-V3: Phase transition banner initialized")
+
+func _setup_player_turn_border() -> void:
+	# P2-44: Create the player turn screen-edge color indicator
+	_player_turn_border = PlayerTurnBorder.new()
+	add_child(_player_turn_border)
+	var active_player = GameState.get_active_player()
+	_player_turn_border.set_active_player(active_player)
+	_last_active_player = active_player
+	print("Main: P2-44: Player turn border initialized for Player %d" % active_player)
 
 func _setup_game_log_panel() -> void:
 	print("Main: Setting up Game Event Log panel")
