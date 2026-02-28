@@ -172,10 +172,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 3. Player Turn Indicator Enhancement — IMPLEMENTED
 **Status**: **Implemented.** `PlayerTurnBorder.gd` draws a colored border around the screen edge matching the active player's color (blue for P1, red for P2). Flashes briefly on turn swap and deployment side change. Works across all phases. Integrated in `Main.gd` via `_setup_player_turn_border()`, updated in `_on_phase_changed()` and `_on_deployment_side_changed()`.
 
-### 4. Deployment Zone Theming
-**Issue**: Zones are flat color overlays.
-
-**Recommendation**: Add subtle deployment-themed textures or patterns within the zones (e.g., diagonal hatching, military-style markers).
+### 4. Deployment Zone Theming — IMPLEMENTED
+**Status**: **Implemented.** `DeploymentZoneVisual.gd` now draws subtle diagonal hatching lines (45° dashed pattern, clipped to zone polygon via `Geometry2D.intersect_polyline_with_polygon`) and military-style L-shaped corner brackets at inner edge corners. Hatching uses very low alpha (0.08) to avoid overwhelming the board. Corner brackets replace the previous simple circle markers with inset L-shaped arms along edge directions.
 
 ### 5. Ghost Visual Enhancement
 **Issue**: Ghost previews are functional but basic.
@@ -282,7 +280,7 @@ Both players reveal simultaneously, then deployment begins.
 | Unit placement animation | **Low** | Low | Visual | **DONE** |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
 | Ghost visual enhancement | **Low** | Low | Visual | Open |
-| Deployment zone theming | **Low** | Low | Visual | Open |
+| Deployment zone theming | **Low** | Low | Visual | **DONE** |
 | Token unit name labels | **Low** | Low | Visual | Open |
 | Opponent zone dimming | **Low** | Low | Visual | Open |
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
@@ -310,3 +308,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 8 | **Race condition: embark after player switch marked DONE (DEPLOY-MP-4, P2-43).** Deploy + embark/attach bundled into atomic `COMPOSITE_DEPLOY` action. Single-action processing prevents turn switch before sub-actions complete. |
 | Update 9 | **Snapshot staleness in `_all_units_deployed()` marked DONE (DEPLOY-CODE-2, P2-46).** `GameManager.apply_result()` refreshes phase snapshot after deployment diffs. `_all_units_deployed()` and `get_deployment_summary()` now use `game_state_snapshot`. |
 | Update 10 | **Unit placement animation marked DONE (DEPLOY-VIS-2, P3-47).** Scale 0→1 tween over 0.2s with back-ease-out in `_spawn_preview_token()` for both `DeploymentController.gd` and `DisembarkController.gd`. |
+| Update 11 | **Deployment zone theming marked DONE (DEPLOY-VIS-3, P3-48).** Diagonal hatching (45° dashed lines clipped to polygon via Geometry2D) and military-style L-shaped corner brackets at inner edge corners in `DeploymentZoneVisual.gd`. |

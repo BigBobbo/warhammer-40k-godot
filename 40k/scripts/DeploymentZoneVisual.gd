@@ -3,6 +3,7 @@ extends Polygon2D
 # DeploymentZoneVisual - Enhanced deployment zone rendering with edge highlighting
 # T5-V14: Pulsing animated dashed border, glow layers on inner edges,
 # and zone depth labels for clearer boundary visibility.
+# P3-48: Diagonal hatching and military-style corner brackets for zone theming.
 # Follows sine-wave animation pattern from EngagementRangeVisual.gd
 # and dashed line pattern from PileInMovementVisual.gd / RangeCircle.gd
 
@@ -37,6 +38,19 @@ const FONT_SIZE: int = 14
 const LABEL_BG_COLOR: Color = Color(0.1, 0.08, 0.05, 0.85)
 const LABEL_BG_PADDING: Vector2 = Vector2(6, 3)
 
+# P3-48: Diagonal hatching constants
+const HATCH_SPACING: float = 40.0  # Distance between hatch lines in pixels
+const HATCH_LINE_WIDTH: float = 1.0
+const HATCH_ALPHA: float = 0.08  # Very subtle so it doesn't overwhelm the board
+const HATCH_DASH_LENGTH: float = 10.0
+const HATCH_GAP_LENGTH: float = 6.0
+
+# P3-48: Military corner bracket constants
+const BRACKET_LENGTH: float = 16.0  # Length of each bracket arm
+const BRACKET_WIDTH: float = 2.5
+const BRACKET_ALPHA: float = 0.6
+const BRACKET_INSET: float = 6.0  # Pixels inward from the corner point
+
 var default_font: Font = null
 
 func _ready() -> void:
@@ -66,6 +80,9 @@ func _draw() -> void:
 	var board_width_px = Measurement.inches_to_px(44.0) if Measurement else 44.0 * 40
 	var board_height_px = Measurement.inches_to_px(60.0) if Measurement else 60.0 * 40
 
+	# P3-48: Draw diagonal hatching pattern inside the zone (drawn first, behind edges)
+	_draw_diagonal_hatching(points, pulse_alpha)
+
 	# Draw each edge with appropriate styling
 	for i in range(points.size()):
 		var p1 = points[i]
@@ -81,8 +98,8 @@ func _draw() -> void:
 			var dim_color = Color(border_color.r, border_color.g, border_color.b, border_color.a * 0.5)
 			_draw_dashed_edge(p1, p2, dim_color, OUTER_EDGE_BORDER_WIDTH, march_offset, pulse_alpha)
 
-	# Draw corner markers on inner edge endpoints
-	_draw_corner_markers(points, board_width_px, board_height_px, pulse_alpha)
+	# P3-48: Draw military-style corner brackets on inner corners (replaces simple circle markers)
+	_draw_corner_brackets(points, board_width_px, board_height_px, pulse_alpha)
 
 	# Draw zone depth label on the longest inner edge
 	_draw_zone_depth_label(points, board_width_px, board_height_px, pulse_alpha)
@@ -129,8 +146,8 @@ func _draw_dashed_edge(p1: Vector2, p2: Vector2, color: Color, width: float, mar
 
 		pos += segment_length
 
-func _draw_corner_markers(points: PackedVector2Array, board_w: float, board_h: float, pulse_alpha: float) -> void:
-	# Draw small diamond markers at corners where inner edges meet
+func _draw_corner_brackets(points: PackedVector2Array, board_w: float, board_h: float, pulse_alpha: float) -> void:
+	# P3-48: Draw military-style L-shaped brackets at corners where inner edges meet
 	for i in range(points.size()):
 		var prev_idx = (i - 1 + points.size()) % points.size()
 		var next_idx = (i + 1) % points.size()
@@ -143,8 +160,106 @@ func _draw_corner_markers(points: PackedVector2Array, board_w: float, board_h: f
 		var edge_after_inner = _is_inner_edge(p_curr, p_next, board_w, board_h)
 
 		if edge_before_inner or edge_after_inner:
-			var marker_color = Color(border_color.r, border_color.g, border_color.b, 0.9 * pulse_alpha)
-			draw_circle(p_curr, 4.0, marker_color)
+			var bracket_color = Color(border_color.r, border_color.g, border_color.b, BRACKET_ALPHA * pulse_alpha)
+
+			# Compute direction vectors along each edge from this corner
+			var dir_to_prev = (p_prev - p_curr).normalized()
+			var dir_to_next = (p_next - p_curr).normalized()
+
+			# Inset the bracket slightly into the polygon so it doesn't overlap the border
+			var inset_dir = (dir_to_prev + dir_to_next).normalized()
+			if inset_dir.length_squared() < 0.01:
+				# Edges are nearly parallel — fallback to perpendicular
+				inset_dir = Vector2(-dir_to_prev.y, dir_to_prev.x)
+			var corner_pt = p_curr + inset_dir * BRACKET_INSET
+
+			# Draw L-bracket: two arms extending along the edge directions
+			var arm1_end = corner_pt + dir_to_prev * BRACKET_LENGTH
+			var arm2_end = corner_pt + dir_to_next * BRACKET_LENGTH
+			draw_line(arm1_end, corner_pt, bracket_color, BRACKET_WIDTH, true)
+			draw_line(corner_pt, arm2_end, bracket_color, BRACKET_WIDTH, true)
+
+func _draw_diagonal_hatching(points: PackedVector2Array, pulse_alpha: float) -> void:
+	# P3-48: Draw subtle diagonal hatching lines (45 degrees) clipped to the zone polygon.
+	# Uses Geometry2D.intersect_polyline_with_polygon to handle arbitrary zone shapes.
+	if points.size() < 3:
+		return
+
+	# Compute the axis-aligned bounding box of the polygon
+	var min_pt = Vector2(INF, INF)
+	var max_pt = Vector2(-INF, -INF)
+	for p in points:
+		min_pt.x = min(min_pt.x, p.x)
+		min_pt.y = min(min_pt.y, p.y)
+		max_pt.x = max(max_pt.x, p.x)
+		max_pt.y = max(max_pt.y, p.y)
+
+	var hatch_color = Color(border_color.r, border_color.g, border_color.b, HATCH_ALPHA * pulse_alpha)
+
+	# Generate 45-degree lines sweeping across the bounding box.
+	# For a 45° line (top-left to bottom-right), the diagonal offset is x + y = c.
+	# We sweep c from min(x+y) to max(x+y) with HATCH_SPACING steps.
+	var c_min = min_pt.x + min_pt.y
+	var c_max = max_pt.x + max_pt.y
+
+	var c = c_min
+	while c <= c_max:
+		# Line equation: x + y = c, parameterized along the diagonal
+		# Intersect with the bounding box to get the line segment endpoints
+		# x = c - y, so when y = min_pt.y -> x = c - min_pt.y
+		#            and when y = max_pt.y -> x = c - max_pt.y
+		var x1 = c - min_pt.y
+		var y1 = min_pt.y
+		var x2 = c - max_pt.y
+		var y2 = max_pt.y
+
+		# Clip to horizontal bounding box bounds
+		if x1 > max_pt.x:
+			y1 = c - max_pt.x
+			x1 = max_pt.x
+		if x1 < min_pt.x:
+			y1 = c - min_pt.x
+			x1 = min_pt.x
+		if x2 > max_pt.x:
+			y2 = c - max_pt.x
+			x2 = max_pt.x
+		if x2 < min_pt.x:
+			y2 = c - min_pt.x
+			x2 = min_pt.x
+
+		# Create the line as a polyline and clip to the polygon
+		var line = PackedVector2Array([Vector2(x1, y1), Vector2(x2, y2)])
+		if line[0].distance_to(line[1]) < 1.0:
+			c += HATCH_SPACING
+			continue
+
+		var clipped_segments = Geometry2D.intersect_polyline_with_polygon(line, points)
+
+		for segment in clipped_segments:
+			if segment.size() < 2:
+				continue
+			# Draw each clipped segment as a dashed line for a cleaner military look
+			_draw_hatch_dashed_segment(segment[0], segment[segment.size() - 1], hatch_color)
+
+		c += HATCH_SPACING
+
+func _draw_hatch_dashed_segment(p1: Vector2, p2: Vector2, color: Color) -> void:
+	# Draw a dashed line segment for hatching (no animation, static pattern)
+	var direction = (p2 - p1).normalized()
+	var total_length = p1.distance_to(p2)
+
+	if total_length < 2.0:
+		draw_line(p1, p2, color, HATCH_LINE_WIDTH, true)
+		return
+
+	var pos: float = 0.0
+	var segment_length = HATCH_DASH_LENGTH + HATCH_GAP_LENGTH
+	while pos < total_length:
+		var dash_end = min(pos + HATCH_DASH_LENGTH, total_length)
+		var start_pt = p1 + direction * pos
+		var end_pt = p1 + direction * dash_end
+		draw_line(start_pt, end_pt, color, HATCH_LINE_WIDTH, true)
+		pos += segment_length
 
 func _draw_zone_depth_label(points: PackedVector2Array, board_w: float, board_h: float, pulse_alpha: float) -> void:
 	# Find the longest inner edge and draw a depth label on it
