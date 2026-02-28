@@ -5538,6 +5538,12 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 				"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
 					# Movement has begun, mode should be set in controller
 					print("Movement mode initiated: ", action.type)
+				"USE_COMMAND_REROLL":
+					# Advance reroll resolved — unit_move_begun signal handles UI update
+					print("Main: Command Re-roll used for advance, UI updated via signal")
+				"DECLINE_COMMAND_REROLL":
+					# Advance resolved with original roll — unit_move_begun signal handles UI update
+					print("Main: Command Re-roll declined for advance, UI updated via signal")
 				"SET_MODEL_DEST":
 					print("Main: Processing SET_MODEL_DEST - updating visuals for ", action.actor_unit_id, "/", action.payload.model_id)
 					_update_model_visual(action.actor_unit_id, action.payload.model_id, action.payload.dest)

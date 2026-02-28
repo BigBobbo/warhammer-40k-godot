@@ -880,6 +880,7 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 
 	var unit_name = old_data.get("unit_name", unit_id)
 	var old_roll = old_data.get("advance_roll", 0)
+	var move_inches = old_data.get("move_inches", 0)
 	var current_player = get_current_player()
 
 	# Execute the stratagem (deduct CP, record usage)
@@ -893,7 +894,13 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 		var strat_result = strat_manager.execute_command_reroll(current_player, unit_id, roll_context)
 		if not strat_result.success:
 			print("MovementPhase: Command Re-roll failed: %s" % strat_result.get("error", ""))
+			# Notify user of failure
+			var toast_mgr = get_node_or_null("/root/ToastManager")
+			if toast_mgr:
+				toast_mgr.show_error("Command Re-roll failed: %s" % strat_result.get("error", "Unknown"))
 			return _resolve_advance_roll(unit_id, old_roll)
+	else:
+		print("MovementPhase: WARNING — StratagemManager not found, cannot deduct CP")
 
 	# Re-roll D6
 	var rng_service = RulesEngine.RNGService.new()
@@ -902,6 +909,24 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 
 	log_phase_message("COMMAND RE-ROLL: Advance re-rolled from %d → %d" % [old_roll, new_advance])
 	print("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance])
+
+	# Add reroll entry to dice log so it appears in the dice log panel
+	dice_log.append({
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"type": "Command Re-roll",
+		"roll": new_advance,
+		"result": "Advance rerolled: %d → %d (1 CP)" % [old_roll, new_advance]
+	})
+
+	# Show toast notification with reroll result
+	var new_total_move = int(move_inches) + new_advance
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast(
+			"COMMAND RE-ROLL (1 CP): %s advance %d → %d (Move: %d\")" % [unit_name, old_roll, new_advance, new_total_move],
+			Color.GOLD
+		)
 
 	return _resolve_advance_roll(unit_id, new_advance)
 
@@ -913,8 +938,22 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	_reroll_pending_unit_id = ""
 	_reroll_pending_data = {}
 
+	var advance_roll = old_data.get("advance_roll", 0)
+	var unit_name = old_data.get("unit_name", unit_id)
+	var move_inches = old_data.get("move_inches", 0)
+	var total_move = int(move_inches) + advance_roll
+
 	print("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id)
-	return _resolve_advance_roll(unit_id, old_data.get("advance_roll", 0))
+
+	# Show toast with original roll result
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast(
+			"%s advance roll: %d (Move: %d\")" % [unit_name, advance_roll, total_move],
+			Color.WHITE
+		)
+
+	return _resolve_advance_roll(unit_id, advance_roll)
 
 # ============================================================================
 # FIRE OVERWATCH (T3-11)
