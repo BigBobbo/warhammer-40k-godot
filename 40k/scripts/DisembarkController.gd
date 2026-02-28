@@ -460,6 +460,11 @@ func _spawn_preview_token(model_idx: int, pos: Vector2) -> void:
 
 	token_layer.add_child(token)
 	placed_tokens.append(token)
+	# Drop-in animation: scale from 0 to 1 over 0.2s for tactile feedback
+	token.scale = Vector2.ZERO
+	var tween = token.create_tween()
+	tween.tween_property(token, "scale", Vector2.ONE, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	print("[DisembarkController] Drop-in animation started for token model %d" % model_idx)
 
 func _count_alive_models() -> int:
 	var count = 0
