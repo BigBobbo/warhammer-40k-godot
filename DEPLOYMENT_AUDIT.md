@@ -242,10 +242,10 @@ Both players reveal simultaneously, then deployment begins.
 
 **Resolution**: Consolidated into `Measurement.gd` as `circle_wholly_in_polygon()`, `point_to_line_distance()`, and `shape_wholly_in_polygon()`. Both files now delegate to these shared functions.
 
-### 2. `_all_units_deployed()` Uses Direct GameState Access
+### 2. ~~`_all_units_deployed()` Uses Direct GameState Access~~ — **DONE**
 **Issue**: `DeploymentPhase._all_units_deployed()` accesses `GameState.state` directly bypassing the snapshot architecture.
 
-**Recommendation**: Refresh the snapshot in `_process_deploy_unit()` after applying changes.
+**Resolution**: `GameManager.apply_result()` now refreshes the phase snapshot after applying diffs for all deployment actions (`DEPLOY_UNIT`, `COMPOSITE_DEPLOY`, etc.) via `update_local_state()`. `_all_units_deployed()` and `get_deployment_summary()` now read from `game_state_snapshot` instead of `GameState.state`.
 
 ---
 
@@ -292,7 +292,7 @@ Both players reveal simultaneously, then deployment begins.
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
 | Race condition: embark after player switch | **Medium** | Low | Multiplayer | **DONE** |
 | Duplicate geometry functions | **Low** | Low | Code Quality | **DONE** |
-| Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | Open |
+| Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | **DONE** |
 | Mission selection | **Low** | High | Rules | Open |
 
 ---
@@ -310,3 +310,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 6 | **Coherency distance display marked DONE.** Floating label near ghost shows edge-to-edge distance to nearest placed model in real-time (green ≤2", red >2"). Works in single and reposition modes. |
 | Update 7 | **Deployment timeout punitiveness marked DONE (DEPLOY-MP-3).** Scaled timeout (120s base + 15s/unit, max 300s), deployment warnings at 60s/30s/15s/10s/5s, auto-placement to Strategic Reserves on timeout instead of instant loss. |
 | Update 8 | **Race condition: embark after player switch marked DONE (DEPLOY-MP-4, P2-43).** Deploy + embark/attach bundled into atomic `COMPOSITE_DEPLOY` action. Single-action processing prevents turn switch before sub-actions complete. |
+| Update 9 | **Snapshot staleness in `_all_units_deployed()` marked DONE (DEPLOY-CODE-2, P2-46).** `GameManager.apply_result()` refreshes phase snapshot after deployment diffs. `_all_units_deployed()` and `get_deployment_summary()` now use `game_state_snapshot`. |
