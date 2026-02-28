@@ -87,14 +87,10 @@ Both players reveal simultaneously, then deployment begins.
 
 **Recommendation**: In `TurnManager.check_deployment_alternation()` or `DeploymentPhase._process_deploy_unit()`, detect if the just-deployed unit has the TITANIC keyword and skip the deploying player's next turn to deploy.
 
-### 9. Reserves Destroyed if Not Arrived by Round 3 — Partially Implemented
+### 9. Reserves Destroyed if Not Arrived by Round 3 — IMPLEMENTED
 **Rule**: Any Reserves units that have not arrived on the battlefield by the end of the third battle round count as destroyed.
 
-**Current Implementation**: The rule is referenced in `MOVEMENT_PHASE_AUDIT.md` but no enforcement code exists. Reserves can remain off-table indefinitely without being destroyed.
-
-**Impact**: Medium — affects scoring (destroyed units award VP in some missions) and army balance.
-
-**Recommendation**: At the end of Round 3, check for any units still `IN_RESERVES` and mark them as `DESTROYED`. Show a notification listing which units were lost.
+**Status**: **Implemented.** `ScoringPhase._destroy_remaining_reserves()` runs at end of Round 3 (when Player 2's turn ends). Finds all units with `IN_RESERVES` status plus any units embarked in reserves transports. Marks all models as dead, reports to `SecondaryMissionManager` and `MissionManager` for VP scoring. Notifications via `GameEventLog` (per-player entries) and `ToastManager` (warning toast listing all destroyed units).
 
 ### 10. Mission Selection
 **Rule**: 10th Edition has multiple mission types with different primary objectives and deployment configurations.
@@ -286,7 +282,7 @@ Both players reveal simultaneously, then deployment begins.
 | Deployment map variety | **Low** | Medium | Rules | **DONE** |
 | Fortification deployment | **Low** | Low | Rules | **DONE** |
 | Reserves cap fixed (25% → 50% points + 50% units) | **High** | Low | Rules | **DONE** |
-| Reserves destroyed after Round 3 | **Medium** | Low | Rules | Open |
+| Reserves destroyed after Round 3 | **Medium** | Low | Rules | **DONE** |
 | TITANIC deployment skip | **Low** | Low | Rules | Open |
 | Per-model undo | **Medium** | Low | QoL | Open |
 | Coherency distance display | **Medium** | Low | QoL | Open |

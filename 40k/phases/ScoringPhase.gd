@@ -163,7 +163,8 @@ func _handle_end_turn() -> Dictionary:
 
 	# If Player 2 just finished their turn, advance battle round
 	if current_player == 2:
-		var new_battle_round = GameState.get_battle_round() + 1
+		var current_battle_round = GameState.get_battle_round()
+		var new_battle_round = current_battle_round + 1
 		print("ScoringPhase: Completing battle round, advancing to battle round %d" % new_battle_round)
 
 		changes.append({
@@ -171,6 +172,11 @@ func _handle_end_turn() -> Dictionary:
 			"path": "meta.battle_round",
 			"value": new_battle_round
 		})
+
+		# P1-37: Destroy reserves units not arrived by end of Round 3
+		if current_battle_round == 3:
+			var reserves_changes = _destroy_remaining_reserves()
+			changes.append_array(reserves_changes)
 
 	return {
 		"success": true,
@@ -230,6 +236,87 @@ func _create_flag_reset_changes(player: int) -> Array:
 		print("ScoringPhase: Resetting flags for %d units owned by player %d" % [reset_count, player])
 	else:
 		print("ScoringPhase: No flags to reset for player %d units" % player)
+
+	return changes
+
+func _destroy_remaining_reserves() -> Array:
+	"""P1-37: At end of Round 3, destroy any units still IN_RESERVES.
+	Per 10th Edition rules, reserves units not on the battlefield by end of
+	Round 3 count as destroyed."""
+	var changes = []
+	var units = game_state_snapshot.get("units", {})
+	var destroyed_units_by_player: Dictionary = {1: [], 2: []}
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+
+	# First pass: find units directly in reserves
+	var reserves_unit_ids: Array = []
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("status", -1) == GameStateData.UnitStatus.IN_RESERVES:
+			reserves_unit_ids.append(unit_id)
+
+	# Second pass: also find units embarked in a reserves transport
+	for unit_id in units:
+		var unit = units[unit_id]
+		var embarked_in = unit.get("embarked_in", null)
+		if embarked_in != null and embarked_in in reserves_unit_ids:
+			if unit_id not in reserves_unit_ids:
+				reserves_unit_ids.append(unit_id)
+
+	# Now destroy all identified units
+	for unit_id in reserves_unit_ids:
+		var unit = units[unit_id]
+		var owner = unit.get("owner", 0)
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var models = unit.get("models", [])
+
+		print("ScoringPhase: P1-37 — Destroying reserves unit '%s' (player %d) — not arrived by end of Round 3" % [unit_name, owner])
+
+		# Mark all models as dead
+		for i in range(models.size()):
+			if models[i].get("alive", true):
+				changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.alive" % [unit_id, i],
+					"value": false
+				})
+
+		destroyed_units_by_player[owner].append(unit_name)
+
+		# Report unit destruction for secondary mission scoring
+		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+		if secondary_mgr:
+			secondary_mgr.check_and_report_unit_destroyed(unit_id)
+
+		# Report unit destruction for primary mission scoring
+		# The "destroying player" is the opponent since they benefit from VP
+		if MissionManager:
+			var destroyed_by = 2 if owner == 1 else 1
+			MissionManager.record_unit_destroyed(destroyed_by)
+
+	# Notify both players via game event log and toast
+	for player in [1, 2]:
+		var destroyed_names = destroyed_units_by_player[player]
+		if destroyed_names.size() > 0:
+			var names_str = ", ".join(destroyed_names)
+			var msg = "Player %d reserves destroyed (not arrived by Round 3): %s" % [player, names_str]
+			print("ScoringPhase: %s" % msg)
+			if game_event_log:
+				game_event_log.add_player_entry(player, "Reserves destroyed (not arrived by Round 3): %s" % names_str)
+
+	# Show toast notification if any units were destroyed
+	var total_destroyed = destroyed_units_by_player[1].size() + destroyed_units_by_player[2].size()
+	if total_destroyed > 0:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			var all_names = []
+			for player in [1, 2]:
+				for unit_name in destroyed_units_by_player[player]:
+					all_names.append("P%d %s" % [player, unit_name])
+			toast_mgr.show_warning("Reserves destroyed (Round 3 ended): %s" % ", ".join(all_names))
+		print("ScoringPhase: P1-37 — Total %d reserves unit(s) destroyed at end of Round 3" % total_destroyed)
+	else:
+		print("ScoringPhase: P1-37 — No reserves units remaining at end of Round 3")
 
 	return changes
 

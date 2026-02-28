@@ -413,7 +413,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 
 ### P1 — High (Deployment rules gaps)
 36. **Fix reserves point cap from 25% to 50%** — Chapter Approved 2025-26 rules specify max 50% of points AND 50% of units in reserves, but `DeploymentPhase._validate_place_in_reserves()` at line 276 uses `int(total_points * 0.25)`. Update to `0.50` and add unit count validation. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-RULES-1 as DONE. — **DONE**
-37. **Destroy reserves units not arrived by end of Round 3** — Per rules, any reserves units not on the battlefield by end of Round 3 count as destroyed. Add check at end-of-round processing to mark remaining `IN_RESERVES` units as `DESTROYED` with notification to both players. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-RULES-2 as DONE.
+37. **Destroy reserves units not arrived by end of Round 3** — Per rules, any reserves units not on the battlefield by end of Round 3 count as destroyed. Add check at end-of-round processing to mark remaining `IN_RESERVES` units as `DESTROYED` with notification to both players. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-RULES-2 as DONE. — **DONE**
 
 ### P2 — Medium (Deployment QoL and multiplayer)
 38. **Add per-model undo during deployment** — Current undo resets entire unit. Add Ctrl+Z to undo only the last placed model by decrementing `model_idx` and clearing last `temp_positions` entry in `DeploymentController.gd`. Keep full-unit reset as separate button. Update DEPLOYMENT_AUDIT.md to mark DEPLOY-QOL-1 as DONE.
