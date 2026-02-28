@@ -107,49 +107,9 @@ func _filter_unachievable_missions_for_ai(deck_ids: Array, player: int) -> int:
 	Returns the number of removed missions."""
 	var removed_count = 0
 
-	# Check if army has any deep strike units
-	var has_deep_strike = false
-	var player_units = GameState.get_units_for_player(player)
-	for unit_id in player_units:
-		if GameState.unit_has_deep_strike(unit_id):
-			has_deep_strike = true
-			break
-
-	# Missions that are impossible for specific army compositions
-	var impossible_mission_ids = []
-
-	# Deploy Teleport Homer requires deep strike — impossible without it
-	if not has_deep_strike:
-		impossible_mission_ids.append("deploy_teleport_homer")
-
-	# T18-1: Behind Enemy Lines requires reaching the enemy deployment zone.
-	# Armies without deep strike or very fast non-VEHICLE units (M12+) can never realistically reach it.
-	# VEHICLE units (Battlewagon M10) are transports/support, not zone-pushers.
-	var has_fast_non_vehicle = false
-	for unit_id in player_units:
-		var unit_data = GameState.get_unit(unit_id)
-		if not unit_data.is_empty():
-			var move_stat = unit_data.get("meta", {}).get("stats", {}).get("move", 6)
-			if typeof(move_stat) == TYPE_STRING:
-				move_stat = int(move_stat)
-			var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
-			if move_stat >= 12 and "VEHICLE" not in unit_keywords:
-				has_fast_non_vehicle = true
-				break
-	if not has_deep_strike and not has_fast_non_vehicle:
-		impossible_mission_ids.append("behind_enemy_lines")
-		print("SecondaryMissionManager: [AI-DECK] Behind Enemy Lines filtered — no deep strike or fast non-vehicle units (M12+)")
-
-	# Remove impossible missions from deck
-	var i = deck_ids.size() - 1
-	while i >= 0:
-		if deck_ids[i] in impossible_mission_ids:
-			var removed_id = deck_ids[i]
-			deck_ids.remove_at(i)
-			removed_count += 1
-			print("SecondaryMissionManager: [AI-DECK] Removed '%s' from Player %d deck (unachievable)" % [removed_id, player])
-		i -= 1
-
+	# No missions are automatically removed — difficulty alone is not a reason to filter.
+	# The AI should use its evaluation logic (_assess_* functions) to decide whether to
+	# keep or discard missions during gameplay, not pre-filter them from the deck.
 	return removed_count
 
 # ============================================================================
