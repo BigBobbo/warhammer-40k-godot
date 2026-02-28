@@ -126,6 +126,11 @@ var _keyboard_shortcut_overlay: KeyboardShortcutOverlay = null
 # P3-55: Measuring tape button visible during deployment
 var _measuring_tape_button: Button = null
 
+# P3-56: Web relay "Waiting for game state" loading screen
+var _web_relay_loading_overlay: PanelContainer = null
+var _web_relay_loading_label: Label = null
+var _web_relay_loading_pulse_tween: Tween = null
+
 # Player scores and CP display (top bar)
 var _p1_score_label: Label = null
 var _p2_score_label: Label = null
@@ -196,6 +201,10 @@ func _ready() -> void:
 
 				if NetworkManager:
 					NetworkManager.enter_web_relay_mode(is_host, game_code)
+
+					# P3-56: Show loading overlay on guest while waiting for host state
+					if not is_host:
+						_setup_web_relay_loading_overlay()
 
 					# If host, send initial state to guest after a short delay
 					if is_host:
@@ -801,6 +810,86 @@ func _stop_opponent_zone_pulse() -> void:
 	# Restore zone modulates via the normal visibility function
 	if current_phase == GameStateData.Phase.DEPLOYMENT:
 		update_deployment_zone_visibility()
+
+# =============================================================================
+# P3-56: Web Relay "Waiting for game state" Loading Screen
+# =============================================================================
+
+func _setup_web_relay_loading_overlay() -> void:
+	# P3-56: Full-screen loading overlay shown on guest side in web relay mode.
+	# Prevents flash of default army configuration while waiting for host state.
+	_web_relay_loading_overlay = PanelContainer.new()
+	_web_relay_loading_overlay.name = "WebRelayLoadingOverlay"
+	# Cover entire screen
+	_web_relay_loading_overlay.anchor_left = 0.0
+	_web_relay_loading_overlay.anchor_right = 1.0
+	_web_relay_loading_overlay.anchor_top = 0.0
+	_web_relay_loading_overlay.anchor_bottom = 1.0
+	_web_relay_loading_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block all input
+
+	# Dark background style
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.06, 0.04, 0.97)
+	bg_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	bg_style.set_border_width_all(0)
+	_web_relay_loading_overlay.add_theme_stylebox_override("panel", bg_style)
+
+	# Center content
+	var center_container = CenterContainer.new()
+	center_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_web_relay_loading_overlay.add_child(center_container)
+
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 16)
+	center_container.add_child(vbox)
+
+	# Loading text
+	_web_relay_loading_label = Label.new()
+	_web_relay_loading_label.text = "Waiting for game state..."
+	_web_relay_loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_web_relay_loading_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_web_relay_loading_label.add_theme_font_size_override("font_size", 28)
+	vbox.add_child(_web_relay_loading_label)
+
+	# Subtitle
+	var subtitle_label = Label.new()
+	subtitle_label.text = "Host is syncing game data..."
+	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	subtitle_label.add_theme_font_size_override("font_size", 16)
+	vbox.add_child(subtitle_label)
+
+	add_child(_web_relay_loading_overlay)
+
+	# Ensure overlay is on top of everything
+	_web_relay_loading_overlay.z_index = 100
+
+	# Start pulse animation
+	_web_relay_loading_pulse_tween = create_tween().set_loops()
+	_web_relay_loading_pulse_tween.tween_property(_web_relay_loading_label, "modulate", Color(1, 1, 1, 0.5), 1.0).set_trans(Tween.TRANS_SINE)
+	_web_relay_loading_pulse_tween.tween_property(_web_relay_loading_label, "modulate", Color(1, 1, 1, 1.0), 1.0).set_trans(Tween.TRANS_SINE)
+
+	print("Main: P3-56 Web relay loading overlay shown (guest waiting for host state)")
+
+func _dismiss_web_relay_loading_overlay() -> void:
+	# P3-56: Dismiss the loading overlay once host state is received
+	if not _web_relay_loading_overlay:
+		return
+
+	print("Main: P3-56 Dismissing web relay loading overlay (host state received)")
+
+	# Stop pulse animation
+	if _web_relay_loading_pulse_tween:
+		_web_relay_loading_pulse_tween.kill()
+		_web_relay_loading_pulse_tween = null
+
+	# Fade out and remove
+	var fade_tween = create_tween()
+	fade_tween.tween_property(_web_relay_loading_overlay, "modulate", Color(1, 1, 1, 0), 0.3).set_trans(Tween.TRANS_SINE)
+	fade_tween.tween_callback(_web_relay_loading_overlay.queue_free)
+	_web_relay_loading_overlay = null
+	_web_relay_loading_label = null
 
 # =============================================================================
 # T7-20: AI Thinking Indicator
@@ -5006,6 +5095,9 @@ func _apply_loaded_state() -> void:
 # Multiplayer sync handler - called when guest receives initial state or game starts
 func _on_network_game_started() -> void:
 	print("Main: Network game started signal received")
+
+	# P3-56: Dismiss the web relay loading overlay now that host state is received
+	_dismiss_web_relay_loading_overlay()
 
 	# Refresh all visuals and UI after receiving initial state
 	if NetworkManager and NetworkManager.is_networked():
