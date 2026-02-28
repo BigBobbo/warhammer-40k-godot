@@ -441,6 +441,12 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("%s declared charge against %s" % [unit_name, ", ".join(target_names)])
 
+	# Log charge declaration to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(unit.get("owner", 0))
+		game_event_log.add_player_entry(owner, "%s declares charge against %s" % [unit_name, ", ".join(target_names)])
+
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
 	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
@@ -622,6 +628,22 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		"min_distance": min_distance,
 	}
 	dice_log.append(dice_result)
+
+	# Log charge roll result to GameEventLog
+	var charge_event_log = get_node_or_null("/root/GameEventLog")
+	var charge_owner = int(get_unit(unit_id).get("owner", 0))
+	if charge_event_log:
+		var target_name_list = []
+		for tid in target_ids:
+			target_name_list.append(get_unit(tid).get("meta", {}).get("name", tid))
+		if roll_sufficient:
+			charge_event_log.add_player_entry(charge_owner,
+				"%s charge roll: 2D6 = %d (%d + %d) vs %.1f\" needed - SUCCESS" % [
+					unit_name, total_distance, rolls[0], rolls[1], min_distance])
+		else:
+			charge_event_log.add_player_entry(charge_owner,
+				"%s charge roll: 2D6 = %d (%d + %d) vs %.1f\" needed - FAILED" % [
+					unit_name, total_distance, rolls[0], rolls[1], min_distance])
 
 	if not roll_sufficient:
 		# Charge roll failed — record structured failure, clean up state, broadcast
@@ -2237,11 +2259,20 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 		if diff.get("op", "") == "set" and "wounds" in diff.get("path", ""):
 			total_damage += 1
 
+	var ow_shooter_name = shooting_unit.get("meta", {}).get("name", shooting_unit_id)
+	var ow_target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 	log_phase_message("FIRE OVERWATCH result: %s fired at %s — %s" % [
-		shooting_unit.get("meta", {}).get("name", shooting_unit_id),
-		target_unit.get("meta", {}).get("name", target_unit_id),
+		ow_shooter_name, ow_target_name,
 		shoot_result.get("log_text", "no hits")
 	])
+
+	# Log overwatch to GameEventLog
+	var ow_event_log = get_node_or_null("/root/GameEventLog")
+	if ow_event_log:
+		ow_event_log.add_player_entry(player,
+			"FIRE OVERWATCH: %s fires at %s — %s" % [
+				ow_shooter_name, ow_target_name,
+				shoot_result.get("log_text", "no hits")])
 
 	return shoot_result
 

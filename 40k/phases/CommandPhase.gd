@@ -640,6 +640,19 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	}
 	GameState.add_action_to_phase_log(log_entry)
 
+	# Log battle-shock test to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(unit.get("owner", 0))
+		if test_passed:
+			game_event_log.add_player_entry(owner,
+				"%s passed Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d" % [
+					unit_name, roll_total, die1, die2, leadership])
+		else:
+			game_event_log.add_player_entry(owner,
+				"%s FAILED Battle-shock test: 2D6 = %d (%d + %d) vs Ld %d — now Battle-shocked!" % [
+					unit_name, roll_total, die1, die2, leadership])
+
 	return result
 
 func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
