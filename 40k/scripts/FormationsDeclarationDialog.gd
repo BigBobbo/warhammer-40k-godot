@@ -212,10 +212,10 @@ func _build_reserves_section() -> void:
 	content_vbox.add_child(section_label)
 
 	var total_points = GameState.get_total_army_points(declaring_player)
-	var max_reserves = int(total_points * 0.25)
+	var max_reserves = int(total_points * 0.50)
 
 	var desc_label = Label.new()
-	desc_label.text = "Place units in reserves (max 25%% of army points = %d pts):" % max_reserves
+	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts):" % max_reserves
 	desc_label.add_theme_font_size_override("font_size", 12)
 	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	content_vbox.add_child(desc_label)
@@ -353,14 +353,14 @@ func _on_reserves_checkbox_toggled(toggled_on: bool, checkbox: CheckBox) -> void
 	var unit_points = checkbox.get_meta("unit_points")
 
 	if toggled_on:
-		# Check 25% limit
+		# Check 50% point limit (Chapter Approved 2025-26)
 		var total_points = GameState.get_total_army_points(declaring_player)
-		var max_reserves = int(total_points * 0.25)
+		var max_reserves = int(total_points * 0.50)
 		var current_reserves = _get_declared_reserves_points()
 
 		if current_reserves + unit_points > max_reserves:
 			checkbox.button_pressed = false
-			print("FormationsDialog: Exceeds 25%% reserves limit (%d + %d > %d)" % [current_reserves, unit_points, max_reserves])
+			print("FormationsDialog: Exceeds 50%% reserves points limit (%d + %d > %d)" % [current_reserves, unit_points, max_reserves])
 			return
 
 		# Check unit isn't already assigned elsewhere

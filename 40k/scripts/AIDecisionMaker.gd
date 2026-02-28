@@ -1429,7 +1429,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			total_army_points += unit.get("meta", {}).get("points", 0)
 			total_army_units += 1
 
-	var max_reserves_points = int(total_army_points * 0.25)
+	var max_reserves_points = int(total_army_points * 0.50)
 	var max_reserves_units = int(total_army_units / 2)  # Can't put more than half the army in reserves
 
 	# Calculate current reserves commitment from UNDECLARE_RESERVES actions

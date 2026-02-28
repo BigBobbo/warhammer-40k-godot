@@ -356,14 +356,22 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 	if _is_unit_declared_in_reserves(unit_id, player):
 		errors.append("Unit already declared in reserves")
 
-	# Check 25% reserves point cap
+	# Check 50% reserves point cap (Chapter Approved 2025-26)
 	var unit_points = unit.get("meta", {}).get("points", 0)
 	var total_points = GameState.get_total_army_points(player)
-	var max_reserves_points = int(total_points * 0.25)
+	var max_reserves_points = int(total_points * 0.50)
 	var current_reserves_points = _get_declared_reserves_points(player)
 
 	if current_reserves_points + unit_points > max_reserves_points:
-		errors.append("Exceeds 25%% reserves limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+		errors.append("Exceeds 50%% reserves points limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+
+	# Check 50% reserves unit count cap (Chapter Approved 2025-26)
+	var total_units = GameState.get_total_unit_count(player)
+	var max_reserves_units = int(total_units * 0.50)
+	var current_reserves_count = _get_declared_reserves_count(player)
+
+	if current_reserves_count + 1 > max_reserves_units:
+		errors.append("Exceeds 50%% reserves unit limit: %d + 1 > %d (of %d total units)" % [current_reserves_count, max_reserves_units, total_units])
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
@@ -604,6 +612,10 @@ func _get_declared_reserves_points(player: int) -> int:
 		var unit = get_unit(entry.get("unit_id", ""))
 		total += unit.get("meta", {}).get("points", 0)
 	return total
+
+func _get_declared_reserves_count(player: int) -> int:
+	var formations = player_formations.get(player, {})
+	return formations.get("reserves", []).size()
 
 func _build_formation_changes() -> Array:
 	"""Build all formation state changes for both players.

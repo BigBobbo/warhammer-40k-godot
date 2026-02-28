@@ -526,6 +526,22 @@ func get_reserves_points(player: int) -> int:
 			total += unit.get("meta", {}).get("points", 0)
 	return total
 
+func get_total_unit_count(player: int) -> int:
+	var count = 0
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player:
+			count += 1
+	return count
+
+func get_reserves_unit_count(player: int) -> int:
+	var count = 0
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES:
+			count += 1
+	return count
+
 func get_enemy_model_positions(player: int) -> Array:
 	"""Get all enemy model positions (for >9 inch distance checks)"""
 	var positions = []
