@@ -355,8 +355,9 @@ func apply_result(result: Dictionary) -> void:
 			else:
 				# No active_player diff — let TurnManager compute the switch
 				# based on the post-diff game state (unit now DEPLOYED)
-				print("GameManager: Delegating deployment alternation to TurnManager (after %s)" % action_type)
-				turn_manager.check_deployment_alternation()
+				var deployed_unit_id = result.get("unit_id", "")
+				print("GameManager: Delegating deployment alternation to TurnManager (after %s, unit: %s)" % [action_type, deployed_unit_id])
+				turn_manager.check_deployment_alternation(deployed_unit_id)
 
 	# P2-46: Refresh the phase snapshot after applying deployment diffs so that
 	# phase methods like _all_units_deployed() can use the snapshot instead of

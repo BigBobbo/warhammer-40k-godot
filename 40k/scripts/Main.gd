@@ -1305,7 +1305,7 @@ func _on_reserves_button_pressed() -> void:
 
 		# Trigger deployment alternation (reserves count as a deployment action)
 		if has_node("/root/TurnManager"):
-			get_node("/root/TurnManager").check_deployment_alternation()
+			get_node("/root/TurnManager").check_deployment_alternation(unit_id)
 	else:
 		var errors = result.get("errors", [])
 		var error_msg = errors[0] if errors.size() > 0 else "Failed to place in reserves"
@@ -3461,8 +3461,11 @@ func refresh_unit_list() -> void:
 					var model_count = unit_data["models"].size()
 					# Add ability indicators for units with special deployment abilities
 					var ability_tag = ""
+					var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
 					if GameState.unit_is_fortification(unit_id):
 						ability_tag = " [FORT]"
+					elif "TITANIC" in unit_keywords:
+						ability_tag = " [TITAN]"
 					elif GameState.unit_has_deep_strike(unit_id):
 						ability_tag = " [DS]"
 					elif GameState.unit_has_infiltrators(unit_id):

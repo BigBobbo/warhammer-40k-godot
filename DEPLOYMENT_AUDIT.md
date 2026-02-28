@@ -78,14 +78,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 7. Deployment Map Variety — IMPLEMENTED
 **Status**: **Implemented.** Five deployment map types available: Hammer and Anvil, Dawn of War, Search and Destroy, Sweeping Engagement, and Crucible of Battle.
 
-### 8. TITANIC Unit Deployment — Not Implemented
+### 8. TITANIC Unit Deployment — IMPLEMENTED
 **Rule**: When a player sets up a TITANIC unit, they skip their next turn to set up a unit. This represents the extra time needed to position a massive model.
 
-**Current Implementation**: No TITANIC deployment skip logic exists. TITANIC keyword is referenced in other contexts (movement, LoS) but not in deployment alternation.
-
-**Impact**: Low — affects only armies with TITANIC units, but is a rules-accurate penalty for fielding them.
-
-**Recommendation**: In `TurnManager.check_deployment_alternation()` or `DeploymentPhase._process_deploy_unit()`, detect if the just-deployed unit has the TITANIC keyword and skip the deploying player's next turn to deploy.
+**Status**: **Implemented.** `TurnManager.check_deployment_alternation()` now accepts the deployed unit's ID, looks up its keywords via `GameState.get_unit()`, and detects the TITANIC keyword. When found, the deploying player's next deployment turn is skipped via `_titanic_skip_turns` tracking dictionary. `_apply_titanic_skips()` consumes the skip after the normal alternation, giving the opponent an extra deployment turn. Only applies to units set up on the board (not reserves). Skip state is cleared when deployment phase ends or when only one player has units remaining. `[TITAN]` tag shown in deployment unit list for visibility. GameManager and Main.gd reserve-placement paths also pass unit_id for consistent detection.
 
 ### 9. Reserves Destroyed if Not Arrived by Round 3 — IMPLEMENTED
 **Rule**: Any Reserves units that have not arrived on the battlefield by the end of the third battle round count as destroyed.
@@ -265,7 +261,7 @@ Both players reveal simultaneously, then deployment begins.
 | Fortification deployment | **Low** | Low | Rules | **DONE** |
 | Reserves cap fixed (25% → 50% points + 50% units) | **High** | Low | Rules | **DONE** |
 | Reserves destroyed after Round 3 | **Medium** | Low | Rules | **DONE** |
-| TITANIC deployment skip | **Low** | Low | Rules | Open |
+| TITANIC deployment skip | **Low** | Low | Rules | **DONE** |
 | Per-model undo | **Medium** | Low | QoL | Open |
 | Coherency distance display | **Medium** | Low | QoL | **DONE** |
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
@@ -307,3 +303,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 12 | **Ghost visual enhancement marked DONE (DEPLOY-VIS-4, P3-49).** Pulsing effect (sine-wave alpha 0.7–1.0 at 2.5 Hz), dashed connecting line to nearest placed model (green/red coherency coloring), and distance display (existing QoL #11) in `GhostVisual.gd`. |
 | Update 13 | **Token unit name labels marked DONE (DEPLOY-VIS-6, P3-51).** `TokenVisual._draw_unit_name_label()` draws tiny faction-colored unit name beneath each token base with dark background pill. Truncates names >14 chars. Helps distinguish same-type units. |
 | Update 14 | **Opponent zone dimming marked DONE (DEPLOY-VIS-7, P3-52).** Active zone: bright saturated color (0.65 alpha), full border/glow/hatching. Opponent zone: desaturated grayish tones (0.2 alpha), scaled-down pulse (30%), glow (30%), hatching (40%), brackets (30%) via `is_dimmed` flag in `DeploymentZoneVisual.gd`. Reverses on turn switch. |
+| Update 15 | **TITANIC deployment skip marked DONE (DEPLOY-RULES-3, P3-53).** `TurnManager.check_deployment_alternation()` detects TITANIC keyword on deployed units and skips the deploying player's next deployment turn via `_titanic_skip_turns` dictionary. Only applies to board placement (not reserves). `[TITAN]` tag in deployment list. GameManager and Main.gd paths pass unit_id. |

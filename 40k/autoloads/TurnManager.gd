@@ -10,6 +10,10 @@ signal turn_advanced(turn_number: int)
 signal battle_round_advanced(round: int)
 signal phase_transition_requested(from_phase: GameStateData.Phase, to_phase: GameStateData.Phase)
 
+# Tracks pending deployment turn skips due to TITANIC unit deployment
+# Key: player number (1 or 2), Value: number of skips remaining
+var _titanic_skip_turns: Dictionary = {}
+
 func _ready() -> void:
 	# Connect to PhaseManager
 	if has_node("/root/PhaseManager"):
@@ -21,6 +25,7 @@ func _ready() -> void:
 func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 	match completed_phase:
 		GameStateData.Phase.DEPLOYMENT:
+			_titanic_skip_turns.clear()
 			emit_signal("deployment_phase_complete")
 		GameStateData.Phase.SCOUT:
 			# Scout phase complete - roll-off phase will determine who goes first
@@ -34,16 +39,16 @@ func _on_phase_completed(completed_phase: GameStateData.Phase) -> void:
 			# Check if battle round was advanced during scoring phase
 			var current_battle_round = GameState.get_battle_round()
 			var current_player = GameState.get_active_player()
-			
+
 			# If we're at player 1 after scoring, battle round was advanced
 			if current_player == 1:
 				print("TurnManager: Battle round advanced to ", current_battle_round)
 				emit_signal("battle_round_advanced", current_battle_round)
-				
+
 				# Check for game end
 				if GameState.is_game_complete():
 					print("TurnManager: Game completed after 5 battle rounds!")
-			
+
 			print("TurnManager: Player turn switched to Player ", current_player)
 		GameStateData.Phase.MORALE:
 			# End of turn, advance turn number
@@ -57,6 +62,7 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 			# Formations phase starts with Player 1
 			_set_active_player(1)
 		GameStateData.Phase.DEPLOYMENT:
+			_titanic_skip_turns.clear()
 			_handle_deployment_phase_start()
 
 func _on_phase_action_taken(action: Dictionary) -> void:
@@ -75,13 +81,14 @@ func _on_phase_action_taken(action: Dictionary) -> void:
 			# EMBARK_UNITS_DEPLOYMENT: unit(s) embarked in a transport (counts as deployed)
 			# ATTACH_CHARACTER_DEPLOYMENT: character attached to a bodyguard (counts as deployed)
 			if action_type in ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]:
+				var deployed_unit_id = action.get("unit_id", "")
 				print("[TurnManager] Processing %s action" % action_type)
-				print("[TurnManager] Unit: ", action.get("unit_id", "Unknown"))
+				print("[TurnManager] Unit: ", deployed_unit_id if deployed_unit_id else "Unknown")
 				# Switch players after each deployment action
-				check_deployment_alternation()
+				check_deployment_alternation(deployed_unit_id)
 
 # Deployment phase management (backwards compatibility)
-func check_deployment_alternation() -> void:
+func check_deployment_alternation(last_deployed_unit_id: String = "") -> void:
 	var player1_has_units = _has_undeployed_units(1)
 	var player2_has_units = _has_undeployed_units(2)
 
@@ -96,17 +103,62 @@ func check_deployment_alternation() -> void:
 	var current_player = GameState.get_active_player()
 	print("[TurnManager] Current active player: ", current_player)
 
+	# 10e Rule: When a player sets up a TITANIC unit, they skip their next
+	# deployment turn. Check if the just-deployed unit has the TITANIC keyword
+	# and flag the deploying player to be skipped.
+	# Only applies to units placed on the board (DEPLOYED status), not reserves.
+	if last_deployed_unit_id != "":
+		var deployed_unit = GameState.get_unit(last_deployed_unit_id)
+		var unit_status = deployed_unit.get("status", -1)
+		# Only trigger TITANIC skip for units actually set up on the board
+		if unit_status != GameStateData.UnitStatus.IN_RESERVES:
+			var keywords = deployed_unit.get("meta", {}).get("keywords", [])
+			if "TITANIC" in keywords:
+				var deploying_player = deployed_unit.get("owner", current_player)
+				_titanic_skip_turns[deploying_player] = _titanic_skip_turns.get(deploying_player, 0) + 1
+				var unit_name = deployed_unit.get("meta", {}).get("name", last_deployed_unit_id)
+				print("[TurnManager] TITANIC unit '%s' set up by Player %d - Player %d skips next deployment turn" % [unit_name, deploying_player, deploying_player])
+
 	# Simple alternation - if both players have units, just alternate every time
 	if player1_has_units and player2_has_units:
 		print("[TurnManager] Both players have units - alternating")
 		alternate_active_player()
+		# After alternating, check if the now-active player should be skipped
+		# due to opponent's TITANIC deployment
+		_apply_titanic_skips()
 	# If only one player has units left, switch to that player if needed
 	elif player1_has_units and current_player != 1:
 		print("[TurnManager] Only Player 1 has units - switching to Player 1")
 		_set_active_player(1)
+		# Clear any pending skips since only one player has units left
+		_titanic_skip_turns.clear()
 	elif player2_has_units and current_player != 2:
 		print("[TurnManager] Only Player 2 has units - switching to Player 2")
 		_set_active_player(2)
+		# Clear any pending skips since only one player has units left
+		_titanic_skip_turns.clear()
+
+# Apply TITANIC deployment skip: if the now-active player has a pending skip,
+# consume it and alternate again (giving the opponent an extra deployment turn).
+func _apply_titanic_skips() -> void:
+	var active_player = GameState.get_active_player()
+	var skips = _titanic_skip_turns.get(active_player, 0)
+	if skips > 0:
+		# Only skip if the active player still has units to deploy
+		if _has_undeployed_units(active_player):
+			_titanic_skip_turns[active_player] = skips - 1
+			print("[TurnManager] TITANIC skip: Player %d's deployment turn skipped (remaining skips: %d)" % [active_player, skips - 1])
+			var opponent = 2 if active_player == 1 else 1
+			if _has_undeployed_units(opponent):
+				# Opponent gets an extra turn — skip back to them
+				alternate_active_player()
+			else:
+				# Opponent has no units — skip is moot, stay on active player
+				print("[TurnManager] TITANIC skip: opponent has no units, skip is moot")
+				_titanic_skip_turns[active_player] = 0
+		else:
+			# Active player has no units to skip — clear the skip
+			_titanic_skip_turns[active_player] = 0
 
 func alternate_active_player() -> void:
 	var current_player = GameState.get_active_player()
@@ -121,7 +173,7 @@ func _handle_deployment_phase_start() -> void:
 	# Set initial active player for deployment
 	var player1_has_units = _has_undeployed_units(1)
 	var player2_has_units = _has_undeployed_units(2)
-	
+
 	if player1_has_units:
 		_set_active_player(1)
 	elif player2_has_units:
@@ -148,7 +200,7 @@ func start_deployment_phase() -> void:
 func request_phase_transition(to_phase: GameStateData.Phase) -> void:
 	var current_phase = GameState.get_current_phase()
 	emit_signal("phase_transition_requested", current_phase, to_phase)
-	
+
 	if has_node("/root/PhaseManager"):
 		get_node("/root/PhaseManager").transition_to_phase(to_phase)
 
@@ -168,7 +220,7 @@ func get_active_player() -> int:
 # Advanced turn management
 func can_advance_phase() -> bool:
 	var current_phase = get_current_phase()
-	
+
 	match current_phase:
 		GameStateData.Phase.DEPLOYMENT:
 			return GameState.all_units_deployed()
