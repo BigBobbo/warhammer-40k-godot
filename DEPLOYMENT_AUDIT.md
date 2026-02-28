@@ -186,10 +186,12 @@ Both players reveal simultaneously, then deployment begins.
 
 **Status**: **Implemented.** `TokenVisual.gd` now draws a tiny unit name label beneath each token's base via `_draw_unit_name_label()`. The label uses a dark background pill for readability and faction-colored text (via `_get_faction_accent_color()`). Long names are truncated to 14 characters. Labels appear on all deployed tokens to help distinguish same-type units (e.g., multiple Boyz squads).
 
-### 8. Opponent Deployment Zone Dimming
+### 8. Opponent Deployment Zone Dimming — RESOLVED
 **Issue**: During your deployment turn, the opponent's deployment zone looks the same as yours.
 
 **Recommendation**: Dim or desaturate the opponent's deployment zone when it's your turn. The opponent zone pulsing during "waiting" state is already implemented, but active dimming during the player's own turn is not.
+
+**Status**: **Fixed.** `update_deployment_zone_visibility()` in `Main.gd` now applies distinct active/dimmed visual treatment per player. Active zone gets bright, saturated colors (0.65 alpha) and full border intensity. Opponent zone gets desaturated grayish tones (0.2 alpha) with dimmed borders. `DeploymentZoneVisual.gd` gained an `is_dimmed` flag that scales down pulse amplitude (30%), glow intensity (30%), hatching visibility (40%), and corner bracket visibility (30%) for the inactive zone. Visual state reverses when deployment turns switch. Z-key toggle outside deployment resets dimming.
 
 ---
 
@@ -275,7 +277,7 @@ Both players reveal simultaneously, then deployment begins.
 | Ghost visual enhancement | **Low** | Low | Visual | **DONE** |
 | Deployment zone theming | **Low** | Low | Visual | **DONE** |
 | Token unit name labels | **Low** | Low | Visual | **DONE** |
-| Opponent zone dimming | **Low** | Low | Visual | Open |
+| Opponent zone dimming | **Low** | Low | Visual | **DONE** |
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
@@ -304,3 +306,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 11 | **Deployment zone theming marked DONE (DEPLOY-VIS-3, P3-48).** Diagonal hatching (45° dashed lines clipped to polygon via Geometry2D) and military-style L-shaped corner brackets at inner edge corners in `DeploymentZoneVisual.gd`. |
 | Update 12 | **Ghost visual enhancement marked DONE (DEPLOY-VIS-4, P3-49).** Pulsing effect (sine-wave alpha 0.7–1.0 at 2.5 Hz), dashed connecting line to nearest placed model (green/red coherency coloring), and distance display (existing QoL #11) in `GhostVisual.gd`. |
 | Update 13 | **Token unit name labels marked DONE (DEPLOY-VIS-6, P3-51).** `TokenVisual._draw_unit_name_label()` draws tiny faction-colored unit name beneath each token base with dark background pill. Truncates names >14 chars. Helps distinguish same-type units. |
+| Update 14 | **Opponent zone dimming marked DONE (DEPLOY-VIS-7, P3-52).** Active zone: bright saturated color (0.65 alpha), full border/glow/hatching. Opponent zone: desaturated grayish tones (0.2 alpha), scaled-down pulse (30%), glow (30%), hatching (40%), brackets (30%) via `is_dimmed` flag in `DeploymentZoneVisual.gd`. Reverses on turn switch. |
