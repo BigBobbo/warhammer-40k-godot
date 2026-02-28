@@ -256,30 +256,9 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 			"message": "Cannot deploy - it is Player %d's turn, not Player %d's" % [active_player, owner_player]
 		}
 
-	# Check all model positions are within deployment zone
-	# Positions are in pixels, need to convert for validation
-	# Standard deployment zones: Player 1 at bottom, Player 2 at top
-	# Board is 44x60 inches (1760x2400 pixels at 40px/inch)
-	const PIXELS_PER_INCH = 40.0
-	const DEPLOYMENT_ZONE_DEPTH_PX = 480.0  # 12 inches * 40 px/inch
-	const BOARD_HEIGHT_PX = 2400.0  # 60 inches * 40 px/inch
-
-	for pos in model_positions:
-		if pos != null:
-			var xy = _get_pos_xy(pos)
-			var valid_deployment = false
-			if owner_player == 1:
-				# Player 1 deploys at bottom of board (low y values)
-				valid_deployment = xy.y >= 0 and xy.y <= DEPLOYMENT_ZONE_DEPTH_PX
-			elif owner_player == 2:
-				# Player 2 deploys at top of board (high y values)
-				valid_deployment = xy.y >= (BOARD_HEIGHT_PX - DEPLOYMENT_ZONE_DEPTH_PX) and xy.y <= BOARD_HEIGHT_PX
-
-			if not valid_deployment:
-				return {
-					"success": false,
-					"message": "Unit cannot be deployed outside deployment zone (position y=%d px is invalid for player %d)" % [xy.y, owner_player]
-				}
+	# NOTE: Deployment zone validation is handled by DeploymentPhase.validate_action()
+	# which uses proper polygon-based checks against the actual deployment zones.
+	# That validation runs in NetworkManager before apply_action() is called.
 
 	# Create diffs for each model's position and rotation
 	for i in range(model_positions.size()):

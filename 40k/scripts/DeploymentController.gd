@@ -29,6 +29,9 @@ var reposition_model_index: int = -1
 var reposition_start_pos: Vector2
 var reposition_ghost: Node2D = null
 
+# Throttle zone validation debug logging to avoid spam every frame
+var _last_zone_debug_center: Vector2 = Vector2.INF
+
 # Transport embark state
 var pending_embark_units: Array = []  # Units to embark after deployment
 var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dialog
@@ -1045,9 +1048,12 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 		return _circle_wholly_in_polygon(center, circular.radius, polygon)
 
 	# For non-circular shapes, we need to check multiple points around the edge
-	print("\n=== DEBUG: Zone Validation for %s ===" % shape.get_type())
-	print("Center: ", center)
-	print("Rotation: %.2f degrees (%.4f radians)" % [rad_to_deg(rotation), rotation])
+	var _should_log = center.distance_to(_last_zone_debug_center) > 1.0
+	if _should_log:
+		_last_zone_debug_center = center
+		print("\n=== DEBUG: Zone Validation for %s ===" % shape.get_type())
+		print("Center: ", center)
+		print("Rotation: %.2f degrees (%.4f radians)" % [rad_to_deg(rotation), rotation])
 
 	# Generate sample points around the shape's edge
 	var sample_points = []
@@ -1056,7 +1062,8 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 		# For ovals, sample points around the ellipse perimeter
 		var oval = shape as OvalBase
 		var num_samples = 16  # Check 16 points around the ellipse
-		print("Oval shape - length: %.2f, width: %.2f" % [oval.length, oval.width])
+		if _should_log:
+			print("Oval shape - length: %.2f, width: %.2f" % [oval.length, oval.width])
 
 		for i in range(num_samples):
 			var angle = (i * TAU) / num_samples
@@ -1091,7 +1098,8 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 			Vector2(-half_width, half_height)
 		]
 
-	print("Checking %d sample points" % sample_points.size())
+	if _should_log:
+		print("Checking %d sample points" % sample_points.size())
 
 	# Transform sample points to world space and check if in polygon
 	var point_idx = 0
@@ -1099,7 +1107,7 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 		var world_point = shape.to_world_space(local_point, center, rotation)
 		var in_poly = Geometry2D.is_point_in_polygon(world_point, polygon)
 
-		if point_idx < 4 or not in_poly:  # Only print first 4 and failures
+		if _should_log and (point_idx < 4 or not in_poly):  # Only print first 4 and failures
 			print("Point %d: local=%s -> world=%s, in_polygon=%s" % [point_idx, local_point, world_point, in_poly])
 
 		if not in_poly:
@@ -1108,7 +1116,8 @@ func _shape_wholly_in_polygon(center: Vector2, model_data: Dictionary, rotation:
 
 		point_idx += 1
 
-	print("✅ SUCCESS: All %d points in polygon" % sample_points.size())
+	if _should_log:
+		print("✅ SUCCESS: All %d points in polygon" % sample_points.size())
 	return true
 
 func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
