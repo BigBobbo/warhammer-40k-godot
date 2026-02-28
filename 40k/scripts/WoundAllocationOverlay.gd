@@ -961,6 +961,8 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 			# Kill hook: check if entire unit is now destroyed for secondary missions
 			SecondaryMissionManager.check_and_report_unit_destroyed(actual_unit_id)
 
+			# P1-60: Check for transport destruction (must happen BEFORE Deadly Demise)
+			_check_transport_destruction(actual_unit_id)
 			# P1-13: Check for Deadly Demise on destroyed unit
 			_check_deadly_demise_on_destruction(actual_unit_id)
 		else:
@@ -974,6 +976,44 @@ func _apply_damage_to_model(model_id: String, model_index: int, damage: int, des
 		print("WoundAllocationOverlay: _refresh_board_visuals() returned")
 	else:
 		print("WoundAllocationOverlay: ERROR - model_index %d out of range (0-%d)" % [actual_model_index, models.size() - 1])
+
+func _check_transport_destruction(unit_id: String) -> void:
+	"""P1-60: Check if a destroyed unit is a transport with embarked units and resolve emergency disembarkation."""
+	# First verify the unit is fully destroyed (all models dead)
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			return  # Not fully destroyed yet
+
+	var transport_mgr = get_node_or_null("/root/TransportManager")
+	if not transport_mgr:
+		return
+	if not transport_mgr.is_transport_with_embarked_units(unit_id):
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("WoundAllocationOverlay: P1-60 Transport destruction detected — %s (%s) has embarked units" % [unit_name, unit_id])
+
+	var result = RulesEngine.resolve_transport_destruction(unit_id, GameState.state)
+
+	if not result.get("all_diffs", []).is_empty():
+		PhaseManager.apply_state_changes(result.all_diffs)
+
+		for unit_info in result.get("per_unit", []):
+			var mw = unit_info.get("mortal_wounds", 0)
+			var destroyed_models = unit_info.get("models_destroyed", 0)
+			var disembarked_name = unit_info.get("unit_name", "Unknown")
+			if mw > 0:
+				print("WoundAllocationOverlay: P1-60 %s: %d mortal wound(s), %d model(s) destroyed" % [disembarked_name, mw, destroyed_models])
+			else:
+				print("WoundAllocationOverlay: P1-60 %s: disembarked safely" % disembarked_name)
+
+		# Check if any units were fully destroyed by transport destruction mortal wounds
+		for unit_info in result.get("per_unit", []):
+			if unit_info.get("models_destroyed", 0) > 0:
+				SecondaryMissionManager.check_and_report_unit_destroyed(unit_info.get("unit_id", ""))
 
 func _check_deadly_demise_on_destruction(unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve mortal wounds."""

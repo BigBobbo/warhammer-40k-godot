@@ -153,7 +153,7 @@ These abilities should only be usable once per game but have no usage tracking m
 | Ramshackle | Datasheet | Yes | Yes (implemented) | **Yes** | Correctly worsens AP of incoming attacks by 1 |
 | Damaged: 1-5 Wounds | Datasheet | Yes | Yes (RulesEngine) | **Yes** | -1 to hit when 1-5 wounds remaining — added to JSON, RulesEngine.is_damaged_profile_active() checks wounds and applies -1 to hit |
 | 'Ard Case | Wargear | Yes | Yes (ArmyListManager) | **Yes** | +2 Toughness, lose Firing Deck — added to JSON, applied at army load time via WARGEAR_STAT_BONUSES. Updates meta.stats.toughness and removes firing_deck from transport_data |
-| Transport (22 capacity) | Special | Yes | No | Unknown | Transport mechanic |
+| Transport (22 capacity) | Special | Yes | Yes (TransportManager/RulesEngine) | **Partial** | Embark/disembark works. Transport destruction effects (P1-60): `resolve_transport_destruction()` rolls D6 per model, MW on 1s, Battle-shocked, positioned within 3". Basic capacity validation working |
 
 ### Painboss
 
@@ -444,7 +444,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 
 ### P1 — High (incorrect rules that significantly affect gameplay)
 59. **Implement Out-of-Phase rules restriction** — When using out-of-phase rules (e.g. Fire Overwatch during opponent's movement), you cannot use any other rules normally triggered in that phase. Add `out_of_phase` flag to track reactive actions and gate phase-specific abilities/stratagems accordingly. Prevents e.g. Pinning Bombardment during Overwatch. Files: StratagemManager.gd, MovementPhase.gd, ChargePhase.gd. (GEN-1) — **DONE**
-60. **Implement transport destruction effects** — When a transport with embarked units is destroyed: roll D6 per embarked model (1 = 1 MW set up within 3", 1-3 = 1 MW set up within 6", 4+ = safe). Models that can't be placed are destroyed. Surviving models count as having disembarked. Add `resolve_transport_destruction()` to RulesEngine.gd triggered when a transport unit is destroyed in damage application. Files: RulesEngine.gd, TransportManager.gd. (GEN-8)
+60. **Implement transport destruction effects** — When a transport with embarked units is destroyed: roll D6 per embarked model (1 = 1 MW set up within 3", 1-3 = 1 MW set up within 6", 4+ = safe). Models that can't be placed are destroyed. Surviving models count as having disembarked. Add `resolve_transport_destruction()` to RulesEngine.gd triggered when a transport unit is destroyed in damage application. Files: RulesEngine.gd, TransportManager.gd. (GEN-8) — **DONE**
 61. **Implement pivot values for non-round base models** — Core Rules Updates: non-round base non-Monster/Vehicle = 1" subtracted from movement on first pivot, Monster/Vehicle non-round base = 2", Vehicle round base >32mm with flying stem = 2". Add pivot tracking and movement deduction to MovementPhase.gd. (MOV-1)
 62. **Implement vertical coherency limit (5")** — `_check_models_coherency()` only checks 2" horizontal distance. Rules require models within 2" horizontal AND 5" vertical of coherency partners. Add vertical distance check to coherency validation in MovementPhase.gd. Also update Measurement.gd if needed. (MOV-2)
 63. **Add 5" vertical component to Engagement Range checks** — `Measurement.is_in_engagement_range_shape_aware()` is purely 2D (1" horizontal only). Rules define ER as 1" horizontal AND 5" vertical. Add height/elevation check to engagement range calculation in Measurement.gd. This affects movement restrictions, shooting eligibility, fight eligibility, and charge validation. (MOV-8)
