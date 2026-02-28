@@ -237,10 +237,10 @@ Both players reveal simultaneously, then deployment begins.
 
 ## Code Quality Observations
 
-### 1. Duplicate Geometry Functions
-**Issue**: Both `DeploymentPhase.gd` and `DeploymentController.gd` contain their own implementations of `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, and `_shape_wholly_in_polygon()`.
+### 1. ~~Duplicate Geometry Functions~~ — **DONE**
+**Issue**: Both `DeploymentPhase.gd` and `DeploymentController.gd` contained their own implementations of `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, and `_shape_wholly_in_polygon()`.
 
-**Recommendation**: Consolidate into `Measurement.gd`.
+**Resolution**: Consolidated into `Measurement.gd` as `circle_wholly_in_polygon()`, `point_to_line_distance()`, and `shape_wholly_in_polygon()`. Both files now delegate to these shared functions.
 
 ### 2. `_all_units_deployed()` Uses Direct GameState Access
 **Issue**: `DeploymentPhase._all_units_deployed()` accesses `GameState.state` directly bypassing the snapshot architecture.
@@ -291,7 +291,7 @@ Both players reveal simultaneously, then deployment begins.
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
 | Race condition: embark after player switch | **Medium** | Low | Multiplayer | **DONE** |
-| Duplicate geometry functions | **Low** | Low | Code Quality | Open |
+| Duplicate geometry functions | **Low** | Low | Code Quality | **DONE** |
 | Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | Open |
 | Mission selection | **Low** | High | Rules | Open |
 

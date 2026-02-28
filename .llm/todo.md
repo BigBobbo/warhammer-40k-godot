@@ -112,7 +112,7 @@
 
 ## Code Quality
 
-- [ ] Consolidate duplicate geometry functions — Move shared `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, `_shape_wholly_in_polygon()` from DeploymentPhase.gd and DeploymentController.gd into Measurement.gd (DEPLOY-CODE-1)
+- [x] Consolidate duplicate geometry functions — Move shared `_circle_wholly_in_polygon()`, `_point_to_line_distance()`, `_shape_wholly_in_polygon()` from DeploymentPhase.gd and DeploymentController.gd into Measurement.gd (DEPLOY-CODE-1)
 - [ ] Fix snapshot staleness in `_all_units_deployed()` — Refresh phase snapshot in `_process_deploy_unit()` after applying changes so `_all_units_deployed()` can use snapshot instead of direct GameState access (DEPLOY-CODE-2)
 
 ---
