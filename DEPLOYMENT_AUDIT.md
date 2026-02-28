@@ -151,10 +151,8 @@ Both players reveal simultaneously, then deployment begins.
 - Show a notification: "[Unit Name] deployed at [zone area]"
 - Add a deployment log panel showing the order of all deployments
 
-### 11. Coherency Distance Display During Placement
-**Issue**: The coherency check uses edge-to-edge distances, but this distance is never shown to the player during placement. When placing a model near the 2" coherency boundary, the player has to guess.
-
-**Recommendation**: Display the distance from the ghost model to the nearest placed model in real-time (e.g., a small floating label next to the ghost showing "1.8\"" in green or "2.3\"" in red).
+### 11. Coherency Distance Display During Placement — RESOLVED
+**Status**: **Fixed.** A floating `Label` node tracks the ghost model and displays the edge-to-edge distance (in inches) to the nearest placed model in real-time. Green when ≤2" (in coherency), red when >2". Uses shape-aware `Measurement.model_to_model_distance_inches()` for accuracy. Works in single placement mode and during model repositioning. Hidden when no models are placed yet or in formation mode.
 
 ### 12. Keyboard Shortcut Reference During Deployment
 **Issue**: Deployment has several keybinds (Q/E for rotation, Shift+click for repositioning, mouse wheel for rotation) but there is no on-screen reference.
@@ -285,7 +283,7 @@ Both players reveal simultaneously, then deployment begins.
 | Reserves destroyed after Round 3 | **Medium** | Low | Rules | **DONE** |
 | TITANIC deployment skip | **Low** | Low | Rules | Open |
 | Per-model undo | **Medium** | Low | QoL | Open |
-| Coherency distance display | **Medium** | Low | QoL | Open |
+| Coherency distance display | **Medium** | Low | QoL | **DONE** |
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
@@ -316,3 +314,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 3 | **Strategic Reserves + Deep Strike marked DONE.** Full multiplayer sync support. |
 | Update 4 | **Infiltrators marked DONE.** Full server-side and client-side validation. |
 | Update 5 | **Major revision.** Marked newly-implemented items as DONE: Scout Moves (`ScoutPhase.gd`), Roll-Off Phase (`RollOffPhase.gd`), Formations Phase (`FormationsPhase.gd`), Auto-Zoom, Phase Transition Banner, Deployment Summary Dialog, Unit Base Hover Tooltip, Turn Timer UI. Added new gaps: TITANIC deployment skip (not implemented), Reserves cap incorrect (25% → should be 50% per CA 2025-26), Reserves not destroyed after Round 3. Removed outdated recommendations section. Cleaned up resolved items. |
+| Update 6 | **Coherency distance display marked DONE.** Floating label near ghost shows edge-to-edge distance to nearest placed model in real-time (green ≤2", red >2"). Works in single and reposition modes. |

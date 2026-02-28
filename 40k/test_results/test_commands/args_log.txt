@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--test-mode=test_multiplayer_deployment"]

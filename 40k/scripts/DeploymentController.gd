@@ -32,6 +32,9 @@ var reposition_ghost: Node2D = null
 # Throttle zone validation debug logging to avoid spam every frame
 var _last_zone_debug_center: Vector2 = Vector2.INF
 
+# Coherency distance display label (floating near ghost during placement)
+var coherency_distance_label: Label = null
+
 # Transport embark state
 var pending_embark_units: Array = []  # Units to embark after deployment
 var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dialog
@@ -487,7 +490,7 @@ func reset_unit() -> void:
 	combined_models.clear()
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
-	_remove_ghost()
+	_remove_ghost()  # Also removes coherency distance label
 	emit_signal("coherency_warning_changed", false, "")
 
 func undo() -> void:
@@ -990,6 +993,88 @@ func _remove_ghost() -> void:
 	if ghost_sprite != null:
 		ghost_sprite.queue_free()
 		ghost_sprite = null
+	_remove_coherency_distance_label()
+
+func _create_coherency_distance_label() -> void:
+	if coherency_distance_label != null:
+		return
+	coherency_distance_label = Label.new()
+	coherency_distance_label.name = "CoherencyDistanceLabel"
+	coherency_distance_label.z_index = 25  # Above ghost (z_index 20)
+	coherency_distance_label.add_theme_font_size_override("font_size", 14)
+	coherency_distance_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	coherency_distance_label.add_theme_constant_override("shadow_offset_x", 1)
+	coherency_distance_label.add_theme_constant_override("shadow_offset_y", 1)
+	coherency_distance_label.visible = false
+	if ghost_layer:
+		ghost_layer.add_child(coherency_distance_label)
+
+func _remove_coherency_distance_label() -> void:
+	if coherency_distance_label != null:
+		coherency_distance_label.queue_free()
+		coherency_distance_label = null
+
+func _update_coherency_distance_display(ghost_pos: Vector2, ghost_model_data: Dictionary, ghost_rotation: float) -> void:
+	"""Update the floating coherency distance label near the ghost model."""
+	# Only show when there are placed models to measure against
+	var has_placed_models = false
+	for pos in temp_positions:
+		if pos != null:
+			has_placed_models = true
+			break
+
+	if not has_placed_models:
+		if coherency_distance_label != null:
+			coherency_distance_label.visible = false
+		return
+
+	# Create the label if it doesn't exist
+	if coherency_distance_label == null:
+		_create_coherency_distance_label()
+
+	# Build a temporary model dict for the ghost
+	var ghost_model = ghost_model_data.duplicate()
+	ghost_model["position"] = ghost_pos
+	ghost_model["rotation"] = ghost_rotation
+
+	# Find nearest placed model distance (edge-to-edge, shape-aware)
+	var unit_data = GameState.get_unit(unit_id)
+	var min_distance_inches = INF
+
+	for i in range(temp_positions.size()):
+		if temp_positions[i] == null:
+			continue
+		# Skip the model being repositioned (it's at the ghost position, not its stored position)
+		if repositioning_model and i == reposition_model_index:
+			continue
+		# Build placed model dict
+		var placed_model: Dictionary
+		if is_combined_deployment and i < combined_models.size():
+			placed_model = combined_models[i]["model_data"].duplicate()
+		else:
+			placed_model = unit_data["models"][i].duplicate()
+		placed_model["position"] = temp_positions[i]
+		placed_model["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
+
+		var dist = Measurement.model_to_model_distance_inches(ghost_model, placed_model)
+		if dist < min_distance_inches:
+			min_distance_inches = dist
+
+	if min_distance_inches == INF:
+		coherency_distance_label.visible = false
+		return
+
+	# Update label text and color
+	var is_in_coherency = min_distance_inches <= 2.0
+	coherency_distance_label.text = "%.1f\"" % min_distance_inches
+	if is_in_coherency:
+		coherency_distance_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2))  # Green
+	else:
+		coherency_distance_label.add_theme_color_override("font_color", Color(0.9, 0.2, 0.2))  # Red
+
+	# Position the label offset from the ghost (above and to the right)
+	coherency_distance_label.position = ghost_pos + Vector2(20, -30)
+	coherency_distance_label.visible = true
 
 func _update_ghost_for_next_model() -> void:
 	if ghost_sprite == null:
@@ -1373,11 +1458,19 @@ func _process(delta: float) -> void:
 		var model_data = unit_data["models"][reposition_model_index]
 		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index)
 		reposition_ghost.set_validity(is_valid)
+		# Show coherency distance during repositioning too
+		var rot = 0.0
+		if reposition_ghost.has_method("get_base_rotation"):
+			rot = reposition_ghost.get_base_rotation()
+		_update_coherency_distance_display(mouse_pos, model_data, rot)
 		return
 
 	# Handle formation mode ghost updates
 	if formation_mode != "SINGLE" and not formation_preview_ghosts.is_empty():
 		_update_formation_ghost_positions(mouse_pos)
+		# Hide coherency distance in formation mode (multiple ghosts)
+		if coherency_distance_label != null:
+			coherency_distance_label.visible = false
 		return
 
 	# Handle single mode ghost updates
@@ -1433,6 +1526,9 @@ func _process(delta: float) -> void:
 
 		if ghost_sprite.has_method("set_validity"):
 			ghost_sprite.set_validity(is_valid)
+
+		# Update coherency distance display near ghost
+		_update_coherency_distance_display(mouse_pos, model_data, rotation)
 
 func _get_world_mouse_position() -> Vector2:
 	# Get the main scene to access the coordinate conversion
