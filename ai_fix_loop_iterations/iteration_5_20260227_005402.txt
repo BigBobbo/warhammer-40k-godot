@@ -1,0 +1,24 @@
+## Session 7 Summary
+
+### Fixes Made
+1. **WAAAGH! damage estimation** — AI now accounts for +1S, +1A, +4A (Da Biggest), and D3 (Dead Brutal) when evaluating melee targets, charges, and fight assignments. Previously the AI underestimated Ork melee damage by 50-100% when WAAAGH was active.
+
+2. **Fight-phase coordination tracker** — New `_fight_coordination` system tracks cumulative expected damage per target across fight activations. Fighters get +5.0 bonus for finishing off targets already damaged by previous fighters, and -4.0 penalty for wasting attacks on overkilled targets.
+
+3. **CHARACTER screening exclusion** — Characters can no longer be used as expendable screeners.
+
+4. **Unattached CHARACTER protection priority** — Screen position calculation now gives +50 priority boost to protecting unattached CHARACTER units.
+
+### Results (4 Games, All Complete)
+
+| Game | Winner | P1 VP | P2 VP | Key Result |
+|------|--------|-------|-------|------------|
+| 1 | P1 | 68 | 20 | P1 dominant (Ork characters died early) |
+| 2 | P1 | 48 | 45 | 3-point game! P2 matched primary (40-40) |
+| 3 | **P2** | 40 | **45** | Ork win on primary VP alone |
+| 4 | **P2** | 38 | **52** | **Caladius Grav-tank killed in melee!** 12 secondary VP |
+
+### Breakthrough
+- **First Ork melee kill of a Custodes vehicle** (Caladius Grav-tank, T11 Sv2+) — the WAAAGH damage fix enabled the AI to correctly evaluate that concentrated melee with WAAAGH active could destroy tough vehicles
+- **50% win rate maintained** (2 P1, 2 P2)
+- **All 4 games completed without stalls or crashes**

@@ -1,0 +1,35 @@
+## Summary of This Iteration
+
+### Bugs Fixed (3 critical fixes)
+
+1. **PhaseManager._set_state_value() — dict keys treated as array indices** (`40k/autoloads/PhaseManager.gd`)
+   - The path navigation code checked `"1".is_valid_int()` before checking if the current object was a Dictionary. Since `GameState.state.players` uses string keys `"1"` and `"2"`, all state changes to player data via `apply_state_changes()` silently failed.
+   - **Impact:** Secondary VP never applied to totals (always showed "Sec 0"), CP never changed from initial value of 3, stratagem CP costs never deducted (unlimited free stratagems).
+   - **Fix:** Check `current is Dictionary` before `is_valid_int()`.
+
+2. **Null weapon stats crash — `is_valid_int` on Nil** (`40k/scripts/AIDecisionMaker.gd`)
+   - Weapon dictionaries sometimes have null values for `ballistic_skill`, `strength`, etc. The code called `.is_valid_int()` on null.
+   - **Fix:** Added null checks and `str()` conversion in 4 locations across `_estimate_weapon_damage()` and `_calculate_target_value()`.
+
+3. **PILE_IN/CONSOLIDATE stall — no error recovery** (`40k/autoloads/AIPlayer.gd`)
+   - Failed pile-in (overlap/coherency/base-contact violations) had no fallback, causing infinite stall.
+   - **Fix:** Retry with empty movements (no-op) on failure.
+
+### Game Results (3 completed games)
+
+| Game | Winner | P1 (Custodes) VP | P2 (Orks) VP | Kills | P1 Sec | P2 Sec |
+|------|--------|-------------------|--------------|-------|--------|--------|
+| 2 | P1 | **54** (50+4) | 39 (35+4) | 5 | 4 | 4 |
+| 3 | P1 | **65** (50+15) | 45 (40+5) | 5 | 15 | 5 |
+| 4 | P1 | **60** (50+10) | 25 (25+0) | 5 | 10 | 0 |
+
+- **P1 (Custodes) average: 60 VP** — meets the 60 VP target!
+- **P2 (Orks) average: 36 VP** — below target, needs improvement
+- All kills are Ork units; Custodes loses 0 units across all games
+- P1 consistently maxes out primary VP (50/50)
+
+### What Still Needs Work
+- **Ork army needs improvement** — scoring only 36 VP avg vs 60 for Custodes
+- **Ork characters dying too easily** (Weirdboy, Painboss, Warboss killed every game)
+- **Ork secondary VP very low** (0-5 per game vs 4-15 for Custodes)
+- **No Custodes units killed** — Orks deal insufficient damage

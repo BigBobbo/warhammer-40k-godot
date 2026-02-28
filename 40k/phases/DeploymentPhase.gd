@@ -269,14 +269,23 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 			errors.append("Unit does not have Deep Strike ability: " + unit_id)
 			return {"valid": false, "errors": errors}
 
-	# Strategic Reserves point limit: max 25% of total army points
+	# Strategic Reserves point limit: max 50% of total army points (Chapter Approved 2025-26)
 	var unit_points = unit.get("meta", {}).get("points", 0)
 	var total_points = GameState.get_total_army_points(active_player)
 	var current_reserves_points = GameState.get_reserves_points(active_player)
-	var max_reserves_points = int(total_points * 0.25)
+	var max_reserves_points = int(total_points * 0.50)
 
 	if current_reserves_points + unit_points > max_reserves_points:
-		errors.append("Exceeds 25%% reserves limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+		errors.append("Exceeds 50%% reserves points limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
+		return {"valid": false, "errors": errors}
+
+	# Strategic Reserves unit count limit: max 50% of total units (Chapter Approved 2025-26)
+	var total_units = GameState.get_total_unit_count(active_player)
+	var current_reserves_units = GameState.get_reserves_unit_count(active_player)
+	var max_reserves_units = int(total_units * 0.50)
+
+	if current_reserves_units + 1 > max_reserves_units:
+		errors.append("Exceeds 50%% reserves unit limit: %d + 1 > %d (of %d total units)" % [current_reserves_units, max_reserves_units, total_units])
 		return {"valid": false, "errors": errors}
 
 	return {"valid": true, "errors": []}

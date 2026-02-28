@@ -1,0 +1,25 @@
+## Session 15 Summary
+
+### Fixes Applied (4 code changes in `AIDecisionMaker.gd`):
+
+1. **Fallback melee strength bug** (line 9554): Changed `toughness` → `strength` for fallback close combat weapon damage estimation
+2. **Custodes faction aggression** (lines 273, 337): Added `FACTION_AGGRESSION_CUSTODES = 1.5`, enabling Custodes to be treated as an aggressive melee faction
+3. **Ranged vehicle exclusion** (lines 3244, 3305, 3461): Prevented ranged vehicles (Caladius, Telemon) from melee-rushing enemies while allowing melee walkers (Contemptor) to charge
+4. **R1 advance-for-charge** (lines 3366-3371): Allowed melee units in R1 to advance toward enemies within 24" even when assigned to hold objectives
+
+### Results (4 games played):
+
+| Game | Winner | P1 VP | P2 VP | P1 Kills | P2 Kills |
+|------|--------|-------|-------|----------|----------|
+| 1 | P2 | 43 | 54 | 2 | 2 |
+| 2 | **P1** | 53 | 52 | 2 | 3 |
+| 3 | P2 | 42 | **67** | 2 | 1 |
+| 4 | **P1** | **68** | 50 | **4** | 0 |
+
+### Key metrics:
+- **Win rate: 2-2 (50/50)** — perfectly balanced! (was 75% P2 in session 14)
+- **P1 avg kills: 2.5/game** — massive improvement from 0.5/game in session 14
+- **P1 avg VP: 51.5** | P2 avg VP: 55.75
+- **Both armies achieved qualifying wins**: P1 68 VP, P2 67 VP
+- **All 4 games completed without stalls or crashes**
+- **Game 2 was a 1-point game (53-52)** — extremely competitive

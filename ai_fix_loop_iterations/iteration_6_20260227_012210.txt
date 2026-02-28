@@ -1,0 +1,31 @@
+## Session 8 Summary
+
+### Fixes Applied (3 changes across 3 files)
+
+1. **CommandPhase snapshot timing** (`CommandPhase.gd`): Moved `on_turn_start()` to execute BEFORE `check_all_objectives()` so "Storm Hostile Objective" can correctly compare start-of-turn vs current objective control.
+
+2. **Dual-leader attachment support** (`FormationsPhase.gd`): Both validation and action generation now support 2 leaders per Boyz squad when the squad has ≥20 models, the BODYGUARD ability, and at least one leader is a WARBOSS.
+
+3. **Boyz squads to 20 models** (`orks.json`): Added 3 models (m18-m20) to both Boyz squads, enabling the dual-leader rule and adding extra durability.
+
+### Game Results (4 games played)
+
+| Game | Winner | P1 VP | P2 VP | P1 Kills | P2 Kills | Margin |
+|------|--------|-------|-------|----------|----------|--------|
+| 1 | P1 | 61 | 22 | 0 | 6 | +39 |
+| 2 | **P2** | 53 | **54** | **3** | 3 | **+1** |
+| 3 | **P2** | 21 | **35** | **4** | 2 | **+14** |
+| 4 | P1 | 53 | 52 | **2** | 6 | +1 |
+
+### Key Breakthrough: Custodes Kills
+
+**9 Custodes units destroyed in 4 games** (avg 2.25/game) — up from just 1 total Custodes kill in the previous 4 games (session 7). This is a **9x improvement** in Ork offensive effectiveness.
+
+Units killed by Orks: Shield-Captain (2x), Blade Champion (1x), Custodian Guard (3x), Witchseekers (3x)
+
+### Character Attachment: 4/5 vs 2/5
+
+Every game now features dual-leader attachments:
+- Boyz E: Painboss + Warboss (FNP 5+ + hit buffs)
+- Boyz F: Warboss C + Warboss in Mega Armour
+- Only Weirdboy remains unattached

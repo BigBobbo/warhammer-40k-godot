@@ -1,0 +1,247 @@
+================================================================
+  AI Competitive Loop Started/Resumed at Thu Feb 26 22:58:37 EST 2026
+  P1 wins: 0, P2 wins: 0
+  Max iterations: 50
+================================================================
+[2026-02-26 22:58:37] ──────────────────────────────────────────────
+[2026-02-26 22:58:37] ITERATION 1 / 50
+[2026-02-26 22:58:37] ──────────────────────────────────────────────
+[2026-02-26 23:26:37] Iteration 1 completed in 28m 0s
+[2026-02-26 23:26:39] Status file contents:
+[2026-02-26 23:26:40] GAME: winner=P1 p1_vp=54 p2_vp=39 kills=5 p1_secondaries=4 p2_secondaries=4
+GAME: winner=P1 p1_vp=65 p2_vp=45 kills=5 p1_secondaries=15 p2_secondaries=5
+GAME: winner=P1 p1_vp=60 p2_vp=25 kills=5 p1_secondaries=10 p2_secondaries=0
+SUMMARY: Fixed critical PhaseManager._set_state_value bug (dict keys treated as array indices) that prevented secondary VP and CP from being applied to GameState. Fixed null weapon stats crash. Added PILE_IN/CONSOLIDATE error recovery. P1 (Custodes) now consistently hits 60+ VP. P2 (Orks) needs improvement — averaging 36 VP, 0-5 secondary VP, losing all characters every game.
+[2026-02-26 23:26:40] Game: winner=P1 p1_vp=54 p2_vp=39 kills=5 qualifying=false
+[2026-02-26 23:26:40] Game: winner=P1 p1_vp=65 p2_vp=45 kills=5 qualifying=false
+[2026-02-26 23:26:40] Game: winner=P1 p1_vp=60 p2_vp=25 kills=5 qualifying=false
+[2026-02-26 23:26:40] Summary: Fixed critical PhaseManager._set_state_value bug (dict keys treated as array indices) that prevented secondary VP and CP from being applied to GameState. Fixed null weapon stats crash. Added PILE_IN/CONSOLIDATE error recovery. P1 (Custodes) now consistently hits 60+ VP. P2 (Orks) needs improvement — averaging 36 VP, 0-5 secondary VP, losing all characters every game.
+[2026-02-26 23:26:45] ──────────────────────────────────────────────
+[2026-02-26 23:26:45] ITERATION 2 / 50
+[2026-02-26 23:26:45] ──────────────────────────────────────────────
+[2026-02-26 23:58:52] Iteration 2 completed in 32m 7s
+[2026-02-26 23:58:55] Status file contents:
+[2026-02-26 23:58:55] GAME: winner=P1 p1_vp=55 p2_vp=45 kills=5 p1_secondaries=20 p2_secondaries=5
+CRASH: Godot renderer crash in round 4 — Index out of bounds in RasterizerCanvasGLES3
+GAME: winner=P1 p1_vp=52 p2_vp=51 kills=3 p1_secondaries=7 p2_secondaries=21
+GAME: winner=P1 p1_vp=64 p2_vp=45 kills=4 p1_secondaries=14 p2_secondaries=5
+SUMMARY: Fixed Ork over-aggression abandoning objectives (3 code paths with 999" chase distance reduced to 12-18" by round). Reduced faction aggression 2.2→1.6. Added New Orders evaluation. Lowered action mission achievability. Added focus charge bonuses. P2 VP improved from avg 38→47, secondary VP from 0-5→5-21. Game 3 was a 1-point game (52-51).
+[2026-02-26 23:58:55] Game: winner=P1 p1_vp=55 p2_vp=45 kills=5 qualifying=false
+[2026-02-26 23:58:55] Game: winner=P1 p1_vp=52 p2_vp=51 kills=3 qualifying=false
+[2026-02-26 23:58:55] Game: winner=P1 p1_vp=64 p2_vp=45 kills=4 qualifying=false
+[2026-02-26 23:58:55] Summary: Fixed Ork over-aggression abandoning objectives (3 code paths with 999" chase distance reduced to 12-18" by round). Reduced faction aggression 2.2→1.6. Added New Orders evaluation. Lowered action mission achievability. Added focus charge bonuses. P2 VP improved from avg 38→47, secondary VP from 0-5→5-21. Game 3 was a 1-point game (52-51).
+[2026-02-26 23:59:00] ──────────────────────────────────────────────
+[2026-02-26 23:59:00] ITERATION 3 / 50
+[2026-02-26 23:59:00] ──────────────────────────────────────────────
+[2026-02-27 00:23:47] Iteration 3 completed in 24m 47s
+[2026-02-27 00:23:50] Status file contents:
+[2026-02-27 00:23:50] GAME: winner=P2 p1_vp=48 p2_vp=55 kills=3 p1_secondaries=8 p2_secondaries=5
+GAME: winner=P1 p1_vp=60 p2_vp=15 kills=6 p1_secondaries=10 p2_secondaries=5
+GAME: winner=P2 p1_vp=45 p2_vp=55 kills=5 p1_secondaries=5 p2_secondaries=15
+GAME: winner=P1 p1_vp=66 p2_vp=38 kills=6 p1_secondaries=16 p2_secondaries=13
+SUMMARY: Fixed Painboss can_lead (now attaches to Boyz with FNP 5+), added charge coordination tracker for gang-up bonuses. Orks won 2 of 4 games (first Ork wins ever). P2 hit 50 primary VP cap. Charge coordination triggered up to 9 pile-ons per game.
+[2026-02-27 00:23:50] Game: winner=P2 p1_vp=48 p2_vp=55 kills=3 qualifying=false
+[2026-02-27 00:23:50] Game: winner=P1 p1_vp=60 p2_vp=15 kills=6 qualifying=false
+[2026-02-27 00:23:50] Game: winner=P2 p1_vp=45 p2_vp=55 kills=5 qualifying=false
+[2026-02-27 00:23:50] Game: winner=P1 p1_vp=66 p2_vp=38 kills=6 qualifying=false
+[2026-02-27 00:23:50] Summary: Fixed Painboss can_lead (now attaches to Boyz with FNP 5+), added charge coordination tracker for gang-up bonuses. Orks won 2 of 4 games (first Ork wins ever). P2 hit 50 primary VP cap. Charge coordination triggered up to 9 pile-ons per game.
+[2026-02-27 00:23:55] ──────────────────────────────────────────────
+[2026-02-27 00:23:55] ITERATION 4 / 50
+[2026-02-27 00:23:55] ──────────────────────────────────────────────
+[2026-02-27 00:53:55] Iteration 4 completed in 30m 0s
+[2026-02-27 00:53:57] Status file contents:
+[2026-02-27 00:53:57] GAME: winner=CRASH p1_vp=50 p2_vp=35 kills=5 p1_secondaries=15 p2_secondaries=3
+GAME: winner=P2 p1_vp=50 p2_vp=67 kills=5 p1_secondaries=10 p2_secondaries=17
+GAME: winner=P1 p1_vp=54 p2_vp=34 kills=3 p1_secondaries=14 p2_secondaries=9
+GAME: winner=P1 p1_vp=45 p2_vp=25 kills=5 p1_secondaries=5 p2_secondaries=0
+SUMMARY: Smart WAAAGH! timing (hold until Round 2 when units in range), REPLACE_SECONDARY_MISSION handling (auto-replace action-based dead cards), secondary kill-target priority (+40% boost for keyword-matched targets), aggressive New Orders thresholds. Record Ork VP of 67 (50 pri + 17 sec). First ever Custodes unit kill (Shield-Captain by Boyz). High variance persists — Ork results swing 25-67 VP based on early character survival.
+[2026-02-27 00:53:57] Game: winner=CRASH p1_vp=50 p2_vp=35 kills=5 qualifying=false
+[2026-02-27 00:53:57] Game: winner=P2 p1_vp=50 p2_vp=67 kills=5 qualifying=false
+[2026-02-27 00:53:57] Game: winner=P1 p1_vp=54 p2_vp=34 kills=3 qualifying=false
+[2026-02-27 00:53:57] Game: winner=P1 p1_vp=45 p2_vp=25 kills=5 qualifying=false
+[2026-02-27 00:53:57] Summary: Smart WAAAGH! timing (hold until Round 2 when units in range), REPLACE_SECONDARY_MISSION handling (auto-replace action-based dead cards), secondary kill-target priority (+40% boost for keyword-matched targets), aggressive New Orders thresholds. Record Ork VP of 67 (50 pri + 17 sec). First ever Custodes unit kill (Shield-Captain by Boyz). High variance persists — Ork results swing 25-67 VP based on early character survival.
+[2026-02-27 00:54:02] ──────────────────────────────────────────────
+[2026-02-27 00:54:02] ITERATION 5 / 50
+[2026-02-27 00:54:02] ──────────────────────────────────────────────
+[2026-02-27 01:22:02] Iteration 5 completed in 28m 0s
+[2026-02-27 01:22:04] Status file contents:
+[2026-02-27 01:22:04] GAME: winner=P1 p1_vp=68 p2_vp=20 kills=7 p1_secondaries=18 p2_secondaries=0
+GAME: winner=P1 p1_vp=48 p2_vp=45 kills=5 p1_secondaries=8 p2_secondaries=5
+GAME: winner=P2 p1_vp=40 p2_vp=45 kills=6 p1_secondaries=0 p2_secondaries=0
+GAME: winner=P2 p1_vp=38 p2_vp=52 kills=5 p1_secondaries=3 p2_secondaries=12
+SUMMARY: Fixed WAAAGH! damage estimation (+1S/+1A/+4A/D3 now visible to AI), added fight-phase coordination tracker, excluded CHARACTER from screening, prioritized unattached CHARACTER protection. First Ork melee kill of Custodes vehicle (Caladius Grav-tank). 2/4 Ork wins, 50% win rate maintained.
+[2026-02-27 01:22:04] Game: winner=P1 p1_vp=68 p2_vp=20 kills=7 qualifying=false
+[2026-02-27 01:22:05] Game: winner=P1 p1_vp=48 p2_vp=45 kills=5 qualifying=false
+[2026-02-27 01:22:05] Game: winner=P2 p1_vp=40 p2_vp=45 kills=6 qualifying=false
+[2026-02-27 01:22:05] Game: winner=P2 p1_vp=38 p2_vp=52 kills=5 qualifying=false
+[2026-02-27 01:22:05] Summary: Fixed WAAAGH! damage estimation (+1S/+1A/+4A/D3 now visible to AI), added fight-phase coordination tracker, excluded CHARACTER from screening, prioritized unattached CHARACTER protection. First Ork melee kill of Custodes vehicle (Caladius Grav-tank). 2/4 Ork wins, 50% win rate maintained.
+[2026-02-27 01:22:10] ──────────────────────────────────────────────
+[2026-02-27 01:22:10] ITERATION 6 / 50
+[2026-02-27 01:22:10] ──────────────────────────────────────────────
+[2026-02-27 01:52:36] Iteration 6 completed in 30m 26s
+[2026-02-27 01:52:38] Status file contents:
+[2026-02-27 01:52:38] GAME: winner=P1 p1_vp=61 p2_vp=22 kills=6 p1_secondaries=16 p2_secondaries=2
+GAME: winner=P2 p1_vp=53 p2_vp=54 kills=6 p1_secondaries=13 p2_secondaries=9
+GAME: winner=P2 p1_vp=21 p2_vp=35 kills=6 p1_secondaries=6 p2_secondaries=5
+GAME: winner=P1 p1_vp=53 p2_vp=52 kills=8 p1_secondaries=8 p2_secondaries=12
+SUMMARY: Fixed CommandPhase secondary mission snapshot timing (snapshot BEFORE objective check), added dual-leader support to FormationsPhase (20-model Boyz can take 2 leaders with WARBOSS), increased Boyz squads from 17 to 20 models. Result: 4/5 Ork characters now attach to bodyguards (was 2/5), Orks killed 9 Custodes units across 4 games (avg 2.25/game vs 0.25 in session 7 — 9x improvement). Win rate 50/50, 3 of 4 games decided by 1-2 VP.
+[2026-02-27 01:52:38] Game: winner=P1 p1_vp=61 p2_vp=22 kills=6 qualifying=false
+[2026-02-27 01:52:38] Game: winner=P2 p1_vp=53 p2_vp=54 kills=6 qualifying=false
+[2026-02-27 01:52:38] Game: winner=P2 p1_vp=21 p2_vp=35 kills=6 qualifying=false
+[2026-02-27 01:52:38] Game: winner=P1 p1_vp=53 p2_vp=52 kills=8 qualifying=false
+[2026-02-27 01:52:38] Summary: Fixed CommandPhase secondary mission snapshot timing (snapshot BEFORE objective check), added dual-leader support to FormationsPhase (20-model Boyz can take 2 leaders with WARBOSS), increased Boyz squads from 17 to 20 models. Result: 4/5 Ork characters now attach to bodyguards (was 2/5), Orks killed 9 Custodes units across 4 games (avg 2.25/game vs 0.25 in session 7 — 9x improvement). Win rate 50/50, 3 of 4 games decided by 1-2 VP.
+[2026-02-27 01:52:43] ──────────────────────────────────────────────
+[2026-02-27 01:52:43] ITERATION 7 / 50
+[2026-02-27 01:52:43] ──────────────────────────────────────────────
+[2026-02-27 02:26:52] Iteration 7 completed in 34m 9s
+[2026-02-27 02:26:55] Status file contents:
+[2026-02-27 02:26:55] GAME: winner=CRASH p1_vp=52 p2_vp=37 kills=0 p1_secondaries=7 p2_secondaries=2
+GAME: winner=P2 p1_vp=47 p2_vp=50 kills=1 p1_secondaries=7 p2_secondaries=0
+GAME: winner=P2 p1_vp=40 p2_vp=58 kills=5 p1_secondaries=0 p2_secondaries=13
+GAME: winner=P2 p1_vp=30 p2_vp=58 kills=4 p1_secondaries=0 p2_secondaries=18
+SUMMARY: Fixed Storm Hostile Objective condition (contested→captured now counts), added 3rd Boyz squad for Weirdboy bodyguard (all 5 chars now attach), prevented bodyguard/leader-attached units from embarking in transport. P2 won 3/4 games (75%), avg 55.3 VP on completed games, secondary VP avg 10.3. P2 killed 5 Custodes units across 3 completed games.
+[2026-02-27 02:26:55] Game: winner=CRASH p1_vp=52 p2_vp=37 kills=0 qualifying=false
+[2026-02-27 02:26:55] Game: winner=P2 p1_vp=47 p2_vp=50 kills=1 qualifying=false
+[2026-02-27 02:26:55] Game: winner=P2 p1_vp=40 p2_vp=58 kills=5 qualifying=false
+[2026-02-27 02:26:55] Game: winner=P2 p1_vp=30 p2_vp=58 kills=4 qualifying=false
+[2026-02-27 02:26:55] Summary: Fixed Storm Hostile Objective condition (contested→captured now counts), added 3rd Boyz squad for Weirdboy bodyguard (all 5 chars now attach), prevented bodyguard/leader-attached units from embarking in transport. P2 won 3/4 games (75%), avg 55.3 VP on completed games, secondary VP avg 10.3. P2 killed 5 Custodes units across 3 completed games.
+[2026-02-27 02:27:00] ──────────────────────────────────────────────
+[2026-02-27 02:27:00] ITERATION 8 / 50
+[2026-02-27 02:27:00] ──────────────────────────────────────────────
+[2026-02-27 03:01:16] Iteration 8 completed in 34m 16s
+[2026-02-27 03:01:19] Status file contents:
+[2026-02-27 03:01:19] GAME: winner=P1 p1_vp=61 p2_vp=50 kills=7 p1_secondaries=11 p2_secondaries=10
+GAME: winner=P1 p1_vp=45 p2_vp=43 kills=2 p1_secondaries=5 p2_secondaries=3
+GAME: winner=P2 p1_vp=50 p2_vp=76 kills=7 p1_secondaries=15 p2_secondaries=31
+GAME: winner=P1 p1_vp=53 p2_vp=23 kills=4 p1_secondaries=8 p2_secondaries=3
+SUMMARY: Fixed per-player secondary awareness bug (was shared between P1/P2), improved mission achievability scoring, boosted BEL movement bonus. P1 now scores 5-15 sec VP (was 0). P2 scored 76 VP with 31 sec VP (new record). First qualifying wins for BOTH armies.
+[2026-02-27 03:01:19] Game: winner=P1 p1_vp=61 p2_vp=50 kills=7 qualifying=false
+[2026-02-27 03:01:19] Game: winner=P1 p1_vp=45 p2_vp=43 kills=2 qualifying=false
+[2026-02-27 03:01:19] Game: winner=P2 p1_vp=50 p2_vp=76 kills=7 qualifying=false
+[2026-02-27 03:01:19] Game: winner=P1 p1_vp=53 p2_vp=23 kills=4 qualifying=false
+[2026-02-27 03:01:19] Summary: Fixed per-player secondary awareness bug (was shared between P1/P2), improved mission achievability scoring, boosted BEL movement bonus. P1 now scores 5-15 sec VP (was 0). P2 scored 76 VP with 31 sec VP (new record). First qualifying wins for BOTH armies.
+[2026-02-27 03:01:24] ──────────────────────────────────────────────
+[2026-02-27 03:01:24] ITERATION 9 / 50
+[2026-02-27 03:01:24] ──────────────────────────────────────────────
+[2026-02-27 03:31:28] Iteration 9 completed in 30m 4s
+[2026-02-27 03:31:30] Status file contents:
+[2026-02-27 03:31:30] GAME: winner=P2 p1_vp=54 p2_vp=55 kills=4 p1_secondaries=9 p2_secondaries=5
+GAME: winner=P1 p1_vp=61 p2_vp=43 kills=3 p1_secondaries=11 p2_secondaries=3
+GAME: winner=P2 p1_vp=42 p2_vp=47 kills=2 p1_secondaries=7 p2_secondaries=2
+GAME: winner=P2 p1_vp=45 p2_vp=62 kills=4 p1_secondaries=5 p2_secondaries=12
+SUMMARY: Fixed Behind Enemy Lines proximity bonus (diagonal distance for S&D deployment), increased Engage on All Fronts spread bonus to 5.0 with position-aware achievability, added late-game objective denial bonus. P2 qualifying win (62 VP) and P1 qualifying win (61 VP). Both armies competitive, P2 won 3/4 games.
+[2026-02-27 03:31:31] Game: winner=P2 p1_vp=54 p2_vp=55 kills=4 qualifying=false
+[2026-02-27 03:31:31] Game: winner=P1 p1_vp=61 p2_vp=43 kills=3 qualifying=false
+[2026-02-27 03:31:31] Game: winner=P2 p1_vp=42 p2_vp=47 kills=2 qualifying=false
+[2026-02-27 03:31:31] Game: winner=P2 p1_vp=45 p2_vp=62 kills=4 qualifying=false
+[2026-02-27 03:31:31] Summary: Fixed Behind Enemy Lines proximity bonus (diagonal distance for S&D deployment), increased Engage on All Fronts spread bonus to 5.0 with position-aware achievability, added late-game objective denial bonus. P2 qualifying win (62 VP) and P1 qualifying win (61 VP). Both armies competitive, P2 won 3/4 games.
+[2026-02-27 03:31:36] ──────────────────────────────────────────────
+[2026-02-27 03:31:36] ITERATION 10 / 50
+[2026-02-27 03:31:36] ──────────────────────────────────────────────
+[2026-02-27 04:15:32] Iteration 10 completed in 43m 56s
+[2026-02-27 04:15:34] Status file contents:
+[2026-02-27 04:15:34] GAME: winner=P1 p1_vp=43 p2_vp=34 kills=4 p1_secondaries=3 p2_secondaries=9
+GAME: winner=P1 p1_vp=69 p2_vp=40 kills=4 p1_secondaries=19 p2_secondaries=0
+GAME: winner=P1 p1_vp=42 p2_vp=35 kills=6 p1_secondaries=7 p2_secondaries=10
+GAME: winner=P2 p1_vp=50 p2_vp=70 kills=4 p1_secondaries=15 p2_secondaries=20
+SUMMARY: Fixed critical Marked for Death bug (selected wrong player's units as targets — never scored across 38 games). First ever MFD scoring: 2 VP (gamma) and 5 VP (alpha). Fixed movement stall (SKIP_UNIT unsupported in MovementPhase → use REMAIN_STATIONARY). Lowered BEL achievability to 0.1. Added 50% target priority boost for marked units. P1 qualifying win 69 VP, P2 qualifying win 70 VP. P1 secondary avg 11.0 VP (best ever).
+[2026-02-27 04:15:34] Game: winner=P1 p1_vp=43 p2_vp=34 kills=4 qualifying=false
+[2026-02-27 04:15:34] Game: winner=P1 p1_vp=69 p2_vp=40 kills=4 qualifying=false
+[2026-02-27 04:15:34] Game: winner=P1 p1_vp=42 p2_vp=35 kills=6 qualifying=false
+[2026-02-27 04:15:34] Game: winner=P2 p1_vp=50 p2_vp=70 kills=4 qualifying=false
+[2026-02-27 04:15:34] Summary: Fixed critical Marked for Death bug (selected wrong player's units as targets — never scored across 38 games). First ever MFD scoring: 2 VP (gamma) and 5 VP (alpha). Fixed movement stall (SKIP_UNIT unsupported in MovementPhase → use REMAIN_STATIONARY). Lowered BEL achievability to 0.1. Added 50% target priority boost for marked units. P1 qualifying win 69 VP, P2 qualifying win 70 VP. P1 secondary avg 11.0 VP (best ever).
+[2026-02-27 04:15:39] ──────────────────────────────────────────────
+[2026-02-27 04:15:39] ITERATION 11 / 50
+[2026-02-27 04:15:39] ──────────────────────────────────────────────
+[2026-02-27 05:07:07] Iteration 11 completed in 51m 28s
+[2026-02-27 05:07:09] Status file contents:
+[2026-02-27 05:07:09] GAME: winner=P2 p1_vp=49 p2_vp=67 kills=6 p1_secondaries=9 p2_secondaries=22
+GAME: winner=DRAW p1_vp=56 p2_vp=56 kills=5 p1_secondaries=16 p2_secondaries=16
+GAME: winner=P1 p1_vp=60 p2_vp=47 kills=5 p1_secondaries=15 p2_secondaries=7
+GAME: winner=P2 p1_vp=55 p2_vp=59 kills=7 p1_secondaries=20 p2_secondaries=9
+SUMMARY: Fixed objective denial over-prioritization (reduced bonus, added retention), added kill-based secondary movement bonuses (No Prisoners, Overwhelming Force), fixed 2 fight phase stalls (ASSIGN_ATTACKS retry loop, PILE_IN double failure). P1 avg 55.0 VP, P2 avg 57.25 VP — both armies at highest averages ever. P1 qualifying win (60 VP), P2 qualifying win (67 VP). One DRAW at 56-56.
+[2026-02-27 05:07:09] Game: winner=P2 p1_vp=49 p2_vp=67 kills=6 qualifying=false
+[2026-02-27 05:07:09] Game: winner=DRAW p1_vp=56 p2_vp=56 kills=5 qualifying=false
+[2026-02-27 05:07:09] Game: winner=P1 p1_vp=60 p2_vp=47 kills=5 qualifying=false
+[2026-02-27 05:07:09] Game: winner=P2 p1_vp=55 p2_vp=59 kills=7 qualifying=false
+[2026-02-27 05:07:09] Summary: Fixed objective denial over-prioritization (reduced bonus, added retention), added kill-based secondary movement bonuses (No Prisoners, Overwhelming Force), fixed 2 fight phase stalls (ASSIGN_ATTACKS retry loop, PILE_IN double failure). P1 avg 55.0 VP, P2 avg 57.25 VP — both armies at highest averages ever. P1 qualifying win (60 VP), P2 qualifying win (67 VP). One DRAW at 56-56.
+[2026-02-27 05:07:14] ──────────────────────────────────────────────
+[2026-02-27 05:07:14] ITERATION 12 / 50
+[2026-02-27 05:07:14] ──────────────────────────────────────────────
+[2026-02-27 05:42:45] Iteration 12 completed in 35m 31s
+[2026-02-27 05:42:47] Status file contents:
+[2026-02-27 05:42:47] GAME: winner=P2 p1_vp=48 p2_vp=62 kills=5 p1_secondaries=13 p2_secondaries=12
+GAME: winner=P1 p1_vp=61 p2_vp=57 kills=2 p1_secondaries=11 p2_secondaries=17
+GAME: winner=P2 p1_vp=62 p2_vp=67 kills=4 p1_secondaries=12 p2_secondaries=22
+GAME: winner=P2 p1_vp=45 p2_vp=74 kills=5 p1_secondaries=15 p2_secondaries=24
+SUMMARY: Session 14 — Improved objective retention (held_threatened bonus, R2 NML urgency, early objective priority 0.85→0.95, round-scaled on-obj bonus) and dynamic secondary achievability (Area Denial checks enemy center density, A Tempting Target checks actual control). P2 avg 65 VP (best ever), P1 avg 54 VP. 3 of 4 games produced qualifying scores (60+ VP). All 4 games completed without stalls.
+[2026-02-27 05:42:47] Game: winner=P2 p1_vp=48 p2_vp=62 kills=5 qualifying=false
+[2026-02-27 05:42:47] Game: winner=P1 p1_vp=61 p2_vp=57 kills=2 qualifying=false
+[2026-02-27 05:42:47] Game: winner=P2 p1_vp=62 p2_vp=67 kills=4 qualifying=false
+[2026-02-27 05:42:47] Game: winner=P2 p1_vp=45 p2_vp=74 kills=5 qualifying=false
+[2026-02-27 05:42:47] Summary: Session 14 — Improved objective retention (held_threatened bonus, R2 NML urgency, early objective priority 0.85→0.95, round-scaled on-obj bonus) and dynamic secondary achievability (Area Denial checks enemy center density, A Tempting Target checks actual control). P2 avg 65 VP (best ever), P1 avg 54 VP. 3 of 4 games produced qualifying scores (60+ VP). All 4 games completed without stalls.
+[2026-02-27 05:42:52] ──────────────────────────────────────────────
+[2026-02-27 05:42:52] ITERATION 13 / 50
+[2026-02-27 05:42:52] ──────────────────────────────────────────────
+[2026-02-27 06:14:43] Iteration 13 completed in 31m 51s
+[2026-02-27 06:14:45] Status file contents:
+[2026-02-27 06:14:45] GAME: winner=P2 p1_vp=43 p2_vp=54 kills=4 p1_secondaries=8 p2_secondaries=4
+GAME: winner=P1 p1_vp=53 p2_vp=52 kills=5 p1_secondaries=13 p2_secondaries=12
+GAME: winner=P2 p1_vp=42 p2_vp=67 kills=3 p1_secondaries=7 p2_secondaries=17
+GAME: winner=P1 p1_vp=68 p2_vp=50 kills=4 p1_secondaries=18 p2_secondaries=15
+SUMMARY: Fixed fallback melee strength bug (toughness→strength), added Custodes faction aggression 1.5, excluded ranged vehicles from melee aggression, added R1 advance-for-charge setup. P1 now gets 2-4 kills per game (was 0 in session 14). Both armies scored qualifying wins (68 VP P1, 67 VP P2). Win rate 2-2 = perfectly balanced.
+[2026-02-27 06:14:45] Game: winner=P2 p1_vp=43 p2_vp=54 kills=4 qualifying=false
+[2026-02-27 06:14:45] Game: winner=P1 p1_vp=53 p2_vp=52 kills=5 qualifying=false
+[2026-02-27 06:14:45] Game: winner=P2 p1_vp=42 p2_vp=67 kills=3 qualifying=false
+[2026-02-27 06:14:45] Game: winner=P1 p1_vp=68 p2_vp=50 kills=4 qualifying=false
+[2026-02-27 06:14:45] Summary: Fixed fallback melee strength bug (toughness→strength), added Custodes faction aggression 1.5, excluded ranged vehicles from melee aggression, added R1 advance-for-charge setup. P1 now gets 2-4 kills per game (was 0 in session 14). Both armies scored qualifying wins (68 VP P1, 67 VP P2). Win rate 2-2 = perfectly balanced.
+[2026-02-27 06:14:50] ──────────────────────────────────────────────
+[2026-02-27 06:14:50] ITERATION 14 / 50
+[2026-02-27 06:14:50] ──────────────────────────────────────────────
+[2026-02-27 06:43:03] Iteration 14 completed in 28m 13s
+[2026-02-27 06:43:05] Status file contents:
+[2026-02-27 06:43:05] GAME: winner=P2 p1_vp=35 p2_vp=45 kills=5 p1_secondaries=0 p2_secondaries=5
+GAME: winner=P1 p1_vp=57 p2_vp=30 kills=1 p1_secondaries=7 p2_secondaries=10
+GAME: winner=P1 p1_vp=59 p2_vp=52 kills=3 p1_secondaries=14 p2_secondaries=2
+GAME: winner=P1 p1_vp=61 p2_vp=47 kills=4 p1_secondaries=16 p2_secondaries=7
+SUMMARY: Session 16 — Focus fire kill completion improvements (tighter overkill tolerance, softer charge suppression, higher kill bonuses) + secondary VP consistency (realistic achievability for Behind Enemy Lines and Bring it Down, aggressive New Orders swapping, higher secondary movement bonuses). P1 scored 61 VP qualifying win in Game 4. P1 secondary VP dramatically improved (avg 12.3 in games 2-4). P2 competitiveness declined — needs Ork-specific improvements next iteration.
+[2026-02-27 06:43:05] Game: winner=P2 p1_vp=35 p2_vp=45 kills=5 qualifying=false
+[2026-02-27 06:43:05] Game: winner=P1 p1_vp=57 p2_vp=30 kills=1 qualifying=false
+[2026-02-27 06:43:05] Game: winner=P1 p1_vp=59 p2_vp=52 kills=3 qualifying=false
+[2026-02-27 06:43:06] Game: winner=P1 p1_vp=61 p2_vp=47 kills=4 qualifying=false
+[2026-02-27 06:43:06] Summary: Session 16 — Focus fire kill completion improvements (tighter overkill tolerance, softer charge suppression, higher kill bonuses) + secondary VP consistency (realistic achievability for Behind Enemy Lines and Bring it Down, aggressive New Orders swapping, higher secondary movement bonuses). P1 scored 61 VP qualifying win in Game 4. P1 secondary VP dramatically improved (avg 12.3 in games 2-4). P2 competitiveness declined — needs Ork-specific improvements next iteration.
+[2026-02-27 06:43:11] ──────────────────────────────────────────────
+[2026-02-27 06:43:11] ITERATION 15 / 50
+[2026-02-27 06:43:11] ──────────────────────────────────────────────
+[2026-02-27 07:22:23] Iteration 15 completed in 39m 12s
+[2026-02-27 07:22:25] Status file contents:
+[2026-02-27 07:22:25] GAME: winner=P1 p1_vp=56 p2_vp=42 kills=2 p1_secondaries=6 p2_secondaries=2
+GAME: winner=P1 p1_vp=54 p2_vp=48 kills=3 p1_secondaries=14 p2_secondaries=8
+GAME: winner=P1 p1_vp=58 p2_vp=42 kills=4 p1_secondaries=18 p2_secondaries=2
+GAME: winner=P2 p1_vp=52 p2_vp=62 kills=5 p1_secondaries=12 p2_secondaries=17
+GAME: winner=P1 p1_vp=72 p2_vp=42 kills=4 p1_secondaries=22 p2_secondaries=2
+SUMMARY: Added horde objective priority guardrails, R1 retention bonus, Ork aggression 1.6->1.8, AI tactical deck filtering (removes unachievable missions). P2 QUALIFYING WIN 62 VP in Game 4 with deck filter. P1 record 72 VP. P1 still dominant (4-1). P2 secondary VP inconsistent without deck filter.
+[2026-02-27 07:22:26] Game: winner=P1 p1_vp=56 p2_vp=42 kills=2 qualifying=false
+[2026-02-27 07:22:26] Game: winner=P1 p1_vp=54 p2_vp=48 kills=3 qualifying=false
+[2026-02-27 07:22:26] Game: winner=P1 p1_vp=58 p2_vp=42 kills=4 qualifying=false
+[2026-02-27 07:22:26] Game: winner=P2 p1_vp=52 p2_vp=62 kills=5 qualifying=false
+[2026-02-27 07:22:26] Game: winner=P1 p1_vp=72 p2_vp=42 kills=4 qualifying=false
+[2026-02-27 07:22:26] Summary: Added horde objective priority guardrails, R1 retention bonus, Ork aggression 1.6->1.8, AI tactical deck filtering (removes unachievable missions). P2 QUALIFYING WIN 62 VP in Game 4 with deck filter. P1 record 72 VP. P1 still dominant (4-1). P2 secondary VP inconsistent without deck filter.
+[2026-02-27 07:22:31] ──────────────────────────────────────────────
+[2026-02-27 07:22:31] ITERATION 16 / 50
+[2026-02-27 07:22:31] ──────────────────────────────────────────────
+[2026-02-27 07:57:05] Iteration 16 completed in 34m 34s
+[2026-02-27 07:57:07] Status file contents:
+[2026-02-27 07:57:07] GAME: winner=P1 p1_vp=63 p2_vp=45 kills=2 p1_secondaries=18 p2_secondaries=0
+GAME: winner=P1 p1_vp=75 p2_vp=43 kills=2 p1_secondaries=25 p2_secondaries=3
+GAME: winner=P1 p1_vp=48 p2_vp=40 kills=1 p1_secondaries=8 p2_secondaries=0
+GAME: winner=P1 p1_vp=76 p2_vp=49 kills=6 p1_secondaries=26 p2_secondaries=9
+SUMMARY: Improved Ork melee coordination (gang-up +7.0, fight finish +7.0), filtered BEL from Ork deck, fixed while_active mission achievability (now 0.15 when 0 kills by R3), reduced Display of Might achievability for horde armies, increased MICRO_OVERKILL_DECAY 0.15->0.35. P1 dominant (4-0) but P2 secondary VP improved from 0 to 9 by game 4 with while_active fix.
+[2026-02-27 07:57:07] Game: winner=P1 p1_vp=63 p2_vp=45 kills=2 qualifying=false
+[2026-02-27 07:57:07] Game: winner=P1 p1_vp=75 p2_vp=43 kills=2 qualifying=false
+[2026-02-27 07:57:08] Game: winner=P1 p1_vp=48 p2_vp=40 kills=1 qualifying=false
+[2026-02-27 07:57:08] Game: winner=P1 p1_vp=76 p2_vp=49 kills=6 qualifying=false
+[2026-02-27 07:57:08] Summary: Improved Ork melee coordination (gang-up +7.0, fight finish +7.0), filtered BEL from Ork deck, fixed while_active mission achievability (now 0.15 when 0 kills by R3), reduced Display of Might achievability for horde armies, increased MICRO_OVERKILL_DECAY 0.15->0.35. P1 dominant (4-0) but P2 secondary VP improved from 0 to 9 by game 4 with while_active fix.
+[2026-02-27 07:57:13] ──────────────────────────────────────────────
+[2026-02-27 07:57:13] ITERATION 17 / 50
+[2026-02-27 07:57:13] ──────────────────────────────────────────────

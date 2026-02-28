@@ -1,0 +1,30 @@
+=== AI Improvement Loop Started at Wed Feb 25 23:00:27 EST 2026 ===
+
+========================================
+  ITERATION 1 / 20
+  Started: Wed Feb 25 23:00:27 EST 2026
+========================================
+## Summary
+
+I ran 4 AI vs AI matches with search_and_destroy deployment and found/fixed 3 critical bugs preventing AI kills:
+
+### Bugs Fixed:
+
+1. **Shooting LoS validation (critical)** — The focus fire plan assigned weapons to targets without checking Line of Sight. All SHOOT actions were rejected by the rules engine ("No valid targets in range and LoS"). Added `_can_shooter_see_target()` that calls `RulesEngine._check_target_visibility()` before assigning weapons.
+
+2. **Charge base-to-base contact (critical)** — The charge move computation placed models with too much gap (2px safety margin + non-target enemy avoidance pushing models away). The ChargePhase validator requires edge-to-edge distance <= 0.25" (10px). Fixed by reducing gap to 1px and adding post-adjustment enforcement that overrides enemy avoidance to ensure base contact.
+
+3. **Multi-model charge overlap (critical)** — Multi-model units (e.g., 3 Witchseekers) all moved to the same position, causing self-overlap validation failures. Fixed by adding 60-degree angular offset per model around the target.
+
+### Aggression Tuning:
+- Ork faction aggression: 1.8 → 2.2
+- Early charge threshold: 0.6 → 0.4
+- Melee seek bonuses increased ~50%
+- Melee threat avoidance nearly eliminated
+
+### Result:
+**Blade Champion successfully charged and DESTROYED the Warboss** in round 3 melee — 5 attacks, 4 hits, 4 wounds (including Devastating Wounds), killing the model. Shooting also now successfully lands damage each round (Caladius Grav-tank dealing 4+ wounds per phase).
+
+--- Iteration 1 completed at Wed Feb 25 23:30:34 EST 2026 ---
+Claude status: KILLS_FOUND: Blade Champion destroyed Warboss in melee (Round 3 fight phase) — 5 attacks, 4 hits, 4 wounds, 1 Devastating Wounds. Fixed 3 bugs: shooting LoS validation, charge base-to-base contact, multi-model charge overlap. Increased Ork aggression constants.
+SUCCESS! Units were killed on iteration 1!

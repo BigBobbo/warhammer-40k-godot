@@ -1,0 +1,5 @@
+GAME: winner=P2 p1_vp=45 p2_vp=69 kills=5 p1_secondaries=5 p2_secondaries=19
+GAME: winner=P1 p1_vp=65 p2_vp=53 kills=6 p1_secondaries=20 p2_secondaries=13
+GAME: winner=P2 p1_vp=60 p2_vp=62 kills=3 p1_secondaries=20 p2_secondaries=17
+GAME: winner=P2 p1_vp=48 p2_vp=55 kills=4 p1_secondaries=13 p2_secondaries=5
+SUMMARY: T19 — Aggressive WAAAGH! R1-R2, proactive fight/charge gang-up coordination for horde units, improved secondary mission achievability for horde armies. P2 (Orks) won 3/4 games (up from 0/4 last session). P2 avg VP 59.8 (up from 44.3). P2 secondary avg 13.5 (up from 3.0).

@@ -1,0 +1,26 @@
+## Session 9 Summary
+
+### Fixes Applied (3 bugs fixed)
+
+1. **Storm Hostile Objective condition fix** (`SecondaryMissionManager.gd`): Changed condition from requiring `start_controller == opponent` to `start_controller != player`. Contested objectives (value 0) now count as capturable. Storm Hostile scored for the first time ever (2 VP in Game 1).
+
+2. **3rd Boyz squad for Weirdboy** (`orks.json`): Added U_BOYZ_K (10 models) so the Weirdboy has a bodyguard. All 5 Ork characters now attach:
+   - Boyz E: Painboss + Warboss (dual-leader)
+   - Boyz F: Warboss C + Warboss in Mega Armour (dual-leader)
+   - Boyz K: Weirdboy (single leader)
+
+3. **Transport embarkation exclusion** (`AIDecisionMaker.gd`): Two new checks prevent bodyguard units from being embarked in transports:
+   - Units with BODYGUARD ability are skipped
+   - Units with a leader attached (tracked via `_bodyguards_with_leaders`) are skipped
+   - Only Kommandos now embark in the Battlewagon
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | P1 Sec | P2 Sec | P2 Custodes Kills |
+|------|--------|-------|-------|--------|--------|-------------------|
+| 1 | CRASH | ~52 | ~37 | 7 | 2 | 0 |
+| 2 | **P2** | 47 | **50** | 7 | 0 | 1 (Witchseekers) |
+| 3 | **P2** | 40 | **58** | 0 | 13 | 2 (Witchseekers + Custodian Guard) |
+| 4 | **P2** | 30 | **58** | 0 | 18 | 2 (Custodian Guard + Blade Champion) |
+
+**Orks won 3 of 4 games (75%)** — best session ever. P2 averaged **55.3 VP** on completed games (up from 40.75 in session 8). P2 secondary VP averaged **10.3** across 8 different mission types. The gap has now shifted in the Orks' favor — next iteration should focus on improving Custodes secondary play.

@@ -1,0 +1,17 @@
+{
+	"created_at": 1772244865.73544,
+	"description": "full2",
+	"game_state": {
+		"active_player": 1,
+		"game_id": "bc8f4b64-3a47-4391-bf97--a5ca0334e11fd5d",
+		"phase": 6,
+		"turn": 1
+	},
+	"save_info": {
+		"description": "full2",
+		"save_type": "manual",
+		"tags": []
+	},
+	"type": "manual",
+	"version": "1.0.0"
+}

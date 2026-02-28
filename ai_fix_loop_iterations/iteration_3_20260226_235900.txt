@@ -1,0 +1,29 @@
+## Session 5 Summary
+
+### Changes Made
+1. **Fixed Painboss can_lead** (`40k/armies/orks.json`): Added `"BOYZ"` to the Painboss's `can_lead` list. Now the Painboss attaches to Boyz (score 2.84, highest Ork attachment) with its FNP 5+ defensive buff.
+
+2. **Added charge coordination tracker** (`40k/scripts/AIDecisionMaker.gd`): New static variable `_charge_coordination` tracks which targets have already been declared as charge targets in the current phase. Subsequent chargers get bonuses:
+   - +5.0 **KILL GANG-UP** when combined damage can kill the target
+   - +2.0 per existing charger for pile-on concentration
+
+### Results (4 games played)
+
+| Game | Winner | P1 VP | P2 VP | Kills |
+|------|--------|-------|-------|-------|
+| 1 | **P2 (Orks)** | 48 | **55** | 3 |
+| 2 | P1 (Custodes) | **60** | 15 | 6 |
+| 3 | **P2 (Orks)** | 45 | **55** | 5 |
+| 4 | P1 (Custodes) | **66** | 38 | 6 |
+
+### Key Achievements
+- **First Ork wins EVER** — Orks won 2 of 4 games (50% win rate, up from 0% across 6 previous games)
+- **P2 hit 50 primary VP cap** for the first time in Game 1
+- **Painboss bodyguard attachment** working in all games — FNP 5+ protecting Boyz squads
+- **Charge coordination** triggering up to 9 pile-on charges per game
+- **Both sides scoring competitive secondaries** — P1 avg 9.75, P2 avg 9.5
+
+### Still Needs Work
+- High variance (15 to 55 VP for Orks depending on game)
+- Orks still can't kill any Custodes units (0 offensive kills across all sessions)
+- 3 of 5 Ork characters remain unattached and vulnerable

@@ -1,0 +1,30 @@
+## Session 12 Summary
+
+### Bugs Fixed (5 total)
+
+1. **CRITICAL: Marked for Death target selection used wrong player's units** (`AIPlayer.gd`) — Selected drawing player's OWN units instead of opponent's. Fixed to use `opponent` variable. This bug caused MFD to NEVER score across 38+ games.
+
+2. **Marked for Death status filter wrong** (`AIPlayer.gd`) — Checked `status == 1` (DEPLOYING) instead of `status >= 2` (DEPLOYED). Units were never found, causing "Cannot resolve" fallback.
+
+3. **Movement phase stall: SKIP_UNIT not supported** (`AIPlayer.gd`) — When a movement action failed, AI sent `SKIP_UNIT` which MovementPhase doesn't handle. Changed to `REMAIN_STATIONARY`.
+
+4. **Behind Enemy Lines achievability too high** (`AIDecisionMaker.gd`) — Lowered from 0.15 to 0.1 so it gets swapped by New Orders.
+
+5. **No target priority for Marked for Death targets** (`AIDecisionMaker.gd`) — Added `marked_targets` to secondary awareness with 50% shooting/fighting priority boost.
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | Notes |
+|------|--------|-------|-------|-------|
+| 1 | P1 | 43 | 34 | Orks killed Witchseekers |
+| 2 | **P1** | **69** | 40 | **QUALIFYING!** MFD scored 2 VP (gamma) |
+| 3 | P1 | 42 | 35 | Orks killed Blade Champ + Shield-Captain |
+| 4 | **P2** | 50 | **70** | **QUALIFYING!** MFD scored 5 VP (alpha) |
+
+### Key Achievements
+- **First ever Marked for Death scoring** — 2 VP (gamma) + 5 VP (alpha) across 2 games
+- **P1 qualifying win: 69 VP** (50 primary + 19 secondary)
+- **P2 qualifying win: 70 VP** (50 primary + 20 secondary)  
+- **P1 secondary avg: 11.0 VP** — best ever across all 12 sessions
+- **All 4 games completed without stalls or crashes**
+- **Movement stall bug fixed** — no more SKIP_UNIT rejections in MovementPhase

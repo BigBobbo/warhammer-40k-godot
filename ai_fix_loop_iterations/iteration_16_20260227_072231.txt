@@ -1,0 +1,41 @@
+## Session 18 Summary
+
+### Changes Made
+
+**6 code changes across 2 files:**
+
+1. **`40k/scripts/AIDecisionMaker.gd`** — 5 changes:
+   - `MICRO_OVERKILL_DECAY`: 0.15 → 0.35 (damage beyond kill threshold now valued at 35% instead of 15%)
+   - While_active mission achievability: Now returns 0.15 when 0 enemy units destroyed by R3+ (was always 1.0)
+   - Horde charge coordination: +7.0 kill gang-up bonus for aggressive factions (was +5.0), +3.0 pile-on (was +2.0)
+   - Horde fight coordination: +7.0 finish-off bonus for 10+ model units (was +5.0), reduced overkill penalty -1.0 (was -2.0)
+   - Display of Might: Returns 0.30 for armies with 3+ large units (was 0.65)
+
+2. **`40k/autoloads/SecondaryMissionManager.gd`** — 1 change:
+   - Behind Enemy Lines filtered from deck for armies without deep strike AND without fast non-VEHICLE units (M12+)
+
+### Game Results (4 games, all completed)
+
+| Game | Winner | P1 VP | P2 VP | P1 Kills | P2 Kills | P1 Sec | P2 Sec |
+|------|--------|-------|-------|----------|----------|--------|--------|
+| 1 | P1 | 63 | 45 | 2 | 0 | 18 | 0 |
+| 2 | P1 | 75 | 43 | 2 | 0 | 25 | 3 |
+| 3 | P1 | 48 | 40 | 1 | 0 | 8 | 0 |
+| 4 | P1 | 76 | 49 | 5 | 1 | 26 | 9 |
+| **Avg** | - | **65.5** | **44.3** | **2.5** | **0.25** | **19.3** | **3.0** |
+
+### Key Findings
+
+- **P1 avg VP: 65.5** — best session ever (up from 58.4)
+- **P1 record-tying 76 VP** in Game 4
+- **While_active fix confirmed working** — missions flagged and swapped/discarded in R3+
+- **BEL deck filter confirmed working** — Ork deck reduced from 15 to 14 cards
+- **P2 secondary VP improved from 0 to 9** across the session as fixes took effect
+- **P2 killed Blade Champion** in Game 4 — first Ork kill in 2 sessions
+- **All 4 games completed, 0 stalls, 0 crashes**
+
+### What Still Needs Work
+- P1 100% win rate — competitive balance needs improvement
+- MICRO_OVERKILL_DECAY 0.35 may benefit Custodes more than Orks (consider 0.25)
+- P2 secondary VP still 0 in 2/4 games — replacement draws after while_active swap are random
+- Ork melee kills remain near zero (1 across 4 games)

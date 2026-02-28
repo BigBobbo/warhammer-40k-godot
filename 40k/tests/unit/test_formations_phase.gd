@@ -13,7 +13,7 @@ extends "res://addons/gut/test.gd"
 # 1. FormationsPhase creation and auto-skip when no options
 # 2. Leader attachment declarations and validation
 # 3. Transport embarkation declarations and validation
-# 4. Reserves declarations and 25% point cap
+# 4. Reserves declarations and 50% point/unit cap
 # 5. Confirmation flow (both players must confirm)
 # 6. Formations applied to GameState correctly
 # 7. Deployment phase skips dialogs when formations declared
