@@ -171,13 +171,8 @@ Both players reveal simultaneously, then deployment begins.
 
 **Recommendation**: Add a brief drop-in animation (scale from 0 to 1 or fade-in over 0.2s) when a model is placed. This gives tactile feedback and makes the deployment feel more deliberate.
 
-### 3. Player Turn Indicator Enhancement
-**Issue**: Active player is shown as a text badge. In multiplayer, it can be easy to miss whose turn it is.
-
-**Recommendation**:
-- Add a prominent colored border around the screen edge matching the active player's color (blue/red)
-- Flash the border briefly when turns swap
-- Add an audio cue (optional) when it becomes your turn
+### 3. Player Turn Indicator Enhancement — IMPLEMENTED
+**Status**: **Implemented.** `PlayerTurnBorder.gd` draws a colored border around the screen edge matching the active player's color (blue for P1, red for P2). Flashes briefly on turn swap and deployment side change. Works across all phases. Integrated in `Main.gd` via `_setup_player_turn_border()`, updated in `_on_phase_changed()` and `_on_deployment_side_changed()`.
 
 ### 4. Deployment Zone Theming
 **Issue**: Zones are flat color overlays.
@@ -285,7 +280,7 @@ Both players reveal simultaneously, then deployment begins.
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
-| Player turn screen-edge indicator | **Medium** | Low | Visual | Open |
+| Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
 | Unit placement animation | **Low** | Low | Visual | Open |
 | Coherency visualization circles | **Low** | Low | Visual | Open |
 | Ghost visual enhancement | **Low** | Low | Visual | Open |
