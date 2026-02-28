@@ -121,10 +121,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 3. "Waiting for Opponent" State in Multiplayer — RESOLVED
 **Status**: **Fixed.** Prominent overlay with live turn timer countdown and pulse animation.
 
-### 4. Undo Last Model Placement
-**Issue**: The current undo (`DeploymentController.undo()` at line 315) resets the entire unit — all placed models are cleared and `temp_positions` is refilled with `null`. There's no way to undo just the last model placement.
-
-**Recommendation**: Add a per-model undo (e.g., pressing `Ctrl+Z` removes only the most recently placed model by decrementing `model_idx` and clearing the last entry in `temp_positions`). Keep the full-unit reset as a separate "Reset" button.
+### 4. Undo Last Model Placement — RESOLVED
+**Status**: **Fixed.** `DeploymentController.undo_last_model()` removes only the most recently placed model by scanning backwards from `model_idx`, clearing the position/rotation, removing the preview token, and resetting `model_idx` to that index. Ctrl+Z keyboard shortcut mapped in `_unhandled_input()`. Separate "Undo" (per-model) and "Reset Unit" (full reset) buttons in the deployment UI. Button visibility managed by `Main.update_unit_card_buttons()` — both shown when any models are placed.
 
 ### 5. Auto-Zoom to Deployment Zone — IMPLEMENTED
 **Status**: **Implemented.** `Main.gd` auto-zooms to the active player's deployment zone on phase entry and on turn switch (`_auto_zoom_tween` with smooth cubic easing). Triggered by `deployment_side_changed` signal.
@@ -284,7 +282,7 @@ Both players reveal simultaneously, then deployment begins.
 | Reserves cap fixed (25% → 50% points + 50% units) | **High** | Low | Rules | **DONE** |
 | Reserves destroyed after Round 3 | **Medium** | Low | Rules | **DONE** |
 | TITANIC deployment skip | **Low** | Low | Rules | Open |
-| Per-model undo | **Medium** | Low | QoL | Open |
+| Per-model undo | **Medium** | Low | QoL | **DONE** |
 | Coherency distance display | **Medium** | Low | QoL | Open |
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
