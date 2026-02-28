@@ -10159,6 +10159,10 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 			action_types[t] = []
 		action_types[t].append(a)
 
+	# P0-58: If melee saves need to be applied (should not normally happen for AI, but handle gracefully)
+	if action_types.has("APPLY_MELEE_SAVES"):
+		return {"type": "APPLY_MELEE_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying melee saves (AI fallback)"}
+
 	# Step 1: If we can roll dice (confirmed attacks ready), roll them
 	if action_types.has("ROLL_DICE"):
 		return {"type": "ROLL_DICE", "_ai_description": "Roll fight dice"}

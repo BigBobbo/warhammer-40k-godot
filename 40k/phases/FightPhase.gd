@@ -31,6 +31,7 @@ signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
 signal katah_stance_required(unit_id: String, player: int)
 signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
+signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -43,6 +44,11 @@ var resolution_state: Dictionary = {}
 var dice_log: Array = []
 var units_that_fought: Array = []
 var units_that_piled_in: Dictionary = {}  # unit_id -> true, tracks which units have already piled in
+
+# P0-58: Pending melee save data for interactive wound allocation
+var pending_melee_save_data: Array = []  # Save data list for WoundAllocationOverlay
+var pending_melee_hit_wound_result: Dictionary = {}  # Dice/log from hit+wound resolution
+var awaiting_melee_saves: bool = false  # True while waiting for defender to allocate wounds
 
 # New subphase tracking
 var fights_first_sequence: Dictionary = {"1": [], "2": []}  # Player -> Array of unit IDs
@@ -325,6 +331,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
 			return _validate_batch_fight_actions(action)
+		"APPLY_MELEE_SAVES":
+			return _validate_apply_melee_saves(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -364,6 +372,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_fight(action)
 		"BATCH_FIGHT_ACTIONS":
 			return _process_batch_fight_actions(action)
+		"APPLY_MELEE_SAVES":
+			return _process_apply_melee_saves(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -1094,17 +1104,109 @@ func _validate_roll_dice(action: Dictionary) -> Dictionary:
 func _process_roll_dice(action: Dictionary) -> Dictionary:
 	# Emit signal to indicate resolution is starting
 	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning melee combat resolution..."})
-	
+
 	# Build full fight action for RulesEngine
 	var melee_action = {
-		"type": "FIGHT", 
+		"type": "FIGHT",
 		"actor_unit_id": active_fighter_id,
 		"payload": {
 			"assignments": confirmed_attacks
 		}
 	}
-	
-	# Resolve with RulesEngine
+
+	# P0-58: Determine if defender is a human player for interactive wound allocation
+	var defender_is_human = _is_defender_human_player()
+
+	if defender_is_human:
+		# P0-58: Interactive path — resolve hits+wounds only, then let defender allocate wounds
+		return _process_roll_dice_interactive(melee_action)
+	else:
+		# AI/auto-resolve path — existing full resolution
+		return _process_roll_dice_auto(melee_action)
+
+# P0-58: Check if any target unit's owner is a human player
+func _is_defender_human_player() -> bool:
+	"""Check if the defending player (target unit owner) should get interactive wound allocation."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	for assignment in confirmed_attacks:
+		var target_id = assignment.get("target", "")
+		if target_id.is_empty():
+			continue
+		var target_unit = get_unit(target_id)
+		if target_unit.is_empty():
+			continue
+		var defender_owner = target_unit.get("owner", 0)
+		# If AI is not enabled, or if the defender is not an AI player, they're human
+		if not ai_player or not ai_player.enabled:
+			return true
+		if not ai_player.is_ai_player(defender_owner):
+			return true
+	return false
+
+# P0-58: Interactive path — resolve hits and wounds, then emit saves_required for defender
+func _process_roll_dice_interactive(melee_action: Dictionary) -> Dictionary:
+	var rng_service = RulesEngine.RNGService.new()
+	var result = RulesEngine.resolve_melee_attacks_interactive(melee_action, game_state_snapshot, rng_service)
+
+	if not result.success:
+		return create_result(false, [], result.get("log_text", "Melee combat failed"))
+
+	# Emit dice results for hit/wound rolls
+	for dice_block in result.get("dice", []):
+		emit_signal("dice_rolled", dice_block)
+
+	var save_data_list = result.get("save_data_list", [])
+
+	if save_data_list.is_empty():
+		# No wounds caused — proceed directly to consolidate (no saves needed)
+		print("[FightPhase] P0-58: No wounds caused in interactive melee — skipping saves")
+		# Emit resolution signals
+		for assignment in confirmed_attacks:
+			emit_signal("attacks_resolved", active_fighter_id, assignment.get("target", ""), result)
+			emit_signal("fight_resolved", active_fighter_id, result)
+		confirmed_attacks.clear()
+		log_phase_message("Melee combat resolved for %s (no wounds)" % active_fighter_id)
+		emit_signal("consolidate_required", active_fighter_id, 3.0)
+
+		var final_result = create_result(true, result.get("diffs", []))
+		final_result["trigger_consolidate"] = true
+		final_result["consolidate_unit_id"] = active_fighter_id
+		final_result["consolidate_distance"] = 3.0
+		final_result["log_text"] = result.get("log_text", "")
+		if result.has("dice"):
+			final_result["dice"] = result["dice"]
+		return final_result
+
+	# Wounds caused — store state and emit saves_required for WoundAllocationOverlay
+	pending_melee_save_data = save_data_list
+	pending_melee_hit_wound_result = result
+	awaiting_melee_saves = true
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P0-58: MELEE SAVES_REQUIRED EMISSION")
+	print("║ Source: FightPhase._process_roll_dice_interactive")
+	print("║ Save data list size: %d" % save_data_list.size())
+	for i in range(save_data_list.size()):
+		var sd = save_data_list[i]
+		print("║   [%d] Target: %s, Weapon: %s, Wounds: %d" % [i, sd.get("target_unit_name", "?"), sd.get("weapon_name", "?"), sd.get("wounds_to_save", 0)])
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	emit_signal("saves_required", save_data_list)
+
+	log_phase_message("Awaiting defender wound allocation for melee combat...")
+
+	# Return success but don't proceed to consolidate — wait for APPLY_MELEE_SAVES
+	var pause_result = create_result(true, result.get("diffs", []), "Awaiting melee save resolution")
+	pause_result["awaiting_melee_saves"] = true
+	pause_result["log_text"] = result.get("log_text", "")
+	if result.has("dice"):
+		pause_result["dice"] = result["dice"]
+	if not save_data_list.is_empty():
+		pause_result["save_data_list"] = save_data_list
+	return pause_result
+
+# Original auto-resolve path (for AI defenders)
+func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 	var rng_service = RulesEngine.RNGService.new()
 	var result = RulesEngine.resolve_melee_attacks(melee_action, game_state_snapshot, rng_service)
 
@@ -1116,17 +1218,17 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 
 	if not result.success:
 		return create_result(false, [], result.get("log_text", "Melee combat failed"))
-	
+
 	# Process dice results step by step (like shooting phase)
 	for dice_block in result.get("dice", []):
 		emit_signal("dice_rolled", dice_block)
-	
+
 	# Emit resolution signals for each target
 	if result.success:
 		for assignment in confirmed_attacks:
 			emit_signal("attacks_resolved", active_fighter_id, assignment.target, result)
 			emit_signal("fight_resolved", active_fighter_id, result)  # Compatibility signal (2 params)
-	
+
 	# Clear confirmed attacks after resolution
 	confirmed_attacks.clear()
 
@@ -1215,6 +1317,191 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 
 	print("[FightPhase] BATCH_FIGHT_ACTIONS completed successfully")
 	return last_result
+
+# P0-58: Validate APPLY_MELEE_SAVES action
+func _validate_apply_melee_saves(action: Dictionary) -> Dictionary:
+	if not awaiting_melee_saves:
+		return {"valid": false, "errors": ["Not awaiting melee saves"]}
+	return {"valid": true}
+
+# P0-58: Process APPLY_MELEE_SAVES — apply damage from interactive wound allocation
+func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
+	"""Process save results from WoundAllocationOverlay and apply melee damage."""
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P0-58: APPLY_MELEE_SAVES PROCESSING START")
+	print("║ Timestamp: ", Time.get_ticks_msec())
+	print("║ pending_melee_save_data.size(): ", pending_melee_save_data.size())
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	var payload = action.get("payload", {})
+	var save_results_list = payload.get("save_results_list", [])
+
+	var all_diffs = []
+	var total_casualties = 0
+	var save_dice_blocks = []
+
+	# Include any diffs from the hit/wound phase (e.g., hazardous self-damage)
+	if pending_melee_hit_wound_result.has("diffs"):
+		all_diffs.append_array(pending_melee_hit_wound_result.get("diffs", []))
+
+	for i in range(save_results_list.size()):
+		if i >= pending_melee_save_data.size():
+			break
+
+		var save_result_summary = save_results_list[i]
+		var save_data = pending_melee_save_data[i]
+		var target_name = save_data.get("target_unit_name", "Unknown")
+		var target_unit_id = save_data.get("target_unit_id", "")
+
+		print("╔═══════════════════════════════════════════════════════════════")
+		print("║ P0-58: PROCESSING MELEE SAVE RESULT %d" % i)
+		print("║ Target: %s" % target_name)
+		print("║ save_result_summary keys: ", save_result_summary.keys())
+		print("╚═══════════════════════════════════════════════════════════════")
+
+		# Convert allocation_history to save_results format if needed
+		var save_results = []
+		if save_result_summary.has("save_results"):
+			save_results = save_result_summary.save_results
+		elif save_result_summary.has("allocation_history"):
+			print("[FightPhase] P0-58: Converting allocation_history to save_results format")
+			for alloc in save_result_summary.allocation_history:
+				save_results.append({
+					"saved": alloc.get("saved", false),
+					"model_id": alloc.get("model_id", ""),
+					"model_index": alloc.get("model_index", 0),
+					"roll": alloc.get("roll", 0),
+					"damage": alloc.get("damage", 0),
+					"model_destroyed": alloc.get("model_destroyed", false)
+				})
+
+		# DEVASTATING WOUNDS: Apply devastating damage
+		var devastating_damage = save_result_summary.get("devastating_damage", 0)
+		if devastating_damage > 0:
+			print("[FightPhase] P0-58: Devastating wounds: %d damage" % devastating_damage)
+
+		# Apply damage using RulesEngine
+		if not save_results.is_empty():
+			var fnp_rng = RulesEngine.RNGService.new()
+			var damage_result = RulesEngine.apply_save_damage(
+				save_results,
+				save_data,
+				game_state_snapshot,
+				-1,
+				fnp_rng
+			)
+
+			all_diffs.append_array(damage_result.diffs)
+			total_casualties += damage_result.casualties
+
+			# Check if bodyguard unit was destroyed
+			if damage_result.casualties > 0 and target_unit_id != "":
+				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+
+			# Build save dice block for logging
+			var saved_count = 0
+			var failed_count = 0
+			var save_rolls_raw = []
+			for sr in save_results:
+				save_rolls_raw.append(sr.get("roll", 0))
+				if sr.get("saved", false):
+					saved_count += 1
+				else:
+					failed_count += 1
+
+			if not save_rolls_raw.is_empty():
+				var save_dice_block = {
+					"context": "save_roll_melee",
+					"threshold": str(save_data.get("base_save", 7)) + "+",
+					"rolls_raw": save_rolls_raw,
+					"successes": saved_count,
+					"failed": failed_count,
+					"ap": save_data.get("ap", 0),
+					"original_save": save_data.get("base_save", 7),
+					"weapon_name": save_data.get("weapon_name", ""),
+					"target_unit_name": target_name
+				}
+				save_dice_blocks.append(save_dice_block)
+				dice_log.append(save_dice_block)
+				emit_signal("dice_rolled", save_dice_block)
+
+			# Emit FNP dice blocks
+			var fnp_rolls = damage_result.get("fnp_rolls", [])
+			for fnp_block in fnp_rolls:
+				var fnp_dice_block = {
+					"context": "feel_no_pain",
+					"threshold": str(fnp_block.get("fnp_value", 0)) + "+",
+					"rolls_raw": fnp_block.get("rolls", []),
+					"fnp_value": fnp_block.get("fnp_value", 0),
+					"wounds_prevented": fnp_block.get("wounds_prevented", 0),
+					"wounds_remaining": fnp_block.get("wounds_remaining", 0),
+					"total_wounds": fnp_block.get("total_wounds", 0),
+					"source": fnp_block.get("source", ""),
+					"target_unit_name": target_name
+				}
+				dice_log.append(fnp_dice_block)
+				emit_signal("dice_rolled", fnp_dice_block)
+
+			# Also collect FNP data from allocation_history
+			if save_result_summary.has("allocation_history"):
+				var fnp_rolls_from_overlay = []
+				for alloc in save_result_summary.allocation_history:
+					var alloc_fnp = alloc.get("fnp_rolls", [])
+					if not alloc_fnp.is_empty():
+						fnp_rolls_from_overlay.append_array(alloc_fnp)
+				if not fnp_rolls_from_overlay.is_empty():
+					var fnp_val = save_result_summary.allocation_history[0].get("fnp_value", 0)
+					var total_prevented = 0
+					for alloc in save_result_summary.allocation_history:
+						total_prevented += alloc.get("fnp_prevented", 0)
+					var fnp_overlay_block = {
+						"context": "feel_no_pain",
+						"threshold": str(fnp_val) + "+",
+						"rolls_raw": fnp_rolls_from_overlay,
+						"fnp_value": fnp_val,
+						"wounds_prevented": total_prevented,
+						"wounds_remaining": fnp_rolls_from_overlay.size() - total_prevented,
+						"total_wounds": fnp_rolls_from_overlay.size(),
+						"source": "interactive_melee_saves",
+						"target_unit_name": target_name
+					}
+					dice_log.append(fnp_overlay_block)
+					emit_signal("dice_rolled", fnp_overlay_block)
+
+			log_phase_message("Melee saves for %s: %d saved, %d failed → %d casualties" % [
+				target_name, saved_count, failed_count, damage_result.casualties
+			])
+
+	# Clear pending state
+	awaiting_melee_saves = false
+	pending_melee_save_data.clear()
+	pending_melee_hit_wound_result.clear()
+
+	# Emit resolution signals for each confirmed attack target
+	var result_for_signals = {"success": true, "diffs": all_diffs, "dice": save_dice_blocks}
+	for assignment in confirmed_attacks:
+		emit_signal("attacks_resolved", active_fighter_id, assignment.get("target", ""), result_for_signals)
+		emit_signal("fight_resolved", active_fighter_id, result_for_signals)
+
+	# Clear confirmed attacks after resolution
+	confirmed_attacks.clear()
+
+	log_phase_message("Melee combat resolved for %s (interactive saves)" % active_fighter_id)
+
+	# After attacks, request consolidate
+	emit_signal("consolidate_required", active_fighter_id, 3.0)
+
+	# Build final result
+	var final_result = create_result(true, all_diffs)
+	final_result["trigger_consolidate"] = true
+	final_result["consolidate_unit_id"] = active_fighter_id
+	final_result["consolidate_distance"] = 3.0
+	final_result["log_text"] = "Melee saves applied — %d casualties" % total_casualties
+	final_result["dice"] = save_dice_blocks
+
+	print("[FightPhase] P0-58: APPLY_MELEE_SAVES complete — %d casualties, %d diffs" % [total_casualties, all_diffs.size()])
+
+	return final_result
 
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
@@ -2058,13 +2345,22 @@ func _clear_engagement_flags() -> void:
 
 func get_available_actions() -> Array:
 	var actions = []
-	
+
 	log_phase_message("=== get_available_actions DEBUG ===")
 	log_phase_message("active_fighter_id: '%s'" % active_fighter_id)
 	log_phase_message("current_fight_index: %d" % current_fight_index)
 	log_phase_message("fight_sequence.size(): %d" % fight_sequence.size())
 	log_phase_message("fight_sequence: %s" % str(fight_sequence))
-	
+
+	# P0-58: If awaiting melee saves, only allow APPLY_MELEE_SAVES
+	if awaiting_melee_saves:
+		actions.append({
+			"type": "APPLY_MELEE_SAVES",
+			"description": "Apply melee saves (interactive wound allocation)"
+		})
+		log_phase_message("P0-58: Awaiting melee saves — returning APPLY_MELEE_SAVES only")
+		return actions
+
 	# If no active fighter, need to select one
 	# Skip units that are no longer in engagement range (enemies may have been destroyed during earlier fights)
 	if active_fighter_id == "" and current_fight_index < fight_sequence.size():

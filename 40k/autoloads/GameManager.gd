@@ -178,6 +178,10 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _delegate_to_current_phase(action)
 		"END_FIGHT":
 			return process_end_fight(action)
+		"APPLY_MELEE_SAVES":  # P0-58: Interactive melee wound allocation
+			return _delegate_to_current_phase(action)
+		"BATCH_FIGHT_ACTIONS":
+			return _delegate_to_current_phase(action)
 
 		# Roll-off actions
 		"ROLL_FOR_FIRST_TURN":

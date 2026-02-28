@@ -1241,7 +1241,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# Check for both shooting and fight phase action types
 	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES"]
-	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS"]
+	var is_fight_action = action_type in ["ROLL_DICE", "CONFIRM_AND_RESOLVE_ATTACKS", "APPLY_MELEE_SAVES"]
 
 	if is_shooting_action or is_fight_action:
 		var save_data_list = result.get("save_data_list", [])
@@ -1864,6 +1864,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"EMBARK_UNITS_DEPLOYMENT",
 		"PLACE_IN_RESERVES",  # Part of deployment alternation flow
 		"APPLY_SAVES",  # Reactive action - defender responds during attacker's turn
+		"APPLY_MELEE_SAVES",  # P0-58: Reactive action - defender allocates melee wounds
 		# Formations actions - both players declare simultaneously
 		"DECLARE_LEADER_ATTACHMENT",
 		"DECLARE_TRANSPORT_EMBARKATION",
