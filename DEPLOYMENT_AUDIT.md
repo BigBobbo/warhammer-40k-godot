@@ -181,10 +181,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 6. Coherency Visualization — IMPLEMENTED
 **Status**: **Implemented.** `CoherencyCircleVisual.gd` draws faint dashed 2" radius circles around each placed model during deployment. Circles are colored green when the ghost (next model to place) is within 2" edge-to-edge coherency range of that model, red when outside. `DeploymentController.gd` spawns a circle for each placed token via `_spawn_coherency_circle()`, updates colors per-frame in `_update_coherency_circles()`, and cleans up on undo/reset/confirm. When all models are placed (no ghost), circles show static coherency status between placed models. Supports repositioning mode and combined deployments.
 
-### 7. Token Visual Improvement — Unit Name Labels
+### 7. Token Visual Improvement — Unit Name Labels — IMPLEMENTED
 **Issue**: Deployed model tokens show colored circles with a model number, but no unit name.
 
-**Recommendation**: Add a small unit name label that appears on hover over a deployed token, or show the unit name as a tiny label beneath each token cluster.
+**Status**: **Implemented.** `TokenVisual.gd` now draws a tiny unit name label beneath each token's base via `_draw_unit_name_label()`. The label uses a dark background pill for readability and faction-colored text (via `_get_faction_accent_color()`). Long names are truncated to 14 characters. Labels appear on all deployed tokens to help distinguish same-type units (e.g., multiple Boyz squads).
 
 ### 8. Opponent Deployment Zone Dimming
 **Issue**: During your deployment turn, the opponent's deployment zone looks the same as yours.
@@ -274,7 +274,7 @@ Both players reveal simultaneously, then deployment begins.
 | Coherency visualization circles | **Low** | Low | Visual | **DONE** |
 | Ghost visual enhancement | **Low** | Low | Visual | **DONE** |
 | Deployment zone theming | **Low** | Low | Visual | **DONE** |
-| Token unit name labels | **Low** | Low | Visual | Open |
+| Token unit name labels | **Low** | Low | Visual | **DONE** |
 | Opponent zone dimming | **Low** | Low | Visual | Open |
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
@@ -303,3 +303,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 10 | **Unit placement animation marked DONE (DEPLOY-VIS-2, P3-47).** Scale 0→1 tween over 0.2s with back-ease-out in `_spawn_preview_token()` for both `DeploymentController.gd` and `DisembarkController.gd`. |
 | Update 11 | **Deployment zone theming marked DONE (DEPLOY-VIS-3, P3-48).** Diagonal hatching (45° dashed lines clipped to polygon via Geometry2D) and military-style L-shaped corner brackets at inner edge corners in `DeploymentZoneVisual.gd`. |
 | Update 12 | **Ghost visual enhancement marked DONE (DEPLOY-VIS-4, P3-49).** Pulsing effect (sine-wave alpha 0.7–1.0 at 2.5 Hz), dashed connecting line to nearest placed model (green/red coherency coloring), and distance display (existing QoL #11) in `GhostVisual.gd`. |
+| Update 13 | **Token unit name labels marked DONE (DEPLOY-VIS-6, P3-51).** `TokenVisual._draw_unit_name_label()` draws tiny faction-colored unit name beneath each token base with dark background pill. Truncates names >14 chars. Helps distinguish same-type units. |
