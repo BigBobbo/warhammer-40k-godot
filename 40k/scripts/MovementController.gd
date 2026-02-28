@@ -3156,6 +3156,14 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	print("║ Original roll: %s" % str(roll_context.get("original_rolls", [])))
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Show the advance roll in the dice log
+	var rolls = roll_context.get("original_rolls", [])
+	var unit_name = roll_context.get("unit_name", unit_id)
+	if is_instance_valid(dice_log_display):
+		var roll_val = rolls[0] if rolls.size() > 0 else 0
+		dice_log_display.append_text("[color=orange]Advance Roll:[/color] %s rolled D6 = %d\n" % [unit_name, roll_val])
+		dice_log_display.append_text("[color=gold]Command Re-roll available! (1 CP)[/color]\n")
+
 	# Skip dialog for AI players — AIPlayer handles the decision via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(player):
@@ -3187,6 +3195,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 func _on_command_reroll_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Command Re-roll for advance."""
 	print("MovementController: Command Re-roll USED for %s advance" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gold]COMMAND RE-ROLL used! (1 CP) Re-rolling advance...[/color]\n")
 	emit_signal("move_action_requested", {
 		"type": "USE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
@@ -3195,6 +3205,8 @@ func _on_command_reroll_used(unit_id: String, player: int) -> void:
 func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 	"""Handle player declining Command Re-roll for advance."""
 	print("MovementController: Command Re-roll DECLINED for %s advance" % unit_id)
+	if is_instance_valid(dice_log_display):
+		dice_log_display.append_text("[color=gray]Kept original advance roll.[/color]\n")
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
