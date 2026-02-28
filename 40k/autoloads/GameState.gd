@@ -230,6 +230,12 @@ func get_undeployed_units_for_player(player: int) -> Array:
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
 		if unit["owner"] == player and unit["status"] == UnitStatus.UNDEPLOYED:
+			# Skip characters attached to a bodyguard (they deploy with their bodyguard)
+			if unit.get("attached_to", null) != null:
+				continue
+			# Skip units embarked in transports (they deploy with their transport)
+			if unit.get("embarked_in", null) != null:
+				continue
 			undeployed.append(unit_id)
 	return undeployed
 

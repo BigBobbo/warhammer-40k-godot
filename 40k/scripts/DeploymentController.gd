@@ -40,6 +40,10 @@ var is_awaiting_embark_dialog: bool = false  # Waiting for transport embark dial
 var pending_attach_characters: Array = []  # Characters to attach after deployment
 var is_awaiting_attach_dialog: bool = false  # Waiting for character attach dialog
 
+# Combined deployment state (bodyguard + pre-declared attached characters)
+var combined_models: Array = []  # [{unit_id, model_idx, model_data}, ...]
+var is_combined_deployment: bool = false
+
 # Reinforcement mode (Deep Strike / Strategic Reserves arrival)
 var is_reinforcement_mode: bool = false
 
@@ -164,10 +168,48 @@ func begin_deploy(_unit_id: String) -> void:
 	model_idx = 0
 	temp_positions.clear()
 	temp_rotations.clear()
+	combined_models.clear()
+	is_combined_deployment = false
 	var unit_data = GameState.get_unit(unit_id)
-	temp_positions.resize(unit_data["models"].size())
-	temp_rotations.resize(unit_data["models"].size())
-	temp_rotations.fill(0.0)
+
+	# Check if this unit has pre-declared character attachments (from Formations phase)
+	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+	if GameState.formations_declared() and attached_char_ids.size() > 0:
+		is_combined_deployment = true
+		print("[DeploymentController] Combined deployment: bodyguard %s + %d attached character(s)" % [_unit_id, attached_char_ids.size()])
+
+		# Add bodyguard models first
+		for i in range(unit_data["models"].size()):
+			combined_models.append({
+				"unit_id": _unit_id,
+				"model_idx": i,
+				"model_data": unit_data["models"][i]
+			})
+
+		# Then add character models
+		for char_id in attached_char_ids:
+			var char_data = GameState.get_unit(char_id)
+			if char_data.is_empty():
+				push_error("[DeploymentController] Attached character not found: %s" % char_id)
+				continue
+			for i in range(char_data["models"].size()):
+				combined_models.append({
+					"unit_id": char_id,
+					"model_idx": i,
+					"model_data": char_data["models"][i]
+				})
+			print("[DeploymentController] Added %d models from character %s" % [char_data["models"].size(), char_id])
+
+		# Size temp arrays to fit all combined models
+		temp_positions.resize(combined_models.size())
+		temp_rotations.resize(combined_models.size())
+		temp_rotations.fill(0.0)
+		print("[DeploymentController] Combined deployment total models: %d" % combined_models.size())
+	else:
+		temp_positions.resize(unit_data["models"].size())
+		temp_rotations.resize(unit_data["models"].size())
+		temp_rotations.fill(0.0)
+
 	formation_rotation = 0.0  # Reset formation rotation for new unit
 
 	# Check if this unit has Infiltrators ability
@@ -214,8 +256,19 @@ func try_place_at(world_pos: Vector2) -> void:
 	if model_idx >= temp_positions.size():
 		return
 
-	var unit_data = GameState.get_unit(unit_id)
-	var model_data = unit_data["models"][model_idx]
+	# Get model data - from combined_models for combined deployment, otherwise from unit
+	var model_data: Dictionary
+	var spawn_unit_id: String = unit_id
+	var spawn_model_idx: int = model_idx
+	if is_combined_deployment and model_idx < combined_models.size():
+		var cm = combined_models[model_idx]
+		model_data = cm["model_data"]
+		spawn_unit_id = cm["unit_id"]
+		spawn_model_idx = cm["model_idx"]
+	else:
+		var unit_data = GameState.get_unit(unit_id)
+		model_data = unit_data["models"][model_idx]
+
 	var active_player = GameState.get_active_player()
 	var zone = BoardState.get_deployment_zone_for_player(active_player)
 
@@ -265,7 +318,7 @@ func try_place_at(world_pos: Vector2) -> void:
 	# Store position and rotation (rotation already captured above)
 	temp_positions[model_idx] = world_pos
 	temp_rotations[model_idx] = rotation
-	_spawn_preview_token(unit_id, model_idx, world_pos, rotation)
+	_spawn_preview_token(spawn_unit_id, spawn_model_idx, world_pos, rotation)
 	model_idx += 1
 
 	_check_coherency_warning()
@@ -287,9 +340,13 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 	if models_to_place == 0:
 		return
 
-	# Calculate formation positions
-	var model_data = unit_data["models"][remaining_indices[0]]
-	var base_mm = model_data["base_mm"]
+	# Calculate formation positions - get model data from combined or unit
+	var first_model_data: Dictionary
+	if is_combined_deployment and remaining_indices[0] < combined_models.size():
+		first_model_data = combined_models[remaining_indices[0]]["model_data"]
+	else:
+		first_model_data = unit_data["models"][remaining_indices[0]]
+	var base_mm = first_model_data["base_mm"]
 	var positions = []
 
 	match formation_mode:
@@ -306,7 +363,11 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 	for i in range(positions.size()):
 		var pos = positions[i]
 		var idx = remaining_indices[i]
-		var model = unit_data["models"][idx]
+		var model: Dictionary
+		if is_combined_deployment and idx < combined_models.size():
+			model = combined_models[idx]["model_data"]
+		else:
+			model = unit_data["models"][idx]
 
 		if not _validate_formation_position(pos, model, zone):
 			all_valid = false
@@ -322,7 +383,12 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 		var idx = remaining_indices[i]
 		temp_positions[idx] = positions[i]
 		temp_rotations[idx] = 0.0
-		_spawn_preview_token(unit_id, idx, positions[i], 0.0)
+		var spawn_uid = unit_id
+		var spawn_midx = idx
+		if is_combined_deployment and idx < combined_models.size():
+			spawn_uid = combined_models[idx]["unit_id"]
+			spawn_midx = combined_models[idx]["model_idx"]
+		_spawn_preview_token(spawn_uid, spawn_midx, positions[i], 0.0)
 
 	# Update model_idx to next unplaced model
 	if models_to_place < remaining_indices.size():
@@ -366,7 +432,12 @@ func undo_last_model() -> bool:
 	temp_rotations[last_placed_idx] = 0.0
 
 	# Remove the corresponding preview token
-	var token_name = "Token_%s_%d" % [unit_id, last_placed_idx]
+	var token_unit_id = unit_id
+	var token_model_idx = last_placed_idx
+	if is_combined_deployment and last_placed_idx < combined_models.size():
+		token_unit_id = combined_models[last_placed_idx]["unit_id"]
+		token_model_idx = combined_models[last_placed_idx]["model_idx"]
+	var token_name = "Token_%s_%d" % [token_unit_id, token_model_idx]
 	for i in range(placed_tokens.size() - 1, -1, -1):
 		var token = placed_tokens[i]
 		if is_instance_valid(token) and token.name == token_name:
@@ -412,6 +483,8 @@ func reset_unit() -> void:
 
 	is_reinforcement_mode = false
 	is_infiltrators_mode = false
+	is_combined_deployment = false
+	combined_models.clear()
 	unit_id = ""
 	_clear_formation_ghosts()  # Clear any formation ghosts
 	_remove_ghost()
@@ -538,18 +611,37 @@ func _complete_deployment() -> void:
 		push_error("Cannot deploy - not your turn")
 		return
 
-	# Create deployment action for PhaseManager
-	var model_positions = []
-	for pos in temp_positions:
-		model_positions.append(pos)
+	# For combined deployments, split positions back into per-unit arrays
+	var bodyguard_positions = []
+	var bodyguard_rotations = []
+	var char_positions_map = {}  # char_id -> [{pos, rotation}, ...]
+
+	if is_combined_deployment:
+		for i in range(combined_models.size()):
+			var cm = combined_models[i]
+			if cm["unit_id"] == unit_id:
+				bodyguard_positions.append(temp_positions[i])
+				bodyguard_rotations.append(temp_rotations[i])
+			else:
+				if not char_positions_map.has(cm["unit_id"]):
+					char_positions_map[cm["unit_id"]] = []
+				char_positions_map[cm["unit_id"]].append({
+					"pos": temp_positions[i],
+					"rotation": temp_rotations[i],
+					"model_idx": cm["model_idx"]
+				})
+	else:
+		for pos in temp_positions:
+			bodyguard_positions.append(pos)
+		bodyguard_rotations = temp_rotations.duplicate()
 
 	# Note: Don't set "player" here - NetworkIntegration will add the correct local player ID
 	# This ensures the action uses the actual local player, not just whoever's turn it is
 	var deployment_action = {
 		"type": "DEPLOY_UNIT",
 		"unit_id": unit_id,
-		"model_positions": model_positions,
-		"model_rotations": temp_rotations,  # Added to fix Battlewagon save/load issue
+		"model_positions": bodyguard_positions,
+		"model_rotations": bodyguard_rotations,
 		"phase": GameStateData.Phase.DEPLOYMENT,
 		"timestamp": Time.get_unix_time_from_system()
 	}
@@ -593,6 +685,33 @@ func _complete_deployment() -> void:
 		else:
 			print("[DeploymentController] No pending embark units (size: %d)" % pending_embark_units.size())
 
+		# Handle combined deployment: place character models at their player-chosen positions
+		if is_combined_deployment and char_positions_map.size() > 0:
+			print("[DeploymentController] ===== COMBINED CHARACTER DEPLOYMENT =====")
+			for char_id in char_positions_map:
+				var char_model_data = char_positions_map[char_id]
+				print("[DeploymentController] Placing %d models for character %s" % [char_model_data.size(), char_id])
+
+				# Set each character model's position in GameState
+				for entry in char_model_data:
+					GameState.state.units[char_id].models[entry["model_idx"]].position = {
+						"x": entry["pos"].x,
+						"y": entry["pos"].y
+					}
+					print("[DeploymentController] Set character %s model %d at %s" % [char_id, entry["model_idx"], str(entry["pos"])])
+
+				# Mark character unit as deployed
+				if has_node("/root/PhaseManager"):
+					var phase_manager = get_node("/root/PhaseManager")
+					if phase_manager.current_phase_instance:
+						phase_manager.apply_state_changes([{
+							"op": "set",
+							"path": "units.%s.status" % char_id,
+							"value": GameStateData.UnitStatus.DEPLOYED
+						}])
+						print("[DeploymentController] Set status to DEPLOYED for combined character %s" % char_id)
+			print("[DeploymentController] ===== COMBINED CHARACTER DEPLOYMENT COMPLETE =====")
+
 		# Handle character attachment if characters were selected
 		if pending_attach_characters.size() > 0:
 			print("[DeploymentController] ===== CHARACTER ATTACHMENT TRIGGERED =====")
@@ -629,6 +748,8 @@ func _complete_deployment() -> void:
 	model_idx = -1
 	temp_positions.clear()
 	temp_rotations.clear()  # Added to properly clear rotations
+	combined_models.clear()
+	is_combined_deployment = false
 	is_infiltrators_mode = false
 
 	emit_signal("coherency_warning_changed", false, "")
@@ -842,7 +963,16 @@ func _create_ghost() -> void:
 
 	var unit_data = GameState.get_unit(unit_id)
 	print("[DeploymentController] unit_data found: ", not unit_data.is_empty())
-	if model_idx < unit_data["models"].size():
+
+	# For combined deployments, use the combined model data
+	if is_combined_deployment and model_idx < combined_models.size():
+		var cm = combined_models[model_idx]
+		var model_data = cm["model_data"]
+		var cm_unit_data = GameState.get_unit(cm["unit_id"])
+		print("[DeploymentController] combined model_data from unit %s: %s" % [cm["unit_id"], model_data.get("id", "unknown")])
+		ghost_sprite.owner_player = cm_unit_data.get("owner", unit_data["owner"])
+		ghost_sprite.set_model_data(model_data)
+	elif model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
 		print("[DeploymentController] model_data: ", model_data.get("id", "unknown"))
 		ghost_sprite.owner_player = unit_data["owner"]
@@ -863,6 +993,15 @@ func _remove_ghost() -> void:
 
 func _update_ghost_for_next_model() -> void:
 	if ghost_sprite == null:
+		return
+
+	# For combined deployments, use the combined model data
+	if is_combined_deployment and model_idx < combined_models.size():
+		var cm = combined_models[model_idx]
+		var model_data = cm["model_data"]
+		ghost_sprite.set_model_data(model_data)
+		ghost_sprite.set_base_rotation(0.0)
+		ghost_sprite.queue_redraw()
 		return
 
 	var unit_data = GameState.get_unit(unit_id)
@@ -964,12 +1103,17 @@ func _check_coherency_warning() -> void:
 
 	# Per 10th edition: units with 2-6 models need each model within 2" of at least 1 other.
 	# Units with 7+ models need each model within 2" of at least 2 others.
-	var total_models = unit_data["models"].size()
+	var total_models = temp_positions.size()  # Use combined total for combined deployments
 	var required_neighbors = 1 if total_models <= 6 else 2
 	var incoherent_indices = []
 
 	for i in placed_indices:
-		var model_i = unit_data["models"][i].duplicate()
+		# Get model data from combined_models or unit_data
+		var model_i: Dictionary
+		if is_combined_deployment and i < combined_models.size():
+			model_i = combined_models[i]["model_data"].duplicate()
+		else:
+			model_i = unit_data["models"][i].duplicate()
 		model_i["position"] = temp_positions[i]
 		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
@@ -977,7 +1121,11 @@ func _check_coherency_warning() -> void:
 		for j in placed_indices:
 			if i == j:
 				continue
-			var model_j = unit_data["models"][j].duplicate()
+			var model_j: Dictionary
+			if is_combined_deployment and j < combined_models.size():
+				model_j = combined_models[j]["model_data"].duplicate()
+			else:
+				model_j = unit_data["models"][j].duplicate()
 			model_j["position"] = temp_positions[j]
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
@@ -1236,8 +1384,13 @@ func _process(delta: float) -> void:
 	if ghost_sprite != null and model_idx < temp_positions.size():
 		ghost_sprite.position = mouse_pos
 
-		var unit_data = GameState.get_unit(unit_id)
-		var model_data = unit_data["models"][model_idx]
+		# Get model data - from combined_models for combined deployment, otherwise from unit
+		var model_data: Dictionary
+		if is_combined_deployment and model_idx < combined_models.size():
+			model_data = combined_models[model_idx]["model_data"]
+		else:
+			var unit_data = GameState.get_unit(unit_id)
+			model_data = unit_data["models"][model_idx]
 		var active_player = GameState.get_active_player()
 
 		# Get current rotation from ghost
@@ -1405,7 +1558,11 @@ func _create_formation_ghosts(count: int) -> void:
 
 	for i in range(models_to_place):
 		var model_index = remaining_models[i]
-		var model_data = unit_data["models"][model_index]
+		var model_data: Dictionary
+		if is_combined_deployment and model_index < combined_models.size():
+			model_data = combined_models[model_index]["model_data"]
+		else:
+			model_data = unit_data["models"][model_index]
 		var ghost = load("res://scripts/GhostVisual.gd").new()
 		ghost.name = "FormationGhost_%d" % i
 		ghost.owner_player = unit_data["owner"]
@@ -1431,8 +1588,12 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 	if remaining_models.is_empty():
 		return
 
-	var model_data = unit_data["models"][remaining_models[0]]
-	var base_mm = model_data["base_mm"]
+	var first_model_data: Dictionary
+	if is_combined_deployment and remaining_models[0] < combined_models.size():
+		first_model_data = combined_models[remaining_models[0]]["model_data"]
+	else:
+		first_model_data = unit_data["models"][remaining_models[0]]
+	var base_mm = first_model_data["base_mm"]
 
 	var positions = []
 	match formation_mode:
@@ -1450,7 +1611,7 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 			ghost.visible = true
 
 			# Check validity for each ghost position
-			var is_valid = _validate_formation_position(positions[i], model_data, zone)
+			var is_valid = _validate_formation_position(positions[i], first_model_data, zone)
 			ghost.set_validity(is_valid)
 
 func _validate_formation_position(pos: Vector2, model_data: Dictionary, zone: PackedVector2Array) -> bool:

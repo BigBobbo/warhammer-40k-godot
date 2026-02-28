@@ -3441,7 +3441,19 @@ func refresh_unit_list() -> void:
 						ability_tag = " [DS]"
 					elif GameState.unit_has_infiltrators(unit_id):
 						ability_tag = " [INF]"
-					var display_text = "%s (%d models)%s" % [unit_name, model_count, ability_tag]
+					# Show attached character names for bodyguard units with pre-declared attachments
+					var attach_info = ""
+					var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+					if attached_char_ids.size() > 0:
+						var char_names = []
+						for char_id in attached_char_ids:
+							var char_unit = GameState.get_unit(char_id)
+							if not char_unit.is_empty():
+								char_names.append(char_unit.get("meta", {}).get("name", char_id))
+								model_count += char_unit["models"].size()
+						if char_names.size() > 0:
+							attach_info = " + " + ", ".join(char_names)
+					var display_text = "%s (%d models)%s%s" % [unit_name, model_count, attach_info, ability_tag]
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
