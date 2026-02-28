@@ -178,10 +178,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 5. Ghost Visual Enhancement — IMPLEMENTED
 **Status**: **Implemented.** `GhostVisual.gd` now features: (1) Subtle pulsing effect via sine-wave alpha modulation (0.7–1.0 at 2.5 Hz) applied to fill and border colors. (2) Dashed connecting line from ghost to nearest placed model, colored green when within 2" coherency range, red when outside. (3) Distance display in inches already implemented via QoL #11 coherency distance label. `DeploymentController.gd` passes nearest model world position and distance to the ghost via `set_nearest_model()`. Works in single placement and reposition modes; hidden in formation mode.
 
-### 6. Coherency Visualization
-**Issue**: Coherency is only communicated via a text warning and a toast.
-
-**Recommendation**: Draw faint 2" radius circles around placed models (coherency range). Color them green when the next model would be in coherency range, red when it would be out of range.
+### 6. Coherency Visualization — IMPLEMENTED
+**Status**: **Implemented.** `CoherencyCircleVisual.gd` draws faint dashed 2" radius circles around each placed model during deployment. Circles are colored green when the ghost (next model to place) is within 2" edge-to-edge coherency range of that model, red when outside. `DeploymentController.gd` spawns a circle for each placed token via `_spawn_coherency_circle()`, updates colors per-frame in `_update_coherency_circles()`, and cleans up on undo/reset/confirm. When all models are placed (no ghost), circles show static coherency status between placed models. Supports repositioning mode and combined deployments.
 
 ### 7. Token Visual Improvement — Unit Name Labels
 **Issue**: Deployed model tokens show colored circles with a model number, but no unit name.
@@ -273,7 +271,7 @@ Both players reveal simultaneously, then deployment begins.
 | Keyboard shortcut reference | **Low** | Low | QoL | Open |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
 | Unit placement animation | **Low** | Low | Visual | **DONE** |
-| Coherency visualization circles | **Low** | Low | Visual | Open |
+| Coherency visualization circles | **Low** | Low | Visual | **DONE** |
 | Ghost visual enhancement | **Low** | Low | Visual | **DONE** |
 | Deployment zone theming | **Low** | Low | Visual | **DONE** |
 | Token unit name labels | **Low** | Low | Visual | Open |
