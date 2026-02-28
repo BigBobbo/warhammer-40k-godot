@@ -214,10 +214,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 1. `ATTACH_CHARACTER_DEPLOYMENT` Not in DETERMINISTIC_ACTIONS — RESOLVED
 **Status**: **Fixed.**
 
-### 2. Disconnect Handling During Deployment
-**Issue**: `NetworkManager._on_peer_disconnected()` calls `get_tree().quit()` on any disconnect. This is overly aggressive for the deployment phase.
-
-**Recommendation**: Show a reconnection dialog instead. Allow a grace period for the opponent to reconnect. If they don't reconnect, offer the option to save the game state or continue in single-player mode.
+### 2. Disconnect Handling During Deployment — RESOLVED
+**Status**: **Fixed.** `NetworkManager._on_peer_disconnected()` now emits `peer_disconnect_grace_period` signal instead of immediately ending the game. `DisconnectDialog.gd` shows a 60-second reconnection grace period with options to: save game state via `SaveLoadManager`, continue in single-player mode (switches disconnected player to AI), or claim victory. Timer auto-claims victory on expiry.
 
 ### 3. SWITCH_PLAYER Action Validation Gap — RESOLVED
 **Status**: **Fixed.**
@@ -294,7 +292,7 @@ Both players reveal simultaneously, then deployment begins.
 | Deployment zone theming | **Low** | Low | Visual | Open |
 | Token unit name labels | **Low** | Low | Visual | Open |
 | Opponent zone dimming | **Low** | Low | Visual | Open |
-| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | Open |
+| Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | Open |
 | Race condition: embark after player switch | **Medium** | Low | Multiplayer | Open |

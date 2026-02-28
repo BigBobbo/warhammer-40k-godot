@@ -12,6 +12,7 @@ signal game_started()
 signal action_rejected(action_type: String, reason: String)  # Emitted when an action is rejected
 signal game_code_received(code: String)  # Emitted when server assigns a game code
 signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
+signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -41,6 +42,10 @@ var phase_manager_ref: Node = null
 # Web Relay mode - uses WebSocketRelay for transport instead of Godot RPCs
 var web_relay: Node = null
 var web_relay_mode: bool = false
+
+# P2-41: Graceful disconnect handling
+var _disconnect_grace_active: bool = false
+var _disconnected_player_num: int = 0
 
 # Optimistic execution — deterministic actions that can be applied client-side immediately
 const DETERMINISTIC_ACTIONS: Array[String] = [
@@ -766,6 +771,8 @@ func disconnect_network() -> void:
 	peer_to_player_map.clear()
 	is_online_host = false
 	current_game_code = ""
+	_disconnect_grace_active = false
+	_disconnected_player_num = 0
 	reset_optimistic_state()
 	print("NetworkManager: Disconnected")
 
@@ -2119,13 +2126,37 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 	emit_signal("peer_disconnected", peer_id)
 
-	# End game on disconnect — the remaining player wins
-	print("NetworkManager: Player disconnected - ending game")
+	# P2-41: Graceful disconnect — pause the game and let the remaining player decide
+	print("NetworkManager: Player %d disconnected — starting grace period" % disconnected_player)
 	stop_turn_timer()
+	_disconnect_grace_active = true
+	_disconnected_player_num = disconnected_player
+	peer_disconnect_grace_period.emit(disconnected_player)
+
+func finalize_disconnect_as_victory() -> void:
+	"""P2-41: Called when the remaining player claims victory after a disconnect."""
+	if not _disconnect_grace_active:
+		return
+	_disconnect_grace_active = false
+	print("NetworkManager: Finalizing disconnect as victory for Player %d" % (3 - _disconnected_player_num))
 	if phase_manager_ref:
 		phase_manager_ref.game_ended = true
-	var winner = 3 - disconnected_player if disconnected_player > 0 else 0
+	var winner = 3 - _disconnected_player_num if _disconnected_player_num > 0 else 0
 	game_over.emit(winner, "disconnect")
+
+func finalize_disconnect_as_single_player() -> void:
+	"""P2-41: Called when the remaining player chooses to continue in single-player mode."""
+	if not _disconnect_grace_active:
+		return
+	_disconnect_grace_active = false
+	print("NetworkManager: Switching to single-player mode after disconnect")
+	# Switch to offline mode so actions no longer route through multiplayer
+	network_mode = NetworkMode.OFFLINE
+	web_relay_mode = false
+	web_relay = null
+	peer_to_player_map.clear()
+	reset_optimistic_state()
+	print("NetworkManager: Now in OFFLINE mode — game continues in single-player")
 
 func _on_connection_failed() -> void:
 	print("NetworkManager: Connection failed")

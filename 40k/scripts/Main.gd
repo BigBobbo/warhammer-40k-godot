@@ -33,6 +33,7 @@ var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: AcceptDialog
 var game_over_dialog: AcceptDialog = null
+var disconnect_dialog: AcceptDialog = null  # P2-41: Graceful disconnect handling
 var deployment_controller: Node
 var coherency_banner: PanelContainer = null
 var command_controller: Node
@@ -3005,6 +3006,10 @@ func connect_signals() -> void:
 		if NetworkManager.has_signal("phase_auto_ended") and not NetworkManager.phase_auto_ended.is_connected(_on_phase_auto_ended):
 			NetworkManager.phase_auto_ended.connect(_on_phase_auto_ended)
 			print("Main: Connected to NetworkManager.phase_auto_ended signal")
+		# P2-41: Connect graceful disconnect signal
+		if NetworkManager.has_signal("peer_disconnect_grace_period") and not NetworkManager.peer_disconnect_grace_period.is_connected(_on_peer_disconnect_grace_period):
+			NetworkManager.peer_disconnect_grace_period.connect(_on_peer_disconnect_grace_period)
+			print("Main: Connected to NetworkManager.peer_disconnect_grace_period signal")
 	
 
 func _input(event: InputEvent) -> void:
@@ -5270,6 +5275,67 @@ func _on_game_over_return_to_menu() -> void:
 		print("Main: Disconnecting network before returning to menu from game over")
 		NetworkManager.disconnect_network()
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn")
+
+# ============================================================================
+# P2-41: GRACEFUL DISCONNECT HANDLING
+# ============================================================================
+
+func _on_peer_disconnect_grace_period(disconnected_player: int) -> void:
+	print("Main: Peer disconnect grace period started for Player %d" % disconnected_player)
+
+	# Clean up any existing disconnect dialog
+	if disconnect_dialog and is_instance_valid(disconnect_dialog):
+		disconnect_dialog.queue_free()
+		disconnect_dialog = null
+
+	var dialog_script = preload("res://dialogs/DisconnectDialog.gd")
+	disconnect_dialog = AcceptDialog.new()
+	disconnect_dialog.set_script(dialog_script)
+	add_child(disconnect_dialog)
+
+	disconnect_dialog.save_game_requested.connect(_on_disconnect_save_game)
+	disconnect_dialog.continue_single_player_requested.connect(_on_disconnect_continue_single_player.bind(disconnected_player))
+	disconnect_dialog.claim_victory_requested.connect(_on_disconnect_claim_victory)
+
+	disconnect_dialog.setup(disconnected_player)
+	disconnect_dialog.popup_centered()
+	print("Main: Showed disconnect dialog for Player %d" % disconnected_player)
+
+func _on_disconnect_save_game() -> void:
+	print("Main: Disconnect — saving game state")
+	if SaveLoadManager:
+		var metadata = {
+			"reason": "disconnect_save",
+			"disconnected_player": NetworkManager._disconnected_player_num,
+		}
+		var timestamp = Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")
+		var save_name = "disconnect_save_%s" % timestamp
+		SaveLoadManager.save_game(save_name, metadata)
+		print("Main: Game state saved as '%s'" % save_name)
+		if ToastManager:
+			ToastManager.show_success("Game saved: %s" % save_name)
+	else:
+		print("Main: WARNING — SaveLoadManager not available, cannot save")
+		if ToastManager:
+			ToastManager.show_error("Save failed — SaveLoadManager not available")
+
+func _on_disconnect_continue_single_player(disconnected_player: int) -> void:
+	print("Main: Disconnect — continuing in single-player mode")
+	NetworkManager.finalize_disconnect_as_single_player()
+	# Enable AI for the disconnected player so the game can continue
+	if AIPlayer:
+		var other_player = 3 - disconnected_player
+		AIPlayer.ai_players[disconnected_player] = true
+		AIPlayer.ai_players[other_player] = false
+		AIPlayer.ai_difficulty[disconnected_player] = AIDifficultyConfigData.Difficulty.NORMAL
+		AIPlayer.enabled = true
+		print("Main: AI enabled for Player %d (Normal difficulty)" % disconnected_player)
+	if ToastManager:
+		ToastManager.show_info("Continuing in single-player — Player %d is now AI" % disconnected_player)
+
+func _on_disconnect_claim_victory() -> void:
+	print("Main: Disconnect — claiming victory")
+	NetworkManager.finalize_disconnect_as_victory()
 
 func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
