@@ -1,0 +1,24 @@
+## Session 11 Summary
+
+### Changes Made
+1. **Behind Enemy Lines proximity bonus** (`AIDecisionMaker.gd`): Replaced the broken `eval.is_enemy_home` gate with a diagonal-distance-based proximity bonus that applies to any movement destination closer to the enemy deployment zone center. Also fixed the achievability assessment which was comparing inches to pixels.
+
+2. **Engage on All Fronts improvements** (`AIDecisionMaker.gd`): Increased `SECONDARY_SPREAD_BONUS` from 2.0 to 5.0. Replaced the simple unit-count achievability with position-aware assessment that checks actual table quarter coverage.
+
+3. **Late-game objective denial** (`AIDecisionMaker.gd`): Added priority bonus for contesting enemy-held objectives in rounds 3-5, scaling from +1.5-3.0 (R3) to +2.5-5.0 (R5).
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | Notes |
+|------|--------|-------|-------|-------|
+| 1 | **P2** | 54 | **55** | 1-point game! |
+| 2 | **P1** | **61** | 43 | P1 qualifying win |
+| 3 | **P2** | 42 | **47** | P2 killed Witchseekers |
+| 4 | **P2** | 45 | **62** | P2 qualifying win, killed Telemon |
+
+- **Both armies achieved 60+ VP qualifying wins** (P1: 61, P2: 62)
+- **P2 (Orks) won 3 of 4 games** — dominant but competitive
+- **Average VP:** P1=50.5, P2=51.75 — nearly identical
+- **Variance reduced:** Both armies in 42-62 range (20-point spread vs 53-point in session 10)
+- **All 4 games completed without stalls or crashes**
+- **P2 killed a Telemon Heavy Dreadnought** (T14 vehicle) in melee

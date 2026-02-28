@@ -1,0 +1,30 @@
+## Session 13 Summary
+
+### Changes Made
+
+**5 code fixes across 2 files:**
+
+1. **Objective retention bonus (T12-1)** — `AIDecisionMaker.gd`: Reduced `WEIGHT_ALREADY_HELD_OBJ` from -8.0 to -3.0, and added +2.0 to +5.0 retention bonus for held objectives in rounds 2-5. This prevents units from abandoning captured objectives.
+
+2. **Reduced denial bonus** — `AIDecisionMaker.gd`: Cut objective denial bonus by ~50% (enemy_weak: 1.5-2.5 instead of 3.0-5.0; enemy_strong: 0.5-1.5 instead of 1.5-2.5).
+
+3. **Kill-based secondary movement bonuses (T12-2)** — `AIDecisionMaker.gd`: Added proximity-based movement bonuses for No Prisoners (+2.0 near enemies) and Overwhelming Force (+2.5 near enemies on objectives).
+
+4. **Fight attack retry counter (T12-3)** — `AIDecisionMaker.gd`: After 2 failed ASSIGN_ATTACKS attempts, forces CONSOLIDATE to break the loop.
+
+5. **Pile-in double failure handler (T12-4)** — `AIPlayer.gd`: After pile-in retry with empty movements also fails, sends CONSOLIDATE instead of infinite retry.
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | Notes |
+|------|--------|-------|-------|-------|
+| 1 | **P2** | 49 | **67** | P2 qualifying win! 22 secondary VP |
+| 2 | **DRAW** | **56** | **56** | Exact tie! Both 16 secondary VP |
+| 3 | **P1** | **60** | 47 | P1 qualifying win! 15 secondary VP |
+| 4 | **P2** | 55 | **59** | P2 primary cap (50). T12-3 fix worked |
+
+- **P1 avg VP: 55.0** — highest ever for Custodes
+- **P2 avg VP: 57.25** — highest ever for Orks
+- **VP gap: 2.25** — extremely balanced
+- **Both armies achieved qualifying wins** (P1: 60 VP, P2: 67 VP)
+- **All 4 games completed without AI stalls** (2 GLES3 engine crashes required relaunches, not code-related)

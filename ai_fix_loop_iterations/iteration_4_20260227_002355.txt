@@ -1,0 +1,38 @@
+## Session 6 Summary
+
+### What I Investigated
+- WAAAGH! ability timing (was always fired Turn 1, wasting the once-per-battle ability)
+- REPLACE_SECONDARY_MISSION action handling (AI had zero logic to replace bad draws)
+- Secondary mission kill-target priority in shooting (kill_keywords only used in movement, not shooting)
+- New Orders swap thresholds (too conservative, rarely triggered)
+- Complete Ork army damage math vs Custodes (S4 AP0 BS5+ vs T6 Sv2+ = 0.93% per shot)
+
+### What I Fixed
+
+| Fix | File | Impact |
+|-----|------|--------|
+| **Smart WAAAGH! timing** | AIDecisionMaker.gd | Delays WAAAGH from Turn 1 to Turn 2+ when 2+ units in charge range. Consistent improvement in all 4 games. |
+| **REPLACE_SECONDARY_MISSION** | CommandPhase.gd + AIDecisionMaker.gd | Offers and evaluates newly drawn missions; replaces action-based dead cards (0.1 achievability) immediately for 1 CP. |
+| **Secondary kill-target priority** | AIDecisionMaker.gd | +40% priority boost in `_calculate_target_value()` for targets matching active secondary kill keywords (CHARACTER, VEHICLE, MONSTER). |
+| **Aggressive New Orders** | AIDecisionMaker.gd | Raised swap thresholds (0.25→0.35 early, 0.15→0.20 late) and lowered CP req (2→1). |
+
+### Game Results
+
+| Game | Winner | P1 (Custodes) | P2 (Orks) | Kills |
+|------|--------|---------------|-----------|-------|
+| 1 | CRASH | ~50 (35+15) | ~35 (30+3) | 5 Ork |
+| **2** | **P2** | 50 (40+10) | **67 (50+17)** | 5 Ork |
+| 3 | P1 | 54 (40+14) | 34 (25+9) | 2 Ork + **1 Custodes** |
+| 4 | P1 | 45 (40+5) | 25 (25+0) | 5 Ork |
+
+### Key Milestones
+- **Record Ork VP: 67** (50 primary + 17 secondary) — previous best was 55
+- **First Custodes unit kill ever** — Shield-Captain destroyed by Boyz in Game 3 (across 14+ previous games, 0 Custodes units had been killed)
+- **Mission cycling working perfectly** — Deploy Teleport Homer and Cleanse replaced every time they appeared, converting dead cards to scoreable missions
+- **WAAAGH! timing consistent** — held Round 1 in all 4 games, fired Round 2 with 3-5 units in range
+
+### What Still Needs Work
+- **High variance** — Orks swing from 25 to 67 VP depending on early character survival
+- **3 unattached characters** still die every game (5 characters, only 2 Boyz bodyguard squads)
+- **Ork offensive kills** remain rare — the Shield-Captain kill was a breakthrough but not typical
+- **Army composition** is the core constraint — adding more Boyz squads would provide bodyguards for remaining characters

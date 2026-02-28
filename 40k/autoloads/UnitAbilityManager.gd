@@ -192,14 +192,14 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
 	},
 
-	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds
+	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds only
 	"Daughters of the Abyss": {
 		"condition": "always",
-		"effects": [{"type": "grant_fnp", "value": 3}],
+		"effects": [{"type": "grant_fnp_psychic_mortal", "value": 3}],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Feel No Pain 3+ vs Psychic Attacks and mortal wounds (simplified: FNP 3+ always)"
+		"description": "Feel No Pain 3+ against Psychic Attacks and mortal wounds only"
 	},
 
 	# Custodes Blade Champion — once per battle advance and charge

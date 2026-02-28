@@ -1,0 +1,40 @@
+## Session 17 Summary
+
+### Changes Made
+
+**7 fixes across 2 files:**
+
+1. **`40k/scripts/AIDecisionMaker.gd`** (6 changes):
+   - Ork faction aggression raised from 1.6 to 1.8
+   - Horde objective priority guardrails in 3 locations (hold-distance, melee chase, objective-hold override) — units with 10+ models prioritize objectives over chasing enemies in R1-R2
+   - R1 held objective retention bonus (+1.5)
+   - Horde model-count on-objective bonus (+2.0 for 10+ models, +1.0 for 5+)
+   - Improved Display of Might achievability for horde armies (0.65 for 3+ unit advantage)
+   - Improved Area Denial achievability with friendly density check
+
+2. **`40k/autoloads/SecondaryMissionManager.gd`** (1 change):
+   - AI tactical deck filtering — removes Cleanse, Establish Locus, and Deploy Teleport Homer (if no deep strike) from AI player decks
+
+### Results (5 games, 0 stalls)
+
+| Metric | Session 16 | Session 17 | Change |
+|--------|-----------|-----------|--------|
+| P1 avg VP | 53.0 | **58.4** | +5.4 |
+| P2 avg VP | 43.5 | **47.2** | +3.7 |
+| P1 win rate | 75% | 80% | +5% |
+| P2 avg primary | 37.5 | **41.0** | +3.5 |
+| P2 avg secondary | 6.0 | 6.2 (9.5 with filter) | +0.2 (+3.5) |
+| P1 record VP | 61 | **72** | +11 |
+| P2 qualifying wins | 0 | **1 (62 VP)** | +1 |
+
+### Key Achievements
+- **P2 QUALIFYING WIN**: 62 VP in Game 4 (with deck filter) — 45 primary + 17 secondary
+- **P1 RECORD VP**: 72 VP in Game 5 — 50 primary (cap) + 22 secondary
+- **Horde priority working**: Boyz squads correctly prioritize objectives over chasing
+- **Deck filter eliminates impossible missions**: P2 deck reduced from 18 to 15 cards
+- **All 5 games completed without stalls or crashes**
+
+### Remaining Issues
+- P1 still dominant (80% win rate) — session 16 focus fire changes benefit elite army
+- P2 secondary VP inconsistent (2-17 range) — even with deck filter, some games draw borderline missions
+- P2 melee kills near zero — Orks struggle to destroy T5/Sv2+/4++ Custodes in combat

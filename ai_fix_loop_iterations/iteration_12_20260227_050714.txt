@@ -1,0 +1,30 @@
+## Session 14 Complete — Summary
+
+### Changes Made
+**File: `40k/scripts/AIDecisionMaker.gd`** — 6 improvements:
+
+1. **Early objective priority 0.85 → 0.95** — Units rush objectives faster for Round 2 scoring
+2. **Round 2 NML urgency +1.5** — NML objectives get extra priority in the first scoring round
+3. **Round 2 held/threatened retention +1.2** — Keep units on held objectives during first scoring
+4. **Held_threatened retention bonus** — New scaling bonus: +1.5 R2 → +3.75 R5 (prevents abandoning contested objectives)
+5. **Round-scaled on-objective bonus** — +5.0 R1 → +6.0 R2-3 → +7.0 R4-5 (staying put becomes more valuable)
+6. **Dynamic secondary achievability** — Area Denial now checks enemy density near center (returns 0.15-0.55 instead of flat 0.40); A Tempting Target now checks actual objective control state (returns 0.3-0.8 instead of flat 0.40)
+
+### Results (4 Games)
+
+| Game | Winner | P1 VP | P2 VP | Notes |
+|------|--------|-------|-------|-------|
+| 1 | **P2** | 48 | **62** | P2 hit primary cap, qualifying win |
+| 2 | **P1** | **61** | 57 | P1 hit primary cap, qualifying win |
+| 3 | **P2** | 62 | **67** | **Both qualifying!** Best balanced game |
+| 4 | **P2** | 45 | **74** | P2 74 VP — near all-time record |
+
+**Averages:** P1: 54.0 VP, P2: **65.0 VP** (best P2 average ever)
+
+**Key achievements:**
+- **P2 avg VP above 60 threshold** for the first time (65.0)
+- **3 of 4 games produced qualifying scores** (60+ VP)
+- **P2 hit primary VP cap in 3 of 4 games** — objective retention working
+- **P2 secondary VP avg 18.75** — best ever (was 13.5 last session)
+- **All 4 games stable** — no stalls, no crashes
+- **Both armies qualified in Game 3** (P1: 62, P2: 67)

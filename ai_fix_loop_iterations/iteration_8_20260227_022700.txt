@@ -1,0 +1,25 @@
+## Session 10 Summary
+
+### Bugs Fixed
+
+1. **CRITICAL: Per-player secondary awareness** (`AIDecisionMaker.gd`) — The `_secondary_awareness` static dict was shared between P1 and P2. P1 would build it with P1's missions, then P2 would find it non-empty and skip building its own, using P1's mission bonuses for P2's movement. Fixed by splitting into `_secondary_awareness_p1` / `_secondary_awareness_p2` with per-player round tracking.
+
+2. **Inaccurate Cull the Horde achievability** (`AIDecisionMaker.gd`) — Returned 0.50 for full-strength 20-model squads (nearly impossible to fully wipe in one turn). Now returns 0.15 for 11+ model squads, causing the AI to swap it via New Orders for a scoreable mission.
+
+3. **Inaccurate Behind Enemy Lines achievability** (`AIDecisionMaker.gd`) — Returned 0.60 unconditionally. Now checks actual unit proximity to enemy deployment zone.
+
+### Enhancements
+- Increased enemy zone push bonus from 3.5 to 6.0
+- Added diagnostic logging for secondary mission condition checks (PASS/FAIL per condition)
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | Notes |
+|------|--------|-------|-------|-------|
+| 1 | **P1** | **61** | 50 | **P1 QUALIFYING WIN!** 11 sec VP |
+| 2 | P1 | 45 | 43 | 2-point game! |
+| 3 | **P2** | 50 | **76** | **P2 QUALIFYING WIN!** Record 76 VP, 31 sec VP |
+| 4 | P1 | 53 | 23 | Custodes dominant |
+
+### Key Achievement
+**First qualifying wins for BOTH armies!** P1 scored 61 VP (Game 1) and P2 scored 76 VP (Game 3) — both with 5+ kills. The per-player secondary awareness fix unlocked secondary VP scoring for both armies, with P1 now averaging 9.75 secondary VP per game (was 0 in sessions 7-9) and P2 scoring a record 31 secondary VP in a single game.

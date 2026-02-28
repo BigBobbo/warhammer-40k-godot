@@ -26,6 +26,7 @@ const GRANT_INVULN = "grant_invuln"              # value: save threshold (e.g., 
 const GRANT_COVER = "grant_cover"                 # Benefit of Cover
 const GRANT_STEALTH = "grant_stealth"             # -1 to hit against this unit (ranged)
 const GRANT_FNP = "grant_fnp"                     # value: FNP threshold (e.g., 5 for 5+)
+const GRANT_FNP_PSYCHIC_MORTAL = "grant_fnp_psychic_mortal"  # value: FNP threshold, only vs psychic attacks and mortal wounds
 
 # Offensive weapon keyword grants (persistent flags on attacker unit)
 const GRANT_KEYWORD = "grant_keyword"             # keyword: String, scope: "melee"/"ranged"/"all"
@@ -86,6 +87,7 @@ const FLAG_INVULN = "effect_invuln"
 const FLAG_COVER = "effect_cover"
 const FLAG_STEALTH = "effect_stealth"
 const FLAG_FNP = "effect_fnp"
+const FLAG_FNP_PSYCHIC_MORTAL = "effect_fnp_psychic_mortal"  # FNP value that only applies vs psychic/mortal wounds
 const FLAG_PRECISION_MELEE = "effect_precision_melee"
 const FLAG_PRECISION_RANGED = "effect_precision_ranged"
 const FLAG_LETHAL_HITS = "effect_lethal_hits"
@@ -129,6 +131,7 @@ const _EFFECT_FLAG_MAP: Dictionary = {
 	GRANT_COVER: [{"flag": FLAG_COVER, "value": true}],
 	GRANT_STEALTH: [{"flag": FLAG_STEALTH, "value": true}],
 	GRANT_FNP: [{"flag": FLAG_FNP, "value_from": "value"}],
+	GRANT_FNP_PSYCHIC_MORTAL: [{"flag": FLAG_FNP_PSYCHIC_MORTAL, "value_from": "value"}],
 	GRANT_PRECISION: "use_scope",  # Special handling: scope determines flag
 	GRANT_LETHAL_HITS: [{"flag": FLAG_LETHAL_HITS, "value": true}],
 	GRANT_SUSTAINED_HITS: [{"flag": FLAG_SUSTAINED_HITS, "value": true}],
@@ -411,6 +414,14 @@ static func get_effect_fnp(unit: Dictionary) -> int:
 	"""Get the effect-granted FNP value (0 if none)."""
 	return unit.get("flags", {}).get(FLAG_FNP, 0)
 
+static func has_effect_fnp_psychic_mortal(unit: Dictionary) -> bool:
+	"""Check if a unit has an effect-granted FNP that only applies vs psychic attacks and mortal wounds."""
+	return unit.get("flags", {}).get(FLAG_FNP_PSYCHIC_MORTAL, 0) > 0
+
+static func get_effect_fnp_psychic_mortal(unit: Dictionary) -> int:
+	"""Get the conditional FNP value for psychic/mortal wounds (0 if none)."""
+	return unit.get("flags", {}).get(FLAG_FNP_PSYCHIC_MORTAL, 0)
+
 static func has_effect_precision_melee(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted PRECISION for melee attacks."""
 	return unit.get("flags", {}).get(FLAG_PRECISION_MELEE, false)
@@ -539,7 +550,7 @@ static func is_persistent_effect(effect_type: String) -> bool:
 static func get_all_persistent_flag_names() -> Array:
 	"""Get all possible effect flag names. Useful for comprehensive cleanup."""
 	return [
-		FLAG_INVULN, FLAG_COVER, FLAG_STEALTH, FLAG_FNP,
+		FLAG_INVULN, FLAG_COVER, FLAG_STEALTH, FLAG_FNP, FLAG_FNP_PSYCHIC_MORTAL,
 		FLAG_PRECISION_MELEE, FLAG_PRECISION_RANGED,
 		FLAG_LETHAL_HITS, FLAG_SUSTAINED_HITS, FLAG_DEVASTATING_WOUNDS,
 		FLAG_IGNORES_COVER, FLAG_LANCE, FLAG_TWIN_LINKED,

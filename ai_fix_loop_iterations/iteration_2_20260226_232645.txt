@@ -1,0 +1,35 @@
+## Summary
+
+This iteration made significant improvements to the Ork AI's competitive performance:
+
+### Key Changes Made
+
+1. **Fixed Ork over-aggression** (the biggest issue):
+   - Reduced faction aggression from 2.2 → 1.6
+   - Changed 3 code paths where Orks abandoned objectives to chase enemies at 999" distance, replacing with smart round-based limits (12-18")
+   - Added OC-aware hold decisions — Orks now stay on contested objectives instead of chasing distant enemies
+
+2. **Improved secondary mission management**:
+   - Added New Orders evaluation in Command Phase — AI can now swap unachievable missions
+   - Lowered action mission achievability from 0.4 → 0.1 (AI can't perform these actions, so it shouldn't hold dead cards)
+
+3. **Improved charge targeting**:
+   - Added focus charge bonus (+3.0) when friendly units already fighting same target
+   - Added kill-priority bonus (+3.0) when charge can likely destroy the target
+   - Added wounded-target bonus (+2.0) when charge does 50%+ of remaining wounds
+
+4. **Rebalanced strategy constants**:
+   - Early game objective weight 0.7 → 0.85 (objectives matter from round 1)
+   - Late game objective weight 1.4 → 1.6 (stronger late-game objective focus)
+
+### Results
+
+| Metric | Before (Session 3 avg) | After (Session 4 avg) | Change |
+|--------|----------------------|---------------------|--------|
+| Ork VP | 38 | 47 | +24% |
+| Ork Secondary VP | 1.3 | 10.3 | +690% |
+| Ork Primary VP | 35 | 38 | +9% |
+| VP Gap | 22 points | 8 points | -64% |
+| Closest Game | 15 pts apart | **1 point** (52-51) | - |
+
+**Game 3 was a 1-point game** (52-51) with the Orks scoring 21 secondary VP from 7 different mission types — the most competitive game yet.

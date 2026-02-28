@@ -1,0 +1,43 @@
+## Session 16 Summary
+
+### Changes Made
+
+**Kill-focused improvements:**
+- Tighter `OVERKILL_TOLERANCE`: 1.3 → 1.15 (concentrates fire on fewer targets)
+- Lower `MICRO_OVERKILL_DECAY`: 0.3 → 0.15 (stronger penalty for wasted damage)
+- Higher `MICRO_MODEL_KILL_VALUE`: 0.4 → 0.6 (reward model kills more)
+- Softer charge target suppression: 0.1 → 0.5 (still shoot charge targets at 50%)
+- Fight coordination overkill penalty: -4.0 → -2.0
+- Fight kill wipe bonus: +4.0 → +6.0
+- Charge kill bonuses: +3.0/+2.0 → +5.0/+3.0
+
+**Secondary VP improvements:**
+- Behind Enemy Lines achievability: realistic distance-based (was inflated at 0.35-0.60)
+- Bring it Down achievability: wound-count-based (was flat 0.50 regardless of target HP)
+- New Orders threshold: 0.35/0.20 → 0.45/0.30 (more aggressive swapping)
+- Mission replacement threshold: 0.15 → 0.25
+- All secondary movement bonuses increased by ~30%
+
+### Game Results
+
+| Game | Winner | P1 VP | P2 VP | P1 Kills | P2 Kills | P1 Sec | P2 Sec |
+|------|--------|-------|-------|----------|----------|--------|--------|
+| 1 | P2 | 35 | 45 | 4 | 1 | 0 | 5 |
+| 2 | P1 | 57 | 30 | 1 | 0 | 7 | 10 |
+| 3 | P1 | 59 | 52 | 3 | 0 | 14 | 2 |
+| 4 | **P1** | **61** | 47 | 3 | 1 | **16** | 7 |
+
+**P1 avg VP: 53.0** | **P2 avg VP: 43.5** | **P1 wins: 3/4**
+
+### Key Achievements
+- **P1 hit 61 VP in Game 4** — qualifying VP threshold reached!
+- **P1 secondary VP dramatically improved** — avg 12.3 in games 2-4 (was 11.5 in session 15)
+- **P1 killed Battlewagon in melee** — first-ever Custodes vehicle melee kill
+- **4 kills in Game 1** — focus fire improvements working
+- **All 4 games completed without stalls**
+
+### What Needs Work Next
+- **P2 (Orks) weakened** — avg VP 43.5 (was 55.75), wins only 25%, kills avg 0.5
+- **Kills still below 5 target** — P1 avg 2.75, P2 avg 0.5
+- **P2 secondary VP dropped** — avg 6.0 (was 12.0), needs better mission pursuit
+- The focus fire improvements helped P1 but may have made Custodes shooting MORE effective against Orks, shifting balance toward P1
