@@ -107,6 +107,9 @@ var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
 
+# Deployment zone toggle (Z key) - allows viewing zones after deployment phase
+var _deployment_zones_toggled_on: bool = false
+
 # Deployment unit hover preview (T5-UX11)
 var _hovered_deploy_unit_id: String = ""
 var _deploy_hover_tooltip: PanelContainer = null
@@ -3110,6 +3113,12 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Deployment zone toggle - 'z' to show/hide deployment zones
+	if event is InputEventKey and event.pressed and event.keycode == KEY_Z:
+		_toggle_deployment_zones()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with 't' key
@@ -5098,6 +5107,37 @@ func update_deployment_zone_visibility() -> void:
 			p2_zone.set_active(true)
 			p2_zone.border_color = Color(1, 0.3, 0, 1)
 
+func _toggle_deployment_zones() -> void:
+	# During deployment phase, zones are always visible - no toggling needed
+	if current_phase == GameStateData.Phase.DEPLOYMENT:
+		print("Main: Deployment zones are always visible during deployment phase")
+		return
+
+	_deployment_zones_toggled_on = not _deployment_zones_toggled_on
+	print("Main: Deployment zones toggled %s" % ("ON" if _deployment_zones_toggled_on else "OFF"))
+
+	if _deployment_zones_toggled_on:
+		# Show both zones with semi-transparent coloring
+		p1_zone.modulate = Color(0, 0, 1, 0.3)
+		p2_zone.modulate = Color(1, 0, 0, 0.3)
+		p1_zone.visible = true
+		p2_zone.visible = true
+		if p1_zone.has_method("set_active"):
+			p1_zone.set_active(true)
+			p1_zone.border_color = Color(0, 0.3, 1, 1)
+		if p2_zone.has_method("set_active"):
+			p2_zone.set_active(true)
+			p2_zone.border_color = Color(1, 0.3, 0, 1)
+		ToastManager.show_toast("Deployment zones shown (Z to hide)", Color(0.6, 0.6, 0.8), 2.0)
+	else:
+		p1_zone.visible = false
+		p2_zone.visible = false
+		if p1_zone.has_method("set_active"):
+			p1_zone.set_active(false)
+		if p2_zone.has_method("set_active"):
+			p2_zone.set_active(false)
+		ToastManager.show_toast("Deployment zones hidden (Z to show)", Color(0.6, 0.6, 0.8), 2.0)
+
 # Phase management handlers
 func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	# Stop processing phase changes if the game has ended
@@ -5511,6 +5551,19 @@ func update_ui_for_phase() -> void:
 			# Show unit list and unit card
 			unit_list.visible = true
 			unit_card.visible = true
+
+	# Override zone visibility if toggle is active (outside deployment phase)
+	if _deployment_zones_toggled_on and current_phase != GameStateData.Phase.DEPLOYMENT:
+		p1_zone.visible = true
+		p2_zone.visible = true
+		p1_zone.modulate = Color(0, 0, 1, 0.3)
+		p2_zone.modulate = Color(1, 0, 0, 0.3)
+		if p1_zone.has_method("set_active"):
+			p1_zone.set_active(true)
+			p1_zone.border_color = Color(0, 0.3, 1, 1)
+		if p2_zone.has_method("set_active"):
+			p2_zone.set_active(true)
+			p2_zone.border_color = Color(1, 0.3, 0, 1)
 
 	refresh_unit_list()
 	update_ui()
