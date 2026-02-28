@@ -7656,6 +7656,19 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 					"_ai_description": grenade_eval.description
 				}
 
+	# Step 4.7: Check for secondary mission actions (Establish Locus, Cleanse, Deploy Teleport Homer)
+	# Low-firepower units in scoring positions should perform actions instead of shooting
+	if action_types.has("PERFORM_SECONDARY_ACTION"):
+		var best_action = _evaluate_secondary_actions(snapshot, action_types, player)
+		if not best_action.is_empty():
+			var a_unit = snapshot.get("units", {}).get(best_action.get("actor_unit_id", ""), {})
+			var a_name = a_unit.get("meta", {}).get("name", best_action.get("actor_unit_id", ""))
+			var a_desc = best_action.get("payload", {}).get("action_name", "")
+			print("AIDecisionMaker: %s performs action '%s' instead of shooting" % [a_name, a_desc])
+			_add_thinking_step("%s performs %s (secondary mission action)" % [a_name, a_desc])
+			best_action["_ai_description"] = "%s performs %s" % [a_name, a_desc]
+			return best_action
+
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
@@ -12354,14 +12367,112 @@ static func _assess_marked_for_death(units: Dictionary, mission: Dictionary) -> 
 		return 0.35  # Only gamma left (2 VP) — keep but may swap
 	return 0.0
 
+static func _evaluate_secondary_actions(snapshot: Dictionary, action_types: Dictionary, player: int) -> Dictionary:
+	"""Evaluate PERFORM_SECONDARY_ACTION options and return the best one, or empty dict if none worth it.
+	Compares VP value of performing action vs estimated shooting damage output.
+	Low-firepower units in high-VP positions should perform actions."""
+	var actions = action_types.get("PERFORM_SECONDARY_ACTION", [])
+	if actions.is_empty():
+		return {}
+
+	var best_action = {}
+	var best_score = 0.0
+
+	for action in actions:
+		var unit_id = action.get("actor_unit_id", "")
+		var payload = action.get("payload", {})
+		var vp_value = payload.get("vp_value", 0)
+		var action_name = payload.get("action_name", "")
+
+		if unit_id == "" or vp_value <= 0:
+			continue
+
+		# Estimate how much shooting damage we'd lose by performing the action
+		var shooting_value = _estimate_unit_shooting_value(snapshot, unit_id, player)
+
+		# Score: VP value (weighted heavily) minus shooting loss
+		# A 5 VP action is worth giving up ~3-4 expected wounds of shooting
+		# A 3 VP action is worth giving up ~1-2 expected wounds
+		# A 2 VP action (single cleanse) is marginal
+		var action_score = float(vp_value) * 1.5 - shooting_value
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("AIDecisionMaker: [SecondaryAction] %s — %s: VP=%d, shooting_value=%.1f, score=%.1f" % [
+			unit_name, action_name, vp_value, shooting_value, action_score])
+
+		if action_score > best_score:
+			best_score = action_score
+			best_action = action
+
+	# Only perform if net positive (VP value exceeds shooting cost)
+	if best_score > 0:
+		return best_action
+
+	return {}
+
+static func _estimate_unit_shooting_value(snapshot: Dictionary, unit_id: String, player: int) -> float:
+	"""Quick estimate of expected unsaved wounds from a unit's ranged weapons.
+	Used to evaluate opportunity cost of giving up shooting to perform an action."""
+	var unit = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return 0.0
+
+	var weapons = unit.get("meta", {}).get("weapons", [])
+	var total_expected_wounds = 0.0
+
+	for weapon in weapons:
+		if weapon.get("type", "").to_lower() != "ranged":
+			continue
+
+		# Parse weapon stats
+		var attacks_str = str(weapon.get("attacks", "1"))
+		var attacks = 0.0
+		if attacks_str.contains("D"):
+			# Variable attacks like "D6" or "2D6" — use average
+			if attacks_str.begins_with("D"):
+				var die_size = int(attacks_str.substr(1))
+				attacks = (die_size + 1.0) / 2.0
+			else:
+				var parts = attacks_str.split("D")
+				var count = int(parts[0]) if parts[0] != "" else 1
+				var die_size = int(parts[1]) if parts.size() > 1 else 6
+				attacks = count * (die_size + 1.0) / 2.0
+		else:
+			attacks = float(attacks_str)
+
+		var bs = int(weapon.get("bs", weapon.get("skill", 4)))
+		var hit_prob = (7.0 - bs) / 6.0  # e.g. BS 3+ = 4/6 = 0.667
+
+		# Rough wound probability — assume average target T5, weapon S4
+		var strength = int(weapon.get("strength", weapon.get("s", 4)))
+		var wound_prob = 0.5  # Default: S == T
+		# Against typical T5 target:
+		if strength >= 10:  # S >= 2T, wound on 2+
+			wound_prob = 5.0 / 6.0
+		elif strength >= 5:  # S > T, wound on 3+
+			wound_prob = 4.0 / 6.0
+		elif strength >= 3:  # S == T or slightly lower
+			wound_prob = 3.0 / 6.0
+		else:  # S < half T
+			wound_prob = 1.0 / 6.0
+
+		# Rough save — assume 3+ save, no AP = 3/6 saves, -1 AP = 2/6 saves, etc.
+		var ap = abs(int(weapon.get("ap", 0)))
+		var save_fail_prob = min(1.0, (3.0 + ap) / 6.0)  # Against 3+ save
+
+		var expected_wounds = attacks * hit_prob * wound_prob * save_fail_prob
+		total_expected_wounds += expected_wounds
+
+	return total_expected_wounds
+
 static func _assess_action_mission(units: Dictionary, player: int) -> float:
 	"""Generic assessment for action-based missions (Establish Locus, Cleanse, Deploy Teleport Homer).
-	These require performing actions during the shooting phase. The AI currently does not have
-	logic to perform these actions, so rate them as low achievability to encourage discarding
-	in favor of missions the AI can actually score."""
-	# AI cannot currently perform shooting-phase actions for secondary missions
-	# Rate low so the AI swaps these for missions it CAN score
-	return 0.1  # Low achievability — AI lacks action-performing logic
+	These require performing actions during the shooting phase. The AI can perform these actions
+	by giving up shooting with a unit in a qualifying position."""
+	# AI can now perform shooting-phase actions — moderate achievability
+	# Depends on having units in scoring positions (near center, in opponent zone, near objectives)
+	return 0.65  # Moderate achievability — AI can perform these if positioned well
 
 # =============================================================================
 # T7-25: SECONDARY MISSION AWARENESS — COMMAND PHASE ANALYSIS

@@ -56,6 +56,7 @@ var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
 var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
+var perform_action_button: Button  # Secondary mission action button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
 var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
@@ -427,6 +428,17 @@ func _setup_right_panel() -> void:
 	shooting_panel.add_child(shoot_all_remaining_button)
 	_update_shoot_all_remaining_button()
 
+	# Secondary mission action button (Establish Locus, Cleanse, Deploy Teleport Homer)
+	perform_action_button = Button.new()
+	perform_action_button.name = "PerformActionButton"
+	perform_action_button.text = "Perform Action"
+	perform_action_button.custom_minimum_size = Vector2(230, 35)
+	perform_action_button.pressed.connect(_on_perform_action_pressed)
+	perform_action_button.tooltip_text = "Give up shooting to perform a secondary mission action"
+	WhiteDwarfTheme.apply_to_button(perform_action_button)
+	shooting_panel.add_child(perform_action_button)
+	perform_action_button.visible = false  # Hidden until a unit qualifies
+
 	# Dice log
 	shooting_panel.add_child(HSeparator.new())
 	
@@ -656,6 +668,7 @@ func _refresh_unit_list() -> void:
 
 	# T5-UX3: Update shoot all remaining button when unit list refreshes
 	_update_shoot_all_remaining_button()
+	_update_perform_action_button()
 
 func _refresh_weapon_tree() -> void:
 	if not weapon_tree or active_shooter_id == "":
@@ -1469,6 +1482,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	_highlight_targets()
 	_refresh_weapon_tree()
 	_update_ui_state()
+	_update_perform_action_button()
 	_show_range_indicators()
 
 	# Visualize LoS to all eligible targets
@@ -3050,6 +3064,73 @@ func _update_shoot_all_remaining_button() -> void:
 		return
 
 	shoot_all_remaining_button.visible = true
+
+func _update_perform_action_button() -> void:
+	"""Show/hide the Perform Action button based on active shooter's position and player's action missions."""
+	if not perform_action_button:
+		return
+
+	if not current_phase or not current_phase is ShootingPhase:
+		perform_action_button.visible = false
+		return
+
+	if active_shooter_id == "":
+		perform_action_button.visible = false
+		return
+
+	# Check if there are action options for the active shooter
+	var options = current_phase._get_secondary_action_options(active_shooter_id)
+	if options.is_empty():
+		perform_action_button.visible = false
+		return
+
+	# Use the best (highest VP) option for button text
+	var best_option = options[0]
+	for opt in options:
+		if opt.get("vp_value", 0) > best_option.get("vp_value", 0):
+			best_option = opt
+
+	perform_action_button.text = best_option.get("description", "Perform Action")
+	perform_action_button.set_meta("action_option", best_option)
+	perform_action_button.visible = true
+	perform_action_button.disabled = false
+
+func _on_perform_action_pressed() -> void:
+	"""Handle Perform Action button click — unit gives up shooting to perform secondary mission action."""
+	if active_shooter_id == "" or not perform_action_button:
+		return
+
+	var option = perform_action_button.get_meta("action_option") if perform_action_button.has_meta("action_option") else null
+	if option == null:
+		print("ShootingController: ERROR - No action_option metadata on perform_action_button")
+		return
+
+	var action_name = option.get("action_name", "")
+	var unit_id = active_shooter_id
+
+	print("ShootingController: Perform Action pressed — %s performs '%s'" % [unit_id, action_name])
+
+	# Emit the action
+	shoot_action_requested.emit({
+		"type": "PERFORM_SECONDARY_ACTION",
+		"actor_unit_id": unit_id,
+		"payload": {
+			"action_name": action_name,
+			"location": option.get("location", ""),
+			"mission_id": option.get("mission_id", ""),
+		}
+	})
+
+	# Reset shooter state
+	active_shooter_id = ""
+	weapon_assignments.clear()
+	assignment_history.clear()
+	eligible_targets.clear()
+	selected_target_id = ""
+
+	# Hide the button and refresh
+	perform_action_button.visible = false
+	_refresh_unit_list()
 
 func _update_ui_state() -> void:
 	print("╔═══════════════════════════════════════════════════════════════")

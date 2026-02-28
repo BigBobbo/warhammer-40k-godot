@@ -242,6 +242,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_distraction_grot(action)
 		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
 			return _validate_decline_distraction_grot(action)
+		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
+			return _validate_perform_secondary_action(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -320,6 +322,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
 			print("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
 			return _process_decline_distraction_grot(action)
+		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
+			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
+			return _process_perform_secondary_action(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -429,6 +434,32 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 
 func _validate_end_shooting(action: Dictionary) -> Dictionary:
 	# Can always end the phase
+	return {"valid": true, "errors": []}
+
+func _validate_perform_secondary_action(action: Dictionary) -> Dictionary:
+	"""Validate a unit performing a secondary mission action instead of shooting."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
+	if not _can_unit_shoot(unit):
+		return {"valid": false, "errors": ["Unit is not eligible to perform an action (same requirements as shooting)"]}
+
+	if unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
+
+	var action_name = action.get("payload", {}).get("action_name", "")
+	if action_name == "":
+		return {"valid": false, "errors": ["Missing action_name in payload"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_shoot(action: Dictionary) -> Dictionary:
@@ -986,6 +1017,199 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	log_phase_message("Skipped shooting for %s" % unit.get("meta", {}).get("name", unit_id))
 	
 	return create_result(true, changes)
+
+func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
+	"""Process a unit performing a secondary mission action (gives up shooting)."""
+	var unit_id = action.get("actor_unit_id", "")
+	var payload = action.get("payload", {})
+	var action_name = payload.get("action_name", "")
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = get_current_player()
+
+	print("ShootingPhase: %s performs action '%s' (gives up shooting)" % [unit_name, action_name])
+
+	# Mark unit as having shot (it gave up shooting to perform the action)
+	units_that_shot.append(unit_id)
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	# Clear active state if this unit was selected
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+
+	# Determine location context for the action
+	var action_data = {
+		"action_name": action_name,
+		"completed": true,
+		"unit_id": unit_id,
+	}
+
+	match action_name:
+		"Establish Locus":
+			action_data["location"] = _determine_locus_location(unit_id, player)
+		"Deploy Teleport Homer":
+			action_data["location"] = _determine_homer_location(unit_id, player)
+		"Cleanse":
+			action_data["location"] = "objective"
+			var obj_id = _determine_cleanse_objective(unit_id)
+			if obj_id != "":
+				action_data["objective_id"] = obj_id
+
+	# Report action completion to SecondaryMissionManager
+	SecondaryMissionManager.on_action_completed(player, action_data)
+
+	log_phase_message("%s performs %s (gives up shooting)" % [unit_name, action_name])
+
+	return create_result(true, changes)
+
+func _determine_locus_location(unit_id: String, player: int) -> String:
+	"""Determine location qualifier for Establish Locus: 'opponent_zone' or 'center'."""
+	var unit = get_unit(unit_id)
+	var opponent = 2 if player == 1 else 1
+	var opponent_zone = SecondaryMissionManager._get_deployment_zone_polygon(opponent)
+
+	# Check opponent zone first (higher VP)
+	if not opponent_zone.is_empty() and SecondaryMissionManager._is_unit_wholly_in_zone(unit, opponent_zone):
+		return "opponent_zone"
+
+	# Check within 6" of board center
+	var board_width = GameState.state.get("board", {}).get("size", {}).get("width", 44)
+	var board_height = GameState.state.get("board", {}).get("size", {}).get("height", 60)
+	var center_px = Vector2(
+		Measurement.inches_to_px(board_width / 2.0),
+		Measurement.inches_to_px(board_height / 2.0)
+	)
+	if SecondaryMissionManager._has_model_within_range(unit, center_px, Measurement.inches_to_px(6.0)):
+		return "center"
+
+	return "other"
+
+func _determine_homer_location(unit_id: String, player: int) -> String:
+	"""Determine location qualifier for Deploy Teleport Homer: 'opponent_zone' or 'other'."""
+	var unit = get_unit(unit_id)
+	var opponent = 2 if player == 1 else 1
+	var opponent_zone = SecondaryMissionManager._get_deployment_zone_polygon(opponent)
+
+	if not opponent_zone.is_empty() and SecondaryMissionManager._is_unit_wholly_in_zone(unit, opponent_zone):
+		return "opponent_zone"
+
+	return "other"
+
+func _determine_cleanse_objective(unit_id: String) -> String:
+	"""Find the objective within 3\" of a unit's model for Cleanse action. Returns objective id or empty."""
+	var unit = get_unit(unit_id)
+	var objectives = GameState.state.get("board", {}).get("objectives", [])
+	var control_radius = Measurement.inches_to_px(3.0)
+
+	for obj in objectives:
+		var obj_pos = obj.get("position", Vector2.ZERO)
+		if obj_pos == Vector2.ZERO:
+			continue
+		if SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
+			return obj.get("id", "")
+
+	return ""
+
+func _get_secondary_action_options(unit_id: String) -> Array:
+	"""Get available secondary action options for a unit based on its position.
+	Returns array of dicts: [{action_name, location, description, mission_id}]"""
+	var player = get_current_player()
+	var options = []
+
+	var action_missions = SecondaryMissionManager.get_action_missions_for_player(player)
+	if action_missions.is_empty():
+		return options
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return options
+
+	var opponent = 2 if player == 1 else 1
+	var opponent_zone = SecondaryMissionManager._get_deployment_zone_polygon(opponent)
+	var board_width = GameState.state.get("board", {}).get("size", {}).get("width", 44)
+	var board_height = GameState.state.get("board", {}).get("size", {}).get("height", 60)
+	var center_px = Vector2(
+		Measurement.inches_to_px(board_width / 2.0),
+		Measurement.inches_to_px(board_height / 2.0)
+	)
+
+	for mission in action_missions:
+		var mission_id = mission.get("id", "")
+		var action_info = mission.get("action", {})
+		var action_name = action_info.get("name", "")
+
+		match mission_id:
+			"establish_locus":
+				# Check if unit is in opponent zone (5 VP) or within 6" of center (3 VP)
+				var in_opp_zone = not opponent_zone.is_empty() and SecondaryMissionManager._is_unit_wholly_in_zone(unit, opponent_zone)
+				var near_center = SecondaryMissionManager._has_model_within_range(unit, center_px, Measurement.inches_to_px(6.0))
+
+				if in_opp_zone:
+					options.append({
+						"action_name": action_name,
+						"location": "opponent_zone",
+						"description": "Establish Locus in opponent zone (5 VP)",
+						"mission_id": mission_id,
+						"vp_value": 5
+					})
+				elif near_center:
+					options.append({
+						"action_name": action_name,
+						"location": "center",
+						"description": "Establish Locus near center (3 VP)",
+						"mission_id": mission_id,
+						"vp_value": 3
+					})
+
+			"deploy_teleport_homer":
+				var in_opp_zone = not opponent_zone.is_empty() and SecondaryMissionManager._is_unit_wholly_in_zone(unit, opponent_zone)
+
+				if in_opp_zone:
+					options.append({
+						"action_name": action_name,
+						"location": "opponent_zone",
+						"description": "Deploy Homer in opponent zone (5 VP)",
+						"mission_id": mission_id,
+						"vp_value": 5
+					})
+				else:
+					# Can deploy homer anywhere (3 VP)
+					options.append({
+						"action_name": action_name,
+						"location": "other",
+						"description": "Deploy Teleport Homer (3 VP)",
+						"mission_id": mission_id,
+						"vp_value": 3
+					})
+
+			"cleanse":
+				# Check if unit has a model within 3" of an objective
+				var objectives = GameState.state.get("board", {}).get("objectives", [])
+				var control_radius = Measurement.inches_to_px(3.0)
+				for obj in objectives:
+					var obj_pos = obj.get("position", Vector2.ZERO)
+					if obj_pos == Vector2.ZERO:
+						continue
+					if SecondaryMissionManager._has_model_within_range(unit, obj_pos, control_radius):
+						var obj_id = obj.get("id", "unknown")
+						options.append({
+							"action_name": action_name,
+							"location": "objective",
+							"description": "Cleanse %s (2-5 VP)" % obj_id,
+							"mission_id": mission_id,
+							"vp_value": 2,
+							"objective_id": obj_id
+						})
+						break  # One cleanse per unit
+
+	return options
 
 func _process_end_shooting(action: Dictionary) -> Dictionary:
 	log_phase_message("Ending Shooting Phase")
@@ -2555,6 +2779,21 @@ func get_available_actions() -> Array:
 				"actor_unit_id": unit_id,
 				"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
 			})
+
+			# Check if unit qualifies for a secondary action
+			var action_options = _get_secondary_action_options(unit_id)
+			for opt in action_options:
+				actions.append({
+					"type": "PERFORM_SECONDARY_ACTION",
+					"actor_unit_id": unit_id,
+					"payload": {
+						"action_name": opt.action_name,
+						"location": opt.location,
+						"mission_id": opt.mission_id,
+						"vp_value": opt.get("vp_value", 0),
+					},
+					"description": "%s: %s" % [unit.get("meta", {}).get("name", unit_id), opt.description]
+				})
 
 	# Always can end phase
 	actions.append({

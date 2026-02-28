@@ -115,14 +115,8 @@ func _filter_unachievable_missions_for_ai(deck_ids: Array, player: int) -> int:
 			has_deep_strike = true
 			break
 
-	# Action-based missions require shooting-phase actions the AI can't perform
-	# AND some require deep strike specifically
+	# Missions that are impossible for specific army compositions
 	var impossible_mission_ids = []
-
-	# These missions require performing a shooting-phase action near objectives
-	# The AI has no logic to perform these actions at all
-	impossible_mission_ids.append("cleanse")
-	impossible_mission_ids.append("establish_locus")
 
 	# Deploy Teleport Homer requires deep strike — impossible without it
 	if not has_deep_strike:
@@ -1232,6 +1226,18 @@ func get_discard_size(player: int) -> int:
 func is_initialized(player: int) -> bool:
 	"""Check if player's secondary missions are set up."""
 	return _player_state[str(player)]["initialized"]
+
+func get_action_missions_for_player(player: int) -> Array:
+	"""Get active missions that require a shooting-phase action (e.g. Establish Locus, Cleanse, Deploy Teleport Homer).
+	Returns array of mission dicts with requires_action: true and action.phase == 'shooting'."""
+	var result = []
+	var active = _player_state[str(player)]["active"]
+	for mission in active:
+		if mission.get("requires_action", false):
+			var action_info = mission.get("action", {})
+			if action_info.get("phase", "") == "shooting":
+				result.append(mission)
+	return result
 
 func get_vp_summary() -> Dictionary:
 	"""Get VP summary for both players including secondary VP."""

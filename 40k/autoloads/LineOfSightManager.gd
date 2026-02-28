@@ -27,11 +27,11 @@ func _ready() -> void:
 	name = "LineOfSightManager"
 	set_process_unhandled_input(true)
 	set_process(false)  # Only process when calculating
-	print("[LineOfSightManager] Initialized - Hold 'V' to check what can see the cursor position")
+	print("[LineOfSightManager] Initialized - Hold 'G' to check what can see the cursor position")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
-		if event.keycode == KEY_V:
+		if event.keycode == KEY_G:
 			if event.pressed:
 				start_los_calculation()
 			else:
