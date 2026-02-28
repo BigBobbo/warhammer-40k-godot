@@ -123,6 +123,9 @@ var _deploy_hover_tooltip_label: RichTextLabel = null
 # P3-54: Keyboard shortcut reference overlay during deployment
 var _keyboard_shortcut_overlay: KeyboardShortcutOverlay = null
 
+# P3-55: Measuring tape button visible during deployment
+var _measuring_tape_button: Button = null
+
 # Player scores and CP display (top bar)
 var _p1_score_label: Label = null
 var _p2_score_label: Label = null
@@ -294,6 +297,9 @@ func _ready() -> void:
 
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
+
+	# P3-55: Setup measuring tape button (after reserves button so we can position relative to it)
+	_setup_measuring_tape_button()
 
 	# Setup deployment hover tooltip (T5-UX11)
 	_setup_deploy_hover_tooltip()
@@ -2762,6 +2768,53 @@ func _setup_keyboard_shortcut_overlay() -> void:
 	add_child(_keyboard_shortcut_overlay)
 	print("[Main] P3-54: Keyboard shortcut overlay created")
 
+func _setup_measuring_tape_button() -> void:
+	# P3-55: Create a visible measuring tape button in HUD_Right during deployment
+	var hud_right = get_node_or_null("HUD_Right/VBoxContainer")
+	if not hud_right:
+		print("Main: HUD_Right/VBoxContainer not found for measuring tape button")
+		return
+
+	_measuring_tape_button = Button.new()
+	_measuring_tape_button.name = "MeasuringTapeButton"
+	_measuring_tape_button.text = "Measuring Tape (T)"
+	_measuring_tape_button.tooltip_text = "Hold T and drag to measure distance.\nPress Y to clear all measurements.\nPress ? for all shortcuts."
+	_measuring_tape_button.visible = false
+	_measuring_tape_button.custom_minimum_size = Vector2(0, 36)
+
+	# Style with WhiteDwarfTheme
+	_WhiteDwarfTheme.apply_to_button(_measuring_tape_button)
+
+	_measuring_tape_button.add_theme_font_size_override("font_size", 13)
+
+	_measuring_tape_button.pressed.connect(_on_measuring_tape_button_pressed)
+
+	# Insert after the reserves button (or after unit list if reserves button doesn't exist)
+	if reserves_button:
+		var reserves_idx = reserves_button.get_index()
+		hud_right.add_child(_measuring_tape_button)
+		hud_right.move_child(_measuring_tape_button, reserves_idx + 1)
+	else:
+		var unit_list_idx = unit_list.get_index()
+		hud_right.add_child(_measuring_tape_button)
+		hud_right.move_child(_measuring_tape_button, unit_list_idx + 1)
+
+	print("Main: P3-55 Measuring tape button created and added to HUD_Right")
+
+func _on_measuring_tape_button_pressed() -> void:
+	# P3-55: Start a measurement from the center of the viewport when button is clicked
+	# This gives the user a visual hint that the tool is active; they can then hold T to measure
+	print("Main: Measuring tape button pressed - starting measurement from viewport center")
+	if MeasuringTapeManager.is_measuring:
+		# If already measuring, cancel the current one
+		MeasuringTapeManager.cancel_measurement()
+		print("Main: Cancelled active measurement")
+	else:
+		var mouse_pos = get_viewport().get_mouse_position()
+		var world_pos = screen_to_world_position(mouse_pos)
+		MeasuringTapeManager.start_measurement(world_pos)
+		print("Main: Started measurement at mouse position - drag to measure, release T or click to complete")
+
 func setup_command_controller() -> void:
 	print("Setting up CommandController...")
 	command_controller = preload("res://scripts/CommandController.gd").new()
@@ -3640,6 +3693,10 @@ func update_ui() -> void:
 			# Show reserves button during deployment phase
 			if reserves_button:
 				reserves_button.visible = current_phase == GameStateData.Phase.DEPLOYMENT and not all_deployed
+
+			# P3-55: Keep measuring tape button visible throughout deployment
+			if _measuring_tape_button:
+				_measuring_tape_button.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
 
 			if all_deployed:
 				phase_action_button.disabled = false
@@ -5606,6 +5663,10 @@ func update_ui_for_phase() -> void:
 		deployment_progress_container.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
 		if current_phase == GameStateData.Phase.DEPLOYMENT:
 			_update_deployment_progress()
+
+	# P3-55: Show/hide measuring tape button based on phase
+	if _measuring_tape_button:
+		_measuring_tape_button.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
 
 	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6 + T5-MP8)
 	_update_waiting_for_opponent_overlay()

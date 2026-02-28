@@ -134,10 +134,8 @@ Both players reveal simultaneously, then deployment begins.
 ### 8. Deployment Summary Before Ending Phase — IMPLEMENTED
 **Status**: **Implemented.** `DeploymentSummaryDialog.gd` shows deployed units, transports, attached characters, and reserves with explicit confirmation.
 
-### 9. Measuring Tool During Deployment
-**Issue**: A measuring tape tool exists (`MeasuringTapeManager`) but there is no visible button or clear keybind to activate it during deployment specifically.
-
-**Recommendation**: Ensure the measuring tape is easily accessible during deployment (visible button or tooltip showing the keybind).
+### 9. Measuring Tool During Deployment — IMPLEMENTED
+**Status**: **Implemented (P3-55).** A "Measuring Tape (T)" button is now visible in the HUD_Right panel during deployment. The button has a tooltip explaining keybinds (Hold T to measure, Y to clear, ? for all shortcuts). Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_measuring_tape_button()`, shown only during deployment phase.
 
 ### 10. Replay/History of Opponent's Deployment
 **Issue**: In multiplayer, when the opponent deploys a unit, the local player may miss it. There is no camera pan or notification on opponent deployment.
@@ -264,7 +262,7 @@ Both players reveal simultaneously, then deployment begins.
 | TITANIC deployment skip | **Low** | Low | Rules | **DONE** |
 | Per-model undo | **Medium** | Low | QoL | Open |
 | Coherency distance display | **Medium** | Low | QoL | **DONE** |
-| Measuring tool accessibility | **Low** | Low | QoL | Open |
+| Measuring tool accessibility | **Low** | Low | QoL | **DONE** |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
 | Keyboard shortcut reference | **Low** | Low | QoL | **DONE** |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
