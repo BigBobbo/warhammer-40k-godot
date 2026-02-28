@@ -76,7 +76,11 @@ func process_action(action: Dictionary) -> Dictionary:
 		# Deployment actions
 		"DEPLOY_UNIT":
 			return process_deploy_unit(action)
+		"COMPOSITE_DEPLOY":
+			return _delegate_to_current_phase(action)
 		"EMBARK_UNITS_DEPLOYMENT":
+			return _delegate_to_current_phase(action)
+		"ATTACH_CHARACTER_DEPLOYMENT":
 			return _delegate_to_current_phase(action)
 		"PLACE_IN_RESERVES":
 			return _delegate_to_current_phase(action)
@@ -332,7 +336,7 @@ func apply_result(result: Dictionary) -> void:
 	# emit the UI signal. Otherwise, let TurnManager compute the correct switch
 	# based on post-diff state.
 	var action_type = result.get("action_type", "")
-	var deployment_actions = ["DEPLOY_UNIT", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]
+	var deployment_actions = ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]
 	if action_type in deployment_actions and GameState.get_current_phase() == GameStateData.Phase.DEPLOYMENT:
 		var turn_manager = get_node_or_null("/root/TurnManager")
 		if turn_manager:

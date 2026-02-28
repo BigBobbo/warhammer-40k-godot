@@ -638,110 +638,104 @@ func _complete_deployment() -> void:
 			bodyguard_positions.append(pos)
 		bodyguard_rotations = temp_rotations.duplicate()
 
-	# Note: Don't set "player" here - NetworkIntegration will add the correct local player ID
-	# This ensures the action uses the actual local player, not just whoever's turn it is
-	var deployment_action = {
-		"type": "DEPLOY_UNIT",
-		"unit_id": unit_id,
-		"model_positions": bodyguard_positions,
-		"model_rotations": bodyguard_rotations,
-		"phase": GameStateData.Phase.DEPLOYMENT,
-		"timestamp": Time.get_unix_time_from_system()
-	}
+	# P2-43: Bundle deploy + embark/attach into a single COMPOSITE_DEPLOY action
+	# to fix race condition where embark/attach actions arrive after player switch
+	# in multiplayer. The composite action is processed atomically so the turn
+	# switch only happens after all sub-actions complete.
+	var has_embark = pending_embark_units.size() > 0
+	var has_combined_chars = is_combined_deployment and char_positions_map.size() > 0
+	var has_attach = pending_attach_characters.size() > 0
 
-	# Route through NetworkIntegration (handles multiplayer and single-player)
-	var result = NetworkIntegration.route_action(deployment_action)
+	if has_embark or has_attach or has_combined_chars:
+		print("[DeploymentController] ===== COMPOSITE DEPLOY (P2-43) =====")
+		print("[DeploymentController] Building atomic composite action for unit: %s" % unit_id)
+		print("[DeploymentController] has_embark=%s, has_combined_chars=%s, has_attach=%s" % [str(has_embark), str(has_combined_chars), str(has_attach)])
 
-	if result.success:
-		if result.get("pending", false):
-			print("[DeploymentController] Deployment submitted to network for unit: ", unit_id)
-		else:
-			print("[DeploymentController] Deployment successful for unit: ", unit_id)
-			print("[DeploymentController] Action should trigger turn switch")
+		# Build the composite action with all sub-actions bundled
+		var composite_action = {
+			"type": "COMPOSITE_DEPLOY",
+			"unit_id": unit_id,
+			"model_positions": bodyguard_positions,
+			"model_rotations": bodyguard_rotations,
+			"phase": GameStateData.Phase.DEPLOYMENT,
+			"timestamp": Time.get_unix_time_from_system()
+		}
 
-		# Handle embarkation if units were selected
-		if pending_embark_units.size() > 0:
-			print("[DeploymentController] ===== EMBARKATION TRIGGERED =====")
-			print("[DeploymentController] Transport: %s, Units: %s" % [unit_id, str(pending_embark_units)])
-
-			DebugLogger.info("Processing embarkation for selected units", {
+		# Include embark data if transport units were selected
+		if has_embark:
+			composite_action["embark_data"] = {
 				"transport_id": unit_id,
-				"units_to_embark": pending_embark_units
-			})
+				"unit_ids": pending_embark_units.duplicate()
+			}
+			print("[DeploymentController] Included embark_data: transport=%s, units=%s" % [unit_id, str(pending_embark_units)])
 
-			# Check if we're in multiplayer mode (reuse network_manager from line 366)
-			var is_networked = network_manager != null and network_manager.is_networked()
-
-			print("[DeploymentController] NetworkManager found: %s, is_networked: %s" % [str(network_manager != null), str(is_networked)])
-
-			if is_networked:
-				# In multiplayer, send action for synchronization
-				print("[DeploymentController] MULTIPLAYER MODE - sending embarkation action")
-				_send_embarkation_action(unit_id, pending_embark_units)
-			else:
-				# In single-player, execute directly for immediate effect
-				print("[DeploymentController] SINGLE-PLAYER MODE - processing embarkation directly")
-				_process_embarkation(unit_id, pending_embark_units)
-
-			pending_embark_units = []
-			print("[DeploymentController] ===== EMBARKATION COMPLETE =====")
-		else:
-			print("[DeploymentController] No pending embark units (size: %d)" % pending_embark_units.size())
-
-		# Handle combined deployment: place character models at their player-chosen positions
-		if is_combined_deployment and char_positions_map.size() > 0:
-			print("[DeploymentController] ===== COMBINED CHARACTER DEPLOYMENT =====")
+		# Include combined character positions if this is a combined deployment
+		if has_combined_chars:
+			var char_positions_serialized = {}
 			for char_id in char_positions_map:
-				var char_model_data = char_positions_map[char_id]
-				print("[DeploymentController] Placing %d models for character %s" % [char_model_data.size(), char_id])
-
-				# Set each character model's position in GameState
-				for entry in char_model_data:
-					GameState.state.units[char_id].models[entry["model_idx"]].position = {
+				var entries = []
+				for entry in char_positions_map[char_id]:
+					entries.append({
 						"x": entry["pos"].x,
-						"y": entry["pos"].y
-					}
-					print("[DeploymentController] Set character %s model %d at %s" % [char_id, entry["model_idx"], str(entry["pos"])])
+						"y": entry["pos"].y,
+						"rotation": entry["rotation"],
+						"model_idx": entry["model_idx"]
+					})
+				char_positions_serialized[char_id] = entries
+			composite_action["combined_char_data"] = char_positions_serialized
+			print("[DeploymentController] Included combined_char_data for %d characters" % char_positions_map.size())
 
-				# Mark character unit as deployed
-				if has_node("/root/PhaseManager"):
-					var phase_manager = get_node("/root/PhaseManager")
-					if phase_manager.current_phase_instance:
-						phase_manager.apply_state_changes([{
-							"op": "set",
-							"path": "units.%s.status" % char_id,
-							"value": GameStateData.UnitStatus.DEPLOYED
-						}])
-						print("[DeploymentController] Set status to DEPLOYED for combined character %s" % char_id)
-			print("[DeploymentController] ===== COMBINED CHARACTER DEPLOYMENT COMPLETE =====")
-
-		# Handle character attachment if characters were selected
-		if pending_attach_characters.size() > 0:
-			print("[DeploymentController] ===== CHARACTER ATTACHMENT TRIGGERED =====")
-			print("[DeploymentController] Bodyguard: %s, Characters: %s" % [unit_id, str(pending_attach_characters)])
-
-			DebugLogger.info("Processing character attachment for selected characters", {
+		# Include character attachment data if characters were selected
+		if has_attach:
+			composite_action["attach_data"] = {
 				"bodyguard_id": unit_id,
-				"characters_to_attach": pending_attach_characters
-			})
+				"character_ids": pending_attach_characters.duplicate()
+			}
+			print("[DeploymentController] Included attach_data: bodyguard=%s, characters=%s" % [unit_id, str(pending_attach_characters)])
 
-			var is_networked = network_manager != null and network_manager.is_networked()
+		# Route the single atomic action through NetworkIntegration
+		var result = NetworkIntegration.route_action(composite_action)
 
-			if is_networked:
-				print("[DeploymentController] MULTIPLAYER MODE - sending attachment action")
-				_send_character_attachment_action(unit_id, pending_attach_characters)
+		if result.success:
+			if result.get("pending", false):
+				print("[DeploymentController] Composite deployment submitted to network for unit: %s" % unit_id)
 			else:
-				print("[DeploymentController] SINGLE-PLAYER MODE - processing attachment directly")
-				_process_character_attachment(unit_id, pending_attach_characters)
-
-			pending_attach_characters = []
-			print("[DeploymentController] ===== CHARACTER ATTACHMENT COMPLETE =====")
+				print("[DeploymentController] Composite deployment successful for unit: %s" % unit_id)
 		else:
-			print("[DeploymentController] No pending attach characters (size: %d)" % pending_attach_characters.size())
+			print("[DeploymentController] ERROR - Composite deployment failed for unit: ", unit_id)
+			print("[DeploymentController] Errors: ", result.get("errors", []))
+			push_error("Composite deployment failed: " + str(result.get("error", "Unknown error")))
+
+		pending_embark_units = []
+		pending_attach_characters = []
+		print("[DeploymentController] ===== COMPOSITE DEPLOY COMPLETE =====")
+
 	else:
-		print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
-		print("[DeploymentController] Errors: ", result.get("errors", []))
-		push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
+		# Simple deployment with no embark/attach — use standard DEPLOY_UNIT action
+		# Note: Don't set "player" here - NetworkIntegration will add the correct local player ID
+		# This ensures the action uses the actual local player, not just whoever's turn it is
+		var deployment_action = {
+			"type": "DEPLOY_UNIT",
+			"unit_id": unit_id,
+			"model_positions": bodyguard_positions,
+			"model_rotations": bodyguard_rotations,
+			"phase": GameStateData.Phase.DEPLOYMENT,
+			"timestamp": Time.get_unix_time_from_system()
+		}
+
+		# Route through NetworkIntegration (handles multiplayer and single-player)
+		var result = NetworkIntegration.route_action(deployment_action)
+
+		if result.success:
+			if result.get("pending", false):
+				print("[DeploymentController] Deployment submitted to network for unit: ", unit_id)
+			else:
+				print("[DeploymentController] Deployment successful for unit: ", unit_id)
+				print("[DeploymentController] Action should trigger turn switch")
+		else:
+			print("[DeploymentController] ERROR - Deployment failed for unit: ", unit_id)
+			print("[DeploymentController] Errors: ", result.get("errors", []))
+			push_error("Deployment failed: " + str(result.get("error", "Unknown error")))
 
 	_finalize_tokens()
 	_clear_previews()

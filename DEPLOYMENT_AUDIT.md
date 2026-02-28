@@ -220,10 +220,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 3. SWITCH_PLAYER Action Validation Gap — RESOLVED
 **Status**: **Fixed.**
 
-### 4. Race Condition: Embark/Attach Actions After Player Switch
+### 4. Race Condition: Embark/Attach Actions After Player Switch — RESOLVED
 **Issue**: The deployment action triggers a player switch before embark/attach actions arrive in multiplayer. Current mitigation checks `transport.owner` instead of `active_player`, which is correct but fragile.
 
-**Recommendation**: Add a comment documenting this design decision. Consider batching the deploy + embark/attach into a single composite action for atomicity.
+**Status**: **Implemented (P2-43).** `DeploymentController._complete_deployment()` now detects when embark/attach sub-actions are needed and bundles them into a single `COMPOSITE_DEPLOY` action. This atomic action is processed by `DeploymentPhase._process_composite_deploy()` which applies all state changes (deploy + embark + combined characters + attach) in one pass before the turn switch. Registered in `GameManager`, `NetworkManager.DETERMINISTIC_ACTIONS`, and `TurnManager` deployment alternation. Simple deployments without embark/attach still use the standard `DEPLOY_UNIT` path.
 
 ### 5. Turn Timer UI During Deployment — IMPLEMENTED
 **Status**: **Implemented.** Turn timer countdown is shown in the HUD bar via `_on_turn_timer_warning()` connected to `NetworkManager.turn_timer_warning`. The "waiting for opponent" overlay also includes a live countdown.
@@ -295,7 +295,7 @@ Both players reveal simultaneously, then deployment begins.
 | Disconnect handling (graceful) | **Medium** | Medium | Multiplayer | **DONE** |
 | Web relay state sync loading screen | **Medium** | Low | Multiplayer | Open |
 | Timeout too punitive during deployment | **Medium** | Low | Multiplayer | **DONE** |
-| Race condition: embark after player switch | **Medium** | Low | Multiplayer | Open |
+| Race condition: embark after player switch | **Medium** | Low | Multiplayer | **DONE** |
 | Duplicate geometry functions | **Low** | Low | Code Quality | Open |
 | Snapshot staleness in `_all_units_deployed()` | **Low** | Low | Code Quality | Open |
 | Mission selection | **Low** | High | Rules | Open |
@@ -314,3 +314,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 5 | **Major revision.** Marked newly-implemented items as DONE: Scout Moves (`ScoutPhase.gd`), Roll-Off Phase (`RollOffPhase.gd`), Formations Phase (`FormationsPhase.gd`), Auto-Zoom, Phase Transition Banner, Deployment Summary Dialog, Unit Base Hover Tooltip, Turn Timer UI. Added new gaps: TITANIC deployment skip (not implemented), Reserves cap incorrect (25% → should be 50% per CA 2025-26), Reserves not destroyed after Round 3. Removed outdated recommendations section. Cleaned up resolved items. |
 | Update 6 | **Coherency distance display marked DONE.** Floating label near ghost shows edge-to-edge distance to nearest placed model in real-time (green ≤2", red >2"). Works in single and reposition modes. |
 | Update 7 | **Deployment timeout punitiveness marked DONE (DEPLOY-MP-3).** Scaled timeout (120s base + 15s/unit, max 300s), deployment warnings at 60s/30s/15s/10s/5s, auto-placement to Strategic Reserves on timeout instead of instant loss. |
+| Update 8 | **Race condition: embark after player switch marked DONE (DEPLOY-MP-4, P2-43).** Deploy + embark/attach bundled into atomic `COMPOSITE_DEPLOY` action. Single-action processing prevents turn switch before sub-actions complete. |

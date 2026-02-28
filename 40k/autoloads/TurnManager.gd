@@ -70,10 +70,11 @@ func _on_phase_action_taken(action: Dictionary) -> void:
 		GameStateData.Phase.DEPLOYMENT:
 			# All deployment actions that resolve a unit should alternate the active player.
 			# DEPLOY_UNIT: unit placed on the board
+			# COMPOSITE_DEPLOY: atomic deploy + embark/attach (P2-43)
 			# PLACE_IN_RESERVES: unit placed in Strategic Reserves or Deep Strike
 			# EMBARK_UNITS_DEPLOYMENT: unit(s) embarked in a transport (counts as deployed)
 			# ATTACH_CHARACTER_DEPLOYMENT: character attached to a bodyguard (counts as deployed)
-			if action_type in ["DEPLOY_UNIT", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]:
+			if action_type in ["DEPLOY_UNIT", "COMPOSITE_DEPLOY", "PLACE_IN_RESERVES", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT"]:
 				print("[TurnManager] Processing %s action" % action_type)
 				print("[TurnManager] Unit: ", action.get("unit_id", "Unknown"))
 				# Switch players after each deployment action
