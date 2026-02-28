@@ -259,8 +259,39 @@ func _check_kill_diffs(changes: Array) -> void:
 							AIPlayer.record_ai_unit_killed(destroyed_by)
 						if AIPlayer.is_ai_player(destroyed_owner):
 							AIPlayer.record_ai_unit_lost(destroyed_owner)
+					# P1-60: Check for transport destruction (must happen BEFORE Deadly Demise)
+					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
+
+func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> void:
+	"""P1-60: Check if a destroyed unit is a transport with embarked units and resolve emergency disembarkation."""
+	var transport_mgr = get_node_or_null("/root/TransportManager")
+	if not transport_mgr:
+		return
+	if not transport_mgr.is_transport_with_embarked_units(destroyed_unit_id):
+		return
+
+	var transport_name = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {}).get("name", destroyed_unit_id)
+	print("FightPhase: P1-60 Transport destruction detected — %s (%s) has embarked units" % [transport_name, destroyed_unit_id])
+	log_phase_message("Transport %s destroyed! Embarked units must emergency disembark!" % transport_name)
+
+	var result = RulesEngine.resolve_transport_destruction(destroyed_unit_id, GameState.state)
+
+	if not result.get("all_diffs", []).is_empty():
+		PhaseManager.apply_state_changes(result.all_diffs)
+
+		for unit_info in result.get("per_unit", []):
+			var mw = unit_info.get("mortal_wounds", 0)
+			var destroyed_models = unit_info.get("models_destroyed", 0)
+			var unit_name = unit_info.get("unit_name", "Unknown")
+			if mw > 0:
+				log_phase_message("  %s: %d mortal wound(s), %d model(s) destroyed" % [unit_name, mw, destroyed_models])
+			else:
+				log_phase_message("  %s: disembarked safely" % unit_name)
+
+		# Recursively check if transport destruction casualties caused further deaths
+		_check_kill_diffs(result.all_diffs)
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""

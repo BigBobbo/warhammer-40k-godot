@@ -256,3 +256,18 @@ func reset_disembark_flags() -> void:
 
 	if any_reset:
 		print("Reset disembark flags for new phase")
+
+# P1-60: Check if a destroyed unit is a transport with embarked units
+func is_transport_with_embarked_units(unit_id: String) -> bool:
+	var unit = GameState.get_unit(unit_id)
+	if not unit or not unit.has("transport_data"):
+		return false
+	var embarked = unit.transport_data.get("embarked_units", [])
+	return embarked.size() > 0
+
+# P1-60: Get list of embarked unit IDs for a transport
+func get_embarked_unit_ids(transport_id: String) -> Array:
+	var transport = GameState.get_unit(transport_id)
+	if not transport or not transport.has("transport_data"):
+		return []
+	return transport.transport_data.get("embarked_units", []).duplicate()

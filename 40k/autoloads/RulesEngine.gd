@@ -8243,6 +8243,198 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 	}
 
 # ==========================================
+# TRANSPORT DESTRUCTION (P1-60)
+# ==========================================
+
+static func resolve_transport_destruction(transport_unit_id: String, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	"""Resolve effects when a transport with embarked units is destroyed.
+	Rules (10e): When a TRANSPORT model is destroyed, embarked units must emergency disembark.
+	Roll 1D6 per disembarking model:
+	  - Roll of 1: That model's unit suffers 1 mortal wound
+	  - Roll of 2+: Model disembarks safely
+	Models are set up within 3\" of the destroyed transport. If they can't be placed, they are destroyed.
+	The disembarking unit is Battle-shocked and counts as having made a Normal move (cannot charge).
+	Args:
+		transport_unit_id: The transport unit that was just destroyed
+		board: The game state board dictionary
+		rng: Optional RNG service for dice rolls
+	Returns: { embarked_unit_ids: Array, per_unit: Array[{unit_id, unit_name, model_rolls: Array, mortal_wounds: int, models_destroyed: int, diffs: Array}], total_mortal_wounds: int, total_models_destroyed: int, all_diffs: Array }
+	"""
+	if rng == null:
+		rng = RNGService.new()
+
+	var units = board.get("units", {})
+	var transport = units.get(transport_unit_id, {})
+	var transport_name = transport.get("meta", {}).get("name", transport_unit_id)
+
+	print("╔═══════════════════════════════════════════════════════════════")
+	print("║ P1-60: TRANSPORT DESTRUCTION — %s (%s) destroyed" % [transport_name, transport_unit_id])
+
+	# Get embarked unit IDs from transport_data
+	var transport_data = transport.get("transport_data", {})
+	var embarked_unit_ids = transport_data.get("embarked_units", []).duplicate()
+
+	if embarked_unit_ids.is_empty():
+		print("║ No embarked units — nothing to resolve")
+		print("╚═══════════════════════════════════════════════════════════════")
+		return {
+			"embarked_unit_ids": [],
+			"per_unit": [],
+			"total_mortal_wounds": 0,
+			"total_models_destroyed": 0,
+			"all_diffs": []
+		}
+
+	print("║ Embarked units: %d" % embarked_unit_ids.size())
+
+	var all_diffs: Array = []
+	var per_unit: Array = []
+	var total_mortal_wounds: int = 0
+	var total_models_destroyed: int = 0
+
+	for embarked_id in embarked_unit_ids:
+		var embarked_unit = units.get(embarked_id, {})
+		if embarked_unit.is_empty():
+			print("║ WARNING: Embarked unit %s not found in board" % embarked_id)
+			continue
+
+		var unit_name = embarked_unit.get("meta", {}).get("name", embarked_id)
+		var models = embarked_unit.get("models", [])
+
+		print("║ ─────────────────────────────────────────────────────────")
+		print("║ Processing embarked unit: %s (%s)" % [unit_name, embarked_id])
+
+		var unit_result = {
+			"unit_id": embarked_id,
+			"unit_name": unit_name,
+			"model_rolls": [],
+			"mortal_wounds": 0,
+			"models_destroyed": 0,
+			"diffs": []
+		}
+
+		# Roll D6 per alive model
+		var alive_model_count = 0
+		for model in models:
+			if model.get("alive", true):
+				alive_model_count += 1
+
+		if alive_model_count == 0:
+			print("║   No alive models in unit — skipping")
+			per_unit.append(unit_result)
+			continue
+
+		var rolls = rng.roll_d6(alive_model_count)
+		unit_result["model_rolls"] = rolls
+
+		# Count mortal wounds (roll of 1 = 1 MW to the unit)
+		var unit_mortal_wounds = 0
+		for roll in rolls:
+			if roll == 1:
+				unit_mortal_wounds += 1
+
+		unit_result["mortal_wounds"] = unit_mortal_wounds
+		print("║   Rolled %s — %d mortal wound(s) from rolls of 1" % [str(rolls), unit_mortal_wounds])
+
+		# Apply mortal wounds to the unit if any
+		if unit_mortal_wounds > 0:
+			var mw_result = apply_mortal_wounds(embarked_id, unit_mortal_wounds, board, rng)
+			unit_result["diffs"].append_array(mw_result.get("diffs", []))
+			unit_result["models_destroyed"] = mw_result.get("casualties", 0)
+			total_models_destroyed += mw_result.get("casualties", 0)
+			print("║   Applied %d mortal wound(s) — %d model(s) destroyed" % [unit_mortal_wounds, mw_result.get("casualties", 0)])
+
+		total_mortal_wounds += unit_mortal_wounds
+
+		# Clear embarked_in status — unit is now disembarking
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.embarked_in" % embarked_id,
+			"value": null
+		})
+
+		# Set unit as deployed (in case it was in a different state)
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.status" % embarked_id,
+			"value": GameStateData.UnitStatus.DEPLOYED
+		})
+
+		# Apply Battle-shocked flag per transport destruction rules
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.flags.battle_shocked" % embarked_id,
+			"value": true
+		})
+
+		# Mark as having made a Normal move (cannot charge this turn)
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.flags.moved" % embarked_id,
+			"value": true
+		})
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.flags.cannot_charge" % embarked_id,
+			"value": true
+		})
+
+		# Mark disembarked_this_phase
+		unit_result["diffs"].append({
+			"op": "set",
+			"path": "units.%s.disembarked_this_phase" % embarked_id,
+			"value": true
+		})
+
+		# Position surviving models near the destroyed transport
+		var transport_models = transport.get("models", [])
+		var transport_pos = null
+		if not transport_models.is_empty():
+			transport_pos = transport_models[0].get("position", null)
+
+		if transport_pos != null:
+			var model_index = 0
+			for i in range(models.size()):
+				if models[i].get("alive", true):
+					# Place surviving models in a circle within 3" of transport position
+					var angle = (2.0 * PI * model_index) / max(alive_model_count, 1)
+					var offset_px = Measurement.inches_to_px(2.0)  # 2" offset (within 3" rule)
+					var new_x = transport_pos.get("x", 0) + cos(angle) * offset_px
+					var new_y = transport_pos.get("y", 0) + sin(angle) * offset_px
+					unit_result["diffs"].append({
+						"op": "set",
+						"path": "units.%s.models.%d.position" % [embarked_id, i],
+						"value": {"x": new_x, "y": new_y}
+					})
+					model_index += 1
+			print("║   Positioned %d surviving model(s) within 3\" of transport" % model_index)
+
+		all_diffs.append_array(unit_result["diffs"])
+		per_unit.append(unit_result)
+
+	# Clear the transport's embarked_units list
+	all_diffs.append({
+		"op": "set",
+		"path": "units.%s.transport_data.embarked_units" % transport_unit_id,
+		"value": []
+	})
+
+	print("║ ─────────────────────────────────────────────────────────")
+	print("║ TRANSPORT DESTRUCTION SUMMARY:")
+	print("║   Units disembarked: %d" % per_unit.size())
+	print("║   Total mortal wounds: %d" % total_mortal_wounds)
+	print("║   Total models destroyed: %d" % total_models_destroyed)
+	print("╚═══════════════════════════════════════════════════════════════")
+
+	return {
+		"embarked_unit_ids": embarked_unit_ids,
+		"per_unit": per_unit,
+		"total_mortal_wounds": total_mortal_wounds,
+		"total_models_destroyed": total_models_destroyed,
+		"all_diffs": all_diffs
+	}
+
+# ==========================================
 # DREAD FOE (P1-17)
 # ==========================================
 
