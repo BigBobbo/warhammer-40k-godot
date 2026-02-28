@@ -42,6 +42,16 @@ var _player_faction_stratagems: Dictionary = {
 # Faction stratagem loader instance
 var _faction_loader: FactionStratagemLoaderData = null
 
+# Out-of-Phase Rules Restriction (P1-59)
+# When a unit performs an out-of-phase action (e.g. Fire Overwatch during opponent's
+# Movement/Charge phase), no other rules normally triggered in that simulated phase
+# can be used. For example, if a unit shoots via Fire Overwatch, abilities like
+# Sentinel Storm or Sanctified Flames (which trigger "after shooting") cannot be used.
+# This flag is set when an out-of-phase action begins and cleared when it completes.
+var _out_of_phase_action_active: bool = false
+var _out_of_phase_player: int = 0  # The player performing the out-of-phase action
+var _out_of_phase_unit_id: String = ""  # The unit performing the out-of-phase action
+
 func _ready() -> void:
 	_load_core_stratagems()
 	_init_faction_loader()
@@ -529,6 +539,17 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	if not restriction_check.can_use:
 		return restriction_check
 
+	# P1-59: Out-of-phase rules restriction
+	# When an out-of-phase action is active (e.g. Fire Overwatch), block all stratagems
+	# except: (a) the stratagem that initiated the out-of-phase action, and
+	# (b) stratagems with phase:"any" (like Command Re-roll) which are not phase-specific.
+	# Also allow if explicitly bypassed via context (e.g. the initial fire_overwatch use).
+	if _out_of_phase_action_active and not context.get("bypass_out_of_phase_check", false):
+		if stratagem_id != "fire_overwatch":
+			var strat_phase = strat.get("timing", {}).get("phase", "")
+			if strat_phase != "any":
+				return {"can_use": false, "reason": "Cannot use %s during an out-of-phase action (e.g. Fire Overwatch)" % strat.get("name", stratagem_id)}
+
 	# Check battle-shocked (battle-shocked units can't be targeted by friendly stratagems)
 	# Exception: Insane Bravery explicitly allows targeting battle-shocked units
 	if target_unit_id != "" and stratagem_id != "insane_bravery":
@@ -779,6 +800,32 @@ func on_turn_start(player: int) -> void:
 func on_battle_round_start(round_number: int) -> void:
 	"""Called at the start of a new battle round."""
 	print("StratagemManager: Battle round %d started" % round_number)
+
+# ============================================================================
+# OUT-OF-PHASE RULES RESTRICTION (P1-59)
+# ============================================================================
+# Per 10th Edition core rules: "When using out-of-phase rules to perform an action
+# as if it were one of your phases, you cannot use any other rules that are normally
+# triggered in that phase." E.g. Fire Overwatch allows shooting, but you cannot use
+# Sentinel Storm, Sanctified Flames, or any shooting-phase stratagems during it.
+
+func set_out_of_phase_active(active: bool, player: int = 0, unit_id: String = "") -> void:
+	"""Set/clear the out-of-phase action flag. Call before resolving reactive actions."""
+	_out_of_phase_action_active = active
+	_out_of_phase_player = player if active else 0
+	_out_of_phase_unit_id = unit_id if active else ""
+	if active:
+		print("StratagemManager: OUT-OF-PHASE action started — Player %d, Unit %s (phase-specific rules blocked)" % [player, unit_id])
+	else:
+		print("StratagemManager: OUT-OF-PHASE action ended — phase-specific rules unblocked")
+
+func is_out_of_phase_active() -> bool:
+	"""Check if an out-of-phase action is currently in progress."""
+	return _out_of_phase_action_active
+
+func get_out_of_phase_unit_id() -> String:
+	"""Get the unit ID performing the out-of-phase action."""
+	return _out_of_phase_unit_id
 
 # ============================================================================
 # ACTIVE EFFECTS
@@ -1966,6 +2013,9 @@ func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
 	_usage_history = {"1": [], "2": []}
 	active_effects.clear()
+	_out_of_phase_action_active = false
+	_out_of_phase_player = 0
+	_out_of_phase_unit_id = ""
 	# Clear faction stratagems (they'll be reloaded when armies are set up)
 	_clear_player_faction_stratagems(1)
 	_clear_player_faction_stratagems(2)

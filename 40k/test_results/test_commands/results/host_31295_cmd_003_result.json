@@ -1,0 +1,38 @@
+{
+	"execution_time_ms": 1,
+	"result": {
+		"data": {
+			"player_1_undeployed": [],
+			"player_1_units": [
+				"U_SHIELD_CAPTAIN_A",
+				"U_BLADE_CHAMPION_A",
+				"U_CUSTODIAN_GUARD_B",
+				"U_WITCHSEEKERS_C",
+				"U_WITCHSEEKERS_D",
+				"U_CALADIUS_GRAV-TANK_E",
+				"U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H",
+				"U_TELEMON_HEAVY_DREADNOUGHT_I"
+			],
+			"player_2_undeployed": [],
+			"player_2_units": [
+				"U_STRIKE_FORCE_A",
+				"U_WARBOSS_B",
+				"U_WARBOSS_C",
+				"U_WARBOSS_IN_MEGA_ARMOUR_D",
+				"U_BOYZ_E",
+				"U_BOYZ_F",
+				"U_BATTLEWAGON_G",
+				"U_KOMMANDOS_H",
+				"U_PAINBOSS_I",
+				"U_WEIRDBOY_J",
+				"U_BOYZ_K"
+			],
+			"total_units": 19
+		},
+		"message": "Available units retrieved",
+		"success": true
+	},
+	"sequence": 3,
+	"timestamp": 71685840,
+	"version": "1.0"
+}

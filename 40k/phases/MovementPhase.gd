@@ -1022,8 +1022,17 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	log_phase_message("Player %d uses FIRE OVERWATCH — %s shoots at moving %s!" % [player, unit_name, enemy_unit_name])
 	print("MovementPhase: Fire Overwatch activated — %s (Player %d) shooting at %s" % [unit_name, player, enemy_unit_name])
 
+	# P1-59: Set out-of-phase flag before resolving overwatch shooting
+	# This blocks any phase-specific abilities/stratagems during the out-of-phase action
+	if strat_manager:
+		strat_manager.set_out_of_phase_active(true, player, unit_id)
+
 	# Resolve Overwatch shooting using RulesEngine
 	var ow_shooting_result = _resolve_overwatch_shooting(unit_id, enemy_unit_id, player)
+
+	# P1-59: Clear out-of-phase flag after overwatch resolves
+	if strat_manager:
+		strat_manager.set_out_of_phase_active(false)
 
 	# Clear Overwatch state
 	_awaiting_fire_overwatch = false
