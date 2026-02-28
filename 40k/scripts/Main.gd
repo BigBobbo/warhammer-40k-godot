@@ -4732,6 +4732,8 @@ func refresh_all_model_visuals() -> void:
 func _animate_token_death(token: Node2D, unit_id: String, model_id: String) -> void:
 	"""T5-V4: Animate token death — flash white then fade to invisible."""
 	print("Main: T5-V4 death fade animation for %s:%s" % [unit_id, model_id])
+	# Trigger death animation on TokenVisual if available
+	_trigger_token_animation(token, "death")
 	var death_tween = token.create_tween()
 	# Flash white briefly
 	death_tween.tween_property(token, "modulate", Color(2.0, 1.5, 1.5, 1.0), 0.1)
@@ -4742,6 +4744,33 @@ func _animate_token_death(token: Node2D, unit_id: String, model_id: String) -> v
 		token.visible = false
 		token.modulate = Color.WHITE
 	)
+
+
+func _trigger_token_animation(token: Node2D, anim_name: String) -> void:
+	"""Trigger an animation on a token node. Handles both direct TokenVisual
+	   nodes and container nodes with TokenVisual children."""
+	if token.has_method("play_animation"):
+		token.play_animation(anim_name)
+	else:
+		for child in token.get_children():
+			if child.has_method("play_animation"):
+				child.play_animation(anim_name)
+
+
+func trigger_unit_animation(unit_id: String, anim_name: String) -> void:
+	"""Trigger an animation on all token visuals belonging to a unit.
+	   Can be called from game controllers to animate models."""
+	var tl = get_node_or_null("BoardRoot/TokenLayer")
+	if not tl:
+		return
+	for child in tl.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+			_trigger_token_animation(child, anim_name)
+		else:
+			for grandchild in child.get_children():
+				if grandchild.has_meta("unit_id") and grandchild.get_meta("unit_id") == unit_id:
+					_trigger_token_animation(grandchild, anim_name)
+
 
 func _debug_load_system():
 	print("\n=== Quick Load Debug ===")
