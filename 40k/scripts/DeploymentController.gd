@@ -1152,33 +1152,48 @@ func _is_unit_coherent() -> bool:
 	"""Check if the currently placed models satisfy unit coherency rules.
 	Per 10e rules: 2-6 models = each within 2\" of at least 1 other;
 	7+ models = each within 2\" of at least 2 others.
-	Single-model units are always coherent."""
-	var placed_positions = []
-	for pos in temp_positions:
-		if pos != null:
-			placed_positions.append(pos)
+	Single-model units are always coherent.
+	Distance is measured edge-to-edge (nearest base edge to nearest base edge)."""
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return true
+
+	var placed_indices = []
+	for i in range(temp_positions.size()):
+		if temp_positions[i] != null:
+			placed_indices.append(i)
 
 	# Single model or empty — always coherent
-	if placed_positions.size() <= 1:
+	if placed_indices.size() <= 1:
 		return true
 
 	# Check all models are placed before enforcing
 	var total_models = temp_positions.size()
-	if placed_positions.size() < total_models:
+	if placed_indices.size() < total_models:
 		# Not all models placed yet — can't enforce coherency
 		return true
 
-	var required_neighbors = 1 if placed_positions.size() <= 6 else 2
+	var required_neighbors = 1 if placed_indices.size() <= 6 else 2
 
-	for pos in placed_positions:
+	for i in placed_indices:
+		var model_i = unit_data["models"][i].duplicate()
+		model_i["position"] = temp_positions[i]
+		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
+
 		var neighbor_count = 0
-		for other_pos in placed_positions:
-			if pos != other_pos:
-				var dist_inches = Measurement.distance_inches(pos, other_pos)
-				if dist_inches <= 2.0:
-					neighbor_count += 1
-					if neighbor_count >= required_neighbors:
-						break
+		for j in placed_indices:
+			if i == j:
+				continue
+			var model_j = unit_data["models"][j].duplicate()
+			model_j["position"] = temp_positions[j]
+			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
+
+			# Use edge-to-edge distance (shape-aware) instead of center-to-center
+			var dist_inches = Measurement.model_to_model_distance_inches(model_i, model_j)
+			if dist_inches <= 2.0:
+				neighbor_count += 1
+				if neighbor_count >= required_neighbors:
+					break
 		if neighbor_count < required_neighbors:
 			return false
 
