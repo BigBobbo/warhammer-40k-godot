@@ -82,6 +82,9 @@ func _draw() -> void:
 	# Draw model number with shadow for readability (all styles)
 	_draw_model_number()
 
+	# Draw unit name label beneath the token base
+	_draw_unit_name_label()
+
 func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var bounds = base_shape.get_bounds()
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
@@ -257,6 +260,43 @@ func _draw_model_number() -> void:
 	# Black shadow behind text
 	draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.BLACK)
 	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.WHITE)
+
+func _draw_unit_name_label() -> void:
+	if not has_meta("unit_id"):
+		return
+
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", "")
+	if unit_name == "":
+		return
+
+	# Truncate long names to keep label compact
+	if unit_name.length() > 14:
+		unit_name = unit_name.substr(0, 12) + ".."
+
+	var font = ThemeDB.fallback_font
+	var font_size = 9
+	var bounds = base_shape.get_bounds()
+	var base_radius = min(bounds.size.x, bounds.size.y) / 2.0
+
+	# Position label just below the token base
+	var text_size = font.get_string_size(unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var label_y = base_radius + font_size + 2
+	var text_pos = Vector2(-text_size.x / 2.0, label_y)
+
+	# Draw background pill for readability
+	var bg_rect = Rect2(text_pos.x - 3, text_pos.y - font_size, text_size.x + 6, font_size + 4)
+	draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.75), true)
+
+	# Draw text with faction-appropriate color
+	var label_color = _get_faction_accent_color()
+	label_color.a = 0.9
+	draw_string(font, text_pos + Vector2(0.5, 0.5), unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.7))
+	draw_string(font, text_pos, unit_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, label_color)
 
 func _resolve_sprite() -> void:
 	_sprite_resolved = true
