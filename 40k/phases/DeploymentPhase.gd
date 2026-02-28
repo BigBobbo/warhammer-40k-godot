@@ -60,6 +60,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _validate_deploy_unit_action(action)
+		"COMPOSITE_DEPLOY":
+			return _validate_composite_deploy_action(action)
 		"PLACE_IN_RESERVES":
 			return _validate_place_in_reserves(action)
 		"SWITCH_PLAYER":
@@ -120,6 +122,44 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 					validation = _validate_model_position(pos, unit, i, deployment_zone, rotation)
 				if not validation.valid:
 					errors.append_array(validation.errors)
+
+	return {"valid": errors.size() == 0, "errors": errors}
+
+func _validate_composite_deploy_action(action: Dictionary) -> Dictionary:
+	"""P2-43: Validate a composite deploy action that bundles deploy + embark/attach atomically."""
+	# First validate the core deployment (reuse existing validation)
+	var deploy_validation = _validate_deploy_unit_action(action)
+	if not deploy_validation.valid:
+		return deploy_validation
+
+	var errors = []
+
+	# Validate embark sub-action if present
+	if action.has("embark_data"):
+		var embark_data = action.embark_data
+		var embark_action = {
+			"transport_id": embark_data.get("transport_id", ""),
+			"unit_ids": embark_data.get("unit_ids", [])
+		}
+		var embark_validation = _validate_embark_units_deployment(embark_action)
+		if not embark_validation.valid:
+			for err in embark_validation.errors:
+				errors.append("Embark: " + err)
+
+	# Validate attach sub-action if present
+	if action.has("attach_data"):
+		var attach_data = action.attach_data
+		var attach_action = {
+			"bodyguard_id": attach_data.get("bodyguard_id", ""),
+			"character_ids": attach_data.get("character_ids", [])
+		}
+		var attach_validation = _validate_attach_character_deployment(attach_action)
+		if not attach_validation.valid:
+			for err in attach_validation.errors:
+				errors.append("Attach: " + err)
+
+	# combined_char_data doesn't need separate validation — positions are player-placed
+	# and the characters are part of the combined deployment
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
@@ -411,6 +451,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"DEPLOY_UNIT":
 			return _process_deploy_unit(action)
+		"COMPOSITE_DEPLOY":
+			return _process_composite_deploy(action)
 		"PLACE_IN_RESERVES":
 			return _process_place_in_reserves(action)
 		"SWITCH_PLAYER":
@@ -471,6 +513,165 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 	# Transport embark dialog is now handled by DeploymentController BEFORE deployment
 
 	return create_result(true, changes)
+
+func _process_composite_deploy(action: Dictionary) -> Dictionary:
+	"""P2-43: Process a composite deploy action atomically.
+	Bundles deploy + embark/attach into a single action to prevent race conditions
+	where embark/attach actions arrive after player switch in multiplayer."""
+	var unit_id = action.unit_id
+	var all_changes = []
+
+	log_phase_message("Processing COMPOSITE_DEPLOY for %s" % unit_id)
+
+	# Step 1: Process the core deployment (model positions + status)
+	var model_positions = action.model_positions
+	var model_rotations = action.get("model_rotations", [])
+
+	for i in range(model_positions.size()):
+		var pos = model_positions[i]
+		if pos != null:
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.models.%d.position" % [unit_id, i],
+				"value": {"x": pos.x, "y": pos.y}
+			})
+			if i < model_rotations.size() and model_rotations[i] != null:
+				all_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.rotation" % [unit_id, i],
+					"value": model_rotations[i]
+				})
+
+	all_changes.append({
+		"op": "set",
+		"path": "units.%s.status" % unit_id,
+		"value": GameStateData.UnitStatus.DEPLOYED
+	})
+
+	# Step 2: Process combined character deployment if present
+	if action.has("combined_char_data"):
+		var char_data = action.combined_char_data
+		for char_id in char_data:
+			var entries = char_data[char_id]
+			for entry in entries:
+				all_changes.append({
+					"op": "set",
+					"path": "units.%s.models.%d.position" % [char_id, entry["model_idx"]],
+					"value": {"x": entry["x"], "y": entry["y"]}
+				})
+				if entry.has("rotation") and entry["rotation"] != null:
+					all_changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.rotation" % [char_id, entry["model_idx"]],
+						"value": entry["rotation"]
+					})
+			# Mark character as deployed
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.status" % char_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			})
+			log_phase_message("Combined character %s deployed with bodyguard %s" % [char_id, unit_id])
+
+	# Step 3: Process embarkation if present
+	if action.has("embark_data"):
+		var embark_data = action.embark_data
+		var transport_id = embark_data.get("transport_id", "")
+		var embark_unit_ids = embark_data.get("unit_ids", [])
+
+		for embark_unit_id in embark_unit_ids:
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.embarked_in" % embark_unit_id,
+				"value": transport_id
+			})
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.status" % embark_unit_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			})
+			var embark_unit = get_unit(embark_unit_id)
+			var embark_unit_name = embark_unit.get("meta", {}).get("name", embark_unit_id)
+			log_phase_message("Unit %s embarked in transport %s (composite)" % [embark_unit_name, transport_id])
+
+		# Update transport's embarked_units list
+		var transport = get_unit(transport_id)
+		var current_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+		current_embarked.append_array(embark_unit_ids)
+		all_changes.append({
+			"op": "set",
+			"path": "units.%s.transport_data.embarked_units" % transport_id,
+			"value": current_embarked
+		})
+		log_phase_message("Embarked %d units in transport %s (composite)" % [embark_unit_ids.size(), transport_id])
+
+	# Step 4: Process character attachment if present
+	if action.has("attach_data"):
+		var attach_data = action.attach_data
+		var bodyguard_id = attach_data.get("bodyguard_id", "")
+		var character_ids = attach_data.get("character_ids", [])
+
+		var bodyguard = get_unit(bodyguard_id)
+		var ref_pos = null
+		for model in bodyguard.get("models", []):
+			var pos = model.get("position", null)
+			if pos != null:
+				ref_pos = pos
+				break
+
+		for char_id in character_ids:
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.attached_to" % char_id,
+				"value": bodyguard_id
+			})
+			all_changes.append({
+				"op": "set",
+				"path": "units.%s.status" % char_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			})
+
+			# Place character model adjacent to bodyguard
+			if ref_pos != null:
+				var char_unit = get_unit(char_id)
+				var char_models = char_unit.get("models", [])
+				for ci in range(char_models.size()):
+					var char_base_mm = char_models[ci].get("base_mm", 40)
+					var bg_base_mm = bodyguard.get("models", [{}])[0].get("base_mm", 32)
+					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+					var ref_x = ref_pos.get("x", 0) if ref_pos is Dictionary else ref_pos.x
+					var ref_y = ref_pos.get("y", 0) if ref_pos is Dictionary else ref_pos.y
+					all_changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.position" % [char_id, ci],
+						"value": {"x": ref_x + offset_px, "y": ref_y}
+					})
+
+			var char_unit = get_unit(char_id)
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			log_phase_message("Character %s attached to bodyguard %s (composite)" % [char_name, bodyguard_id])
+
+		# Update bodyguard's attachment_data.attached_characters
+		var current_attached = bodyguard.get("attachment_data", {}).get("attached_characters", []).duplicate()
+		current_attached.append_array(character_ids)
+		all_changes.append({
+			"op": "set",
+			"path": "units.%s.attachment_data.attached_characters" % bodyguard_id,
+			"value": current_attached
+		})
+		log_phase_message("Attached %d character(s) to bodyguard %s (composite)" % [character_ids.size(), bodyguard_id])
+
+	# Apply ALL changes atomically through PhaseManager
+	if get_parent() and get_parent().has_method("apply_state_changes"):
+		get_parent().apply_state_changes(all_changes)
+
+	_apply_changes_to_local_state(all_changes)
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	log_phase_message("Composite deploy complete for %s (%d total state changes)" % [unit_name, all_changes.size()])
+
+	return create_result(true, all_changes)
 
 func _process_place_in_reserves(action: Dictionary) -> Dictionary:
 	"""Process placing a unit into reserves (Strategic Reserves or Deep Strike)"""
