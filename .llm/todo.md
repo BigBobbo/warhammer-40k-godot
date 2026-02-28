@@ -97,7 +97,7 @@
 
 - [ ] Add unit placement drop-in animation — Brief scale 0→1 or fade-in over 0.2s when model is placed in `_spawn_preview_token()` for tactile feedback (DEPLOY-VIS-1)
 - [ ] Add player turn screen-edge color indicator — Prominent colored border around screen edge matching active player color (blue/red), flash briefly on turn swap, optional audio cue (DEPLOY-VIS-2)
-- [ ] Add deployment zone theming — Subtle textures/patterns within zones (diagonal hatching, military markers) to distinguish from regular board (DEPLOY-VIS-3)
+- [x] Add deployment zone theming — Subtle textures/patterns within zones (diagonal hatching, military markers) to distinguish from regular board (DEPLOY-VIS-3)
 - [ ] Enhance ghost visual with coherency aids — Add pulsing effect to ghost, connecting line from ghost to nearest placed model, distance display to nearest friendly model (DEPLOY-VIS-4)
 - [ ] Add coherency visualization circles — Draw faint 2" radius circles around placed models, green when next model in range, red when out of range (DEPLOY-VIS-5)
 - [ ] Add unit name labels on deployed tokens — Show unit name on hover over deployed token or as tiny label beneath token cluster to distinguish same-type units (DEPLOY-VIS-6)
