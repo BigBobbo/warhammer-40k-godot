@@ -150,10 +150,10 @@ Both players reveal simultaneously, then deployment begins.
 ### 11. Coherency Distance Display During Placement — RESOLVED
 **Status**: **Fixed.** A floating `Label` node tracks the ghost model and displays the edge-to-edge distance (in inches) to the nearest placed model in real-time. Green when ≤2" (in coherency), red when >2". Uses shape-aware `Measurement.model_to_model_distance_inches()` for accuracy. Works in single placement mode and during model repositioning. Hidden when no models are placed yet or in formation mode.
 
-### 12. Keyboard Shortcut Reference During Deployment
+### 12. Keyboard Shortcut Reference During Deployment — RESOLVED
 **Issue**: Deployment has several keybinds (Q/E for rotation, Shift+click for repositioning, mouse wheel for rotation) but there is no on-screen reference.
 
-**Recommendation**: Show a small "Controls" panel or tooltip during deployment listing available shortcuts. Could be a toggleable overlay (e.g., press `?` to show/hide).
+**Status**: **Implemented (P3-54).** `KeyboardShortcutOverlay.gd` provides a toggleable reference panel (press `?` / Shift+Slash to show/hide) positioned bottom-left. Lists all deployment controls: Q/E rotation, mouse wheel rotation, Shift+click reposition, Right-click cancel, Ctrl+Z undo, formation modes (Single/Spread/Tight), and general shortcuts (measuring tape, camera, zoom, board rotation). Styled with WhiteDwarfTheme. Created in `Main.gd::_setup_keyboard_shortcut_overlay()`, hidden on phase change.
 
 ---
 
@@ -266,7 +266,7 @@ Both players reveal simultaneously, then deployment begins.
 | Coherency distance display | **Medium** | Low | QoL | **DONE** |
 | Measuring tool accessibility | **Low** | Low | QoL | Open |
 | Opponent deployment notifications (MP) | **Medium** | Medium | QoL/MP | Open |
-| Keyboard shortcut reference | **Low** | Low | QoL | Open |
+| Keyboard shortcut reference | **Low** | Low | QoL | **DONE** |
 | Player turn screen-edge indicator | **Medium** | Low | Visual | **Done** |
 | Unit placement animation | **Low** | Low | Visual | **DONE** |
 | Coherency visualization circles | **Low** | Low | Visual | **DONE** |
@@ -304,3 +304,4 @@ Both players reveal simultaneously, then deployment begins.
 | Update 13 | **Token unit name labels marked DONE (DEPLOY-VIS-6, P3-51).** `TokenVisual._draw_unit_name_label()` draws tiny faction-colored unit name beneath each token base with dark background pill. Truncates names >14 chars. Helps distinguish same-type units. |
 | Update 14 | **Opponent zone dimming marked DONE (DEPLOY-VIS-7, P3-52).** Active zone: bright saturated color (0.65 alpha), full border/glow/hatching. Opponent zone: desaturated grayish tones (0.2 alpha), scaled-down pulse (30%), glow (30%), hatching (40%), brackets (30%) via `is_dimmed` flag in `DeploymentZoneVisual.gd`. Reverses on turn switch. |
 | Update 15 | **TITANIC deployment skip marked DONE (DEPLOY-RULES-3, P3-53).** `TurnManager.check_deployment_alternation()` detects TITANIC keyword on deployed units and skips the deploying player's next deployment turn via `_titanic_skip_turns` dictionary. Only applies to board placement (not reserves). `[TITAN]` tag in deployment list. GameManager and Main.gd paths pass unit_id. |
+| Update 16 | **Keyboard shortcut reference marked DONE (DEPLOY-QOL-5, P3-54).** `KeyboardShortcutOverlay.gd` provides toggleable reference panel (press ? to show/hide) listing all deployment controls, formation modes, and general shortcuts. Positioned bottom-left, WhiteDwarfTheme styled. Created in `Main.gd::_setup_keyboard_shortcut_overlay()`. |
