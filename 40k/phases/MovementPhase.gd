@@ -844,6 +844,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	emit_signal("unit_move_begun", unit_id, "ADVANCE")
 	log_phase_message("Advance: %s → D6 = %d → Move cap = %d\"" % [unit_name, advance_roll, total_move])
 
+	# Log advance roll to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(unit.get("owner", 0))
+		game_event_log.add_player_entry(owner,
+			"%s advances: D6 = %d, total move = %d\" (M %d\" + %d\")" % [
+				unit_name, advance_roll, total_move, int(move_inches), advance_roll])
+
 	return create_result(true, [
 		{
 			"op": "set",

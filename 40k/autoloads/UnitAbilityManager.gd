@@ -668,6 +668,14 @@ func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictiona
 					char_name, char_id, ability_name, bg_name, str(flag_names)
 				])
 
+				# Log ability activation to GameEventLog
+				var game_event_log = get_node_or_null("/root/GameEventLog")
+				if game_event_log:
+					var owner = int(bodyguard_unit.get("owner", 0))
+					var desc = effect_def.get("description", ability_name)
+					game_event_log.add_player_entry(owner,
+						"%s ability '%s' active on %s (%s)" % [char_name, ability_name, bg_name, desc])
+
 func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> void:
 	"""Check if this unit has always-on abilities that affect combat."""
 	var abilities = unit.get("meta", {}).get("abilities", [])
@@ -732,6 +740,14 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 			print("UnitAbilityManager: %s (%s) has ability '%s' — flags: %s" % [
 				unit_name, unit_id, ability_name, str(flag_names)
 			])
+
+			# Log ability activation to GameEventLog
+			var game_event_log = get_node_or_null("/root/GameEventLog")
+			if game_event_log:
+				var owner = int(unit.get("owner", 0))
+				var desc = effect_def.get("description", ability_name)
+				game_event_log.add_player_entry(owner,
+					"%s ability '%s' active (%s)" % [unit_name, ability_name, desc])
 
 func _apply_eligibility_effects() -> void:
 	"""Apply eligibility abilities (fall_back_and_charge, advance_and_charge, etc.)

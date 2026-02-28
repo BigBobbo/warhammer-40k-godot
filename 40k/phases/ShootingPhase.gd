@@ -3739,9 +3739,43 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			failed_count,
 			damage_result.casualties
 		])
-		save_log_parts.append("%s → %s: %d saved, %d failed → %d slain" % [
-			shooter_name, target_name, saved_count, failed_count, damage_result.casualties
-		])
+
+		# Build verbose save log with dice details
+		var verbose_save_parts = ["%s → %s" % [shooter_name, target_name]]
+		var weapon_for_log = save_data.get("weapon_name", "")
+		if weapon_for_log != "":
+			verbose_save_parts[0] += " (%s)" % weapon_for_log
+		var save_rolls_for_log = []
+		for sr in save_results:
+			if sr.has("roll"):
+				save_rolls_for_log.append(sr.get("roll", 0))
+		var save_threshold_for_log = save_data.get("base_save", 7)
+		var ap_for_log = save_data.get("ap", 0)
+		var profiles_for_log = save_data.get("model_save_profiles", [])
+		var effective_save_for_log = save_threshold_for_log
+		var using_invuln_for_log = false
+		if not profiles_for_log.is_empty():
+			effective_save_for_log = profiles_for_log[0].get("save_needed", 7)
+			using_invuln_for_log = profiles_for_log[0].get("using_invuln", false)
+		var save_type_str = "Invuln %d+" % effective_save_for_log if using_invuln_for_log else "Save %d+ (AP-%d)" % [effective_save_for_log, ap_for_log]
+		if not save_rolls_for_log.is_empty():
+			verbose_save_parts.append("%s [%s]: %d passed, %d failed" % [
+				save_type_str,
+				", ".join(save_rolls_for_log.map(func(r): return str(r))),
+				saved_count, failed_count])
+		else:
+			verbose_save_parts.append("%s: %d passed, %d failed" % [save_type_str, saved_count, failed_count])
+
+		# Include FNP info
+		var fnp_prevented_total = damage_result.get("fnp_prevented", 0)
+		if fnp_prevented_total > 0:
+			verbose_save_parts.append("FNP prevented %d" % fnp_prevented_total)
+		# Include devastating wounds info
+		if devastating_damage > 0:
+			verbose_save_parts.append("%d DEVASTATING damage (no save)" % devastating_damage)
+
+		verbose_save_parts.append("%d slain" % damage_result.casualties)
+		save_log_parts.append(" - ".join(verbose_save_parts))
 
 		# Build save dice block for dice log (so both players can see save rolls)
 		var save_rolls_raw = []

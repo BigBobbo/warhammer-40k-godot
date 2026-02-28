@@ -28,6 +28,7 @@ const FILTERED_ACTIONS = [
 	"ASSIGN_ATTACKS",
 	"CONFIRM_AND_RESOLVE_ATTACKS",
 	"DECLINE_REACTIVE_STRATAGEM",
+	"SELECT_CHARGE_UNIT",
 ]
 
 const PHASE_NAMES = {
@@ -157,6 +158,40 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			return prefix + "Scored points"
 		"DECLARE_STRATEGIC_RESERVES":
 			return prefix + "%s placed in Strategic Reserves" % unit_name
+		"RESOLVE_SHOOTING":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return prefix + "%s shooting resolved" % unit_name
+		"APPLY_SAVES":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return prefix + "Saves resolved"
+		"DECLARE_CHARGE":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return ""
+		"CHARGE_ROLL":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return ""
+		"BEGIN_ADVANCE":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return ""
+		"FALL_BACK":
+			if ai_desc != "":
+				return prefix + ai_desc
+			return prefix + "%s fell back" % unit_name
+		"BATCH_FIGHT_ACTIONS":
+			var log_text = action.get("_log_text", "")
+			if log_text != "":
+				return prefix + log_text
+			return ""
 		_:
 			# For any other action with log_text or ai_desc, show it
 			if ai_desc != "":

@@ -261,6 +261,11 @@ func set_oath_of_moment_target(player: int, target_unit_id: String) -> Dictionar
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 	print("FactionAbilityManager: Player %d Oath of Moment target set to %s (%s)" % [player, target_name, target_unit_id])
 
+	# Log Oath of Moment to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "Oath of Moment: %s marked for destruction (re-roll hits, +1 wound)" % target_name)
+
 	return {
 		"success": true,
 		"target_unit_id": target_unit_id,
@@ -323,6 +328,11 @@ func activate_waaagh(player: int) -> Dictionary:
 	_apply_waaagh_effects(player)
 
 	print("FactionAbilityManager: WAAAGH! Player %d calls a Waaagh! — effects active until next Command phase" % player)
+
+	# Log Waaagh! activation to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(player, "WAAAGH! Called — +1 S/A melee, 5+ invuln, advance and charge!")
 
 	return {
 		"success": true,

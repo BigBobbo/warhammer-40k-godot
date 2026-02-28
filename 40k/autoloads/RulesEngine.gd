@@ -840,15 +840,15 @@ static func resolve_overwatch_shooting(shooter_unit_id: String, target_unit_id: 
 			_apply_diff_to_board(board, diff)
 
 	if result.total_casualties > 0:
-		result.log_text = "OVERWATCH: %s → %s: %d hit(s), %d wound(s), %d slain" % [
+		result.log_text = "OVERWATCH: %s → %s: %d hit(s) (6+ only), %d wound(s), %d slain" % [
 			shooter_name, target_name, result.total_hits, result.total_wounds, result.total_casualties
 		]
 	elif result.total_hits > 0:
-		result.log_text = "OVERWATCH: %s → %s: %d hit(s), %d wound(s), all saved" % [
+		result.log_text = "OVERWATCH: %s → %s: %d hit(s) (6+ only), %d wound(s), all saved" % [
 			shooter_name, target_name, result.total_hits, result.total_wounds
 		]
 	else:
-		result.log_text = "OVERWATCH: %s → %s: No hits (only unmodified 6s hit)" % [shooter_name, target_name]
+		result.log_text = "OVERWATCH: %s → %s: 0 hits (only unmodified 6s hit)" % [shooter_name, target_name]
 
 	print("RulesEngine: %s" % result.log_text)
 	return result
@@ -968,7 +968,9 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	result.hits = hits
 
 	if hits == 0:
-		result.log_text = "%s (Overwatch): No hits" % weapon_name
+		result.log_text = "%s (Overwatch): %d attacks, 0 hits [%s] vs 6+" % [
+			weapon_name, total_attacks,
+			", ".join(hit_rolls.map(func(r): return str(r)))]
 		return result
 
 	# --- PHASE 3: Wound rolls (normal rules apply) ---
@@ -1144,7 +1146,14 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	result.casualties = casualties
 	result.damage = damage_total
-	result.log_text = "%s (Overwatch): %d hits, %d wounds, %d damage, %d slain" % [weapon_name, hits, wounds, damage_total, casualties]
+	var ow_log_parts = ["%s (Overwatch)" % weapon_name]
+	ow_log_parts.append("Hit: %d/%d [%s] vs 6+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r)))])
+	ow_log_parts.append("Wound: %d/%d [%s] vs %s+" % [wounds, hits, ", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)])
+	if casualties > 0:
+		ow_log_parts.append("%d slain" % casualties)
+	elif wounds > 0:
+		ow_log_parts.append("all saved")
+	result.log_text = " - ".join(ow_log_parts)
 
 	return result
 
@@ -1485,7 +1494,11 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
-		result.log_text = "%s → %s: No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id)]
+		var miss_weapon_name = weapon_profile.get("name", weapon_id)
+		var miss_log = "%s → %s with %s - No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), miss_weapon_name]
+		if not hit_rolls.is_empty():
+			miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		result.log_text = miss_log
 		return result
 
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
@@ -1673,7 +1686,21 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	})
 
 	if wounds_caused == 0:
-		result.log_text = "%s → %s: %d hits (+%d sustained), no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits, sustained_bonus_hits]
+		var no_wound_weapon_name = weapon_profile.get("name", weapon_id)
+		var no_wound_log = "%s → %s with %s" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), no_wound_weapon_name]
+		if is_torrent:
+			no_wound_log += " - Torrent: %d auto-hits" % hits
+		elif not hit_rolls.is_empty():
+			no_wound_log += " - Hit: %d/%d [%s] vs %s+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		else:
+			no_wound_log += " - %d hits" % hits
+		if sustained_bonus_hits > 0:
+			no_wound_log += " (+%d sustained)" % sustained_bonus_hits
+		if not wound_rolls.is_empty():
+			no_wound_log += " - Wound: 0/%d [%s] vs %s+" % [total_hits_for_wounds, ", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+		else:
+			no_wound_log += " - no wounds"
+		result.log_text = no_wound_log
 		return result
 
 	# STOP HERE - Prepare save data instead of auto-resolving
@@ -1724,16 +1751,48 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	)
 
 	result["save_data"] = save_data
-	# SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012): Include in log text
+	# Build verbose log text with dice roll details
+	var int_weapon_name = weapon_profile.get("name", weapon_id)
 	var log_parts = []
-	log_parts.append("%s → %s: %d hits" % [
+	log_parts.append("%s → %s with %s" % [
 		actor_unit.get("meta", {}).get("name", actor_unit_id),
 		target_unit.get("meta", {}).get("name", target_unit_id),
-		hits
+		int_weapon_name
 	])
+
+	# Hit roll details
+	if is_torrent:
+		log_parts.append("Torrent: %d auto-hits" % hits)
+	else:
+		var hit_detail = "Hit: %d/%d" % [hits, total_attacks]
+		if not hit_rolls.is_empty():
+			hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		if heavy_bonus_applied:
+			hit_detail += " (Heavy +1)"
+		if bgnt_penalty_applied:
+			hit_detail += " (BGNT -1)"
+		if indirect_fire_applied:
+			hit_detail += " (Indirect -1)"
+		if not reroll_data.is_empty():
+			hit_detail += " (%d rerolled)" % reroll_data.size()
+		if critical_hits > 0:
+			hit_detail += " [%d crit]" % critical_hits
+		log_parts.append(hit_detail)
+
 	if sustained_bonus_hits > 0:
-		log_parts[0] += " (+%d sustained)" % sustained_bonus_hits
-	log_parts[0] += ", %d wounds" % wounds_caused
+		log_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
+
+	# Wound roll details
+	var wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+	if not wound_rolls.is_empty():
+		wound_detail += " [%s] vs %s+" % [", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+	if auto_wounds > 0:
+		wound_detail += " (%d Lethal auto-wound)" % auto_wounds
+	if wound_modifier_net != 0:
+		wound_detail += " (%+d modifier)" % wound_modifier_net
+	if not wound_reroll_data.is_empty():
+		wound_detail += " (%d rerolled)" % wound_reroll_data.size()
+	log_parts.append(wound_detail)
 
 	# DEVASTATING WOUNDS: Add critical wound info to log
 	if weapon_has_devastating_wounds and critical_wound_count > 0:
@@ -2054,7 +2113,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
-		result.log_text = "%s → %s: No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id)]
+		var ar_miss_weapon_name = weapon_profile.get("name", weapon_id)
+		var ar_miss_log = "%s → %s with %s - No hits" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), ar_miss_weapon_name]
+		if not hit_rolls.is_empty():
+			ar_miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		result.log_text = ar_miss_log
 		return result
 
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
@@ -2238,7 +2301,21 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	})
 
 	if wounds_caused == 0:
-		result.log_text = "%s → %s: %d hits (+%d sustained), no wounds" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), hits, sustained_bonus_hits]
+		var ar_nw_weapon_name = weapon_profile.get("name", weapon_id)
+		var ar_nw_log = "%s → %s with %s" % [actor_unit.get("meta", {}).get("name", actor_unit_id), target_unit.get("meta", {}).get("name", target_unit_id), ar_nw_weapon_name]
+		if is_torrent:
+			ar_nw_log += " - Torrent: %d auto-hits" % hits
+		elif not hit_rolls.is_empty():
+			ar_nw_log += " - Hit: %d/%d [%s] vs %s+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		else:
+			ar_nw_log += " - %d hits" % hits
+		if sustained_bonus_hits > 0:
+			ar_nw_log += " (+%d sustained)" % sustained_bonus_hits
+		if not wound_rolls.is_empty():
+			ar_nw_log += " - Wound: 0/%d [%s] vs %s+" % [total_hits_for_wounds, ", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+		else:
+			ar_nw_log += " - no wounds"
+		result.log_text = ar_nw_log
 		return result
 
 	# Process saves and damage
@@ -2551,15 +2628,47 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		})
 		print("RulesEngine: [auto-resolve] Variable damage rolled (%s): %s → %d total damage applied" % [damage_raw, str(damage_roll_log.map(func(r): return r.value)), damage_applied])
 
-	# Build log text
+	# Build log text (verbose: includes weapon, dice rolls, modifiers)
 	var actor_name = actor_unit.get("meta", {}).get("name", actor_unit_id)
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var weapon_name = weapon_profile.get("name", weapon_id)
 
 	var log_parts = []
-	log_parts.append("%s → %s: %d hits" % [actor_name, target_name, hits])
+	log_parts.append("%s → %s with %s" % [actor_name, target_name, weapon_name])
+
+	# Hit roll details
+	if is_torrent:
+		log_parts.append("Torrent: %d auto-hits" % hits)
+	else:
+		var hit_detail = "Hit: %d/%d" % [hits, total_attacks]
+		if not hit_rolls.is_empty():
+			hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(bs)]
+		if heavy_bonus_applied:
+			hit_detail += " (Heavy +1)"
+		if bgnt_penalty_applied:
+			hit_detail += " (BGNT -1)"
+		if indirect_fire_applied:
+			hit_detail += " (Indirect -1)"
+		if not reroll_data.is_empty():
+			hit_detail += " (%d rerolled)" % reroll_data.size()
+		if critical_hits > 0:
+			hit_detail += " [%d crit]" % critical_hits
+		log_parts.append(hit_detail)
+
 	if sustained_bonus_hits > 0:
-		log_parts[0] += " (+%d sustained)" % sustained_bonus_hits
-	log_parts[0] += ", %d wounds" % wounds_caused
+		log_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
+
+	# Wound roll details
+	var wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+	if not wound_rolls.is_empty():
+		wound_detail += " [%s] vs %s+" % [", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+	if auto_wounds > 0:
+		wound_detail += " (%d Lethal auto-wound)" % auto_wounds
+	if ar_wound_modifier_net != 0:
+		wound_detail += " (%+d modifier)" % ar_wound_modifier_net
+	if not ar_wound_reroll_data.is_empty():
+		wound_detail += " (%d rerolled)" % ar_wound_reroll_data.size()
+	log_parts.append(wound_detail)
 
 	# DEVASTATING WOUNDS: Add critical wound info to log
 	if ar_weapon_has_devastating_wounds and ar_critical_wound_count > 0:
@@ -2568,6 +2677,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# MELTA X (T1-1): Add melta info to log
 	if ar_melta_value > 0 and ar_melta_wounds_remaining < wounds_caused:
 		log_parts.append("MELTA +%d damage" % ar_melta_value)
+
+	# FNP info
+	if ar_fnp_value > 0:
+		log_parts.append("FNP %d+" % ar_fnp_value)
 
 	if casualties > 0:
 		log_parts.append("%d slain" % casualties)
@@ -6154,7 +6267,10 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		})
 
 	if hits == 0 and sustained_bonus_hits == 0:
-		result.log_text = "Melee: %s (%s) → %s: %d attacks, 0 hits" % [attacker_name, weapon_name, target_name, total_attacks]
+		var melee_miss_log = "Melee: %s (%s) → %s: %d attacks, 0 hits" % [attacker_name, weapon_name, target_name, total_attacks]
+		if not hit_rolls.is_empty():
+			melee_miss_log += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(ws)]
+		result.log_text = melee_miss_log
 		return result
 
 	# ===== PHASE 5: WOUND ROLLS =====
@@ -6398,10 +6514,29 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	})
 
 	if total_unsaved == 0:
-		var hit_text = "%d hits" % hits
+		var saved_log_parts = []
+		saved_log_parts.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
+		# Hit details
+		if is_torrent:
+			saved_log_parts.append("Torrent: %d auto-hits" % hits)
+		else:
+			var saved_hit_detail = "Hit: %d/%d" % [hits, total_attacks]
+			if not hit_rolls.is_empty():
+				saved_hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(ws)]
+			if critical_hits > 0:
+				saved_hit_detail += " [%d crit]" % critical_hits
+			saved_log_parts.append(saved_hit_detail)
 		if sustained_bonus_hits > 0:
-			hit_text += " (+%d sustained)" % sustained_bonus_hits
-		result.log_text = "Melee: %s (%s) → %s: %d attacks, %s, %d wounds, all saved!" % [attacker_name, weapon_name, target_name, total_attacks, hit_text, wounds_caused]
+			saved_log_parts.append("+%d Sustained" % sustained_bonus_hits)
+		# Wound details
+		var saved_wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+		if not wound_rolls.is_empty():
+			saved_wound_detail += " [%s] vs %s+" % [", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+		if auto_wounds > 0:
+			saved_wound_detail += " (%d Lethal)" % auto_wounds
+		saved_log_parts.append(saved_wound_detail)
+		saved_log_parts.append("all saved!")
+		result.log_text = " - ".join(saved_log_parts)
 		return result
 
 	# ===== PHASE 7: DAMAGE APPLICATION =====
@@ -6508,7 +6643,18 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var actual_damage = actual_dw_damage + actual_regular_damage
 
 	if actual_damage == 0:
-		result.log_text = "Melee: %s (%s) → %s: %d attacks, %d hits, %d wounds, %d failed saves, FNP saved all damage!" % [attacker_name, weapon_name, target_name, total_attacks, hits, wounds_caused, total_unsaved]
+		var fnp_all_parts = ["Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name]]
+		if not hit_rolls.is_empty():
+			fnp_all_parts.append("Hit: %d/%d [%s] vs %s+" % [hits, total_attacks, ", ".join(hit_rolls.map(func(r): return str(r))), str(ws)])
+		else:
+			fnp_all_parts.append("Hit: %d/%d" % [hits, total_attacks])
+		if not wound_rolls.is_empty():
+			fnp_all_parts.append("Wound: %d/%d [%s] vs %s+" % [wounds_caused, total_hits_for_wounds, ", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)])
+		else:
+			fnp_all_parts.append("Wound: %d" % wounds_caused)
+		fnp_all_parts.append("Save: %d failed" % total_unsaved)
+		fnp_all_parts.append("FNP %d+ saved all damage!" % fnp_value)
+		result.log_text = " - ".join(fnp_all_parts)
 		return result
 
 	# Apply damage to target unit
@@ -6594,30 +6740,53 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 			damage_result["casualties"] += reg_result.get("casualties", 0)
 			damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 
-	# ===== BUILD LOG TEXT =====
+	# ===== BUILD LOG TEXT (verbose with dice rolls) =====
 	var log_parts = []
-	var hit_text = "%d hits" % hits
-	if sustained_bonus_hits > 0:
-		hit_text += " (+%d sustained)" % sustained_bonus_hits
 	var eligibility_text = ""
 	if model_count < total_alive_models:
 		eligibility_text = " (%d/%d models)" % [model_count, total_alive_models]
-	log_parts.append("Melee: %s (%s) → %s: %d attacks%s, %s, %d wounds" % [attacker_name, weapon_name, target_name, total_attacks, eligibility_text, hit_text, wounds_caused])
+	log_parts.append("Melee: %s (%s) → %s" % [attacker_name, weapon_name, target_name])
 
-	if weapon_has_lethal_hits and auto_wounds > 0:
-		log_parts.append("%d lethal" % auto_wounds)
+	# Verbose hit details
+	if is_torrent:
+		log_parts.append("Torrent: %d auto-hits" % hits)
+	else:
+		var final_hit_detail = "Hit: %d/%d%s" % [hits, total_attacks, eligibility_text]
+		if not hit_rolls.is_empty():
+			final_hit_detail += " [%s] vs %s+" % [", ".join(hit_rolls.map(func(r): return str(r))), str(ws)]
+		if critical_hits > 0:
+			final_hit_detail += " [%d crit]" % critical_hits
+		log_parts.append(final_hit_detail)
+
+	if sustained_bonus_hits > 0:
+		log_parts.append("+%d Sustained Hits" % sustained_bonus_hits)
+
+	# Verbose wound details
+	var final_wound_detail = "Wound: %d/%d" % [wounds_caused, total_hits_for_wounds]
+	if not wound_rolls.is_empty():
+		final_wound_detail += " [%s] vs %s+" % [", ".join(wound_rolls.map(func(r): return str(r))), str(wound_threshold)]
+	if auto_wounds > 0:
+		final_wound_detail += " (%d Lethal)" % auto_wounds
+	if melee_wound_modifier_net != 0:
+		final_wound_detail += " (%+d modifier)" % melee_wound_modifier_net
+	log_parts.append(final_wound_detail)
+
 	if weapon_has_devastating_wounds and devastating_wound_count > 0:
 		log_parts.append("%d DEVASTATING (unsaveable)" % devastating_wound_count)
 	if weapon_has_precision and precision_wounds_allocated > 0:
 		log_parts.append("PRECISION: %d damage → CHARACTER" % precision_wounds_allocated)
 
-	log_parts.append("%d casualties" % damage_result.casualties)
+	# Save result
+	log_parts.append("Save: %d/%d failed" % [total_unsaved, wounds_caused])
+
+	log_parts.append("%d slain" % damage_result.casualties)
 
 	if fnp_value > 0:
 		var prevented = total_damage - actual_damage
-		log_parts.append("FNP prevented %d" % prevented)
+		if prevented > 0:
+			log_parts.append("FNP %d+ prevented %d" % [fnp_value, prevented])
 
-	result.log_text = ", ".join(log_parts)
+	result.log_text = " - ".join(log_parts)
 
 	return result
 

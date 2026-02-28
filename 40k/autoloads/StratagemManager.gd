@@ -647,6 +647,18 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		cost_msg, current_cp, new_cp
 	])
 
+	# Log to GameEventLog for player-visible game log
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var target_display = ""
+		if target_unit_id != "":
+			var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
+			target_display = target_unit.get("meta", {}).get("name", target_unit_id)
+		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
+		if target_display != "":
+			log_msg += " on %s" % target_display
+		game_event_log.add_player_entry(player, log_msg)
+
 	# Log to phase log
 	GameState.add_action_to_phase_log({
 		"type": "STRATAGEM_USED",
