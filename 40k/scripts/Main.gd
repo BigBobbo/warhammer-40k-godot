@@ -120,6 +120,9 @@ var _hovered_deploy_unit_id: String = ""
 var _deploy_hover_tooltip: PanelContainer = null
 var _deploy_hover_tooltip_label: RichTextLabel = null
 
+# P3-54: Keyboard shortcut reference overlay during deployment
+var _keyboard_shortcut_overlay: KeyboardShortcutOverlay = null
+
 # Player scores and CP display (top bar)
 var _p1_score_label: Label = null
 var _p2_score_label: Label = null
@@ -2609,6 +2612,9 @@ func setup_deployment_controller() -> void:
 	# Add formation UI controls to unit card
 	_setup_formation_ui()
 
+	# P3-54: Setup keyboard shortcut reference overlay
+	_setup_keyboard_shortcut_overlay()
+
 func _setup_coherency_banner() -> void:
 	# Remove any existing banner
 	if coherency_banner and is_instance_valid(coherency_banner):
@@ -2734,6 +2740,27 @@ func _setup_formation_ui() -> void:
 func _on_formation_mode_changed(mode: String) -> void:
 	if deployment_controller:
 		deployment_controller.set_formation_mode(mode)
+
+func _setup_keyboard_shortcut_overlay() -> void:
+	# P3-54: Create keyboard shortcut reference overlay (toggled with ? key)
+	if _keyboard_shortcut_overlay and is_instance_valid(_keyboard_shortcut_overlay):
+		_keyboard_shortcut_overlay.queue_free()
+
+	_keyboard_shortcut_overlay = KeyboardShortcutOverlay.new()
+	_keyboard_shortcut_overlay.name = "KeyboardShortcutOverlay"
+
+	# Position bottom-left, above the HUD bottom bar
+	_keyboard_shortcut_overlay.anchor_left = 0.0
+	_keyboard_shortcut_overlay.anchor_right = 0.0
+	_keyboard_shortcut_overlay.anchor_top = 1.0
+	_keyboard_shortcut_overlay.anchor_bottom = 1.0
+	_keyboard_shortcut_overlay.offset_left = 10
+	_keyboard_shortcut_overlay.offset_right = 290
+	_keyboard_shortcut_overlay.offset_top = -420
+	_keyboard_shortcut_overlay.offset_bottom = -55
+
+	add_child(_keyboard_shortcut_overlay)
+	print("[Main] P3-54: Keyboard shortcut overlay created")
 
 func setup_command_controller() -> void:
 	print("Setting up CommandController...")
@@ -3073,6 +3100,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
+	# P3-54: Keyboard shortcut reference overlay toggle — '?' (Shift+/) during deployment
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SLASH and event.shift_pressed:
+		if current_phase == GameStateData.Phase.DEPLOYMENT and _keyboard_shortcut_overlay:
+			_keyboard_shortcut_overlay.toggle()
+			get_viewport().set_input_as_handled()
+			return
+
 	# T7-36: AI speed control — comma/period to adjust, slash to cycle, Space to continue step-by-step
 	if event is InputEventKey and event.pressed:
 		var ai_player = get_node_or_null("/root/AIPlayer")
@@ -5210,6 +5244,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	# Hide deployment hover tooltip on phase change (T5-UX11)
 	_hide_deploy_hover_tooltip()
 	_hovered_deploy_unit_id = ""
+
+	# P3-54: Hide keyboard shortcut overlay when leaving deployment
+	if _keyboard_shortcut_overlay and is_instance_valid(_keyboard_shortcut_overlay):
+		_keyboard_shortcut_overlay.visible = false
 
 	# Clear transport panel when phase changes
 	update_transport_panel("")
