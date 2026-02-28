@@ -5125,30 +5125,41 @@ func _refresh_after_load() -> void:
 	print("Main: _refresh_after_load() complete")
 
 func update_deployment_zone_visibility() -> void:
-	# Show the active player's zone more prominently
+	# P3-52: Show the active player's zone brightly and dim/desaturate the opponent's zone
 	var active_player = GameState.get_active_player()
+	print("Main: update_deployment_zone_visibility — active_player=%d" % active_player)
+
+	# Active zone colors: saturated and bright
+	# Inactive zone colors: desaturated (shifted toward gray) and dimmed
+	var p1_active_color = Color(0, 0.1, 1, 0.65)      # Bright saturated blue
+	var p1_dimmed_color = Color(0.25, 0.25, 0.45, 0.2) # Desaturated grayish-blue, low alpha
+	var p2_active_color = Color(1, 0.1, 0, 0.65)       # Bright saturated red
+	var p2_dimmed_color = Color(0.45, 0.25, 0.25, 0.2) # Desaturated grayish-red, low alpha
+
+	var p1_active_border = Color(0, 0.3, 1, 1)         # Bright blue border
+	var p1_dimmed_border = Color(0.35, 0.35, 0.5, 0.4) # Desaturated dim blue border
+	var p2_active_border = Color(1, 0.3, 0, 1)         # Bright red border
+	var p2_dimmed_border = Color(0.5, 0.35, 0.35, 0.4) # Desaturated dim red border
+
 	if active_player == 1:
-		p1_zone.modulate = Color(0, 0, 1, 0.6)  # Brighter blue for active
-		p2_zone.modulate = Color(1, 0, 0, 0.3)  # Visible red for inactive
-		p1_zone.visible = true
-		p2_zone.visible = true
-		# Set active borders
-		if p1_zone.has_method("set_active"):
-			p1_zone.set_active(true)
-			p1_zone.border_color = Color(0, 0.3, 1, 1)
-		if p2_zone.has_method("set_active"):
-			p2_zone.set_active(false)
+		p1_zone.modulate = p1_active_color
+		p2_zone.modulate = p2_dimmed_color
 	else:
-		p1_zone.modulate = Color(0, 0, 1, 0.3)  # Visible blue for inactive
-		p2_zone.modulate = Color(1, 0, 0, 0.6)  # Brighter red for active
-		p1_zone.visible = true
-		p2_zone.visible = true
-		# Set active borders
-		if p1_zone.has_method("set_active"):
-			p1_zone.set_active(false)
-		if p2_zone.has_method("set_active"):
-			p2_zone.set_active(true)
-			p2_zone.border_color = Color(1, 0.3, 0, 1)
+		p1_zone.modulate = p1_dimmed_color
+		p2_zone.modulate = p2_active_color
+
+	p1_zone.visible = true
+	p2_zone.visible = true
+
+	# Set active/dimmed state on zone visuals for border and detail rendering
+	if p1_zone.has_method("set_active"):
+		p1_zone.set_active(true)  # Both zones stay active for border rendering
+		p1_zone.border_color = p1_active_border if active_player == 1 else p1_dimmed_border
+		p1_zone.is_dimmed = (active_player != 1)
+	if p2_zone.has_method("set_active"):
+		p2_zone.set_active(true)  # Both zones stay active for border rendering
+		p2_zone.border_color = p2_active_border if active_player == 2 else p2_dimmed_border
+		p2_zone.is_dimmed = (active_player != 2)
 
 func _toggle_deployment_zones() -> void:
 	# During deployment phase, zones are always visible - no toggling needed
@@ -5160,7 +5171,7 @@ func _toggle_deployment_zones() -> void:
 	print("Main: Deployment zones toggled %s" % ("ON" if _deployment_zones_toggled_on else "OFF"))
 
 	if _deployment_zones_toggled_on:
-		# Show both zones with semi-transparent coloring
+		# Show both zones with semi-transparent coloring (no dimming outside deployment)
 		p1_zone.modulate = Color(0, 0, 1, 0.3)
 		p2_zone.modulate = Color(1, 0, 0, 0.3)
 		p1_zone.visible = true
@@ -5168,9 +5179,11 @@ func _toggle_deployment_zones() -> void:
 		if p1_zone.has_method("set_active"):
 			p1_zone.set_active(true)
 			p1_zone.border_color = Color(0, 0.3, 1, 1)
+			p1_zone.is_dimmed = false
 		if p2_zone.has_method("set_active"):
 			p2_zone.set_active(true)
 			p2_zone.border_color = Color(1, 0.3, 0, 1)
+			p2_zone.is_dimmed = false
 		ToastManager.show_toast("Deployment zones shown (Z to hide)", Color(0.6, 0.6, 0.8), 2.0)
 	else:
 		p1_zone.visible = false

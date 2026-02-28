@@ -12,6 +12,13 @@ var border_color: Color = Color.WHITE
 var border_width: float = 3.0
 var player_number: int = 0  # 1 or 2, set by Main.gd
 
+# P3-52: Dimming state — when true, reduces animation intensity and glow for opponent zone
+var is_dimmed: bool = false
+const DIMMED_PULSE_SCALE: float = 0.3  # Reduce pulse amplitude when dimmed
+const DIMMED_GLOW_SCALE: float = 0.3  # Reduce glow intensity when dimmed
+const DIMMED_HATCH_SCALE: float = 0.4  # Reduce hatching visibility when dimmed
+const DIMMED_BRACKET_SCALE: float = 0.3  # Reduce bracket visibility when dimmed
+
 # Animation state
 var _pulse_time: float = 0.0
 
@@ -71,7 +78,11 @@ func _draw() -> void:
 		return
 
 	# Compute pulse alpha (sine wave breathing: 0.6 to 1.0)
-	var pulse_alpha = 0.8 + 0.2 * sin(_pulse_time * 2.5)
+	# P3-52: Reduce pulse amplitude when dimmed
+	var pulse_range = 0.2 * (DIMMED_PULSE_SCALE if is_dimmed else 1.0)
+	var pulse_alpha = (0.8 - pulse_range) + pulse_range * (1.0 + sin(_pulse_time * 2.5)) / 2.0
+	if is_dimmed:
+		pulse_alpha *= 0.6  # Further reduce overall alpha when dimmed
 
 	# Marching ants offset
 	var march_offset = fmod(_pulse_time * MARCH_SPEED, DASH_LENGTH + GAP_LENGTH)
@@ -114,12 +125,15 @@ func _is_inner_edge(p1: Vector2, p2: Vector2, board_w: float, board_h: float) ->
 	return not (on_left or on_right or on_top or on_bottom)
 
 func _draw_edge_glow(p1: Vector2, p2: Vector2, pulse_alpha: float) -> void:
+	# P3-52: Scale glow intensity down when dimmed
+	var glow_scale = DIMMED_GLOW_SCALE if is_dimmed else 1.0
+
 	# Outer glow layer (wider, more transparent)
-	var glow_outer = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_OUTER * pulse_alpha)
+	var glow_outer = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_OUTER * pulse_alpha * glow_scale)
 	draw_line(p1, p2, glow_outer, GLOW_WIDTH_OUTER, true)
 
 	# Inner glow layer (narrower, slightly more visible)
-	var glow_inner = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_INNER * pulse_alpha)
+	var glow_inner = Color(border_color.r, border_color.g, border_color.b, GLOW_ALPHA_INNER * pulse_alpha * glow_scale)
 	draw_line(p1, p2, glow_inner, GLOW_WIDTH_INNER, true)
 
 func _draw_dashed_edge(p1: Vector2, p2: Vector2, color: Color, width: float, march_offset: float, pulse_alpha: float) -> void:
@@ -160,7 +174,9 @@ func _draw_corner_brackets(points: PackedVector2Array, board_w: float, board_h: 
 		var edge_after_inner = _is_inner_edge(p_curr, p_next, board_w, board_h)
 
 		if edge_before_inner or edge_after_inner:
-			var bracket_color = Color(border_color.r, border_color.g, border_color.b, BRACKET_ALPHA * pulse_alpha)
+			# P3-52: Scale bracket visibility down when dimmed
+			var bracket_scale = DIMMED_BRACKET_SCALE if is_dimmed else 1.0
+			var bracket_color = Color(border_color.r, border_color.g, border_color.b, BRACKET_ALPHA * pulse_alpha * bracket_scale)
 
 			# Compute direction vectors along each edge from this corner
 			var dir_to_prev = (p_prev - p_curr).normalized()
@@ -194,7 +210,9 @@ func _draw_diagonal_hatching(points: PackedVector2Array, pulse_alpha: float) -> 
 		max_pt.x = max(max_pt.x, p.x)
 		max_pt.y = max(max_pt.y, p.y)
 
-	var hatch_color = Color(border_color.r, border_color.g, border_color.b, HATCH_ALPHA * pulse_alpha)
+	# P3-52: Scale hatching down when dimmed
+	var hatch_scale = DIMMED_HATCH_SCALE if is_dimmed else 1.0
+	var hatch_color = Color(border_color.r, border_color.g, border_color.b, HATCH_ALPHA * pulse_alpha * hatch_scale)
 
 	# Generate 45-degree lines sweeping across the bounding box.
 	# For a 45° line (top-left to bottom-right), the diagonal offset is x + y = c.
