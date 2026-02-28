@@ -81,7 +81,7 @@
 ## Rules Gaps
 
 - [ ] Fix reserves point cap from 25% to 50% — Chapter Approved 2025-26 rules specify max 50% of points AND 50% of units in reserves, but `DeploymentPhase._validate_place_in_reserves()` at line 276 uses `int(total_points * 0.25)`. Update to `0.50` and add unit count check (DEPLOY-RULES-1)
-- [ ] Destroy reserves units not arrived by end of Round 3 — Per rules, any reserves units not on the battlefield by end of Round 3 count as destroyed. No enforcement exists. Add check at end-of-round processing to mark remaining `IN_RESERVES` units as `DESTROYED` with notification (DEPLOY-RULES-2)
+- [x] Destroy reserves units not arrived by end of Round 3 — Per rules, any reserves units not on the battlefield by end of Round 3 count as destroyed. No enforcement exists. Add check at end-of-round processing to mark remaining `IN_RESERVES` units as `DESTROYED` with notification (DEPLOY-RULES-2)
 - [ ] Implement TITANIC unit deployment skip — When a player deploys a TITANIC unit, they skip their next deployment turn. Detect TITANIC keyword in `TurnManager.check_deployment_alternation()` and skip the deploying player's next turn (DEPLOY-RULES-3)
 - [ ] Add mission selection variety — Currently only "Take and Hold" with static objectives. Add additional mission types from Chapter Approved 2025-26 with different primary objectives and deployment configurations (DEPLOY-RULES-4)
 
