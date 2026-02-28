@@ -5712,6 +5712,14 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 
 func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: int) -> void:
 	"""T5-UX7: Show confirmation dialog before ending fight phase with unfought units"""
+	# Skip dialog for AI players — AI always confirms ending fight
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(active_player):
+		print("Main: Skipping end fight confirmation dialog for AI player %d" % active_player)
+		var action = {"type": "END_FIGHT", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
 	var dialog_script = load("res://dialogs/EndFightConfirmationDialog.gd")
 	if not dialog_script:
 		push_error("Main: T5-UX7: Failed to load EndFightConfirmationDialog.gd")
@@ -5746,6 +5754,14 @@ func _on_end_fight_cancelled() -> void:
 
 func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player: int) -> void:
 	"""T5-UX8: Show deployment summary dialog before ending deployment phase"""
+	# Skip dialog for AI players — AI always confirms ending deployment
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(active_player):
+		print("Main: Skipping deployment summary dialog for AI player %d" % active_player)
+		var action = {"type": "END_DEPLOYMENT", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
 	var dialog_script = load("res://dialogs/DeploymentSummaryDialog.gd")
 	if not dialog_script:
 		push_error("Main: T5-UX8: Failed to load DeploymentSummaryDialog.gd")

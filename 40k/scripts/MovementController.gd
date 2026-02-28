@@ -3117,6 +3117,12 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	print("║ Original roll: %s" % str(roll_context.get("original_rolls", [])))
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip dialog for AI players — AIPlayer handles the decision via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("MovementController: Skipping command reroll dialog for AI player %d" % player)
+		return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
@@ -3223,6 +3229,12 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	print("║ MovementController: RAPID INGRESS OPPORTUNITY")
 	print("║ Non-active player %d has %d eligible reserve units" % [player, eligible_units.size()])
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("MovementController: Skipping Rapid Ingress dialog for AI player %d" % player)
+		return
 
 	if eligible_units.is_empty():
 		# No eligible units — auto-decline

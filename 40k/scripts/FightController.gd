@@ -1341,6 +1341,13 @@ func _on_fight_selection_required(data: Dictionary) -> void:
 	if fight_state_banner and is_instance_valid(fight_state_banner):
 		fight_state_banner.update_state(data)
 
+	# Skip dialog for AI players — they submit SELECT_FIGHTER actions directly
+	var selecting_player = data.get("selecting_player", 0)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(selecting_player):
+		print("DEBUG: Skipping fight selection dialog for AI player %d" % selecting_player)
+		return
+
 	# Close any existing fight selection dialog first (for multiplayer sync)
 	# Find and close existing dialogs that might be open
 	for child in get_tree().root.get_children():
@@ -1383,6 +1390,12 @@ func _on_fighter_selected_from_dialog(unit_id: String) -> void:
 func _on_epic_challenge_opportunity(unit_id: String, player: int) -> void:
 	"""Show Epic Challenge dialog when a CHARACTER unit is selected to fight"""
 	print("[FightController] Epic Challenge opportunity for unit %s (player %d)" % [unit_id, player])
+
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("[FightController] Skipping Epic Challenge dialog for AI player %d" % player)
+		return
 
 	var dialog_script = load("res://dialogs/EpicChallengeDialog.gd")
 	if not dialog_script:

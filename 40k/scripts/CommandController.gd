@@ -706,6 +706,12 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	])
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip dialog for AI players — AIPlayer handles the decision via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("CommandController: Skipping command reroll dialog for AI player %d" % player)
+		return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
@@ -761,6 +767,14 @@ func _show_drawn_missions_review_dialog() -> void:
 		return
 
 	var current_player = GameState.get_active_player()
+
+	# Skip dialog for AI players — they don't need a review panel
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(current_player):
+		print("CommandController: Skipping drawn missions review dialog for AI player %d" % current_player)
+		if current_phase and current_phase.has_method("clear_newly_drawn_missions"):
+			current_phase.clear_newly_drawn_missions()
+		return
 	var player_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
 
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -845,6 +859,12 @@ func _on_when_drawn_requires_interaction(player: int, mission_id: String, intera
 
 func _show_marked_for_death_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
 	"""Show Marked for Death dialog for the opponent to select targets."""
+	# Skip dialog for AI players — AIPlayer handles via _on_secondary_requires_interaction
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(opponent):
+		print("CommandController: Skipping Marked for Death dialog for AI player %d" % opponent)
+		return
+
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if not secondary_mgr:
 		push_error("CommandController: SecondaryMissionManager not found")
@@ -882,6 +902,12 @@ func _on_marked_for_death_resolved(alpha_targets: Array, gamma_target: String, d
 
 func _show_tempting_target_dialog(drawing_player: int, opponent: int, details: Dictionary) -> void:
 	"""Show A Tempting Target dialog for the opponent to select an objective."""
+	# Skip dialog for AI players — AIPlayer handles via _on_secondary_requires_interaction
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(opponent):
+		print("CommandController: Skipping Tempting Target dialog for AI player %d" % opponent)
+		return
+
 	# Get objectives in No Man's Land
 	var all_objectives = GameState.state.get("board", {}).get("objectives", [])
 	var nml_objectives = []

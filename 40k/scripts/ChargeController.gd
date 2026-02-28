@@ -2353,6 +2353,12 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		])
 		dice_log_display.append_text("[color=gold]Command Re-roll available! (1 CP)[/color]\n")
 
+	# Skip dialog for AI players — AIPlayer handles the decision via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ChargeController: Skipping command reroll dialog for AI player %d" % player)
+		return
+
 	# Load and show the dialog
 	var dialog_script = load("res://dialogs/CommandRerollDialog.gd")
 	if not dialog_script:
@@ -2470,6 +2476,12 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 	print("║ Eligible units: %d" % eligible_units.size())
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ChargeController: Skipping Heroic Intervention dialog for AI player %d" % player)
+		return
+
 	if eligible_units.is_empty():
 		_on_heroic_intervention_declined(player)
 		return
@@ -2529,6 +2541,12 @@ func _on_tank_shock_opportunity(player: int, vehicle_unit_id: String, eligible_t
 	print("║ Vehicle: %s" % vehicle_unit_id)
 	print("║ Eligible targets: %d" % eligible_targets.size())
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ChargeController: Skipping Tank Shock dialog for AI player %d" % player)
+		return
 
 	if eligible_targets.is_empty():
 		_on_tank_shock_declined(player)
@@ -2590,6 +2608,13 @@ func _on_tank_shock_result(vehicle_unit_id: String, target_unit_id: String, resu
 		var mw = result.get("mortal_wounds", 0)
 		var dice_count = result.get("dice_count", 0)
 		dice_log_display.append_text("[color=orange_red]Rolled %dD6: %s — %d mortal wound(s)[/color]\n" % [dice_count, str(rolls), mw])
+
+	# Skip result dialog for AI players — informational only, would pile up
+	var charging_player = GameState.get_active_player()
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(charging_player):
+		print("ChargeController: Skipping Tank Shock result dialog for AI player %d" % charging_player)
+		return
 
 	# Show result dialog
 	var dialog_script = load("res://dialogs/TankShockResultDialog.gd")

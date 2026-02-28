@@ -2158,13 +2158,19 @@ func _on_weapon_order_required(assignments: Array) -> void:
 	print("ShootingController: _on_weapon_order_required CALLED")
 	print("ShootingController: Assignments: %d" % assignments.size())
 
+	# Skip dialog for AI players — AI submits SHOOT actions directly
+	var active_player = current_phase.get_current_player() if current_phase else -1
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and active_player > 0 and ai_player_node.is_ai_player(active_player):
+		print("ShootingController: Skipping weapon order dialog for AI player %d" % active_player)
+		return
+
 	# Check if this is the attacking player in multiplayer
 	var should_show_dialog = false
 
 	if NetworkManager.is_networked():
 		# Multiplayer: Only show dialog if this peer is the attacker
 		var local_player = NetworkManager.get_local_player()
-		var active_player = current_phase.get_current_player() if current_phase else -1
 		print("ShootingController: local_player = %d, active_player = %d" % [local_player, active_player])
 		should_show_dialog = (local_player == active_player)
 	else:
@@ -2249,6 +2255,13 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 	print("ShootingController: _on_next_weapon_confirmation_required CALLED")
 	print("ShootingController: Remaining weapons: %d, current_index: %d" % [remaining_weapons.size(), current_index])
 	print("ShootingController: Last weapon result keys: %s" % str(last_weapon_result.keys()))
+
+	# Skip dialog for AI players — AI submits actions directly
+	var active_player_check = current_phase.get_current_player() if current_phase else -1
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and active_player_check > 0 and ai_player_node.is_ai_player(active_player_check):
+		print("ShootingController: Skipping next weapon confirmation dialog for AI player %d" % active_player_check)
+		return
 
 	# Note: remaining_weapons CAN be empty - this is the final weapon case!
 	if remaining_weapons.is_empty():
@@ -2338,6 +2351,12 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	print("║ Available stratagems: %d" % available_stratagems.size())
 	print("║ Target units: %s" % str(target_unit_ids))
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — AIPlayer handles via signal
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(defending_player):
+		print("ShootingController: Skipping reactive stratagem dialog for AI player %d" % defending_player)
+		return
 
 	# Check if this is for the local player (multiplayer support)
 	var should_show_dialog = false
@@ -2527,6 +2546,16 @@ func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
 	print("║ Player: ", player)
 	print("╚═══════════════════════════════════════════════════════════════")
 
+	# Skip dialog for AI players — auto-use Sentinel Storm (free ability, always beneficial)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ShootingController: AI player %d auto-using Sentinel Storm for %s" % [player, unit_id])
+		emit_signal("shoot_action_requested", {
+			"type": "USE_SENTINEL_STORM",
+			"actor_unit_id": unit_id
+		})
+		return
+
 	var dialog = preload("res://dialogs/SentinelStormDialog.gd").new()
 	dialog.setup(unit_id, player)
 	dialog.sentinel_storm_chosen.connect(_on_sentinel_storm_chosen)
@@ -2567,6 +2596,16 @@ func _on_throat_slittas_available(unit_id: String, player: int, eligible_targets
 	print("║ Player: ", player)
 	print("║ Eligible targets: ", eligible_targets.size())
 	print("╚═══════════════════════════════════════════════════════════════")
+
+	# Skip dialog for AI players — auto-use Throat Slittas (AI uses it when available)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("ShootingController: AI player %d auto-using Throat Slittas for %s" % [player, unit_id])
+		emit_signal("shoot_action_requested", {
+			"type": "USE_THROAT_SLITTAS",
+			"actor_unit_id": unit_id
+		})
+		return
 
 	# Build a simple confirmation dialog
 	var dialog = ConfirmationDialog.new()
