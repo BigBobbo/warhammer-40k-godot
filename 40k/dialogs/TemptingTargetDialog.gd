@@ -19,13 +19,14 @@ func setup(opponent: int, objectives: Array) -> void:
 	nml_objectives = objectives
 
 	title = "A Tempting Target — Player %d Selects Objective" % opponent
+	min_size = DialogConstants.MEDIUM
 	get_ok_button().visible = false
 
 	_build_ui()
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(450, 300)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -55,7 +56,7 @@ func _build_ui() -> void:
 
 	# Scroll container for objective list
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(430, 150)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 150)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	objective_list_container = VBoxContainer.new()

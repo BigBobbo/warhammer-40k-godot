@@ -17,6 +17,7 @@ var transport_fell_back: bool = false
 func _ready() -> void:
 	# Set dialog properties
 	title = "Disembark Unit"
+	min_size = DialogConstants.SMALL
 	dialog_hide_on_ok = false
 
 	# Connect buttons

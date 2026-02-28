@@ -72,7 +72,7 @@ func _build_ui() -> void:
 	confirmed.connect(_on_confirmed)
 
 	# Set minimum size for dialog
-	min_size = Vector2(400, 200)
+	min_size = DialogConstants.SMALL
 
 	# CRITICAL: Allow input to pass through to the battlefield
 	exclusive = false

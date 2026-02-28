@@ -20,7 +20,7 @@ var summary_label: RichTextLabel
 
 func _init():
 	title = "Declare Battle Formations"
-	min_size = Vector2(700, 500)
+	min_size = DialogConstants.LARGE
 
 func setup(player: int) -> void:
 	declaring_player = player
@@ -61,7 +61,7 @@ func _build_ui() -> void:
 
 	# Scrollable content
 	scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(680, 350)
+	scroll_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 350)
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main_vbox.add_child(scroll_container)
 
@@ -80,7 +80,7 @@ func _build_ui() -> void:
 	main_vbox.add_child(summary_sep)
 
 	summary_label = RichTextLabel.new()
-	summary_label.custom_minimum_size = Vector2(680, 60)
+	summary_label.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 60)
 	summary_label.bbcode_enabled = true
 	summary_label.fit_content = true
 	main_vbox.add_child(summary_label)

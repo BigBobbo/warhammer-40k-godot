@@ -15,6 +15,7 @@ func setup(p_unfought_units: Array) -> void:
 	unfought_units = p_unfought_units
 
 	title = "End Fight Phase?"
+	min_size = DialogConstants.SMALL
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -23,7 +24,7 @@ func setup(p_unfought_units: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(500, 250)
+	main_container.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)
 
 	# Warning header
 	var header = Label.new()
@@ -53,7 +54,7 @@ func _build_ui() -> void:
 	main_container.add_child(units_header)
 
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(480, 100)
+	scroll.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 100)
 	var unit_list = VBoxContainer.new()
 
 	for unit_info in unfought_units:

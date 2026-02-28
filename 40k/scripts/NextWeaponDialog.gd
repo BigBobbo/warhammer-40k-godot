@@ -24,7 +24,7 @@ var continue_button: Button
 func _ready() -> void:
 	title = "Weapon Resolution Complete"
 	dialog_hide_on_ok = false
-	min_size = Vector2(600, 500)
+	min_size = DialogConstants.LARGE
 
 	# CRITICAL: Don't hide OK button - we'll repurpose it
 	# AcceptDialog needs at least one button to work properly
@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _create_ui() -> void:
 	main_vbox = VBoxContainer.new()
-	main_vbox.custom_minimum_size = Vector2(580, 480)
+	main_vbox.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
 	add_child(main_vbox)
 
 	# Last weapon header
@@ -58,7 +58,7 @@ func _create_ui() -> void:
 	main_vbox.add_child(summary_label)
 
 	attack_summary_panel = PanelContainer.new()
-	attack_summary_panel.custom_minimum_size = Vector2(560, 120)
+	attack_summary_panel.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 120)
 	main_vbox.add_child(attack_summary_panel)
 
 	summary_grid = GridContainer.new()
@@ -75,7 +75,7 @@ func _create_ui() -> void:
 	# Dice Details Panel (collapsible)
 	dice_details_panel = PanelContainer.new()
 	dice_details_panel.visible = false
-	dice_details_panel.custom_minimum_size = Vector2(560, 100)
+	dice_details_panel.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 100)
 	main_vbox.add_child(dice_details_panel)
 
 	dice_details_log = RichTextLabel.new()
@@ -92,7 +92,7 @@ func _create_ui() -> void:
 	main_vbox.add_child(remaining_label)
 
 	remaining_weapons_list = ItemList.new()
-	remaining_weapons_list.custom_minimum_size = Vector2(560, 100)
+	remaining_weapons_list.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 100)
 	main_vbox.add_child(remaining_weapons_list)
 
 	# Note: Continue button is the built-in OK button, configured in _ready()

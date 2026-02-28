@@ -24,6 +24,7 @@ var is_web_platform: bool = false
 var _save_files_signal_connected: bool = false
 
 func _ready() -> void:
+	min_size = DialogConstants.MEDIUM
 	# Configure dialog properties
 	dialog_close_on_escape = true
 	exclusive = false  # Allow clicking outside to close

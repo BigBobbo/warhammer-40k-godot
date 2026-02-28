@@ -16,13 +16,14 @@ func setup(data: Dictionary, phase) -> void:
 	_build_ui()
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	# Main container
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(600, 400)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# NEW: Player turn indicator with color
 	var turn_indicator = Panel.new()
-	turn_indicator.custom_minimum_size = Vector2(580, 40)
+	turn_indicator.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 40)
 	var player_color = Color.BLUE if dialog_data.selecting_player == 1 else Color.RED
 	turn_indicator.add_theme_stylebox_override("panel", _create_colored_panel(player_color))
 
@@ -46,7 +47,7 @@ func _build_ui() -> void:
 
 	# Scroll container for unit list
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(580, 300)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 300)
 
 	var units_container = VBoxContainer.new()
 

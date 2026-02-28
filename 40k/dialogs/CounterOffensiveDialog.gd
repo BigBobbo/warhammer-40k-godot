@@ -22,6 +22,7 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 	eligible_units = p_eligible_units
 
 	title = "Counter-Offensive Available - Player %d" % player
+	min_size = DialogConstants.MEDIUM
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -30,7 +31,7 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(500, 300)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -78,7 +79,7 @@ func _build_ui() -> void:
 
 	# Scrollable container for eligible units
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(480, 120)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 120)
 	var unit_list = VBoxContainer.new()
 
 	for unit_info in eligible_units:

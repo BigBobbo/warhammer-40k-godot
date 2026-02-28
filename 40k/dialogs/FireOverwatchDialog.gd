@@ -33,8 +33,9 @@ func setup(p_player: int, p_target_unit_id: String, p_eligible_units: Array) -> 
 	_build_ui()
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(520, 320)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -92,7 +93,7 @@ func _build_ui() -> void:
 
 	# Scrollable container for eligible units
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(500, 120)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 120)
 	var unit_list = VBoxContainer.new()
 
 	for unit_info in eligible_units:

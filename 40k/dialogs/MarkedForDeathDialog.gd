@@ -41,8 +41,9 @@ func setup(opponent: int, units: Array, details: Dictionary) -> void:
 	_show_alpha_selection()
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(500, 400)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -77,7 +78,7 @@ func _build_ui() -> void:
 
 	# Scroll container for unit list
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(480, 220)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 220)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	unit_list_container = VBoxContainer.new()

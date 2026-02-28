@@ -25,6 +25,7 @@ func setup(p_unit_id: String, p_player: int) -> void:
 	unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	title = "Epic Challenge Available - Player %d" % player
+	min_size = DialogConstants.SMALL
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -33,7 +34,7 @@ func setup(p_unit_id: String, p_player: int) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(450, 250)
+	main_container.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)
 
 	# Header
 	var header = Label.new()

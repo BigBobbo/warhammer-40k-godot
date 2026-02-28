@@ -33,8 +33,9 @@ func setup(p_player: int, p_vehicle_unit_id: String, p_eligible_targets: Array) 
 	_build_ui()
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(520, 350)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()
@@ -95,7 +96,7 @@ func _build_ui() -> void:
 
 	# Scrollable container for eligible targets
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(500, 120)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 120)
 	var target_list = VBoxContainer.new()
 
 	for target_data in eligible_targets:

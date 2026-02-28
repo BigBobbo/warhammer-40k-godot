@@ -12,7 +12,7 @@ var local_player: int = 0
 
 func _init():
 	title = "Game Over"
-	min_size = Vector2(550, 400)
+	min_size = DialogConstants.MEDIUM
 
 func setup(winner: int, reason: String, local_player_num: int = 0) -> void:
 	winner_player = winner
@@ -132,7 +132,7 @@ func _build_ai_performance_summary(parent: VBoxContainer, ai_summary: Dictionary
 
 	# Scrollable content for potentially long AI summaries
 	var scroll = ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(520, 200)
+	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 30, 200)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	parent.add_child(scroll)
 

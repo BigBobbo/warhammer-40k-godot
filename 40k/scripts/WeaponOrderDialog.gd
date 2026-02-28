@@ -29,14 +29,14 @@ func _ready() -> void:
 	dialog_hide_on_ok = false
 
 	# Set dialog size (increased to accommodate dice log)
-	min_size = Vector2(500, 600)
+	min_size = DialogConstants.LARGE
 
 	# Hide default OK button
 	get_ok_button().hide()
 
 	# Create main container
 	vbox = VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(480, 580)
+	vbox.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
 	add_child(vbox)
 
 	# Instruction label
@@ -55,7 +55,7 @@ func _ready() -> void:
 	vbox.add_child(list_label)
 
 	var scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(460, 220)
+	scroll_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
 	vbox.add_child(scroll_container)
 
 	weapon_list_container = VBoxContainer.new()
@@ -109,7 +109,7 @@ func _ready() -> void:
 	vbox.add_child(log_label)
 
 	dice_log_rich_text = RichTextLabel.new()
-	dice_log_rich_text.set_custom_minimum_size(Vector2(460, 120))
+	dice_log_rich_text.set_custom_minimum_size(Vector2(DialogConstants.LARGE.x - 40, 120))
 	dice_log_rich_text.bbcode_enabled = true
 	dice_log_rich_text.scroll_following = true
 	vbox.add_child(dice_log_rich_text)

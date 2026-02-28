@@ -11,7 +11,7 @@ var selected_transport_id: String = ""
 
 func _ready() -> void:
 	title = "Deploy Unit in Transport"
-	size = Vector2(400, 300)
+	min_size = DialogConstants.MEDIUM
 
 	# Create main container
 	var vbox = VBoxContainer.new()

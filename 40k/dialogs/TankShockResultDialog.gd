@@ -8,6 +8,7 @@ signal result_acknowledged()
 
 func setup(result: Dictionary) -> void:
 	title = "TANK SHOCK Result"
+	min_size = DialogConstants.SMALL
 	get_ok_button().text = "OK"
 	get_ok_button().pressed.connect(_on_ok)
 
@@ -25,7 +26,7 @@ func setup(result: Dictionary) -> void:
 	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
 
 	var main = VBoxContainer.new()
-	main.custom_minimum_size = Vector2(450, 280)
+	main.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)
 
 	# Header
 	var header = Label.new()

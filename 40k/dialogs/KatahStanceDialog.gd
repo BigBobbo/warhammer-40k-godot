@@ -28,6 +28,7 @@ func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -
 	unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	title = "Martial Ka'tah — %s" % unit_name
+	min_size = DialogConstants.MEDIUM
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -36,7 +37,7 @@ func setup(p_unit_id: String, p_player: int, p_master_available: bool = false) -
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(500, 300)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()

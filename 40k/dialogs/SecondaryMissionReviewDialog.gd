@@ -34,9 +34,10 @@ func setup(player: int, drawn_missions: Array, player_cp: int, deck_size: int) -
 	_build_ui()
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
 	main_container.name = "MainContainer"
-	main_container.custom_minimum_size = Vector2(480, 0)
+	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
 	var header = Label.new()

@@ -30,8 +30,9 @@ func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	print("[AttackAssignmentDialog] UI built successfully")
 
 func _build_ui() -> void:
+	min_size = DialogConstants.MEDIUM
 	var container = VBoxContainer.new()
-	container.custom_minimum_size = Vector2(500, 400)
+	container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Get unit's melee weapons from meta
 	var unit = phase_reference.get_unit(unit_id)

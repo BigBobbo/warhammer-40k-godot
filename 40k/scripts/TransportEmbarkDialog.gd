@@ -23,6 +23,7 @@ var unit_container: VBoxContainer
 func _ready() -> void:
 	# Set dialog properties
 	title = "Select Units to Embark"
+	min_size = DialogConstants.MEDIUM
 	dialog_hide_on_ok = false
 	get_ok_button().text = "Confirm Embarkation"
 	get_ok_button().pressed.connect(_on_confirm_pressed)
@@ -35,7 +36,7 @@ func _ready() -> void:
 
 	# Create main container
 	vbox = VBoxContainer.new()
-	vbox.set_custom_minimum_size(Vector2(400, 300))
+	vbox.set_custom_minimum_size(Vector2(DialogConstants.MEDIUM.x - 20, 0))
 	add_child(vbox)
 
 	# Create capacity label
@@ -48,7 +49,7 @@ func _ready() -> void:
 
 	# Create scrollable container for units
 	var scroll = ScrollContainer.new()
-	scroll.set_custom_minimum_size(Vector2(380, 200))
+	scroll.set_custom_minimum_size(Vector2(DialogConstants.MEDIUM.x - 20, 200))
 	vbox.add_child(scroll)
 
 	unit_container = VBoxContainer.new()

@@ -36,6 +36,7 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 	unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	title = "Command Re-roll Available - Player %d" % player
+	min_size = DialogConstants.SMALL
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
@@ -44,7 +45,7 @@ func setup(p_unit_id: String, p_player: int, p_roll_type: String, p_original_rol
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
-	main_container.custom_minimum_size = Vector2(420, 220)
+	main_container.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 20, 0)
 
 	# Header
 	var header = Label.new()
