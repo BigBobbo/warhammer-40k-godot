@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warhammer 40K - Unit Image Editor</title>
+<style>
+/* ── Reset ────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ─────────────────────────────────────────────────────── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  width: 100%;
+  flex: 1;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+header { text-align: center; margin-bottom: 2rem; }
+header h1 { color: #c49a6c; font-size: 1.8rem; margin-bottom: 0.5rem; letter-spacing: 0.02em; }
+.subtitle { color: #888; font-size: 0.95rem; }
+
+/* ── Sections ─────────────────────────────────────────────────── */
+.section {
+  background: #22223a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.section-title {
+  color: #c49a6c;
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.section-desc { color: #999; font-size: 0.9rem; margin-bottom: 1rem; }
+
+/* ── Drop zone ────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #555;
+  border-radius: 8px;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: #c49a6c;
+  background: rgba(196, 154, 108, 0.05);
+}
+.drop-zone-text { color: #888; font-size: 0.95rem; }
+.drop-zone-text strong { color: #c49a6c; }
+.drop-zone-hint { color: #666; font-size: 0.8rem; margin-top: 0.5rem; }
+
+/* ── Form elements ────────────────────────────────────────────── */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-end;
+}
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.form-group label { color: #aaa; font-size: 0.85rem; }
+.form-group select, .form-group input {
+  background: #16162a;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+.form-group select:focus, .form-group input:focus {
+  outline: none;
+  border-color: #c49a6c;
+  box-shadow: 0 0 0 2px rgba(196, 154, 108, 0.2);
+}
+.form-hint { color: #666; font-size: 0.75rem; }
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.btn {
+  display: inline-block;
+  padding: 0.55rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #c49a6c; color: #1a1a2e; font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: #d4a87a; }
+.btn-secondary { background: transparent; color: #aaa; border-color: #555; }
+.btn-secondary:hover:not(:disabled) { border-color: #888; color: #ddd; }
+.btn-danger { background: transparent; color: #e06060; border-color: #662222; }
+.btn-danger:hover:not(:disabled) { background: #3a2020; border-color: #e06060; }
+.btn-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+
+/* ── Editor layout ────────────────────────────────────────────── */
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .editor-layout { grid-template-columns: 1fr; }
+}
+
+.editor-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+/* ── Canvas area ──────────────────────────────────────────────── */
+.canvas-wrapper {
+  background: #16162a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.canvas-label { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+canvas { border-radius: 4px; }
+
+/* ── Slider ───────────────────────────────────────────────────── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+.slider-row label { color: #aaa; font-size: 0.85rem; white-space: nowrap; min-width: 60px; }
+.slider-row input[type="range"] { flex: 1; accent-color: #c49a6c; }
+.slider-row .slider-value { color: #c49a6c; font-size: 0.85rem; min-width: 45px; text-align: right; }
+
+/* ── Image list ───────────────────────────────────────────────── */
+.image-list { list-style: none; max-height: 300px; overflow-y: auto; }
+.image-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #2a2a42;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.image-item:hover { background: rgba(196, 154, 108, 0.08); }
+.image-item.selected { background: rgba(196, 154, 108, 0.15); border-left: 3px solid #c49a6c; }
+.image-item:last-child { border-bottom: none; }
+.image-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #444;
+  flex-shrink: 0;
+}
+.image-item.selected .image-thumb { border-color: #c49a6c; }
+.image-info { flex: 1; min-width: 0; }
+.image-name { font-size: 0.9rem; color: #e0e0e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-meta { font-size: 0.75rem; color: #888; }
+.image-actions { display: flex; gap: 0.25rem; }
+.btn-icon {
+  background: none;
+  border: 1px solid #444;
+  color: #aaa;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-icon:hover { border-color: #888; color: #ddd; }
+.btn-icon.danger:hover { border-color: #e06060; color: #e06060; }
+
+/* ── Status ───────────────────────────────────────────────────── */
+.status-msg { font-size: 0.85rem; min-height: 1.2em; padding-top: 0.25rem; }
+.status-success { color: #6ec77a; }
+.status-error { color: #e06060; }
+.status-info { color: #88b0d0; }
+
+/* ── Hidden ───────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ── Filename preview ─────────────────────────────────────────── */
+.filename-preview {
+  background: #16162a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+  color: #c49a6c;
+  word-break: break-all;
+}
+
+/* ── Instructions ─────────────────────────────────────────────── */
+.instructions {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: #999;
+  line-height: 1.7;
+}
+.instructions code {
+  background: #16162a;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: #c49a6c;
+}
+.instructions ul { padding-left: 1.2rem; }
+.instructions li { margin-bottom: 0.3rem; }
+
+/* ── Player toggle ────────────────────────────────────────────── */
+.toggle-group {
+  display: flex;
+  border: 1px solid #444;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.toggle-btn {
+  padding: 0.4rem 0.8rem;
+  background: #16162a;
+  color: #aaa;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s;
+}
+.toggle-btn:not(:last-child) { border-right: 1px solid #444; }
+.toggle-btn.active { background: #c49a6c; color: #1a1a2e; font-weight: 600; }
+.toggle-btn:hover:not(.active) { background: #2a2a4a; color: #ddd; }
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1a1a2e; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+/* ── Footer ───────────────────────────────────────────────────── */
+footer {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  border-top: 1px solid #333;
+  color: #666;
+  font-size: 0.85rem;
+}
+footer a { color: #c49a6c; text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Unit Image Editor</h1>
+    <p class="subtitle">Prepare custom sprite images for your Warhammer 40K units</p>
+  </header>
+
+  <!-- Step 1: Upload -->
+  <div class="section">
+    <div class="section-title">1. Upload Image</div>
+    <div class="section-desc">
+      Upload an image to use as a custom unit sprite. The image will be scaled and cropped to fit the model's base.
+    </div>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-text"><strong>Click to browse</strong> or drag &amp; drop an image here</div>
+      <div class="drop-zone-hint">Supports PNG, JPG, GIF, WebP</div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    </div>
+  </div>
+
+  <!-- Step 2: Configure (hidden until image loaded) -->
+  <div class="section hidden" id="editorSection">
+    <div class="section-title">2. Configure &amp; Preview</div>
+    <div class="section-desc">
+      Set the unit name and base size, then adjust the image to fit.
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1; min-width: 200px;">
+        <label for="unitName">Unit Name</label>
+        <input type="text" id="unitName" placeholder="e.g. Blade Champion">
+        <div class="form-hint">Used as filename: spaces &amp; hyphens become underscores</div>
+      </div>
+      <div class="form-group">
+        <label for="baseSize">Base Size</label>
+        <select id="baseSize">
+          <option value="25">25mm (Small Infantry)</option>
+          <option value="28">28mm (Infantry)</option>
+          <option value="32" selected>32mm (Standard Infantry)</option>
+          <option value="40">40mm (Large Infantry)</option>
+          <option value="50">50mm (Terminators / Characters)</option>
+          <option value="60">60mm (Large Models)</option>
+          <option value="65">65mm (Cavalry)</option>
+          <option value="80">80mm (Monsters)</option>
+          <option value="90">90mm (Large Monsters)</option>
+          <option value="100">100mm (Vehicles)</option>
+          <option value="130">130mm (Large Vehicles)</option>
+          <option value="170">170mm (Super-Heavy)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Preview Player</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-player="1" id="playerBtn1">Player 1</button>
+          <button class="toggle-btn" data-player="2" id="playerBtn2">Player 2</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row" id="filenameRow">
+      <div class="form-group" style="flex:1;">
+        <label>Output Filename</label>
+        <div class="filename-preview" id="filenamePreview">unit_name.png</div>
+      </div>
+    </div>
+
+    <div class="editor-layout">
+      <!-- Left: Source image with controls -->
+      <div class="editor-panel">
+        <div class="canvas-wrapper">
+          <div class="canvas-label">Source Image (drag to reposition)</div>
+          <canvas id="sourceCanvas" width="300" height="300"></canvas>
+          <div class="slider-row">
+            <label>Zoom</label>
+            <input type="range" id="zoomSlider" min="10" max="400" value="100" step="1">
+            <span class="slider-value" id="zoomValue">100%</span>
+          </div>
+          <div class="slider-row">
+            <label>Rotate</label>
+            <input type="range" id="rotateSlider" min="-180" max="180" value="0" step="1">
+            <span class="slider-value" id="rotateValue">0&deg;</span>
+          </div>
+          <div class="btn-row" style="justify-content: center;">
+            <button class="btn btn-secondary" id="resetBtn">Reset Position</button>
+            <button class="btn btn-secondary" id="fitBtn">Fit to Base</button>
+            <button class="btn btn-secondary" id="fillBtn">Fill Base</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Preview as in-game token -->
+      <div class="editor-panel">
+        <div class="canvas-wrapper">
+          <div class="canvas-label">In-Game Preview</div>
+          <canvas id="previewCanvas" width="300" height="300"></canvas>
+          <div class="slider-row">
+            <label>Preview Scale</label>
+            <input type="range" id="previewScaleSlider" min="50" max="300" value="150" step="10">
+            <span class="slider-value" id="previewScaleValue">150%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="justify-content: center; margin-top: 1rem;">
+      <button class="btn btn-primary" id="downloadBtn" disabled>Download PNG</button>
+      <button class="btn btn-danger" id="clearBtn">Clear Image</button>
+    </div>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="section">
+    <div class="section-title">How It Works</div>
+    <div class="instructions">
+      <ul>
+        <li>Upload an image and set the <strong>unit name</strong> to match your army list unit name.</li>
+        <li>Choose the correct <strong>base size</strong> (in mm) for the unit.</li>
+        <li>Use <strong>Zoom</strong>, <strong>Rotate</strong>, and <strong>drag</strong> to position the image within the circular base area.</li>
+        <li>The <strong>In-Game Preview</strong> shows exactly how it will look on the board with the enhanced token style.</li>
+        <li>Click <strong>Download PNG</strong> to save the sprite image.</li>
+        <li>Place the downloaded PNG file in the game's sprites directory: <code>user://sprites/</code></li>
+        <li>On most systems this is:
+          <ul>
+            <li>macOS: <code>~/Library/Application Support/Godot/app_userdata/40k/sprites/</code></li>
+            <li>Windows: <code>%APPDATA%\Godot\app_userdata\40k\sprites\</code></li>
+            <li>Linux: <code>~/.local/share/godot/app_userdata/40k/sprites/</code></li>
+          </ul>
+        </li>
+        <li>The game resolves sprites by priority:
+          <ul>
+            <li><strong>1.</strong> Exact unit name: <code>blade_champion.png</code></li>
+            <li><strong>2.</strong> Faction + type: <code>adeptus_custodes_infantry.png</code></li>
+            <li><strong>3.</strong> Generic type: <code>infantry.png</code>, <code>vehicle.png</code>, <code>monster.png</code></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    Warhammer 40K Tabletop Simulator &mdash; Unit Image Editor
+  </footer>
+</div>
+
+<script>
+// ===========================================================================
+//  State
+// ===========================================================================
+
+const state = {
+  sourceImage: null,         // HTMLImageElement
+  offsetX: 0,               // pan offset (px in source-canvas space)
+  offsetY: 0,
+  zoom: 100,                // percent
+  rotation: 0,              // degrees
+  dragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartOffsetX: 0,
+  dragStartOffsetY: 0,
+  previewPlayer: 1,
+  baseMM: 32,
+  previewScale: 150,        // percent for preview rendering
+};
+
+// ===========================================================================
+//  DOM refs
+// ===========================================================================
+
+const dropZone       = document.getElementById('dropZone');
+const fileInput      = document.getElementById('fileInput');
+const editorSection  = document.getElementById('editorSection');
+const unitNameInput  = document.getElementById('unitName');
+const baseSizeSelect = document.getElementById('baseSize');
+const filenamePreview= document.getElementById('filenamePreview');
+
+const sourceCanvas   = document.getElementById('sourceCanvas');
+const sourceCtx      = sourceCanvas.getContext('2d');
+const previewCanvas  = document.getElementById('previewCanvas');
+const previewCtx     = previewCanvas.getContext('2d');
+
+const zoomSlider     = document.getElementById('zoomSlider');
+const zoomValue      = document.getElementById('zoomValue');
+const rotateSlider   = document.getElementById('rotateSlider');
+const rotateValue    = document.getElementById('rotateValue');
+const previewScaleSlider = document.getElementById('previewScaleSlider');
+const previewScaleValue  = document.getElementById('previewScaleValue');
+
+const resetBtn       = document.getElementById('resetBtn');
+const fitBtn         = document.getElementById('fitBtn');
+const fillBtn        = document.getElementById('fillBtn');
+const downloadBtn    = document.getElementById('downloadBtn');
+const clearBtn       = document.getElementById('clearBtn');
+const statusMsg      = document.getElementById('statusMsg');
+
+const playerBtn1     = document.getElementById('playerBtn1');
+const playerBtn2     = document.getElementById('playerBtn2');
+
+// ===========================================================================
+//  Constants – mirrors Godot's rendering
+// ===========================================================================
+
+const PX_PER_INCH = 40.0;
+const MM_PER_INCH = 25.4;
+
+function mmToPx(mm) { return (mm / MM_PER_INCH) * PX_PER_INCH; }
+function baseRadiusPx(baseMM) { return mmToPx(baseMM) / 2.0; }
+
+// Source canvas always shows within a 300x300 area
+const SRC_CANVAS_SIZE = 300;
+
+// ===========================================================================
+//  File handling
+// ===========================================================================
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadFile(file);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      state.sourceImage = img;
+      // Auto-set name from filename (strip extension)
+      const baseName = file.name.replace(/\.[^.]+$/, '');
+      if (!unitNameInput.value) unitNameInput.value = baseName;
+      resetTransform();
+      editorSection.classList.remove('hidden');
+      downloadBtn.disabled = false;
+      updateFilenamePreview();
+      setStatus('Image loaded: ' + img.width + 'x' + img.height + 'px', 'info');
+      // Auto fit
+      autoFill();
+      renderAll();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ===========================================================================
+//  Filename
+// ===========================================================================
+
+function cleanName(name) {
+  return name.toLowerCase().trim().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function updateFilenamePreview() {
+  const raw = unitNameInput.value || 'unit_name';
+  const clean = cleanName(raw);
+  filenamePreview.textContent = (clean || 'unit_name') + '.png';
+}
+
+unitNameInput.addEventListener('input', updateFilenamePreview);
+
+// ===========================================================================
+//  Controls
+// ===========================================================================
+
+baseSizeSelect.addEventListener('change', () => {
+  state.baseMM = parseInt(baseSizeSelect.value);
+  renderAll();
+});
+
+zoomSlider.addEventListener('input', () => {
+  state.zoom = parseInt(zoomSlider.value);
+  zoomValue.textContent = state.zoom + '%';
+  renderAll();
+});
+
+rotateSlider.addEventListener('input', () => {
+  state.rotation = parseInt(rotateSlider.value);
+  rotateValue.innerHTML = state.rotation + '&deg;';
+  renderAll();
+});
+
+previewScaleSlider.addEventListener('input', () => {
+  state.previewScale = parseInt(previewScaleSlider.value);
+  previewScaleValue.textContent = state.previewScale + '%';
+  renderAll();
+});
+
+playerBtn1.addEventListener('click', () => { state.previewPlayer = 1; playerBtn1.classList.add('active'); playerBtn2.classList.remove('active'); renderAll(); });
+playerBtn2.addEventListener('click', () => { state.previewPlayer = 2; playerBtn1.classList.remove('active'); playerBtn2.classList.add('active'); renderAll(); });
+
+resetBtn.addEventListener('click', () => { resetTransform(); renderAll(); });
+fitBtn.addEventListener('click',  () => { autoFit();  renderAll(); });
+fillBtn.addEventListener('click', () => { autoFill(); renderAll(); });
+
+clearBtn.addEventListener('click', () => {
+  state.sourceImage = null;
+  editorSection.classList.add('hidden');
+  downloadBtn.disabled = true;
+  fileInput.value = '';
+  setStatus('', '');
+});
+
+// ===========================================================================
+//  Transform helpers
+// ===========================================================================
+
+function resetTransform() {
+  state.offsetX = 0;
+  state.offsetY = 0;
+  state.zoom = 100;
+  state.rotation = 0;
+  zoomSlider.value = 100;
+  zoomValue.textContent = '100%';
+  rotateSlider.value = 0;
+  rotateValue.innerHTML = '0&deg;';
+}
+
+function autoFit() {
+  if (!state.sourceImage) return;
+  // Scale so the entire image fits inside the base circle
+  const basePxRadius = getSourceBaseRadius();
+  const diameter = basePxRadius * 2;
+  // The image diagonal must fit in the diameter
+  const img = state.sourceImage;
+  const maxDim = Math.max(img.width, img.height);
+  const fitZoom = (diameter / maxDim) * 100;
+  state.zoom = Math.round(Math.max(10, Math.min(400, fitZoom)));
+  state.offsetX = 0;
+  state.offsetY = 0;
+  state.rotation = 0;
+  zoomSlider.value = state.zoom;
+  zoomValue.textContent = state.zoom + '%';
+  rotateSlider.value = 0;
+  rotateValue.innerHTML = '0&deg;';
+}
+
+function autoFill() {
+  if (!state.sourceImage) return;
+  // Scale so the image fills the base circle (covers it entirely)
+  const basePxRadius = getSourceBaseRadius();
+  const diameter = basePxRadius * 2;
+  const img = state.sourceImage;
+  const minDim = Math.min(img.width, img.height);
+  const fillZoom = (diameter / minDim) * 100;
+  state.zoom = Math.round(Math.max(10, Math.min(400, fillZoom)));
+  state.offsetX = 0;
+  state.offsetY = 0;
+  state.rotation = 0;
+  zoomSlider.value = state.zoom;
+  zoomValue.textContent = state.zoom + '%';
+  rotateSlider.value = 0;
+  rotateValue.innerHTML = '0&deg;';
+}
+
+// The base radius in source-canvas pixel space
+function getSourceBaseRadius() {
+  // We use 70% of the canvas to show the base, matching in-game display
+  return SRC_CANVAS_SIZE * 0.42; // leaves margin for the border decorations
+}
+
+// ===========================================================================
+//  Canvas dragging (source)
+// ===========================================================================
+
+sourceCanvas.addEventListener('mousedown', (e) => {
+  if (!state.sourceImage) return;
+  state.dragging = true;
+  state.dragStartX = e.offsetX;
+  state.dragStartY = e.offsetY;
+  state.dragStartOffsetX = state.offsetX;
+  state.dragStartOffsetY = state.offsetY;
+  sourceCanvas.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!state.dragging) return;
+  const rect = sourceCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  state.offsetX = state.dragStartOffsetX + (mx - state.dragStartX);
+  state.offsetY = state.dragStartOffsetY + (my - state.dragStartY);
+  renderAll();
+});
+
+window.addEventListener('mouseup', () => {
+  if (state.dragging) {
+    state.dragging = false;
+    sourceCanvas.style.cursor = 'grab';
+  }
+});
+
+// Touch support
+sourceCanvas.addEventListener('touchstart', (e) => {
+  if (!state.sourceImage) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const rect = sourceCanvas.getBoundingClientRect();
+  state.dragging = true;
+  state.dragStartX = touch.clientX - rect.left;
+  state.dragStartY = touch.clientY - rect.top;
+  state.dragStartOffsetX = state.offsetX;
+  state.dragStartOffsetY = state.offsetY;
+}, { passive: false });
+
+window.addEventListener('touchmove', (e) => {
+  if (!state.dragging) return;
+  const touch = e.touches[0];
+  const rect = sourceCanvas.getBoundingClientRect();
+  const mx = touch.clientX - rect.left;
+  const my = touch.clientY - rect.top;
+  state.offsetX = state.dragStartOffsetX + (mx - state.dragStartX);
+  state.offsetY = state.dragStartOffsetY + (my - state.dragStartY);
+  renderAll();
+}, { passive: false });
+
+window.addEventListener('touchend', () => { state.dragging = false; });
+
+// Scroll-to-zoom
+sourceCanvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -5 : 5;
+  state.zoom = Math.max(10, Math.min(400, state.zoom + delta));
+  zoomSlider.value = state.zoom;
+  zoomValue.textContent = state.zoom + '%';
+  renderAll();
+}, { passive: false });
+
+// ===========================================================================
+//  Rendering – Source Canvas
+// ===========================================================================
+
+function renderSource() {
+  const ctx = sourceCtx;
+  const w = SRC_CANVAS_SIZE;
+  const h = SRC_CANVAS_SIZE;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Background
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, w, h);
+
+  // Checkerboard pattern to show transparency
+  const tileSize = 10;
+  for (let y = 0; y < h; y += tileSize) {
+    for (let x = 0; x < w; x += tileSize) {
+      const isLight = ((x / tileSize) + (y / tileSize)) % 2 === 0;
+      ctx.fillStyle = isLight ? '#1a1a30' : '#15152a';
+      ctx.fillRect(x, y, tileSize, tileSize);
+    }
+  }
+
+  const baseRadius = getSourceBaseRadius();
+
+  if (state.sourceImage) {
+    const img = state.sourceImage;
+    const scale = state.zoom / 100;
+    const drawW = img.width * scale;
+    const drawH = img.height * scale;
+    const rad = (state.rotation * Math.PI) / 180;
+
+    // Clip to circular base area
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Draw image with transform
+    ctx.translate(cx + state.offsetX, cy + state.offsetY);
+    ctx.rotate(rad);
+    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+  }
+
+  // Base circle outline
+  ctx.strokeStyle = '#c49a6c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Base size label
+  ctx.fillStyle = '#888';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(state.baseMM + 'mm base', cx, cy + baseRadius + 16);
+
+  // Crosshair at center (subtle)
+  ctx.strokeStyle = 'rgba(196, 154, 108, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - 8, cy);
+  ctx.lineTo(cx + 8, cy);
+  ctx.moveTo(cx, cy - 8);
+  ctx.lineTo(cx, cy + 8);
+  ctx.stroke();
+}
+
+// ===========================================================================
+//  Rendering – Preview Canvas (mirrors Godot's TokenVisual enhanced mode)
+// ===========================================================================
+
+function renderPreview() {
+  const ctx = previewCtx;
+  const w = 300;
+  const h = 300;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Background (board-like)
+  ctx.fillStyle = '#2a3a2a';
+  ctx.fillRect(0, 0, w, h);
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < w; i += 20) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
+  }
+
+  // The preview shows the token at the selected preview scale
+  const gamePxRadius = baseRadiusPx(state.baseMM);
+  const previewMul = state.previewScale / 100;
+  const radius = gamePxRadius * previewMul;
+
+  const isP1 = state.previewPlayer === 1;
+
+  // --- Layer 1: Gradient base fill ---
+  const darkColor  = isP1 ? '#334073' : '#801E1A';
+  const lightColor = isP1 ? '#596699' : '#A64033';
+
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  gradient.addColorStop(0, lightColor);
+  gradient.addColorStop(1, darkColor);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- Layer 2: Metallic base rim ---
+  const borderColor = isP1 ? '#D49661' : '#D9CCA6';
+  // Outer ring
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = Math.max(2, radius * 0.06);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  // Inner highlight arc (metallic effect)
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = Math.max(1, radius * 0.03);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - Math.max(2, radius * 0.04), -Math.PI * 0.7, Math.PI * 0.1);
+  ctx.stroke();
+
+  // --- Layer 3: Faction-colored inner ring ---
+  const factionColor = isP1 ? 'rgba(191, 153, 77, 0.7)' : 'rgba(179, 128, 115, 0.7)';
+  ctx.strokeStyle = factionColor;
+  ctx.lineWidth = Math.max(1, radius * 0.04);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 0.85, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // --- Layer 4: Sprite overlay (the user's image at 70% of base diameter) ---
+  if (state.sourceImage) {
+    const img = state.sourceImage;
+    const scale = state.zoom / 100;
+    const targetSize = radius * 2.0 * 0.7;
+    const displayScale = targetSize / Math.max(img.width, img.height) * scale;
+
+    // The sprite in Godot is drawn at 70% of base diameter
+    // We need to map from source-canvas space to preview space
+    const baseRadiusSrc = getSourceBaseRadius();
+    const scaleRatio = (radius * 0.7) / baseRadiusSrc;
+
+    const drawW = img.width * scale * scaleRatio;
+    const drawH = img.height * scale * scaleRatio;
+    const rad = (state.rotation * Math.PI) / 180;
+    const offX = state.offsetX * scaleRatio;
+    const offY = state.offsetY * scaleRatio;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.82, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.translate(cx + offX, cy + offY);
+    ctx.rotate(rad);
+    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+  }
+
+  // --- Layer 5: Model number ---
+  const fontSize = Math.max(10, radius * 0.55);
+  ctx.font = `bold ${fontSize}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillText('1', cx + 1, cy + 1);
+  // Text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('1', cx, cy);
+
+  // --- Layer 6: Selection ring (pulsing - static preview) ---
+  ctx.strokeStyle = 'rgba(255, 217, 51, 0.6)';
+  ctx.lineWidth = Math.max(1.5, radius * 0.05);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 3 * previewMul, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Base size and pixel info
+  ctx.fillStyle = '#888';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(state.baseMM + 'mm  |  ' + Math.round(gamePxRadius * 2) + 'px game diameter', cx, cy + radius + 22 * previewMul);
+}
+
+function renderAll() {
+  state.baseMM = parseInt(baseSizeSelect.value);
+  renderSource();
+  renderPreview();
+}
+
+// ===========================================================================
+//  Export / Download
+// ===========================================================================
+
+downloadBtn.addEventListener('click', () => {
+  if (!state.sourceImage) return;
+
+  const name = cleanName(unitNameInput.value || 'unit_name');
+  if (!name) {
+    setStatus('Please enter a unit name.', 'error');
+    return;
+  }
+
+  // Generate the cropped sprite PNG
+  // The output is a square PNG where the image fills a circular area
+  // Output size = 2x the base radius in Godot pixels (or at least 128px for quality)
+  const gamePxDiameter = Math.round(baseRadiusPx(state.baseMM) * 2);
+  const outputSize = Math.max(128, gamePxDiameter * 2); // 2x for quality
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = outputSize;
+  outCanvas.height = outputSize;
+  const outCtx = outCanvas.getContext('2d');
+
+  const outCx = outputSize / 2;
+  const outCy = outputSize / 2;
+  const outRadius = outputSize / 2;
+
+  // Clip to circle
+  outCtx.beginPath();
+  outCtx.arc(outCx, outCy, outRadius, 0, Math.PI * 2);
+  outCtx.clip();
+
+  // Draw image with same transform as source canvas but scaled to output size
+  const img = state.sourceImage;
+  const scale = state.zoom / 100;
+  const baseRadiusSrc = getSourceBaseRadius();
+  const scaleRatio = outRadius / baseRadiusSrc;
+
+  const drawW = img.width * scale * scaleRatio;
+  const drawH = img.height * scale * scaleRatio;
+  const rad = (state.rotation * Math.PI) / 180;
+  const offX = state.offsetX * scaleRatio;
+  const offY = state.offsetY * scaleRatio;
+
+  outCtx.translate(outCx + offX, outCy + offY);
+  outCtx.rotate(rad);
+  outCtx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+  // Download
+  const filename = name + '.png';
+  outCanvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setStatus('Downloaded: ' + filename + ' (' + outputSize + 'x' + outputSize + 'px)', 'success');
+  }, 'image/png');
+});
+
+// ===========================================================================
+//  Status messages
+// ===========================================================================
+
+function setStatus(msg, type) {
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (type ? ' status-' + type : '');
+}
+
+// ===========================================================================
+//  Init
+// ===========================================================================
+
+sourceCanvas.style.cursor = 'grab';
+state.baseMM = parseInt(baseSizeSelect.value);
+renderAll();
+</script>
+</body>
+</html>
