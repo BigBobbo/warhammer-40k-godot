@@ -43,6 +43,10 @@ func _on_phase_enter() -> void:
 			MissionManager.reset_round_kills()
 		# Reset bonus CP tracking — per core rules FAQ, each player can only gain 1 bonus CP per battle round
 		GameState.reset_bonus_cp_tracking()
+		# P3-106: Notify StratagemManager of new battle round for battle-round-scoped effect expiry
+		var strat_manager_round = get_node_or_null("/root/StratagemManager")
+		if strat_manager_round:
+			strat_manager_round.on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -106,6 +110,12 @@ func _on_phase_enter() -> void:
 	if faction_mgr:
 		faction_mgr.on_command_phase_start(current_player)
 
+	# P3-106: Clear turn-scoped stratagem effects at start of new turn
+	# Per Core Rules, effects with "until the start of your next turn" duration expire here
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		strat_manager.on_turn_start(current_player)
+
 	if _units_needing_test.size() == 0:
 		print("CommandPhase: No units need battle-shock tests")
 	else:
@@ -157,6 +167,12 @@ func clear_newly_drawn_missions() -> void:
 
 func _on_phase_exit() -> void:
 	print("CommandPhase: Exiting command phase")
+
+	# P3-106: Clear stratagem phase-scoped effects at end of Command phase
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		strat_manager.on_phase_end(GameStateData.Phase.COMMAND)
+
 	_units_needing_test.clear()
 	_units_tested.clear()
 	_units_auto_passed.clear()

@@ -15,6 +15,42 @@ class_name EffectPrimitivesData
 #   and don't set persistent flags
 # - apply_effects() generates diffs to set flags; clear_effects() removes them
 # - Query helpers (has_effect_*, get_effect_value) let RulesEngine check flags generically
+#
+# Effect Duration Model (P3-106 — Core Rules Compliance):
+# Per 10th Edition Core Rules, effects have specific duration types:
+#
+#   "end_of_phase"  — Expires when the current phase ends.
+#                     Cleared by StratagemManager.on_phase_end() in every phase's _on_phase_exit().
+#                     UnitAbilityManager also clears ability effects per-phase.
+#
+#   "end_of_turn"   — Expires at the start of the player's next turn (next Command phase).
+#                     Cleared by StratagemManager.on_turn_start() called from CommandPhase._on_phase_enter().
+#
+#   Battle-round    — Faction effects (Waaagh!, Combat Doctrines, Martial Ka'tah) last
+#                     until the start of the next Command phase. Managed directly by
+#                     FactionAbilityManager.on_command_phase_start(), not through this system.
+#
+# Persisting Effects Rule (Core Rules):
+#   "If a persisting effect applies to a unit when it embarks within a TRANSPORT,
+#    make a note of that effect and its duration; if that unit disembarks for any
+#    reason, any persisting effects continue to apply to that unit for their full
+#    duration. If a persisting effect applies to an Attached unit and that unit
+#    ceases to be an Attached unit (because either all of its Bodyguard models or
+#    all of its Leader models are destroyed), any persisting effects continue to
+#    apply to the surviving unit(s) for their full duration."
+#
+# Implementation: Effect flags are stored on each unit's "flags" dictionary and
+# survive transport embark/disembark and unit detachment because they are keyed
+# to the unit_id, not to the transport or attachment relationship. Duration-based
+# cleanup only occurs at the correct phase/turn boundary via the managers above.
+
+# ============================================================================
+# EFFECT DURATION CONSTANTS (P3-106)
+# ============================================================================
+# Standard duration types used by StratagemManager.active_effects[].expires
+const DURATION_END_OF_PHASE = "end_of_phase"      # Cleared at end of current phase
+const DURATION_END_OF_TURN = "end_of_turn"         # Cleared at start of next Command phase
+const DURATION_END_OF_BATTLE_ROUND = "end_of_battle_round"  # Cleared at start of next battle round
 
 # ============================================================================
 # EFFECT TYPE CONSTANTS

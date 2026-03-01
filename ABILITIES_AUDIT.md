@@ -494,7 +494,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 103. **Verify objective control timing** — "A player will control an objective marker at the end of any phase or turn." Ensure timing matches rules in ScoringPhase.gd. (MIS-6) — **DONE**
 104. **Validate Warlord designation** — `is_warlord` field exists but no enforcement of exactly one CHARACTER designated. Add validation in FormationsPhase.gd. (GEN-9) — **DONE**
 105. **Add army construction points validation** — Points tracked but no validation during list building. No detachment enforcement. Add validation in army loading. (GEN-10) — **DONE**
-106. **Verify persisting effects match Core Rules Updates** — Core Rules Updates defines persisting effects with specific duration tracking. Verify effect expiration logic in EffectPrimitives.gd. (GEN-11)
+106. **Verify persisting effects match Core Rules Updates** — Core Rules Updates defines persisting effects with specific duration tracking. Verify effect expiration logic in EffectPrimitives.gd. (GEN-11) — **DONE**
 107. **Implement redeployment rules** — Core Rules Updates: redeployment rules resolved after Deploy Armies, before Determine First Turn. Add phase handling. (GEN-12)
 108. **Make deployment zone toggle more prominent** — User requested toggle. Ensure button is easy to find in deployment UI. (BUG-6)
 109. **Add turn/round progress indicator to HUD** — Show "Round 3/5 - Player 1 Turn" persistently in Main.gd HUD. (QOL-1)

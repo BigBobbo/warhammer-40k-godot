@@ -122,6 +122,11 @@ func _on_phase_exit() -> void:
 	if ability_mgr:
 		ability_mgr.on_phase_end(GameStateData.Phase.FIGHT)
 
+	# P3-106: Clear stratagem phase-scoped effects at end of Fight phase
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		strat_manager.on_phase_end(GameStateData.Phase.FIGHT)
+
 	# Clear any temporary fight data
 	for unit_id in units_that_fought:
 		_clear_unit_fight_state(unit_id)
