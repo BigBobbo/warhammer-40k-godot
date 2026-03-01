@@ -164,7 +164,7 @@ func refresh() -> void:
 	var current_player = GameState.get_active_player()
 
 	if not secondary_mgr.is_initialized(current_player):
-		_add_label(content_container, "Missions not yet drawn\n(initialized in Command Phase)", 11, Color(0.5, 0.5, 0.5))
+		_add_label(content_container, "Missions not yet initialized\n(set up in Command Phase or pre-game)", 11, Color(0.5, 0.5, 0.5))
 		return
 
 	# Summary bar
@@ -189,12 +189,16 @@ func refresh() -> void:
 			_add_label(content_container, "  No active missions", 10, Color(0.45, 0.45, 0.45))
 
 func _build_summary(parent: VBoxContainer, mgr, player: int) -> void:
-	var deck_size = mgr.get_deck_size(player)
-	var discard_size = mgr.get_discard_size(player)
 	var secondary_vp = mgr.get_secondary_vp(player)
+	var is_fixed = mgr.is_fixed_mode(player)
 
 	var summary = Label.new()
-	summary.text = "Deck: %d  |  Discard: %d  |  VP: %d/40" % [deck_size, discard_size, secondary_vp]
+	if is_fixed:
+		summary.text = "Mode: FIXED  |  VP: %d/40" % secondary_vp
+	else:
+		var deck_size = mgr.get_deck_size(player)
+		var discard_size = mgr.get_discard_size(player)
+		summary.text = "Deck: %d  |  Discard: %d  |  VP: %d/40" % [deck_size, discard_size, secondary_vp]
 	summary.add_theme_font_size_override("font_size", 11)
 	summary.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	parent.add_child(summary)
@@ -257,7 +261,13 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary) -> void:
 	var vp_scored = mission.get("vp_scored", 0)
 	if vp_scored > 0:
 		var scored_label = Label.new()
-		scored_label.text = "Scored: %d VP" % vp_scored
+		# Show VP cap for fixed missions
+		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+		var current_player = GameState.get_active_player()
+		if secondary_mgr and secondary_mgr.is_fixed_mode(current_player):
+			scored_label.text = "Scored: %d/20 VP" % vp_scored
+		else:
+			scored_label.text = "Scored: %d VP" % vp_scored
 		scored_label.add_theme_font_size_override("font_size", 10)
 		scored_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
 		vbox.add_child(scored_label)

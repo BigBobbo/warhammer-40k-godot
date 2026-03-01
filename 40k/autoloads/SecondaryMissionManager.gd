@@ -5,7 +5,8 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 
 # SecondaryMissionManager - Manages the secondary mission system for Chapter Approved 2025-26
 # Handles deck building, card drawing, discarding, scoring, and VP tracking
-# Currently implements Tactical Missions mode only.
+# Supports both Tactical Missions mode (draw from deck) and Fixed Missions mode
+# (select 2 missions before game, they remain active and can score multiple times).
 
 signal mission_drawn(player: int, mission_id: String)
 signal mission_achieved(player: int, mission_id: String, vp_earned: int)
@@ -19,6 +20,7 @@ signal missions_drawn_for_review(player: int, drawn_missions: Array)
 const MAX_SECONDARY_VP = 40
 const MAX_COMBINED_VP = 90  # primary + secondary + challenger combined
 const MAX_ACTIVE_MISSIONS = 2
+const MAX_FIXED_MISSION_VP = 20  # Max VP per individual fixed mission card
 
 # Per-player secondary mission state
 var _player_state: Dictionary = {
@@ -101,6 +103,53 @@ func setup_tactical_deck(player: int) -> void:
 	state["initialized"] = true
 
 	print("SecondaryMissionManager: Built tactical deck for Player %d (%d cards)" % [player, deck_ids.size()])
+
+func setup_fixed_missions(player: int, mission_ids: Array) -> Dictionary:
+	"""Set up fixed secondary missions for a player. Fixed missions stay active
+	the entire game and can be scored multiple times (up to 20VP per mission).
+	mission_ids: Array of exactly 2 mission ID strings."""
+	if mission_ids.size() != 2:
+		return {"success": false, "error": "Must select exactly 2 fixed missions (got %d)" % mission_ids.size()}
+
+	# Validate mission IDs
+	for mid in mission_ids:
+		var mission_data = SecondaryMissionData.get_mission_by_id(mid)
+		if mission_data.is_empty():
+			return {"success": false, "error": "Unknown mission ID: %s" % mid}
+
+	# Check for duplicates
+	if mission_ids[0] == mission_ids[1]:
+		return {"success": false, "error": "Cannot select the same mission twice"}
+
+	var player_key = str(player)
+	var state = _player_state[player_key]
+
+	# Create active missions from the selected IDs
+	state["active"] = []
+	for mid in mission_ids:
+		var mission_data = SecondaryMissionData.get_mission_by_id(mid)
+		var active_mission = _create_active_mission(mission_data)
+		state["active"].append(active_mission)
+		emit_signal("mission_drawn", player, mid)
+
+	state["deck"] = []  # No deck in fixed mode
+	state["discard"] = []
+	state["mode"] = "fixed"
+	state["secondary_vp"] = 0
+	state["initialized"] = true
+
+	print("SecondaryMissionManager: Set up fixed missions for Player %d: %s, %s" % [
+		player, state["active"][0]["name"], state["active"][1]["name"]])
+
+	return {"success": true}
+
+func is_fixed_mode(player: int) -> bool:
+	"""Check if player is using fixed secondary missions mode."""
+	return _player_state[str(player)].get("mode", "tactical") == "fixed"
+
+func get_mode(player: int) -> String:
+	"""Get the secondary mission mode for a player ('tactical' or 'fixed')."""
+	return _player_state[str(player)].get("mode", "tactical")
 
 func _filter_unachievable_missions_for_ai(deck_ids: Array, player: int) -> int:
 	"""T16-1: Remove missions from deck that the player's army literally cannot score.
@@ -268,10 +317,15 @@ func use_new_orders(player: int, mission_index: int) -> Dictionary:
 	Discard one active mission and draw a new one (New Orders stratagem).
 	CP deduction is handled by StratagemManager (called by CommandPhase before this).
 	mission_index: 0 or 1 (which active mission to discard)
+	Not available in Fixed mission mode.
 	Returns result dict.
 	"""
 	var player_key = str(player)
 	var state = _player_state[player_key]
+
+	# Fixed missions cannot be swapped with New Orders
+	if state.get("mode", "tactical") == "fixed":
+		return {"success": false, "error": "New Orders is not available in Fixed mission mode"}
 
 	if mission_index < 0 or mission_index >= state["active"].size():
 		return {"success": false, "error": "Invalid mission index"}
@@ -304,10 +358,15 @@ func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
 	Replace one active mission by putting it back into the deck and drawing a new one.
 	Costs 1 CP (CP deduction handled by caller).
 	The replaced mission goes back into the deck (shuffled in), not the discard pile.
+	Not available in Fixed mission mode.
 	Returns result dict with success status, replaced mission name, and new mission name.
 	"""
 	var player_key = str(player)
 	var state = _player_state[player_key]
+
+	# Fixed missions cannot be replaced
+	if state.get("mode", "tactical") == "fixed":
+		return {"success": false, "error": "Mission replacement is not available in Fixed mission mode"}
 
 	if mission_index < 0 or mission_index >= state["active"].size():
 		return {"success": false, "error": "Invalid mission index"}
@@ -352,9 +411,14 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	"""
 	Voluntarily discard an active mission at end of turn.
 	If it's the player's turn, they gain 1 CP.
+	Not available in Fixed mission mode.
 	"""
 	var player_key = str(player)
 	var state = _player_state[player_key]
+
+	# Fixed missions cannot be voluntarily discarded
+	if state.get("mode", "tactical") == "fixed":
+		return {"success": false, "error": "Fixed missions cannot be discarded"}
 
 	if mission_index < 0 or mission_index >= state["active"].size():
 		return {"success": false, "error": "Invalid mission index"}
@@ -441,10 +505,20 @@ func score_secondary_missions_for_player(player: int) -> Array:
 		var vp_earned = _evaluate_mission_conditions(player, mission)
 
 		if vp_earned > 0:
+			# In fixed mode, cap VP per individual mission card at MAX_FIXED_MISSION_VP
+			if state.get("mode", "tactical") == "fixed":
+				var mission_remaining = MAX_FIXED_MISSION_VP - mission["vp_scored"]
+				if mission_remaining <= 0:
+					print("SecondaryMissionManager: Player %d fixed mission %s already at %dVP cap" % [player, mission["name"], MAX_FIXED_MISSION_VP])
+					continue
+				vp_earned = mini(vp_earned, mission_remaining)
+
 			var actual_vp = _award_secondary_vp(player, vp_earned, mission["id"])
 			if actual_vp > 0:
 				mission["vp_scored"] += actual_vp
-				mission["achieved"] = true
+				# In tactical mode, mark as achieved for discard; in fixed mode, keep active
+				if state.get("mode", "tactical") != "fixed":
+					mission["achieved"] = true
 				results.append({
 					"mission_id": mission["id"],
 					"mission_name": mission["name"],
@@ -454,8 +528,9 @@ func score_secondary_missions_for_player(player: int) -> Array:
 				emit_signal("mission_achieved", player, mission["id"], actual_vp)
 				print("SecondaryMissionManager: Player %d scored %d VP from %s" % [player, actual_vp, mission["name"]])
 
-	# Discard achieved missions
-	_discard_achieved_missions(player)
+	# Discard achieved missions (only in tactical mode — fixed missions stay active)
+	if state.get("mode", "tactical") != "fixed":
+		_discard_achieved_missions(player)
 
 	return results
 
@@ -1040,6 +1115,10 @@ func _check_while_active_missions(player: int, destroyed_unit: Dictionary) -> vo
 			if matches:
 				var remaining = max_vp - accumulated
 				var award = mini(vp, remaining)
+				# In fixed mode, also cap by per-mission VP limit
+				if state.get("mode", "tactical") == "fixed":
+					var mission_remaining = MAX_FIXED_MISSION_VP - mission["vp_scored"]
+					award = mini(award, mission_remaining)
 				if award > 0:
 					var actual = _award_secondary_vp(player, award, mission["id"])
 					if actual > 0:
@@ -1210,11 +1289,13 @@ func get_vp_summary() -> Dictionary:
 			"secondary_vp": _player_state["1"]["secondary_vp"],
 			"active_count": _player_state["1"]["active"].size(),
 			"deck_remaining": _player_state["1"]["deck"].size(),
+			"mode": _player_state["1"].get("mode", "tactical"),
 		},
 		"player2": {
 			"secondary_vp": _player_state["2"]["secondary_vp"],
 			"active_count": _player_state["2"]["active"].size(),
 			"deck_remaining": _player_state["2"]["deck"].size(),
+			"mode": _player_state["2"].get("mode", "tactical"),
 		},
 	}
 
