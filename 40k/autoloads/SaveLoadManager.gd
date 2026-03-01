@@ -567,6 +567,10 @@ func get_save_info(file_name: String) -> Dictionary:
 
 # Metadata management
 func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
+	# P2-92: Include AI player info in metadata for save file display
+	var game_config = GameState.state.get("meta", {}).get("game_config", {})
+	var p1_type = game_config.get("player1_type", "HUMAN")
+	var p2_type = game_config.get("player2_type", "HUMAN")
 	var metadata = {
 		"version": "1.0.0",
 		"created_at": Time.get_unix_time_from_system(),
@@ -574,7 +578,9 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			"turn": GameState.get_turn_number(),
 			"phase": GameState.get_current_phase(),
 			"active_player": GameState.get_active_player(),
-			"game_id": GameState.state.get("meta", {}).get("game_id", "")
+			"game_id": GameState.state.get("meta", {}).get("game_id", ""),
+			"player1_type": p1_type,
+			"player2_type": p2_type
 		},
 		"save_info": {
 			"save_type": custom_metadata.get("type", "manual"),

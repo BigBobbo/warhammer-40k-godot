@@ -181,6 +181,20 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	_action_log.clear()
 	_turn_history.clear()  # T7-56: Reset turn history on reconfigure
 	_current_phase_actions = 0
+	# P2-92: Reset all transient runtime state on reconfigure
+	_failed_deploy_unit_ids.clear()
+	_failed_reinforcement_unit_ids.clear()
+	_failed_transport_ids.clear()
+	_pile_in_retry_units.clear()
+	_pending_advance_moves.clear()
+	_last_thinking_phase = -1
+	_last_thinking_round = -1
+	_processing_turn = false
+	_needs_evaluation = false
+	_ai_thinking = false
+	_step_by_step_paused = false
+	# P2-92: Clear AIDecisionMaker static caches to prevent stale data
+	AIDecisionMaker.reset_caches()
 
 	for player_id in player_types:
 		var pid = int(player_id)
@@ -222,6 +236,40 @@ func is_ai_player(player: int) -> bool:
 func get_difficulty(player: int) -> int:
 	"""T7-40: Get the difficulty level for a given player."""
 	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
+
+func reset_runtime_state() -> void:
+	"""P2-92: Reset transient AI runtime state (called on game load).
+	Does NOT reset ai_players/ai_difficulty/enabled — those are set by configure()."""
+	print("AIPlayer: Resetting runtime state after load")
+	_action_log.clear()
+	_turn_history.clear()
+	_current_phase_actions = 0
+	_failed_deploy_unit_ids.clear()
+	_failed_reinforcement_unit_ids.clear()
+	_failed_transport_ids.clear()
+	_pile_in_retry_units.clear()
+	_pending_advance_moves.clear()
+	_last_thinking_phase = -1
+	_last_thinking_round = -1
+	_processing_turn = false
+	_needs_evaluation = false
+	_ai_thinking = false
+	_step_by_step_paused = false
+	_phase_action_counts.clear()
+	# Reset per-game performance tracking for AI players
+	_game_performance.clear()
+	for pid in ai_players:
+		if ai_players[pid]:
+			_game_performance[pid] = {
+				"cp_spent": 0,
+				"units_lost": 0,
+				"units_killed": 0,
+				"objectives_per_round": {},
+				"key_moments": [],
+			}
+	# Clear AIDecisionMaker static caches
+	AIDecisionMaker.reset_caches()
+	print("AIPlayer: Runtime state reset complete")
 
 func get_action_log() -> Array:
 	return _action_log.duplicate()

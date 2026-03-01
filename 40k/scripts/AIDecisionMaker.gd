@@ -123,6 +123,34 @@ static var _focus_fire_plan_logged: bool = false
 # Track whether fight order summary has been logged (reset per phase)
 static var _fight_order_logged: bool = false
 
+# P2-92: Reset all static caches (called on game load to prevent stale data)
+static func reset_caches() -> void:
+	print("AIDecisionMaker: Resetting all static caches")
+	_focus_fire_plan.clear()
+	_focus_fire_plan_built = false
+	_grenade_evaluated = false
+	_phase_plan.clear()
+	_phase_plan_built = false
+	_phase_plan_round = -1
+	_fight_order_plan.clear()
+	_fight_order_plan_built = false
+	_secondary_awareness_p1.clear()
+	_secondary_awareness_p2.clear()
+	_secondary_awareness_round_p1 = -1
+	_secondary_awareness_round_p2 = -1
+	_failed_disembark_unit_ids.clear()
+	_fight_attack_retry_count.clear()
+	_charge_coordination.clear()
+	_charge_coordination_round = -1
+	_fight_coordination.clear()
+	_fight_coordination_round = -1
+	_bodyguards_with_leaders.clear()
+	_thinking_steps.clear()
+	_movement_plan_logged = false
+	_focus_fire_plan_logged = false
+	_fight_order_logged = false
+	print("AIDecisionMaker: Static caches reset complete")
+
 # Focus fire tuning constants
 const OVERKILL_TOLERANCE: float = 1.15  # Allow up to 15% overkill before redirecting (tighter to ensure kills)
 const KILL_BONUS_MULTIPLIER: float = 2.0  # Bonus multiplier for targets we can actually kill
@@ -15085,19 +15113,19 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 				# Try alternate positions from our candidate list
 				var found_valid = false
 				for pi in range(1, positions.size()):
-				model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
-				model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
-				var valid = true
-				for pos in model_positions:
-					if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
-						valid = false
+					model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
+					model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+					var valid = true
+					for pos in model_positions:
+						if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
+							valid = false
+							break
+					if valid:
+						found_valid = true
 						break
-				if valid:
-					found_valid = true
-					break
-			if not found_valid:
-				print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — no valid formation placement" % [unit_name, ri_try_type])
-				continue
+				if not found_valid:
+					print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — no valid formation placement" % [unit_name, ri_try_type])
+					continue
 
 			# Build the full model_positions array (including dead models as null)
 			var ri_full_positions = []
