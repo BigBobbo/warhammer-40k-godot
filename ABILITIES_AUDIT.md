@@ -481,7 +481,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 92. **Fix save/load games with AI players** — SaveLoadManager.gd has no AI player detection or state serialization. AI difficulty setting and player type not preserved across save/load. Add AI state to serialized game state. Files: SaveLoadManager.gd, StateSerializer.gd, AIPlayer.gd. (BUG-5) — **DONE**
 
 ### P3 — Low (edge cases, polish, minor gaps)
-93. **Prevent battle-shocked units from using self-targeted stratagems** — StratagemManager.gd only prevents targeting battle-shocked units with friendly stratagems, not all stratagem usage by battle-shocked units themselves. Add self-target check. (CMD-3)
+93. **Prevent battle-shocked units from using self-targeted stratagems** — StratagemManager.gd only prevents targeting battle-shocked units with friendly stratagems, not all stratagem usage by battle-shocked units themselves. Add self-target check. (CMD-3) — **DONE**
 94. **Add confirmation before auto-resolving untaken battle-shock tests** — Currently auto-resolves silently. Show warning dialog before auto-resolving in CommandPhase.gd. (CMD-4)
 95. **Fix embark/disembark distance calculation inconsistency** — Embark uses `model_to_model_distance_inches()` but disembark uses shape-aware distance. Standardize both to use shape-aware in TransportManager.gd. (MOV-6)
 96. **Enforce cannot select to shoot with no eligible targets** — "Unless at least one model in a unit has an eligible target, that unit cannot be selected to shoot." Add pre-selection check in ShootingPhase.gd. (SHOOT-7)

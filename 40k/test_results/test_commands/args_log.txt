@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_save_load_ai.gd"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gselect=test_out_of_phase", "-gexit"]
