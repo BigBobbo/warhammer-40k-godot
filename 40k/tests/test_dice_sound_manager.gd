@@ -123,17 +123,48 @@ func _init():
 		print("FAIL: Expected sample rate %d, got %d" % [DiceSoundManagerScript.SAMPLE_RATE, manager._stream_roll_tick.mix_rate])
 		fail_count += 1
 
-	# Test 7: Play methods don't crash (even without audio device in headless)
+	# Test 7: P3-126 — Phase transition streams generated
+	if manager._stream_phase_transition != null:
+		print("PASS: phase_transition stream generated")
+		pass_count += 1
+	else:
+		print("FAIL: phase_transition stream is null")
+		fail_count += 1
+
+	if manager._stream_phase_combat != null:
+		print("PASS: phase_combat stream generated")
+		pass_count += 1
+	else:
+		print("FAIL: phase_combat stream is null")
+		fail_count += 1
+
+	if manager._stream_phase_transition.data.size() > 0:
+		print("PASS: phase_transition stream has audio data (%d bytes)" % manager._stream_phase_transition.data.size())
+		pass_count += 1
+	else:
+		print("FAIL: phase_transition stream data is empty")
+		fail_count += 1
+
+	if manager._stream_phase_combat.data.size() > 0:
+		print("PASS: phase_combat stream has audio data (%d bytes)" % manager._stream_phase_combat.data.size())
+		pass_count += 1
+	else:
+		print("FAIL: phase_combat stream data is empty")
+		fail_count += 1
+
+	# Test 8: Play methods don't crash (even without audio device in headless)
 	manager.play_roll_tick()
 	manager.play_settle()
 	manager.play_critical_success()
 	manager.play_critical_failure()
 	manager.play_result_success()
 	manager.play_result_failure()
+	manager.play_phase_transition()
+	manager.play_phase_combat()
 	print("PASS: All play methods executed without error")
 	pass_count += 1
 
-	# Test 8: Pool index wraps correctly
+	# Test 9: Pool index wraps correctly
 	var initial_idx = manager._pool_index
 	for i in DiceSoundManagerScript.POOL_SIZE + 2:
 		manager.play_settle()
@@ -144,7 +175,7 @@ func _init():
 		print("FAIL: Pool index out of bounds: %d" % manager._pool_index)
 		fail_count += 1
 
-	# Test 9: Rate limiting on tick sounds
+	# Test 10: Rate limiting on tick sounds
 	manager._last_tick_time = Time.get_ticks_msec() / 1000.0
 	var old_idx = manager._pool_index
 	manager.play_roll_tick()  # Should be rate-limited (too soon after setting _last_tick_time)

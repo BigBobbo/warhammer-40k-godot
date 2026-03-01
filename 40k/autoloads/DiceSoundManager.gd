@@ -22,6 +22,9 @@ var _stream_critical_success: AudioStreamWAV
 var _stream_critical_failure: AudioStreamWAV
 var _stream_result_success: AudioStreamWAV
 var _stream_result_failure: AudioStreamWAV
+# P3-126: Phase transition sound effects
+var _stream_phase_transition: AudioStreamWAV
+var _stream_phase_combat: AudioStreamWAV
 
 # Pool of AudioStreamPlayer nodes for overlapping playback
 var _player_pool: Array[AudioStreamPlayer] = []
@@ -40,6 +43,9 @@ func _ready() -> void:
 	_stream_critical_failure = _generate_critical_failure()
 	_stream_result_success = _generate_result_success()
 	_stream_result_failure = _generate_result_failure()
+	# P3-126: Phase transition sounds
+	_stream_phase_transition = _generate_phase_transition()
+	_stream_phase_combat = _generate_phase_combat()
 
 	# Create player pool
 	for i in POOL_SIZE:
@@ -48,7 +54,7 @@ func _ready() -> void:
 		add_child(player)
 		_player_pool.append(player)
 
-	print("[DiceSoundManager] Ready — %d procedural streams generated, %d player pool" % [6, POOL_SIZE])
+	print("[DiceSoundManager] Ready — %d procedural streams generated, %d player pool" % [8, POOL_SIZE])
 
 # ============================================================================
 # Public API — called by DiceRollVisual
@@ -81,6 +87,18 @@ func play_result_success() -> void:
 func play_result_failure() -> void:
 	"""Play a brief negative tone when dice roll completes with bad results."""
 	_play_stream(_stream_result_failure, -3.0)
+
+# ============================================================================
+# P3-126: Phase Transition Sound API — called by PhaseTransitionBanner
+# ============================================================================
+
+func play_phase_transition() -> void:
+	"""Play a brass-like fanfare whoosh for standard phase transitions."""
+	_play_stream(_stream_phase_transition, -3.0)
+
+func play_phase_combat() -> void:
+	"""Play a more intense variant for combat phases (Shooting, Charge, Fight)."""
+	_play_stream(_stream_phase_combat, -2.0)
 
 # ============================================================================
 # Playback
@@ -243,6 +261,88 @@ func _generate_result_failure() -> AudioStreamWAV:
 		var e := sin(TAU * 330.0 * t) * 0.4
 		var f := sin(TAU * 349.0 * t) * 0.35
 		var sample_val := (e + f) * envelope
+		var sample_int := clampi(int(sample_val * 32767.0), -32768, 32767)
+		data.encode_s16(i * 2, sample_int)
+
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.data = data
+	return stream
+
+# P3-126: Phase transition sound generation
+
+func _generate_phase_transition() -> AudioStreamWAV:
+	"""Brass-like fanfare whoosh for standard phase transitions (~250ms).
+	Uses layered sine tones with harmonics to create a short horn-like announcement."""
+	var duration := 0.25
+	var samples := int(SAMPLE_RATE * duration)
+	var data := PackedByteArray()
+	data.resize(samples * 2)
+
+	for i in samples:
+		var t := float(i) / SAMPLE_RATE
+		var norm_t := t / duration
+		# Attack-sustain-release envelope: fast attack, brief sustain, smooth release
+		var envelope: float
+		if norm_t < 0.08:
+			envelope = norm_t / 0.08  # Fast attack
+		elif norm_t < 0.5:
+			envelope = 1.0  # Sustain
+		else:
+			envelope = maxf(0.0, 1.0 - (norm_t - 0.5) / 0.5)  # Release
+		# Brass-like layered tones: fundamental + overtones
+		# G4 (392Hz) — regal, commanding
+		var fundamental := sin(TAU * 392.0 * t) * 0.35
+		# 2nd harmonic (octave) for brightness
+		var h2 := sin(TAU * 784.0 * t) * 0.2
+		# 3rd harmonic (fifth above octave) for brass character
+		var h3 := sin(TAU * 1176.0 * t) * 0.1
+		# Slight rising sweep for the "whoosh" feel
+		var sweep_freq := lerpf(300.0, 450.0, norm_t)
+		var sweep := sin(TAU * sweep_freq * t) * 0.15 * maxf(0.0, 1.0 - norm_t * 1.5)
+		var sample_val := (fundamental + h2 + h3 + sweep) * envelope
+		var sample_int := clampi(int(sample_val * 32767.0), -32768, 32767)
+		data.encode_s16(i * 2, sample_int)
+
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.data = data
+	return stream
+
+func _generate_phase_combat() -> AudioStreamWAV:
+	"""Intense fanfare for combat phases (Shooting, Charge, Fight) (~300ms).
+	Deeper, more aggressive with power-chord-like layering."""
+	var duration := 0.3
+	var samples := int(SAMPLE_RATE * duration)
+	var data := PackedByteArray()
+	data.resize(samples * 2)
+
+	for i in samples:
+		var t := float(i) / SAMPLE_RATE
+		var norm_t := t / duration
+		# Attack-sustain-release envelope with sharper attack
+		var envelope: float
+		if norm_t < 0.05:
+			envelope = norm_t / 0.05  # Very fast attack
+		elif norm_t < 0.4:
+			envelope = 1.0  # Sustain
+		else:
+			envelope = maxf(0.0, 1.0 - (norm_t - 0.4) / 0.6)  # Slower release
+		# Power chord: root + fifth, lower and more aggressive
+		# D4 (294Hz) — deep, martial
+		var root := sin(TAU * 294.0 * t) * 0.35
+		# A4 (440Hz) — the fifth
+		var fifth := sin(TAU * 440.0 * t) * 0.25
+		# Octave below for weight
+		var sub := sin(TAU * 147.0 * t) * 0.2
+		# 3rd harmonic for aggression
+		var h3 := sin(TAU * 882.0 * t) * 0.1
+		# Noise burst at the start for impact
+		var noise_env := maxf(0.0, 1.0 - norm_t * 8.0)  # Fades fast
+		var noise := randf_range(-1.0, 1.0) * 0.12 * noise_env
+		var sample_val := (root + fifth + sub + h3 + noise) * envelope
 		var sample_int := clampi(int(sample_val * 32767.0), -32768, 32767)
 		data.encode_s16(i * 2, sample_int)
 
