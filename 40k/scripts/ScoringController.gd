@@ -146,7 +146,7 @@ func _setup_right_panel() -> void:
 
 	scoring_panel.add_child(HSeparator.new())
 
-	# Secondary Missions display with discard buttons
+	# Secondary Missions display with discard buttons and progress tracking
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var missions_title = Label.new()
@@ -155,6 +155,12 @@ func _setup_right_panel() -> void:
 		scoring_panel.add_child(missions_title)
 
 		var active_missions = secondary_mgr.get_active_missions(current_player)
+		# Get live progress data for all active missions
+		var progress_data = secondary_mgr.evaluate_mission_progress(current_player)
+		var progress_by_id = {}
+		for p in progress_data:
+			progress_by_id[p["mission_id"]] = p
+
 		if active_missions.size() == 0:
 			var no_missions = Label.new()
 			no_missions.text = "  No active secondary missions"
@@ -162,7 +168,8 @@ func _setup_right_panel() -> void:
 		else:
 			for i in range(active_missions.size()):
 				var mission = active_missions[i]
-				_add_mission_card(scoring_panel, mission, i)
+				var mission_progress = progress_by_id.get(mission.get("id", ""), {})
+				_add_mission_card(scoring_panel, mission, i, mission_progress)
 
 		# Deck info
 		var deck_label = Label.new()
@@ -242,7 +249,7 @@ func _build_objective_control_section(panel: VBoxContainer, _current_player: int
 	mission_info.text = "  Mission: %s" % mission_name
 	panel.add_child(mission_info)
 
-func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -> void:
+func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, progress: Dictionary = {}) -> void:
 	var card_container = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.9)
@@ -257,11 +264,16 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	card_vbox.add_theme_constant_override("separation", 2)
 	card_container.add_child(card_vbox)
 
-	# Mission name
+	# Mission name + best VP indicator
 	var name_label = Label.new()
-	name_label.text = mission.get("name", "Unknown Mission")
+	var best_vp = progress.get("best_vp_available", 0)
+	if best_vp > 0:
+		name_label.text = "%s [%d VP ready]" % [mission.get("name", "Unknown Mission"), best_vp]
+		name_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+	else:
+		name_label.text = mission.get("name", "Unknown Mission")
+		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	name_label.add_theme_font_size_override("font_size", 13)
-	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	card_vbox.add_child(name_label)
 
 	# Category
@@ -284,6 +296,33 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 	scoring_label.add_theme_font_size_override("font_size", 10)
 	scoring_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 	card_vbox.add_child(scoring_label)
+
+	# VP scored so far
+	var vp_scored = mission.get("vp_scored", 0)
+	if vp_scored > 0:
+		var scored_label = Label.new()
+		scored_label.text = "Scored: %d VP" % vp_scored
+		scored_label.add_theme_font_size_override("font_size", 10)
+		scored_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+		card_vbox.add_child(scored_label)
+
+	# Condition progress tracking
+	var condition_progress = progress.get("conditions", [])
+	if condition_progress.size() > 0:
+		for cond in condition_progress:
+			var cond_label = Label.new()
+			var met = cond.get("met", false)
+			var vp = cond.get("vp", 0)
+			var desc = cond.get("description", cond.get("check", "?"))
+			if met:
+				cond_label.text = "  [MET] %d VP - %s" % [vp, desc]
+				cond_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+			else:
+				cond_label.text = "  [---] %d VP - %s" % [vp, desc]
+				cond_label.add_theme_color_override("font_color", Color(0.6, 0.4, 0.4))
+			cond_label.add_theme_font_size_override("font_size", 10)
+			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			card_vbox.add_child(cond_label)
 
 	# Pending interaction indicator
 	if mission.get("pending_interaction", false):

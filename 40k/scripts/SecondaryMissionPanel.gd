@@ -211,14 +211,26 @@ func _build_player_missions(parent: VBoxContainer, mgr, player: int) -> void:
 		_add_label(parent, "No active missions — draw in Command Phase", 11, Color(0.5, 0.5, 0.5))
 		return
 
-	for mission in active_missions:
-		_build_mission_card(parent, mission)
+	# Get live progress data for all active missions
+	var progress_data = mgr.evaluate_mission_progress(player)
+	var progress_by_id = {}
+	for p in progress_data:
+		progress_by_id[p["mission_id"]] = p
 
-func _build_mission_card(parent: VBoxContainer, mission: Dictionary) -> void:
+	for mission in active_missions:
+		var mission_progress = progress_by_id.get(mission.get("id", ""), {})
+		_build_mission_card(parent, mission, mission_progress)
+
+func _build_mission_card(parent: VBoxContainer, mission: Dictionary, progress: Dictionary = {}) -> void:
 	var card = PanelContainer.new()
 	var card_style = StyleBoxFlat.new()
 	card_style.bg_color = Color(0.12, 0.11, 0.09, 0.95)
-	card_style.border_color = Color(0.4, 0.35, 0.15)
+	# Highlight border if any condition is currently met
+	var best_vp = progress.get("best_vp_available", 0)
+	if best_vp > 0:
+		card_style.border_color = Color(0.3, 0.8, 0.3)
+	else:
+		card_style.border_color = Color(0.4, 0.35, 0.15)
 	card_style.set_border_width_all(1)
 	card_style.set_corner_radius_all(3)
 	card_style.set_content_margin_all(6)
@@ -229,11 +241,15 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary) -> void:
 	vbox.add_theme_constant_override("separation", 2)
 	card.add_child(vbox)
 
-	# Mission name
+	# Mission name with progress indicator
 	var name_label = Label.new()
-	name_label.text = mission.get("name", "Unknown Mission")
+	if best_vp > 0:
+		name_label.text = "%s [%d VP ready]" % [mission.get("name", "Unknown Mission"), best_vp]
+		name_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+	else:
+		name_label.text = mission.get("name", "Unknown Mission")
+		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	name_label.add_theme_font_size_override("font_size", 13)
-	name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
 	vbox.add_child(name_label)
 
 	# Category + scoring timing
@@ -245,17 +261,35 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary) -> void:
 	cat_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	vbox.add_child(cat_label)
 
-	# VP conditions
-	var conditions = scoring.get("conditions", [])
-	for c in conditions:
-		var vp = c.get("vp", 0)
-		var check = c.get("check", "")
-		var cond_label = Label.new()
-		cond_label.text = "  %d VP — %s" % [vp, _humanize_check(check)]
-		cond_label.add_theme_font_size_override("font_size", 10)
-		cond_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
-		cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(cond_label)
+	# Condition progress tracking (replaces static VP conditions)
+	var condition_progress = progress.get("conditions", [])
+	if condition_progress.size() > 0:
+		for cond in condition_progress:
+			var met = cond.get("met", false)
+			var vp = cond.get("vp", 0)
+			var desc = cond.get("description", cond.get("check", "?"))
+			var cond_label = Label.new()
+			if met:
+				cond_label.text = "  [MET] %d VP - %s" % [vp, desc]
+				cond_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+			else:
+				cond_label.text = "  [---] %d VP - %s" % [vp, desc]
+				cond_label.add_theme_color_override("font_color", Color(0.6, 0.4, 0.4))
+			cond_label.add_theme_font_size_override("font_size", 10)
+			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			vbox.add_child(cond_label)
+	else:
+		# Fallback: show static condition info if no progress data
+		var conditions = scoring.get("conditions", [])
+		for c in conditions:
+			var vp = c.get("vp", 0)
+			var check = c.get("check", "")
+			var cond_label = Label.new()
+			cond_label.text = "  %d VP — %s" % [vp, _humanize_check(check)]
+			cond_label.add_theme_font_size_override("font_size", 10)
+			cond_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
+			cond_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			vbox.add_child(cond_label)
 
 	# VP scored so far
 	var vp_scored = mission.get("vp_scored", 0)

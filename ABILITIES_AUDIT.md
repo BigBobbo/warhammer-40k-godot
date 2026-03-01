@@ -509,7 +509,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 118. **Add reroll visualization** — Show original + new die side-by-side when Command Re-roll used in DiceRollVisual.gd. (QOL-14) — **DONE**
 119. **Add live opponent action feed in multiplayer** — Show "Player 2 moved Ork Boyz forward" feed in real-time. (QOL-15) — **DONE**
 120. **Add scoring counter HUD** — Display current VP by player persistently in Main.gd. (QOL-22) — **DONE**
-121. **Add secondary objective progress tracking** — Show progress toward active secondary missions in ScoringController.gd. (QOL-23)
+121. **Add secondary objective progress tracking** — Show progress toward active secondary missions in ScoringController.gd. (QOL-23) — **DONE**
 122. **Add dice roll sound effects** — Rolling, settling, critical success/failure audio cues in DiceRollVisual.gd. (VIS-1)
 123. **Add distinct terrain type visuals** — Different visual styles for ruins, forests, hills, obstacles in BoardVisual.gd. (VIS-3)
 124. **Add persistent model health bars on board** — Show model wounds above/below bases via TokenVisual.gd. (VIS-7)
