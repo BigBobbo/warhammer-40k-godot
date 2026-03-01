@@ -819,6 +819,14 @@ func create_snapshot() -> Dictionary:
 		if terrain_manager.terrain_features.size() > 0:
 			snapshot.board["terrain_features"] = terrain_manager.terrain_features.duplicate(true)
 
+	# Add secondary mission state from SecondaryMissionManager (autoload)
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		var secondary_data = secondary_mgr.get_save_data()
+		if not secondary_data.is_empty():
+			snapshot["secondary_missions"] = secondary_data
+			print("[GameState] Adding secondary mission state to snapshot")
+
 	# Add measuring tape data if persistence is enabled (autoload, not Engine singleton)
 	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
 	if measuring_tape_manager:
@@ -924,6 +932,15 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 			var restored_features = _restore_terrain_types(terrain_features)
 			terrain_manager.terrain_features = restored_features
 			terrain_manager.emit_signal("terrain_loaded", terrain_manager.terrain_features)
+
+	# Load secondary mission state if present (autoload)
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if state.has("secondary_missions") and secondary_mgr:
+		print("[GameState] Found secondary mission data in save, restoring")
+		secondary_mgr.load_save_data(state["secondary_missions"])
+	else:
+		if state.has("secondary_missions"):
+			print("[GameState] Has secondary_missions but SecondaryMissionManager not available")
 
 	# Load measuring tape data if present (autoload, not Engine singleton)
 	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")

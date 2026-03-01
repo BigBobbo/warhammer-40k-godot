@@ -281,6 +281,11 @@ func _handle_when_drawn(player: int, mission_data: Dictionary) -> Dictionary:
 
 		"opponent_selects_objective":
 			# A Tempting Target - opponent picks an objective in NML
+			# Check that NML objectives actually exist before requiring interaction
+			var nml_objectives = _get_no_mans_land_objectives()
+			if nml_objectives.is_empty():
+				print("SecondaryMissionManager: No NML objectives for A Tempting Target — discarding and drawing again")
+				return {"action": "discard_and_draw"}
 			return {
 				"action": "requires_interaction",
 				"interaction_type": "opponent_selects_objective",
@@ -1528,6 +1533,42 @@ func _get_opponent_units_on_battlefield(player: int) -> Array:
 		if has_alive:
 			result.append(unit_id)
 	return result
+
+func _get_no_mans_land_objectives() -> Array:
+	"""Get list of objectives in No Man's Land."""
+	var result = []
+	var all_objectives = GameState.state.get("board", {}).get("objectives", [])
+	for obj in all_objectives:
+		if obj.get("zone", "") == "no_mans_land":
+			result.append(obj)
+	return result
+
+# ============================================================================
+# SAVE / LOAD
+# ============================================================================
+
+func get_save_data() -> Dictionary:
+	"""Return secondary mission state for save file persistence."""
+	return {
+		"player_state": _player_state.duplicate(true),
+		"units_destroyed_this_turn": _units_destroyed_this_turn.duplicate(true),
+		"objective_control_at_turn_start": _objective_control_at_turn_start.duplicate(true),
+		"active_actions": _active_actions.duplicate(true),
+	}
+
+func load_save_data(data: Dictionary) -> void:
+	"""Restore secondary mission state from save file."""
+	if data.is_empty():
+		return
+	if data.has("player_state"):
+		_player_state = data["player_state"].duplicate(true)
+		print("SecondaryMissionManager: Restored player_state from save")
+	if data.has("units_destroyed_this_turn"):
+		_units_destroyed_this_turn = data["units_destroyed_this_turn"].duplicate(true)
+	if data.has("objective_control_at_turn_start"):
+		_objective_control_at_turn_start = data["objective_control_at_turn_start"].duplicate(true)
+	if data.has("active_actions"):
+		_active_actions = data["active_actions"].duplicate(true)
 
 # ============================================================================
 # UTILITY

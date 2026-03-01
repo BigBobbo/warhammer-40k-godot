@@ -330,13 +330,40 @@ func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int
 	scoring_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 	card_vbox.add_child(scoring_label)
 
-	# Pending interaction indicator
+	# Pending interaction indicator or resolved interaction data
 	if mission.get("pending_interaction", false):
 		var pending_label = Label.new()
 		pending_label.text = "AWAITING INTERACTION"
 		pending_label.add_theme_font_size_override("font_size", 10)
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
+	else:
+		var mission_data = mission.get("mission_data", {})
+		if mission.get("id", "") == "marked_for_death" and not mission_data.get("alpha_targets", []).is_empty():
+			var targets_label = Label.new()
+			var alpha_names = []
+			for target_id in mission_data.get("alpha_targets", []):
+				var unit = GameState.get_unit(target_id)
+				alpha_names.append(unit.get("meta", {}).get("name", target_id) if not unit.is_empty() else target_id)
+			var gamma_id = mission_data.get("gamma_target", "")
+			var gamma_name = ""
+			if gamma_id != "":
+				var gamma_unit = GameState.get_unit(gamma_id)
+				gamma_name = gamma_unit.get("meta", {}).get("name", gamma_id) if not gamma_unit.is_empty() else gamma_id
+			targets_label.text = "Alpha: %s" % ", ".join(alpha_names)
+			if gamma_name != "":
+				targets_label.text += " | Gamma: %s" % gamma_name
+			targets_label.add_theme_font_size_override("font_size", 9)
+			targets_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+			targets_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			card_vbox.add_child(targets_label)
+		elif mission.get("id", "") == "a_tempting_target" and mission_data.get("tempting_target_id", "") != "":
+			var obj_label = Label.new()
+			var obj_id = mission_data.get("tempting_target_id", "")
+			obj_label.text = "Target: %s" % obj_id.replace("obj_", "Objective ").to_upper()
+			obj_label.add_theme_font_size_override("font_size", 9)
+			obj_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+			card_vbox.add_child(obj_label)
 
 	# VP scored so far from this card
 	var vp_scored = mission.get("vp_scored", 0)
@@ -631,6 +658,11 @@ func set_phase(phase: BasePhase) -> void:
 
 		# Show review dialog for newly drawn secondary missions
 		_show_drawn_missions_review_dialog()
+
+		# Check for pending interactions that were created during draw_missions_to_hand()
+		# BEFORE this signal handler was connected (signal timing gap fix)
+		if secondary_mgr:
+			_check_pending_interactions(secondary_mgr)
 	else:
 		hide()
 
@@ -829,6 +861,35 @@ func _on_mission_review_completed() -> void:
 # ============================================================================
 # SECONDARY MISSION INTERACTION HANDLERS
 # ============================================================================
+
+func _check_pending_interactions(secondary_mgr) -> void:
+	"""Check for pending interactions that were created during draw_missions_to_hand()
+	before the signal handler was connected. This fixes the signal timing gap where
+	when_drawn_requires_interaction fires during _on_phase_enter() but CommandController
+	isn't connected until set_phase() is called later."""
+	var current_player = GameState.get_active_player()
+	var player_key = str(current_player)
+	var state = secondary_mgr._player_state.get(player_key, {})
+
+	for mission in state.get("active", []):
+		if not mission.get("pending_interaction", false):
+			continue
+		var mission_id = mission.get("id", "")
+		var interaction_type = mission.get("interaction_type", "")
+		var details = mission.get("interaction_details", {})
+
+		print("CommandController: Found pending interaction from draw phase — Player %d, Mission: %s, Type: %s" % [
+			current_player, mission_id, interaction_type])
+
+		var opponent = 2 if current_player == 1 else 1
+
+		match interaction_type:
+			"opponent_selects_units":
+				_show_marked_for_death_dialog(current_player, opponent, details)
+			"opponent_selects_objective":
+				_show_tempting_target_dialog(current_player, opponent, details)
+			_:
+				print("CommandController: Unknown pending interaction type: %s" % interaction_type)
 
 func _on_mission_drawn(player: int, mission_id: String) -> void:
 	"""Handle SecondaryMissionManager mission_drawn signal — rebuild the secondary missions UI."""
