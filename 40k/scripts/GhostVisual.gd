@@ -17,6 +17,12 @@ const PULSE_MAX_ALPHA: float = 1.0  # Maximum alpha multiplier during pulse
 var nearest_model_world_pos = null  # Vector2 or null
 var nearest_model_distance_inches: float = -1.0  # -1 means no data
 
+# P3-116: Coherency preview — lines to ALL unit models during movement
+# Each entry: { "world_pos": Vector2, "distance_inches": float, "in_coherency": bool }
+var coherency_lines_data: Array = []
+var coherency_status_text: String = ""  # e.g., "Coherent" or "2/3 coherent"
+var coherency_is_valid: bool = true  # Overall coherency status
+
 func _ready() -> void:
 	z_index = 20
 	set_process(true)
@@ -76,8 +82,13 @@ func _draw() -> void:
 		# Original rendering - no silhouette overlays on ghosts for clarity
 		base_shape.draw(self, Vector2.ZERO, base_rotation, fill_color, border_color, 2.0)
 
-	# Draw connecting line to nearest placed model (if available)
-	_draw_coherency_line(border_color)
+	# Draw connecting lines to unit models (if available)
+	if coherency_lines_data.size() > 0:
+		# P3-116: Draw coherency lines to ALL models in unit
+		_draw_all_coherency_lines()
+	else:
+		# Fallback: single nearest model line (used in deployment)
+		_draw_coherency_line(border_color)
 
 func _draw_coherency_line(border_color: Color) -> void:
 	if nearest_model_world_pos == null:
@@ -112,6 +123,58 @@ func _draw_coherency_line(border_color: Color) -> void:
 		var dash_end = from_pos + dir_normalized * dash_end_dist
 		draw_line(dash_start, dash_end, line_color, 1.5, true)
 		distance_traveled += segment_length
+
+func _draw_all_coherency_lines() -> void:
+	"""P3-116: Draw dashed lines from ghost to all unit models, colored by coherency status."""
+	for line_data in coherency_lines_data:
+		var world_pos: Vector2 = line_data.get("world_pos", Vector2.ZERO)
+		var in_coherency: bool = line_data.get("in_coherency", false)
+
+		# Convert world-space target to local-space for drawing
+		var local_target: Vector2 = world_pos - global_position
+
+		var line_color: Color
+		if in_coherency:
+			line_color = Color(0.2, 0.9, 0.2, 0.5)  # Green - in coherency
+		else:
+			line_color = Color(0.9, 0.2, 0.2, 0.6)  # Red - out of coherency
+
+		# Draw dashed line
+		var from_pos = Vector2.ZERO
+		var direction = (local_target - from_pos)
+		var total_length = direction.length()
+		if total_length < 1.0:
+			continue
+
+		var dash_length = 6.0
+		var gap_length = 4.0
+		var segment_length = dash_length + gap_length
+		var dir_normalized = direction.normalized()
+
+		var distance_traveled = 0.0
+		while distance_traveled < total_length:
+			var dash_start = from_pos + dir_normalized * distance_traveled
+			var dash_end_dist = min(distance_traveled + dash_length, total_length)
+			var dash_end = from_pos + dir_normalized * dash_end_dist
+			draw_line(dash_start, dash_end, line_color, 1.5, true)
+			distance_traveled += segment_length
+
+		# Draw a small dot at the target model position for clarity
+		var dot_color = Color(0.2, 0.9, 0.2, 0.6) if in_coherency else Color(0.9, 0.2, 0.2, 0.6)
+		draw_circle(local_target, 3.0, dot_color)
+
+func set_coherency_preview(lines_data: Array, status_text: String, is_valid: bool) -> void:
+	"""P3-116: Set coherency preview data for all unit models during movement.
+	lines_data: Array of { world_pos: Vector2, distance_inches: float, in_coherency: bool }"""
+	coherency_lines_data = lines_data
+	coherency_status_text = status_text
+	coherency_is_valid = is_valid
+
+func clear_coherency_preview() -> void:
+	"""P3-116: Clear all coherency preview lines."""
+	coherency_lines_data.clear()
+	coherency_status_text = ""
+	coherency_is_valid = true
 
 func set_nearest_model(world_pos, distance_inches: float) -> void:
 	nearest_model_world_pos = world_pos
