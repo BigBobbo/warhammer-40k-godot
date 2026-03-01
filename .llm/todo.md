@@ -157,7 +157,7 @@
 - [ ] Update Scouts rules per Balance Dataslate — Dedicated Transports can use Scouts ability from embarked unit. Scout distance can exceed Move characteristic as long as ≤ X". Update ScoutPhase.gd. (DEP-4)
 - [ ] Complete Scorched Earth mission — Burn mechanics are stub only. Implement the objective burning action and scoring. (MIS-1)
 - [ ] Complete The Ritual mission — Action-based objective mechanics not implemented. Add action system for ritual objectives. (MIS-2)
-- [ ] Complete Terraform mission — Objective flipping between players not implemented. Add flip mechanics. (MIS-3)
+- [x] Complete Terraform mission — Objective flipping between players not implemented. Add flip mechanics. (MIS-3)
 - [ ] Add Fixed secondary mission mode — Only tactical deck mode available. Add option for players to select 3 fixed secondary missions before the game. (MIS-4)
 - [ ] Apply Balance Dataslate v3.3 stratagem modifications — Multiple stratagem changes: closer setup range (3"→6"), AP worsening timing, CP cost modifications, targeting prevention (12"→18"), unit addition once per battle restriction. Update StratagemManager.gd. (GEN-4)
 - [ ] Update Rapid Ingress per Balance Dataslate — Updated: "if every model has Deep Strike ability, you can set up using Deep Strike (even though not your Movement phase)." Verify implementation in StratagemManager.gd. (GEN-5)

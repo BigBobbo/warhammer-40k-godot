@@ -1,1 +1,1 @@
-ARGS: ["--script", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit/", "-gprefix=test_mission", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gdir=res://tests/unit/", "-ginclude_subdirs=true", "-gexit=true"]

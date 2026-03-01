@@ -470,7 +470,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 81. **Update Scouts rules per Balance Dataslate** — Dedicated Transports can use Scouts ability inherited from embarked unit. Scout distance can exceed Move characteristic as long as ≤ X". Update ScoutPhase.gd validation. (DEP-4) — **DONE**
 82. **Complete Scorched Earth mission** — Burn mechanics are stub only. Implement the burning action and scoring in MissionManager.gd. (MIS-1) — **DONE**
 83. **Complete The Ritual mission** — Action-based objective mechanics not implemented. Add action system for ritual objectives in MissionManager.gd. (MIS-2) — **DONE**
-84. **Complete Terraform mission** — Objective flipping between players not implemented. Add flip mechanics in MissionManager.gd. (MIS-3)
+84. **Complete Terraform mission** — Objective flipping between players not implemented. Add flip mechanics in MissionManager.gd. (MIS-3) — **DONE**
 85. **Add Fixed secondary mission mode** — Only tactical deck mode available. Add option for players to select 3 fixed secondary missions before game in SecondaryMissionManager.gd and MainMenu.gd. (MIS-4)
 86. **Apply Balance Dataslate v3.3 stratagem modifications** — Multiple stratagem changes from v3.3: closer setup range, AP worsening timing, CP cost modifications, targeting prevention range changes, unit addition once per battle restriction. Update StratagemManager.gd definitions. (GEN-4)
 87. **Update Rapid Ingress per Balance Dataslate** — Updated wording: "if every model has Deep Strike ability, you can set up using Deep Strike (even though not your Movement phase)." Verify and update implementation in StratagemManager.gd. (GEN-5)

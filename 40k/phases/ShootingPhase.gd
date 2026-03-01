@@ -279,6 +279,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_burn_objective(action)
 		"PERFORM_RITUAL_ACTION":  # The Ritual: unit performs ritual action at objective
 			return _validate_perform_ritual_action(action)
+		"PERFORM_TERRAFORM_ACTION":  # Terraform: unit terraforms an objective
+			return _validate_perform_terraform_action(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -366,6 +368,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"PERFORM_RITUAL_ACTION":  # The Ritual: perform ritual action
 			print("ShootingPhase: Matched PERFORM_RITUAL_ACTION")
 			return _process_perform_ritual_action(action)
+		"PERFORM_TERRAFORM_ACTION":  # Terraform: terraform an objective
+			print("ShootingPhase: Matched PERFORM_TERRAFORM_ACTION")
+			return _process_perform_terraform_action(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -1323,6 +1328,121 @@ func _get_ritual_action_options(unit_id: String) -> Array:
 		return []
 
 	return MissionManager.get_ritual_objectives_for_unit(unit_id)
+
+# ============================================================================
+# PERFORM TERRAFORM ACTION — Terraform mission action
+# ============================================================================
+
+func _validate_perform_terraform_action(action: Dictionary) -> Dictionary:
+	"""Validate a terraform action for the Terraform mission."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
+	if not _can_unit_shoot(unit):
+		return {"valid": false, "errors": ["Unit is not eligible to perform terraform action"]}
+
+	if unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
+
+	# Units that Advanced or Fell Back cannot perform actions
+	var flags = unit.get("flags", {})
+	if flags.get("advanced", false):
+		return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
+	if flags.get("fell_back", false):
+		return {"valid": false, "errors": ["Unit Fell Back this turn and cannot perform actions"]}
+
+	var objective_id = action.get("objective_id", "")
+	if objective_id == "":
+		return {"valid": false, "errors": ["Missing objective_id"]}
+
+	# Verify the objective is valid for terraforming by this unit
+	var terraform_targets = MissionManager.get_terraformable_objectives_for_unit(unit_id)
+	var found = false
+	for t in terraform_targets:
+		if t.objective_id == objective_id:
+			found = true
+			break
+
+	if not found:
+		return {"valid": false, "errors": ["Objective %s is not a valid terraform target for this unit" % objective_id]}
+
+	return {"valid": true, "errors": []}
+
+func _process_perform_terraform_action(action: Dictionary) -> Dictionary:
+	"""Process a terraform action — unit gives up shooting to terraform an objective."""
+	var unit_id = action.get("actor_unit_id", "")
+	var objective_id = action.get("objective_id", "")
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = get_current_player()
+
+	print("ShootingPhase: %s performs terraform action at %s (gives up shooting)" % [unit_name, objective_id])
+
+	# Mark unit as having shot (it gave up shooting to perform the terraform)
+	units_that_shot.append(unit_id)
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	# Mark as unable to charge this turn (action costs charging too)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.performed_terraform" % unit_id,
+		"value": true
+	})
+
+	# Clear active state if this unit was selected
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+
+	# Register the terraform with MissionManager
+	var success = MissionManager.register_terraform_action(unit_id, objective_id)
+	if success:
+		var is_flip = action.get("is_flip", false)
+		if is_flip:
+			log_phase_message("TERRAFORM: %s flipped %s for Player %d" % [unit_name, objective_id, player])
+		else:
+			log_phase_message("TERRAFORM: %s terraformed %s for Player %d" % [unit_name, objective_id, player])
+	else:
+		log_phase_message("ERROR: Terraform action failed for %s at %s" % [unit_name, objective_id])
+
+	return create_result(true, changes)
+
+func _get_terraform_action_options(unit_id: String) -> Array:
+	"""Get available terraform action options for a unit (Terraform mission only).
+	Returns array of {objective_id, zone, position, is_flip}."""
+	if not MissionManager or not MissionManager.is_terraform_mission():
+		return []
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	# Unit must not be battle-shocked
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return []
+
+	# Units that Advanced or Fell Back cannot perform actions
+	if unit.get("flags", {}).get("advanced", false):
+		return []
+	if unit.get("flags", {}).get("fell_back", false):
+		return []
+
+	return MissionManager.get_terraformable_objectives_for_unit(unit_id)
 
 func _determine_locus_location(unit_id: String, player: int) -> String:
 	"""Determine location qualifier for Establish Locus: 'opponent_zone' or 'center'."""
@@ -3079,6 +3199,22 @@ func get_available_actions() -> Array:
 					"description": "%s: Perform Ritual at %s (create new objective)" % [
 						unit.get("meta", {}).get("name", unit_id),
 						ritual_opt.objective_id]
+				})
+
+			# Check if unit can perform a terraform action (Terraform mission)
+			var terraform_options = _get_terraform_action_options(unit_id)
+			for tf_opt in terraform_options:
+				var tf_desc = "Terraform %s" % tf_opt.objective_id
+				if tf_opt.get("is_flip", false):
+					tf_desc = "Flip %s (opponent's terraform)" % tf_opt.objective_id
+				actions.append({
+					"type": "PERFORM_TERRAFORM_ACTION",
+					"actor_unit_id": unit_id,
+					"objective_id": tf_opt.objective_id,
+					"is_flip": tf_opt.get("is_flip", false),
+					"description": "%s: %s" % [
+						unit.get("meta", {}).get("name", unit_id),
+						tf_desc]
 				})
 
 	# Always can end phase

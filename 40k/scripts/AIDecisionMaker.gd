@@ -7765,6 +7765,22 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			best_ritual["_ai_description"] = "%s performs ritual at %s" % [r_name, r_obj_id]
 			return best_ritual
 
+	# Step 4.10: Check for Terraform mission terraform action
+	# Units at controlled objectives (not in own DZ) can terraform them.
+	# Flipping opponent-terraformed objectives is especially valuable.
+	if action_types.has("PERFORM_TERRAFORM_ACTION"):
+		var best_terraform = _evaluate_terraform_actions(snapshot, action_types, player)
+		if not best_terraform.is_empty():
+			var t_unit = snapshot.get("units", {}).get(best_terraform.get("actor_unit_id", ""), {})
+			var t_name = t_unit.get("meta", {}).get("name", best_terraform.get("actor_unit_id", ""))
+			var t_obj_id = best_terraform.get("objective_id", "")
+			var t_flip = best_terraform.get("is_flip", false)
+			var t_action_desc = "flips" if t_flip else "terraforms"
+			print("AIDecisionMaker: %s %s %s instead of shooting" % [t_name, t_action_desc, t_obj_id])
+			_add_thinking_step("%s %s %s (Terraform)" % [t_name, t_action_desc, t_obj_id])
+			best_terraform["_ai_description"] = "%s %s %s" % [t_name, t_action_desc, t_obj_id]
+			return best_terraform
+
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
@@ -12596,6 +12612,53 @@ static func _evaluate_ritual_actions(snapshot: Dictionary, action_types: Diction
 			best_action = action
 
 	# Perform ritual if net positive
+	if best_score > 0:
+		return best_action
+
+	return {}
+
+static func _evaluate_terraform_actions(snapshot: Dictionary, action_types: Dictionary, player: int) -> Dictionary:
+	"""Evaluate PERFORM_TERRAFORM_ACTION options and return the best one, or empty dict if none worth it.
+	Terraforming objectives earns 1 VP per turn for the rest of the game. Flipping opponent
+	terraformed objectives is especially valuable (denies opponent VP + gains you VP).
+	Use low-firepower units for terraforming when possible."""
+	var actions = action_types.get("PERFORM_TERRAFORM_ACTION", [])
+	if actions.is_empty():
+		return {}
+
+	var best_action = {}
+	var best_score = -999.0
+
+	for action in actions:
+		var unit_id = action.get("actor_unit_id", "")
+		var objective_id = action.get("objective_id", "")
+		var is_flip = action.get("is_flip", false)
+
+		if unit_id == "":
+			continue
+
+		# Estimate shooting value lost
+		var shooting_value = _estimate_unit_shooting_value(snapshot, unit_id, player)
+
+		# Terraforming earns 1 VP per turn for the rest of the game.
+		# With 3-4 scoring rounds remaining, that's 3-4 VP total.
+		# Flipping is worth more: you gain 1 VP/turn AND deny opponent 1 VP/turn = 2 VP/turn swing.
+		var terraform_value = 4.0  # ~1 VP × 4 remaining rounds
+		if is_flip:
+			terraform_value = 8.0  # Flip = gain + deny = 2 VP/turn × 4 rounds
+
+		var terraform_score = terraform_value - shooting_value
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("AIDecisionMaker: [TerraformAction] %s — %s: value=%.1f (flip=%s), shooting_value=%.1f, score=%.1f" % [
+			unit_name, objective_id, terraform_value, str(is_flip), shooting_value, terraform_score])
+
+		if terraform_score > best_score:
+			best_score = terraform_score
+			best_action = action
+
+	# Perform terraform if net positive
 	if best_score > 0:
 		return best_action
 

@@ -159,13 +159,15 @@ static func _load_missions() -> void:
 	_missions["terraform"] = {
 		"id": "terraform",
 		"name": "Terraform",
-		"description": "Control and flip objectives to your side for VP.",
+		"description": "Control objectives for VP. Perform Terraform actions to flip objectives to your side for bonus VP.",
 		"scoring_type": "terraform",
 		"start_round": 2,
 		"objectives_used": "all",
 		"scoring": {
-			"vp_per_flipped_objective": 5,
-			"max_vp_per_turn": 15,
+			"vp_per_controlled": 4,       # 4 VP per controlled objective
+			"max_control_vp_per_turn": 12, # Max 12 VP from control per turn (3 objectives)
+			"vp_per_terraformed": 1,       # +1 VP per terraformed objective (regardless of control)
+			"max_vp_per_turn": 15,         # Overall max VP per turn
 		},
 		"max_vp": MAX_PRIMARY_VP,
 		"special_rules": ["objective_flipping"],
@@ -251,6 +253,7 @@ static func get_implemented_mission_ids() -> Array:
 		"sites_of_power",
 		"scorched_earth",
 		"the_ritual",
+		"terraform",
 	]
 
 ## Get display name for a mission.
