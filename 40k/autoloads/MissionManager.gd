@@ -36,6 +36,14 @@ var _ritual_objectives: Dictionary = {}
 # Key: unit_id, Value: objective_id — action completes at end of turn
 var _pending_rituals: Dictionary = {}
 
+# Terraform tracking — objectives that have been terraformed by a player
+# Key: objective_id, Value: player (1 or 2) who terraformed it
+var _terraformed_objectives: Dictionary = {}
+
+# Units performing terraform actions this turn (Shooting phase)
+# Key: unit_id, Value: objective_id — action completes at end of turn
+var _pending_terraforms: Dictionary = {}
+
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
@@ -85,6 +93,10 @@ func initialize_mission(mission_id: String) -> void:
 	# Reset ritual tracking
 	_ritual_objectives.clear()
 	_pending_rituals.clear()
+
+	# Reset terraform tracking
+	_terraformed_objectives.clear()
+	_pending_terraforms.clear()
 
 	# Store mission type in GameState meta for reference
 	GameState.state.meta["mission_type"] = mission_id
@@ -363,8 +375,7 @@ func score_primary_objectives() -> void:
 		"ritual":
 			_score_ritual(active_player, battle_round)
 		"terraform":
-			# Terraform: falls back to hold scoring (flipping not yet implemented)
-			_score_hold_objectives(active_player, battle_round)
+			_score_terraform(active_player, battle_round)
 		_:
 			print("MissionManager: Unknown scoring type '%s', falling back to hold_objectives" % scoring_type)
 			_score_hold_objectives(active_player, battle_round)
@@ -1045,6 +1056,191 @@ func get_ritual_objectives() -> Dictionary:
 func clear_pending_rituals() -> void:
 	"""Clear pending ritual actions at start of a new turn."""
 	_pending_rituals.clear()
+
+# ============================================================================
+# TERRAFORM — Objective flipping mission
+# ============================================================================
+# Rules (Chapter Approved 2025-26): During the Shooting phase, a unit can
+# perform the Terraform action on an objective it controls that is NOT in
+# the player's own deployment zone. The unit gives up shooting and charging.
+# At end of turn, if the unit is still within range and the player still
+# controls the objective, the objective is "terraformed by" that player.
+# If the opponent had already terraformed it, their terraform is removed
+# and the new player's terraform replaces it (flip mechanic).
+#
+# Scoring (from round 2): At end of Command phase, each player scores
+# 4 VP per controlled objective (max 12 VP). Additionally, each player
+# scores 1 VP per objective they have terraformed.
+
+func is_terraform_mission() -> bool:
+	"""Check if the current mission uses terraform/flip mechanics."""
+	return current_mission.get("scoring_type", "") == "terraform"
+
+func _score_terraform(active_player: int, _battle_round: int) -> void:
+	"""Score Terraform mission: 4 VP per controlled objective (max 12),
+	plus 1 VP per terraformed objective."""
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_obj = scoring_rules.get("vp_per_controlled", 4)
+	var max_control_vp = scoring_rules.get("max_control_vp_per_turn", 12)
+	var vp_per_terraform = scoring_rules.get("vp_per_terraformed", 1)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
+
+	# Count controlled objectives
+	var controlled_objectives = []
+	for obj_id in objective_control_state:
+		if objective_control_state[obj_id] == active_player:
+			controlled_objectives.append(obj_id)
+
+	var controlled_count = controlled_objectives.size()
+	var control_vp = mini(controlled_count * vp_per_obj, max_control_vp)
+
+	# Count terraformed objectives (these score regardless of current control)
+	var terraform_count = 0
+	for obj_id in _terraformed_objectives:
+		if _terraformed_objectives[obj_id] == active_player:
+			terraform_count += 1
+	var terraform_vp = terraform_count * vp_per_terraform
+
+	var total_vp = mini(control_vp + terraform_vp, max_per_turn)
+
+	if controlled_count > 0 or terraform_count > 0:
+		print("MissionManager: Terraform - Player %d controls %d objectives (+%d VP), has %d terraformed (+%d VP)" % [
+			active_player, controlled_count, control_vp, terraform_count, terraform_vp])
+	else:
+		print("MissionManager: Terraform - Player %d controls no objectives and has no terraformed objectives" % active_player)
+
+	var reason = "Terraform: %d controlled (+%d VP), %d terraformed (+%d VP)" % [
+		controlled_count, control_vp, terraform_count, terraform_vp]
+	_apply_primary_vp(active_player, total_vp, reason)
+
+func get_terraformable_objectives_for_unit(unit_id: String) -> Array:
+	"""Get objectives that a unit can terraform. Returns array of objective dicts.
+	A unit can terraform an objective if:
+	- Current mission is Terraform
+	- The objective is NOT in the unit owner's deployment zone
+	- The objective is currently controlled by the unit's owner
+	- The unit has a model within range of the objective (3" + marker radius)
+	- The objective hasn't already been terraformed by this player"""
+	if not is_terraform_mission():
+		return []
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return []
+
+	var owner = unit.get("owner", 0)
+	if owner == 0:
+		return []
+
+	# Units must have OC > 0 to perform actions
+	var oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
+	if oc_value <= 0:
+		return []
+
+	# Aircraft cannot perform actions
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return []
+
+	# Determine which zone is the player's OWN deployment zone (cannot terraform there)
+	var own_zone = "player1" if owner == 1 else "player2"
+
+	var objectives = GameState.state.board.get("objectives", [])
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var result = []
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		var zone = obj.get("zone", "")
+
+		# Cannot terraform objectives in your own deployment zone
+		if zone == own_zone:
+			continue
+
+		# Must be controlled by the unit's owner
+		if objective_control_state.get(obj_id, 0) != owner:
+			continue
+
+		# Skip objectives already terraformed by this player
+		if _terraformed_objectives.get(obj_id, 0) == owner:
+			continue
+
+		# Check if any alive model is within range
+		var obj_pos = obj.get("position", Vector2.ZERO)
+		var unit_in_range = false
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = model.get("position")
+			if model_pos == null:
+				continue
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.x, model_pos.y)
+			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if edge_distance <= control_radius:
+				unit_in_range = true
+				break
+
+		if unit_in_range:
+			var is_opponent_terraformed = _terraformed_objectives.get(obj_id, 0) != 0 and _terraformed_objectives[obj_id] != owner
+			result.append({
+				"objective_id": obj_id,
+				"zone": zone,
+				"position": obj_pos,
+				"is_flip": is_opponent_terraformed,
+			})
+
+	return result
+
+func register_terraform_action(unit_id: String, objective_id: String) -> bool:
+	"""Register a unit performing a terraform action at an objective (during Shooting phase).
+	The unit gives up shooting and charging. The terraform resolves immediately
+	for simplicity (same pattern as burn/ritual)."""
+	if not is_terraform_mission():
+		print("MissionManager: Cannot terraform — not a Terraform mission")
+		return false
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		print("MissionManager: Cannot terraform — unit %s not found" % unit_id)
+		return false
+
+	var owner = unit.get("owner", 0)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Verify objective is valid for terraforming
+	var valid_targets = get_terraformable_objectives_for_unit(unit_id)
+	var target_obj = null
+	for v in valid_targets:
+		if v.objective_id == objective_id:
+			target_obj = v
+			break
+
+	if target_obj == null:
+		print("MissionManager: Cannot terraform — %s is not a valid terraform target for %s" % [objective_id, unit_id])
+		return false
+
+	# Check if opponent had terraformed this objective (flip)
+	var old_owner = _terraformed_objectives.get(objective_id, 0)
+	if old_owner > 0 and old_owner != owner:
+		print("MissionManager: TERRAFORM FLIP — %s flips %s from Player %d to Player %d" % [
+			unit_name, objective_id, old_owner, owner])
+	else:
+		print("MissionManager: TERRAFORM — %s terraforms %s for Player %d" % [
+			unit_name, objective_id, owner])
+
+	# Set the terraform state (replaces any previous terraform by opponent)
+	_terraformed_objectives[objective_id] = owner
+
+	return true
+
+func get_terraformed_objectives() -> Dictionary:
+	"""Get current terraformed objectives state (for save/load and debugging)."""
+	return _terraformed_objectives.duplicate(true)
+
+func clear_pending_terraforms() -> void:
+	"""Clear pending terraform actions at start of a new turn."""
+	_pending_terraforms.clear()
 
 # ============================================================================
 # VP APPLICATION — common VP bookkeeping

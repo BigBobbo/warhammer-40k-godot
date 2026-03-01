@@ -202,7 +202,9 @@ func _create_flag_reset_changes(player: int) -> Array:
 		"has_shot", "has_fought", "charged_this_turn", "fights_first",
 		"has_been_charged", "move_cap_inches",
 		"is_engaged", "fight_priority",
-		"burned_objective"
+		"burned_objective",
+		"performed_ritual",
+		"performed_terraform"
 	]
 
 	for unit_id in units:
