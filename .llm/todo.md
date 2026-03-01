@@ -173,7 +173,7 @@
 - [ ] Add confirmation before auto-resolving untaken battle-shock tests — Currently auto-resolves silently. Show warning dialog. (CMD-4)
 - [ ] Fix embark/disembark distance calculation inconsistency — Embark uses `model_to_model_distance_inches()` but disembark uses shape-aware distance. Standardize. (MOV-6)
 - [ ] Enforce "cannot select to shoot with no eligible targets" — "Unless at least one model in a unit has an eligible target, that unit cannot be selected to shoot." Add check to unit selection. (SHOOT-7)
-- [ ] Track invulnerable save source in UI — When invuln save is used, show indicator of whether it's model-native or effect-granted. (SHOOT-8)
+- [x] Track invulnerable save source in UI — When invuln save is used, show indicator of whether it's model-native or effect-granted. (SHOOT-8)
 - [ ] Display terrain penalty in charge distance UI — Players see rolled distance but not effective distance after terrain penalties. Show "Effective: X\" (Y\" - Z\" terrain)". (CHG-3)
 - [ ] Add live direction validation feedback during charge movement — No real-time feedback as player drags model to show if final position satisfies direction constraint. (CHG-4)
 - [ ] Verify Epic Challenge stratagem interaction in attached units — Ensure 1CP Epic Challenge properly enables CHARACTER vs CHARACTER melee dueling within attached units. (FGT-2)

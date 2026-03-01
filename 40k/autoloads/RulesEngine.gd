@@ -7411,11 +7411,12 @@ static func prepare_save_resolution(
 	# EFFECT-GRANTED MODIFIERS: Check for cover and invuln from stratagems/abilities
 	var effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
 	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	var effect_invuln_source = EffectPrimitivesData.get_effect_invuln_source(target_unit)
 
 	if effect_cover:
 		print("RulesEngine: Target has effect-granted Benefit of Cover")
 	if effect_invuln > 0:
-		print("RulesEngine: Target has effect-granted %d+ invulnerable save" % effect_invuln)
+		print("RulesEngine: Target has effect-granted %d+ invulnerable save (source: %s)" % [effect_invuln, effect_invuln_source])
 
 	# Calculate save profile for each model
 	var model_save_profiles = []
@@ -7433,9 +7434,11 @@ static func prepare_save_resolution(
 
 		# Invulnerable save: use best of model's native invuln and effect-granted invuln
 		var model_invuln = model.get("invuln", 0)
+		var invuln_source = "Native" if model_invuln > 0 else ""
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
+				invuln_source = effect_invuln_source if effect_invuln_source != "" else "Ability"
 
 		var save_result = _calculate_save_needed(base_save, ap, has_cover, model_invuln)
 
@@ -7450,6 +7453,7 @@ static func prepare_save_resolution(
 			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
 			"using_invuln": save_result.use_invuln,
 			"invuln_value": save_result.inv if save_result.use_invuln else 0,
+			"invuln_source": invuln_source if save_result.use_invuln else "",
 			"armour_value": save_result.armour
 		})
 
@@ -7566,8 +7570,9 @@ static func prepare_melee_save_resolution(
 
 	# Effect-granted invuln (e.g., Waaagh! 5+)
 	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	var effect_invuln_source = EffectPrimitivesData.get_effect_invuln_source(target_unit)
 	if effect_invuln > 0:
-		print("RulesEngine: Target has effect-granted %d+ invulnerable save (melee interactive)" % effect_invuln)
+		print("RulesEngine: Target has effect-granted %d+ invulnerable save (melee interactive, source: %s)" % [effect_invuln, effect_invuln_source])
 
 	# Calculate save profile for each model — NO COVER in melee
 	var model_save_profiles = []
@@ -7575,9 +7580,11 @@ static func prepare_melee_save_resolution(
 		var model = model_info.model
 		# Invulnerable save: use best of model's native invuln and effect-granted invuln
 		var model_invuln = model.get("invuln", 0)
+		var invuln_source = "Native" if model_invuln > 0 else ""
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
+				invuln_source = effect_invuln_source if effect_invuln_source != "" else "Ability"
 
 		var save_result = _calculate_save_needed(base_save, ap, false, model_invuln)  # No cover in melee
 
@@ -7592,6 +7599,7 @@ static func prepare_melee_save_resolution(
 			"save_needed": save_result.inv if save_result.use_invuln else save_result.armour,
 			"using_invuln": save_result.use_invuln,
 			"invuln_value": save_result.inv if save_result.use_invuln else 0,
+			"invuln_source": invuln_source if save_result.use_invuln else "",
 			"armour_value": save_result.armour
 		})
 

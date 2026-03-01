@@ -4025,6 +4025,11 @@ func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.effect_invuln" % unit_id,
 		"value": 5
 	})
+	diffs.append({
+		"op": "set",
+		"path": "units.%s.flags.effect_invuln_source" % unit_id,
+		"value": "Distraction Grot"
+	})
 	PhaseManager.apply_state_changes(diffs)
 
 	# Refresh snapshot so RulesEngine sees the invuln
