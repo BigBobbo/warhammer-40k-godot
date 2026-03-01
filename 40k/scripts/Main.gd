@@ -6559,6 +6559,7 @@ func _setup_crt_overlay() -> void:
 
 	_crt_overlay = ColorRect.new()
 	_crt_overlay.name = "CRTOverlay"
+	_crt_overlay.color = Color(0, 0, 0, 0)  # Transparent - shader renders screen content
 	_crt_overlay.anchor_left = 0.0
 	_crt_overlay.anchor_top = 0.0
 	_crt_overlay.anchor_right = 1.0
