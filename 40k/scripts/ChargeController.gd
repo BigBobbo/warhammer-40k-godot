@@ -48,6 +48,7 @@ var charge_info_label: Label
 var charge_distance_label: Label
 var charge_used_label: Label
 var charge_left_label: Label
+var charge_terrain_label: Label  # P3-98: Shows terrain penalty breakdown
 var declare_button: Button
 var roll_button: Button
 var skip_button: Button
@@ -413,7 +414,15 @@ func _setup_right_panel() -> void:
 	charge_left_label.text = "Left: 0.0\""
 	charge_left_label.visible = false
 	distance_container.add_child(charge_left_label)
-	
+
+	# P3-98: Terrain penalty breakdown label
+	charge_terrain_label = Label.new()
+	charge_terrain_label.text = ""
+	charge_terrain_label.visible = false
+	charge_terrain_label.add_theme_font_size_override("font_size", 11)
+	charge_terrain_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))  # Yellow/amber for terrain info
+	distance_container.add_child(charge_terrain_label)
+
 	charge_panel.add_child(distance_container)
 	
 	# Charge status (moved from top bar)
@@ -1123,8 +1132,8 @@ func _update_model_drag(world_pos: Vector2) -> void:
 		var terrain_penalty = _calculate_terrain_penalty_for_path(original_pos, world_pos)
 		var effective_distance = distance_moved_inches + terrain_penalty
 
-		# Update distance display with preview (show effective distance including terrain)
-		_update_charge_distance_display_with_preview(effective_distance, is_valid)
+		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
+		_update_charge_distance_display_with_preview(effective_distance, is_valid, terrain_penalty)
 
 func _end_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1141,9 +1150,11 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		if start_pos:
 			var distance_moved_px = start_pos.distance_to(world_pos)
 			var distance_moved_inches = Measurement.px_to_inches(distance_moved_px)
-			
-			# Update distance display for this model
-			_update_charge_distance_display(model_id, distance_moved_inches)
+			# P3-98: Include terrain penalty in final distance display
+			var terrain_penalty = _calculate_terrain_penalty_for_path(start_pos, world_pos)
+
+			# Update distance display for this model (with terrain breakdown)
+			_update_charge_distance_display(model_id, distance_moved_inches, terrain_penalty)
 		
 		# Store the new position AND rotation
 		moved_models[model_id] = {
@@ -2056,14 +2067,18 @@ func _show_charge_distance_display(max_distance: int) -> void:
 	if is_instance_valid(charge_distance_label):
 		charge_distance_label.text = "Charge: %d\"" % max_distance
 		charge_distance_label.visible = true
-	
+
 	if is_instance_valid(charge_used_label):
 		charge_used_label.text = "Used: 0.0\""
 		charge_used_label.visible = true
-	
+
 	if is_instance_valid(charge_left_label):
 		charge_left_label.text = "Left: %d.0\"" % max_distance
 		charge_left_label.visible = true
+
+	# P3-98: Reset terrain label on new charge
+	if is_instance_valid(charge_terrain_label):
+		charge_terrain_label.visible = false
 
 func _hide_charge_distance_display() -> void:
 	if is_instance_valid(charge_distance_label):
@@ -2072,35 +2087,55 @@ func _hide_charge_distance_display() -> void:
 		charge_used_label.visible = false
 	if is_instance_valid(charge_left_label):
 		charge_left_label.visible = false
+	# P3-98: Hide terrain label
+	if is_instance_valid(charge_terrain_label):
+		charge_terrain_label.visible = false
 
-func _update_charge_distance_display(model_id: String, distance_moved: float) -> void:
+func _update_charge_distance_display(model_id: String, distance_moved: float, terrain_penalty: float = 0.0) -> void:
 	if not is_instance_valid(charge_used_label) or not is_instance_valid(charge_left_label):
 		return
-	
-	# Calculate total distance used by this model
-	var total_used = distance_moved
-	var left = charge_distance - total_used
+
+	# P3-98: Include terrain penalty in effective distance
+	var effective_distance = distance_moved + terrain_penalty
+	var left = charge_distance - effective_distance
 	var valid = left >= 0
-	
+
 	# Update labels
-	charge_used_label.text = "Used: %.1f\"" % total_used
+	charge_used_label.text = "Used: %.1f\"" % effective_distance
 	charge_used_label.modulate = Color.WHITE if valid else Color.RED
-	
+
 	charge_left_label.text = "Left: %.1f\"" % left
 	charge_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
 
-func _update_charge_distance_display_with_preview(distance_moved: float, valid: bool) -> void:
+	# P3-98: Show terrain penalty breakdown when terrain affects the charge
+	if is_instance_valid(charge_terrain_label):
+		if terrain_penalty > 0.0:
+			charge_terrain_label.text = "Effective: %.1f\" (%.1f\" - %.1f\" terrain)" % [effective_distance, distance_moved, terrain_penalty]
+			charge_terrain_label.visible = true
+		else:
+			charge_terrain_label.visible = false
+
+func _update_charge_distance_display_with_preview(distance_moved: float, valid: bool, terrain_penalty: float = 0.0) -> void:
 	if not is_instance_valid(charge_used_label) or not is_instance_valid(charge_left_label):
 		return
-	
+
 	var left = charge_distance - distance_moved
-	
+
 	# Update labels with preview
 	charge_used_label.text = "Used: %.1f\"" % distance_moved
 	charge_used_label.modulate = Color.WHITE if valid else Color.RED
-	
+
 	charge_left_label.text = "Left: %.1f\"" % left
 	charge_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
+
+	# P3-98: Show terrain penalty breakdown when terrain affects the charge
+	if is_instance_valid(charge_terrain_label):
+		if terrain_penalty > 0.0:
+			var actual_move = distance_moved - terrain_penalty
+			charge_terrain_label.text = "Effective: %.1f\" (%.1f\" - %.1f\" terrain)" % [distance_moved, actual_move, terrain_penalty]
+			charge_terrain_label.visible = true
+		else:
+			charge_terrain_label.visible = false
 
 # Rotation functions for charge movement
 func _check_position_would_overlap(model: Dictionary, new_pos: Vector2) -> bool:
