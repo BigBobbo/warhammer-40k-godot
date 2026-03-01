@@ -257,6 +257,42 @@ func reset_disembark_flags() -> void:
 	if any_reset:
 		print("Reset disembark flags for new phase")
 
+# P3-95: Centralized shape-aware distance checks for embark/disembark
+# Both embark and disembark use Measurement.model_to_model_distance_inches()
+# which handles circular, oval, and rectangular bases via iterative closest-point refinement.
+
+# Check if a single model is within embark range (3") of a transport (shape-aware edge-to-edge)
+func is_model_within_embark_range(model: Dictionary, transport: Dictionary, range_inches: float = 3.0) -> Dictionary:
+	if transport.models.size() == 0:
+		return {"within_range": false, "distance_inches": INF}
+	var transport_model = transport.models[0]
+	var dist_inches = Measurement.model_to_model_distance_inches(model, transport_model)
+	return {"within_range": dist_inches <= range_inches, "distance_inches": dist_inches}
+
+# Check if ALL alive models in a unit are within embark range of a transport
+func is_unit_within_embark_range(unit: Dictionary, transport: Dictionary, range_inches: float = 3.0) -> Dictionary:
+	if transport.models.size() == 0:
+		return {"within_range": false, "reason": "Transport has no models"}
+	var transport_model = transport.models[0]
+	for model in unit.models:
+		if not model.alive or model.position == null:
+			continue
+		var dist_inches = Measurement.model_to_model_distance_inches(model, transport_model)
+		if dist_inches > range_inches:
+			return {"within_range": false, "reason": "Model is %.1f\" from transport (max %.1f\")" % [dist_inches, range_inches]}
+	return {"within_range": true}
+
+# Check if a model placed at a given position would be within disembark range (3") of a transport
+# Creates a temporary model dict with the proposed position for shape-aware measurement
+func is_position_within_disembark_range(pos: Vector2, model: Dictionary, transport: Dictionary, range_inches: float = 3.0) -> Dictionary:
+	if transport.models.size() == 0:
+		return {"within_range": false, "distance_inches": INF}
+	var transport_model = transport.models[0]
+	var model_at_pos = model.duplicate()
+	model_at_pos["position"] = {"x": pos.x, "y": pos.y}
+	var dist_inches = Measurement.model_to_model_distance_inches(model_at_pos, transport_model)
+	return {"within_range": dist_inches <= range_inches, "distance_inches": dist_inches}
+
 # P1-60: Check if a destroyed unit is a transport with embarked units
 func is_transport_with_embarked_units(unit_id: String) -> bool:
 	var unit = GameState.get_unit(unit_id)
