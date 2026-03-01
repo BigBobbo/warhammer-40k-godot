@@ -181,7 +181,8 @@ func _setup_right_panel() -> void:
 		scoring_panel.add_child(game_end_label)
 	else:
 		var instruction_label = Label.new()
-		instruction_label.text = "Press a Discard button above to discard\na secondary for +1 CP, or End Turn below."
+		var cp_note = "+1 CP" if GameState.can_gain_bonus_cp(GameState.get_active_player()) else "+0 CP (bonus cap reached)"
+		instruction_label.text = "Press a Discard button above to discard\na secondary for %s, or End Turn below." % cp_note
 		instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		scoring_panel.add_child(instruction_label)
 
@@ -292,12 +293,15 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int) -
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
-	# Discard button
+	# Discard button — show CP gain status based on bonus CP cap
 	var discard_btn = Button.new()
-	discard_btn.text = "Discard \"%s\" (+1 CP)" % mission.get("name", "?")
+	var can_gain_cp = GameState.can_gain_bonus_cp(GameState.get_active_player())
+	var cp_label = "+1 CP" if can_gain_cp else "+0 CP (cap)"
+	discard_btn.text = "Discard \"%s\" (%s)" % [mission.get("name", "?"), cp_label]
 	discard_btn.custom_minimum_size = Vector2(0, 28)
 	discard_btn.add_theme_font_size_override("font_size", 11)
-	discard_btn.tooltip_text = "Voluntarily discard this mission and gain 1 CP."
+	var tooltip = "Voluntarily discard this mission and gain 1 CP." if can_gain_cp else "Voluntarily discard this mission (bonus CP cap reached this round — no CP gained)."
+	discard_btn.tooltip_text = tooltip
 	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
 	card_vbox.add_child(discard_btn)
 

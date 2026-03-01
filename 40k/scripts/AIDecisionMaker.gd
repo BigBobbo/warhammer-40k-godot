@@ -11810,16 +11810,23 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 		discard_threshold = 0.1  # Only discard truly impossible missions
 		print("AIDecisionMaker: [SCORING]   Late game with empty deck, lowering discard threshold to %.1f" % discard_threshold)
 
+	# Check if bonus CP cap has been reached this round (read from snapshot)
+	var bonus_cp_gained = snapshot.get("players", {}).get(str(player), {}).get("bonus_cp_gained_this_round", 0)
+	var can_gain_cp = bonus_cp_gained < 1  # Cap is 1 bonus CP per battle round
+	if not can_gain_cp:
+		print("AIDecisionMaker: [SCORING]   Bonus CP cap reached — discard won't grant CP this round")
+
 	if worst_mission_index >= 0 and worst_mission_score < discard_threshold:
 		# Find the matching discard action
 		for action in discard_actions:
 			if action.get("mission_index") == worst_mission_index:
-				print("AIDecisionMaker: [SCORING] Discarding unachievable mission '%s' (score=%.1f) for +1 CP" % [
-					worst_mission_name, worst_mission_score])
+				var cp_note = "+1 CP" if can_gain_cp else "+0 CP (cap reached)"
+				print("AIDecisionMaker: [SCORING] Discarding unachievable mission '%s' (score=%.1f) for %s" % [
+					worst_mission_name, worst_mission_score, cp_note])
 				return {
 					"type": "DISCARD_SECONDARY",
 					"mission_index": worst_mission_index,
-					"_ai_description": "Discard unachievable '%s' for +1 CP" % worst_mission_name,
+					"_ai_description": "Discard unachievable '%s' (%s)" % [worst_mission_name, cp_note],
 				}
 
 	print("AIDecisionMaker: [SCORING] All missions are potentially achievable (worst: '%s' score=%.1f), ending turn" % [
