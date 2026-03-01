@@ -1275,6 +1275,137 @@ func is_initialized(player: int) -> bool:
 	"""Check if player's secondary missions are set up."""
 	return _player_state[str(player)]["initialized"]
 
+func evaluate_mission_progress(player: int) -> Array:
+	"""Evaluate current progress for all active secondary missions without scoring.
+	Returns array of mission progress dicts:
+	[{
+		"mission_id": String,
+		"mission_name": String,
+		"vp_scored": int,
+		"conditions": [{
+			"check": String,
+			"vp": int,
+			"met": bool,
+			"description": String,
+		}],
+		"best_vp_available": int,  # Highest VP condition currently met (0 if none)
+	}]
+	"""
+	var player_key = str(player)
+	var state = _player_state[player_key]
+	var progress_list = []
+
+	for mission in state["active"]:
+		if mission.get("pending_interaction", false):
+			progress_list.append({
+				"mission_id": mission["id"],
+				"mission_name": mission.get("name", "Unknown"),
+				"vp_scored": mission.get("vp_scored", 0),
+				"conditions": [],
+				"best_vp_available": 0,
+				"pending_interaction": true,
+			})
+			continue
+
+		var scoring = mission.get("scoring", {})
+		var conditions = scoring.get("conditions", [])
+		var condition_results = []
+		var best_vp = 0
+
+		for condition in conditions:
+			var check = condition.get("check", "")
+			var params = condition.get("params", {})
+			var vp = condition.get("vp", 0)
+			var met = _check_condition(player, check, params, mission)
+
+			condition_results.append({
+				"check": check,
+				"vp": vp,
+				"met": met,
+				"description": _humanize_condition(check, params),
+			})
+
+			if met and vp > best_vp:
+				best_vp = vp
+
+		progress_list.append({
+			"mission_id": mission["id"],
+			"mission_name": mission.get("name", "Unknown"),
+			"vp_scored": mission.get("vp_scored", 0),
+			"conditions": condition_results,
+			"best_vp_available": best_vp,
+			"pending_interaction": false,
+		})
+
+	return progress_list
+
+func _humanize_condition(check: String, params: Dictionary) -> String:
+	"""Convert a condition check ID into human-readable text."""
+	match check:
+		"units_wholly_in_opponent_deployment_zone":
+			var count = params.get("count", 1)
+			return "%d+ units in opponent's deployment zone" % count
+		"presence_in_table_quarters":
+			var count = params.get("count", 1)
+			return "Presence in %d+ table quarters" % count
+		"units_within_center_no_enemies_within":
+			var fr = params.get("friendly_range", 6.0)
+			var er = params.get("enemy_range", 6.0)
+			if er < fr:
+				return "Unit within %d\" of center, no enemies within %d\"" % [int(fr), int(er)]
+			return "Unit within %d\" of center, no enemies within %d\"" % [int(fr), int(er)]
+		"more_units_wholly_in_no_mans_land_than_opponent":
+			return "More units in NML than opponent"
+		"control_objectives_opponent_controlled_at_start":
+			var count = params.get("count", 1)
+			return "Control %d+ opponent's objectives" % count
+		"opponent_controlled_no_objectives_at_start_and_you_control_new":
+			return "Capture objective (opponent had none)"
+		"control_objectives_in_own_deployment_zone":
+			var count = params.get("count", 1)
+			return "Control %d+ own zone objectives" % count
+		"control_objectives_in_no_mans_land":
+			var count = params.get("count", 1)
+			return "Control %d+ NML objectives" % count
+		"control_tempting_target":
+			return "Control the tempting target"
+		"control_own_zone_and_nml_objectives":
+			return "Control own zone + NML objectives"
+		"character_models_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ CHARACTER destroyed this turn" % count
+		"all_enemy_characters_destroyed":
+			return "All enemy CHARACTERs destroyed"
+		"enemy_unit_destroyed":
+			return "Enemy unit destroyed"
+		"infantry_starting_strength_13_plus_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ large INFANTRY destroyed" % count
+		"monster_or_vehicle_destroyed_this_turn":
+			var count = params.get("count", 1)
+			return "%d+ MONSTER/VEHICLE destroyed" % count
+		"alpha_target_destroyed_this_turn":
+			return "Alpha target destroyed"
+		"no_alpha_destroyed_but_gamma_destroyed_this_turn":
+			return "Gamma target destroyed (no alpha)"
+		"enemy_unit_destroyed_within_objective_range":
+			return "Enemy near objective destroyed"
+		"locus_established_within_center":
+			return "Locus established near center"
+		"locus_established_in_opponent_deployment_zone":
+			return "Locus in opponent's zone"
+		"objectives_cleansed":
+			var count = params.get("count", 1)
+			return "%d+ objectives cleansed" % count
+		"teleport_homer_deployed_in_opponent_zone":
+			return "Homer in opponent's zone"
+		"teleport_homer_deployed_not_in_opponent_zone":
+			return "Homer deployed (not opponent zone)"
+		"units_recovered_assets":
+			return "Assets recovered"
+		_:
+			return check.replace("_", " ").capitalize()
+
 func get_action_missions_for_player(player: int) -> Array:
 	"""Get active missions that require a shooting-phase action (e.g. Establish Locus, Cleanse, Deploy Teleport Homer).
 	Returns array of mission dicts with requires_action: true and action.phase == 'shooting'."""
