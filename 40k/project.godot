@@ -57,6 +57,7 @@ GameEventLog="*res://autoloads/GameEventLog.gd"
 SecondaryMissionManager="*res://autoloads/SecondaryMissionManager.gd"
 FactionAbilityManager="*res://autoloads/FactionAbilityManager.gd"
 UnitAbilityManager="*res://autoloads/UnitAbilityManager.gd"
+DiceHistoryPanel="*res://autoloads/DiceHistoryPanel.gd"
 
 [display]
 

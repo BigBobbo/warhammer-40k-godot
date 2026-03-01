@@ -1786,6 +1786,10 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	_update_grenade_button_visibility()
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
+	# P3-117: Record roll in centralized dice history
+	if DiceHistoryPanel:
+		DiceHistoryPanel.record_roll(dice_data, "Shooting")
+
 	if not dice_log_display:
 		return
 
