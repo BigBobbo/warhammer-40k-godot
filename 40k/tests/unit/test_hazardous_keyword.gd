@@ -203,29 +203,56 @@ func test_hazardous_monster_takes_3_mortal_wounds():
 	assert_true(found_mw_dice, "Should have hazardous_damage dice entry")
 
 # ==========================================
-# resolve_hazardous_check() Tests — Other models = 1 model slain
+# resolve_hazardous_check() Tests — Balance Dataslate v3.3: All units take 3 MW
 # ==========================================
 
-func test_hazardous_non_character_loses_model():
-	"""Test that non-CHARACTER/VEHICLE/MONSTER unit loses 1 model per 1 rolled"""
-	var board = _create_test_board_with_unit("reg_unit", 5)  # 5 infantry models
+func test_hazardous_non_character_takes_3_mortal_wounds():
+	"""Test that non-CHARACTER unit takes 3 mortal wounds per Balance Dataslate v3.3"""
+	var board = _create_test_board_with_hazardous_unit("reg_unit", 5, 2)  # 5 models, 2 wounds each
 	var bad_seed = _find_seed_with_ones(1, 100)
 	var rng = RulesEngine.RNGService.new(bad_seed)
 	var result = rules_engine.resolve_hazardous_check("reg_unit", "hazardous_plasma", 1, board, rng)
 	assert_true(result.hazardous_triggered, "Should trigger on regular unit")
-	# Check dice log contains slay_model damage type
-	var found_slay_dice = false
+	# Check dice log contains mortal_wounds damage type (no longer slay_model)
+	var found_mw_dice = false
 	for dice in result.dice:
 		if dice.get("context", "") == "hazardous_damage":
-			assert_eq(dice.get("damage_type", ""), "slay_model", "Damage type should be slay_model for regular unit")
-			found_slay_dice = true
-	assert_true(found_slay_dice, "Should have hazardous_damage dice entry")
-	# Should have a diff that kills a model
-	var found_death_diff = false
+			assert_eq(dice.get("damage_type", ""), "mortal_wounds", "Damage type should be mortal_wounds for ALL units per Balance Dataslate v3.3")
+			assert_eq(dice.get("mortal_wounds", 0), 3, "Should be 3 mortal wounds per 1 rolled")
+			found_mw_dice = true
+	assert_true(found_mw_dice, "Should have hazardous_damage dice entry")
+
+# ==========================================
+# resolve_hazardous_check() Tests — Balance Dataslate v3.3 allocation priority
+# ==========================================
+
+func test_hazardous_allocation_priority_wounded_model_first():
+	"""Test that wounded model with Hazardous weapon is selected first (priority 1)"""
+	var board = _create_hazardous_priority_board_wounded_first()
+	var bad_seed = _find_seed_with_ones(1, 100)
+	var rng = RulesEngine.RNGService.new(bad_seed)
+	var result = rules_engine.resolve_hazardous_check("test_unit", "hazardous_plasma", 1, board, rng)
+	assert_true(result.hazardous_triggered, "Should trigger")
+	# The wounded model (m1 at index 0, has 1/2 wounds) should be targeted
+	var found_wound_diff = false
 	for diff in result.diffs:
-		if diff.get("path", "").ends_with(".alive") and diff.get("value", true) == false:
-			found_death_diff = true
-	assert_true(found_death_diff, "Should have a diff that kills a model")
+		if diff.get("path", "").find("models.0.") != -1:
+			found_wound_diff = true
+	assert_true(found_wound_diff, "Wounded model (idx 0) should be targeted first")
+
+func test_hazardous_allocation_priority_non_character_before_character():
+	"""Test that non-Character with Hazardous is selected before Character (priority 2 > 3)"""
+	var board = _create_hazardous_priority_board_char_vs_non_char()
+	var bad_seed = _find_seed_with_ones(1, 100)
+	var rng = RulesEngine.RNGService.new(bad_seed)
+	var result = rules_engine.resolve_hazardous_check("test_unit", "hazardous_plasma", 1, board, rng)
+	assert_true(result.hazardous_triggered, "Should trigger")
+	# The non-character model (m2 at index 1) should be targeted before character (m1 at index 0)
+	var targeted_non_char = false
+	for diff in result.diffs:
+		if diff.get("path", "").find("models.1.") != -1:
+			targeted_non_char = true
+	assert_true(targeted_non_char, "Non-Character model (idx 1) should be targeted before Character")
 
 # ==========================================
 # resolve_hazardous_check() Tests — Dice log
@@ -406,6 +433,106 @@ func _create_shooting_test_board() -> Dictionary:
 					{"id": "t1", "alive": true, "wounds_current": 1, "wounds_max": 1, "position": {"x": 200, "y": 100}},
 					{"id": "t2", "alive": true, "wounds_current": 1, "wounds_max": 1, "position": {"x": 230, "y": 100}},
 					{"id": "t3", "alive": true, "wounds_current": 1, "wounds_max": 1, "position": {"x": 260, "y": 100}}
+				]
+			}
+		}
+	}
+
+func _create_test_board_with_hazardous_unit(unit_id: String, model_count: int, wounds_per_model: int) -> Dictionary:
+	"""Create a test board with a regular infantry unit where models have Hazardous weapons"""
+	var models = []
+	for i in range(model_count):
+		models.append({
+			"id": "m%d" % (i + 1),
+			"alive": true,
+			"current_wounds": wounds_per_model,
+			"wounds_max": wounds_per_model,
+			"wounds": wounds_per_model,
+			"position": {"x": 100 + i * 30, "y": 100},
+			"weapons": [{"id": "hazardous_plasma", "weapon_id": "hazardous_plasma"}]
+		})
+	return {
+		"units": {
+			unit_id: {
+				"owner": 1,
+				"meta": {
+					"name": "Test Hazardous Infantry",
+					"keywords": ["INFANTRY"],
+					"weapons": []
+				},
+				"models": models
+			}
+		}
+	}
+
+func _create_hazardous_priority_board_wounded_first() -> Dictionary:
+	"""Create board with wounded hazardous model (priority 1) and healthy hazardous model"""
+	return {
+		"units": {
+			"test_unit": {
+				"owner": 1,
+				"meta": {
+					"name": "Test Priority Unit",
+					"keywords": ["INFANTRY"],
+					"weapons": []
+				},
+				"models": [
+					{
+						"id": "m1",
+						"alive": true,
+						"current_wounds": 1,
+						"wounds_max": 2,
+						"wounds": 2,
+						"position": {"x": 100, "y": 100},
+						"weapons": [{"id": "hazardous_plasma", "weapon_id": "hazardous_plasma"}]
+					},
+					{
+						"id": "m2",
+						"alive": true,
+						"current_wounds": 2,
+						"wounds_max": 2,
+						"wounds": 2,
+						"position": {"x": 130, "y": 100},
+						"weapons": [{"id": "hazardous_plasma", "weapon_id": "hazardous_plasma"}]
+					}
+				]
+			}
+		}
+	}
+
+func _create_hazardous_priority_board_char_vs_non_char() -> Dictionary:
+	"""Create board with CHARACTER model and non-CHARACTER model, both with Hazardous weapons.
+	Non-CHARACTER (priority 2) should be selected before CHARACTER (priority 3)."""
+	return {
+		"units": {
+			"test_unit": {
+				"owner": 1,
+				"meta": {
+					"name": "Test Char vs Non-Char",
+					"keywords": ["INFANTRY"],
+					"weapons": []
+				},
+				"models": [
+					{
+						"id": "m1",
+						"alive": true,
+						"current_wounds": 4,
+						"wounds_max": 4,
+						"wounds": 4,
+						"position": {"x": 100, "y": 100},
+						"keywords": ["CHARACTER"],
+						"is_character": true,
+						"weapons": [{"id": "hazardous_plasma", "weapon_id": "hazardous_plasma"}]
+					},
+					{
+						"id": "m2",
+						"alive": true,
+						"current_wounds": 2,
+						"wounds_max": 2,
+						"wounds": 2,
+						"position": {"x": 130, "y": 100},
+						"weapons": [{"id": "hazardous_plasma", "weapon_id": "hazardous_plasma"}]
+					}
 				]
 			}
 		}
