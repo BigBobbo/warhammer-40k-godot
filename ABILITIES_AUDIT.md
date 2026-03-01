@@ -511,7 +511,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 120. **Add scoring counter HUD** — Display current VP by player persistently in Main.gd. (QOL-22) — **DONE**
 121. **Add secondary objective progress tracking** — Show progress toward active secondary missions in ScoringController.gd. (QOL-23) — **DONE**
 122. **Add dice roll sound effects** — Rolling, settling, critical success/failure audio cues in DiceRollVisual.gd. (VIS-1) — **DONE**
-123. **Add distinct terrain type visuals** — Different visual styles for ruins, forests, hills, obstacles in BoardVisual.gd. (VIS-3)
+123. **Add distinct terrain type visuals** — Different visual styles for ruins, forests, hills, obstacles in BoardVisual.gd. (VIS-3) — **DONE**
 124. **Add persistent model health bars on board** — Show model wounds above/below bases via TokenVisual.gd. (VIS-7)
 125. **Add human player movement path preview** — Drag-to-plan movement path visualization matching AI's AIMovementPathVisual.gd. (VIS-9)
 126. **Add phase transition sound effects** — Audio cues for phase changes in PhaseTransitionBanner.gd. (VIS-13)
