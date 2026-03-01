@@ -1133,6 +1133,9 @@ func _validate_roll_dice(action: Dictionary) -> Dictionary:
 	return {"valid": errors.is_empty(), "errors": errors}
 
 func _process_roll_dice(action: Dictionary) -> Dictionary:
+	# Trigger attack animation on the fighting unit
+	_trigger_unit_animation(active_fighter_id, "attack")
+
 	# Emit signal to indicate resolution is starting
 	emit_signal("dice_rolled", {"context": "resolution_start", "message": "Beginning melee combat resolution..."})
 
@@ -1262,6 +1265,9 @@ func _process_roll_dice_auto(melee_action: Dictionary) -> Dictionary:
 
 	# Clear confirmed attacks after resolution
 	confirmed_attacks.clear()
+
+	# Return fighter to idle animation
+	_trigger_unit_animation(active_fighter_id, "idle")
 
 	log_phase_message("Melee combat resolved for %s" % active_fighter_id)
 
@@ -3372,3 +3378,18 @@ func advance_to_next_fighter() -> void:
 			log_phase_message("All units have fought (including Fights Last)")
 
 	emit_signal("fight_sequence_updated")
+
+
+func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
+	"""Trigger an animation on all token visuals for a unit."""
+	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not tl:
+		return
+	for child in tl.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+			if child.has_method("play_animation"):
+				child.play_animation(anim_name)
+			else:
+				for grandchild in child.get_children():
+					if grandchild.has_method("play_animation"):
+						grandchild.play_animation(anim_name)
