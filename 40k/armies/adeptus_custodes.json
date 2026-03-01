@@ -31,7 +31,7 @@
           "invuln": 4
         },
         "points": 120,
-        "is_warlord": false,
+        "is_warlord": true,
         "enhancements": [],
         "wargear": [
           "Shield-Captain (Shield), Praesidium Shield"

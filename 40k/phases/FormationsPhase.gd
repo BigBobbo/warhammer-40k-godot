@@ -103,6 +103,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_undeclare_transport_embarkation(action)
 		"UNDECLARE_RESERVES":
 			return _validate_undeclare_reserves(action)
+		"DESIGNATE_WARLORD":
+			return _validate_designate_warlord(action)
 		"CONFIRM_FORMATIONS":
 			return _validate_confirm_formations(action)
 		"END_FORMATIONS":
@@ -128,6 +130,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_undeclare_transport_embarkation(action)
 		"UNDECLARE_RESERVES":
 			return _process_undeclare_reserves(action)
+		"DESIGNATE_WARLORD":
+			return _process_designate_warlord(action)
 		"CONFIRM_FORMATIONS":
 			return _process_confirm_formations(action)
 		"END_FORMATIONS":
@@ -424,11 +428,44 @@ func _validate_undeclare_reserves(action: Dictionary) -> Dictionary:
 
 	return {"valid": true, "errors": []}
 
+func _validate_designate_warlord(action: Dictionary) -> Dictionary:
+	var errors = []
+	var unit_id = action.get("unit_id", "")
+	if unit_id == "":
+		errors.append("Missing unit_id")
+		return {"valid": false, "errors": errors}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		errors.append("Unit not found: " + unit_id)
+		return {"valid": false, "errors": errors}
+
+	var player = action.get("player", get_current_player())
+	if unit.get("owner", 0) != player:
+		errors.append("Unit does not belong to declaring player")
+		return {"valid": false, "errors": errors}
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "CHARACTER" not in keywords:
+		errors.append("Only CHARACTER units can be designated as Warlord")
+		return {"valid": false, "errors": errors}
+
+	if _is_player_confirmed(player):
+		errors.append("Cannot modify formations after confirming")
+		return {"valid": false, "errors": errors}
+
+	return {"valid": true, "errors": []}
+
 func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	var player = action.get("player", get_current_player())
 
 	if _is_player_confirmed(player):
 		return {"valid": false, "errors": ["Player already confirmed formations"]}
+
+	# Validate warlord designation: exactly one CHARACTER must be is_warlord
+	var warlord_result = _validate_warlord_designation(player)
+	if not warlord_result.get("valid", true):
+		return warlord_result
 
 	return {"valid": true, "errors": []}
 
@@ -519,6 +556,27 @@ func _process_undeclare_reserves(action: Dictionary) -> Dictionary:
 			break
 
 	log_phase_message("Player %d undeclared reserves for %s" % [player, unit_id])
+
+	return create_result(true, [])
+
+func _process_designate_warlord(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", "")
+	var player = action.get("player", get_current_player())
+
+	# Clear existing warlord designation for this player
+	var characters = _get_all_characters_for_player(player)
+	for char_id in characters:
+		GameState.state["units"][char_id]["meta"]["is_warlord"] = false
+		if game_state_snapshot.has("units") and game_state_snapshot["units"].has(char_id):
+			game_state_snapshot["units"][char_id]["meta"]["is_warlord"] = false
+
+	# Designate new warlord
+	GameState.state["units"][unit_id]["meta"]["is_warlord"] = true
+	if game_state_snapshot.has("units") and game_state_snapshot["units"].has(unit_id):
+		game_state_snapshot["units"][unit_id]["meta"]["is_warlord"] = true
+
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Player %d designates %s (%s) as Warlord" % [player, unit_name, unit_id])
 
 	return create_result(true, [])
 
@@ -617,6 +675,70 @@ func _get_declared_reserves_count(player: int) -> int:
 	var formations = player_formations.get(player, {})
 	return formations.get("reserves", []).size()
 
+func _validate_warlord_designation(player: int) -> Dictionary:
+	"""Validate that exactly one CHARACTER unit is designated as Warlord for the player.
+	Per 10e core rules, each player must designate exactly one CHARACTER model as their Warlord.
+	If no warlord is set and there's exactly one CHARACTER, auto-designate it."""
+	var characters = _get_all_characters_for_player(player)
+
+	# If no CHARACTER units at all, warlord designation is not applicable
+	if characters.is_empty():
+		log_phase_message("Player %d has no CHARACTER units — warlord designation not applicable" % player)
+		return {"valid": true, "errors": []}
+
+	# Count how many are designated as warlord
+	var warlord_ids = []
+	for char_id in characters:
+		var unit = get_unit(char_id)
+		if unit.get("meta", {}).get("is_warlord", false):
+			warlord_ids.append(char_id)
+
+	if warlord_ids.size() == 1:
+		var warlord_name = get_unit(warlord_ids[0]).get("meta", {}).get("name", warlord_ids[0])
+		log_phase_message("Player %d warlord validated: %s (%s)" % [player, warlord_name, warlord_ids[0]])
+		return {"valid": true, "errors": []}
+
+	if warlord_ids.size() > 1:
+		var names = []
+		for wid in warlord_ids:
+			names.append(get_unit(wid).get("meta", {}).get("name", wid))
+		return {"valid": false, "errors": [
+			"Player %d has multiple warlords designated (%s). Exactly one CHARACTER must be the Warlord." % [player, ", ".join(names)]
+		]}
+
+	# No warlord designated — try auto-designating
+	if characters.size() == 1:
+		# Exactly one CHARACTER: auto-designate as Warlord
+		var char_id = characters[0]
+		var char_name = get_unit(char_id).get("meta", {}).get("name", char_id)
+		log_phase_message("Player %d: Auto-designating %s (%s) as Warlord (only CHARACTER)" % [player, char_name, char_id])
+		# Apply the fix to GameState so it persists
+		GameState.state["units"][char_id]["meta"]["is_warlord"] = true
+		# Also update our local snapshot
+		game_state_snapshot["units"][char_id]["meta"]["is_warlord"] = true
+		return {"valid": true, "errors": []}
+
+	# Multiple CHARACTERs, none designated
+	var names = []
+	for cid in characters:
+		names.append(get_unit(cid).get("meta", {}).get("name", cid))
+	return {"valid": false, "errors": [
+		"Player %d has no Warlord designated. One of these CHARACTER units must be the Warlord: %s" % [player, ", ".join(names)]
+	]}
+
+func _get_all_characters_for_player(player: int) -> Array:
+	"""Get all units with the CHARACTER keyword for a player (regardless of Leader ability)."""
+	var characters = []
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		if "CHARACTER" in keywords:
+			characters.append(unit_id)
+	return characters
+
 func _build_formation_changes() -> Array:
 	"""Build all formation state changes for both players.
 	Returns the changes array so it can be included in the action result
@@ -690,6 +812,20 @@ func _build_formation_changes() -> Array:
 			var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
 			log_phase_message("Applied: %s placed in %s" % [unit_name, type_label])
+
+	# Sync warlord designation via diffs (already applied to GameState in validation/designation)
+	for player in [1, 2]:
+		var characters = _get_all_characters_for_player(player)
+		for char_id in characters:
+			var is_warlord = GameState.state["units"][char_id]["meta"].get("is_warlord", false)
+			changes.append({
+				"op": "set",
+				"path": "units.%s.meta.is_warlord" % char_id,
+				"value": is_warlord
+			})
+			if is_warlord:
+				var warlord_name = get_unit(char_id).get("meta", {}).get("name", char_id)
+				log_phase_message("Applied: %s designated as Warlord for Player %d" % [warlord_name, player])
 
 	# Store formations declarations in meta for reference
 	var formations_data = {}
@@ -859,6 +995,21 @@ func get_available_actions() -> Array:
 			"player": current_player,
 			"description": "Undo: %s reserves" % unit_name
 		})
+
+	# Warlord designation options (only show if multiple CHARACTERs exist)
+	var all_characters = _get_all_characters_for_player(current_player)
+	if all_characters.size() > 1:
+		for char_id in all_characters:
+			var unit = get_unit(char_id)
+			var is_current_warlord = unit.get("meta", {}).get("is_warlord", false)
+			if not is_current_warlord:
+				var char_name = unit.get("meta", {}).get("name", char_id)
+				actions.append({
+					"type": "DESIGNATE_WARLORD",
+					"unit_id": char_id,
+					"player": current_player,
+					"description": "Designate %s as Warlord" % char_name
+				})
 
 	# Confirm button
 	actions.append({

@@ -30,7 +30,7 @@
             "objective_control": 2
           },
           "points": 145,
-          "is_warlord": false,
+          "is_warlord": true,
           "enhancements": [
             "Adamantine Talisman (+25 pts)"
           ],
