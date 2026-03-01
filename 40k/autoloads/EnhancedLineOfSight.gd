@@ -311,8 +311,11 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 	for terrain_piece in terrain_features:
 		var height_cat = terrain_piece.get("height_category", "")
 
-		# Low terrain polygon never blocks LoS (but walls still can)
-		if height_cat == "low":
+		# TER-4: Check if terrain has the Obscuring trait
+		var is_obscuring = TerrainManager.is_terrain_obscuring(terrain_piece) if TerrainManager else (height_cat == "tall")
+
+		# Low terrain polygon never blocks LoS (unless Obscuring) — but walls still can
+		if height_cat == "low" and not is_obscuring:
 			# P1-68: Check walls even in low terrain
 			var low_walls = terrain_piece.get("walls", [])
 			for wall in low_walls:
@@ -357,8 +360,12 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 		if from_inside or to_inside:
 			continue
 
-		if height_cat == "tall":
-			# Tall terrain blocks LoS for all models
+		# TER-4: Check for Obscuring trait — blocks LoS for all models
+		# Tall terrain is implicitly Obscuring; other terrain can have the trait explicitly
+		if TerrainManager and TerrainManager.is_terrain_obscuring(terrain_piece):
+			blocking_terrain.append(terrain_id)
+		elif height_cat == "tall":
+			# Tall terrain blocks LoS for all models (fallback)
 			blocking_terrain.append(terrain_id)
 		elif height_cat == "medium":
 			# T3-19: Medium terrain blocks LoS only if both models are shorter than terrain
@@ -401,8 +408,11 @@ static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, 
 		var height_cat = terrain_piece.get("height_category", "")
 		var terrain_type = terrain_piece.get("type", "")
 
-		# Low terrain never blocks LoS
-		if height_cat == "low":
+		# TER-4: Check if terrain has the Obscuring trait
+		var is_obscuring = TerrainManager.is_terrain_obscuring(terrain_piece) if TerrainManager else (height_cat == "tall")
+
+		# Low terrain never blocks LoS (unless it has the Obscuring trait)
+		if height_cat == "low" and not is_obscuring:
 			continue
 
 		# TER-2: Ruins — Aircraft exception
@@ -410,8 +420,8 @@ static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, 
 			if LineOfSightCalculator._model_has_aircraft_keyword(shooter_model) or LineOfSightCalculator._model_has_aircraft_keyword(target_model):
 				continue
 
-		# T3-19: For non-ruins medium terrain, check if models can see over it
-		if terrain_type != "ruins" and height_cat == "medium":
+		# T3-19: For non-ruins medium terrain without Obscuring, check if models can see over it
+		if terrain_type != "ruins" and height_cat == "medium" and not is_obscuring:
 			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain_piece)
 			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
 			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
