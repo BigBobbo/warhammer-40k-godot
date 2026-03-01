@@ -376,10 +376,11 @@ YouTube requires creators to label AI-generated or significantly AI-altered cont
 | 1 | **YouTube** | Primary content hub | 2.5B monthly users |
 | 2 | **Reddit** | Community engagement + viral potential | Multiple subs, millions of members |
 | 3 | **Twitter/X** | Dev community + journalists + real-time discussion | Large dev community |
-| 4 | **TikTok** | Short-form discovery (declining organic reach) | 1.59B users |
-| 5 | **Hacker News** | Tech audience, high-quality traffic, viral potential | ~500K daily readers |
-| 6 | **Discord** | Community building, direct engagement | Growing |
-| 7 | **itch.io** | Game distribution + built-in community | Indie game audience |
+| 4 | **Instagram** | Visual storytelling, carousels for engagement, Reels for discovery | 2B+ monthly users |
+| 5 | **TikTok** | Short-form discovery (declining organic reach) | 1.59B users |
+| 6 | **Hacker News** | Tech audience, high-quality traffic, viral potential | ~500K daily readers |
+| 7 | **Discord** | Community building, direct engagement | Growing |
+| 8 | **itch.io** | Game distribution + built-in community | Indie game audience |
 
 ### 5.2 Reddit Strategy
 
@@ -438,7 +439,62 @@ X is essential for connecting with **dev community, journalists, and influencers
 - The commit graph animation is perfect TikTok content — visual, surprising, shareable
 - Budget $500-$2,000 for Spark Ads on best-performing organic content if desired
 
-### 5.5 Hacker News Strategy
+### 5.5 Instagram Strategy
+
+Instagram has 2B+ monthly users and has evolved from a photo-sharing app into an AI-powered recommendation engine. It's a strong platform for your project — particularly for visual storytelling, devlog carousels, and cross-posting Reels.
+
+**The 2026 algorithm in brief:**
+- Instagram runs **four separate algorithms** (Feed, Explore, Reels, Stories) — each evaluates content differently
+- The **"Your Algorithm" feature** (launched Dec 2025) lets users see and control what Instagram recommends — meaning niche consistency matters more than ever
+- **Sends Per Reach** (DM shares) is now the strongest engagement signal — content people share privately gets pushed to new audiences aggressively
+- **Saves > Likes** — likes have dropped 48%; saves and shares are what drive distribution
+- **Originality is rewarded** — the platform actively detects and deprioritizes recycled templates, reposted content, and heavily AI-generated visuals
+- **Watch time** is the primary metric across all formats — how long viewers spend matters more than raw views
+
+**Content format hierarchy:**
+
+| Format | Best For | Key Stat |
+|--------|----------|----------|
+| **Carousels** | Deep engagement, saves, devlogs | **10% engagement rate** (vs 7% photos, 6% Reels). Shown to users multiple times — if they skip slide 1, Instagram shows slide 2 later |
+| **Reels** | Discovery, reach to non-followers | **2.25x more reach** than photos. Best at 30-90 seconds. Trial Reels (new) let you test content with non-followers first |
+| **Stories** | Daily engagement with existing followers | Keeps you visible but doesn't drive discovery. Use polls, Q&As, behind-the-scenes |
+| **Photos** | Portfolio-style posts, screenshots | Lower reach but still valued in feed |
+
+**Your Instagram content plan:**
+
+| Content Type | Format | Frequency | Example |
+|---|---|---|---|
+| **Devlog carousel** | Carousel (8-12 slides) | 1-2x/week | "This week in dev: 5 features that landed" with before/after screenshots on each slide |
+| **Gameplay Reel** | Reel (30-60 sec) | 2-3x/week | Repurpose YouTube Shorts directly — same 9:16 vertical format |
+| **Before/after** | Carousel (2-4 slides) | Weekly | Aug prototype vs Feb polished version, feature comparisons |
+| **Stats/data reveal** | Carousel | Biweekly | The commit timeline chart, broken into swipeable slides with annotations |
+| **Behind-the-scenes** | Story | Daily during active dev | Terminal sessions, bug encounters, test results |
+| **Process breakdown** | Carousel (10-15 slides) | Biweekly | "How I use Claude Code for game dev" step-by-step with screenshots |
+
+**Carousel design rules:**
+- Cover slide must answer: "Is this for me?" and "What will I get if I swipe?" — keep it under 8-10 words
+- Up to 20 slides supported — use 8-12 for devlogs, 12-20 for deep guides
+- Design for save-worthiness: tutorials, reference guides, data visualizations
+- The algorithm re-serves carousels to users who skipped the first slide — your second slide is a second chance at a hook
+- End with a CTA slide: "Follow for more" or "Save this for later"
+
+**Instagram-specific tips:**
+- **Niche consistency is critical:** The algorithm evaluates your last 9-12 posts to categorize your account. 2-3 weeks of consistent game dev content → Instagram places you in the game dev topic cluster and distributes accordingly
+- **Captions matter again:** Long, story-driven captions increase dwell time and comment depth. Write 2-3 sentences minimum.
+- **Adopt new features immediately** — Instagram gives algorithmic boosts to early adopters of new tools/formats
+- **Don't just repost YouTube thumbnails as photos** — the algorithm penalizes lazy reposts. Create Instagram-native content (different crop, different text, different angle)
+- **Posting frequency:** 3-5 feed posts per week + 1-2 Stories per day. Don't overwhelm — Instagram deprioritizes accounts that flood feeds
+- **Hashtags:** Use 5-10 targeted hashtags (not 30). Mix broad (#indiegamedev, #gamedev) with specific (#godotengine, #turnbasedstrategy, #AIcoding)
+- **Trial Reels:** Use this feature to test experimental content (humor, longer format, different angles) without risking your audience
+
+**Why Instagram ranks above TikTok for your project:**
+- Instagram's carousel format is perfect for your data-heavy story (commit charts, before/after, step-by-step processes) — TikTok has no equivalent
+- Instagram's organic reach is more stable than TikTok's (which has declined sharply)
+- The devlog/progress carousel niche is less saturated on Instagram than short-form game clips on TikTok
+- Instagram audiences save and share reference content — your data visualizations and process breakdowns have long shelf life
+- Cross-posting Reels covers the short-form video gap anyway
+
+### 5.6 Hacker News Strategy
 
 HN is **high-risk, high-reward**. A front page hit drives tens of thousands of highly engaged tech readers.
 
@@ -455,7 +511,7 @@ HN is **high-risk, high-reward**. A front page hit drives tens of thousands of h
 
 **Be prepared to iterate:** Posts sometimes need 5-10 attempts with different titles/timing before hitting.
 
-### 5.6 Discord Strategy
+### 5.7 Discord Strategy
 
 **Phase 1 (Launch):** Join existing communities, don't create your own yet.
 
@@ -468,14 +524,14 @@ HN is **high-risk, high-reward**. A front page hit drives tens of thousands of h
 
 **Phase 2 (After 500+ YouTube subs):** Create your own Discord for playtesters, community feedback, and direct engagement with fans. Include channels for: #devlog, #gameplay, #bug-reports, #suggestions, #general.
 
-### 5.7 itch.io Strategy
+### 5.8 itch.io Strategy
 
 - Publish the game (free or pay-what-you-want) on itch.io
 - The devlog feature on itch.io drives discovery
 - Cross-link between itch.io page and YouTube channel
 - itch.io has a built-in community of indie game enthusiasts who actively browse for new titles
 
-### 5.8 Blog Post / Written Content
+### 5.9 Blog Post / Written Content
 
 Write a detailed technical blog post version of the story for:
 - **Hacker News** submission (required — HN prefers articles over videos)
@@ -491,24 +547,29 @@ The blog post should include:
 - Technical details about the Claude Code workflow
 - Links to the YouTube video and game
 
-### 5.9 Cross-Platform Content Repurposing
+### 5.10 Cross-Platform Content Repurposing
 
 **One video → 15+ pieces of content:**
 
 | Source | Derivative | Platform |
 |--------|-----------|----------|
 | Hero video | 5-8 YouTube Shorts | YouTube |
-| Hero video | Same Shorts | TikTok, Instagram Reels |
+| Hero video | Same Shorts as Reels | TikTok, Instagram Reels |
 | Hero video | Twitter thread (8-12 tweets) | X |
 | Hero video | Blog post (2,000-3,000 words) | Dev.to, Medium, personal site |
 | Hero video | HN submission | Hacker News |
 | Hero video | Reddit posts (3-4 different angles for different subs) | Reddit |
 | Commit chart | Static image posts | All platforms |
+| Commit chart | Swipeable carousel (annotated slides) | Instagram |
 | Before/after gameplay | GIF/clip | Reddit, X, Discord |
+| Before/after gameplay | Carousel (side-by-side slides) | Instagram |
 | Key stats | Infographic | X, LinkedIn, Reddit |
-| Lessons learned | Thread/carousel | X, LinkedIn |
+| Key stats | Data carousel (1 stat per slide) | Instagram |
+| Lessons learned | Thread/carousel | X, LinkedIn, Instagram |
+| Dev process screenshots | Stories (daily behind-the-scenes) | Instagram |
+| Feature highlights | 30-60 sec Reels | Instagram, TikTok, YouTube Shorts |
 
-### 5.10 The Three-Pillar Content Strategy
+### 5.11 The Three-Pillar Content Strategy
 
 Your project sits at the intersection of three highly active communities. Structure ALL content around these pillars:
 
@@ -526,7 +587,7 @@ Each pillar feeds a different audience, but they all drive traffic back to the s
 - A "Process" clip for Twitter (focus on the AI coding workflow)
 - Same video, three angles, three audiences
 
-### 5.11 LinkedIn Strategy (The Overlooked Platform)
+### 5.12 LinkedIn Strategy (The Overlooked Platform)
 
 LinkedIn is surprisingly valuable for the "Process" pillar:
 - Only **1% of users** post weekly — enormous opportunity with low competition
@@ -542,7 +603,7 @@ LinkedIn is surprisingly valuable for the "Process" pillar:
 
 **LinkedIn is NOT for:** Warhammer fan content or gameplay showcases. Save those for Reddit/X/TikTok.
 
-### 5.12 Community-Specific Intel
+### 5.13 Community-Specific Intel
 
 **Warhammer 40K community:**
 - r/Warhammer40k (1.4M members), r/WarhammerCompetitive, faction-specific subs
@@ -575,13 +636,13 @@ LinkedIn is surprisingly valuable for the "Process" pillar:
 
 | Day | Action |
 |-----|--------|
-| Mon | Post Short #1 (commit graph animation) to YouTube, TikTok, Reels |
-| Tue | Post Short #2 (before/after split) + first X thread teaser |
+| Mon | Post Short #1 (commit graph animation) to YouTube, TikTok, Instagram Reels |
+| Tue | Post Short #2 (before/after split) + first X thread teaser + Instagram devlog carousel |
 | Wed | Post Short #3 (160-commit day) + Reddit teaser on r/gamedev |
-| Thu | Post Short #4 (AI vs AI match) + engage in AI coding discussions on X |
-| Fri | Post Short #5 (debugging struggle) |
+| Thu | Post Short #4 (AI vs AI match) + engage in AI coding discussions on X + Instagram Story behind-the-scenes |
+| Fri | Post Short #5 (debugging struggle) + Instagram carousel: "5 things I learned building a strategy game with AI" |
 | Sat | Post Short #6 (stats reveal) |
-| Sun | Post Short #7 (terminal timelapse) + "big video dropping this week" teaser |
+| Sun | Post Short #7 (terminal timelapse) + "big video dropping this week" teaser on X and Instagram Story |
 
 **Week 0 (Launch Week):**
 
@@ -589,6 +650,7 @@ LinkedIn is surprisingly valuable for the "Process" pillar:
 |-----|--------|
 | **Wed 3PM** | **PUBLISH HERO VIDEO** (Wed-Thu is optimal for tech/gaming crossover) |
 | Wed 3:30PM | Post announcement on X with native video clip + link in reply |
+| Wed 3:45PM | Instagram: Reel (best 60-sec clip from video) + carousel (commit chart story in slides) + Story announcement |
 | Wed 4PM | Post to r/gamedev with commit chart + video link |
 | Wed 4:30PM | Post to r/indiegaming with gameplay clip + video link |
 | Wed 5PM | Share in Godot Discord, game dev Discords |
@@ -616,12 +678,12 @@ LinkedIn is surprisingly valuable for the "Process" pillar:
 
 | Day | Content | Platform |
 |-----|---------|----------|
-| Mon | Short (clip from upcoming episode) | YouTube, TikTok, Reels |
-| Tue | Dev update post (screenshot + caption) | X, Reddit |
-| **Wed** | **Episode release** (from the 6-episode series) | **YouTube** |
-| Thu | Short (highlight from episode) | YouTube, TikTok, Reels |
-| Fri | Community engagement (reply to comments, Reddit threads) | All |
-| Sat | Short (bonus clip or outtake) | YouTube, TikTok, Reels |
+| Mon | Short (clip from upcoming episode) + Instagram Story teaser | YouTube, TikTok, Instagram Reels |
+| Tue | Dev update post (screenshot + caption) + Instagram devlog carousel | X, Reddit, Instagram |
+| **Wed** | **Episode release** + Instagram Reel (highlight clip) + carousel (episode recap slides) | **YouTube**, Instagram |
+| Thu | Short (highlight from episode) | YouTube, TikTok, Instagram Reels |
+| Fri | Community engagement (reply to comments, Reddit threads, Instagram DMs) | All |
+| Sat | Short (bonus clip or outtake) + Instagram Story (behind-the-scenes) | YouTube, TikTok, Instagram |
 
 ### Episode Release Schedule
 
@@ -801,6 +863,17 @@ Be realistic about growth trajectory:
 - [Game Marketing On Social Media 2025 — 5W PR](https://www.5wpr.com/new/game-marketing-on-social-media-in-2025-building-interactive-campaigns-for-indie-success/)
 - [Promote Your Indie Game On Reddit — IMPRESS Games](https://impress.games/blog/how-to-promote-your-indie-game-on-reddit)
 - [TikTok's Changing Landscape for Game Marketing 2026 — Cloutboost](https://www.cloutboost.com/blog/tiktoks-changing-landscape-for-game-marketing-in-2026-what-developers-need-to-know)
+
+### Instagram
+- [Instagram Carousel Strategy 2026 — Marketing Agent Blog](https://marketingagent.blog/2026/01/03/mastering-instagram-carousel-strategy-in-2026-the-algorithm-demands-swipes-not-just-scrolls/)
+- [How the Instagram Algorithm Works: 2026 Guide — Buffer](https://buffer.com/resources/instagram-algorithms/)
+- [Instagram Algorithm 2026 — Clixie](https://www.clixie.ai/blog/how-the-instagram-algorithm-works)
+- [2026 Instagram Marketing Stats — Metricool](https://metricool.com/important-instagram-statistics/)
+- [Instagram Carousel Strategy 2026 — TrueFuture Media](https://www.truefuturemedia.com/articles/instagram-carousel-strategy-2026)
+- [December 2025 Instagram Algorithm — ALM Corp](https://almcorp.com/blog/instagram-algorithm-update-december-2025/)
+- [What the Instagram Algorithm Actually Prioritizes in 2026 — Medium](https://medium.com/@daniel.belhart/what-the-instagram-algorithm-in-2026-actually-prioritizes-and-how-creators-can-use-it-2a48b893e1c8)
+- [Instagram Algorithm 2026 — Sprout Social](https://sproutsocial.com/insights/instagram-algorithm/)
+- [Content Strategy for Instagram 2026 — Brafton](https://www.brafton.com/blog/social-media/content-strategy-for-instagram/)
 
 ### Hacker News
 - [How to Hack Hacker News — Indie Hackers](https://www.indiehackers.com/post/how-to-hack-hacker-news-and-consistently-hit-the-front-page-56b4a04e12)
