@@ -42,6 +42,9 @@ var hud_right: Control
 # T7-58: Charge arrow visuals - animated arrows from charger to targets
 var charge_arrow_visuals: Array = []  # Array of ChargeArrowVisual instances
 
+# P3-127: Charge trajectory preview - shows expected charge paths during target selection
+var charge_trajectory_preview: ChargeTrajectoryPreview = null
+
 # UI Elements
 var unit_selector: ItemList
 var target_list: ItemList
@@ -82,6 +85,7 @@ func _exit_tree() -> void:
 	if target_highlights and is_instance_valid(target_highlights):
 		target_highlights.queue_free()
 	_clear_charge_arrow_visuals()  # T7-58
+	_clear_charge_trajectory_preview()  # P3-127
 	_clear_movement_visuals()
 	
 	# Clean up bottom HUD elements (End Charge Phase button and related)
@@ -263,6 +267,11 @@ func _create_charge_visuals() -> void:
 	target_highlights = Node2D.new()
 	target_highlights.name = "ChargeTargetHighlights"
 	board_root.add_child(target_highlights)
+
+	# P3-127: Create charge trajectory preview
+	charge_trajectory_preview = ChargeTrajectoryPreview.new()
+	board_root.add_child(charge_trajectory_preview)
+	print("[ChargeController] P3-127: Created charge trajectory preview")
 
 func _setup_bottom_hud() -> void:
 	# NOTE: Main.gd now handles the phase action button
@@ -731,6 +740,7 @@ func _update_visuals() -> void:
 		charge_line_visual.clear_points()
 	_clear_highlights()
 	_clear_charge_arrow_visuals()  # T7-58: Clear old arrows
+	_clear_charge_trajectory_preview()  # P3-127: Clear old trajectories
 
 	if active_unit_id == "":
 		return
@@ -756,6 +766,10 @@ func _update_visuals() -> void:
 
 			# Add highlight to target
 			_highlight_unit(target_id, HIGHLIGHT_COLOR_SELECTED)
+
+	# P3-127: Show charge trajectory preview when targets are selected
+	if not selected_targets.is_empty() and not awaiting_roll and not awaiting_movement:
+		_update_charge_trajectory_preview(unit, unit_center)
 
 	# Highlight eligible targets
 	for target_id in eligible_targets:
@@ -1497,9 +1511,10 @@ func _on_declare_charge_pressed() -> void:
 	
 	print("Requesting charge declaration: ", action)
 	charge_action_requested.emit(action)
-	
+
 	# Update state
 	awaiting_roll = true
+	_clear_charge_trajectory_preview()  # P3-127: Clear trajectory once charge is declared
 	_update_button_states()
 
 func _on_roll_charge_pressed() -> void:
@@ -1554,9 +1569,10 @@ func _update_ui_for_next_charge() -> void:
 	if is_instance_valid(target_list):
 		target_list.clear()
 	_clear_highlights()
+	_clear_charge_trajectory_preview()  # P3-127
 	if is_instance_valid(charge_line_visual):
 		charge_line_visual.clear_points()
-	
+
 	# Reset button states for charge buttons (keep them visible but disabled initially)
 	if is_instance_valid(declare_button):
 		declare_button.visible = true
@@ -2769,3 +2785,76 @@ func show_ai_charge_arrows(charger_unit_id: String, target_unit_ids: Array) -> v
 				_create_charge_arrow_visual(from_pos, to_pos, true)
 
 	print("[ChargeController] T7-58: Showing %d AI charge arrow(s) for %s" % [charge_arrow_visuals.size(), charger_unit_id])
+
+# --- P3-127: Charge Trajectory Preview Management ---
+
+func _update_charge_trajectory_preview(unit: Dictionary, unit_center: Vector2) -> void:
+	"""Build and display charge trajectory paths from each model to closest target model."""
+	if not is_instance_valid(charge_trajectory_preview):
+		return
+
+	var trajectories: Array = []
+	var min_charge_needed: float = INF
+
+	# Get charging unit's FLY keyword for terrain penalty
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		var model_pos = _get_model_position(model)
+		if model_pos == Vector2.ZERO:
+			continue
+
+		# Find the closest target model across all selected targets
+		var closest_dist_inches: float = INF
+		var closest_target_pos: Vector2 = Vector2.ZERO
+
+		for target_id in selected_targets:
+			var target_unit = GameState.get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true):
+					continue
+
+				var target_pos = _get_model_position(target_model)
+				if target_pos == Vector2.ZERO:
+					continue
+
+				# Edge-to-edge distance in inches
+				var dist_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				if dist_inches < closest_dist_inches:
+					closest_dist_inches = dist_inches
+					closest_target_pos = target_pos
+
+		if closest_target_pos != Vector2.ZERO and closest_dist_inches < INF:
+			# Distance needed = edge-to-edge minus 1" engagement range
+			var charge_distance_needed = maxf(closest_dist_inches - 1.0, 0.0)
+
+			# Add terrain penalty for straight-line path
+			var terrain_penalty = _calculate_terrain_penalty_for_path(model_pos, closest_target_pos)
+			var effective_distance = charge_distance_needed + terrain_penalty
+
+			trajectories.append({
+				"from": model_pos,
+				"to": closest_target_pos,
+				"distance_inches": effective_distance
+			})
+
+			if effective_distance < min_charge_needed:
+				min_charge_needed = effective_distance
+
+	if min_charge_needed == INF:
+		min_charge_needed = 0.0
+
+	charge_trajectory_preview.update_trajectories(trajectories, min_charge_needed, unit_center)
+	print("[ChargeController] P3-127: Showing %d trajectory path(s), min charge needed: %.1f\"" % [trajectories.size(), min_charge_needed])
+
+func _clear_charge_trajectory_preview() -> void:
+	"""Clear the charge trajectory preview."""
+	if charge_trajectory_preview and is_instance_valid(charge_trajectory_preview):
+		charge_trajectory_preview.clear_now()
