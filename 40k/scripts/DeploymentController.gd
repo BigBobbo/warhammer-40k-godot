@@ -1366,9 +1366,8 @@ func _check_coherency_warning() -> void:
 			model_j["position"] = temp_positions[j]
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
-			# Use edge-to-edge distance (shape-aware) instead of center-to-center
-			var dist_inches = Measurement.model_to_model_distance_inches(model_i, model_j)
-			if dist_inches <= 2.0:
+			# Use shape-aware coherency check: 2" horizontal AND 5" vertical
+			if Measurement.is_within_coherency(model_i, model_j):
 				neighbor_count += 1
 				if neighbor_count >= required_neighbors:
 					break
@@ -1377,7 +1376,7 @@ func _check_coherency_warning() -> void:
 			incoherent_indices.append(i)
 
 	if incoherent_indices.size() > 0:
-		var rule_text = "within 2\" of %d+ model(s)" % required_neighbors
+		var rule_text = "within 2\" horizontally and 5\" vertically of %d+ model(s)" % required_neighbors
 		var msg = "Coherency warning: %d model(s) not %s" % [incoherent_indices.size(), rule_text]
 		print("[WARNING] %s" % msg)
 		_show_toast(msg, Color.YELLOW)
@@ -1387,8 +1386,8 @@ func _check_coherency_warning() -> void:
 
 func _is_unit_coherent() -> bool:
 	"""Check if the currently placed models satisfy unit coherency rules.
-	Per 10e rules: 2-6 models = each within 2\" of at least 1 other;
-	7+ models = each within 2\" of at least 2 others.
+	Per 10e rules: 2-6 models = each within 2\" horizontally and 5\" vertically of at least 1 other;
+	7+ models = each within 2\" horizontally and 5\" vertically of at least 2 others.
 	Single-model units are always coherent.
 	Distance is measured edge-to-edge (nearest base edge to nearest base edge)."""
 	var unit_data = GameState.get_unit(unit_id)
@@ -1425,9 +1424,8 @@ func _is_unit_coherent() -> bool:
 			model_j["position"] = temp_positions[j]
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
-			# Use edge-to-edge distance (shape-aware) instead of center-to-center
-			var dist_inches = Measurement.model_to_model_distance_inches(model_i, model_j)
-			if dist_inches <= 2.0:
+			# Use shape-aware coherency check: 2" horizontal AND 5" vertical
+			if Measurement.is_within_coherency(model_i, model_j):
 				neighbor_count += 1
 				if neighbor_count >= required_neighbors:
 					break

@@ -2316,19 +2316,18 @@ func _validate_unit_coherency(unit_id: String, new_positions: Dictionary) -> Dic
 				continue
 			all_models.append(model)
 
-	# Check 2" coherency rule using shape-aware edge-to-edge distance
+	# Check coherency rule: within 2" horizontally AND 5" vertically (shape-aware edge-to-edge)
 	for i in range(all_models.size()):
 		var has_nearby_model = false
 		for j in range(all_models.size()):
 			if i == j:
 				continue
-			var distance = Measurement.model_to_model_distance_inches(all_models[i], all_models[j])
-			if distance <= 2.0:
+			if Measurement.is_within_coherency(all_models[i], all_models[j]):
 				has_nearby_model = true
 				break
 
 		if not has_nearby_model and all_models.size() > 1:
-			errors.append("Model %d breaks unit coherency (>2\" from all other models)" % i)
+			errors.append("Model %d breaks unit coherency (not within 2\" horizontally and 5\" vertically of any other model)" % i)
 	
 	return {"valid": errors.is_empty(), "errors": errors}
 
