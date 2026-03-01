@@ -2408,6 +2408,15 @@ func _end_model_drag_pile_in() -> void:
 
 				print("[FightController] Clamped movement to 3\" limit")
 
+	# P3-101: Send final corrected position to remote player after revert/clamp
+	# Without this, the remote player's last drag preview shows the pre-revert position
+	if drag_model_id != "":
+		var final_synced_pos = current_model_positions.get(drag_model_id, Vector2.ZERO)
+		var network_manager = get_node_or_null("/root/NetworkManager")
+		if network_manager and network_manager.is_networked():
+			print("[FightController] P3-101: Sending final drag position for %s: %s" % [drag_model_id, final_synced_pos])
+			network_manager.send_drag_preview(pile_in_unit_id, drag_model_id, final_synced_pos)
+
 	# Clear overlap visual feedback
 	if dragging_model:
 		_update_model_overlap_visual(dragging_model, false)
