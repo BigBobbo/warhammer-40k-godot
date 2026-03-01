@@ -651,3 +651,170 @@ func test_formations_helpers_with_declared_data():
 	assert_true(game_state_node.is_unit_pre_declared_attached("captain_a"), "Captain should be pre-declared as attached")
 	assert_true(game_state_node.is_unit_pre_declared_in_reserves("assault_a"), "Assault should be pre-declared in reserves")
 	assert_false(game_state_node.is_unit_pre_declared_in_reserves("intercessors_a"), "Intercessors should not be in reserves")
+
+# ==========================================
+# Test: Warlord Designation Validation
+# ==========================================
+
+func _create_warlord_test_state_single_character() -> Dictionary:
+	"""Create a state with a single CHARACTER (should auto-designate)."""
+	var state = _create_formations_test_state(true, false)
+	# captain_a is the only CHARACTER; is_warlord defaults to false
+	return state
+
+func _create_warlord_test_state_multiple_characters() -> Dictionary:
+	"""Create a state with multiple CHARACTERs and no warlord set."""
+	var state = _create_formations_test_state(true, false)
+	# Add a second CHARACTER for player 1
+	state.units["librarian_a"] = {
+		"id": "librarian_a",
+		"squad_id": "librarian_a",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.UNDEPLOYED,
+		"meta": {
+			"name": "Librarian",
+			"stats": {"move": 6, "toughness": 4, "save": 3, "wounds": 4},
+			"keywords": ["CHARACTER", "INFANTRY", "PRIMARIS", "IMPERIUM", "PSYKER"],
+			"leader_data": {
+				"can_lead": ["INFANTRY"]
+			},
+			"is_warlord": false,
+			"points": 75
+		},
+		"models": [
+			{"id": "m1", "wounds": 4, "current_wounds": 4, "base_mm": 40, "position": null, "alive": true}
+		]
+	}
+	return state
+
+func test_warlord_auto_designate_single_character():
+	"""Single CHARACTER with no is_warlord should be auto-designated on confirm."""
+	var state = _create_warlord_test_state_single_character()
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	# captain_a has no is_warlord set — should auto-designate
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 1})
+	assert_true(result.valid, "Should auto-designate single CHARACTER as warlord: %s" % str(result.errors))
+
+	# Verify the auto-designation was applied
+	assert_true(game_state_node.state["units"]["captain_a"]["meta"].get("is_warlord", false),
+		"captain_a should now be designated as warlord")
+
+func test_warlord_validation_passes_with_designated():
+	"""One CHARACTER already designated as warlord should pass validation."""
+	var state = _create_warlord_test_state_single_character()
+	state.units["captain_a"]["meta"]["is_warlord"] = true
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 1})
+	assert_true(result.valid, "Should pass when warlord is already designated: %s" % str(result.errors))
+
+func test_warlord_validation_fails_multiple_no_designation():
+	"""Multiple CHARACTERs with none designated should fail validation."""
+	var state = _create_warlord_test_state_multiple_characters()
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 1})
+	assert_false(result.valid, "Should reject when multiple CHARACTERs and no warlord designated")
+	assert_true(result.errors[0].find("no Warlord designated") >= 0,
+		"Error should mention no warlord designated")
+
+func test_warlord_validation_fails_multiple_warlords():
+	"""Multiple CHARACTERs all designated as warlord should fail."""
+	var state = _create_warlord_test_state_multiple_characters()
+	state.units["captain_a"]["meta"]["is_warlord"] = true
+	state.units["librarian_a"]["meta"]["is_warlord"] = true
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 1})
+	assert_false(result.valid, "Should reject when multiple warlords are designated")
+	assert_true(result.errors[0].find("multiple warlords") >= 0,
+		"Error should mention multiple warlords")
+
+func test_designate_warlord_action():
+	"""Player should be able to designate a CHARACTER as Warlord."""
+	var state = _create_warlord_test_state_multiple_characters()
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	# Designate librarian as warlord
+	var action = {
+		"type": "DESIGNATE_WARLORD",
+		"unit_id": "librarian_a",
+		"player": 1
+	}
+	var validation = phase.validate_action(action)
+	assert_true(validation.valid, "Should allow designating CHARACTER as warlord: %s" % str(validation.errors))
+
+	var result = phase.process_action(action)
+	assert_true(result.success, "Should process warlord designation")
+
+	# Verify designation
+	assert_true(game_state_node.state["units"]["librarian_a"]["meta"]["is_warlord"],
+		"librarian_a should be warlord")
+	assert_false(game_state_node.state["units"]["captain_a"]["meta"].get("is_warlord", false),
+		"captain_a should NOT be warlord")
+
+func test_designate_warlord_clears_previous():
+	"""Designating a new warlord should clear the previous one."""
+	var state = _create_warlord_test_state_multiple_characters()
+	state.units["captain_a"]["meta"]["is_warlord"] = true
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	# Now designate librarian instead
+	phase.process_action({
+		"type": "DESIGNATE_WARLORD",
+		"unit_id": "librarian_a",
+		"player": 1
+	})
+
+	assert_true(game_state_node.state["units"]["librarian_a"]["meta"]["is_warlord"],
+		"librarian_a should now be warlord")
+	assert_false(game_state_node.state["units"]["captain_a"]["meta"]["is_warlord"],
+		"captain_a should no longer be warlord")
+
+	# Confirm should now pass
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 1})
+	assert_true(result.valid, "Should pass validation after designating warlord: %s" % str(result.errors))
+
+func test_designate_warlord_rejects_non_character():
+	"""Non-CHARACTER units cannot be designated as Warlord."""
+	var state = _create_warlord_test_state_single_character()
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	var result = phase.validate_action({
+		"type": "DESIGNATE_WARLORD",
+		"unit_id": "intercessors_a",
+		"player": 1
+	})
+	assert_false(result.valid, "Should reject non-CHARACTER as warlord")
+
+func test_warlord_available_actions_show_designation():
+	"""get_available_actions should show DESIGNATE_WARLORD when multiple CHARACTERs exist."""
+	var state = _create_warlord_test_state_multiple_characters()
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	var actions = phase.get_available_actions()
+	var has_designate = false
+	for action in actions:
+		if action.get("type") == "DESIGNATE_WARLORD":
+			has_designate = true
+			break
+	assert_true(has_designate, "Available actions should include warlord designation when multiple CHARACTERs exist")
+
+func test_warlord_no_characters_passes():
+	"""Player with no CHARACTER units should pass warlord validation."""
+	var state = _create_formations_test_state(false, false)
+	game_state_node.state = state
+	phase = _create_phase(state)
+
+	# Player 2 (Orks) has no CHARACTERs in this setup
+	var result = phase.validate_action({"type": "CONFIRM_FORMATIONS", "player": 2})
+	assert_true(result.valid, "Should pass when player has no CHARACTER units: %s" % str(result.errors))
