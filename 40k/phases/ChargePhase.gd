@@ -1196,6 +1196,10 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	if flags.get("burned_objective", false):
 		return false
 
+	# Units that performed a ritual action (The Ritual) cannot charge this turn
+	if flags.get("performed_ritual", false):
+		return false
+
 	if flags.get("advanced", false):
 		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
 			return false

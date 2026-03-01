@@ -277,6 +277,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_perform_secondary_action(action)
 		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
 			return _validate_burn_objective(action)
+		"PERFORM_RITUAL_ACTION":  # The Ritual: unit performs ritual action at objective
+			return _validate_perform_ritual_action(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -361,6 +363,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"BURN_OBJECTIVE":  # Scorched Earth: burn objective
 			print("ShootingPhase: Matched BURN_OBJECTIVE")
 			return _process_burn_objective(action)
+		"PERFORM_RITUAL_ACTION":  # The Ritual: perform ritual action
+			print("ShootingPhase: Matched PERFORM_RITUAL_ACTION")
+			return _process_perform_ritual_action(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -1207,6 +1212,117 @@ func _get_burn_objective_options(unit_id: String) -> Array:
 		return []
 
 	return MissionManager.get_burnable_objectives_for_unit(unit_id)
+
+# ============================================================================
+# PERFORM RITUAL ACTION — The Ritual mission action
+# ============================================================================
+
+func _validate_perform_ritual_action(action: Dictionary) -> Dictionary:
+	"""Validate a ritual action for The Ritual mission."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Same eligibility as shooting — deployed, not battle-shocked, hasn't shot
+	if not _can_unit_shoot(unit):
+		return {"valid": false, "errors": ["Unit is not eligible to perform ritual action"]}
+
+	if unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
+
+	# Units that Advanced or Fell Back cannot perform actions
+	var flags = unit.get("flags", {})
+	if flags.get("advanced", false):
+		return {"valid": false, "errors": ["Unit Advanced this turn and cannot perform actions"]}
+	if flags.get("fell_back", false):
+		return {"valid": false, "errors": ["Unit Fell Back this turn and cannot perform actions"]}
+
+	var objective_id = action.get("objective_id", "")
+	if objective_id == "":
+		return {"valid": false, "errors": ["Missing objective_id"]}
+
+	# Verify the objective is valid for ritual by this unit
+	var ritual_targets = MissionManager.get_ritual_objectives_for_unit(unit_id)
+	var found = false
+	for r in ritual_targets:
+		if r.objective_id == objective_id:
+			found = true
+			break
+
+	if not found:
+		return {"valid": false, "errors": ["Objective %s is not a valid ritual target for this unit" % objective_id]}
+
+	return {"valid": true, "errors": []}
+
+func _process_perform_ritual_action(action: Dictionary) -> Dictionary:
+	"""Process a ritual action — unit gives up shooting to perform ritual at objective."""
+	var unit_id = action.get("actor_unit_id", "")
+	var objective_id = action.get("objective_id", "")
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = get_current_player()
+
+	print("ShootingPhase: %s performs ritual action at %s (gives up shooting)" % [unit_name, objective_id])
+
+	# Mark unit as having shot (it gave up shooting to perform the ritual)
+	units_that_shot.append(unit_id)
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	# Mark as unable to charge this turn (action costs charging too)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.performed_ritual" % unit_id,
+		"value": true
+	})
+
+	# Clear active state if this unit was selected
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+
+	# Register the ritual with MissionManager
+	var success = MissionManager.register_ritual_action(unit_id, objective_id)
+	if success:
+		log_phase_message("THE RITUAL: %s performed ritual at %s for Player %d" % [unit_name, objective_id, player])
+	else:
+		log_phase_message("ERROR: Ritual action failed for %s at %s" % [unit_name, objective_id])
+
+	return create_result(true, changes)
+
+func _get_ritual_action_options(unit_id: String) -> Array:
+	"""Get available ritual action options for a unit (The Ritual mission only).
+	Returns array of {objective_id, position}."""
+	if not MissionManager or not MissionManager.is_ritual_mission():
+		return []
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	# Unit must not be battle-shocked
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return []
+
+	# Units that Advanced or Fell Back cannot perform actions
+	if unit.get("flags", {}).get("advanced", false):
+		return []
+	if unit.get("flags", {}).get("fell_back", false):
+		return []
+
+	return MissionManager.get_ritual_objectives_for_unit(unit_id)
 
 func _determine_locus_location(unit_id: String, player: int) -> String:
 	"""Determine location qualifier for Establish Locus: 'opponent_zone' or 'center'."""
@@ -2951,6 +3067,18 @@ func get_available_actions() -> Array:
 						unit.get("meta", {}).get("name", unit_id),
 						burn_opt.objective_id,
 						burn_opt.burn_vp]
+				})
+
+			# Check if unit can perform a ritual action (The Ritual mission)
+			var ritual_options = _get_ritual_action_options(unit_id)
+			for ritual_opt in ritual_options:
+				actions.append({
+					"type": "PERFORM_RITUAL_ACTION",
+					"actor_unit_id": unit_id,
+					"objective_id": ritual_opt.objective_id,
+					"description": "%s: Perform Ritual at %s (create new objective)" % [
+						unit.get("meta", {}).get("name", unit_id),
+						ritual_opt.objective_id]
 				})
 
 	# Always can end phase

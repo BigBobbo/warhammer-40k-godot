@@ -28,6 +28,14 @@ var _burned_objectives: Dictionary = {}
 # Key: unit_id, Value: objective_id — resolves at end of Command phase
 var _pending_burns: Dictionary = {}
 
+# Ritual action tracking for The Ritual mission
+# Key: objective_id, Value: { "player": int, "unit_id": String, "round_created": int }
+var _ritual_objectives: Dictionary = {}
+
+# Units performing ritual actions this turn (Shooting phase)
+# Key: unit_id, Value: objective_id — action completes at end of turn
+var _pending_rituals: Dictionary = {}
+
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
@@ -73,6 +81,10 @@ func initialize_mission(mission_id: String) -> void:
 	# Reset burn tracking
 	_burned_objectives.clear()
 	_pending_burns.clear()
+
+	# Reset ritual tracking
+	_ritual_objectives.clear()
+	_pending_rituals.clear()
 
 	# Store mission type in GameState meta for reference
 	GameState.state.meta["mission_type"] = mission_id
@@ -349,8 +361,7 @@ func score_primary_objectives() -> void:
 		"hold_and_burn":
 			_score_hold_and_burn(active_player, battle_round)
 		"ritual":
-			# The Ritual: falls back to hold scoring (ritual actions not yet implemented)
-			_score_hold_objectives(active_player, battle_round)
+			_score_ritual(active_player, battle_round)
 		"terraform":
 			# Terraform: falls back to hold scoring (flipping not yet implemented)
 			_score_hold_objectives(active_player, battle_round)
@@ -754,6 +765,286 @@ func score_end_of_game_burn_bonus() -> void:
 func get_burned_objectives() -> Dictionary:
 	"""Get current burned objectives state (for save/load and debugging)."""
 	return _burned_objectives.duplicate(true)
+
+# ============================================================================
+# THE RITUAL — Action-based objective scoring
+# ============================================================================
+# Rules (Chapter Approved 2025-26): All NML objectives remain on board. During
+# a player's Shooting phase, a unit can perform a ritual action (giving up
+# shooting and charging). At end of turn, if the unit is still eligible, a new
+# objective marker is placed wholly within NML, within 1" of the unit, exactly
+# 12" from one existing NML objective, and not within 6" of any other objective.
+#
+# Scoring: From round 2, at start of Command phase, 5 VP per controlled NML
+# objective (max 15 VP per turn). For simplicity, we score all NML objectives
+# the player controls (including any created by ritual actions).
+#
+# Since we don't have visual placement of new objectives on the board, the
+# ritual action instead creates a new objective at a valid position near the
+# acting unit (auto-placed), following the distance rules as closely as
+# possible given the grid/board state.
+
+func is_ritual_mission() -> bool:
+	"""Check if the current mission uses ritual action mechanics."""
+	return current_mission.get("scoring_type", "") == "ritual"
+
+func _score_ritual(active_player: int, _battle_round: int) -> void:
+	"""Score The Ritual: 5 VP per controlled NML objective (max 15 VP per turn)."""
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_obj = scoring_rules.get("vp_per_nml_objective", 5)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 15)
+
+	# Count controlled NML objectives (including ritual-created ones)
+	var controlled_nml = []
+	var objectives = GameState.state.board.get("objectives", [])
+	for obj in objectives:
+		var zone = obj.get("zone", "")
+		if zone == "no_mans_land" and objective_control_state.get(obj.id, 0) == active_player:
+			controlled_nml.append(obj.id)
+
+	var controlled_count = controlled_nml.size()
+
+	if controlled_count > 0:
+		print("MissionManager: The Ritual - Player %d controls %d NML objectives: %s" % [active_player, controlled_count, controlled_nml])
+	else:
+		print("MissionManager: The Ritual - Player %d controls no NML objectives" % active_player)
+
+	var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
+	_apply_primary_vp(active_player, vp_earned, "The Ritual: Controlled %d NML objectives" % controlled_count)
+
+func get_ritual_objectives_for_unit(unit_id: String) -> Array:
+	"""Get objectives where a unit can perform a ritual action. Returns array of
+	objective dictionaries with position and id.
+	A unit can perform a ritual action if:
+	- Current mission is The Ritual
+	- The unit has a model within range of a controlled NML objective
+	- The unit is not battle-shocked
+	- The unit has OC > 0
+	- The unit is not an Aircraft"""
+	if not is_ritual_mission():
+		return []
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return []
+
+	var owner = unit.get("owner", 0)
+	if owner == 0:
+		return []
+
+	# Units must have OC > 0 to perform actions
+	var oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
+	if oc_value <= 0:
+		return []
+
+	# Aircraft cannot perform actions
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in keywords:
+		return []
+
+	var objectives = GameState.state.board.get("objectives", [])
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var result = []
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+		var zone = obj.get("zone", "")
+
+		# Ritual actions are performed at NML objectives the player controls
+		if zone != "no_mans_land":
+			continue
+
+		if objective_control_state.get(obj_id, 0) != owner:
+			continue
+
+		# Check if any alive model is within range
+		var obj_pos = obj.get("position", Vector2.ZERO)
+		var unit_in_range = false
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = model.get("position")
+			if model_pos == null:
+				continue
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.x, model_pos.y)
+			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if edge_distance <= control_radius:
+				unit_in_range = true
+				break
+
+		if unit_in_range:
+			result.append({
+				"objective_id": obj_id,
+				"position": obj_pos,
+			})
+
+	return result
+
+func register_ritual_action(unit_id: String, objective_id: String) -> bool:
+	"""Register a unit performing a ritual action at an objective (during Shooting phase).
+	The unit gives up shooting and charging. On completion, a new objective marker
+	is placed near the unit in NML (auto-placed following distance rules).
+	For simplicity, the new objective is placed immediately."""
+	if not is_ritual_mission():
+		print("MissionManager: Cannot perform ritual — not The Ritual mission")
+		return false
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		print("MissionManager: Cannot perform ritual — unit %s not found" % unit_id)
+		return false
+
+	var owner = unit.get("owner", 0)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Verify objective is valid for ritual
+	var valid_objectives = get_ritual_objectives_for_unit(unit_id)
+	var target_obj = null
+	for v in valid_objectives:
+		if v.objective_id == objective_id:
+			target_obj = v
+			break
+
+	if target_obj == null:
+		print("MissionManager: Cannot perform ritual — %s is not a valid ritual target for %s" % [objective_id, unit_id])
+		return false
+
+	# Try to place a new objective near the unit
+	var new_obj = _try_place_ritual_objective(unit, target_obj)
+	if new_obj != null:
+		# Add the new objective to the board
+		var objectives = GameState.state.board.get("objectives", [])
+		objectives.append(new_obj)
+		objective_control_state[new_obj.id] = owner  # New objective starts controlled by creator
+
+		_ritual_objectives[new_obj.id] = {
+			"player": owner,
+			"unit_id": unit_id,
+			"round_created": GameState.get_battle_round(),
+		}
+
+		print("MissionManager: RITUAL COMPLETE — %s created new objective %s at %s for Player %d" % [
+			unit_name, new_obj.id, new_obj.position, owner])
+	else:
+		# No valid placement found — the ritual still completes (unit sacrificed shooting)
+		# but no new objective is created (board is too crowded)
+		print("MissionManager: RITUAL — %s performed ritual at %s but no valid placement found for new objective" % [
+			unit_name, objective_id])
+
+	return true
+
+func _try_place_ritual_objective(unit: Dictionary, source_obj: Dictionary) -> Variant:
+	"""Try to find a valid position for a new ritual objective.
+	Rules: Must be wholly within NML, within 1" of the unit, 12" from one
+	existing NML objective, and not within 6" of any other objective.
+	Returns objective dict or null if no valid position found."""
+	var objectives = GameState.state.board.get("objectives", [])
+
+	# Collect NML objective positions for distance checks
+	var nml_obj_positions = []
+	var all_obj_positions = []
+	for obj in objectives:
+		var pos = obj.get("position", Vector2.ZERO)
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		all_obj_positions.append(pos)
+		if obj.get("zone", "") == "no_mans_land":
+			nml_obj_positions.append(pos)
+
+	# Get unit model positions to find placement near unit
+	var model_positions = []
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = model.get("position")
+		if pos == null:
+			continue
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		model_positions.append(pos)
+
+	if model_positions.is_empty():
+		return null
+
+	# Use the first alive model position as reference
+	var ref_pos = model_positions[0]
+
+	# Distance constants in pixels
+	var distance_12 = Measurement.inches_to_px(12.0)
+	var distance_6 = Measurement.inches_to_px(6.0)
+	var distance_1 = Measurement.inches_to_px(1.0)
+
+	# Get NML zone boundaries (approximate using board dimensions)
+	# NML is roughly the middle third of the board in standard deployments
+	var board_width_px = Measurement.inches_to_px(GameState.state.get("board", {}).get("size", {}).get("width", 44))
+	var board_height_px = Measurement.inches_to_px(GameState.state.get("board", {}).get("size", {}).get("height", 60))
+
+	# Try angles around the reference position to find a valid spot
+	# The new objective should be ~12" from an existing NML objective
+	for nml_pos in nml_obj_positions:
+		# Try placing at 12" from this NML objective, near the unit
+		var dir_to_unit = (ref_pos - nml_pos).normalized()
+		if dir_to_unit.length() < 0.01:
+			dir_to_unit = Vector2(1, 0)  # Default direction if positions overlap
+
+		# Try the direction toward the unit first, then rotate around
+		for angle_offset in [0, 15, -15, 30, -30, 45, -45, 60, -60, 90, -90]:
+			var angle_rad = deg_to_rad(angle_offset)
+			var rotated_dir = dir_to_unit.rotated(angle_rad)
+			var candidate_pos = nml_pos + rotated_dir * distance_12
+
+			# Check: must be within 1" of a model
+			var near_model = false
+			for mpos in model_positions:
+				if candidate_pos.distance_to(mpos) <= distance_1 + Measurement.inches_to_px(2.0):
+					# Allow a bit more flexibility (within ~3" of model) for practical placement
+					near_model = true
+					break
+
+			if not near_model:
+				continue
+
+			# Check: must be on the board
+			if candidate_pos.x < 0 or candidate_pos.x > board_width_px:
+				continue
+			if candidate_pos.y < 0 or candidate_pos.y > board_height_px:
+				continue
+
+			# Check: must not be within 6" of any OTHER objective
+			var too_close = false
+			for obj_pos in all_obj_positions:
+				if candidate_pos.distance_to(obj_pos) < distance_6:
+					# Allow being exactly 12" from the source NML objective
+					if candidate_pos.distance_to(obj_pos) > distance_12 - Measurement.inches_to_px(0.5) and candidate_pos.distance_to(obj_pos) < distance_12 + Measurement.inches_to_px(0.5):
+						continue  # This is the 12" placement target, not a violation
+					too_close = true
+					break
+
+			if too_close:
+				continue
+
+			# Valid placement found! Create the objective
+			var new_id = "ritual_obj_%d_%d" % [unit.get("owner", 0), _ritual_objectives.size() + 1]
+			return {
+				"id": new_id,
+				"position": candidate_pos,
+				"zone": "no_mans_land",
+				"radius_mm": 40,
+				"ritual_created": true,
+			}
+
+	# No valid position found
+	print("MissionManager: No valid position for ritual objective (board too crowded)")
+	return null
+
+func get_ritual_objectives() -> Dictionary:
+	"""Get current ritual objectives state (for save/load and debugging)."""
+	return _ritual_objectives.duplicate(true)
+
+func clear_pending_rituals() -> void:
+	"""Clear pending ritual actions at start of a new turn."""
+	_pending_rituals.clear()
 
 # ============================================================================
 # VP APPLICATION — common VP bookkeeping
