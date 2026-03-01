@@ -2230,7 +2230,7 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 				continue
 
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			var scout_distance = _get_scout_distance_from_unit(unit)
+			var scout_distance = _get_scout_distance_from_unit(unit, snapshot)
 			if scout_distance <= 0.0:
 				scout_distance = 6.0  # Default scout distance
 
@@ -2295,9 +2295,36 @@ static func _decide_scout(snapshot: Dictionary, available_actions: Array, player
 # SCOUT PHASE HELPERS
 # =============================================================================
 
-static func _get_scout_distance_from_unit(unit: Dictionary) -> float:
-	"""Extract scout move distance in inches from unit abilities."""
-	var abilities = unit.get("meta", {}).get("abilities", [])
+static func _get_scout_distance_from_unit(unit: Dictionary, snapshot: Dictionary = {}) -> float:
+	"""Extract scout move distance in inches from unit abilities.
+	Also checks for transport inheritance from embarked units per Balance Dataslate."""
+	# Check unit's own abilities first
+	var own_distance = _get_scout_distance_from_abilities(unit.get("meta", {}).get("abilities", []))
+	if own_distance > 0.0:
+		return own_distance
+	# Check transport inheritance from embarked units (Balance Dataslate)
+	if unit.has("transport_data"):
+		var embarked_ids = unit.get("transport_data", {}).get("embarked_units", [])
+		if not embarked_ids.is_empty() and not snapshot.is_empty():
+			var all_units = snapshot.get("units", {})
+			var min_distance = INF
+			var all_have_scout = true
+			for eid in embarked_ids:
+				var embarked_unit = all_units.get(eid, {})
+				if embarked_unit.is_empty():
+					all_have_scout = false
+					break
+				var dist = _get_scout_distance_from_abilities(embarked_unit.get("meta", {}).get("abilities", []))
+				if dist <= 0.0:
+					all_have_scout = false
+					break
+				min_distance = min(min_distance, dist)
+			if all_have_scout and min_distance < INF:
+				return min_distance
+	return 0.0
+
+static func _get_scout_distance_from_abilities(abilities: Array) -> float:
+	"""Extract scout distance from an abilities array."""
 	for ability in abilities:
 		var aname = ""
 		var avalue = 0
@@ -2309,7 +2336,6 @@ static func _get_scout_distance_from_unit(unit: Dictionary) -> float:
 		if aname.to_lower().begins_with("scout"):
 			if avalue > 0:
 				return float(avalue)
-			# Try to parse distance from name, e.g. "Scout 6\"" or "Scout 6"
 			var regex = RegEx.new()
 			regex.compile("(?i)scout\\s+(\\d+)")
 			var result = regex.search(aname)

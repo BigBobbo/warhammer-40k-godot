@@ -4,11 +4,13 @@ class_name ScoutPhase
 const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ScoutPhase - Handles the pre-game Scout moves between Deployment and Turn 1
-# Per 10e rules:
+# Per 10e rules + Balance Dataslate:
 # - Units with Scout X" can make a Normal Move of up to X" after deployment
+# - The distance moved can exceed the model's Move characteristic, as long as ≤ X"
 # - Must end >9" from all enemy models
 # - Player going first moves their Scout units first
-# - Dedicated Transports inherit Scout if all embarked units have it
+# - Dedicated Transports can use Scout X" inherited from embarked units,
+#   provided ALL embarked models have the Scout ability
 
 const SCOUT_MIN_ENEMY_DISTANCE_INCHES: float = 9.0
 const PX_PER_INCH: float = 40.0

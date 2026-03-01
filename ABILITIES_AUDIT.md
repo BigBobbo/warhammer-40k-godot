@@ -289,7 +289,7 @@ These abilities should only be usable once per game but have no usage tracking m
 |---|---|---|---|
 | Deep Strike | Blade Champion, Custodian Guard, Shield-Captain | Likely | Handled by deployment system, not ability pipeline |
 | Infiltrators | Kommandos, Infiltrator Squad | Likely | Handled by deployment system |
-| Scout 6" | Witchseekers, Infiltrator Squad | Unknown | Pre-game movement — needs verification |
+| Scout 6" | Witchseekers, Infiltrator Squad | **Yes** | ScoutPhase handles pre-game movement. Balance Dataslate rules implemented: Dedicated Transports inherit Scout from embarked units (all must have it); scout distance can exceed Move characteristic as long as ≤ X" |
 | Stealth | Kommandos (per wahapedia) | **Yes** | Added to Kommandos army JSON. RulesEngine.has_stealth_ability() checks meta.abilities and applies -1 to hit on ranged attacks |
 | Leader | Various characters | Partial | Attachment system works but Leader ability not explicitly tracked |
 | Feel No Pain 5+ | Painboss | Unknown | Painboss not in army JSON files |
@@ -467,7 +467,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 78. **Verify consolidation is mandatory at unit level per FAQ** — FAQ states: "Consolidation for a unit is not optional. However, for each model, whether or not that model makes a Consolidation move is optional." Ensure FightPhase.gd forces the consolidation step even if individual models don't move. (FGT-1) — **DONE**
 79. **Implement Obscuring terrain keyword** — No special rules for terrain features with the Obscuring keyword. Add terrain trait and corresponding LoS interaction in TerrainManager.gd and LineOfSightManager.gd. (TER-4) — **DONE**
 80. **Implement Deep Strike can choose Strategic Reserves placement** — Balance Dataslate: "If a unit with Deep Strike arrives from Strategic Reserves, the player can choose to set up using Strategic Reserves OR Deep Strike rules." Add option in reinforcement placement UI in MovementPhase.gd. (DEP-3) — **DONE**
-81. **Update Scouts rules per Balance Dataslate** — Dedicated Transports can use Scouts ability inherited from embarked unit. Scout distance can exceed Move characteristic as long as ≤ X". Update ScoutPhase.gd validation. (DEP-4)
+81. **Update Scouts rules per Balance Dataslate** — Dedicated Transports can use Scouts ability inherited from embarked unit. Scout distance can exceed Move characteristic as long as ≤ X". Update ScoutPhase.gd validation. (DEP-4) — **DONE**
 82. **Complete Scorched Earth mission** — Burn mechanics are stub only. Implement the burning action and scoring in MissionManager.gd. (MIS-1)
 83. **Complete The Ritual mission** — Action-based objective mechanics not implemented. Add action system for ritual objectives in MissionManager.gd. (MIS-2)
 84. **Complete Terraform mission** — Objective flipping between players not implemented. Add flip mechanics in MissionManager.gd. (MIS-3)
