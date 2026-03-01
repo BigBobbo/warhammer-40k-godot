@@ -477,6 +477,13 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
+	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
+	# FLY units are exempt
+	if not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
+			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
+
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model):
 		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
@@ -561,6 +568,13 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
+
+	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
+	# FLY units are exempt
+	if not _unit_has_fly_keyword(unit_id):
+		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
+			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
+			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
 	# Check terrain collision
 	if _position_intersects_terrain(dest_vec, model):
@@ -3218,6 +3232,54 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 
 	return false
 
+func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: String, model: Dictionary) -> bool:
+	# 10e Errata: No model can move across MONSTER or VEHICLE models (friendly or enemy)
+	# unless the moving model has the FLY keyword (FLY check done by caller).
+	# This checks all units on the board for MONSTER/VEHICLE keyword and blocks
+	# path crossing through their bases, excluding the moving unit's own models.
+	var units = game_state_snapshot.get("units", {})
+
+	var reference_model = model.duplicate()
+
+	# Sample points along the path (approximately every 10 pixels for good coverage)
+	var path_length = from.distance_to(to)
+	var num_samples = max(2, int(path_length / 10.0))
+
+	for i in range(num_samples + 1):
+		var t = float(i) / float(num_samples)
+		var sample_pos = from.lerp(to, t)
+
+		var model_at_pos = reference_model.duplicate()
+		model_at_pos["position"] = sample_pos
+
+		for check_unit_id in units:
+			if check_unit_id == unit_id:
+				continue  # Skip own unit's models
+
+			var check_unit = units[check_unit_id]
+			# Only block on MONSTER or VEHICLE units
+			var check_keywords = check_unit.get("meta", {}).get("keywords", [])
+			var is_monster_or_vehicle = false
+			for kw in check_keywords:
+				var kw_upper = kw.to_upper()
+				if kw_upper == "MONSTER" or kw_upper == "VEHICLE":
+					is_monster_or_vehicle = true
+					break
+			if not is_monster_or_vehicle:
+				continue
+
+			var check_models = check_unit.get("models", [])
+			for check_model in check_models:
+				if not check_model.get("alive", true):
+					continue
+				var check_pos = _get_model_position(check_model)
+				if check_pos:
+					if Measurement.models_overlap(model_at_pos, check_model):
+						log_phase_message("  Path crosses MONSTER/VEHICLE model base in unit %s" % check_unit_id)
+						return true
+
+	return false
+
 func _path_crosses_enemy(from: Vector2, to: Vector2, unit_id: String, base_mm: int) -> bool:
 	# Legacy wrapper for Fall Back path checking (keeps crosses_enemy tracking for Desperate Escape)
 	# Fall Back moves are allowed to cross enemies, so this is used for tracking, not blocking
@@ -3657,6 +3719,13 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 				group_validation.valid = false
 				group_validation.errors.append("Model %s path crosses enemy model base" % model_id)
 
+		# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
+		# FLY units are exempt
+		if not _unit_has_fly_keyword(unit_id):
+			if not full_model.is_empty() and _path_crosses_monster_vehicle_bases(model_data.position, new_pos, unit_id, full_model):
+				group_validation.valid = false
+				group_validation.errors.append("Model %s path crosses Monster/Vehicle model base" % model_id)
+
 	return group_validation
 
 func _validate_group_movement(group_moves: Array, unit_id: String) -> Dictionary:
@@ -3725,6 +3794,13 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
 		var current_pos = _get_model_position(model)
 		if current_pos and _path_crosses_enemy_bases(current_pos, dest_pos, unit_id, model):
+			return false
+
+	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
+	# FLY units are exempt
+	if not _unit_has_fly_keyword(unit_id):
+		var current_pos = _get_model_position(model)
+		if current_pos and _path_crosses_monster_vehicle_bases(current_pos, dest_pos, unit_id, model):
 			return false
 
 	return true
