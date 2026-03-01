@@ -1905,6 +1905,10 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	On clients, this is the primary handler (fires before charge_roll_made).
 	The server-side charge_failed flag from the phase determines success/failure
 	rather than recomputing locally, ensuring both players agree."""
+	# P3-117: Record roll in centralized dice history
+	if DiceHistoryPanel:
+		DiceHistoryPanel.record_roll(dice_data, "Charge")
+
 	if not is_instance_valid(dice_log_display):
 		return
 

@@ -1074,6 +1074,10 @@ func _flash_fight_target_tokens(target_unit_id: String) -> void:
 	print("[FightController] T5-V12: Flashed target tokens for unit %s" % target_unit_id)
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
+	# P3-117: Record roll in centralized dice history
+	if DiceHistoryPanel:
+		DiceHistoryPanel.record_roll(dice_data, "Fight")
+
 	if not dice_log_display:
 		return
 
