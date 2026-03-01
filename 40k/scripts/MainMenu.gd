@@ -1,5 +1,7 @@
 extends Control
 
+const FixedMissionSelectionDialogScript = preload("res://dialogs/FixedMissionSelectionDialog.gd")
+
 # MainMenu - Entry point for the game, allows configuration of mission and armies
 
 @onready var terrain_dropdown: OptionButton = $MenuContainer/MissionSection/TerrainContainer/TerrainDropdown
@@ -17,6 +19,14 @@ var player2_difficulty_dropdown: OptionButton = null
 # T7-36: AI speed dropdown (shown when any player is AI)
 var ai_speed_container: HBoxContainer = null
 var ai_speed_dropdown: OptionButton = null
+# P2-85: Secondary mission mode selection (Fixed vs Tactical)
+var secondary_mode_container: HBoxContainer = null
+var p1_secondary_mode_dropdown: OptionButton = null
+var p2_secondary_mode_dropdown: OptionButton = null
+var p1_select_fixed_button: Button = null
+var p2_select_fixed_button: Button = null
+var _p1_fixed_mission_ids: Array = []
+var _p2_fixed_mission_ids: Array = []
 @onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
@@ -116,6 +126,9 @@ func _setup_dropdowns() -> void:
 
 	# T7-36: Create AI speed dropdown
 	_create_ai_speed_dropdown()
+
+	# P2-85: Create secondary mission mode selection
+	_create_secondary_mission_mode_ui()
 
 	# Dynamically populate army dropdowns from ArmyListManager
 	_load_available_armies()
@@ -248,6 +261,139 @@ func _update_ai_speed_visibility() -> void:
 	if ai_speed_container:
 		var any_ai = (player1_type_dropdown.selected == 1) or (player2_type_dropdown.selected == 1)
 		ai_speed_container.visible = any_ai
+
+func _create_secondary_mission_mode_ui() -> void:
+	"""P2-85: Create secondary mission mode selection UI in the mission section."""
+	var mission_section = $MenuContainer/MissionSection
+
+	secondary_mode_container = VBoxContainer.new()
+	secondary_mode_container.name = "SecondaryModeContainer"
+	secondary_mode_container.add_theme_constant_override("separation", 6)
+	mission_section.add_child(secondary_mode_container)
+
+	# Section label
+	var section_label = Label.new()
+	section_label.text = "Secondary Missions:"
+	section_label.custom_minimum_size = Vector2(150, 0)
+	secondary_mode_container.add_child(section_label)
+
+	# Player 1 row
+	var p1_row = HBoxContainer.new()
+	p1_row.add_theme_constant_override("separation", 8)
+	secondary_mode_container.add_child(p1_row)
+
+	var p1_label = Label.new()
+	p1_label.text = "Player 1:"
+	p1_label.custom_minimum_size = Vector2(80, 0)
+	p1_row.add_child(p1_label)
+
+	p1_secondary_mode_dropdown = OptionButton.new()
+	p1_secondary_mode_dropdown.name = "P1SecondaryModeDropdown"
+	p1_secondary_mode_dropdown.custom_minimum_size = Vector2(120, 0)
+	p1_secondary_mode_dropdown.add_item("Tactical")   # Index 0
+	p1_secondary_mode_dropdown.add_item("Fixed")       # Index 1
+	p1_secondary_mode_dropdown.selected = 0
+	p1_secondary_mode_dropdown.item_selected.connect(_on_p1_secondary_mode_changed)
+	p1_row.add_child(p1_secondary_mode_dropdown)
+
+	p1_select_fixed_button = Button.new()
+	p1_select_fixed_button.text = "Select Missions..."
+	p1_select_fixed_button.custom_minimum_size = Vector2(140, 0)
+	p1_select_fixed_button.visible = false
+	p1_select_fixed_button.pressed.connect(_on_p1_select_fixed_pressed)
+	p1_row.add_child(p1_select_fixed_button)
+
+	# Player 2 row
+	var p2_row = HBoxContainer.new()
+	p2_row.add_theme_constant_override("separation", 8)
+	secondary_mode_container.add_child(p2_row)
+
+	var p2_label = Label.new()
+	p2_label.text = "Player 2:"
+	p2_label.custom_minimum_size = Vector2(80, 0)
+	p2_row.add_child(p2_label)
+
+	p2_secondary_mode_dropdown = OptionButton.new()
+	p2_secondary_mode_dropdown.name = "P2SecondaryModeDropdown"
+	p2_secondary_mode_dropdown.custom_minimum_size = Vector2(120, 0)
+	p2_secondary_mode_dropdown.add_item("Tactical")   # Index 0
+	p2_secondary_mode_dropdown.add_item("Fixed")       # Index 1
+	p2_secondary_mode_dropdown.selected = 0
+	p2_secondary_mode_dropdown.item_selected.connect(_on_p2_secondary_mode_changed)
+	p2_row.add_child(p2_secondary_mode_dropdown)
+
+	p2_select_fixed_button = Button.new()
+	p2_select_fixed_button.text = "Select Missions..."
+	p2_select_fixed_button.custom_minimum_size = Vector2(140, 0)
+	p2_select_fixed_button.visible = false
+	p2_select_fixed_button.pressed.connect(_on_p2_select_fixed_pressed)
+	p2_row.add_child(p2_select_fixed_button)
+
+	print("MainMenu: P2-85 Secondary mission mode UI created")
+
+func _on_p1_secondary_mode_changed(index: int) -> void:
+	"""P2-85: Show/hide fixed mission select button for Player 1."""
+	if p1_select_fixed_button:
+		p1_select_fixed_button.visible = (index == 1)  # 1 = Fixed
+	if index == 0:
+		_p1_fixed_mission_ids.clear()
+		_update_fixed_button_text(1)
+	print("MainMenu: P1 secondary mode changed to %s" % ("Fixed" if index == 1 else "Tactical"))
+
+func _on_p2_secondary_mode_changed(index: int) -> void:
+	"""P2-85: Show/hide fixed mission select button for Player 2."""
+	if p2_select_fixed_button:
+		p2_select_fixed_button.visible = (index == 1)  # 1 = Fixed
+	if index == 0:
+		_p2_fixed_mission_ids.clear()
+		_update_fixed_button_text(2)
+	print("MainMenu: P2 secondary mode changed to %s" % ("Fixed" if index == 1 else "Tactical"))
+
+func _on_p1_select_fixed_pressed() -> void:
+	"""P2-85: Open fixed mission selection dialog for Player 1."""
+	_show_fixed_mission_dialog(1)
+
+func _on_p2_select_fixed_pressed() -> void:
+	"""P2-85: Open fixed mission selection dialog for Player 2."""
+	_show_fixed_mission_dialog(2)
+
+func _show_fixed_mission_dialog(player: int) -> void:
+	"""P2-85: Show FixedMissionSelectionDialog for the given player."""
+	var dialog = FixedMissionSelectionDialogScript.new()
+	add_child(dialog)
+	dialog.setup(player)
+	dialog.missions_selected.connect(_on_fixed_missions_selected)
+	dialog.selection_cancelled.connect(_on_fixed_selection_cancelled.bind(player))
+	dialog.popup_centered()
+
+func _on_fixed_missions_selected(player: int, mission_ids: Array) -> void:
+	"""P2-85: Handle confirmed fixed mission selection."""
+	if player == 1:
+		_p1_fixed_mission_ids = mission_ids
+	else:
+		_p2_fixed_mission_ids = mission_ids
+	_update_fixed_button_text(player)
+	print("MainMenu: Player %d fixed missions set: %s" % [player, str(mission_ids)])
+
+func _on_fixed_selection_cancelled(player: int) -> void:
+	"""P2-85: Handle cancelled fixed mission selection."""
+	print("MainMenu: Player %d fixed mission selection cancelled" % player)
+
+func _update_fixed_button_text(player: int) -> void:
+	"""P2-85: Update the fixed mission button text to show selected missions."""
+	var btn = p1_select_fixed_button if player == 1 else p2_select_fixed_button
+	var ids = _p1_fixed_mission_ids if player == 1 else _p2_fixed_mission_ids
+	if btn == null:
+		return
+	if ids.size() == 2:
+		var SecondaryMissionData = preload("res://scripts/data/SecondaryMissionData.gd")
+		var names = []
+		for mid in ids:
+			var m = SecondaryMissionData.get_mission_by_id(mid)
+			names.append(m.get("name", mid))
+		btn.text = "%s + %s" % [names[0], names[1]]
+	else:
+		btn.text = "Select Missions..."
 
 func _load_available_armies() -> void:
 	# Dynamically load available armies from ArmyListManager
@@ -417,6 +563,20 @@ func _on_start_button_pressed() -> void:
 	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 1
 	# T7-36: Get AI speed setting (dropdown index matches AIPlayer.AISpeedPreset enum)
 	var ai_speed = ai_speed_dropdown.selected if ai_speed_dropdown else 1
+	# P2-85: Get secondary mission mode
+	var p1_secondary_mode = "fixed" if p1_secondary_mode_dropdown and p1_secondary_mode_dropdown.selected == 1 else "tactical"
+	var p2_secondary_mode = "fixed" if p2_secondary_mode_dropdown and p2_secondary_mode_dropdown.selected == 1 else "tactical"
+
+	# P2-85: Validate fixed mission selections
+	if p1_secondary_mode == "fixed" and _p1_fixed_mission_ids.size() != 2:
+		print("MainMenu: Player 1 must select 2 fixed secondary missions before starting")
+		_show_fixed_mission_dialog(1)
+		return
+	if p2_secondary_mode == "fixed" and _p2_fixed_mission_ids.size() != 2:
+		print("MainMenu: Player 2 must select 2 fixed secondary missions before starting")
+		_show_fixed_mission_dialog(2)
+		return
+
 	var config = {
 		"terrain": terrain_options[terrain_dropdown.selected].id,
 		"mission": mission_options[mission_dropdown.selected].id,
@@ -428,6 +588,10 @@ func _on_start_button_pressed() -> void:
 		"player1_difficulty": p1_difficulty,
 		"player2_difficulty": p2_difficulty,
 		"ai_speed": ai_speed,
+		"player1_secondary_mode": p1_secondary_mode,
+		"player2_secondary_mode": p2_secondary_mode,
+		"player1_fixed_missions": _p1_fixed_mission_ids.duplicate() if p1_secondary_mode == "fixed" else [],
+		"player2_fixed_missions": _p2_fixed_mission_ids.duplicate() if p2_secondary_mode == "fixed" else [],
 	}
 
 	print("MainMenu: Starting game with config: ", config)
@@ -533,10 +697,31 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 		print("MainMenu: ArmyListManager not available, using placeholder armies")
 		GameState._initialize_placeholder_armies()
 	
+	# P2-85: Initialize fixed secondary missions if selected
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr:
+		secondary_mgr.initialize_for_game()
+		if config.get("player1_secondary_mode", "tactical") == "fixed":
+			var p1_fixed = config.get("player1_fixed_missions", [])
+			if p1_fixed.size() == 2:
+				var result = secondary_mgr.setup_fixed_missions(1, p1_fixed)
+				if result["success"]:
+					print("MainMenu: Player 1 fixed missions initialized: %s" % str(p1_fixed))
+				else:
+					print("MainMenu: Failed to set up Player 1 fixed missions: %s" % result.get("error", ""))
+		if config.get("player2_secondary_mode", "tactical") == "fixed":
+			var p2_fixed = config.get("player2_fixed_missions", [])
+			if p2_fixed.size() == 2:
+				var result = secondary_mgr.setup_fixed_missions(2, p2_fixed)
+				if result["success"]:
+					print("MainMenu: Player 2 fixed missions initialized: %s" % str(p2_fixed))
+				else:
+					print("MainMenu: Failed to set up Player 2 fixed missions: %s" % result.get("error", ""))
+
 	# Store configuration in game state for reference
 	GameState.state.meta["game_config"] = config
 	GameState.state.meta["from_menu"] = true
-	
+
 	print("MainMenu: Game initialization complete. Total units: ", GameState.state.units.size())
 
 func _on_multiplayer_button_pressed() -> void:

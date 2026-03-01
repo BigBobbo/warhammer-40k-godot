@@ -78,9 +78,9 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 
-	# Offer voluntary discard of active secondary missions
+	# Offer voluntary discard of active secondary missions (tactical mode only — fixed missions cannot be discarded)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
 		var can_gain_cp = GameState.can_gain_bonus_cp(current_player)
 		for i in range(active_missions.size()):

@@ -47,14 +47,15 @@ func _on_phase_enter() -> void:
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
 	# regardless of which player goes first (determined by roll-off)
+	# Fixed mode players are already initialized from MainMenu, so skip them.
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr:
 		if not secondary_mgr.is_initialized(1):
 			secondary_mgr.setup_tactical_deck(1)
-			print("CommandPhase: Secondary mission deck initialized for Player 1")
+			print("CommandPhase: Secondary mission deck initialized for Player 1 (tactical mode)")
 		if not secondary_mgr.is_initialized(2):
 			secondary_mgr.setup_tactical_deck(2)
-			print("CommandPhase: Secondary mission deck initialized for Player 2")
+			print("CommandPhase: Secondary mission deck initialized for Player 2 (tactical mode)")
 
 	# Step 1: Generate Command Points
 	# Per 10th edition rules, both players gain 1 CP at the start of each Command Phase
@@ -76,10 +77,10 @@ func _on_phase_enter() -> void:
 	if MissionManager:
 		MissionManager.check_all_objectives()
 
-	# Step 6: Draw secondary mission cards (tactical mode)
+	# Step 6: Draw secondary mission cards (tactical mode only — fixed mode skips drawing)
 	_newly_drawn_missions = []
 	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
 			_newly_drawn_missions = drawn.duplicate()
@@ -306,9 +307,9 @@ func get_available_actions() -> Array:
 					"player": current_player
 				})
 
-	# Secondary mission actions
+	# Secondary mission actions (tactical mode only — fixed mode has no deck/draw/discard)
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
 
 		# Replace newly drawn mission (put back in deck, draw different — 1 CP)
