@@ -209,6 +209,13 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 
 			print("Processed unit: ", unit_id, " for player ", player)
 
+	# Validate army construction points and detachment
+	var construction_result = validate_army_construction_points(army_data)
+	if not construction_result.valid:
+		for err in construction_result.errors:
+			print("ARMY CONSTRUCTION ERROR: ", err)
+	# Warnings are logged inside validate_army_construction_points but don't block loading
+
 	current_army_data = army_data
 	print("Successfully loaded army: ", army_name, " with ", army_data.units.size(), " units")
 	emit_signal("army_loaded", army_data)
@@ -473,6 +480,12 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 
 		print("Processed unit: ", unit_id, " for player ", player)
 
+	# Validate army construction points and detachment (cloud army path)
+	var construction_result = validate_army_construction_points(army_data)
+	if not construction_result.valid:
+		for err in construction_result.errors:
+			print("ARMY CONSTRUCTION ERROR (cloud): ", err)
+
 	return army_data
 
 # ============================================================================
@@ -616,6 +629,118 @@ func validate_army_structure(army_data: Dictionary) -> Dictionary:
 		result.valid = false
 		result.errors.append("'units' field is not a dictionary")
 	
+	return result
+
+# ============================================================================
+# ARMY CONSTRUCTION POINTS VALIDATION (GEN-10)
+# ============================================================================
+# Validates army composition against 10th Edition army construction rules:
+# - Total unit points must not exceed the declared army points limit
+# - Each unit must have a points cost defined
+# - A valid detachment must be declared
+# - Faction data must include required fields
+
+# Standard game sizes per 10th Edition Muster Rules
+const STANDARD_GAME_SIZES: Array = [500, 1000, 1500, 2000, 3000]
+
+func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
+	"""Validate army construction points and detachment rules.
+	Returns a dictionary with 'valid' (bool), 'errors' (Array), and 'warnings' (Array).
+	Errors are hard failures (missing data). Warnings are rule violations that don't block loading."""
+	var result = {"valid": true, "errors": [], "warnings": []}
+
+	# --- Faction field validation ---
+	if not army_data.has("faction") or not army_data.faction is Dictionary:
+		result.valid = false
+		result.errors.append("Missing or invalid 'faction' field — army construction cannot be validated")
+		return result
+
+	var faction = army_data.faction
+	var faction_name = faction.get("name", "Unknown")
+
+	# Check faction has a declared points limit
+	# JSON parser returns floats, so cast to int for comparison
+	var declared_points: int = int(faction.get("points", -1))
+	if declared_points < 0:
+		result.valid = false
+		result.errors.append("Faction '%s' has no 'points' field — army points limit is required" % faction_name)
+
+	# --- Detachment validation ---
+	var detachment = faction.get("detachment", "")
+	if detachment.is_empty():
+		result.warnings.append("No detachment declared for faction '%s' — detachment rules will not apply" % faction_name)
+	else:
+		# Check if detachment is recognized by FactionAbilityManager
+		var faction_ability_manager = get_node_or_null("/root/FactionAbilityManager")
+		if faction_ability_manager and faction_ability_manager.has_method("is_valid_detachment"):
+			if not faction_ability_manager.is_valid_detachment(detachment):
+				result.warnings.append("Detachment '%s' is not recognized — detachment abilities will not activate" % detachment)
+		else:
+			print("ArmyListManager: FactionAbilityManager not available for detachment validation")
+
+	# --- Unit points validation ---
+	if not army_data.has("units") or not army_data.units is Dictionary:
+		# Structure validation handles this — don't duplicate
+		return result
+
+	var total_unit_points: int = 0
+	var units_missing_points: Array = []
+	var unit_count: int = 0
+
+	for unit_id in army_data.units:
+		var unit = army_data.units[unit_id]
+		if not unit is Dictionary:
+			continue
+
+		unit_count += 1
+		var meta = unit.get("meta", {})
+		var unit_name = meta.get("name", unit_id)
+		var unit_points: int = int(meta.get("points", -1))
+
+		if unit_points < 0:
+			units_missing_points.append(unit_name + " (" + unit_id + ")")
+		elif unit_points == 0:
+			result.warnings.append("Unit '%s' (%s) has 0 points cost" % [unit_name, unit_id])
+		else:
+			total_unit_points += unit_points
+
+	# Report units missing points
+	if units_missing_points.size() > 0:
+		result.warnings.append("Units missing points cost: %s" % ", ".join(units_missing_points))
+
+	# --- Points limit comparison ---
+	if declared_points >= 0 and units_missing_points.size() == 0:
+		if total_unit_points > declared_points:
+			result.warnings.append(
+				"Army exceeds declared points limit: %d / %d pts (+%d over)" % [
+					total_unit_points, declared_points, total_unit_points - declared_points
+				]
+			)
+
+		# Check if declared points matches a standard game size
+		if declared_points > 0 and declared_points not in STANDARD_GAME_SIZES:
+			result.warnings.append(
+				"Declared points limit (%d) is not a standard game size (%s)" % [
+					declared_points, str(STANDARD_GAME_SIZES)
+				]
+			)
+
+	# Log the validation summary
+	print("ArmyListManager: Army construction validation for '%s':" % faction_name)
+	print("  Declared points: %d, Total unit points: %d, Units: %d" % [declared_points, total_unit_points, unit_count])
+	if detachment.is_empty():
+		print("  Detachment: (none)")
+	else:
+		print("  Detachment: %s" % detachment)
+	if result.errors.size() > 0:
+		for err in result.errors:
+			print("  ERROR: %s" % err)
+	if result.warnings.size() > 0:
+		for warn in result.warnings:
+			print("  WARNING: %s" % warn)
+	if result.errors.size() == 0 and result.warnings.size() == 0:
+		print("  All construction checks passed")
+
 	return result
 
 # Create a fallback army if loading fails

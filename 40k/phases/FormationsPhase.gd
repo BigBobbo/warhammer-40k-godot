@@ -467,6 +467,9 @@ func _validate_confirm_formations(action: Dictionary) -> Dictionary:
 	if not warlord_result.get("valid", true):
 		return warlord_result
 
+	# Validate army construction points (warnings only — don't block confirmation)
+	_validate_army_construction_points(player)
+
 	return {"valid": true, "errors": []}
 
 func _validate_end_formations(action: Dictionary) -> Dictionary:
@@ -725,6 +728,40 @@ func _validate_warlord_designation(player: int) -> Dictionary:
 	return {"valid": false, "errors": [
 		"Player %d has no Warlord designated. One of these CHARACTER units must be the Warlord: %s" % [player, ", ".join(names)]
 	]}
+
+func _validate_army_construction_points(player: int) -> void:
+	"""Validate army construction points for a player at formation confirmation time.
+	Logs warnings but does not block — this is advisory validation per GEN-10."""
+	var units = game_state_snapshot.get("units", {})
+	var factions = game_state_snapshot.get("factions", {})
+	var faction = factions.get(str(player), {})
+
+	var declared_points = faction.get("points", -1)
+	var faction_name = faction.get("name", "Unknown")
+	var detachment = faction.get("detachment", "")
+
+	# Calculate total unit points for this player
+	var total_unit_points: int = 0
+	var unit_count: int = 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("owner", 0) != player:
+			continue
+		unit_count += 1
+		total_unit_points += unit.get("meta", {}).get("points", 0)
+
+	log_phase_message("Player %d army construction check: %s, %d pts declared, %d pts in %d units, detachment: %s" % [
+		player, faction_name, declared_points, total_unit_points, unit_count,
+		detachment if not detachment.is_empty() else "(none)"
+	])
+
+	if declared_points >= 0 and total_unit_points > declared_points:
+		log_phase_message("WARNING: Player %d army exceeds points limit: %d / %d pts (+%d over)" % [
+			player, total_unit_points, declared_points, total_unit_points - declared_points
+		])
+
+	if detachment.is_empty():
+		log_phase_message("WARNING: Player %d has no detachment declared" % player)
 
 func _get_all_characters_for_player(player: int) -> Array:
 	"""Get all units with the CHARACTER keyword for a player (regardless of Leader ability)."""
