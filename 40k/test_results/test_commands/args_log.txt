@@ -1,1 +1,1 @@
-ARGS: ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
+ARGS: []
