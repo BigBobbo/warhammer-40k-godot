@@ -89,13 +89,17 @@
 - [ ] Visual indicators for achieved/in-progress missions (color coding, icons)
 - File modified: `scripts/ScoringController.gd`
 
-### Task 12: Opponent Interaction Dialogs -- BACKEND ONLY
+### Task 12: Opponent Interaction Dialogs -- COMPLETE
 - [x] Backend: `resolve_marked_for_death(player, alpha_targets, gamma_target)` stores targets
 - [x] Backend: `resolve_tempting_target(player, objective_id)` stores target objective
 - [x] Signal `when_drawn_requires_interaction` emitted when card needs opponent input
-- [ ] Modal UI dialog for opponent to pick 3 units (Marked for Death)
-- [ ] Modal UI dialog for opponent to pick objective in No Man's Land (A Tempting Target)
-- [ ] UI flow to pause card draw and prompt opponent
+- [x] Modal UI dialog for opponent to pick 3 units (Marked for Death) — MarkedForDeathDialog.gd
+- [x] Modal UI dialog for opponent to pick objective in No Man's Land (A Tempting Target) — TemptingTargetDialog.gd
+- [x] UI flow: CommandController._check_pending_interactions() triggers dialogs after signal connect (fixes timing gap)
+- [x] AI auto-resolution via AIPlayer._on_secondary_requires_interaction()
+- [x] NML objectives validation in _handle_when_drawn (discard-and-draw if none exist)
+- [x] Resolved target data displayed in SecondaryMissionPanel and CommandController
+- [x] Save/load support for pending_interaction and mission_data via GameState snapshot
 
 ### Task 13: Voluntary Discard & New Orders UI -- BACKEND ONLY
 - [x] Backend: `voluntary_discard()` removes card and grants 1CP
@@ -140,7 +144,7 @@
 
 ## Priority for Remaining Work
 1. **Kill hooks** (Task 9 blocker) - Wire `on_unit_destroyed()` into RulesEngine combat resolution
-2. **Opponent interaction UI** (Task 12) - Modals for Marked for Death / A Tempting Target
+2. ~~**Opponent interaction UI** (Task 12) - Modals for Marked for Death / A Tempting Target~~ **DONE**
 3. **Action system** (Task 10 blocker) - Shooting Phase "Perform Action" mechanic
 4. **Persistent HUD** (Task 11) - Show missions during all phases
 5. **New Orders UI** (Tasks 5, 13) - Register stratagem and add UI

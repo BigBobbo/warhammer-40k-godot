@@ -279,6 +279,35 @@ func _build_mission_card(parent: VBoxContainer, mission: Dictionary) -> void:
 		pending.add_theme_font_size_override("font_size", 10)
 		pending.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		vbox.add_child(pending)
+	else:
+		# Show resolved interaction data if available
+		var mission_data = mission.get("mission_data", {})
+		if mission.get("id", "") == "marked_for_death" and not mission_data.get("alpha_targets", []).is_empty():
+			var targets_label = Label.new()
+			var alpha_names = []
+			for target_id in mission_data.get("alpha_targets", []):
+				var unit = GameState.get_unit(target_id)
+				alpha_names.append(unit.get("meta", {}).get("name", target_id) if not unit.is_empty() else target_id)
+			var gamma_id = mission_data.get("gamma_target", "")
+			var gamma_name = ""
+			if gamma_id != "":
+				var gamma_unit = GameState.get_unit(gamma_id)
+				gamma_name = gamma_unit.get("meta", {}).get("name", gamma_id) if not gamma_unit.is_empty() else gamma_id
+			targets_label.text = "Alpha: %s" % ", ".join(alpha_names)
+			if gamma_name != "":
+				targets_label.text += "\nGamma: %s" % gamma_name
+			targets_label.add_theme_font_size_override("font_size", 9)
+			targets_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+			targets_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			vbox.add_child(targets_label)
+
+		elif mission.get("id", "") == "a_tempting_target" and mission_data.get("tempting_target_id", "") != "":
+			var obj_label = Label.new()
+			var obj_id = mission_data.get("tempting_target_id", "")
+			obj_label.text = "Target: %s" % obj_id.replace("obj_", "Objective ").to_upper()
+			obj_label.add_theme_font_size_override("font_size", 9)
+			obj_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+			vbox.add_child(obj_label)
 
 # ============================================================================
 # SIGNAL HANDLERS
