@@ -144,6 +144,22 @@ func model_to_model_distance_px(model1: Dictionary, model2: Dictionary) -> float
 func model_to_model_distance_inches(model1: Dictionary, model2: Dictionary) -> float:
 	return px_to_inches(model_to_model_distance_px(model1, model2))
 
+func model_vertical_distance_inches(model1: Dictionary, model2: Dictionary) -> float:
+	"""Returns the vertical (elevation) distance between two models in inches.
+	Models store elevation in an 'elevation' field (defaults to 0.0 for ground floor)."""
+	var elev1 = model1.get("elevation", 0.0)
+	var elev2 = model2.get("elevation", 0.0)
+	return abs(elev1 - elev2)
+
+func is_within_coherency(model1: Dictionary, model2: Dictionary) -> bool:
+	"""Check if two models satisfy the 10th Edition coherency requirement:
+	within 2\" horizontally (edge-to-edge) AND within 5\" vertically."""
+	var horizontal = model_to_model_distance_inches(model1, model2)
+	if horizontal > 2.0:
+		return false
+	var vertical = model_vertical_distance_inches(model1, model2)
+	return vertical <= 5.0
+
 func models_overlap(model1: Dictionary, model2: Dictionary) -> bool:
 	# Check if two models' bases overlap
 	var pos1 = model1.get("position", Vector2.ZERO)

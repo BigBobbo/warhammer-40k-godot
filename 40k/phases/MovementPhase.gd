@@ -595,7 +595,7 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 				return {"valid": false, "errors": ["Model %s would still be in engagement range" % model_move.model_id]}
 
 	# Check unit coherency after all staged moves are applied
-	# Rule: Each model must be within 2" of at least one other model (2 others for 7+ model units)
+	# Rule: Each model must be within 2" horizontally and 5" vertically of at least one other model (2 others for 7+ model units)
 	var coherency_result = _validate_unit_coherency_after_move(unit_id, move_data)
 	if not coherency_result.valid:
 		return {"valid": false, "errors": coherency_result.errors}
@@ -604,8 +604,8 @@ func _validate_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 func _check_models_coherency(final_models: Array) -> Dictionary:
 	"""Check unit coherency for an array of model dicts with positions.
-	Each model must be within 2" of at least one other model (2 others for 7+ model units).
-	Returns {valid: bool, errors: Array}."""
+	Each model must be within 2" horizontally AND 5" vertically of at least one other model
+	(2 others for 7+ model units). Returns {valid: bool, errors: Array}."""
 	if final_models.size() <= 1:
 		return {"valid": true, "errors": []}
 
@@ -617,8 +617,7 @@ func _check_models_coherency(final_models: Array) -> Dictionary:
 		for j in range(final_models.size()):
 			if i == j:
 				continue
-			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
-			if distance <= 2.0:
+			if Measurement.is_within_coherency(final_models[i], final_models[j]):
 				connections += 1
 				if connections >= required_connections:
 					break  # No need to check further
@@ -627,7 +626,7 @@ func _check_models_coherency(final_models: Array) -> Dictionary:
 			var model_id = final_models[i].get("id", "model %d" % i)
 			var needed_str = "%d model(s)" % required_connections
 			log_phase_message("Coherency check failed: model %s has %d connections, needs %s" % [model_id, connections, needed_str])
-			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" of %s" % [model_id, needed_str]]}
+			return {"valid": false, "errors": ["Unit coherency broken: model %s is not within 2\" horizontally and 5\" vertically of %s" % [model_id, needed_str]]}
 
 	return {"valid": true, "errors": []}
 
@@ -2604,7 +2603,7 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
 					break
 
-	# Check unit coherency: reinforcement models must maintain 2" coherency
+	# Check unit coherency: reinforcement models must maintain 2" horizontal and 5" vertical coherency
 	if errors.is_empty():
 		var final_models = []
 		var unit_models = unit.get("models", [])
@@ -3803,7 +3802,7 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		if _position_outside_board_bounds(pos if pos is Vector2 else Vector2(pos.x, pos.y), model_at_pos):
 			return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
 
-	# Check unit coherency: disembarked models must maintain 2" coherency
+	# Check unit coherency: disembarked models must maintain 2" horizontal and 5" vertical coherency
 	var final_models = []
 	for i in range(positions.size()):
 		if i >= unit.models.size():

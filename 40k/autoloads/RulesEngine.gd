@@ -5531,7 +5531,7 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
 
-	# Check that each model is within 2" of at least one other model (edge-to-edge)
+	# Check that each model is within 2" horizontally AND 5" vertically of at least one other model
 	for i in range(final_models.size()):
 		var has_nearby_model = false
 
@@ -5539,9 +5539,7 @@ static func _validate_unit_coherency_for_charge_rules(unit_id: String, per_model
 			if i == j:
 				continue
 
-			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
-
-			if distance <= 2.0:
+			if Measurement.is_within_coherency(final_models[i], final_models[j]):
 				has_nearby_model = true
 				break
 

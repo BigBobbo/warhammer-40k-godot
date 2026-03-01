@@ -79,7 +79,7 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_DISTANCE: "A model's movement path exceeded the rolled charge distance. Each model can move at most the rolled distance in inches during a charge move.",
 	FAIL_ENGAGEMENT: "The charging unit must end its move with at least one model within engagement range (1\") of EVERY declared target. If you declared multiple targets, you must reach all of them.",
 	FAIL_NON_TARGET_ER: "No charging model may end within engagement range (1\") of an enemy unit that was NOT declared as a charge target. Plan your movement to avoid non-target enemies.",
-	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" of at least one other model) after the charge move completes.",
+	FAIL_COHERENCY: "All models in the unit must maintain unit coherency (within 2\" horizontally and 5\" vertically of at least one other model) after the charge move completes.",
 	FAIL_OVERLAP: "Models cannot end their charge movement overlapping with other models (friendly or enemy). Reposition to avoid base overlaps.",
 	FAIL_BASE_CONTACT: "If a charging model CAN make base-to-base contact with an enemy model while still satisfying all other charge conditions, it MUST do so (10e core rule).",
 	FAIL_DIRECTION: "Each model making a charge move must end that move closer to at least one of the charge target units than it started. Reposition the model so it ends nearer to a declared target.",
@@ -1522,7 +1522,7 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 	if final_models.size() < 2:
 		return {"valid": true, "errors": []}  # Single model or no movement
 
-	# Check that each model is within 2" of at least one other model (edge-to-edge)
+	# Check that each model is within 2" horizontally AND 5" vertically of at least one other model
 	for i in range(final_models.size()):
 		var has_nearby_model = false
 
@@ -1530,9 +1530,7 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 			if i == j:
 				continue
 
-			var distance = Measurement.model_to_model_distance_inches(final_models[i], final_models[j])
-
-			if distance <= 2.0:
+			if Measurement.is_within_coherency(final_models[i], final_models[j]):
 				has_nearby_model = true
 				break
 
