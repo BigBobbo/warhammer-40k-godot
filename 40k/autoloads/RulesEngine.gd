@@ -4797,9 +4797,10 @@ static func is_hazardous_weapon(weapon_id: String, board: Dictionary = {}) -> bo
 	return false
 
 # Resolve Hazardous self-damage check after a weapon has fired
-# Per 10e rules: Roll D6 per Hazardous weapon fired. On a 1:
-#   - CHARACTER, VEHICLE, or MONSTER: 3 mortal wounds
-#   - Other models: 1 model destroyed (owner's choice, simplified to first alive model)
+# Per Balance Dataslate v3.3: Roll D6 per Hazardous weapon fired. On a 1:
+#   - Unit suffers 3 mortal wounds allocated to a selected model (no spillover)
+#   - Allocation priority: (1) wounded model with Hazardous weapon,
+#     (2) non-Character with Hazardous, (3) Character with Hazardous
 # Returns { hazardous_triggered, rolls, ones_rolled, diffs, dice, log_text }
 static func resolve_hazardous_check(
 	actor_unit_id: String,
@@ -4854,82 +4855,159 @@ static func resolve_hazardous_check(
 
 	result.hazardous_triggered = true
 
-	# Determine damage type based on unit keywords
+	# Balance Dataslate v3.3: Always 3 mortal wounds per 1 rolled, allocated to selected model
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
-	var unit_keywords = actor_unit.get("meta", {}).get("keywords", [])
+	var models = actor_unit.get("models", [])
+	var total_mw = 3 * ones_rolled
 
-	# Normalize keywords for comparison
-	var normalized_keywords = []
-	for kw in unit_keywords:
-		normalized_keywords.append(kw.to_upper())
+	# Find allocation target using Hazardous-specific priority (Balance Dataslate v3.3):
+	#   (1) wounded model with Hazardous weapon
+	#   (2) non-Character model with Hazardous weapon
+	#   (3) Character model with Hazardous weapon
+	var target_model_idx = _find_hazardous_allocation_target(models, weapon_id, board)
 
-	var is_character_vehicle_monster = (
-		"CHARACTER" in normalized_keywords or
-		"VEHICLE" in normalized_keywords or
-		"MONSTER" in normalized_keywords
-	)
+	if target_model_idx < 0:
+		# Fallback: no valid target found, use standard allocation
+		print("RulesEngine: [HAZARDOUS] No valid allocation target — using standard allocation")
+		target_model_idx = _find_allocation_target_model(models)
 
-	if is_character_vehicle_monster:
-		# CHARACTER/VEHICLE/MONSTER: 3 mortal wounds per 1 rolled
-		var total_mw = 3 * ones_rolled
-		print("RulesEngine: [HAZARDOUS] Unit has CHARACTER/VEHICLE/MONSTER keyword — applying %d mortal wounds" % total_mw)
+	if target_model_idx >= 0:
+		var target_model = models[target_model_idx]
+		var model_name = target_model.get("name", target_model.get("id", "model_%d" % target_model_idx))
+		print("RulesEngine: [HAZARDOUS] Allocating %d mortal wounds to model '%s' (idx %d)" % [total_mw, model_name, target_model_idx])
 
-		var mw_result = apply_mortal_wounds(actor_unit_id, total_mw, board, rng)
-		result.diffs.append_array(mw_result.get("diffs", []))
-		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to bearer (%d wounds applied)" % [
-			weapon_name, ones_rolled, total_mw, mw_result.get("wounds_applied", 0)
+		# Apply mortal wounds to this specific model (no spillover per Balance Dataslate v3.3)
+		var current_wounds = target_model.get("current_wounds", target_model.get("wounds", 1))
+
+		# Check for Feel No Pain
+		var fnp_value = get_unit_fnp(actor_unit)
+		var actual_mw = total_mw
+		var fnp_rolls_arr = []
+
+		if fnp_value > 0:
+			var fnp_result = roll_feel_no_pain(total_mw, fnp_value, rng)
+			actual_mw = fnp_result.get("wounds_remaining", total_mw)
+			fnp_rolls_arr = fnp_result.get("rolls", [])
+			print("RulesEngine: [HAZARDOUS] FNP %d+ check — %d MW reduced to %d" % [fnp_value, total_mw, actual_mw])
+
+		var damage_to_apply = min(actual_mw, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+		var casualties = 0
+
+		if damage_to_apply > 0:
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.current_wounds" % [actor_unit_id, target_model_idx],
+				"value": new_wounds
+			})
+			models[target_model_idx]["current_wounds"] = new_wounds
+
+		if new_wounds <= 0:
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [actor_unit_id, target_model_idx],
+				"value": false
+			})
+			models[target_model_idx]["alive"] = false
+			casualties = 1
+
+		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to %s (%d wounds applied)" % [
+			weapon_name, ones_rolled, total_mw, model_name, damage_to_apply
 		]
 
-		# Add mortal wound details to dice log
 		result.dice.append({
 			"context": "hazardous_damage",
 			"damage_type": "mortal_wounds",
 			"mortal_wounds": total_mw,
-			"wounds_applied": mw_result.get("wounds_applied", 0),
-			"casualties": mw_result.get("casualties", 0),
-			"fnp_rolls": mw_result.get("fnp_rolls", []),
+			"wounds_applied": damage_to_apply,
+			"casualties": casualties,
+			"fnp_rolls": fnp_rolls_arr,
+			"target_model_idx": target_model_idx,
 			"message": "Hazardous: %d mortal wounds to %s" % [total_mw, actor_unit.get("meta", {}).get("name", actor_unit_id)]
 		})
 	else:
-		# Other models: 1 model destroyed per 1 rolled (owner's choice, simplified to first alive)
-		print("RulesEngine: [HAZARDOUS] Regular unit — destroying %d model(s)" % ones_rolled)
-		var models = actor_unit.get("models", [])
-		var models_destroyed = 0
-
-		for _i in range(ones_rolled):
-			# Find first alive model to destroy
-			for model_idx in range(models.size()):
-				var model = models[model_idx]
-				if model.get("alive", true):
-					# Check not already killed by a previous hazardous roll in this batch
-					var already_killed = false
-					for diff in result.diffs:
-						if diff.get("path", "") == "units.%s.models.%d.alive" % [actor_unit_id, model_idx]:
-							already_killed = true
-							break
-					if already_killed:
-						continue
-
-					result.diffs.append({
-						"op": "set",
-						"path": "units.%s.models.%d.alive" % [actor_unit_id, model_idx],
-						"value": false
-					})
-					models_destroyed += 1
-					break
-
-		result.log_text = "HAZARDOUS! %s: %d ones → %d model(s) destroyed" % [weapon_name, ones_rolled, models_destroyed]
-
-		result.dice.append({
-			"context": "hazardous_damage",
-			"damage_type": "slay_model",
-			"models_destroyed": models_destroyed,
-			"message": "Hazardous: %d model(s) destroyed from %s" % [models_destroyed, actor_unit.get("meta", {}).get("name", actor_unit_id)]
-		})
+		# No alive models at all
+		result.log_text = "HAZARDOUS! %s: %d ones → no alive models to allocate to" % [weapon_name, ones_rolled]
+		print("RulesEngine: [HAZARDOUS] No alive models to allocate mortal wounds to")
 
 	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
+
+# Balance Dataslate v3.3 Hazardous allocation priority:
+#   (1) wounded model with Hazardous weapon
+#   (2) non-Character model with Hazardous weapon
+#   (3) Character model with Hazardous weapon
+static func _find_hazardous_allocation_target(models: Array, hazardous_weapon_id: String, board: Dictionary) -> int:
+	# Build list of alive model indices with whether they have a Hazardous weapon and are CHARACTER
+	var candidates = []
+	for i in range(models.size()):
+		var model = models[i]
+		if not model.get("alive", true):
+			continue
+
+		var has_hazardous = _model_has_hazardous_weapon(model, board)
+		var is_character = _model_is_character(model)
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var max_wounds = model.get("wounds_max", model.get("wounds", 1))
+		var is_wounded = current_wounds < max_wounds
+
+		candidates.append({
+			"idx": i,
+			"has_hazardous": has_hazardous,
+			"is_character": is_character,
+			"is_wounded": is_wounded
+		})
+
+	if candidates.is_empty():
+		return -1
+
+	# Priority 1: wounded model with Hazardous weapon
+	for c in candidates:
+		if c.is_wounded and c.has_hazardous:
+			print("RulesEngine: [HAZARDOUS] Allocation priority 1 — wounded model with Hazardous weapon (idx %d)" % c.idx)
+			return c.idx
+
+	# Priority 2: non-Character model with Hazardous weapon
+	for c in candidates:
+		if c.has_hazardous and not c.is_character:
+			print("RulesEngine: [HAZARDOUS] Allocation priority 2 — non-Character with Hazardous weapon (idx %d)" % c.idx)
+			return c.idx
+
+	# Priority 3: Character model with Hazardous weapon
+	for c in candidates:
+		if c.has_hazardous and c.is_character:
+			print("RulesEngine: [HAZARDOUS] Allocation priority 3 — Character with Hazardous weapon (idx %d)" % c.idx)
+			return c.idx
+
+	# Fallback: any alive model (shouldn't happen since at least the firing model has the weapon)
+	print("RulesEngine: [HAZARDOUS] Allocation fallback — first alive model (idx %d)" % candidates[0].idx)
+	return candidates[0].idx
+
+# Check if a specific model has any Hazardous weapon equipped
+static func _model_has_hazardous_weapon(model: Dictionary, board: Dictionary) -> bool:
+	var weapons = model.get("weapons", [])
+	for weapon in weapons:
+		var wid = ""
+		if weapon is Dictionary:
+			wid = weapon.get("id", weapon.get("weapon_id", ""))
+		elif weapon is String:
+			wid = weapon
+		if wid != "" and is_hazardous_weapon(wid, board):
+			return true
+	return false
+
+# Check if a model is a CHARACTER (via model-level or keywords)
+static func _model_is_character(model: Dictionary) -> bool:
+	# Check model-level keywords
+	var model_keywords = model.get("keywords", [])
+	for kw in model_keywords:
+		if kw.to_upper() == "CHARACTER":
+			return true
+	# Check if model has a "is_character" flag
+	if model.get("is_character", false):
+		return true
+	return false
 
 # ==========================================
 # INDIRECT FIRE KEYWORD (T2-4)
