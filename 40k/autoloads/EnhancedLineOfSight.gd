@@ -41,11 +41,19 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		target_shape, target_pos, target_rotation
 	)
 
+	# TER-2: Pre-compute which ruins the shooter is wholly within
+	# Per 10e rules: "Models wholly within Ruins can see out normally"
+	# "Wholly within" means ALL sample points (entire base) must be inside the ruin
+	var shooter_wholly_within_ruins = _get_ruins_model_wholly_within(
+		sample_points.shooter, shooter_pos, shooter_model, board
+	)
+
 	var attempted_lines = []
 
 	# Phase 1: Center-to-center (fast path for 85% of cases)
 	# T3-19: Pass model data for height-based terrain blocking
-	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model)
+	# TER-2: Pass wholly-within ruins info for Ruins visibility rules
+	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model, shooter_wholly_within_ruins)
 	attempted_lines.append({"from": shooter_pos, "to": target_pos, "blocked": not center_check.has_los})
 
 	if center_check.has_los:
@@ -61,7 +69,7 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 	for shooter_point in sample_points.shooter:
 		for target_point in sample_points.target:
 			# T3-19: Pass model data for height-based terrain blocking
-			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model)
+			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model, shooter_wholly_within_ruins)
 			attempted_lines.append({"from": shooter_point, "to": target_point, "blocked": not los_check.has_los})
 
 			if los_check.has_los:
@@ -83,6 +91,48 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		"attempted_lines": attempted_lines,
 		"blocking_terrain": blocking_terrain
 	}
+
+# TER-2: Determine which ruins terrain pieces the shooter model is wholly within
+# A model is "wholly within" a ruin if ALL its sample points (center + edge) are inside the polygon.
+# Towering models only need to be "within" (center inside) to see out.
+# Returns array of terrain piece IDs that the shooter can see out of.
+static func _get_ruins_model_wholly_within(shooter_sample_points: Array, shooter_center: Vector2, shooter_model: Dictionary, board: Dictionary) -> Array:
+	var terrain_features = board.get("terrain_features", [])
+	if terrain_features.is_empty() and TerrainManager:
+		terrain_features = TerrainManager.terrain_features
+
+	var ruins_can_see_out_of = []
+	var is_towering = LineOfSightCalculator._model_has_towering_keyword(shooter_model)
+
+	for terrain_piece in terrain_features:
+		if terrain_piece.get("type", "") != "ruins":
+			continue
+
+		var polygon = terrain_piece.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+
+		# Towering models: only need center to be within the ruin
+		if is_towering:
+			if _point_in_polygon(shooter_center, polygon):
+				ruins_can_see_out_of.append(terrain_piece.get("id", "unknown"))
+			continue
+
+		# Standard models: must be wholly within (all sample points inside)
+		var all_inside = true
+		for point in shooter_sample_points:
+			if not _point_in_polygon(point, polygon):
+				all_inside = false
+				break
+
+		# Also check center point
+		if all_inside and not _point_in_polygon(shooter_center, polygon):
+			all_inside = false
+
+		if all_inside:
+			ruins_can_see_out_of.append(terrain_piece.get("id", "unknown"))
+
+	return ruins_can_see_out_of
 
 # Robust shape creation with fallbacks for backward compatibility
 static func _get_model_shape(model: Dictionary) -> BaseShape:
@@ -249,7 +299,9 @@ static func _determine_sample_density(distance_inches: float, base_size_mm: int)
 
 # Single line of sight check with terrain intersection
 # T3-19: Added shooter_model/target_model for height-based terrain blocking
-static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> Dictionary:
+# TER-2: Ruins-specific visibility rules per 10e Core Rules
+# shooter_wholly_within_ruins: array of ruin terrain IDs the shooter model can see out of
+static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, shooter_wholly_within_ruins: Array = []) -> Dictionary:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
@@ -267,20 +319,47 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 		if not _segment_intersects_polygon(from, to, polygon):
 			continue
 
+		var terrain_type = terrain_piece.get("type", "")
+		var terrain_id = terrain_piece.get("id", "unknown")
+		var from_inside = _point_in_polygon(from, polygon)
+		var to_inside = _point_in_polygon(to, polygon)
+
+		# TER-2: Ruins-specific visibility rules
+		if terrain_type == "ruins":
+			# Aircraft exception: visibility to/from Aircraft determined normally through Ruins
+			if LineOfSightCalculator._model_has_aircraft_keyword(shooter_model) or LineOfSightCalculator._model_has_aircraft_keyword(target_model):
+				continue
+
+			# Models can see INTO Ruins normally (target is inside)
+			if to_inside:
+				continue
+
+			# Models wholly within this specific ruin can see out normally
+			# (pre-computed at model level using all sample points)
+			# Towering models within (not wholly within) also see out
+			if terrain_id in shooter_wholly_within_ruins:
+				continue
+
+			# Shooter is outside (or only partially inside) this ruin
+			# and the line crosses it → BLOCKED
+			blocking_terrain.append(terrain_id)
+			continue
+
+		# Non-ruins terrain: generic height-based rules
 		# Models inside terrain can see out and be seen
-		if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+		if from_inside or to_inside:
 			continue
 
 		if height_cat == "tall":
 			# Tall terrain blocks LoS for all models
-			blocking_terrain.append(terrain_piece.get("id", "unknown"))
+			blocking_terrain.append(terrain_id)
 		elif height_cat == "medium":
 			# T3-19: Medium terrain blocks LoS only if both models are shorter than terrain
 			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain_piece)
 			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
 			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
 			if shooter_height < terrain_height and target_height < terrain_height:
-				blocking_terrain.append(terrain_piece.get("id", "unknown"))
+				blocking_terrain.append(terrain_id)
 
 	return {
 		"has_los": blocking_terrain.is_empty(),
@@ -289,6 +368,7 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 
 # Get all terrain pieces that block any line in the sample set
 # T3-19: Added shooter_model/target_model for height-based terrain blocking
+# TER-2: Ruins-specific visibility rules
 static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> Array:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
@@ -298,13 +378,19 @@ static func _get_blocking_terrain(sample_points: Dictionary, board: Dictionary, 
 
 	for terrain_piece in terrain_features:
 		var height_cat = terrain_piece.get("height_category", "")
+		var terrain_type = terrain_piece.get("type", "")
 
 		# Low terrain never blocks LoS
 		if height_cat == "low":
 			continue
 
-		# T3-19: For medium terrain, check if models can see over it
-		if height_cat == "medium":
+		# TER-2: Ruins — Aircraft exception
+		if terrain_type == "ruins":
+			if LineOfSightCalculator._model_has_aircraft_keyword(shooter_model) or LineOfSightCalculator._model_has_aircraft_keyword(target_model):
+				continue
+
+		# T3-19: For non-ruins medium terrain, check if models can see over it
+		if terrain_type != "ruins" and height_cat == "medium":
 			var terrain_height = LineOfSightCalculator._get_terrain_height_inches(terrain_piece)
 			var shooter_height = LineOfSightCalculator.get_model_height_inches(shooter_model)
 			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)

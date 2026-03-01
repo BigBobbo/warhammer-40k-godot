@@ -143,6 +143,7 @@ func _create_point_target(position: Vector2) -> Dictionary:
 func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	# Check if line of sight is blocked by terrain
 	# T3-19: Now handles all terrain heights, not just tall
+	# TER-2: Ruins-specific visibility rules per 10e Core Rules
 	var terrain_features = []
 
 	# Get terrain from TerrainManager
@@ -165,9 +166,31 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 		if not _segment_intersects_polygon(from, to, polygon):
 			continue
 
-		# Check if both points are outside the terrain
-		# (models inside terrain can see out and be seen)
-		if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+		var terrain_type = terrain.get("type", "")
+		var from_inside = _point_in_polygon(from, polygon)
+		var to_inside = _point_in_polygon(to, polygon)
+
+		# TER-2: Ruins-specific visibility rules
+		if terrain_type == "ruins":
+			# Aircraft exception: visibility to/from Aircraft determined normally
+			if LineOfSightCalculator._model_has_aircraft_keyword(shooter_model) or LineOfSightCalculator._model_has_aircraft_keyword(target_model):
+				continue
+
+			# Models can see INTO Ruins normally (target is inside)
+			if to_inside:
+				continue
+
+			# Models inside the ruin can see out (point-based check = wholly within approximation)
+			# Towering models within also see out
+			if from_inside:
+				continue
+
+			# Both outside, line crosses ruin → BLOCKED
+			return false
+
+		# Non-ruins terrain: generic height-based rules
+		# Models inside terrain can see out and be seen
+		if from_inside or to_inside:
 			continue
 
 		if height_cat == "tall":
