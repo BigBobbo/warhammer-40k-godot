@@ -2992,7 +2992,7 @@ static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, boar
 static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
 	# Use Godot's Geometry2D for proper polygon intersection
 	var polygon_packed: PackedVector2Array
-	
+
 	if poly is PackedVector2Array:
 		polygon_packed = poly
 	elif poly is Array:
@@ -3005,18 +3005,24 @@ static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, po
 				polygon_packed.append(vertex)
 	else:
 		return false
-	
+
 	if polygon_packed.is_empty():
 		return false
-	
+
 	# Check if line segment intersects any edge of the polygon
 	for i in range(polygon_packed.size()):
 		var edge_start = polygon_packed[i]
 		var edge_end = polygon_packed[(i + 1) % polygon_packed.size()]
-		
+
 		if Geometry2D.segment_intersects_segment(seg_start, seg_end, edge_start, edge_end):
 			return true
-	
+
+	# P1-68: If either endpoint is inside the polygon, the segment interacts with it
+	if Geometry2D.is_point_in_polygon(seg_start, polygon_packed):
+		return true
+	if Geometry2D.is_point_in_polygon(seg_end, polygon_packed):
+		return true
+
 	return false
 
 # Helper function to check if a point is inside a polygon

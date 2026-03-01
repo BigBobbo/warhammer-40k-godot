@@ -156,6 +156,12 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 
 		# Low terrain never blocks LoS
 		if height_cat == "low":
+			# P1-68: Still check walls even in low terrain
+			var walls = terrain.get("walls", [])
+			for wall in walls:
+				if wall.get("blocks_los", true):
+					if TerrainManager.check_line_intersects_wall(from, to, wall):
+						return false
 			continue
 
 		var polygon = terrain.get("polygon", PackedVector2Array())
@@ -178,11 +184,23 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 
 			# Models can see INTO Ruins normally (target is inside)
 			if to_inside:
+				# P1-68: Still check walls even when seeing into ruins
+				var walls = terrain.get("walls", [])
+				for wall in walls:
+					if wall.get("blocks_los", true):
+						if TerrainManager.check_line_intersects_wall(from, to, wall):
+							return false
 				continue
 
 			# Models inside the ruin can see out (point-based check = wholly within approximation)
 			# Towering models within also see out
 			if from_inside:
+				# P1-68: Still check walls even when seeing out of ruins
+				var walls = terrain.get("walls", [])
+				for wall in walls:
+					if wall.get("blocks_los", true):
+						if TerrainManager.check_line_intersects_wall(from, to, wall):
+							return false
 				continue
 
 			# Both outside, line crosses ruin → BLOCKED
@@ -191,6 +209,12 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 		# Non-ruins terrain: generic height-based rules
 		# Models inside terrain can see out and be seen
 		if from_inside or to_inside:
+			# P1-68: Still check walls even when inside terrain
+			var walls = terrain.get("walls", [])
+			for wall in walls:
+				if wall.get("blocks_los", true):
+					if TerrainManager.check_line_intersects_wall(from, to, wall):
+						return false
 			continue
 
 		if height_cat == "tall":
@@ -316,6 +340,7 @@ func calculate_visibility_grid_to_target(target_pos: Vector2) -> Dictionary:
 	return grid
 
 # Polygon intersection checking (adapted from EnhancedLineOfSight)
+# P1-68: Also returns true if either endpoint is inside the polygon
 func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
 	var polygon_packed: PackedVector2Array
 
@@ -341,6 +366,12 @@ func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> 
 
 		if Geometry2D.segment_intersects_segment(seg_start, seg_end, edge_start, edge_end):
 			return true
+
+	# P1-68: If either endpoint is inside the polygon, the segment interacts with it
+	if Geometry2D.is_point_in_polygon(seg_start, polygon_packed):
+		return true
+	if Geometry2D.is_point_in_polygon(seg_end, polygon_packed):
+		return true
 
 	return false
 

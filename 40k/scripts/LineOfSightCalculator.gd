@@ -275,6 +275,7 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 # Check if a line segment intersects a polygon
+# P1-68: Also returns true if either endpoint is inside the polygon
 static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
 	var polygon_packed: PackedVector2Array
 
@@ -303,6 +304,12 @@ static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, po
 		var intersection = Geometry2D.segment_intersects_segment(seg_start, seg_end, edge_start, edge_end)
 		if intersection:
 			return true
+
+	# P1-68: If either endpoint is inside the polygon, the segment interacts with it
+	if Geometry2D.is_point_in_polygon(seg_start, polygon_packed):
+		return true
+	if Geometry2D.is_point_in_polygon(seg_end, polygon_packed):
+		return true
 
 	return false
 
