@@ -50,8 +50,9 @@ func _process(delta: float) -> void:
 	# Determine if we need to redraw this frame
 	var needs_redraw = false
 
-	if style == "enhanced" and not debug_mode:
-		# Enhanced mode always animates (procedural silhouettes or sprite frames)
+	var use_retro = SettingsService.retro_mode if SettingsService else false
+	if (use_retro and not debug_mode) or (style == "enhanced" and not debug_mode):
+		# Retro and enhanced modes always animate (procedural pixel art or silhouettes)
 		needs_redraw = true
 	elif is_selected or is_hovered:
 		# Selection/hover pulsing
@@ -90,10 +91,14 @@ func _draw() -> void:
 		fill_color = Color(0.5, 0.12, 0.1, 0.8 if is_preview else 1.0)
 		border_color = Color(0.85, 0.8, 0.65, 1.0)  # Bone
 
-	# Check style
+	# Check style and retro mode
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	var use_retro = SettingsService.retro_mode if SettingsService else false
 
-	if style == "enhanced" and not debug_mode:
+	if use_retro and not debug_mode:
+		# Retro pixel art rendering - replaces entire visual with pixel art sprites
+		_draw_retro(fill_color, border_color)
+	elif style == "enhanced" and not debug_mode:
 		_draw_enhanced(fill_color, border_color)
 	else:
 		# Original rendering path for classic/style_a/style_b and debug mode
@@ -177,6 +182,74 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	# --- Layer 8: Selection/hover pulsing ring ---
 	if is_selected or is_hovered:
 		_draw_selection_ring(radius)
+
+func _draw_retro(fill_color: Color, border_color: Color) -> void:
+	# Full retro pixel art rendering path - replaces the entire token visual.
+	# Draws: flat base -> pixel art sprite (primary visual) -> minimal overlays
+	var bounds = base_shape.get_bounds()
+	var radius = min(bounds.size.x, bounds.size.y) / 2.0
+	var rot = model_data.get("rotation", 0.0)
+	var shape_type = base_shape.get_type()
+
+	# --- Layer 1: Simple flat base (no gradient, no metallic rim) ---
+	var base_color = fill_color
+	base_color.a = 1.0
+	if shape_type == "circular":
+		draw_circle(Vector2.ZERO, radius, Color(0.08, 0.08, 0.08, 1.0))  # Dark background
+		draw_circle(Vector2.ZERO, radius - 1.5, base_color.darkened(0.5))  # Flat fill
+	else:
+		var poly_points = _get_shape_polygon(rot)
+		draw_colored_polygon(poly_points, Color(0.08, 0.08, 0.08, 1.0))
+		var center = Vector2.ZERO
+		var inset_points = PackedVector2Array()
+		for p in poly_points:
+			inset_points.append(center + (p - center) * 0.95)
+		draw_colored_polygon(inset_points, base_color.darkened(0.5))
+
+	# --- Layer 2: Thin pixel-style border ---
+	if shape_type == "circular":
+		draw_arc(Vector2.ZERO, radius, 0, TAU, 32, border_color, 2.0)
+	else:
+		var poly_points = _get_shape_polygon(rot)
+		poly_points.append(poly_points[0])
+		draw_polyline(poly_points, border_color, 2.0)
+
+	# --- Layer 3: Pixel art sprite (PRIMARY visual) ---
+	var unit_type = _get_unit_type()
+	var armor_color = fill_color
+	armor_color.a = 1.0
+	var accent_color = _get_faction_accent_color()
+
+	match unit_type:
+		"VEHICLE":
+			TokenDrawUtils.draw_retro_vehicle(self, Vector2.ZERO, radius, armor_color, accent_color, _animation_time)
+		"MONSTER":
+			TokenDrawUtils.draw_retro_monster(self, Vector2.ZERO, radius, armor_color, accent_color, _animation_time)
+		_:
+			TokenDrawUtils.draw_retro_infantry(self, Vector2.ZERO, radius, armor_color, accent_color, _animation_time)
+
+	# --- Layer 4: Pixel-art health bar ---
+	if has_meta("unit_id") and has_meta("model_id"):
+		var unit_id = get_meta("unit_id")
+		var model_id_str = get_meta("model_id")
+		var unit = GameState.get_unit(unit_id)
+		if not unit.is_empty():
+			var models = unit.get("models", [])
+			for model in models:
+				if model.get("id", "") == model_id_str:
+					var total_wounds = model.get("wounds", 1)
+					var current_wounds = model.get("current_wounds", total_wounds)
+					TokenDrawUtils.draw_retro_health_bar(self, Vector2.ZERO, radius, total_wounds, current_wounds)
+					break
+
+	# --- Layer 5: Fought/engaged overlays (kept for gameplay clarity) ---
+	_draw_fought_overlay(radius, shape_type, rot)
+	_draw_engaged_overlay(radius)
+
+	# --- Layer 6: Selection ring (kept but simpler) ---
+	if is_selected or is_hovered:
+		_draw_selection_ring(radius)
+
 
 func _draw_enhanced_overlay(radius: float, border_color: Color) -> void:
 	if not has_meta("unit_id"):
