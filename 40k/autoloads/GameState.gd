@@ -637,6 +637,7 @@ func is_game_complete() -> bool:
 # Per 10th edition rules:
 # - Multi-model unit: fewer than half its starting models alive
 # - Single-model unit: fewer than half its starting wounds remaining
+# - Attached units: combine bodyguard + attached character models for starting strength
 func is_below_half_strength(unit: Dictionary) -> bool:
 	var models = unit.get("models", [])
 	if models.size() == 0:
@@ -663,6 +664,45 @@ func is_below_half_strength(unit: Dictionary) -> bool:
 		# Multi-model unit: check alive count
 		# Below half: alive_models * 2 < total_models
 		return alive_models * 2 < total_models
+
+# Battle-shock: Below Half-Strength Check for attached units (by unit_id)
+# Per 10th edition rules, when a character is attached to a bodyguard unit,
+# the combined unit's starting strength is the sum of all models.
+# E.g., a Warboss (1 model) attached to 10 Boyz = starting strength 11.
+func is_below_half_strength_combined(unit_id: String) -> bool:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+
+	var attached_chars = get_attached_characters(unit_id)
+	if attached_chars.size() == 0:
+		# No attached characters — use standard check
+		return is_below_half_strength(unit)
+
+	# Combined unit: count all models (bodyguard + attached characters)
+	var total_models = unit.get("models", []).size()
+	var alive_models = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			alive_models += 1
+
+	for char_id in attached_chars:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		for model in char_unit.get("models", []):
+			total_models += 1
+			if model.get("alive", true):
+				alive_models += 1
+
+	# If all models are dead, the unit is destroyed
+	if alive_models == 0:
+		return false
+
+	# Combined units are always multi-model (bodyguard + character >= 2)
+	# Below half: alive_models * 2 < total_models
+	print("GameState: is_below_half_strength_combined(%s): %d alive / %d total (attached chars: %s)" % [unit_id, alive_models, total_models, str(attached_chars)])
+	return alive_models * 2 < total_models
 
 func add_action_to_phase_log(action: Dictionary) -> void:
 	state["phase_log"].append(action)
