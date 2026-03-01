@@ -4217,6 +4217,103 @@ static func _find_character_model_indices(target_unit: Dictionary) -> Array:
 
 	return indices
 
+# P3-100: Find attached CHARACTER units for PRECISION allocation in auto-resolve path.
+# When a bodyguard unit has attached CHARACTER leaders (via attachment_data), those CHARACTERs
+# are separate units. This function returns info about those attached CHARACTER models so
+# PRECISION damage can be routed to them during Epic Challenge.
+static func _find_attached_character_info(target_unit: Dictionary, board: Dictionary) -> Array:
+	"""Find attached CHARACTER models from separate leader units.
+	Returns array of { unit_id, model_index, model } for each alive CHARACTER model."""
+	var result = []
+	var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	if attached_chars.is_empty():
+		return result
+
+	var units = board.get("units", {})
+	for char_id in attached_chars:
+		var char_unit = units.get(char_id, {})
+		if char_unit.is_empty():
+			continue
+
+		var char_models = char_unit.get("models", [])
+		for j in range(char_models.size()):
+			var char_model = char_models[j]
+			if not char_model.get("alive", true):
+				continue
+			result.append({
+				"unit_id": char_id,
+				"model_index": j,
+				"model": char_model
+			})
+
+	return result
+
+# P3-100: Apply PRECISION damage to attached CHARACTER models (in separate leader units).
+# Used in auto-resolve path when Epic Challenge grants PRECISION and the target is a
+# bodyguard unit with an attached CHARACTER leader.
+static func _apply_damage_to_attached_characters(attached_chars: Array, total_damage: int, board: Dictionary) -> Dictionary:
+	"""Apply damage to attached CHARACTER models (from separate leader units).
+	Similar to _apply_damage_to_character_models but handles cross-unit references."""
+	var result = {
+		"diffs": [],
+		"casualties": 0,
+		"damage_applied": 0
+	}
+
+	var remaining_damage = total_damage
+
+	while remaining_damage > 0:
+		# Find next alive attached CHARACTER model (wounded first, then any alive)
+		var target_info = {}
+
+		# Wounded CHARACTER first
+		for info in attached_chars:
+			var model = info.model
+			if model.get("alive", true):
+				var current = model.get("current_wounds", model.get("wounds", 1))
+				var max_w = model.get("wounds", 1)
+				if current < max_w:
+					target_info = info
+					break
+
+		# Then any alive CHARACTER
+		if target_info.is_empty():
+			for info in attached_chars:
+				if info.model.get("alive", true):
+					target_info = info
+					break
+
+		if target_info.is_empty():
+			break  # No alive attached CHARACTER models left
+
+		var model = target_info.model
+		var unit_id = target_info.unit_id
+		var model_index = target_info.model_index
+		var current_wounds = model.get("current_wounds", model.get("wounds", 1))
+		var damage_to_apply = min(remaining_damage, current_wounds)
+		var new_wounds = current_wounds - damage_to_apply
+
+		result.diffs.append({
+			"op": "set",
+			"path": "units.%s.models.%d.current_wounds" % [unit_id, model_index],
+			"value": new_wounds
+		})
+
+		result.damage_applied += damage_to_apply
+		remaining_damage -= damage_to_apply
+		model["current_wounds"] = new_wounds
+
+		if new_wounds == 0:
+			result.diffs.append({
+				"op": "set",
+				"path": "units.%s.models.%d.alive" % [unit_id, model_index],
+				"value": false
+			})
+			result.casualties += 1
+			model["alive"] = false
+
+	return result
+
 # ==========================================
 # ANTI-[KEYWORD] X+
 # ==========================================
@@ -7062,7 +7159,11 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	# PRECISION: Wounds from critical hits can be allocated to CHARACTER models first
 	if weapon_has_precision and critical_hits > 0:
 		var character_indices = _find_character_model_indices(target_unit)
-		if not character_indices.is_empty():
+		# P3-100: Also check for attached CHARACTER leaders (separate units linked via attachment_data)
+		var attached_char_info = _find_attached_character_info(target_unit, board)
+		var has_any_characters = not character_indices.is_empty() or not attached_char_info.is_empty()
+
+		if has_any_characters:
 			# Calculate precision damage share: proportion of actual_damage from critical hit attacks
 			# precision_unsaved = min(critical_hits, total_unsaved) — capped by both
 			var precision_unsaved = mini(critical_hits, total_unsaved)
@@ -7075,12 +7176,22 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 
 			# Apply precision damage to CHARACTER models first
 			if precision_damage > 0:
-				var precision_result = _apply_damage_to_character_models(target_id, precision_damage, target_models, character_indices, board)
-				result.diffs.append_array(precision_result.diffs)
-				precision_wounds_allocated = precision_result.get("damage_applied", 0)
-				print("RulesEngine: PRECISION — allocated %d damage to CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
-				damage_result["casualties"] += precision_result.get("casualties", 0)
-				damage_result["damage_applied"] += precision_result.get("damage_applied", 0)
+				if not character_indices.is_empty():
+					# CHARACTER models are within the target unit itself
+					var precision_result = _apply_damage_to_character_models(target_id, precision_damage, target_models, character_indices, board)
+					result.diffs.append_array(precision_result.diffs)
+					precision_wounds_allocated = precision_result.get("damage_applied", 0)
+					print("RulesEngine: PRECISION — allocated %d damage to CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
+					damage_result["casualties"] += precision_result.get("casualties", 0)
+					damage_result["damage_applied"] += precision_result.get("damage_applied", 0)
+				elif not attached_char_info.is_empty():
+					# P3-100: CHARACTER models are in attached leader units — Epic Challenge dueling
+					var precision_result = _apply_damage_to_attached_characters(attached_char_info, precision_damage, board)
+					result.diffs.append_array(precision_result.diffs)
+					precision_wounds_allocated = precision_result.get("damage_applied", 0)
+					print("RulesEngine: PRECISION (attached CHARACTER) — allocated %d damage to attached CHARACTER models (%d casualties)" % [precision_wounds_allocated, precision_result.casualties])
+					damage_result["casualties"] += precision_result.get("casualties", 0)
+					damage_result["damage_applied"] += precision_result.get("damage_applied", 0)
 
 			# Remaining damage split: DW mortal wounds (spillover) + regular (no spillover)
 			var remaining_after_precision = actual_damage - precision_damage
@@ -7108,7 +7219,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 				damage_result["casualties"] += reg_result.get("casualties", 0)
 				damage_result["damage_applied"] += reg_result.get("damage_applied", 0)
 		else:
-			# No CHARACTER models in target — apply DW then regular separately
+			# No CHARACTER models in target or attached — apply DW then regular separately
 			if actual_dw_damage > 0:
 				var dw_result = _apply_damage_to_unit_pool(target_id, actual_dw_damage, target_models, board)
 				result.diffs.append_array(dw_result.diffs)
