@@ -311,8 +311,15 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 	for terrain_piece in terrain_features:
 		var height_cat = terrain_piece.get("height_category", "")
 
-		# Low terrain never blocks LoS
+		# Low terrain polygon never blocks LoS (but walls still can)
 		if height_cat == "low":
+			# P1-68: Check walls even in low terrain
+			var low_walls = terrain_piece.get("walls", [])
+			for wall in low_walls:
+				if wall.get("blocks_los", true):
+					if _segment_intersects_wall(from, to, wall):
+						blocking_terrain.append(terrain_piece.get("id", "unknown") + "_wall")
+						break
 			continue
 
 		var polygon = terrain_piece.get("polygon", PackedVector2Array())
@@ -360,6 +367,20 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 			var target_height = LineOfSightCalculator.get_model_height_inches(target_model)
 			if shooter_height < terrain_height and target_height < terrain_height:
 				blocking_terrain.append(terrain_id)
+
+	# P1-68: Check walls within terrain pieces that didn't block via polygon
+	# Walls (with blocks_los=true) can independently block LoS even when
+	# the polygon itself doesn't (e.g., models inside same ruins but wall between them)
+	if blocking_terrain.is_empty():
+		for terrain_piece in terrain_features:
+			var walls = terrain_piece.get("walls", [])
+			for wall in walls:
+				if wall.get("blocks_los", true):
+					if _segment_intersects_wall(from, to, wall):
+						blocking_terrain.append(terrain_piece.get("id", "unknown") + "_wall")
+						break
+			if not blocking_terrain.is_empty():
+				break
 
 	return {
 		"has_los": blocking_terrain.is_empty(),
@@ -429,9 +450,11 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 	return Vector2.ZERO
 
 # Polygon intersection checking (reused from RulesEngine)
+# P1-68: Also returns true if either endpoint is inside the polygon
+# (a segment fully inside a polygon doesn't cross edges but still "interacts" with it)
 static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
 	var polygon_packed: PackedVector2Array
-	
+
 	if poly is PackedVector2Array:
 		polygon_packed = poly
 	elif poly is Array:
@@ -444,18 +467,25 @@ static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, po
 				polygon_packed.append(vertex)
 	else:
 		return false
-	
+
 	if polygon_packed.is_empty():
 		return false
-	
+
 	# Check if line segment intersects any edge of the polygon
 	for i in range(polygon_packed.size()):
 		var edge_start = polygon_packed[i]
 		var edge_end = polygon_packed[(i + 1) % polygon_packed.size()]
-		
+
 		if Geometry2D.segment_intersects_segment(seg_start, seg_end, edge_start, edge_end):
 			return true
-	
+
+	# P1-68: If either endpoint is inside the polygon, the segment interacts with it
+	# even if it doesn't cross any edges (e.g., both points inside)
+	if Geometry2D.is_point_in_polygon(seg_start, polygon_packed):
+		return true
+	if Geometry2D.is_point_in_polygon(seg_end, polygon_packed):
+		return true
+
 	return false
 
 # Point in polygon checking (reused from RulesEngine)
@@ -476,6 +506,15 @@ static func _point_in_polygon(point: Vector2, poly) -> bool:
 		return false
 	
 	return Geometry2D.is_point_in_polygon(point, polygon_packed)
+
+# P1-68: Check if a sight line segment intersects a wall segment
+static func _segment_intersects_wall(from: Vector2, to: Vector2, wall: Dictionary) -> bool:
+	var wall_start = wall.get("start", Vector2.ZERO)
+	var wall_end = wall.get("end", Vector2.ZERO)
+	if wall_start == Vector2.ZERO and wall_end == Vector2.ZERO:
+		return false
+	var intersection = Geometry2D.segment_intersects_segment(from, to, wall_start, wall_end)
+	return intersection != null
 
 # Performance optimization: cached terrain intersection checking
 func _check_cached_terrain_intersection(from: Vector2, to: Vector2, terrain_id: String) -> bool:
