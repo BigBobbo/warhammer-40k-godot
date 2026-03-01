@@ -27,6 +27,7 @@ var has_precision: bool = false
 
 # References
 var board_view: Node2D
+var token_layer: Node2D  # P1-67: Reference to TokenLayer for reading actual visual positions
 var target_unit: Dictionary
 var board_highlighter: WoundAllocationBoardHighlights
 var damage_feedback: Node2D  # T5-V4: DamageFeedbackVisual — damage flash + death animation
@@ -86,6 +87,14 @@ func _ready() -> void:
 		print("WoundAllocationOverlay: [READY STEP 8] ERROR - BoardView not found!")
 	else:
 		print("WoundAllocationOverlay: [READY STEP 8] BoardView found at: ", board_view.get_path())
+
+	# P1-67: Get TokenLayer reference for reading actual visual positions
+	token_layer = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not token_layer:
+		push_error("WoundAllocationOverlay: TokenLayer not found!")
+		print("WoundAllocationOverlay: [READY STEP 8b] ERROR - TokenLayer not found!")
+	else:
+		print("WoundAllocationOverlay: [READY STEP 8b] TokenLayer found at: ", token_layer.get_path())
 
 	print("WoundAllocationOverlay: [READY STEP 9] Creating board highlighter...")
 	# Create board highlighter using class-level preload constant
@@ -399,6 +408,14 @@ func setup(p_save_data: Dictionary, p_defender_player: int) -> void:
 		return
 
 	print("WoundAllocationOverlay: [SETUP STEP 6] Target unit found: ", target_unit.get("meta", {}).get("name", target_unit_id))
+
+	# P1-67: Sync model positions between GameState and token visuals to fix position mismatch
+	_sync_model_positions_from_tokens(target_unit_id)
+	# Also sync any attached character units
+	var attached_char_ids = target_unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_char_ids:
+		_sync_model_positions_from_tokens(char_id)
+
 	print("WoundAllocationOverlay: [SETUP STEP 7] Starting allocation for %d wounds" % total_wounds)
 
 	print("WoundAllocationOverlay: [SETUP STEP 8] Setting visible=true and calling show()...")
@@ -587,7 +604,7 @@ func _highlight_valid_models() -> void:
 		for j in range(char_models.size()):
 			var char_model = char_models[j]
 			var composite_id = "%s:%s" % [char_id, char_model.get("id", "m%d" % j)]
-			var char_pos = _get_model_position(char_model)
+			var char_pos = _get_model_position(char_model, char_id)
 			if char_pos == Vector2.ZERO:
 				continue
 
@@ -708,7 +725,9 @@ func _on_model_clicked(model_id: String) -> void:
 		return
 
 	# Flash selected model
-	var model_pos = _get_model_position(model)
+	# P1-67: Pass unit_id hint for character composite IDs
+	var model_unit_hint = model_id.split(":")[0] if ":" in model_id else ""
+	var model_pos = _get_model_position(model, model_unit_hint)
 	if model_pos != Vector2.ZERO:
 		board_highlighter.create_highlight(
 			model_pos, model.get("base_mm", 32),
@@ -1072,7 +1091,9 @@ func _show_model_death_effect(model_id: String, model: Dictionary) -> void:
 		push_error("WoundAllocationOverlay: ❌ CRITICAL - board_highlighter is null! Death marker cannot be created!")
 		return
 
-	var model_pos = _get_model_position(model)
+	# P1-67: Pass unit_id hint for character composite IDs
+	var death_unit_hint = model_id.split(":")[0] if ":" in model_id else ""
+	var model_pos = _get_model_position(model, death_unit_hint)
 	print("WoundAllocationOverlay: Model position: ", model_pos)
 
 	if model_pos == Vector2.ZERO:
@@ -1133,7 +1154,9 @@ func _show_model_damage_effect(model_id: String, model: Dictionary, new_wounds: 
 	if not board_highlighter:
 		return
 
-	var model_pos = _get_model_position(model)
+	# P1-67: Pass unit_id hint for character composite IDs
+	var dmg_unit_hint = model_id.split(":")[0] if ":" in model_id else ""
+	var model_pos = _get_model_position(model, dmg_unit_hint)
 	if model_pos == Vector2.ZERO:
 		return
 
@@ -1470,7 +1493,7 @@ func _find_model_at_position(click_pos: Vector2) -> String:
 			if not char_model.get("alive", true):
 				continue
 
-			var char_pos = _get_model_position(char_model)
+			var char_pos = _get_model_position(char_model, char_id)
 			if char_pos == Vector2.ZERO:
 				continue
 
@@ -1514,8 +1537,82 @@ func _get_model_save_profile(model_id: String) -> Dictionary:
 			return profile
 	return {}
 
-func _get_model_position(model: Dictionary) -> Vector2:
-	"""Get model position as Vector2"""
+func _sync_model_positions_from_tokens(unit_id: String) -> void:
+	"""P1-67: Sync GameState model positions from actual token visual positions.
+	This fixes the bug where wound allocation highlights appear at positions that
+	don't match where the player sees their models on the board. Token visuals
+	are the visual truth — if they've diverged from GameState, update GameState."""
+	if not token_layer:
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var models = unit.get("models", [])
+	var synced_count = 0
+
+	for i in range(models.size()):
+		var model = models[i]
+		var model_id = model.get("id", "m%d" % i)
+		if not model.get("alive", true):
+			continue
+
+		# Find the token visual for this model
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.has_meta("model_id"):
+				if child.get_meta("unit_id") == unit_id and child.get_meta("model_id") == model_id:
+					if child.visible:
+						var token_pos = child.position
+						var gs_pos = _get_gamestate_model_position(model)
+
+						# Check if positions differ
+						if gs_pos != Vector2.ZERO and token_pos.distance_to(gs_pos) > 1.0:
+							print("WoundAllocationOverlay: P1-67 POSITION MISMATCH for %s/%s — token=(%.1f, %.1f) vs GameState=(%.1f, %.1f), syncing GameState to token" % [
+								unit_id, model_id, token_pos.x, token_pos.y, gs_pos.x, gs_pos.y
+							])
+							# Update GameState to match the token visual
+							model["position"] = {"x": token_pos.x, "y": token_pos.y}
+							synced_count += 1
+						elif gs_pos == Vector2.ZERO and token_pos != Vector2.ZERO:
+							print("WoundAllocationOverlay: P1-67 GameState has no position for %s/%s, syncing from token=(%.1f, %.1f)" % [
+								unit_id, model_id, token_pos.x, token_pos.y
+							])
+							model["position"] = {"x": token_pos.x, "y": token_pos.y}
+							synced_count += 1
+					break
+
+	if synced_count > 0:
+		print("WoundAllocationOverlay: P1-67 Synced %d model positions for unit %s" % [synced_count, unit_id])
+
+func _get_gamestate_model_position(model: Dictionary) -> Vector2:
+	"""Get model position from GameState data only (no token lookup)."""
+	var pos = model.get("position")
+	if pos == null:
+		return Vector2.ZERO
+	if pos is Dictionary:
+		return Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos is Vector2:
+		return pos
+	return Vector2.ZERO
+
+func _get_model_position(model: Dictionary, unit_id_hint: String = "") -> Vector2:
+	"""Get model position as Vector2.
+	P1-67: Prefer actual TokenLayer visual position over GameState data to ensure
+	highlights match what the player sees on the board."""
+	var model_id = model.get("id", "")
+
+	# P1-67: Try to get position from the actual token visual on the board
+	if token_layer and model_id != "":
+		var search_unit_id = unit_id_hint if unit_id_hint != "" else save_data.get("target_unit_id", "")
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.has_meta("model_id"):
+				if child.get_meta("model_id") == model_id and child.get_meta("unit_id") == search_unit_id:
+					if child.visible:
+						return child.position
+					break
+
+	# Fallback to GameState position data
 	var pos = model.get("position")
 	if pos == null:
 		return Vector2.ZERO
