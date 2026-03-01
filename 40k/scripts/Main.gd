@@ -5162,6 +5162,10 @@ func _apply_loaded_state() -> void:
 	# Sync BoardState with loaded GameState
 	_sync_board_state_with_game_state()
 
+	# P2-92: Re-initialize AI player from loaded game_config
+	# This ensures AI player type, difficulty, and runtime state match the save file
+	_initialize_ai_player()
+
 	# Recreate phase controllers for the loaded phase
 	await setup_phase_controllers()
 
@@ -5360,6 +5364,10 @@ func _refresh_after_load() -> void:
 	# Get the current phase from GameState
 	current_phase = GameState.get_current_phase()
 	print("Main: Loaded phase is: ", current_phase)
+
+	# P2-92: Re-initialize AI player from loaded game_config
+	# This ensures AI player type, difficulty, and runtime state match the save file
+	_initialize_ai_player()
 
 	# CRITICAL: Transition PhaseManager to loaded phase FIRST
 	# This creates the phase instance that controllers will reference
