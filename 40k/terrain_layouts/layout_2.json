@@ -11,6 +11,7 @@
 			"size": [6.0, 4.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_north",
@@ -35,6 +36,7 @@
 			"size": [6.0, 4.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_south",
@@ -59,6 +61,7 @@
 			"size": [6.0, 4.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_east",
@@ -76,6 +79,7 @@
 			"size": [6.0, 4.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_west",
@@ -93,6 +97,7 @@
 			"size": [10.0, 5.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_east",
@@ -110,6 +115,7 @@
 			"size": [10.0, 5.0],
 			"height": "tall",
 			"rotation": 90.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_west",
@@ -127,6 +133,7 @@
 			"size": [12.0, 6.0],
 			"height": "tall",
 			"rotation": 0.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_north",
@@ -198,6 +205,7 @@
 			"size": [12.0, 6.0],
 			"height": "tall",
 			"rotation": 0.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_north",
@@ -239,6 +247,7 @@
 			"size": [12.0, 6.0],
 			"height": "tall",
 			"rotation": -45.0,
+			"traits": ["obscuring"],
 			"walls": [
 				{
 					"id": "wall_south",

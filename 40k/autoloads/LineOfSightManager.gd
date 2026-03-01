@@ -154,8 +154,11 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 	for terrain in terrain_features:
 		var height_cat = terrain.get("height_category", "")
 
-		# Low terrain never blocks LoS
-		if height_cat == "low":
+		# TER-4: Check if terrain has the Obscuring trait
+		var is_obscuring = TerrainManager.is_terrain_obscuring(terrain) if TerrainManager else (height_cat == "tall")
+
+		# Low terrain never blocks LoS (unless Obscuring) — but walls still can
+		if height_cat == "low" and not is_obscuring:
 			# P1-68: Still check walls even in low terrain
 			var walls = terrain.get("walls", [])
 			for wall in walls:
@@ -217,8 +220,13 @@ func check_los(from: Vector2, to: Vector2, shooter_model: Dictionary = {}, targe
 						return false
 			continue
 
+		# TER-4: Check for Obscuring trait — blocks LoS for all models
+		# Tall terrain is implicitly Obscuring; other terrain can have the trait explicitly
+		if TerrainManager and TerrainManager.is_terrain_obscuring(terrain):
+			return false
+
 		if height_cat == "tall":
-			return false  # Tall terrain blocks LoS for all models
+			return false  # Tall terrain blocks LoS for all models (fallback)
 
 		if height_cat == "medium":
 			# T3-19: Medium terrain blocks LoS only if both models are shorter than terrain

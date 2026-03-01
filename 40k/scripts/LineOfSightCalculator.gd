@@ -145,8 +145,11 @@ static func _get_terrain_height_inches(terrain: Dictionary) -> float:
 static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}) -> bool:
 	var height_cat = terrain.get("height_category", "")
 
-	# Low terrain never blocks LoS
-	if height_cat == "low":
+	# TER-4: Check if terrain has the Obscuring trait
+	var is_obscuring = TerrainManager.is_terrain_obscuring(terrain) if TerrainManager else (height_cat == "tall")
+
+	# Low terrain never blocks LoS (unless it has the Obscuring trait)
+	if height_cat == "low" and not is_obscuring:
 		return false
 
 	var polygon = terrain.get("polygon", PackedVector2Array())
@@ -184,7 +187,12 @@ static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary,
 	if from_inside or to_inside:
 		return false
 
-	# Tall terrain blocks LoS for all models (Obscuring)
+	# TER-4: Check for Obscuring trait — blocks LoS for all models
+	# Tall terrain is implicitly Obscuring; other terrain can have the trait explicitly
+	if TerrainManager and TerrainManager.is_terrain_obscuring(terrain):
+		return true
+
+	# Tall terrain blocks LoS for all models (Obscuring) — fallback if TerrainManager unavailable
 	if height_cat == "tall":
 		return true
 

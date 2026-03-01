@@ -28,6 +28,14 @@ const DEFAULT_WALL_BLOCKS_MOVEMENT = {
 	"MONSTER": true
 }
 
+## TER-4: Obscuring terrain trait.
+## Terrain with the "obscuring" trait blocks line of sight for models that are
+## not within the terrain feature, regardless of height category.
+## Per 10e rules: if the line between two models passes through an Obscuring
+## terrain feature and neither model is within it, LoS is blocked.
+## Tall terrain (>5") is implicitly Obscuring even without the trait.
+const OBSCURING_TRAIT: String = "obscuring"
+
 ## T3-16: Difficult Ground terrain trait penalty in inches.
 ## When a unit moves through terrain with the "difficult_ground" trait,
 ## this flat penalty is added to the effective movement distance per terrain piece.
@@ -347,6 +355,15 @@ func get_terrain_traits(terrain_piece: Dictionary) -> Array:
 ## T3-16: Check if a terrain piece has a specific trait.
 func has_terrain_trait(terrain_piece: Dictionary, trait_name: String) -> bool:
 	return trait_name in get_terrain_traits(terrain_piece)
+
+## TER-4: Check if a terrain piece has the Obscuring trait.
+## Terrain is considered Obscuring if it explicitly has the "obscuring" trait
+## OR if it is tall (>5") — tall terrain is implicitly Obscuring per 10e rules.
+func is_terrain_obscuring(terrain_piece: Dictionary) -> bool:
+	if has_terrain_trait(terrain_piece, OBSCURING_TRAIT):
+		return true
+	# Tall terrain is implicitly Obscuring
+	return terrain_piece.get("height_category", "") == "tall"
 
 ## Calculate the terrain penalty for a charge path crossing terrain.
 ## Units are always assumed to stay on the ground floor, so there is no
