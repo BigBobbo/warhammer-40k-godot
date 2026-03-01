@@ -126,6 +126,13 @@ func _on_phase_exit() -> void:
 	for unit_id in units_that_fought:
 		_clear_unit_fight_state(unit_id)
 
+	# P3-103: Recheck objective control at end of Fight phase
+	# Per 10e core rules: "A player controls an objective marker at the end of any phase or turn."
+	# Units destroyed during fighting can change objective control state.
+	if MissionManager:
+		MissionManager.check_all_objectives()
+		print("FightPhase: P3-103 Updated objective control at end of Fight phase")
+
 func _initialize_fight_sequence() -> void:
 	# Clear sequences
 	fights_first_sequence = {"1": [], "2": []}

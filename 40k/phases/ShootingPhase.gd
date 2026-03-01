@@ -96,6 +96,13 @@ func _on_phase_exit() -> void:
 	# Clear pending save data
 	pending_save_data.clear()
 
+	# P3-103: Recheck objective control at end of Shooting phase
+	# Per 10e core rules: "A player controls an objective marker at the end of any phase or turn."
+	# Units destroyed during shooting can change objective control state.
+	if MissionManager:
+		MissionManager.check_all_objectives()
+		print("ShootingPhase: P3-103 Updated objective control at end of Shooting phase")
+
 func execute_action(action: Dictionary) -> Dictionary:
 	"""Override to detect unit kills from diffs (AI/batch shooting path)."""
 	var result = super.execute_action(action)
