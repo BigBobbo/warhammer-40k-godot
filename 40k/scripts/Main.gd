@@ -4901,6 +4901,18 @@ func update_unit_visuals(unit_id: String) -> void:
 			print("  - Token found at: ", token.get_path())
 			print("  - Token visible before: ", token.visible)
 
+			# P1-67: Also sync token position from GameState (not just visibility)
+			var model_pos = model.get("position")
+			if model_pos != null:
+				var target_pos: Vector2
+				if model_pos is Dictionary:
+					target_pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+				else:
+					target_pos = model_pos
+				if token.position.distance_to(target_pos) > 1.0:
+					print("  - P1-67: Syncing token position from (%.1f, %.1f) to (%.1f, %.1f)" % [token.position.x, token.position.y, target_pos.x, target_pos.y])
+					token.position = target_pos
+
 			if model_alive:
 				# Model is alive → ensure visible
 				token.visible = true
@@ -5389,6 +5401,10 @@ func _on_phase_changed(new_phase: GameStateData.Phase) -> void:
 	current_phase = new_phase
 	print("Phase changed to: ", GameStateData.Phase.keys()[new_phase])
 	print("Active player: ", GameState.get_active_player())
+
+	# P1-67: Sync all token positions from GameState on phase transitions
+	# This ensures token visuals match GameState when entering shooting/fight phases
+	_sync_all_token_positions()
 
 	# Hide deployment hover tooltip on phase change (T5-UX11)
 	_hide_deploy_hover_tooltip()
