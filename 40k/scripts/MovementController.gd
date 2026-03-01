@@ -50,6 +50,9 @@ var hud_bottom: Control
 var hud_right: Control
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
 
+# Floating movement indicator (shown near model during drag)
+var movement_remaining_label: Label
+
 # UI Elements
 var move_cap_label: Label
 var inches_used_label: Label
@@ -1293,6 +1296,8 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= move_cap_inches)
 	# Show total distance used (already accumulated + current drag)
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
+	# Update floating movement remaining indicator near the ghost
+	_update_movement_remaining_label(inches_left, path_valid)
 
 func _end_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1908,6 +1913,21 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	ghost_visual.add_child(ghost_token)
 	ghost_visual.modulate = Color(1, 1, 1, 0.8)  # Slightly transparent
 
+	# Create floating movement remaining indicator above the ghost
+	movement_remaining_label = Label.new()
+	movement_remaining_label.name = "MovementRemainingLabel"
+	movement_remaining_label.text = ""
+	movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+	movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	movement_remaining_label.z_index = 58  # Above other overlays
+	movement_remaining_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Position above the model base (offset upward)
+	var base_mm = model.get("base_mm", 32)
+	var base_radius_px = Measurement.base_radius_px(base_mm)
+	movement_remaining_label.position = Vector2(-30, -(base_radius_px + 22))
+	ghost_visual.add_child(movement_remaining_label)
+
 	print("Created ghost visual for model")
 
 func _update_ghost_position(world_pos: Vector2) -> void:
@@ -1919,6 +1939,7 @@ func _update_ghost_position(world_pos: Vector2) -> void:
 func _clear_ghost_visual() -> void:
 	for child in ghost_visual.get_children():
 		child.queue_free()
+	movement_remaining_label = null
 
 func _get_accumulated_distance() -> float:
 	# Get distance for the currently selected model
@@ -2024,6 +2045,22 @@ func _update_movement_display_with_preview(used: float, left: float, valid: bool
 	if inches_left_label:
 		inches_left_label.text = "Left: %.1f\"" % left
 		inches_left_label.modulate = Color.WHITE if left >= 0 else Color.RED
+
+func _update_movement_remaining_label(inches_left: float, valid: bool) -> void:
+	if not movement_remaining_label or not is_instance_valid(movement_remaining_label):
+		return
+	if inches_left >= 0:
+		movement_remaining_label.text = "%.1f\" left" % inches_left
+	else:
+		movement_remaining_label.text = "%.1f\" over!" % abs(inches_left)
+	# Green when valid, red when over cap or invalid position
+	if valid and inches_left >= 0:
+		movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+	elif inches_left >= 0:
+		# Position invalid (overlap/out of bounds) but distance ok — orange
+		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1, 0.9))
+	else:
+		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.1, 0.9))
 
 func _update_movement_display_with_advance(dice_result: int) -> void:
 	# Get the current unit to calculate base movement
@@ -2925,6 +2962,8 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 		if max_used > move_cap_inches or any_wall_collision or any_out_of_bounds:
 			# Some models exceed their movement or collide with walls - show invalid state
 			for child in ghost_visual.get_children():
+				if child is Label:
+					continue
 				if child.has_method("set_validity"):
 					child.set_validity(false)
 				elif child.has_method("queue_redraw"):
@@ -2933,11 +2972,20 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 		else:
 			# Movement is valid
 			for child in ghost_visual.get_children():
+				if child is Label:
+					continue
 				if child.has_method("set_validity"):
 					child.set_validity(true)
 				elif child.has_method("queue_redraw"):
 					child.is_valid_position = true
 					child.queue_redraw()
+
+		# Update floating movement remaining label for group drag
+		var group_valid = max_used <= move_cap_inches and not any_wall_collision and not any_out_of_bounds
+		_update_movement_remaining_label(min_remaining, group_valid)
+		# Position label near the cursor during group drag
+		if movement_remaining_label and is_instance_valid(movement_remaining_label):
+			movement_remaining_label.position = world_pos + Vector2(-30, -40)
 
 func _end_group_drag(mouse_pos: Vector2) -> void:
 	"""End group drag movement - now async to handle batch processing"""
@@ -3184,6 +3232,17 @@ func _create_group_ghost_visuals() -> void:
 		ghost_token.set_meta("start_position", model_data.get("position", Vector2.ZERO))
 
 		ghost_visual.add_child(ghost_token)
+
+	# Create floating movement remaining indicator for group drag
+	movement_remaining_label = Label.new()
+	movement_remaining_label.name = "MovementRemainingLabel"
+	movement_remaining_label.text = ""
+	movement_remaining_label.add_theme_font_size_override("font_size", 16)
+	movement_remaining_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3, 0.9))
+	movement_remaining_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	movement_remaining_label.z_index = 58
+	movement_remaining_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost_visual.add_child(movement_remaining_label)
 
 	print("Created ", ghost_visual.get_child_count(), " ghost visuals for group movement")
 
