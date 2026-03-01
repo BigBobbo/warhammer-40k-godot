@@ -409,10 +409,11 @@ func _validate_assign_target(action: Dictionary) -> Dictionary:
 	if weapon_id == "" or target_unit_id == "":
 		return {"valid": false, "errors": ["Missing weapon_id or target_unit_id"]}
 	
-	# Check if weapon assignment would split attacks
-	for assignment in pending_assignments:
-		if assignment.weapon_id == weapon_id and assignment.target_unit_id != target_unit_id:
-			return {"valid": false, "errors": ["Cannot split a weapon's attacks across multiple targets"]}
+	# P2-91: Allow reassigning a weapon to a different target.
+	# The old check blocked reassignment by treating it as "splitting attacks".
+	# In reality, _process_assign_target() replaces the old assignment, so
+	# there's never two targets for the same weapon simultaneously.
+	# No validation needed here — reassignment is always valid.
 
 	# PISTOL MUTUAL EXCLUSIVITY (T2-5): Cannot mix Pistol and non-Pistol weapons
 	# Per 10e: "If a model is equipped with one or more Pistols, unless it is a
