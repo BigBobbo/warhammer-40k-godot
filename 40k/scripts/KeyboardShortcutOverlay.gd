@@ -87,6 +87,7 @@ func _build_ui() -> void:
 	general_header.add_theme_font_size_override("font_size", 12)
 	_shortcuts_container.add_child(general_header)
 
+	_add_shortcut("Z", "Toggle deployment zones")
 	_add_shortcut("T (hold)", "Measuring tape")
 	_add_shortcut("Y", "Clear measurements")
 	_add_shortcut("W/A/S/D", "Pan camera")

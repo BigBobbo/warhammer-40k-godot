@@ -130,6 +130,9 @@ var _keyboard_shortcut_overlay: KeyboardShortcutOverlay = null
 # P3-55: Measuring tape button visible during deployment
 var _measuring_tape_button: Button = null
 
+# P3-108: Deployment zone toggle button - prominent UI button for showing/hiding zones
+var _deployment_zone_toggle_button: Button = null
+
 # P3-56: Web relay "Waiting for game state" loading screen
 var _web_relay_loading_overlay: PanelContainer = null
 var _web_relay_loading_label: Label = null
@@ -313,6 +316,9 @@ func _ready() -> void:
 
 	# P3-55: Setup measuring tape button (after reserves button so we can position relative to it)
 	_setup_measuring_tape_button()
+
+	# P3-108: Setup deployment zone toggle button (after measuring tape button)
+	_setup_deployment_zone_toggle_button()
 
 	# Setup deployment hover tooltip (T5-UX11)
 	_setup_deploy_hover_tooltip()
@@ -2943,6 +2949,93 @@ func _on_measuring_tape_button_pressed() -> void:
 		MeasuringTapeManager.start_measurement(world_pos)
 		print("Main: Started measurement at mouse position - drag to measure, release T or click to complete")
 
+func _setup_deployment_zone_toggle_button() -> void:
+	# P3-108: Create a prominent deployment zone toggle button in HUD_Right
+	# Visible in all non-deployment phases so players can easily show/hide zones
+	var hud_right = get_node_or_null("HUD_Right/VBoxContainer")
+	if not hud_right:
+		print("Main: HUD_Right/VBoxContainer not found for deployment zone toggle button")
+		return
+
+	_deployment_zone_toggle_button = Button.new()
+	_deployment_zone_toggle_button.name = "DeploymentZoneToggleButton"
+	_deployment_zone_toggle_button.text = "Show Deployment Zones (Z)"
+	_deployment_zone_toggle_button.tooltip_text = "Toggle deployment zone overlay on/off.\nKeyboard shortcut: Z"
+	_deployment_zone_toggle_button.visible = false
+	_deployment_zone_toggle_button.custom_minimum_size = Vector2(0, 40)
+
+	# Custom styling — use a distinctive color so the button stands out
+	var normal_style = StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.1, 0.15, 0.3, 0.9)
+	normal_style.border_color = Color(0.3, 0.5, 0.9)
+	normal_style.set_border_width_all(2)
+	normal_style.set_corner_radius_all(4)
+	normal_style.set_content_margin_all(8)
+	_deployment_zone_toggle_button.add_theme_stylebox_override("normal", normal_style)
+
+	var hover_style = normal_style.duplicate()
+	hover_style.bg_color = Color(0.15, 0.2, 0.4, 0.95)
+	_deployment_zone_toggle_button.add_theme_stylebox_override("hover", hover_style)
+
+	var pressed_style = normal_style.duplicate()
+	pressed_style.bg_color = Color(0.2, 0.25, 0.45, 0.95)
+	_deployment_zone_toggle_button.add_theme_stylebox_override("pressed", pressed_style)
+
+	_deployment_zone_toggle_button.add_theme_color_override("font_color", Color(0.7, 0.8, 1.0))
+	_deployment_zone_toggle_button.add_theme_font_size_override("font_size", 14)
+
+	_deployment_zone_toggle_button.pressed.connect(_on_deployment_zone_toggle_button_pressed)
+
+	# Insert after the measuring tape button (or after reserves, or after unit list)
+	var insert_after: Control = _measuring_tape_button if _measuring_tape_button else reserves_button
+	if insert_after:
+		var idx = insert_after.get_index()
+		hud_right.add_child(_deployment_zone_toggle_button)
+		hud_right.move_child(_deployment_zone_toggle_button, idx + 1)
+	else:
+		var unit_list_idx = unit_list.get_index()
+		hud_right.add_child(_deployment_zone_toggle_button)
+		hud_right.move_child(_deployment_zone_toggle_button, unit_list_idx + 1)
+
+	print("Main: P3-108 Deployment zone toggle button created and added to HUD_Right")
+
+func _on_deployment_zone_toggle_button_pressed() -> void:
+	# P3-108: Toggle deployment zones via the UI button
+	print("Main: Deployment zone toggle button pressed")
+	_toggle_deployment_zones()
+	_update_deployment_zone_toggle_button_text()
+
+func _update_deployment_zone_toggle_button_text() -> void:
+	# P3-108: Update button text to reflect current toggle state
+	if not _deployment_zone_toggle_button:
+		return
+	if _deployment_zones_toggled_on:
+		_deployment_zone_toggle_button.text = "Hide Deployment Zones (Z)"
+		# Active state styling — brighter to indicate zones are shown
+		var active_style = StyleBoxFlat.new()
+		active_style.bg_color = Color(0.15, 0.25, 0.45, 0.95)
+		active_style.border_color = Color(0.4, 0.7, 1.0)
+		active_style.set_border_width_all(2)
+		active_style.set_corner_radius_all(4)
+		active_style.set_content_margin_all(8)
+		_deployment_zone_toggle_button.add_theme_stylebox_override("normal", active_style)
+		var active_hover = active_style.duplicate()
+		active_hover.bg_color = Color(0.2, 0.3, 0.5, 0.95)
+		_deployment_zone_toggle_button.add_theme_stylebox_override("hover", active_hover)
+	else:
+		_deployment_zone_toggle_button.text = "Show Deployment Zones (Z)"
+		# Default state styling
+		var default_style = StyleBoxFlat.new()
+		default_style.bg_color = Color(0.1, 0.15, 0.3, 0.9)
+		default_style.border_color = Color(0.3, 0.5, 0.9)
+		default_style.set_border_width_all(2)
+		default_style.set_corner_radius_all(4)
+		default_style.set_content_margin_all(8)
+		_deployment_zone_toggle_button.add_theme_stylebox_override("normal", default_style)
+		var default_hover = default_style.duplicate()
+		default_hover.bg_color = Color(0.15, 0.2, 0.4, 0.95)
+		_deployment_zone_toggle_button.add_theme_stylebox_override("hover", default_hover)
+
 func setup_command_controller() -> void:
 	print("Setting up CommandController...")
 	command_controller = preload("res://scripts/CommandController.gd").new()
@@ -3363,6 +3456,7 @@ func _input(event: InputEvent) -> void:
 	# Deployment zone toggle - 'z' to show/hide deployment zones
 	if event is InputEventKey and event.pressed and event.keycode == KEY_Z:
 		_toggle_deployment_zones()
+		_update_deployment_zone_toggle_button_text()  # P3-108: Keep button text in sync
 		get_viewport().set_input_as_handled()
 		return
 
@@ -3831,6 +3925,10 @@ func update_ui() -> void:
 			# P3-55: Keep measuring tape button visible throughout deployment
 			if _measuring_tape_button:
 				_measuring_tape_button.visible = (current_phase == GameStateData.Phase.DEPLOYMENT)
+
+			# P3-108: Show deployment zone toggle button in all non-deployment phases
+			if _deployment_zone_toggle_button:
+				_deployment_zone_toggle_button.visible = (current_phase != GameStateData.Phase.DEPLOYMENT)
 
 			if all_deployed:
 				phase_action_button.disabled = false
@@ -6014,6 +6112,11 @@ func update_ui_for_phase() -> void:
 		if p2_zone.has_method("set_active"):
 			p2_zone.set_active(true)
 			p2_zone.border_color = Color(1, 0.3, 0, 1)
+
+	# P3-108: Show deployment zone toggle button in all non-deployment phases
+	if _deployment_zone_toggle_button:
+		_deployment_zone_toggle_button.visible = (current_phase != GameStateData.Phase.DEPLOYMENT)
+		_update_deployment_zone_toggle_button_text()
 
 	refresh_unit_list()
 	update_ui()
