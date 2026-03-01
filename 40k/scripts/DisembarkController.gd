@@ -251,34 +251,11 @@ func _get_actual_model_index(placement_idx: int) -> int:
 func _validate_disembark_position(pos: Vector2, model_idx: int) -> Dictionary:
 	var model = unit_data.models[model_idx]
 
-	# Must be within 3" of transport edge
-	# Calculate distance from the edge of the transport's base shape to the edge of the model's base
-	var dist_from_edge: float
+	# P3-95: Use centralized shape-aware distance check from TransportManager
+	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data)
 
-	if transport_base_shape:
-		# Create the disembarking model's base shape for more accurate measurement
-		var model_base_shape = Measurement.create_base_shape(model)
-
-		# Get the closest point on the transport's edge to the model's position
-		var closest_transport_edge = transport_base_shape.get_closest_edge_point(pos, transport_position, 0.0)
-
-		# Get the closest point on the model's edge to the transport
-		var closest_model_edge = model_base_shape.get_closest_edge_point(closest_transport_edge, pos, 0.0)
-
-		# Calculate edge-to-edge distance
-		dist_from_edge = closest_transport_edge.distance_to(closest_model_edge)
-	else:
-		# Fallback to simple circular calculation
-		var dist_from_center = pos.distance_to(transport_position)
-		var model_radius = Measurement.base_radius_px(model.get("base_mm", 32))
-		var transport_radius = Measurement.base_radius_px(32)
-		dist_from_edge = dist_from_center - transport_radius - model_radius
-
-	var dist_inches = Measurement.px_to_inches(dist_from_edge)
-
-	# Allow placement within 3" of transport edge
-	if dist_from_edge > Measurement.inches_to_px(3.0):
-		return {"valid": false, "reason": "Must be within 3\" of transport (%.1f\" away)" % dist_inches}
+	if not range_result.within_range:
+		return {"valid": false, "reason": "Must be within 3\" of transport (%.1f\" away)" % range_result.distance_inches}
 
 	# Cannot be in engagement range of enemies
 	var enemy_player = 3 - unit_data.owner  # Switch between player 1 and 2

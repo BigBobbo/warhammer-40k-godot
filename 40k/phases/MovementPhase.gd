@@ -4057,20 +4057,10 @@ func _check_embark_opportunity(unit_id: String) -> void:
 		if transport_pos == Vector2.ZERO:
 			continue
 
-		# Check if all models are within 3" of transport (edge-to-edge)
-		var all_within_range = true
-		var transport_model = transport.models[0] if transport.models.size() > 0 else {}
-		for model in unit.models:
-			if not model.alive or model.position == null:
-				continue
+		# P3-95: Use centralized shape-aware distance check from TransportManager
+		var range_check = TransportManager.is_unit_within_embark_range(unit, transport)
 
-			var dist_inches = Measurement.model_to_model_distance_inches(model, transport_model) if not transport_model.is_empty() else INF
-
-			if dist_inches > 3.0:
-				all_within_range = false
-				break
-
-		if all_within_range:
+		if range_check.within_range:
 			# Check if unit can embark
 			var can_embark = TransportManager.can_embark(unit_id, transport_id)
 			if can_embark.valid:
@@ -4197,8 +4187,6 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 	var transport_pos = _get_unit_center_position(transport_id)
 	print("DEBUG MovementPhase: Transport position: ", transport_pos)
 
-	var transport_model = transport.models[0] if transport.models.size() > 0 else {}
-
 	for i in range(positions.size()):
 		if i >= unit.models.size():
 			break
@@ -4209,21 +4197,24 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 		var pos = positions[i]
 		print("DEBUG MovementPhase: Model position: ", pos)
 
-		# Use shape-aware edge-to-edge distance for transport range check
+		# P3-95: Use centralized shape-aware distance check from TransportManager
+		var pos_vec = pos if pos is Vector2 else Vector2(pos.x, pos.y)
+		var range_result = TransportManager.is_position_within_disembark_range(pos_vec, unit.models[i], transport)
+		print("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches)
+
+		if not range_result.within_range:
+			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % range_result.distance_inches]}
+
+		# Build model_at_pos for engagement range and board edge checks
 		var model_at_pos = unit.models[i].duplicate()
 		model_at_pos["position"] = pos
-		var dist_edge_to_edge = Measurement.model_to_model_distance_inches(model_at_pos, transport_model) if not transport_model.is_empty() else INF
-		print("DEBUG MovementPhase: Edge-to-edge distance (inches): ", dist_edge_to_edge)
-
-		if dist_edge_to_edge > 3.0:
-			return {"valid": false, "errors": ["Model must be placed within 3\" of transport (%.1f\" from edge)" % dist_edge_to_edge]}
 
 		# Check engagement range using shape-aware distance
 		if _model_in_engagement_range(model_at_pos, unit.owner):
 			return {"valid": false, "errors": ["Cannot disembark within Engagement Range of enemy"]}
 
 		# Check board edge - no part of model base can extend beyond the battlefield
-		if _position_outside_board_bounds(pos if pos is Vector2 else Vector2(pos.x, pos.y), model_at_pos):
+		if _position_outside_board_bounds(pos_vec, model_at_pos):
 			return {"valid": false, "errors": ["Cannot disembark beyond the board edge"]}
 
 	# Check unit coherency: disembarked models must maintain 2" horizontal and 5" vertical coherency
