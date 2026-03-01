@@ -268,6 +268,7 @@ func _load_core_stratagems() -> void:
 		"restriction_text": ""
 	}
 
+	# Balance Dataslate v3.3: Added TITANIC targeting restriction, "set up" trigger
 	stratagems["fire_overwatch"] = {
 		"id": "fire_overwatch",
 		"name": "FIRE OVERWATCH",
@@ -281,7 +282,7 @@ func _load_core_stratagems() -> void:
 		"target": {
 			"type": "unit",
 			"owner": "friendly",
-			"conditions": ["within_24_of_enemy", "eligible_to_shoot"]
+			"conditions": ["within_24_of_enemy", "eligible_to_shoot", "not_titanic"]
 		},
 		"effects": [
 			{"type": "overwatch_shoot", "hit_on": 6}
@@ -289,18 +290,20 @@ func _load_core_stratagems() -> void:
 		"restrictions": {
 			"once_per": "turn",
 		},
-		"description": "Your unit can shoot that enemy unit, but only hit on unmodified 6s.",
-		"when_text": "Your opponent's Movement or Charge phase.",
-		"target_text": "One unit from your army within 24\" of that enemy unit.",
-		"effect_text": "Your unit can shoot that enemy unit as if it were your Shooting phase. Only unmodified 6s hit.",
-		"restriction_text": "Once per turn."
+		"description": "Your unit can shoot that enemy unit, but only hit on unmodified 6s. Cannot target TITANIC units.",
+		"when_text": "Your opponent's Movement or Charge phase, just after an enemy unit is set up or when an enemy unit starts or ends a Normal, Advance or Fall Back move, or declares a charge.",
+		"target_text": "One unit from your army that is within 24\" of that enemy unit and that would be eligible to shoot if it were your Shooting phase.",
+		"effect_text": "If that enemy unit is visible to your unit, your unit can shoot that enemy unit as if it were your Shooting phase. Until the end of the phase, each time a model in your unit makes a ranged attack, an unmodified Hit roll of 6 is required to score a hit.",
+		"restriction_text": "You cannot target a TITANIC unit with this Stratagem. Once per turn."
 	}
 
+	# Balance Dataslate v3.3: CP cost reduced from 2 to 1, no longer denies Fights First,
+	# instead denies Charge bonus. Target must be eligible to charge, not just "not in ER".
 	stratagems["heroic_intervention"] = {
 		"id": "heroic_intervention",
 		"name": "HEROIC INTERVENTION",
 		"type": "Core – Strategic Ploy Stratagem",
-		"cp_cost": 2,
+		"cp_cost": 1,
 		"timing": {
 			"turn": "opponent",
 			"phase": "charge",
@@ -309,19 +312,19 @@ func _load_core_stratagems() -> void:
 		"target": {
 			"type": "unit",
 			"owner": "friendly",
-			"conditions": ["within_6_of_charging_enemy", "not_in_engagement_range"]
+			"conditions": ["within_6_of_charging_enemy", "eligible_to_charge"]
 		},
 		"effects": [
-			{"type": "counter_charge", "no_fights_first": true}
+			{"type": "counter_charge", "no_charge_bonus": true}
 		],
 		"restrictions": {
 			"once_per": "phase",
 		},
-		"description": "Your unit declares a charge targeting only that enemy unit, but does not gain the Fights First ability.",
+		"description": "Your unit declares a charge targeting only that enemy unit and resolves it. Does not receive Charge bonus.",
 		"when_text": "Your opponent's Charge phase, just after an enemy unit ends a Charge move.",
-		"target_text": "One unit from your army within 6\" of that enemy unit and not within Engagement Range of any enemy units.",
-		"effect_text": "Your unit now declares a charge that targets only that enemy unit, then makes a charge roll. It cannot be selected to fight in the Fights First step.",
-		"restriction_text": "Cannot select a VEHICLE unit unless it has the WALKER keyword. Once per phase."
+		"target_text": "One unit from your army that is within 6\" of that enemy unit and would be eligible to declare a charge against that enemy unit if it were your Charge phase.",
+		"effect_text": "Your unit now declares a charge that targets only that enemy unit, and you resolve that charge as if it were your Charge phase. Even if this charge is successful, your unit does not receive any Charge bonus this turn.",
+		"restriction_text": "You can only select a VEHICLE unit from your army if it is a WALKER."
 	}
 
 	stratagems["counter_offensive"] = {
@@ -380,6 +383,8 @@ func _load_core_stratagems() -> void:
 		"restriction_text": "You can only use this Stratagem once per battle."
 	}
 
+	# Balance Dataslate v3.3: Clarified Deep Strike clause — units with Deep Strike can use it
+	# via Rapid Ingress even though it's not your Movement phase
 	stratagems["rapid_ingress"] = {
 		"id": "rapid_ingress",
 		"name": "RAPID INGRESS",
@@ -396,16 +401,16 @@ func _load_core_stratagems() -> void:
 			"conditions": ["in_reserves"]
 		},
 		"effects": [
-			{"type": "arrive_from_reserves"}
+			{"type": "arrive_from_reserves", "allow_deep_strike": true}
 		],
 		"restrictions": {
 			"once_per": "phase",
 		},
-		"description": "Your unit arrives on the battlefield as if it were the Reinforcements step.",
+		"description": "Your unit arrives on the battlefield as if it were the Reinforcements step. Deep Strike units can use their Deep Strike ability.",
 		"when_text": "End of your opponent's Movement phase.",
 		"target_text": "One unit from your army that is in Reserves.",
-		"effect_text": "Your unit can arrive on the battlefield as if it were the Reinforcements step of your Movement phase.",
-		"restriction_text": "Cannot arrive in a battle round it normally wouldn't be able to."
+		"effect_text": "Your unit can arrive on the battlefield as if it were the Reinforcements step of your Movement phase, and if every model in that unit has the Deep Strike ability, you can set that unit up as described in the Deep Strike ability.",
+		"restriction_text": "You cannot use this Stratagem to enable a unit to arrive on the battlefield during a battle round it would not normally be able to do so in."
 	}
 
 # ============================================================================
@@ -1496,6 +1501,16 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
 		if int(unit.get("owner", 0)) != player:
+			continue
+
+		# Balance Dataslate v3.3: Cannot target a TITANIC unit with Fire Overwatch
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		var is_titanic = false
+		for kw in keywords:
+			if kw.to_upper() == "TITANIC":
+				is_titanic = true
+				break
+		if is_titanic:
 			continue
 
 		# Must not be battle-shocked

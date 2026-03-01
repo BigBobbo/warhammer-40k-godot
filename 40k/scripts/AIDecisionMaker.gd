@@ -14548,7 +14548,7 @@ static func evaluate_counter_offensive(player: int, eligible_units: Array, snaps
 	Use when:
 	- A high-value melee unit is at risk (could be killed before it gets to fight)
 	- The unit has strong melee weapons and meaningful damage to deal
-	- CP is affordable (2 CP — same cost as Heroic Intervention)
+	- CP is affordable (2 CP)
 	Skip when:
 	- No strong melee units eligible
 	- CP reserves are low (< 3 CP) and the unit isn't critical
@@ -14648,7 +14648,7 @@ static func evaluate_counter_offensive(player: int, eligible_units: Array, snaps
 			best_unit_name = unit_name
 
 	# Use Counter-Offensive if score justifies the 2 CP cost
-	# Threshold of 3.0 (same as Heroic Intervention — both cost 2 CP)
+	# Threshold of 3.0 for Counter-Offensive (2 CP cost)
 	if best_score >= 3.0 and best_unit_id != "":
 		# If CP is tight (exactly 2), only use for very valuable units
 		if player_cp <= 2 and best_score < 5.0:
@@ -14701,20 +14701,20 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 	Evaluate whether the AI should use Heroic Intervention to counter-charge.
 	Returns USE_HEROIC_INTERVENTION or DECLINE_HEROIC_INTERVENTION action dictionary.
 
-	Heuristic: Heroic Intervention costs 2 CP and requires a charge roll.
+	Heuristic: Heroic Intervention costs 1 CP (Balance Dataslate v3.3) and requires a charge roll.
 	Use when:
 	- We have a melee-capable unit nearby (within 6\" of the charging enemy)
 	- The counter-charging unit is a strong melee fighter (CHARACTER with good melee)
-	- CP is affordable (2 CP, save some for other uses)
+	- CP is affordable (1 CP, save some for other uses)
 	Skip when:
 	- No strong melee units available
-	- CP reserves are low (< 3 CP)
+	- CP reserves are low (< 2 CP)
 	- Counter-charger would be outmatched
 	"""
 	var player_cp = _get_player_cp_from_snapshot(snapshot, defending_player)
 
-	# Heroic Intervention costs 2 CP — need at least 2, prefer 3+
-	if player_cp < 2:
+	# Heroic Intervention costs 1 CP (Balance Dataslate v3.3) — need at least 1, prefer 2+
+	if player_cp < 1:
 		return {
 			"type": "DECLINE_HEROIC_INTERVENTION",
 			"player": defending_player,
@@ -14783,18 +14783,18 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 		if charging_value >= 5.0:
 			score *= 1.3
 		elif charging_value <= 2.0:
-			score *= 0.5  # Not worth 2 CP against cheap units
+			score *= 0.7  # Still worth considering at 1 CP (v3.3) even against cheap units
 
 		if score > best_score:
 			best_score = score
 			best_unit_id = unit_id
 			best_unit_name = unit_name
 
-	# Use if score is high enough to justify 2 CP
-	# Threshold higher than other stratagems because of cost and charge roll uncertainty
-	if best_score >= 3.0 and best_unit_id != "":
-		# If CP is tight (exactly 2), only use against very valuable targets
-		if player_cp <= 2 and best_score < 5.0:
+	# Use if score is high enough to justify 1 CP (Balance Dataslate v3.3, was 2 CP)
+	# Lower threshold since HI now costs only 1 CP
+	if best_score >= 2.0 and best_unit_id != "":
+		# If CP is tight (exactly 1), only use against very valuable targets
+		if player_cp <= 1 and best_score < 4.0:
 			return {
 				"type": "DECLINE_HEROIC_INTERVENTION",
 				"player": defending_player,
