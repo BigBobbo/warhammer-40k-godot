@@ -2948,6 +2948,7 @@ static func _check_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dict
 static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
 	# Original simple line of sight checking (preserved for backward compatibility)
 	# T3-19: Now handles medium terrain using default infantry height
+	# TER-2: Ruins-specific visibility rules (conservative: no model info available)
 	var terrain_features = board.get("terrain_features", [])
 
 	for terrain_piece in terrain_features:
@@ -2960,9 +2961,24 @@ static func _check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, boar
 		if height_cat == "tall" or height_cat == "medium":
 			var polygon = terrain_piece.get("polygon", PackedVector2Array())
 			if _segment_intersects_polygon(from_pos, to_pos, polygon):
-				# Check if both models are outside the terrain
-				# (models inside can see out and be seen)
-				if not _point_in_polygon(from_pos, polygon) and not _point_in_polygon(to_pos, polygon):
+				var from_inside = _point_in_polygon(from_pos, polygon)
+				var to_inside = _point_in_polygon(to_pos, polygon)
+
+				# TER-2: Ruins visibility rules
+				var terrain_type = terrain_piece.get("type", "")
+				if terrain_type == "ruins":
+					# No model data in legacy path, so no Aircraft/Towering exceptions
+					# Can see into ruins (target inside)
+					if to_inside:
+						continue
+					# Can see out if inside (approximation of wholly within)
+					if from_inside:
+						continue
+					# Both outside, line crosses → BLOCKED
+					return false
+
+				# Non-ruins: models inside can see out and be seen
+				if not from_inside and not to_inside:
 					if height_cat == "tall":
 						return false
 					elif height_cat == "medium":

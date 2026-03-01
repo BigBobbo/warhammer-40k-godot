@@ -13,6 +13,26 @@ const DEFAULT_MAX_RANGE: float = 48.0  # inches
 const DEFAULT_INFANTRY_HEIGHT_INCHES: float = 2.0  # Standard infantry ~2"
 const LARGE_MODEL_HEIGHT_INCHES: float = 5.0  # MONSTER/VEHICLE/TITANIC models are typically >5"
 
+# TER-2: Check if a model has the AIRCRAFT keyword
+static func _model_has_aircraft_keyword(model: Dictionary) -> bool:
+	var keywords = model.get("keywords", [])
+	if keywords.is_empty():
+		keywords = model.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if str(kw).to_upper() == "AIRCRAFT":
+			return true
+	return false
+
+# TER-2: Check if a model has the TOWERING keyword
+static func _model_has_towering_keyword(model: Dictionary) -> bool:
+	var keywords = model.get("keywords", [])
+	if keywords.is_empty():
+		keywords = model.get("meta", {}).get("keywords", [])
+	for kw in keywords:
+		if str(kw).to_upper() == "TOWERING":
+			return true
+	return false
+
 # Static methods for LoS calculations
 static func calculate_visibility_grid(models: Array, grid_size: int = DEFAULT_GRID_SIZE, max_range_inches: float = DEFAULT_MAX_RANGE) -> Dictionary:
 	var visibility_map = {}
@@ -112,6 +132,13 @@ static func _get_terrain_height_inches(terrain: Dictionary) -> float:
 
 # Check if terrain blocks line of sight
 # T3-19: Now handles all terrain heights, not just "tall"
+# TER-2: Ruins-specific visibility rules per 10e Core Rules:
+#   - Models cannot see over or through Ruins (footprint-based blocking)
+#   - Aircraft models are exceptions (visibility to/from determined normally)
+#   - Models can see into Ruins normally
+#   - Models wholly within Ruins can see out normally
+#   - Towering models within Ruins can also see out normally
+# Non-ruins terrain uses generic height-based rules:
 # - Tall terrain (>5"): Blocks LoS for all models (Obscuring)
 # - Medium terrain (2-5"): Blocks LoS only if both models are shorter than terrain
 # - Low terrain (<2"): Never blocks LoS (cover only)
@@ -130,9 +157,31 @@ static func _terrain_blocks_los(from: Vector2, to: Vector2, terrain: Dictionary,
 	if not _segment_intersects_polygon(from, to, polygon):
 		return false
 
+	var terrain_type = terrain.get("type", "")
+	var from_inside = _point_in_polygon(from, polygon)
+	var to_inside = _point_in_polygon(to, polygon)
+
+	# TER-2: Ruins-specific visibility rules
+	if terrain_type == "ruins":
+		# Aircraft exception: visibility to/from Aircraft is determined normally through Ruins
+		if _model_has_aircraft_keyword(shooter_model) or _model_has_aircraft_keyword(target_model):
+			return false
+
+		# Models can see INTO Ruins normally (target is inside)
+		if to_inside:
+			return false
+
+		# Models wholly within Ruins can see out normally
+		# For point-based checks, "inside" = wholly within (single point represents model center)
+		if from_inside:
+			return false
+
+		# Both models are outside the ruin and the line crosses it → BLOCKED
+		return true
+
+	# Non-ruins terrain: generic height-based rules
 	# Models inside terrain can see out and be seen
-	# So only block if both points are outside
-	if _point_in_polygon(from, polygon) or _point_in_polygon(to, polygon):
+	if from_inside or to_inside:
 		return false
 
 	# Tall terrain blocks LoS for all models (Obscuring)

@@ -15,9 +15,11 @@ const RulesEngineScript = preload("res://autoloads/RulesEngine.gd")
 # ==========================================
 
 func _make_terrain(height_category: String, polygon: PackedVector2Array) -> Dictionary:
+	# TER-2: Use "obstacle" type (not "ruins") to test generic height-based LoS rules.
+	# Ruins have special visibility rules that block all LoS regardless of model height.
 	return {
 		"id": "test_terrain",
-		"type": "ruins",
+		"type": "obstacle",
 		"height_category": height_category,
 		"polygon": polygon,
 		"walls": []
