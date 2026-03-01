@@ -496,16 +496,56 @@ func _process_deploy_unit(action: Dictionary) -> Dictionary:
 		"path": "units.%s.status" % unit_id,
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
-	
+
+	# P1-66: If this bodyguard has attached characters (from FormationsPhase),
+	# auto-deploy them at adjacent positions so they appear on the board.
+	# This handles the AI path which sends DEPLOY_UNIT instead of COMPOSITE_DEPLOY.
+	var unit_data = get_unit(unit_id)
+	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+	if attached_char_ids.size() > 0:
+		log_phase_message("P1-66: Auto-deploying %d attached character(s) with bodyguard %s" % [attached_char_ids.size(), unit_id])
+		# Use the first bodyguard model position as reference
+		var ref_pos = null
+		if model_positions.size() > 0 and model_positions[0] != null:
+			ref_pos = model_positions[0]
+		for char_id in attached_char_ids:
+			var char_unit = get_unit(char_id)
+			if char_unit.is_empty():
+				log_phase_message("P1-66: Warning - attached character %s not found" % char_id)
+				continue
+			# Skip if already deployed
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var char_models = char_unit.get("models", [])
+			for ci in range(char_models.size()):
+				if ref_pos != null:
+					var char_base_mm = char_models[ci].get("base_mm", 40)
+					var bg_base_mm = unit_data.get("models", [{}])[0].get("base_mm", 32)
+					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+					var ref_x = ref_pos.x if ref_pos is Vector2 else ref_pos.get("x", 0)
+					var ref_y = ref_pos.y if ref_pos is Vector2 else ref_pos.get("y", 0)
+					changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.position" % [char_id, ci],
+						"value": {"x": ref_x + offset_px, "y": ref_y}
+					})
+			changes.append({
+				"op": "set",
+				"path": "units.%s.status" % char_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			})
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			log_phase_message("P1-66: Auto-deployed attached character %s with bodyguard %s" % [char_name, unit_id])
+
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
 		get_parent().apply_state_changes(changes)
-	
+
 	# Update local snapshot
 	_apply_changes_to_local_state(changes)
-	
+
 	# Don't handle player switching here - let TurnManager do it via the action_taken signal
-	
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Deployed %s" % unit_name)
@@ -692,6 +732,28 @@ func _process_place_in_reserves(action: Dictionary) -> Dictionary:
 		"path": "units.%s.reserve_type" % unit_id,
 		"value": reserve_type
 	})
+
+	# P1-66: If this bodyguard has attached characters, place them in reserves too
+	var unit_data = get_unit(unit_id)
+	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in attached_char_ids:
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		changes.append({
+			"op": "set",
+			"path": "units.%s.status" % char_id,
+			"value": GameStateData.UnitStatus.IN_RESERVES
+		})
+		changes.append({
+			"op": "set",
+			"path": "units.%s.reserve_type" % char_id,
+			"value": reserve_type
+		})
+		var char_name = char_unit.get("meta", {}).get("name", char_id)
+		log_phase_message("P1-66: Attached character %s placed in reserves with bodyguard" % char_name)
 
 	# Apply changes through PhaseManager
 	if get_parent() and get_parent().has_method("apply_state_changes"):
@@ -1006,6 +1068,15 @@ func _get_undeployed_units_for_player(player: int) -> Array:
 	var units = get_units_for_player(player)
 	for unit_id in units:
 		var unit = units[unit_id]
+		# Skip units that are embarked (they deploy with their transport)
+		if unit.get("embarked_in", null) != null:
+			continue
+		# Skip units that are attached to a bodyguard (they deploy with their bodyguard)
+		if unit.get("attached_to", null) != null:
+			continue
+		# Skip units in reserves (they're off-table)
+		if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.UNDEPLOYED:
 			undeployed.append(unit_id)
 	return undeployed
