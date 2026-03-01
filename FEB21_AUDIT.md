@@ -126,7 +126,7 @@ The following items from the original Feb 21 audit have been verified as impleme
 |----|----------|-------|---------|
 | MOV-1 | HIGH | Pivot values not implemented | Core Rules Updates: non-round base non-Monster/Vehicle = 1", Monster/Vehicle non-round = 2", Vehicle round >32mm with flying stem = 2". Subtracts from remaining movement on first pivot |
 | MOV-2 | HIGH | Vertical coherency (5") not validated | `_check_models_coherency()` only checks 2" horizontal. Rule requires 5" vertical limit |
-| MOV-8 | **HIGH** | Engagement Range missing 5" vertical component | `Measurement.is_in_engagement_range_shape_aware()` is purely 2D (1" horizontal only). Rules require 1" horizontal AND 5" vertical. Models at different heights could be incorrectly in/out of ER |
+| MOV-8 | ~~**HIGH**~~ DONE | Engagement Range missing 5" vertical component | `Measurement.is_in_engagement_range_shape_aware()` now checks 1" horizontal AND 5" vertical. Fixed in P1-63 |
 | MOV-3 | MEDIUM | Surge moves not implemented | Core Rules Updates: "surge" moves (out-of-phase moves) have restrictions: once per phase, not while battle-shocked, not while in Engagement Range |
 | MOV-4 | MEDIUM | One Normal move per phase not enforced | "A unit cannot make more than one Normal move per phase." No tracking |
 | MOV-5 | MEDIUM | Monster/Vehicle cannot move through friendly Monster/Vehicle | Errata restriction not validated |
@@ -391,7 +391,7 @@ These issues were reported through playtesting:
 - [ ] **GEN-8**: Implement transport destruction effects (forced disembark + D6 mortal wound tests per embarked model)
 - [ ] **MOV-1**: Implement pivot values for non-round base models (1" infantry, 2" Monster/Vehicle)
 - [ ] **MOV-2**: Implement vertical coherency limit (5") in `_check_models_coherency()`
-- [ ] **MOV-8**: Add 5" vertical component to Engagement Range checks in Measurement.gd
+- [x] **MOV-8**: Add 5" vertical component to Engagement Range checks in Measurement.gd
 - [ ] **CMD-6**: Fix attached unit starting strength for battle-shock (combine bodyguard + character models)
 - [ ] **TER-2**: Implement Ruins visibility rules (cannot see through/over, Aircraft/Towering exceptions)
 - [ ] **BUG-1**: Fix leader attachment not working visually for human player in deployment
