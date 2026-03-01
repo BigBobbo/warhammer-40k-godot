@@ -11,6 +11,11 @@ var unit_visual_style: String = "enhanced"
 # Sprite directory for user-provided token art (Phase 2)
 var sprite_directory: String = "user://sprites/"
 
+# Retro visual mode: enables pixel art silhouettes + CRT scanline shader overlay
+var retro_mode: bool = false
+
+signal retro_mode_changed(enabled: bool)
+
 # Save/Load Settings
 var save_files_pretty_print: bool = true  # Human-readable by default
 var save_files_compression: bool = false  # Keep disabled for readability
@@ -45,6 +50,11 @@ func _ready() -> void:
 	# Initialize MeasuringTapeManager with settings
 	if MeasuringTapeManager:
 		MeasuringTapeManager.set_save_persistence(save_measurements)
+
+func set_retro_mode(enabled: bool) -> void:
+	retro_mode = enabled
+	retro_mode_changed.emit(enabled)
+	DebugLogger.info("[SettingsService] Retro mode %s" % ("enabled" if enabled else "disabled"))
 
 func get_board_width_px() -> float:
 	return board_width_inches * px_per_inch
