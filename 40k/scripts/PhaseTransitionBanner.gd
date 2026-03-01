@@ -5,11 +5,12 @@ class_name PhaseTransitionBanner
 # Shows an animated banner when the game phase changes.
 # The banner slides in from the top, holds briefly, then slides out.
 # Uses the WhiteDwarf gothic theme for consistent styling.
+# P3-110: Added phase rules brief — concise description of available actions per phase.
 
 const SLIDE_IN_DURATION := 0.4
-const HOLD_DURATION := 1.5
+const HOLD_DURATION := 2.5
 const SLIDE_OUT_DURATION := 0.35
-const BANNER_HEIGHT := 80.0
+const BANNER_HEIGHT := 110.0
 
 # Phase display names and icons (unicode symbols for gothic feel)
 static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
@@ -28,8 +29,39 @@ static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
 		GameStateData.Phase.MORALE: return {"name": "MORALE PHASE", "icon": "\u26A0"}
 		_: return {"name": "UNKNOWN PHASE", "icon": "?"}
 
+# P3-110: Brief rules description for each phase
+static func _get_phase_rules_brief(phase: GameStateData.Phase) -> String:
+	match phase:
+		GameStateData.Phase.FORMATIONS:
+			return "Assign units to Battle Formations and select Enhancements."
+		GameStateData.Phase.DEPLOYMENT:
+			return "Alternate placing units in your deployment zone. Infiltrators deploy anywhere >9\" from enemies."
+		GameStateData.Phase.REDEPLOYMENT:
+			return "Redeploy eligible units to new positions before the battle begins."
+		GameStateData.Phase.SCOUT:
+			return "Units with Scout make a pre-game move up to their Scout distance."
+		GameStateData.Phase.ROLL_OFF:
+			return "Both players roll off — winner chooses to go first or second."
+		GameStateData.Phase.COMMAND:
+			return "Gain 1CP. Battle-shock test for Below Half-strength units (2D6 vs Ld). Use Command phase abilities."
+		GameStateData.Phase.MOVEMENT:
+			return "Normal Move, Advance (move + D6\"), or Fall Back. Set up Reinforcements from Reserves."
+		GameStateData.Phase.SHOOTING:
+			return "Select units to shoot. Choose targets in range and LoS. Resolve ranged attacks."
+		GameStateData.Phase.CHARGE:
+			return "Declare charges against enemies within 12\". Roll 2D6 to reach target. Overwatch may trigger."
+		GameStateData.Phase.FIGHT:
+			return "Fights First, then alternate combats. Pile In 3\", resolve melee attacks, Consolidate 3\"."
+		GameStateData.Phase.SCORING:
+			return "Score primary and secondary objectives based on controlled objective markers."
+		GameStateData.Phase.MORALE:
+			return "Check morale for units that suffered casualties this turn."
+		_:
+			return ""
+
 var _phase_label: Label
 var _round_label: Label
+var _rules_label: Label
 var _left_line: ColorRect
 var _right_line: ColorRect
 var _tween: Tween = null
@@ -74,13 +106,13 @@ func _ready() -> void:
 	bottom_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bottom_line)
 
-	# Decorative side lines (flanking the text)
+	# Decorative side lines (flanking the phase name)
 	_left_line = ColorRect.new()
 	_left_line.color = Color(WhiteDwarfTheme.WH_GOLD, 0.5)
 	_left_line.anchor_left = 0.1
 	_left_line.anchor_right = 0.35
-	_left_line.anchor_top = 0.5
-	_left_line.anchor_bottom = 0.5
+	_left_line.anchor_top = 0.35
+	_left_line.anchor_bottom = 0.35
 	_left_line.offset_top = -1.0
 	_left_line.offset_bottom = 1.0
 	_left_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -90,40 +122,54 @@ func _ready() -> void:
 	_right_line.color = Color(WhiteDwarfTheme.WH_GOLD, 0.5)
 	_right_line.anchor_left = 0.65
 	_right_line.anchor_right = 0.9
-	_right_line.anchor_top = 0.5
-	_right_line.anchor_bottom = 0.5
+	_right_line.anchor_top = 0.35
+	_right_line.anchor_bottom = 0.35
 	_right_line.offset_top = -1.0
 	_right_line.offset_bottom = 1.0
 	_right_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_right_line)
 
-	# Phase name label (centered, large)
+	# Phase name label (centered, large) — top portion
 	_phase_label = Label.new()
 	_phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_phase_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_phase_label.anchor_left = 0.0
 	_phase_label.anchor_right = 1.0
 	_phase_label.anchor_top = 0.0
-	_phase_label.anchor_bottom = 0.7
+	_phase_label.anchor_bottom = 0.5
 	_phase_label.offset_top = 2.0
 	_phase_label.add_theme_font_size_override("font_size", 28)
 	_phase_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_phase_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_phase_label)
 
-	# Round indicator label (smaller, below phase name)
+	# Round indicator label (smaller, middle)
 	_round_label = Label.new()
 	_round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_round_label.anchor_left = 0.0
 	_round_label.anchor_right = 1.0
-	_round_label.anchor_top = 0.6
-	_round_label.anchor_bottom = 1.0
-	_round_label.offset_bottom = -4.0
+	_round_label.anchor_top = 0.42
+	_round_label.anchor_bottom = 0.65
 	_round_label.add_theme_font_size_override("font_size", 13)
 	_round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	_round_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_round_label)
+
+	# P3-110: Phase rules brief label (smaller italic-styled, bottom portion)
+	_rules_label = Label.new()
+	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_rules_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_rules_label.anchor_left = 0.05
+	_rules_label.anchor_right = 0.95
+	_rules_label.anchor_top = 0.62
+	_rules_label.anchor_bottom = 1.0
+	_rules_label.offset_bottom = -4.0
+	_rules_label.add_theme_font_size_override("font_size", 12)
+	_rules_label.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.7))
+	_rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_rules_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_rules_label)
 
 	# Start hidden above screen
 	visible = false
@@ -144,6 +190,11 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 
 	# Set round info
 	_round_label.text = "Round %d  \u2022  Player %d Active" % [current_round, active_player]
+
+	# P3-110: Set phase rules brief
+	var rules_brief = _get_phase_rules_brief(phase)
+	_rules_label.text = rules_brief
+	_rules_label.visible = rules_brief != ""
 
 	# Position above viewport (hidden)
 	offset_top = -BANNER_HEIGHT
@@ -171,7 +222,7 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 	# Phase 4: Clean up
 	_tween.tween_callback(_on_banner_complete)
 
-	print("PhaseTransitionBanner: Showing banner for %s (Round %d, Player %d)" % [phase_info.name, current_round, active_player])
+	print("PhaseTransitionBanner: Showing banner for %s (Round %d, Player %d) — %s" % [phase_info.name, current_round, active_player, rules_brief])
 
 func _reset_position() -> void:
 	offset_top = -BANNER_HEIGHT
