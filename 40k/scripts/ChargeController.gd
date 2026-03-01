@@ -29,6 +29,7 @@ var dragging_model = null  # Currently dragging model
 var ghost_visual: Node2D = null  # Ghost visual for dragging
 var movement_lines: Dictionary = {}  # model_id -> Line2D for movement path
 var confirm_button: Button = null  # Button to confirm charge moves
+var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
 # UI References
 var board_view: Node2D
@@ -963,12 +964,17 @@ func _clear_movement_visuals() -> void:
 	if ghost_visual and is_instance_valid(ghost_visual):
 		ghost_visual.queue_free()
 		ghost_visual = null
-	
+
 	# Clear movement lines
 	for line in movement_lines.values():
 		if is_instance_valid(line):
 			line.queue_free()
 	movement_lines.clear()
+
+	# P3-99: Clear direction validation visual
+	if charge_direction_visual and is_instance_valid(charge_direction_visual):
+		charge_direction_visual.queue_free()
+		charge_direction_visual = null
 
 func _add_confirm_button() -> void:
 	# Add confirm button to right panel instead of top bar
@@ -1095,6 +1101,12 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 		board_root.add_child(line)
 		movement_lines[model_id] = line
 
+		# P3-99: Create direction validation visual
+		if not charge_direction_visual or not is_instance_valid(charge_direction_visual):
+			charge_direction_visual = preload("res://scripts/ChargeDirectionVisual.gd").new()
+			board_root.add_child(charge_direction_visual)
+			print("P3-99: Created ChargeDirectionVisual for live direction feedback")
+
 		print("DEBUG: Created ghost visual and movement line for ", model_id)
 
 func _update_model_drag(world_pos: Vector2) -> void:
@@ -1134,6 +1146,14 @@ func _update_model_drag(world_pos: Vector2) -> void:
 
 		# P3-98: Update distance display with preview (show effective distance including terrain breakdown)
 		_update_charge_distance_display_with_preview(effective_distance, is_valid, terrain_penalty)
+
+		# P3-99: Update live direction validation visual
+		if charge_direction_visual and is_instance_valid(charge_direction_visual):
+			var charge_targets = selected_targets
+			if charge_targets.is_empty() and current_phase:
+				charge_targets = _get_charge_targets_from_phase(active_unit_id)
+			if not charge_targets.is_empty():
+				charge_direction_visual.update_direction(world_pos, original_pos, charge_targets)
 
 func _end_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1213,14 +1233,18 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	if ghost_visual:
 		ghost_visual.queue_free()
 		ghost_visual = null
-	
+
 	# Clean up movement line
 	if model_id in movement_lines:
 		var line = movement_lines[model_id]
 		if is_instance_valid(line):
 			line.queue_free()
 		movement_lines.erase(model_id)
-	
+
+	# P3-99: Deactivate direction visual (hide but keep for next drag)
+	if charge_direction_visual and is_instance_valid(charge_direction_visual):
+		charge_direction_visual.deactivate()
+
 	dragging_model = null
 
 func _move_token_visual(unit_id: String, model_id: String, new_pos: Vector2, rotation: float = 0.0) -> void:
