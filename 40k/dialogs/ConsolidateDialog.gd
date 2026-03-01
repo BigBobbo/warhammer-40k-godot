@@ -54,11 +54,13 @@ func _build_ui() -> void:
 	reset_button.pressed.connect(_on_reset_pressed)
 	button_container.add_child(reset_button)
 
-	# Skip consolidate button
-	var skip_button = Button.new()
-	skip_button.text = "Skip (No Movement)"
-	skip_button.pressed.connect(_on_skip_pressed)
-	button_container.add_child(skip_button)
+	# FGT-1 / P2-78: Consolidation is mandatory at unit level per FAQ, but
+	# individual model movement is optional. This button confirms the step
+	# with no models electing to move (not "skipping" consolidation).
+	var no_move_button = Button.new()
+	no_move_button.text = "Confirm (No Models Move)"
+	no_move_button.pressed.connect(_on_skip_pressed)
+	button_container.add_child(no_move_button)
 
 	container.add_child(button_container)
 

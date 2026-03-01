@@ -642,8 +642,12 @@ func _validate_consolidate(action: Dictionary) -> Dictionary:
 		# Empty movements = skip, which is valid for Aircraft
 		return {"valid": true, "errors": []}
 
-	# If no movements provided, it's a skip - always valid
+	# FGT-1 / P2-78: Per FAQ, consolidation for a unit is NOT optional — the step
+	# must always occur. However, each individual model's Consolidation move IS
+	# optional. Empty movements means the unit consolidates but no models move,
+	# which is valid per the FAQ ruling.
 	if movements.is_empty():
+		log_phase_message("[FGT-1] Unit %s consolidation step completed (no individual models moved — permitted per FAQ)" % unit_id)
 		return {"valid": true, "errors": []}
 
 	# Determine which consolidate mode is available
@@ -994,15 +998,21 @@ func _find_closest_objective_position(from_pos: Vector2, objectives: Array) -> V
 func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var errors = []
-	
+
+	# FGT-1 / P2-78: Cannot skip a unit that is mid-fight and needs to consolidate.
+	# Consolidation is mandatory at the unit level per FAQ.
+	if active_fighter_id == unit_id and pending_attacks.is_empty() and confirmed_attacks.is_empty():
+		errors.append("Unit must complete mandatory consolidation before being skipped (FAQ: consolidation is not optional)")
+		return {"valid": false, "errors": errors}
+
 	# Check it's this unit's turn
 	if current_fight_index >= fight_sequence.size():
 		errors.append("All units have fought")
 		return {"valid": false, "errors": errors}
-	
+
 	if fight_sequence[current_fight_index] != unit_id:
 		errors.append("Not this unit's turn to fight")
-	
+
 	return {"valid": errors.is_empty(), "errors": errors}
 
 # Action processing methods
@@ -1703,6 +1713,14 @@ func _process_consolidate(action: Dictionary) -> Dictionary:
 	var changes = []
 	var unit_id = action.get("unit_id", "")
 	var movements = action.get("movements", {})
+
+	# FGT-1 / P2-78: Consolidation is mandatory at unit level per FAQ.
+	# "Consolidation for a unit is not optional. However, for each model,
+	# whether or not that model makes a Consolidation move is optional."
+	if movements.is_empty():
+		log_phase_message("[FGT-1] %s completes mandatory consolidation step — no models elected to move" % unit_id)
+	else:
+		log_phase_message("[Consolidate] %s — %d model(s) moved" % [unit_id, movements.size()])
 
 	# Apply movements
 	for model_id in movements:
