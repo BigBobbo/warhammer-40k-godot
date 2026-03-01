@@ -1342,10 +1342,10 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 	var strat = stratagems["tank_shock"]
 	var diffs = []
 
-	# Get vehicle toughness
+	# Get vehicle toughness (from meta.stats.toughness per army JSON structure)
 	var vehicle_unit = GameState.get_unit(vehicle_unit_id)
-	var toughness = int(vehicle_unit.get("meta", {}).get("toughness", 4))
-	var dice_count = mini(toughness, 6)  # Max 6 dice
+	var toughness = int(vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
+	var dice_count = mini(toughness, 6)  # Max 6 dice per Balance Dataslate v3.3
 
 	# Deduct CP
 	var current_cp = _get_player_cp(player)

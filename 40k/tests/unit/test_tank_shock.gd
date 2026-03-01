@@ -48,7 +48,6 @@ func _create_unit(id: String, model_count: int, owner: int = 1, keywords: Array 
 		"meta": {
 			"name": "Test Unit %s" % id,
 			"keywords": keywords,
-			"toughness": toughness,
 			"stats": {
 				"move": 6,
 				"toughness": toughness,
