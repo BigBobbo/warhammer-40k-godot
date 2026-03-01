@@ -16,6 +16,10 @@ const ANIM_CYCLE_INTERVAL := 0.06  # How fast dice cycle during animation
 const SETTLE_STAGGER := 0.04  # Stagger between each die settling
 const DISPLAY_DURATION := 4.0  # How long to show results before fading
 
+# Sound trigger tracking
+var _sound_tick_elapsed: float = 0.0
+var _settled_dice_count: int = 0  # Track how many dice have settled (for sound triggers)
+
 # Colors
 const COLOR_CRITICAL := Color(1.0, 0.84, 0.0)  # Gold for 6s
 const COLOR_FUMBLE := Color(0.9, 0.15, 0.15)  # Red for 1s
@@ -56,6 +60,14 @@ func _process(delta: float) -> void:
 		return
 
 	_anim_elapsed += delta
+	_sound_tick_elapsed += delta
+
+	# Play rolling tick sound during cycling phase
+	if _sound_tick_elapsed >= ANIM_CYCLE_INTERVAL:
+		_sound_tick_elapsed = 0.0
+		var sm = _get_sound_manager()
+		if sm:
+			sm.play_roll_tick()
 
 	# Cycle through random values for unsettled dice
 	var any_unsettled := false
@@ -69,6 +81,9 @@ func _process(delta: float) -> void:
 		if _anim_elapsed >= settle_time:
 			die.display_value = die.value
 			die.settled = true
+			_settled_dice_count += 1
+			# Play settle sound + critical audio cues
+			_play_die_settle_sound(die.value)
 		else:
 			# Cycle through random values
 			die.display_value = randi_range(1, 6)
@@ -76,6 +91,8 @@ func _process(delta: float) -> void:
 
 	if not any_unsettled:
 		_is_animating = false
+		# Play result sound based on overall outcome
+		_play_result_sound()
 		# Start display timer before fade-out
 		_display_timer.start(DISPLAY_DURATION)
 
@@ -98,7 +115,10 @@ func _draw() -> void:
 	# Y offset for dice (below label)
 	var y_offset = 16.0
 
-	var use_retro = SettingsService.retro_mode if SettingsService else false
+	var use_retro := false
+	var _settings = get_tree().root.get_node_or_null("/root/SettingsService") if is_inside_tree() else null
+	if _settings:
+		use_retro = _settings.retro_mode
 
 	# Reroll comparison mode: draw original dice (dimmed + strikethrough), arrow, then new dice
 	if _is_reroll_comparison and not _original_dice_data.is_empty():
@@ -229,6 +249,55 @@ func _draw_pixel_pips(x: float, y: float, value: int, color: Color) -> void:
 		draw_rect(Rect2(cx + offset - pip_size / 2, cy - pip_size / 2, pip_size, pip_size), color)
 
 
+# ============================================================================
+# Sound Helpers
+# ============================================================================
+
+func _get_sound_manager() -> Node:
+	"""Safely get DiceSoundManager autoload (avoids compile-time identifier issues)."""
+	if not is_inside_tree():
+		return null
+	return get_tree().root.get_node_or_null("/root/DiceSoundManager")
+
+func _play_die_settle_sound(value: int) -> void:
+	"""Play appropriate sound when a single die settles."""
+	var sm = _get_sound_manager()
+	if not sm:
+		return
+	sm.play_settle()
+	# Critical hit (natural 6) — extra chime
+	if value == 6:
+		sm.play_critical_success()
+	# Fumble (natural 1) — low buzz
+	elif value == 1:
+		sm.play_critical_failure()
+
+func _play_result_sound() -> void:
+	"""Play overall result sound when all dice have settled."""
+	var sm = _get_sound_manager()
+	if not sm:
+		return
+	if _dice_data.is_empty():
+		return
+
+	# Count successes vs failures based on threshold
+	if _threshold <= 0:
+		# No threshold (charge rolls etc.) — no result sound
+		return
+
+	var successes := 0
+	var failures := 0
+	for die in _dice_data:
+		if die.value >= _threshold:
+			successes += 1
+		else:
+			failures += 1
+
+	if successes > failures:
+		sm.play_result_success()
+	elif failures > 0:
+		sm.play_result_failure()
+
 func show_dice_roll(dice_data: Dictionary) -> void:
 	var context = dice_data.get("context", "")
 
@@ -292,6 +361,8 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 	# Reset state and start animation
 	_fade_alpha = 1.0
 	_anim_elapsed = 0.0
+	_sound_tick_elapsed = 0.0
+	_settled_dice_count = 0
 	_is_animating = true
 	visible = true
 	queue_redraw()
@@ -356,6 +427,8 @@ func show_reroll_comparison(original_rolls: Array, new_rolls: Array, context: St
 	# Reset state and start animation
 	_fade_alpha = 1.0
 	_anim_elapsed = 0.0
+	_sound_tick_elapsed = 0.0
+	_settled_dice_count = 0
 	_is_animating = true
 	visible = true
 	queue_redraw()

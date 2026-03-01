@@ -242,7 +242,16 @@ func _init():
 		print("FAIL: Empty rolls should be skipped")
 		fail_count += 1
 
-	# Test 13: Height calculation for multiple rows
+	# Test 13: Sound tracking state reset on show_dice_roll
+	visual.show_dice_roll(hit_data)
+	if visual._sound_tick_elapsed == 0.0 and visual._settled_dice_count == 0:
+		print("PASS: Sound tracking state reset on show_dice_roll")
+		pass_count += 1
+	else:
+		print("FAIL: Sound tracking state not reset (tick=%.3f, settled=%d)" % [visual._sound_tick_elapsed, visual._settled_dice_count])
+		fail_count += 1
+
+	# Test 14: Height calculation for multiple rows
 	var many_dice = {
 		"context": "to_hit",
 		"rolls_raw": [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, 3],  # 15 dice = 3 rows

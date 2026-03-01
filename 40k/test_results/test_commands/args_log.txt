@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--script", "res://tests/test_dice_roll_visual.gd"]
