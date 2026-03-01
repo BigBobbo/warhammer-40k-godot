@@ -1,1 +1,1 @@
-ARGS: ["-s", "res://addons/gut/gut_cmdln.gd", "-gtest=test_wound_roll_auto_fail.gd", "-gdir=res://tests/unit"]
+ARGS: ["--test-mode", "--position=800,100", "--resolution=600x480", "--auto-join", "--host-ip=127.0.0.1", "--host-port=8000", "--instance-name=Client"]
