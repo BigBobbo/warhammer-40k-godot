@@ -14,6 +14,7 @@ signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal command_reroll_completed(original_rolls: Array, new_rolls: Array, context: String)  # P3-118: For reroll visualization
 signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligible_units: Array)
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
@@ -1034,6 +1035,9 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 
 	log_phase_message("COMMAND RE-ROLL: Advance re-rolled from %d → %d" % [old_roll, new_advance])
 	print("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance])
+
+	# P3-118: Emit reroll comparison data for visualization
+	emit_signal("command_reroll_completed", [old_roll], [new_advance], "advance_roll")
 
 	# Add reroll entry to dice log so it appears in the dice log panel
 	dice_log.append({

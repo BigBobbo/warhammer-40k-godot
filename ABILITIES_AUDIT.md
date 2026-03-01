@@ -506,7 +506,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 115. **Add available movement indicator** — Show "X inches remaining" floating text during model movement in MovementController.gd. (QOL-9) — **DONE**
 116. **Add coherency preview during movement** — Visual line showing unit coherency status as models move in MovementController.gd. (QOL-10) — **DONE**
 117. **Add dice roll history panel** — Scrollable history of past dice rolls for review. New DiceHistoryPanel.gd. (QOL-12) — **DONE**
-118. **Add reroll visualization** — Show original + new die side-by-side when Command Re-roll used in DiceRollVisual.gd. (QOL-14)
+118. **Add reroll visualization** — Show original + new die side-by-side when Command Re-roll used in DiceRollVisual.gd. (QOL-14) — **DONE**
 119. **Add live opponent action feed in multiplayer** — Show "Player 2 moved Ork Boyz forward" feed in real-time. (QOL-15)
 120. **Add scoring counter HUD** — Display current VP by player persistently in Main.gd. (QOL-22)
 121. **Add secondary objective progress tracking** — Show progress toward active secondary missions in ScoringController.gd. (QOL-23)

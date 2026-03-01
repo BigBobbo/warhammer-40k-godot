@@ -19,6 +19,7 @@ var hud_right: Control
 
 # UI Elements
 var phase_info_label: Label
+var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
 
 func _ready() -> void:
 	_setup_ui_references()
@@ -227,6 +228,12 @@ func _setup_right_panel() -> void:
 		]
 		p2_vp_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		vp_section.add_child(p2_vp_label)
+
+	# P3-118: Add dice roll visual for reroll comparisons
+	dice_roll_visual = DiceRollVisual.new()
+	dice_roll_visual.custom_minimum_size = Vector2(200, 0)
+	dice_roll_visual.visible = false
+	command_panel.add_child(dice_roll_visual)
 
 	# Secondary Missions section
 	_setup_secondary_missions_section(command_panel)
@@ -635,6 +642,10 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("command_reroll_opportunity"):
 			if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 				phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+		# P3-118: Connect reroll completed signal for visualization
+		if phase.has_signal("command_reroll_completed"):
+			if not phase.command_reroll_completed.is_connected(_on_command_reroll_completed):
+				phase.command_reroll_completed.connect(_on_command_reroll_completed)
 
 		# Connect SecondaryMissionManager signals for reactive UI updates
 		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -781,6 +792,12 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 		"type": "DECLINE_COMMAND_REROLL",
 		"unit_id": unit_id,
 	})
+
+func _on_command_reroll_completed(original_rolls: Array, new_rolls: Array, context: String) -> void:
+	"""P3-118: Show reroll comparison visualization when Command Re-roll completes."""
+	print("CommandController: Reroll comparison — %s → %s (%s)" % [str(original_rolls), str(new_rolls), context])
+	if dice_roll_visual and is_instance_valid(dice_roll_visual):
+		dice_roll_visual.show_reroll_comparison(original_rolls, new_rolls, context)
 
 # ============================================================================
 # SECONDARY MISSION REVIEW (show drawn missions with replace option)

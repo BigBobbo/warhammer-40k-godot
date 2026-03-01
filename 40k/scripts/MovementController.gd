@@ -63,6 +63,7 @@ var inches_left_label: Label
 var illegal_reason_label: Label
 var unit_list: ItemList
 var dice_log_display: RichTextLabel
+var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
 
 # New UI elements for 4-section layout
 var selected_unit_label: Label
@@ -453,12 +454,19 @@ func _create_dice_log_display(parent: VBoxContainer) -> void:
 			var dice_label = Label.new()
 			dice_label.text = "Dice Log:"
 			parent.add_child(dice_label)
-			
+
 			dice_log_display = RichTextLabel.new()
 			dice_log_display.name = "DiceLog"
 			dice_log_display.custom_minimum_size = Vector2(300, 200)  # Increased height to use more space
 			dice_log_display.bbcode_enabled = true
 			parent.add_child(dice_log_display)
+
+	# P3-118: Add dice roll visual for reroll comparisons
+	if not dice_roll_visual:
+		dice_roll_visual = DiceRollVisual.new()
+		dice_roll_visual.custom_minimum_size = Vector2(200, 0)
+		dice_roll_visual.visible = false
+		parent.add_child(dice_roll_visual)
 
 func _update_selected_unit_display() -> void:
 	if selected_unit_label:
@@ -524,6 +532,10 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("command_reroll_opportunity"):
 				if not phase.command_reroll_opportunity.is_connected(_on_command_reroll_opportunity):
 					phase.command_reroll_opportunity.connect(_on_command_reroll_opportunity)
+			# P3-118: Connect reroll completed signal for visualization
+			if phase.has_signal("command_reroll_completed"):
+				if not phase.command_reroll_completed.is_connected(_on_command_reroll_completed):
+					phase.command_reroll_completed.connect(_on_command_reroll_completed)
 			if phase.has_signal("overwatch_opportunity"):
 				if not phase.overwatch_opportunity.is_connected(_on_overwatch_opportunity):
 					phase.overwatch_opportunity.connect(_on_overwatch_opportunity)
@@ -3463,6 +3475,12 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 		"type": "DECLINE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
 	})
+
+func _on_command_reroll_completed(original_rolls: Array, new_rolls: Array, context: String) -> void:
+	"""P3-118: Show reroll comparison visualization when Command Re-roll completes."""
+	print("MovementController: Reroll comparison — %s → %s (%s)" % [str(original_rolls), str(new_rolls), context])
+	if dice_roll_visual and is_instance_valid(dice_roll_visual):
+		dice_roll_visual.show_reroll_comparison(original_rolls, new_rolls, context)
 
 # ===================================================
 # FIRE OVERWATCH HANDLING

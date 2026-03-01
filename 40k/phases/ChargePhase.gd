@@ -632,6 +632,13 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 		"charge_failed": not roll_sufficient,
 		"min_distance": min_distance,
 	}
+
+	# Include command reroll original rolls for visualization (P3-118)
+	if charge_data.has("command_reroll_original"):
+		dice_result["command_reroll"] = true
+		dice_result["original_rolls"] = charge_data["command_reroll_original"]
+		charge_data.erase("command_reroll_original")
+
 	dice_log.append(dice_result)
 
 	# Log charge roll result to GameEventLog
@@ -783,9 +790,10 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	var new_rolls = rng.roll_d6(2)
 	var new_total = new_rolls[0] + new_rolls[1]
 
-	# Update the charge data with new rolls
+	# Update the charge data with new rolls and store original for visualization
 	charge_data.distance = new_total
 	charge_data.dice_rolls = new_rolls
+	charge_data["command_reroll_original"] = old_rolls
 
 	log_phase_message("COMMAND RE-ROLL: Charge re-rolled from %d (%s) → %d (%d + %d)" % [
 		old_rolls[0] + old_rolls[1], str(old_rolls), new_total, new_rolls[0], new_rolls[1]

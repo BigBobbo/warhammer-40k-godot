@@ -1916,13 +1916,24 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if dice_roll_visual and dice_data.get("context", "") == "charge_roll":
 		var charge_rolls = dice_data.get("rolls", [])
 		if charge_rolls.size() == 2:
-			# Adapt charge roll format to standard dice visual format
-			var visual_data = {
-				"context": "charge_roll",
-				"rolls_raw": charge_rolls,
-				"threshold": "",  # No threshold for charge rolls
-			}
-			dice_roll_visual.show_dice_roll(visual_data)
+			# P3-118: Show reroll comparison if this was a command reroll
+			if dice_data.get("command_reroll", false):
+				var original_rolls = dice_data.get("original_rolls", [])
+				if not original_rolls.is_empty():
+					dice_roll_visual.show_reroll_comparison(original_rolls, charge_rolls, "charge_roll")
+					print("ChargeController: Showing reroll comparison %s → %s" % [str(original_rolls), str(charge_rolls)])
+				else:
+					# Fallback to normal display if original_rolls missing
+					var visual_data = {"context": "charge_roll", "rolls_raw": charge_rolls, "threshold": ""}
+					dice_roll_visual.show_dice_roll(visual_data)
+			else:
+				# Standard display — no reroll
+				var visual_data = {
+					"context": "charge_roll",
+					"rolls_raw": charge_rolls,
+					"threshold": "",  # No threshold for charge rolls
+				}
+				dice_roll_visual.show_dice_roll(visual_data)
 
 	print("ChargeController: _on_dice_rolled called with data: ", dice_data)
 
