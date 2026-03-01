@@ -967,6 +967,9 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	active_unit_id = unit_id
 	active_mode = mode
 
+	# Trigger move animation on all models in the unit
+	_trigger_unit_animation(unit_id, "move")
+
 	# Get move cap from unit
 	if current_phase:
 		# PRIORITY 1: Read move cap from phase's active_moves (most authoritative)
@@ -1039,6 +1042,9 @@ func _on_model_drop_preview(unit_id: String, model_id: String, path_px: Array, i
 	emit_signal("ui_update_requested")
 
 func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> void:
+	# Return unit to idle animation
+	_trigger_unit_animation(unit_id, "idle")
+
 	# Clear movement state
 	active_unit_id = ""
 	active_mode = ""
@@ -3378,3 +3384,18 @@ class _SelectionRingIndicator extends Node2D:
 		draw_arc(Vector2.ZERO, ring_radius + 3.0, 0, TAU, 48, Color(0.4, 0.8, 1.0, alpha), 2.5)
 		# Inner fill circle
 		draw_circle(Vector2.ZERO, ring_radius, Color(0.3, 0.6, 1.0, 0.1))
+
+
+func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
+	"""Trigger an animation on all token visuals for a unit."""
+	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not tl:
+		return
+	for child in tl.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+			if child.has_method("play_animation"):
+				child.play_animation(anim_name)
+			else:
+				for grandchild in child.get_children():
+					if grandchild.has_method("play_animation"):
+						grandchild.play_animation(anim_name)

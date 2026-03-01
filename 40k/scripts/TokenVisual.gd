@@ -13,22 +13,55 @@ var is_selected: bool = false
 var is_hovered: bool = false
 var _pulse_time: float = 0.0
 
-# Sprite overlay (Phase 2)
+# Sprite overlay (Phase 2 - static)
 var _sprite_resolved: bool = false
 var _sprite_texture: Texture2D = null
+
+# Animated sprite system
+var _anim_resolved: bool = false
+var _animations: Dictionary = {}               # animation_name -> SpriteAnimationData
+var _current_anim_name: String = "idle"         # Active animation
+var _animation_time: float = 0.0               # Continuous time for procedural animations
+var _anim_needs_redraw: bool = false            # Whether animation frame changed this tick
+
+# Animation state constants
+const ANIM_IDLE := "idle"
+const ANIM_MOVE := "move"
+const ANIM_ATTACK := "attack"
+const ANIM_DEATH := "death"
+
 
 func _ready() -> void:
 	z_index = 10
 
 func _process(delta: float) -> void:
-	# Only process animation when selected or hovered in enhanced mode
-	if not (is_selected or is_hovered):
-		return
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style != "enhanced":
-		return
-	_pulse_time += delta
-	queue_redraw()
+
+	# Always advance animation time for procedural and sprite animations
+	_animation_time += delta
+	_anim_needs_redraw = false
+
+	# Advance sprite animation frames if we have animated sprites
+	if not _animations.is_empty() and _animations.has(_current_anim_name):
+		var anim: SpriteAnimationData = _animations[_current_anim_name]
+		if anim.advance(delta):
+			_anim_needs_redraw = true
+
+	# Determine if we need to redraw this frame
+	var needs_redraw = false
+
+	if style == "enhanced" and not debug_mode:
+		# Enhanced mode always animates (procedural silhouettes or sprite frames)
+		needs_redraw = true
+	elif is_selected or is_hovered:
+		# Selection/hover pulsing
+		needs_redraw = true
+
+	if needs_redraw:
+		_pulse_time += delta
+		queue_redraw()
+	elif _anim_needs_redraw:
+		queue_redraw()
 
 func _draw() -> void:
 	if not base_shape:
@@ -119,7 +152,7 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 		var poly_points = _get_shape_polygon(rot)
 		TokenDrawUtils.draw_faction_ring_polygon(self, poly_points, faction_accent)
 
-	# --- Layer 4: Silhouette overlay or sprite ---
+	# --- Layer 4: Animated sprite overlay or animated silhouette ---
 	_draw_enhanced_overlay(radius, border_color)
 
 	# --- Layer 5: Wound pips ---
@@ -145,32 +178,53 @@ func _draw_enhanced_overlay(radius: float, border_color: Color) -> void:
 	var unit_type = _get_unit_type()
 	var is_character = _is_character()
 
-	# Phase 2: Try sprite resolution
+	# Try animated sprite resolution first, then static sprite
+	if SpriteResolver and not _anim_resolved:
+		_resolve_animated_sprite()
 	if SpriteResolver and not _sprite_resolved:
 		_resolve_sprite()
 
-	if _sprite_texture:
-		# Draw sprite overlay directly on canvas at 70% of base diameter
-		var target_size = radius * 2.0 * 0.7
-		var tex_size = _sprite_texture.get_size()
-		var scale_factor = target_size / max(tex_size.x, tex_size.y)
-		var draw_size = tex_size * scale_factor
-		var draw_rect = Rect2(-draw_size / 2.0, draw_size)
-		draw_texture_rect(_sprite_texture, draw_rect, false)
+	# Priority 1: Animated sprite frames
+	if not _animations.is_empty() and _animations.has(_current_anim_name):
+		var anim: SpriteAnimationData = _animations[_current_anim_name]
+		var tex = anim.get_current_texture()
+		if tex:
+			_draw_sprite_texture(tex, radius)
+		else:
+			_draw_animated_silhouette(radius, border_color, unit_type)
+	# Priority 2: Static sprite texture
+	elif _sprite_texture:
+		_draw_sprite_texture(_sprite_texture, radius)
+	# Priority 3: Animated procedural silhouettes (always available)
 	else:
-		# Fall back to enhanced procedural silhouettes
-		var overlay_color = Color(border_color.r, border_color.g, border_color.b, 0.6)
-		match unit_type:
-			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_silhouette(self, Vector2.ZERO, radius, overlay_color)
-			"MONSTER":
-				TokenDrawUtils.draw_monster_silhouette(self, Vector2.ZERO, radius, overlay_color)
-			_:
-				TokenDrawUtils.draw_infantry_silhouette(self, Vector2.ZERO, radius, overlay_color)
+		_draw_animated_silhouette(radius, border_color, unit_type)
 
 	# Character chevron (drawn above sprite or silhouette)
 	if is_character:
 		TokenDrawUtils.draw_leader_chevron(self, Vector2.ZERO, radius, _get_faction_accent_color())
+
+
+func _draw_sprite_texture(tex: Texture2D, radius: float) -> void:
+	# Draw a sprite texture overlay at 70% of base diameter
+	var target_size = radius * 2.0 * 0.7
+	var tex_size = tex.get_size()
+	var scale_factor = target_size / max(tex_size.x, tex_size.y)
+	var draw_size = tex_size * scale_factor
+	var draw_rect_area = Rect2(-draw_size / 2.0, draw_size)
+	draw_texture_rect(tex, draw_rect_area, false)
+
+
+func _draw_animated_silhouette(radius: float, border_color: Color, unit_type: String) -> void:
+	# Draw procedural silhouettes with animation
+	var overlay_color = Color(border_color.r, border_color.g, border_color.b, 0.6)
+	match unit_type:
+		"VEHICLE":
+			TokenDrawUtils.draw_vehicle_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+		"MONSTER":
+			TokenDrawUtils.draw_monster_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+		_:
+			TokenDrawUtils.draw_infantry_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+
 
 func _draw_wound_pips(radius: float) -> void:
 	if not has_meta("unit_id") or not has_meta("model_id"):
@@ -273,6 +327,31 @@ func _resolve_sprite() -> void:
 	var unit_type = _get_unit_type()
 
 	_sprite_texture = SpriteResolver.resolve_sprite(unit_name, faction, unit_type)
+
+
+func _resolve_animated_sprite() -> void:
+	_anim_resolved = true
+	if not has_meta("unit_id"):
+		return
+
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var unit_name = unit.get("meta", {}).get("name", "")
+	var faction = _get_faction_name()
+	var unit_type = _get_unit_type()
+
+	_animations = SpriteResolver.resolve_animated_sprite(unit_name, faction, unit_type)
+	if not _animations.is_empty():
+		DebugLogger.info("[TokenVisual] Loaded %d animation(s) for unit %s: %s" % [_animations.size(), unit_id, ", ".join(_animations.keys())])
+		# Start with idle animation if available, otherwise use the first one
+		if _animations.has(ANIM_IDLE):
+			_current_anim_name = ANIM_IDLE
+		else:
+			_current_anim_name = _animations.keys()[0]
+
 
 func _get_shape_polygon(rot: float) -> PackedVector2Array:
 	# Generate polygon points for the current base shape with rotation
@@ -532,3 +611,34 @@ func set_hovered(hovered: bool) -> void:
 	if not hovered:
 		_pulse_time = 0.0
 	queue_redraw()
+
+
+# --- Animation control API ---
+# Called by game phase controllers to trigger animation state changes.
+
+func play_animation(anim_name: String) -> void:
+	# Switch to a named animation. Falls back to idle if not found.
+	if _animations.is_empty():
+		# No sprite animations loaded - just track state for procedural animations
+		_current_anim_name = anim_name
+		return
+
+	if _animations.has(anim_name):
+		if _current_anim_name != anim_name:
+			_current_anim_name = anim_name
+			_animations[anim_name].reset()
+	elif _animations.has(ANIM_IDLE):
+		# Requested animation not available, fall back to idle
+		if _current_anim_name != ANIM_IDLE:
+			_current_anim_name = ANIM_IDLE
+			_animations[ANIM_IDLE].reset()
+
+	queue_redraw()
+
+
+func get_current_animation() -> String:
+	return _current_anim_name
+
+
+func has_animation(anim_name: String) -> bool:
+	return _animations.has(anim_name)

@@ -760,6 +760,9 @@ func _continue_after_reactive_stratagems() -> Dictionary:
 	return initial_result
 
 func _process_resolve_shooting(action: Dictionary) -> Dictionary:
+	# Trigger attack animation on the shooting unit
+	_trigger_unit_animation(active_shooter_id, "attack")
+
 	# T5-MP5: Build resolution_start block and emit locally + include in result for remote sync
 	var resolution_start_block = {"context": "resolution_start", "message": "Beginning attack resolution..."}
 	emit_signal("dice_rolled", resolution_start_block)
@@ -946,6 +949,8 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		changes.append_array(one_shot_diffs)
 
 		units_that_shot.append(active_shooter_id)
+		# Return shooter to idle animation
+		_trigger_unit_animation(active_shooter_id, "idle")
 		active_shooter_id = ""
 		confirmed_assignments.clear()
 		resolution_state.clear()
@@ -1450,6 +1455,8 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 
 	# Step 7: Clear state
 	var shooter_id = active_shooter_id
+	# Return shooter to idle animation
+	_trigger_unit_animation(active_shooter_id, "idle")
 	active_shooter_id = ""
 	confirmed_assignments.clear()
 	resolution_state.clear()
@@ -1773,6 +1780,9 @@ func _resolve_next_weapon() -> Dictionary:
 			"path": "units.%s.flags.has_shot" % active_shooter_id,
 			"value": true
 		}]
+
+		# Return shooter to idle animation
+		_trigger_unit_animation(active_shooter_id, "idle")
 
 		# Clear state
 		active_shooter_id = ""
@@ -4310,3 +4320,18 @@ func _process_continue_sequence(action: Dictionary) -> Dictionary:
 	print("╚═══════════════════════════════════════════════════════════════")
 
 	return next_result
+
+
+func _trigger_unit_animation(unit_id: String, anim_name: String) -> void:
+	"""Trigger an animation on all token visuals for a unit."""
+	var tl = get_node_or_null("/root/Main/BoardRoot/TokenLayer")
+	if not tl:
+		return
+	for child in tl.get_children():
+		if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id:
+			if child.has_method("play_animation"):
+				child.play_animation(anim_name)
+			else:
+				for grandchild in child.get_children():
+					if grandchild.has_method("play_animation"):
+						grandchild.play_animation(anim_name)
