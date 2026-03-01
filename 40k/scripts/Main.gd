@@ -1158,7 +1158,8 @@ func _get_ai_action_highlight_color(action_type: String) -> Color:
 	# Movement actions → blue
 	if action_type in ["STAGE_MODEL_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY",
 			"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK",
-			"SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_MOVE"]:
+			"SET_SCOUT_MODEL_DEST", "CONFIRM_SCOUT_MOVE", "SKIP_SCOUT_MOVE",
+			"BEGIN_REDEPLOY", "SET_REDEPLOY_MODEL_POS", "CONFIRM_REDEPLOY", "SKIP_REDEPLOY"]:
 		return AIUnitHighlightScript.COLOR_MOVE
 	# Shooting actions → red
 	if action_type in ["SHOOT", "ASSIGN_WEAPON", "CONFIRM_TARGETS", "RESOLVE_SHOOTING",
@@ -5696,6 +5697,7 @@ func _get_phase_label_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.FORMATIONS: return "Declare Battle Formations"
 		GameStateData.Phase.DEPLOYMENT: return "Deployment Phase"
+		GameStateData.Phase.REDEPLOYMENT: return "Redeployment"
 		GameStateData.Phase.SCOUT: return "Scout Moves"
 		GameStateData.Phase.ROLL_OFF: return "Roll Off — First Turn"
 		GameStateData.Phase.COMMAND: return "Command Phase"
@@ -5711,6 +5713,7 @@ func _get_phase_button_text(phase: GameStateData.Phase) -> String:
 	match phase:
 		GameStateData.Phase.FORMATIONS: return "Confirm Formations"
 		GameStateData.Phase.DEPLOYMENT: return "End Deployment"
+		GameStateData.Phase.REDEPLOYMENT: return "End Redeployment"
 		GameStateData.Phase.SCOUT: return "End Scout Moves"
 		GameStateData.Phase.ROLL_OFF: return "Roll for First Turn"
 		GameStateData.Phase.COMMAND: return "End Command Phase"
@@ -5760,6 +5763,8 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.DEPLOYMENT:
 			_on_end_deployment_pressed()  # Already handles network routing
 			return
+		GameStateData.Phase.REDEPLOYMENT:
+			action = {"type": "END_REDEPLOYMENT_PHASE", "player": active_player}
 		GameStateData.Phase.SCOUT:
 			action = {"type": "END_SCOUT_PHASE", "player": active_player}
 		GameStateData.Phase.ROLL_OFF:

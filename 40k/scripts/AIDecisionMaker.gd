@@ -589,6 +589,8 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 			result = _decide_formations(snapshot, available_actions, player)
 		GameStateData.Phase.DEPLOYMENT:
 			result = _decide_deployment(snapshot, available_actions, player)
+		GameStateData.Phase.REDEPLOYMENT:
+			result = _decide_redeployment(snapshot, available_actions, player)
 		GameStateData.Phase.SCOUT:
 			result = _decide_scout(snapshot, available_actions, player)
 		GameStateData.Phase.ROLL_OFF:
@@ -677,6 +679,10 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	# Deployment — use normal deployment logic (random positions would be chaotic)
 	if phase == GameStateData.Phase.DEPLOYMENT:
 		return _decide_deployment(snapshot, available_actions, player)
+
+	# Redeployment — use normal logic (skip units, not tactical)
+	if phase == GameStateData.Phase.REDEPLOYMENT:
+		return _decide_redeployment(snapshot, available_actions, player)
 
 	# Scout moves — use normal logic
 	if phase == GameStateData.Phase.SCOUT:
@@ -2229,6 +2235,38 @@ static func _find_terrain_aware_position(
 		role, best.terrain_type, best.height, best.score, best.pos.x, best.pos.y
 	])
 	return best.pos
+
+# =============================================================================
+# REDEPLOYMENT PHASE
+# =============================================================================
+
+static func _decide_redeployment(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
+	# AI strategy for redeployment: skip all redeployments (keep units in place).
+	# Redeployment is a niche mechanic — AI can be enhanced later for tactical repositioning.
+
+	# Step 1: If END_REDEPLOYMENT_PHASE is available, end it
+	for action in available_actions:
+		if action.get("type") == "END_REDEPLOYMENT_PHASE":
+			return {
+				"type": "END_REDEPLOYMENT_PHASE",
+				"_ai_description": "End Redeployment phase"
+			}
+
+	# Step 2: Skip any pending redeploys
+	for action in available_actions:
+		if action.get("type") == "SKIP_REDEPLOY":
+			var uid = action.get("unit_id", "")
+			return {
+				"type": "SKIP_REDEPLOY",
+				"unit_id": uid,
+				"_ai_description": "Skip redeployment for %s (AI keeps position)" % uid
+			}
+
+	# Fallback: first available action
+	if available_actions.size() > 0:
+		return available_actions[0]
+
+	return {}
 
 # =============================================================================
 # SCOUT PHASE

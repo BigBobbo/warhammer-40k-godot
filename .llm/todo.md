@@ -183,7 +183,7 @@
 - [ ] Validate Warlord designation — `is_warlord` field exists but no enforcement that exactly one CHARACTER is designated. (GEN-9)
 - [ ] Add army construction points validation — Points tracked but no validation during list building. No detachment enforcement. (GEN-10)
 - [ ] Verify persisting effects match Core Rules Updates — Core Rules Updates defines "persisting effects" with specific duration tracking. Verify effect expiration. (GEN-11)
-- [ ] Implement redeployment rules — Core Rules Updates: rules allowing redeployment resolved after Deploy Armies, before Determine First Turn. (GEN-12)
+- [x] Implement redeployment rules — Core Rules Updates: rules allowing redeployment resolved after Deploy Armies, before Determine First Turn. (GEN-12)
 - [ ] Make deployment zone toggle more prominent — User requested deployment zone visibility toggle. Ensure button is easy to find. (BUG-6)
 
 ## QoL — Quality of Life Improvements
