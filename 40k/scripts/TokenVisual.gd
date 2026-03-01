@@ -217,13 +217,26 @@ func _draw_sprite_texture(tex: Texture2D, radius: float) -> void:
 func _draw_animated_silhouette(radius: float, border_color: Color, unit_type: String) -> void:
 	# Draw procedural silhouettes with animation
 	var overlay_color = Color(border_color.r, border_color.g, border_color.b, 0.6)
-	match unit_type:
-		"VEHICLE":
-			TokenDrawUtils.draw_vehicle_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-		"MONSTER":
-			TokenDrawUtils.draw_monster_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-		_:
-			TokenDrawUtils.draw_infantry_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+	var use_retro = SettingsService.retro_mode if SettingsService else false
+
+	if use_retro:
+		# Pixel art retro silhouettes
+		match unit_type:
+			"VEHICLE":
+				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+			"MONSTER":
+				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+			_:
+				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+	else:
+		# Standard smooth silhouettes
+		match unit_type:
+			"VEHICLE":
+				TokenDrawUtils.draw_vehicle_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+			"MONSTER":
+				TokenDrawUtils.draw_monster_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+			_:
+				TokenDrawUtils.draw_infantry_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
 
 
 func _draw_wound_pips(radius: float) -> void:
@@ -445,6 +458,18 @@ func _draw_overlay(fill_color: Color, border_color: Color) -> void:
 		_draw_faction_glyph(radius, overlay_color, faction)
 
 func _draw_silhouette(radius: float, color: Color, unit_type: String) -> void:
+	# In retro mode, use pixel art silhouettes even for style_a
+	var use_retro = SettingsService.retro_mode if SettingsService else false
+	if use_retro:
+		match unit_type:
+			"VEHICLE":
+				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+			"MONSTER":
+				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+			_:
+				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+		return
+
 	var s = radius * 0.5  # Scale factor
 
 	match unit_type:

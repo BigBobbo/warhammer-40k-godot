@@ -475,3 +475,202 @@ static func draw_monster_silhouette_animated(canvas: CanvasItem, center: Vector2
 		center + Vector2(s * 1.2 - r_claw_spread * 0.8, -s * 0.45 + breathe * 0.3),
 		color, 1.5
 	)
+
+
+# --- Pixel Art Silhouettes (Retro Mode) ---
+# These draw chunky pixel-art-style unit representations using grid-snapped rectangles.
+# Each pixel block is drawn as a small filled rect, creating a deliberate 8-bit aesthetic.
+
+static func _px(canvas: CanvasItem, center: Vector2, grid: float, gx: int, gy: int, color: Color) -> void:
+	# Draw a single "pixel" block at grid position (gx, gy) relative to center
+	var pos = center + Vector2(gx * grid, gy * grid)
+	canvas.draw_rect(Rect2(pos, Vector2(grid, grid)), color)
+
+
+static func _px_row(canvas: CanvasItem, center: Vector2, grid: float, gx_start: int, gx_end: int, gy: int, color: Color) -> void:
+	# Draw a horizontal row of pixel blocks
+	for gx in range(gx_start, gx_end + 1):
+		_px(canvas, center, grid, gx, gy, color)
+
+
+static func draw_infantry_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
+	# Pixel art Space Marine - 8x12 grid, chunky bolter and helmet
+	var grid = radius * 0.12
+	var bob_frame = int(animation_time * 2.0) % 4
+	var bob_y = 0 if (bob_frame == 0 or bob_frame == 2) else (1 if bob_frame == 1 else -1)
+	var c = center + Vector2(-grid * 0.5, bob_y * grid * 0.3)  # Center offset
+
+	# Darker shade for depth
+	var dark = Color(color.r * 0.6, color.g * 0.6, color.b * 0.6, color.a)
+	var visor = Color(0.2, 0.8, 1.0, color.a)  # Cyan visor glow
+	var gun_color = Color(color.r * 0.4, color.g * 0.4, color.b * 0.4, color.a)
+
+	# Helmet (3 wide, 2 tall)
+	_px_row(canvas, c, grid, -1, 1, -5, color)
+	_px_row(canvas, c, grid, -1, 1, -4, color)
+	# Visor slit
+	_px_row(canvas, c, grid, -1, 1, -4, visor)
+
+	# Neck
+	_px(canvas, c, grid, 0, -3, dark)
+
+	# Shoulder pads (wide)
+	_px_row(canvas, c, grid, -3, -2, -3, color)
+	_px_row(canvas, c, grid, 2, 3, -3, color)
+	_px_row(canvas, c, grid, -3, -2, -2, color)
+	_px_row(canvas, c, grid, 2, 3, -2, color)
+
+	# Torso
+	_px_row(canvas, c, grid, -2, 2, -2, dark)
+	_px_row(canvas, c, grid, -2, 2, -1, color)
+	_px_row(canvas, c, grid, -1, 1, 0, color)
+
+	# Belt / waist
+	_px_row(canvas, c, grid, -1, 1, 1, dark)
+
+	# Legs
+	_px(canvas, c, grid, -1, 2, color)
+	_px(canvas, c, grid, 1, 2, color)
+	_px(canvas, c, grid, -1, 3, color)
+	_px(canvas, c, grid, 1, 3, color)
+
+	# Boots
+	_px_row(canvas, c, grid, -2, -1, 4, dark)
+	_px_row(canvas, c, grid, 1, 2, 4, dark)
+
+	# Bolter (right side, animated weapon sway)
+	var weapon_frame = int(animation_time * 1.5) % 3
+	var wx = 3 + (1 if weapon_frame == 1 else 0)
+	_px(canvas, c, grid, wx, -2, gun_color)
+	_px(canvas, c, grid, wx, -3, gun_color)
+	_px(canvas, c, grid, wx, -4, gun_color)
+	_px(canvas, c, grid, wx + 1, -4, gun_color)  # Barrel tip
+
+
+static func draw_vehicle_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
+	# Pixel art tank - top-down view, 12x8 grid
+	var grid = radius * 0.12
+	var c = center + Vector2(-grid * 0.5, 0)
+
+	var dark = Color(color.r * 0.6, color.g * 0.6, color.b * 0.6, color.a)
+	var track_color = Color(color.r * 0.35, color.g * 0.35, color.b * 0.35, color.a)
+	var turret_color = Color(color.r * 0.8, color.g * 0.8, color.b * 0.8, color.a)
+
+	# Engine rumble animation
+	var rumble = int(animation_time * 8.0) % 2
+	var ry = rumble * 1  # Subtle vertical jitter
+
+	# Left track
+	for ty in range(-3, 4):
+		_px(canvas, c, grid, -5, ty + ry, track_color)
+		_px(canvas, c, grid, -4, ty + ry, track_color)
+	# Right track
+	for ty in range(-3, 4):
+		_px(canvas, c, grid, 4, ty + ry, track_color)
+		_px(canvas, c, grid, 5, ty + ry, track_color)
+
+	# Track detail marks (animated rolling)
+	var track_anim = int(animation_time * 3.0) % 3
+	for i in range(3):
+		var mark_y = -2 + i * 2 + track_anim
+		if mark_y >= -3 and mark_y <= 3:
+			_px(canvas, c, grid, -5, mark_y + ry, dark)
+			_px(canvas, c, grid, 5, mark_y + ry, dark)
+
+	# Hull body
+	_px_row(canvas, c, grid, -3, 3, -3 + ry, dark)  # Front armor
+	for hy in range(-2, 4):
+		_px_row(canvas, c, grid, -3, 3, hy + ry, color)
+	_px_row(canvas, c, grid, -3, 3, -3 + ry, dark)  # Rear armor
+
+	# Turret (centered square) - rotates slowly
+	var turret_frame = int(animation_time * 0.5) % 4
+	_px_row(canvas, c, grid, -1, 1, -1 + ry, turret_color)
+	_px_row(canvas, c, grid, -1, 1, 0 + ry, turret_color)
+	_px_row(canvas, c, grid, -1, 1, 1 + ry, turret_color)
+
+	# Gun barrel (direction based on turret_frame)
+	match turret_frame:
+		0:  # Pointing up
+			_px(canvas, c, grid, 0, -2 + ry, turret_color)
+			_px(canvas, c, grid, 0, -3 + ry, turret_color)
+			_px(canvas, c, grid, 0, -4 + ry, turret_color)
+		1:  # Pointing right
+			_px(canvas, c, grid, 2, 0 + ry, turret_color)
+			_px(canvas, c, grid, 3, 0 + ry, turret_color)
+			_px(canvas, c, grid, 4, 0 + ry, turret_color)
+		2:  # Pointing down
+			_px(canvas, c, grid, 0, 2 + ry, turret_color)
+			_px(canvas, c, grid, 0, 3 + ry, turret_color)
+			_px(canvas, c, grid, 0, 4 + ry, turret_color)
+		3:  # Pointing left
+			_px(canvas, c, grid, -2, 0 + ry, turret_color)
+			_px(canvas, c, grid, -3, 0 + ry, turret_color)
+			_px(canvas, c, grid, -4, 0 + ry, turret_color)
+
+
+static func draw_monster_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
+	# Pixel art Tyranid-like monster - hunched body with claws, 10x12 grid
+	var grid = radius * 0.12
+	var c = center + Vector2(-grid * 0.5, 0)
+
+	var dark = Color(color.r * 0.55, color.g * 0.55, color.b * 0.55, color.a)
+	var claw_color = Color(color.r * 0.8, color.g * 0.8, color.b * 0.8, color.a)
+	var eye_color = Color(1.0, 0.2, 0.1, color.a)  # Red eyes
+
+	# Breathing animation
+	var breathe_frame = int(animation_time * 1.5) % 4
+	var breathe_expand = 1 if (breathe_frame == 1 or breathe_frame == 2) else 0
+
+	# Claw animation
+	var claw_frame = int(animation_time * 2.0) % 3
+	var claw_offset = claw_frame - 1  # -1, 0, 1
+
+	# Horns
+	_px(canvas, c, grid, -2, -6, color)
+	_px(canvas, c, grid, 2, -6, color)
+	_px(canvas, c, grid, -1, -5, color)
+	_px(canvas, c, grid, 1, -5, color)
+
+	# Head
+	_px_row(canvas, c, grid, -1, 1, -4, color)
+	_px_row(canvas, c, grid, -1, 1, -3, color)
+	# Eyes
+	_px(canvas, c, grid, -1, -3, eye_color)
+	_px(canvas, c, grid, 1, -3, eye_color)
+
+	# Neck / upper body
+	_px_row(canvas, c, grid, -1, 1, -2, dark)
+
+	# Torso (expands with breathing)
+	var torso_w = 2 + breathe_expand
+	_px_row(canvas, c, grid, -torso_w, torso_w, -1, color)
+	_px_row(canvas, c, grid, -torso_w, torso_w, 0, color)
+	_px_row(canvas, c, grid, -torso_w, torso_w, 1, dark)
+
+	# Lower body / tail
+	_px_row(canvas, c, grid, -1, 1, 2, color)
+	_px(canvas, c, grid, 0, 3, color)
+	_px(canvas, c, grid, 0, 4, dark)  # Tail tip
+
+	# Legs
+	_px(canvas, c, grid, -2, 2, dark)
+	_px(canvas, c, grid, -3, 3, dark)
+	_px(canvas, c, grid, 2, 2, dark)
+	_px(canvas, c, grid, 3, 3, dark)
+
+	# Left claw arm (animated)
+	_px(canvas, c, grid, -3 + claw_offset, -2, claw_color)
+	_px(canvas, c, grid, -4 + claw_offset, -3, claw_color)
+	_px(canvas, c, grid, -5 + claw_offset, -4, claw_color)
+	# Claw pincer
+	_px(canvas, c, grid, -6 + claw_offset, -5, claw_color)
+	_px(canvas, c, grid, -5 + claw_offset, -5, claw_color)
+
+	# Right claw arm (animated, opposite phase)
+	_px(canvas, c, grid, 3 - claw_offset, -2, claw_color)
+	_px(canvas, c, grid, 4 - claw_offset, -3, claw_color)
+	_px(canvas, c, grid, 5 - claw_offset, -4, claw_color)
+	# Claw pincer
+	_px(canvas, c, grid, 6 - claw_offset, -5, claw_color)
+	_px(canvas, c, grid, 5 - claw_offset, -5, claw_color)
