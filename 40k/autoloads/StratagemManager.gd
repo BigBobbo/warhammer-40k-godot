@@ -555,12 +555,22 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 			if strat_phase != "any":
 				return {"can_use": false, "reason": "Cannot use %s during an out-of-phase action (e.g. Fire Overwatch)" % strat.get("name", stratagem_id)}
 
-	# Check battle-shocked (battle-shocked units can't be targeted by friendly stratagems)
+	# Check battle-shocked (battle-shocked units can't be affected by stratagems)
 	# Exception: Insane Bravery explicitly allows targeting battle-shocked units
 	if target_unit_id != "" and stratagem_id != "insane_bravery":
 		var unit = GameState.get_unit(target_unit_id)
 		if not unit.is_empty() and unit.get("flags", {}).get("battle_shocked", false):
 			return {"can_use": false, "reason": "Battle-shocked units cannot be targeted by Stratagems"}
+
+	# P3-93: Also check if the source unit (the unit using the stratagem) is battle-shocked.
+	# Per core rules, a player "cannot use Stratagems to affect" a battle-shocked unit.
+	# This covers self-targeted stratagems where the source unit IS the target.
+	# Exception: Insane Bravery (used before Battle-shock test, targets unit needing test)
+	var source_unit_id = context.get("source_unit_id", "")
+	if source_unit_id != "" and stratagem_id != "insane_bravery":
+		var source_unit = GameState.get_unit(source_unit_id)
+		if not source_unit.is_empty() and source_unit.get("flags", {}).get("battle_shocked", false):
+			return {"can_use": false, "reason": "Battle-shocked units cannot use Stratagems"}
 
 	return {"can_use": true, "reason": ""}
 
@@ -1806,6 +1816,10 @@ func _get_faction_reactive_stratagems(defending_player: int, target_unit_ids: Ar
 			if unit.get("owner", 0) != defending_player:
 				continue
 
+			# P3-93: Battle-shocked units cannot be affected by stratagems
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+
 			if FactionStratagemLoaderData.unit_matches_target(unit, target_conditions, context):
 				eligible_units.append(unit_id)
 
@@ -1890,6 +1904,11 @@ func get_proactive_stratagems_for_phase(player: int, phase: String, available_un
 				continue
 			if unit.get("owner", 0) != player:
 				continue
+
+			# P3-93: Battle-shocked units cannot be affected by stratagems
+			if unit.get("flags", {}).get("battle_shocked", false):
+				continue
+
 			if FactionStratagemLoaderData.unit_matches_target(unit, target_conditions):
 				eligible_units.append(unit_id)
 
