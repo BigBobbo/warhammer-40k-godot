@@ -5751,6 +5751,14 @@ func _on_phase_action_pressed() -> void:
 		GameStateData.Phase.ROLL_OFF:
 			action = {"type": "ROLL_FOR_FIRST_TURN", "player": active_player}
 		GameStateData.Phase.COMMAND:
+			# P3-94: Check for untested battle-shock units and show confirmation dialog
+			var command_phase_instance = PhaseManager.get_current_phase_instance()
+			if command_phase_instance and command_phase_instance.has_method("get_untested_battle_shock_units"):
+				var untested = command_phase_instance.get_untested_battle_shock_units()
+				if untested.size() > 0:
+					print("Main: P3-94: %d untested battle-shock units remain, showing confirmation dialog" % untested.size())
+					_show_battle_shock_confirmation_dialog(untested, active_player)
+					return
 			action = {"type": "END_COMMAND", "player": active_player}
 		GameStateData.Phase.MOVEMENT:
 			action = {"type": "END_MOVEMENT", "player": active_player}
@@ -6233,6 +6241,48 @@ func _on_end_fight_confirmed(active_player: int) -> void:
 func _on_end_fight_cancelled() -> void:
 	"""T5-UX7: Player cancelled ending fight phase"""
 	print("Main: T5-UX7: Player cancelled end fight phase, returning to fight")
+
+func _show_battle_shock_confirmation_dialog(untested_units: Array, active_player: int) -> void:
+	"""P3-94: Show confirmation dialog before ending command phase with untested battle-shock units"""
+	# Skip dialog for AI players — AI always confirms ending command
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(active_player):
+		print("Main: Skipping battle-shock confirmation dialog for AI player %d" % active_player)
+		var action = {"type": "END_COMMAND", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog_script = load("res://dialogs/BattleShockConfirmationDialog.gd")
+	if not dialog_script:
+		push_error("Main: P3-94: Failed to load BattleShockConfirmationDialog.gd")
+		# Fall through and end phase anyway
+		var action = {"type": "END_COMMAND", "player": active_player}
+		NetworkIntegration.route_action(action)
+		return
+
+	var dialog = AcceptDialog.new()
+	dialog.set_script(dialog_script)
+	dialog.setup(untested_units)
+	dialog.end_command_confirmed.connect(_on_end_command_confirmed.bind(active_player))
+	dialog.end_command_cancelled.connect(_on_end_command_cancelled)
+	get_tree().root.add_child(dialog)
+	dialog.popup_centered()
+	print("Main: P3-94: Battle-shock confirmation dialog shown")
+
+func _on_end_command_confirmed(active_player: int) -> void:
+	"""P3-94: Player confirmed ending command phase despite untested battle-shock units"""
+	print("Main: P3-94: Player confirmed end command phase with untested battle-shock units")
+	var action = {"type": "END_COMMAND", "player": active_player}
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		print("Main: P3-94: Failed to end command phase: ", result.get("error", "Unknown error"))
+		if not NetworkManager.is_networked():
+			print("Main: P3-94: Falling back to local phase advance")
+			PhaseManager.advance_to_next_phase()
+
+func _on_end_command_cancelled() -> void:
+	"""P3-94: Player cancelled ending command phase"""
+	print("Main: P3-94: Player cancelled end command phase, returning to command phase")
 
 func _show_deployment_summary_dialog(deployment_data: Dictionary, active_player: int) -> void:
 	"""T5-UX8: Show deployment summary dialog before ending deployment phase"""

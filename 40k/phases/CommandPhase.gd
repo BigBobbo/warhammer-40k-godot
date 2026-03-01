@@ -1495,6 +1495,23 @@ func _handle_resolve_tempting_target(action: Dictionary) -> Dictionary:
 		"message": "A Tempting Target resolved — Objective: %s" % objective_id
 	}
 
+func get_untested_battle_shock_units() -> Array:
+	"""Return info about units that need battle-shock tests but haven't been tested yet."""
+	var untested = []
+	for unit_id in _units_needing_test:
+		if unit_id in _units_tested:
+			continue
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		var ld = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+		untested.append({
+			"unit_id": unit_id,
+			"unit_name": unit_name,
+			"leadership": ld,
+			"player": unit.get("owner", 0)
+		})
+	return untested
+
 func _handle_end_command() -> Dictionary:
 	var current_player = get_current_player()
 
