@@ -516,4 +516,4 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 125. **Add human player movement path preview** — Drag-to-plan movement path visualization matching AI's AIMovementPathVisual.gd. (VIS-9) — **DONE**
 126. **Add phase transition sound effects** — Audio cues for phase changes in PhaseTransitionBanner.gd. (VIS-13)
 127. **Add charge trajectory preview** — Show expected charge path when declaring charges in ChargeController.gd. (VIS-14) — **DONE**
-128. **Add VP scoring timeline chart** — VP progression chart over game rounds in GameOverDialog or ScoringController. (VIS-17)
+128. **Add VP scoring timeline chart** — VP progression chart over game rounds in GameOverDialog or ScoringController. (VIS-17) — **DONE**

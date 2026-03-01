@@ -167,6 +167,11 @@ func _handle_end_turn() -> Dictionary:
 
 	print("ScoringPhase: Player %d ending turn, switching to player %d" % [current_player, next_player])
 
+	# P3-128: Record VP snapshot at end of each player's turn for the timeline chart
+	if MissionManager:
+		var battle_round = GameState.get_battle_round()
+		MissionManager.record_vp_snapshot(battle_round)
+
 	# Reset unit flags for the player whose turn is starting
 	var changes = _create_flag_reset_changes(next_player)
 

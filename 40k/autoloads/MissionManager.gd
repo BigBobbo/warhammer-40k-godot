@@ -44,6 +44,10 @@ var _terraformed_objectives: Dictionary = {}
 # Key: unit_id, Value: objective_id — action completes at end of turn
 var _pending_terraforms: Dictionary = {}
 
+# P3-128: VP timeline tracking — cumulative VP snapshots per round per player
+# Structure: { round_number: { "1": {total, primary, secondary}, "2": {total, primary, secondary} } }
+var _vp_timeline: Dictionary = {}
+
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
 	initialize_default_mission()
@@ -89,6 +93,9 @@ func initialize_mission(mission_id: String) -> void:
 	# Reset burn tracking
 	_burned_objectives.clear()
 	_pending_burns.clear()
+
+	# P3-128: Reset VP timeline
+	_vp_timeline.clear()
 
 	# Reset ritual tracking
 	_ritual_objectives.clear()
@@ -1338,3 +1345,29 @@ func get_vp_summary() -> Dictionary:
 			"secondary": p2_secondary,
 		}
 	}
+
+## P3-128: Record a VP snapshot for the current round (called from ScoringPhase at end of each player's turn)
+func record_vp_snapshot(battle_round: int) -> void:
+	var p1_data = GameState.state.players.get("1", {})
+	var p2_data = GameState.state.players.get("2", {})
+	_vp_timeline[battle_round] = {
+		"1": {
+			"total": p1_data.get("vp", 0),
+			"primary": p1_data.get("primary_vp", 0),
+			"secondary": p1_data.get("secondary_vp", 0),
+		},
+		"2": {
+			"total": p2_data.get("vp", 0),
+			"primary": p2_data.get("primary_vp", 0),
+			"secondary": p2_data.get("secondary_vp", 0),
+		},
+	}
+	print("MissionManager: P3-128 VP snapshot for round %d — P1: %d VP, P2: %d VP" % [
+		battle_round,
+		_vp_timeline[battle_round]["1"]["total"],
+		_vp_timeline[battle_round]["2"]["total"],
+	])
+
+## P3-128: Get the full VP timeline for the chart
+func get_vp_timeline() -> Dictionary:
+	return _vp_timeline.duplicate(true)
