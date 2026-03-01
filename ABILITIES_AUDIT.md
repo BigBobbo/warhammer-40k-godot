@@ -455,7 +455,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 68. **Investigate and fix Line of Sight issues** — User reports LoS not working as expected. May relate to TER-2 (ruins visibility) or bugs in EnhancedLineOfSight.gd. Test LoS across various terrain configurations and fix discrepancies. Files: LineOfSightManager.gd, EnhancedLineOfSight.gd. (BUG-3) — **DONE**
 
 ### P2 — Medium (rules gaps that occasionally affect gameplay)
-69. **Implement CP cap** — Core rules FAQ: players can gain at most 1 additional CP per battle round from non-automatic sources (beyond the 1 CP auto-generated each Command Phase). Add tracking of CP gained per round and cap enforcement in CommandPhase.gd and StratagemManager.gd. (CMD-1)
+69. **Implement CP cap** — Core rules FAQ: players can gain at most 1 additional CP per battle round from non-automatic sources (beyond the 1 CP auto-generated each Command Phase). Add tracking of CP gained per round and cap enforcement in CommandPhase.gd and StratagemManager.gd. (CMD-1) — **DONE**
 70. **Add FEARLESS and ATSKNF keyword immunity to battle-shock** — Units with FEARLESS or And They Shall Know No Fear keywords should auto-pass battle-shock tests. Add keyword check in `_identify_units_needing_tests()` in CommandPhase.gd to skip these units. (CMD-2)
 71. **Implement surge move rules and restrictions** — Core Rules Updates defines "surge" moves (out-of-phase moves triggered by abilities). Restrictions: once per phase, not while battle-shocked, not while in Engagement Range. Add surge move validation to MovementPhase.gd. (MOV-3)
 72. **Enforce one Normal move per phase limit** — "A unit cannot make more than one Normal move per phase." Add per-phase normal move tracking in MovementPhase.gd to prevent duplicate moves. (MOV-4)

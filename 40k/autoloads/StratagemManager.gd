@@ -800,6 +800,13 @@ func on_turn_start(player: int) -> void:
 func on_battle_round_start(round_number: int) -> void:
 	"""Called at the start of a new battle round."""
 	print("StratagemManager: Battle round %d started" % round_number)
+	# Note: Bonus CP tracking is reset in CommandPhase._on_phase_enter() via GameState.reset_bonus_cp_tracking()
+
+func can_player_gain_bonus_cp(player: int) -> bool:
+	"""Check if a player can still gain non-automatic CP this battle round.
+	Per core rules FAQ: each player can only gain 1 bonus CP per battle round
+	(beyond the 1 CP auto-generated each Command Phase)."""
+	return GameState.can_gain_bonus_cp(player)
 
 # ============================================================================
 # OUT-OF-PHASE RULES RESTRICTION (P1-59)

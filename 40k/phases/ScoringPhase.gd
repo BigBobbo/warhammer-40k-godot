@@ -82,12 +82,14 @@ func get_available_actions() -> Array:
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
+		var can_gain_cp = GameState.can_gain_bonus_cp(current_player)
 		for i in range(active_missions.size()):
 			var mission = active_missions[i]
+			var cp_text = "gain 1 CP" if can_gain_cp else "no CP — bonus cap reached"
 			actions.append({
 				"type": "DISCARD_SECONDARY",
 				"mission_index": i,
-				"description": "Discard %s (gain 1 CP)" % mission["name"],
+				"description": "Discard %s (%s)" % [mission["name"], cp_text],
 				"player": current_player,
 			})
 

@@ -38,8 +38,8 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 		},
 		"units": {},  # Start empty, will be populated by army loading
 		"players": {
-			"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0},
-			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0}
+			"1": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0},
+			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
 		},
 		"factions": {},  # New field for faction data
 		"phase_log": [],
@@ -632,6 +632,33 @@ func advance_battle_round() -> void:
 
 func is_game_complete() -> bool:
 	return get_battle_round() > 5
+
+# CP Cap — Per core rules FAQ:
+# "Outside of the 1CP players gain at the start of the Command phase,
+#  each player can only gain a total of 1CP per battle round, regardless of the source."
+const BONUS_CP_CAP_PER_ROUND: int = 1
+
+func get_bonus_cp_gained_this_round(player: int) -> int:
+	"""How many non-automatic CP has this player gained in the current battle round."""
+	return state.get("players", {}).get(str(player), {}).get("bonus_cp_gained_this_round", 0)
+
+func can_gain_bonus_cp(player: int) -> bool:
+	"""Check if a player can still gain non-automatic CP this battle round."""
+	return get_bonus_cp_gained_this_round(player) < BONUS_CP_CAP_PER_ROUND
+
+func record_bonus_cp_gained(player: int, amount: int = 1) -> void:
+	"""Record that a player gained non-automatic CP. Call AFTER applying the CP change."""
+	var current = get_bonus_cp_gained_this_round(player)
+	state["players"][str(player)]["bonus_cp_gained_this_round"] = current + amount
+	print("GameState: Player %d bonus CP gained this round: %d -> %d (cap: %d)" % [
+		player, current, current + amount, BONUS_CP_CAP_PER_ROUND])
+
+func reset_bonus_cp_tracking() -> void:
+	"""Reset bonus CP tracking for both players at the start of a new battle round."""
+	for p in ["1", "2"]:
+		if state.get("players", {}).has(p):
+			state["players"][p]["bonus_cp_gained_this_round"] = 0
+	print("GameState: Reset bonus CP gained tracking for new battle round")
 
 # Battle-shock: Below Half-Strength Check
 # Per 10th edition rules:

@@ -37,9 +37,12 @@ func _on_phase_enter() -> void:
 	print("CommandPhase: Entering command phase for player ", current_player)
 	print("CommandPhase: Battle round ", battle_round)
 
-	# Step 0a: Reset per-round kill tracking for Purge the Foe at start of each battle round
-	if MissionManager and current_player == 1:
-		MissionManager.reset_round_kills()
+	# Step 0a: Reset per-round tracking at start of each battle round (Player 1's turn)
+	if current_player == 1:
+		if MissionManager:
+			MissionManager.reset_round_kills()
+		# Reset bonus CP tracking — per core rules FAQ, each player can only gain 1 bonus CP per battle round
+		GameState.reset_bonus_cp_tracking()
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,

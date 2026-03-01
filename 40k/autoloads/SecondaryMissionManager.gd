@@ -363,18 +363,22 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	state["active"].remove_at(mission_index)
 	state["discard"].append(discarded["id"])
 
-	# Grant 1 CP if it's the player's turn
+	# Grant 1 CP if it's the player's turn (subject to bonus CP cap per battle round)
 	var cp_gained = 0
 	if GameState.get_active_player() == player:
-		var current_cp = GameState.state.get("players", {}).get(str(player), {}).get("cp", 0)
-		var changes = [{
-			"op": "set",
-			"path": "players.%s.cp" % str(player),
-			"value": current_cp + 1,
-		}]
-		PhaseManager.apply_state_changes(changes)
-		cp_gained = 1
-		print("SecondaryMissionManager: Player %d gained 1 CP for voluntary discard" % player)
+		if GameState.can_gain_bonus_cp(player):
+			var current_cp = GameState.state.get("players", {}).get(str(player), {}).get("cp", 0)
+			var changes = [{
+				"op": "set",
+				"path": "players.%s.cp" % str(player),
+				"value": current_cp + 1,
+			}]
+			PhaseManager.apply_state_changes(changes)
+			GameState.record_bonus_cp_gained(player)
+			cp_gained = 1
+			print("SecondaryMissionManager: Player %d gained 1 CP for voluntary discard" % player)
+		else:
+			print("SecondaryMissionManager: Player %d CP gain blocked — bonus CP cap reached this battle round" % player)
 
 	emit_signal("mission_discarded", player, discarded["id"], "voluntary")
 	print("SecondaryMissionManager: Player %d voluntarily discarded %s" % [player, discarded["name"]])
