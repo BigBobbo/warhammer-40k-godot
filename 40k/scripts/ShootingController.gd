@@ -57,6 +57,7 @@ var last_assigned_target_id: String = ""  # Track last assigned target for "Appl
 var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var perform_action_button: Button  # Secondary mission action button
+var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
 var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
@@ -438,6 +439,18 @@ func _setup_right_panel() -> void:
 	WhiteDwarfTheme.apply_to_button(perform_action_button)
 	shooting_panel.add_child(perform_action_button)
 	perform_action_button.visible = false  # Hidden until a unit qualifies
+
+	# Scorched Earth burn objective button
+	burn_objective_button = Button.new()
+	burn_objective_button.name = "BurnObjectiveButton"
+	burn_objective_button.text = "Burn Objective"
+	burn_objective_button.custom_minimum_size = Vector2(230, 35)
+	burn_objective_button.pressed.connect(_on_burn_objective_pressed)
+	burn_objective_button.tooltip_text = "Give up shooting and charging to burn a controlled objective"
+	WhiteDwarfTheme.apply_to_button(burn_objective_button)
+	burn_objective_button.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
+	shooting_panel.add_child(burn_objective_button)
+	burn_objective_button.visible = false  # Hidden until a unit qualifies
 
 	# Dice log
 	shooting_panel.add_child(HSeparator.new())
@@ -3072,28 +3085,63 @@ func _update_perform_action_button() -> void:
 
 	if not current_phase or not current_phase is ShootingPhase:
 		perform_action_button.visible = false
+		_update_burn_objective_button()
 		return
 
 	if active_shooter_id == "":
 		perform_action_button.visible = false
+		_update_burn_objective_button()
 		return
 
 	# Check if there are action options for the active shooter
 	var options = current_phase._get_secondary_action_options(active_shooter_id)
 	if options.is_empty():
 		perform_action_button.visible = false
+	else:
+		# Use the best (highest VP) option for button text
+		var best_option = options[0]
+		for opt in options:
+			if opt.get("vp_value", 0) > best_option.get("vp_value", 0):
+				best_option = opt
+
+		perform_action_button.text = best_option.get("description", "Perform Action")
+		perform_action_button.set_meta("action_option", best_option)
+		perform_action_button.visible = true
+		perform_action_button.disabled = false
+
+	# Also update burn objective button
+	_update_burn_objective_button()
+
+func _update_burn_objective_button() -> void:
+	"""Show/hide the Burn Objective button for Scorched Earth mission."""
+	if not burn_objective_button:
+		return
+
+	if not current_phase or not current_phase is ShootingPhase:
+		burn_objective_button.visible = false
+		return
+
+	if active_shooter_id == "":
+		burn_objective_button.visible = false
+		return
+
+	# Check if there are burn options for the active shooter
+	var burn_options = current_phase._get_burn_objective_options(active_shooter_id)
+	if burn_options.is_empty():
+		burn_objective_button.visible = false
 		return
 
 	# Use the best (highest VP) option for button text
-	var best_option = options[0]
-	for opt in options:
-		if opt.get("vp_value", 0) > best_option.get("vp_value", 0):
-			best_option = opt
+	var best_burn = burn_options[0]
+	for opt in burn_options:
+		if opt.get("burn_vp", 0) > best_burn.get("burn_vp", 0):
+			best_burn = opt
 
-	perform_action_button.text = best_option.get("description", "Perform Action")
-	perform_action_button.set_meta("action_option", best_option)
-	perform_action_button.visible = true
-	perform_action_button.disabled = false
+	var zone_label = "NML" if best_burn.get("zone", "") == "no_mans_land" else "Enemy DZ"
+	burn_objective_button.text = "BURN %s (%s, +%d VP)" % [best_burn.objective_id, zone_label, best_burn.burn_vp]
+	burn_objective_button.set_meta("burn_option", best_burn)
+	burn_objective_button.visible = true
+	burn_objective_button.disabled = false
 
 func _on_perform_action_pressed() -> void:
 	"""Handle Perform Action button click — unit gives up shooting to perform secondary mission action."""
@@ -3130,6 +3178,40 @@ func _on_perform_action_pressed() -> void:
 
 	# Hide the button and refresh
 	perform_action_button.visible = false
+	_refresh_unit_list()
+
+func _on_burn_objective_pressed() -> void:
+	"""Handle Burn Objective button click — unit gives up shooting to burn an objective."""
+	if active_shooter_id == "" or not burn_objective_button:
+		return
+
+	var option = burn_objective_button.get_meta("burn_option") if burn_objective_button.has_meta("burn_option") else null
+	if option == null:
+		print("ShootingController: ERROR - No burn_option metadata on burn_objective_button")
+		return
+
+	var objective_id = option.get("objective_id", "")
+	var unit_id = active_shooter_id
+
+	print("ShootingController: Burn Objective pressed — %s burns %s" % [unit_id, objective_id])
+
+	# Emit the action
+	shoot_action_requested.emit({
+		"type": "BURN_OBJECTIVE",
+		"actor_unit_id": unit_id,
+		"objective_id": objective_id,
+		"burn_vp": option.get("burn_vp", 0),
+	})
+
+	# Reset shooter state
+	active_shooter_id = ""
+	weapon_assignments.clear()
+	assignment_history.clear()
+	eligible_targets.clear()
+	selected_target_id = ""
+
+	# Hide the button and refresh
+	burn_objective_button.visible = false
 	_refresh_unit_list()
 
 func _update_ui_state() -> void:

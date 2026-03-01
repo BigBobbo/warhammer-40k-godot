@@ -1191,7 +1191,11 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# Check restriction flags
 	if flags.get("cannot_charge", false):
 		return false
-	
+
+	# Units that burned an objective (Scorched Earth) cannot charge this turn
+	if flags.get("burned_objective", false):
+		return false
+
 	if flags.get("advanced", false):
 		if not EffectPrimitivesData.has_effect_advance_and_charge(unit):
 			return false
