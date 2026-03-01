@@ -123,13 +123,13 @@ static func _load_missions() -> void:
 	_missions["the_ritual"] = {
 		"id": "the_ritual",
 		"name": "The Ritual",
-		"description": "Perform ritual actions at objectives to create scoring zones.",
+		"description": "Score VP by controlling NML objectives. Perform ritual actions to create new NML objectives.",
 		"scoring_type": "ritual",
 		"start_round": 2,
 		"objectives_used": "all",
 		"scoring": {
-			"vp_per_ritual_complete": 5,
-			"max_vp_per_turn": 15,
+			"vp_per_nml_objective": 5,   # 5 VP per controlled NML objective
+			"max_vp_per_turn": 15,       # Max 15 VP per turn (3 objectives)
 		},
 		"max_vp": MAX_PRIMARY_VP,
 		"special_rules": ["ritual_action"],
@@ -250,6 +250,7 @@ static func get_implemented_mission_ids() -> Array:
 		"linchpin",
 		"sites_of_power",
 		"scorched_earth",
+		"the_ritual",
 	]
 
 ## Get display name for a mission.

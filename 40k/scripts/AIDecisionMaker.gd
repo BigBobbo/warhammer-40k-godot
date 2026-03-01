@@ -7751,6 +7751,20 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			best_burn["_ai_description"] = "%s burns %s" % [b_name, obj_id]
 			return best_burn
 
+	# Step 4.9: Check for The Ritual ritual action
+	# Units at controlled NML objectives can perform rituals to create new objectives.
+	# Use low-firepower units for rituals when possible.
+	if action_types.has("PERFORM_RITUAL_ACTION"):
+		var best_ritual = _evaluate_ritual_actions(snapshot, action_types, player)
+		if not best_ritual.is_empty():
+			var r_unit = snapshot.get("units", {}).get(best_ritual.get("actor_unit_id", ""), {})
+			var r_name = r_unit.get("meta", {}).get("name", best_ritual.get("actor_unit_id", ""))
+			var r_obj_id = best_ritual.get("objective_id", "")
+			print("AIDecisionMaker: %s performs ritual at %s instead of shooting" % [r_name, r_obj_id])
+			_add_thinking_step("%s performs ritual at %s (The Ritual)" % [r_name, r_obj_id])
+			best_ritual["_ai_description"] = "%s performs ritual at %s" % [r_name, r_obj_id]
+			return best_ritual
+
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
@@ -12541,6 +12555,47 @@ static func _evaluate_burn_objective_actions(snapshot: Dictionary, action_types:
 			best_action = action
 
 	# Always burn if there's a positive score — burns are very valuable
+	if best_score > 0:
+		return best_action
+
+	return {}
+
+static func _evaluate_ritual_actions(snapshot: Dictionary, action_types: Dictionary, player: int) -> Dictionary:
+	"""Evaluate PERFORM_RITUAL_ACTION options and return the best one, or empty dict if none worth it.
+	Creating new NML objectives is valuable for future scoring (5 VP per turn).
+	Use low-firepower units for rituals when possible."""
+	var actions = action_types.get("PERFORM_RITUAL_ACTION", [])
+	if actions.is_empty():
+		return {}
+
+	var best_action = {}
+	var best_score = -999.0
+
+	for action in actions:
+		var unit_id = action.get("actor_unit_id", "")
+		var objective_id = action.get("objective_id", "")
+
+		if unit_id == "":
+			continue
+
+		# Estimate shooting value lost
+		var shooting_value = _estimate_unit_shooting_value(snapshot, unit_id, player)
+
+		# Creating a new NML objective is worth ~5 VP per future scoring round.
+		# With 3-4 rounds of scoring, a new objective could be worth 15-20 VP total.
+		# Weight at 2.0x of a 5VP value (10.0 effective) to prioritize ritual actions.
+		var ritual_score = 10.0 - shooting_value
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("AIDecisionMaker: [RitualAction] %s — %s: estimated_value=10.0, shooting_value=%.1f, score=%.1f" % [
+			unit_name, objective_id, shooting_value, ritual_score])
+
+		if ritual_score > best_score:
+			best_score = ritual_score
+			best_action = action
+
+	# Perform ritual if net positive
 	if best_score > 0:
 		return best_action
 
