@@ -445,8 +445,8 @@ func unit_is_fortification(unit_id: String) -> bool:
 			return true
 	return false
 
-func unit_has_scout(unit_id: String) -> bool:
-	"""Check if a unit has the Scout ability (any variant like 'Scout 6\"')"""
+func _unit_has_scout_own(unit_id: String) -> bool:
+	"""Check if a unit itself (not inherited) has the Scout ability."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -461,12 +461,8 @@ func unit_has_scout(unit_id: String) -> bool:
 			return true
 	return false
 
-func get_scout_distance(unit_id: String) -> float:
-	"""Get the Scout move distance in inches for a unit. Returns 0.0 if unit has no Scout ability."""
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return 0.0
-	var abilities = unit.get("meta", {}).get("abilities", [])
+func _get_scout_distance_from_abilities(abilities: Array) -> float:
+	"""Extract Scout distance from an abilities array. Returns 0.0 if no Scout ability found."""
 	for ability in abilities:
 		var name = ""
 		var value = 0
@@ -489,8 +485,74 @@ func get_scout_distance(unit_id: String) -> float:
 			return 6.0
 	return 0.0
 
+func unit_has_scout(unit_id: String) -> bool:
+	"""Check if a unit has the Scout ability (any variant like 'Scout 6\"').
+	Per Balance Dataslate: Dedicated Transports can inherit Scout from embarked units
+	if all embarked models have the Scout ability. Scout distance can exceed Move characteristic
+	as long as it does not exceed X\"."""
+	# Check the unit's own abilities first
+	if _unit_has_scout_own(unit_id):
+		return true
+	# Check if this is a Dedicated Transport that inherits Scout from embarked units
+	return _transport_inherits_scout(unit_id)
+
+func _transport_inherits_scout(unit_id: String) -> bool:
+	"""Check if a transport inherits Scout from its embarked units.
+	Per Balance Dataslate: DEDICATED TRANSPORT models can make use of a Scouts X\" ability
+	that a unit starting the battle embarked within that transport has, provided only models
+	with this ability are embarked within that Dedicated Transport."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	# Must be a transport with embarked units
+	if not unit.has("transport_data"):
+		return false
+	var embarked_ids = unit.get("transport_data", {}).get("embarked_units", [])
+	if embarked_ids.is_empty():
+		return false
+	# All embarked units must have Scout ability
+	for embarked_id in embarked_ids:
+		if not _unit_has_scout_own(embarked_id):
+			print("ScoutInheritance: Transport %s - embarked unit %s does NOT have Scout, inheritance blocked" % [unit_id, embarked_id])
+			return false
+	print("ScoutInheritance: Transport %s inherits Scout from %d embarked unit(s)" % [unit_id, embarked_ids.size()])
+	return true
+
+func get_scout_distance(unit_id: String) -> float:
+	"""Get the Scout move distance in inches for a unit. Returns 0.0 if unit has no Scout ability.
+	For transports inheriting Scout, uses the smallest Scout distance among embarked units."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return 0.0
+	# Check own abilities first
+	var own_abilities = unit.get("meta", {}).get("abilities", [])
+	var own_distance = _get_scout_distance_from_abilities(own_abilities)
+	if own_distance > 0.0:
+		return own_distance
+	# Check inherited from embarked units (use smallest distance)
+	if unit.has("transport_data"):
+		var embarked_ids = unit.get("transport_data", {}).get("embarked_units", [])
+		if not embarked_ids.is_empty():
+			var min_distance = INF
+			var all_have_scout = true
+			for embarked_id in embarked_ids:
+				var embarked_unit = get_unit(embarked_id)
+				if embarked_unit.is_empty():
+					all_have_scout = false
+					break
+				var embarked_abilities = embarked_unit.get("meta", {}).get("abilities", [])
+				var dist = _get_scout_distance_from_abilities(embarked_abilities)
+				if dist <= 0.0:
+					all_have_scout = false
+					break
+				min_distance = min(min_distance, dist)
+			if all_have_scout and min_distance < INF:
+				return min_distance
+	return 0.0
+
 func get_scout_units_for_player(player: int) -> Array:
-	"""Get all deployed units with the Scout ability for a given player."""
+	"""Get all deployed units with the Scout ability for a given player.
+	Per Balance Dataslate: Dedicated Transports can inherit Scout from embarked units."""
 	var scout_units = []
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]

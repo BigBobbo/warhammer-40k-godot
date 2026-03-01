@@ -525,3 +525,148 @@ func test_get_scout_distance_string_format():
 	game_state_node.state = test_state
 	var distance = game_state_node.get_scout_distance("string_scout")
 	assert_eq(distance, 12.0, "Scout distance should be 12.0 from string 'Scout 12\"'")
+
+# ==========================================
+# Transport Scout Inheritance Tests (P2-81)
+# ==========================================
+
+func _create_transport_unit(id: String, name: String, owner: int, base_pos: Vector2, embarked_unit_ids: Array = []) -> Dictionary:
+	"""Create a transport unit for testing Scout inheritance."""
+	return {
+		"id": id,
+		"squad_id": id,
+		"owner": owner,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": name,
+			"stats": {"move": 10, "toughness": 9, "save": 3},
+			"keywords": ["VEHICLE", "TRANSPORT"],
+			"abilities": [
+				{"name": "TRANSPORT", "type": "Special", "description": "Transport capacity of 12."}
+			]
+		},
+		"transport_data": {
+			"capacity": 12,
+			"capacity_keywords": [],
+			"embarked_units": embarked_unit_ids,
+			"firing_deck": 0
+		},
+		"models": [
+			{"id": "m1", "wounds": 12, "current_wounds": 12, "base_mm": 100, "position": {"x": base_pos.x, "y": base_pos.y}, "alive": true, "status_effects": []}
+		]
+	}
+
+func test_transport_inherits_scout_from_all_embarked_units():
+	"""Transport should inherit Scout when ALL embarked units have Scout ability."""
+	var test_state = _create_scout_test_state(false)
+	# Add a scout unit that is embarked
+	test_state.units["embarked_scouts"] = _create_scout_unit("embarked_scouts", "Infiltrators", 1, Vector2(0, 0), 6)
+	test_state.units["embarked_scouts"]["embarked_in"] = "transport_1"
+	test_state.units["embarked_scouts"]["status"] = GameStateData.UnitStatus.DEPLOYED
+	# Add transport with that unit embarked
+	test_state.units["transport_1"] = _create_transport_unit("transport_1", "Impulsor", 1, Vector2(400, 1800), ["embarked_scouts"])
+	game_state_node.state = test_state
+
+	assert_true(game_state_node.unit_has_scout("transport_1"), "Transport should inherit Scout from all-scout embarked units")
+
+func test_transport_does_not_inherit_scout_when_no_embarked():
+	"""Transport should NOT have Scout when no units are embarked."""
+	var test_state = _create_scout_test_state(false)
+	test_state.units["transport_empty"] = _create_transport_unit("transport_empty", "Impulsor", 1, Vector2(400, 1800), [])
+	game_state_node.state = test_state
+
+	assert_false(game_state_node.unit_has_scout("transport_empty"), "Empty transport should not have Scout")
+
+func test_transport_does_not_inherit_scout_when_mixed_embarked():
+	"""Transport should NOT inherit Scout when some embarked units lack Scout ability."""
+	var test_state = _create_scout_test_state(false)
+	# Add a scout unit
+	test_state.units["embarked_scouts"] = _create_scout_unit("embarked_scouts", "Infiltrators", 1, Vector2(0, 0), 6)
+	test_state.units["embarked_scouts"]["embarked_in"] = "transport_mixed"
+	# Add a non-scout unit
+	test_state.units["embarked_normal"] = _create_normal_unit("embarked_normal", "Intercessors", 1, Vector2(0, 0))
+	test_state.units["embarked_normal"]["embarked_in"] = "transport_mixed"
+	# Transport with both
+	test_state.units["transport_mixed"] = _create_transport_unit("transport_mixed", "Impulsor", 1, Vector2(400, 1800), ["embarked_scouts", "embarked_normal"])
+	game_state_node.state = test_state
+
+	assert_false(game_state_node.unit_has_scout("transport_mixed"), "Transport should NOT inherit Scout when some embarked units lack it")
+
+func test_transport_inherits_scout_distance_from_embarked():
+	"""Transport should use the smallest Scout distance among embarked units."""
+	var test_state = _create_scout_test_state(false)
+	# Two scout units with different distances
+	test_state.units["embarked_scout_6"] = _create_scout_unit("embarked_scout_6", "Infiltrators", 1, Vector2(0, 0), 6)
+	test_state.units["embarked_scout_6"]["embarked_in"] = "transport_multi"
+	test_state.units["embarked_scout_9"] = _create_scout_unit("embarked_scout_9", "Witchseekers", 1, Vector2(0, 0), 9)
+	test_state.units["embarked_scout_9"]["embarked_in"] = "transport_multi"
+	test_state.units["transport_multi"] = _create_transport_unit("transport_multi", "Impulsor", 1, Vector2(400, 1800), ["embarked_scout_6", "embarked_scout_9"])
+	game_state_node.state = test_state
+
+	var distance = game_state_node.get_scout_distance("transport_multi")
+	assert_eq(distance, 6.0, "Transport should use smallest Scout distance (6\") from embarked units")
+
+func test_transport_appears_in_scout_units_for_player():
+	"""Transport with scout-inheriting units should appear in get_scout_units_for_player."""
+	var test_state = _create_scout_test_state(false)
+	test_state.units["embarked_scouts"] = _create_scout_unit("embarked_scouts", "Infiltrators", 1, Vector2(0, 0), 6)
+	test_state.units["embarked_scouts"]["embarked_in"] = "transport_scout"
+	test_state.units["transport_scout"] = _create_transport_unit("transport_scout", "Impulsor", 1, Vector2(400, 1800), ["embarked_scouts"])
+	game_state_node.state = test_state
+
+	var scout_units = game_state_node.get_scout_units_for_player(1)
+	assert_has(scout_units, "transport_scout", "Transport inheriting Scout should be in scout units list")
+	# Embarked unit should NOT be in the list (it's embarked)
+	assert_does_not_have(scout_units, "embarked_scouts", "Embarked unit should not appear in scout units list")
+
+func test_transport_with_own_scout_uses_own_distance():
+	"""Transport with its own Scout ability should use its own distance, not inherited."""
+	var test_state = _create_scout_test_state(false)
+	test_state.units["transport_own_scout"] = _create_transport_unit("transport_own_scout", "Scout Transport", 1, Vector2(400, 1800), [])
+	# Give the transport its own Scout ability
+	test_state.units["transport_own_scout"]["meta"]["abilities"].append({
+		"name": "Scout 8\"", "type": "Core", "value": 8,
+		"description": "This unit can scout 8\"."
+	})
+	game_state_node.state = test_state
+
+	assert_true(game_state_node.unit_has_scout("transport_own_scout"), "Transport with own Scout should have Scout")
+	assert_eq(game_state_node.get_scout_distance("transport_own_scout"), 8.0, "Should use own Scout distance of 8\"")
+
+func test_scout_distance_can_exceed_move_characteristic():
+	"""Scout move distance should only be capped by Scout X\", not by Move characteristic.
+	Per Balance Dataslate: the distance moved can be greater than the model's Move characteristic
+	as long as it is not greater than X\"."""
+	var test_state = _create_scout_test_state(false)
+	# Unit with Move 5 but Scout 6" — should be able to move the full 6"
+	test_state.units["slow_scout"] = {
+		"id": "slow_scout",
+		"squad_id": "slow_scout",
+		"owner": 1,
+		"status": GameStateData.UnitStatus.DEPLOYED,
+		"meta": {
+			"name": "Slow Scouts",
+			"stats": {"move": 5, "toughness": 4, "save": 3},
+			"keywords": ["INFANTRY"],
+			"abilities": [
+				{"name": "Scout 6\"", "type": "Core", "value": 6, "description": "Scout 6\"."}
+			]
+		},
+		"models": [
+			{"id": "m1", "wounds": 2, "current_wounds": 2, "base_mm": 32, "position": {"x": 400, "y": 1800}, "alive": true, "status_effects": []}
+		]
+	}
+	_setup_phase_with_state(test_state)
+
+	# Begin scout move
+	phase.process_action({"type": "BEGIN_SCOUT_MOVE", "unit_id": "slow_scout"})
+
+	# Move 5.5" (220px) — exceeds Move 5 but within Scout 6"
+	var action = {
+		"type": "SET_SCOUT_MODEL_DEST",
+		"unit_id": "slow_scout",
+		"model_id": "m1",
+		"destination": {"x": 400.0, "y": 1800.0 - 220.0}
+	}
+	var result = phase.validate_action(action)
+	assert_true(result.valid, "Scout move of 5.5\" should be valid despite Move characteristic of 5\"")
