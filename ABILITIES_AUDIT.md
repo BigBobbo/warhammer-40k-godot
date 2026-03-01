@@ -504,7 +504,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 113. **Add quick-assign All weapons to target in shooting** — One-click button to assign all weapons to selected target in ShootingController.gd. (QOL-6) — **DONE**
 114. **Add expected damage preview during weapon assignment** — Mathhammer-style prediction as weapon assignments are made in ShootingController.gd. (QOL-7) — **DONE**
 115. **Add available movement indicator** — Show "X inches remaining" floating text during model movement in MovementController.gd. (QOL-9) — **DONE**
-116. **Add coherency preview during movement** — Visual line showing unit coherency status as models move in MovementController.gd. (QOL-10)
+116. **Add coherency preview during movement** — Visual line showing unit coherency status as models move in MovementController.gd. (QOL-10) — **DONE**
 117. **Add dice roll history panel** — Scrollable history of past dice rolls for review. New DiceHistoryPanel.gd. (QOL-12)
 118. **Add reroll visualization** — Show original + new die side-by-side when Command Re-roll used in DiceRollVisual.gd. (QOL-14)
 119. **Add live opponent action feed in multiplayer** — Show "Player 2 moved Ork Boyz forward" feed in real-time. (QOL-15)

@@ -52,6 +52,9 @@ var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
 
 # Floating movement indicator (shown near model during drag)
 var movement_remaining_label: Label
+# P3-116: Coherency status label shown below movement remaining label
+var coherency_status_label: Label
+var _last_coherency_state: bool = true  # Track state changes to avoid per-frame logging
 
 # UI Elements
 var move_cap_label: Label
@@ -1298,6 +1301,8 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 	# Update floating movement remaining indicator near the ghost
 	_update_movement_remaining_label(inches_left, path_valid)
+	# P3-116: Update coherency preview lines during drag
+	_update_coherency_preview(world_pos)
 
 func _end_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -1928,6 +1933,18 @@ func _show_ghost_visual(model: Dictionary) -> void:
 	movement_remaining_label.position = Vector2(-30, -(base_radius_px + 22))
 	ghost_visual.add_child(movement_remaining_label)
 
+	# P3-116: Create coherency status label below the movement remaining label
+	coherency_status_label = Label.new()
+	coherency_status_label.name = "CoherencyStatusLabel"
+	coherency_status_label.text = ""
+	coherency_status_label.add_theme_font_size_override("font_size", 13)
+	coherency_status_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2, 0.8))
+	coherency_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coherency_status_label.z_index = 58
+	coherency_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coherency_status_label.position = Vector2(-30, -(base_radius_px + 8))
+	ghost_visual.add_child(coherency_status_label)
+
 	print("Created ghost visual for model")
 
 func _update_ghost_position(world_pos: Vector2) -> void:
@@ -1940,6 +1957,7 @@ func _clear_ghost_visual() -> void:
 	for child in ghost_visual.get_children():
 		child.queue_free()
 	movement_remaining_label = null
+	coherency_status_label = null
 
 func _get_accumulated_distance() -> float:
 	# Get distance for the currently selected model
@@ -2061,6 +2079,138 @@ func _update_movement_remaining_label(inches_left: float, valid: bool) -> void:
 		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.1, 0.9))
 	else:
 		movement_remaining_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.1, 0.9))
+
+func _update_coherency_preview(ghost_world_pos: Vector2) -> void:
+	"""P3-116: Update coherency preview lines from ghost to all other models in the unit.
+	Shows green lines for models within 2\" coherency, red lines for models outside."""
+	if not current_phase or active_unit_id == "" or selected_model.is_empty():
+		return
+
+	# Get the ghost token from ghost_visual
+	var ghost_token = null
+	if ghost_visual and ghost_visual.get_child_count() > 0:
+		var first_child = ghost_visual.get_child(0)
+		if first_child.has_method("set_coherency_preview"):
+			ghost_token = first_child
+
+	if not ghost_token:
+		return
+
+	var unit = current_phase.get_unit(active_unit_id)
+	if unit.is_empty():
+		ghost_token.clear_coherency_preview()
+		return
+
+	var models = unit.get("models", [])
+	var alive_models = []
+	for model in models:
+		if model.get("alive", true):
+			alive_models.append(model)
+
+	# Single model units don't need coherency preview
+	if alive_models.size() <= 1:
+		ghost_token.clear_coherency_preview()
+		_update_coherency_status_label("", true)
+		return
+
+	var dragged_model_id = selected_model.get("model_id", "")
+
+	# Get staged move data for this unit
+	var move_data = {}
+	if current_phase.has_method("get_active_move_data"):
+		move_data = current_phase.get_active_move_data(active_unit_id)
+	elif current_phase != null and "active_moves" in current_phase:
+		var active_moves = current_phase.active_moves
+		if active_moves.has(active_unit_id):
+			move_data = active_moves[active_unit_id]
+
+	# Build staged position lookup
+	var staged_positions = {}
+	for staged_move in move_data.get("staged_moves", []):
+		staged_positions[staged_move.get("model_id", "")] = staged_move.get("dest", Vector2.ZERO)
+
+	# Build the ghost model dict (dragged model at ghost position)
+	var ghost_model = selected_model.duplicate()
+	ghost_model["position"] = ghost_world_pos
+
+	# Build list of all other models with their current/staged positions
+	var other_models_data = []  # Array of { model_dict, world_pos }
+	for model in alive_models:
+		var model_id = model.get("id", "")
+		if model_id == dragged_model_id:
+			continue  # Skip the model being dragged
+
+		var model_dict = model.duplicate()
+		# Use staged position if available
+		if staged_positions.has(model_id):
+			model_dict["position"] = staged_positions[model_id]
+		else:
+			var pos = model.get("position")
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				model_dict["position"] = Vector2(pos.get("x", 0), pos.get("y", 0))
+			elif pos is Vector2:
+				model_dict["position"] = pos
+			else:
+				continue
+		other_models_data.append(model_dict)
+
+	# Calculate coherency lines from ghost to each other model
+	var lines_data = []
+	var coherent_count = 0
+	var total_count = other_models_data.size()
+
+	for other_model in other_models_data:
+		var other_pos = other_model.get("position", Vector2.ZERO)
+		if other_pos is Dictionary:
+			other_pos = Vector2(other_pos.get("x", 0), other_pos.get("y", 0))
+		var dist_inches = Measurement.model_to_model_distance_inches(ghost_model, other_model)
+		var in_coherency = Measurement.is_within_coherency(ghost_model, other_model)
+		if in_coherency:
+			coherent_count += 1
+
+		lines_data.append({
+			"world_pos": other_pos,
+			"distance_inches": dist_inches,
+			"in_coherency": in_coherency
+		})
+
+	# Determine required connections for coherency (10th Ed rules)
+	var total_alive = alive_models.size()
+	var required_connections = 1 if total_alive <= 6 else 2
+	var ghost_is_coherent = coherent_count >= required_connections
+
+	# Build status text
+	var status_text = ""
+	if ghost_is_coherent:
+		status_text = "Coherent"
+	else:
+		status_text = "%d/%d needed" % [coherent_count, required_connections]
+
+	# Update the ghost visual with coherency data
+	ghost_token.set_coherency_preview(lines_data, status_text, ghost_is_coherent)
+
+	# Update the coherency status label
+	_update_coherency_status_label(status_text, ghost_is_coherent)
+
+	# Only log when coherency state changes to avoid per-frame spam
+	if ghost_is_coherent != _last_coherency_state:
+		print("P3-116: Coherency preview — %s (%d/%d connections, need %d)" % [
+			"OK" if ghost_is_coherent else "BROKEN",
+			coherent_count, total_count, required_connections
+		])
+		_last_coherency_state = ghost_is_coherent
+
+func _update_coherency_status_label(status_text: String, is_coherent: bool) -> void:
+	"""P3-116: Update the coherency status label below the movement remaining label."""
+	if not coherency_status_label or not is_instance_valid(coherency_status_label):
+		return
+	coherency_status_label.text = status_text
+	if is_coherent:
+		coherency_status_label.add_theme_color_override("font_color", Color(0.2, 0.9, 0.2, 0.8))
+	else:
+		coherency_status_label.add_theme_color_override("font_color", Color(0.9, 0.2, 0.2, 0.9))
 
 func _update_movement_display_with_advance(dice_result: int) -> void:
 	# Get the current unit to calculate base movement
