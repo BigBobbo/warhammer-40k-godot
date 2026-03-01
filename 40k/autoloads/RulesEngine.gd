@@ -975,7 +975,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 
 	# --- PHASE 3: Wound rolls (normal rules apply) ---
 	var strength = weapon_profile.get("strength", 4)
-	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	var critical_wound_threshold = get_critical_wound_threshold(weapon_id, target_unit, board)
@@ -1504,7 +1504,7 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
-	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -2123,7 +2123,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
-	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -2855,6 +2855,30 @@ static func _calculate_wound_threshold(strength: int, toughness: int) -> int:
 		return 6  # 6+
 	else:
 		return 5  # 5+
+
+# P2-90: Resolve correct Toughness for attached units.
+# Per 10e rules: "Each time an attack targets an Attached unit, you must use the
+# Toughness characteristic of the Bodyguard models in that unit, even if a Leader
+# in that unit has a different Toughness characteristic."
+# - If target is a CHARACTER attached to a bodyguard (attached_to != null), use bodyguard's T
+# - If target is a bodyguard with attached characters, use the bodyguard's own T (already correct)
+# - If target is standalone (no attachment), use its own T
+static func _get_attached_unit_toughness(target_unit: Dictionary, board: Dictionary) -> int:
+	var own_toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+
+	# Check if this unit is a CHARACTER attached to a bodyguard
+	var attached_to = target_unit.get("attached_to", null)
+	if attached_to != null and attached_to != "":
+		var units = board.get("units", {})
+		var bodyguard_unit = units.get(attached_to, {})
+		if not bodyguard_unit.is_empty():
+			var bodyguard_toughness = bodyguard_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+			if bodyguard_toughness != own_toughness:
+				print("RulesEngine: P2-90 Attached unit T resolution — using bodyguard T%d instead of character T%d" % [bodyguard_toughness, own_toughness])
+			return bodyguard_toughness
+
+	# Bodyguard unit or standalone unit — use own toughness
+	return own_toughness
 
 static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, invuln: int) -> Dictionary:
 	# Calculate armour save with AP and cover
@@ -6400,7 +6424,7 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		strength += 1
 		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
 
-	var toughness = target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)
+	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	var ap = weapon_profile.get("ap", 0)
 	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
 	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)
