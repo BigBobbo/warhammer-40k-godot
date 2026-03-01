@@ -4,7 +4,7 @@ class_name GameStateData
 # Modular Game State for Warhammer 40k
 # This class represents the complete game state that can be serialized and passed between phases
 
-enum Phase { FORMATIONS, DEPLOYMENT, SCOUT, ROLL_OFF, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
+enum Phase { FORMATIONS, DEPLOYMENT, REDEPLOYMENT, SCOUT, ROLL_OFF, COMMAND, MOVEMENT, SHOOTING, CHARGE, FIGHT, SCORING, MORALE }
 enum UnitStatus { UNDEPLOYED, DEPLOYING, DEPLOYED, MOVED, SHOT, CHARGED, FOUGHT, IN_RESERVES }
 
 # The complete game state as a dictionary
@@ -566,6 +566,42 @@ func get_scout_units_for_player(player: int) -> Array:
 		if unit_has_scout(unit_id):
 			scout_units.append(unit_id)
 	return scout_units
+
+func unit_has_redeploy(unit_id: String) -> bool:
+	"""Check if a unit has a redeployment ability (e.g. from datasheet or detachment rules).
+	Per Core Rules Updates, redeployment abilities are resolved after Deploy Armies,
+	before Determine First Turn. Players alternate resolving them, starting with the Attacker."""
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return false
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var name = ""
+		if ability is String:
+			name = ability
+		elif ability is Dictionary:
+			name = ability.get("name", "")
+		# Match known redeployment ability names
+		if name.to_lower().contains("redeploy") or name == "Phantasm" or name == "Red Corsairs":
+			return true
+	return false
+
+func get_redeploy_units_for_player(player: int) -> Array:
+	"""Get all deployed units with a redeployment ability for a given player.
+	Per Core Rules Updates, redeployment occurs after Deploy Armies, before Determine First Turn."""
+	var redeploy_units = []
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if unit["owner"] != player:
+			continue
+		# Only deployed units can redeploy (not reserves, not embarked)
+		if unit.get("status", 0) != UnitStatus.DEPLOYED:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		if unit_has_redeploy(unit_id):
+			redeploy_units.append(unit_id)
+	return redeploy_units
 
 func get_enemy_deployment_zone(player: int) -> Dictionary:
 	"""Get the enemy's deployment zone for a given player (for Infiltrators >9 inch check)"""

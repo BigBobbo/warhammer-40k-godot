@@ -35,6 +35,7 @@ func register_phase_classes() -> void:
 	# Register phase implementations
 	phase_classes[GameStateData.Phase.FORMATIONS] = preload("res://phases/FormationsPhase.gd")
 	phase_classes[GameStateData.Phase.DEPLOYMENT] = preload("res://phases/DeploymentPhase.gd")
+	phase_classes[GameStateData.Phase.REDEPLOYMENT] = preload("res://phases/RedeploymentPhase.gd")
 	phase_classes[GameStateData.Phase.SCOUT] = preload("res://phases/ScoutPhase.gd")
 	phase_classes[GameStateData.Phase.ROLL_OFF] = preload("res://phases/RollOffPhase.gd")
 	phase_classes[GameStateData.Phase.COMMAND] = preload("res://phases/CommandPhase.gd")
@@ -183,6 +184,8 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 		GameStateData.Phase.FORMATIONS:
 			return GameStateData.Phase.DEPLOYMENT
 		GameStateData.Phase.DEPLOYMENT:
+			return GameStateData.Phase.REDEPLOYMENT
+		GameStateData.Phase.REDEPLOYMENT:
 			return GameStateData.Phase.SCOUT
 		GameStateData.Phase.SCOUT:
 			return GameStateData.Phase.ROLL_OFF

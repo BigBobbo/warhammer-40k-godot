@@ -16,6 +16,7 @@ static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
 	match phase:
 		GameStateData.Phase.FORMATIONS: return {"name": "DECLARE BATTLE FORMATIONS", "icon": "\u2694"}
 		GameStateData.Phase.DEPLOYMENT: return {"name": "DEPLOYMENT PHASE", "icon": "\u2693"}
+		GameStateData.Phase.REDEPLOYMENT: return {"name": "REDEPLOYMENT", "icon": "\u21C6"}
 		GameStateData.Phase.SCOUT: return {"name": "SCOUT MOVES", "icon": "\u21E8"}
 		GameStateData.Phase.ROLL_OFF: return {"name": "ROLL OFF", "icon": "\u2684"}
 		GameStateData.Phase.COMMAND: return {"name": "COMMAND PHASE", "icon": "\u2655"}

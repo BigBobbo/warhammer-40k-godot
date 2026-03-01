@@ -35,6 +35,7 @@ var _is_scrubbing: bool = false
 
 const PHASE_NAMES = {
 	GameStateData.Phase.DEPLOYMENT: "Deployment",
+	GameStateData.Phase.REDEPLOYMENT: "Redeployment",
 	GameStateData.Phase.SCOUT: "Scout Moves",
 	GameStateData.Phase.ROLL_OFF: "Roll-Off",
 	GameStateData.Phase.COMMAND: "Command",
