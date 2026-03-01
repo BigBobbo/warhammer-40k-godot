@@ -104,11 +104,12 @@ func _draw() -> void:
 		if not debug_mode:
 			_draw_overlay(fill_color, border_color)
 
-		# Draw fought overlay and engaged indicator for classic styles too
+		# Draw health bar and overlays for classic styles too
 		if not debug_mode:
 			var bounds = base_shape.get_bounds()
 			var classic_radius = min(bounds.size.x, bounds.size.y) / 2.0
 			var classic_rot = model_data.get("rotation", 0.0)
+			_draw_health_bar(classic_radius)
 			_draw_fought_overlay(classic_radius, base_shape.get_type(), classic_rot)
 			_draw_engaged_overlay(classic_radius)
 
@@ -160,6 +161,9 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 
 	# --- Layer 5: Wound pips ---
 	_draw_wound_pips(radius)
+
+	# --- Layer 5b: Persistent health bar above base ---
+	_draw_health_bar(radius)
 
 	# --- Layer 6: "Has fought" dimming overlay + checkmark ---
 	_draw_fought_overlay(radius, shape_type, rot)
@@ -258,6 +262,25 @@ func _draw_wound_pips(radius: float) -> void:
 			var total_wounds = model.get("wounds", 1)
 			var current_wounds = model.get("current_wounds", total_wounds)
 			TokenDrawUtils.draw_wound_pips(self, Vector2.ZERO, radius, total_wounds, current_wounds)
+			break
+
+func _draw_health_bar(radius: float) -> void:
+	if not has_meta("unit_id") or not has_meta("model_id"):
+		return
+
+	var unit_id = get_meta("unit_id")
+	var model_id_str = get_meta("model_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	var is_char = _is_character()
+	var models = unit.get("models", [])
+	for model in models:
+		if model.get("id", "") == model_id_str:
+			var total_wounds = model.get("wounds", 1)
+			var current_wounds = model.get("current_wounds", total_wounds)
+			TokenDrawUtils.draw_health_bar(self, Vector2.ZERO, radius, total_wounds, current_wounds, is_char)
 			break
 
 func _draw_fought_overlay(radius: float, shape_type: String, rot: float) -> void:

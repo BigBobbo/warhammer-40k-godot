@@ -222,7 +222,7 @@
 - [ ] Add measurement grid overlay — Optional inch markers (every 6", every 12"). (VIS-4)
 - [ ] Add height/elevation visualization — Elevated terrain with shading/3D effect. (VIS-5)
 - [ ] Add LoS blocker terrain indication — Visual distinction for LoS-blocking terrain. (VIS-6)
-- [ ] Add persistent model health bars on board — Show model wounds above/below bases. (VIS-7)
+- [x] Add persistent model health bars on board — Show model wounds above/below bases. (VIS-7)
 - [ ] Add damaged model visual distinction — Wounded models look different from fresh. (VIS-8)
 - [ ] Add human player movement path preview — Drag-to-plan movement path visualization (AI has this, humans don't). (VIS-9)
 - [ ] Add movement cost terrain heatmap — Darker colors = slower movement areas. (VIS-10)

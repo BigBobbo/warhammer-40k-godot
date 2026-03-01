@@ -109,6 +109,57 @@ static func draw_wound_pips(canvas: CanvasItem, center: Vector2, radius: float, 
 		canvas.draw_string(font, text_pos, wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color(0.9, 0.9, 0.3, 0.9))
 
 
+static func draw_health_bar(canvas: CanvasItem, center: Vector2, radius: float, total_wounds: int, current_wounds: int, is_character: bool = false) -> void:
+	# Persistent horizontal health bar drawn above the token base.
+	# Only shown for multi-wound models (total_wounds > 1).
+	if total_wounds <= 1:
+		return
+
+	var bar_width = radius * 1.4
+	var bar_height = max(3.0, radius * 0.12)
+	# Position above the token base (negative Y is up)
+	# Shift higher if character chevron is present to avoid overlap
+	var extra_offset = 8.0 if is_character else 0.0
+	var bar_y = center.y - radius - bar_height - 4.0 - extra_offset
+
+	# Background (dark, semi-transparent)
+	var bg_rect = Rect2(center.x - bar_width / 2.0, bar_y, bar_width, bar_height)
+	canvas.draw_rect(bg_rect, Color(0.05, 0.05, 0.05, 0.75), true)
+
+	# Health fill — color shifts from green to yellow to red as wounds decrease
+	var health_ratio = float(current_wounds) / float(total_wounds)
+	var fill_color: Color
+	if health_ratio > 0.5:
+		# Green to yellow (1.0 → 0.5)
+		var t = (health_ratio - 0.5) / 0.5
+		fill_color = Color(0.9 - t * 0.6, 0.8, 0.2, 0.9)
+	else:
+		# Yellow to red (0.5 → 0.0)
+		var t = health_ratio / 0.5
+		fill_color = Color(0.9, 0.2 + t * 0.6, 0.1, 0.9)
+
+	# Draw inset fill (1px padding)
+	var fill_width = (bar_width - 2.0) * health_ratio
+	if fill_width > 0:
+		var fill_rect = Rect2(center.x - bar_width / 2.0 + 1.0, bar_y + 1.0, fill_width, bar_height - 2.0)
+		canvas.draw_rect(fill_rect, fill_color, true)
+
+	# Thin border outline
+	canvas.draw_rect(bg_rect, Color(0.3, 0.3, 0.3, 0.6), false, 1.0)
+
+	# Wound count text overlay for high-wound models (> 3 wounds)
+	if total_wounds > 3:
+		var font = ThemeDB.fallback_font
+		var wound_text = "%d/%d" % [current_wounds, total_wounds]
+		var font_size = max(7, int(bar_height * 1.5))
+		var text_size = font.get_string_size(wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+		var text_pos = Vector2(center.x - text_size.x / 2.0, bar_y + bar_height - 1.0)
+		# Shadow
+		canvas.draw_string(font, text_pos + Vector2(0.5, 0.5), wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.8))
+		# Text
+		canvas.draw_string(font, text_pos, wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(1.0, 1.0, 1.0, 0.95))
+
+
 static func draw_status_tick(canvas: CanvasItem, center: Vector2, radius: float, flags: Dictionary) -> void:
 	# Small colored bar at base bottom showing action state
 	var tick_width = radius * 0.5
