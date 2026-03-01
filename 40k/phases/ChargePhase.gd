@@ -2565,14 +2565,21 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	return create_result(true, changes)
 
 func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
-	"""Check if the HI charge roll is sufficient to reach engagement range of the target."""
+	"""Check if the HI charge roll is sufficient to reach engagement range of the target.
+	P2-77: Now accounts for terrain vertical distance penalties along the charge path."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
 
+	# P2-77: Check FLY keyword for terrain penalty calculation
+	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fly = "FLY" in unit_keywords
+
 	for model in unit.get("models", []):
 		if not model.get("alive", true):
 			continue
+
+		var model_pos = _get_model_position(model)
 
 		for target_id in target_ids:
 			var target_unit = get_unit(target_id)
@@ -2585,11 +2592,20 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
 				# T3-9: Use barricade-aware engagement range
-				var model_pos = _get_model_position(model)
 				var target_pos = _get_model_position(target_model)
 				var effective_er = _get_effective_engagement_range(model_pos, target_pos)
 				var distance_to_close = distance_inches - effective_er
-				if distance_to_close <= rolled_distance:
+
+				# P2-77: Add terrain penalty for the straight-line path
+				var terrain_penalty = _calculate_path_terrain_penalty(
+					[model_pos, target_pos], has_fly)
+				var effective_distance = distance_to_close + terrain_penalty
+
+				if terrain_penalty > 0.0:
+					print("ChargePhase: HI model terrain penalty: %.1f\" (FLY=%s), effective distance: %.1f\"" % [
+						terrain_penalty, str(has_fly), effective_distance])
+
+				if effective_distance <= rolled_distance:
 					return true
 
 	return false
