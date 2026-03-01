@@ -77,12 +77,16 @@ var remote_assignment_lines: Array = []  # Track remote assignment Line2D nodes
 # T5-V2: Animated shooting line visuals
 var shooting_line_visuals: Array = []  # Track ShootingLineVisual instances
 
-# T5-UX1: Expected damage preview when hovering weapons
+# T5-UX1/P3-114: Expected damage preview when hovering weapons
 var damage_preview_panel: PanelContainer
 var damage_preview_label: RichTextLabel
 var _hovered_weapon_id: String = ""  # Track which weapon is being hovered
 var _last_preview_weapon_id: String = ""  # Cache to avoid redundant recalculation
 var _last_preview_target_id: String = ""  # Cache target for recalculation check
+
+# P3-114: Aggregate damage preview across all weapon assignments
+var aggregate_preview_panel: PanelContainer
+var aggregate_preview_label: RichTextLabel
 
 # Visual settings
 const HIGHLIGHT_COLOR_ELIGIBLE = Color.GREEN
@@ -336,6 +340,27 @@ func _setup_right_panel() -> void:
 	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	damage_preview_panel.add_child(damage_preview_label)
 	shooting_panel.add_child(damage_preview_panel)
+
+	# P3-114: Aggregate damage preview panel (shown when multiple weapons assigned)
+	aggregate_preview_panel = PanelContainer.new()
+	aggregate_preview_panel.name = "AggregateDamagePreviewPanel"
+	aggregate_preview_panel.custom_minimum_size = Vector2(230, 0)
+	aggregate_preview_panel.visible = false
+	var agg_style = StyleBoxFlat.new()
+	agg_style.bg_color = Color(0.1, 0.12, 0.18, 0.95)
+	agg_style.border_color = Color(0.5, 0.7, 0.9, 0.6)
+	agg_style.set_border_width_all(1)
+	agg_style.set_content_margin_all(6)
+	agg_style.set_corner_radius_all(3)
+	aggregate_preview_panel.add_theme_stylebox_override("panel", agg_style)
+	aggregate_preview_label = RichTextLabel.new()
+	aggregate_preview_label.bbcode_enabled = true
+	aggregate_preview_label.fit_content = true
+	aggregate_preview_label.scroll_active = false
+	aggregate_preview_label.custom_minimum_size = Vector2(218, 0)
+	aggregate_preview_label.add_theme_font_size_override("normal_font_size", 11)
+	aggregate_preview_panel.add_child(aggregate_preview_label)
+	shooting_panel.add_child(aggregate_preview_panel)
 
 	# P3-113: Quick-assign all weapons to target buttons
 	quick_assign_container = VBoxContainer.new()
@@ -701,6 +726,7 @@ func _refresh_weapon_tree() -> void:
 	weapon_tree.clear()
 	# T5-UX1: Hide damage preview when weapon tree is refreshed
 	_hide_damage_preview()
+	_hide_aggregate_preview()  # P3-114
 	_hovered_weapon_id = ""
 	var root = weapon_tree.create_item()
 
@@ -2798,6 +2824,7 @@ func _on_clear_pressed() -> void:
 		auto_target_button_container.visible = false
 	last_assigned_target_id = ""
 
+	_hide_aggregate_preview()  # P3-114: Hide aggregate when clearing all
 	_refresh_quick_assign_buttons()  # P3-113: Re-show quick-assign buttons after clearing
 	_update_ui_state()
 
@@ -2846,6 +2873,7 @@ func _on_undo_last_pressed() -> void:
 		var weapon_name = RulesEngine.get_weapon_profile(weapon_id).get("name", weapon_id)
 		dice_log_display.append_text("[color=orange]↩ Undid assignment for %s[/color]\n" % weapon_name)
 
+	_update_aggregate_damage_preview()  # P3-114: Refresh aggregate after undo
 	_update_ui_state()
 
 func _on_confirm_pressed() -> void:
@@ -3379,6 +3407,9 @@ func _keyboard_deselect_shooter() -> void:
 	# Hide damage preview
 	if damage_preview_panel:
 		damage_preview_panel.visible = false
+	# P3-114: Hide aggregate preview
+	if aggregate_preview_panel:
+		aggregate_preview_panel.visible = false
 
 	# Hide modifier panel
 	if modifier_panel:
@@ -3802,6 +3833,9 @@ func _on_apply_to_all_pressed() -> void:
 		dice_log_display.append_text("[color=green]✓ Applied target %s to %d weapons[/color]\n" %
 			[target_name, assigned_count])
 
+	# P3-114: Update aggregate preview after bulk assignment
+	_update_aggregate_damage_preview()
+
 	# Update UI state
 	_update_ui_state()
 
@@ -3915,6 +3949,9 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 			[assigned_count, target_name])
 
 	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s)" % [assigned_count, target_name, target_id])
+
+	# P3-114: Update aggregate preview after quick-assign
+	_update_aggregate_damage_preview()
 
 	_update_ui_state()
 
@@ -4178,7 +4215,8 @@ func _on_weapon_tree_gui_input(event: InputEvent) -> void:
 			_hide_damage_preview()
 
 func _update_damage_preview(weapon_id: String) -> void:
-	"""Calculate and display expected damage preview for a weapon"""
+	"""P3-114: Calculate and display Mathhammer-style expected damage preview for a weapon.
+	Accounts for weapon keywords, ability effects, faction abilities, rerolls, FNP, etc."""
 	if not damage_preview_panel or not damage_preview_label:
 		return
 
@@ -4201,22 +4239,76 @@ func _update_damage_preview(weapon_id: String) -> void:
 	_last_preview_weapon_id = weapon_id
 	_last_preview_target_id = target_id
 
+	var result = _calc_weapon_expected_damage(weapon_id, target_id)
+	if result.is_empty():
+		_hide_damage_preview()
+		return
+
+	# Build preview BBCode text
+	var preview_text = ""
+	preview_text += "[color=#D49761]── Expected vs %s ──[/color]\n" % result.target_name
+	preview_text += "[color=#B0B0B0]T%d | Sv%d+" % [result.toughness, result.save_stat]
+	if result.invuln > 0:
+		preview_text += " | Inv%d+" % result.invuln
+	if result.fnp > 0:
+		preview_text += " | FNP%d+" % result.fnp
+	preview_text += "[/color]\n"
+
+	# Pipeline: Attacks → Hits → Wounds → Unsaved → Damage
+	preview_text += "[color=#EBE1C7]Atk: %.1f[/color]" % result.total_attacks
+	preview_text += " → [color=#88CC88]Hit: %.1f[/color]" % result.expected_hits
+	preview_text += " → [color=#CCCC88]Wnd: %.1f[/color]\n" % result.expected_wounds
+	preview_text += "[color=#CC8888]Unsaved: %.1f[/color]" % result.expected_unsaved
+	preview_text += " → [color=#FF8866]Dmg: %.1f[/color]\n" % result.expected_damage
+
+	# Models killed estimate
+	if result.expected_models_killed >= 0.1:
+		preview_text += "[color=#D49761]~%.1f models killed[/color]" % result.expected_models_killed
+	else:
+		preview_text += "[color=#888888]<0.1 models killed[/color]"
+
+	# Show hit/wound/save thresholds on a compact line
+	preview_text += "\n[color=#666666]Hit:%s Wnd:%s Sv:%d+[/color]" % [result.hit_display, result.wound_display, result.best_save if result.best_save <= 6 else 7]
+
+	# Show active modifiers/keywords as tags
+	if not result.active_tags.is_empty():
+		preview_text += "\n[color=#8888CC]%s[/color]" % ", ".join(result.active_tags)
+
+	damage_preview_label.text = ""
+	damage_preview_label.append_text(preview_text)
+	damage_preview_panel.visible = true
+
+	print("P3-114: Damage preview — %s vs %s: %.1f avg dmg, ~%.1f kills [%s]" % [
+		result.weapon_name, result.target_name, result.expected_damage,
+		result.expected_models_killed, ", ".join(result.active_tags)])
+
+	# P3-114: Update aggregate preview whenever a single weapon preview updates
+	_update_aggregate_damage_preview()
+
+func _calc_weapon_expected_damage(weapon_id: String, target_id: String) -> Dictionary:
+	"""P3-114: Calculate expected damage for a single weapon vs target, accounting for all modifiers.
+	Returns a dictionary with all computed values, or empty dict on failure."""
 	# Get weapon profile
 	var weapon_profile = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon_profile.is_empty():
-		_hide_damage_preview()
-		return
+		return {}
 
 	# Get target unit data
 	var target_unit = GameState.get_unit(target_id)
 	if target_unit.is_empty():
-		_hide_damage_preview()
-		return
+		return {}
+
+	# Get attacker unit data
+	var attacker_unit = GameState.get_unit(active_shooter_id)
+	if attacker_unit.is_empty():
+		return {}
 
 	var target_name = target_unit.get("meta", {}).get("name", target_id)
 	var target_stats = target_unit.get("meta", {}).get("stats", {})
 	var toughness = target_stats.get("toughness", 4)
 	var save_stat = target_stats.get("save", 4)
+	var weapon_name = weapon_profile.get("name", weapon_id)
+	var active_tags: Array = []  # Track active modifiers for display
 
 	# Get number of models with this weapon
 	var model_count = 0
@@ -4225,14 +4317,243 @@ func _update_damage_preview(weapon_id: String) -> void:
 		if weapon_id in unit_weapons[model_id]:
 			model_count += 1
 
-	# Weapon stats
-	var attacks_per_model = weapon_profile.get("attacks", 1)
-	var total_attacks = attacks_per_model * model_count
-	var strength = weapon_profile.get("strength", 4)
-	var ap = weapon_profile.get("ap", 0)
-	var damage_per_wound = weapon_profile.get("damage", 1)
+	# === ATTACKS ===
+	var attacks_raw = weapon_profile.get("attacks_raw", str(weapon_profile.get("attacks", 1)))
+	var attacks_per_model = _calc_expected_variable_value(attacks_raw)
+	var total_attacks: float = attacks_per_model * model_count
+
+	# Blast: +1 attack per 5 models in target
+	if RulesEngine.is_blast_weapon(weapon_id):
+		var blast_bonus = RulesEngine.calculate_blast_bonus(weapon_id, target_unit)
+		total_attacks += blast_bonus * model_count
+		if blast_bonus > 0:
+			active_tags.append("Blast+%d" % blast_bonus)
+
+	# Rapid Fire: +X attacks at half range (assume in rapid fire range for preview)
+	var rapid_fire_val = RulesEngine.get_rapid_fire_value(weapon_id)
+	if rapid_fire_val > 0:
+		total_attacks += rapid_fire_val * model_count
+		active_tags.append("Rapid Fire %d" % rapid_fire_val)
+
+	# === HIT PROBABILITY ===
 	var bs = weapon_profile.get("bs", 4)
 	var is_torrent = RulesEngine.is_torrent_weapon(weapon_id)
+	var hit_modifier: int = 0  # Net modifier (capped ±1 per 10e)
+	var hit_reroll_type: int = 0  # 0=none, 1=ones, 2=failed
+
+	if is_torrent:
+		active_tags.append("Torrent")
+
+	# Check user-applied modifiers from modifier panel
+	if weapon_modifiers.has(weapon_id):
+		var mods = weapon_modifiers[weapon_id].get("hit", {})
+		if mods.get("reroll_ones", false):
+			hit_reroll_type = max(hit_reroll_type, 1)
+		if mods.get("reroll_failed", false):
+			hit_reroll_type = max(hit_reroll_type, 2)
+		if mods.get("plus_one", false):
+			hit_modifier += 1
+		if mods.get("minus_one", false):
+			hit_modifier -= 1
+
+	# Faction: Oath of Moment reroll all failed hits
+	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
+		hit_reroll_type = max(hit_reroll_type, 2)
+		active_tags.append("Oath")
+
+	# Effect flags on attacker: +1/-1 to hit
+	if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
+		hit_modifier += 1
+	if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
+		hit_modifier -= 1
+
+	# Effect flags on attacker: reroll hits
+	var attacker_flags = attacker_unit.get("flags", {})
+	if attacker_flags.get("reroll_hit_ones", false):
+		hit_reroll_type = max(hit_reroll_type, 1)
+	if attacker_flags.get("reroll_hits", false):
+		hit_reroll_type = max(hit_reroll_type, 2)
+
+	# Heavy weapon: +1 to hit if remained stationary
+	if RulesEngine.is_heavy_weapon(weapon_id):
+		var remained_stationary = attacker_unit.get("flags", {}).get("remained_stationary", false)
+		if remained_stationary:
+			hit_modifier += 1
+			active_tags.append("Heavy")
+
+	# Damaged profile: -1 to hit
+	if RulesEngine.is_damaged_profile_active(attacker_unit):
+		hit_modifier -= 1
+		active_tags.append("Damaged")
+
+	# Target: Stealth = -1 to hit
+	if RulesEngine.has_stealth_ability(target_unit) or EffectPrimitivesData.has_effect_stealth(target_unit):
+		hit_modifier -= 1
+		active_tags.append("Stealth")
+
+	# Indirect Fire: -1 to hit
+	if RulesEngine.has_indirect_fire(weapon_id):
+		hit_modifier -= 1
+		active_tags.append("Indirect")
+
+	# Cap modifier to ±1 per 10e rules
+	hit_modifier = clampi(hit_modifier, -1, 1)
+
+	# Calculate hit probability with modifier and rerolls
+	var hit_prob = 0.0
+	if is_torrent:
+		hit_prob = 1.0
+	else:
+		var effective_bs = bs - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
+		effective_bs = clampi(effective_bs, 2, 6)  # 1 always misses (natural 1), 2+ is best possible
+		hit_prob = max(0.0, (7.0 - effective_bs) / 6.0)
+
+		# Apply rerolls
+		if hit_reroll_type == 2:  # Reroll all failed
+			var miss_prob = 1.0 - hit_prob
+			hit_prob = hit_prob + miss_prob * hit_prob  # P(hit) + P(miss)*P(hit on reroll)
+			active_tags.append("RR Hits")
+		elif hit_reroll_type == 1:  # Reroll ones
+			# Ones are 1/6 of all rolls; rerolling gives another hit_prob chance
+			hit_prob = hit_prob + (1.0 / 6.0) * hit_prob
+			active_tags.append("RR 1s Hit")
+
+	# === CRITICAL HITS (for Lethal Hits and Sustained Hits) ===
+	var crit_hit_threshold = 6
+	# Conversion keyword lowers crit threshold
+	var conversion = RulesEngine.get_conversion_threshold(weapon_id)
+	if conversion > 0:
+		crit_hit_threshold = min(crit_hit_threshold, conversion)
+		active_tags.append("Conv %d+" % conversion)
+	# Effect-granted crit threshold
+	var effect_crit = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
+	if effect_crit > 0:
+		crit_hit_threshold = min(crit_hit_threshold, effect_crit)
+
+	var crit_hit_prob = max(0.0, (7.0 - crit_hit_threshold) / 6.0)
+	var non_crit_hit_prob = hit_prob - crit_hit_prob
+	if non_crit_hit_prob < 0:
+		non_crit_hit_prob = 0.0
+
+	# Sustained Hits: generate bonus hits on crits
+	var sustained_value = 0
+	var has_sustained = false
+	var sh_data = RulesEngine.get_sustained_hits_value(weapon_id)
+	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
+		has_sustained = true
+		sustained_value = sh_data.get("value", 1)
+		if sustained_value == 0:
+			sustained_value = 1  # Effect-granted defaults to 1
+
+	# Lethal Hits: crits auto-wound (skip wound roll)
+	var has_lethal = RulesEngine.has_lethal_hits(weapon_id) or EffectPrimitivesData.has_effect_lethal_hits(attacker_unit)
+
+	# Calculate expected hits including sustained bonus
+	var expected_normal_hits = total_attacks * non_crit_hit_prob
+	var expected_crit_hits = total_attacks * crit_hit_prob
+	var expected_sustained_bonus = 0.0
+	if has_sustained:
+		expected_sustained_bonus = expected_crit_hits * sustained_value
+		active_tags.append("SH %d" % sustained_value)
+
+	var expected_hits = expected_normal_hits + expected_crit_hits + expected_sustained_bonus
+
+	# === WOUND PROBABILITY ===
+	var strength = weapon_profile.get("strength", 4)
+	var wound_threshold = _calc_wound_threshold(strength, toughness)
+	var wound_modifier: int = 0
+	var wound_reroll_type: int = 0  # 0=none, 1=ones, 2=failed
+
+	# Twin-Linked: reroll all failed wounds
+	if RulesEngine.has_twin_linked(weapon_id):
+		wound_reroll_type = max(wound_reroll_type, 2)
+		active_tags.append("Twin-Linked")
+
+	# Oath of Moment: +1 to wound
+	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
+		wound_modifier += 1
+
+	# Effect flags on attacker: +1/-1 wound
+	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
+		wound_modifier += 1
+	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
+		wound_modifier -= 1
+
+	# Effect flags on attacker: reroll wounds
+	if attacker_flags.get("reroll_wound_ones", false):
+		wound_reroll_type = max(wound_reroll_type, 1)
+	if attacker_flags.get("reroll_wounds", false):
+		wound_reroll_type = max(wound_reroll_type, 2)
+
+	# Lance: +1 to wound if charged this turn
+	if RulesEngine.is_lance_weapon(weapon_id):
+		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
+		if unit_charged:
+			wound_modifier += 1
+			active_tags.append("Lance")
+
+	# Cap modifier to ±1
+	wound_modifier = clampi(wound_modifier, -1, 1)
+
+	# Calculate wound probability with modifier
+	var effective_wound_threshold = wound_threshold - wound_modifier
+	effective_wound_threshold = clampi(effective_wound_threshold, 2, 6)
+	var wound_prob = max(0.0, (7.0 - effective_wound_threshold) / 6.0)
+
+	# Apply wound rerolls
+	if wound_reroll_type == 2:
+		var miss_prob = 1.0 - wound_prob
+		wound_prob = wound_prob + miss_prob * wound_prob
+		if not active_tags.has("Twin-Linked"):
+			active_tags.append("RR Wnds")
+	elif wound_reroll_type == 1:
+		wound_prob = wound_prob + (1.0 / 6.0) * wound_prob
+		active_tags.append("RR 1s Wnd")
+
+	# Anti-keyword: lowers critical wound threshold
+	var crit_wound_threshold = RulesEngine.get_critical_wound_threshold(weapon_id, target_unit)
+	var has_anti = crit_wound_threshold < 6
+	if has_anti:
+		active_tags.append("Anti %d+" % crit_wound_threshold)
+
+	var crit_wound_prob = max(0.0, (7.0 - crit_wound_threshold) / 6.0)
+
+	# Devastating Wounds: critical wounds bypass saves (mortal wounds)
+	var has_dw = RulesEngine.has_devastating_wounds(weapon_id) or EffectPrimitivesData.has_effect_devastating_wounds(attacker_unit)
+
+	# Calculate expected wounds
+	# Hits that need to roll to wound = all hits except lethal auto-wounds
+	var hits_needing_wound_roll: float
+	var lethal_auto_wounds: float = 0.0
+	if has_lethal:
+		lethal_auto_wounds = expected_crit_hits  # Crit hits auto-wound
+		# Sustained bonus hits from lethal crits still roll to wound
+		hits_needing_wound_roll = expected_normal_hits + expected_sustained_bonus
+		active_tags.append("Lethal")
+	else:
+		hits_needing_wound_roll = expected_hits
+
+	var expected_normal_wounds = hits_needing_wound_roll * wound_prob
+	var expected_crit_wounds = hits_needing_wound_roll * crit_wound_prob
+	# Non-crit wounds = total - crits (crits are a subset of successful wounds)
+	var expected_regular_wounds = expected_normal_wounds - expected_crit_wounds
+	if expected_regular_wounds < 0:
+		expected_regular_wounds = 0
+
+	var expected_wounds = expected_regular_wounds + expected_crit_wounds + lethal_auto_wounds
+
+	# === SAVE PROBABILITY ===
+	var ap = weapon_profile.get("ap", 0)
+
+	# Target defensive: Worsen AP (e.g. Ramshackle)
+	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if worsen_ap > 0:
+		ap = max(0, abs(ap) - worsen_ap)
+		if ap > 0:
+			ap = -ap  # Maintain negative convention
+		else:
+			ap = 0
+		active_tags.append("Worsen AP")
 
 	# Check for invulnerable save on target models
 	var invuln = 0
@@ -4240,74 +4561,156 @@ func _update_damage_preview(weapon_id: String) -> void:
 	for model in target_models:
 		if model.get("alive", true):
 			invuln = model.get("invuln", 0)
-			break  # Use first alive model's invuln
+			break
+	# Also check effect-granted invuln
+	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+	if effect_invuln > 0 and (invuln == 0 or effect_invuln < invuln):
+		invuln = effect_invuln
 
-	# Calculate hit probability
-	var hit_prob = 0.0
-	if is_torrent:
-		hit_prob = 1.0
-	else:
-		hit_prob = max(0.0, (7.0 - bs) / 6.0)
-
-	# Calculate wound probability (S vs T)
-	var wound_prob = _calc_wound_probability(strength, toughness)
-
-	# Calculate save probability (considering AP and invuln)
-	var modified_save = save_stat + abs(ap)  # AP makes save worse (higher number)
+	# Calculate save threshold
+	var modified_save = save_stat + abs(ap)
 	var best_save = modified_save
 	if invuln > 0 and invuln < best_save:
-		best_save = invuln  # Invuln is unaffected by AP
+		best_save = invuln
 
 	var save_prob = 0.0
 	if best_save <= 6:
 		save_prob = max(0.0, (7.0 - best_save) / 6.0)
-
 	var unsaved_prob = 1.0 - save_prob
 
-	# Calculate expected values
-	var expected_hits = total_attacks * hit_prob
-	var expected_wounds = expected_hits * wound_prob
-	var expected_unsaved = expected_wounds * unsaved_prob
-	var expected_damage = expected_unsaved * damage_per_wound
+	# Devastating Wounds bypass saves entirely
+	var dw_wounds: float = 0.0
+	var regular_save_wounds: float = 0.0
+	if has_dw:
+		dw_wounds = expected_crit_wounds
+		regular_save_wounds = expected_regular_wounds + lethal_auto_wounds
+		active_tags.append("Dev Wounds")
+	else:
+		regular_save_wounds = expected_wounds
 
-	# Calculate expected models killed
+	var expected_unsaved = regular_save_wounds * unsaved_prob + dw_wounds
+
+	# === DAMAGE PER WOUND ===
+	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+	var avg_damage = _calc_expected_variable_value(damage_raw)
+
+	# Melta: +X damage (assume in melta range for preview)
+	var melta_val = RulesEngine.get_melta_value(weapon_id)
+	if melta_val > 0:
+		avg_damage += melta_val
+		active_tags.append("Melta +%d" % melta_val)
+
+	# Target: Half Damage
+	if RulesEngine.get_unit_half_damage(target_unit):
+		avg_damage = ceil(avg_damage / 2.0)
+		active_tags.append("Half Dmg")
+
+	# Target: Minus Damage (e.g. Guardian Eternal)
+	var minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
+	if minus_dmg > 0:
+		avg_damage = max(1.0, avg_damage - minus_dmg)
+		active_tags.append("-%d Dmg" % minus_dmg)
+
+	var expected_damage = expected_unsaved * avg_damage
+
+	# === FEEL NO PAIN ===
+	var fnp = RulesEngine.get_unit_fnp(target_unit)
+	if fnp > 0:
+		var fnp_pass_prob = (7.0 - fnp) / 6.0
+		expected_damage *= (1.0 - fnp_pass_prob)
+		active_tags.append("FNP %d+" % fnp)
+
+	# === MODELS KILLED ===
 	var wounds_per_model = target_stats.get("wounds", 1)
 	var alive_models = RulesEngine.count_alive_models(target_unit)
 	var expected_models_killed = 0.0
 	if wounds_per_model > 0:
 		expected_models_killed = min(expected_damage / wounds_per_model, alive_models)
 
-	# Build preview BBCode text
-	var preview_text = ""
-	preview_text += "[color=#D49761]── Expected vs %s ──[/color]\n" % target_name
-	preview_text += "[color=#B0B0B0]T%d | Sv%d+" % [toughness, save_stat]
-	if invuln > 0:
-		preview_text += " | Inv%d+" % invuln
-	preview_text += "[/color]\n"
-
-	# Pipeline: Attacks → Hits → Wounds → Unsaved → Damage
-	preview_text += "[color=#EBE1C7]Atk: %d[/color]" % total_attacks
-	preview_text += " → [color=#88CC88]Hit: %.1f[/color]" % expected_hits
-	preview_text += " → [color=#CCCC88]Wnd: %.1f[/color]\n" % expected_wounds
-	preview_text += "[color=#CC8888]Unsaved: %.1f[/color]" % expected_unsaved
-	preview_text += " → [color=#FF8866]Dmg: %.1f[/color]\n" % expected_damage
-
-	# Models killed estimate
-	if expected_models_killed >= 0.1:
-		preview_text += "[color=#D49761]~%.1f models killed[/color]" % expected_models_killed
+	# === BUILD HIT/WOUND DISPLAY STRINGS ===
+	var hit_display = "Auto" if is_torrent else "%d+" % (bs - hit_modifier if not is_torrent else 0)
+	if is_torrent:
+		hit_display = "Auto"
 	else:
-		preview_text += "[color=#888888]<0.1 models killed[/color]"
+		var eff_bs = clampi(bs - hit_modifier, 2, 6)
+		hit_display = "%d+" % eff_bs
 
-	# Show hit/wound/save percentages on a compact line
-	var wound_display = _wound_threshold_display(strength, toughness)
-	preview_text += "\n[color=#666666]Hit:%d+ Wnd:%s Sv:%d+[/color]" % [bs, wound_display, best_save if best_save <= 6 else 7]
+	var wound_display = "%d+" % effective_wound_threshold
 
-	damage_preview_label.text = ""
-	damage_preview_label.append_text(preview_text)
-	damage_preview_panel.visible = true
+	return {
+		"weapon_name": weapon_name,
+		"target_name": target_name,
+		"toughness": toughness,
+		"save_stat": save_stat,
+		"invuln": invuln,
+		"fnp": fnp,
+		"total_attacks": total_attacks,
+		"expected_hits": expected_hits,
+		"expected_wounds": expected_wounds,
+		"expected_unsaved": expected_unsaved,
+		"expected_damage": expected_damage,
+		"expected_models_killed": expected_models_killed,
+		"hit_display": hit_display,
+		"wound_display": wound_display,
+		"best_save": best_save,
+		"active_tags": active_tags,
+	}
 
-	print("T5-UX1: Damage preview — %s vs %s: %.1f avg dmg, ~%.1f kills" % [
-		weapon_profile.get("name", weapon_id), target_name, expected_damage, expected_models_killed])
+func _update_aggregate_damage_preview() -> void:
+	"""P3-114: Show aggregate expected damage across all weapon assignments, grouped by target."""
+	if not aggregate_preview_panel or not aggregate_preview_label:
+		return
+
+	if weapon_assignments.size() < 2:
+		aggregate_preview_panel.visible = false
+		return
+
+	# Group assignments by target
+	var target_damage: Dictionary = {}  # target_id -> {name, total_dmg, total_kills, alive}
+	for weapon_id in weapon_assignments:
+		var target_id = weapon_assignments[weapon_id]
+		var result = _calc_weapon_expected_damage(weapon_id, target_id)
+		if result.is_empty():
+			continue
+
+		if not target_damage.has(target_id):
+			target_damage[target_id] = {
+				"name": result.target_name,
+				"total_dmg": 0.0,
+				"total_kills": 0.0,
+				"alive": RulesEngine.count_alive_models(GameState.get_unit(target_id)),
+				"wounds_per_model": GameState.get_unit(target_id).get("meta", {}).get("stats", {}).get("wounds", 1),
+			}
+
+		target_damage[target_id].total_dmg += result.expected_damage
+
+	# Calculate kills per target (capped by alive models)
+	for target_id in target_damage:
+		var td = target_damage[target_id]
+		if td.wounds_per_model > 0:
+			td.total_kills = min(td.total_dmg / td.wounds_per_model, td.alive)
+
+	# Build aggregate preview text
+	var agg_text = "[color=#6699CC]── Total Expected Damage ──[/color]\n"
+	var grand_total_dmg = 0.0
+	for target_id in target_damage:
+		var td = target_damage[target_id]
+		grand_total_dmg += td.total_dmg
+		agg_text += "[color=#B0B0B0]%s:[/color] " % td.name
+		agg_text += "[color=#FF8866]%.1f dmg[/color]" % td.total_dmg
+		if td.total_kills >= 0.1:
+			agg_text += " [color=#D49761](~%.1f kills)[/color]" % td.total_kills
+		agg_text += "\n"
+
+	if target_damage.size() > 1:
+		agg_text += "[color=#6699CC]Grand total: [/color][color=#FF8866]%.1f dmg[/color]" % grand_total_dmg
+
+	aggregate_preview_label.text = ""
+	aggregate_preview_label.append_text(agg_text)
+	aggregate_preview_panel.visible = true
+
+	print("P3-114: Aggregate damage preview — %d weapons assigned, %.1f total expected damage" % [
+		weapon_assignments.size(), grand_total_dmg])
 
 func _hide_damage_preview() -> void:
 	"""Hide the damage preview panel"""
@@ -4316,28 +4719,69 @@ func _hide_damage_preview() -> void:
 	_last_preview_weapon_id = ""
 	_last_preview_target_id = ""
 
+func _hide_aggregate_preview() -> void:
+	"""P3-114: Hide the aggregate damage preview panel"""
+	if aggregate_preview_panel:
+		aggregate_preview_panel.visible = false
+
+func _calc_wound_threshold(strength: int, toughness: int) -> int:
+	"""Calculate wound threshold based on Strength vs Toughness (10e rules).
+	Returns the required roll (2-6)."""
+	if strength >= toughness * 2:
+		return 2
+	elif strength > toughness:
+		return 3
+	elif strength == toughness:
+		return 4
+	elif strength * 2 <= toughness:
+		return 6
+	else:
+		return 5
+
 func _calc_wound_probability(strength: int, toughness: int) -> float:
 	"""Calculate wound probability based on Strength vs Toughness (10e rules)"""
-	if strength >= toughness * 2:
-		return 5.0 / 6.0  # 2+
-	elif strength > toughness:
-		return 4.0 / 6.0  # 3+
-	elif strength == toughness:
-		return 3.0 / 6.0  # 4+
-	elif strength * 2 <= toughness:
-		return 1.0 / 6.0  # 6+
-	else:
-		return 2.0 / 6.0  # 5+
+	return max(0.0, (7.0 - _calc_wound_threshold(strength, toughness)) / 6.0)
 
 func _wound_threshold_display(strength: int, toughness: int) -> String:
 	"""Return the wound threshold as a display string (e.g., '3+')"""
-	if strength >= toughness * 2:
-		return "2+"
-	elif strength > toughness:
-		return "3+"
-	elif strength == toughness:
-		return "4+"
-	elif strength * 2 <= toughness:
-		return "6+"
-	else:
-		return "5+"
+	return "%d+" % _calc_wound_threshold(strength, toughness)
+
+func _calc_expected_variable_value(raw_str: String) -> float:
+	"""P3-114: Calculate the expected (average) value of a variable characteristic string.
+	Handles: plain integers, D3, D6, 2D6, D6+N, D3+N patterns."""
+	if raw_str == null or raw_str.is_empty():
+		return 1.0
+
+	if raw_str.is_valid_int():
+		return float(raw_str.to_int())
+
+	var upper = raw_str.to_upper().strip_edges()
+
+	if upper == "D3":
+		return 2.0  # Average of 1,2,3
+	if upper == "D6":
+		return 3.5  # Average of 1-6
+	if upper == "2D6":
+		return 7.0  # Average of 2D6
+
+	# D6+N or D3+N
+	if "+" in upper:
+		var parts = upper.split("+")
+		var dice_part = parts[0].strip_edges()
+		var bonus = 0.0
+		if parts.size() > 1 and parts[1].strip_edges().is_valid_int():
+			bonus = float(parts[1].strip_edges().to_int())
+
+		if dice_part == "D6":
+			return 3.5 + bonus
+		elif dice_part == "D3":
+			return 2.0 + bonus
+		elif dice_part == "2D6":
+			return 7.0 + bonus
+
+	# Fallback
+	var fallback = raw_str.to_int()
+	if fallback > 0:
+		return float(fallback)
+
+	return 1.0

@@ -502,7 +502,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 111. **Add settings menu** — Audio controls, visual settings, UI scale, animation speed, colorblind mode. New SettingsMenu.gd scene. (QOL-4) — **DONE**
 112. **Add auto-save at round end** — Automatic saves at round end and phase transitions via SaveLoadManager.gd. (QOL-5) — **DONE**
 113. **Add quick-assign All weapons to target in shooting** — One-click button to assign all weapons to selected target in ShootingController.gd. (QOL-6) — **DONE**
-114. **Add expected damage preview during weapon assignment** — Mathhammer-style prediction as weapon assignments are made in ShootingController.gd. (QOL-7)
+114. **Add expected damage preview during weapon assignment** — Mathhammer-style prediction as weapon assignments are made in ShootingController.gd. (QOL-7) — **DONE**
 115. **Add available movement indicator** — Show "X inches remaining" floating text during model movement in MovementController.gd. (QOL-9)
 116. **Add coherency preview during movement** — Visual line showing unit coherency status as models move in MovementController.gd. (QOL-10)
 117. **Add dice roll history panel** — Scrollable history of past dice rolls for review. New DiceHistoryPanel.gd. (QOL-12)
