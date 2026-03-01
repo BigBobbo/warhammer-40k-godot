@@ -49,6 +49,8 @@ var is_combined_deployment: bool = false
 
 # Reinforcement mode (Deep Strike / Strategic Reserves arrival)
 var is_reinforcement_mode: bool = false
+# P2-80: Override placement type (when DS unit from SR chooses DS rules)
+var reinforcement_placement_type: String = ""
 
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
@@ -492,6 +494,7 @@ func reset_unit() -> void:
 			}])
 
 	is_reinforcement_mode = false
+	reinforcement_placement_type = ""  # P2-80: Clear placement type override
 	is_infiltrators_mode = false
 	is_combined_deployment = false
 	combined_models.clear()
@@ -2039,9 +2042,11 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 			return false
 
 	# Strategic Reserves: must be within 6" of a battlefield edge
+	# P2-80: Use reinforcement_placement_type override if set, otherwise use unit's reserve_type
 	var unit = GameState.get_unit(unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
-	if reserve_type == "strategic_reserves":
+	var placement_type = reinforcement_placement_type if reinforcement_placement_type != "" else reserve_type
+	if placement_type == "strategic_reserves":
 		var pos_inches_x = world_pos.x / px_per_inch
 		var pos_inches_y = world_pos.y / px_per_inch
 		var board_w = GameState.state.board.size.width
