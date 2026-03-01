@@ -31,6 +31,7 @@ var _p2_fixed_mission_ids: Array = []
 @onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
 @onready var replay_button: Button = $MenuContainer/ButtonSection/ReplayButton
+@onready var settings_button: Button = $MenuContainer/ButtonSection/SettingsButton
 
 # Configuration options
 var terrain_options = [
@@ -529,6 +530,7 @@ func _connect_signals() -> void:
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
 	replay_button.pressed.connect(_on_replay_button_pressed)
+	settings_button.pressed.connect(_on_settings_button_pressed)
 
 	# Show/hide multiplayer button based on feature flag
 	multiplayer_button.visible = FeatureFlags.is_multiplayer_available()
@@ -779,6 +781,18 @@ func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 
 func _on_cloud_load_failed(error: String) -> void:
 	print("MainMenu: Cloud load failed: ", error)
+
+# ============================================================================
+# P3-111: Settings Menu
+# ============================================================================
+
+const SettingsMenuScript = preload("res://scripts/SettingsMenu.gd")
+
+func _on_settings_button_pressed() -> void:
+	print("MainMenu: Settings button pressed")
+	var settings_menu = SettingsMenuScript.new()
+	settings_menu.show_return_to_menu = false
+	add_child(settings_menu)
 
 # ============================================================================
 # Replay Browser

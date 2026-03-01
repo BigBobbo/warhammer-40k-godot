@@ -148,6 +148,9 @@ var _score_display_container: HBoxContainer = null
 # P3-109: Turn/round progress indicator
 var _round_indicator_label: Label = null
 
+# P3-111: Settings menu instance
+var _settings_menu: SettingsMenu = null
+
 # Game Event Log UI elements
 var game_log_panel: PanelContainer
 var game_log_label: RichTextLabel
@@ -7216,3 +7219,31 @@ func _on_retro_mode_changed(enabled: bool) -> void:
 		var msg = "RETRO MODE ON [8]" if enabled else "RETRO MODE OFF [8]"
 		ToastManager.show_toast(msg)
 	print("Main: Retro mode %s" % ("enabled" if enabled else "disabled"))
+
+# ============================================================================
+# P3-111: In-game Settings Menu (Escape key)
+# ============================================================================
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_toggle_settings_menu()
+		get_viewport().set_input_as_handled()
+
+func _toggle_settings_menu() -> void:
+	if _settings_menu and is_instance_valid(_settings_menu):
+		# Already open — close it
+		_settings_menu.queue_free()
+		_settings_menu = null
+		print("Main: P3-111 Settings menu closed via Escape")
+		return
+
+	# Open settings menu
+	_settings_menu = SettingsMenu.new()
+	_settings_menu.show_return_to_menu = true
+	_settings_menu.settings_closed.connect(_on_settings_menu_closed)
+	add_child(_settings_menu)
+	print("Main: P3-111 Settings menu opened via Escape")
+
+func _on_settings_menu_closed() -> void:
+	_settings_menu = null
+	print("Main: P3-111 Settings menu closed")

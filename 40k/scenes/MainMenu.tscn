@@ -168,3 +168,9 @@ layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Watch Replays"
+
+[node name="SettingsButton" type="Button" parent="MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Settings"
