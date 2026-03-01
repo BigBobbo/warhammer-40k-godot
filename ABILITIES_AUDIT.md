@@ -489,7 +489,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 98. **Display terrain penalty in charge distance UI** — Players see rolled distance but not effective distance after terrain penalties. Show "Effective: X\" (Y\" - Z\" terrain)" in ChargeController.gd. (CHG-3) — **DONE**
 99. **Add live direction validation feedback during charge movement** — No real-time feedback as player drags model to show if final position satisfies charge direction constraint. Add visual indicator in ChargeController.gd. (CHG-4) — **DONE**
 100. **Verify Epic Challenge stratagem in attached units** — Ensure 1CP Epic Challenge properly enables CHARACTER vs CHARACTER melee dueling within attached units in FightPhase.gd. (FGT-2) — **DONE**
-101. **Sync pile-in/consolidation drag for remote player** — Remote player sees models teleport to final positions instead of animated movement. Add drag sync in FightController.gd. Cosmetic only. (FGT-3)
+101. **Sync pile-in/consolidation drag for remote player** — Remote player sees models teleport to final positions instead of animated movement. Add drag sync in FightController.gd. Cosmetic only. (FGT-3) — **DONE**
 102. **Complete when-drawn secondary mission interactions UI** — Marked for Death and Tempting Target opponent selection UI not fully wired in SecondaryMissionManager.gd. (MIS-5)
 103. **Verify objective control timing** — "A player will control an objective marker at the end of any phase or turn." Ensure timing matches rules in ScoringPhase.gd. (MIS-6)
 104. **Validate Warlord designation** — `is_warlord` field exists but no enforcement of exactly one CHARACTER designated. Add validation in FormationsPhase.gd. (GEN-9)

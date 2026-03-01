@@ -5276,8 +5276,22 @@ func _on_network_result_applied(result: Dictionary) -> void:
 		"DECLARE_CHARGE",             # Charge declaration
 	]
 
+	# P3-101: In multiplayer, pile-in/consolidation movements are animated by
+	# _animate_fight_movement_tokens in NetworkManager. Recreating visuals immediately
+	# would teleport tokens to final positions, overriding the smooth tween animation.
+	# Only skip for remote player actions (the local player's tokens are already correct).
+	var is_animated_action = false
+	if action_type in ["PILE_IN", "CONSOLIDATE"]:
+		var nm = get_node_or_null("/root/NetworkManager")
+		if nm and nm.is_networked():
+			var action_player = result.get("action_data", {}).get("player", -1)
+			var local_player = nm.get_local_player()
+			if action_player != local_player:
+				is_animated_action = true
+				print("Main: P3-101: Skipping visual recreation for remote %s — animation handles it" % action_type)
+
 	# Only recreate visuals if state actually changed in GameState
-	if not is_staging_action and diffs.size() > 0:
+	if not is_staging_action and not is_animated_action and diffs.size() > 0:
 		# Recreate unit visuals to reflect the new state
 		_recreate_unit_visuals()
 	elif not is_staging_action:
