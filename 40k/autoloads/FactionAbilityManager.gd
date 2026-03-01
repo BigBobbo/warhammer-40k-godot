@@ -375,6 +375,7 @@ func _apply_waaagh_effects(player: int) -> void:
 		unit["flags"]["waaagh_active"] = true
 		# 5+ invulnerable save
 		unit["flags"]["effect_invuln"] = 5
+		unit["flags"]["effect_invuln_source"] = "Waaagh!"
 		# Advance and charge eligibility
 		unit["flags"]["effect_advance_and_charge"] = true
 
@@ -397,6 +398,7 @@ func _clear_waaagh_effects(player: int) -> void:
 			# Only clear invuln if it was the Waaagh! 5+ (don't clobber other sources)
 			if flags.get("effect_invuln", 0) == 5:
 				flags.erase("effect_invuln")
+				flags.erase("effect_invuln_source")
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("FactionAbilityManager: Waaagh! effects cleared from %s (%s)" % [unit_name, unit_id])
 

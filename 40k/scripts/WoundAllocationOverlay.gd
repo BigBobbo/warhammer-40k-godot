@@ -515,7 +515,12 @@ func _update_ui_for_current_wound() -> void:
 
 	var save_text = "[b]Save Required:[/b] %d+" % save_needed
 	if using_invuln:
-		save_text += " (invulnerable)"
+		# P3-97: Show invuln source (native vs effect-granted)
+		var invuln_source = example_profile.get("invuln_source", "")
+		if invuln_source != "" and invuln_source != "Native":
+			save_text += " [color=cyan](invuln — %s)[/color]" % invuln_source
+		else:
+			save_text += " (invulnerable)"
 	if has_cover:
 		save_text += " [+1 from cover]"
 

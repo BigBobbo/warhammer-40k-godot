@@ -901,6 +901,16 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	var effects = strat.get("effects", [])
 	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
 
+	# Track invuln source for UI display (P3-97)
+	for effect in effects:
+		if effect.get("type", "") == EffectPrimitivesData.GRANT_INVULN:
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.flags.effect_invuln_source" % target_unit_id,
+				"value": strat.get("name", _stratagem_id)
+			})
+			break
+
 	if not diffs.is_empty():
 		var flag_names = EffectPrimitivesData.get_flag_names_for_effects(effects)
 		print("StratagemManager: Applied %s effects to %s (flags: %s)" % [strat.name, target_unit_id, str(flag_names)])
@@ -918,6 +928,11 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 	var effects = strat.get("effects", [])
 
 	EffectPrimitivesData.clear_effects(effects, unit_id, flags)
+	# Also clear invuln source when clearing invuln effect (P3-97)
+	for effect in effects:
+		if effect.get("type", "") == EffectPrimitivesData.GRANT_INVULN:
+			flags.erase("effect_invuln_source")
+			break
 	print("StratagemManager: Cleared %s flags from %s" % [stratagem_id, unit_id])
 
 func get_grenade_eligible_units(player: int) -> Array:

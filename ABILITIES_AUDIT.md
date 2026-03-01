@@ -485,7 +485,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 94. **Add confirmation before auto-resolving untaken battle-shock tests** — Currently auto-resolves silently. Show warning dialog before auto-resolving in CommandPhase.gd. (CMD-4) — **DONE**
 95. **Fix embark/disembark distance calculation inconsistency** — Embark uses `model_to_model_distance_inches()` but disembark uses shape-aware distance. Standardize both to use shape-aware in TransportManager.gd. (MOV-6) — **DONE**
 96. **Enforce cannot select to shoot with no eligible targets** — "Unless at least one model in a unit has an eligible target, that unit cannot be selected to shoot." Add pre-selection check in ShootingPhase.gd. (SHOOT-7) — **DONE**
-97. **Track invulnerable save source in UI** — When invuln save is used, show indicator of native vs effect-granted source in WoundAllocationOverlay.gd. (SHOOT-8)
+97. **Track invulnerable save source in UI** — When invuln save is used, show indicator of native vs effect-granted source in WoundAllocationOverlay.gd. (SHOOT-8) — **DONE**
 98. **Display terrain penalty in charge distance UI** — Players see rolled distance but not effective distance after terrain penalties. Show "Effective: X\" (Y\" - Z\" terrain)" in ChargeController.gd. (CHG-3)
 99. **Add live direction validation feedback during charge movement** — No real-time feedback as player drags model to show if final position satisfies charge direction constraint. Add visual indicator in ChargeController.gd. (CHG-4)
 100. **Verify Epic Challenge stratagem in attached units** — Ensure 1CP Epic Challenge properly enables CHARACTER vs CHARACTER melee dueling within attached units in FightPhase.gd. (FGT-2)

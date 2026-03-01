@@ -84,6 +84,7 @@ const DISCARD_SECONDARY = "discard_and_draw_secondary"
 # Naming convention: "effect_<type>" — generic enough for both stratagems and abilities.
 
 const FLAG_INVULN = "effect_invuln"
+const FLAG_INVULN_SOURCE = "effect_invuln_source"
 const FLAG_COVER = "effect_cover"
 const FLAG_STEALTH = "effect_stealth"
 const FLAG_FNP = "effect_fnp"
@@ -397,6 +398,10 @@ static func has_effect_invuln(unit: Dictionary) -> bool:
 static func get_effect_invuln(unit: Dictionary) -> int:
 	"""Get the effect-granted invulnerable save value (0 if none)."""
 	return unit.get("flags", {}).get(FLAG_INVULN, 0)
+
+static func get_effect_invuln_source(unit: Dictionary) -> String:
+	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
+	return unit.get("flags", {}).get(FLAG_INVULN_SOURCE, "")
 
 static func has_effect_cover(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted Benefit of Cover."""
