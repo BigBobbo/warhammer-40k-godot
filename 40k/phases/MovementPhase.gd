@@ -57,6 +57,11 @@ var _sawbonez_painboss_id: String = ""          # The Painboss unit offering hea
 var _sawbonez_targets: Array = []               # Eligible healing targets
 var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
 
+# Normal move tracking (P2-72) — 10e Core Rules
+# "A unit cannot make more than one Normal move per phase."
+# Tracks which units have made a Normal move this phase to enforce the limit.
+var _normal_moves_this_phase: Dictionary = {}   # unit_id -> true (units that have Normal-moved this phase)
+
 # Surge move tracking (P2-71) — 10e Core Rules Update
 # Surge moves are out-of-phase moves triggered by abilities.
 # Restrictions: once per phase per unit, not while battle-shocked, not while in Engagement Range.
@@ -148,6 +153,7 @@ func _on_phase_enter() -> void:
 	_bomb_squigs_pending_unit = ""
 	_bomb_squigs_pending_changes = []
 	_bomb_squigs_pending_dice = []
+	_normal_moves_this_phase.clear()
 	_surge_moves_this_phase.clear()
 
 	# Connect to TransportManager to handle disembark completion
@@ -375,6 +381,12 @@ func _validate_begin_normal_move(action: Dictionary) -> Dictionary:
 	# Check if unit has already moved
 	if unit.get("flags", {}).get("moved", false):
 		return {"valid": false, "errors": ["Unit has already moved this phase"]}
+
+	# P2-72: Enforce one Normal move per phase limit
+	# 10e Core Rules: "A unit cannot make more than one Normal move per phase."
+	if _normal_moves_this_phase.has(unit_id):
+		log_phase_message("Normal move denied for %s: already made a Normal move this phase" % unit_id)
+		return {"valid": false, "errors": ["Unit has already made a Normal move this phase"]}
 
 	# Check if unit cannot move due to disembarking restrictions
 	if unit.get("flags", {}).get("cannot_move", false):
@@ -2263,6 +2275,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		"path": "units.%s.flags.movement_active" % unit_id
 	})
 	
+	# P2-72: Track Normal moves for per-phase limit enforcement
+	if move_data.mode == "NORMAL":
+		_normal_moves_this_phase[unit_id] = true
+		log_phase_message("P2-72: Marked %s as having made a Normal move this phase" % unit_id)
+
 	# Set movement restrictions for later phases
 	if move_data.mode == "ADVANCE":
 		# ASSAULT RULES: Set the 'advanced' flag for Shooting phase to check
@@ -3050,6 +3067,22 @@ func has_unit_surged_this_phase(unit_id: String) -> bool:
 func reset_surge_tracking() -> void:
 	"""Reset surge move tracking. Called at start of each phase."""
 	_surge_moves_this_phase.clear()
+
+# P2-72: Normal move per-phase tracking helpers
+func has_unit_normal_moved_this_phase(unit_id: String) -> bool:
+	"""Check if a unit has already made a Normal move this phase.
+	10e Core Rules: 'A unit cannot make more than one Normal move per phase.'"""
+	return _normal_moves_this_phase.has(unit_id)
+
+func mark_unit_normal_moved_this_phase(unit_id: String) -> void:
+	"""Mark a unit as having made a Normal move this phase.
+	Called externally when a Normal move is triggered outside MovementPhase."""
+	_normal_moves_this_phase[unit_id] = true
+	log_phase_message("P2-72: Marked unit %s as having made a Normal move this phase" % unit_id)
+
+func reset_normal_move_tracking() -> void:
+	"""Reset Normal move tracking. Called at start of each phase."""
+	_normal_moves_this_phase.clear()
 
 # Helper Methods
 
