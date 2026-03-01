@@ -69,7 +69,7 @@ func _build_ui() -> void:
 	# Vehicle info
 	var vehicle_unit = GameState.get_unit(vehicle_unit_id)
 	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
-	var toughness = int(vehicle_unit.get("meta", {}).get("toughness", 4))
+	var toughness = int(vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
 	var dice_count = mini(toughness, 6)
 
 	var vehicle_label = Label.new()

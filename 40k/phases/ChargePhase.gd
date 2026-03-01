@@ -1090,7 +1090,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 					var vehicle_name = charging_unit.get("meta", {}).get("name", unit_id)
 					log_phase_message("TANK SHOCK available for Player %d — %s (T%d, %d eligible targets)" % [
 						charging_owner, vehicle_name,
-						int(charging_unit.get("meta", {}).get("toughness", 4)),
+						int(charging_unit.get("meta", {}).get("stats", {}).get("toughness", 4)),
 						ts_targets.size()
 					])
 					print("ChargePhase: Tank Shock opportunity — Player %d, vehicle %s, %d eligible targets" % [

@@ -14207,7 +14207,7 @@ static func evaluate_tank_shock(player: int, vehicle_unit_id: String, snapshot: 
 		}
 
 	var vehicle_name = vehicle_unit.get("meta", {}).get("name", vehicle_unit_id)
-	var toughness = int(vehicle_unit.get("meta", {}).get("toughness", vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4)))
+	var toughness = int(vehicle_unit.get("meta", {}).get("stats", {}).get("toughness", 4))
 	var dice_count = mini(toughness, 6)
 
 	# Expected mortal wounds: dice_count * (2/6) = dice_count / 3
