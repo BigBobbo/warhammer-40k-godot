@@ -1832,6 +1832,7 @@ func _setup_score_display() -> void:
 	_p1_score_label.name = "P1ScoreLabel"
 	_p1_score_label.add_theme_font_size_override("font_size", 14)
 	_p1_score_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	_p1_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
 	_score_display_container.add_child(_p1_score_label)
 
 	# Divider between players
@@ -1850,6 +1851,7 @@ func _setup_score_display() -> void:
 	_p2_score_label.name = "P2ScoreLabel"
 	_p2_score_label.add_theme_font_size_override("font_size", 14)
 	_p2_score_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	_p2_score_label.tooltip_text = "Victory Points (Primary + Secondary)"
 	_score_display_container.add_child(_p2_score_label)
 
 	# Add separator after score display
@@ -1863,7 +1865,7 @@ func _setup_score_display() -> void:
 	hud_container.move_child(_score_display_container, badge_idx + 1)
 
 	_update_score_display()
-	print("Main: Score display created in top bar")
+	print("Main: P3-120: Score display created in top bar (VP with primary/secondary breakdown)")
 
 func _update_score_display() -> void:
 	if not _p1_score_label or not _p2_score_label:
@@ -1874,16 +1876,22 @@ func _update_score_display() -> void:
 
 	var p1_cp = p1_data.get("cp", 0)
 	var p1_vp = p1_data.get("vp", 0)
+	var p1_primary = p1_data.get("primary_vp", 0)
+	var p1_secondary = p1_data.get("secondary_vp", 0)
 	var p2_cp = p2_data.get("cp", 0)
 	var p2_vp = p2_data.get("vp", 0)
+	var p2_primary = p2_data.get("primary_vp", 0)
+	var p2_secondary = p2_data.get("secondary_vp", 0)
 
 	var p1_faction = GameState.get_faction_name(1)
 	var p2_faction = GameState.get_faction_name(2)
 
 	_p1_cp_label.text = "P1 %s CP: %d" % [p1_faction, p1_cp]
-	_p1_score_label.text = "VP: %d" % p1_vp
+	_p1_score_label.text = "VP: %d (%dP+%dS)" % [p1_vp, p1_primary, p1_secondary]
+	_p1_score_label.tooltip_text = "P1 Victory Points: %d total\nPrimary: %d | Secondary: %d" % [p1_vp, p1_primary, p1_secondary]
 	_p2_cp_label.text = "P2 %s CP: %d" % [p2_faction, p2_cp]
-	_p2_score_label.text = "VP: %d" % p2_vp
+	_p2_score_label.text = "VP: %d (%dP+%dS)" % [p2_vp, p2_primary, p2_secondary]
+	_p2_score_label.tooltip_text = "P2 Victory Points: %d total\nPrimary: %d | Secondary: %d" % [p2_vp, p2_primary, p2_secondary]
 
 # P3-109: Setup turn/round progress indicator in top bar
 func _setup_round_indicator() -> void:
@@ -3420,6 +3428,12 @@ func connect_signals() -> void:
 		if not sec_mgr.secondary_vp_scored.is_connected(_on_secondary_score_changed):
 			sec_mgr.secondary_vp_scored.connect(_on_secondary_score_changed)
 			print("Main: Connected to SecondaryMissionManager.secondary_vp_scored for score display")
+	# P3-120: Connect to stratagem_used signal so CP display updates immediately when stratagems are used
+	var strat_mgr = get_node_or_null("/root/StratagemManager")
+	if strat_mgr and strat_mgr.has_signal("stratagem_used"):
+		if not strat_mgr.stratagem_used.is_connected(_on_stratagem_used_update_display):
+			strat_mgr.stratagem_used.connect(_on_stratagem_used_update_display)
+			print("Main: P3-120: Connected to StratagemManager.stratagem_used for CP display updates")
 
 	# Connect multiplayer sync signals
 	if has_node("/root/GameManager"):
@@ -5431,6 +5445,10 @@ func _on_score_changed(_player: int, _points: int, _reason: String) -> void:
 	_update_score_display()
 
 func _on_secondary_score_changed(_player: int, _vp: int, _mission_id: String) -> void:
+	_update_score_display()
+
+# P3-120: Update CP display immediately when a stratagem is used
+func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _target_unit_id: String) -> void:
 	_update_score_display()
 
 # Multiplayer sync handler
