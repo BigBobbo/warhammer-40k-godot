@@ -23,6 +23,10 @@ var save_files_compression: bool = false  # Keep disabled for readability
 # Measuring Tape Settings
 var save_measurements: bool = false  # Whether to persist measurement lines in saves
 
+# P3-112: Autosave event settings
+var autosave_on_round_end: bool = true      # Auto-save when a battle round completes
+var autosave_on_phase_transition: bool = false  # Auto-save at every phase transition
+
 # P3-111: Audio settings
 var master_volume: float = 1.0   # 0.0 to 1.0
 var music_volume: float = 0.7    # 0.0 to 1.0
@@ -79,6 +83,11 @@ func _ready() -> void:
 	# Initialize MeasuringTapeManager with settings
 	if MeasuringTapeManager:
 		MeasuringTapeManager.set_save_persistence(save_measurements)
+
+	# P3-112: Initialize SaveLoadManager event autosave settings
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_round_end(autosave_on_round_end)
+		SaveLoadManager.set_autosave_on_phase_transition(autosave_on_phase_transition)
 
 	print("[SettingsService] Ready — ui_scale=%.2f, animation_speed=%.2f, colorblind=%s" % [ui_scale, animation_speed, colorblind_mode])
 
@@ -185,6 +194,21 @@ func set_colorblind_mode(mode: String) -> void:
 	_save_settings()
 	print("[SettingsService] Colorblind mode set to %s" % colorblind_mode)
 
+# P3-112: Autosave event settings
+func set_autosave_on_round_end(enabled: bool) -> void:
+	autosave_on_round_end = enabled
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_round_end(enabled)
+	_save_settings()
+	print("[SettingsService] autosave_on_round_end set to %s" % str(enabled))
+
+func set_autosave_on_phase_transition(enabled: bool) -> void:
+	autosave_on_phase_transition = enabled
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_phase_transition(enabled)
+	_save_settings()
+	print("[SettingsService] autosave_on_phase_transition set to %s" % str(enabled))
+
 func set_unit_visual_style_setting(style: String) -> void:
 	if style not in ["enhanced", "style_a", "style_b", "classic"]:
 		print("[SettingsService] Invalid visual style: %s" % style)
@@ -217,6 +241,8 @@ func _save_settings() -> void:
 	config.set_value("save_load", "pretty_print", save_files_pretty_print)
 	config.set_value("save_load", "compression", save_files_compression)
 	config.set_value("save_load", "save_measurements", save_measurements)
+	config.set_value("save_load", "autosave_on_round_end", autosave_on_round_end)
+	config.set_value("save_load", "autosave_on_phase_transition", autosave_on_phase_transition)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -248,5 +274,7 @@ func _load_settings() -> void:
 	save_files_pretty_print = config.get_value("save_load", "pretty_print", true)
 	save_files_compression = config.get_value("save_load", "compression", false)
 	save_measurements = config.get_value("save_load", "save_measurements", false)
+	autosave_on_round_end = config.get_value("save_load", "autosave_on_round_end", true)
+	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)
