@@ -46,6 +46,7 @@ var staged_path_visual: Line2D  # NEW: Visual for staged movements
 var ruler_visual: Line2D
 var ghost_visual: Node2D
 var model_path_visuals: Dictionary = {}  # Dictionary of model_id -> Line2D for individual paths
+var movement_path_preview: Node2D = null  # P3-125: HumanMovementPathVisual for drag-to-plan preview
 var hud_bottom: Control
 var hud_right: Control
 var ui_setup_complete: bool = false  # Flag to prevent duplicate UI creation
@@ -128,6 +129,11 @@ func _exit_tree() -> void:
 		if line and is_instance_valid(line):
 			line.queue_free()
 	model_path_visuals.clear()
+
+	# P3-125: Clean up movement path preview
+	if movement_path_preview and is_instance_valid(movement_path_preview):
+		movement_path_preview.queue_free()
+		movement_path_preview = null
 
 	# Clean up multi-selection visuals
 	if selection_visual and is_instance_valid(selection_visual):
@@ -215,6 +221,13 @@ func _create_path_visuals() -> void:
 	ghost_visual = Node2D.new()
 	ghost_visual.name = "MovementGhostVisual"
 	board_root.add_child(ghost_visual)
+
+	# P3-125: Create movement path preview visual (dashed lines with arrowheads)
+	var HumanMovementPathVisualScript = preload("res://scripts/HumanMovementPathVisual.gd")
+	movement_path_preview = Node2D.new()
+	movement_path_preview.set_script(HumanMovementPathVisualScript)
+	movement_path_preview.name = "HumanMovementPathPreview"
+	board_root.add_child(movement_path_preview)
 
 	# Create selection box visual for drag-box selection (custom drawn)
 	selection_visual = _SelectionBoxVisual.new()
@@ -1069,34 +1082,97 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	# Return unit to idle animation
 	_trigger_unit_animation(unit_id, "idle")
 
+	# P3-125: Show confirmed movement path animation before clearing state
+	_show_confirmed_movement_paths(unit_id)
+
 	# Clear movement state
 	active_unit_id = ""
 	active_mode = ""
 	move_cap_inches = 0.0
 	_clear_path_visual()
-	
+
 	# Clear all individual model path visuals
 	for model_id in model_path_visuals:
 		var line = model_path_visuals[model_id]
 		if line and is_instance_valid(line):
 			line.queue_free()
 	model_path_visuals.clear()
-	
+
+	# P3-125: Clear the planning preview (confirmed visual is a separate instance)
+	if movement_path_preview and is_instance_valid(movement_path_preview):
+		movement_path_preview.clear_now()
+
 	_update_movement_display()
 	_refresh_unit_list()
 	emit_signal("ui_update_requested")
 
+func _show_confirmed_movement_paths(unit_id: String) -> void:
+	"""P3-125: Create a confirmed movement path visual (hold + fade) for the unit that just moved."""
+	if not current_phase or not "active_moves" in current_phase:
+		return
+
+	var active_moves = current_phase.active_moves
+	if not active_moves.has(unit_id):
+		return
+
+	var move_data = active_moves[unit_id]
+	var model_moves = move_data.get("model_moves", [])
+	var original_positions = move_data.get("original_positions", {})
+
+	# Build paths from original positions to final destinations
+	var confirmed_paths: Array = []
+
+	# Collect the final destination for each model (last move wins)
+	var final_destinations: Dictionary = {}
+	for model_move in model_moves:
+		var model_id = model_move.get("model_id", "")
+		if model_id != "":
+			final_destinations[model_id] = model_move.get("dest", Vector2.ZERO)
+
+	# Also include staged moves that haven't been converted yet
+	for staged_move in move_data.get("staged_moves", []):
+		var model_id = staged_move.get("model_id", "")
+		if model_id != "":
+			final_destinations[model_id] = staged_move.get("dest", Vector2.ZERO)
+
+	for model_id in final_destinations:
+		var from_pos = original_positions.get(model_id, Vector2.ZERO)
+		var to_pos = final_destinations[model_id]
+		if from_pos == Vector2.ZERO:
+			continue
+		if from_pos.distance_to(to_pos) > 5.0:
+			confirmed_paths.append({"from": from_pos, "to": to_pos})
+
+	if confirmed_paths.is_empty():
+		return
+
+	# Create a new visual instance for the confirmed animation (it self-destructs after fade)
+	var board_root = get_node_or_null("/root/Main/BoardRoot")
+	if not board_root:
+		return
+
+	var HumanMovementPathVisualScript = preload("res://scripts/HumanMovementPathVisual.gd")
+	var confirmed_visual = Node2D.new()
+	confirmed_visual.set_script(HumanMovementPathVisualScript)
+	confirmed_visual.name = "HumanMovementConfirmed_%d" % (randi() % 10000)
+	board_root.add_child(confirmed_visual)
+	confirmed_visual.show_confirmed_paths(confirmed_paths, GameState.get_active_player())
+
 func _on_unit_move_reset(unit_id: String) -> void:
 	_clear_path_visual()
 	path_visual.clear_points()  # Clear staged moves visual as well
-	
+
 	# Clear all individual model path visuals
 	for model_id in model_path_visuals:
 		var line = model_path_visuals[model_id]
 		if line and is_instance_valid(line):
 			line.queue_free()
 	model_path_visuals.clear()
-	
+
+	# P3-125: Clear planning path preview on reset
+	if movement_path_preview and is_instance_valid(movement_path_preview):
+		movement_path_preview.clear_now()
+
 	_update_movement_display()
 	emit_signal("ui_update_requested")
 
@@ -1835,8 +1911,11 @@ func _clear_path_visual() -> void:
 func _update_staged_moves_visual() -> void:
 	# Update individual path visuals for each model that has moved
 	if not current_phase or not active_unit_id:
+		# P3-125: Clear preview when no active movement
+		if movement_path_preview and is_instance_valid(movement_path_preview):
+			movement_path_preview.clear_now()
 		return
-	
+
 	var board_root = get_node_or_null("/root/Main/BoardRoot")
 	if not board_root:
 		return
@@ -1895,6 +1974,40 @@ func _update_staged_moves_visual() -> void:
 			
 			for model_id in models_to_remove:
 				model_path_visuals.erase(model_id)
+
+			# P3-125: Update HumanMovementPathVisual with staged paths
+			_update_movement_path_preview(move_data, models_with_segments)
+
+func _update_movement_path_preview(move_data: Dictionary, models_with_segments: Dictionary) -> void:
+	"""P3-125: Update the dashed-line path preview for staged model moves."""
+	if not movement_path_preview or not is_instance_valid(movement_path_preview):
+		return
+
+	var preview_paths: Array = []
+	for model_id in models_with_segments:
+		var segments = models_with_segments[model_id]
+		if segments.is_empty():
+			continue
+
+		# Use the first segment's 'from' as origin and last segment's 'dest' as destination
+		var origin: Vector2 = segments[0].from
+		var destination: Vector2 = segments[-1].dest
+
+		if origin.distance_to(destination) < 5.0:
+			continue
+
+		# Calculate total distance for this model
+		var distance: float = move_data.get("model_distances", {}).get(model_id, 0.0)
+
+		preview_paths.append({
+			"from": origin,
+			"to": destination,
+			"distance": distance
+		})
+
+	var player = GameState.get_active_player()
+	var cap = move_data.get("move_cap_inches", move_cap_inches)
+	movement_path_preview.update_planning_paths(preview_paths, player, cap)
 
 func _update_ruler_visual() -> void:
 	ruler_visual.clear_points()
