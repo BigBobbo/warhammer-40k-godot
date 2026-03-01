@@ -453,12 +453,12 @@ func test_tank_shock_decline_no_vehicle():
 # =========================================================================
 
 func test_heroic_intervention_decline_low_cp():
-	"""AI should decline Heroic Intervention when CP is insufficient (need 2)."""
+	"""AI should decline Heroic Intervention when CP is insufficient (need 1 per Balance Dataslate v3.3)."""
 	var snapshot = _create_test_snapshot()
-	snapshot.players["2"]["cp"] = 1  # Need 2 CP for Heroic Intervention
+	snapshot.players["2"]["cp"] = 0  # Need 1 CP for Heroic Intervention (was 2 before v3.3)
 	var decision = AIDecisionMaker.evaluate_heroic_intervention(2, "enemy_charger", snapshot)
 	_assert(decision.get("type", "") == "DECLINE_HEROIC_INTERVENTION",
-		"Should decline Heroic Intervention with 1 CP (got %s)" % decision.get("type", ""))
+		"Should decline Heroic Intervention with 0 CP (got %s)" % decision.get("type", ""))
 
 func test_heroic_intervention_decline_no_eligible():
 	"""AI should decline Heroic Intervention when no StratagemManager is available (pure unit test)."""

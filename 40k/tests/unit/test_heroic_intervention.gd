@@ -2,21 +2,21 @@ extends "res://addons/gut/test.gd"
 
 # Tests for HEROIC INTERVENTION stratagem implementation
 #
-# HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 2 CP)
+# HEROIC INTERVENTION (Core – Strategic Ploy Stratagem, 1 CP per Balance Dataslate v3.3)
 # - WHEN: Your opponent's Charge phase, just after an enemy unit ends a Charge move.
-# - TARGET: One unit from your army within 6" of that enemy unit and not within
-#           Engagement Range of any enemy units.
-# - EFFECT: Your unit declares a charge targeting only that enemy unit, then makes
-#           a charge roll. It cannot be selected to fight in the Fights First step.
-# - RESTRICTION: Cannot select VEHICLE unless it has WALKER keyword. Once per phase.
+# - TARGET: One unit from your army that is within 6" of that enemy unit and would be
+#           eligible to declare a charge against that enemy unit if it were your Charge phase.
+# - EFFECT: Your unit declares a charge targeting only that enemy unit, and you resolve
+#           that charge as if it were your Charge phase. Does not receive Charge bonus.
+# - RESTRICTION: Can only select VEHICLE if it is a WALKER.
 #
 # These tests verify:
-# 1. StratagemManager definition (2 CP, charge phase timing, once per phase)
-# 2. Eligibility: within 6", not in engagement range, not battle-shocked, not VEHICLE (unless WALKER)
+# 1. StratagemManager definition (1 CP per v3.3, charge phase timing, once per phase)
+# 2. Eligibility: within 6", eligible to charge, not battle-shocked, not VEHICLE (unless WALKER)
 # 3. CP deduction when used
 # 4. Once-per-phase restriction
 # 5. ChargePhase integration: trigger after successful charge move
-# 6. HI units do NOT get Fights First
+# 6. HI units do NOT get Charge bonus (= no Fights First)
 # 7. FightPhase _get_fight_priority respects heroic_intervention flag
 # 8. Decline flow
 # 9. Edge cases (no CP, no eligible units, VEHICLE vs WALKER, etc.)
@@ -161,10 +161,10 @@ func test_heroic_intervention_stratagem_exists():
 	assert_false(strat.is_empty(), "HEROIC INTERVENTION stratagem should exist")
 	assert_eq(strat.name, "HEROIC INTERVENTION")
 
-func test_heroic_intervention_costs_2cp():
-	"""Test that HEROIC INTERVENTION costs 2 CP (not 1)."""
+func test_heroic_intervention_costs_1cp():
+	"""Test that HEROIC INTERVENTION costs 1 CP per Balance Dataslate v3.3."""
 	var strat = StratagemManager.get_stratagem("heroic_intervention")
-	assert_eq(strat.cp_cost, 2, "Heroic Intervention should cost 2 CP")
+	assert_eq(strat.cp_cost, 1, "Heroic Intervention should cost 1 CP per Balance Dataslate v3.3")
 
 func test_heroic_intervention_charge_phase_timing():
 	"""Test that HEROIC INTERVENTION triggers during opponent's charge phase."""
@@ -178,12 +178,12 @@ func test_heroic_intervention_once_per_phase_restriction():
 	var strat = StratagemManager.get_stratagem("heroic_intervention")
 	assert_eq(strat.restrictions.once_per, "phase")
 
-func test_heroic_intervention_effect_no_fights_first():
-	"""Test that HEROIC INTERVENTION effect includes no_fights_first flag."""
+func test_heroic_intervention_effect_no_charge_bonus():
+	"""Test that HEROIC INTERVENTION effect includes no_charge_bonus flag (Balance Dataslate v3.3)."""
 	var strat = StratagemManager.get_stratagem("heroic_intervention")
 	assert_eq(strat.effects.size(), 1)
 	assert_eq(strat.effects[0].type, "counter_charge")
-	assert_true(strat.effects[0].get("no_fights_first", false), "HI effect should have no_fights_first flag")
+	assert_true(strat.effects[0].get("no_charge_bonus", false), "HI effect should have no_charge_bonus flag (v3.3)")
 
 
 # ==========================================
@@ -197,11 +197,11 @@ func test_can_use_heroic_intervention_with_cp():
 	assert_true(result.can_use, "Should be able to use HI with 5 CP")
 
 func test_cannot_use_heroic_intervention_without_cp():
-	"""Test validation fails when player has less than 2 CP."""
+	"""Test validation fails when player has 0 CP (HI costs 1 CP per Balance Dataslate v3.3)."""
 	_setup_charge_scenario()
-	GameState.state.players["2"]["cp"] = 1
+	GameState.state.players["2"]["cp"] = 0
 	var result = StratagemManager.can_use_stratagem(2, "heroic_intervention", "U_P2_NEAR")
-	assert_false(result.can_use, "Should not be able to use HI with only 1 CP")
+	assert_false(result.can_use, "Should not be able to use HI with 0 CP")
 	assert_true("Not enough CP" in result.reason, "Should mention 'Not enough CP'")
 
 func test_heroic_intervention_is_available():
@@ -370,8 +370,8 @@ func test_fight_priority_no_charge_is_normal():
 # CP Deduction Tests (local audit)
 # ==========================================
 
-func test_heroic_intervention_deducts_2cp():
-	"""Test that using HI produces correct CP diffs (2 CP deduction).
+func test_heroic_intervention_deducts_1cp_from_diffs():
+	"""Test that using HI produces correct CP diffs (1 CP deduction per Balance Dataslate v3.3).
 	Note: PhaseManager.apply_state_changes has a known issue with numeric dict keys
 	in paths like 'players.2.cp' — the diff is generated correctly but may not apply
 	to GameState in headless test mode. We verify the diffs are correct instead."""
@@ -383,7 +383,7 @@ func test_heroic_intervention_deducts_2cp():
 	var found_cp_diff = false
 	for diff in diffs:
 		if diff.get("path", "") == "players.2.cp":
-			assert_eq(diff.value, 3, "CP diff should set value to 3 (5 - 2)")
+			assert_eq(diff.value, 4, "CP diff should set value to 4 (5 - 1) per Balance Dataslate v3.3")
 			found_cp_diff = true
 			break
 	assert_true(found_cp_diff, "Should have a CP deduction diff for players.2.cp")
