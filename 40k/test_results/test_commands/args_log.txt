@@ -1,1 +1,1 @@
-ARGS: ["--test-mode", "--position=100,100", "--resolution=600x480", "--auto-host", "--port=8000", "--instance-name=Host"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gtest=res://tests/unit/test_aura_abilities.gd", "-gdir=res://tests/unit/", "-gexit"]
