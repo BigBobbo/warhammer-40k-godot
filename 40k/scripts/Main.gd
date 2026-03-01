@@ -145,6 +145,9 @@ var _p1_cp_label: Label = null
 var _p2_cp_label: Label = null
 var _score_display_container: HBoxContainer = null
 
+# P3-109: Turn/round progress indicator
+var _round_indicator_label: Label = null
+
 # Game Event Log UI elements
 var game_log_panel: PanelContainer
 var game_log_label: RichTextLabel
@@ -257,6 +260,9 @@ func _ready() -> void:
 
 	# Setup player scores and CP display in top bar
 	_setup_score_display()
+
+	# P3-109: Setup turn/round progress indicator
+	_setup_round_indicator()
 
 	# Fix HUD layout to prevent overlap
 	_fix_hud_layout()
@@ -1815,6 +1821,51 @@ func _update_score_display() -> void:
 	_p1_score_label.text = "VP: %d" % p1_vp
 	_p2_cp_label.text = "P2 %s CP: %d" % [p2_faction, p2_cp]
 	_p2_score_label.text = "VP: %d" % p2_vp
+
+# P3-109: Setup turn/round progress indicator in top bar
+func _setup_round_indicator() -> void:
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if not hud_container:
+		print("Main: HUD_Bottom/HBoxContainer not found for round indicator")
+		return
+
+	# Create the round indicator label
+	_round_indicator_label = Label.new()
+	_round_indicator_label.name = "RoundIndicator"
+	_round_indicator_label.add_theme_font_size_override("font_size", 14)
+	_round_indicator_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))  # Gold color for visibility
+	_round_indicator_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	# Add separator before round indicator
+	var sep = VSeparator.new()
+	sep.name = "RoundIndicatorSep"
+	sep.custom_minimum_size = Vector2(2, 0)
+
+	# Insert at the beginning of the HBox (before PhaseLabel) so it's always visible
+	hud_container.add_child(sep)
+	hud_container.move_child(sep, 0)
+	hud_container.add_child(_round_indicator_label)
+	hud_container.move_child(_round_indicator_label, 0)
+
+	_update_round_indicator()
+	print("Main: P3-109: Round indicator created in top bar")
+
+# P3-109: Update the round indicator text
+func _update_round_indicator() -> void:
+	if not _round_indicator_label:
+		return
+
+	var battle_round = GameState.get_battle_round()
+	var active_player = GameState.get_active_player()
+	var current_game_phase = GameState.get_current_phase()
+
+	# During pre-game phases (before actual battle rounds), show setup indicator
+	if current_game_phase in [GameStateData.Phase.FORMATIONS, GameStateData.Phase.DEPLOYMENT,
+							  GameStateData.Phase.REDEPLOYMENT, GameStateData.Phase.SCOUT,
+							  GameStateData.Phase.ROLL_OFF]:
+		_round_indicator_label.text = "Setup"
+	else:
+		_round_indicator_label.text = "Round %d/5 - Player %d Turn" % [battle_round, active_player]
 
 func _fix_hud_layout() -> void:
 	# Adjust both left and right HUD panels for proper layout
@@ -3895,7 +3946,10 @@ func update_ui() -> void:
 
 	# Update player scores and CP in top bar
 	_update_score_display()
-	
+
+	# P3-109: Update round indicator
+	_update_round_indicator()
+
 	# Phase-specific UI updates
 	match current_phase:
 		GameStateData.Phase.FORMATIONS:

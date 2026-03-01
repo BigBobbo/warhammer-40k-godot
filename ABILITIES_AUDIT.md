@@ -497,7 +497,7 @@ All entries in `UnitAbilityManager.ABILITY_EFFECTS`:
 106. **Verify persisting effects match Core Rules Updates** — Core Rules Updates defines persisting effects with specific duration tracking. Verify effect expiration logic in EffectPrimitives.gd. (GEN-11) — **DONE**
 107. **Implement redeployment rules** — Core Rules Updates: redeployment rules resolved after Deploy Armies, before Determine First Turn. Add phase handling. (GEN-12) — **DONE**
 108. **Make deployment zone toggle more prominent** — User requested toggle. Ensure button is easy to find in deployment UI. (BUG-6) — **DONE**
-109. **Add turn/round progress indicator to HUD** — Show "Round 3/5 - Player 1 Turn" persistently in Main.gd HUD. (QOL-1)
+109. **Add turn/round progress indicator to HUD** — Show "Round 3/5 - Player 1 Turn" persistently in Main.gd HUD. (QOL-1) — **DONE**
 110. **Add phase rules brief during transitions** — Brief popup explaining available actions in each phase during PhaseTransitionBanner. (QOL-2)
 111. **Add settings menu** — Audio controls, visual settings, UI scale, animation speed, colorblind mode. New SettingsMenu.gd scene. (QOL-4)
 112. **Add auto-save at round end** — Automatic saves at round end and phase transitions via SaveLoadManager.gd. (QOL-5)
