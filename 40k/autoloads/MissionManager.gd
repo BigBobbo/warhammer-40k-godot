@@ -7,6 +7,7 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 signal objective_control_changed(objective_id: String, controller: int, old_controller: int)
 signal victory_points_scored(player: int, points: int, reason: String)
 signal objective_removed(objective_id: String)
+signal objective_burned(objective_id: String, player: int)
 
 var current_mission: Dictionary = {}
 var objective_control_state: Dictionary = {} # objective_id -> controlling_player
@@ -18,6 +19,14 @@ var _sticky_objectives: Dictionary = {}
 
 # Kill tracking for Purge the Foe
 var _kills_this_round: Dictionary = {"1": 0, "2": 0}  # player_key -> units destroyed this round
+
+# Burn tracking for Scorched Earth — objectives burned and removed from play
+# Key: objective_id, Value: { "player": int, "unit_id": String, "zone": String }
+var _burned_objectives: Dictionary = {}
+
+# Units that have been designated to burn an objective this turn (Shooting phase)
+# Key: unit_id, Value: objective_id — resolves at end of Command phase
+var _pending_burns: Dictionary = {}
 
 func _ready() -> void:
 	print("MissionManager: Initializing mission system")
@@ -60,6 +69,10 @@ func initialize_mission(mission_id: String) -> void:
 
 	# Reset kill tracking
 	_kills_this_round = {"1": 0, "2": 0}
+
+	# Reset burn tracking
+	_burned_objectives.clear()
+	_pending_burns.clear()
 
 	# Store mission type in GameState meta for reference
 	GameState.state.meta["mission_type"] = mission_id
@@ -334,8 +347,7 @@ func score_primary_objectives() -> void:
 		"sites_of_power":
 			_score_sites_of_power(active_player, battle_round)
 		"hold_and_burn":
-			# Scorched Earth: scoring uses hold_objectives base + burn bonuses (burn not yet implemented)
-			_score_hold_objectives(active_player, battle_round)
+			_score_hold_and_burn(active_player, battle_round)
 		"ritual":
 			# The Ritual: falls back to hold scoring (ritual actions not yet implemented)
 			_score_hold_objectives(active_player, battle_round)
@@ -532,6 +544,216 @@ func _score_sites_of_power(active_player: int, _battle_round: int) -> void:
 
 	var vp_earned = mini(characters_on_nml * vp_per_char, max_per_turn)
 	_apply_primary_vp(active_player, vp_earned, "%d characters on NML objectives" % characters_on_nml)
+
+# ============================================================================
+# SCORCHED EARTH — Hold objectives + burn NML/enemy objectives
+# ============================================================================
+# Rules: From round 2, during Shooting phase, a non-battle-shocked unit eligible
+# to shoot can give up shooting and charging to burn a nearby objective the player
+# controls. At the next Command phase, if the unit is still within range of that
+# controlled objective, the objective is burned and removed.
+#
+# Per-turn scoring: 5 VP per controlled objective (max 10 VP per turn).
+# End-of-battle bonus: +5 VP per burned NML objective, +10 VP per burned enemy DZ objective.
+
+func _score_hold_and_burn(active_player: int, _battle_round: int) -> void:
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var vp_per_obj = scoring_rules.get("vp_per_objective", 5)
+	var max_per_turn = scoring_rules.get("max_vp_per_turn", 10)
+
+	# Count controlled objectives (excluding burned/removed ones)
+	var controlled_objectives = []
+	for obj_id in objective_control_state:
+		if objective_control_state[obj_id] == active_player:
+			controlled_objectives.append(obj_id)
+
+	var controlled_count = controlled_objectives.size()
+
+	if controlled_count > 0:
+		print("MissionManager: Scorched Earth - Player %d controls %d objectives: %s" % [active_player, controlled_count, controlled_objectives])
+	else:
+		print("MissionManager: Scorched Earth - Player %d controls no objectives" % active_player)
+
+	# Calculate VP from holding
+	var vp_earned = mini(controlled_count * vp_per_obj, max_per_turn)
+
+	_apply_primary_vp(active_player, vp_earned, "Scorched Earth: Controlled %d objectives" % controlled_count)
+
+func is_scorched_earth_mission() -> bool:
+	"""Check if the current mission uses burn mechanics."""
+	return current_mission.get("scoring_type", "") == "hold_and_burn"
+
+func get_burnable_objectives_for_unit(unit_id: String) -> Array:
+	"""Get objectives that a unit can burn. Returns array of objective dictionaries.
+	A unit can burn an objective if:
+	- Current mission is Scorched Earth (hold_and_burn)
+	- The objective is in NML or the ENEMY deployment zone (not the player's own DZ)
+	- The objective is currently controlled by the unit's owner
+	- The objective hasn't already been burned
+	- The unit has a model within range of the objective (3" + marker radius)"""
+	if not is_scorched_earth_mission():
+		return []
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return []
+
+	var owner = unit.get("owner", 0)
+	if owner == 0:
+		return []
+
+	# Determine which zones the player can burn (NML + enemy DZ)
+	var enemy_zone = "player2" if owner == 1 else "player1"
+	var burnable_zones = ["no_mans_land", enemy_zone]
+
+	var objectives = GameState.state.board.get("objectives", [])
+	var control_radius = Measurement.inches_to_px(3.78740157)
+	var result = []
+
+	for obj in objectives:
+		var obj_id = obj.get("id", "")
+
+		# Skip already burned objectives
+		if _burned_objectives.has(obj_id):
+			continue
+
+		# Skip objectives not in burnable zones
+		var zone = obj.get("zone", "")
+		if zone not in burnable_zones:
+			continue
+
+		# Must be controlled by the unit's owner
+		if objective_control_state.get(obj_id, 0) != owner:
+			continue
+
+		# Check if any alive model is within range
+		var obj_pos = obj.get("position", Vector2.ZERO)
+		var unit_in_range = false
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var model_pos = model.get("position")
+			if model_pos == null:
+				continue
+			if model_pos is Dictionary:
+				model_pos = Vector2(model_pos.x, model_pos.y)
+			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+			if edge_distance <= control_radius:
+				unit_in_range = true
+				break
+
+		if unit_in_range:
+			# Determine VP value for burning this objective
+			var burn_vp = 0
+			if zone == "no_mans_land":
+				burn_vp = current_mission.get("scoring_rules", {}).get("burn_nml_vp", 5)
+			else:
+				burn_vp = current_mission.get("scoring_rules", {}).get("burn_enemy_vp", 10)
+
+			result.append({
+				"objective_id": obj_id,
+				"zone": zone,
+				"burn_vp": burn_vp,
+				"position": obj_pos,
+			})
+
+	return result
+
+func register_burn_action(unit_id: String, objective_id: String) -> bool:
+	"""Register a unit's intent to burn an objective (during Shooting phase).
+	The unit gives up shooting and charging. The burn resolves at end-of-Command.
+	For simplicity, we resolve the burn immediately since the Shooting phase
+	already validates proximity and control."""
+	if not is_scorched_earth_mission():
+		print("MissionManager: Cannot burn — not a Scorched Earth mission")
+		return false
+
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		print("MissionManager: Cannot burn — unit %s not found" % unit_id)
+		return false
+
+	var owner = unit.get("owner", 0)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# Verify objective is burnable
+	var burnable = get_burnable_objectives_for_unit(unit_id)
+	var target_obj = null
+	for b in burnable:
+		if b.objective_id == objective_id:
+			target_obj = b
+			break
+
+	if target_obj == null:
+		print("MissionManager: Cannot burn — %s is not a valid burn target for %s" % [objective_id, unit_id])
+		return false
+
+	# Record the burn
+	_burned_objectives[objective_id] = {
+		"player": owner,
+		"unit_id": unit_id,
+		"zone": target_obj.zone,
+	}
+
+	print("MissionManager: OBJECTIVE BURNED — %s burned %s (%s zone) for Player %d" % [
+		unit_name, objective_id, target_obj.zone, owner])
+
+	# Remove the objective from the board
+	var objectives = GameState.state.board.get("objectives", [])
+	for i in range(objectives.size()):
+		if objectives[i].get("id", "") == objective_id:
+			objectives.remove_at(i)
+			break
+
+	# Remove from control state
+	objective_control_state.erase(objective_id)
+
+	# Remove any sticky lock
+	_sticky_objectives.erase(objective_id)
+
+	emit_signal("objective_burned", objective_id, owner)
+	emit_signal("objective_removed", objective_id)
+
+	return true
+
+func score_end_of_game_burn_bonus() -> void:
+	"""Score end-of-battle burn bonuses for Scorched Earth.
+	Called at end of battle round 5 (or whenever the game ends).
+	+5 VP per burned NML objective, +10 VP per burned enemy DZ objective."""
+	if not is_scorched_earth_mission():
+		return
+
+	var scoring_rules = current_mission.get("scoring_rules", {})
+	var burn_nml_vp = scoring_rules.get("burn_nml_vp", 5)
+	var burn_enemy_vp = scoring_rules.get("burn_enemy_vp", 10)
+
+	# Tally burn bonuses per player
+	var player_burn_vp = {1: 0, 2: 0}
+	var player_burn_reasons = {1: [], 2: []}
+
+	for obj_id in _burned_objectives:
+		var burn_data = _burned_objectives[obj_id]
+		var player = burn_data.player
+		var zone = burn_data.zone
+
+		if zone == "no_mans_land":
+			player_burn_vp[player] += burn_nml_vp
+			player_burn_reasons[player].append("%s (NML +%d)" % [obj_id, burn_nml_vp])
+		else:
+			# Enemy deployment zone objective
+			player_burn_vp[player] += burn_enemy_vp
+			player_burn_reasons[player].append("%s (Enemy DZ +%d)" % [obj_id, burn_enemy_vp])
+
+	for player in [1, 2]:
+		if player_burn_vp[player] > 0:
+			var reason = "Burn bonus: " + ", ".join(player_burn_reasons[player])
+			_apply_primary_vp(player, player_burn_vp[player], reason)
+			print("MissionManager: Scorched Earth end-of-game burn bonus — Player %d: +%d VP (%s)" % [
+				player, player_burn_vp[player], reason])
+
+func get_burned_objectives() -> Dictionary:
+	"""Get current burned objectives state (for save/load and debugging)."""
+	return _burned_objectives.duplicate(true)
 
 # ============================================================================
 # VP APPLICATION — common VP bookkeeping

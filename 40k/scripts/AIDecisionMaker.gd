@@ -7737,6 +7737,20 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			best_action["_ai_description"] = "%s performs %s" % [a_name, a_desc]
 			return best_action
 
+	# Step 4.8: Check for Scorched Earth burn objective actions
+	# Prefer burning enemy DZ objectives (10 VP) over NML (5 VP).
+	# Use low-firepower units for burning when possible.
+	if action_types.has("BURN_OBJECTIVE"):
+		var best_burn = _evaluate_burn_objective_actions(snapshot, action_types, player)
+		if not best_burn.is_empty():
+			var b_unit = snapshot.get("units", {}).get(best_burn.get("actor_unit_id", ""), {})
+			var b_name = b_unit.get("meta", {}).get("name", best_burn.get("actor_unit_id", ""))
+			var obj_id = best_burn.get("objective_id", "")
+			print("AIDecisionMaker: %s burns objective %s instead of shooting" % [b_name, obj_id])
+			_add_thinking_step("%s burns %s (Scorched Earth)" % [b_name, obj_id])
+			best_burn["_ai_description"] = "%s burns %s" % [b_name, obj_id]
+			return best_burn
+
 	# Step 5: Use the SHOOT action for a full shooting sequence
 	# This is the cleanest path - select + assign + confirm in one action
 	if action_types.has("SELECT_SHOOTER"):
@@ -12485,6 +12499,48 @@ static func _evaluate_secondary_actions(snapshot: Dictionary, action_types: Dict
 			best_action = action
 
 	# Only perform if net positive (VP value exceeds shooting cost)
+	if best_score > 0:
+		return best_action
+
+	return {}
+
+static func _evaluate_burn_objective_actions(snapshot: Dictionary, action_types: Dictionary, player: int) -> Dictionary:
+	"""Evaluate BURN_OBJECTIVE options and return the best one, or empty dict if none worth it.
+	Burns are very valuable as end-of-game bonuses (5-10 VP), so AI should prioritize them
+	when low-firepower units are in position."""
+	var actions = action_types.get("BURN_OBJECTIVE", [])
+	if actions.is_empty():
+		return {}
+
+	var best_action = {}
+	var best_score = -999.0
+
+	for action in actions:
+		var unit_id = action.get("actor_unit_id", "")
+		var burn_vp = action.get("burn_vp", 0)
+		var objective_id = action.get("objective_id", "")
+
+		if unit_id == "" or burn_vp <= 0:
+			continue
+
+		# Estimate shooting value lost
+		var shooting_value = _estimate_unit_shooting_value(snapshot, unit_id, player)
+
+		# Burns are end-of-game bonuses worth 5-10 VP, which is very high value.
+		# Weight burn VP more heavily than secondary actions since they also
+		# deny the opponent future objective scoring.
+		var burn_score = float(burn_vp) * 2.0 - shooting_value
+
+		var unit = snapshot.get("units", {}).get(unit_id, {})
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		print("AIDecisionMaker: [BurnObjective] %s — %s: burn_vp=%d, shooting_value=%.1f, score=%.1f" % [
+			unit_name, objective_id, burn_vp, shooting_value, burn_score])
+
+		if burn_score > best_score:
+			best_score = burn_score
+			best_action = action
+
+	# Always burn if there's a positive score — burns are very valuable
 	if best_score > 0:
 		return best_action
 

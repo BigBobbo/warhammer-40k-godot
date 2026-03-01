@@ -238,6 +238,10 @@ func _handle_game_end() -> void:
 	print("PhaseManager: Game completed after 5 battle rounds!")
 	print("PhaseManager: Final battle round: ", GameState.get_battle_round())
 
+	# Score end-of-game burn bonuses for Scorched Earth before marking game ended
+	if MissionManager:
+		MissionManager.score_end_of_game_burn_bonus()
+
 	game_ended = true
 
 	# Commit final phase log

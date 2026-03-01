@@ -275,6 +275,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_distraction_grot(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
+		"BURN_OBJECTIVE":  # Scorched Earth: unit burns an objective instead of shooting
+			return _validate_burn_objective(action)
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
@@ -356,6 +358,9 @@ func process_action(action: Dictionary) -> Dictionary:
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			print("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
+		"BURN_OBJECTIVE":  # Scorched Earth: burn objective
+			print("ShootingPhase: Matched BURN_OBJECTIVE")
+			return _process_burn_objective(action)
 		_:
 			print("ShootingPhase: NO MATCH - returning error")
 			return create_result(false, [], "Unknown action type: " + action_type)
@@ -1104,6 +1109,104 @@ func _process_perform_secondary_action(action: Dictionary) -> Dictionary:
 	log_phase_message("%s performs %s (gives up shooting)" % [unit_name, action_name])
 
 	return create_result(true, changes)
+
+# ============================================================================
+# BURN OBJECTIVE — Scorched Earth mission action
+# ============================================================================
+
+func _validate_burn_objective(action: Dictionary) -> Dictionary:
+	"""Validate a burn objective action for Scorched Earth mission."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found"]}
+
+	if unit.get("owner", 0) != get_current_player():
+		return {"valid": false, "errors": ["Unit does not belong to active player"]}
+
+	# Same eligibility as shooting
+	if not _can_unit_shoot(unit):
+		return {"valid": false, "errors": ["Unit is not eligible to perform burn action"]}
+
+	if unit_id in units_that_shot:
+		return {"valid": false, "errors": ["Unit has already shot/acted this phase"]}
+
+	var objective_id = action.get("objective_id", "")
+	if objective_id == "":
+		return {"valid": false, "errors": ["Missing objective_id"]}
+
+	# Verify the objective is actually burnable by this unit
+	var burnable = MissionManager.get_burnable_objectives_for_unit(unit_id)
+	var found = false
+	for b in burnable:
+		if b.objective_id == objective_id:
+			found = true
+			break
+
+	if not found:
+		return {"valid": false, "errors": ["Objective %s is not burnable by this unit" % objective_id]}
+
+	return {"valid": true, "errors": []}
+
+func _process_burn_objective(action: Dictionary) -> Dictionary:
+	"""Process a burn objective action — unit gives up shooting to burn an objective."""
+	var unit_id = action.get("actor_unit_id", "")
+	var objective_id = action.get("objective_id", "")
+
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var player = get_current_player()
+
+	print("ShootingPhase: %s burns objective %s (gives up shooting)" % [unit_name, objective_id])
+
+	# Mark unit as having shot (it gave up shooting to burn)
+	units_that_shot.append(unit_id)
+	var changes = [{
+		"op": "set",
+		"path": "units.%s.flags.has_shot" % unit_id,
+		"value": true
+	}]
+
+	# Also mark as unable to charge this turn (burn action costs charging too)
+	changes.append({
+		"op": "set",
+		"path": "units.%s.flags.burned_objective" % unit_id,
+		"value": true
+	})
+
+	# Clear active state if this unit was selected
+	if active_shooter_id == unit_id:
+		active_shooter_id = ""
+		pending_assignments.clear()
+		confirmed_assignments.clear()
+
+	# Register the burn with MissionManager
+	var success = MissionManager.register_burn_action(unit_id, objective_id)
+	if success:
+		log_phase_message("SCORCHED EARTH: %s burned %s for Player %d" % [unit_name, objective_id, player])
+	else:
+		log_phase_message("ERROR: Burn action failed for %s on %s" % [unit_name, objective_id])
+
+	return create_result(true, changes)
+
+func _get_burn_objective_options(unit_id: String) -> Array:
+	"""Get available burn objective options for a unit (Scorched Earth mission only).
+	Returns array of {objective_id, zone, burn_vp, position}."""
+	if not MissionManager or not MissionManager.is_scorched_earth_mission():
+		return []
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return []
+
+	# Unit must not be battle-shocked
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return []
+
+	return MissionManager.get_burnable_objectives_for_unit(unit_id)
 
 func _determine_locus_location(unit_id: String, player: int) -> String:
 	"""Determine location qualifier for Establish Locus: 'opponent_zone' or 'center'."""
@@ -2834,6 +2937,20 @@ func get_available_actions() -> Array:
 						"vp_value": opt.get("vp_value", 0),
 					},
 					"description": "%s: %s" % [unit.get("meta", {}).get("name", unit_id), opt.description]
+				})
+
+			# Check if unit can burn an objective (Scorched Earth mission)
+			var burn_options = _get_burn_objective_options(unit_id)
+			for burn_opt in burn_options:
+				actions.append({
+					"type": "BURN_OBJECTIVE",
+					"actor_unit_id": unit_id,
+					"objective_id": burn_opt.objective_id,
+					"burn_vp": burn_opt.burn_vp,
+					"description": "%s: Burn %s (+%d VP end-of-game)" % [
+						unit.get("meta", {}).get("name", unit_id),
+						burn_opt.objective_id,
+						burn_opt.burn_vp]
 				})
 
 	# Always can end phase

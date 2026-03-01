@@ -249,6 +249,7 @@ static func get_implemented_mission_ids() -> Array:
 		"purge_the_foe",
 		"linchpin",
 		"sites_of_power",
+		"scorched_earth",
 	]
 
 ## Get display name for a mission.
