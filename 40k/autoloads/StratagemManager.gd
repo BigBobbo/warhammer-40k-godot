@@ -814,7 +814,9 @@ func on_turn_start(player: int) -> void:
 
 func on_battle_round_start(round_number: int) -> void:
 	"""Called at the start of a new battle round."""
-	print("StratagemManager: Battle round %d started" % round_number)
+	# P3-106: Clear battle-round-scoped effects
+	_clear_expired_effects("end_of_battle_round")
+	print("StratagemManager: Battle round %d started, cleared battle-round-scoped effects" % round_number)
 	# Note: Bonus CP tracking is reset in CommandPhase._on_phase_enter() via GameState.reset_bonus_cp_tracking()
 
 func can_player_gain_bonus_cp(player: int) -> bool:

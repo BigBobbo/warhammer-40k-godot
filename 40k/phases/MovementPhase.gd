@@ -182,6 +182,11 @@ func _on_phase_exit() -> void:
 	if ability_mgr:
 		ability_mgr.on_movement_phase_end()
 
+	# P3-106: Clear stratagem phase-scoped effects at end of Movement phase
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if strat_manager:
+		strat_manager.on_phase_end(GameStateData.Phase.MOVEMENT)
+
 	# Disconnect from TransportManager
 	if TransportManager and TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
 		TransportManager.disembark_completed.disconnect(_on_transport_manager_disembark_completed)
