@@ -816,3 +816,100 @@ func test_fly_and_titanic_combined_skips_desperate_escape():
 	var should_skip = "FLY" in keywords or "TITANIC" in keywords
 	assert_true(should_skip,
 		"Unit with both FLY and TITANIC should skip Desperate Escape")
+
+
+# ==========================================
+# Section 14: FEARLESS and ATSKNF Battle-shock Immunity
+# ==========================================
+
+func test_fearless_keyword_skips_battle_shock():
+	"""
+	10e Rule: Units with the FEARLESS keyword automatically pass battle-shock tests.
+	They should be skipped in _identify_units_needing_tests().
+	"""
+	var unit = _create_unit("fearless_unit", 10, 7)
+	unit.meta.keywords = ["INFANTRY", "FEARLESS", "IMPERIUM"]
+	_kill_models(unit, 6)  # Below half-strength
+
+	# Verify unit IS below half-strength
+	assert_true(_is_below_half_strength(unit),
+		"Unit should be below half-strength for this test")
+
+	# Verify FEARLESS keyword grants immunity
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var has_fearless = false
+	for kw in keywords:
+		if str(kw).to_upper() == "FEARLESS":
+			has_fearless = true
+			break
+	assert_true(has_fearless,
+		"FEARLESS units should be immune to battle-shock tests")
+
+func test_atsknf_keyword_skips_battle_shock():
+	"""
+	10e Rule: Units with And They Shall Know No Fear automatically pass
+	battle-shock tests. This is the Space Marines faction ability.
+	"""
+	var unit = _create_unit("atsknf_unit", 10, 7)
+	unit.meta.keywords = ["INFANTRY", "AND THEY SHALL KNOW NO FEAR", "ADEPTUS ASTARTES"]
+	_kill_models(unit, 6)  # Below half-strength
+
+	assert_true(_is_below_half_strength(unit),
+		"Unit should be below half-strength for this test")
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var has_atsknf = false
+	for kw in keywords:
+		if str(kw).to_upper() == "AND THEY SHALL KNOW NO FEAR":
+			has_atsknf = true
+			break
+	assert_true(has_atsknf,
+		"ATSKNF units should be immune to battle-shock tests")
+
+func test_regular_unit_not_immune_to_battle_shock():
+	"""
+	Regular units without FEARLESS or ATSKNF should NOT be immune to battle-shock.
+	"""
+	var unit = _create_unit("regular_shock", 10, 7)
+	unit.meta.keywords = ["INFANTRY", "IMPERIUM"]
+	_kill_models(unit, 6)  # Below half-strength
+
+	assert_true(_is_below_half_strength(unit),
+		"Unit should be below half-strength")
+
+	var keywords = unit.get("meta", {}).get("keywords", [])
+	var has_immunity = false
+	for kw in keywords:
+		var kw_upper = str(kw).to_upper()
+		if kw_upper == "FEARLESS" or kw_upper == "AND THEY SHALL KNOW NO FEAR":
+			has_immunity = true
+			break
+	assert_false(has_immunity,
+		"Regular units should NOT be immune to battle-shock tests")
+
+func test_fearless_ability_grants_immunity():
+	"""
+	Some units have Fearless as an ability rather than a keyword.
+	This should also grant battle-shock immunity.
+	"""
+	var unit = _create_unit("fearless_ability_unit", 10, 7)
+	unit.meta.keywords = ["INFANTRY", "IMPERIUM"]
+	unit.meta["abilities"] = [{"name": "Fearless", "type": "core"}]
+	_kill_models(unit, 6)
+
+	assert_true(_is_below_half_strength(unit),
+		"Unit should be below half-strength")
+
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	var has_fearless_ability = false
+	for ab in abilities:
+		var ab_name = ""
+		if ab is Dictionary:
+			ab_name = str(ab.get("name", "")).to_upper()
+		else:
+			ab_name = str(ab).to_upper()
+		if ab_name == "FEARLESS":
+			has_fearless_ability = true
+			break
+	assert_true(has_fearless_ability,
+		"Fearless ability should grant battle-shock immunity")

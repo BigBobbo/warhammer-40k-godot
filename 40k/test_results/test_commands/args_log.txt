@@ -1,1 +1,1 @@
-ARGS: ["--script", "res://tests/test_secondary_missions.gd"]
+ARGS: ["--check-only"]
