@@ -6315,6 +6315,12 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 	var model_count = 0
 	var attacks_roll_log = []
 
+	# BALANCE DATASLATE (P2-75): Extra Attacks weapons cannot have their attack count
+	# modified by other rules, unless the rule explicitly names the weapon.
+	var is_extra_attacks_weapon = has_extra_attacks(weapon_id, board)
+	if is_extra_attacks_weapon:
+		print("RulesEngine: Weapon '%s' has Extra Attacks — attack count cannot be modified by generic rules (Balance Dataslate)" % weapon_name)
+
 	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
 	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
 	# DA BIGGEST AND DA BEST: Check if attacker has this ability (Warboss — +4 attacks while Waaagh!)
@@ -6359,13 +6365,19 @@ static func _resolve_melee_assignment(assignment: Dictionary, actor_unit_id: Str
 		var model_attacks = attacks_result.value
 
 		# WAAAGH! BONUS: +1 Attack to melee weapons
-		if waaagh_active:
+		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — Waaagh! doesn't name specific weapons
+		if waaagh_active and not is_extra_attacks_weapon:
 			model_attacks += 1
+		elif waaagh_active and is_extra_attacks_weapon:
+			print("RulesEngine: Waaagh! +1 attack BLOCKED for Extra Attacks weapon '%s' (Balance Dataslate)" % weapon_name)
 
 		# DA BIGGEST AND DA BEST: +4 Attacks to this model's melee weapons while Waaagh! active
-		if has_da_biggest:
+		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — ability doesn't name specific weapons
+		if has_da_biggest and not is_extra_attacks_weapon:
 			model_attacks += 4
 			print("RulesEngine: Da Biggest and da Best — +4 attacks for model (Waaagh! active)")
+		elif has_da_biggest and is_extra_attacks_weapon:
+			print("RulesEngine: Da Biggest and da Best +4 attacks BLOCKED for Extra Attacks weapon '%s' (Balance Dataslate)" % weapon_name)
 
 		total_attacks += model_attacks
 		if attacks_result.rolled:

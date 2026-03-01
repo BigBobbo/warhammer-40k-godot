@@ -306,3 +306,213 @@ func test_extra_attacks_weapon_resolves_in_melee():
 	assert_true(result.success, "Melee resolution with both regular and Extra Attacks weapon should succeed")
 	# Both weapons should produce dice blocks
 	assert_true(result.dice.size() >= 2, "Should have dice blocks from both weapons (got %d)" % result.dice.size())
+
+# ==========================================
+# Balance Dataslate (P2-75): Extra Attacks attack count cannot be modified
+# ==========================================
+
+func _make_warboss_board_with_waaagh(waaagh_active: bool, has_da_biggest: bool = false) -> Dictionary:
+	"""Build a board with an Ork Warboss (Attack squig + Power klaw) and Waaagh! state."""
+	var abilities = ["Waaagh!"]
+	if has_da_biggest:
+		abilities.append("Da Biggest and da Best")
+	var flags = {}
+	if waaagh_active:
+		flags["waaagh_active"] = true
+	return {
+		"units": {
+			"warboss": {
+				"owner": 1,
+				"models": [{"alive": true, "current_wounds": 6, "wounds": 6, "position": {"x": 100, "y": 100}}],
+				"meta": {
+					"name": "Warboss",
+					"stats": {"toughness": 5, "save": 4, "wounds": 6},
+					"weapons": [
+						{
+							"name": "Power klaw",
+							"type": "Melee",
+							"range": "Melee",
+							"attacks": "4",
+							"attacks_raw": "4",
+							"weapon_skill": "3",
+							"strength": "10",
+							"ap": "-2",
+							"damage": "2"
+						},
+						{
+							"name": "Attack squig",
+							"type": "Melee",
+							"range": "Melee",
+							"attacks": "2",
+							"attacks_raw": "2",
+							"weapon_skill": "4",
+							"strength": "4",
+							"ap": "0",
+							"damage": "1",
+							"special_rules": "extra attacks"
+						}
+					],
+					"abilities": abilities,
+					"keywords": ["INFANTRY", "CHARACTER", "ORK"]
+				},
+				"flags": flags
+			},
+			"target": {
+				"owner": 2,
+				"models": [
+					{"alive": true, "current_wounds": 10, "wounds": 10, "position": {"x": 120, "y": 100}}
+				],
+				"meta": {
+					"name": "Target Unit",
+					"stats": {"toughness": 5, "save": 3, "wounds": 10},
+					"weapons": [],
+					"keywords": ["INFANTRY"]
+				}
+			}
+		}
+	}
+
+func test_extra_attacks_weapon_not_modified_by_waaagh():
+	"""Balance Dataslate (P2-75): Waaagh! +1 attack should NOT apply to Extra Attacks weapons."""
+	var board = _make_warboss_board_with_waaagh(true, false)
+
+	# Resolve Attack squig (Extra Attacks weapon) with Waaagh! active
+	var action = {
+		"type": "FIGHT",
+		"actor_unit_id": "warboss",
+		"payload": {
+			"assignments": [
+				{
+					"attacker": "warboss",
+					"weapon": "attack_squig",
+					"target": "target",
+					"models": []
+				}
+			]
+		}
+	}
+
+	var rng = rules_engine.RNGService.new()
+	var result = rules_engine.resolve_melee_attacks(action, board, rng)
+
+	assert_true(result.success, "Melee resolution should succeed")
+	# Attack squig has 2 base attacks. With Waaagh! active, it should still be 2 (not 3).
+	# Check the dice block for total_attacks
+	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
+	var total_attacks = dice_block.get("total_attacks", -1)
+	assert_eq(total_attacks, 2, "Extra Attacks weapon should have 2 attacks (Waaagh! +1 blocked by Balance Dataslate)")
+
+func test_regular_weapon_still_modified_by_waaagh():
+	"""Verify that Waaagh! +1 attack DOES apply to regular (non-Extra Attacks) weapons."""
+	var board = _make_warboss_board_with_waaagh(true, false)
+
+	# Resolve Power klaw (regular weapon) with Waaagh! active
+	var action = {
+		"type": "FIGHT",
+		"actor_unit_id": "warboss",
+		"payload": {
+			"assignments": [
+				{
+					"attacker": "warboss",
+					"weapon": "power_klaw",
+					"target": "target",
+					"models": []
+				}
+			]
+		}
+	}
+
+	var rng = rules_engine.RNGService.new()
+	var result = rules_engine.resolve_melee_attacks(action, board, rng)
+
+	assert_true(result.success, "Melee resolution should succeed")
+	# Power klaw has 4 base attacks. With Waaagh! active, should be 5 (+1).
+	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
+	var total_attacks = dice_block.get("total_attacks", -1)
+	assert_eq(total_attacks, 5, "Regular weapon should have 5 attacks (4 base + 1 Waaagh!)")
+
+func test_extra_attacks_weapon_not_modified_by_da_biggest():
+	"""Balance Dataslate (P2-75): Da Biggest and da Best +4 should NOT apply to Extra Attacks weapons."""
+	var board = _make_warboss_board_with_waaagh(true, true)  # Both Waaagh! and Da Biggest
+
+	# Resolve Attack squig (Extra Attacks weapon)
+	var action = {
+		"type": "FIGHT",
+		"actor_unit_id": "warboss",
+		"payload": {
+			"assignments": [
+				{
+					"attacker": "warboss",
+					"weapon": "attack_squig",
+					"target": "target",
+					"models": []
+				}
+			]
+		}
+	}
+
+	var rng = rules_engine.RNGService.new()
+	var result = rules_engine.resolve_melee_attacks(action, board, rng)
+
+	assert_true(result.success, "Melee resolution should succeed")
+	# Attack squig has 2 base attacks. Both Waaagh! +1 and Da Biggest +4 should be blocked.
+	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
+	var total_attacks = dice_block.get("total_attacks", -1)
+	assert_eq(total_attacks, 2, "Extra Attacks weapon should have 2 attacks (both Waaagh! +1 and Da Biggest +4 blocked)")
+
+func test_regular_weapon_modified_by_da_biggest():
+	"""Verify that Da Biggest and da Best +4 DOES apply to regular weapons."""
+	var board = _make_warboss_board_with_waaagh(true, true)  # Both Waaagh! and Da Biggest
+
+	# Resolve Power klaw (regular weapon)
+	var action = {
+		"type": "FIGHT",
+		"actor_unit_id": "warboss",
+		"payload": {
+			"assignments": [
+				{
+					"attacker": "warboss",
+					"weapon": "power_klaw",
+					"target": "target",
+					"models": []
+				}
+			]
+		}
+	}
+
+	var rng = rules_engine.RNGService.new()
+	var result = rules_engine.resolve_melee_attacks(action, board, rng)
+
+	assert_true(result.success, "Melee resolution should succeed")
+	# Power klaw has 4 base attacks + 1 Waaagh! + 4 Da Biggest = 9
+	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
+	var total_attacks = dice_block.get("total_attacks", -1)
+	assert_eq(total_attacks, 9, "Regular weapon should have 9 attacks (4 base + 1 Waaagh! + 4 Da Biggest)")
+
+func test_extra_attacks_no_modification_without_waaagh():
+	"""Verify Extra Attacks weapons work normally when no modifiers are active."""
+	var board = _make_warboss_board_with_waaagh(false, false)  # No Waaagh!
+
+	var action = {
+		"type": "FIGHT",
+		"actor_unit_id": "warboss",
+		"payload": {
+			"assignments": [
+				{
+					"attacker": "warboss",
+					"weapon": "attack_squig",
+					"target": "target",
+					"models": []
+				}
+			]
+		}
+	}
+
+	var rng = rules_engine.RNGService.new()
+	var result = rules_engine.resolve_melee_attacks(action, board, rng)
+
+	assert_true(result.success, "Melee resolution should succeed")
+	# Attack squig has 2 base attacks, no modifiers = 2
+	var dice_block = result.dice[0] if result.dice.size() > 0 else {}
+	var total_attacks = dice_block.get("total_attacks", -1)
+	assert_eq(total_attacks, 2, "Extra Attacks weapon should have 2 unmodified attacks")
