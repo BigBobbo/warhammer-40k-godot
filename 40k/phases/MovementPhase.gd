@@ -1677,6 +1677,14 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 
+	# P2-80: Support placement_type override for Rapid Ingress too
+	var placement_type = action.get("placement_type", reserve_type)
+	if placement_type == "deep_strike" and reserve_type == "strategic_reserves":
+		if not GameState.unit_has_deep_strike(unit_id):
+			errors.append("Unit does not have Deep Strike ability — cannot use Deep Strike placement rules")
+			return {"valid": false, "errors": errors}
+		print("MovementPhase: P2-80 — Rapid Ingress unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id))
+
 	# Validate model positions — same rules as normal reinforcement placement
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width
@@ -1715,7 +1723,8 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 					break
 
 			# Strategic Reserves: must be within 6" of a battlefield edge
-			if reserve_type == "strategic_reserves":
+			# P2-80: Use placement_type for validation
+			if placement_type == "strategic_reserves":
 				var dist_to_left = pos_inches_x
 				var dist_to_right = board_width - pos_inches_x
 				var dist_to_top = pos_inches_y
@@ -2585,6 +2594,17 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 
+	# P2-80: Balance Dataslate — if a unit with Deep Strike arrives from Strategic Reserves,
+	# the player can choose to use Deep Strike rules OR Strategic Reserves rules.
+	# The chosen placement_type overrides the reserve_type for validation purposes.
+	var placement_type = action.get("placement_type", reserve_type)
+	if placement_type == "deep_strike" and reserve_type == "strategic_reserves":
+		# Verify the unit actually has Deep Strike ability before allowing DS placement
+		if not GameState.unit_has_deep_strike(unit_id):
+			errors.append("Unit does not have Deep Strike ability — cannot use Deep Strike placement rules")
+			return {"valid": false, "errors": errors}
+		print("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id))
+
 	# Validate model positions
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width  # 44 inches
@@ -2622,7 +2642,8 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 					break
 
 			# Strategic Reserves: must be within 6" of a battlefield edge
-			if reserve_type == "strategic_reserves":
+			# P2-80: Use placement_type (which may override reserve_type) for validation
+			if placement_type == "strategic_reserves":
 				var dist_to_left = pos_inches_x
 				var dist_to_right = board_width - pos_inches_x
 				var dist_to_top = pos_inches_y
@@ -2727,8 +2748,17 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
-	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
-	log_phase_message("Reinforcement arrived: %s via %s" % [unit_name, type_label])
+	var placement_type = action.get("placement_type", reserve_type)
+	var type_label = "Deep Strike" if placement_type == "deep_strike" else "Strategic Reserves"
+	# P2-80: Log when DS placement rules were chosen for a SR unit
+	if placement_type != reserve_type:
+		log_phase_message("Reinforcement arrived: %s via %s (chose %s rules from %s)" % [
+			unit_name, type_label,
+			"Deep Strike" if placement_type == "deep_strike" else "Strategic Reserves",
+			"Strategic Reserves" if reserve_type == "strategic_reserves" else "Deep Strike"
+		])
+	else:
+		log_phase_message("Reinforcement arrived: %s via %s" % [unit_name, type_label])
 
 	# T7-39: Recheck objective control after reinforcement placement
 	if MissionManager:
@@ -3481,10 +3511,18 @@ func get_available_actions() -> Array:
 			var reserve_name = reserve_unit.get("meta", {}).get("name", reserve_unit_id)
 			var reserve_type = reserve_unit.get("reserve_type", "strategic_reserves")
 			var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Reserves"
+
+			# P2-80: Flag units that can choose between Deep Strike and Strategic Reserves placement
+			var has_ds_choice = false
+			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(reserve_unit_id):
+				has_ds_choice = true
+				type_label = "Reserves (DS/SR choice)"
+
 			actions.append({
 				"type": "PLACE_REINFORCEMENT",
 				"unit_id": reserve_unit_id,
-				"description": "Arrive from %s: %s" % [type_label, reserve_name]
+				"description": "Arrive from %s: %s" % [type_label, reserve_name],
+				"has_ds_choice": has_ds_choice
 			})
 
 	for unit_id in units:

@@ -3798,91 +3798,133 @@ static func _decide_reserves_arrival(snapshot: Dictionary, reinforcement_actions
 		var reserve_type = candidate.reserve_type
 		var unit_name = candidate.name
 
-		# Compute valid placement positions
-		var positions = _compute_reinforcement_positions(
-			unit, unit_id, reserve_type, snapshot, player, objectives, enemies, enemy_model_positions, battle_round
-		)
-
-		if positions.is_empty():
-			print("AIDecisionMaker: [RESERVES]   %s — no valid placement found, skipping" % unit_name)
-			continue
-
-		# Generate model formation around the chosen centroid
-		var models = unit.get("models", [])
-		var alive_count = 0
-		for m in models:
-			if m.get("alive", true):
-				alive_count += 1
-
-		var first_model = models[0] if models.size() > 0 else {}
-		var base_mm = first_model.get("base_mm", 32)
-		var base_type = first_model.get("base_type", "circular")
-		var base_dimensions = first_model.get("base_dimensions", {})
-
-		# Use a generous zone bounds for formation generation (the whole board minus margins)
-		var placement_bounds = _get_reinforcement_zone_bounds(reserve_type, player, snapshot, battle_round)
-		var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
-
-		# Resolve collisions with existing models
-		var deployed_models = _get_all_deployed_model_positions(snapshot)
-		model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
-
-		# Validate all positions satisfy the 9" enemy distance rule AND unit coherency
-		var all_valid = true
-		for pos in model_positions:
-			if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
-				all_valid = false
-				break
-		if all_valid and not _check_formation_coherency(model_positions, base_mm):
-			print("AIDecisionMaker: [RESERVES]   %s — formation at candidate 0 fails coherency, trying alternates" % unit_name)
-			all_valid = false
-
-		if not all_valid:
-			# Try alternate positions from our candidate list
-			var found_valid = false
-			for pi in range(1, positions.size()):
-				model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
-				model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
-				var valid = true
-				for pos in model_positions:
-					if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, player, battle_round):
-						valid = false
-						break
-				if valid and not _check_formation_coherency(model_positions, base_mm):
-					print("AIDecisionMaker: [RESERVES]   %s — formation at candidate %d fails coherency" % [unit_name, pi])
-					valid = false
-				if valid:
-					found_valid = true
+		# P2-80: If unit is in strategic reserves but has Deep Strike, try both placement types
+		# and pick the one with the best tactical result (more candidates = more flexibility)
+		var placement_types_to_try = [reserve_type]
+		if reserve_type == "strategic_reserves":
+			var has_ds = false
+			var abilities = unit.get("meta", {}).get("abilities", [])
+			for ability in abilities:
+				if ability is Dictionary and ability.get("name", "") == "Deep Strike":
+					has_ds = true
 					break
-			if not found_valid:
-				print("AIDecisionMaker: [RESERVES]   %s — no valid formation placement, skipping" % unit_name)
+				elif ability is String and ability == "Deep Strike":
+					has_ds = true
+					break
+			if has_ds:
+				# Try deep strike first (more flexible), then strategic reserves as fallback
+				placement_types_to_try = ["deep_strike", "strategic_reserves"]
+				print("AIDecisionMaker: [RESERVES] P2-80 — %s has Deep Strike from Strategic Reserves, trying both placement types" % unit_name)
+
+		var best_placement_result = {}
+		for try_type in placement_types_to_try:
+			# Compute valid placement positions for this placement type
+			var positions = _compute_reinforcement_positions(
+				unit, unit_id, try_type, snapshot, player, objectives, enemies, enemy_model_positions, battle_round
+			)
+
+			if positions.is_empty():
+				print("AIDecisionMaker: [RESERVES]   %s (%s) — no valid placement found" % [unit_name, try_type])
 				continue
 
-		# Build the full model_positions array (including dead models as null)
-		var full_positions = []
-		var alive_idx = 0
-		for i in range(models.size()):
-			if models[i].get("alive", true) and alive_idx < model_positions.size():
-				full_positions.append(model_positions[alive_idx])
-				alive_idx += 1
-			else:
-				full_positions.append(null)
+			# Generate model formation around the chosen centroid
+			var models = unit.get("models", [])
+			var alive_count = 0
+			for m in models:
+				if m.get("alive", true):
+					alive_count += 1
 
-		var rotations = []
-		for i in range(models.size()):
-			rotations.append(0.0)
+			var first_model = models[0] if models.size() > 0 else {}
+			var base_mm = first_model.get("base_mm", 32)
+			var base_type = first_model.get("base_type", "circular")
+			var base_dimensions = first_model.get("base_dimensions", {})
 
-		var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+			# Use a generous zone bounds for formation generation (the whole board minus margins)
+			var placement_bounds = _get_reinforcement_zone_bounds(try_type, player, snapshot, battle_round)
+			var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
+
+			# Resolve collisions with existing models
+			var deployed_models = _get_all_deployed_model_positions(snapshot)
+			model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+
+			# Validate all positions satisfy the 9" enemy distance rule AND unit coherency
+			var all_valid = true
+			for pos in model_positions:
+				if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round):
+					all_valid = false
+					break
+			if all_valid and not _check_formation_coherency(model_positions, base_mm):
+				print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate 0 fails coherency, trying alternates" % [unit_name, try_type])
+				all_valid = false
+
+			if not all_valid:
+				# Try alternate positions from our candidate list
+				var found_valid = false
+				for pi in range(1, positions.size()):
+					model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
+					model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+					var valid = true
+					for pos in model_positions:
+						if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, try_type, placement_bounds, snapshot, player, battle_round):
+							valid = false
+							break
+					if valid and not _check_formation_coherency(model_positions, base_mm):
+						print("AIDecisionMaker: [RESERVES]   %s (%s) — formation at candidate %d fails coherency" % [unit_name, try_type, pi])
+						valid = false
+					if valid:
+						found_valid = true
+						break
+				if not found_valid:
+					print("AIDecisionMaker: [RESERVES]   %s (%s) — no valid formation placement" % [unit_name, try_type])
+					continue
+
+			# Build the full model_positions array (including dead models as null)
+			var full_positions = []
+			var alive_idx = 0
+			for i in range(models.size()):
+				if models[i].get("alive", true) and alive_idx < model_positions.size():
+					full_positions.append(model_positions[alive_idx])
+					alive_idx += 1
+				else:
+					full_positions.append(null)
+
+			var rotations = []
+			for i in range(models.size()):
+				rotations.append(0.0)
+
+			# Found valid placement — use it
+			# For DS units from SR (P2-80), prefer deep strike (tried first) as it's more flexible
+			best_placement_result = {
+				"full_positions": full_positions,
+				"rotations": rotations,
+				"placement_type": try_type,
+				"centroid": positions[0]
+			}
+			break  # Use the first successful placement type
+
+		if best_placement_result.is_empty():
+			print("AIDecisionMaker: [RESERVES]   %s — no valid formation placement with any placement type, skipping" % unit_name)
+			continue
+
+		var chosen_type = best_placement_result.placement_type
+		var type_label = "Deep Strike" if chosen_type == "deep_strike" else "Strategic Reserves"
+		var centroid = best_placement_result.centroid
 		print("AIDecisionMaker: [RESERVES] Deploying %s via %s at (%.0f, %.0f)" % [
-			unit_name, type_label, positions[0].x, positions[0].y])
+			unit_name, type_label, centroid.x, centroid.y])
+		if chosen_type != reserve_type:
+			print("AIDecisionMaker: [RESERVES] P2-80 — Used %s rules instead of %s" % [type_label, "Strategic Reserves" if reserve_type == "strategic_reserves" else "Deep Strike"])
 
-		return {
+		var result = {
 			"type": "PLACE_REINFORCEMENT",
 			"unit_id": unit_id,
-			"model_positions": full_positions,
-			"model_rotations": rotations,
+			"model_positions": best_placement_result.full_positions,
+			"model_rotations": best_placement_result.rotations,
 			"_ai_description": "%s arrives from %s" % [unit_name, type_label]
 		}
+		# P2-80: Include placement_type override if different from reserve_type
+		if chosen_type != reserve_type:
+			result["placement_type"] = chosen_type
+		return result
 
 	print("AIDecisionMaker: [RESERVES] No reserve units could be deployed this turn")
 	return {}
@@ -14787,44 +14829,62 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 		var reserve_type = candidate.reserve_type
 		var unit_name = candidate.name
 
-		# Try to compute valid placement positions
-		var positions = _compute_reinforcement_positions(
-			unit, unit_id, reserve_type, snapshot, defending_player, objectives, enemies, enemy_model_positions, battle_round
-		)
+		# P2-80: If unit is in strategic reserves but has Deep Strike, try both placement types
+		var ri_placement_types = [reserve_type]
+		if reserve_type == "strategic_reserves":
+			var has_ds = false
+			var abilities = unit.get("meta", {}).get("abilities", [])
+			for ability in abilities:
+				if ability is Dictionary and ability.get("name", "") == "Deep Strike":
+					has_ds = true
+					break
+				elif ability is String and ability == "Deep Strike":
+					has_ds = true
+					break
+			if has_ds:
+				ri_placement_types = ["deep_strike", "strategic_reserves"]
+				print("AIDecisionMaker: [RAPID INGRESS] P2-80 — %s has Deep Strike from Strategic Reserves, trying both placement types" % unit_name)
 
-		if positions.is_empty():
-			print("AIDecisionMaker: [RAPID INGRESS]   %s — no valid placement found" % unit_name)
-			continue
+		var ri_best_result = {}
+		for ri_try_type in ri_placement_types:
+			# Try to compute valid placement positions
+			var positions = _compute_reinforcement_positions(
+				unit, unit_id, ri_try_type, snapshot, defending_player, objectives, enemies, enemy_model_positions, battle_round
+			)
 
-		# Generate model formation around the chosen centroid
-		var models = unit.get("models", [])
-		var alive_count = 0
-		for m in models:
-			if m.get("alive", true):
-				alive_count += 1
+			if positions.is_empty():
+				print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — no valid placement found" % [unit_name, ri_try_type])
+				continue
 
-		var first_model = models[0] if models.size() > 0 else {}
-		var base_mm = first_model.get("base_mm", 32)
-		var base_type = first_model.get("base_type", "circular")
-		var base_dimensions = first_model.get("base_dimensions", {})
+			# Generate model formation around the chosen centroid
+			var models = unit.get("models", [])
+			var alive_count = 0
+			for m in models:
+				if m.get("alive", true):
+					alive_count += 1
 
-		var placement_bounds = _get_reinforcement_zone_bounds(reserve_type, defending_player, snapshot, battle_round)
-		var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
+			var first_model = models[0] if models.size() > 0 else {}
+			var base_mm = first_model.get("base_mm", 32)
+			var base_type = first_model.get("base_type", "circular")
+			var base_dimensions = first_model.get("base_dimensions", {})
 
-		var deployed_models = _get_all_deployed_model_positions(snapshot)
-		model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
+			var placement_bounds = _get_reinforcement_zone_bounds(ri_try_type, defending_player, snapshot, battle_round)
+			var model_positions = _generate_formation_positions(positions[0], alive_count, base_mm, placement_bounds)
 
-		# Validate all positions satisfy the 9" enemy distance rule
-		var all_valid = true
-		for pos in model_positions:
-			if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, reserve_type, placement_bounds, snapshot, defending_player, battle_round):
-				all_valid = false
-				break
+			var deployed_models = _get_all_deployed_model_positions(snapshot)
+			model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 
-		if not all_valid:
-			# Try alternate positions from our candidate list
-			var found_valid = false
-			for pi in range(1, positions.size()):
+			# Validate all positions satisfy the 9" enemy distance rule
+			var all_valid = true
+			for pos in model_positions:
+				if not _is_valid_reinforcement_position(pos, base_mm, enemy_model_positions, ri_try_type, placement_bounds, snapshot, defending_player, battle_round):
+					all_valid = false
+					break
+
+			if not all_valid:
+				# Try alternate positions from our candidate list
+				var found_valid = false
+				for pi in range(1, positions.size()):
 				model_positions = _generate_formation_positions(positions[pi], alive_count, base_mm, placement_bounds)
 				model_positions = _resolve_formation_collisions(model_positions, base_mm, deployed_models, placement_bounds, base_type, base_dimensions)
 				var valid = true
@@ -14836,38 +14896,58 @@ static func evaluate_rapid_ingress(defending_player: int, eligible_units: Array,
 					found_valid = true
 					break
 			if not found_valid:
-				print("AIDecisionMaker: [RAPID INGRESS]   %s — no valid formation placement" % unit_name)
+				print("AIDecisionMaker: [RAPID INGRESS]   %s (%s) — no valid formation placement" % [unit_name, ri_try_type])
 				continue
 
-		# Build the full model_positions array (including dead models as null)
-		var full_positions = []
-		var alive_idx = 0
-		for i in range(models.size()):
-			if models[i].get("alive", true) and alive_idx < model_positions.size():
-				full_positions.append(model_positions[alive_idx])
-				alive_idx += 1
-			else:
-				full_positions.append(null)
+			# Build the full model_positions array (including dead models as null)
+			var ri_full_positions = []
+			var ri_alive_idx = 0
+			for i in range(models.size()):
+				if models[i].get("alive", true) and ri_alive_idx < model_positions.size():
+					ri_full_positions.append(model_positions[ri_alive_idx])
+					ri_alive_idx += 1
+				else:
+					ri_full_positions.append(null)
 
-		var rotations = []
-		for i in range(models.size()):
-			rotations.append(0.0)
+			var ri_rotations = []
+			for i in range(models.size()):
+				ri_rotations.append(0.0)
 
-		var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+			ri_best_result = {
+				"full_positions": ri_full_positions,
+				"rotations": ri_rotations,
+				"placement_type": ri_try_type,
+				"centroid": positions[0]
+			}
+			break  # Use the first successful placement type
+
+		if ri_best_result.is_empty():
+			print("AIDecisionMaker: [RAPID INGRESS]   %s — no valid placement with any placement type" % unit_name)
+			continue
+
+		var ri_chosen_type = ri_best_result.placement_type
+		var type_label = "Deep Strike" if ri_chosen_type == "deep_strike" else "Strategic Reserves"
 		print("AIDecisionMaker: [RAPID INGRESS] Using Rapid Ingress for %s via %s at (%.0f, %.0f)" % [
-			unit_name, type_label, positions[0].x, positions[0].y])
+			unit_name, type_label, ri_best_result.centroid.x, ri_best_result.centroid.y])
+		if ri_chosen_type != reserve_type:
+			print("AIDecisionMaker: [RAPID INGRESS] P2-80 — Used %s rules instead of %s" % [type_label, "Strategic Reserves" if reserve_type == "strategic_reserves" else "Deep Strike"])
+
+		var ri_placement_action = {
+			"type": "PLACE_RAPID_INGRESS_REINFORCEMENT",
+			"unit_id": unit_id,
+			"model_positions": ri_best_result.full_positions,
+			"model_rotations": ri_best_result.rotations,
+			"_ai_description": "Rapid Ingress placement — %s via %s" % [unit_name, type_label]
+		}
+		# P2-80: Include placement_type override if different from reserve_type
+		if ri_chosen_type != reserve_type:
+			ri_placement_action["placement_type"] = ri_chosen_type
 
 		return {
 			"type": "USE_RAPID_INGRESS",
 			"unit_id": unit_id,
 			"_ai_description": "AI uses Rapid Ingress — %s arrives from %s" % [unit_name, type_label],
-			"_placement_action": {
-				"type": "PLACE_RAPID_INGRESS_REINFORCEMENT",
-				"unit_id": unit_id,
-				"model_positions": full_positions,
-				"model_rotations": rotations,
-				"_ai_description": "Rapid Ingress placement — %s via %s" % [unit_name, type_label]
-			}
+			"_placement_action": ri_placement_action
 		}
 
 	print("AIDecisionMaker: [RAPID INGRESS] No suitable unit found — declining")

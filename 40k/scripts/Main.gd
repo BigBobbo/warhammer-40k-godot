@@ -114,6 +114,7 @@ var _phase_timer_last_warning: int = -1
 var reserves_button: Button = null
 var reinforcements_button: Button = null
 var _selected_unit_for_reserves: String = ""
+var _reinforcement_placement_type: String = ""  # P2-80: chosen placement type (deep_strike or strategic_reserves)
 
 # Deployment zone toggle (Z key) - allows viewing zones after deployment phase
 var _deployment_zones_toggled_on: bool = false
@@ -1422,6 +1423,26 @@ func _on_reserves_button_pressed() -> void:
 	refresh_unit_list()
 	update_ui()
 
+func _show_deep_strike_placement_dialog(unit_id: String) -> void:
+	"""P2-80: Show dialog for choosing between Deep Strike and Strategic Reserves placement rules."""
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	print("Main: P2-80 — Showing DeepStrikePlacementDialog for %s" % unit_name)
+
+	var dialog = load("res://40k/dialogs/DeepStrikePlacementDialog.gd").new()
+	add_child(dialog)
+	dialog.setup(unit_id, unit_name)
+	dialog.placement_chosen.connect(_on_deep_strike_placement_chosen)
+	dialog.popup_centered()
+
+func _on_deep_strike_placement_chosen(unit_id: String, placement_type: String) -> void:
+	"""P2-80: Handle player's choice of placement type."""
+	print("Main: P2-80 — Player chose %s placement for %s" % [placement_type, unit_id])
+	_reinforcement_placement_type = placement_type
+	_begin_reinforcement_placement(unit_id)
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
@@ -1430,7 +1451,10 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
-	var type_label = "Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"
+
+	# P2-80: Use the chosen placement type if available, otherwise default to reserve_type
+	var placement_type = _reinforcement_placement_type if _reinforcement_placement_type != "" else reserve_type
+	var type_label = "Deep Strike" if placement_type == "deep_strike" else "Strategic Reserves"
 
 	print("Main: Beginning reinforcement placement for %s (%s)" % [unit_name, type_label])
 
@@ -1438,6 +1462,8 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 	if deployment_controller:
 		# Set reinforcement mode flag on deployment controller
 		deployment_controller.is_reinforcement_mode = true
+		# P2-80: Store placement type override on the controller for real-time validation
+		deployment_controller.reinforcement_placement_type = placement_type
 
 		# Temporarily set unit status to DEPLOYING so the controller can work with it
 		if has_node("/root/PhaseManager"):
@@ -1470,7 +1496,8 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 			deployment_controller.unit_confirmed.connect(_on_reinforcement_confirmed)
 
 		status_label.text = "Placing reinforcement: %s (%s) — >9\" from enemies" % [unit_name, type_label]
-		if reserve_type == "strategic_reserves":
+		# P2-80: Show board edge constraint only for strategic reserves placement
+		if placement_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
 		# Check for enemy Omni-scramblers creating 12" denial zones
 		var active_player = GameState.get_active_player()
@@ -1513,6 +1540,7 @@ func _on_reinforcement_confirmed() -> void:
 			}])
 
 	# Create the reinforcement action
+	# P2-80: Include placement_type if it differs from the unit's reserve_type
 	var action = {
 		"type": "PLACE_REINFORCEMENT",
 		"unit_id": unit_id,
@@ -1521,6 +1549,8 @@ func _on_reinforcement_confirmed() -> void:
 		"phase": GameStateData.Phase.MOVEMENT,
 		"timestamp": Time.get_unix_time_from_system()
 	}
+	if _reinforcement_placement_type != "":
+		action["placement_type"] = _reinforcement_placement_type
 
 	var result = NetworkIntegration.route_action(action)
 
@@ -1539,10 +1569,12 @@ func _on_reinforcement_confirmed() -> void:
 		print("Main: Reinforcement placement failed: %s" % str(errors))
 
 	_selected_unit_for_reserves = ""
+	_reinforcement_placement_type = ""  # P2-80: Clear placement type choice
 
 	# Reset reinforcement mode
 	if deployment_controller:
 		deployment_controller.is_reinforcement_mode = false
+		deployment_controller.reinforcement_placement_type = ""  # P2-80: Clear
 
 	# Disconnect reinforcement signal
 	if deployment_controller.unit_confirmed.is_connected(_on_reinforcement_confirmed):
@@ -4118,7 +4150,13 @@ func _on_unit_selected(index: int) -> void:
 		var selected_unit = GameState.get_unit(unit_id)
 		if selected_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 			print("Main: Reserve unit selected for reinforcement: ", unit_id)
-			_begin_reinforcement_placement(unit_id)
+			# P2-80: If unit has Deep Strike but is in Strategic Reserves, offer choice
+			var reserve_type = selected_unit.get("reserve_type", "strategic_reserves")
+			if reserve_type == "strategic_reserves" and GameState.unit_has_deep_strike(unit_id):
+				print("Main: P2-80 — Unit has Deep Strike from Strategic Reserves, showing placement choice dialog")
+				_show_deep_strike_placement_dialog(unit_id)
+			else:
+				_begin_reinforcement_placement(unit_id)
 			return
 
 		# Check if unit is embarked - route to disembark flow instead of normal move
