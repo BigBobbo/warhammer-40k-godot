@@ -391,10 +391,16 @@ func _validate_select_shooter(action: Dictionary) -> Dictionary:
 	
 	if not _can_unit_shoot(unit):
 		return {"valid": false, "errors": ["Unit cannot shoot"]}
-	
+
 	if unit_id in units_that_shot:
 		return {"valid": false, "errors": ["Unit has already shot this phase"]}
-	
+
+	# P3-96: "Unless at least one model in a unit has an eligible target,
+	# that unit cannot be selected to shoot." (SHOOT-7)
+	if not _has_eligible_targets(unit_id):
+		print("ShootingPhase: P3-96 Unit %s cannot be selected to shoot — no eligible targets" % unit_id)
+		return {"valid": false, "errors": ["Unit has no eligible targets to shoot"]}
+
 	return {"valid": true, "errors": []}
 
 func _validate_assign_target(action: Dictionary) -> Dictionary:
@@ -2617,6 +2623,20 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 	
 	return has_alive
 
+func _has_eligible_targets(unit_id: String) -> bool:
+	"""P3-96: Check if a unit has at least one eligible shooting target.
+	Also returns true if the unit has Throat Slittas targets (alternative to shooting)."""
+	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
+	if not eligible_targets.is_empty():
+		return true
+	# Check for Throat Slittas alternative (mortal wounds within 9")
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr and ability_mgr.has_throat_slittas_ability(unit_id):
+		var ts_targets = _get_throat_slittas_targets(unit_id)
+		if not ts_targets.is_empty():
+			return true
+	return false
+
 func _unit_has_pistol_weapons(unit: Dictionary) -> bool:
 	"""Check if unit has any Pistol weapons (used for engagement range shooting)"""
 	# Find the unit_id by searching through game state units
@@ -3149,17 +3169,24 @@ func get_available_actions() -> Array:
 	for unit_id in units:
 		var unit = units[unit_id]
 		if _can_unit_shoot(unit) and unit_id not in units_that_shot:
-			actions.append({
-				"type": "SELECT_SHOOTER",
-				"actor_unit_id": unit_id,
-				"description": "Select %s for shooting" % unit.get("meta", {}).get("name", unit_id)
-			})
+			# P3-96: "Unless at least one model in a unit has an eligible target,
+			# that unit cannot be selected to shoot." (SHOOT-7)
+			# Only gate SELECT_SHOOTER/SKIP_UNIT — secondary actions (mission actions,
+			# burn, ritual, terraform) are still available without eligible targets.
+			var has_targets = _has_eligible_targets(unit_id)
 
-			actions.append({
-				"type": "SKIP_UNIT",
-				"actor_unit_id": unit_id,
-				"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
-			})
+			if has_targets:
+				actions.append({
+					"type": "SELECT_SHOOTER",
+					"actor_unit_id": unit_id,
+					"description": "Select %s for shooting" % unit.get("meta", {}).get("name", unit_id)
+				})
+
+				actions.append({
+					"type": "SKIP_UNIT",
+					"actor_unit_id": unit_id,
+					"description": "Skip shooting for %s" % unit.get("meta", {}).get("name", unit_id)
+				})
 
 			# Check if unit qualifies for a secondary action
 			var action_options = _get_secondary_action_options(unit_id)
