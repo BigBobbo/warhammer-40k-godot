@@ -6,6 +6,20 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 # ScoringPhase - Handles end-of-turn scoring including secondary missions
 # and provides "End Turn" functionality to switch between players
+#
+# P3-103: Objective Control Timing (10e Core Rules)
+# ================================================
+# Per 10th edition: "A player controls an objective marker at the end of any phase or turn."
+# Objective control is rechecked at these key points:
+#   1. CommandPhase entry — snapshot for secondary missions + OC state
+#   2. MovementPhase — after each unit move/reinforcement (real-time UI feedback)
+#   3. ShootingPhase exit — after unit casualties change OC balance
+#   4. ChargePhase — after each successful charge move
+#   5. FightPhase exit — after unit casualties change OC balance
+#   6. ScoringPhase entry — final recheck before secondary mission scoring
+#
+# Primary scoring happens at the end of the Command phase (CommandPhase._handle_end_command()),
+# which matches the rules: "Score VP by controlling objectives at the end of your Command phase."
 
 # Store secondary mission scoring results for UI display
 var _secondary_results: Array = []

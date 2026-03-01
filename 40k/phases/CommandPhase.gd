@@ -1549,7 +1549,9 @@ func _handle_end_command() -> Dictionary:
 
 	print("CommandPhase: Player %d ending command phase" % current_player)
 
-	# Score primary objectives before ending phase
+	# P3-103: Score primary objectives at the end of the Command phase
+	# Per 10e rules: primary mission scoring occurs "at the end of your Command phase"
+	# check_all_objectives() was already called at phase entry (line 78) so control state is current
 	if MissionManager:
 		MissionManager.score_primary_objectives()
 
