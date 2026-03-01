@@ -91,6 +91,8 @@ func _draw() -> void:
 	# Y offset for dice (below label)
 	var y_offset = 16.0
 
+	var use_retro = SettingsService.retro_mode if SettingsService else false
+
 	# Draw each die
 	for i in range(_dice_data.size()):
 		var die = _dice_data[i]
@@ -112,47 +114,86 @@ func _draw() -> void:
 
 		bg_color.a = alpha
 
-		# Draw rounded rect background
-		var style = StyleBoxFlat.new()
-		style.bg_color = bg_color
-		style.set_corner_radius_all(DIE_CORNER_RADIUS)
-		style.set_border_width_all(1)
-		style.border_color = Color(0.0, 0.0, 0.0, alpha * 0.5)
-		draw_style_box(style, rect)
+		if use_retro:
+			# Retro pixel dice: sharp corners, pixel pip dots instead of text
+			# Outer border (2px thick)
+			draw_rect(rect, Color(0.0, 0.0, 0.0, alpha * 0.7))
+			var inner = Rect2(x + 2, y + 2, DIE_SIZE - 4, DIE_SIZE - 4)
+			draw_rect(inner, bg_color)
 
-		# Draw die value text centered
-		var font = ThemeDB.fallback_font
-		var font_size = 16
-		var text = str(die.display_value)
-		var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-		var text_x = x + (DIE_SIZE - text_size.x) * 0.5
-		var text_y = y + (DIE_SIZE + text_size.y * 0.65) * 0.5
-
-		# Use dark text on gold dice for better readability
-		var text_color: Color
-		if die.settled and die.value == 6:
-			text_color = Color(COLOR_DIE_TEXT_DARK, alpha)
+			# Draw pixel pip dots instead of number text
+			var pip_color: Color
+			if die.settled and die.value == 6:
+				pip_color = Color(COLOR_DIE_TEXT_DARK, alpha)
+			else:
+				pip_color = Color(COLOR_DIE_TEXT, alpha)
+			_draw_pixel_pips(x, y, die.display_value, pip_color)
 		else:
-			text_color = Color(COLOR_DIE_TEXT, alpha)
+			# Standard rounded dice
+			var style = StyleBoxFlat.new()
+			style.bg_color = bg_color
+			style.set_corner_radius_all(DIE_CORNER_RADIUS)
+			style.set_border_width_all(1)
+			style.border_color = Color(0.0, 0.0, 0.0, alpha * 0.5)
+			draw_style_box(style, rect)
 
-		# Slight bounce scale for just-settled dice
-		if die.settled and _is_animating:
-			# Draw a subtle glow for criticals
-			if die.value == 6:
-				var glow_rect = Rect2(x - 2, y - 2, DIE_SIZE + 4, DIE_SIZE + 4)
-				var glow_style = StyleBoxFlat.new()
-				glow_style.bg_color = Color(1.0, 0.84, 0.0, alpha * 0.3)
-				glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 2)
-				draw_style_box(glow_style, glow_rect)
+			# Draw die value text centered
+			var font = ThemeDB.fallback_font
+			var font_size = 16
+			var text = str(die.display_value)
+			var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+			var text_x = x + (DIE_SIZE - text_size.x) * 0.5
+			var text_y = y + (DIE_SIZE + text_size.y * 0.65) * 0.5
 
-		draw_string(font, Vector2(text_x, text_y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+			# Use dark text on gold dice for better readability
+			var text_color: Color
+			if die.settled and die.value == 6:
+				text_color = Color(COLOR_DIE_TEXT_DARK, alpha)
+			else:
+				text_color = Color(COLOR_DIE_TEXT, alpha)
 
-		# Draw pip dots in corners for settled dice (optional subtle detail)
-		if die.settled and die.value == 1:
-			# Draw X through the die for natural 1s
-			var line_color = Color(1.0, 1.0, 1.0, alpha * 0.3)
-			draw_line(Vector2(x + 4, y + 4), Vector2(x + DIE_SIZE - 4, y + DIE_SIZE - 4), line_color, 1.0)
-			draw_line(Vector2(x + DIE_SIZE - 4, y + 4), Vector2(x + 4, y + DIE_SIZE - 4), line_color, 1.0)
+			# Slight bounce scale for just-settled dice
+			if die.settled and _is_animating:
+				# Draw a subtle glow for criticals
+				if die.value == 6:
+					var glow_rect = Rect2(x - 2, y - 2, DIE_SIZE + 4, DIE_SIZE + 4)
+					var glow_style = StyleBoxFlat.new()
+					glow_style.bg_color = Color(1.0, 0.84, 0.0, alpha * 0.3)
+					glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 2)
+					draw_style_box(glow_style, glow_rect)
+
+			draw_string(font, Vector2(text_x, text_y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
+			# Draw pip dots in corners for settled dice (optional subtle detail)
+			if die.settled and die.value == 1:
+				# Draw X through the die for natural 1s
+				var line_color = Color(1.0, 1.0, 1.0, alpha * 0.3)
+				draw_line(Vector2(x + 4, y + 4), Vector2(x + DIE_SIZE - 4, y + DIE_SIZE - 4), line_color, 1.0)
+				draw_line(Vector2(x + DIE_SIZE - 4, y + 4), Vector2(x + 4, y + DIE_SIZE - 4), line_color, 1.0)
+
+func _draw_pixel_pips(x: float, y: float, value: int, color: Color) -> void:
+	# Draw pixel-art pip dots on a die face (like real dice pips)
+	var pip_size = 4.0
+	var cx = x + DIE_SIZE * 0.5
+	var cy = y + DIE_SIZE * 0.5
+	var offset = DIE_SIZE * 0.25
+
+	# Center pip
+	if value == 1 or value == 3 or value == 5:
+		draw_rect(Rect2(cx - pip_size / 2, cy - pip_size / 2, pip_size, pip_size), color)
+	# Top-left and bottom-right
+	if value >= 2:
+		draw_rect(Rect2(cx - offset - pip_size / 2, cy - offset - pip_size / 2, pip_size, pip_size), color)
+		draw_rect(Rect2(cx + offset - pip_size / 2, cy + offset - pip_size / 2, pip_size, pip_size), color)
+	# Top-right and bottom-left
+	if value >= 4:
+		draw_rect(Rect2(cx + offset - pip_size / 2, cy - offset - pip_size / 2, pip_size, pip_size), color)
+		draw_rect(Rect2(cx - offset - pip_size / 2, cy + offset - pip_size / 2, pip_size, pip_size), color)
+	# Middle-left and middle-right
+	if value == 6:
+		draw_rect(Rect2(cx - offset - pip_size / 2, cy - pip_size / 2, pip_size, pip_size), color)
+		draw_rect(Rect2(cx + offset - pip_size / 2, cy - pip_size / 2, pip_size, pip_size), color)
+
 
 func show_dice_roll(dice_data: Dictionary) -> void:
 	var context = dice_data.get("context", "")

@@ -67,6 +67,9 @@ var _opponent_zone_pulse_tween: Tween = null
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
 
+# Retro CRT overlay
+var _crt_overlay: ColorRect = null
+
 # T7-20: AI thinking indicator overlay
 var ai_thinking_overlay: PanelContainer = null
 var ai_thinking_label: Label = null
@@ -316,6 +319,9 @@ func _ready() -> void:
 
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
+
+	# Setup retro CRT overlay (starts hidden unless retro_mode is already on)
+	_setup_crt_overlay()
 
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
@@ -3008,6 +3014,12 @@ func connect_signals() -> void:
 	
 
 func _input(event: InputEvent) -> void:
+	# Retro mode toggle - KEY_8
+	if event is InputEventKey and event.pressed and event.keycode == KEY_8:
+		_toggle_retro_mode()
+		get_viewport().set_input_as_handled()
+		return
+
 	# Debug mode toggle - highest priority
 	if event is InputEventKey and event.pressed and event.keycode == KEY_9:
 		print("Debug mode key (9) pressed!")
@@ -6534,3 +6546,67 @@ func _replay_refresh_visuals() -> void:
 		active_player_badge.text = "P%d" % GameState.get_active_player()
 
 	_replay_refresh_pending = false
+
+
+# --- Retro CRT Overlay ---
+
+func _setup_crt_overlay() -> void:
+	# Create a full-screen ColorRect on a high-z CanvasLayer for the CRT shader
+	var crt_layer = CanvasLayer.new()
+	crt_layer.name = "CRTLayer"
+	crt_layer.layer = 100  # Above everything
+	add_child(crt_layer)
+
+	_crt_overlay = ColorRect.new()
+	_crt_overlay.name = "CRTOverlay"
+	_crt_overlay.anchor_left = 0.0
+	_crt_overlay.anchor_top = 0.0
+	_crt_overlay.anchor_right = 1.0
+	_crt_overlay.anchor_bottom = 1.0
+	_crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Load and apply the CRT shader
+	var shader = load("res://shaders/crt_retro.gdshader")
+	if shader:
+		var mat = ShaderMaterial.new()
+		mat.shader = shader
+		_crt_overlay.material = mat
+		DebugLogger.info("[Main] CRT retro shader loaded")
+	else:
+		DebugLogger.info("[Main] WARNING: Could not load CRT retro shader")
+
+	crt_layer.add_child(_crt_overlay)
+
+	# Start hidden unless retro mode is already enabled
+	_crt_overlay.visible = SettingsService.retro_mode if SettingsService else false
+
+	# Connect to settings signal for external changes
+	if SettingsService:
+		SettingsService.retro_mode_changed.connect(_on_retro_mode_changed)
+
+	print("Main: CRT retro overlay initialized (visible=%s)" % str(_crt_overlay.visible))
+
+
+func _toggle_retro_mode() -> void:
+	if not SettingsService:
+		return
+	SettingsService.set_retro_mode(!SettingsService.retro_mode)
+
+
+func _on_retro_mode_changed(enabled: bool) -> void:
+	if _crt_overlay:
+		_crt_overlay.visible = enabled
+
+	# Force redraw of all tokens to switch silhouette style
+	if token_layer:
+		for child in token_layer.get_children():
+			if child is Node2D:
+				for sub in child.get_children():
+					if sub.has_method("queue_redraw"):
+						sub.queue_redraw()
+
+	# Show a toast notification
+	if ToastManager and ToastManager.has_method("show_toast"):
+		var msg = "RETRO MODE ON [8]" if enabled else "RETRO MODE OFF [8]"
+		ToastManager.show_toast(msg)
+	print("Main: Retro mode %s" % ("enabled" if enabled else "disabled"))
