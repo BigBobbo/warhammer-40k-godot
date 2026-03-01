@@ -88,7 +88,7 @@ func process_action(action: Dictionary) -> Dictionary:
 			return process_end_deployment(action)
 
 		# Movement actions
-		"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK":
+		"BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK", "BEGIN_SURGE_MOVE":
 			return process_begin_move(action)
 		"SET_MODEL_DEST":
 			return process_set_model_dest(action)
