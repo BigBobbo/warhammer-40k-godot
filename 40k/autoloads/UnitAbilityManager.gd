@@ -17,6 +17,9 @@ extends Node
 # 1. Leader abilities ("while this model is leading a unit") - apply to the led unit
 # 2. Always-on unit abilities (Stealth, Ramshackle, etc.) - apply to the unit itself
 # 3. Conditional abilities (Waaagh!-dependent, objective-dependent) - apply when condition met
+# 4. Aura abilities (affect nearby friendly/enemy units within range) - uses edge-to-edge
+#    distance via Measurement.model_to_model_distance_inches(). Same aura from multiple
+#    sources does not stack (10th Edition rule).
 #
 # NOTE: Some abilities are already handled directly in RulesEngine without flags:
 # - Stealth: RulesEngine.has_stealth_ability() checks meta.abilities directly
@@ -32,13 +35,17 @@ extends Node
 #
 # Each entry:
 #   "name": {
-#     "condition": String,   # "while_leading", "always", "waaagh_active", "on_objective"
+#     "condition": String,   # "while_leading", "always", "waaagh_active", "on_objective", "aura"
 #     "effects": Array,      # Same format as stratagem effects: [{"type": "...", ...}]
 #     "target": String,      # "led_unit" (bodyguard unit), "unit" (self), "model" (self only)
 #     "attack_type": String, # "melee", "ranged", "all" — which attacks the effect modifies
 #     "implemented": bool,   # Whether we can fully resolve this ability
 #     "description": String  # Short description for debugging/UI
 #   }
+#
+# For aura abilities (condition == "aura"), additional fields:
+#   "aura_range": float,    # Range in inches (edge-to-edge model distance)
+#   "aura_target": String,  # "friendly", "enemy", "all" — which units are affected
 
 const ABILITY_EFFECTS: Dictionary = {
 	# ======================================================================
@@ -406,9 +413,14 @@ const ABILITY_EFFECTS: Dictionary = {
 	# Space Marines Infiltrator Squad — block enemy deep strike within 12"
 	# Not a combat effect — enforced during reinforcement placement validation in
 	# MovementPhase, DeploymentController, and AIDecisionMaker.
+	# Note: This specific aura doesn't use the flag-based effect system since it's
+	# a deployment restriction, not a combat modifier. It remains implemented via
+	# direct checks in MovementPhase/DeploymentController/AIDecisionMaker.
 	"Omni-scramblers": {
-		"condition": "passive_aura",
+		"condition": "aura",
 		"effects": [],
+		"aura_range": 12.0,
+		"aura_target": "enemy",
 		"target": "enemy_reserves",
 		"attack_type": "all",
 		"implemented": true,
@@ -517,6 +529,11 @@ var _active_ability_effects: Array = []
 # { unit_id: [ability_name1, ability_name2, ...] }
 var _applied_this_phase: Dictionary = {}
 
+# Track aura effects currently applied to units
+# Key: "target_unit_id:ability_name", Value: source_unit_id
+# Used to prevent the same aura ability from stacking from multiple sources (10th Ed rule)
+var _active_aura_effects: Dictionary = {}
+
 # Track once-per-battle ability usage
 # Key: "unit_id:ability_name", Value: true (used)
 var _once_per_battle_used: Dictionary = {}
@@ -568,6 +585,7 @@ func _apply_all_ability_effects(phase: int) -> void:
 	"""Scan all units and apply relevant ability effects as flags."""
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()
+	_active_aura_effects.clear()
 
 	var units = GameState.state.get("units", {})
 
@@ -583,6 +601,10 @@ func _apply_all_ability_effects(phase: int) -> void:
 
 		# 2. Check for always-on unit abilities
 		_apply_unit_abilities(unit_id, unit, phase)
+
+	# 3. Check for aura abilities (after all units have been scanned,
+	#    since auras affect OTHER units within range)
+	_apply_aura_abilities(phase)
 
 func _apply_leader_abilities(bodyguard_unit_id: String, bodyguard_unit: Dictionary, phase: int) -> void:
 	"""Check if this unit has attached leaders with combat-affecting abilities."""
@@ -749,6 +771,333 @@ func _apply_unit_abilities(unit_id: String, unit: Dictionary, phase: int) -> voi
 				game_event_log.add_player_entry(owner,
 					"%s ability '%s' active (%s)" % [unit_name, ability_name, desc])
 
+# ============================================================================
+# AURA ABILITIES
+# ============================================================================
+# Aura abilities affect other units within a specified range.
+# Per 10th Edition rules:
+# - A model with an Aura ability is always within range of its own Aura
+# - If a unit is within range of the same Aura ability from multiple sources,
+#   the aura only applies once (no stacking)
+# - Aura effects are checked at phase start and cleared at phase end
+
+func _apply_aura_abilities(phase: int) -> void:
+	"""Scan all units for aura abilities and apply effects to nearby units."""
+	var units = GameState.state.get("units", {})
+	var aura_count = 0
+
+	for source_unit_id in units:
+		var source_unit = units[source_unit_id]
+
+		# Skip destroyed units
+		if not _has_alive_models(source_unit):
+			continue
+
+		# Collect aura abilities from this unit AND its attached characters
+		var aura_sources = _collect_aura_sources(source_unit_id, source_unit, units)
+
+		for aura_source in aura_sources:
+			var ability_name = aura_source.ability_name
+			var effect_def = aura_source.effect_def
+			var aura_owner_unit_id = aura_source.source_unit_id  # The unit with the aura ability
+			var aura_position_unit = aura_source.position_unit   # Unit used for range measurement
+
+			# Must have effects to apply (some auras like Omni-scramblers
+			# are enforced via separate systems and have empty effects)
+			var effects = effect_def.get("effects", [])
+			if effects.is_empty():
+				continue
+
+			# Check if relevant for this phase
+			if not _is_relevant_for_phase(effect_def, phase):
+				continue
+
+			var aura_range = effect_def.get("aura_range", 6.0)
+			var aura_target = effect_def.get("aura_target", "friendly")
+			var source_owner = source_unit.get("owner", 0)
+
+			# Find units within aura range (measured from the position unit)
+			var nearby_units = _find_units_in_aura_range(aura_owner_unit_id, aura_position_unit, aura_range, aura_target, source_owner, units)
+
+			# Apply aura effects to the source unit itself if applicable
+			# (Per 10th Ed: a model is always within range of its own Aura)
+			# For attached characters, "self" means the combined unit they're part of
+			if _should_apply_aura_to_self(aura_target, source_owner, source_unit):
+				var self_key = source_unit_id + ":" + ability_name
+				if not _active_aura_effects.has(self_key):
+					_apply_aura_to_unit(source_unit_id, source_unit, ability_name, aura_owner_unit_id, effects, effect_def, phase)
+					aura_count += 1
+
+			# Apply to nearby units
+			for target_info in nearby_units:
+				var target_unit_id = target_info.unit_id
+				var aura_key = target_unit_id + ":" + ability_name
+
+				# Check stacking — same aura from multiple sources doesn't stack
+				if _active_aura_effects.has(aura_key):
+					continue
+
+				var target_unit = units.get(target_unit_id, {})
+				_apply_aura_to_unit(target_unit_id, target_unit, ability_name, aura_owner_unit_id, effects, effect_def, phase)
+				aura_count += 1
+
+	if aura_count > 0:
+		print("UnitAbilityManager: Applied %d aura effects this phase" % aura_count)
+
+func _collect_aura_sources(unit_id: String, unit: Dictionary, all_units: Dictionary) -> Array:
+	"""Collect all aura abilities from a unit and its attached characters.
+	Returns array of { ability_name, effect_def, source_unit_id, position_unit }.
+	For attached characters, the position_unit is the bodyguard unit (since the
+	character is physically part of that unit on the table)."""
+	var sources: Array = []
+
+	# Check this unit's own abilities
+	var abilities = unit.get("meta", {}).get("abilities", [])
+	for ability in abilities:
+		var ability_name = _get_ability_name(ability)
+		if ability_name == "" or ability_name == "Core":
+			continue
+
+		var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+		if effect_def.is_empty():
+			continue
+		if not effect_def.get("implemented", false):
+			continue
+		if effect_def.get("condition", "") != "aura":
+			continue
+
+		sources.append({
+			"ability_name": ability_name,
+			"effect_def": effect_def,
+			"source_unit_id": unit_id,
+			"position_unit": unit  # Range measured from this unit's models
+		})
+
+	# Check attached characters for aura abilities
+	var attachment_data = unit.get("attachment_data", {})
+	var attached_characters = attachment_data.get("attached_characters", [])
+
+	for char_id in attached_characters:
+		var char_unit = all_units.get(char_id, {})
+		if char_unit.is_empty() or not _has_alive_models(char_unit):
+			continue
+
+		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
+		for ability in char_abilities:
+			var ability_name = _get_ability_name(ability)
+			if ability_name == "" or ability_name == "Core":
+				continue
+
+			var effect_def = ABILITY_EFFECTS.get(ability_name, {})
+			if effect_def.is_empty():
+				continue
+			if not effect_def.get("implemented", false):
+				continue
+			if effect_def.get("condition", "") != "aura":
+				continue
+
+			# For an attached character, measure range from the bodyguard unit
+			# (the character is physically part of that unit on the table)
+			sources.append({
+				"ability_name": ability_name,
+				"effect_def": effect_def,
+				"source_unit_id": char_id,
+				"position_unit": unit  # Range measured from bodyguard unit
+			})
+
+	return sources
+
+func _find_units_in_aura_range(source_unit_id: String, source_unit: Dictionary,
+		aura_range: float, aura_target: String, source_owner: int,
+		all_units: Dictionary) -> Array:
+	"""Find all eligible units within aura range of the source unit.
+	Returns array of { unit_id: String, distance: float }."""
+	var results: Array = []
+
+	for other_id in all_units:
+		if other_id == source_unit_id:
+			continue
+
+		var other_unit = all_units[other_id]
+
+		# Skip destroyed units
+		if not _has_alive_models(other_unit):
+			continue
+
+		# Skip embarked units (they are inside transports, not on the board)
+		if other_unit.get("embarked_in", "") != "":
+			continue
+
+		# Check ownership filter
+		var other_owner = other_unit.get("owner", 0)
+		if aura_target == "friendly" and other_owner != source_owner:
+			continue
+		if aura_target == "enemy" and other_owner == source_owner:
+			continue
+		# "all" applies to both friendly and enemy
+
+		# Calculate closest model-to-model distance (edge-to-edge)
+		var min_dist = _closest_model_distance(source_unit, other_unit)
+		if min_dist <= aura_range:
+			results.append({ "unit_id": other_id, "distance": min_dist })
+
+	return results
+
+func _should_apply_aura_to_self(aura_target: String, source_owner: int, source_unit: Dictionary) -> bool:
+	"""Check if the aura should apply to its own source unit.
+	Per 10th Ed rules, a model is always within range of its own Aura ability."""
+	# Auras targeting "friendly" or "all" apply to the source unit itself
+	if aura_target == "friendly" or aura_target == "all":
+		return true
+	# Enemy auras don't apply to the source unit
+	return false
+
+func _apply_aura_to_unit(target_unit_id: String, target_unit: Dictionary,
+		ability_name: String, source_unit_id: String,
+		effects: Array, effect_def: Dictionary, _phase: int) -> void:
+	"""Apply aura effects to a single target unit."""
+	var diffs = EffectPrimitivesData.apply_effects(effects, target_unit_id)
+	if diffs.is_empty():
+		return
+
+	PhaseManager.apply_state_changes(diffs)
+
+	# Track the aura effect (for anti-stacking and cleanup)
+	var aura_key = target_unit_id + ":" + ability_name
+	_active_aura_effects[aura_key] = source_unit_id
+
+	# Track as active ability effect (for phase cleanup)
+	_active_ability_effects.append({
+		"ability_name": ability_name,
+		"source_unit_id": source_unit_id,
+		"target_unit_id": target_unit_id,
+		"effects": effects,
+		"attack_type": effect_def.get("attack_type", "all"),
+		"condition": "aura"
+	})
+
+	if not _applied_this_phase.has(target_unit_id):
+		_applied_this_phase[target_unit_id] = []
+	_applied_this_phase[target_unit_id].append(ability_name)
+
+	var source_name = GameState.state.get("units", {}).get(source_unit_id, {}).get("meta", {}).get("name", source_unit_id)
+	var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
+	var flag_names = EffectPrimitivesData.get_flag_names_for_effects(effects)
+	print("UnitAbilityManager: Aura '%s' from %s (%s) applied to %s (%s) — flags: %s" % [
+		ability_name, source_name, source_unit_id, target_name, target_unit_id, str(flag_names)
+	])
+
+	# Log ability activation to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(target_unit.get("owner", 0))
+		var desc = effect_def.get("description", ability_name)
+		game_event_log.add_player_entry(owner,
+			"Aura '%s' from %s active on %s (%s)" % [ability_name, source_name, target_name, desc])
+
+func _closest_model_distance(unit_a: Dictionary, unit_b: Dictionary) -> float:
+	"""Calculate the closest edge-to-edge distance in inches between any alive
+	model in unit_a and any alive model in unit_b.
+	Uses Measurement.model_to_model_distance_inches() for shape-aware calculation."""
+	var min_dist = INF
+	var models_a = unit_a.get("models", [])
+	var models_b = unit_b.get("models", [])
+
+	for model_a in models_a:
+		if not model_a.get("alive", true):
+			continue
+		if model_a.get("position", null) == null:
+			continue
+
+		for model_b in models_b:
+			if not model_b.get("alive", true):
+				continue
+			if model_b.get("position", null) == null:
+				continue
+
+			var dist = Measurement.model_to_model_distance_inches(model_a, model_b)
+			min_dist = min(min_dist, dist)
+
+	return min_dist
+
+# ============================================================================
+# AURA QUERY HELPERS
+# ============================================================================
+
+func get_aura_abilities_on_unit(unit_id: String) -> Array:
+	"""Get all aura effects currently active on a unit.
+	Returns array of { ability_name, source_unit_id }."""
+	var results = []
+	for effect in _active_ability_effects:
+		if effect.get("target_unit_id", "") == unit_id and effect.get("condition", "") == "aura":
+			results.append({
+				"ability_name": effect.get("ability_name", ""),
+				"source_unit_id": effect.get("source_unit_id", "")
+			})
+	return results
+
+func is_unit_in_aura(unit_id: String, ability_name: String) -> bool:
+	"""Check if a unit is currently under a specific aura effect."""
+	var aura_key = unit_id + ":" + ability_name
+	return _active_aura_effects.has(aura_key)
+
+func find_friendly_units_within_aura(source_unit_id: String, aura_range: float) -> Array:
+	"""Public helper: Find all friendly units within aura range of the source unit.
+	Returns array of unit_id strings. Used by external systems that need aura-style
+	range checking (e.g., for abilities resolved outside the flag system)."""
+	var units = GameState.state.get("units", {})
+	var source_unit = units.get(source_unit_id, {})
+	if source_unit.is_empty():
+		return []
+
+	var source_owner = source_unit.get("owner", 0)
+	var results: Array = []
+
+	for other_id in units:
+		if other_id == source_unit_id:
+			continue
+		var other_unit = units.get(other_id, {})
+		if not _has_alive_models(other_unit):
+			continue
+		if other_unit.get("owner", 0) != source_owner:
+			continue
+		if other_unit.get("embarked_in", "") != "":
+			continue
+
+		var dist = _closest_model_distance(source_unit, other_unit)
+		if dist <= aura_range:
+			results.append(other_id)
+
+	return results
+
+func find_enemy_units_within_aura(source_unit_id: String, aura_range: float) -> Array:
+	"""Public helper: Find all enemy units within aura range of the source unit.
+	Returns array of unit_id strings."""
+	var units = GameState.state.get("units", {})
+	var source_unit = units.get(source_unit_id, {})
+	if source_unit.is_empty():
+		return []
+
+	var source_owner = source_unit.get("owner", 0)
+	var results: Array = []
+
+	for other_id in units:
+		if other_id == source_unit_id:
+			continue
+		var other_unit = units.get(other_id, {})
+		if not _has_alive_models(other_unit):
+			continue
+		if other_unit.get("owner", 0) == source_owner:
+			continue
+		if other_unit.get("embarked_in", "") != "":
+			continue
+
+		var dist = _closest_model_distance(source_unit, other_unit)
+		if dist <= aura_range:
+			results.append(other_id)
+
+	return results
+
 func _apply_eligibility_effects() -> void:
 	"""Apply eligibility abilities (fall_back_and_charge, advance_and_charge, etc.)
 	   at the start of the Movement phase so they're available during movement decisions."""
@@ -845,6 +1194,7 @@ func _clear_all_ability_effects() -> void:
 
 	_active_ability_effects.clear()
 	_applied_this_phase.clear()
+	_active_aura_effects.clear()
 
 # ============================================================================
 # QUERY HELPERS
@@ -1487,7 +1837,8 @@ func get_state_for_save() -> Dictionary:
 		"active_ability_effects": _active_ability_effects.duplicate(true),
 		"applied_this_phase": _applied_this_phase.duplicate(true),
 		"once_per_battle_used": _once_per_battle_used.duplicate(true),
-		"once_per_round_used": _once_per_round_used.duplicate(true)
+		"once_per_round_used": _once_per_round_used.duplicate(true),
+		"active_aura_effects": _active_aura_effects.duplicate(true)
 	}
 
 func load_state(data: Dictionary) -> void:
@@ -1496,7 +1847,8 @@ func load_state(data: Dictionary) -> void:
 	_applied_this_phase = data.get("applied_this_phase", {})
 	_once_per_battle_used = data.get("once_per_battle_used", {})
 	_once_per_round_used = data.get("once_per_round_used", {})
-	print("UnitAbilityManager: State loaded — %d active effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
+	_active_aura_effects = data.get("active_aura_effects", {})
+	print("UnitAbilityManager: State loaded — %d active effects, %d aura effects, %d once-per-battle used, %d once-per-round used" % [_active_ability_effects.size(), _active_aura_effects.size(), _once_per_battle_used.size(), _once_per_round_used.size()])
 
 func reset_for_new_game() -> void:
 	"""Reset all tracking for a new game."""
@@ -1504,4 +1856,5 @@ func reset_for_new_game() -> void:
 	_applied_this_phase.clear()
 	_once_per_battle_used.clear()
 	_once_per_round_used.clear()
+	_active_aura_effects.clear()
 	print("UnitAbilityManager: Reset for new game")
