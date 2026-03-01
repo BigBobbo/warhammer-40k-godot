@@ -193,6 +193,12 @@ func _identify_units_needing_tests() -> void:
 		if unit.get("owner", 0) != current_player:
 			continue
 
+		# Skip characters attached to a bodyguard — they take battle-shock
+		# as part of their bodyguard unit, not separately
+		if unit.get("attached_to", null) != null:
+			print("CommandPhase: Skipping %s (%s) — attached to bodyguard, tests with parent unit" % [unit.get("meta", {}).get("name", unit_id), unit_id])
+			continue
+
 		# Skip destroyed units (no alive models)
 		var has_alive = false
 		for model in unit.get("models", []):
@@ -208,7 +214,8 @@ func _identify_units_needing_tests() -> void:
 			continue
 
 		# Check if unit is below half-strength
-		if GameState.is_below_half_strength(unit):
+		# Use combined check that includes attached character models in starting strength
+		if GameState.is_below_half_strength_combined(unit_id):
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("CommandPhase: %s (%s) is below half-strength - needs battle-shock test" % [unit_name, unit_id])
@@ -600,6 +607,16 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 		if not unit.has("flags"):
 			unit["flags"] = {}
 		unit["flags"]["battle_shocked"] = true
+
+		# Also apply battle-shocked to attached characters (they share the test result)
+		var attached_chars = GameState.get_attached_characters(unit_id)
+		for char_id in attached_chars:
+			var char_unit = GameState.state.get("units", {}).get(char_id, {})
+			if not char_unit.is_empty():
+				if not char_unit.has("flags"):
+					char_unit["flags"] = {}
+				char_unit["flags"]["battle_shocked"] = true
+				print("CommandPhase: Attached character %s also Battle-shocked" % char_id)
 
 		print("CommandPhase: %s FAILED battle-shock test (rolled %d+%d=%d vs Ld %d) - now Battle-shocked!" % [
 			unit_name, die1, die2, roll_total, leadership
