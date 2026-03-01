@@ -30,8 +30,13 @@ var autosave_interval: float = 300.0  # 5 minutes
 var max_autosaves: int = 10
 var max_backups: int = 5
 
+# P3-112: Event-driven autosave settings
+var autosave_on_round_end: bool = true      # Save when a battle round completes
+var autosave_on_phase_transition: bool = false  # Save at every phase transition (off by default to avoid spam)
+
 var autosave_timer: Timer = null
 var last_save_path: String = ""
+var _last_autosave_phase: int = -1  # Track last phase to avoid duplicate saves
 
 func _ready() -> void:
 	is_web_platform = OS.has_feature("web")
@@ -48,6 +53,7 @@ func _ready() -> void:
 		_initialize_directories()
 
 	_setup_autosave_timer()
+	_connect_phase_signals()
 
 func _connect_cloud_signals() -> void:
 	if not CloudStorage:
@@ -91,6 +97,100 @@ func _setup_autosave_timer() -> void:
 	autosave_timer.timeout.connect(_on_autosave_timer_timeout)
 	autosave_timer.autostart = false
 	add_child(autosave_timer)
+
+# P3-112: Connect to PhaseManager signals for event-driven autosave
+func _connect_phase_signals() -> void:
+	var phase_manager = get_node_or_null("/root/PhaseManager")
+	if phase_manager:
+		phase_manager.phase_completed.connect(_on_phase_completed_autosave)
+		phase_manager.phase_changed.connect(_on_phase_changed_autosave)
+		print("SaveLoadManager: Connected to PhaseManager for event-driven autosave")
+	else:
+		print("SaveLoadManager: PhaseManager not found, event-driven autosave disabled")
+
+# P3-112: Handle phase completion for round-end autosave
+func _on_phase_completed_autosave(completed_phase: int) -> void:
+	if not autosave_on_round_end:
+		return
+
+	# Auto-save at round end: when SCORING phase completes and it's the end of a battle round
+	# The round advances when Player 2's scoring completes (active_player switches to 1)
+	if completed_phase == GameStateData.Phase.SCORING:
+		var current_player = GameState.get_active_player()
+		# After scoring completes, ScoringPhase already switched active_player
+		# If active_player is now 1, Player 2 just finished → round ended
+		if current_player == 1:
+			var battle_round = GameState.get_battle_round()
+			# battle_round was already incremented by ScoringPhase._handle_end_turn()
+			var completed_round = battle_round - 1
+			print("SaveLoadManager: Round %d completed — performing round-end autosave" % completed_round)
+			_perform_event_autosave("round_end", {
+				"event": "round_end",
+				"battle_round": completed_round
+			})
+
+# P3-112: Handle phase transitions for phase-transition autosave
+func _on_phase_changed_autosave(new_phase: int) -> void:
+	if not autosave_on_phase_transition:
+		return
+
+	# Only autosave for in-game phases (COMMAND through SCORING), not pre-game phases
+	var in_game_phases = [
+		GameStateData.Phase.COMMAND,
+		GameStateData.Phase.MOVEMENT,
+		GameStateData.Phase.SHOOTING,
+		GameStateData.Phase.CHARGE,
+		GameStateData.Phase.FIGHT,
+		GameStateData.Phase.SCORING,
+	]
+
+	if new_phase not in in_game_phases:
+		return
+
+	# Avoid duplicate saves (e.g. if round_end already saved at SCORING completion)
+	if new_phase == _last_autosave_phase:
+		return
+	_last_autosave_phase = new_phase
+
+	var phase_name = GameStateData.Phase.keys()[new_phase] if new_phase < GameStateData.Phase.size() else "UNKNOWN"
+	var active_player = GameState.get_active_player()
+	var battle_round = GameState.get_battle_round()
+
+	print("SaveLoadManager: Phase transition to %s — performing phase autosave" % phase_name)
+	_perform_event_autosave("phase_%s" % phase_name.to_lower(), {
+		"event": "phase_transition",
+		"phase": phase_name,
+		"active_player": active_player,
+		"battle_round": battle_round
+	})
+
+# P3-112: Perform an event-driven autosave with a descriptive filename
+func _perform_event_autosave(event_tag: String, event_metadata: Dictionary) -> bool:
+	if not autosave_enabled:
+		print("SaveLoadManager: Autosave disabled, skipping event autosave for: %s" % event_tag)
+		return false
+
+	var battle_round = GameState.get_battle_round()
+	var active_player = GameState.get_active_player()
+	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
+
+	var autosave_name = "autosave_R%d_P%d_%s_%s" % [battle_round, active_player, event_tag, timestamp]
+	var autosave_path = autosave_directory + autosave_name + SAVE_EXTENSION
+
+	var metadata = {
+		"type": "autosave",
+		"auto_generated": true,
+		"trigger": event_tag
+	}
+	metadata.merge(event_metadata)
+
+	print("SaveLoadManager: Event autosave → %s" % autosave_name)
+	var success = _save_game_to_path(autosave_path, metadata)
+	if success:
+		emit_signal("autosave_completed", autosave_path)
+		_manage_autosave_count()
+
+	return success
 
 # Main save/load interface
 func save_game(file_name: String, metadata: Dictionary = {}) -> bool:
@@ -478,6 +578,15 @@ func _get_autosave_files() -> Array:
 
 	return files
 
+# P3-112: Event autosave settings
+func set_autosave_on_round_end(enabled: bool) -> void:
+	autosave_on_round_end = enabled
+	print("SaveLoadManager: autosave_on_round_end = %s" % str(enabled))
+
+func set_autosave_on_phase_transition(enabled: bool) -> void:
+	autosave_on_phase_transition = enabled
+	print("SaveLoadManager: autosave_on_phase_transition = %s" % str(enabled))
+
 # Save file management
 func get_save_files() -> Array:
 	if is_web_platform:
@@ -748,6 +857,8 @@ func print_save_info() -> void:
 	print("Total save files: %d" % save_files.size())
 	print("Autosave enabled: %s" % str(autosave_enabled))
 	print("Autosave interval: %.1f seconds" % autosave_interval)
+	print("Autosave on round end: %s" % str(autosave_on_round_end))
+	print("Autosave on phase transition: %s" % str(autosave_on_phase_transition))
 	print("Last save: %s" % last_save_path)
 
 	for save_info in save_files:
