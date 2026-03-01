@@ -1,1 +1,1 @@
-ARGS: []
+ARGS: ["--script", "tests/test_secondary_missions.gd"]
