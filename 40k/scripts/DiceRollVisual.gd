@@ -25,11 +25,18 @@ const COLOR_DIE_TEXT := Color(1.0, 1.0, 1.0)  # White text
 const COLOR_DIE_TEXT_DARK := Color(0.1, 0.1, 0.1)  # Dark text for gold dice
 const COLOR_CONTEXT_LABEL := Color(0.7, 0.7, 0.8)  # Label color
 
+# Reroll comparison colors
+const COLOR_REROLL_OLD_BG := Color(0.3, 0.2, 0.2)  # Dimmed dark red for original dice
+const COLOR_REROLL_ARROW := Color(1.0, 0.84, 0.0)  # Gold arrow between old/new
+const ARROW_WIDTH := 16.0  # Width of the arrow separator between old and new dice
+
 # State
 var _dice_data: Array = []  # Array of {value: int, color: Color, settled: bool, display_value: int}
+var _original_dice_data: Array = []  # Original dice for reroll comparison display
 var _threshold: int = 0
 var _context: String = ""
 var _is_animating: bool = false
+var _is_reroll_comparison: bool = false  # True when showing old → new side-by-side
 var _anim_elapsed: float = 0.0
 var _fade_alpha: float = 1.0
 var _fade_tween: Tween = null
@@ -93,51 +100,78 @@ func _draw() -> void:
 
 	var use_retro = SettingsService.retro_mode if SettingsService else false
 
-	# Draw each die
-	for i in range(_dice_data.size()):
-		var die = _dice_data[i]
+	# Reroll comparison mode: draw original dice (dimmed + strikethrough), arrow, then new dice
+	if _is_reroll_comparison and not _original_dice_data.is_empty():
+		_draw_reroll_comparison(y_offset, alpha, use_retro)
+		return
+
+	# Standard single-roll display
+	_draw_dice_set(_dice_data, 0.0, y_offset, alpha, use_retro, false)
+
+func _draw_reroll_comparison(y_offset: float, alpha: float, use_retro: bool) -> void:
+	"""Draw original dice (dimmed) → arrow → new dice side-by-side."""
+	# Draw original dice (dimmed with strikethrough)
+	_draw_dice_set(_original_dice_data, 0.0, y_offset, alpha, use_retro, true)
+
+	# Calculate x position after original dice
+	var old_width = _original_dice_data.size() * (DIE_SIZE + DIE_MARGIN)
+
+	# Draw arrow separator
+	var arrow_x = old_width + 2.0
+	var arrow_y = y_offset + DIE_SIZE * 0.5
+	var arrow_color = Color(COLOR_REROLL_ARROW, alpha)
+	var font = ThemeDB.fallback_font
+	var arrow_font_size = 14
+	draw_string(font, Vector2(arrow_x, arrow_y + arrow_font_size * 0.35), "->", HORIZONTAL_ALIGNMENT_LEFT, -1, arrow_font_size, arrow_color)
+
+	# Draw new dice after the arrow
+	var new_x_offset = old_width + ARROW_WIDTH + 4.0
+	_draw_dice_set(_dice_data, new_x_offset, y_offset, alpha, use_retro, false)
+
+func _draw_dice_set(dice_set: Array, x_offset: float, y_offset: float, alpha: float, use_retro: bool, is_old: bool) -> void:
+	"""Draw a set of dice at the given offset. If is_old, draw dimmed with strikethrough."""
+	for i in range(dice_set.size()):
+		var die = dice_set[i]
 		var col = i % MAX_DICE_PER_ROW
 		var row = i / MAX_DICE_PER_ROW
 
-		var x = col * (DIE_SIZE + DIE_MARGIN)
+		var x = x_offset + col * (DIE_SIZE + DIE_MARGIN)
 		var y = y_offset + row * ROW_HEIGHT
 
 		var rect = Rect2(x, y, DIE_SIZE, DIE_SIZE)
 
-		# Background color based on result (when settled) or cycling white
+		# Background color — dimmed for old dice
 		var bg_color: Color
-		if die.settled:
+		if is_old:
+			bg_color = COLOR_REROLL_OLD_BG
+		elif die.settled:
 			bg_color = _get_die_color(die.value)
 		else:
-			# Cycling: slight random tint
 			bg_color = Color(0.5, 0.5, 0.6)
 
-		bg_color.a = alpha
+		# Reduce alpha for old dice to make them look faded
+		var die_alpha = alpha * 0.5 if is_old else alpha
+		bg_color.a = die_alpha
 
 		if use_retro:
-			# Retro pixel dice: sharp corners, pixel pip dots instead of text
-			# Outer border (2px thick)
-			draw_rect(rect, Color(0.0, 0.0, 0.0, alpha * 0.7))
+			draw_rect(rect, Color(0.0, 0.0, 0.0, die_alpha * 0.7))
 			var inner = Rect2(x + 2, y + 2, DIE_SIZE - 4, DIE_SIZE - 4)
 			draw_rect(inner, bg_color)
 
-			# Draw pixel pip dots instead of number text
 			var pip_color: Color
-			if die.settled and die.value == 6:
-				pip_color = Color(COLOR_DIE_TEXT_DARK, alpha)
+			if not is_old and die.settled and die.value == 6:
+				pip_color = Color(COLOR_DIE_TEXT_DARK, die_alpha)
 			else:
-				pip_color = Color(COLOR_DIE_TEXT, alpha)
+				pip_color = Color(COLOR_DIE_TEXT, die_alpha)
 			_draw_pixel_pips(x, y, die.display_value, pip_color)
 		else:
-			# Standard rounded dice
 			var style = StyleBoxFlat.new()
 			style.bg_color = bg_color
 			style.set_corner_radius_all(DIE_CORNER_RADIUS)
 			style.set_border_width_all(1)
-			style.border_color = Color(0.0, 0.0, 0.0, alpha * 0.5)
+			style.border_color = Color(0.0, 0.0, 0.0, die_alpha * 0.5)
 			draw_style_box(style, rect)
 
-			# Draw die value text centered
 			var font = ThemeDB.fallback_font
 			var font_size = 16
 			var text = str(die.display_value)
@@ -145,29 +179,29 @@ func _draw() -> void:
 			var text_x = x + (DIE_SIZE - text_size.x) * 0.5
 			var text_y = y + (DIE_SIZE + text_size.y * 0.65) * 0.5
 
-			# Use dark text on gold dice for better readability
 			var text_color: Color
-			if die.settled and die.value == 6:
-				text_color = Color(COLOR_DIE_TEXT_DARK, alpha)
+			if not is_old and die.settled and die.value == 6:
+				text_color = Color(COLOR_DIE_TEXT_DARK, die_alpha)
 			else:
-				text_color = Color(COLOR_DIE_TEXT, alpha)
+				text_color = Color(COLOR_DIE_TEXT, die_alpha)
 
-			# Slight bounce scale for just-settled dice
-			if die.settled and _is_animating:
-				# Draw a subtle glow for criticals
-				if die.value == 6:
-					var glow_rect = Rect2(x - 2, y - 2, DIE_SIZE + 4, DIE_SIZE + 4)
-					var glow_style = StyleBoxFlat.new()
-					glow_style.bg_color = Color(1.0, 0.84, 0.0, alpha * 0.3)
-					glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 2)
-					draw_style_box(glow_style, glow_rect)
+			# Glow for new dice criticals during animation
+			if not is_old and die.settled and _is_animating and die.value == 6:
+				var glow_rect = Rect2(x - 2, y - 2, DIE_SIZE + 4, DIE_SIZE + 4)
+				var glow_style = StyleBoxFlat.new()
+				glow_style.bg_color = Color(1.0, 0.84, 0.0, die_alpha * 0.3)
+				glow_style.set_corner_radius_all(DIE_CORNER_RADIUS + 2)
+				draw_style_box(glow_style, glow_rect)
 
 			draw_string(font, Vector2(text_x, text_y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
 
-			# Draw pip dots in corners for settled dice (optional subtle detail)
-			if die.settled and die.value == 1:
-				# Draw X through the die for natural 1s
-				var line_color = Color(1.0, 1.0, 1.0, alpha * 0.3)
+			# Strikethrough for old dice, X for natural 1s on new dice
+			if is_old:
+				# Diagonal strikethrough on old dice
+				var line_color = Color(1.0, 0.3, 0.3, die_alpha * 0.8)
+				draw_line(Vector2(x + 3, y + DIE_SIZE - 3), Vector2(x + DIE_SIZE - 3, y + 3), line_color, 2.0)
+			elif die.settled and die.value == 1:
+				var line_color = Color(1.0, 1.0, 1.0, die_alpha * 0.3)
 				draw_line(Vector2(x + 4, y + 4), Vector2(x + DIE_SIZE - 4, y + DIE_SIZE - 4), line_color, 1.0)
 				draw_line(Vector2(x + DIE_SIZE - 4, y + 4), Vector2(x + 4, y + DIE_SIZE - 4), line_color, 1.0)
 
@@ -211,6 +245,10 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 	if _fade_tween and _fade_tween.is_valid():
 		_fade_tween.kill()
 	_display_timer.stop()
+
+	# Clear any reroll comparison state
+	_is_reroll_comparison = false
+	_original_dice_data.clear()
 
 	# Parse threshold
 	var threshold_str = dice_data.get("threshold", "")
@@ -260,6 +298,70 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 
 	print("DiceRollVisual: Showing %d dice for %s (threshold %s)" % [_dice_data.size(), context, threshold_str])
 
+func show_reroll_comparison(original_rolls: Array, new_rolls: Array, context: String = "", threshold_str: String = "") -> void:
+	"""Show original dice and new dice side-by-side for Command Re-roll visualization.
+	Original dice appear dimmed with a strikethrough, followed by an arrow, then animated new dice."""
+	if original_rolls.is_empty() or new_rolls.is_empty():
+		return
+
+	# Cancel any ongoing animation/fade
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_display_timer.stop()
+
+	# Parse threshold
+	_threshold = int(threshold_str.replace("+", "")) if not threshold_str.is_empty() else 0
+	_context = context
+	_is_reroll_comparison = true
+
+	# Build context label
+	match context:
+		"charge_roll":
+			_context_label = "COMMAND RE-ROLL: Charge (2D6)"
+		"advance_roll":
+			_context_label = "COMMAND RE-ROLL: Advance (D6)"
+		"battle_shock_test":
+			_context_label = "COMMAND RE-ROLL: Battle-shock (2D6)"
+		_:
+			_context_label = "COMMAND RE-ROLL: %s" % context.capitalize().replace("_", " ")
+
+	# Build original dice array (already settled, no animation)
+	_original_dice_data.clear()
+	for roll_value in original_rolls:
+		_original_dice_data.append({
+			"value": roll_value,
+			"display_value": roll_value,
+			"color": Color.WHITE,
+			"settled": true
+		})
+
+	# Build new dice array (animated)
+	_dice_data.clear()
+	for roll_value in new_rolls:
+		_dice_data.append({
+			"value": roll_value,
+			"display_value": randi_range(1, 6),
+			"color": Color.WHITE,
+			"settled": false
+		})
+
+	# Calculate needed height — dice are on one row since rerolls are typically 1-2 dice
+	var num_rows = 1
+	custom_minimum_size.y = 16.0 + num_rows * ROW_HEIGHT + 4.0
+
+	# Calculate needed width: old dice + arrow + new dice
+	var total_dice_width = (original_rolls.size() + new_rolls.size()) * (DIE_SIZE + DIE_MARGIN) + ARROW_WIDTH + 4.0
+	custom_minimum_size.x = max(custom_minimum_size.x, total_dice_width)
+
+	# Reset state and start animation
+	_fade_alpha = 1.0
+	_anim_elapsed = 0.0
+	_is_animating = true
+	visible = true
+	queue_redraw()
+
+	print("DiceRollVisual: Showing reroll comparison %s → %s for %s" % [str(original_rolls), str(new_rolls), context])
+
 func _get_die_color(value: int) -> Color:
 	# When no threshold (e.g. charge rolls), use neutral blue tones
 	if _threshold <= 0:
@@ -289,6 +391,8 @@ func _start_fade_out() -> void:
 func _on_fade_complete() -> void:
 	visible = false
 	_dice_data.clear()
+	_original_dice_data.clear()
+	_is_reroll_comparison = false
 	queue_redraw()
 
 # Allow external callers to force-clear the display
@@ -298,6 +402,8 @@ func clear_display() -> void:
 	_display_timer.stop()
 	_is_animating = false
 	_dice_data.clear()
+	_original_dice_data.clear()
+	_is_reroll_comparison = false
 	_fade_alpha = 1.0
 	visible = false
 	queue_redraw()

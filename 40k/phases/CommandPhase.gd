@@ -15,6 +15,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 # 6. Score primary objectives and end the phase
 
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
+signal command_reroll_completed(original_rolls: Array, new_rolls: Array, context: String)  # P3-118: For reroll visualization
 
 # Track which units still need battle-shock tests this phase
 var _units_needing_test: Array = []
@@ -759,6 +760,9 @@ func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
 	print("CommandPhase: COMMAND RE-ROLL — %s battle-shock re-rolled: %d → %d" % [
 		unit_name, old_roll.roll_total, new_total
 	])
+
+	# P3-118: Emit reroll comparison data for visualization
+	emit_signal("command_reroll_completed", [old_roll.die1, old_roll.die2], [new_die1, new_die2], "battle_shock_test")
 
 	return _resolve_battle_shock_test(unit_id, new_die1, new_die2)
 

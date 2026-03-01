@@ -172,9 +172,21 @@ func _format_charge_roll(data: Dictionary) -> String:
 		text += " (%s)" % unit_name
 	text += ": "
 
+	# P3-118: Show original rolls if command reroll was used
+	if data.get("command_reroll", false):
+		var original_rolls = data.get("original_rolls", [])
+		if not original_rolls.is_empty():
+			text += "[color=gray][s]"
+			for r in original_rolls:
+				text += "%d " % r
+			text += "[/s][/color] → "
+
 	for r in rolls:
 		text += "[color=white]%d[/color] " % r
 	text += "= %d\"" % total
+
+	if data.get("command_reroll", false):
+		text += " [color=gold]RE-ROLL[/color]"
 
 	if charge_failed:
 		text += " [color=red]FAILED[/color]"
