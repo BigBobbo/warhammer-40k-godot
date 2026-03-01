@@ -5,7 +5,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 
 # MovementPhase - Full implementation of the Movement phase following 10e rules
-# Supports: Normal Move, Advance, Fall Back, Remain Stationary
+# Supports: Normal Move, Advance, Fall Back, Remain Stationary, Surge Move
 
 signal unit_move_begun(unit_id: String, mode: String)
 signal model_drop_preview(unit_id: String, model_id: String, path_px: Array, inches_used: float, legal: bool)
@@ -20,6 +20,7 @@ signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit
 signal rapid_ingress_opportunity(player: int, eligible_units: Array)
 signal bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array)
 signal bomb_squigs_result(unit_id: String, results: Dictionary)
+signal surge_move_completed(unit_id: String, distance_moved: float)
 
 const ENGAGEMENT_RANGE_INCHES: float = 1.0  # 10e standard ER
 const MOVEMENT_CAP_EPSILON: float = 0.02  # Floating-point tolerance for movement cap checks (< 1px)
@@ -55,6 +56,11 @@ var _awaiting_sawbonez: bool = false            # Waiting for Sawbonez heal deci
 var _sawbonez_painboss_id: String = ""          # The Painboss unit offering healing
 var _sawbonez_targets: Array = []               # Eligible healing targets
 var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
+
+# Surge move tracking (P2-71) — 10e Core Rules Update
+# Surge moves are out-of-phase moves triggered by abilities.
+# Restrictions: once per phase per unit, not while battle-shocked, not while in Engagement Range.
+var _surge_moves_this_phase: Dictionary = {}    # unit_id -> true (units that have surged this phase)
 
 # Calculate pivot value for a unit based on base type and keywords (10e Core Rules Update)
 # - Non-round base, non-Monster/Vehicle: 1"
@@ -142,6 +148,7 @@ func _on_phase_enter() -> void:
 	_bomb_squigs_pending_unit = ""
 	_bomb_squigs_pending_changes = []
 	_bomb_squigs_pending_dice = []
+	_surge_moves_this_phase.clear()
 
 	# Connect to TransportManager to handle disembark completion
 	if TransportManager and not TransportManager.disembark_completed.is_connected(_on_transport_manager_disembark_completed):
@@ -266,6 +273,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": true}
 		"APPLY_PIVOT_COST":
 			return _validate_apply_pivot_cost(action)
+		"BEGIN_SURGE_MOVE":
+			return _validate_begin_surge_move(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -332,6 +341,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_sawbonez(action)
 		"APPLY_PIVOT_COST":
 			return _process_apply_pivot_cost(action)
+		"BEGIN_SURGE_MOVE":
+			return _process_begin_surge_move(action)
 		_:
 			return create_result(false, [], "Unknown action type: " + action_type)
 
@@ -448,7 +459,7 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 
 	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
 	# FLY units are exempt — they can move over enemy models
-	# Fall Back is also exempt (handled separately via Desperate Escape)
+	# Fall Back and Surge are also exempt
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
 		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
@@ -532,7 +543,8 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 
 	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
 	# FLY units are exempt — they can move over enemy models
-	# Fall Back is also exempt (handled separately via Desperate Escape)
+	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
+	# Surge moves allow moving through/into Engagement Range)
 	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
 		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
@@ -2282,7 +2294,16 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.cannot_charge" % unit_id,
 			"value": true
 		})
-	
+	elif move_data.mode == "SURGE":
+		# Set surge_moved flag — surge moves don't restrict shooting/charging
+		# but track that a surge happened (P2-71)
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.surge_moved" % unit_id,
+			"value": true
+		})
+		emit_signal("surge_move_completed", unit_id, move_data.move_cap_inches)
+
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Confirmed %s move for %s" % [move_data.mode.to_lower(), unit_name])
@@ -2871,6 +2892,165 @@ func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictio
 	
 	return {"changes": changes, "dice": dice_rolls}
 
+# ============================================================================
+# SURGE MOVE VALIDATION AND PROCESSING (P2-71)
+# ============================================================================
+# 10e Core Rules Update: "Surge" moves are out-of-phase moves triggered by abilities.
+# Restrictions:
+#   1. Each unit can only make one surge move per phase.
+#   2. A unit cannot make a surge move while it is Battle-shocked.
+#   3. A unit cannot make a surge move while it is within Engagement Range of
+#      one or more enemy units.
+
+func _validate_begin_surge_move(action: Dictionary) -> Dictionary:
+	"""Validate that a unit can make a surge move per 10e Core Rules Update."""
+	var unit_id = action.get("actor_unit_id", "")
+	if unit_id == "":
+		return {"valid": false, "errors": ["Missing actor_unit_id"]}
+
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+
+	return validate_surge_move(unit_id, unit)
+
+func validate_surge_move(unit_id: String, unit: Dictionary) -> Dictionary:
+	"""Core surge move validation — reusable from any phase.
+	Checks the three 10e restrictions:
+	  1. Once per phase per unit
+	  2. Not while Battle-shocked
+	  3. Not while in Engagement Range"""
+
+	# Restriction 1: Each unit can only make one surge move per phase
+	if _surge_moves_this_phase.has(unit_id):
+		log_phase_message("Surge move denied for %s: already surged this phase" % unit_id)
+		return {"valid": false, "errors": ["Unit has already made a surge move this phase"]}
+
+	# Restriction 2: Cannot surge while Battle-shocked
+	var flags = unit.get("flags", {})
+	var status_effects = unit.get("status_effects", {})
+	var is_battle_shocked = flags.get("battle_shocked", false) or status_effects.get("battle_shocked", false)
+	if is_battle_shocked:
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Surge move denied for %s: unit is Battle-shocked" % unit_name)
+		return {"valid": false, "errors": ["Battle-shocked units cannot make surge moves"]}
+
+	# Restriction 3: Cannot surge while in Engagement Range of enemy units
+	if _is_unit_engaged(unit_id):
+		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		log_phase_message("Surge move denied for %s: unit is within Engagement Range" % unit_name)
+		return {"valid": false, "errors": ["Units within Engagement Range cannot make surge moves"]}
+
+	# Check unit is deployed and has alive models
+	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
+		return {"valid": false, "errors": ["Unit is not deployed"]}
+
+	var has_alive = false
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return {"valid": false, "errors": ["Unit has no alive models"]}
+
+	return {"valid": true, "errors": []}
+
+func _process_begin_surge_move(action: Dictionary) -> Dictionary:
+	"""Process a surge move: roll D6 for distance, move up to result.
+	The unit must end as close as possible to the closest enemy unit (excluding AIRCRAFT).
+	Models can move into Engagement Range during a surge move."""
+	var unit_id = action.get("actor_unit_id", "")
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var surge_distance = action.get("payload", {}).get("surge_distance", 0)
+
+	# If no distance specified, roll D6 for surge distance
+	if surge_distance <= 0:
+		var rng_seed = action.get("payload", {}).get("rng_seed", -1)
+		if rng_seed == -1:
+			if has_node("/root/NetworkManager"):
+				var net_mgr = get_node("/root/NetworkManager")
+				if net_mgr.is_networked() and net_mgr.is_host():
+					rng_seed = net_mgr.get_next_rng_seed()
+
+		var rng_service = RulesEngine.RNGService.new(rng_seed)
+		var rolls = rng_service.roll_d6(1)
+		surge_distance = rolls[0]
+		log_phase_message("Surge move: %s → D6 = %d\"" % [unit_name, surge_distance])
+
+	# Mark unit as having surged this phase (restriction 1)
+	_surge_moves_this_phase[unit_id] = true
+
+	# Set up active move with SURGE mode
+	var pivot_value = get_pivot_value_for_unit(unit_id)
+	active_moves[unit_id] = {
+		"mode": "SURGE",
+		"mode_locked": true,
+		"completed": false,
+		"move_cap_inches": surge_distance,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"model_distances": {},
+		"dice_rolls": [{"context": "surge", "rolls": [surge_distance]}],
+		"pivot_value": pivot_value,
+		"pivot_cost_applied": false,
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {}
+	}
+
+	dice_log.append({
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"type": "Surge Move",
+		"roll": surge_distance,
+		"result": "Surge cap = %d\"" % surge_distance
+	})
+
+	emit_signal("unit_move_begun", unit_id, "SURGE")
+	log_phase_message("Surge move: %s → Move cap = %d\"" % [unit_name, surge_distance])
+
+	# Log to GameEventLog
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		var owner = int(unit.get("owner", 0))
+		game_event_log.add_player_entry(owner,
+			"%s makes a surge move: D6 = %d, move up to %d\"" % [unit_name, surge_distance, surge_distance])
+
+	return create_result(true, [
+		{
+			"op": "set",
+			"path": "units.%s.flags.surge_moved" % unit_id,
+			"value": true
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.move_cap_inches" % unit_id,
+			"value": surge_distance
+		},
+		{
+			"op": "set",
+			"path": "units.%s.flags.movement_active" % unit_id,
+			"value": true
+		}
+	], "", {"dice": [{"context": "surge", "n": 1, "rolls": [surge_distance]}]})
+
+func mark_unit_surged_this_phase(unit_id: String) -> void:
+	"""Mark a unit as having made a surge move this phase.
+	Called from other phases (ShootingPhase, FightPhase) when they trigger surge moves."""
+	_surge_moves_this_phase[unit_id] = true
+	log_phase_message("Marked unit %s as having surged this phase" % unit_id)
+
+func has_unit_surged_this_phase(unit_id: String) -> bool:
+	"""Check if a unit has already made a surge move this phase."""
+	return _surge_moves_this_phase.has(unit_id)
+
+func reset_surge_tracking() -> void:
+	"""Reset surge move tracking. Called at start of each phase."""
+	_surge_moves_this_phase.clear()
+
 # Helper Methods
 
 func _is_unit_engaged(unit_id: String) -> bool:
@@ -2930,11 +3110,15 @@ func _check_engagement_range_at_position(unit_id: String, model_id: String, dest
 		# Fall Back allows ending outside ER even if path goes through
 		if _is_position_in_engagement_range(unit_id, model_id, dest):
 			return {"valid": false, "errors": ["Fall Back must end outside engagement range"]}
+	elif mode == "SURGE":
+		# Surge moves CAN end in Engagement Range (10e Core Rules Update)
+		# Models can be moved within Engagement Range of enemy units during a surge
+		pass
 	else:
 		# Normal and Advance cannot enter or end in ER
 		if _is_position_in_engagement_range(unit_id, model_id, dest):
 			return {"valid": false, "errors": ["Cannot end within engagement range"]}
-	
+
 	return {"valid": true, "errors": []}
 
 func _unit_has_fly_keyword(unit_id: String) -> bool:

@@ -8665,3 +8665,82 @@ static func _find_next_alive_model_index(models: Array, start_index: int) -> int
 		if models[i].get("alive", true):
 			return i
 	return -1
+
+# ============================================================================
+# SURGE MOVE VALIDATION (P2-71) — 10e Core Rules Update
+# ============================================================================
+# Surge moves are out-of-phase moves triggered by abilities.
+# Restrictions:
+#   1. Each unit can only make one surge move per phase
+#   2. A unit cannot make a surge move while it is Battle-shocked
+#   3. A unit cannot make a surge move while it is within Engagement Range
+#
+# This static helper can be called from any phase to validate surge eligibility
+# without needing a reference to the MovementPhase instance.
+
+static func validate_surge_move_eligibility(unit: Dictionary, unit_id: String, has_surged_this_phase: bool, all_units: Dictionary) -> Dictionary:
+	"""Validate whether a unit is eligible to make a surge move.
+	Returns {valid: bool, errors: Array}.
+
+	Parameters:
+	  unit: The unit dictionary
+	  unit_id: The unit's ID
+	  has_surged_this_phase: Whether this unit already surged this phase
+	  all_units: All units in the game state (for engagement range check)
+	"""
+	# Restriction 1: Once per phase
+	if has_surged_this_phase:
+		return {"valid": false, "errors": ["Unit has already made a surge move this phase"]}
+
+	# Restriction 2: Not while Battle-shocked
+	var flags = unit.get("flags", {})
+	var status_effects = unit.get("status_effects", {})
+	if flags.get("battle_shocked", false) or status_effects.get("battle_shocked", false):
+		return {"valid": false, "errors": ["Battle-shocked units cannot make surge moves"]}
+
+	# Restriction 3: Not while in Engagement Range
+	var owner = unit.get("owner", 0)
+	var unit_models = unit.get("models", [])
+	for model in unit_models:
+		if not model.get("alive", true):
+			continue
+		var model_pos = model.get("position")
+		if model_pos == null:
+			continue
+		var pos = Vector2.ZERO
+		if model_pos is Vector2:
+			pos = model_pos
+		elif model_pos is Dictionary:
+			pos = Vector2(model_pos.get("x", 0), model_pos.get("y", 0))
+
+		# Check against all enemy models
+		for enemy_unit_id in all_units:
+			var enemy_unit = all_units[enemy_unit_id]
+			if enemy_unit.get("owner", 0) == owner:
+				continue
+			for enemy_model in enemy_unit.get("models", []):
+				if not enemy_model.get("alive", true):
+					continue
+				var enemy_pos = enemy_model.get("position")
+				if enemy_pos == null:
+					continue
+				var epos = Vector2.ZERO
+				if enemy_pos is Vector2:
+					epos = enemy_pos
+				elif enemy_pos is Dictionary:
+					epos = Vector2(enemy_pos.get("x", 0), enemy_pos.get("y", 0))
+
+				# Use standard 1" engagement range check
+				if Measurement.is_in_engagement_range_shape_aware(model, enemy_model, 1.0):
+					return {"valid": false, "errors": ["Units within Engagement Range cannot make surge moves"]}
+
+	# Unit must have alive models
+	var has_alive = false
+	for model in unit_models:
+		if model.get("alive", true):
+			has_alive = true
+			break
+	if not has_alive:
+		return {"valid": false, "errors": ["Unit has no alive models"]}
+
+	return {"valid": true, "errors": []}
