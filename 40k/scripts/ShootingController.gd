@@ -54,6 +54,7 @@ var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
 var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
+var quick_assign_container: VBoxContainer  # P3-113: Quick-assign all weapons to target buttons
 var grenade_button: Button  # GRENADE stratagem button
 var shoot_all_remaining_button: Button  # T5-UX3: "Shoot All Remaining" button
 var perform_action_button: Button  # Secondary mission action button
@@ -335,6 +336,16 @@ func _setup_right_panel() -> void:
 	damage_preview_label.add_theme_font_size_override("normal_font_size", 11)
 	damage_preview_panel.add_child(damage_preview_label)
 	shooting_panel.add_child(damage_preview_panel)
+
+	# P3-113: Quick-assign all weapons to target buttons
+	quick_assign_container = VBoxContainer.new()
+	quick_assign_container.name = "QuickAssignContainer"
+	quick_assign_container.visible = false  # Hidden until eligible targets are available
+	var quick_assign_label = Label.new()
+	quick_assign_label.text = "Quick Assign All Weapons:"
+	quick_assign_label.add_theme_font_size_override("font_size", 12)
+	quick_assign_container.add_child(quick_assign_label)
+	shooting_panel.add_child(quick_assign_container)
 
 	shooting_panel.add_child(HSeparator.new())
 
@@ -1494,6 +1505,7 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 	eligible_targets = RulesEngine.get_eligible_targets(unit_id, GameState.create_snapshot())
 	_highlight_targets()
 	_refresh_weapon_tree()
+	_refresh_quick_assign_buttons()  # P3-113: Update quick-assign buttons for new targets
 	_update_ui_state()
 	_update_perform_action_button()
 	_show_range_indicators()
@@ -1510,6 +1522,7 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	eligible_targets = targets
 	# Don't call _highlight_targets here since _show_range_indicators handles it
 	_refresh_weapon_tree()
+	_refresh_quick_assign_buttons()  # P3-113: Update quick-assign buttons for new targets
 	# Show range indicators which will also highlight enemies
 	_show_range_indicators()
 	
@@ -1737,6 +1750,8 @@ func _on_shooting_resolved(shooter_id: String, target_id: String, result: Dictio
 	eligible_targets.clear()
 	weapon_assignments.clear()
 	assignment_history.clear()  # T5-UX4: Clear undo history
+	if quick_assign_container:  # P3-113
+		quick_assign_container.visible = false
 	_refresh_weapon_tree()
 	# Clear LoS visualization after shooting
 	if los_debug_visual:
@@ -2783,6 +2798,7 @@ func _on_clear_pressed() -> void:
 		auto_target_button_container.visible = false
 	last_assigned_target_id = ""
 
+	_refresh_quick_assign_buttons()  # P3-113: Re-show quick-assign buttons after clearing
 	_update_ui_state()
 
 # T5-UX4: Undo the most recent weapon assignment
@@ -3225,6 +3241,10 @@ func _update_ui_state() -> void:
 		clear_button.disabled = weapon_assignments.is_empty()
 	if undo_button:
 		undo_button.disabled = assignment_history.is_empty()
+
+	# P3-113: Hide quick-assign buttons when all weapons are assigned
+	if quick_assign_container and _count_unassigned_weapons() == 0 and not weapon_assignments.is_empty():
+		quick_assign_container.visible = false
 
 	# Update target basket
 	if target_basket:
@@ -3783,6 +3803,119 @@ func _on_apply_to_all_pressed() -> void:
 			[target_name, assigned_count])
 
 	# Update UI state
+	_update_ui_state()
+
+# ============================================================================
+# P3-113: QUICK-ASSIGN ALL WEAPONS TO TARGET
+# ============================================================================
+
+func _refresh_quick_assign_buttons() -> void:
+	"""P3-113: Refresh the quick-assign buttons based on current eligible targets.
+	Shows one button per eligible target that assigns ALL usable weapons to that target."""
+	if not quick_assign_container:
+		return
+
+	# Remove old buttons (keep the label at index 0)
+	while quick_assign_container.get_child_count() > 1:
+		var child = quick_assign_container.get_child(1)
+		quick_assign_container.remove_child(child)
+		child.queue_free()
+
+	# Only show when we have eligible targets and more than one target
+	# (single target is already auto-assigned by existing logic)
+	if eligible_targets.size() < 2:
+		quick_assign_container.visible = false
+		return
+
+	quick_assign_container.visible = true
+
+	for target_id in eligible_targets:
+		var target_name = eligible_targets[target_id].get("unit_name", target_id)
+		var btn = Button.new()
+		btn.text = "All Weapons → %s" % target_name
+		btn.custom_minimum_size = Vector2(230, 30)
+		btn.tooltip_text = "Assign all usable weapons to %s" % target_name
+		WhiteDwarfTheme.apply_to_button(btn)
+		btn.pressed.connect(_on_quick_assign_all_to_target.bind(target_id))
+		quick_assign_container.add_child(btn)
+
+	print("[ShootingController] P3-113: Showing %d quick-assign buttons" % eligible_targets.size())
+
+func _on_quick_assign_all_to_target(target_id: String) -> void:
+	"""P3-113: Assign ALL usable weapons to the specified target in one click."""
+	if not eligible_targets.has(target_id):
+		print("ERROR: P3-113 quick-assign target %s is no longer eligible" % target_id)
+		return
+
+	if not weapon_tree:
+		return
+
+	var root = weapon_tree.get_root()
+	if not root:
+		return
+
+	var target_name = eligible_targets.get(target_id, {}).get("unit_name", target_id)
+	var assigned_count = 0
+	var child = root.get_first_child()
+
+	while child:
+		var weapon_id = child.get_metadata(0)
+
+		# Only assign weapons that are selectable (not disabled) and are top-level items (not stat sub-lines)
+		if weapon_id and child.is_selectable(0):
+			# Get model IDs for this weapon
+			var model_ids = []
+			var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+			for model_id in unit_weapons:
+				if weapon_id in unit_weapons[model_id]:
+					model_ids.append(model_id)
+
+			# Assign target
+			weapon_assignments[weapon_id] = target_id
+
+			# Track in assignment history for undo
+			assignment_history.erase(weapon_id)
+			assignment_history.push_back(weapon_id)
+
+			# Update UI for this weapon
+			child.set_text(1, target_name)
+			child.set_custom_bg_color(1, Color(0.4, 0.2, 0.2, 0.5))
+
+			# Build payload for network sync
+			var payload = {
+				"weapon_id": weapon_id,
+				"target_unit_id": target_id,
+				"model_ids": model_ids
+			}
+
+			# Add modifiers if they exist
+			if weapon_modifiers.has(weapon_id):
+				payload["modifiers"] = weapon_modifiers[weapon_id]
+
+			# Emit assignment action
+			emit_signal("shoot_action_requested", {
+				"type": "ASSIGN_TARGET",
+				"payload": payload
+			})
+
+			assigned_count += 1
+
+		child = child.get_next()
+
+	# Store as last assigned target for the existing "Apply to All" feature
+	last_assigned_target_id = target_id
+
+	# Hide the "Apply to All" button since all weapons are now assigned
+	if auto_target_button_container:
+		auto_target_button_container.visible = false
+
+	# Show feedback
+	if dice_log_display:
+		dice_log_display.append_text("[color=green]✓ Quick-assigned all %d weapons to %s[/color]\n" %
+			[assigned_count, target_name])
+
+	print("[ShootingController] P3-113: Quick-assigned %d weapons to %s (%s)" % [assigned_count, target_name, target_id])
+
 	_update_ui_state()
 
 # ============================================================================
