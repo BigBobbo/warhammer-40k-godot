@@ -46,6 +46,10 @@ var _rapid_ingress_player: int = 0             # Non-active player being offered
 var _rapid_ingress_eligible_units: Array = []  # Reserve units eligible for Rapid Ingress
 var _rapid_ingress_unit_id: String = ""        # The unit chosen for Rapid Ingress placement
 
+# P2-88: Rapid Ingress overwatch — if overwatch triggers after Rapid Ingress placement,
+# we defer phase_completed until overwatch resolves
+var _rapid_ingress_pending_phase_complete: bool = false
+
 # Bomb Squigs state tracking (P2-25)
 var _bomb_squigs_pending_unit: String = ""     # Unit awaiting Bomb Squigs decision
 var _bomb_squigs_pending_changes: Array = []   # Pending movement changes while awaiting Bomb Squigs
@@ -823,8 +827,8 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 	log_phase_message("Beginning normal move for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
-	
-	return create_result(true, [
+
+	var begin_changes = [
 		{
 			"op": "set",
 			"path": "units.%s.flags.move_cap_inches" % unit_id,
@@ -835,7 +839,17 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.movement_active" % unit_id,
 			"value": true
 		}
-	])
+	]
+
+	# P2-88: Check for Fire Overwatch at move start
+	# Balance Dataslate timing: "when an enemy unit starts a Normal move"
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "normal move start")
+	if ow_result.triggered:
+		var result = create_result(true, begin_changes)
+		result.merge(ow_result.result_extra)
+		return result
+
+	return create_result(true, begin_changes)
 
 func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -845,6 +859,11 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	# If unit already had staged moves (e.g. switching from Normal to Advance), reset visuals early
 	# This ensures visuals are correct even if a reroll dialog delays _resolve_advance_roll
 	_reset_staged_visuals_if_needed(unit_id)
+
+	# NOTE: P2-88 move-start overwatch trigger is not applied here because the advance
+	# move flow immediately rolls dice and may offer a command reroll, making the
+	# interrupt-and-resume flow overly complex. The move-end trigger in
+	# _process_confirm_unit_move covers the Advance move case.
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
@@ -1060,6 +1079,74 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 # FIRE OVERWATCH (T3-11)
 # ============================================================================
 
+func _check_fire_overwatch_opportunity(unit_id: String, trigger_context: String, snapshot_override: Dictionary = {}) -> Dictionary:
+	"""
+	P2-88: Shared helper to check and offer Fire Overwatch.
+	Balance Dataslate timing: 'just after an enemy unit is set up or when an enemy
+	unit starts or ends a Normal, Advance or Fall Back move, or declares a charge.'
+
+	Returns: { "triggered": bool, "result_extra": Dictionary }
+	If triggered, the caller should merge result_extra into its result and return early.
+	"""
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
+	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var _has_sneaky_surprise = false
+	if _ability_mgr:
+		_has_sneaky_surprise = _ability_mgr.has_sneaky_surprise(unit_id)
+
+	if _has_sneaky_surprise:
+		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
+		print("MovementPhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
+		return {"triggered": false}
+
+	var moving_owner = int(unit.get("owner", 0))
+	var defending_player = 2 if moving_owner == 1 else 1
+
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	if not strat_manager:
+		return {"triggered": false}
+
+	var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
+	if not ow_check.available:
+		return {"triggered": false}
+
+	# Use provided snapshot override or fall back to game_state_snapshot
+	var check_snapshot = snapshot_override if not snapshot_override.is_empty() else game_state_snapshot
+
+	var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
+		defending_player, unit_id, check_snapshot
+	)
+
+	if ow_eligible.is_empty():
+		return {"triggered": false}
+
+	# Fire Overwatch is available! Pause and offer it to the defender
+	_awaiting_fire_overwatch = true
+	_awaiting_overwatch_decision = true
+	_overwatch_moved_unit_id = unit_id
+	_fire_overwatch_player = defending_player
+	_fire_overwatch_enemy_unit_id = unit_id
+	_fire_overwatch_eligible_units = ow_eligible
+	log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against %s (%s)" % [defending_player, ow_eligible.size(), unit_name, trigger_context])
+	print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units (%s)" % [defending_player, ow_eligible.size(), trigger_context])
+
+	emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
+	emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
+
+	return {
+		"triggered": true,
+		"result_extra": {
+			"trigger_fire_overwatch": true,
+			"awaiting_overwatch": true,
+			"fire_overwatch_player": defending_player,
+			"fire_overwatch_eligible_units": ow_eligible,
+			"fire_overwatch_enemy_unit_id": unit_id,
+		}
+	}
+
 func _validate_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	var errors = []
 	var unit_id = action.get("unit_id", "")
@@ -1145,6 +1232,13 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 
 	emit_signal("overwatch_result", unit_id, enemy_unit_id, ow_shooting_result)
 
+	# P2-88: If overwatch was triggered after Rapid Ingress, complete the phase now
+	if _rapid_ingress_pending_phase_complete:
+		_rapid_ingress_pending_phase_complete = false
+		log_phase_message("Ending Movement Phase (after Rapid Ingress + Overwatch) - emitting phase_completed signal")
+		emit_signal("phase_completed")
+		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch) ===")
+
 	var result = create_result(true, ow_shooting_result.get("diffs", []))
 	result["fire_overwatch_used"] = true
 	result["fire_overwatch_unit_id"] = unit_id
@@ -1168,6 +1262,13 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	_fire_overwatch_eligible_units = []
 	_awaiting_overwatch_decision = false
 	_overwatch_moved_unit_id = ""
+
+	# P2-88: If overwatch was triggered after Rapid Ingress, complete the phase now
+	if _rapid_ingress_pending_phase_complete:
+		_rapid_ingress_pending_phase_complete = false
+		log_phase_message("Ending Movement Phase (after Rapid Ingress + Overwatch declined) - emitting phase_completed signal")
+		emit_signal("phase_completed")
+		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch declined) ===")
 
 	return create_result(true, [])
 
@@ -1871,6 +1972,17 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 	_rapid_ingress_unit_id = ""
 	_rapid_ingress_player = 0
 
+	# P2-88: Check for Fire Overwatch opportunity after Rapid Ingress unit is set up
+	# Balance Dataslate timing: "just after an enemy unit is set up"
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "rapid ingress set up")
+	if ow_result.triggered:
+		# Overwatch triggered — don't end movement phase yet; it will be ended after
+		# overwatch resolves (the use/decline handler will need to complete the phase)
+		_rapid_ingress_pending_phase_complete = true
+		var result = create_result(true, changes)
+		result.merge(ow_result.result_extra)
+		return result
+
 	# Now actually end the movement phase
 	log_phase_message("Ending Movement Phase (after Rapid Ingress placement) - emitting phase_completed signal")
 	emit_signal("phase_completed")
@@ -1970,8 +2082,8 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 	
 	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 	log_phase_message("Beginning fall back for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
-	
-	return create_result(true, [
+
+	var begin_changes = [
 		{
 			"op": "set",
 			"path": "units.%s.flags.fell_back" % unit_id,
@@ -1987,7 +2099,17 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			"path": "units.%s.flags.movement_active" % unit_id,
 			"value": true
 		}
-	])
+	]
+
+	# P2-88: Check for Fire Overwatch at fall back move start
+	# Balance Dataslate timing: "when an enemy unit starts a Fall Back move"
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "fall back move start")
+	if ow_result.triggered:
+		var result = create_result(true, begin_changes)
+		result.merge(ow_result.result_extra)
+		return result
+
+	return create_result(true, begin_changes)
 
 func _process_set_model_dest(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -2362,67 +2484,30 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	if not unit.get("disembarked_this_phase", false):
 		call_deferred("_check_embark_opportunity", unit_id)
 
-	# T3-11: Check for Fire Overwatch opportunity for the defending player
-	# Per 10e rules: The defending player may use Fire Overwatch (1CP) when an enemy
-	# unit starts or ends a Normal, Advance, or Fall Back move within 24" of an eligible unit
-	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
-	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	var _has_sneaky_surprise = false
-	if _ability_mgr:
-		_has_sneaky_surprise = _ability_mgr.has_sneaky_surprise(unit_id)
+	# T3-11 / P2-88: Check for Fire Overwatch opportunity for the defending player
+	# Balance Dataslate timing: "when an enemy unit ends a Normal, Advance or Fall Back move"
+	# Build a temporary snapshot with the new positions applied for range checks
+	var temp_snapshot = game_state_snapshot.duplicate(true)
+	for change in changes:
+		if change.get("op", "") == "set":
+			var path_parts = change.path.split(".")
+			if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
+				var u_id = path_parts[1]
+				var m_idx = int(path_parts[3])
+				var field = path_parts[4] if path_parts.size() > 4 else ""
+				if field == "position" and temp_snapshot.get("units", {}).has(u_id):
+					var models = temp_snapshot.units[u_id].get("models", [])
+					if m_idx < models.size():
+						models[m_idx]["position"] = change.value
 
-	if _has_sneaky_surprise:
-		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
-		print("MovementPhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name)
-	else:
-		var moving_owner = int(unit.get("owner", 0))
-		var defending_player = 2 if moving_owner == 1 else 1
-
-		var strat_manager = get_node_or_null("/root/StratagemManager")
-		if strat_manager:
-			var ow_check = strat_manager.is_fire_overwatch_available(defending_player)
-			if ow_check.available:
-				# Build a temporary snapshot with the new positions applied
-				var temp_snapshot = game_state_snapshot.duplicate(true)
-				for change in changes:
-					if change.get("op", "") == "set":
-						var path_parts = change.path.split(".")
-						if path_parts.size() >= 4 and path_parts[0] == "units" and path_parts[2] == "models":
-							var u_id = path_parts[1]
-							var m_idx = int(path_parts[3])
-							var field = path_parts[4] if path_parts.size() > 4 else ""
-							if field == "position" and temp_snapshot.get("units", {}).has(u_id):
-								var models = temp_snapshot.units[u_id].get("models", [])
-								if m_idx < models.size():
-									models[m_idx]["position"] = change.value
-
-				var ow_eligible = strat_manager.get_fire_overwatch_eligible_units(
-					defending_player, unit_id, temp_snapshot
-				)
-
-				if not ow_eligible.is_empty():
-					# Fire Overwatch is available! Pause and offer it to the defender
-					_awaiting_fire_overwatch = true
-					_awaiting_overwatch_decision = true
-					_overwatch_moved_unit_id = unit_id
-					_fire_overwatch_player = defending_player
-					_fire_overwatch_enemy_unit_id = unit_id
-					_fire_overwatch_eligible_units = ow_eligible
-					log_phase_message("FIRE OVERWATCH available for Player %d (%d eligible units) against moving %s" % [defending_player, ow_eligible.size(), unit_name])
-					print("MovementPhase: Fire Overwatch opportunity — Player %d has %d eligible units" % [defending_player, ow_eligible.size()])
-
-					emit_signal("fire_overwatch_opportunity", defending_player, ow_eligible, unit_id)
-					emit_signal("overwatch_opportunity", unit_id, defending_player, ow_eligible)
-
-					var result = create_result(true, changes, "", {"dice": additional_dice})
-					result["trigger_fire_overwatch"] = true
-					result["awaiting_overwatch"] = true
-					result["fire_overwatch_player"] = defending_player
-					result["fire_overwatch_eligible_units"] = ow_eligible
-					result["fire_overwatch_enemy_unit_id"] = unit_id
-					return result
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "move end", temp_snapshot)
+	if ow_result.triggered:
+		var result = create_result(true, changes, "", {"dice": additional_dice})
+		result.merge(ow_result.result_extra)
+		return result
 
 	# P2-25: Check for Bomb Squigs after Normal move
+	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if _ability_mgr and _ability_mgr.has_bomb_squigs(unit_id):
 		var move_mode = unit.get("flags", {}).get("move_mode", "")
 		if move_mode == "normal" or move_mode == "":
@@ -2763,6 +2848,14 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	# T7-39: Recheck objective control after reinforcement placement
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives")
+
+	# P2-88: Check for Fire Overwatch opportunity after reinforcement is set up
+	# Balance Dataslate timing: "just after an enemy unit is set up"
+	var ow_result = _check_fire_overwatch_opportunity(unit_id, "reinforcement set up")
+	if ow_result.triggered:
+		var result = create_result(true, changes)
+		result.merge(ow_result.result_extra)
+		return result
 
 	return create_result(true, changes)
 
