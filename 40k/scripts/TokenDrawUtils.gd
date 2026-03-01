@@ -495,7 +495,8 @@ static func _px_row(canvas: CanvasItem, center: Vector2, grid: float, gx_start: 
 
 static func draw_infantry_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
 	# Pixel art Space Marine - 8x12 grid, chunky bolter and helmet
-	var grid = radius * 0.12
+	# Max extent is ~5.5 grid cells from center; grid sized so sprite fills ~90% of base
+	var grid = radius * 0.17
 	var bob_frame = int(animation_time * 2.0) % 4
 	var bob_y = 0 if (bob_frame == 0 or bob_frame == 2) else (1 if bob_frame == 1 else -1)
 	var c = center + Vector2(-grid * 0.5, bob_y * grid * 0.3)  # Center offset
@@ -549,7 +550,8 @@ static func draw_infantry_pixel(canvas: CanvasItem, center: Vector2, radius: flo
 
 static func draw_vehicle_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
 	# Pixel art tank - top-down view, 12x8 grid
-	var grid = radius * 0.12
+	# Max extent is ~6 grid cells from center; grid sized so sprite fills ~90% of base
+	var grid = radius * 0.15
 	var c = center + Vector2(-grid * 0.5, 0)
 
 	var dark = Color(color.r * 0.6, color.g * 0.6, color.b * 0.6, color.a)
@@ -611,7 +613,8 @@ static func draw_vehicle_pixel(canvas: CanvasItem, center: Vector2, radius: floa
 
 static func draw_monster_pixel(canvas: CanvasItem, center: Vector2, radius: float, color: Color, animation_time: float) -> void:
 	# Pixel art Tyranid-like monster - hunched body with claws, 10x12 grid
-	var grid = radius * 0.12
+	# Max extent is ~7 grid cells from center (claws); grid sized so body fills ~90% of base
+	var grid = radius * 0.13
 	var c = center + Vector2(-grid * 0.5, 0)
 
 	var dark = Color(color.r * 0.55, color.g * 0.55, color.b * 0.55, color.a)
