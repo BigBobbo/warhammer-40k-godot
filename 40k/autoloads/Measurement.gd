@@ -215,10 +215,15 @@ func model_overlaps_any_wall(model: Dictionary) -> bool:
 
 # Shape-aware engagement range check
 # This is the recommended function for all engagement range checks throughout the codebase
+# 10th Edition rules: Engagement Range = within er_inches horizontally AND within 5" vertically
 func is_in_engagement_range_shape_aware(model1: Dictionary, model2: Dictionary, er_inches: float = 1.0) -> bool:
 	var distance_px = model_to_model_distance_px(model1, model2)
 	var er_px = inches_to_px(er_inches)
-	return distance_px <= er_px
+	if distance_px > er_px:
+		return false
+	# Vertical component: models must also be within 5" vertically
+	var vertical = model_vertical_distance_inches(model1, model2)
+	return vertical <= 5.0
 
 # ── Polygon geometry helpers (single source of truth) ──────────────
 # Used by DeploymentPhase, DeploymentController, and any other code
