@@ -1,1 +1,1 @@
-ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-gselect=test_hazardous_keyword", "-gexit"]
+ARGS: ["-s", "addons/gut/gut_cmdln.gd", "-ginclude_subdirs", "-gdir=res://tests/unit", "-gprefix=test_extra_attacks", "-gexit"]
