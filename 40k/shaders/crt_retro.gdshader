@@ -4,6 +4,7 @@ shader_type canvas_item;
 // Applied as a full-screen overlay via a ColorRect on a CanvasLayer.
 // Toggleable at runtime via modulate alpha or visibility.
 
+uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
 uniform float scanline_intensity : hint_range(0.0, 1.0) = 0.18;
 uniform float scanline_frequency : hint_range(1.0, 8.0) = 3.0;
 uniform float chromatic_aberration : hint_range(0.0, 3.0) = 0.8;
@@ -17,14 +18,14 @@ void fragment() {
 
 	// --- Chromatic aberration (RGB split) ---
 	float ca = chromatic_aberration / 1000.0;
-	float r = texture(SCREEN_TEXTURE, uv + vec2(ca, 0.0)).r;
-	float g = texture(SCREEN_TEXTURE, uv).g;
-	float b = texture(SCREEN_TEXTURE, uv - vec2(ca, 0.0)).b;
+	float r = texture(screen_texture, uv + vec2(ca, 0.0)).r;
+	float g = texture(screen_texture, uv).g;
+	float b = texture(screen_texture, uv - vec2(ca, 0.0)).b;
 	vec3 col = vec3(r, g, b);
 
 	// --- Scanlines ---
 	// Use screen pixel coordinates for consistent scanline spacing
-	float scan_pos = gl_FragCoord.y * scanline_frequency;
+	float scan_pos = FRAGCOORD.y * scanline_frequency;
 	float scanline = 1.0 - scanline_intensity * (0.5 + 0.5 * sin(scan_pos * PI));
 
 	col *= scanline;
