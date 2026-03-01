@@ -216,12 +216,43 @@ func _identify_units_needing_tests() -> void:
 		if status == GameStateData.UnitStatus.UNDEPLOYED:
 			continue
 
+		# Skip units with FEARLESS or And They Shall Know No Fear — they auto-pass battle-shock tests
+		var unit_keywords = unit.get("meta", {}).get("keywords", [])
+		var unit_abilities = unit.get("meta", {}).get("abilities", [])
+		if _has_battle_shock_immunity(unit_keywords, unit_abilities):
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			print("CommandPhase: Skipping %s (%s) — immune to battle-shock (FEARLESS/ATSKNF)" % [unit_name, unit_id])
+			continue
+
 		# Check if unit is below half-strength
 		# Use combined check that includes attached character models in starting strength
 		if GameState.is_below_half_strength_combined(unit_id):
 			_units_needing_test.append(unit_id)
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			print("CommandPhase: %s (%s) is below half-strength - needs battle-shock test" % [unit_name, unit_id])
+
+func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
+	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
+	which grants automatic immunity to battle-shock tests."""
+	# Check keywords
+	for kw in keywords:
+		var kw_upper = str(kw).to_upper()
+		if kw_upper == "FEARLESS":
+			return true
+		if kw_upper == "AND THEY SHALL KNOW NO FEAR":
+			return true
+	# Check abilities (some units list these as ability names rather than keywords)
+	for ab in abilities:
+		var ab_name = ""
+		if ab is Dictionary:
+			ab_name = str(ab.get("name", "")).to_upper()
+		else:
+			ab_name = str(ab).to_upper()
+		if ab_name == "FEARLESS":
+			return true
+		if ab_name == "AND THEY SHALL KNOW NO FEAR":
+			return true
+	return false
 
 func get_available_actions() -> Array:
 	var actions = []
