@@ -1089,11 +1089,12 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			var unit_id = action_data.get("actor_unit_id", "")
 			var model_id = action_data.get("payload", {}).get("model_id", "")
 			var dest = action_data.get("payload", {}).get("dest", [])
+			var rotation = action_data.get("payload", {}).get("rotation", 0.0)
 
 			if unit_id != "" and model_id != "" and dest.size() == 2:
 				var dest_vec = Vector2(dest[0], dest[1])
-				print("NetworkManager: Client emitting model_drop_committed for ", unit_id, "/", model_id, " at ", dest_vec)
-				phase.emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
+				print("NetworkManager: Client emitting model_drop_committed for ", unit_id, "/", model_id, " at ", dest_vec, " rotation: ", rotation)
+				phase.emit_signal("model_drop_committed", unit_id, model_id, dest_vec, rotation)
 
 	# Handle shooting phase SELECT_SHOOTER visual updates
 	if action_type == "SELECT_SHOOTER":
