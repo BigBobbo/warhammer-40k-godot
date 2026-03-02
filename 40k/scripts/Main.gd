@@ -1939,6 +1939,14 @@ func _update_round_indicator() -> void:
 		_round_indicator_label.text = "Round %d/5 - Player %d Turn" % [battle_round, active_player]
 
 func _fix_hud_layout() -> void:
+	# Fix z-ordering: BoardRoot children (tokens z=10, effects up to z=102) would render
+	# above HUD panels (default z=0) within the same CanvasLayer. Push BoardRoot to a
+	# negative z_index so all board elements render below the HUD panels.
+	var board_root = get_node_or_null("BoardRoot")
+	if board_root:
+		board_root.z_index = -200
+		print("Fixed HUD layout: BoardRoot z_index set to -200 (board elements render below HUD)")
+
 	# Adjust both left and right HUD panels for proper layout
 	var hud_left = get_node("HUD_Left")
 	var hud_right = get_node("HUD_Right")
