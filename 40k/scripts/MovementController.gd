@@ -1062,8 +1062,8 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# Notify Main to update UI
 	emit_signal("ui_update_requested")
 
-func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
-	print("MovementController: Model drop committed for ", model_id, " at ", dest_px)
+func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2, rotation: float = 0.0) -> void:
+	print("MovementController: Model drop committed for ", model_id, " at ", dest_px, " rotation: ", rotation)
 	# Update path visual
 	_update_movement_display()
 	_refresh_unit_list()

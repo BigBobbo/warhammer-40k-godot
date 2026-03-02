@@ -5213,6 +5213,15 @@ func update_unit_visuals(unit_id: String) -> void:
 					print("  - P1-67: Syncing token position from (%.1f, %.1f) to (%.1f, %.1f)" % [token.position.x, token.position.y, target_pos.x, target_pos.y])
 					token.position = target_pos
 
+			# Also sync rotation from GameState
+			var model_rotation = model.get("rotation", 0.0)
+			if "model_data" in token and token.model_data is Dictionary:
+				var current_rotation = token.model_data.get("rotation", 0.0)
+				if abs(current_rotation - model_rotation) > 0.001:
+					print("  - Syncing token rotation from %.3f to %.3f" % [current_rotation, model_rotation])
+					token.model_data["rotation"] = model_rotation
+					token.queue_redraw()
+
 			if model_alive:
 				# Model is alive → ensure visible
 				token.visible = true
@@ -6751,9 +6760,9 @@ func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> voi
 	# Recreate all unit visuals with updated positions
 	_recreate_unit_visuals()
 
-func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
+func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2, rotation: float = 0.0) -> void:
 	# Handle visual updates for model drops (including staged moves)
-	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px)
+	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px, " rotation: ", rotation)
 
 	# For staged moves, we want to move the visual token directly without updating GameState
 	# Move ALL matching tokens (there may be duplicates from concurrent _recreate_unit_visuals calls)
@@ -6763,16 +6772,24 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 			# Check direct child (tokens created by _recreate_unit_visuals)
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 				child.position = dest_px
+				# Apply rotation to the token's model_data so it draws correctly
+				if "model_data" in child and child.model_data is Dictionary:
+					child.model_data["rotation"] = rotation
+				child.queue_redraw()
 				if not found_any:
-					print("Moving token visual to ", dest_px)
+					print("Moving token visual to ", dest_px, " with rotation ", rotation)
 				found_any = true
 				continue
 			# Check nested children (deployment tokens have meta on inner base_circle)
 			for grandchild in child.get_children():
 				if grandchild.has_meta("unit_id") and grandchild.get_meta("unit_id") == unit_id and grandchild.has_meta("model_id") and grandchild.get_meta("model_id") == model_id:
 					child.position = dest_px
+					# Apply rotation to nested token's model_data
+					if "model_data" in grandchild and grandchild.model_data is Dictionary:
+						grandchild.model_data["rotation"] = rotation
+					grandchild.queue_redraw()
 					if not found_any:
-						print("Moving token visual (nested) to ", dest_px)
+						print("Moving token visual (nested) to ", dest_px, " with rotation ", rotation)
 					found_any = true
 					break
 
