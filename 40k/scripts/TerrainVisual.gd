@@ -196,8 +196,7 @@ func _add_terrain_piece(terrain_data: Dictionary) -> void:
 					line.default_color = Color(0.45, 0.35, 0.2, 0.9)  # Warm brown
 					line.width = 5.0
 
-			line.z_index = 10  # High z-index
-			line.z_as_relative = false
+			line.z_index = 2  # Above terrain fill (0) but stays within parent sort group
 			line.visible = true
 
 			# Add directly to TerrainVisual (self), not container

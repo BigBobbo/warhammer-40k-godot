@@ -9,8 +9,7 @@ const WINDOW_COLOR = Color(0.2, 0.2, 0.8, 0.8)  # Blue for windows
 const DOOR_COLOR = Color(0.2, 0.8, 0.2, 0.9)  # Green for doors
 
 func _ready() -> void:
-	z_index = 5  # High z-index to ensure visibility
-	z_as_relative = false
+	z_index = -6  # Above terrain fill (-8) but below UI panels
 	visible = true
 	name = "WallVisual"
 	print("[WallVisual] Ready with z_index: ", z_index)
@@ -41,8 +40,7 @@ func add_wall(wall_data: Dictionary) -> void:
 			line.width = 8.0
 
 	# Set rendering properties
-	line.z_index = 10  # Very high z-index to ensure visibility
-	line.z_as_relative = false  # Use absolute z-index
+	line.z_index = 1  # Above parent WallVisual, stays within parent sort group
 	line.show_behind_parent = false
 	line.visible = true
 
