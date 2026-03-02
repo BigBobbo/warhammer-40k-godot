@@ -1,16 +1,17 @@
 extends Control
 
 const FixedMissionSelectionDialogScript = preload("res://dialogs/FixedMissionSelectionDialog.gd")
+const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 
 # MainMenu - Entry point for the game, allows configuration of mission and armies
 
-@onready var terrain_dropdown: OptionButton = $MenuContainer/MissionSection/TerrainContainer/TerrainDropdown
-@onready var mission_dropdown: OptionButton = $MenuContainer/MissionSection/MissionContainer/MissionDropdown
-@onready var deployment_dropdown: OptionButton = $MenuContainer/MissionSection/DeploymentContainer/DeploymentDropdown
-@onready var player1_type_dropdown: OptionButton = $MenuContainer/ArmySection/Player1TypeContainer/Player1TypeDropdown
-@onready var player1_dropdown: OptionButton = $MenuContainer/ArmySection/Player1Container/Player1Dropdown
-@onready var player2_type_dropdown: OptionButton = $MenuContainer/ArmySection/Player2TypeContainer/Player2TypeDropdown
-@onready var player2_dropdown: OptionButton = $MenuContainer/ArmySection/Player2Container/Player2Dropdown
+@onready var terrain_dropdown: OptionButton = $ScrollContainer/MenuContainer/MissionSection/TerrainContainer/TerrainDropdown
+@onready var mission_dropdown: OptionButton = $ScrollContainer/MenuContainer/MissionSection/MissionContainer/MissionDropdown
+@onready var deployment_dropdown: OptionButton = $ScrollContainer/MenuContainer/MissionSection/DeploymentContainer/DeploymentDropdown
+@onready var player1_type_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player1TypeContainer/Player1TypeDropdown
+@onready var player1_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown
+@onready var player2_type_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player2TypeContainer/Player2TypeDropdown
+@onready var player2_dropdown: OptionButton = $ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown
 # T7-40: AI difficulty dropdowns (created dynamically, shown only when player type is AI)
 var player1_difficulty_container: HBoxContainer = null
 var player1_difficulty_dropdown: OptionButton = null
@@ -27,11 +28,11 @@ var p1_select_fixed_button: Button = null
 var p2_select_fixed_button: Button = null
 var _p1_fixed_mission_ids: Array = []
 var _p2_fixed_mission_ids: Array = []
-@onready var start_button: Button = $MenuContainer/ButtonSection/StartButton
-@onready var multiplayer_button: Button = $MenuContainer/ButtonSection/MultiplayerButton
-@onready var load_button: Button = $MenuContainer/ButtonSection/LoadButton
-@onready var replay_button: Button = $MenuContainer/ButtonSection/ReplayButton
-@onready var settings_button: Button = $MenuContainer/ButtonSection/SettingsButton
+@onready var start_button: Button = $ScrollContainer/MenuContainer/ButtonSection/StartButton
+@onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
+@onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
+@onready var replay_button: Button = $ScrollContainer/MenuContainer/ButtonSection/ReplayButton
+@onready var settings_button: Button = $ScrollContainer/MenuContainer/ButtonSection/SettingsButton
 
 # Configuration options
 var terrain_options = [
@@ -84,6 +85,7 @@ func _ready() -> void:
 		print("MainMenu: Cleaning up stale network state")
 		NetworkManager.disconnect_network()
 
+	_apply_theme()
 	_setup_dropdowns()
 	_connect_signals()
 	_setup_save_load_dialog()
@@ -99,7 +101,83 @@ func _ready() -> void:
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
 
+	# Apply theme to dynamically created dropdowns
+	_apply_theme_to_dynamic_elements()
+
 	print("MainMenu: Ready with default selections")
+
+func _apply_theme() -> void:
+	# Background: warm near-black to match WhiteDwarf theme
+	var bg = $Background as ColorRect
+	bg.color = WhiteDwarfThemeData.WH_BLACK
+
+	# Title label: gold, 24pt to match other dialogs
+	var title_label = $ScrollContainer/MenuContainer/TitleLabel as Label
+	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+
+	# Section headers
+	var mission_label = $ScrollContainer/MenuContainer/MissionSection/MissionLabel as Label
+	mission_label.add_theme_font_size_override("font_size", 16)
+	mission_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+
+	var army_label = $ScrollContainer/MenuContainer/ArmySection/ArmyLabel as Label
+	army_label.add_theme_font_size_override("font_size", 16)
+	army_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+
+	# Separators: gold
+	for sep_name in ["HSeparator", "HSeparator2", "HSeparator3"]:
+		var sep = $ScrollContainer/MenuContainer.get_node(sep_name) as HSeparator
+		sep.add_theme_color_override("separator", WhiteDwarfThemeData.WH_GOLD)
+
+	# Field labels: parchment
+	for label_node in [
+		$ScrollContainer/MenuContainer/MissionSection/TerrainContainer/TerrainLabel,
+		$ScrollContainer/MenuContainer/MissionSection/MissionContainer/MissionLabel,
+		$ScrollContainer/MenuContainer/MissionSection/DeploymentContainer/DeploymentLabel,
+		$ScrollContainer/MenuContainer/ArmySection/Player1TypeContainer/Player1TypeLabel,
+		$ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Label,
+		$ScrollContainer/MenuContainer/ArmySection/Player2TypeContainer/Player2TypeLabel,
+		$ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Label,
+	]:
+		(label_node as Label).add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+
+	# Scene-defined dropdowns
+	for dropdown in [terrain_dropdown, mission_dropdown, deployment_dropdown,
+			player1_type_dropdown, player1_dropdown, player2_type_dropdown, player2_dropdown]:
+		WhiteDwarfThemeData.apply_to_button(dropdown)
+
+	# Buttons
+	for btn in [start_button, multiplayer_button, load_button, replay_button, settings_button]:
+		WhiteDwarfThemeData.apply_to_button(btn)
+
+func _apply_theme_to_dynamic_elements() -> void:
+	# Style dynamically created dropdowns and buttons
+	for dropdown in [player1_difficulty_dropdown, player2_difficulty_dropdown, ai_speed_dropdown,
+			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown]:
+		if dropdown:
+			WhiteDwarfThemeData.apply_to_button(dropdown)
+
+	for btn in [p1_select_fixed_button, p2_select_fixed_button]:
+		if btn:
+			WhiteDwarfThemeData.apply_to_button(btn)
+
+	# Style dynamically created labels
+	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container]:
+		if container:
+			for child in container.get_children():
+				if child is Label:
+					child.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+
+	if secondary_mode_container:
+		# Section label
+		for child in secondary_mode_container.get_children():
+			if child is Label:
+				child.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+			elif child is HBoxContainer:
+				for grandchild in child.get_children():
+					if grandchild is Label:
+						grandchild.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 
 func _setup_dropdowns() -> void:
 	# Populate terrain dropdown
@@ -141,7 +219,7 @@ func _setup_dropdowns() -> void:
 
 func _create_difficulty_dropdowns() -> void:
 	"""T7-40: Create AI difficulty dropdown containers and insert them after the player type rows."""
-	var army_section = $MenuContainer/ArmySection
+	var army_section = $ScrollContainer/MenuContainer/ArmySection
 
 	# --- Player 1 Difficulty ---
 	player1_difficulty_container = HBoxContainer.new()
@@ -228,7 +306,7 @@ func _on_player2_type_changed(index: int) -> void:
 
 func _create_ai_speed_dropdown() -> void:
 	"""T7-36: Create an AI speed dropdown in the army section, shown when any player is AI."""
-	var army_section = $MenuContainer/ArmySection
+	var army_section = $ScrollContainer/MenuContainer/ArmySection
 
 	ai_speed_container = HBoxContainer.new()
 	ai_speed_container.name = "AISpeedContainer"
@@ -265,7 +343,7 @@ func _update_ai_speed_visibility() -> void:
 
 func _create_secondary_mission_mode_ui() -> void:
 	"""P2-85: Create secondary mission mode selection UI in the mission section."""
-	var mission_section = $MenuContainer/MissionSection
+	var mission_section = $ScrollContainer/MenuContainer/MissionSection
 
 	secondary_mode_container = VBoxContainer.new()
 	secondary_mode_container.name = "SecondaryModeContainer"

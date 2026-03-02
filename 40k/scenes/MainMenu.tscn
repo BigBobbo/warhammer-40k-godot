@@ -10,166 +10,172 @@ script = ExtResource("1_menu")
 [node name="Background" type="ColorRect" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0.1, 0.1, 0.15, 1)
+color = Color(0.1, 0.09, 0.07, 1)
 
-[node name="MenuContainer" type="VBoxContainer" parent="."]
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 0.0
 anchor_right = 0.5
-anchor_bottom = 0.5
+anchor_bottom = 1.0
 offset_left = -300.0
-offset_top = -300.0
+offset_top = 20.0
 offset_right = 300.0
-offset_bottom = 300.0
+offset_bottom = -20.0
+horizontal_scroll_mode = 0
+
+[node name="MenuContainer" type="VBoxContainer" parent="ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 20
 
-[node name="TitleLabel" type="Label" parent="MenuContainer"]
+[node name="TitleLabel" type="Label" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 text = "Warhammer 40,000 Battle Simulator"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
 
-[node name="HSeparator" type="HSeparator" parent="MenuContainer"]
+[node name="HSeparator" type="HSeparator" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 
-[node name="MissionSection" type="VBoxContainer" parent="MenuContainer"]
+[node name="MissionSection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MissionLabel" type="Label" parent="MenuContainer/MissionSection"]
+[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 text = "Mission Settings"
 theme_override_font_sizes/font_size = 20
 
-[node name="TerrainContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+[node name="TerrainContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 
-[node name="TerrainLabel" type="Label" parent="MenuContainer/MissionSection/TerrainContainer"]
+[node name="TerrainLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Terrain Layout:"
 
-[node name="TerrainDropdown" type="OptionButton" parent="MenuContainer/MissionSection/TerrainContainer"]
+[node name="TerrainDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/TerrainContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="MissionContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+[node name="MissionContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 
-[node name="MissionLabel" type="Label" parent="MenuContainer/MissionSection/MissionContainer"]
+[node name="MissionLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Primary Mission:"
 
-[node name="MissionDropdown" type="OptionButton" parent="MenuContainer/MissionSection/MissionContainer"]
+[node name="MissionDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/MissionContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="DeploymentContainer" type="HBoxContainer" parent="MenuContainer/MissionSection"]
+[node name="DeploymentContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/MissionSection"]
 layout_mode = 2
 
-[node name="DeploymentLabel" type="Label" parent="MenuContainer/MissionSection/DeploymentContainer"]
+[node name="DeploymentLabel" type="Label" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Deployment Zone:"
 
-[node name="DeploymentDropdown" type="OptionButton" parent="MenuContainer/MissionSection/DeploymentContainer"]
+[node name="DeploymentDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/MissionSection/DeploymentContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="HSeparator2" type="HSeparator" parent="MenuContainer"]
+[node name="HSeparator2" type="HSeparator" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 
-[node name="ArmySection" type="VBoxContainer" parent="MenuContainer"]
+[node name="ArmySection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ArmyLabel" type="Label" parent="MenuContainer/ArmySection"]
+[node name="ArmyLabel" type="Label" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 text = "Army Selection"
 theme_override_font_sizes/font_size = 20
 
-[node name="Player1TypeContainer" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+[node name="Player1TypeContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 
-[node name="Player1TypeLabel" type="Label" parent="MenuContainer/ArmySection/Player1TypeContainer"]
+[node name="Player1TypeLabel" type="Label" parent="ScrollContainer/MenuContainer/ArmySection/Player1TypeContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 1 Type:"
 
-[node name="Player1TypeDropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player1TypeContainer"]
+[node name="Player1TypeDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/ArmySection/Player1TypeContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="Player1Container" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+[node name="Player1Container" type="HBoxContainer" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 
-[node name="Player1Label" type="Label" parent="MenuContainer/ArmySection/Player1Container"]
+[node name="Player1Label" type="Label" parent="ScrollContainer/MenuContainer/ArmySection/Player1Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 1 Army:"
 
-[node name="Player1Dropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player1Container"]
+[node name="Player1Dropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/ArmySection/Player1Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="Player2TypeContainer" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+[node name="Player2TypeContainer" type="HBoxContainer" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 
-[node name="Player2TypeLabel" type="Label" parent="MenuContainer/ArmySection/Player2TypeContainer"]
+[node name="Player2TypeLabel" type="Label" parent="ScrollContainer/MenuContainer/ArmySection/Player2TypeContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 2 Type:"
 
-[node name="Player2TypeDropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player2TypeContainer"]
+[node name="Player2TypeDropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/ArmySection/Player2TypeContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="Player2Container" type="HBoxContainer" parent="MenuContainer/ArmySection"]
+[node name="Player2Container" type="HBoxContainer" parent="ScrollContainer/MenuContainer/ArmySection"]
 layout_mode = 2
 
-[node name="Player2Label" type="Label" parent="MenuContainer/ArmySection/Player2Container"]
+[node name="Player2Label" type="Label" parent="ScrollContainer/MenuContainer/ArmySection/Player2Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 2 Army:"
 
-[node name="Player2Dropdown" type="OptionButton" parent="MenuContainer/ArmySection/Player2Container"]
+[node name="Player2Dropdown" type="OptionButton" parent="ScrollContainer/MenuContainer/ArmySection/Player2Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(300, 0)
 
-[node name="HSeparator3" type="HSeparator" parent="MenuContainer"]
+[node name="HSeparator3" type="HSeparator" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 
-[node name="ButtonSection" type="VBoxContainer" parent="MenuContainer"]
+[node name="ButtonSection" type="VBoxContainer" parent="ScrollContainer/MenuContainer"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 10
 
-[node name="StartButton" type="Button" parent="MenuContainer/ButtonSection"]
+[node name="StartButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Start Game"
 
-[node name="MultiplayerButton" type="Button" parent="MenuContainer/ButtonSection"]
+[node name="MultiplayerButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Multiplayer"
 
-[node name="LoadButton" type="Button" parent="MenuContainer/ButtonSection"]
+[node name="LoadButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Load Game"
 
-[node name="ReplayButton" type="Button" parent="MenuContainer/ButtonSection"]
+[node name="ReplayButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Watch Replays"
 
-[node name="SettingsButton" type="Button" parent="MenuContainer/ButtonSection"]
+[node name="SettingsButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
