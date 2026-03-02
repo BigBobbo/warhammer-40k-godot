@@ -124,40 +124,68 @@ func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
 	var rot = model_data.get("rotation", 0.0)
 	var shape_type = base_shape.get_type()
+	var use_retro = SettingsService.retro_mode if SettingsService else false
 
-	# --- Layer 1: Gradient base fill ---
-	var dark_color: Color
-	var light_color: Color
-	if owner_player == 1:
-		dark_color = Color(0.2, 0.25, 0.45, 1.0)
-		light_color = Color(0.35, 0.4, 0.6, 1.0)
+	if use_retro:
+		# --- Retro mode: flat base + top-down pixel art (Hotline Miami style) ---
+		var base_color: Color
+		if owner_player == 1:
+			base_color = Color(0.15, 0.18, 0.3, 1.0)
+		else:
+			base_color = Color(0.35, 0.08, 0.06, 1.0)
+
+		# Simple flat circle base
+		if shape_type == "circular":
+			draw_circle(Vector2.ZERO, radius, base_color)
+			# Thin 1px border
+			draw_arc(Vector2.ZERO, radius, 0, TAU, 32, border_color.darkened(0.3), 1.5)
+		else:
+			var poly_points = _get_shape_polygon(rot)
+			draw_colored_polygon(poly_points, base_color)
+			var closed = PackedVector2Array()
+			for p in poly_points:
+				closed.append(p)
+			closed.append(poly_points[0])
+			draw_polyline(closed, border_color.darkened(0.3), 1.5)
+
+		# Draw top-down pixel art as the primary visual
+		_draw_retro_pixel_art(radius, border_color)
 	else:
-		dark_color = Color(0.5, 0.12, 0.1, 1.0)
-		light_color = Color(0.65, 0.25, 0.2, 1.0)
+		# --- Standard enhanced mode: gradient base + metallic rim ---
+		var dark_color: Color
+		var light_color: Color
+		if owner_player == 1:
+			dark_color = Color(0.2, 0.25, 0.45, 1.0)
+			light_color = Color(0.35, 0.4, 0.6, 1.0)
+		else:
+			dark_color = Color(0.5, 0.12, 0.1, 1.0)
+			light_color = Color(0.65, 0.25, 0.2, 1.0)
 
-	if shape_type == "circular":
-		TokenDrawUtils.draw_gradient_circle(self, Vector2.ZERO, radius, dark_color)
-	else:
-		var poly_points = _get_shape_polygon(rot)
-		TokenDrawUtils.draw_gradient_polygon(self, poly_points, dark_color)
+		if shape_type == "circular":
+			TokenDrawUtils.draw_gradient_circle(self, Vector2.ZERO, radius, dark_color)
+		else:
+			var poly_points = _get_shape_polygon(rot)
+			TokenDrawUtils.draw_gradient_polygon(self, poly_points, dark_color)
 
-	# --- Layer 2: Metallic base rim ---
-	if shape_type == "circular":
-		TokenDrawUtils.draw_metallic_rim(self, Vector2.ZERO, radius, border_color)
-	else:
-		var poly_points = _get_shape_polygon(rot)
-		TokenDrawUtils.draw_metallic_rim_polygon(self, poly_points, border_color)
+		# --- Layer 2: Metallic base rim ---
+		if shape_type == "circular":
+			TokenDrawUtils.draw_metallic_rim(self, Vector2.ZERO, radius, border_color)
+		else:
+			var poly_points = _get_shape_polygon(rot)
+			TokenDrawUtils.draw_metallic_rim_polygon(self, poly_points, border_color)
 
-	# --- Layer 3: Faction-colored inner ring ---
-	var faction_accent = _get_faction_accent_color()
-	if shape_type == "circular":
-		TokenDrawUtils.draw_faction_ring(self, Vector2.ZERO, radius, faction_accent)
-	else:
-		var poly_points = _get_shape_polygon(rot)
-		TokenDrawUtils.draw_faction_ring_polygon(self, poly_points, faction_accent)
+		# --- Layer 3: Faction-colored inner ring ---
+		var faction_accent = _get_faction_accent_color()
+		if shape_type == "circular":
+			TokenDrawUtils.draw_faction_ring(self, Vector2.ZERO, radius, faction_accent)
+		else:
+			var poly_points = _get_shape_polygon(rot)
+			TokenDrawUtils.draw_faction_ring_polygon(self, poly_points, faction_accent)
 
-	# --- Layer 4: Animated sprite overlay or animated silhouette ---
-	_draw_enhanced_overlay(radius, border_color)
+		# --- Layer 4: Animated sprite overlay or animated silhouette ---
+		_draw_enhanced_overlay(radius, border_color)
+
+	# --- Shared layers (both retro and standard) ---
 
 	# --- Layer 5: Wound pips ---
 	_draw_wound_pips(radius)
@@ -211,6 +239,34 @@ func _draw_enhanced_overlay(radius: float, border_color: Color) -> void:
 		TokenDrawUtils.draw_leader_chevron(self, Vector2.ZERO, radius, _get_faction_accent_color())
 
 
+func _draw_retro_pixel_art(radius: float, border_color: Color) -> void:
+	# Retro mode: draw top-down pixel art as the primary unit visual (Hotline Miami style)
+	var unit_type = "INFANTRY"
+	if has_meta("unit_id"):
+		unit_type = _get_unit_type()
+
+	# Use faction-tinted color for the pixel art
+	var pixel_color: Color
+	if owner_player == 1:
+		pixel_color = Color(0.5, 0.55, 0.75, 1.0)  # Blue-steel
+	else:
+		pixel_color = Color(0.75, 0.35, 0.3, 1.0)  # Crimson
+	var accent = _get_faction_accent_color()
+	accent.a = 1.0
+
+	match unit_type:
+		"VEHICLE":
+			TokenDrawUtils.draw_vehicle_topdown(self, Vector2.ZERO, radius, pixel_color, accent, _animation_time)
+		"MONSTER":
+			TokenDrawUtils.draw_monster_topdown(self, Vector2.ZERO, radius, pixel_color, accent, _animation_time)
+		_:
+			TokenDrawUtils.draw_infantry_topdown(self, Vector2.ZERO, radius, pixel_color, accent, _animation_time)
+
+	# Character chevron
+	if has_meta("unit_id") and _is_character():
+		TokenDrawUtils.draw_leader_chevron(self, Vector2.ZERO, radius, accent)
+
+
 func _draw_sprite_texture(tex: Texture2D, radius: float) -> void:
 	# Draw a sprite texture overlay at 70% of base diameter
 	var target_size = radius * 2.0 * 0.7
@@ -227,14 +283,16 @@ func _draw_animated_silhouette(radius: float, border_color: Color, unit_type: St
 	var use_retro = SettingsService.retro_mode if SettingsService else false
 
 	if use_retro:
-		# Pixel art retro silhouettes
+		# Top-down pixel art retro silhouettes (Hotline Miami style)
+		var accent = _get_faction_accent_color()
+		accent.a = 1.0
 		match unit_type:
 			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+				TokenDrawUtils.draw_vehicle_topdown(self, Vector2.ZERO, radius, overlay_color, accent, _animation_time)
 			"MONSTER":
-				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+				TokenDrawUtils.draw_monster_topdown(self, Vector2.ZERO, radius, overlay_color, accent, _animation_time)
 			_:
-				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+				TokenDrawUtils.draw_infantry_topdown(self, Vector2.ZERO, radius, overlay_color, accent, _animation_time)
 	else:
 		# Standard smooth silhouettes
 		match unit_type:
@@ -521,16 +579,18 @@ func _draw_overlay(fill_color: Color, border_color: Color) -> void:
 		_draw_faction_glyph(radius, overlay_color, faction)
 
 func _draw_silhouette(radius: float, color: Color, unit_type: String) -> void:
-	# In retro mode, use pixel art silhouettes even for style_a
+	# In retro mode, use top-down pixel art silhouettes even for style_a
 	var use_retro = SettingsService.retro_mode if SettingsService else false
 	if use_retro:
+		var accent = _get_faction_accent_color()
+		accent.a = 1.0
 		match unit_type:
 			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+				TokenDrawUtils.draw_vehicle_topdown(self, Vector2.ZERO, radius, color, accent, _animation_time)
 			"MONSTER":
-				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+				TokenDrawUtils.draw_monster_topdown(self, Vector2.ZERO, radius, color, accent, _animation_time)
 			_:
-				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, color, _animation_time)
+				TokenDrawUtils.draw_infantry_topdown(self, Vector2.ZERO, radius, color, accent, _animation_time)
 		return
 
 	var s = radius * 0.5  # Scale factor
