@@ -6324,6 +6324,15 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					# reset other staged models back to their GameState positions.
 					if movement_controller:
 						movement_controller._update_staged_moves_visual()
+						# Sync pivot cost and update rotation visual after undo
+						var mc_phase = movement_controller.current_phase
+						if mc_phase and mc_phase.has_method("get_active_move_data"):
+							var mc_move_data = mc_phase.get_active_move_data(movement_controller.active_unit_id)
+							if not mc_move_data.is_empty() and not mc_move_data.get("pivot_cost_applied", false):
+								movement_controller._reset_pivot_cost()
+								movement_controller._update_movement_display()
+					# Update token visuals for rotation changes applied by undo
+					_update_token_rotations_from_state(action.get("actor_unit_id", ""))
 				"RESET_UNIT_MOVE":
 					print("Unit movement reset")
 					_recreate_unit_visuals()
@@ -6779,6 +6788,27 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 	if not found_any:
 		print("Could not find token to move, falling back to full recreation")
 		_update_model_visual(unit_id, model_id, [dest_px.x, dest_px.y])
+
+func _update_token_rotations_from_state(unit_id: String) -> void:
+	"""Update token visual rotations to match current GameState values."""
+	if not token_layer or unit_id == "":
+		return
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return
+	var models = unit.get("models", [])
+	for model in models:
+		var model_id = model.get("id", "")
+		var rotation = model.get("rotation", 0.0)
+		for child in token_layer.get_children():
+			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and \
+			   child.has_meta("model_id") and child.get_meta("model_id") == model_id:
+				if child.has_method("set_base_rotation"):
+					child.set_base_rotation(rotation)
+				elif child.has_method("set_model_data"):
+					child.set_model_data(model)
+					child.queue_redraw()
+				break
 
 func _clear_right_panel_phase_ui() -> void:
 	"""Completely clear all phase-specific UI from right panel"""

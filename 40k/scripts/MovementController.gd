@@ -1173,6 +1173,14 @@ func _on_unit_move_reset(unit_id: String) -> void:
 	if movement_path_preview and is_instance_valid(movement_path_preview):
 		movement_path_preview.clear_now()
 
+	# Reset pivot cost tracking in the controller
+	_reset_pivot_cost()
+
+	# Recreate unit visuals to reflect restored rotations
+	var main_node = get_node_or_null("/root/Main")
+	if main_node and main_node.has_method("_recreate_unit_visuals"):
+		main_node._recreate_unit_visuals()
+
 	_update_movement_display()
 	emit_signal("ui_update_requested")
 
@@ -2399,6 +2407,9 @@ func _start_model_rotation(mouse_pos: Vector2) -> void:
 	rotation_start_angle = to_mouse.angle()
 	model_start_rotation = selected_model.get("rotation", 0.0)
 
+	# Store original rotation in the phase's move data for undo/reset
+	_store_original_rotation(selected_model.get("id", selected_model.get("model_id", "")), model_start_rotation)
+
 	print("Starting rotation for model with base type: %s (base_mm: %d)" % [base_type, base_mm])
 
 func _update_model_rotation(mouse_pos: Vector2) -> void:
@@ -2434,6 +2445,8 @@ func _rotate_model_by_angle(angle: float) -> void:
 		return
 
 	var current_rotation = selected_model.get("rotation", 0.0)
+	# Store original rotation before first keyboard rotation
+	_store_original_rotation(selected_model.get("id", selected_model.get("model_id", "")), current_rotation)
 	var new_rotation = current_rotation + angle
 	_apply_rotation_to_model(new_rotation)
 	_check_and_apply_pivot_cost()
@@ -2516,6 +2529,22 @@ func _check_and_apply_pivot_cost() -> void:
 func _reset_pivot_cost() -> void:
 	pivot_cost_paid = false
 	pivot_cost_inches = 0.0
+
+func _store_original_rotation(model_id: String, rotation: float) -> void:
+	"""Store the original rotation for a model in the phase's move data for undo/reset."""
+	if not current_phase or active_unit_id == "":
+		return
+	if not current_phase.has_method("get_active_move_data"):
+		return
+	var move_data = current_phase.get_active_move_data(active_unit_id)
+	if move_data.is_empty():
+		return
+	# Only store the first rotation (the original) — don't overwrite
+	if not move_data.has("original_rotations"):
+		move_data["original_rotations"] = {}
+	if not move_data["original_rotations"].has(model_id):
+		move_data["original_rotations"][model_id] = rotation
+		print("Stored original rotation %.2f for model %s" % [rotation, model_id])
 
 func _update_model_token_visual(model: Dictionary) -> void:
 	# Find and update the token visual directly
