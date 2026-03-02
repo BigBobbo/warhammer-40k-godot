@@ -48,12 +48,15 @@ func _build_ui() -> void:
 	_shortcuts_container.add_theme_constant_override("separation", 2)
 	vbox.add_child(_shortcuts_container)
 
-	# Add deployment shortcuts
-	_add_shortcut("Q / E", "Rotate model 15°")
+	# Add deployment shortcuts (dynamic from KeybindingManager)
+	var _rl = KeybindingManager.get_key_display_name("rotate_left") if KeybindingManager else "Q"
+	var _rr = KeybindingManager.get_key_display_name("rotate_right") if KeybindingManager else "E"
+	_add_shortcut("%s / %s" % [_rl, _rr], "Rotate model 15°")
 	_add_shortcut("Mouse Wheel", "Rotate model 15°")
 	_add_shortcut("Shift + Click", "Reposition placed model")
 	_add_shortcut("Right Click", "Cancel reposition")
-	_add_shortcut("Ctrl + Z", "Undo last model")
+	var _undo = KeybindingManager.get_key_display_name("undo_deployment") if KeybindingManager else "Ctrl+Z"
+	_add_shortcut(_undo, "Undo last model")
 
 	# Separator before formation section
 	var sep2 = HSeparator.new()
@@ -87,12 +90,18 @@ func _build_ui() -> void:
 	general_header.add_theme_font_size_override("font_size", 12)
 	_shortcuts_container.add_child(general_header)
 
-	_add_shortcut("Z", "Toggle deployment zones")
-	_add_shortcut("T (hold)", "Measuring tape")
-	_add_shortcut("Y", "Clear measurements")
+	var _dz = KeybindingManager.get_key_display_name("toggle_deploy_zones") if KeybindingManager else "Z"
+	var _mt = KeybindingManager.get_key_display_name("measuring_tape") if KeybindingManager else "T"
+	var _cm = KeybindingManager.get_key_display_name("clear_measurements") if KeybindingManager else "Y"
+	var _zu = KeybindingManager.get_key_display_name("zoom_in") if KeybindingManager else "="
+	var _zd = KeybindingManager.get_key_display_name("zoom_out") if KeybindingManager else "-"
+	var _rb = KeybindingManager.get_key_display_name("rotate_board") if KeybindingManager else "V"
+	_add_shortcut(_dz, "Toggle deployment zones")
+	_add_shortcut("%s (hold)" % _mt, "Measuring tape")
+	_add_shortcut(_cm, "Clear measurements")
 	_add_shortcut("W/A/S/D", "Pan camera")
-	_add_shortcut("+  /  -", "Zoom in/out")
-	_add_shortcut("V", "Rotate board view")
+	_add_shortcut("%s  /  %s" % [_zu, _zd], "Zoom in/out")
+	_add_shortcut(_rb, "Rotate board view")
 
 	# Dismiss hint at bottom
 	var sep4 = HSeparator.new()

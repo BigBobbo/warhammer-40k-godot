@@ -113,14 +113,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Handle Ctrl+Z for per-model undo during deployment
 	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_Z and event.ctrl_pressed:
+		if KeybindingManager.matches_action(event, "undo_deployment"):
 			if undo_last_model():
 				get_viewport().set_input_as_handled()
 			return
 
 	# Handle rotation controls during deployment
 	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_Q:
+		if KeybindingManager.matches_action(event, "rotate_left"):
 			# Rotate left
 			if formation_mode == "SINGLE":
 				# Rotate individual model ghost
@@ -129,7 +129,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				# Rotate formation
 				formation_rotation -= PI/12  # 15 degrees counter-clockwise
-		elif event.keycode == KEY_E:
+		elif KeybindingManager.matches_action(event, "rotate_right"):
 			# Rotate right
 			if formation_mode == "SINGLE":
 				# Rotate individual model ghost

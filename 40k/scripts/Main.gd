@@ -31,7 +31,7 @@ var secondary_mission_panel: Control
 var left_panel_toggle_button: Button
 var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
-var save_load_dialog: AcceptDialog
+var save_load_dialog: PanelContainer
 var game_over_dialog: AcceptDialog = null
 var disconnect_dialog: AcceptDialog = null  # P2-41: Graceful disconnect handling
 var deployment_controller: Node
@@ -3509,7 +3509,7 @@ func _input(event: InputEvent) -> void:
 		return
 	
 	# P3-54: Keyboard shortcut reference overlay toggle — '?' (Shift+/) during deployment
-	if event is InputEventKey and event.pressed and event.keycode == KEY_SLASH and event.shift_pressed:
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "shortcut_overlay"):
 		if current_phase == GameStateData.Phase.DEPLOYMENT and _keyboard_shortcut_overlay:
 			_keyboard_shortcut_overlay.toggle()
 			get_viewport().set_input_as_handled()
@@ -3520,7 +3520,7 @@ func _input(event: InputEvent) -> void:
 		var ai_player = get_node_or_null("/root/AIPlayer")
 		if ai_player and ai_player.enabled:
 			# T7-36: Space key continues step-by-step mode
-			if event.keycode == KEY_SPACE and ai_player.is_step_by_step_paused():
+			if KeybindingManager.matches_action(event, "ai_step_continue") and ai_player.is_step_by_step_paused():
 				ai_player.step_by_step_continue()
 				_hide_step_continue_button()
 				get_viewport().set_input_as_handled()
@@ -3528,61 +3528,61 @@ func _input(event: InputEvent) -> void:
 
 			# T7-55: Spectator speed control (AI vs AI mode)
 			if _is_spectator_mode:
-				if event.keycode == KEY_COMMA:
+				if KeybindingManager.matches_action(event, "ai_speed_decrease"):
 					var idx = ai_player._spectator_speed_index
 					if idx > 0:
 						ai_player.set_spectator_speed_index(idx - 1)
 					get_viewport().set_input_as_handled()
 					return
-				elif event.keycode == KEY_PERIOD:
+				elif KeybindingManager.matches_action(event, "ai_speed_increase"):
 					var idx = ai_player._spectator_speed_index
 					if idx < ai_player.SPECTATOR_SPEED_PRESETS.size() - 1:
 						ai_player.set_spectator_speed_index(idx + 1)
 					get_viewport().set_input_as_handled()
 					return
-				elif event.keycode == KEY_SLASH:
+				elif KeybindingManager.matches_action(event, "ai_speed_cycle"):
 					ai_player.cycle_spectator_speed()
 					get_viewport().set_input_as_handled()
 					return
 			else:
 				# T7-36: Non-spectator AI speed control — comma/period/slash
-				if event.keycode == KEY_COMMA:
+				if KeybindingManager.matches_action(event, "ai_speed_decrease"):
 					var preset = ai_player.get_ai_speed_preset()
 					if preset > 0:
 						ai_player.set_ai_speed_preset(preset - 1)
 					get_viewport().set_input_as_handled()
 					return
-				elif event.keycode == KEY_PERIOD:
+				elif KeybindingManager.matches_action(event, "ai_speed_increase"):
 					var preset = ai_player.get_ai_speed_preset()
 					if preset < ai_player.AISpeedPreset.STEP_BY_STEP:
 						ai_player.set_ai_speed_preset(preset + 1)
 					get_viewport().set_input_as_handled()
 					return
-				elif event.keycode == KEY_SLASH:
+				elif KeybindingManager.matches_action(event, "ai_speed_cycle"):
 					ai_player.cycle_ai_speed()
 					get_viewport().set_input_as_handled()
 					return
 
 	# T7-56: AI Turn Replay panel toggle — 'r' key
-	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_replay_panel"):
 		_toggle_ai_turn_replay_panel()
 		get_viewport().set_input_as_handled()
 		return
 
 	# Secondary Missions panel toggle — 'm' key
-	if event is InputEventKey and event.pressed and event.keycode == KEY_M:
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_missions_panel"):
 		_toggle_secondary_mission_panel()
 		get_viewport().set_input_as_handled()
 		return
 
 	# Board rotation - 'v' to rotate 90° clockwise
-	if event is InputEventKey and event.pressed and event.keycode == KEY_V:
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "rotate_board"):
 		rotate_board_view(PI / 2.0)
 		get_viewport().set_input_as_handled()
 		return
 
 	# Deployment zone toggle - 'z' to show/hide deployment zones
-	if event is InputEventKey and event.pressed and event.keycode == KEY_Z:
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_deploy_zones"):
 		_toggle_deployment_zones()
 		_update_deployment_zone_toggle_button_text()  # P3-108: Keep button text in sync
 		get_viewport().set_input_as_handled()
@@ -3590,8 +3590,9 @@ func _input(event: InputEvent) -> void:
 
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
-		# Start/stop measuring with 't' key
-		if event.keycode == KEY_T:
+		# Start/stop measuring with measuring tape key
+		var _mt_binding = KeybindingManager.get_binding("measuring_tape")
+		if _mt_binding.size() > 0 and (event.keycode == _mt_binding.key or (_mt_binding.alt_key != 0 and event.keycode == _mt_binding.alt_key)):
 			if event.pressed and not MeasuringTapeManager.is_measuring:
 				var mouse_pos = get_viewport().get_mouse_position()
 				var world_pos = screen_to_world_position(mouse_pos)
@@ -3603,13 +3604,13 @@ func _input(event: InputEvent) -> void:
 				if MeasuringTapeManager.can_add_measurement():
 					MeasuringTapeManager.complete_measurement(world_pos)
 				else:
-					print("Maximum number of measurements reached (10). Clear with 'y' key.")
+					print("Maximum number of measurements reached (10). Clear with '%s' key." % KeybindingManager.get_key_display_name("clear_measurements"))
 					MeasuringTapeManager.cancel_measurement()
 				get_viewport().set_input_as_handled()
 			return
-		
-		# Clear all measurements with 'y' key
-		if event.pressed and event.keycode == KEY_Y:
+
+		# Clear all measurements with clear measurements key
+		if event.pressed and KeybindingManager.matches_action(event, "clear_measurements"):
 			MeasuringTapeManager.clear_all_measurements()
 			print("All measurements cleared")
 			get_viewport().set_input_as_handled()
@@ -3620,8 +3621,7 @@ func _input(event: InputEvent) -> void:
 		var world_pos = screen_to_world_position(event.position)
 		MeasuringTapeManager.update_measurement(world_pos)
 	
-	# ESC key handling for save/load dialog
-	# Only handle ESC if dialog is not visible (to avoid interfering with dialog input)
+	# ESC key handling — opens settings menu (or closes overlays first)
 	# T5-UX12: Defer ESC to ShootingController when shooting phase has active shooter
 	if event.is_action_pressed("ui_cancel"):
 		# T7-56: Close replay panel on ESC if open
@@ -3632,28 +3632,40 @@ func _input(event: InputEvent) -> void:
 		if shooting_controller and shooting_controller.active_shooter_id != "":
 			# Let ShootingController handle ESC for deselect/cancel
 			return
-		if save_load_dialog and not save_load_dialog.visible:
-			_toggle_save_load_menu()
-			get_viewport().set_input_as_handled()
-			return
-		elif save_load_dialog and save_load_dialog.visible:
+		# Close save/load dialog if open
+		if save_load_dialog and save_load_dialog.visible:
 			# Let the dialog handle ESC (it has dialog_close_on_escape = true)
 			return
+		# Close settings menu if open, otherwise open it
+		if _settings_menu and is_instance_valid(_settings_menu):
+			_settings_menu.queue_free()
+			_settings_menu = null
+			print("Main: Settings menu closed via Escape")
+			get_viewport().set_input_as_handled()
+			return
+		# Open settings menu
+		_settings_menu = SettingsMenu.new()
+		_settings_menu.show_return_to_menu = true
+		_settings_menu.settings_closed.connect(_on_settings_menu_closed)
+		_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
+		add_child(_settings_menu)
+		print("Main: Settings menu opened via Escape")
+		get_viewport().set_input_as_handled()
+		return
 	
 	# Don't process other input while dialog is open
 	if save_load_dialog and save_load_dialog.visible:
 		return
 	
-	# Debug: Check for [ key directly for save
-	if event is InputEventKey and event.pressed and event.keycode == KEY_BRACKETLEFT:
-		print("[ KEY DETECTED DIRECTLY!")
+	# Quick save/load via KeybindingManager
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "quick_save"):
+		print("[KeybindingManager] Quick save key detected")
 		_perform_quick_save()
 		get_viewport().set_input_as_handled()
 		return
-	
-	# Debug: Check for ] key directly for load
-	if event is InputEventKey and event.pressed and event.keycode == KEY_BRACKETRIGHT:
-		print("] KEY DETECTED DIRECTLY!")
+
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "quick_load"):
+		print("[KeybindingManager] Quick load key detected")
 		_perform_quick_load()
 		get_viewport().set_input_as_handled()
 		return
@@ -3695,31 +3707,31 @@ func _process(delta: float) -> void:
 	
 	# Build pan vector in screen space, then rotate to match board orientation
 	var pan_dir = Vector2.ZERO
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if KeybindingManager.is_action_pressed("camera_pan_up"):
 		pan_dir.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if KeybindingManager.is_action_pressed("camera_pan_down"):
 		pan_dir.y += 1.0
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if KeybindingManager.is_action_pressed("camera_pan_left"):
 		pan_dir.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if KeybindingManager.is_action_pressed("camera_pan_right"):
 		pan_dir.x += 1.0
 	if pan_dir != Vector2.ZERO:
 		# Counter-rotate the pan direction so WASD always maps to screen directions
 		view_offset += pan_dir.rotated(-view_rotation) * pan_speed
 		view_changed = true
-	
+
 	# Zoom controls
-	if Input.is_key_pressed(KEY_EQUAL) or Input.is_key_pressed(KEY_PLUS):
+	if KeybindingManager.is_action_pressed("zoom_in"):
 		view_zoom *= 1.03
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
-	if Input.is_key_pressed(KEY_MINUS):
+	if KeybindingManager.is_action_pressed("zoom_out"):
 		view_zoom *= 0.97
 		view_zoom = clamp(view_zoom, 0.1, 3.0)
 		view_changed = true
-	
+
 	# Focus commands
-	if Input.is_key_pressed(KEY_F):
+	if KeybindingManager.is_action_pressed("focus_p2_zone"):
 		focus_on_player2_zone()
 		view_changed = true
 	
@@ -7460,26 +7472,15 @@ func _on_retro_mode_changed(enabled: bool) -> void:
 # P3-111: In-game Settings Menu (Escape key)
 # ============================================================================
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		_toggle_settings_menu()
-		get_viewport().set_input_as_handled()
-
-func _toggle_settings_menu() -> void:
-	if _settings_menu and is_instance_valid(_settings_menu):
-		# Already open — close it
-		_settings_menu.queue_free()
-		_settings_menu = null
-		print("Main: P3-111 Settings menu closed via Escape")
-		return
-
-	# Open settings menu
-	_settings_menu = SettingsMenu.new()
-	_settings_menu.show_return_to_menu = true
-	_settings_menu.settings_closed.connect(_on_settings_menu_closed)
-	add_child(_settings_menu)
-	print("Main: P3-111 Settings menu opened via Escape")
+func _unhandled_input(_event: InputEvent) -> void:
+	pass
 
 func _on_settings_menu_closed() -> void:
 	_settings_menu = null
-	print("Main: P3-111 Settings menu closed")
+	print("Main: Settings menu closed")
+
+func _on_settings_save_load_requested() -> void:
+	_settings_menu = null
+	if save_load_dialog:
+		save_load_dialog.show_dialog()
+		print("Main: Save/Load dialog opened from settings menu")

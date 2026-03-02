@@ -1239,15 +1239,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_hover_preview(event.position)
 	elif event is InputEventKey and event.pressed:
 		# Multi-selection keyboard shortcuts
-		if event.keycode == KEY_A and Input.is_key_pressed(KEY_CTRL):
+		if KeybindingManager.matches_action(event, "select_all"):
 			_select_all_unit_models()
 		elif event.keycode == KEY_ESCAPE:
 			_clear_selection()
 		# Keyboard rotation controls - work during dragging or when model selected
 		elif (selected_model.size() > 0 or selected_models.size() > 0):
-			if event.keycode == KEY_Q:
+			if KeybindingManager.matches_action(event, "rotate_left"):
 				_rotate_model_by_angle(-PI/12)  # Rotate 15 degrees left
-			elif event.keycode == KEY_E:
+			elif KeybindingManager.matches_action(event, "rotate_right"):
 				_rotate_model_by_angle(PI/12)  # Rotate 15 degrees right
 
 func _start_model_drag(mouse_pos: Vector2) -> void:

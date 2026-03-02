@@ -20,7 +20,7 @@ var player2_difficulty_dropdown: OptionButton = null
 var ai_speed_container: HBoxContainer = null
 var ai_speed_dropdown: OptionButton = null
 # P2-85: Secondary mission mode selection (Fixed vs Tactical)
-var secondary_mode_container: HBoxContainer = null
+var secondary_mode_container: VBoxContainer = null
 var p1_secondary_mode_dropdown: OptionButton = null
 var p2_secondary_mode_dropdown: OptionButton = null
 var p1_select_fixed_button: Button = null
@@ -68,7 +68,7 @@ var deployment_options = [
 # Army options - dynamically populated from ArmyListManager
 var army_options = []
 
-var save_load_dialog: AcceptDialog
+var save_load_dialog: PanelContainer
 
 # Cloud army loading state
 var _waiting_for_cloud_armies: bool = false
@@ -734,7 +734,7 @@ func _on_multiplayer_button_pressed() -> void:
 func _on_load_button_pressed() -> void:
 	print("MainMenu: Load button pressed")
 	if save_load_dialog:
-		save_load_dialog.popup_centered(Vector2(600, 400))
+		save_load_dialog.show_dialog()
 	else:
 		print("MainMenu: Error - Save/Load dialog not available")
 

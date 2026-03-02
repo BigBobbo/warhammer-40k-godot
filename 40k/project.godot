@@ -59,6 +59,7 @@ FactionAbilityManager="*res://autoloads/FactionAbilityManager.gd"
 UnitAbilityManager="*res://autoloads/UnitAbilityManager.gd"
 DiceHistoryPanel="*res://autoloads/DiceHistoryPanel.gd"
 DiceSoundManager="*res://autoloads/DiceSoundManager.gd"
+KeybindingManager="*res://autoloads/KeybindingManager.gd"
 
 [display]
 

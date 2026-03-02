@@ -141,10 +141,10 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey:
 		# Keyboard rotation controls during charge movement
 		if event.pressed and dragging_model:
-			if event.keycode == KEY_Q:
+			if KeybindingManager.matches_action(event, "rotate_left"):
 				_rotate_dragging_model(-PI/12)  # Rotate 15 degrees left
 				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_E:
+			elif KeybindingManager.matches_action(event, "rotate_right"):
 				_rotate_dragging_model(PI/12)  # Rotate 15 degrees right
 				get_viewport().set_input_as_handled()
 
