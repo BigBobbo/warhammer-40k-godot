@@ -1521,6 +1521,11 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 
 	print("Main: Beginning reinforcement placement for %s (%s)" % [unit_name, type_label])
 
+	# Ensure deployment controller exists (it's freed during phase transitions)
+	if not deployment_controller:
+		print("Main: Creating deployment controller for reinforcement placement")
+		setup_deployment_controller()
+
 	# Use the deployment controller to handle model placement
 	if deployment_controller:
 		# Set reinforcement mode flag on deployment controller
@@ -4482,7 +4487,21 @@ func update_unit_card_buttons() -> void:
 					confirm_button.visible = false
 		
 		GameStateData.Phase.MOVEMENT:
-			# CHANGE: Don't call update_movement_card_buttons() - MovementController manages its own UI
+			# During reinforcement placement, show deployment-style buttons
+			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
+				var current_unit_id = deployment_controller.get_current_unit()
+				if current_unit_id and current_unit_id != "":
+					var unit_data = GameState.get_unit(current_unit_id)
+					if unit_data and unit_data.has("models"):
+						var placed = deployment_controller.get_placed_count()
+						var total = deployment_controller.get_total_model_count()
+						models_label.text = "Models: %d/%d" % [placed, total]
+						undo_button.visible = placed > 0
+						reset_button.visible = placed > 0
+						confirm_button.visible = placed == total
+						unit_card.visible = true
+						return
+			# Default: MovementController manages its own UI
 			unit_card.visible = false
 
 func update_movement_card_buttons() -> void:
@@ -4544,7 +4563,13 @@ func _on_undo_pressed() -> void:
 					# Nothing left to undo — no-op (unit stays selected)
 					pass
 		GameStateData.Phase.MOVEMENT:
-			if movement_controller and movement_controller.active_unit_id != "":
+			# Route to deployment controller during reinforcement placement
+			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
+				var undone = deployment_controller.undo_last_model()
+				if undone:
+					update_unit_card_buttons()
+					update_ui()
+			elif movement_controller and movement_controller.active_unit_id != "":
 				print("Undo button pressed for unit: ", movement_controller.active_unit_id)
 				var action = {
 					"type": "UNDO_LAST_MODEL_MOVE",
@@ -4567,7 +4592,15 @@ func _on_reset_pressed() -> void:
 				update_unit_card_buttons()
 				update_ui()
 		GameStateData.Phase.MOVEMENT:
-			if movement_controller and movement_controller.active_unit_id != "":
+			# Route to deployment controller during reinforcement placement
+			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
+				var reset_unit_id = deployment_controller.unit_id
+				deployment_controller.reset_unit()
+				if reset_unit_id != "":
+					_begin_reinforcement_placement(reset_unit_id)
+				update_unit_card_buttons()
+				update_ui()
+			elif movement_controller and movement_controller.active_unit_id != "":
 				print("Reset button pressed for unit: ", movement_controller.active_unit_id)
 				var action = {
 					"type": "RESET_UNIT_MOVE",
@@ -4582,7 +4615,11 @@ func _on_confirm_pressed() -> void:
 			if deployment_controller:
 				deployment_controller.confirm()
 		GameStateData.Phase.MOVEMENT:
-			if movement_controller and movement_controller.active_unit_id != "":
+			# Route to deployment controller during reinforcement placement
+			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
+				print("Confirm button pressed for reinforcement placement")
+				deployment_controller.confirm()
+			elif movement_controller and movement_controller.active_unit_id != "":
 				print("Confirm button pressed for unit: ", movement_controller.active_unit_id)
 				var action = {
 					"type": "CONFIRM_UNIT_MOVE",

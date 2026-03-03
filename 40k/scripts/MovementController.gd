@@ -608,12 +608,23 @@ func _refresh_unit_list() -> void:
 
 func _on_unit_selected(index: int) -> void:
 	var unit_id = unit_list.get_item_metadata(index)
+	if unit_id == null or unit_id == "":
+		return
+
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return
+
+	# Skip reserve units - reinforcement placement is handled by Main._begin_reinforcement_placement
+	if unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+		print("MovementController: Skipping reserve unit %s (handled by Main)" % unit_id)
+		return
+
 	active_unit_id = unit_id
 	print("MovementController: Unit selected - ", unit_id)
 
 	# Check if unit is embarked and needs to disembark
-	var unit = GameState.get_unit(unit_id)
-	if unit and unit.get("embarked_in", null) != null:
+	if unit.get("embarked_in", null) != null:
 		_handle_embarked_unit_selected(unit_id)
 		return
 

@@ -548,9 +548,21 @@ func confirm() -> void:
 		_show_toast("Cannot deploy: unit is not in coherency (all models must be within 2\" of mates)", Color.RED)
 		return
 
-	# In reinforcement mode, skip embark/attach dialogs and go straight to placement
+	# In reinforcement mode, emit signal BEFORE clearing state so Main can collect positions
 	if is_reinforcement_mode:
-		_complete_deployment()
+		print("[DeploymentController] Reinforcement confirm — emitting unit_confirmed (positions still available)")
+		emit_signal("unit_confirmed")
+		# Clean up after Main has collected positions (signal is synchronous)
+		_finalize_tokens()
+		_clear_previews()
+		_remove_ghost()
+		unit_id = ""
+		model_idx = -1
+		temp_positions.clear()
+		temp_rotations.clear()
+		is_reinforcement_mode = false
+		reinforcement_placement_type = ""
+		emit_signal("coherency_warning_changed", false, "")
 		return
 
 	# If formations were declared pre-deployment, skip the interactive dialogs
