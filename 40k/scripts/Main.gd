@@ -3505,6 +3505,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	# Unit labels toggle - 'n' to show/hide unit name labels underneath models
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_unit_labels"):
+		SettingsService.toggle_unit_labels()
+		_force_redraw_all_tokens()
+		print("Unit labels toggled: ", SettingsService.show_unit_labels)
+		get_viewport().set_input_as_handled()
+		return
+
 	# Measuring Tape controls - 't' to measure, 'y' to clear
 	if event is InputEventKey:
 		# Start/stop measuring with measuring tape key

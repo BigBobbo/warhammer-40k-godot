@@ -38,11 +38,15 @@ var animation_speed: float = 1.0 # 0.25 to 3.0
 # P3-111: Colorblind mode — "none", "protanopia", "deuteranopia", "tritanopia"
 var colorblind_mode: String = "none"
 
+# Unit label visibility — toggle the name text shown underneath models
+var show_unit_labels: bool = true
+
 # P3-111: Signals for real-time setting changes
 signal ui_scale_changed(new_scale: float)
 signal animation_speed_changed(new_speed: float)
 signal colorblind_mode_changed(new_mode: String)
 signal audio_settings_changed()
+signal unit_labels_visibility_changed(visible: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -206,6 +210,15 @@ func set_autosave_on_phase_transition(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] autosave_on_phase_transition set to %s" % str(enabled))
 
+func set_show_unit_labels(visible: bool) -> void:
+	show_unit_labels = visible
+	unit_labels_visibility_changed.emit(show_unit_labels)
+	_save_settings()
+	print("[SettingsService] show_unit_labels set to %s" % str(show_unit_labels))
+
+func toggle_unit_labels() -> void:
+	set_show_unit_labels(not show_unit_labels)
+
 func set_unit_visual_style_setting(style: String) -> void:
 	if style not in ["letter", "enhanced", "style_a", "style_b", "classic"]:
 		print("[SettingsService] Invalid visual style: %s" % style)
@@ -233,6 +246,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "ui_scale", ui_scale)
 	config.set_value("visual", "animation_speed", animation_speed)
 	config.set_value("visual", "colorblind_mode", colorblind_mode)
+	config.set_value("visual", "show_unit_labels", show_unit_labels)
 
 	# Save/Load
 	config.set_value("save_load", "pretty_print", save_files_pretty_print)
@@ -266,6 +280,7 @@ func _load_settings() -> void:
 	ui_scale = config.get_value("visual", "ui_scale", 1.0)
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)
 	colorblind_mode = config.get_value("visual", "colorblind_mode", "none")
+	show_unit_labels = config.get_value("visual", "show_unit_labels", true)
 
 	# Save/Load
 	save_files_pretty_print = config.get_value("save_load", "pretty_print", true)
