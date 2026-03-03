@@ -238,7 +238,7 @@ class VPTimelineChart extends Control:
 		# Draw horizontal grid lines and Y-axis labels
 		var num_grid_lines = 5
 		var vp_step = max_vp / num_grid_lines
-		var font = ThemeDB.fallback_font
+		var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 		var font_size = 10
 		for i in range(num_grid_lines + 1):
 			var vp_val = i * vp_step

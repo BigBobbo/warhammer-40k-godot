@@ -141,7 +141,7 @@ func _draw_arrowhead(tip: Vector2, direction: Vector2, color: Color, alpha: floa
 
 func _draw_roll_label(alpha: float) -> void:
 	"""Draw the charge roll result prominently at the midpoint of the arrow."""
-	var font = ThemeDB.fallback_font
+	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	if not font:
 		return
 

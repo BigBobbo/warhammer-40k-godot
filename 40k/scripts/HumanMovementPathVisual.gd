@@ -56,7 +56,7 @@ func _ready() -> void:
 	_hold_timer.one_shot = true
 	_hold_timer.timeout.connect(_start_fade_out)
 	add_child(_hold_timer)
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 
 func _process(delta: float) -> void:
 	if _phase == "idle":

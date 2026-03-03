@@ -38,7 +38,7 @@ var default_font: Font = null
 func _ready() -> void:
 	z_index = 102  # Above other movement visuals
 	name = "ChargeDirectionVisual"
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	visible = false
 	print("[ChargeDirectionVisual] P3-99: Initialized")
 

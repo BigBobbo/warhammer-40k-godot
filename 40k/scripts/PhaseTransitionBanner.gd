@@ -139,6 +139,7 @@ func _ready() -> void:
 	_phase_label.anchor_top = 0.0
 	_phase_label.anchor_bottom = 0.5
 	_phase_label.offset_top = 2.0
+	_phase_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	_phase_label.add_theme_font_size_override("font_size", 28)
 	_phase_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	_phase_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -152,6 +153,7 @@ func _ready() -> void:
 	_round_label.anchor_right = 1.0
 	_round_label.anchor_top = 0.42
 	_round_label.anchor_bottom = 0.65
+	_round_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	_round_label.add_theme_font_size_override("font_size", 13)
 	_round_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	_round_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -166,6 +168,7 @@ func _ready() -> void:
 	_rules_label.anchor_top = 0.62
 	_rules_label.anchor_bottom = 1.0
 	_rules_label.offset_bottom = -4.0
+	_rules_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	_rules_label.add_theme_font_size_override("font_size", 12)
 	_rules_label.add_theme_color_override("font_color", Color(WhiteDwarfTheme.WH_PARCHMENT, 0.7))
 	_rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -107,7 +107,7 @@ func _draw() -> void:
 
 	# Draw context label at the top
 	if not _context_label.is_empty():
-		var font = ThemeDB.fallback_font
+		var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 		var font_size = 11
 		var label_color = Color(COLOR_CONTEXT_LABEL, alpha)
 		draw_string(font, Vector2(2, font_size), _context_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, label_color)
@@ -140,7 +140,7 @@ func _draw_reroll_comparison(y_offset: float, alpha: float, use_retro: bool) -> 
 	var arrow_x = old_width + 2.0
 	var arrow_y = y_offset + DIE_SIZE * 0.5
 	var arrow_color = Color(COLOR_REROLL_ARROW, alpha)
-	var font = ThemeDB.fallback_font
+	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	var arrow_font_size = 14
 	draw_string(font, Vector2(arrow_x, arrow_y + arrow_font_size * 0.35), "->", HORIZONTAL_ALIGNMENT_LEFT, -1, arrow_font_size, arrow_color)
 
@@ -192,7 +192,7 @@ func _draw_dice_set(dice_set: Array, x_offset: float, y_offset: float, alpha: fl
 			style.border_color = Color(0.0, 0.0, 0.0, die_alpha * 0.5)
 			draw_style_box(style, rect)
 
-			var font = ThemeDB.fallback_font
+			var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 			var font_size = 16
 			var text = str(die.display_value)
 			var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)

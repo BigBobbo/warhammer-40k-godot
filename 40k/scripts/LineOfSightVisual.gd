@@ -138,7 +138,7 @@ func _draw_model_highlights() -> void:
 
 		# Draw unit name label near the model
 		if model_data.has("unit_name"):
-			var font = ThemeDB.fallback_font
+			var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 			var text = model_data.unit_name
 			var text_pos = model_pos + Vector2(radius + 10, -5)
 

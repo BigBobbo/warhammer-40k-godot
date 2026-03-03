@@ -280,7 +280,7 @@ func _draw_letter_mode() -> void:
 
 	# --- Layer 4: Model number (only on select/hover) ---
 	if is_selected or is_hovered:
-		var num_font = ThemeDB.fallback_font
+		var num_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 		var num_text = str(model_number)
 		var num_size = 10
 		var num_text_size = num_font.get_string_size(num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size)
@@ -471,7 +471,7 @@ func _draw_selection_ring(radius: float) -> void:
 	draw_arc(Vector2.ZERO, radius + 3.0, 0, TAU, 48, ring_color, 2.5)
 
 func _draw_model_number() -> void:
-	var font = ThemeDB.fallback_font
+	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	var text = str(model_number)
 	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16)
 	var text_pos = Vector2(-text_size.x / 2, text_size.y / 4)

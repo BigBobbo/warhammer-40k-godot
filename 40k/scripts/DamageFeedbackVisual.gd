@@ -101,6 +101,7 @@ func play_floating_number(model_pos: Vector2, damage: int, is_kill: bool = false
 	var label = Label.new()
 	label.text = "-%d" % damage
 	var font_size = FLOAT_NUMBER_FONT_SIZE + (4 if damage >= 3 else 0)  # Bigger text for bigger hits
+	label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	label.add_theme_font_size_override("font_size", font_size)
 	var base_color = FLOAT_NUMBER_COLOR_KILL if is_kill else FLOAT_NUMBER_COLOR_DAMAGE
 	label.add_theme_color_override("font_color", base_color)
@@ -185,6 +186,7 @@ func play_kill_notification(unit_center_pos: Vector2, unit_name: String) -> void
 	"""T7-53: Show a 'UNIT DESTROYED' notification floating above the destroyed unit's position."""
 	var label = Label.new()
 	label.text = "DESTROYED: %s" % unit_name
+	label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	label.add_theme_font_size_override("font_size", KILL_NOTIFY_FONT_SIZE)
 	label.add_theme_color_override("font_color", KILL_NOTIFY_COLOR)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -225,6 +227,7 @@ func play_result_summary(target_pos: Vector2, summary_text: String) -> void:
 	var font_size := 14
 	var label = Label.new()
 	label.text = summary_text
+	label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7, 1.0))  # Warm white
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

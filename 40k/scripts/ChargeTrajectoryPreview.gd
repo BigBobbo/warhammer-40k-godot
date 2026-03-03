@@ -53,7 +53,7 @@ var default_font: Font = null
 func _ready() -> void:
 	z_index = 11  # Same layer as movement trails (between tokens=10 and arrows=12)
 	name = "ChargeTrajectoryPreview"
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	visible = false
 	print("[ChargeTrajectoryPreview] P3-127: Initialized")
 
