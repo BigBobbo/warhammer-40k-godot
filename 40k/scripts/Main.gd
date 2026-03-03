@@ -2122,18 +2122,19 @@ func _create_stats_panel_programmatically() -> PanelContainer:
 	scroll.add_child(content)
 	
 	# Keywords section
-	var keywords_container = HBoxContainer.new()
+	var keywords_container = VBoxContainer.new()
 	content.add_child(keywords_container)
-	
+
 	var keywords_title = Label.new()
 	keywords_title.text = "Keywords: "
 	keywords_title.add_theme_font_size_override("font_size", 12)
 	keywords_container.add_child(keywords_title)
-	
+
 	var keywords_label = Label.new()
 	keywords_label.name = "KeywordsLabel"
 	keywords_label.text = "TEST KEYWORDS - Panel Working!"
 	keywords_label.add_theme_font_size_override("font_size", 12)
+	keywords_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	keywords_container.add_child(keywords_label)
 	
 	# Separator
