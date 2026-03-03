@@ -96,8 +96,10 @@ func _draw_coherency_line(border_color: Color) -> void:
 	if nearest_model_world_pos == null:
 		return
 
-	# Convert world-space target to local-space for drawing
-	var local_target: Vector2 = nearest_model_world_pos - global_position
+	# Convert parent-space target to local-space for drawing
+	# Both nearest_model_world_pos and position are in BoardRoot local space,
+	# so use position (not global_position which includes BoardRoot's zoom/pan transform)
+	var local_target: Vector2 = nearest_model_world_pos - position
 
 	# Determine line color based on coherency (2" threshold)
 	var line_color: Color
@@ -132,8 +134,10 @@ func _draw_all_coherency_lines() -> void:
 		var world_pos: Vector2 = line_data.get("world_pos", Vector2.ZERO)
 		var in_coherency: bool = line_data.get("in_coherency", false)
 
-		# Convert world-space target to local-space for drawing
-		var local_target: Vector2 = world_pos - global_position
+		# Convert parent-space target to local-space for drawing
+		# Both world_pos and position are in BoardRoot local space,
+		# so use position (not global_position which includes BoardRoot's zoom/pan transform)
+		var local_target: Vector2 = world_pos - position
 
 		var line_color: Color
 		if in_coherency:
