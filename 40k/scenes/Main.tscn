@@ -70,6 +70,7 @@ size_flags_horizontal = 4
 layout_mode = 2
 
 [node name="HUD_Right" type="PanelContainer" parent="."]
+clip_contents = true
 anchors_preset = 11
 anchor_left = 1.0
 anchor_right = 1.0
@@ -91,14 +92,17 @@ layout_mode = 2
 [node name="UnitNameLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
 layout_mode = 2
 text = "Unit Name"
+autowrap_mode = 3
 
 [node name="KeywordsLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
 layout_mode = 2
 text = "Keywords: ..."
+autowrap_mode = 3
 
 [node name="ModelsLabel" type="Label" parent="HUD_Right/VBoxContainer/UnitCard"]
 layout_mode = 2
 text = "Models: 0/0"
+autowrap_mode = 3
 
 [node name="ButtonContainer" type="HBoxContainer" parent="HUD_Right/VBoxContainer/UnitCard"]
 layout_mode = 2

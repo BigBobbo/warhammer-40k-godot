@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://40k/scripts/UnitStatsPanel.gd" id="1"]
 
 [node name="UnitStatsPanel" type="PanelContainer"]
+clip_contents = true
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -69,7 +70,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PlayerKeywordsContainer" type="HBoxContainer" parent="VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
+[node name="PlayerKeywordsContainer" type="VBoxContainer" parent="VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
 layout_mode = 2
 
 [node name="KeywordsTitle" type="Label" parent="VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
@@ -80,6 +81,7 @@ theme_override_font_sizes/font_size = 12
 [node name="PlayerKeywordsLabel" type="Label" parent="VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent/PlayerKeywordsContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
 
 [node name="HSeparator" type="HSeparator" parent="VBox/MainContent/PlayerSection/PlayerStatsPanel/ScrollContainer/PlayerStatsContent"]
 layout_mode = 2
@@ -153,7 +155,7 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="EnemyKeywordsContainer" type="HBoxContainer" parent="VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
+[node name="EnemyKeywordsContainer" type="VBoxContainer" parent="VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
 layout_mode = 2
 
 [node name="KeywordsTitle" type="Label" parent="VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
@@ -164,6 +166,7 @@ theme_override_font_sizes/font_size = 12
 [node name="EnemyKeywordsLabel" type="Label" parent="VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent/EnemyKeywordsContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
 
 [node name="HSeparator" type="HSeparator" parent="VBox/MainContent/EnemySection/EnemyStatsPanel/ScrollContainer/EnemyStatsContent"]
 layout_mode = 2

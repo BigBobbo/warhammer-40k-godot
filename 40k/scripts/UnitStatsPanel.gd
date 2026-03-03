@@ -476,6 +476,7 @@ func _create_abilities_list(unit_data: Dictionary, abilities_container: VBoxCont
 		if ability.has("type"):
 			name_label.text += " (" + ability.get("type", "") + ")"
 		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.modulate = _WhiteDwarfTheme.WH_PARCHMENT  # Parchment tint
 		ability_container.add_child(name_label)
 		
@@ -510,6 +511,7 @@ func _create_composition_list(unit_data: Dictionary, composition_container: VBox
 		var item_label = Label.new()
 		item_label.text = "• " + comp_item.get("description", "Unknown")
 		item_label.add_theme_font_size_override("font_size", 11)
+		item_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		composition_container.add_child(item_label)
 	
 	# Also show model count from models array if available
