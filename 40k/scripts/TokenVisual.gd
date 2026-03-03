@@ -481,6 +481,8 @@ func _draw_model_number() -> void:
 	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.WHITE)
 
 func _draw_unit_name_label() -> void:
+	if SettingsService and not SettingsService.show_unit_labels:
+		return
 	if not has_meta("unit_id"):
 		return
 
