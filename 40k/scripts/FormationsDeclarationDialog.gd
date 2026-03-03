@@ -21,6 +21,7 @@ var summary_label: RichTextLabel
 func _init():
 	title = "Declare Battle Formations"
 	min_size = DialogConstants.LARGE
+	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(player: int) -> void:
 	declaring_player = player
@@ -96,13 +97,13 @@ func _build_leader_section() -> void:
 	var section_label = Label.new()
 	section_label.text = "LEADER ATTACHMENTS"
 	section_label.add_theme_font_size_override("font_size", 14)
-	section_label.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var desc_label = Label.new()
 	desc_label.text = "Assign CHARACTER leaders to bodyguard units:"
 	desc_label.add_theme_font_size_override("font_size", 12)
-	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
 	for char_id in characters:
@@ -153,13 +154,13 @@ func _build_transport_section() -> void:
 	var section_label = Label.new()
 	section_label.text = "TRANSPORT EMBARKATION"
 	section_label.add_theme_font_size_override("font_size", 14)
-	section_label.add_theme_color_override("font_color", Color(0.2, 0.7, 0.9))
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var desc_label = Label.new()
 	desc_label.text = "Select units to start embarked in transports:"
 	desc_label.add_theme_font_size_override("font_size", 12)
-	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
 	for transport_id in transports:
@@ -174,7 +175,7 @@ func _build_transport_section() -> void:
 			" — %s only" % "/".join(capacity_keywords) if capacity_keywords.size() > 0 else ""
 		]
 		transport_label.add_theme_font_size_override("font_size", 13)
-		transport_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+		transport_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 		content_vbox.add_child(transport_label)
 
 		# Show checkboxes for eligible units
@@ -208,7 +209,7 @@ func _build_reserves_section() -> void:
 	var section_label = Label.new()
 	section_label.text = "STRATEGIC RESERVES"
 	section_label.add_theme_font_size_override("font_size", 14)
-	section_label.add_theme_color_override("font_color", Color(0.6, 0.4, 0.8))
+	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var total_points = GameState.get_total_army_points(declaring_player)
@@ -217,7 +218,7 @@ func _build_reserves_section() -> void:
 	var desc_label = Label.new()
 	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts):" % max_reserves
 	desc_label.add_theme_font_size_override("font_size", 12)
-	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
 	var units = GameState.get_units_for_player(declaring_player)
@@ -435,7 +436,7 @@ func _update_summary() -> void:
 
 	# Leader attachments
 	if leader_attachments.size() > 0:
-		text += "[color=#e6b833]Leaders:[/color] "
+		text += "[color=#%s]Leaders:[/color] " % WhiteDwarfTheme.gold_hex()
 		var parts = []
 		for char_id in leader_attachments:
 			var char_name = GameState.get_unit(char_id).get("meta", {}).get("name", char_id)
@@ -448,7 +449,7 @@ func _update_summary() -> void:
 	for transport_id in transport_embarkations:
 		total_embarked += transport_embarkations[transport_id].size()
 	if total_embarked > 0:
-		text += "[color=#33b5e5]Transports:[/color] "
+		text += "[color=#%s]Transports:[/color] " % WhiteDwarfTheme.gold_hex()
 		var parts = []
 		for transport_id in transport_embarkations:
 			var transport_name = GameState.get_unit(transport_id).get("meta", {}).get("name", transport_id)
@@ -457,7 +458,7 @@ func _update_summary() -> void:
 
 	# Reserves
 	if reserves.size() > 0:
-		text += "[color=#9966cc]Reserves:[/color] "
+		text += "[color=#%s]Reserves:[/color] " % WhiteDwarfTheme.gold_hex()
 		var parts = []
 		var total_pts = 0
 		for entry in reserves:

@@ -226,6 +226,7 @@ func _build_ui() -> void:
 	print("  - visible: ", overlay_panel.visible)
 
 	print("WoundAllocationOverlay: _build_ui() [STEP 4] Adding overlay_panel as child...")
+	WhiteDwarfTheme.apply_to_overlay_panel(overlay_panel)
 	add_child(overlay_panel)
 	print("WoundAllocationOverlay: _build_ui() [STEP 5] overlay_panel added to tree")
 	print("  - overlay_panel in tree: ", overlay_panel.is_inside_tree())
@@ -241,7 +242,7 @@ func _build_ui() -> void:
 
 	attack_info_label = Label.new()
 	attack_info_label.add_theme_font_size_override("font_size", 14)
-	attack_info_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.8))
+	attack_info_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header_hbox.add_child(attack_info_label)
 
 	main_vbox.add_child(HSeparator.new())
@@ -249,12 +250,13 @@ func _build_ui() -> void:
 	# Status
 	status_label = Label.new()
 	status_label.add_theme_font_size_override("font_size", 12)
-	status_label.add_theme_color_override("font_color", Color.YELLOW)
+	status_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	main_vbox.add_child(status_label)
 
 	# Target Info
 	target_info_label = Label.new()
 	target_info_label.add_theme_font_size_override("font_size", 11)
+	target_info_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	main_vbox.add_child(target_info_label)
 
 	# Save Info
@@ -270,9 +272,9 @@ func _build_ui() -> void:
 	# Instructions Panel
 	var instruction_panel = PanelContainer.new()
 	var instruction_panel_style = StyleBoxFlat.new()
-	instruction_panel_style.bg_color = Color(0.2, 0.2, 0.3, 0.5)
+	instruction_panel_style.bg_color = Color(0.12, 0.1, 0.08, 0.5)
 	instruction_panel_style.set_border_width_all(1)
-	instruction_panel_style.border_color = Color.YELLOW
+	instruction_panel_style.border_color = WhiteDwarfTheme.WH_GOLD
 	instruction_panel.add_theme_stylebox_override("panel", instruction_panel_style)
 	main_vbox.add_child(instruction_panel)
 
@@ -286,7 +288,7 @@ func _build_ui() -> void:
 	# Dice Result Panel (hidden initially)
 	dice_result_panel = PanelContainer.new()
 	var dice_panel_style = StyleBoxFlat.new()
-	dice_panel_style.bg_color = Color(0.1, 0.1, 0.2, 0.8)
+	dice_panel_style.bg_color = Color(0.1, 0.09, 0.07, 0.8)
 	dice_result_panel.add_theme_stylebox_override("panel", dice_panel_style)
 	main_vbox.add_child(dice_result_panel)
 
@@ -317,6 +319,7 @@ func _build_ui() -> void:
 	print("WoundAllocationOverlay: _build_ui() [STEP 7] continue_button created: ", continue_button)
 	continue_button.text = "Continue Now"
 	continue_button.disabled = true
+	WhiteDwarfTheme.apply_to_button(continue_button)
 	continue_button.pressed.connect(_on_continue_pressed)
 	action_hbox.add_child(continue_button)
 	print("WoundAllocationOverlay: _build_ui() [STEP 8] continue_button added to tree")

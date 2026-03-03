@@ -13,6 +13,7 @@ var local_player: int = 0
 func _init():
 	title = "Game Over"
 	min_size = DialogConstants.LARGE
+	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(winner: int, reason: String, local_player_num: int = 0) -> void:
 	winner_player = winner
@@ -41,16 +42,16 @@ func _build_ui() -> void:
 		# Networked game — show win/loss relative to local player
 		if winner_player == local_player:
 			winner_label.text = "VICTORY!"
-			winner_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+			winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		else:
 			winner_label.text = "DEFEAT"
-			winner_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+			winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_RED)
 	elif winner_player > 0:
 		winner_label.text = "Player %d Wins!" % winner_player
-		winner_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	else:
 		winner_label.text = "Game Over — Draw!"
-		winner_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+		winner_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	main_vbox.add_child(winner_label)
 
 	# Reason
@@ -58,7 +59,7 @@ func _build_ui() -> void:
 	reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reason_label.add_theme_font_size_override("font_size", 14)
 	reason_label.text = _get_reason_text()
-	reason_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	reason_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	main_vbox.add_child(reason_label)
 
 	main_vbox.add_child(HSeparator.new())
@@ -96,7 +97,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 		vp_summary["player1"]["secondary"],
 	]
 	p1_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p1_label.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	p1_label.add_theme_color_override("font_color", WhiteDwarfTheme.P1_BORDER)
 	parent.add_child(p1_label)
 
 	# Player 2 VP
@@ -107,7 +108,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 		vp_summary["player2"]["secondary"],
 	]
 	p2_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	p2_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	p2_label.add_theme_color_override("font_color", WhiteDwarfTheme.P2_BORDER)
 	parent.add_child(p2_label)
 
 	# Battle rounds
@@ -118,7 +119,7 @@ func _build_vp_summary(parent: VBoxContainer) -> void:
 	var display_round = mini(battle_round, 5)
 	rounds_label.text = "Battle Rounds Completed: %d / 5" % display_round
 	rounds_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rounds_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	rounds_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	parent.add_child(rounds_label)
 
 # =============================================================================
@@ -140,7 +141,7 @@ func _build_vp_timeline_chart(parent: VBoxContainer) -> void:
 	chart_title.text = "VP Progression"
 	chart_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chart_title.add_theme_font_size_override("font_size", 14)
-	chart_title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	chart_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	parent.add_child(chart_title)
 
 	# Build the data points: start at 0 for round 0, then cumulative VP per round
@@ -187,13 +188,13 @@ func _build_vp_timeline_chart(parent: VBoxContainer) -> void:
 	var p1_legend = Label.new()
 	p1_legend.text = "— Player 1"
 	p1_legend.add_theme_font_size_override("font_size", 11)
-	p1_legend.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
+	p1_legend.add_theme_color_override("font_color", WhiteDwarfTheme.P1_BORDER)
 	legend_hbox.add_child(p1_legend)
 
 	var p2_legend = Label.new()
 	p2_legend.text = "— Player 2"
 	p2_legend.add_theme_font_size_override("font_size", 11)
-	p2_legend.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	p2_legend.add_theme_color_override("font_color", WhiteDwarfTheme.P2_BORDER)
 	legend_hbox.add_child(p2_legend)
 
 	print("GameOverDialog: P3-128 Built VP timeline chart with %d round(s) of data" % total_rounds)
@@ -213,11 +214,11 @@ class VPTimelineChart extends Control:
 	const MARGIN_RIGHT: float = 15.0
 	const MARGIN_TOP: float = 10.0
 	const MARGIN_BOTTOM: float = 20.0
-	const P1_COLOR = Color(0.4, 0.6, 1.0)
-	const P2_COLOR = Color(1.0, 0.4, 0.4)
-	const GRID_COLOR = Color(0.3, 0.3, 0.3)
-	const AXIS_COLOR = Color(0.5, 0.5, 0.5)
-	const LABEL_COLOR = Color(0.6, 0.6, 0.6)
+	const P1_COLOR = Color(0.83, 0.59, 0.38)
+	const P2_COLOR = Color(0.85, 0.8, 0.65)
+	const GRID_COLOR = Color(0.3, 0.25, 0.18)
+	const AXIS_COLOR = Color(0.5, 0.4, 0.3)
+	const LABEL_COLOR = Color(0.7, 0.65, 0.55)
 	const LINE_WIDTH: float = 2.0
 	const DOT_RADIUS: float = 3.5
 
@@ -301,7 +302,7 @@ func _build_ai_performance_summary(parent: VBoxContainer, ai_summary: Dictionary
 	section_title.text = "AI Performance Analysis"
 	section_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	section_title.add_theme_font_size_override("font_size", 16)
-	section_title.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+	section_title.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	parent.add_child(section_title)
 
 	# Scrollable content for potentially long AI summaries
@@ -325,8 +326,8 @@ func _build_ai_performance_summary(parent: VBoxContainer, ai_summary: Dictionary
 	print("GameOverDialog: T7-57 Built AI performance summary for %d player(s)" % ai_summary.size())
 
 func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary) -> void:
-	var player_color = Color(0.4, 0.6, 1.0) if player == 1 else Color(1.0, 0.4, 0.4)
-	var dim_color = Color(0.65, 0.65, 0.65)
+	var player_color = WhiteDwarfTheme.P1_BORDER if player == 1 else WhiteDwarfTheme.P2_BORDER
+	var dim_color = WhiteDwarfTheme.WH_BONE
 
 	# Player header
 	var header = Label.new()
@@ -381,7 +382,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 		var moments_label = Label.new()
 		moments_label.text = "Key Moments:"
 		moments_label.add_theme_font_size_override("font_size", 12)
-		moments_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+		moments_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		parent.add_child(moments_label)
 
 		# Show up to 8 key moments to keep it readable
@@ -399,7 +400,7 @@ func _build_player_ai_card(parent: VBoxContainer, player: int, data: Dictionary)
 			var more_label = Label.new()
 			more_label.text = "  ... and %d more" % (key_moments.size() - max_moments)
 			more_label.add_theme_font_size_override("font_size", 11)
-			more_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+			more_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 			parent.add_child(more_label)
 
 	# Separator between player cards
@@ -409,7 +410,7 @@ func _add_stat_row(grid: GridContainer, label_text: String, value_text: String, 
 	var label = Label.new()
 	label.text = label_text
 	label.add_theme_font_size_override("font_size", 12)
-	label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	grid.add_child(label)
 
 	var value = Label.new()
