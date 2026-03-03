@@ -300,9 +300,6 @@ func _ready() -> void:
 	_setup_left_panel_toggle()
 	_hide_left_panel()
 
-	# Setup board rotation button
-	_setup_rotate_board_button()
-
 	# Setup phase-specific controllers based on current phase
 	current_phase = GameState.get_current_phase()
 	await setup_phase_controllers()
@@ -6970,21 +6967,6 @@ func _toggle_secondary_mission_panel() -> void:
 		print("Main: Secondary missions panel toggled")
 	else:
 		print("Main: SecondaryMissionPanel not available")
-
-func _setup_rotate_board_button() -> void:
-	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	if not hud_bottom:
-		print("ERROR: Could not find HUD_Bottom/HBoxContainer for rotate button")
-		return
-	var rotate_btn = Button.new()
-	rotate_btn.name = "RotateBoardButton"
-	rotate_btn.text = "Rotate Board (V)"
-	rotate_btn.tooltip_text = "Rotate the board view 90° clockwise"
-	rotate_btn.pressed.connect(func(): rotate_board_view(PI / 2.0))
-	# Insert after the left panel toggle (index 1)
-	hud_bottom.add_child(rotate_btn)
-	hud_bottom.move_child(rotate_btn, 1)
-	print("Board rotation button added to top HUD")
 
 func _setup_phase_transition_banner() -> void:
 	# T5-V3: Create the phase transition animation banner
