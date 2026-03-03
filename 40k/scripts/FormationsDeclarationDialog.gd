@@ -20,7 +20,7 @@ var summary_label: RichTextLabel
 
 func _init():
 	title = "Declare Battle Formations"
-	min_size = DialogConstants.LARGE
+	min_size = Vector2(700, 750)
 	WhiteDwarfTheme.apply_to_dialog(self)
 
 func setup(player: int) -> void:
@@ -31,18 +31,11 @@ func setup(player: int) -> void:
 
 	title = "Player %d — Declare Battle Formations" % player
 
-	# Set OK button text
-	ok_button_text = "Confirm Formations"
+	# Hide AcceptDialog's built-in OK button — we add our own inside the layout
+	get_ok_button().visible = false
 
-	# Add cancel button
-	add_cancel_button("Skip (No Declarations)")
-
-	# Build the UI
+	# Build the UI (includes custom confirm/skip buttons)
 	_build_ui()
-
-	# Connect signals
-	confirmed.connect(_on_confirmed)
-	canceled.connect(_on_canceled)
 
 func _build_ui() -> void:
 	# Create a main vertical layout
@@ -60,9 +53,10 @@ func _build_ui() -> void:
 	var separator = HSeparator.new()
 	main_vbox.add_child(separator)
 
-	# Scrollable content
+	# Scrollable content — fixed height that fills most of the dialog while
+	# leaving room for summary + buttons below (dialog is 750px tall)
 	scroll_container = ScrollContainer.new()
-	scroll_container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 350)
+	scroll_container.custom_minimum_size = Vector2(680, 400)
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	main_vbox.add_child(scroll_container)
 
@@ -81,12 +75,29 @@ func _build_ui() -> void:
 	main_vbox.add_child(summary_sep)
 
 	summary_label = RichTextLabel.new()
-	summary_label.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 60)
+	summary_label.custom_minimum_size = Vector2(680, 60)
 	summary_label.bbcode_enabled = true
 	summary_label.fit_content = true
 	main_vbox.add_child(summary_label)
 
 	_update_summary()
+
+	# Custom confirm/skip buttons inside the layout (AcceptDialog's built-in buttons
+	# get clipped outside the visible area, so we manage our own)
+	var button_bar = HBoxContainer.new()
+	button_bar.add_theme_constant_override("separation", 12)
+	button_bar.alignment = BoxContainer.ALIGNMENT_END
+	main_vbox.add_child(button_bar)
+
+	var skip_button = Button.new()
+	skip_button.text = "Skip (No Declarations)"
+	skip_button.pressed.connect(_on_canceled)
+	button_bar.add_child(skip_button)
+
+	var confirm_button = Button.new()
+	confirm_button.text = "Confirm Formations"
+	confirm_button.pressed.connect(_on_confirmed)
+	button_bar.add_child(confirm_button)
 
 func _build_leader_section() -> void:
 	"""Build the leader attachment section."""
