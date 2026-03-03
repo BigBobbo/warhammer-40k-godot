@@ -238,9 +238,14 @@ func _ready() -> void:
 				else:
 					push_error("Main: NetworkManager not available for web relay mode")
 	
-	# Initialize view to show whole board
+	# Initialize view to show whole board centered in the viewport
 	view_zoom = 0.3
-	view_offset = Vector2(0, 0)  # Start at top-left
+	var viewport_size = get_viewport().get_visible_rect().size
+	var board_center = Vector2(
+		SettingsService.get_board_width_px() / 2.0,
+		SettingsService.get_board_height_px() / 2.0
+	)
+	view_offset = board_center - viewport_size / (2.0 * view_zoom)
 	update_view_transform()
 
 	# Initialize PhaseManager with formations phase NOW that armies are loaded
