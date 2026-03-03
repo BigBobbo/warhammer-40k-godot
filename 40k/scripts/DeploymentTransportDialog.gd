@@ -10,6 +10,7 @@ var deploy_button: Button
 var selected_transport_id: String = ""
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	title = "Deploy Unit in Transport"
 	min_size = DialogConstants.MEDIUM
 

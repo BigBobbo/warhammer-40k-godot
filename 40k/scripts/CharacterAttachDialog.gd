@@ -18,6 +18,7 @@ var info_label: Label
 var unit_container: VBoxContainer
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	# Set dialog properties
 	title = "Attach Leader"
 	min_size = DialogConstants.MEDIUM

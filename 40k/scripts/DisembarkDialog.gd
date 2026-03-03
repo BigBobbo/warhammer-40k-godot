@@ -15,6 +15,7 @@ var transport_advanced: bool = false
 var transport_fell_back: bool = false
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	# Set dialog properties
 	title = "Disembark Unit"
 	min_size = DialogConstants.SMALL

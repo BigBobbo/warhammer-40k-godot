@@ -24,6 +24,7 @@ var close_button: Button
 var dice_log_rich_text: RichTextLabel
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	# Set dialog properties
 	title = "Choose Weapon Order"
 	dialog_hide_on_ok = false
@@ -96,7 +97,7 @@ func _ready() -> void:
 	continue_button.pressed.connect(_on_continue_next_weapon_pressed)
 	continue_button.custom_minimum_size = Vector2(220, 40)
 	# Make this button prominent with green color
-	continue_button.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+	continue_button.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	button_hbox.add_child(continue_button)
 	continue_button.visible = false  # Hidden - users should use "Start Sequence" or "Fast Roll All"
 

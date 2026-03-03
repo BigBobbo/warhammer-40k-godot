@@ -21,6 +21,7 @@ var capacity_label: Label
 var unit_container: VBoxContainer
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	# Set dialog properties
 	title = "Select Units to Embark"
 	min_size = DialogConstants.MEDIUM

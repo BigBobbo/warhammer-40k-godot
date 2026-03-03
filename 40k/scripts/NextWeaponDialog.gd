@@ -22,6 +22,7 @@ var remaining_weapons_list: ItemList
 var continue_button: Button
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	title = "Weapon Resolution Complete"
 	dialog_hide_on_ok = false
 	min_size = DialogConstants.LARGE
@@ -45,7 +46,7 @@ func _create_ui() -> void:
 	# Last weapon header
 	weapon_name_label = Label.new()
 	weapon_name_label.add_theme_font_size_override("font_size", 16)
-	weapon_name_label.add_theme_color_override("font_color", Color(0.8, 0.9, 1.0))
+	weapon_name_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(weapon_name_label)
 

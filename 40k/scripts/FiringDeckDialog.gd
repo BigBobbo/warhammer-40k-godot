@@ -19,6 +19,7 @@ var capacity_label: Label
 var weapons_container: VBoxContainer
 
 func _ready() -> void:
+	WhiteDwarfTheme.apply_to_dialog(self)
 	# Set dialog properties
 	title = "Select Firing Deck Models"
 	min_size = DialogConstants.MEDIUM
@@ -139,7 +140,7 @@ func _create_weapon_checkboxes() -> void:
 		var unit_header = Label.new()
 		unit_header.text = "\n%s:" % unit_weapons[0].unit_name
 		unit_header.add_theme_font_size_override("font_size", 14)
-		unit_header.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
+		unit_header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		weapons_container.add_child(unit_header)
 
 		# Create checkbox for each weapon
