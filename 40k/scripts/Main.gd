@@ -69,7 +69,7 @@ var _opponent_zone_pulse_tween: Tween = null
 var phase_transition_banner: PhaseTransitionBanner = null
 
 # Retro CRT overlay
-var _crt_overlay: ColorRect = null
+# CRT overlay removed — letter/enhanced style toggle via key 8
 
 # T7-20: AI thinking indicator overlay
 var ai_thinking_overlay: PanelContainer = null
@@ -380,9 +380,6 @@ func _ready() -> void:
 
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
-
-	# Setup retro CRT overlay (starts hidden unless retro_mode is already on)
-	_setup_crt_overlay()
 
 	# Enable autosave (saves every 5 minutes)
 	SaveLoadManager.enable_autosave()
@@ -3471,9 +3468,19 @@ func connect_signals() -> void:
 	
 
 func _input(event: InputEvent) -> void:
-	# Retro mode toggle - KEY_8
+	# Right-click context menu for unit color/label editing (letter mode)
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		_handle_right_click(event)
+
+	# Army panel toggle - KEY_U
+	if event is InputEventKey and event.pressed and event.keycode == KEY_U:
+		_toggle_army_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Visual style toggle - KEY_8 (letter <-> enhanced)
 	if event is InputEventKey and event.pressed and event.keycode == KEY_8:
-		_toggle_retro_mode()
+		_toggle_visual_style()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -4385,6 +4392,11 @@ func _on_unit_selected(index: int) -> void:
 				else:
 					reserves_button.text = "Strategic Reserves"
 
+		# Auto-assign unit color if not yet set (letter mode)
+		var existing_color = GameState.get_unit_color(unit_id)
+		if existing_color == Color.TRANSPARENT:
+			GameState.auto_assign_unit_color(unit_id)
+
 		# Check if this is a transport unit
 		var unit_keywords = unit_data.get("meta", {}).get("keywords", [])
 		if "TRANSPORT" in unit_keywords:
@@ -4394,6 +4406,7 @@ func _on_unit_selected(index: int) -> void:
 			# For non-transport units, deploy normally
 			deployment_controller.begin_deploy(unit_id)
 			show_unit_card(unit_id)
+			_show_deployment_color_picker(unit_id)
 			unit_list.visible = false
 	elif current_phase == GameStateData.Phase.MOVEMENT and movement_controller:
 		# Check if this is a reserve unit arriving as reinforcement
@@ -4501,6 +4514,74 @@ func _on_unit_stats_panel_visibility_changed(panel_is_visible: bool) -> void:
 	if hud_left:
 		hud_left.offset_bottom = bottom_offset
 		print("Main: HUD_Left offset_bottom adjusted to ", bottom_offset, " (panel visible: ", panel_is_visible, ")")
+
+func _show_deployment_color_picker(uid: String) -> void:
+	# Show inline color picker below unit card during deployment (letter mode)
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	if style != "letter":
+		return
+
+	# Remove any existing color picker
+	var existing = get_node_or_null("DeploymentColorPicker")
+	if existing:
+		existing.queue_free()
+
+	var unit_data = GameState.get_unit(uid)
+	if unit_data.is_empty():
+		return
+
+	var player = unit_data.get("owner", 1)
+	var faction_name = GameState.state.get("factions", {}).get(str(player), {}).get("name", "")
+	var palette = FactionPalettes.get_palette(faction_name)
+	var current_color = GameState.get_unit_color(uid)
+
+	var picker_container = HBoxContainer.new()
+	picker_container.name = "DeploymentColorPicker"
+	picker_container.add_theme_constant_override("separation", 4)
+	picker_container.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var lbl = Label.new()
+	lbl.text = "Color:"
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(0.8, 0.7, 0.5))
+	picker_container.add_child(lbl)
+
+	for color in palette:
+		var swatch = Button.new()
+		swatch.custom_minimum_size = Vector2(22, 22)
+		swatch.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var style_normal = StyleBoxFlat.new()
+		style_normal.bg_color = color
+		style_normal.corner_radius_top_left = 3
+		style_normal.corner_radius_top_right = 3
+		style_normal.corner_radius_bottom_left = 3
+		style_normal.corner_radius_bottom_right = 3
+		if current_color.is_equal_approx(color):
+			style_normal.border_width_left = 2
+			style_normal.border_width_right = 2
+			style_normal.border_width_top = 2
+			style_normal.border_width_bottom = 2
+			style_normal.border_color = Color.WHITE
+		swatch.add_theme_stylebox_override("normal", style_normal)
+		swatch.add_theme_stylebox_override("hover", style_normal)
+		swatch.add_theme_stylebox_override("pressed", style_normal)
+		swatch.pressed.connect(_on_deployment_color_picked.bind(uid, color))
+		picker_container.add_child(swatch)
+
+	# Add it to right panel below the unit card
+	var right_panel = get_node_or_null("HUD_Right/VBoxContainer")
+	if right_panel:
+		right_panel.add_child(picker_container)
+	else:
+		add_child(picker_container)
+
+
+func _on_deployment_color_picked(uid: String, color: Color) -> void:
+	GameState.set_unit_color(uid, color)
+	_force_redraw_all_tokens()
+	# Refresh the picker to show the new selection
+	_show_deployment_color_picker(uid)
+
 
 func show_unit_card(unit_id: String) -> void:
 	var unit_data = GameState.get_unit(unit_id)
@@ -5212,6 +5293,15 @@ func update_unit_visuals(unit_id: String) -> void:
 				if token.position.distance_to(target_pos) > 1.0:
 					print("  - P1-67: Syncing token position from (%.1f, %.1f) to (%.1f, %.1f)" % [token.position.x, token.position.y, target_pos.x, target_pos.y])
 					token.position = target_pos
+
+			# Also sync rotation from GameState
+			var model_rotation = model.get("rotation", 0.0)
+			if "model_data" in token and token.model_data is Dictionary:
+				var current_rotation = token.model_data.get("rotation", 0.0)
+				if abs(current_rotation - model_rotation) > 0.001:
+					print("  - Syncing token rotation from %.3f to %.3f" % [current_rotation, model_rotation])
+					token.model_data["rotation"] = model_rotation
+					token.queue_redraw()
 
 			if model_alive:
 				# Model is alive → ensure visible
@@ -6760,9 +6850,9 @@ func _update_model_visual(unit_id: String, model_id: String, dest: Array) -> voi
 	# Recreate all unit visuals with updated positions
 	_recreate_unit_visuals()
 
-func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
+func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2, rotation: float = 0.0) -> void:
 	# Handle visual updates for model drops (including staged moves)
-	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px)
+	print("Main: Model drop committed for ", unit_id, "/", model_id, " at ", dest_px, " rotation: ", rotation)
 
 	# For staged moves, we want to move the visual token directly without updating GameState
 	# Move ALL matching tokens (there may be duplicates from concurrent _recreate_unit_visuals calls)
@@ -6772,16 +6862,24 @@ func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector
 			# Check direct child (tokens created by _recreate_unit_visuals)
 			if child.has_meta("unit_id") and child.get_meta("unit_id") == unit_id and child.has_meta("model_id") and child.get_meta("model_id") == model_id:
 				child.position = dest_px
+				# Apply rotation to the token's model_data so it draws correctly
+				if "model_data" in child and child.model_data is Dictionary:
+					child.model_data["rotation"] = rotation
+				child.queue_redraw()
 				if not found_any:
-					print("Moving token visual to ", dest_px)
+					print("Moving token visual to ", dest_px, " with rotation ", rotation)
 				found_any = true
 				continue
 			# Check nested children (deployment tokens have meta on inner base_circle)
 			for grandchild in child.get_children():
 				if grandchild.has_meta("unit_id") and grandchild.get_meta("unit_id") == unit_id and grandchild.has_meta("model_id") and grandchild.get_meta("model_id") == model_id:
 					child.position = dest_px
+					# Apply rotation to nested token's model_data
+					if "model_data" in grandchild and grandchild.model_data is Dictionary:
+						grandchild.model_data["rotation"] = rotation
+					grandchild.queue_redraw()
 					if not found_any:
-						print("Moving token visual (nested) to ", dest_px)
+						print("Moving token visual (nested) to ", dest_px, " with rotation ", rotation)
 					found_any = true
 					break
 
@@ -6846,7 +6944,10 @@ func _clear_right_panel_phase_ui() -> void:
 		"FightSequence", "FightActions",
 
 		# Generic phase elements
-		"PhasePanel", "PhaseControls", "PhaseActions"
+		"PhasePanel", "PhaseControls", "PhaseActions",
+
+		# Deployment color picker (letter mode)
+		"DeploymentColorPicker"
 	]
 
 	# Remove all matching elements
@@ -7442,57 +7543,53 @@ func _replay_refresh_visuals() -> void:
 	_replay_refresh_pending = false
 
 
-# --- Retro CRT Overlay ---
+# --- Visual Style Toggle (Key 8) ---
 
-func _setup_crt_overlay() -> void:
-	# Create a full-screen ColorRect on a high-z CanvasLayer for the CRT shader
-	var crt_layer = CanvasLayer.new()
-	crt_layer.name = "CRTLayer"
-	crt_layer.layer = 100  # Above everything
-	add_child(crt_layer)
-
-	_crt_overlay = ColorRect.new()
-	_crt_overlay.name = "CRTOverlay"
-	_crt_overlay.color = Color(0, 0, 0, 0)  # Transparent - shader renders screen content
-	_crt_overlay.anchor_left = 0.0
-	_crt_overlay.anchor_top = 0.0
-	_crt_overlay.anchor_right = 1.0
-	_crt_overlay.anchor_bottom = 1.0
-	_crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	# Load and apply the CRT shader
-	var shader = load("res://shaders/crt_retro.gdshader")
-	if shader:
-		var mat = ShaderMaterial.new()
-		mat.shader = shader
-		_crt_overlay.material = mat
-		DebugLogger.info("[Main] CRT retro shader loaded")
-	else:
-		DebugLogger.info("[Main] WARNING: Could not load CRT retro shader")
-
-	crt_layer.add_child(_crt_overlay)
-
-	# Start hidden unless retro mode is already enabled
-	_crt_overlay.visible = SettingsService.retro_mode if SettingsService else false
-
-	# Connect to settings signal for external changes
-	if SettingsService:
-		SettingsService.retro_mode_changed.connect(_on_retro_mode_changed)
-
-	print("Main: CRT retro overlay initialized (visible=%s)" % str(_crt_overlay.visible))
-
-
-func _toggle_retro_mode() -> void:
+func _toggle_visual_style() -> void:
 	if not SettingsService:
 		return
-	SettingsService.set_retro_mode(!SettingsService.retro_mode)
+	var current = SettingsService.unit_visual_style
+	if current == "letter":
+		SettingsService.set_unit_visual_style_setting("enhanced")
+	else:
+		SettingsService.set_unit_visual_style_setting("letter")
+
+	# Force redraw of all tokens
+	_force_redraw_all_tokens()
+
+	# Show a toast notification
+	var new_style = SettingsService.unit_visual_style
+	if ToastManager and ToastManager.has_method("show_toast"):
+		var msg = "STYLE: %s [8]" % new_style.to_upper()
+		ToastManager.show_toast(msg)
+	print("Main: Visual style toggled to %s" % new_style)
 
 
-func _on_retro_mode_changed(enabled: bool) -> void:
-	if _crt_overlay:
-		_crt_overlay.visible = enabled
+var _army_panel: ArmyPanel = null
 
-	# Force redraw of all tokens to switch silhouette style
+func _toggle_army_panel() -> void:
+	if _army_panel and is_instance_valid(_army_panel):
+		_army_panel.queue_free()
+		_army_panel = null
+		return
+
+	_army_panel = ArmyPanel.new()
+	add_child(_army_panel)
+	_army_panel.panel_closed.connect(_on_army_panel_closed)
+	_army_panel.unit_visual_changed.connect(_on_army_panel_visual_changed)
+	print("Main: Army panel opened")
+
+
+func _on_army_panel_closed() -> void:
+	_army_panel = null
+	print("Main: Army panel closed")
+
+
+func _on_army_panel_visual_changed(uid: String) -> void:
+	_refresh_tokens_for_unit(uid)
+
+
+func _force_redraw_all_tokens() -> void:
 	if token_layer:
 		for child in token_layer.get_children():
 			if child is Node2D:
@@ -7500,11 +7597,189 @@ func _on_retro_mode_changed(enabled: bool) -> void:
 					if sub.has_method("queue_redraw"):
 						sub.queue_redraw()
 
-	# Show a toast notification
-	if ToastManager and ToastManager.has_method("show_toast"):
-		var msg = "RETRO MODE ON [8]" if enabled else "RETRO MODE OFF [8]"
-		ToastManager.show_toast(msg)
-	print("Main: Retro mode %s" % ("enabled" if enabled else "disabled"))
+
+# --- Right-click context menu (color/label editing) ---
+
+var _unit_context_menu: PopupMenu = null
+var _context_unit_id: String = ""
+
+func _handle_right_click(event: InputEventMouseButton) -> void:
+	# Only in letter mode
+	var style = SettingsService.unit_visual_style if SettingsService else "classic"
+	if style != "letter":
+		return
+
+	# Convert screen position to world position
+	var world_pos = _screen_to_world(event.global_position)
+	if world_pos == null:
+		return
+
+	var uid = _find_unit_at_world_pos(world_pos)
+	if uid == "":
+		return
+
+	_context_unit_id = uid
+
+	# Remove existing context menu
+	if _unit_context_menu and is_instance_valid(_unit_context_menu):
+		_unit_context_menu.queue_free()
+
+	_unit_context_menu = PopupMenu.new()
+	_unit_context_menu.name = "UnitContextMenu"
+	_unit_context_menu.add_item("Change Color", 0)
+	_unit_context_menu.add_item("Change Label", 1)
+	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
+	add_child(_unit_context_menu)
+	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
+	_unit_context_menu.popup()
+
+
+func _on_unit_context_menu_pressed(id: int) -> void:
+	match id:
+		0:  # Change Color
+			_show_unit_color_picker_popup(_context_unit_id)
+		1:  # Change Label
+			_show_unit_label_dialog(_context_unit_id)
+
+
+func _show_unit_color_picker_popup(uid: String) -> void:
+	# Remove any existing picker
+	var existing = get_node_or_null("UnitColorPickerPopup")
+	if existing:
+		existing.queue_free()
+
+	var picker = UnitColorPickerPopup.new()
+	add_child(picker)
+	var popup_pos = get_viewport().get_mouse_position()
+	picker.setup(uid, popup_pos)
+	picker.color_changed.connect(_on_unit_color_changed_from_popup)
+
+
+func _on_unit_color_changed_from_popup(uid: String, _color: Color) -> void:
+	_refresh_tokens_for_unit(uid)
+
+
+func _show_unit_label_dialog(uid: String) -> void:
+	# Remove any existing label dialog
+	var existing = get_node_or_null("UnitLabelDialog")
+	if existing:
+		existing.queue_free()
+
+	var dialog = PanelContainer.new()
+	dialog.name = "UnitLabelDialog"
+	dialog.z_index = 100
+
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = Color(0.08, 0.08, 0.1, 0.95)
+	style_box.border_color = Color(0.8, 0.65, 0.3)
+	style_box.border_width_left = 2
+	style_box.border_width_right = 2
+	style_box.border_width_top = 2
+	style_box.border_width_bottom = 2
+	style_box.corner_radius_top_left = 6
+	style_box.corner_radius_top_right = 6
+	style_box.corner_radius_bottom_left = 6
+	style_box.corner_radius_bottom_right = 6
+	style_box.content_margin_left = 12
+	style_box.content_margin_right = 12
+	style_box.content_margin_top = 12
+	style_box.content_margin_bottom = 12
+	dialog.add_theme_stylebox_override("panel", style_box)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	dialog.add_child(vbox)
+
+	var title_lbl = Label.new()
+	title_lbl.text = "Custom Label"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 14)
+	title_lbl.add_theme_color_override("font_color", Color(0.8, 0.65, 0.3))
+	vbox.add_child(title_lbl)
+
+	var line_edit = LineEdit.new()
+	line_edit.text = GameState.get_unit_label(uid)
+	line_edit.placeholder_text = "Enter label (leave empty for auto)"
+	line_edit.custom_minimum_size = Vector2(200, 30)
+	line_edit.max_length = 6
+	vbox.add_child(line_edit)
+
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(btn_row)
+
+	var ok_btn = Button.new()
+	ok_btn.text = "OK"
+	ok_btn.custom_minimum_size = Vector2(60, 28)
+	ok_btn.pressed.connect(func():
+		GameState.set_unit_label(uid, line_edit.text)
+		_refresh_tokens_for_unit(uid)
+		dialog.queue_free()
+	)
+	btn_row.add_child(ok_btn)
+
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(60, 28)
+	cancel_btn.pressed.connect(func():
+		dialog.queue_free()
+	)
+	btn_row.add_child(cancel_btn)
+
+	add_child(dialog)
+	var mouse_pos = get_viewport().get_mouse_position()
+	dialog.position = mouse_pos
+	line_edit.grab_focus()
+
+
+func _find_unit_at_world_pos(world_pos: Vector2) -> String:
+	if not token_layer:
+		return ""
+
+	var closest_uid: String = ""
+	var closest_dist: float = INF
+
+	for unit_node in token_layer.get_children():
+		if not unit_node is Node2D:
+			continue
+		for model_node in unit_node.get_children():
+			if not model_node is Node2D:
+				continue
+			if not model_node.has_meta("unit_id"):
+				continue
+			var dist = model_node.global_position.distance_to(world_pos)
+			# Check if click is within the token's base radius
+			var base_radius = 20.0  # Default
+			if model_node.has_method("get") and model_node.get("base_shape"):
+				var bounds = model_node.base_shape.get_bounds()
+				base_radius = max(bounds.size.x, bounds.size.y) / 2.0
+			if dist <= base_radius + 5.0 and dist < closest_dist:
+				closest_dist = dist
+				closest_uid = model_node.get_meta("unit_id")
+
+	return closest_uid
+
+
+func _screen_to_world(screen_pos: Vector2):
+	# Convert screen position to world coordinates through the camera
+	if not camera:
+		return null
+	var canvas_transform = get_viewport().canvas_transform
+	return canvas_transform.affine_inverse() * screen_pos
+
+
+func _refresh_tokens_for_unit(uid: String) -> void:
+	if not token_layer:
+		return
+	for unit_node in token_layer.get_children():
+		if not unit_node is Node2D:
+			continue
+		for model_node in unit_node.get_children():
+			if model_node.has_meta("unit_id") and model_node.get_meta("unit_id") == uid:
+				if model_node.has_method("queue_redraw"):
+					model_node.queue_redraw()
+
 
 # ============================================================================
 # P3-111: In-game Settings Menu (Escape key)

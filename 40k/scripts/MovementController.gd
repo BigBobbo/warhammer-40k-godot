@@ -1062,8 +1062,8 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	# Notify Main to update UI
 	emit_signal("ui_update_requested")
 
-func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2) -> void:
-	print("MovementController: Model drop committed for ", model_id, " at ", dest_px)
+func _on_model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2, rotation: float = 0.0) -> void:
+	print("MovementController: Model drop committed for ", model_id, " at ", dest_px, " rotation: ", rotation)
 	# Update path visual
 	_update_movement_display()
 	_refresh_unit_list()
@@ -1350,10 +1350,11 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	# Get the model's already accumulated distance
 	var already_used = _get_accumulated_distance()
 	var total_distance = already_used + distance_inches
-	var inches_left = move_cap_inches - total_distance
+	var effective_cap = _get_effective_move_cap()
+	var inches_left = effective_cap - total_distance
 
-	# Check validity based on total distance
-	path_valid = total_distance <= move_cap_inches
+	# Check validity based on total distance (accounting for pivot cost)
+	path_valid = total_distance <= effective_cap
 
 	# Also check for model overlaps, wall collisions, and board edge
 	var overlap_detected = false
@@ -1384,7 +1385,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 				illegal_reason_label.modulate = Color.RED
 
 	# Clear error label when position is valid
-	if not overlap_detected and not out_of_bounds and total_distance <= move_cap_inches:
+	if not overlap_detected and not out_of_bounds and total_distance <= effective_cap:
 		if illegal_reason_label:
 			illegal_reason_label.text = ""
 
@@ -1392,7 +1393,7 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	_update_path_visual()
 	_update_ruler_visual()
 	_update_ghost_position(world_pos)
-	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= move_cap_inches)
+	_update_ghost_validity(!overlap_detected and !out_of_bounds and total_distance <= effective_cap)
 	# Show total distance used (already accumulated + current drag)
 	_update_movement_display_with_preview(total_distance, inches_left, path_valid)
 	# Update floating movement remaining indicator near the ghost
@@ -1429,10 +1430,11 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	distance_inches += terrain_penalty
 	print("Distance moved: ", distance_inches, " inches (terrain penalty: ", terrain_penalty, ")")
 
-	# Get accumulated distance to check against cap
+	# Get accumulated distance to check against cap (accounting for pivot cost)
 	var accumulated = _get_accumulated_distance()
 	var total_distance = accumulated + distance_inches
-	var valid = total_distance <= move_cap_inches
+	var effective_cap = _get_effective_move_cap()
+	var valid = total_distance <= effective_cap
 
 	# Also check for model overlap
 	var overlap_detected = false
@@ -1464,7 +1466,7 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 		if overlap_detected:
 			print("Move invalid: position would overlap with another model")
 		else:
-			print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", move_cap_inches, ")")
+			print("Move invalid: total staged movement exceeds cap (", total_distance, " > ", effective_cap, ")")
 	
 	# Clear drag state
 	dragging_model = false
@@ -1757,8 +1759,8 @@ func _validate_move_path(path: Array, distance_inches: float) -> bool:
 	if selected_model.is_empty():
 		return false
 	
-	# Check distance cap
-	if distance_inches > move_cap_inches:
+	# Check distance cap (accounting for pivot cost)
+	if distance_inches > _get_effective_move_cap():
 		illegal_reason_label.text = "Exceeds movement cap"
 		return false
 	
@@ -2015,6 +2017,9 @@ func _update_movement_path_preview(move_data: Dictionary, models_with_segments: 
 
 	var player = GameState.get_active_player()
 	var cap = move_data.get("move_cap_inches", move_cap_inches)
+	# Account for pivot cost when passing cap to path preview visual
+	if pivot_cost_paid:
+		cap -= pivot_cost_inches
 	movement_path_preview.update_planning_paths(preview_paths, player, cap)
 
 func _update_ruler_visual() -> void:
@@ -2545,6 +2550,12 @@ func _store_original_rotation(model_id: String, rotation: float) -> void:
 	if not move_data["original_rotations"].has(model_id):
 		move_data["original_rotations"][model_id] = rotation
 		print("Stored original rotation %.2f for model %s" % [rotation, model_id])
+
+func _get_effective_move_cap() -> float:
+	"""Returns move cap adjusted for pivot cost (if any)."""
+	if pivot_cost_paid:
+		return move_cap_inches - pivot_cost_inches
+	return move_cap_inches
 
 func _update_model_token_visual(model: Dictionary) -> void:
 	# Find and update the token visual directly
@@ -3122,7 +3133,7 @@ func _update_group_movement_display() -> void:
 			var move_data = current_phase.active_moves[active_unit_id]
 			used = move_data.model_distances.get(model_id, 0.0)
 
-		var remaining = move_cap_inches - used
+		var remaining = _get_effective_move_cap() - used
 		min_remaining = min(min_remaining, remaining)
 		max_used = max(max_used, used)
 
@@ -3213,7 +3224,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 			var total_distance = previous_distance + drag_distance
 
 			# Update tracking
-			var remaining = move_cap_inches - total_distance
+			var remaining = _get_effective_move_cap() - total_distance
 			min_remaining = min(min_remaining, remaining)
 			max_used = max(max_used, total_distance)
 
@@ -3259,11 +3270,12 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 				break
 
 		# Clear error label when all positions are valid
-		if not any_wall_collision and not any_out_of_bounds and max_used <= move_cap_inches:
+		var group_effective_cap = _get_effective_move_cap()
+		if not any_wall_collision and not any_out_of_bounds and max_used <= group_effective_cap:
 			if illegal_reason_label:
 				illegal_reason_label.text = ""
 
-		if max_used > move_cap_inches or any_wall_collision or any_out_of_bounds:
+		if max_used > group_effective_cap or any_wall_collision or any_out_of_bounds:
 			# Some models exceed their movement or collide with walls - show invalid state
 			for child in ghost_visual.get_children():
 				if child is Label:
@@ -3285,7 +3297,7 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 					child.queue_redraw()
 
 		# Update floating movement remaining label for group drag
-		var group_valid = max_used <= move_cap_inches and not any_wall_collision and not any_out_of_bounds
+		var group_valid = max_used <= group_effective_cap and not any_wall_collision and not any_out_of_bounds
 		_update_movement_remaining_label(min_remaining, group_valid)
 		# Position label near the cursor during group drag
 		if movement_remaining_label and is_instance_valid(movement_remaining_label):

@@ -9,7 +9,7 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 signal unit_move_begun(unit_id: String, mode: String)
 signal model_drop_preview(unit_id: String, model_id: String, path_px: Array, inches_used: float, legal: bool)
-signal model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2)
+signal model_drop_committed(unit_id: String, model_id: String, dest_px: Vector2, rotation: float)
 signal unit_move_confirmed(unit_id: String, result_summary: Dictionary)
 signal unit_move_reset(unit_id: String)
 signal movement_mode_locked(unit_id: String, mode: String)
@@ -2148,8 +2148,9 @@ func _process_set_model_dest(action: Dictionary) -> Dictionary:
 	})
 	
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
-	emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
-	
+	var model_rotation = model.get("rotation", 0.0)
+	emit_signal("model_drop_committed", unit_id, model_id, dest_vec, model_rotation)
+
 	return create_result(true, [
 		{
 			"op": "set",
@@ -2242,7 +2243,7 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# Emit both signals for visual update
 	emit_signal("model_drop_preview", unit_id, model_id, [current_pos, dest_vec], distance_inches, true)
 	# Also emit committed signal so model visually moves (but game state not updated)
-	emit_signal("model_drop_committed", unit_id, model_id, dest_vec)
+	emit_signal("model_drop_committed", unit_id, model_id, dest_vec, rotation)
 
 	# Return result without state changes (staged only)
 	return create_result(true, [], "", {
@@ -2300,8 +2301,10 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 
 		# Restore to original position (before any movement this phase)
 		if original_pos:
-			emit_signal("model_drop_committed", unit_id, model_id, original_pos)
-			return create_result(true, changes)
+			var model = _get_model_in_unit(unit_id, model_id)
+			var original_rotation = model.get("rotation", 0.0)
+			emit_signal("model_drop_committed", unit_id, model_id, original_pos, original_rotation)
+			return create_result(true, [])
 		else:
 			return create_result(true, changes)
 
@@ -3647,12 +3650,13 @@ func _reset_staged_visuals_if_needed(unit_id: String) -> void:
 	var move_data = active_moves[unit_id]
 	if move_data.staged_moves.size() > 0:
 		print("[MovementPhase] Resetting staged visuals for %s (had %d staged moves)" % [unit_id, move_data.staged_moves.size()])
-		# Reset each staged model's visual back to its GameState position
+		# Reset each staged model's visual back to its GameState position and rotation
 		for staged_move in move_data.staged_moves:
 			var model = _get_model_in_unit(unit_id, staged_move.model_id)
 			if not model.is_empty():
 				var gs_pos = _get_model_position(model)
-				emit_signal("model_drop_committed", unit_id, staged_move.model_id, gs_pos)
+				var gs_rotation = model.get("rotation", 0.0)
+				emit_signal("model_drop_committed", unit_id, staged_move.model_id, gs_pos, gs_rotation)
 		# Also emit unit_move_reset so controller clears its state
 		emit_signal("unit_move_reset", unit_id)
 

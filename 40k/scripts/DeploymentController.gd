@@ -979,12 +979,14 @@ func _create_ghost() -> void:
 		print("[DeploymentController] combined model_data from unit %s: %s" % [cm["unit_id"], model_data.get("id", "unknown")])
 		ghost_sprite.owner_player = cm_unit_data.get("owner", unit_data["owner"])
 		ghost_sprite.set_model_data(model_data)
+		ghost_sprite.set_meta("unit_id", cm["unit_id"])
 	elif model_idx < unit_data["models"].size():
 		var model_data = unit_data["models"][model_idx]
 		print("[DeploymentController] model_data: ", model_data.get("id", "unknown"))
 		ghost_sprite.owner_player = unit_data["owner"]
 		# Set the complete model data for shape handling
 		ghost_sprite.set_model_data(model_data)
+		ghost_sprite.set_meta("unit_id", unit_id)
 
 	if ghost_layer:
 		ghost_layer.add_child(ghost_sprite)

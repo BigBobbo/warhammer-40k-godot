@@ -42,6 +42,7 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 			"2": {"cp": 3, "vp": 0, "primary_vp": 0, "secondary_vp": 0, "bonus_cp_gained_this_round": 0}
 		},
 		"factions": {},  # New field for faction data
+		"unit_visuals": {},  # Maps unit_id -> {"color": "RRGGBB", "label": ""}
 		"phase_log": [],
 		"history": []
 	}
@@ -1011,3 +1012,58 @@ func validate_state() -> Dictionary:
 		"valid": is_valid,
 		"errors": errors
 	}
+
+# --- Unit Visuals (letter-mode color/label storage) ---
+
+func _ensure_unit_visuals() -> void:
+	if not state.has("unit_visuals"):
+		state["unit_visuals"] = {}
+
+func set_unit_color(unit_id: String, color: Color) -> void:
+	_ensure_unit_visuals()
+	if not state["unit_visuals"].has(unit_id):
+		state["unit_visuals"][unit_id] = {"color": "", "label": ""}
+	state["unit_visuals"][unit_id]["color"] = color.to_html(false)
+	print("[GameState] Set unit %s color to %s" % [unit_id, color.to_html(false)])
+
+func get_unit_color(unit_id: String) -> Color:
+	_ensure_unit_visuals()
+	var visuals = state["unit_visuals"].get(unit_id, {})
+	var hex = visuals.get("color", "")
+	if hex != "" and hex is String:
+		return Color.from_string(hex, Color.TRANSPARENT)
+	return Color.TRANSPARENT
+
+func set_unit_label(unit_id: String, label: String) -> void:
+	_ensure_unit_visuals()
+	if not state["unit_visuals"].has(unit_id):
+		state["unit_visuals"][unit_id] = {"color": "", "label": ""}
+	state["unit_visuals"][unit_id]["label"] = label
+	print("[GameState] Set unit %s label to '%s'" % [unit_id, label])
+
+func get_unit_label(unit_id: String) -> String:
+	_ensure_unit_visuals()
+	var visuals = state["unit_visuals"].get(unit_id, {})
+	return visuals.get("label", "")
+
+func get_used_colors_for_player(player: int) -> Array:
+	_ensure_unit_visuals()
+	var colors: Array = []
+	for uid in state["unit_visuals"]:
+		var unit = get_unit(uid)
+		if unit.get("owner", 0) == player:
+			var hex = state["unit_visuals"][uid].get("color", "")
+			if hex != "":
+				colors.append(Color.from_string(hex, Color.TRANSPARENT))
+	return colors
+
+func auto_assign_unit_color(unit_id: String) -> Color:
+	var unit = get_unit(unit_id)
+	if unit.is_empty():
+		return Color(0.4, 0.4, 0.4)
+	var player = unit.get("owner", 1)
+	var faction_name = state.get("factions", {}).get(str(player), {}).get("name", "")
+	var used = get_used_colors_for_player(player)
+	var color = FactionPalettes.get_auto_color(faction_name, used)
+	set_unit_color(unit_id, color)
+	return color
