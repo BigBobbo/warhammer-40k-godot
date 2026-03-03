@@ -3,14 +3,15 @@ class_name PhaseTransitionBanner
 
 # T5-V3: Phase Transition Animation Banner
 # Shows an animated banner when the game phase changes.
-# The banner slides in from the top, holds briefly, then slides out.
-# Uses the WhiteDwarf gothic theme for consistent styling.
+# The banner fades/slides into the center of the screen, holds briefly, then fades out.
+# Uses the WhiteDwarfTheme gothic theme for consistent styling.
 # P3-110: Added phase rules brief — concise description of available actions per phase.
 
 const SLIDE_IN_DURATION := 0.4
 const HOLD_DURATION := 2.5
 const SLIDE_OUT_DURATION := 0.35
 const BANNER_HEIGHT := 110.0
+const SLIDE_OFFSET := 30.0  # Subtle vertical slide distance for center animation
 
 # Phase display names and icons (unicode symbols for gothic feel)
 static func _get_phase_display(phase: GameStateData.Phase) -> Dictionary:
@@ -68,17 +69,17 @@ var _tween: Tween = null
 var _is_showing: bool = false
 
 func _ready() -> void:
-	# Full-width overlay bar, starts hidden above the screen
+	# Full-width overlay bar, starts hidden at center of screen
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	color = Color(0.0, 0.0, 0.0, 0.0)  # Transparent bg — we draw our own
 
-	# Anchor to top of screen, full width
+	# Anchor to vertical center of screen, full width
 	anchor_left = 0.0
 	anchor_right = 1.0
-	anchor_top = 0.0
-	anchor_bottom = 0.0
-	offset_top = -BANNER_HEIGHT
-	offset_bottom = 0.0
+	anchor_top = 0.5
+	anchor_bottom = 0.5
+	offset_top = -BANNER_HEIGHT / 2.0
+	offset_bottom = BANNER_HEIGHT / 2.0
 	offset_left = 0.0
 	offset_right = 0.0
 
@@ -196,27 +197,28 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 	_rules_label.text = rules_brief
 	_rules_label.visible = rules_brief != ""
 
-	# Position above viewport (hidden)
-	offset_top = -BANNER_HEIGHT
-	offset_bottom = 0.0
+	# Position slightly above center (hidden) for slide-in effect
+	offset_top = -BANNER_HEIGHT / 2.0 - SLIDE_OFFSET
+	offset_bottom = BANNER_HEIGHT / 2.0 - SLIDE_OFFSET
 	visible = true
-	modulate = Color(1, 1, 1, 1)
+	modulate = Color(1, 1, 1, 0)
 
-	# Animate: slide in → hold → slide out
+	# Animate: fade+slide in → hold → fade+slide out
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween()
 
-	# Phase 1: Slide in from top
-	_tween.tween_property(self, "offset_top", 0.0, SLIDE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	_tween.parallel().tween_property(self, "offset_bottom", BANNER_HEIGHT, SLIDE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	# Phase 1: Slide down to center + fade in
+	_tween.tween_property(self, "offset_top", -BANNER_HEIGHT / 2.0, SLIDE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_tween.parallel().tween_property(self, "offset_bottom", BANNER_HEIGHT / 2.0, SLIDE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_tween.parallel().tween_property(self, "modulate", Color(1, 1, 1, 1), SLIDE_IN_DURATION).set_ease(Tween.EASE_OUT)
 
 	# Phase 2: Hold
 	_tween.tween_interval(HOLD_DURATION)
 
-	# Phase 3: Slide out to top + fade
-	_tween.tween_property(self, "offset_top", -BANNER_HEIGHT, SLIDE_OUT_DURATION).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	_tween.parallel().tween_property(self, "offset_bottom", 0.0, SLIDE_OUT_DURATION).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	# Phase 3: Slide up from center + fade out
+	_tween.tween_property(self, "offset_top", -BANNER_HEIGHT / 2.0 - SLIDE_OFFSET, SLIDE_OUT_DURATION).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	_tween.parallel().tween_property(self, "offset_bottom", BANNER_HEIGHT / 2.0 - SLIDE_OFFSET, SLIDE_OUT_DURATION).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	_tween.parallel().tween_property(self, "modulate", Color(1, 1, 1, 0), SLIDE_OUT_DURATION).set_ease(Tween.EASE_IN)
 
 	# Phase 4: Clean up
@@ -225,8 +227,8 @@ func show_phase_banner(phase: GameStateData.Phase, current_round: int = 1, activ
 	print("PhaseTransitionBanner: Showing banner for %s (Round %d, Player %d) — %s" % [phase_info.name, current_round, active_player, rules_brief])
 
 func _reset_position() -> void:
-	offset_top = -BANNER_HEIGHT
-	offset_bottom = 0.0
+	offset_top = -BANNER_HEIGHT / 2.0
+	offset_bottom = BANNER_HEIGHT / 2.0
 	visible = false
 	modulate = Color(1, 1, 1, 0)
 	_is_showing = false
