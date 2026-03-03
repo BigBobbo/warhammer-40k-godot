@@ -232,3 +232,90 @@ func test_reset_unit_move_clears_pivot_cost():
 	if not move_data.is_empty():
 		assert_false(move_data.get("pivot_cost_applied", false),
 			"Pivot cost should be cleared after reset")
+
+# ==========================================
+# Rotation Reset Tests
+# ==========================================
+
+func test_reset_unit_move_restores_rotation():
+	"""RESET_UNIT_MOVE should restore model rotation to original value"""
+	var unit_id = "vehicle_nonround"
+	var model_id = "vehicle_nonround_m1"
+
+	# Begin movement
+	phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": unit_id})
+
+	# Simulate rotation by setting original rotation in move data and changing model state
+	var move_data = phase.get_active_move_data(unit_id)
+	move_data["original_rotations"] = {model_id: 0.0}
+
+	# Change the rotation in GameState to simulate a rotation having occurred
+	var unit = game_state_node.get_unit(unit_id)
+	unit.models[0]["rotation"] = 1.5
+
+	# Apply pivot cost
+	phase.process_action({"type": "APPLY_PIVOT_COST", "actor_unit_id": unit_id})
+
+	# Stage a move so reset has something to undo
+	phase.process_action({
+		"type": "STAGE_MODEL_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {"model_id": model_id, "dest": [650.0, 650.0], "rotation": 1.5}
+	})
+
+	# Reset the unit move
+	var result = phase.process_action({"type": "RESET_UNIT_MOVE", "actor_unit_id": unit_id})
+	assert_true(result.success, "RESET_UNIT_MOVE should succeed")
+
+	# Verify that the changes include rotation restoration
+	var has_rotation_change = false
+	for change in result.get("changes", []):
+		if change.get("path", "").ends_with(".rotation"):
+			has_rotation_change = true
+			assert_eq(change.value, 0.0, "Rotation should be restored to original value (0.0)")
+	assert_true(has_rotation_change, "Reset should include rotation restoration change")
+
+func test_undo_last_model_restores_rotation():
+	"""UNDO_LAST_MODEL_MOVE should restore rotation when last move for model is undone"""
+	var unit_id = "vehicle_nonround"
+	var model_id = "vehicle_nonround_m1"
+
+	# Begin movement
+	phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": unit_id})
+
+	# Simulate rotation tracking in move data
+	var move_data = phase.get_active_move_data(unit_id)
+	move_data["original_rotations"] = {model_id: 0.0}
+
+	# Apply pivot cost
+	phase.process_action({"type": "APPLY_PIVOT_COST", "actor_unit_id": unit_id})
+
+	# Stage a move
+	phase.process_action({
+		"type": "STAGE_MODEL_MOVE",
+		"actor_unit_id": unit_id,
+		"payload": {"model_id": model_id, "dest": [650.0, 650.0], "rotation": 1.5}
+	})
+
+	# Undo the staged move
+	var result = phase.process_action({"type": "UNDO_LAST_MODEL_MOVE", "actor_unit_id": unit_id})
+	assert_true(result.success, "UNDO_LAST_MODEL_MOVE should succeed")
+
+	# Verify that rotation restoration change is included
+	var has_rotation_change = false
+	for change in result.get("changes", []):
+		if change.get("path", "").ends_with(".rotation"):
+			has_rotation_change = true
+			assert_eq(change.value, 0.0, "Rotation should be restored to original value (0.0)")
+	assert_true(has_rotation_change, "Undo should include rotation restoration change")
+
+	# Verify pivot cost is also reset when all staged moves are undone
+	move_data = phase.get_active_move_data(unit_id)
+	assert_false(move_data.get("pivot_cost_applied", false),
+		"Pivot cost should be cleared when all staged moves are undone")
+
+func test_active_moves_include_original_rotations():
+	"""Active moves should initialize with original_rotations tracking"""
+	phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "vehicle_nonround"})
+	var move_data = phase.get_active_move_data("vehicle_nonround")
+	assert_has(move_data, "original_rotations", "move_data should have original_rotations dict")

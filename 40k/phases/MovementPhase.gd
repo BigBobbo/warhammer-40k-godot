@@ -818,6 +818,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 		"model_moves": [],
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
+		"original_rotations": {},  # Track starting rotations for reset
 		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
 		# Pivot tracking (10e Core Rules Update)
@@ -830,7 +831,7 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	}
 	if pivot_value > 0:
 		log_phase_message("  Pivot value for %s: %.0f\"" % [unit.get("meta", {}).get("name", unit_id), pivot_value])
-	
+
 	emit_signal("unit_move_begun", unit_id, "NORMAL")
 	log_phase_message("Beginning normal move for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
 
@@ -949,6 +950,7 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 		"model_moves": [],
 		"staged_moves": [],
 		"original_positions": {},
+		"original_rotations": {},
 		"model_distances": {},
 		"dice_rolls": [{"context": "advance", "rolls": [advance_roll]}],
 		# Pivot tracking (10e Core Rules Update)
@@ -2077,6 +2079,7 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		"model_moves": [],
 		"staged_moves": [],  # NEW: Temporary moves before confirmation
 		"original_positions": {},  # NEW: Track starting positions for reset
+		"original_rotations": {},  # Track starting rotations for reset
 		"model_distances": {},  # NEW: Track per-model distances
 		"dice_rolls": [],
 		"battle_shocked": unit.get("status_effects", {}).get("battle_shocked", false),
@@ -2179,9 +2182,13 @@ func _process_stage_model_move(action: Dictionary) -> Dictionary:
 	# If no staged position, use actual position
 	if current_pos == null:
 		current_pos = _get_model_position(model)
-		# Store original position if this is the first move for this model
+		# Store original position and rotation if this is the first move for this model
 		if not move_data.original_positions.has(model_id):
 			move_data.original_positions[model_id] = current_pos
+		if not move_data.get("original_rotations", {}).has(model_id):
+			if not move_data.has("original_rotations"):
+				move_data["original_rotations"] = {}
+			move_data["original_rotations"][model_id] = model.get("rotation", 0.0)
 	
 	# Calculate distance for this stage
 	var distance_inches = Measurement.distance_inches(current_pos, dest_vec)
@@ -2267,10 +2274,30 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 				has_remaining_staged = true
 				break
 
-		# If no more staged moves for this model, clear its tracking data
+		# If no more staged moves for this model, clear its tracking data and restore rotation
+		var changes = []
 		if not has_remaining_staged:
 			move_data.model_distances.erase(model_id)
 			move_data.original_positions.erase(model_id)
+
+			# Restore original rotation for this model
+			var original_rotations = move_data.get("original_rotations", {})
+			if original_rotations.has(model_id):
+				var original_rot = original_rotations[model_id]
+				var model_idx = _get_model_index(unit_id, model_id)
+				if model_idx >= 0:
+					changes.append({
+						"op": "set",
+						"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+						"value": original_rot
+					})
+					print("[MovementPhase] Restoring rotation for model %s to %.2f" % [model_id, original_rot])
+				original_rotations.erase(model_id)
+
+		# If no more staged moves at all, reset pivot cost
+		if move_data.staged_moves.is_empty():
+			move_data["pivot_cost_applied"] = false
+			print("[MovementPhase] All staged moves undone, resetting pivot cost")
 
 		# Restore to original position (before any movement this phase)
 		if original_pos:
@@ -2279,9 +2306,26 @@ func _process_undo_last_model_move(action: Dictionary) -> Dictionary:
 			emit_signal("model_drop_committed", unit_id, model_id, original_pos, original_rotation)
 			return create_result(true, [])
 		else:
-			return create_result(true, [])
+			return create_result(true, changes)
 
+	# If no staged moves, check if there are rotation-only changes to undo
 	if move_data.model_moves.is_empty():
+		var rotation_changes = []
+		var original_rotations = move_data.get("original_rotations", {})
+		if not original_rotations.is_empty():
+			for rot_model_id in original_rotations.keys():
+				var original_rot = original_rotations[rot_model_id]
+				var model_idx = _get_model_index(unit_id, rot_model_id)
+				if model_idx >= 0:
+					rotation_changes.append({
+						"op": "set",
+						"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+						"value": original_rot
+					})
+					print("[MovementPhase] Restoring rotation-only change for model %s to %.2f" % [rot_model_id, original_rot])
+			original_rotations.clear()
+			move_data["pivot_cost_applied"] = false
+			return create_result(true, rotation_changes)
 		return create_result(false, [], "No moves to undo")
 
 	var last_move = move_data.model_moves.pop_back()
@@ -2310,7 +2354,20 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 				"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, model_id)],
 				"value": {"x": original_pos.x, "y": original_pos.y}
 			})
-	
+
+	# Reset model rotations to their original values
+	var original_rotations = move_data.get("original_rotations", {})
+	for model_id in original_rotations:
+		var original_rot = original_rotations[model_id]
+		var model_idx = _get_model_index(unit_id, model_id)
+		if model_idx >= 0:
+			changes.append({
+				"op": "set",
+				"path": "units.%s.models.%s.rotation" % [unit_id, model_idx],
+				"value": original_rot
+			})
+			print("[MovementPhase] Resetting rotation for model %s to %.2f" % [model_id, original_rot])
+
 	# Reset all model positions from permanent moves (if any)
 	for model_move in move_data.model_moves:
 		var from_pos = model_move.from
@@ -2319,12 +2376,14 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 			"path": "units.%s.models.%s.position" % [unit_id, _get_model_index(unit_id, model_move.model_id)],
 			"value": {"x": from_pos.x, "y": from_pos.y} if from_pos else null
 		})
-	
+
 	# Clear all move data
 	move_data.model_moves.clear()
 	move_data.staged_moves.clear()
 	move_data.model_distances.clear()  # Clear per-model distances
 	move_data.original_positions.clear()
+	if move_data.has("original_rotations"):
+		move_data["original_rotations"].clear()
 	move_data["pivot_cost_applied"] = false  # Reset pivot cost on move reset
 
 	# Clear movement_active flag (synced across network)
@@ -2582,6 +2641,7 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"model_moves": [],
 			"staged_moves": [],
 			"original_positions": {},
+			"original_rotations": {},
 			"model_distances": {},
 			"dice_rolls": [],
 			# Multi-selection group movement support
@@ -3158,6 +3218,7 @@ func _process_begin_surge_move(action: Dictionary) -> Dictionary:
 		"model_moves": [],
 		"staged_moves": [],
 		"original_positions": {},
+		"original_rotations": {},
 		"model_distances": {},
 		"dice_rolls": [{"context": "surge", "rolls": [surge_distance]}],
 		"pivot_value": pivot_value,
@@ -4382,6 +4443,7 @@ func _initialize_movement_for_disembarked_unit(unit_id: String) -> void:
 		"model_moves": [],
 		"staged_moves": [],
 		"original_positions": {},
+		"original_rotations": {},
 		"model_distances": {},
 		"dice_rolls": [],
 		"group_moves": [],
