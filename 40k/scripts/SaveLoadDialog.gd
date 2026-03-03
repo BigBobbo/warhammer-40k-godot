@@ -566,7 +566,7 @@ func hide_dialog() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event.is_action_pressed("ui_cancel"):
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		hide()
 		get_viewport().set_input_as_handled()
 
