@@ -39,6 +39,7 @@ func _register_defaults() -> void:
 
 	# Gameplay
 	_register("toggle_deploy_zones", "Toggle Deploy Zones", CATEGORY_GAMEPLAY, KEY_Z)
+	_register("toggle_terrain", "Toggle Terrain", CATEGORY_GAMEPLAY, KEY_G)
 	_register("measuring_tape", "Measuring Tape", CATEGORY_GAMEPLAY, KEY_T)
 	_register("clear_measurements", "Clear Measurements", CATEGORY_GAMEPLAY, KEY_Y)
 	_register("quick_save", "Quick Save", CATEGORY_GAMEPLAY, KEY_BRACKETLEFT)
