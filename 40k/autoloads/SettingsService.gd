@@ -5,16 +5,14 @@ var board_width_inches: float = 44.0
 var board_height_inches: float = 60.0
 var deployment_zone_depth_inches: float = 12.0
 
-# Unit visual style: "enhanced" (gradient+sprites), "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
-var unit_visual_style: String = "enhanced"
+# Unit visual style: "letter" (colored base+letter), "enhanced" (gradient+sprites), "style_a" (silhouettes), "style_b" (faction glyphs), "classic" (plain)
+var unit_visual_style: String = "letter"
 
 # Sprite directory for user-provided token art (Phase 2)
 var sprite_directory: String = "user://sprites/"
 
-# Retro visual mode: enables pixel art silhouettes + CRT scanline shader overlay
+# Retro visual mode: (deprecated — kept for save compatibility, no longer used)
 var retro_mode: bool = false
-
-signal retro_mode_changed(enabled: bool)
 
 # Save/Load Settings
 var save_files_pretty_print: bool = true  # Human-readable by default
@@ -93,8 +91,7 @@ func _ready() -> void:
 
 func set_retro_mode(enabled: bool) -> void:
 	retro_mode = enabled
-	retro_mode_changed.emit(enabled)
-	DebugLogger.info("[SettingsService] Retro mode %s" % ("enabled" if enabled else "disabled"))
+	DebugLogger.info("[SettingsService] Retro mode %s (deprecated)" % ("enabled" if enabled else "disabled"))
 
 func get_board_width_px() -> float:
 	return board_width_inches * px_per_inch
@@ -210,7 +207,7 @@ func set_autosave_on_phase_transition(enabled: bool) -> void:
 	print("[SettingsService] autosave_on_phase_transition set to %s" % str(enabled))
 
 func set_unit_visual_style_setting(style: String) -> void:
-	if style not in ["enhanced", "style_a", "style_b", "classic"]:
+	if style not in ["letter", "enhanced", "style_a", "style_b", "classic"]:
 		print("[SettingsService] Invalid visual style: %s" % style)
 		return
 	unit_visual_style = style
@@ -264,7 +261,7 @@ func _load_settings() -> void:
 	audio_muted = config.get_value("audio", "muted", false)
 
 	# Visual
-	unit_visual_style = config.get_value("visual", "unit_visual_style", "enhanced")
+	unit_visual_style = config.get_value("visual", "unit_visual_style", "letter")
 	retro_mode = config.get_value("visual", "retro_mode", false)
 	ui_scale = config.get_value("visual", "ui_scale", 1.0)
 	animation_speed = config.get_value("visual", "animation_speed", 1.0)

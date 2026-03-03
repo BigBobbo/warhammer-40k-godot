@@ -59,7 +59,9 @@ func _draw() -> void:
 
 	# Check if enhanced mode for gradient ghost fill
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
-	if style == "enhanced":
+	if style == "letter":
+		_draw_ghost_letter_mode(pulse_factor)
+	elif style == "enhanced":
 		var ghost_alpha = fill_color.a
 		var ghost_base = Color(fill_color.r, fill_color.g, fill_color.b, ghost_alpha)
 		if base_shape.get_type() == "circular":
@@ -249,3 +251,69 @@ func _get_ghost_polygon() -> PackedVector2Array:
 			points.append(Vector2(cos(angle), sin(angle)) * r)
 
 	return points
+
+# --- Letter-mode ghost rendering ---
+
+func _draw_ghost_letter_mode(pulse_factor: float) -> void:
+	var bounds = base_shape.get_bounds()
+	var radius = min(bounds.size.x, bounds.size.y) / 2.0
+
+	# Get unit color if unit_id meta is available
+	var ghost_color = _get_ghost_unit_color()
+	ghost_color.a = 0.45 * pulse_factor  # Semi-transparent with pulse
+	var border_shade = Color(ghost_color.r * 0.6, ghost_color.g * 0.6, ghost_color.b * 0.6, 0.6 * pulse_factor)
+
+	# Draw solid fill
+	if base_shape.get_type() == "circular":
+		draw_circle(Vector2.ZERO, radius, ghost_color)
+		draw_arc(Vector2.ZERO, radius, 0, TAU, 48, border_shade, 2.0)
+	else:
+		var poly_points = _get_ghost_polygon()
+		draw_colored_polygon(poly_points, ghost_color)
+		for i in range(poly_points.size()):
+			var from = poly_points[i]
+			var to = poly_points[(i + 1) % poly_points.size()]
+			draw_line(from, to, border_shade, 2.0)
+
+	# Draw letter label if we have unit_id
+	_draw_ghost_letter_label(radius, pulse_factor)
+
+
+func _get_ghost_unit_color() -> Color:
+	if has_meta("unit_id"):
+		var unit_id = get_meta("unit_id")
+		var color = GameState.get_unit_color(unit_id)
+		if color != Color.TRANSPARENT:
+			return color
+	# Fallback to player colors
+	if owner_player == 1:
+		return Color(0.2, 0.35, 0.6)
+	else:
+		return Color(0.6, 0.2, 0.15)
+
+
+func _draw_ghost_letter_label(radius: float, pulse_factor: float) -> void:
+	if not has_meta("unit_id"):
+		return
+
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return
+
+	# Get label text
+	var label = GameState.get_unit_label(unit_id)
+	if label == "":
+		var unit_name = unit.get("meta", {}).get("name", "?")
+		label = unit_name.substr(0, 1).to_upper()
+
+	var ghost_color = _get_ghost_unit_color()
+	var text_color = FactionPalettes.get_contrast_text_color(ghost_color)
+	text_color.a = 0.7 * pulse_factor
+
+	var font = ThemeDB.fallback_font
+	var font_size = int(radius * 1.0)
+	var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
+
+	draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)

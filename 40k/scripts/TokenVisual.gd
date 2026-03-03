@@ -37,6 +37,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
 
+	# Letter mode doesn't need continuous redraw (no animations)
+	if style == "letter" and not debug_mode:
+		if is_selected or is_hovered:
+			_pulse_time += delta
+			queue_redraw()
+		return
+
 	# Always advance animation time for procedural and sprite animations
 	_animation_time += delta
 	_anim_needs_redraw = false
@@ -93,7 +100,10 @@ func _draw() -> void:
 	# Check style
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
 
-	if style == "enhanced" and not debug_mode:
+	if style == "letter" and not debug_mode:
+		_draw_letter_mode()
+		return
+	elif style == "enhanced" and not debug_mode:
 		_draw_enhanced(fill_color, border_color)
 	else:
 		# Original rendering path for classic/style_a/style_b and debug mode
@@ -211,6 +221,124 @@ func _draw_enhanced_overlay(radius: float, border_color: Color) -> void:
 		TokenDrawUtils.draw_leader_chevron(self, Vector2.ZERO, radius, _get_faction_accent_color())
 
 
+# --- Letter-mode rendering ---
+
+func _draw_letter_mode() -> void:
+	var bounds = base_shape.get_bounds()
+	var radius = min(bounds.size.x, bounds.size.y) / 2.0
+	var rot = model_data.get("rotation", 0.0)
+	var shape_type = base_shape.get_type()
+
+	# Get unit color (auto-assign if not yet set)
+	var token_color = _get_token_color()
+	var border_shade = Color(token_color.r * 0.6, token_color.g * 0.6, token_color.b * 0.6)
+
+	# --- Layer 1: Solid fill ---
+	if shape_type == "circular":
+		draw_circle(Vector2.ZERO, radius, token_color)
+	else:
+		var poly_points = _get_shape_polygon(rot)
+		draw_colored_polygon(poly_points, token_color)
+
+	# --- Layer 2: Thin darker border ---
+	if shape_type == "circular":
+		draw_arc(Vector2.ZERO, radius, 0, TAU, 48, border_shade, 2.0)
+	else:
+		var poly_points = _get_shape_polygon(rot)
+		for i in range(poly_points.size()):
+			var from = poly_points[i]
+			var to = poly_points[(i + 1) % poly_points.size()]
+			draw_line(from, to, border_shade, 2.0)
+
+	# --- Layer 3: Centered letter label ---
+	var label = _get_letter_label()
+	if label != "":
+		var text_color = FactionPalettes.get_contrast_text_color(token_color)
+		var font = ThemeDB.fallback_font
+		# Font size ~60% of base diameter, smaller for multi-char labels
+		var base_font_size = int(radius * 1.2)
+		var font_size = base_font_size if label.length() <= 2 else int(base_font_size * 0.65)
+		var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+		var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)
+
+		# Faux-bold: draw 3x with sub-pixel offsets
+		for offset in [Vector2(-0.5, 0), Vector2(0.5, 0), Vector2(0, 0)]:
+			draw_string(font, text_pos + offset, label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, text_color)
+
+	# --- Layer 4: Model number (only on select/hover) ---
+	if is_selected or is_hovered:
+		var num_font = ThemeDB.fallback_font
+		var num_text = str(model_number)
+		var num_size = 10
+		var num_text_size = num_font.get_string_size(num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size)
+		var num_pos = Vector2(-num_text_size.x / 2.0, radius - 2)
+		draw_string(num_font, num_pos + Vector2(0.5, 0.5), num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size, Color(0, 0, 0, 0.6))
+		draw_string(num_font, num_pos, num_text, HORIZONTAL_ALIGNMENT_CENTER, -1, num_size, Color.WHITE)
+
+	# --- Layer 5: Reuse existing overlays ---
+	_draw_wound_pips(radius)
+	_draw_health_bar(radius)
+	_draw_fought_overlay(radius, shape_type, rot)
+	_draw_engaged_overlay(radius)
+	_draw_status_tick(radius)
+
+	# --- Layer 6: Selection/hover pulsing ring ---
+	if is_selected or is_hovered:
+		_draw_selection_ring(radius)
+
+	# --- Layer 7: Unit name label beneath base ---
+	_draw_unit_name_label()
+
+
+func _get_token_color() -> Color:
+	if not has_meta("unit_id"):
+		# Fallback based on player
+		if owner_player == 1:
+			return Color(0.2, 0.35, 0.6)
+		else:
+			return Color(0.6, 0.2, 0.15)
+
+	var unit_id = get_meta("unit_id")
+	var color = GameState.get_unit_color(unit_id)
+	if color == Color.TRANSPARENT:
+		color = GameState.auto_assign_unit_color(unit_id)
+	return color
+
+
+func _get_letter_label() -> String:
+	if not has_meta("unit_id"):
+		return "?"
+
+	var unit_id = get_meta("unit_id")
+
+	# Check for custom label override
+	var custom = GameState.get_unit_label(unit_id)
+	if custom != "":
+		return custom
+
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return "?"
+
+	var unit_name = unit.get("meta", {}).get("name", "?")
+	var unit_type = _get_unit_type()
+
+	# Vehicles get first word of name
+	if unit_type == "VEHICLE":
+		var words = unit_name.split(" ")
+		if words.size() > 0:
+			var first_word = words[0]
+			return first_word.substr(0, min(first_word.length(), 6))
+
+	# Mixed composition units get letter + asterisk
+	var composition = unit.get("meta", {}).get("unit_composition", [])
+	if composition.size() > 1:
+		return unit_name.substr(0, 1).to_upper() + "*"
+
+	# Default: first letter uppercase
+	return unit_name.substr(0, 1).to_upper()
+
+
 func _draw_sprite_texture(tex: Texture2D, radius: float) -> void:
 	# Draw a sprite texture overlay at 70% of base diameter
 	var target_size = radius * 2.0 * 0.7
@@ -224,26 +352,14 @@ func _draw_sprite_texture(tex: Texture2D, radius: float) -> void:
 func _draw_animated_silhouette(radius: float, border_color: Color, unit_type: String) -> void:
 	# Draw procedural silhouettes with animation
 	var overlay_color = Color(border_color.r, border_color.g, border_color.b, 0.6)
-	var use_retro = SettingsService.retro_mode if SettingsService else false
 
-	if use_retro:
-		# Pixel art retro silhouettes
-		match unit_type:
-			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-			"MONSTER":
-				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-			_:
-				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-	else:
-		# Standard smooth silhouettes
-		match unit_type:
-			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-			"MONSTER":
-				TokenDrawUtils.draw_monster_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
-			_:
-				TokenDrawUtils.draw_infantry_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+	match unit_type:
+		"VEHICLE":
+			TokenDrawUtils.draw_vehicle_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+		"MONSTER":
+			TokenDrawUtils.draw_monster_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
+		_:
+			TokenDrawUtils.draw_infantry_silhouette_animated(self, Vector2.ZERO, radius, overlay_color, _animation_time)
 
 
 func _draw_wound_pips(radius: float) -> void:
@@ -521,18 +637,6 @@ func _draw_overlay(fill_color: Color, border_color: Color) -> void:
 		_draw_faction_glyph(radius, overlay_color, faction)
 
 func _draw_silhouette(radius: float, color: Color, unit_type: String) -> void:
-	# In retro mode, use pixel art silhouettes even for style_a
-	var use_retro = SettingsService.retro_mode if SettingsService else false
-	if use_retro:
-		match unit_type:
-			"VEHICLE":
-				TokenDrawUtils.draw_vehicle_pixel(self, Vector2.ZERO, radius, color, _animation_time)
-			"MONSTER":
-				TokenDrawUtils.draw_monster_pixel(self, Vector2.ZERO, radius, color, _animation_time)
-			_:
-				TokenDrawUtils.draw_infantry_pixel(self, Vector2.ZERO, radius, color, _animation_time)
-		return
-
 	var s = radius * 0.5  # Scale factor
 
 	match unit_type:
