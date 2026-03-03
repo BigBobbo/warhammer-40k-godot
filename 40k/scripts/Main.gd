@@ -3367,6 +3367,40 @@ func connect_signals() -> void:
 	
 
 func _input(event: InputEvent) -> void:
+	# ESC key handling — highest priority: opens settings menu (or closes overlays first)
+	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		print("Main: Escape key pressed")
+		# T7-56: Close replay panel on ESC if open
+		if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
+			_ai_turn_replay_panel.hide_panel()
+			get_viewport().set_input_as_handled()
+			return
+		if shooting_controller and shooting_controller.active_shooter_id != "":
+			# Let ShootingController handle ESC for deselect/cancel
+			return
+		# Close save/load dialog if open
+		if save_load_dialog and save_load_dialog.visible:
+			save_load_dialog.hide()
+			get_viewport().set_input_as_handled()
+			return
+		# Close settings menu if open, otherwise open it
+		if _settings_menu and is_instance_valid(_settings_menu):
+			_settings_menu.queue_free()
+			_settings_menu = null
+			print("Main: Settings menu closed via Escape")
+			get_viewport().set_input_as_handled()
+			return
+		# Open settings menu
+		_settings_menu = SettingsMenu.new()
+		_settings_menu.show_return_to_menu = true
+		_settings_menu.settings_closed.connect(_on_settings_menu_closed)
+		_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
+		add_child(_settings_menu)
+		print("Main: Settings menu opened via Escape")
+		get_viewport().set_input_as_handled()
+		return
+
 	# Right-click context menu for unit color/label editing (letter mode)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		_handle_right_click(event)
@@ -3546,38 +3580,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and MeasuringTapeManager.is_measuring:
 		var world_pos = screen_to_world_position(event.position)
 		MeasuringTapeManager.update_measurement(world_pos)
-	
-	# ESC key handling — opens settings menu (or closes overlays first)
-	# T5-UX12: Defer ESC to ShootingController when shooting phase has active shooter
-	if event.is_action_pressed("ui_cancel"):
-		# T7-56: Close replay panel on ESC if open
-		if _ai_turn_replay_panel and _ai_turn_replay_panel.visible:
-			_ai_turn_replay_panel.hide_panel()
-			get_viewport().set_input_as_handled()
-			return
-		if shooting_controller and shooting_controller.active_shooter_id != "":
-			# Let ShootingController handle ESC for deselect/cancel
-			return
-		# Close save/load dialog if open
-		if save_load_dialog and save_load_dialog.visible:
-			# Let the dialog handle ESC (it has dialog_close_on_escape = true)
-			return
-		# Close settings menu if open, otherwise open it
-		if _settings_menu and is_instance_valid(_settings_menu):
-			_settings_menu.queue_free()
-			_settings_menu = null
-			print("Main: Settings menu closed via Escape")
-			get_viewport().set_input_as_handled()
-			return
-		# Open settings menu
-		_settings_menu = SettingsMenu.new()
-		_settings_menu.show_return_to_menu = true
-		_settings_menu.settings_closed.connect(_on_settings_menu_closed)
-		_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
-		add_child(_settings_menu)
-		print("Main: Settings menu opened via Escape")
-		get_viewport().set_input_as_handled()
-		return
 	
 	# Don't process other input while dialog is open
 	if save_load_dialog and save_load_dialog.visible:
