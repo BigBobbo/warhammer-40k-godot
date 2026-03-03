@@ -4522,9 +4522,11 @@ func _show_deployment_color_picker(uid: String) -> void:
 		return
 
 	# Remove any existing color picker
-	var existing = get_node_or_null("DeploymentColorPicker")
+	var right_panel_node = get_node_or_null("HUD_Right/VBoxContainer")
+	var existing = right_panel_node.get_node_or_null("DeploymentColorPicker") if right_panel_node else get_node_or_null("DeploymentColorPicker")
 	if existing:
 		existing.queue_free()
+		await get_tree().process_frame
 
 	var unit_data = GameState.get_unit(uid)
 	if unit_data.is_empty():
