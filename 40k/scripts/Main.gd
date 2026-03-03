@@ -4742,14 +4742,20 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		return
 
 	# Submit leader attachments
-	for char_id in formations.get("leader_attachments", {}):
-		var bg_id = formations["leader_attachments"][char_id]
-		NetworkIntegration.route_action({
+	var leader_attachments = formations.get("leader_attachments", {})
+	print("Main: Submitting %d leader attachment(s) for Player %d: %s" % [leader_attachments.size(), player, str(leader_attachments)])
+	for char_id in leader_attachments:
+		var bg_id = leader_attachments[char_id]
+		var result = NetworkIntegration.route_action({
 			"type": "DECLARE_LEADER_ATTACHMENT",
 			"character_id": char_id,
 			"bodyguard_id": bg_id,
 			"player": player
 		})
+		if result is Dictionary and not result.get("success", false) and not result.get("pending", false):
+			push_error("Main: DECLARE_LEADER_ATTACHMENT failed for %s -> %s: %s" % [char_id, bg_id, str(result)])
+		else:
+			print("Main: DECLARE_LEADER_ATTACHMENT succeeded for %s -> %s" % [char_id, bg_id])
 
 	# Submit transport embarkations
 	for transport_id in formations.get("transport_embarkations", {}):

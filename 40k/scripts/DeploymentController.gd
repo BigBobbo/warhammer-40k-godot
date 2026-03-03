@@ -179,6 +179,36 @@ func begin_deploy(_unit_id: String) -> void:
 
 	# Check if this unit has pre-declared character attachments (from Formations phase)
 	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+	print("[DeploymentController] formations_declared=%s, attached_characters=%s, attached_to=%s" % [
+		str(GameState.formations_declared()),
+		str(attached_char_ids),
+		str(unit_data.get("attached_to", null))
+	])
+
+	# Defensive state repair: if formations were declared but attachment_data wasn't applied,
+	# check meta.formations for unlinked attachments and repair the per-unit state
+	if GameState.formations_declared() and attached_char_ids.size() == 0:
+		var formations_meta = GameState.state.get("meta", {}).get("formations", {})
+		var owner = unit_data.get("owner", unit_data.get("meta", {}).get("player", 0))
+		var player_formations = formations_meta.get(str(owner), {})
+		var leader_attachments = player_formations.get("leader_attachments", {})
+		# Check if any character is declared attached to this unit
+		var repaired_chars = []
+		for char_id in leader_attachments:
+			if leader_attachments[char_id] == _unit_id:
+				repaired_chars.append(char_id)
+		if repaired_chars.size() > 0:
+			print("[DeploymentController] STATE REPAIR: Found %d unlinked attachment(s) in meta.formations for bodyguard %s" % [repaired_chars.size(), _unit_id])
+			# Apply the missing attachment state directly
+			if not unit_data.has("attachment_data"):
+				unit_data["attachment_data"] = {}
+			unit_data["attachment_data"]["attached_characters"] = repaired_chars
+			GameState.state["units"][_unit_id]["attachment_data"] = unit_data["attachment_data"]
+			for char_id in repaired_chars:
+				GameState.state["units"][char_id]["attached_to"] = _unit_id
+				print("[DeploymentController] STATE REPAIR: Set %s.attached_to = %s" % [char_id, _unit_id])
+			attached_char_ids = repaired_chars
+
 	if GameState.formations_declared() and attached_char_ids.size() > 0:
 		is_combined_deployment = true
 		print("[DeploymentController] Combined deployment: bodyguard %s + %d attached character(s)" % [_unit_id, attached_char_ids.size()])

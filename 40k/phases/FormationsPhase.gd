@@ -494,6 +494,7 @@ func _process_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	var char_name = get_unit(character_id).get("meta", {}).get("name", character_id)
 	var bg_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
 	log_phase_message("Player %d declares: %s attached to %s" % [player, char_name, bg_name])
+	print("[FormationsPhase] After DECLARE_LEADER_ATTACHMENT — player_formations[%d].leader_attachments = %s" % [player, str(player_formations[player]["leader_attachments"])])
 
 	return create_result(true, [])
 
@@ -615,6 +616,11 @@ func _process_confirm_formations(action: Dictionary) -> Dictionary:
 	# (execute_action will apply them and _should_complete_phase triggers phase completion)
 	if _is_player_confirmed(1) and _is_player_confirmed(2):
 		log_phase_message("Both players confirmed — building formation changes")
+		print("[FormationsPhase] CONFIRM_FORMATIONS — player_formations before build:")
+		for p in [1, 2]:
+			print("  Player %d leader_attachments: %s" % [p, str(player_formations[p]["leader_attachments"])])
+			print("  Player %d transport_embarkations: %s" % [p, str(player_formations[p]["transport_embarkations"])])
+			print("  Player %d reserves: %s" % [p, str(player_formations[p]["reserves"])])
 		changes.append_array(_build_formation_changes())
 
 	return create_result(true, changes)
@@ -785,9 +791,15 @@ func _build_formation_changes() -> Array:
 	for player in [1, 2]:
 		var formations = player_formations[player]
 
-		# Leader attachments
+		# Leader attachments — first collect all characters per bodyguard to avoid
+		# overwrite bug when multiple characters attach to the same bodyguard (dual-leader)
+		var bodyguard_chars: Dictionary = {}  # bodyguard_id -> [character_ids]
 		for character_id in formations["leader_attachments"]:
 			var bodyguard_id = formations["leader_attachments"][character_id]
+			if not bodyguard_chars.has(bodyguard_id):
+				bodyguard_chars[bodyguard_id] = []
+			bodyguard_chars[bodyguard_id].append(character_id)
+
 			# Set attached_to on character
 			changes.append({
 				"op": "set",
@@ -795,19 +807,19 @@ func _build_formation_changes() -> Array:
 				"value": bodyguard_id
 			})
 
-			# Update bodyguard's attachment_data
-			var bodyguard = get_unit(bodyguard_id)
-			var current_attached = bodyguard.get("attachment_data", {}).get("attached_characters", []).duplicate()
-			current_attached.append(character_id)
-			changes.append({
-				"op": "set",
-				"path": "units.%s.attachment_data.attached_characters" % bodyguard_id,
-				"value": current_attached
-			})
-
 			var char_name = get_unit(character_id).get("meta", {}).get("name", character_id)
 			var bg_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
 			log_phase_message("Applied: %s attached to %s" % [char_name, bg_name])
+
+		# Now set bodyguard attachment_data with all characters at once
+		for bodyguard_id in bodyguard_chars:
+			var existing_attached = get_unit(bodyguard_id).get("attachment_data", {}).get("attached_characters", []).duplicate()
+			existing_attached.append_array(bodyguard_chars[bodyguard_id])
+			changes.append({
+				"op": "set",
+				"path": "units.%s.attachment_data.attached_characters" % bodyguard_id,
+				"value": existing_attached
+			})
 
 		# Transport embarkations
 		for transport_id in formations["transport_embarkations"]:
@@ -883,6 +895,9 @@ func _build_formation_changes() -> Array:
 		"value": true
 	})
 
+	var leader_count_p1 = player_formations[1]["leader_attachments"].size()
+	var leader_count_p2 = player_formations[2]["leader_attachments"].size()
+	print("[FormationsPhase] _build_formation_changes — P1 leader_attachments: %d, P2 leader_attachments: %d" % [leader_count_p1, leader_count_p2])
 	log_phase_message("All formations changes built successfully (%d diffs)" % changes.size())
 	return changes
 
@@ -1058,4 +1073,19 @@ func get_available_actions() -> Array:
 	return actions
 
 func _should_complete_phase() -> bool:
-	return _is_player_confirmed(1) and _is_player_confirmed(2)
+	var complete = _is_player_confirmed(1) and _is_player_confirmed(2)
+	if complete:
+		# Post-apply verification: check that per-unit attachment state was actually set
+		for player in [1, 2]:
+			var formations = player_formations.get(player, {})
+			for char_id in formations.get("leader_attachments", {}):
+				var bg_id = formations["leader_attachments"][char_id]
+				var char_state = GameState.state["units"].get(char_id, {})
+				var bg_state = GameState.state["units"].get(bg_id, {})
+				var attached_to = char_state.get("attached_to", null)
+				var bg_attached = bg_state.get("attachment_data", {}).get("attached_characters", [])
+				print("[FormationsPhase] POST-APPLY VERIFY: %s.attached_to = %s (expected %s)" % [char_id, str(attached_to), bg_id])
+				print("[FormationsPhase] POST-APPLY VERIFY: %s.attachment_data.attached_characters = %s" % [bg_id, str(bg_attached)])
+				if attached_to != bg_id:
+					push_error("[FormationsPhase] BUG: %s.attached_to is %s, expected %s" % [char_id, str(attached_to), bg_id])
+	return complete

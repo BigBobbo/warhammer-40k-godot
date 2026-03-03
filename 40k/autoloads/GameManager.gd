@@ -294,13 +294,52 @@ func process_deploy_unit(action: Dictionary) -> Dictionary:
 		"value": GameStateData.UnitStatus.DEPLOYED
 	})
 
+	# P1-66: If this bodyguard has attached characters (from FormationsPhase),
+	# auto-deploy them at adjacent positions so they appear on the board.
+	# This mirrors the logic in DeploymentPhase._process_deploy_unit() which is
+	# dead code for DEPLOY_UNIT actions (handled here by GameManager directly).
+	var unit_data = GameState.get_unit(unit_id)
+	var attached_char_ids = unit_data.get("attachment_data", {}).get("attached_characters", [])
+	if attached_char_ids.size() > 0:
+		print("GameManager: P1-66 auto-deploying %d attached character(s) with bodyguard %s" % [attached_char_ids.size(), unit_id])
+		var ref_pos = null
+		if model_positions.size() > 0 and model_positions[0] != null:
+			ref_pos = _get_pos_xy(model_positions[0])
+		for char_id in attached_char_ids:
+			var char_unit = GameState.get_unit(char_id)
+			if char_unit.is_empty():
+				print("GameManager: P1-66 Warning — attached character %s not found" % char_id)
+				continue
+			# Skip if already deployed
+			if char_unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var char_models = char_unit.get("models", [])
+			for ci in range(char_models.size()):
+				if ref_pos != null:
+					var char_base_mm = char_models[ci].get("base_mm", 40)
+					var bg_base_mm = unit_data.get("models", [{}])[0].get("base_mm", 32)
+					var offset_px = Measurement.base_radius_px(char_base_mm) + Measurement.base_radius_px(bg_base_mm) + 2
+					diffs.append({
+						"op": "set",
+						"path": "units.%s.models.%d.position" % [char_id, ci],
+						"value": {"x": ref_pos["x"] + offset_px, "y": ref_pos["y"]}
+					})
+			diffs.append({
+				"op": "set",
+				"path": "units.%s.status" % char_id,
+				"value": GameStateData.UnitStatus.DEPLOYED
+			})
+			var char_name = char_unit.get("meta", {}).get("name", char_id)
+			print("GameManager: P1-66 auto-deployed %s with bodyguard %s" % [char_name, unit_id])
+
 	# Player switching is handled by TurnManager.check_deployment_alternation()
 	# which is called from apply_result() after diffs are applied. This ensures
 	# a single source of truth for deployment alternation in both single-player
 	# and multiplayer modes.
 
 	# Get unit info for logging
-	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		unit_data = GameState.get_unit(unit_id)
 	var unit_name = unit_data.get("meta", {}).get("name", "Unknown Unit")
 	var log_text = "Deployed %s (%d models) wholly within DZ." % [unit_name, model_positions.size()]
 
