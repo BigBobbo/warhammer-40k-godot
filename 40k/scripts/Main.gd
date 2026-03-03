@@ -3874,11 +3874,10 @@ func refresh_unit_list() -> void:
 					unit_list.add_item(display_text)
 					unit_list.set_item_metadata(unit_list.get_item_count() - 1, unit_id)
 
-				# Show reserves button during deployment (visible when units available)
+				# Reserves are declared in the Formations phase, not Deployment.
+				# Hide the reserves button during deployment.
 				if reserves_button:
-					reserves_button.visible = units.size() > 0
-					reserves_button.disabled = true  # Disabled until a unit is selected
-					_selected_unit_for_reserves = ""
+					reserves_button.visible = false
 
 		GameStateData.Phase.MOVEMENT:
 			# Show deployed units during movement in right panel
@@ -3994,9 +3993,9 @@ func update_ui() -> void:
 			# Update waiting-for-opponent overlay (T5-MP6)
 			_update_waiting_for_opponent_overlay()
 
-			# Show reserves button during deployment phase
+			# Reserves are declared in Formations phase — hide button during deployment
 			if reserves_button:
-				reserves_button.visible = current_phase == GameStateData.Phase.DEPLOYMENT and not all_deployed
+				reserves_button.visible = false
 
 			# P3-55: Keep measuring tape button visible throughout deployment
 			if _measuring_tape_button:
@@ -4291,20 +4290,7 @@ func _on_unit_selected(index: int) -> void:
 	
 	# Handle unit selection based on current phase
 	if current_phase == GameStateData.Phase.DEPLOYMENT and deployment_controller:
-		# Update reserves button state for the selected unit
-		if reserves_button:
-			_selected_unit_for_reserves = unit_id
-			# Fortification units cannot be placed in reserves — disable the button
-			if GameState.unit_is_fortification(unit_id):
-				reserves_button.disabled = true
-				reserves_button.text = "Must Deploy (Fortification)"
-			else:
-				reserves_button.disabled = false
-				# Update button text based on unit abilities
-				if GameState.unit_has_deep_strike(unit_id):
-					reserves_button.text = "Deep Strike (Reserves)"
-				else:
-					reserves_button.text = "Strategic Reserves"
+		# Reserves are declared in Formations phase — no reserves button during deployment
 
 		# Auto-assign unit color if not yet set (letter mode)
 		var existing_color = GameState.get_unit_color(unit_id)
