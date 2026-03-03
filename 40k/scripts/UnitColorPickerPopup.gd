@@ -86,7 +86,7 @@ func setup(uid: String, popup_position: Vector2) -> void:
 
 	# Position the popup
 	position = popup_position
-	z_index = 100
+	z_index = 1000  # UI_OVERLAY_Z — above HUD panels
 
 	# Close on click outside
 	mouse_filter = Control.MOUSE_FILTER_STOP

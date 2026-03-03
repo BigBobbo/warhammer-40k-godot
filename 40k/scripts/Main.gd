@@ -4,6 +4,11 @@ extends CanvasLayer
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 
+# UI z_index layering constants — ensure panels always render above all board elements
+const UI_PANEL_Z: int = 500      # HUD panels (left, right, bottom, stats, logs)
+const UI_OVERLAY_Z: int = 1000   # Tooltips, overlays, popups
+const UI_MODAL_Z: int = 2000     # Modal dialogs (wound allocation, save/load, game over)
+
 @onready var camera: Camera2D = $BoardRoot/Camera2D
 @onready var board_view: Node2D = $BoardRoot/BoardView
 @onready var deployment_zones: Node2D = $BoardRoot/DeploymentZones
@@ -382,6 +387,9 @@ func _ready() -> void:
 
 	# Start replay recording if configured (auto for AI vs AI)
 	_start_replay_recording_if_needed()
+
+	# Final pass: ensure all UI panels render above board elements
+	_ensure_ui_panels_on_top()
 
 func _initialize_ai_player() -> void:
 	# Configure AIPlayer autoload based on game_config from MainMenu
@@ -899,7 +907,7 @@ func _setup_web_relay_loading_overlay() -> void:
 	add_child(_web_relay_loading_overlay)
 
 	# Ensure overlay is on top of everything
-	_web_relay_loading_overlay.z_index = 100
+	_web_relay_loading_overlay.z_index = UI_MODAL_Z
 
 	# Start pulse animation
 	_web_relay_loading_pulse_tween = create_tween().set_loops()
@@ -1501,6 +1509,7 @@ func _show_deep_strike_placement_dialog(unit_id: String) -> void:
 
 	var dialog = load("res://40k/dialogs/DeepStrikePlacementDialog.gd").new()
 	add_child(dialog)
+	dialog.z_index = UI_MODAL_Z
 	dialog.setup(unit_id, unit_name)
 	dialog.placement_chosen.connect(_on_deep_strike_placement_chosen)
 	dialog.popup_centered()
@@ -1953,7 +1962,7 @@ func _fix_hud_layout() -> void:
 		hud_left.offset_bottom = -bottom_height
 		hud_left.anchor_top = 0.0
 		hud_left.offset_top = top_height  # Leave space for top panel
-
+		hud_left.z_index = UI_PANEL_Z
 		print("Fixed HUD layout: HUD_Left adjusted for new layout")
 
 	if hud_right:
@@ -1962,8 +1971,19 @@ func _fix_hud_layout() -> void:
 		hud_right.offset_bottom = -bottom_height
 		hud_right.anchor_top = 0.0
 		hud_right.offset_top = top_height  # Leave space for top panel
-
+		hud_right.z_index = UI_PANEL_Z
 		print("Fixed HUD layout: HUD_Right adjusted for new layout (full height, panel hidden)")
+
+	# Set z_index on HUD_Bottom
+	var hud_bottom = get_node_or_null("HUD_Bottom")
+	if hud_bottom:
+		hud_bottom.z_index = UI_PANEL_Z
+
+	# Set z_index on unit stats and secondary mission panels
+	if unit_stats_panel:
+		unit_stats_panel.z_index = UI_PANEL_Z
+	if secondary_mission_panel:
+		secondary_mission_panel.z_index = UI_PANEL_Z
 
 	# Adjust unit list to take less space, giving more room to phase panels
 	var unit_list_panel = get_node_or_null("HUD_Right/VBoxContainer/UnitListPanel")
@@ -1972,6 +1992,15 @@ func _fix_hud_layout() -> void:
 		unit_list_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		unit_list_panel.custom_minimum_size = Vector2(0, 150)  # Fixed height of 150px
 		print("Adjusted unit list: fixed height to 150px")
+
+func _ensure_ui_panels_on_top() -> void:
+	# Ensure all UI Control nodes that are direct children of Main render above board
+	# elements. Board visuals are under BoardRoot (z_index = -200). As a robust safety
+	# measure, we also set high z_index on all UI panels so they always appear on top.
+	for child in get_children():
+		if child is Control and child.z_index < UI_PANEL_Z:
+			child.z_index = UI_PANEL_Z
+	print("UI layering: All Control children set to z_index >= %d" % UI_PANEL_Z)
 
 func _apply_white_dwarf_theme() -> void:
 	# Apply gothic red/black/gold UI chrome to HUD panels
@@ -3566,6 +3595,7 @@ func _input(event: InputEvent) -> void:
 		_settings_menu.settings_closed.connect(_on_settings_menu_closed)
 		_settings_menu.save_load_requested.connect(_on_settings_save_load_requested)
 		add_child(_settings_menu)
+		_settings_menu.z_index = UI_MODAL_Z
 		print("Main: Settings menu opened via Escape")
 		get_viewport().set_input_as_handled()
 		return
@@ -4063,7 +4093,7 @@ func _setup_deploy_hover_tooltip() -> void:
 	_deploy_hover_tooltip.name = "DeployHoverTooltip"
 	_deploy_hover_tooltip.visible = false
 	_deploy_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_deploy_hover_tooltip.z_index = 100
+	_deploy_hover_tooltip.z_index = UI_OVERLAY_Z
 
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.07, 0.05, 0.95)
@@ -4718,6 +4748,7 @@ func _show_formations_dialog(player: int) -> void:
 	formations_dialog = AcceptDialog.new()
 	formations_dialog.set_script(dialog_script)
 	add_child(formations_dialog)
+	formations_dialog.z_index = UI_MODAL_Z
 	formations_dialog.setup(player)
 	formations_dialog.formations_confirmed.connect(_on_formations_dialog_confirmed)
 	formations_dialog.popup_centered()
@@ -5852,6 +5883,7 @@ func _show_game_over_dialog(winner: int, reason: String) -> void:
 	game_over_dialog = AcceptDialog.new()
 	game_over_dialog.set_script(dialog_script)
 	add_child(game_over_dialog)
+	game_over_dialog.z_index = UI_MODAL_Z
 
 	# Determine local player number for networked games
 	var local_player_num = 0
@@ -5900,6 +5932,7 @@ func _on_peer_disconnect_grace_period(disconnected_player: int) -> void:
 	disconnect_dialog = AcceptDialog.new()
 	disconnect_dialog.set_script(dialog_script)
 	add_child(disconnect_dialog)
+	disconnect_dialog.z_index = UI_MODAL_Z
 
 	disconnect_dialog.save_game_requested.connect(_on_disconnect_save_game)
 	disconnect_dialog.continue_single_player_requested.connect(_on_disconnect_continue_single_player.bind(disconnected_player))
@@ -7364,6 +7397,9 @@ func _initialize_replay_mode() -> void:
 	_setup_dice_history_panel()
 	_apply_white_dwarf_theme()
 
+	# Ensure all UI panels render above board elements in replay mode too
+	_ensure_ui_panels_on_top()
+
 	print("Main: Replay mode initialization complete")
 
 func _on_replay_event_applied(event: Dictionary) -> void:
@@ -7470,6 +7506,7 @@ func _toggle_army_panel() -> void:
 
 	_army_panel = ArmyPanel.new()
 	add_child(_army_panel)
+	_army_panel.z_index = UI_OVERLAY_Z
 	_army_panel.panel_closed.connect(_on_army_panel_closed)
 	_army_panel.unit_visual_changed.connect(_on_army_panel_visual_changed)
 	print("Main: Army panel opened")
@@ -7528,6 +7565,7 @@ func _handle_right_click(event: InputEventMouseButton) -> void:
 	_unit_context_menu.add_item("Change Label", 1)
 	_unit_context_menu.id_pressed.connect(_on_unit_context_menu_pressed)
 	add_child(_unit_context_menu)
+	_unit_context_menu.z_index = UI_OVERLAY_Z
 	_unit_context_menu.position = Vector2i(int(event.global_position.x), int(event.global_position.y))
 	_unit_context_menu.popup()
 
@@ -7548,6 +7586,7 @@ func _show_unit_color_picker_popup(uid: String) -> void:
 
 	var picker = UnitColorPickerPopup.new()
 	add_child(picker)
+	picker.z_index = UI_OVERLAY_Z
 	var popup_pos = get_viewport().get_mouse_position()
 	picker.setup(uid, popup_pos)
 	picker.color_changed.connect(_on_unit_color_changed_from_popup)
@@ -7565,7 +7604,7 @@ func _show_unit_label_dialog(uid: String) -> void:
 
 	var dialog = PanelContainer.new()
 	dialog.name = "UnitLabelDialog"
-	dialog.z_index = 100
+	dialog.z_index = UI_MODAL_Z
 
 	var style_box = StyleBoxFlat.new()
 	style_box.bg_color = Color(0.08, 0.08, 0.1, 0.95)
