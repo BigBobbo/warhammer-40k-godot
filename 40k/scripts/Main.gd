@@ -7488,6 +7488,9 @@ func _force_redraw_all_tokens() -> void:
 	if token_layer:
 		for child in token_layer.get_children():
 			if child is Node2D:
+				# Redraw direct TokenVisual children (created by Main._create_token_visual)
+				child.queue_redraw()
+				# Also redraw sub-children for wrapped tokens (created by DeploymentController)
 				for sub in child.get_children():
 					if sub.has_method("queue_redraw"):
 						sub.queue_redraw()
