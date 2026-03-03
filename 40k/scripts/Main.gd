@@ -3968,7 +3968,7 @@ func update_ui() -> void:
 					var unit_data = GameState.get_unit(unit_id)
 					var unit_name = unit_data["meta"]["name"]
 					var placed = deployment_controller.get_placed_count()
-					var total = unit_data["models"].size()
+					var total = deployment_controller.get_total_model_count()
 					var mode_info = ""
 					if deployment_controller.is_infiltrators_mode:
 						mode_info = " [INFILTRATORS — >9\" from enemies & enemy zone]"
@@ -4462,8 +4462,8 @@ func update_unit_card_buttons() -> void:
 					var unit_data = GameState.get_unit(current_unit_id)
 					if unit_data and unit_data.has("models"):
 						var placed = deployment_controller.get_placed_count()
-						var total = unit_data["models"].size()
-						
+						var total = deployment_controller.get_total_model_count()
+
 						models_label.text = "Models: %d/%d" % [placed, total]
 						
 						# Show buttons based on deployment progress

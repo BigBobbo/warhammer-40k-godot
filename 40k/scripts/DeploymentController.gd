@@ -284,6 +284,11 @@ func get_placed_count() -> int:
 			count += 1
 	return count
 
+func get_total_model_count() -> int:
+	if is_combined_deployment:
+		return combined_models.size()
+	return temp_positions.size()
+
 func try_place_at(world_pos: Vector2) -> void:
 	if not is_placing():
 		return
@@ -1447,7 +1452,11 @@ func _is_unit_coherent() -> bool:
 	var required_neighbors = 1 if placed_indices.size() <= 6 else 2
 
 	for i in placed_indices:
-		var model_i = unit_data["models"][i].duplicate()
+		var model_i: Dictionary
+		if is_combined_deployment and i < combined_models.size():
+			model_i = combined_models[i]["model_data"].duplicate()
+		else:
+			model_i = unit_data["models"][i].duplicate()
 		model_i["position"] = temp_positions[i]
 		model_i["rotation"] = temp_rotations[i] if i < temp_rotations.size() else 0.0
 
@@ -1455,7 +1464,11 @@ func _is_unit_coherent() -> bool:
 		for j in placed_indices:
 			if i == j:
 				continue
-			var model_j = unit_data["models"][j].duplicate()
+			var model_j: Dictionary
+			if is_combined_deployment and j < combined_models.size():
+				model_j = combined_models[j]["model_data"].duplicate()
+			else:
+				model_j = unit_data["models"][j].duplicate()
 			model_j["position"] = temp_positions[j]
 			model_j["rotation"] = temp_rotations[j] if j < temp_rotations.size() else 0.0
 
