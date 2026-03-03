@@ -101,7 +101,7 @@ static func draw_wound_pips(canvas: CanvasItem, center: Vector2, radius: float, 
 
 	# If total > 12, draw a small number indicator
 	if total_wounds > 12:
-		var font = ThemeDB.fallback_font
+		var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 		var wound_text = "%d/%d" % [current_wounds, total_wounds]
 		var text_size = font.get_string_size(wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 10)
 		var text_pos = center + Vector2(-text_size.x / 2, radius * 0.85)
@@ -149,7 +149,7 @@ static func draw_health_bar(canvas: CanvasItem, center: Vector2, radius: float, 
 
 	# Wound count text overlay for high-wound models (> 3 wounds)
 	if total_wounds > 3:
-		var font = ThemeDB.fallback_font
+		var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 		var wound_text = "%d/%d" % [current_wounds, total_wounds]
 		var font_size = max(7, int(bar_height * 1.5))
 		var text_size = font.get_string_size(wound_text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)

@@ -62,7 +62,7 @@ var default_font: Font = null
 
 func _ready() -> void:
 	z_index = -5
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 
 func _process(delta: float) -> void:
 	if is_active:

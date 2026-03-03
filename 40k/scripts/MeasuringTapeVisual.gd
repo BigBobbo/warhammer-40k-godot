@@ -20,7 +20,7 @@ func _ready() -> void:
 
 	# Create a basic font for labels
 	# In Godot 4, we can use ThemeDB to get default font
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 
 	# Connect to manager signals
 	if MeasuringTapeManager:

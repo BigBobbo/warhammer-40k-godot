@@ -69,6 +69,10 @@ window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gut/plugin.cfg")

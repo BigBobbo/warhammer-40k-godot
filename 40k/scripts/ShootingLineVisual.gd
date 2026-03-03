@@ -154,7 +154,7 @@ func _draw() -> void:
 
 func _draw_weapon_label(alpha: float) -> void:
 	var mid_point = (from_pos + to_pos) / 2
-	var font = ThemeDB.fallback_font
+	var font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	var font_size = 12
 	var text_size = font.get_string_size(weapon_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 

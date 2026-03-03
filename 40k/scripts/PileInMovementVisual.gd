@@ -42,7 +42,7 @@ var default_font: Font = null
 func _ready() -> void:
 	z_index = 101  # Above pile-in visuals container
 	name = "PileInMovementVisual"
-	default_font = ThemeDB.fallback_font
+	default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	print("[PileInMovementVisual] Initialized")
 
 func _process(delta: float) -> void:
