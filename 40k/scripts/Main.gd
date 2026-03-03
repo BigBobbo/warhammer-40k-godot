@@ -28,7 +28,6 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 
 var unit_stats_panel: Control
 var secondary_mission_panel: Control
-var left_panel_toggle_button: Button
 var is_left_panel_visible: bool = false
 var mathhammer_ui: Control
 var save_load_dialog: PanelContainer
@@ -301,8 +300,7 @@ func _ready() -> void:
 	# Setup Transport Panel
 	_setup_transport_panel()
 
-	# Setup left panel toggle and hide by default
-	_setup_left_panel_toggle()
+	# Hide left panel (Mathhammer) by default — toggle with hotkey
 	_hide_left_panel()
 
 	# Setup board rotation button
@@ -3507,6 +3505,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_terrain"):
 		TerrainManager.toggle_terrain_visibility()
 		print("Terrain visibility toggled: ", TerrainManager.terrain_visible)
+		get_viewport().set_input_as_handled()
+		return
+
+	# Mathhammer panel toggle - 'h' to show/hide mathhammer
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_mathhammer"):
+		_on_left_panel_toggle_pressed()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -6922,25 +6926,6 @@ func _debug_check_right_panel() -> void:
 		if container.get_node_or_null("ShootingPanel"):
 			print("ERROR: Shooting UI found in wrong phase!")
 
-func _setup_left_panel_toggle() -> void:
-	"""Setup toggle button for left panel in top HUD"""
-	var hud_bottom = get_node_or_null("HUD_Bottom/HBoxContainer")
-	if not hud_bottom:
-		print("ERROR: Could not find HUD_Bottom/HBoxContainer for left panel toggle")
-		return
-
-	# Create toggle button
-	left_panel_toggle_button = Button.new()
-	left_panel_toggle_button.name = "LeftPanelToggle"
-	left_panel_toggle_button.text = "Show Mathhammer"
-	left_panel_toggle_button.pressed.connect(_on_left_panel_toggle_pressed)
-
-	# Add to the beginning of the HBox (before phase label)
-	hud_bottom.add_child(left_panel_toggle_button)
-	hud_bottom.move_child(left_panel_toggle_button, 0)
-
-	print("Left panel toggle button added to top HUD")
-
 func _hide_left_panel() -> void:
 	"""Hide the left panel by default"""
 	var hud_left = get_node_or_null("HUD_Left")
@@ -6950,7 +6935,7 @@ func _hide_left_panel() -> void:
 		print("Left panel hidden by default")
 
 func _on_left_panel_toggle_pressed() -> void:
-	"""Toggle visibility of left panel"""
+	"""Toggle visibility of left panel (Mathhammer)"""
 	var hud_left = get_node_or_null("HUD_Left")
 	if not hud_left:
 		print("ERROR: Could not find HUD_Left to toggle")
@@ -6958,13 +6943,6 @@ func _on_left_panel_toggle_pressed() -> void:
 
 	is_left_panel_visible = !is_left_panel_visible
 	hud_left.visible = is_left_panel_visible
-
-	# Update button text
-	if left_panel_toggle_button:
-		if is_left_panel_visible:
-			left_panel_toggle_button.text = "Hide Mathhammer"
-		else:
-			left_panel_toggle_button.text = "Show Mathhammer"
 
 	print("Left panel visibility toggled: ", is_left_panel_visible)
 
@@ -6986,9 +6964,9 @@ func _setup_rotate_board_button() -> void:
 	rotate_btn.text = "Rotate Board (V)"
 	rotate_btn.tooltip_text = "Rotate the board view 90° clockwise"
 	rotate_btn.pressed.connect(func(): rotate_board_view(PI / 2.0))
-	# Insert after the left panel toggle (index 1)
+	# Insert at the beginning of the HBox
 	hud_bottom.add_child(rotate_btn)
-	hud_bottom.move_child(rotate_btn, 1)
+	hud_bottom.move_child(rotate_btn, 0)
 	print("Board rotation button added to top HUD")
 
 func _setup_phase_transition_banner() -> void:

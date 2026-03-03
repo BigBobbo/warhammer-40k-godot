@@ -47,6 +47,7 @@ func _register_defaults() -> void:
 	_register("toggle_replay_panel", "Toggle Replay Panel", CATEGORY_GAMEPLAY, KEY_R)
 	_register("toggle_missions_panel", "Toggle Missions Panel", CATEGORY_GAMEPLAY, KEY_M)
 	_register("shortcut_overlay", "Shortcut Overlay", CATEGORY_GAMEPLAY, KEY_SLASH, {"shift": true})
+	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_GAMEPLAY, KEY_H)
 
 	# Model
 	_register("rotate_left", "Rotate Left", CATEGORY_MODEL, KEY_Q)
