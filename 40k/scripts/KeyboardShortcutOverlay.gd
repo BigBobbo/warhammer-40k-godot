@@ -91,12 +91,14 @@ func _build_ui() -> void:
 	_shortcuts_container.add_child(general_header)
 
 	var _dz = KeybindingManager.get_key_display_name("toggle_deploy_zones") if KeybindingManager else "Z"
+	var _tt = KeybindingManager.get_key_display_name("toggle_terrain") if KeybindingManager else "G"
 	var _mt = KeybindingManager.get_key_display_name("measuring_tape") if KeybindingManager else "T"
 	var _cm = KeybindingManager.get_key_display_name("clear_measurements") if KeybindingManager else "Y"
 	var _zu = KeybindingManager.get_key_display_name("zoom_in") if KeybindingManager else "="
 	var _zd = KeybindingManager.get_key_display_name("zoom_out") if KeybindingManager else "-"
 	var _rb = KeybindingManager.get_key_display_name("rotate_board") if KeybindingManager else "V"
 	_add_shortcut(_dz, "Toggle deployment zones")
+	_add_shortcut(_tt, "Toggle terrain")
 	_add_shortcut("%s (hold)" % _mt, "Measuring tape")
 	_add_shortcut(_cm, "Clear measurements")
 	_add_shortcut("W/A/S/D", "Pan camera")

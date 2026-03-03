@@ -2363,29 +2363,20 @@ func _setup_terrain() -> void:
 	print("Added LineOfSightVisual to BoardRoot")
 	print("Line of Sight: Hold 'V' to check what models can see the cursor position")
 
-	# Add terrain toggle button to top HUD
+	# Add terrain-related controls to HUD
 	var hud_container = $HUD_Bottom/HBoxContainer
 	if hud_container:
 		# Add separator
 		var separator = VSeparator.new()
 		hud_container.add_child(separator)
-		
-		# Create terrain toggle button
-		var terrain_button = Button.new()
-		terrain_button.name = "TerrainToggleButton"
-		terrain_button.text = "Toggle Terrain"
-		terrain_button.toggle_mode = true
-		terrain_button.button_pressed = true  # Start with terrain visible
-		terrain_button.toggled.connect(_on_terrain_toggle)
-		hud_container.add_child(terrain_button)
-		
+
 		# Create terrain info label
 		var terrain_label = Label.new()
 		terrain_label.name = "TerrainInfoLabel"
 		terrain_label.text = "Terrain: Layout 2"
 		terrain_label.add_theme_font_size_override("font_size", 12)
 		hud_container.add_child(terrain_label)
-		
+
 		# Add LoS debug toggle button
 		var los_button = Button.new()
 		los_button.name = "LoSDebugButton"
@@ -2394,12 +2385,8 @@ func _setup_terrain() -> void:
 		los_button.button_pressed = false  # Start with debug off (matches LoSDebugVisual default)
 		los_button.toggled.connect(func(pressed): _toggle_los_debug())
 		hud_container.add_child(los_button)
-		
-		print("Added terrain UI controls to HUD")
 
-func _on_terrain_toggle(pressed: bool) -> void:
-	TerrainManager.set_terrain_visibility(pressed)
-	print("Terrain visibility: ", pressed)
+		print("Added terrain UI controls to HUD")
 
 func _on_measuring_tape_save_toggle(pressed: bool) -> void:
 	SettingsService.set_save_measurements(pressed)
@@ -3507,6 +3494,13 @@ func _input(event: InputEvent) -> void:
 	# Deployment zone toggle - 'z' to show/hide deployment zones
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_deploy_zones"):
 		_toggle_deployment_zones()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Terrain toggle - 'g' to show/hide terrain
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_terrain"):
+		TerrainManager.toggle_terrain_visibility()
+		print("Terrain visibility toggled: ", TerrainManager.terrain_visible)
 		get_viewport().set_input_as_handled()
 		return
 
