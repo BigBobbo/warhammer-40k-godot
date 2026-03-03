@@ -120,6 +120,7 @@ func _create_visuals() -> void:
 	control_indicator = Label.new()
 	control_indicator.name = "ControlIndicator"
 	control_indicator.text = "Uncontrolled"
+	control_indicator.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	control_indicator.add_theme_font_size_override("font_size", 16)
 	control_indicator.add_theme_color_override("font_color", Color(1.0, 0.95, 0.7, 1.0))
 	control_indicator.add_theme_constant_override("outline_size", 3)
@@ -132,6 +133,7 @@ func _create_visuals() -> void:
 	var id_label = Label.new()
 	id_label.name = "ObjectiveID"
 	id_label.text = objective_data.id.replace("obj_", "").to_upper()
+	id_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
 	id_label.add_theme_font_size_override("font_size", 15)
 	id_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
 	id_label.add_theme_constant_override("outline_size", 3)

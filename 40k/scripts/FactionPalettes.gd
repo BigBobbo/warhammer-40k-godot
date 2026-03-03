@@ -6,6 +6,10 @@ const FONT_CASLON = preload("res://fonts/CaslonAntique.ttf")
 const FONT_METAL_MANIA = preload("res://fonts/MetalMania-Regular.ttf")
 const FONT_ORBITRON = preload("res://fonts/Orbitron-Bold.ttf")
 
+# UI font - used for map labels, objectives, banners, damage numbers
+const FONT_RAJDHANI_BOLD = preload("res://fonts/Rajdhani-Bold.ttf")
+const FONT_RAJDHANI_SEMIBOLD = preload("res://fonts/Rajdhani-SemiBold.ttf")
+
 # Mapping from faction key to font resource
 const FACTION_FONTS: Dictionary = {
 	"space_marines": FONT_CASLON,
