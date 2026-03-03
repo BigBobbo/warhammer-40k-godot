@@ -292,6 +292,31 @@ func _get_ghost_unit_color() -> Color:
 		return Color(0.6, 0.2, 0.15)
 
 
+func _get_ghost_faction_font() -> Font:
+	if not has_meta("unit_id"):
+		return FactionPalettes.FONT_CASLON
+	var unit_id = get_meta("unit_id")
+	var unit = GameState.get_unit(unit_id)
+	if unit.is_empty():
+		return FactionPalettes.FONT_CASLON
+	var unit_owner = unit.get("owner", owner_player)
+	var faction = GameState.get_faction_name(unit_owner)
+	# If faction is unknown, try to infer from unit keywords
+	if faction == "Unknown" or faction.begins_with("Player"):
+		var keywords = unit.get("meta", {}).get("keywords", [])
+		for keyword in keywords:
+			var kw = str(keyword).to_lower()
+			if kw.find("ork") >= 0:
+				faction = "Orks"
+				break
+			elif kw.find("space marine") >= 0 or kw.find("astartes") >= 0:
+				faction = "Space Marines"
+				break
+			elif kw.find("custode") >= 0:
+				faction = "Adeptus Custodes"
+				break
+	return FactionPalettes.get_faction_font(faction)
+
 func _draw_ghost_letter_label(radius: float, pulse_factor: float) -> void:
 	if not has_meta("unit_id"):
 		return
@@ -311,7 +336,7 @@ func _draw_ghost_letter_label(radius: float, pulse_factor: float) -> void:
 	var text_color = FactionPalettes.get_contrast_text_color(ghost_color)
 	text_color.a = 0.7 * pulse_factor
 
-	var font = ThemeDB.fallback_font
+	var font = _get_ghost_faction_font()
 	var font_size = int(radius * 1.0)
 	var text_size = font.get_string_size(label, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var text_pos = Vector2(-text_size.x / 2.0, text_size.y / 4.0)

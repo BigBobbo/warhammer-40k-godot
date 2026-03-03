@@ -17,6 +17,9 @@ var _pulse_time: float = 0.0
 var _sprite_resolved: bool = false
 var _sprite_texture: Texture2D = null
 
+# Faction font cache (for letter mode)
+var _faction_font: Font = null
+
 # Animated sprite system
 var _anim_resolved: bool = false
 var _animations: Dictionary = {}               # animation_name -> SpriteAnimationData
@@ -223,6 +226,16 @@ func _draw_enhanced_overlay(radius: float, border_color: Color) -> void:
 
 # --- Letter-mode rendering ---
 
+func _get_faction_font() -> Font:
+	if _faction_font != null:
+		return _faction_font
+	var faction = _get_faction_name()
+	if faction != "":
+		_faction_font = FactionPalettes.get_faction_font(faction)
+	else:
+		_faction_font = FactionPalettes.FONT_CASLON
+	return _faction_font
+
 func _draw_letter_mode() -> void:
 	var bounds = base_shape.get_bounds()
 	var radius = min(bounds.size.x, bounds.size.y) / 2.0
@@ -254,7 +267,7 @@ func _draw_letter_mode() -> void:
 	var label = _get_letter_label()
 	if label != "":
 		var text_color = FactionPalettes.get_contrast_text_color(token_color)
-		var font = ThemeDB.fallback_font
+		var font = _get_faction_font()
 		# Font size ~60% of base diameter, smaller for multi-char labels
 		var base_font_size = int(radius * 1.2)
 		var font_size = base_font_size if label.length() <= 2 else int(base_font_size * 0.65)
@@ -484,7 +497,7 @@ func _draw_unit_name_label() -> void:
 	if unit_name.length() > 14:
 		unit_name = unit_name.substr(0, 12) + ".."
 
-	var font = ThemeDB.fallback_font
+	var font = _get_faction_font()
 	var font_size = 9
 	var bounds = base_shape.get_bounds()
 	var base_radius = min(bounds.size.x, bounds.size.y) / 2.0
@@ -783,6 +796,7 @@ func set_debug_mode(active: bool) -> void:
 func set_model_data(data: Dictionary) -> void:
 	model_data = data
 	base_shape = Measurement.create_base_shape(data)
+	_faction_font = null  # Reset font cache on model change
 	queue_redraw()
 
 	# Set model number if available

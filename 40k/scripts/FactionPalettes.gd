@@ -1,6 +1,24 @@
 class_name FactionPalettes
 extends RefCounted
 
+# Faction fonts - preloaded for letter-mode tokens
+const FONT_CASLON = preload("res://fonts/CaslonAntique.ttf")
+const FONT_METAL_MANIA = preload("res://fonts/MetalMania-Regular.ttf")
+const FONT_ORBITRON = preload("res://fonts/Orbitron-Bold.ttf")
+
+# Mapping from faction key to font resource
+const FACTION_FONTS: Dictionary = {
+	"space_marines": FONT_CASLON,
+	"custodes": FONT_CASLON,
+	"chaos": FONT_CASLON,
+	"aeldari": FONT_CASLON,
+	"tyranids": FONT_CASLON,
+	"orks": FONT_METAL_MANIA,
+	"tau": FONT_ORBITRON,
+	"necrons": FONT_ORBITRON,
+	"generic": FONT_CASLON,
+}
+
 # Faction color palettes - 8-12 colors each, curated for tabletop readability
 const PALETTES: Dictionary = {
 	"space_marines": [
@@ -151,3 +169,8 @@ static func get_contrast_text_color(bg_color: Color) -> Color:
 		return Color(0.05, 0.05, 0.05)  # Dark text on light bg
 	else:
 		return Color(0.95, 0.95, 0.95)  # Light text on dark bg
+
+
+static func get_faction_font(faction_name: String) -> Font:
+	var key = _match_faction(faction_name)
+	return FACTION_FONTS.get(key, FONT_CASLON)
