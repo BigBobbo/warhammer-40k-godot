@@ -186,13 +186,22 @@ func _on_phase_changed_autosave(new_phase: int) -> void:
 	var active_player = GameState.get_active_player()
 	var battle_round = GameState.get_battle_round()
 
-	print("SaveLoadManager: Phase transition to %s — performing phase autosave" % phase_name)
-	_perform_event_autosave("phase_%s" % phase_name.to_lower(), {
+	# SAVE-6: Defer autosave if AI is mid-action to avoid capturing incomplete state
+	var event_tag = "phase_%s" % phase_name.to_lower()
+	var event_meta = {
 		"event": "phase_transition",
 		"phase": phase_name,
 		"active_player": active_player,
 		"battle_round": battle_round
-	})
+	}
+	if _is_ai_thinking():
+		print("SaveLoadManager: SAVE-6 Phase transition to %s but AI is thinking — deferring autosave" % phase_name)
+		_autosave_deferred_event = event_tag
+		_autosave_deferred_metadata = event_meta
+		return
+
+	print("SaveLoadManager: Phase transition to %s — performing phase autosave" % phase_name)
+	_perform_event_autosave(event_tag, event_meta)
 
 # P3-112: Perform an event-driven autosave with a descriptive filename
 func _perform_event_autosave(event_tag: String, event_metadata: Dictionary) -> bool:
@@ -564,6 +573,11 @@ func set_autosave_interval(seconds: float) -> void:
 
 func perform_autosave() -> bool:
 	if not autosave_enabled:
+		return false
+
+	# SAVE-6: Skip timer-based autosave if AI is mid-action to avoid capturing incomplete state
+	if _is_ai_thinking():
+		print("SaveLoadManager: SAVE-6 Timer autosave skipped — AI is thinking")
 		return false
 
 	var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
