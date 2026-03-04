@@ -222,7 +222,7 @@ GZIP compression support exists but is disabled. For large games with many units
 15. **Add multiplayer resume flow** — Dedicated UI for resuming saved multiplayer games (SAVE-15) — **DONE**
 
 ### P3 — Nice to Have
-16. **Add multiple save slots** — Beyond single quicksave (SAVE-16)
+16. **Add multiple save slots** — Beyond single quicksave (SAVE-16) — **DONE**
 17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17)
 18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18)
 19. **Add save file export/import** — Portable format for sharing (SAVE-19)

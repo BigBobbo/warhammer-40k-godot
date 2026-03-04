@@ -18,6 +18,9 @@ const METADATA_EXTENSION = ".meta"
 const BACKUP_EXTENSION = ".backup"
 const WEB_STORAGE_PREFIX = "w40k_save_"
 
+# SAVE-16: Multiple save slots
+const MAX_SAVE_SLOTS = 5
+
 var save_directory: String = "res://saves/"
 var autosave_directory: String = "res://saves/autosaves/"
 var backup_directory: String = "res://saves/backups/"
@@ -261,6 +264,45 @@ func save_game_to_slot(slot: int, metadata: Dictionary = {}) -> bool:
 func load_game_from_slot(slot: int) -> bool:
 	var save_path = save_directory + "slot_%d%s" % [slot, SAVE_EXTENSION]
 	return _load_game_from_path(save_path)
+
+# SAVE-16: Get info about a save slot (empty dict if slot is empty)
+func get_slot_info(slot: int) -> Dictionary:
+	var save_path = save_directory + "slot_%d%s" % [slot, SAVE_EXTENSION]
+	if not FileAccess.file_exists(save_path):
+		return {}
+	var metadata = _load_metadata(save_path)
+	return {
+		"slot": slot,
+		"file_path": save_path,
+		"metadata": metadata,
+		"display_name": "slot_%d" % slot
+	}
+
+# SAVE-16: Get info for all save slots
+func get_all_slot_info() -> Array:
+	var slots = []
+	for i in range(1, MAX_SAVE_SLOTS + 1):
+		slots.append(get_slot_info(i))
+	return slots
+
+# SAVE-16: Check if a slot has a save
+func slot_has_save(slot: int) -> bool:
+	var save_path = save_directory + "slot_%d%s" % [slot, SAVE_EXTENSION]
+	return FileAccess.file_exists(save_path)
+
+# SAVE-16: Delete a save slot
+func delete_slot(slot: int) -> bool:
+	var save_path = save_directory + "slot_%d%s" % [slot, SAVE_EXTENSION]
+	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
+	var success = true
+	if FileAccess.file_exists(save_path):
+		var error = DirAccess.remove_absolute(save_path)
+		if error != OK:
+			success = false
+	if FileAccess.file_exists(meta_path):
+		DirAccess.remove_absolute(meta_path)
+	print("SaveLoadManager: SAVE-16 Deleted slot %d: %s" % [slot, str(success)])
+	return success
 
 func quick_save() -> bool:
 	if is_web_platform:
