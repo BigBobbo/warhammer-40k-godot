@@ -244,13 +244,19 @@ func _ready() -> void:
 	view_offset = board_center - viewport_size / (2.0 * view_zoom)
 	update_view_transform()
 
-	# Initialize PhaseManager with formations phase NOW that armies are loaded
-	# Per 10e rules, Declare Battle Formations happens before Deployment
-	# Always transition to formations phase - transition_to_phase() handles cleanup of any stale instance
+	# Initialize PhaseManager with the correct starting phase
 	var phase_manager = get_node("/root/PhaseManager")
 	if phase_manager:
-		print("Main: Initializing formations phase with ", GameState.state.units.size(), " units")
-		phase_manager.transition_to_phase(GameStateData.Phase.FORMATIONS)
+		if from_save:
+			# SAVE/LOAD FIX: When loading from a saved game, restore the saved phase
+			# instead of unconditionally starting at FORMATIONS (which would overwrite the saved phase)
+			var saved_phase = GameState.get_current_phase()
+			print("Main: Loading from save — restoring saved phase: ", GameStateData.Phase.keys()[saved_phase])
+			phase_manager.transition_to_phase(saved_phase)
+		else:
+			# New game: start at FORMATIONS phase per 10e rules
+			print("Main: Initializing formations phase with ", GameState.state.units.size(), " units")
+			phase_manager.transition_to_phase(GameStateData.Phase.FORMATIONS)
 
 		# DEBUG: Verify phase was created correctly
 		await get_tree().process_frame
@@ -312,6 +318,14 @@ func _ready() -> void:
 
 	# Initialize AI Player AFTER signals are connected so UI updates during AI play
 	_initialize_ai_player()
+
+	# SAVE/LOAD FIX: When loading from a save, recreate unit visuals for deployed units
+	# and update deployment zone visibility. In a new game, units are undeployed so this is a no-op.
+	if from_save:
+		print("Main: Recreating unit visuals for loaded save...")
+		_recreate_unit_visuals()
+		update_deployment_zone_visibility()
+		print("Main: Unit visuals recreated for loaded save")
 
 	# CRITICAL FIX: Must call update_ui_for_phase() to properly configure the phase action button
 	# This sets the correct button text and connects the signal handler
@@ -475,6 +489,92 @@ func _initialize_ai_player() -> void:
 		_update_spectator_speed_label(ai_player.get_spectator_speed())
 		if _spectator_speed_panel:
 			_spectator_speed_panel.visible = true
+
+func _reinitialize_ai_after_load() -> void:
+	"""SAVE-1: Re-initialize AI player after loading a save file.
+	Uses reconfigure_ai_after_load() which cancels thinking, resets state, and
+	reconfigures from loaded game_config WITHOUT triggering immediate evaluation.
+	Also reconnects all AI signals to Main.gd UI elements."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		print("Main: AIPlayer autoload not found, skipping AI re-initialization after load")
+		return
+
+	var game_config = GameState.state.get("meta", {}).get("game_config", {})
+	print("Main: SAVE-1 Re-initializing AI after load — config: P1=%s, P2=%s" % [
+		game_config.get("player1_type", "HUMAN"),
+		game_config.get("player2_type", "HUMAN")])
+
+	# Use the dedicated load reconfiguration path
+	if ai_player.has_method("reconfigure_ai_after_load"):
+		ai_player.reconfigure_ai_after_load(game_config)
+	else:
+		# Fallback: use configure() if reconfigure_ai_after_load not available
+		print("Main: WARNING — reconfigure_ai_after_load() not found, falling back to configure()")
+		var p1_type = game_config.get("player1_type", "HUMAN")
+		var p2_type = game_config.get("player2_type", "HUMAN")
+		var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+		var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+		ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
+
+	# Reconnect AI signals (using is_connected checks to avoid duplicates)
+	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):
+		ai_player.ai_unit_deployed.connect(_on_ai_unit_deployed)
+	if not ai_player.ai_action_taken.is_connected(_on_ai_action_taken):
+		ai_player.ai_action_taken.connect(_on_ai_action_taken)
+	if not ai_player.ai_turn_started.is_connected(_show_ai_thinking_indicator):
+		ai_player.ai_turn_started.connect(_show_ai_thinking_indicator)
+	if not ai_player.ai_turn_ended.is_connected(_on_ai_turn_ended):
+		ai_player.ai_turn_ended.connect(_on_ai_turn_ended)
+
+	# T7-56: Reconnect turn history signal to replay panel
+	if _ai_turn_replay_panel and ai_player.has_signal("turn_history_updated"):
+		if not ai_player.turn_history_updated.is_connected(_ai_turn_replay_panel.refresh):
+			ai_player.turn_history_updated.connect(_ai_turn_replay_panel.refresh)
+
+	# T7-19: Reconnect to turn summary panel
+	if _ai_turn_summary_panel:
+		if not ai_player.ai_turn_ended.is_connected(_ai_turn_summary_panel.show_summary):
+			ai_player.ai_turn_ended.connect(_ai_turn_summary_panel.show_summary)
+
+	# T7-54: Reconnect AI signals to action log overlay
+	if _ai_action_log_overlay:
+		if not ai_player.ai_turn_started.is_connected(_ai_action_log_overlay.on_ai_turn_started):
+			ai_player.ai_turn_started.connect(_ai_action_log_overlay.on_ai_turn_started)
+		if not ai_player.ai_turn_ended.is_connected(_ai_action_log_overlay.on_ai_turn_ended):
+			ai_player.ai_turn_ended.connect(_ai_action_log_overlay.on_ai_turn_ended)
+		if not ai_player.ai_action_taken.is_connected(_ai_action_log_overlay.add_action_entry):
+			ai_player.ai_action_taken.connect(_ai_action_log_overlay.add_action_entry)
+		if ai_player.has_signal("ai_thinking_step") and not ai_player.ai_thinking_step.is_connected(_ai_action_log_overlay.add_thinking_entry):
+			ai_player.ai_thinking_step.connect(_ai_action_log_overlay.add_thinking_entry)
+
+	# T7-36: Reconnect speed signals
+	if not ai_player.ai_speed_changed.is_connected(_on_ai_speed_changed):
+		ai_player.ai_speed_changed.connect(_on_ai_speed_changed)
+	if not ai_player.step_by_step_waiting.is_connected(_on_step_by_step_waiting):
+		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
+
+	# P3-119: Update opponent feed
+	_update_opponent_feed_local_player()
+
+	# Update spectator/speed UI
+	_is_spectator_mode = ai_player.is_spectator_mode()
+	if not _is_spectator_mode and ai_player.enabled:
+		_update_ai_speed_label(ai_player.get_ai_speed_name())
+		if _ai_speed_panel:
+			_ai_speed_panel.visible = true
+	if _is_spectator_mode:
+		if _ai_action_log_overlay:
+			_ai_action_log_overlay.set_spectator_mode(true)
+		if not ai_player.spectator_speed_changed.is_connected(_on_spectator_speed_changed):
+			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
+		if not ai_player.spectator_phase_summary.is_connected(_on_spectator_phase_summary):
+			ai_player.spectator_phase_summary.connect(_on_spectator_phase_summary)
+		_update_spectator_speed_label(ai_player.get_spectator_speed())
+		if _spectator_speed_panel:
+			_spectator_speed_panel.visible = true
+
+	print("Main: SAVE-1 AI re-initialization after load complete")
 
 func _on_ai_unit_deployed(player: int, unit_id: String) -> void:
 	# Create visual tokens for an AI-deployed unit
@@ -4990,35 +5090,42 @@ func _perform_quick_load() -> void:
 	
 	if success:
 		_show_save_notification("Game loaded!", Color.BLUE)
-		
+
 		# ENHANCEMENT: Clear UI before phase setup
 		_clear_right_panel_phase_ui()
-		
+
 		# Update current phase
 		current_phase = GameState.get_current_phase()
 		print("Loaded phase: ", GameStateData.Phase.keys()[current_phase])
-		
+
 		# Sync BoardState with loaded GameState (for visual components)
 		_sync_board_state_with_game_state()
-		
-		# Recreate phase controllers for the loaded phase
-		await setup_phase_controllers()
-		
-		# NEW: Give controllers time to initialize before UI refresh
+
+		# Re-initialize AI player from loaded game_config
+		_initialize_ai_player()
+
+		# SAVE/LOAD FIX: Transition PhaseManager FIRST so phase instance is correct,
+		# then set up controllers that reference the correct instance
+		if PhaseManager.has_method("transition_to_phase"):
+			PhaseManager.transition_to_phase(current_phase)
+
+		# Wait one frame for phase transition to complete
 		await get_tree().process_frame
-		
+
+		# Recreate phase controllers for the loaded phase (now references correct phase instance)
+		await setup_phase_controllers()
+
+		# Wait one frame for controllers to initialize
+		await get_tree().process_frame
+
 		# Refresh all UI elements
 		refresh_unit_list()
 		update_ui()
 		update_ui_for_phase()
 		update_deployment_zone_visibility()
-		
+
 		# Recreate visual tokens for deployed units
 		_recreate_unit_visuals()
-		
-		# Notify PhaseManager of the loaded state
-		if PhaseManager.has_method("transition_to_phase"):
-			PhaseManager.transition_to_phase(current_phase)
 	else:
 		_show_save_notification("Load failed - No save found!", Color.RED)
 
@@ -5407,11 +5514,18 @@ func _apply_loaded_state() -> void:
 	# Sync BoardState with loaded GameState
 	_sync_board_state_with_game_state()
 
-	# P2-92: Re-initialize AI player from loaded game_config
-	# This ensures AI player type, difficulty, and runtime state match the save file
-	_initialize_ai_player()
+	# SAVE-1: Re-initialize AI player from loaded game_config using dedicated load path
+	_reinitialize_ai_after_load()
 
-	# Recreate phase controllers for the loaded phase
+	# SAVE/LOAD FIX: Transition PhaseManager FIRST so phase instance is correct,
+	# then set up controllers that reference the correct instance
+	if PhaseManager.has_method("transition_to_phase"):
+		PhaseManager.transition_to_phase(current_phase)
+
+	# Wait one frame for phase transition to complete
+	await get_tree().process_frame
+
+	# Recreate phase controllers for the loaded phase (now references correct phase instance)
 	await setup_phase_controllers()
 
 	# Give controllers time to initialize
@@ -5426,9 +5540,10 @@ func _apply_loaded_state() -> void:
 	# Recreate visual tokens for deployed units
 	_recreate_unit_visuals()
 
-	# Notify PhaseManager of the loaded state
-	if PhaseManager.has_method("transition_to_phase"):
-		PhaseManager.transition_to_phase(current_phase)
+	# SAVE-1: Now that phase controllers and visuals are ready, trigger AI evaluation
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.has_method("request_evaluation_after_load"):
+		ai_player.request_evaluation_after_load()
 
 	print("Main: _apply_loaded_state() complete")
 
@@ -5593,6 +5708,11 @@ func _on_save_requested(save_name: String) -> void:
 func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 	print("Main: Load requested for file: ", save_file, " (owner_id: ", owner_id, ")")
 
+	# SAVE-1: Cancel any active AI thinking before load to prevent stale actions
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.has_method("cancel_ai_before_load"):
+		ai_player.cancel_ai_before_load()
+
 	# Show loading notification
 	_show_save_notification("Loading...", Color.YELLOW)
 
@@ -5628,9 +5748,10 @@ func _refresh_after_load() -> void:
 	current_phase = GameState.get_current_phase()
 	print("Main: Loaded phase is: ", current_phase)
 
-	# P2-92: Re-initialize AI player from loaded game_config
-	# This ensures AI player type, difficulty, and runtime state match the save file
-	_initialize_ai_player()
+	# SAVE-1: Re-initialize AI player from loaded game_config using dedicated load path
+	# This cancels thinking, resets runtime state, and reconfigures without triggering
+	# immediate evaluation (evaluation is deferred until phase controllers are ready)
+	_reinitialize_ai_after_load()
 
 	# CRITICAL: Transition PhaseManager to loaded phase FIRST
 	# This creates the phase instance that controllers will reference
@@ -5669,6 +5790,11 @@ func _refresh_after_load() -> void:
 
 	# Update phase-specific UI
 	update_ui_for_phase()
+
+	# SAVE-1: Now that phase controllers and visuals are ready, trigger AI evaluation
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.has_method("request_evaluation_after_load"):
+		ai_player.request_evaluation_after_load()
 
 	print("Main: _refresh_after_load() complete")
 

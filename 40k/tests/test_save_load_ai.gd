@@ -116,40 +116,71 @@ func _init():
 	else:
 		print("  SKIP: Could not read SaveLoadManager.gd source")
 
-	# Test 4: Verify Main.gd calls _initialize_ai_player in load paths
+	# Test 4: Verify Main.gd re-initializes AI on load via _reinitialize_ai_after_load
 	print("\n--- Test 4: Main.gd re-initializes AI on load ---")
 	var main_source = FileAccess.open("res://scripts/Main.gd", FileAccess.READ)
 	if main_source:
 		var main_text = main_source.get_as_text()
 		main_source.close()
-		var apply_has_init = "_apply_loaded_state" in main_text and "_initialize_ai_player" in main_text
-		var refresh_has_init = "_refresh_after_load" in main_text and "_initialize_ai_player" in main_text
 
-		# Check that _initialize_ai_player appears inside _apply_loaded_state
+		# SAVE-1: Check that _apply_loaded_state calls _reinitialize_ai_after_load
 		var apply_idx = main_text.find("func _apply_loaded_state")
 		var apply_end = main_text.find("\nfunc ", apply_idx + 1)
 		if apply_end == -1:
 			apply_end = main_text.length()
 		var apply_body = main_text.substr(apply_idx, apply_end - apply_idx)
-		if "_initialize_ai_player" in apply_body:
-			print("  PASS: _apply_loaded_state() calls _initialize_ai_player()")
+		if "_reinitialize_ai_after_load" in apply_body:
+			print("  PASS: _apply_loaded_state() calls _reinitialize_ai_after_load()")
 			passed += 1
 		else:
-			print("  FAIL: _apply_loaded_state() does NOT call _initialize_ai_player()")
+			print("  FAIL: _apply_loaded_state() does NOT call _reinitialize_ai_after_load()")
 			failed += 1
 
-		# Check that _initialize_ai_player appears inside _refresh_after_load
+		# SAVE-1: Check that _refresh_after_load calls _reinitialize_ai_after_load
 		var refresh_idx = main_text.find("func _refresh_after_load")
 		var refresh_end = main_text.find("\nfunc ", refresh_idx + 1)
 		if refresh_end == -1:
 			refresh_end = main_text.length()
 		var refresh_body = main_text.substr(refresh_idx, refresh_end - refresh_idx)
-		if "_initialize_ai_player" in refresh_body:
-			print("  PASS: _refresh_after_load() calls _initialize_ai_player()")
+		if "_reinitialize_ai_after_load" in refresh_body:
+			print("  PASS: _refresh_after_load() calls _reinitialize_ai_after_load()")
 			passed += 1
 		else:
-			print("  FAIL: _refresh_after_load() does NOT call _initialize_ai_player()")
+			print("  FAIL: _refresh_after_load() does NOT call _reinitialize_ai_after_load()")
 			failed += 1
+
+		# SAVE-1: Check that _on_load_requested cancels AI before load
+		var load_req_idx = main_text.find("func _on_load_requested")
+		var load_req_end = main_text.find("\nfunc ", load_req_idx + 1)
+		if load_req_end == -1:
+			load_req_end = main_text.length()
+		var load_req_body = main_text.substr(load_req_idx, load_req_end - load_req_idx)
+		if "cancel_ai_before_load" in load_req_body:
+			print("  PASS: _on_load_requested() calls cancel_ai_before_load()")
+			passed += 1
+		else:
+			print("  FAIL: _on_load_requested() does NOT call cancel_ai_before_load()")
+			failed += 1
+
+		# SAVE-1: Verify reconfigure_ai_after_load exists in AIPlayer
+		var ai_source2 = FileAccess.open("res://autoloads/AIPlayer.gd", FileAccess.READ)
+		if ai_source2:
+			var ai_text2 = ai_source2.get_as_text()
+			ai_source2.close()
+			if "func reconfigure_ai_after_load" in ai_text2:
+				print("  PASS: AIPlayer has reconfigure_ai_after_load()")
+				passed += 1
+			else:
+				print("  FAIL: AIPlayer missing reconfigure_ai_after_load()")
+				failed += 1
+			if "func cancel_ai_before_load" in ai_text2:
+				print("  PASS: AIPlayer has cancel_ai_before_load()")
+				passed += 1
+			else:
+				print("  FAIL: AIPlayer missing cancel_ai_before_load()")
+				failed += 1
+		else:
+			print("  SKIP: Could not read AIPlayer.gd for SAVE-1 checks")
 	else:
 		print("  SKIP: Could not read Main.gd source")
 
