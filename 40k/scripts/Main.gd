@@ -5503,49 +5503,10 @@ func _on_delete_completed_main(save_name: String) -> void:
 	_show_save_notification("Save deleted!", Color.ORANGE)
 
 func _apply_loaded_state() -> void:
-	print("Main: _apply_loaded_state() called")
-
-	# ENHANCEMENT: Clear UI before phase setup
-	_clear_right_panel_phase_ui()
-
-	# Update current phase
-	current_phase = GameState.get_current_phase()
-
-	# Sync BoardState with loaded GameState
-	_sync_board_state_with_game_state()
-
-	# SAVE-1: Re-initialize AI player from loaded game_config using dedicated load path
-	_reinitialize_ai_after_load()
-
-	# SAVE/LOAD FIX: Transition PhaseManager FIRST so phase instance is correct,
-	# then set up controllers that reference the correct instance
-	if PhaseManager.has_method("transition_to_phase"):
-		PhaseManager.transition_to_phase(current_phase)
-
-	# Wait one frame for phase transition to complete
-	await get_tree().process_frame
-
-	# Recreate phase controllers for the loaded phase (now references correct phase instance)
-	await setup_phase_controllers()
-
-	# Give controllers time to initialize
-	await get_tree().process_frame
-
-	# Refresh all UI elements
-	refresh_unit_list()
-	update_ui()
-	update_ui_for_phase()
-	update_deployment_zone_visibility()
-
-	# Recreate visual tokens for deployed units
-	_recreate_unit_visuals()
-
-	# SAVE-1: Now that phase controllers and visuals are ready, trigger AI evaluation
-	var ai_player = get_node_or_null("/root/AIPlayer")
-	if ai_player and ai_player.has_method("request_evaluation_after_load"):
-		ai_player.request_evaluation_after_load()
-
-	print("Main: _apply_loaded_state() complete")
+	# SAVE-4: Web platform load path — delegates to _refresh_after_load() for full restore.
+	# Both desktop and web paths now use the same comprehensive restore logic.
+	print("Main: _apply_loaded_state() called (delegating to _refresh_after_load)")
+	await _refresh_after_load()
 
 # Multiplayer sync handler - called when guest receives initial state or game starts
 func _on_network_game_started() -> void:
@@ -5741,17 +5702,83 @@ func _on_delete_requested(save_file: String) -> void:
 		print("Failed to delete save file: ", save_file)
 
 func _refresh_after_load() -> void:
-	# Completely refresh the UI to match loaded state
+	# SAVE-4: Completely refresh all game state, visuals, and systems after loading a save.
+	# This must fully restore the game to the loaded state without any stale data.
 	print("Main: _refresh_after_load() called")
 
-	# Get the current phase from GameState
+	# --- Step 1: Clear transient state from previous session ---
+	print("Main: SAVE-4 Step 1 — Clearing transient state")
+	_selected_unit_for_reserves = ""
+	_reinforcement_placement_type = ""
+
+	# --- Step 2: Clear stale visual elements ---
+	print("Main: SAVE-4 Step 2 — Clearing stale visuals")
+
+	# Clear ghost layer (movement preview ghosts from previous state)
+	if ghost_layer:
+		for child in ghost_layer.get_children():
+			child.queue_free()
+		print("Main: Cleared ghost layer")
+
+	# Clear AI unit highlight rings
+	_clear_ai_unit_highlights()
+
+	# Hide AI thinking indicator (AI state is reset by _reinitialize_ai_after_load)
+	_hide_ai_thinking_indicator()
+
+	# Hide waiting overlay (stale multiplayer/AI waiting state)
+	_hide_waiting_overlay()
+
+	# Clear any active deployment placement
+	if deployment_controller and deployment_controller.is_placing():
+		deployment_controller.undo()
+
+	# --- Step 3: Clear stale system caches and logs ---
+	print("Main: SAVE-4 Step 3 — Clearing dependent system caches")
+
+	# Clear stale game event log (entries from pre-load game are irrelevant)
+	if GameEventLog:
+		GameEventLog.clear()
+		print("Main: Cleared GameEventLog")
+
+	# Clear dice history (rolls from pre-load game are irrelevant)
+	if DiceHistoryPanel:
+		DiceHistoryPanel.clear()
+		print("Main: Cleared DiceHistoryPanel")
+
+	# Clear LoS cache (cached line-of-sight calculations are invalid after load)
+	if EnhancedLineOfSight and EnhancedLineOfSight.has_method("clear_cache"):
+		EnhancedLineOfSight.clear_cache()
+		print("Main: Cleared EnhancedLineOfSight cache")
+
+	# Clear measuring tape visuals (measurements from pre-load are stale)
+	if MeasuringTapeManager and MeasuringTapeManager.has_method("clear_all_measurements"):
+		MeasuringTapeManager.clear_all_measurements()
+		print("Main: Cleared MeasuringTapeManager measurements")
+
+	# Clear right panel phase UI before rebuilding
+	_clear_right_panel_phase_ui()
+
+	# --- Step 4: Sync core state ---
+	print("Main: SAVE-4 Step 4 — Syncing core state")
+
+	# Get the current phase from loaded GameState
 	current_phase = GameState.get_current_phase()
 	print("Main: Loaded phase is: ", current_phase)
+
+	# Sync BoardState with loaded GameState (critical for legacy visual components)
+	_sync_board_state_with_game_state()
+
+	# --- Step 5: Re-initialize AI player ---
+	print("Main: SAVE-4 Step 5 — Re-initializing AI")
 
 	# SAVE-1: Re-initialize AI player from loaded game_config using dedicated load path
 	# This cancels thinking, resets runtime state, and reconfigures without triggering
 	# immediate evaluation (evaluation is deferred until phase controllers are ready)
 	_reinitialize_ai_after_load()
+
+	# --- Step 6: Transition phase and recreate controllers ---
+	print("Main: SAVE-4 Step 6 — Transitioning phase and recreating controllers")
 
 	# CRITICAL: Transition PhaseManager to loaded phase FIRST
 	# This creates the phase instance that controllers will reference
@@ -5774,29 +5801,36 @@ func _refresh_after_load() -> void:
 	# Wait one frame for controllers to initialize
 	await get_tree().process_frame
 
-	# Refresh UI elements
+	# --- Step 7: Refresh all UI elements ---
+	print("Main: SAVE-4 Step 7 — Refreshing UI elements")
+
 	refresh_unit_list()
 	update_ui()
 	update_deployment_zone_visibility()
 
-	# CRITICAL: Recreate unit visuals on the battlefield
-	print("Main: Recreating unit visuals after load...")
+	# Update score display and round indicator for loaded state
+	_update_score_display()
+	_update_round_indicator()
+
+	# --- Step 8: Recreate unit visuals ---
+	print("Main: SAVE-4 Step 8 — Recreating unit visuals")
+
+	# _recreate_unit_visuals() clears existing tokens before recreating them
 	_recreate_unit_visuals()
 	print("Main: Unit visuals recreated")
 
-	# Clear any active deployment
-	if deployment_controller and deployment_controller.is_placing():
-		deployment_controller.undo()
-
-	# Update phase-specific UI
+	# Update phase-specific UI (after visuals are ready)
 	update_ui_for_phase()
+
+	# --- Step 9: Trigger AI evaluation ---
+	print("Main: SAVE-4 Step 9 — Triggering AI evaluation")
 
 	# SAVE-1: Now that phase controllers and visuals are ready, trigger AI evaluation
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.has_method("request_evaluation_after_load"):
 		ai_player.request_evaluation_after_load()
 
-	print("Main: _refresh_after_load() complete")
+	print("Main: _refresh_after_load() complete — all state fully restored")
 
 func update_deployment_zone_visibility() -> void:
 	# P3-52: Show the active player's zone brightly and dim/desaturate the opponent's zone

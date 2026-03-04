@@ -123,14 +123,15 @@ func _init():
 		var main_text = main_source.get_as_text()
 		main_source.close()
 
-		# SAVE-1: Check that _apply_loaded_state calls _reinitialize_ai_after_load
+		# SAVE-1/SAVE-4: Check that _apply_loaded_state delegates to _refresh_after_load
+		# (which calls _reinitialize_ai_after_load), or calls it directly
 		var apply_idx = main_text.find("func _apply_loaded_state")
 		var apply_end = main_text.find("\nfunc ", apply_idx + 1)
 		if apply_end == -1:
 			apply_end = main_text.length()
 		var apply_body = main_text.substr(apply_idx, apply_end - apply_idx)
-		if "_reinitialize_ai_after_load" in apply_body:
-			print("  PASS: _apply_loaded_state() calls _reinitialize_ai_after_load()")
+		if "_reinitialize_ai_after_load" in apply_body or "_refresh_after_load" in apply_body:
+			print("  PASS: _apply_loaded_state() calls _reinitialize_ai_after_load() (directly or via _refresh_after_load)")
 			passed += 1
 		else:
 			print("  FAIL: _apply_loaded_state() does NOT call _reinitialize_ai_after_load()")

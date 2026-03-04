@@ -120,13 +120,16 @@ func _init():
 		main_file2.close()
 
 	if not main_source2.is_empty():
-		# In _apply_loaded_state, PhaseManager.transition_to_phase should come BEFORE setup_phase_controllers
+		# SAVE-4: _apply_loaded_state may delegate to _refresh_after_load, or do it inline.
+		# Either way, PhaseManager.transition_to_phase must come BEFORE setup_phase_controllers
+		# in the effective execution path (_refresh_after_load).
 		var apply_idx = main_source2.find("func _apply_loaded_state()")
 		if apply_idx != -1:
 			var apply_section = main_source2.substr(apply_idx, 1500)
 			var transition_pos = apply_section.find("PhaseManager.transition_to_phase(current_phase)")
 			var setup_pos = apply_section.find("setup_phase_controllers()")
-			if transition_pos != -1 and setup_pos != -1 and transition_pos < setup_pos:
+			var delegates_to_refresh = apply_section.find("_refresh_after_load") != -1
+			if (transition_pos != -1 and setup_pos != -1 and transition_pos < setup_pos) or delegates_to_refresh:
 				print("  PASS: _apply_loaded_state transitions PhaseManager before setting up controllers")
 				passed += 1
 			else:
