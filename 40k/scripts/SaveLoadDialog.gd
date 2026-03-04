@@ -26,6 +26,7 @@ var save_files_data: Array = []  # Store save metadata for reference
 var selected_save_index: int = -1
 var is_web_platform: bool = false
 var _save_files_signal_connected: bool = false
+var _is_multiplayer_client: bool = false  # SAVE-8: Track if non-host in multiplayer
 
 func _ready() -> void:
 	# Configure as full-screen overlay (hidden initially)
@@ -350,7 +351,11 @@ func _create_save_tooltip(save_info: Dictionary) -> String:
 func _update_button_states() -> void:
 	var has_selection = selected_save_index >= 0 and selected_save_index < save_files_data.size()
 	if load_button:
-		load_button.disabled = not has_selection
+		# SAVE-8: Keep load button hidden for non-host multiplayer clients
+		if _is_multiplayer_client:
+			load_button.visible = false
+		else:
+			load_button.disabled = not has_selection
 	var is_shared = false
 	if has_selection:
 		is_shared = save_files_data[selected_save_index].get("ownership", "own") == "shared"
@@ -427,6 +432,11 @@ func _on_save_selected(index: int) -> void:
 func _on_save_double_clicked(index: int) -> void:
 	print("SaveLoadDialog: Save double-clicked at index ", index)
 	selected_save_index = index
+
+	# SAVE-8: Block double-click load for non-host multiplayer clients
+	if _is_multiplayer_client:
+		print("SaveLoadDialog: SAVE-8 Double-click load blocked for non-host client")
+		return
 
 	if selected_save_index >= 0 and selected_save_index < save_files_data.size():
 		var save_info = save_files_data[selected_save_index]
@@ -562,9 +572,18 @@ func _perform_delete(save_name: String) -> void:
 # ============================================================================
 
 func show_dialog() -> void:
+	# SAVE-8: Check if we're a non-host client in multiplayer
+	_is_multiplayer_client = NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host()
+	if _is_multiplayer_client:
+		print("SaveLoadDialog: SAVE-8 Non-host client detected — Load button will be hidden")
+
 	refresh_saves_list()
 	save_name_input.text = ""
 	visible = true
+
+	# SAVE-8: Hide load button for non-host multiplayer clients
+	if load_button:
+		load_button.visible = not _is_multiplayer_client
 
 	await get_tree().process_frame
 	if save_name_input:

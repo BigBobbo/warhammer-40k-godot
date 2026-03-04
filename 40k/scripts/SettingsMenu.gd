@@ -458,6 +458,11 @@ func _connect_signals() -> void:
 	_return_to_menu_button.visible = show_return_to_menu
 	_save_load_button.visible = show_return_to_menu
 
+	# SAVE-8: Update button text for non-host multiplayer clients
+	if show_return_to_menu and NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_host():
+		_save_load_button.text = "Save Game"
+		print("[SettingsMenu] SAVE-8: Non-host client — changed button to 'Save Game'")
+
 # ============================================================================
 # Value label formatters
 # ============================================================================
