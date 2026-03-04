@@ -443,8 +443,8 @@ func _on_save_double_clicked(index: int) -> void:
 		var save_name = save_info.get("display_name", "")
 		var owner_id = save_info.get("owner_id", "")
 		print("SaveLoadDialog: Double-click load of: ", save_name, " (owner_id: ", owner_id, ")")
-		emit_signal("load_requested", save_name.replace(".w40ksave", ""), owner_id)
-		hide()
+		# SAVE-9: Show confirmation before loading
+		_show_load_confirmation(save_name, owner_id)
 
 func _on_load_button_pressed() -> void:
 	print("SaveLoadDialog: Load button pressed!")
@@ -457,8 +457,8 @@ func _on_load_button_pressed() -> void:
 	var owner_id = save_info.get("owner_id", "")
 
 	print("SaveLoadDialog: Requesting load of: ", save_name, " (owner_id: ", owner_id, ")")
-	emit_signal("load_requested", save_name.replace(".w40ksave", ""), owner_id)
-	hide()
+	# SAVE-9: Show confirmation before loading
+	_show_load_confirmation(save_name, owner_id)
 
 func _on_delete_button_pressed() -> void:
 	if selected_save_index < 0 or selected_save_index >= save_files_data.size():
@@ -480,6 +480,34 @@ func _on_main_menu_button_pressed() -> void:
 # ============================================================================
 # Confirmation Dialogs
 # ============================================================================
+
+## SAVE-9: Load confirmation dialog to warn about unsaved progress
+func _show_load_confirmation(save_name: String, owner_id: String) -> void:
+	var confirmation = ConfirmationDialog.new()
+	confirmation.dialog_text = "Loading a save will replace your current game.\nAny unsaved progress will be lost.\n\nLoad '%s'?" % save_name.replace(".w40ksave", "")
+	confirmation.title = "Load Save File?"
+
+	var parent = get_tree().current_scene if get_tree().current_scene else get_parent()
+	parent.add_child(confirmation)
+
+	confirmation.confirmed.connect(func():
+		confirmation.queue_free()
+		_perform_load(save_name, owner_id)
+	)
+	confirmation.canceled.connect(func():
+		print("SaveLoadDialog: SAVE-9 Load cancelled by user")
+		confirmation.queue_free()
+	)
+	confirmation.close_requested.connect(func():
+		confirmation.queue_free()
+	)
+
+	confirmation.popup_centered()
+
+func _perform_load(save_name: String, owner_id: String) -> void:
+	print("SaveLoadDialog: SAVE-9 Load confirmed, proceeding with: ", save_name)
+	emit_signal("load_requested", save_name.replace(".w40ksave", ""), owner_id)
+	hide()
 
 func _show_main_menu_confirmation() -> void:
 	var confirmation = ConfirmationDialog.new()
