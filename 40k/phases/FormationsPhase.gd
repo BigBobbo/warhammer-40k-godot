@@ -46,6 +46,13 @@ func _on_phase_enter() -> void:
 		# Sync confirmation state from GameState (may have been set via network diffs)
 		players_confirmed[player] = meta.get("formations_p%d_confirmed" % player, false)
 
+	# SAVE/LOAD FIX: If both players already confirmed formations (e.g. loading a saved game),
+	# auto-complete the phase immediately without showing any dialog
+	if players_confirmed.get(1, false) and players_confirmed.get(2, false):
+		log_phase_message("Both players already confirmed formations (loaded save), auto-completing phase")
+		call_deferred("_complete_phase")
+		return
+
 	# Check if there's anything to declare for either player
 	var p1_has_options = _player_has_declaration_options(1)
 	var p2_has_options = _player_has_declaration_options(2)
