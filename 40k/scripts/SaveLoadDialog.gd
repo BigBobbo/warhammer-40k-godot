@@ -442,7 +442,7 @@ func _get_faction_text(metadata: Dictionary) -> String:
 			parts.append(p["detachment"])
 	return " ".join(parts)
 
-# SAVE-14: Get the game type string for a save (used for sorting and display)
+# SAVE-14/SAVE-15: Get the game type string for a save (used for sorting and display)
 func _get_game_type(save_info: Dictionary) -> String:
 	var metadata = save_info.get("metadata", {})
 	var game_state = metadata.get("game_state", {})
@@ -450,6 +450,9 @@ func _get_game_type(save_info: Dictionary) -> String:
 	var p2_type = game_state.get("player2_type", "HUMAN")
 	if p1_type == "AI" or p2_type == "AI":
 		return "vs AI"
+	# SAVE-15: Distinguish multiplayer PvP from local hotseat PvP
+	if game_state.get("is_multiplayer", false):
+		return "Multiplayer"
 	return "PvP"
 
 # SAVE-14: Return a sort comparator based on current sort mode

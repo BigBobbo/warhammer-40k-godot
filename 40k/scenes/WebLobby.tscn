@@ -176,6 +176,12 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "Start Game"
 
+[node name="ResumeGameButton" type="Button" parent="VBoxContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Resume Saved Game"
+
 [node name="ConnectingIndicator" type="HBoxContainer" parent="VBoxContainer"]
 visible = false
 layout_mode = 2

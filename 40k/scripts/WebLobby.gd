@@ -53,6 +53,9 @@ var selected_mission: String = "take_and_hold"
 var _cloud_fetch_count: int = 0
 var _cloud_start_pending: bool = false
 
+# SAVE-15: Resume game dialog
+var save_load_dialog: PanelContainer
+
 # UI References
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 @onready var code_input: LineEdit = $VBoxContainer/JoinSection/CodeInput
@@ -71,6 +74,7 @@ var _cloud_start_pending: bool = false
 @onready var player1_dropdown: OptionButton = $VBoxContainer/ArmySection/Player1Container/Player1Dropdown
 @onready var player2_dropdown: OptionButton = $VBoxContainer/ArmySection/Player2Container/Player2Dropdown
 @onready var start_game_button: Button = $VBoxContainer/StartGameButton
+@onready var resume_game_button: Button = $VBoxContainer/ResumeGameButton
 
 func _ready() -> void:
 	# Get relay reference
@@ -88,6 +92,7 @@ func _ready() -> void:
 	code_input.text_changed.connect(_on_code_input_changed)
 	code_input.text_submitted.connect(_on_code_submitted)
 	start_game_button.pressed.connect(_on_start_game_pressed)
+	resume_game_button.pressed.connect(_on_resume_game_pressed)
 
 	# Connect relay signals
 	relay.connected.connect(_on_relay_connected)
@@ -106,6 +111,9 @@ func _ready() -> void:
 
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
+
+	# SAVE-15: Setup save/load dialog for resume flow
+	_setup_save_load_dialog()
 
 	# Initialize UI
 	_update_ui_state(LobbyState.IDLE)
@@ -351,10 +359,11 @@ func _on_game_joined(code: String) -> void:
 
 func _on_guest_joined() -> void:
 	_update_ui_state(LobbyState.CONNECTED)
-	_set_status("Opponent connected! Select armies and press Start Game.")
+	_set_status("Opponent connected! Start a new game or resume a saved game.")
 
-	# Show start game button for host
+	# Show start game and resume buttons for host
 	start_game_button.visible = true
+	resume_game_button.visible = true  # SAVE-15
 
 func _on_start_game_pressed() -> void:
 	print("WebLobby: Start game button pressed")
@@ -395,6 +404,7 @@ func _on_opponent_disconnected() -> void:
 	_show_error("Opponent disconnected")
 	_update_ui_state(LobbyState.IDLE)
 	start_game_button.visible = false
+	resume_game_button.visible = false  # SAVE-15
 	relay.disconnect_from_server()
 
 func _on_message_received(data: Dictionary) -> void:
@@ -403,6 +413,38 @@ func _on_message_received(data: Dictionary) -> void:
 
 	var action = data.get("action", "")
 	match action:
+		"resume_game":
+			# SAVE-15: Guest receives full game state from host for resume
+			print("WebLobby: SAVE-15 Received resume_game from host")
+			var game_state_str = data.get("game_state", "")
+			if game_state_str.is_empty():
+				_show_error("Failed to receive resumed game state")
+				return
+
+			if StateSerializer:
+				var game_state = StateSerializer.deserialize_game_state(game_state_str)
+				if game_state.is_empty():
+					_show_error("Failed to deserialize resumed game state")
+					return
+				GameState.load_from_snapshot(game_state)
+
+			# Set multiplayer flags
+			if not GameState.state.has("meta"):
+				GameState.state["meta"] = {}
+			GameState.state.meta["from_save"] = true
+			GameState.state.meta["from_multiplayer_lobby"] = true
+			GameState.state.meta["from_web_lobby"] = true
+			GameState.state.meta["game_code"] = game_code
+			GameState.state.meta["is_host"] = false
+
+			# Register game participation
+			var game_id = GameState.state.meta.get("game_id", "")
+			if not game_id.is_empty() and CloudStorage:
+				CloudStorage.register_game_participation(game_id)
+
+			print("WebLobby: SAVE-15 Resumed game state loaded, transitioning to Main")
+			get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
 		"start_game":
 			# Receive army, deployment, and mission selections from host
 			if data.has("player1_army"):
@@ -505,6 +547,108 @@ func _start_game() -> void:
 	# Transition to main scene - relay continues running for message passing
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
+# ============================================================================
+# SAVE-15: MULTIPLAYER RESUME FLOW
+# ============================================================================
+
+func _setup_save_load_dialog() -> void:
+	var dialog_scene = load("res://scenes/SaveLoadDialog.tscn")
+	if dialog_scene:
+		save_load_dialog = dialog_scene.instantiate()
+		add_child(save_load_dialog)
+		save_load_dialog.load_requested.connect(_on_resume_load_requested)
+		print("WebLobby: SAVE-15 Save/Load dialog setup for resume flow")
+	else:
+		print("WebLobby: Warning - Could not load SaveLoadDialog.tscn")
+
+func _on_resume_game_pressed() -> void:
+	print("WebLobby: SAVE-15 Resume game button pressed")
+
+	if not is_host:
+		_show_error("Only the host can resume a saved game")
+		return
+
+	if save_load_dialog:
+		save_load_dialog.show_dialog()
+	else:
+		_show_error("Save/Load dialog not available")
+
+func _on_resume_load_requested(save_file: String, owner_id: String = "") -> void:
+	print("WebLobby: SAVE-15 Resume load requested for: ", save_file, " (owner_id: ", owner_id, ")")
+
+	if not SaveLoadManager:
+		_show_error("SaveLoadManager not available")
+		return
+
+	if OS.has_feature("web"):
+		# Web: async load
+		if not SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+			SaveLoadManager.load_completed.connect(_on_resume_load_completed)
+		if not SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+			SaveLoadManager.load_failed.connect(_on_resume_load_failed)
+		SaveLoadManager.load_game(save_file, owner_id)
+		_set_status("Loading saved game...")
+	else:
+		# Desktop: synchronous load
+		var success = SaveLoadManager.load_game(save_file, owner_id)
+		if success:
+			_finalize_resume_load()
+		else:
+			_show_error("Failed to load save file: " + save_file)
+
+func _on_resume_load_completed(_file_path: String, _metadata: Dictionary) -> void:
+	print("WebLobby: SAVE-15 Resume load completed")
+	if SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+		SaveLoadManager.load_completed.disconnect(_on_resume_load_completed)
+	if SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+		SaveLoadManager.load_failed.disconnect(_on_resume_load_failed)
+	_finalize_resume_load()
+
+func _on_resume_load_failed(error: String) -> void:
+	print("WebLobby: SAVE-15 Resume load failed: ", error)
+	if SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+		SaveLoadManager.load_completed.disconnect(_on_resume_load_completed)
+	if SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+		SaveLoadManager.load_failed.disconnect(_on_resume_load_failed)
+	_show_error("Failed to load saved game: " + error)
+
+func _finalize_resume_load() -> void:
+	"""SAVE-15: After loading a save, set multiplayer flags and send state to guest via relay."""
+	print("WebLobby: SAVE-15 Finalizing multiplayer resume load")
+
+	# Mark the game state as coming from a multiplayer resume
+	if not GameState.state.has("meta"):
+		GameState.state["meta"] = {}
+	GameState.state.meta["from_save"] = true
+	GameState.state.meta["from_multiplayer_lobby"] = true
+	GameState.state.meta["from_web_lobby"] = true
+	GameState.state.meta["game_code"] = game_code
+	GameState.state.meta["is_host"] = relay.is_game_host()
+	GameState.state.meta.erase("from_menu")
+
+	# Notify guest to also load (send the serialized state via relay)
+	var snapshot = GameState.create_snapshot()
+	var serialized = StateSerializer.serialize_game_state(snapshot) if StateSerializer else ""
+	print("WebLobby: SAVE-15 Sending resume state to guest (%d bytes)" % serialized.length())
+
+	relay.send_game_data({
+		"action": "resume_game",
+		"game_state": serialized
+	})
+
+	# Register game participation for shared saves
+	var game_id = GameState.state.meta.get("game_id", "")
+	if not game_id.is_empty() and CloudStorage:
+		CloudStorage.register_game_participation(game_id)
+
+	# Transition to main scene
+	await get_tree().create_timer(1.0).timeout
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+# ============================================================================
+# SHARE / COPY
+# ============================================================================
+
 func _on_copy_pressed() -> void:
 	if game_code.is_empty():
 		return
@@ -579,6 +723,7 @@ func _update_ui_state(state: LobbyState) -> void:
 			share_button.visible = false
 			connecting_indicator.visible = false
 			start_game_button.visible = false
+			resume_game_button.visible = false  # SAVE-15
 			game_code = ""
 			is_host = false
 			# Restore section visibility

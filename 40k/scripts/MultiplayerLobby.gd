@@ -12,6 +12,7 @@ extends Control
 @onready var info_label: Label = $LobbyContainer/StatusSection/InfoLabel
 @onready var player_list_label: Label = $LobbyContainer/StatusSection/PlayerListLabel
 @onready var start_game_button: Button = $LobbyContainer/ActionButtons/StartGameButton
+@onready var resume_game_button: Button = $LobbyContainer/ActionButtons/ResumeGameButton
 @onready var disconnect_button: Button = $LobbyContainer/ActionButtons/DisconnectButton
 @onready var back_button: Button = $LobbyContainer/ActionButtons/BackButton
 
@@ -62,6 +63,9 @@ var selected_mission: String = "take_and_hold"
 var _cloud_fetch_count: int = 0
 var _cloud_start_pending: bool = false
 
+# SAVE-15: Resume game dialog
+var save_load_dialog: PanelContainer
+
 func _ready() -> void:
 	# Check if multiplayer is enabled
 	if not FeatureFlags.is_multiplayer_available():
@@ -76,6 +80,7 @@ func _ready() -> void:
 	join_button.pressed.connect(_on_join_button_pressed)
 	online_button.pressed.connect(_on_online_button_pressed)
 	start_game_button.pressed.connect(_on_start_game_button_pressed)
+	resume_game_button.pressed.connect(_on_resume_game_button_pressed)
 	disconnect_button.pressed.connect(_on_disconnect_button_pressed)
 	back_button.pressed.connect(_on_back_button_pressed)
 
@@ -105,6 +110,9 @@ func _ready() -> void:
 
 	# Fetch cloud armies asynchronously
 	_load_cloud_armies()
+
+	# SAVE-15: Setup save/load dialog for resume game flow
+	_setup_save_load_dialog()
 
 	print("MultiplayerLobby: Ready")
 
@@ -340,9 +348,10 @@ func _on_peer_connected(peer_id: int) -> void:
 
 	if is_hosting:
 		status_label.text = "Status: Player 2 connected!"
-		info_label.text = "Ready to start game"
+		info_label.text = "Ready to start game or resume a saved game"
 		player_list_label.text = "Connected Players: 2/2"
 		start_game_button.disabled = false
+		resume_game_button.disabled = false  # SAVE-15: Enable resume when both players connected
 
 		# Send current army, deployment, and mission selections to client
 		_sync_army_selection.rpc(1, selected_player1_army)
@@ -415,6 +424,7 @@ func _reset_ui() -> void:
 	port_input.editable = true
 	ip_input.editable = true
 	start_game_button.disabled = true
+	resume_game_button.disabled = true  # SAVE-15
 	disconnect_button.disabled = true
 	back_button.disabled = false
 	is_hosting = false
@@ -455,6 +465,106 @@ func _show_error(message: String) -> void:
 	if not is_hosting and connected_players == 0:
 		status_label.text = "Status: Not Connected"
 		info_label.text = "Select Host or Join to begin"
+
+# ============================================================================
+# SAVE-15: MULTIPLAYER RESUME FLOW
+# ============================================================================
+
+func _setup_save_load_dialog() -> void:
+	var dialog_scene = load("res://scenes/SaveLoadDialog.tscn")
+	if dialog_scene:
+		save_load_dialog = dialog_scene.instantiate()
+		add_child(save_load_dialog)
+		save_load_dialog.load_requested.connect(_on_resume_load_requested)
+		print("MultiplayerLobby: SAVE-15 Save/Load dialog setup for resume flow")
+	else:
+		print("MultiplayerLobby: Warning - Could not load SaveLoadDialog.tscn")
+
+func _on_resume_game_button_pressed() -> void:
+	print("MultiplayerLobby: SAVE-15 Resume game button pressed")
+
+	if not is_hosting:
+		_show_error("Only the host can resume a saved game")
+		return
+
+	if connected_players < 2:
+		_show_error("Waiting for player 2 to connect before resuming")
+		return
+
+	if save_load_dialog:
+		save_load_dialog.show_dialog()
+	else:
+		_show_error("Save/Load dialog not available")
+
+func _on_resume_load_requested(save_file: String, owner_id: String = "") -> void:
+	print("MultiplayerLobby: SAVE-15 Resume load requested for: ", save_file, " (owner_id: ", owner_id, ")")
+
+	if not SaveLoadManager:
+		_show_error("SaveLoadManager not available")
+		return
+
+	if OS.has_feature("web"):
+		# Web: async load
+		if not SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+			SaveLoadManager.load_completed.connect(_on_resume_load_completed)
+		if not SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+			SaveLoadManager.load_failed.connect(_on_resume_load_failed)
+		SaveLoadManager.load_game(save_file, owner_id)
+		status_label.text = "Status: Loading saved game..."
+	else:
+		# Desktop: synchronous load
+		var success = SaveLoadManager.load_game(save_file, owner_id)
+		if success:
+			_finalize_resume_load()
+		else:
+			_show_error("Failed to load save file: " + save_file)
+
+func _on_resume_load_completed(_file_path: String, _metadata: Dictionary) -> void:
+	print("MultiplayerLobby: SAVE-15 Cloud/async resume load completed")
+	# Disconnect one-shot signals
+	if SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+		SaveLoadManager.load_completed.disconnect(_on_resume_load_completed)
+	if SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+		SaveLoadManager.load_failed.disconnect(_on_resume_load_failed)
+	_finalize_resume_load()
+
+func _on_resume_load_failed(error: String) -> void:
+	print("MultiplayerLobby: SAVE-15 Resume load failed: ", error)
+	if SaveLoadManager.load_completed.is_connected(_on_resume_load_completed):
+		SaveLoadManager.load_completed.disconnect(_on_resume_load_completed)
+	if SaveLoadManager.load_failed.is_connected(_on_resume_load_failed):
+		SaveLoadManager.load_failed.disconnect(_on_resume_load_failed)
+	_show_error("Failed to load saved game: " + error)
+
+func _finalize_resume_load() -> void:
+	"""SAVE-15: After loading a save, mark as multiplayer resume and sync to client."""
+	print("MultiplayerLobby: SAVE-15 Finalizing multiplayer resume load")
+
+	# Mark the game state as coming from a multiplayer resume
+	if not GameState.state.has("meta"):
+		GameState.state["meta"] = {}
+	GameState.state.meta["from_save"] = true
+	GameState.state.meta["from_multiplayer_lobby"] = true
+	GameState.state.meta.erase("from_menu")
+
+	# Sync loaded state to client via NetworkManager
+	var network_manager = NetworkManager
+	if network_manager.is_host():
+		print("MultiplayerLobby: SAVE-15 Syncing resumed game state to clients...")
+		var snapshot = GameState.create_snapshot()
+		print("MultiplayerLobby: SAVE-15 Snapshot has ", snapshot.get("units", {}).size(), " units")
+
+		for peer_id in network_manager.peer_to_player_map.keys():
+			if peer_id != 1:
+				network_manager._send_initial_state.rpc_id(peer_id, snapshot)
+				print("MultiplayerLobby: SAVE-15 Sent resume snapshot to peer ", peer_id)
+
+	# Small delay to ensure state sync completes before scene change
+	await get_tree().create_timer(0.5).timeout
+
+	# Start the game via NetworkManager RPC (transitions both host and client)
+	network_manager.start_multiplayer_game.rpc()
+	print("MultiplayerLobby: SAVE-15 Resume game RPC sent to all peers")
 
 # ============================================================================
 # NETWORK - ARMY SYNCHRONIZATION

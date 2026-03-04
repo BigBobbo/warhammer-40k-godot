@@ -222,6 +222,13 @@ disabled = true
 text = "Start Game"
 theme_override_font_sizes/font_size = 18
 
+[node name="ResumeGameButton" type="Button" parent="LobbyContainer/ActionButtons"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 50)
+disabled = true
+text = "Resume Game"
+theme_override_font_sizes/font_size = 18
+
 [node name="DisconnectButton" type="Button" parent="LobbyContainer/ActionButtons"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 50)

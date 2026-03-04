@@ -762,6 +762,9 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 	var game_config = GameState.state.get("meta", {}).get("game_config", {})
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
+	# SAVE-15: Detect if current game is a multiplayer session
+	var game_meta = GameState.state.get("meta", {})
+	var is_mp = game_meta.get("from_multiplayer_lobby", false) or game_meta.get("from_web_lobby", false)
 	var metadata = {
 		"version": StateSerializer.CURRENT_VERSION if StateSerializer else "1.1.0",
 		"created_at": Time.get_unix_time_from_system(),
@@ -774,7 +777,9 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			"player2_type": p2_type,
 			# SAVE-13: Include AI difficulty in metadata for save file display
 			"player1_difficulty": game_config.get("player1_difficulty", -1) if p1_type == "AI" else -1,
-			"player2_difficulty": game_config.get("player2_difficulty", -1) if p2_type == "AI" else -1
+			"player2_difficulty": game_config.get("player2_difficulty", -1) if p2_type == "AI" else -1,
+			# SAVE-15: Mark whether this save came from a multiplayer session
+			"is_multiplayer": is_mp
 		},
 		"save_info": {
 			"save_type": custom_metadata.get("type", "manual"),
