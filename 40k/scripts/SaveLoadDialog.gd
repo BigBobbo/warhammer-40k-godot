@@ -29,6 +29,14 @@ var is_web_platform: bool = false
 var _save_files_signal_connected: bool = false
 var _is_multiplayer_client: bool = false  # SAVE-8: Track if non-host in multiplayer
 
+# SAVE-14: Sorting and filtering state
+enum SortMode { DATE_NEWEST, DATE_OLDEST, NAME_AZ, NAME_ZA, GAME_TYPE }
+var current_sort_mode: int = SortMode.DATE_NEWEST
+var current_filter_text: String = ""
+var sort_option_button: OptionButton
+var filter_input: LineEdit
+var _unfiltered_save_files: Array = []  # Full list before filtering
+
 func _ready() -> void:
 	# Configure as full-screen overlay (hidden initially)
 	visible = false
@@ -159,6 +167,63 @@ func _build_ui() -> void:
 	load_header.add_theme_font_size_override("font_size", 16)
 	load_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(load_header)
+
+	# SAVE-14: Sort and filter controls
+	var sort_filter_row = HBoxContainer.new()
+	sort_filter_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(sort_filter_row)
+
+	# Filter input
+	var filter_label = Label.new()
+	filter_label.text = "Filter:"
+	filter_label.add_theme_font_size_override("font_size", 13)
+	filter_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	sort_filter_row.add_child(filter_label)
+
+	filter_input = LineEdit.new()
+	filter_input.placeholder_text = "Search by name..."
+	filter_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filter_input.custom_minimum_size = Vector2(0, 30)
+	filter_input.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	filter_input.add_theme_color_override("font_placeholder_color", Color(0.6, 0.55, 0.45, 0.5))
+	var filter_style = StyleBoxFlat.new()
+	filter_style.bg_color = Color(0.12, 0.1, 0.08, 0.9)
+	filter_style.border_color = Color(0.3, 0.25, 0.18, 0.6)
+	filter_style.border_width_bottom = 1
+	filter_style.border_width_top = 1
+	filter_style.border_width_left = 1
+	filter_style.border_width_right = 1
+	filter_style.corner_radius_top_left = 3
+	filter_style.corner_radius_top_right = 3
+	filter_style.corner_radius_bottom_left = 3
+	filter_style.corner_radius_bottom_right = 3
+	filter_style.content_margin_left = 6
+	filter_style.content_margin_right = 6
+	filter_input.add_theme_stylebox_override("normal", filter_style)
+	var filter_focus_style = filter_style.duplicate()
+	filter_focus_style.border_color = WhiteDwarfThemeData.WH_PARCHMENT
+	filter_input.add_theme_stylebox_override("focus", filter_focus_style)
+	filter_input.text_changed.connect(_on_filter_text_changed)
+	sort_filter_row.add_child(filter_input)
+
+	# Sort dropdown
+	var sort_label = Label.new()
+	sort_label.text = "Sort:"
+	sort_label.add_theme_font_size_override("font_size", 13)
+	sort_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	sort_filter_row.add_child(sort_label)
+
+	sort_option_button = OptionButton.new()
+	sort_option_button.custom_minimum_size = Vector2(150, 30)
+	sort_option_button.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	sort_option_button.add_item("Date (Newest)", SortMode.DATE_NEWEST)
+	sort_option_button.add_item("Date (Oldest)", SortMode.DATE_OLDEST)
+	sort_option_button.add_item("Name (A-Z)", SortMode.NAME_AZ)
+	sort_option_button.add_item("Name (Z-A)", SortMode.NAME_ZA)
+	sort_option_button.add_item("Game Type", SortMode.GAME_TYPE)
+	sort_option_button.selected = 0
+	sort_option_button.item_selected.connect(_on_sort_mode_changed)
+	sort_filter_row.add_child(sort_option_button)
 
 	# SAVE-11: Horizontal layout for saves list + preview panel
 	var list_and_preview = HBoxContainer.new()
@@ -320,12 +385,39 @@ func _populate_saves_list(save_files: Array) -> void:
 	if not saves_list:
 		return
 
+	# SAVE-14: Store the full unfiltered list, then apply sort and filter
+	_unfiltered_save_files = save_files.duplicate()
+	_apply_sort_and_filter()
+
+# SAVE-14: Apply current sort mode and filter text to rebuild the displayed list
+func _apply_sort_and_filter() -> void:
+	if not saves_list:
+		return
+
 	saves_list.clear()
 	save_files_data.clear()
 	selected_save_index = -1
 	_set_preview_placeholder()  # SAVE-11: Reset preview when list refreshes
 
-	for save_info in save_files:
+	# Filter
+	var filtered = _unfiltered_save_files.duplicate()
+	if not current_filter_text.is_empty():
+		var search_lower = current_filter_text.to_lower()
+		filtered = filtered.filter(func(save_info):
+			var display_name = save_info.get("display_name", "").to_lower()
+			var description = ""
+			var metadata = save_info.get("metadata", {})
+			if metadata.has("save_info"):
+				description = metadata["save_info"].get("description", "").to_lower()
+			# Also search faction names in preview
+			var faction_text = _get_faction_text(metadata).to_lower()
+			return display_name.find(search_lower) >= 0 or description.find(search_lower) >= 0 or faction_text.find(search_lower) >= 0
+		)
+
+	# Sort
+	filtered.sort_custom(_get_sort_comparator())
+
+	for save_info in filtered:
 		var display_name = _format_save_display_name(save_info)
 		saves_list.add_item(display_name)
 		save_files_data.append(save_info)
@@ -335,7 +427,75 @@ func _populate_saves_list(save_files: Array) -> void:
 		saves_list.set_item_tooltip(item_index, tooltip)
 
 	_update_button_states()
-	print("SaveLoadDialog: Populated list with ", save_files_data.size(), " save files")
+	print("SaveLoadDialog: Populated list with ", save_files_data.size(), " save files (filter: '%s', sort: %d)" % [current_filter_text, current_sort_mode])
+
+# SAVE-14: Get faction text from metadata for filtering
+func _get_faction_text(metadata: Dictionary) -> String:
+	var preview = metadata.get("preview", {})
+	var players = preview.get("players", {})
+	var parts = []
+	for player_id in ["1", "2"]:
+		var p = players.get(player_id, {})
+		if p.has("faction"):
+			parts.append(p["faction"])
+		if p.has("detachment"):
+			parts.append(p["detachment"])
+	return " ".join(parts)
+
+# SAVE-14: Get the game type string for a save (used for sorting and display)
+func _get_game_type(save_info: Dictionary) -> String:
+	var metadata = save_info.get("metadata", {})
+	var game_state = metadata.get("game_state", {})
+	var p1_type = game_state.get("player1_type", "HUMAN")
+	var p2_type = game_state.get("player2_type", "HUMAN")
+	if p1_type == "AI" or p2_type == "AI":
+		return "vs AI"
+	return "PvP"
+
+# SAVE-14: Return a sort comparator based on current sort mode
+func _get_sort_comparator() -> Callable:
+	match current_sort_mode:
+		SortMode.DATE_NEWEST:
+			return func(a, b): return _get_created_at(a) > _get_created_at(b)
+		SortMode.DATE_OLDEST:
+			return func(a, b): return _get_created_at(a) < _get_created_at(b)
+		SortMode.NAME_AZ:
+			return func(a, b): return _get_sort_name(a).to_lower() < _get_sort_name(b).to_lower()
+		SortMode.NAME_ZA:
+			return func(a, b): return _get_sort_name(a).to_lower() > _get_sort_name(b).to_lower()
+		SortMode.GAME_TYPE:
+			return func(a, b):
+				var type_a = _get_game_type(a)
+				var type_b = _get_game_type(b)
+				if type_a != type_b:
+					return type_a < type_b
+				return _get_created_at(a) > _get_created_at(b)
+	return func(a, b): return _get_created_at(a) > _get_created_at(b)
+
+# SAVE-14: Extract created_at timestamp for sorting
+func _get_created_at(save_info: Dictionary) -> float:
+	return float(save_info.get("metadata", {}).get("created_at", 0))
+
+# SAVE-14: Extract display/description name for sorting
+func _get_sort_name(save_info: Dictionary) -> String:
+	var metadata = save_info.get("metadata", {})
+	if metadata.has("save_info"):
+		var desc = metadata["save_info"].get("description", "")
+		if not desc.is_empty():
+			return desc
+	return save_info.get("display_name", "")
+
+# SAVE-14: Handle sort mode change
+func _on_sort_mode_changed(index: int) -> void:
+	current_sort_mode = sort_option_button.get_item_id(index)
+	print("SaveLoadDialog: SAVE-14 Sort mode changed to: %d" % current_sort_mode)
+	_apply_sort_and_filter()
+
+# SAVE-14: Handle filter text change
+func _on_filter_text_changed(new_text: String) -> void:
+	current_filter_text = new_text.strip_edges()
+	print("SaveLoadDialog: SAVE-14 Filter text changed to: '%s'" % current_filter_text)
+	_apply_sort_and_filter()
 
 func _on_save_files_received(save_files: Array) -> void:
 	print("SaveLoadDialog: Received %d save files from cloud" % save_files.size())
