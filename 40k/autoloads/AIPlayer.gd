@@ -382,6 +382,13 @@ func get_turn_history_count() -> int:
 	"""T7-56: Return the number of stored turn history entries."""
 	return _turn_history.size()
 
+func restore_turn_history(saved_history: Array) -> void:
+	"""SAVE-7: Restore turn history from a loaded snapshot.
+	Called after reconfigure_ai_after_load() to preserve AI decision history across save/load."""
+	_turn_history = saved_history.duplicate(true)
+	print("AIPlayer: SAVE-7 Restored %d turn history entries from snapshot" % _turn_history.size())
+	emit_signal("turn_history_updated")
+
 # --- Signal handlers ---
 
 func _on_phase_changed(_new_phase) -> void:

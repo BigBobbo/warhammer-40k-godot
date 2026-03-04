@@ -517,6 +517,12 @@ func _reinitialize_ai_after_load() -> void:
 		var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
 		ai_player.configure({1: p1_type, 2: p2_type}, {1: p1_difficulty, 2: p2_difficulty})
 
+	# SAVE-7: Restore AI turn history from snapshot (after reconfigure clears it)
+	var saved_ai_history = GameState.state.get("ai_turn_history", [])
+	if not saved_ai_history.is_empty() and ai_player.has_method("restore_turn_history"):
+		ai_player.restore_turn_history(saved_ai_history)
+		print("Main: SAVE-7 Restored %d AI turn history entries after load" % saved_ai_history.size())
+
 	# Reconnect AI signals (using is_connected checks to avoid duplicates)
 	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):
 		ai_player.ai_unit_deployed.connect(_on_ai_unit_deployed)

@@ -864,6 +864,14 @@ func create_snapshot() -> Dictionary:
 			snapshot["secondary_missions"] = secondary_data
 			print("[GameState] Adding secondary mission state to snapshot")
 
+	# SAVE-7: Add AI turn history to snapshot
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and ai_player.enabled:
+		var turn_history = ai_player.get_turn_history()
+		if not turn_history.is_empty():
+			snapshot["ai_turn_history"] = turn_history
+			print("[GameState] SAVE-7 Adding %d AI turn history entries to snapshot" % turn_history.size())
+
 	# Add measuring tape data if persistence is enabled (autoload, not Engine singleton)
 	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
 	if measuring_tape_manager:
@@ -1000,6 +1008,16 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 	else:
 		if state.has("secondary_missions"):
 			print("[GameState] Has secondary_missions but SecondaryMissionManager not available")
+
+	# SAVE-7: Restore AI turn history if present
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if state.has("ai_turn_history") and ai_player:
+		print("[GameState] SAVE-7 Found %d AI turn history entries in save, will restore after AI reconfigure" % state["ai_turn_history"].size())
+		# Defer restoration — reconfigure_ai_after_load() clears _turn_history,
+		# so we store it in state for Main._reinitialize_ai_after_load() to pick up.
+		# The data stays in state["ai_turn_history"] for the post-load flow to use.
+	elif state.has("ai_turn_history"):
+		print("[GameState] Has ai_turn_history but AIPlayer not available")
 
 	# Load measuring tape data if present (autoload, not Engine singleton)
 	var measuring_tape_manager = get_node_or_null("/root/MeasuringTapeManager")
