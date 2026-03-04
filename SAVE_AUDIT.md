@@ -212,7 +212,7 @@ GZIP compression support exists but is disabled. For large games with many units
 7. **Save AI turn history in snapshot** — Add AI decision history to save data (SAVE-7) — **DONE**
 8. **Hide Load button for non-host in multiplayer** — UI restriction (SAVE-8) — **DONE**
 9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9) — **DONE**
-10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10)
+10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10) — **DONE**
 
 ### P2 — Should Improve (QoL/Visual)
 11. **Add save file preview** — Show army compositions, VP scores, unit counts (SAVE-11)

@@ -3374,6 +3374,7 @@ func connect_signals() -> void:
 	# Connect save/load signals
 	SaveLoadManager.save_completed.connect(_on_save_completed)
 	SaveLoadManager.load_completed.connect(_on_load_completed)
+	SaveLoadManager.autosave_completed.connect(_on_autosave_completed)
 	SaveLoadManager.save_failed.connect(_on_save_failed)
 	SaveLoadManager.load_failed.connect(_on_load_failed)
 	if OS.has_feature("web"):
@@ -5464,6 +5465,14 @@ func _show_save_notification(message: String, color: Color) -> void:
 	)
 	add_child(timer)
 	timer.start()
+
+func _on_autosave_completed(file_path: String) -> void:
+	print("SAVE-10: Autosave completed: %s" % file_path)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_toast("Game autosaved", Color(0.5, 0.8, 1.0), 1.5)
+	else:
+		_show_save_notification("Autosaved", Color(0.5, 0.8, 1.0))
 
 func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
