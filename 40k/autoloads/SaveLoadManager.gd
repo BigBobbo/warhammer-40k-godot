@@ -711,7 +711,7 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
 	var metadata = {
-		"version": "1.0.0",
+		"version": StateSerializer.CURRENT_VERSION if StateSerializer else "1.1.0",
 		"created_at": Time.get_unix_time_from_system(),
 		"game_state": {
 			"turn": GameState.get_turn_number(),
@@ -771,7 +771,7 @@ func _load_metadata(save_path: String) -> Dictionary:
 func _create_default_metadata(save_path: String) -> Dictionary:
 	var file_time = FileAccess.get_modified_time(save_path)
 	return {
-		"version": "1.0.0",
+		"version": StateSerializer.CURRENT_VERSION if StateSerializer else "1.1.0",
 		"created_at": file_time,
 		"game_state": {
 			"turn": 0,

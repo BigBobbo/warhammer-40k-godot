@@ -27,7 +27,7 @@ func initialize_default_state(deployment_type: String = "hammer_anvil") -> void:
 			"phase": Phase.FORMATIONS,
 			"deployment_type": deployment_type,  # Track which deployment is in use
 			"created_at": Time.get_unix_time_from_system(),
-			"version": "1.0.0"
+			"version": "1.1.0"
 		},
 		"board": {
 			"size": {"width": 44, "height": 60},  # inches
