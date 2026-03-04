@@ -16,7 +16,7 @@ var retro_mode: bool = false
 
 # Save/Load Settings
 var save_files_pretty_print: bool = true  # Human-readable by default
-var save_files_compression: bool = false  # Keep disabled for readability
+var save_files_compression: bool = true  # SAVE-17: Enabled — only compresses saves above size threshold
 
 # Measuring Tape Settings
 var save_measurements: bool = false  # Whether to persist measurement lines in saves
@@ -284,7 +284,7 @@ func _load_settings() -> void:
 
 	# Save/Load
 	save_files_pretty_print = config.get_value("save_load", "pretty_print", true)
-	save_files_compression = config.get_value("save_load", "compression", false)
+	save_files_compression = config.get_value("save_load", "compression", true)
 	save_measurements = config.get_value("save_load", "save_measurements", false)
 	autosave_on_round_end = config.get_value("save_load", "autosave_on_round_end", true)
 	autosave_on_phase_transition = config.get_value("save_load", "autosave_on_phase_transition", false)

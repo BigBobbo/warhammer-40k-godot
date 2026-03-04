@@ -18,8 +18,12 @@ const MINIMUM_MIGRATABLE_VERSION = "1.0.0"
 # Migrations are chained: 1.0.0 -> 1.1.0 -> 1.2.0 -> ... -> CURRENT_VERSION
 var _migrations: Dictionary = {}
 
-var compression_enabled: bool = false
+var compression_enabled: bool = true
 var pretty_print: bool = true  # Changed from false
+
+# SAVE-17: Only compress saves larger than this threshold (bytes)
+# Keeps small saves human-readable for debugging
+const COMPRESSION_SIZE_THRESHOLD: int = 50 * 1024  # 50 KB
 
 func _ready() -> void:
 	_register_migrations()
@@ -244,9 +248,14 @@ func serialize_game_state(state: Dictionary = {}) -> String:
 		push_error("StateSerializer: " + error_msg)
 		return ""
 	
-	if compression_enabled:
+	# SAVE-17: Compress only if enabled AND above size threshold
+	if compression_enabled and json_string.length() >= COMPRESSION_SIZE_THRESHOLD:
+		var original_size = json_string.length()
 		json_string = _compress_json(json_string)
-	
+		print("StateSerializer: Compressed save %d bytes -> %d bytes (%.1f%%)" % [original_size, json_string.length(), json_string.length() * 100.0 / original_size])
+	elif compression_enabled:
+		print("StateSerializer: Save size %d bytes below threshold %d, skipping compression" % [json_string.length(), COMPRESSION_SIZE_THRESHOLD])
+
 	emit_signal("serialization_completed", json_string)
 	return json_string
 
@@ -257,9 +266,16 @@ func deserialize_game_state(json_string: String) -> Dictionary:
 		push_error("StateSerializer: " + error_msg)
 		return {}
 	
+	# SAVE-17: Always auto-detect compressed data regardless of compression_enabled setting
+	# This ensures old compressed saves can be loaded even if compression is later disabled
 	var decompressed_string = json_string
-	if compression_enabled and _is_compressed(json_string):
+	if _is_compressed(json_string):
+		print("StateSerializer: Detected compressed save data, decompressing...")
 		decompressed_string = _decompress_json(json_string)
+		if decompressed_string.is_empty():
+			push_error("StateSerializer: Failed to decompress save data")
+			emit_signal("serialization_error", "Decompression failed")
+			return {}
 	
 	var json = JSON.new()
 	var parse_result = json.parse(decompressed_string)
