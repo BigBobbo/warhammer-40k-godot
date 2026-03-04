@@ -203,7 +203,7 @@ GZIP compression support exists but is disabled. For large games with many units
 ### P0 — Must Fix (Correctness)
 1. **Fix AI re-initialization after load** — Add `reconfigure_ai_after_load()` call in load completion path (SAVE-1) — **DONE**
 2. **Fix multiplayer load sync confirmation** — Add client acknowledgment mechanism (SAVE-2)
-3. **Implement save format migration system** — Version tracking + upgrade functions (SAVE-3)
+3. **Implement save format migration system** — Version tracking + upgrade functions (SAVE-3) — **DONE**
 4. **Fix `_refresh_after_load()` to fully restore state** — Clear old visuals, reinit controllers, reinit AI (SAVE-4)
 5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5)
 
