@@ -1,1 +1,1 @@
-ARGS: ["-s", "tests/test_save_format_migration.gd"]
+ARGS: ["--script", "res://tests/test_save_format_migration.gd"]
