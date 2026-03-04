@@ -13,6 +13,7 @@ signal action_rejected(action_type: String, reason: String)  # Emitted when an a
 signal game_code_received(code: String)  # Emitted when server assigns a game code
 signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout, disconnect, etc.)
 signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
+signal load_sync_confirmed(all_confirmed: bool)  # SAVE-2: Emitted when all clients confirm loaded state (or timeout)
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -46,6 +47,11 @@ var web_relay_mode: bool = false
 # P2-41: Graceful disconnect handling
 var _disconnect_grace_active: bool = false
 var _disconnected_player_num: int = 0
+
+# SAVE-2: Multiplayer load sync confirmation
+var _load_sync_pending_acks: Dictionary = {}  # peer_id -> bool (true = acknowledged)
+var _load_sync_timer: Timer = null
+const LOAD_SYNC_TIMEOUT_SECONDS: float = 10.0  # Timeout waiting for client acknowledgment
 
 # Optimistic execution — deterministic actions that can be applied client-side immediately
 const DETERMINISTIC_ACTIONS: Array[String] = [
@@ -494,11 +500,21 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			print("NetworkManager: Received loaded state via relay")
 			print("NetworkManager: Save name: ", save_name)
 			print("NetworkManager: Snapshot has %d units" % snapshot.get("units", {}).size())
+			var relay_load_ok = false
 			if game_state:
 				game_state.load_from_snapshot(snapshot)
 				print("NetworkManager: Loaded state applied, triggering UI refresh")
 				_update_phase_snapshot()
-				_refresh_client_ui_after_load(snapshot)
+				relay_load_ok = _refresh_client_ui_after_load(snapshot)
+			# SAVE-2: Send acknowledgment back to host
+			_send_loaded_state_ack(relay_load_ok)
+
+		"loaded_state_ack":
+			# SAVE-2: Client acknowledged receiving loaded state (host receives this)
+			var ack_success = data.get("success", false)
+			print("NetworkManager: SAVE-2: Received loaded_state_ack via relay (success=%s)" % str(ack_success))
+			# In web relay mode, we use peer_id 2 for the guest
+			_process_loaded_state_ack(2, ack_success)
 
 func _handle_relayed_action(action: Dictionary) -> void:
 	"""Handle an action received from the other player via relay."""
@@ -1752,15 +1768,19 @@ func _send_loaded_state(snapshot: Dictionary, save_name: String) -> void:
 
 	# Trigger UI refresh on client side
 	print("NetworkManager: Triggering UI refresh on client...")
-	_refresh_client_ui_after_load(snapshot)
+	var refresh_ok = _refresh_client_ui_after_load(snapshot)
 
-	print("NetworkManager: Loaded state synchronized")
+	print("NetworkManager: Loaded state synchronized (refresh_ok=%s)" % str(refresh_ok))
 	print("NetworkManager: ========================================")
 
-func _refresh_client_ui_after_load(snapshot: Dictionary) -> void:
+	# SAVE-2: Send acknowledgment back to host
+	_send_loaded_state_ack(refresh_ok)
+
+func _refresh_client_ui_after_load(snapshot: Dictionary) -> bool:
 	"""
 	Triggers UI refresh on client after receiving loaded state.
 	Notifies Main scene to refresh all game elements.
+	Returns true if refresh succeeded.
 	"""
 	# Get Main scene if it exists
 	var main_scene = get_tree().current_scene
@@ -1776,13 +1796,98 @@ func _refresh_client_ui_after_load(snapshot: Dictionary) -> void:
 				"Host loaded game (Turn %d, %s)" % [turn, phase],
 				Color.CYAN
 			)
+		return true
 	else:
 		print("NetworkManager: Warning - Could not trigger client UI refresh")
+		return false
+
+# SAVE-2: Client acknowledgment for loaded state
+func _send_loaded_state_ack(success: bool) -> void:
+	"""Send acknowledgment to host that loaded state was received and applied."""
+	if not is_networked():
+		return
+
+	print("NetworkManager: SAVE-2: Sending loaded_state_ack (success=%s)" % str(success))
+
+	if web_relay_mode:
+		_send_via_relay({
+			"msg_type": "loaded_state_ack",
+			"success": success
+		})
+	elif multiplayer and multiplayer.has_multiplayer_peer():
+		_receive_loaded_state_ack.rpc_id(1, success)  # Send to host (peer ID 1)
+
+@rpc("any_peer", "reliable")
+func _receive_loaded_state_ack(success: bool) -> void:
+	"""RPC handler for loaded state acknowledgment (ENet mode). Runs on host."""
+	var sender_id = multiplayer.get_remote_sender_id()
+	print("NetworkManager: SAVE-2: Received loaded_state_ack from peer %d (success=%s)" % [sender_id, str(success)])
+	_process_loaded_state_ack(sender_id, success)
+
+func _process_loaded_state_ack(peer_id: int, success: bool) -> void:
+	"""Process a loaded state acknowledgment from a client (host-side)."""
+	if not is_host():
+		print("NetworkManager: SAVE-2: Ignoring ack — not host")
+		return
+
+	if not _load_sync_pending_acks.has(peer_id):
+		print("NetworkManager: SAVE-2: Received unexpected ack from peer %d (no pending sync)" % peer_id)
+		return
+
+	_load_sync_pending_acks[peer_id] = true
+	print("NetworkManager: SAVE-2: Peer %d acknowledged load (success=%s)" % [peer_id, str(success)])
+
+	if not success:
+		push_warning("NetworkManager: SAVE-2: Peer %d reported load failure" % peer_id)
+
+	# Check if all peers have acknowledged
+	_check_all_load_acks_received()
+
+func _check_all_load_acks_received() -> void:
+	"""Check if all pending load acks have been received. If so, emit confirmation."""
+	for peer_id in _load_sync_pending_acks:
+		if not _load_sync_pending_acks[peer_id]:
+			return  # Still waiting on at least one peer
+
+	# All peers confirmed — stop timer and emit signal
+	print("NetworkManager: SAVE-2: All clients confirmed loaded state")
+	_stop_load_sync_timer()
+	load_sync_confirmed.emit(true)
+
+func _on_load_sync_timeout() -> void:
+	"""Handle timeout waiting for client load acknowledgments."""
+	var unconfirmed = []
+	for peer_id in _load_sync_pending_acks:
+		if not _load_sync_pending_acks[peer_id]:
+			unconfirmed.append(peer_id)
+
+	push_warning("NetworkManager: SAVE-2: Load sync timeout — %d client(s) did not confirm: %s" % [unconfirmed.size(), str(unconfirmed)])
+	_stop_load_sync_timer()
+	load_sync_confirmed.emit(false)
+
+func _start_load_sync_timer() -> void:
+	"""Start the timeout timer for load sync acknowledgments."""
+	if _load_sync_timer == null:
+		_load_sync_timer = Timer.new()
+		_load_sync_timer.one_shot = true
+		_load_sync_timer.timeout.connect(_on_load_sync_timeout)
+		add_child(_load_sync_timer)
+
+	_load_sync_timer.wait_time = LOAD_SYNC_TIMEOUT_SECONDS
+	_load_sync_timer.start()
+	print("NetworkManager: SAVE-2: Load sync timeout timer started (%ds)" % int(LOAD_SYNC_TIMEOUT_SECONDS))
+
+func _stop_load_sync_timer() -> void:
+	"""Stop the load sync timeout timer."""
+	if _load_sync_timer and not _load_sync_timer.is_stopped():
+		_load_sync_timer.stop()
+	_load_sync_pending_acks.clear()
 
 func sync_loaded_state() -> void:
 	"""
 	Called by SaveLoadManager after host loads a game.
 	Broadcasts the loaded state to all connected clients.
+	Starts tracking client acknowledgments with timeout.
 	"""
 	if not is_networked():
 		print("NetworkManager: Not in multiplayer, skipping load sync")
@@ -1805,10 +1910,23 @@ func sync_loaded_state() -> void:
 	# Get save name from metadata if available
 	var save_name = snapshot.get("meta", {}).get("save_name", "Unknown")
 
-	# Check if we have connected peers
-	var peer_count = multiplayer.get_peers().size()
+	# SAVE-2: Set up acknowledgment tracking for connected peers
+	_load_sync_pending_acks.clear()
+	var peers = multiplayer.get_peers()
+	var peer_count = peers.size()
 	print("NetworkManager: Broadcasting to ", peer_count, " connected peers")
-	print("NetworkManager: Connected peer IDs: ", multiplayer.get_peers())
+	print("NetworkManager: Connected peer IDs: ", peers)
+
+	if peer_count == 0:
+		print("NetworkManager: No connected peers — skipping sync")
+		load_sync_confirmed.emit(true)
+		return
+
+	for peer_id in peers:
+		_load_sync_pending_acks[peer_id] = false  # false = not yet acknowledged
+
+	# Start timeout timer
+	_start_load_sync_timer()
 
 	# Broadcast to all clients - use relay if in web relay mode
 	if web_relay_mode:
@@ -1821,7 +1939,7 @@ func sync_loaded_state() -> void:
 	else:
 		_send_loaded_state.rpc(snapshot, save_name)
 
-	print("NetworkManager: Loaded state sync sent")
+	print("NetworkManager: Loaded state sync sent, awaiting client acknowledgments")
 	print("NetworkManager: ========================================")
 
 # Initiates game start for both host and all clients

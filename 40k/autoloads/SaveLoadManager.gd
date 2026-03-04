@@ -411,8 +411,11 @@ func _load_game_from_path(file_path: String) -> bool:
 
 	if NetworkManager and NetworkManager.is_networked():
 		print("SaveLoadManager: *** MULTIPLAYER DETECTED - SYNCING LOADED STATE ***")
+		# SAVE-2: Connect one-shot handler for sync confirmation before triggering sync
+		if not NetworkManager.load_sync_confirmed.is_connected(_on_load_sync_confirmed):
+			NetworkManager.load_sync_confirmed.connect(_on_load_sync_confirmed, CONNECT_ONE_SHOT)
 		NetworkManager.sync_loaded_state()
-		print("SaveLoadManager: *** SYNC CALL COMPLETED ***")
+		print("SaveLoadManager: *** SYNC INITIATED - awaiting client confirmation ***")
 	else:
 		print("SaveLoadManager: Single-player mode or not connected - skipping sync")
 
@@ -500,7 +503,11 @@ func _on_cloud_save_downloaded(save_name: String, metadata: Dictionary, game_dat
 	# Sync state with multiplayer clients if in networked game
 	if NetworkManager and NetworkManager.is_networked():
 		print("SaveLoadManager: [CLOUD] Multiplayer detected - syncing loaded state")
+		# SAVE-2: Connect one-shot handler for sync confirmation before triggering sync
+		if not NetworkManager.load_sync_confirmed.is_connected(_on_load_sync_confirmed):
+			NetworkManager.load_sync_confirmed.connect(_on_load_sync_confirmed, CONNECT_ONE_SHOT)
 		NetworkManager.sync_loaded_state()
+		print("SaveLoadManager: [CLOUD] Sync initiated - awaiting client confirmation")
 
 func _on_cloud_saves_list_received(saves: Array) -> void:
 	print("SaveLoadManager: [CLOUD] Received %d saves from cloud" % saves.size())
@@ -545,6 +552,20 @@ func _on_cloud_request_failed(operation: String, error: String) -> void:
 			emit_signal("save_files_received", [])
 		"delete_save":
 			emit_signal("save_failed", "Cloud delete failed: " + error)
+
+# SAVE-2: Callback for multiplayer load sync confirmation
+func _on_load_sync_confirmed(all_confirmed: bool) -> void:
+	if all_confirmed:
+		print("SaveLoadManager: SAVE-2: All clients confirmed loaded state sync")
+	else:
+		push_warning("SaveLoadManager: SAVE-2: Load sync incomplete — some clients may not have received state")
+		# Notify UI so host knows there may be a desync
+		var main_scene = get_tree().current_scene
+		if main_scene and main_scene.has_method("_show_save_notification"):
+			main_scene._show_save_notification(
+				"Warning: Client may not have synced loaded state",
+				Color.ORANGE
+			)
 
 # Autosave functionality
 func enable_autosave() -> void:
