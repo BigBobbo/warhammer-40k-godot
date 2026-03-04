@@ -208,7 +208,7 @@ GZIP compression support exists but is disabled. For large games with many units
 5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5) — **DONE**
 
 ### P1 — Should Fix (Robustness)
-6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6)
+6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6) — **DONE**
 7. **Save AI turn history in snapshot** — Add AI decision history to save data (SAVE-7)
 8. **Hide Load button for non-host in multiplayer** — UI restriction (SAVE-8)
 9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9)
