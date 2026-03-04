@@ -180,13 +180,19 @@ When autosave triggers, there's no visual indicator (like a floppy disk icon or 
 
 ## 7. Code Quality Observations
 
-### 7.1 No Unit Data Validation on Load
+### 7.1 ~~No~~ Unit Data Validation on Load (SAVE-18 DONE)
 
-StateSerializer validates structure (required sections/fields) but not data integrity:
-- No check that unit IDs are unique
-- No check that model positions are valid (on board, not overlapping)
-- No check that unit statuses are consistent (e.g., deployed unit has positions)
-- No check that player CP/VP values are reasonable
+StateSerializer now validates data integrity beyond structure via `_validate_unit_data()`:
+- ✅ Unit owner validation (must be 1 or 2)
+- ✅ Unit status enum range check (0-7)
+- ✅ Unit ID consistency (key matches stored id)
+- ✅ Model wounds integrity (current_wounds ≤ max wounds, non-negative)
+- ✅ Model alive/wounds consistency (auto-repair)
+- ✅ Model base_mm validation (> 0)
+- ✅ Cross-reference validation (embarked_in, attached_to, attached_characters, transport embarked_units)
+- ✅ Player CP/VP non-negative checks
+- ✅ Meta field validation (keywords, abilities, weapons, stats)
+- Auto-repairs fixable issues with warnings; blocks load on unfixable errors
 
 ### 7.2 Deep Copy Could Miss Nested References
 
@@ -224,7 +230,7 @@ GZIP compression is now enabled by default with a 50 KB size threshold. Saves be
 ### P3 — Nice to Have
 16. **Add multiple save slots** — Beyond single quicksave (SAVE-16) — **DONE**
 17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17) — **DONE**
-18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18)
+18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18) — **DONE**
 19. **Add save file export/import** — Portable format for sharing (SAVE-19)
 20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20)
 

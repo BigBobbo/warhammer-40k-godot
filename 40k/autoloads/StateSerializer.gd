@@ -310,6 +310,15 @@ func deserialize_game_state(json_string: String) -> Dictionary:
 			emit_signal("serialization_error", "Migration failed")
 			return {}
 
+	# SAVE-18: Unit data integrity validation (beyond structural checks)
+	var unit_validation = _validate_unit_data(parsed_data)
+	if not unit_validation.valid:
+		push_error("StateSerializer: SAVE-18 Unit data validation failed: " + str(unit_validation.errors))
+		emit_signal("serialization_error", "Unit data validation failed")
+		return {}
+	for unit_warning in unit_validation.get("warnings", []):
+		print("StateSerializer: SAVE-18 WARNING: %s" % unit_warning)
+
 	var game_state = _prepare_from_serialization(parsed_data)
 	emit_signal("deserialization_completed", game_state)
 	return game_state
@@ -566,6 +575,273 @@ func _validate_serialized_data(data: Dictionary) -> Dictionary:
 			if not meta.has(field):
 				validation.errors.append("Missing meta field: " + field)
 				validation.valid = false
+
+	return validation
+
+# ============================================================================
+# SAVE-18: Unit Data Validation on Load
+# Validates data integrity beyond structure — catches corruption, out-of-range
+# values, and inconsistent references. Returns warnings for fixable issues
+# (auto-repaired) and errors for unfixable ones (blocks load).
+# ============================================================================
+
+func _validate_unit_data(data: Dictionary) -> Dictionary:
+	var validation = {
+		"valid": true,
+		"errors": [],
+		"warnings": [],
+		"repairs": []  # Track auto-repairs made
+	}
+
+	if not data.has("units") or not data["units"] is Dictionary:
+		return validation  # No units to validate (structural check handles this)
+
+	var units = data["units"]
+	var all_unit_ids = units.keys()
+
+	for unit_id in units:
+		var unit = units[unit_id]
+		if not unit is Dictionary:
+			validation.errors.append("Unit '%s' is not a Dictionary" % unit_id)
+			validation.valid = false
+			continue
+
+		var prefix = "Unit '%s'" % unit_id
+
+		# --- Owner validation ---
+		var owner = unit.get("owner", -1)
+		if not owner is float and not owner is int:
+			validation.errors.append("%s: owner is not a number (got %s)" % [prefix, type_string(typeof(owner))])
+			validation.valid = false
+		elif owner != 1 and owner != 2:
+			validation.errors.append("%s: owner must be 1 or 2 (got %s)" % [prefix, str(owner)])
+			validation.valid = false
+
+		# --- Status validation ---
+		var status = unit.get("status", -1)
+		if status is float:
+			status = int(status)
+		if not status is int:
+			validation.errors.append("%s: status is not a number (got %s)" % [prefix, type_string(typeof(status))])
+			validation.valid = false
+		elif status < 0 or status > 7:
+			# UnitStatus enum: UNDEPLOYED=0 through IN_RESERVES=7
+			validation.errors.append("%s: status %d out of range [0-7]" % [prefix, status])
+			validation.valid = false
+
+		# --- ID consistency ---
+		var stored_id = unit.get("id", "")
+		if stored_id != "" and stored_id != unit_id:
+			validation.warnings.append("%s: id field '%s' doesn't match key '%s' — repairing" % [prefix, stored_id, unit_id])
+			unit["id"] = unit_id
+			validation.repairs.append("%s: set id to '%s'" % [prefix, unit_id])
+
+		# --- Meta validation ---
+		var meta = unit.get("meta", {})
+		if not meta is Dictionary:
+			validation.errors.append("%s: meta is not a Dictionary" % prefix)
+			validation.valid = false
+		else:
+			# Name
+			var unit_name = meta.get("name", "")
+			if unit_name == "" or not unit_name is String:
+				validation.warnings.append("%s: missing or empty meta.name" % prefix)
+
+			# Keywords
+			var keywords = meta.get("keywords", [])
+			if not keywords is Array:
+				validation.warnings.append("%s: meta.keywords is not an Array — repairing to []" % prefix)
+				meta["keywords"] = []
+				validation.repairs.append("%s: set keywords to []" % prefix)
+
+			# Stats
+			var stats = meta.get("stats", {})
+			if stats is Dictionary:
+				var stat_fields = ["move", "toughness", "save", "wounds", "leadership", "objective_control"]
+				for stat_name in stat_fields:
+					if stats.has(stat_name):
+						var val = stats[stat_name]
+						if val is float:
+							val = int(val)
+						if val is int and val < 0:
+							validation.warnings.append("%s: stat '%s' is negative (%d) — clamping to 0" % [prefix, stat_name, val])
+							stats[stat_name] = 0
+							validation.repairs.append("%s: clamped %s to 0" % [prefix, stat_name])
+
+			# Weapons
+			var weapons = meta.get("weapons", [])
+			if weapons is Array:
+				for i in range(weapons.size()):
+					var weapon = weapons[i]
+					if weapon is Dictionary:
+						if not weapon.has("name") or weapon["name"] == "":
+							validation.warnings.append("%s: weapon[%d] missing name" % [prefix, i])
+
+			# Abilities
+			var abilities = meta.get("abilities", [])
+			if not abilities is Array:
+				validation.warnings.append("%s: meta.abilities is not an Array — repairing to []" % prefix)
+				meta["abilities"] = []
+				validation.repairs.append("%s: set abilities to []" % prefix)
+
+		# --- Models validation ---
+		var models = unit.get("models", [])
+		if not models is Array:
+			validation.errors.append("%s: models is not an Array" % prefix)
+			validation.valid = false
+		elif models.size() == 0:
+			validation.errors.append("%s: models array is empty" % prefix)
+			validation.valid = false
+		else:
+			var model_ids_seen = {}
+			for i in range(models.size()):
+				var model = models[i]
+				if not model is Dictionary:
+					validation.errors.append("%s: model[%d] is not a Dictionary" % [prefix, i])
+					validation.valid = false
+					continue
+
+				var m_prefix = "%s model[%d]" % [prefix, i]
+
+				# Model ID uniqueness within unit
+				var model_id = model.get("id", "")
+				if model_id != "":
+					if model_ids_seen.has(model_id):
+						validation.warnings.append("%s: duplicate model id '%s'" % [m_prefix, model_id])
+					model_ids_seen[model_id] = true
+
+				# Wounds validation
+				var max_wounds = model.get("wounds", 0)
+				var current_wounds = model.get("current_wounds", 0)
+				if max_wounds is float:
+					max_wounds = int(max_wounds)
+				if current_wounds is float:
+					current_wounds = int(current_wounds)
+
+				if max_wounds is int and max_wounds < 1:
+					validation.warnings.append("%s: wounds < 1 (%d) — setting to 1" % [m_prefix, max_wounds])
+					model["wounds"] = 1
+					max_wounds = 1
+					validation.repairs.append("%s: set wounds to 1" % m_prefix)
+
+				if current_wounds is int and max_wounds is int:
+					if current_wounds > max_wounds:
+						validation.warnings.append("%s: current_wounds (%d) > wounds (%d) — clamping" % [m_prefix, current_wounds, max_wounds])
+						model["current_wounds"] = max_wounds
+						validation.repairs.append("%s: clamped current_wounds to %d" % [m_prefix, max_wounds])
+					elif current_wounds < 0:
+						validation.warnings.append("%s: current_wounds negative (%d) — setting to 0" % [m_prefix, current_wounds])
+						model["current_wounds"] = 0
+						validation.repairs.append("%s: set current_wounds to 0" % m_prefix)
+
+				# Alive consistency: if current_wounds == 0, model should be dead
+				var alive = model.get("alive", true)
+				if current_wounds is int and current_wounds <= 0 and alive == true:
+					validation.warnings.append("%s: alive=true but current_wounds=%d — setting alive=false" % [m_prefix, current_wounds])
+					model["alive"] = false
+					validation.repairs.append("%s: set alive=false (0 wounds)" % m_prefix)
+				elif current_wounds is int and current_wounds > 0 and alive == false:
+					validation.warnings.append("%s: alive=false but current_wounds=%d — setting alive=true" % [m_prefix, current_wounds])
+					model["alive"] = true
+					validation.repairs.append("%s: set alive=true (%d wounds remaining)" % [m_prefix, current_wounds])
+
+				# Base size validation
+				var base_mm = model.get("base_mm", 0)
+				if base_mm is float:
+					base_mm = int(base_mm)
+				if base_mm is int and base_mm <= 0:
+					validation.warnings.append("%s: base_mm <= 0 (%s) — setting to 25" % [m_prefix, str(base_mm)])
+					model["base_mm"] = 25
+					validation.repairs.append("%s: set base_mm to 25" % m_prefix)
+
+				# Status effects
+				var status_effects = model.get("status_effects", [])
+				if not status_effects is Array:
+					validation.warnings.append("%s: status_effects not an Array — repairing to []" % m_prefix)
+					model["status_effects"] = []
+					validation.repairs.append("%s: set status_effects to []" % m_prefix)
+
+		# --- Cross-reference validation: embarked_in ---
+		var embarked_in = unit.get("embarked_in", null)
+		if embarked_in != null and embarked_in is String and embarked_in != "":
+			if not embarked_in in all_unit_ids:
+				validation.warnings.append("%s: embarked_in references non-existent unit '%s' — clearing" % [prefix, embarked_in])
+				unit["embarked_in"] = null
+				validation.repairs.append("%s: cleared embarked_in (unit not found)" % prefix)
+
+		# --- Cross-reference validation: attached_to ---
+		var attached_to = unit.get("attached_to", null)
+		if attached_to != null and attached_to is String and attached_to != "":
+			if not attached_to in all_unit_ids:
+				validation.warnings.append("%s: attached_to references non-existent unit '%s' — clearing" % [prefix, attached_to])
+				unit["attached_to"] = null
+				validation.repairs.append("%s: cleared attached_to (unit not found)" % prefix)
+
+		# --- Cross-reference validation: attachment_data ---
+		var attachment_data = unit.get("attachment_data", {})
+		if attachment_data is Dictionary:
+			var attached_chars = attachment_data.get("attached_characters", [])
+			if attached_chars is Array:
+				var valid_chars = []
+				for char_id in attached_chars:
+					if char_id is String and char_id in all_unit_ids:
+						valid_chars.append(char_id)
+					else:
+						validation.warnings.append("%s: attached_characters references non-existent unit '%s' — removing" % [prefix, str(char_id)])
+						validation.repairs.append("%s: removed invalid attached_character '%s'" % [prefix, str(char_id)])
+				if valid_chars.size() != attached_chars.size():
+					attachment_data["attached_characters"] = valid_chars
+
+		# --- Cross-reference validation: transport embarked_units ---
+		var transport_data = unit.get("transport_data", {})
+		if transport_data is Dictionary:
+			var embarked_units = transport_data.get("embarked_units", [])
+			if embarked_units is Array:
+				var valid_embarked = []
+				for e_id in embarked_units:
+					if e_id is String and e_id in all_unit_ids:
+						valid_embarked.append(e_id)
+					else:
+						validation.warnings.append("%s: transport embarked_units references non-existent unit '%s' — removing" % [prefix, str(e_id)])
+						validation.repairs.append("%s: removed invalid embarked unit '%s'" % [prefix, str(e_id)])
+				if valid_embarked.size() != embarked_units.size():
+					transport_data["embarked_units"] = valid_embarked
+
+	# --- Player data validation ---
+	if data.has("players") and data["players"] is Dictionary:
+		for player_key in data["players"]:
+			var player = data["players"][player_key]
+			if not player is Dictionary:
+				continue
+			var p_prefix = "Player '%s'" % player_key
+			# CP should be non-negative
+			var cp = player.get("cp", 0)
+			if cp is float:
+				cp = int(cp)
+			if cp is int and cp < 0:
+				validation.warnings.append("%s: CP is negative (%d) — setting to 0" % [p_prefix, cp])
+				player["cp"] = 0
+				validation.repairs.append("%s: set CP to 0" % p_prefix)
+			# VP should be non-negative
+			for vp_key in ["vp", "primary_vp", "secondary_vp"]:
+				var vp = player.get(vp_key, 0)
+				if vp is float:
+					vp = int(vp)
+				if vp is int and vp < 0:
+					validation.warnings.append("%s: %s is negative (%d) — setting to 0" % [p_prefix, vp_key, vp])
+					player[vp_key] = 0
+					validation.repairs.append("%s: set %s to 0" % [p_prefix, vp_key])
+
+	# --- Unit ID uniqueness (verify keys match stored IDs) ---
+	# Already checked per-unit above via ID consistency check
+
+	# Log summary
+	if validation.repairs.size() > 0:
+		print("StateSerializer: SAVE-18 Unit data validation made %d auto-repairs" % validation.repairs.size())
+	if validation.warnings.size() > 0:
+		print("StateSerializer: SAVE-18 Unit data validation found %d warnings" % validation.warnings.size())
+	if validation.errors.size() > 0:
+		print("StateSerializer: SAVE-18 Unit data validation found %d errors" % validation.errors.size())
 
 	return validation
 
