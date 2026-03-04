@@ -135,6 +135,13 @@ var _web_relay_loading_pulse_tween: Tween = null
 # P2-12: "Game Loaded" fade transition overlay
 var _game_loaded_overlay: ColorRect = null
 
+# SAVE-20: Save/load progress indicator overlay
+var _save_load_progress_overlay: PanelContainer = null
+var _save_load_progress_label: Label = null
+var _save_load_progress_detail: Label = null
+var _save_load_progress_pulse_tween: Tween = null
+var _save_load_progress_auto_dismiss_timer: Timer = null
+
 # Player scores and CP display (top bar)
 var _p1_score_label: Label = null
 var _p2_score_label: Label = null
@@ -1098,6 +1105,103 @@ func _dismiss_game_loaded_overlay() -> void:
 	fade_tween.tween_property(_game_loaded_overlay, "modulate", Color(1, 1, 1, 0), 0.5).set_trans(Tween.TRANS_SINE)
 	fade_tween.tween_callback(_game_loaded_overlay.queue_free)
 	_game_loaded_overlay = null
+
+# =============================================================================
+# SAVE-20: Save/Load Progress Indicator
+# =============================================================================
+# A compact overlay shown during save/load operations, especially useful for
+# cloud saves where operations are async. Shows operation type and current stage.
+
+func _show_save_load_progress(operation: String) -> void:
+	# operation is "Saving" or "Loading"
+	if _save_load_progress_overlay and is_instance_valid(_save_load_progress_overlay):
+		# Already showing — just update the text
+		if _save_load_progress_label:
+			_save_load_progress_label.text = operation + "..."
+		return
+
+	_save_load_progress_overlay = PanelContainer.new()
+	_save_load_progress_overlay.name = "SaveLoadProgressOverlay"
+
+	# Position at top-center of screen (non-blocking banner)
+	_save_load_progress_overlay.anchor_left = 0.3
+	_save_load_progress_overlay.anchor_right = 0.7
+	_save_load_progress_overlay.anchor_top = 0.0
+	_save_load_progress_overlay.anchor_bottom = 0.0
+	_save_load_progress_overlay.offset_top = 8
+	_save_load_progress_overlay.offset_bottom = 60
+	_save_load_progress_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block input
+
+	# Style: dark panel with gold border (WhiteDwarf theme)
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.06, 0.04, 0.92)
+	bg_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	bg_style.set_border_width_all(2)
+	bg_style.set_corner_radius_all(6)
+	bg_style.set_content_margin_all(8)
+	_save_load_progress_overlay.add_theme_stylebox_override("panel", bg_style)
+
+	var vbox = VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 2)
+	_save_load_progress_overlay.add_child(vbox)
+
+	# Main label: "Saving..." or "Loading..."
+	_save_load_progress_label = Label.new()
+	_save_load_progress_label.text = operation + "..."
+	_save_load_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_load_progress_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_save_load_progress_label.add_theme_font_size_override("font_size", 18)
+	vbox.add_child(_save_load_progress_label)
+
+	# Detail label: shows current stage (e.g. "Serializing game data...")
+	_save_load_progress_detail = Label.new()
+	_save_load_progress_detail.text = ""
+	_save_load_progress_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_load_progress_detail.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	_save_load_progress_detail.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(_save_load_progress_detail)
+
+	add_child(_save_load_progress_overlay)
+	_save_load_progress_overlay.z_index = 101  # Above game loaded overlay
+
+	# Pulse animation on the main label
+	_save_load_progress_pulse_tween = create_tween().set_loops()
+	_save_load_progress_pulse_tween.tween_property(_save_load_progress_label, "modulate", Color(1, 1, 1, 0.5), 0.8).set_trans(Tween.TRANS_SINE)
+	_save_load_progress_pulse_tween.tween_property(_save_load_progress_label, "modulate", Color(1, 1, 1, 1.0), 0.8).set_trans(Tween.TRANS_SINE)
+
+	print("Main: SAVE-20 Save/load progress indicator shown: %s" % operation)
+
+func _update_save_load_progress(detail: String) -> void:
+	if _save_load_progress_detail and is_instance_valid(_save_load_progress_detail):
+		_save_load_progress_detail.text = detail
+
+func _dismiss_save_load_progress() -> void:
+	if not _save_load_progress_overlay or not is_instance_valid(_save_load_progress_overlay):
+		_save_load_progress_overlay = null
+		_save_load_progress_label = null
+		_save_load_progress_detail = null
+		return
+
+	print("Main: SAVE-20 Dismissing save/load progress indicator")
+
+	# Stop pulse tween
+	if _save_load_progress_pulse_tween:
+		_save_load_progress_pulse_tween.kill()
+		_save_load_progress_pulse_tween = null
+
+	# Stop auto-dismiss timer if running
+	if _save_load_progress_auto_dismiss_timer and is_instance_valid(_save_load_progress_auto_dismiss_timer):
+		_save_load_progress_auto_dismiss_timer.queue_free()
+		_save_load_progress_auto_dismiss_timer = null
+
+	# Fade out
+	var fade_tween = create_tween()
+	fade_tween.tween_property(_save_load_progress_overlay, "modulate", Color(1, 1, 1, 0), 0.3).set_trans(Tween.TRANS_SINE)
+	fade_tween.tween_callback(_save_load_progress_overlay.queue_free)
+	_save_load_progress_overlay = null
+	_save_load_progress_label = null
+	_save_load_progress_detail = null
 
 # =============================================================================
 # T7-20: AI Thinking Indicator
@@ -3448,6 +3552,10 @@ func connect_signals() -> void:
 	SaveLoadManager.autosave_completed.connect(_on_autosave_completed)
 	SaveLoadManager.save_failed.connect(_on_save_failed)
 	SaveLoadManager.load_failed.connect(_on_load_failed)
+	# SAVE-20: Connect progress indicator signals
+	SaveLoadManager.save_started.connect(_on_save_started)
+	SaveLoadManager.load_started.connect(_on_load_started)
+	SaveLoadManager.operation_progress.connect(_on_save_load_progress)
 	if OS.has_feature("web"):
 		SaveLoadManager.delete_completed.connect(_on_delete_completed_main)
 
@@ -5616,11 +5724,16 @@ func _on_autosave_completed(file_path: String) -> void:
 
 func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Save completed: %s" % file_path)
+	# SAVE-20: Dismiss progress indicator on save completion
+	_dismiss_save_load_progress()
 	if OS.has_feature("web"):
 		_show_save_notification("Game saved!", Color.GREEN)
 
 func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Load completed: %s" % file_path)
+
+	# SAVE-20: Dismiss progress indicator on load completion
+	_dismiss_save_load_progress()
 
 	# P2-12: Show fade overlay during mid-game load to hide visual reconstruction
 	_show_game_loaded_overlay()
@@ -5648,13 +5761,29 @@ func _clear_debug_visualizations() -> void:
 
 func _on_save_failed(error: String) -> void:
 	print("Save failed: %s" % error)
+	# SAVE-20: Dismiss progress indicator on failure
+	_dismiss_save_load_progress()
 	if OS.has_feature("web"):
 		_show_save_notification("Save failed: " + error, Color.RED)
 
 func _on_load_failed(error: String) -> void:
 	print("Load failed: %s" % error)
+	# SAVE-20: Dismiss progress indicator on failure
+	_dismiss_save_load_progress()
 	if OS.has_feature("web"):
 		_show_save_notification("Load failed: " + error, Color.RED)
+
+# SAVE-20: Signal handlers for save/load progress indicator
+func _on_save_started(file_path: String) -> void:
+	print("Main: SAVE-20 Save started: %s" % file_path)
+	_show_save_load_progress("Saving")
+
+func _on_load_started(file_path: String) -> void:
+	print("Main: SAVE-20 Load started: %s" % file_path)
+	_show_save_load_progress("Loading")
+
+func _on_save_load_progress(stage: String, detail: String) -> void:
+	_update_save_load_progress(detail)
 
 func _on_delete_completed_main(save_name: String) -> void:
 	print("Main: Cloud delete completed: ", save_name)

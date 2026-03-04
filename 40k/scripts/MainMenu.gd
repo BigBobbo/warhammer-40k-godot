@@ -71,6 +71,11 @@ var army_options = []
 
 var save_load_dialog: PanelContainer
 
+# SAVE-20: Save/load progress indicator
+var _save_load_progress_overlay: PanelContainer = null
+var _save_load_progress_label: Label = null
+var _save_load_progress_pulse_tween: Tween = null
+
 # Cloud army loading state
 var _waiting_for_cloud_armies: bool = false
 var _cloud_army_fetch_pending: bool = false
@@ -834,6 +839,11 @@ func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 			SaveLoadManager.load_completed.connect(_on_cloud_load_completed)
 		if not SaveLoadManager.load_failed.is_connected(_on_cloud_load_failed):
 			SaveLoadManager.load_failed.connect(_on_cloud_load_failed)
+		# SAVE-20: Connect progress signals for cloud load
+		if not SaveLoadManager.load_started.is_connected(_on_menu_load_started):
+			SaveLoadManager.load_started.connect(_on_menu_load_started)
+		if not SaveLoadManager.operation_progress.is_connected(_on_menu_save_load_progress):
+			SaveLoadManager.operation_progress.connect(_on_menu_save_load_progress)
 		SaveLoadManager.load_game(save_file, owner_id)
 		print("MainMenu: Initiated async cloud load for: ", save_file)
 	else:
@@ -850,6 +860,8 @@ func _on_load_requested(save_file: String, owner_id: String = "") -> void:
 
 func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("MainMenu: Cloud load completed: ", file_path)
+	# SAVE-20: Dismiss progress indicator
+	_dismiss_menu_progress()
 	# Mark that we're loading from a save
 	if GameState.state.meta:
 		GameState.state.meta["from_save"] = true
@@ -859,6 +871,72 @@ func _on_cloud_load_completed(file_path: String, metadata: Dictionary) -> void:
 
 func _on_cloud_load_failed(error: String) -> void:
 	print("MainMenu: Cloud load failed: ", error)
+	# SAVE-20: Dismiss progress indicator on failure
+	_dismiss_menu_progress()
+
+# SAVE-20: Progress indicator for main menu (cloud loads)
+func _on_menu_load_started(_file_path: String) -> void:
+	_show_menu_progress("Loading")
+
+func _on_menu_save_load_progress(_stage: String, detail: String) -> void:
+	if _save_load_progress_label and is_instance_valid(_save_load_progress_label):
+		_save_load_progress_label.text = detail
+
+func _show_menu_progress(operation: String) -> void:
+	if _save_load_progress_overlay and is_instance_valid(_save_load_progress_overlay):
+		return
+
+	_save_load_progress_overlay = PanelContainer.new()
+	_save_load_progress_overlay.name = "MenuProgressOverlay"
+	_save_load_progress_overlay.anchor_left = 0.3
+	_save_load_progress_overlay.anchor_right = 0.7
+	_save_load_progress_overlay.anchor_top = 0.0
+	_save_load_progress_overlay.anchor_bottom = 0.0
+	_save_load_progress_overlay.offset_top = 8
+	_save_load_progress_overlay.offset_bottom = 50
+	_save_load_progress_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.08, 0.06, 0.04, 0.92)
+	bg_style.border_color = WhiteDwarfThemeData.WH_GOLD
+	bg_style.set_border_width_all(2)
+	bg_style.set_corner_radius_all(6)
+	bg_style.set_content_margin_all(8)
+	_save_load_progress_overlay.add_theme_stylebox_override("panel", bg_style)
+
+	_save_load_progress_label = Label.new()
+	_save_load_progress_label.text = operation + "..."
+	_save_load_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_load_progress_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	_save_load_progress_label.add_theme_font_size_override("font_size", 18)
+	_save_load_progress_overlay.add_child(_save_load_progress_label)
+
+	add_child(_save_load_progress_overlay)
+	_save_load_progress_overlay.z_index = 100
+
+	# Pulse animation
+	_save_load_progress_pulse_tween = create_tween().set_loops()
+	_save_load_progress_pulse_tween.tween_property(_save_load_progress_label, "modulate", Color(1, 1, 1, 0.5), 0.8).set_trans(Tween.TRANS_SINE)
+	_save_load_progress_pulse_tween.tween_property(_save_load_progress_label, "modulate", Color(1, 1, 1, 1.0), 0.8).set_trans(Tween.TRANS_SINE)
+
+	print("MainMenu: SAVE-20 Progress indicator shown: %s" % operation)
+
+func _dismiss_menu_progress() -> void:
+	if not _save_load_progress_overlay or not is_instance_valid(_save_load_progress_overlay):
+		_save_load_progress_overlay = null
+		_save_load_progress_label = null
+		return
+
+	if _save_load_progress_pulse_tween:
+		_save_load_progress_pulse_tween.kill()
+		_save_load_progress_pulse_tween = null
+
+	var fade_tween = create_tween()
+	fade_tween.tween_property(_save_load_progress_overlay, "modulate", Color(1, 1, 1, 0), 0.3).set_trans(Tween.TRANS_SINE)
+	fade_tween.tween_callback(_save_load_progress_overlay.queue_free)
+	_save_load_progress_overlay = null
+	_save_load_progress_label = null
+	print("MainMenu: SAVE-20 Progress indicator dismissed")
 
 # ============================================================================
 # P3-111: Settings Menu

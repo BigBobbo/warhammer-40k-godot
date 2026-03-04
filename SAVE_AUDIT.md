@@ -164,9 +164,9 @@ Save files are listed chronologically. No way to sort by name, filter by game ty
 
 ## 6. Visual Improvements
 
-### 6.1 No Save/Load Animation or Progress Indicator
+### 6.1 ~~No~~ Save/Load Animation or Progress Indicator (SAVE-20 DONE)
 
-Save and load operations happen instantly with no visual feedback during the operation (just a success/failure toast after). For cloud saves especially, a progress indicator would be appropriate.
+Save and load operations now show a progress indicator banner at the top of the screen with pulsing text and stage-by-stage detail updates (e.g. "Serializing game data...", "Uploading to cloud..."). The indicator appears in both Main scene and MainMenu, and auto-dismisses on completion or failure.
 
 ### 6.2 No "Game Loaded" Transition
 
@@ -232,7 +232,7 @@ GZIP compression is now enabled by default with a 50 KB size threshold. Saves be
 17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17) — **DONE**
 18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18) — **DONE**
 19. **Add save file export/import** — Portable format for sharing (SAVE-19)
-20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20)
+20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20) — **DONE**
 
 ---
 

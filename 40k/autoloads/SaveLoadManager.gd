@@ -13,6 +13,11 @@ signal autosave_completed(file_path: String)
 signal save_files_received(save_files: Array)
 signal delete_completed(save_name: String)
 
+# SAVE-20: Progress indicator signals for save/load operations
+signal save_started(file_path: String)
+signal load_started(file_path: String)
+signal operation_progress(stage: String, detail: String)  # e.g. ("serializing", "Creating snapshot...")
+
 const SAVE_EXTENSION = ".w40ksave"
 const METADATA_EXTENSION = ".meta"
 const BACKUP_EXTENSION = ".backup"
@@ -327,15 +332,21 @@ func quick_load() -> bool:
 func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 	print("SaveLoadManager: _save_game_to_path called with: ", file_path)
 
+	# SAVE-20: Notify listeners that save operation has started
+	emit_signal("save_started", file_path)
+	emit_signal("operation_progress", "saving", "Creating backup...")
+
 	# Create backup if file exists
 	if FileAccess.file_exists(file_path):
 		_create_backup(file_path)
 
 	# Prepare metadata
+	emit_signal("operation_progress", "saving", "Preparing metadata...")
 	var save_metadata = _create_save_metadata(metadata)
 	print("SaveLoadManager: Save metadata: ", save_metadata)
 
 	# Get current game state
+	emit_signal("operation_progress", "saving", "Creating snapshot...")
 	var game_state = GameState.create_snapshot()
 	print("SaveLoadManager: Game state size: ", game_state.size())
 	if game_state.is_empty():
@@ -349,6 +360,7 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 		emit_signal("save_failed", "StateSerializer not available")
 		return false
 
+	emit_signal("operation_progress", "saving", "Serializing game data...")
 	print("SaveLoadManager: Calling StateSerializer.serialize_game_state")
 	var serialized_data = StateSerializer.serialize_game_state(game_state)
 	print("SaveLoadManager: Serialized data length: ", serialized_data.length())
@@ -358,6 +370,7 @@ func _save_game_to_path(file_path: String, metadata: Dictionary = {}) -> bool:
 		return false
 
 	# Write save file
+	emit_signal("operation_progress", "saving", "Writing to disk...")
 	print("SaveLoadManager: Opening file for writing: ", file_path)
 	var file = FileAccess.open(file_path, FileAccess.WRITE)
 	if not file:
@@ -382,12 +395,16 @@ func _load_game_from_path(file_path: String) -> bool:
 	print("SaveLoadManager: _load_game_from_path called with: ", file_path)
 	print("SaveLoadManager: Full path: ", ProjectSettings.globalize_path(file_path))
 
+	# SAVE-20: Notify listeners that load operation has started
+	emit_signal("load_started", file_path)
+
 	if not FileAccess.file_exists(file_path):
 		print("SaveLoadManager: ERROR - Save file not found: ", file_path)
 		emit_signal("load_failed", "Save file not found: " + file_path)
 		return false
 
 	print("SaveLoadManager: Save file exists, loading metadata...")
+	emit_signal("operation_progress", "loading", "Reading metadata...")
 
 	# Load and validate metadata
 	var metadata = _load_metadata(file_path)
@@ -404,6 +421,7 @@ func _load_game_from_path(file_path: String) -> bool:
 			# Continue anyway for debugging
 
 	# Read save file
+	emit_signal("operation_progress", "loading", "Reading save file...")
 	print("SaveLoadManager: Opening save file for reading...")
 	var file = FileAccess.open(file_path, FileAccess.READ)
 	if not file:
@@ -421,6 +439,7 @@ func _load_game_from_path(file_path: String) -> bool:
 		emit_signal("load_failed", "StateSerializer not available")
 		return false
 
+	emit_signal("operation_progress", "loading", "Deserializing game data...")
 	print("SaveLoadManager: Deserializing game state...")
 	var game_state = StateSerializer.deserialize_game_state(serialized_data)
 	if game_state.is_empty():
@@ -433,6 +452,7 @@ func _load_game_from_path(file_path: String) -> bool:
 		print("SaveLoadManager: Loaded game meta: ", game_state["meta"])
 
 	# Load state into GameState
+	emit_signal("operation_progress", "loading", "Restoring game state...")
 	print("SaveLoadManager: Loading snapshot into GameState...")
 	print("SaveLoadManager: Snapshot has units: ", game_state.has("units"))
 	if game_state.has("units"):
@@ -476,10 +496,15 @@ func _load_game_from_path(file_path: String) -> bool:
 func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
 	print("SaveLoadManager: [CLOUD] Saving game: ", save_name)
 
+	# SAVE-20: Notify listeners that cloud save has started
+	emit_signal("save_started", "cloud://" + save_name)
+	emit_signal("operation_progress", "saving", "Preparing metadata...")
+
 	# Prepare metadata
 	var save_metadata = _create_save_metadata(metadata)
 
 	# Get current game state
+	emit_signal("operation_progress", "saving", "Creating snapshot...")
 	var game_state = GameState.create_snapshot()
 	if game_state.is_empty():
 		emit_signal("save_failed", "Failed to get game state")
@@ -490,12 +515,14 @@ func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
 		emit_signal("save_failed", "StateSerializer not available")
 		return
 
+	emit_signal("operation_progress", "saving", "Serializing game data...")
 	var serialized_data = StateSerializer.serialize_game_state(game_state)
 	if serialized_data.is_empty():
 		emit_signal("save_failed", "Failed to serialize game state")
 		return
 
 	# Upload to cloud
+	emit_signal("operation_progress", "saving", "Uploading to cloud...")
 	if CloudStorage:
 		CloudStorage.put_save(save_name, save_metadata, serialized_data)
 		# Completion handled by _on_cloud_save_uploaded signal
@@ -504,6 +531,10 @@ func _save_game_to_cloud(save_name: String, metadata: Dictionary) -> void:
 
 func _load_game_from_cloud(save_name: String, owner_id: String = "") -> void:
 	print("SaveLoadManager: [CLOUD] Loading game: ", save_name, " (owner_id: ", owner_id, ")")
+
+	# SAVE-20: Notify listeners that cloud load has started
+	emit_signal("load_started", "cloud://" + save_name)
+	emit_signal("operation_progress", "loading", "Downloading from cloud...")
 
 	# Request save from cloud
 	if CloudStorage:
@@ -535,6 +566,8 @@ func _on_cloud_save_downloaded(save_name: String, metadata: Dictionary, game_dat
 		emit_signal("load_failed", "StateSerializer not available")
 		return
 
+	# SAVE-20: Progress update for cloud load
+	emit_signal("operation_progress", "loading", "Deserializing game data...")
 	var game_state = StateSerializer.deserialize_game_state(game_data)
 	if game_state.is_empty():
 		emit_signal("load_failed", "Failed to deserialize cloud save data")
