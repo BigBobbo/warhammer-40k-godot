@@ -152,9 +152,9 @@ Only a single quicksave slot exists. No numbered save slots (Save 1, Save 2, etc
 
 Loading a save replaces the current game state without warning about unsaved progress. Should prompt "You have unsaved changes. Load anyway?"
 
-### 5.4 No Save File Export/Import
+### 5.4 ~~No~~ Save File Export/Import (SAVE-19 DONE)
 
-No way to share save files between players (e.g., email a save to a friend). Would need a portable file format with embedded army data.
+Save files can now be exported to a portable `.w40kexport` format and imported on any machine. The Export/Import buttons are available in the Save/Load dialog. Export creates a self-contained JSON envelope with game data, metadata, and export provenance. Import validates the envelope structure, format identifier, and deserializes using StateSerializer (handles compression, migration, and data integrity checks).
 
 ### 5.5 Save/Load Dialog Lacks Sorting and Filtering
 
@@ -231,7 +231,7 @@ GZIP compression is now enabled by default with a 50 KB size threshold. Saves be
 16. **Add multiple save slots** — Beyond single quicksave (SAVE-16) — **DONE**
 17. **Enable save file compression** — Activate GZIP for large saves (SAVE-17) — **DONE**
 18. **Add unit data validation on load** — Integrity checks beyond structure (SAVE-18) — **DONE**
-19. **Add save file export/import** — Portable format for sharing (SAVE-19)
+19. **Add save file export/import** — Portable format for sharing (SAVE-19) — **DONE**
 20. **Add save/load progress indicator** — For cloud saves especially (SAVE-20)
 
 ---
