@@ -132,6 +132,9 @@ var _web_relay_loading_overlay: PanelContainer = null
 var _web_relay_loading_label: Label = null
 var _web_relay_loading_pulse_tween: Tween = null
 
+# P2-12: "Game Loaded" fade transition overlay
+var _game_loaded_overlay: ColorRect = null
+
 # Player scores and CP display (top bar)
 var _p1_score_label: Label = null
 var _p2_score_label: Label = null
@@ -190,6 +193,10 @@ func _ready() -> void:
 	var from_replay = GameState.state.meta.has("from_replay") if GameState.state.has("meta") else false
 
 	print("Main: from_menu=", from_menu, " from_save=", from_save, " from_multiplayer=", from_multiplayer, " from_replay=", from_replay)
+
+	# P2-12: Show fade overlay immediately when loading from save to hide visual setup
+	if from_save:
+		_show_game_loaded_overlay()
 
 	# If entering replay mode, use a streamlined initialization path
 	if from_replay:
@@ -326,6 +333,8 @@ func _ready() -> void:
 		_recreate_unit_visuals()
 		update_deployment_zone_visibility()
 		print("Main: Unit visuals recreated for loaded save")
+		# P2-12: Dismiss the fade overlay now that visuals are restored
+		_dismiss_game_loaded_overlay()
 
 	# CRITICAL FIX: Must call update_ui_for_phase() to properly configure the phase action button
 	# This sets the correct button text and connects the signal handler
@@ -1027,6 +1036,68 @@ func _dismiss_web_relay_loading_overlay() -> void:
 	fade_tween.tween_callback(_web_relay_loading_overlay.queue_free)
 	_web_relay_loading_overlay = null
 	_web_relay_loading_label = null
+
+# =============================================================================
+# P2-12: "Game Loaded" Fade Transition Overlay
+# =============================================================================
+
+func _show_game_loaded_overlay() -> void:
+	# P2-12: Full-screen dark overlay shown during save load to hide visual setup.
+	# Dismissed with a fade-out after the game state is fully restored.
+	if _game_loaded_overlay:
+		return  # Already showing
+
+	_game_loaded_overlay = ColorRect.new()
+	_game_loaded_overlay.name = "GameLoadedOverlay"
+	_game_loaded_overlay.color = Color(0.08, 0.06, 0.04, 1.0)
+
+	# Cover entire screen
+	_game_loaded_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_game_loaded_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block input during transition
+
+	# Add centered "Loading..." label
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_game_loaded_overlay.add_child(center)
+
+	var label = Label.new()
+	label.text = "Loading saved game..."
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	label.add_theme_font_size_override("font_size", 28)
+	center.add_child(label)
+
+	# Pulse animation on the label
+	var pulse_tween = create_tween().set_loops()
+	pulse_tween.tween_property(label, "modulate", Color(1, 1, 1, 0.5), 1.0).set_trans(Tween.TRANS_SINE)
+	pulse_tween.tween_property(label, "modulate", Color(1, 1, 1, 1.0), 1.0).set_trans(Tween.TRANS_SINE)
+
+	add_child(_game_loaded_overlay)
+	_game_loaded_overlay.z_index = 100
+
+	print("Main: P2-12 Game loaded overlay shown")
+
+func _dismiss_game_loaded_overlay() -> void:
+	# P2-12: Fade out and remove the game-loaded overlay
+	if not _game_loaded_overlay or not is_instance_valid(_game_loaded_overlay):
+		_game_loaded_overlay = null
+		return
+
+	print("Main: P2-12 Dismissing game loaded overlay (fade out)")
+
+	# Stop any tweens running on children (pulse animation)
+	for child in _game_loaded_overlay.get_children():
+		for grandchild in child.get_children():
+			if grandchild is Label:
+				var existing = get_tree().create_tween()
+				# Just reset modulate so the label is fully visible during fade-out
+				grandchild.modulate = Color(1, 1, 1, 1)
+
+	# Fade out the entire overlay
+	var fade_tween = create_tween()
+	fade_tween.tween_property(_game_loaded_overlay, "modulate", Color(1, 1, 1, 0), 0.5).set_trans(Tween.TRANS_SINE)
+	fade_tween.tween_callback(_game_loaded_overlay.queue_free)
+	_game_loaded_overlay = null
 
 # =============================================================================
 # T7-20: AI Thinking Indicator
@@ -5482,6 +5553,9 @@ func _on_save_completed(file_path: String, metadata: Dictionary) -> void:
 func _on_load_completed(file_path: String, metadata: Dictionary) -> void:
 	print("Load completed: %s" % file_path)
 
+	# P2-12: Show fade overlay during mid-game load to hide visual reconstruction
+	_show_game_loaded_overlay()
+
 	# Clear debug visualizations after load
 	_clear_debug_visualizations()
 
@@ -5559,6 +5633,9 @@ func _apply_loaded_state() -> void:
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.has_method("request_evaluation_after_load"):
 		ai_player.request_evaluation_after_load()
+
+	# P2-12: Dismiss the fade overlay now that everything is restored
+	_dismiss_game_loaded_overlay()
 
 	print("Main: _apply_loaded_state() complete")
 
@@ -5810,6 +5887,9 @@ func _refresh_after_load() -> void:
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player and ai_player.has_method("request_evaluation_after_load"):
 		ai_player.request_evaluation_after_load()
+
+	# P2-12: Dismiss the fade overlay now that everything is restored
+	_dismiss_game_loaded_overlay()
 
 	print("Main: _refresh_after_load() complete")
 
