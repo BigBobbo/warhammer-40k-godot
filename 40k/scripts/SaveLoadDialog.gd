@@ -14,6 +14,7 @@ var load_button: Button
 var delete_button: Button
 var cancel_button: Button
 var main_menu_button: Button
+var preview_label: RichTextLabel  # SAVE-11: Preview panel for selected save
 
 # Signals for communication with Main scene
 signal save_requested(save_name: String)
@@ -68,9 +69,9 @@ func _build_ui() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 
-	# Main panel
+	# Main panel — SAVE-11: widened to fit preview panel
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(650, 500)
+	panel.custom_minimum_size = Vector2(900, 550)
 	WhiteDwarfThemeData.apply_to_panel(panel)
 	center.add_child(panel)
 
@@ -159,12 +160,19 @@ func _build_ui() -> void:
 	load_header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(load_header)
 
+	# SAVE-11: Horizontal layout for saves list + preview panel
+	var list_and_preview = HBoxContainer.new()
+	list_and_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_and_preview.add_theme_constant_override("separation", 10)
+	vbox.add_child(list_and_preview)
+
 	# Saves list in a scroll container
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 180)
-	vbox.add_child(scroll)
+	scroll.custom_minimum_size = Vector2(350, 200)
+	list_and_preview.add_child(scroll)
 
 	saves_list = ItemList.new()
 	saves_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -200,6 +208,40 @@ func _build_ui() -> void:
 	saves_list.item_selected.connect(_on_save_selected)
 	saves_list.item_activated.connect(_on_save_double_clicked)
 	scroll.add_child(saves_list)
+
+	# SAVE-11: Preview panel
+	var preview_container = PanelContainer.new()
+	preview_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_container.custom_minimum_size = Vector2(280, 0)
+	var preview_style = StyleBoxFlat.new()
+	preview_style.bg_color = Color(0.1, 0.08, 0.06, 0.9)
+	preview_style.border_color = Color(0.3, 0.25, 0.18, 0.6)
+	preview_style.border_width_bottom = 1
+	preview_style.border_width_top = 1
+	preview_style.border_width_left = 1
+	preview_style.border_width_right = 1
+	preview_style.corner_radius_top_left = 3
+	preview_style.corner_radius_top_right = 3
+	preview_style.corner_radius_bottom_left = 3
+	preview_style.corner_radius_bottom_right = 3
+	preview_style.content_margin_left = 10
+	preview_style.content_margin_right = 10
+	preview_style.content_margin_top = 8
+	preview_style.content_margin_bottom = 8
+	preview_container.add_theme_stylebox_override("panel", preview_style)
+	list_and_preview.add_child(preview_container)
+
+	preview_label = RichTextLabel.new()
+	preview_label.bbcode_enabled = true
+	preview_label.fit_content = false
+	preview_label.scroll_active = true
+	preview_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_label.add_theme_color_override("default_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	preview_label.add_theme_font_size_override("normal_font_size", 13)
+	preview_label.text = ""
+	_set_preview_placeholder()
+	preview_container.add_child(preview_label)
 
 	# Separator
 	var sep3 = HSeparator.new()
@@ -281,6 +323,7 @@ func _populate_saves_list(save_files: Array) -> void:
 	saves_list.clear()
 	save_files_data.clear()
 	selected_save_index = -1
+	_set_preview_placeholder()  # SAVE-11: Reset preview when list refreshes
 
 	for save_info in save_files:
 		var display_name = _format_save_display_name(save_info)
@@ -427,6 +470,7 @@ func _on_save_selected(index: int) -> void:
 	print("SaveLoadDialog: Save selected at index ", index)
 	selected_save_index = index
 	_update_button_states()
+	_update_preview_panel()  # SAVE-11
 	print("SaveLoadDialog: Button states updated - Load enabled: ", not load_button.disabled)
 
 func _on_save_double_clicked(index: int) -> void:
@@ -633,6 +677,127 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		hide()
 		get_viewport().set_input_as_handled()
+
+# ============================================================================
+# SAVE-11: Preview Panel
+# ============================================================================
+
+func _set_preview_placeholder() -> void:
+	if preview_label:
+		preview_label.text = "[center][color=#b8a88a]Select a save file\nto see preview[/color][/center]"
+
+func _update_preview_panel() -> void:
+	if not preview_label:
+		return
+
+	if selected_save_index < 0 or selected_save_index >= save_files_data.size():
+		_set_preview_placeholder()
+		return
+
+	var save_info = save_files_data[selected_save_index]
+	var metadata = save_info.get("metadata", {})
+	var preview = metadata.get("preview", {})
+
+	# If no preview in metadata, try to extract from save file (legacy saves)
+	if preview.is_empty() and not is_web_platform:
+		var file_path = save_info.get("file_path", "")
+		if not file_path.is_empty():
+			print("SaveLoadDialog: SAVE-11 Extracting preview from save file: %s" % file_path)
+			preview = SaveLoadManager.extract_preview_from_save(file_path)
+
+	if preview.is_empty():
+		preview_label.text = "[center][color=#b8a88a]No preview available[/color][/center]"
+		return
+
+	_render_preview(metadata, preview)
+
+func _render_preview(metadata: Dictionary, preview: Dictionary) -> void:
+	var game_state = metadata.get("game_state", {})
+	var battle_round = preview.get("battle_round", game_state.get("turn", "?"))
+	var phase_num = game_state.get("phase", -1)
+	var phase_name = _get_phase_name(phase_num)
+
+	var bbcode = ""
+
+	# Header: Round & Phase
+	bbcode += "[color=#c9a84c][b]Round %s[/b][/color]  [color=#8a7a6a]%s[/color]\n" % [str(battle_round), phase_name]
+	bbcode += "[color=#4a3a2a]────────────────────────[/color]\n"
+
+	# Player sections
+	var players = preview.get("players", {})
+	for player_id in ["1", "2"]:
+		var p = players.get(player_id, {})
+		if p.is_empty():
+			continue
+
+		var faction = p.get("faction", "Unknown")
+		var detachment = p.get("detachment", "")
+		var points = p.get("points", 0)
+		var vp = p.get("vp", 0)
+		var cp = p.get("cp", 0)
+		var alive_units = p.get("alive_units", 0)
+		var total_units = p.get("total_units", 0)
+		var alive_models = p.get("alive_models", 0)
+		var total_models = p.get("total_models", 0)
+
+		# Player header
+		bbcode += "\n[color=#c9a84c][b]Player %s[/b][/color]\n" % player_id
+		bbcode += "[color=#d4c4a0]%s[/color]" % faction
+		if not detachment.is_empty():
+			bbcode += " [color=#8a7a6a](%s)[/color]" % detachment
+		if points > 0:
+			bbcode += " [color=#8a7a6a]%dpts[/color]" % int(points)
+		bbcode += "\n"
+
+		# VP / CP
+		bbcode += "[color=#6aaa6a]VP: %d[/color]  [color=#6a8aaa]CP: %d[/color]\n" % [int(vp), int(cp)]
+
+		# Unit counts
+		var lost_units = total_units - alive_units
+		var lost_models = total_models - alive_models
+		bbcode += "[color=#b8a88a]Units: %d/%d[/color]" % [alive_units, total_units]
+		if lost_units > 0:
+			bbcode += "  [color=#aa6a6a](-%d)[/color]" % lost_units
+		bbcode += "\n"
+		bbcode += "[color=#b8a88a]Models: %d/%d[/color]" % [alive_models, total_models]
+		if lost_models > 0:
+			bbcode += "  [color=#aa6a6a](-%d)[/color]" % lost_models
+		bbcode += "\n"
+
+		# Army composition (unit names)
+		var unit_names = p.get("unit_names", [])
+		if not unit_names.is_empty():
+			bbcode += "[color=#8a7a6a]"
+			# Count duplicates
+			var name_counts = {}
+			for uname in unit_names:
+				name_counts[uname] = name_counts.get(uname, 0) + 1
+			var displayed = []
+			for uname in name_counts:
+				if name_counts[uname] > 1:
+					displayed.append("%s x%d" % [uname, name_counts[uname]])
+				else:
+					displayed.append(uname)
+			bbcode += ", ".join(displayed)
+			bbcode += "[/color]\n"
+
+	preview_label.text = bbcode
+
+func _get_phase_name(phase_num: int) -> String:
+	match phase_num:
+		0: return "Formations"
+		1: return "Deployment"
+		2: return "Redeployment"
+		3: return "Scout"
+		4: return "Roll Off"
+		5: return "Command"
+		6: return "Movement"
+		7: return "Shooting"
+		8: return "Charge"
+		9: return "Fight"
+		10: return "Scoring"
+		11: return "Morale"
+		_: return "Unknown"
 
 # Debug methods
 func print_debug_info() -> void:

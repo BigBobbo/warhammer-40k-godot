@@ -215,7 +215,7 @@ GZIP compression support exists but is disabled. For large games with many units
 10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10) — **DONE**
 
 ### P2 — Should Improve (QoL/Visual)
-11. **Add save file preview** — Show army compositions, VP scores, unit counts (SAVE-11)
+11. **Add save file preview** — Show army compositions, VP scores, unit counts (SAVE-11) — **DONE**
 12. **Add "Game Loaded" transition** — Fade overlay during load (SAVE-12)
 13. **Add AI difficulty to save metadata** — Show in save file listing (SAVE-13)
 14. **Add save list sorting/filtering** — By name, date, game type (SAVE-14)

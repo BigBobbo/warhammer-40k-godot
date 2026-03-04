@@ -777,7 +777,9 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			"save_type": custom_metadata.get("type", "manual"),
 			"description": custom_metadata.get("description", ""),
 			"tags": custom_metadata.get("tags", [])
-		}
+		},
+		# SAVE-11: Preview data for save file browser
+		"preview": _build_preview_data()
 	}
 
 	# Add custom metadata
@@ -786,6 +788,134 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 			metadata[key] = custom_metadata[key]
 
 	return metadata
+
+# SAVE-11: Build preview data from current game state for save file browser
+func _build_preview_data() -> Dictionary:
+	var preview = {
+		"players": {},
+		"battle_round": GameState.state.get("meta", {}).get("battle_round", 1)
+	}
+
+	# Gather per-player data
+	for player_id in ["1", "2"]:
+		var player_num = int(player_id)
+		var faction_data = GameState.state.get("factions", {}).get(player_id, {})
+		var player_data = GameState.state.get("players", {}).get(player_id, {})
+
+		var total_units = 0
+		var alive_units = 0
+		var total_models = 0
+		var alive_models = 0
+		var unit_names = []
+
+		for unit_id in GameState.state.get("units", {}):
+			var unit = GameState.state.units[unit_id]
+			if int(unit.get("owner", 0)) != player_num:
+				continue
+			total_units += 1
+			var unit_alive = false
+			var models = unit.get("models", [])
+			for model in models:
+				total_models += 1
+				if model.get("alive", true):
+					alive_models += 1
+					unit_alive = true
+			if unit_alive:
+				alive_units += 1
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			unit_names.append(unit_name)
+
+		preview.players[player_id] = {
+			"faction": faction_data.get("name", "Unknown"),
+			"detachment": faction_data.get("detachment", ""),
+			"points": faction_data.get("points", 0),
+			"vp": player_data.get("vp", 0),
+			"primary_vp": player_data.get("primary_vp", 0),
+			"secondary_vp": player_data.get("secondary_vp", 0),
+			"cp": player_data.get("cp", 0),
+			"total_units": total_units,
+			"alive_units": alive_units,
+			"total_models": total_models,
+			"alive_models": alive_models,
+			"unit_names": unit_names
+		}
+
+	print("SaveLoadManager: SAVE-11 Built preview data: %s" % str(preview))
+	return preview
+
+# SAVE-11: Extract preview data from a save file (for saves without preview metadata)
+func extract_preview_from_save(file_path: String) -> Dictionary:
+	if not FileAccess.file_exists(file_path):
+		return {}
+
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return {}
+
+	var serialized_data = file.get_as_text()
+	file.close()
+
+	var json = JSON.new()
+	if json.parse(serialized_data) != OK:
+		return {}
+
+	var data = json.data
+	if not data is Dictionary:
+		return {}
+
+	var preview = {
+		"players": {},
+		"battle_round": data.get("meta", {}).get("battle_round", 1)
+	}
+
+	var units = data.get("units", {})
+	var players = data.get("players", {})
+	var factions = data.get("factions", {})
+
+	for player_id in ["1", "2"]:
+		var player_num = int(player_id)
+		var faction_data = factions.get(player_id, {})
+		var player_data = players.get(player_id, {})
+
+		var total_units = 0
+		var alive_units = 0
+		var total_models = 0
+		var alive_models = 0
+		var unit_names = []
+
+		for unit_id in units:
+			var unit = units[unit_id]
+			if int(unit.get("owner", 0)) != player_num:
+				continue
+			total_units += 1
+			var unit_alive = false
+			var models = unit.get("models", [])
+			for model in models:
+				total_models += 1
+				if model.get("alive", true):
+					alive_models += 1
+					unit_alive = true
+			if unit_alive:
+				alive_units += 1
+			var unit_name = unit.get("meta", {}).get("name", unit_id)
+			unit_names.append(unit_name)
+
+		preview.players[player_id] = {
+			"faction": faction_data.get("name", "Unknown"),
+			"detachment": faction_data.get("detachment", ""),
+			"points": faction_data.get("points", 0),
+			"vp": player_data.get("vp", 0),
+			"primary_vp": player_data.get("primary_vp", 0),
+			"secondary_vp": player_data.get("secondary_vp", 0),
+			"cp": player_data.get("cp", 0),
+			"total_units": total_units,
+			"alive_units": alive_units,
+			"total_models": total_models,
+			"alive_models": alive_models,
+			"unit_names": unit_names
+		}
+
+	return preview
 
 func _save_metadata(save_path: String, metadata: Dictionary) -> void:
 	var meta_path = save_path.replace(SAVE_EXTENSION, METADATA_EXTENSION)
