@@ -205,7 +205,7 @@ GZIP compression support exists but is disabled. For large games with many units
 2. **Fix multiplayer load sync confirmation** — Add client acknowledgment mechanism (SAVE-2)
 3. **Implement save format migration system** — Version tracking + upgrade functions (SAVE-3) — **DONE**
 4. **Fix `_refresh_after_load()` to fully restore state** — Clear old visuals, reinit controllers, reinit AI (SAVE-4)
-5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5)
+5. **Fix web `save_exists()` for overwrite protection** — Async check before cloud save (SAVE-5) — **DONE**
 
 ### P1 — Should Fix (Robustness)
 6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6)

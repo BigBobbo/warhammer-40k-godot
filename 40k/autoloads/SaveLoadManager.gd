@@ -679,12 +679,50 @@ func save_exists(file_name: String) -> bool:
 	var sanitized_name = _sanitize_filename(file_name)
 
 	if is_web_platform:
-		# Can't check synchronously on web - return false
-		# PUT uses upsert semantics so overwriting is handled transparently
+		# SAVE-5: Can't check synchronously on web — use check_save_exists_async()
+		# or check the cached save list in SaveLoadDialog._save_exists_in_cache()
+		print("SaveLoadManager: SAVE-5 save_exists() called on web for '%s' — returning false (use async check instead)" % sanitized_name)
 		return false
 
 	var save_path = save_directory + sanitized_name + SAVE_EXTENSION
 	return FileAccess.file_exists(save_path)
+
+# SAVE-5: Async save existence check for web platform
+# Triggers a cloud list fetch, then emits save_exists_checked with the result
+signal save_exists_checked(save_name: String, exists: bool)
+
+func check_save_exists_async(file_name: String) -> void:
+	var sanitized_name = _sanitize_filename(file_name)
+
+	if not is_web_platform:
+		# Desktop: check synchronously and emit immediately
+		var exists = save_exists(sanitized_name)
+		emit_signal("save_exists_checked", sanitized_name, exists)
+		return
+
+	if not CloudStorage:
+		print("SaveLoadManager: SAVE-5 CloudStorage not available for async check")
+		emit_signal("save_exists_checked", sanitized_name, false)
+		return
+
+	# Request saves list and check when received
+	var _check_name = sanitized_name
+	var _on_list_received: Callable
+	_on_list_received = func(saves: Array) -> void:
+		# Disconnect one-shot handler
+		if save_files_received.is_connected(_on_list_received):
+			save_files_received.disconnect(_on_list_received)
+		var found = false
+		for save_info in saves:
+			var display_name = save_info.get("display_name", "")
+			if display_name == _check_name or display_name == _check_name + SAVE_EXTENSION:
+				found = true
+				break
+		print("SaveLoadManager: SAVE-5 Async check for '%s': exists=%s" % [_check_name, str(found)])
+		emit_signal("save_exists_checked", _check_name, found)
+
+	save_files_received.connect(_on_list_received)
+	CloudStorage.list_saves()
 
 func get_save_info(file_name: String) -> Dictionary:
 	var sanitized_name = _sanitize_filename(file_name)

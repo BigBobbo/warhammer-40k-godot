@@ -393,10 +393,27 @@ func _on_save_button_pressed() -> void:
 		save_name = _sanitize_save_name(raw_input)
 		print("SaveLoadDialog: Using sanitized save name: ", save_name)
 
-	if SaveLoadManager.save_exists(save_name):
+	# SAVE-5: On web, check the cached save list for overwrite protection
+	# since SaveLoadManager.save_exists() can't do sync cloud checks
+	if is_web_platform:
+		if _save_exists_in_cache(save_name):
+			print("SaveLoadDialog: SAVE-5 Web overwrite detected for: ", save_name)
+			_show_overwrite_confirmation(save_name)
+		else:
+			_perform_save(save_name)
+	elif SaveLoadManager.save_exists(save_name):
 		_show_overwrite_confirmation(save_name)
 	else:
 		_perform_save(save_name)
+
+# SAVE-5: Check if a save name exists in the cached save_files_data (for web platform)
+func _save_exists_in_cache(save_name: String) -> bool:
+	for save_info in save_files_data:
+		var display_name = save_info.get("display_name", "")
+		if display_name == save_name or display_name == save_name + ".w40ksave":
+			print("SaveLoadDialog: SAVE-5 Found existing save in cache: ", display_name)
+			return true
+	return false
 
 func _on_save_name_submitted(_text: String) -> void:
 	_on_save_button_pressed()
