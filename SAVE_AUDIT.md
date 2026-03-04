@@ -211,7 +211,7 @@ GZIP compression support exists but is disabled. For large games with many units
 6. **Prevent autosave during AI turn** — Guard autosave triggers with AI thinking check (SAVE-6) — **DONE**
 7. **Save AI turn history in snapshot** — Add AI decision history to save data (SAVE-7) — **DONE**
 8. **Hide Load button for non-host in multiplayer** — UI restriction (SAVE-8) — **DONE**
-9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9)
+9. **Add load confirmation dialog** — Warn about unsaved progress (SAVE-9) — **DONE**
 10. **Add autosave visual indicator** — Brief icon/toast when autosave triggers (SAVE-10)
 
 ### P2 — Should Improve (QoL/Visual)
